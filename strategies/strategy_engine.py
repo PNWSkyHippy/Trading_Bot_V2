@@ -1,0 +1,335 @@
+"""
+=============================================================
+  STRATEGY ENGINE
+  Orchestrates all trading strategies. For each scan cycle:
+  1. Runs every enabled strategy against every symbol
+  2. Deduplicates signals (same symbol from multiple strategies)
+  3. Picks the highest-scoring signal per symbol
+  4. Tracks per-strategy performance (win rate, profit factor)
+  5. Auto-disables strategies below minimum win rate
+  6. Provides performance dashboard data
+=============================================================
+"""
+
+import logging
+from datetime import date
+from typing import List, Dict, Optional
+
+import pandas as pd
+
+import config
+from strategies.base_strategy import BaseStrategy, TradeSignal
+from strategies.rsi_momentum import RSIMomentum
+from strategies.bollinger_breakout import BollingerBreakout
+from strategies.ema_crossover import EMACrossover
+from strategies.mean_reversion import MeanReversion
+from strategies.scalp_master import ScalpMaster
+from strategies.swing_trader import SwingTrader
+from strategies.grid_bot import GridBot
+from strategies.dca_accumulator import DCAAccumulator
+from data.database import db
+
+logger = logging.getLogger(__name__)
+
+# Auto-disable thresholds (also in config for reference)
+MIN_TRADES_FOR_EVAL = config.STRATEGY_MIN_TRADES
+MIN_WIN_RATE        = config.STRATEGY_DISABLE_WIN_RATE / 100   # convert % to fraction
+REENABLE_WIN_RATE   = config.STRATEGY_REENABLE_WIN_RATE / 100
+
+
+class StrategyEngine:
+    """
+    Master strategy coordinator.
+    Runs all enabled strategies, deduplicates, ranks, and tracks performance.
+    """
+
+    def __init__(self, db_ref=None):
+        self._db = db_ref or db
+
+        # Initialize all 8 strategies
+        self.strategies: List[BaseStrategy] = [
+            RSIMomentum(),
+            BollingerBreakout(),
+            EMACrossover(),
+            MeanReversion(),
+            ScalpMaster(),
+            SwingTrader(),
+            GridBot(),
+            DCAAccumulator(),
+        ]
+
+        self._load_strategy_states()
+
+        logger.info(
+            f"Strategy engine initialized with {len(self.strategies)} strategies:"
+        )
+        for s in self.strategies:
+            status = "ENABLED" if s.enabled else "DISABLED"
+            logger.info(f"  {s.name}: {status}")
+
+    def get_all_strategies(self) -> List[BaseStrategy]:
+        """Return all strategy objects (used by bot_engine for startup logging)."""
+        return self.strategies
+
+    def _load_strategy_states(self):
+        """
+        Load enabled/disabled state from database.
+
+        Key format: strategy_{name}_enabled
+        Value:      'true' or 'false' (string)
+
+        Default is ENABLED for all strategies unless explicitly set to 'false'.
+        """
+        for strategy in self.strategies:
+            key   = f"strategy_{strategy.name}_enabled"
+            state = self._db.get_state(key, default="true")
+            strategy.enabled = (str(state).lower() == "true")
+
+    def _save_strategy_state(self, strategy: BaseStrategy):
+        """
+        Persist strategy enabled/disabled state to database.
+
+        Key format: strategy_{name}_enabled
+        Value:      'true' or 'false' (string)
+        """
+        key   = f"strategy_{strategy.name}_enabled"
+        value = "true" if strategy.enabled else "false"
+        self._db.set_state(key, value)
+
+    # ----------------------------------------------------------
+    #  MAIN SCAN — Run all strategies on a symbol
+    # ----------------------------------------------------------
+
+    def run_strategies(self, symbol: str, asset_class: str,
+                       bars: pd.DataFrame,
+                       price: float) -> List["StrategySignalCompat"]:
+        """
+        Run all enabled strategies against one symbol.
+        Returns a list of StrategySignalCompat objects (compatible with
+        the Signal format expected by market_scanner).
+        """
+        results = []
+
+        for strategy in self.strategies:
+            if not strategy.enabled:
+                continue
+            try:
+                # Call analyze() — returns a TradeSignal or None
+                market_condition = "unknown"  # condition detector handles this upstream
+                trade_signal = strategy.analyze(symbol, bars, market_condition)
+
+                if trade_signal is None:
+                    continue
+
+                # Wrap into a StrategySignalCompat for the scanner
+                compat = StrategySignalCompat(
+                    symbol               = symbol,
+                    asset_class          = asset_class,
+                    direction            = trade_signal.direction,
+                    score                = trade_signal.score,
+                    current_price        = price,
+                    indicators           = trade_signal.metadata or {},
+                    reason               = trade_signal.reason,
+                    strategy_name        = strategy.strategy_name,
+                    custom_stop_loss_pct = trade_signal.stop_loss_pct,
+                    custom_take_profit_pct = trade_signal.take_profit_pct,
+                    custom_position_pct  = None,  # set per-strategy if needed
+                )
+                results.append(compat)
+
+                logger.info(
+                    f"[{strategy.name}] Signal: {symbol} "
+                    f"{trade_signal.direction.upper()} "
+                    f"score={trade_signal.score:.3f} | {trade_signal.reason}"
+                )
+
+            except Exception as e:
+                logger.error(
+                    f"Strategy {strategy.name} error on {symbol}: {e}",
+                    exc_info=config.VERBOSE_MODE
+                )
+
+        return results
+
+    # ----------------------------------------------------------
+    #  PERFORMANCE TRACKING
+    # ----------------------------------------------------------
+
+    def record_trade_result(self, strategy_name: str,
+                             pnl: float, won: bool):
+        """
+        Record a completed trade result for strategy performance tracking.
+        Called by trade_executor when a position closes.
+        """
+        today = date.today().isoformat()
+        self._db.record_strategy_result(strategy_name, today, pnl, won)
+        logger.info(
+            f"Strategy result: {strategy_name} — "
+            f"{'WIN' if won else 'LOSS'} ${pnl:+.2f}"
+        )
+        self._evaluate_strategy(strategy_name)
+
+    def _evaluate_strategy(self, strategy_name: str):
+        """Check if a strategy should be auto-disabled or re-enabled."""
+        strategy = self._get_strategy(strategy_name)
+        if strategy is None:
+            return
+
+        stats = self.get_strategy_stats(strategy_name)
+        total = stats["total_trades"]
+
+        if total < MIN_TRADES_FOR_EVAL:
+            return  # Not enough data yet
+
+        win_rate = stats["win_rate"] / 100  # convert % back to fraction
+
+        if win_rate < MIN_WIN_RATE:
+            strategy.enabled = False
+            self._save_strategy_state(strategy)
+            logger.warning(
+                f"[AUTO-DISABLE] '{strategy_name}' disabled — "
+                f"win rate {win_rate*100:.1f}% below minimum "
+                f"{MIN_WIN_RATE*100:.0f}% after {total} trades"
+            )
+        elif not strategy.enabled and win_rate >= REENABLE_WIN_RATE:
+            strategy.enabled = True
+            self._save_strategy_state(strategy)
+            logger.info(
+                f"[AUTO-ENABLE] '{strategy_name}' re-enabled — "
+                f"win rate recovered to {win_rate*100:.1f}%"
+            )
+
+    def get_strategy_stats(self, strategy_name: str) -> Dict:
+        """Get comprehensive performance stats for a single strategy."""
+        results = self._db.get_strategy_results(strategy_name, limit=500)
+        if not results:
+            return {
+                "strategy_name": strategy_name,
+                "total_trades":  0,
+                "wins":          0,
+                "losses":        0,
+                "win_rate":      0.0,
+                "total_pnl":     0.0,
+                "avg_pnl":       0.0,
+                "profit_factor": 0.0,
+                "avg_win":       0.0,
+                "avg_loss":      0.0,
+                "largest_win":   0.0,
+                "largest_loss":  0.0,
+            }
+
+        wins         = [r for r in results if r["won"]]
+        losses       = [r for r in results if not r["won"]]
+        total_pnl    = sum(r["pnl"] for r in results)
+        gross_wins   = sum(r["pnl"] for r in wins)        if wins   else 0
+        gross_losses = abs(sum(r["pnl"] for r in losses)) if losses else 0
+
+        return {
+            "strategy_name": strategy_name,
+            "total_trades":  len(results),
+            "wins":          len(wins),
+            "losses":        len(losses),
+            "win_rate":      round(len(wins) / len(results) * 100, 1),
+            "total_pnl":     round(total_pnl, 2),
+            "avg_pnl":       round(total_pnl / len(results), 2),
+            "profit_factor": round(gross_wins / gross_losses, 2) if gross_losses > 0 else 999,
+            "avg_win":       round(gross_wins   / len(wins),   2) if wins   else 0,
+            "avg_loss":      round(-gross_losses / len(losses), 2) if losses else 0,
+            "largest_win":   round(max((r["pnl"] for r in wins),   default=0), 2),
+            "largest_loss":  round(min((r["pnl"] for r in losses), default=0), 2),
+        }
+
+    def get_all_stats(self) -> List[Dict]:
+        """Get performance stats for all strategies (for dashboard/chat)."""
+        all_stats = []
+        for strategy in self.strategies:
+            stats = self.get_strategy_stats(strategy.name)
+            stats["enabled"] = strategy.enabled
+            all_stats.append(stats)
+        return all_stats
+
+    # ----------------------------------------------------------
+    #  MANUAL CONTROLS
+    # ----------------------------------------------------------
+
+    def enable_strategy(self, name: str) -> str:
+        strategy = self._get_strategy(name)
+        if strategy is None:
+            return f"Strategy '{name}' not found. Available: {self._strategy_names()}"
+        strategy.enabled = True
+        self._save_strategy_state(strategy)
+        return f"Strategy '{name}' enabled."
+
+    def disable_strategy(self, name: str) -> str:
+        strategy = self._get_strategy(name)
+        if strategy is None:
+            return f"Strategy '{name}' not found. Available: {self._strategy_names()}"
+        strategy.enabled = False
+        self._save_strategy_state(strategy)
+        return f"Strategy '{name}' disabled."
+
+    def list_strategies(self) -> List[Dict]:
+        """List all strategies with their current state."""
+        return [
+            {
+                "name":        s.name,
+                "enabled":     s.enabled,
+                "description": s.__class__.__doc__.strip().split("\n")[0]
+                               if s.__class__.__doc__ else s.name,
+            }
+            for s in self.strategies
+        ]
+
+    def _get_strategy(self, name: str) -> Optional[BaseStrategy]:
+        for s in self.strategies:
+            if s.name == name or s.strategy_name == name:
+                return s
+        return None
+
+    def _strategy_names(self) -> str:
+        return ", ".join(s.name for s in self.strategies)
+
+
+# ----------------------------------------------------------
+#  COMPAT WRAPPER
+#  Bridges TradeSignal (from base_strategy) into the dict-like
+#  object format that market_scanner and trade_executor expect.
+# ----------------------------------------------------------
+
+class StrategySignalCompat:
+    """
+    Lightweight wrapper that presents a TradeSignal in the format
+    that market_scanner.py and trade_executor.py expect.
+    """
+    __slots__ = [
+        "symbol", "asset_class", "direction", "score",
+        "current_price", "indicators", "reason",
+        "strategy_name", "custom_stop_loss_pct",
+        "custom_take_profit_pct", "custom_position_pct"
+    ]
+
+    def __init__(self, symbol, asset_class, direction, score,
+                 current_price, indicators, reason,
+                 strategy_name, custom_stop_loss_pct,
+                 custom_take_profit_pct, custom_position_pct):
+        self.symbol                 = symbol
+        self.asset_class            = asset_class
+        self.direction              = direction
+        self.score                  = score
+        self.current_price          = current_price
+        self.indicators             = {
+            **indicators,
+            "strategy_name":           strategy_name,
+            "custom_stop_loss_pct":    custom_stop_loss_pct,
+            "custom_take_profit_pct":  custom_take_profit_pct,
+            "custom_position_pct":     custom_position_pct,
+        }
+        self.reason                 = reason
+        self.strategy_name          = strategy_name
+        self.custom_stop_loss_pct   = custom_stop_loss_pct
+        self.custom_take_profit_pct = custom_take_profit_pct
+        self.custom_position_pct    = custom_position_pct
+
+
+# Singleton
+strategy_engine = StrategyEngine()
