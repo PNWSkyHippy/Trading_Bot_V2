@@ -1,0 +1,57 @@
+C:\Users\Linda\trading_bot_v2\
+│
+├── bot_engine.py              ← Start the bot here
+├── dashboard.py               ← Start the dashboard here
+├── config.py                  ← All settings and parameters
+├── full_strategy_stress_test.py
+├── symbol_params.json         ← Scalp master adaptive SL/TP
+├── requirements.txt
+├── .env                       ← API keys (never share this)
+│
+├── core\
+│   ├── risk_manager.py        ← TP/SL/trailing stop logic  ← YOU ARE HERE
+│   ├── trade_executor.py      ← Order submission to brokers
+│   ├── position_monitor.py    ← Watches open positions every 30s
+│   ├── broker_manager.py      ← Multi-broker balance tracking
+│   ├── inverse_etf_mapper.py  ← Maps bearish signals to inverse ETFs
+│   └── kraken_executor.py     ← Kraken crypto trading
+│
+├── strategies\
+│   ├── strategy_engine.py     ← Orchestrates all 8 strategies
+│   ├── base_strategy.py       ← Abstract base class
+│   ├── bollinger_breakout.py  ← Strategy 2 (ENABLED)
+│   ├── mean_reversion.py      ← Strategy 4 (ENABLED)
+│   ├── scalp_master.py        ← Strategy 5 (ENABLED)
+│   ├── dca_accumulator.py     ← Strategy 8 (ENABLED)
+│   ├── rsi_momentum.py        ← Strategy 1 (DISABLED)
+│   ├── ema_crossover.py       ← Strategy 3 (DISABLED)
+│   ├── swing_trader.py        ← Strategy 6 (DISABLED)
+│   └── grid_bot.py            ← Strategy 7 (DISABLED)
+│
+├── scanners\
+│   └── market_scanner.py      ← Scans symbols, routes signals
+│
+├── intelligence\
+│   ├── claude_reviewer.py     ← Claude signal reviewer (disabled til May 1)
+│   ├── chat_interface.py      ← Dashboard chat with Claude
+│   ├── ml_scorer.py           ← Random Forest ML model
+│   ├── backtester.py          ← Historical backtesting engine
+│   └── condition_detector.py  ← Market condition classifier
+│
+├── data\
+│   ├── database.py            ← SQLite operations
+│   └── trading_bot.db         ← The actual database
+│
+├── reporting\
+│   └── report_generator.py    ← Daily email reports
+│
+├── watchlists\
+│   ├── stocks.txt             ← 121 stock symbols
+│   └── crypto.txt             ← 115 crypto pairs
+│
+├── logs\
+│   └── bot.log                ← Everything logged here
+│
+├── exports\                   ← Tax CSVs saved here
+│
+└── reports\                   ← Stress test reports saved here
