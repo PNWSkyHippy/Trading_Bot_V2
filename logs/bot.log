@@ -1,0 +1,43 @@
+2026-04-18 16:43:39 [INFO] BotEngine: ============================================================
+2026-04-18 16:43:39 [INFO] BotEngine:   Autonomous Day Trading Bot v2 - Starting Up
+2026-04-18 16:43:39 [INFO] BotEngine: ============================================================
+2026-04-18 16:43:39 [INFO] data.database: Database initialized successfully.
+2026-04-18 16:43:39 [INFO] core.kraken_executor: Kraken executor initialized in PAPER mode.
+2026-04-18 16:43:39 [INFO] strategies.strategy_engine: Strategy engine initialized with 8 strategies:
+2026-04-18 16:43:39 [INFO] strategies.strategy_engine:   rsi_momentum: DISABLED
+2026-04-18 16:43:39 [INFO] strategies.strategy_engine:   bollinger_breakout: DISABLED
+2026-04-18 16:43:39 [INFO] strategies.strategy_engine:   ema_crossover: DISABLED
+2026-04-18 16:43:39 [INFO] strategies.strategy_engine:   mean_reversion: ENABLED
+2026-04-18 16:43:39 [INFO] strategies.strategy_engine:   scalp_master: ENABLED
+2026-04-18 16:43:39 [INFO] strategies.strategy_engine:   swing_trader: DISABLED
+2026-04-18 16:43:39 [INFO] strategies.strategy_engine:   grid_bot: DISABLED
+2026-04-18 16:43:39 [INFO] strategies.strategy_engine:   dca_accumulator: ENABLED
+2026-04-18 16:43:39 [INFO] scanners.market_scanner: Kraken exchange initialized.
+2026-04-18 16:43:39 [INFO] BotEngine: All components initialized successfully.
+2026-04-18 16:43:39 [INFO] BotEngine: Strategy engine loaded: 3 enabled, 5 disabled
+2026-04-18 16:43:39 [INFO] BotEngine:   [ENABLED]  mean_reversion
+2026-04-18 16:43:39 [INFO] BotEngine:   [ENABLED]  scalp_master
+2026-04-18 16:43:39 [INFO] BotEngine:   [ENABLED]  dca_accumulator
+2026-04-18 16:43:39 [INFO] BotEngine:   [DISABLED] rsi_momentum
+2026-04-18 16:43:39 [INFO] BotEngine:   [DISABLED] bollinger_breakout
+2026-04-18 16:43:39 [INFO] BotEngine:   [DISABLED] ema_crossover
+2026-04-18 16:43:39 [INFO] BotEngine:   [DISABLED] swing_trader
+2026-04-18 16:43:39 [INFO] BotEngine:   [DISABLED] grid_bot
+2026-04-18 16:43:40 [INFO] BotEngine: Reconciliation complete: all 1 DB stock position(s) confirmed in Alpaca. No ghosts found.
+2026-04-18 16:43:40 [INFO] BotEngine: Registering scheduled jobs...
+2026-04-18 16:43:40 [INFO] BotEngine: All scheduled jobs registered.
+2026-04-18 16:43:40 [INFO] BotEngine:   - Crypto scan:    every 5 min (24/7)
+2026-04-18 16:43:40 [INFO] BotEngine:   - Stock scan:     every 60s (gated: Mon-Fri 10:00-15:44 ET)
+2026-04-18 16:43:40 [INFO] BotEngine:   - Stock EOD close: 15:45 ET (12:45 PT) weekdays
+2026-04-18 16:43:40 [INFO] BotEngine:   - Position monitor: every 30s (24/7)
+2026-04-18 16:43:40 [INFO] BotEngine:   - Capital sync:   every 15 min
+2026-04-18 16:43:40 [INFO] BotEngine:   - EOD report:     17:00 ET (14:00 PT) daily
+2026-04-18 16:43:40 [INFO] BotEngine:   - ML retrain:     18:00 ET (15:00 PT) daily
+2026-04-18 16:43:40 [INFO] BotEngine: Bot is running. Press Ctrl+C to stop.
+2026-04-18 16:43:40 [INFO] BotEngine: Monitoring 115 crypto pairs 24/7
+2026-04-18 16:43:40 [INFO] BotEngine: Monitoring 121 stocks (market hours only: Mon-Fri 10:00-15:44 ET)
+2026-04-18 16:43:40 [INFO] core.broker_manager: Broker balance updated: alpaca = $100,052.03 (available: $99,026.53, invested: $1,025.50)
+2026-04-18 16:43:41 [INFO] BotEngine: Capital sync complete. Total: $100,052.03
+2026-04-18 16:43:41 [INFO] BotEngine:   Alpaca Markets: $100,052.03
+2026-04-18 16:43:41 [INFO] BotEngine:   Coinbase Advanced Trade: $0.00
+2026-04-18 16:43:42 [INFO] BotEngine: Reconciliation complete: all 1 DB stock position(s) confirmed in Alpaca. No ghosts found.
