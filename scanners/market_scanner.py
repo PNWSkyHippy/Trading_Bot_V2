@@ -195,7 +195,6 @@ class StockScanner:
         logger.info(f"Stock scan complete: {len(signals)} signals found")
         return signals
 
-
 class CryptoScanner:
     """
     Scans crypto pairs using Coinbase Advanced Trade via CCXT.
@@ -208,6 +207,14 @@ class CryptoScanner:
             "secret":          config.COINBASE_SECRET_KEY,
             "enableRateLimit": True,
         })
+        # Load markets once at startup to cache currency list
+        # Prevents repeated /v2/currencies calls every scan cycle
+        try:
+            self.coinbase.load_markets()
+            logger.info("Coinbase markets loaded and cached.")
+        except Exception as e:
+            logger.warning(f"Coinbase market preload failed: {e}")
+
 
         self.kraken = None
         if config.KRAKEN_API_KEY and config.KRAKEN_SECRET_KEY:
