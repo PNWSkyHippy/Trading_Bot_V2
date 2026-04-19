@@ -126,12 +126,12 @@ class BollingerBreakout(BaseStrategy):
         try:
             obv = ta.obv(candles["close"], candles["volume"])
             #if obv is None or len(obv) < 4:
-            if obv is None or len(obv) < 3:
+            if obv is None or len(obv) < 2:
                 self.verbose_log_skip(symbol, "OBV: insufficient data for confirmation")
                 return None
             obv_now     = obv.iloc[-1]
             #obv_prev    = obv.iloc[-4]
-            obv_prev    = obv.iloc[-3]
+            obv_prev    = obv.iloc[-2]
             obv_rising  = obv_now > obv_prev
             obv_falling = obv_now < obv_prev
             self.logger.info(f"[OBV] {symbol}: rising={obv_rising} falling={obv_falling} now={round(obv_now,0)} prev={round(obv_prev,0)}")
