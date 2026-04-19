@@ -37,3 +37,4 @@ we can keep the coffers full of 20 or so trades albeit ones chosen by better sig
 logic with help of AI 
 
 more to come in file chat with anthropic
+more to come
