@@ -1,102 +1,151 @@
-2026-04-18 16:43:39 [INFO] BotEngine: ============================================================
-2026-04-18 16:43:39 [INFO] BotEngine:   Autonomous Day Trading Bot v2 - Starting Up
-2026-04-18 16:43:39 [INFO] BotEngine: ============================================================
-2026-04-18 16:43:39 [INFO] data.database: Database initialized successfully.
-2026-04-18 16:43:39 [INFO] core.kraken_executor: Kraken executor initialized in PAPER mode.
-2026-04-18 16:43:39 [INFO] strategies.strategy_engine: Strategy engine initialized with 8 strategies:
-2026-04-18 16:43:39 [INFO] strategies.strategy_engine:   rsi_momentum: DISABLED
-2026-04-18 16:43:39 [INFO] strategies.strategy_engine:   bollinger_breakout: DISABLED
-2026-04-18 16:43:39 [INFO] strategies.strategy_engine:   ema_crossover: DISABLED
-2026-04-18 16:43:39 [INFO] strategies.strategy_engine:   mean_reversion: ENABLED
-2026-04-18 16:43:39 [INFO] strategies.strategy_engine:   scalp_master: ENABLED
-2026-04-18 16:43:39 [INFO] strategies.strategy_engine:   swing_trader: DISABLED
-2026-04-18 16:43:39 [INFO] strategies.strategy_engine:   grid_bot: DISABLED
-2026-04-18 16:43:39 [INFO] strategies.strategy_engine:   dca_accumulator: ENABLED
-2026-04-18 16:43:39 [INFO] scanners.market_scanner: Kraken exchange initialized.
-2026-04-18 16:43:39 [INFO] BotEngine: All components initialized successfully.
-2026-04-18 16:43:39 [INFO] BotEngine: Strategy engine loaded: 3 enabled, 5 disabled
-2026-04-18 16:43:39 [INFO] BotEngine:   [ENABLED]  mean_reversion
-2026-04-18 16:43:39 [INFO] BotEngine:   [ENABLED]  scalp_master
-2026-04-18 16:43:39 [INFO] BotEngine:   [ENABLED]  dca_accumulator
-2026-04-18 16:43:39 [INFO] BotEngine:   [DISABLED] rsi_momentum
-2026-04-18 16:43:39 [INFO] BotEngine:   [DISABLED] bollinger_breakout
-2026-04-18 16:43:39 [INFO] BotEngine:   [DISABLED] ema_crossover
-2026-04-18 16:43:39 [INFO] BotEngine:   [DISABLED] swing_trader
-2026-04-18 16:43:39 [INFO] BotEngine:   [DISABLED] grid_bot
-2026-04-18 16:43:40 [INFO] BotEngine: Reconciliation complete: all 1 DB stock position(s) confirmed in Alpaca. No ghosts found.
-2026-04-18 16:43:40 [INFO] BotEngine: Registering scheduled jobs...
-2026-04-18 16:43:40 [INFO] BotEngine: All scheduled jobs registered.
-2026-04-18 16:43:40 [INFO] BotEngine:   - Crypto scan:    every 5 min (24/7)
-2026-04-18 16:43:40 [INFO] BotEngine:   - Stock scan:     every 60s (gated: Mon-Fri 10:00-15:44 ET)
-2026-04-18 16:43:40 [INFO] BotEngine:   - Stock EOD close: 15:45 ET (12:45 PT) weekdays
-2026-04-18 16:43:40 [INFO] BotEngine:   - Position monitor: every 30s (24/7)
-2026-04-18 16:43:40 [INFO] BotEngine:   - Capital sync:   every 15 min
-2026-04-18 16:43:40 [INFO] BotEngine:   - EOD report:     17:00 ET (14:00 PT) daily
-2026-04-18 16:43:40 [INFO] BotEngine:   - ML retrain:     18:00 ET (15:00 PT) daily
-2026-04-18 16:43:40 [INFO] BotEngine: Bot is running. Press Ctrl+C to stop.
-2026-04-18 16:43:40 [INFO] BotEngine: Monitoring 115 crypto pairs 24/7
-2026-04-18 16:43:40 [INFO] BotEngine: Monitoring 121 stocks (market hours only: Mon-Fri 10:00-15:44 ET)
-2026-04-18 16:43:40 [INFO] core.broker_manager: Broker balance updated: alpaca = $100,052.03 (available: $99,026.53, invested: $1,025.50)
-2026-04-18 16:43:41 [INFO] BotEngine: Capital sync complete. Total: $100,052.03
-2026-04-18 16:43:41 [INFO] BotEngine:   Alpaca Markets: $100,052.03
-2026-04-18 16:43:41 [INFO] BotEngine:   Coinbase Advanced Trade: $0.00
-2026-04-18 16:43:42 [INFO] BotEngine: Reconciliation complete: all 1 DB stock position(s) confirmed in Alpaca. No ghosts found.
-2026-04-18 16:50:15 [INFO] scanners.market_scanner: Crypto scan complete: 0 signals found
-2026-04-18 16:56:49 [INFO] scanners.market_scanner: Crypto scan complete: 0 signals found
-2026-04-18 16:58:41 [INFO] core.broker_manager: Broker balance updated: alpaca = $100,052.03 (available: $99,026.53, invested: $1,025.50)
-2026-04-18 16:58:42 [INFO] BotEngine: Capital sync complete. Total: $100,052.03
-2026-04-18 16:58:42 [INFO] BotEngine:   Alpaca Markets: $100,052.03
-2026-04-18 16:58:42 [INFO] BotEngine:   Coinbase Advanced Trade: $0.00
-2026-04-18 16:58:43 [INFO] BotEngine: Reconciliation complete: all 1 DB stock position(s) confirmed in Alpaca. No ghosts found.
-2026-04-18 17:03:23 [INFO] scanners.market_scanner: Crypto scan complete: 0 signals found
-2026-04-18 17:09:19 [INFO] BotEngine: Shutdown requested (Ctrl+C). Stopping bot.
-2026-04-18 17:09:19 [INFO] BotEngine: Shutting down gracefully...
-2026-04-18 17:09:19 [INFO] BotEngine: Bot stopped.
-2026-04-18 17:30:07 [INFO] BotEngine: ============================================================
-2026-04-18 17:30:07 [INFO] BotEngine:   Autonomous Day Trading Bot v2 - Starting Up
-2026-04-18 17:30:07 [INFO] BotEngine: ============================================================
-2026-04-18 17:30:07 [INFO] data.database: Database initialized successfully.
-2026-04-18 17:30:07 [INFO] core.kraken_executor: Kraken executor initialized in PAPER mode.
-2026-04-18 17:30:07 [INFO] strategies.strategy_engine: Strategy engine initialized with 8 strategies:
-2026-04-18 17:30:07 [INFO] strategies.strategy_engine:   rsi_momentum: DISABLED
-2026-04-18 17:30:07 [INFO] strategies.strategy_engine:   bollinger_breakout: DISABLED
-2026-04-18 17:30:07 [INFO] strategies.strategy_engine:   ema_crossover: DISABLED
-2026-04-18 17:30:07 [INFO] strategies.strategy_engine:   mean_reversion: ENABLED
-2026-04-18 17:30:07 [INFO] strategies.strategy_engine:   scalp_master: ENABLED
-2026-04-18 17:30:07 [INFO] strategies.strategy_engine:   swing_trader: DISABLED
-2026-04-18 17:30:07 [INFO] strategies.strategy_engine:   grid_bot: DISABLED
-2026-04-18 17:30:07 [INFO] strategies.strategy_engine:   dca_accumulator: ENABLED
-2026-04-18 17:30:07 [INFO] scanners.market_scanner: Kraken exchange initialized.
-2026-04-18 17:30:07 [INFO] BotEngine: All components initialized successfully.
-2026-04-18 17:30:07 [INFO] BotEngine: Strategy engine loaded: 3 enabled, 5 disabled
-2026-04-18 17:30:07 [INFO] BotEngine:   [ENABLED]  mean_reversion
-2026-04-18 17:30:07 [INFO] BotEngine:   [ENABLED]  scalp_master
-2026-04-18 17:30:07 [INFO] BotEngine:   [ENABLED]  dca_accumulator
-2026-04-18 17:30:07 [INFO] BotEngine:   [DISABLED] rsi_momentum
-2026-04-18 17:30:07 [INFO] BotEngine:   [DISABLED] bollinger_breakout
-2026-04-18 17:30:07 [INFO] BotEngine:   [DISABLED] ema_crossover
-2026-04-18 17:30:07 [INFO] BotEngine:   [DISABLED] swing_trader
-2026-04-18 17:30:07 [INFO] BotEngine:   [DISABLED] grid_bot
-2026-04-18 17:30:07 [INFO] BotEngine: Reconciliation complete: all 1 DB stock position(s) confirmed in Alpaca. No ghosts found.
-2026-04-18 17:30:07 [INFO] BotEngine: Registering scheduled jobs...
-2026-04-18 17:30:07 [INFO] BotEngine: All scheduled jobs registered.
-2026-04-18 17:30:07 [INFO] BotEngine:   - Crypto scan:    every 5 min (24/7)
-2026-04-18 17:30:07 [INFO] BotEngine:   - Stock scan:     every 60s (gated: Mon-Fri 10:00-15:44 ET)
-2026-04-18 17:30:07 [INFO] BotEngine:   - Stock EOD close: 15:45 ET (12:45 PT) weekdays
-2026-04-18 17:30:07 [INFO] BotEngine:   - Position monitor: every 30s (24/7)
-2026-04-18 17:30:07 [INFO] BotEngine:   - Capital sync:   every 15 min
-2026-04-18 17:30:07 [INFO] BotEngine:   - EOD report:     17:00 ET (14:00 PT) daily
-2026-04-18 17:30:07 [INFO] BotEngine:   - ML retrain:     18:00 ET (15:00 PT) daily
-2026-04-18 17:30:07 [INFO] BotEngine: Bot is running. Press Ctrl+C to stop.
-2026-04-18 17:30:07 [INFO] BotEngine: Monitoring 115 crypto pairs 24/7
-2026-04-18 17:30:07 [INFO] BotEngine: Monitoring 121 stocks (market hours only: Mon-Fri 10:00-15:44 ET)
-2026-04-18 17:30:08 [INFO] core.broker_manager: Broker balance updated: alpaca = $100,052.03 (available: $99,026.53, invested: $1,025.50)
-2026-04-18 17:30:09 [INFO] BotEngine: Capital sync complete. Total: $100,052.03
-2026-04-18 17:30:09 [INFO] BotEngine:   Alpaca Markets: $100,052.03
-2026-04-18 17:30:09 [INFO] BotEngine:   Coinbase Advanced Trade: $0.00
-2026-04-18 17:30:10 [INFO] BotEngine: Reconciliation complete: all 1 DB stock position(s) confirmed in Alpaca. No ghosts found.
-2026-04-18 17:36:52 [INFO] scanners.market_scanner: Crypto scan complete: 0 signals found
-2026-04-18 17:43:26 [INFO] scanners.market_scanner: Crypto scan complete: 0 signals found
-2026-04-18 17:45:03 [INFO] BotEngine: Shutdown requested (Ctrl+C). Stopping bot.
-2026-04-18 17:45:03 [INFO] BotEngine: Shutting down gracefully...
-2026-04-18 17:45:03 [INFO] BotEngine: Bot stopped.
+2026-04-18 20:43:08 [INFO] BotEngine: ============================================================
+2026-04-18 20:43:08 [INFO] BotEngine:   Autonomous Day Trading Bot v2 - Starting Up
+2026-04-18 20:43:08 [INFO] BotEngine: ============================================================
+2026-04-18 20:43:08 [INFO] data.database: Database initialized successfully.
+2026-04-18 20:43:08 [INFO] core.kraken_executor: Kraken executor initialized in PAPER mode.
+2026-04-18 20:43:08 [INFO] strategies.strategy_engine: Strategy engine initialized with 8 strategies:
+2026-04-18 20:43:08 [INFO] strategies.strategy_engine:   rsi_momentum: DISABLED
+2026-04-18 20:43:08 [INFO] strategies.strategy_engine:   bollinger_breakout: ENABLED
+2026-04-18 20:43:08 [INFO] strategies.strategy_engine:   ema_crossover: DISABLED
+2026-04-18 20:43:08 [INFO] strategies.strategy_engine:   mean_reversion: ENABLED
+2026-04-18 20:43:08 [INFO] strategies.strategy_engine:   scalp_master: ENABLED
+2026-04-18 20:43:08 [INFO] strategies.strategy_engine:   swing_trader: DISABLED
+2026-04-18 20:43:08 [INFO] strategies.strategy_engine:   grid_bot: DISABLED
+2026-04-18 20:43:08 [INFO] strategies.strategy_engine:   dca_accumulator: ENABLED
+2026-04-18 20:43:09 [WARNING] scanners.market_scanner: Coinbase market preload failed: Non-base16 digit found
+2026-04-18 20:43:09 [INFO] scanners.market_scanner: Kraken exchange initialized.
+2026-04-18 20:43:09 [INFO] BotEngine: All components initialized successfully.
+2026-04-18 20:43:09 [INFO] BotEngine: Strategy engine loaded: 4 enabled, 4 disabled
+2026-04-18 20:43:09 [INFO] BotEngine:   [ENABLED]  bollinger_breakout
+2026-04-18 20:43:09 [INFO] BotEngine:   [ENABLED]  mean_reversion
+2026-04-18 20:43:09 [INFO] BotEngine:   [ENABLED]  scalp_master
+2026-04-18 20:43:09 [INFO] BotEngine:   [ENABLED]  dca_accumulator
+2026-04-18 20:43:09 [INFO] BotEngine:   [DISABLED] rsi_momentum
+2026-04-18 20:43:09 [INFO] BotEngine:   [DISABLED] ema_crossover
+2026-04-18 20:43:09 [INFO] BotEngine:   [DISABLED] swing_trader
+2026-04-18 20:43:09 [INFO] BotEngine:   [DISABLED] grid_bot
+2026-04-18 20:43:09 [INFO] BotEngine: Reconciliation complete: all 1 DB stock position(s) confirmed in Alpaca. No ghosts found.
+2026-04-18 20:43:09 [INFO] BotEngine: Registering scheduled jobs...
+2026-04-18 20:43:09 [INFO] BotEngine: All scheduled jobs registered.
+2026-04-18 20:43:09 [INFO] BotEngine:   - Crypto scan:    every 5 min (24/7)
+2026-04-18 20:43:09 [INFO] BotEngine:   - Stock scan:     every 60s (gated: Mon-Fri 10:00-15:44 ET)
+2026-04-18 20:43:09 [INFO] BotEngine:   - Stock EOD close: 15:45 ET (12:45 PT) weekdays
+2026-04-18 20:43:09 [INFO] BotEngine:   - Position monitor: every 30s (24/7)
+2026-04-18 20:43:09 [INFO] BotEngine:   - Capital sync:   every 15 min
+2026-04-18 20:43:09 [INFO] BotEngine:   - EOD report:     17:00 ET (14:00 PT) daily
+2026-04-18 20:43:09 [INFO] BotEngine:   - ML retrain:     18:00 ET (15:00 PT) daily
+2026-04-18 20:43:09 [INFO] BotEngine: Bot is running. Press Ctrl+C to stop.
+2026-04-18 20:43:09 [INFO] BotEngine: Monitoring 115 crypto pairs 24/7
+2026-04-18 20:43:09 [INFO] BotEngine: Monitoring 121 stocks (market hours only: Mon-Fri 10:00-15:44 ET)
+2026-04-18 20:43:10 [INFO] core.broker_manager: Broker balance updated: alpaca = $100,052.03 (available: $99,026.53, invested: $1,025.50)
+2026-04-18 20:43:11 [INFO] BotEngine: Capital sync complete. Total: $100,052.03
+2026-04-18 20:43:11 [INFO] BotEngine:   Alpaca Markets: $100,052.03
+2026-04-18 20:43:11 [INFO] BotEngine:   Coinbase Advanced Trade: $0.00
+2026-04-18 20:43:12 [INFO] BotEngine: Reconciliation complete: all 1 DB stock position(s) confirmed in Alpaca. No ghosts found.
+2026-04-18 20:43:44 [INFO] core.risk_manager: Trailing stop raised for TIA/USD: $0.3867 -> $0.3876
+2026-04-18 20:43:44 [INFO] core.position_monitor: Trailing stop updated: TIA/USD SL -> $0.3876 (locked in +0.90% gain)
+2026-04-18 20:43:47 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:43:54 [INFO] core.position_monitor: Trailing stop updated: SNX/USD SL -> $0.2996 (locked in +0.03% gain)
+2026-04-18 20:44:26 [INFO] core.risk_manager: Trailing stop raised for TIA/USD: $0.3876 -> $0.3880
+2026-04-18 20:44:26 [INFO] core.position_monitor: Trailing stop updated: TIA/USD SL -> $0.3880 (locked in +1.00% gain)
+2026-04-18 20:44:29 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:45:11 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:45:54 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:46:36 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:47:18 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:48:00 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:48:05 [INFO] core.position_monitor: Trailing stop updated: HNT/USD SL -> $1.0478 (locked in +0.28% gain)
+2026-04-18 20:48:47 [INFO] strategies.strategy_engine: [bollinger_breakout] Signal: SNX/USD SHORT score=0.800 | BB lower breakout: close=0.2952 < lower=0.2952 (squeeze!)
+2026-04-18 20:48:48 [INFO] strategies.strategy_engine: [bollinger_breakout] Signal: BAL/USD SHORT score=0.800 | BB lower breakout: close=0.1540 < lower=0.1540 (squeeze!)
+2026-04-18 20:48:55 [INFO] strategies.strategy_engine: [bollinger_breakout] Signal: CAKE/USD SHORT score=0.800 | BB lower breakout: close=1.5510 < lower=1.5510 (squeeze!)
+2026-04-18 20:49:02 [INFO] strategies.strategy_engine: [bollinger_breakout] Signal: RLC/USD LONG score=0.804 | BB upper breakout: close=0.4372 > upper=0.4364 (squeeze!)
+2026-04-18 20:49:09 [INFO] strategies.strategy_engine: [bollinger_breakout] Signal: OKB/USD LONG score=0.800 | BB upper breakout: close=84.1600 > upper=84.1486 (squeeze!)
+2026-04-18 20:49:12 [INFO] strategies.strategy_engine: [bollinger_breakout] Signal: HNT/USD SHORT score=0.805 | BB lower breakout: close=1.0323 < lower=1.0346 (squeeze!)
+2026-04-18 20:49:45 [INFO] scanners.market_scanner: Crypto scan complete: 6 signals found
+2026-04-18 20:49:45 [WARNING] intelligence.claude_reviewer: ClaudeReviewer: No API key found — reviewer disabled. All signals will be SKIPPED (conservative fallback). Add ANTHROPIC_API_KEY to .env to enable.
+2026-04-18 20:49:46 [INFO] scanners.market_scanner: Signals after ML/filter: 6
+2026-04-18 20:49:46 [INFO] scanners.market_scanner: Skipping HNT/USD — already have an open position
+2026-04-18 20:49:46 [INFO] core.trade_executor: Attempting to execute signal: RLC/USD long
+2026-04-18 20:49:46 [INFO] core.risk_manager: APPROVED: RLC/USD LONG | $1997.18 (2% capital) | Entry: $0.4372 | SL: $0.4306 | TP: $0.4503 | Risk: $29.96 | Score: 0.80
+2026-04-18 20:49:46 [INFO] core.trade_executor: Kraken disabled — routing RLC/USD to paper simulation
+2026-04-18 20:49:46 [INFO] core.trade_executor: [PAPER] Simulated fill: RLC/USD LONG @ $0.4372 x 4568.114735
+2026-04-18 20:49:46 [INFO] data.database: Trade opened: RLC/USD @ 0.4372
+2026-04-18 20:49:47 [INFO] reporting.alerts: Alert email sent: [BOT] TRADE OPEN: LONG RLC/USD @ $0.4372
+2026-04-18 20:49:48 [INFO] reporting.alerts: SMS alert sent to 3603495542@vtext.com
+2026-04-18 20:49:48 [INFO] core.trade_executor: [TRADE OPEN] RLC/USD LONG | Entry: $0.4372 | Qty: 4568.1147 | SL: $0.4306 | TP: $0.4503 | Broker: paper | ID: b6d0f260-a87
+2026-04-18 20:49:48 [INFO] scanners.market_scanner: Skipping OKB/USD — already have an open position
+2026-04-18 20:49:48 [INFO] scanners.market_scanner: Skipping SNX/USD — already have an open position
+2026-04-18 20:49:48 [INFO] scanners.market_scanner: Skipping BAL/USD — already have an open position
+2026-04-18 20:49:48 [INFO] scanners.market_scanner: Skipping CAKE/USD — already have an open position
+2026-04-18 20:49:55 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:50:00 [INFO] core.position_monitor: Trailing stop updated: HNT/USD SL -> $1.0478 (locked in +0.28% gain)
+2026-04-18 20:50:38 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:50:43 [INFO] core.position_monitor: Trailing stop updated: HNT/USD SL -> $1.0478 (locked in +0.28% gain)
+2026-04-18 20:51:21 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:51:26 [INFO] core.position_monitor: Trailing stop updated: HNT/USD SL -> $1.0478 (locked in +0.28% gain)
+2026-04-18 20:52:04 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:52:05 [INFO] BotEngine: Shutdown requested (Ctrl+C). Stopping bot.
+2026-04-18 20:52:05 [INFO] BotEngine: Shutting down gracefully...
+2026-04-18 20:52:05 [INFO] BotEngine: Bot stopped.
+2026-04-18 20:52:11 [INFO] BotEngine: ============================================================
+2026-04-18 20:52:11 [INFO] BotEngine:   Autonomous Day Trading Bot v2 - Starting Up
+2026-04-18 20:52:11 [INFO] BotEngine: ============================================================
+2026-04-18 20:52:11 [INFO] data.database: Database initialized successfully.
+2026-04-18 20:52:11 [INFO] core.kraken_executor: Kraken executor initialized in PAPER mode.
+2026-04-18 20:52:11 [INFO] strategies.strategy_engine: Strategy engine initialized with 8 strategies:
+2026-04-18 20:52:11 [INFO] strategies.strategy_engine:   rsi_momentum: DISABLED
+2026-04-18 20:52:11 [INFO] strategies.strategy_engine:   bollinger_breakout: ENABLED
+2026-04-18 20:52:11 [INFO] strategies.strategy_engine:   ema_crossover: DISABLED
+2026-04-18 20:52:11 [INFO] strategies.strategy_engine:   mean_reversion: ENABLED
+2026-04-18 20:52:11 [INFO] strategies.strategy_engine:   scalp_master: ENABLED
+2026-04-18 20:52:11 [INFO] strategies.strategy_engine:   swing_trader: DISABLED
+2026-04-18 20:52:11 [INFO] strategies.strategy_engine:   grid_bot: DISABLED
+2026-04-18 20:52:11 [INFO] strategies.strategy_engine:   dca_accumulator: ENABLED
+2026-04-18 20:52:11 [WARNING] scanners.market_scanner: Coinbase market preload failed: Non-base16 digit found
+2026-04-18 20:52:11 [INFO] scanners.market_scanner: Kraken exchange initialized.
+2026-04-18 20:52:11 [INFO] BotEngine: All components initialized successfully.
+2026-04-18 20:52:11 [INFO] BotEngine: Strategy engine loaded: 4 enabled, 4 disabled
+2026-04-18 20:52:11 [INFO] BotEngine:   [ENABLED]  bollinger_breakout
+2026-04-18 20:52:11 [INFO] BotEngine:   [ENABLED]  mean_reversion
+2026-04-18 20:52:11 [INFO] BotEngine:   [ENABLED]  scalp_master
+2026-04-18 20:52:11 [INFO] BotEngine:   [ENABLED]  dca_accumulator
+2026-04-18 20:52:11 [INFO] BotEngine:   [DISABLED] rsi_momentum
+2026-04-18 20:52:11 [INFO] BotEngine:   [DISABLED] ema_crossover
+2026-04-18 20:52:11 [INFO] BotEngine:   [DISABLED] swing_trader
+2026-04-18 20:52:11 [INFO] BotEngine:   [DISABLED] grid_bot
+2026-04-18 20:52:12 [INFO] BotEngine: Reconciliation complete: all 1 DB stock position(s) confirmed in Alpaca. No ghosts found.
+2026-04-18 20:52:12 [INFO] BotEngine: Registering scheduled jobs...
+2026-04-18 20:52:12 [INFO] BotEngine: All scheduled jobs registered.
+2026-04-18 20:52:12 [INFO] BotEngine:   - Crypto scan:    every 5 min (24/7)
+2026-04-18 20:52:12 [INFO] BotEngine:   - Stock scan:     every 60s (gated: Mon-Fri 10:00-15:44 ET)
+2026-04-18 20:52:12 [INFO] BotEngine:   - Stock EOD close: 15:45 ET (12:45 PT) weekdays
+2026-04-18 20:52:12 [INFO] BotEngine:   - Position monitor: every 30s (24/7)
+2026-04-18 20:52:12 [INFO] BotEngine:   - Capital sync:   every 15 min
+2026-04-18 20:52:12 [INFO] BotEngine:   - EOD report:     17:00 ET (14:00 PT) daily
+2026-04-18 20:52:12 [INFO] BotEngine:   - ML retrain:     18:00 ET (15:00 PT) daily
+2026-04-18 20:52:12 [INFO] BotEngine: Bot is running. Press Ctrl+C to stop.
+2026-04-18 20:52:12 [INFO] BotEngine: Monitoring 115 crypto pairs 24/7
+2026-04-18 20:52:12 [INFO] BotEngine: Monitoring 121 stocks (market hours only: Mon-Fri 10:00-15:44 ET)
+2026-04-18 20:52:13 [INFO] core.broker_manager: Broker balance updated: alpaca = $100,052.03 (available: $99,026.53, invested: $1,025.50)
+2026-04-18 20:52:14 [INFO] BotEngine: Capital sync complete. Total: $100,052.03
+2026-04-18 20:52:14 [INFO] BotEngine:   Alpaca Markets: $100,052.03
+2026-04-18 20:52:14 [INFO] BotEngine:   Coinbase Advanced Trade: $0.00
+2026-04-18 20:52:14 [INFO] BotEngine: Reconciliation complete: all 1 DB stock position(s) confirmed in Alpaca. No ghosts found.
+2026-04-18 20:52:49 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:52:54 [INFO] core.position_monitor: Trailing stop updated: HNT/USD SL -> $1.0478 (locked in +0.28% gain)
+2026-04-18 20:53:32 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:53:38 [INFO] core.position_monitor: Trailing stop updated: HNT/USD SL -> $1.0478 (locked in +0.28% gain)
+2026-04-18 20:54:16 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:54:21 [INFO] core.position_monitor: Trailing stop updated: HNT/USD SL -> $1.0478 (locked in +0.28% gain)
+2026-04-18 20:54:59 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:55:04 [INFO] core.position_monitor: Trailing stop updated: HNT/USD SL -> $1.0478 (locked in +0.28% gain)
+2026-04-18 20:55:42 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:55:47 [INFO] core.position_monitor: Trailing stop updated: HNT/USD SL -> $1.0478 (locked in +0.28% gain)
+2026-04-18 20:56:26 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:56:31 [INFO] core.position_monitor: Trailing stop updated: HNT/USD SL -> $1.0478 (locked in +0.28% gain)
+2026-04-18 20:57:09 [INFO] core.position_monitor: Trailing stop updated: CAKE/USD SL -> $1.5743 (locked in +0.00% gain)
+2026-04-18 20:57:13 [INFO] core.position_monitor: Trailing stop updated: JTO/USD SL -> $0.3167 (locked in +0.36% gain)
+2026-04-18 20:57:14 [INFO] core.position_monitor: Trailing stop updated: HNT/USD SL -> $1.0478 (locked in +0.28% gain)
+2026-04-18 20:57:21 [INFO] BollingerBreakout: [OBV] BTC/USD: rising=False falling=True now=-94.0 prev=-94.0
+2026-04-18 20:57:22 [INFO] BollingerBreakout: [OBV] ETH/USD: rising=True falling=False now=127.0 prev=120.0
+2026-04-18 20:57:23 [INFO] BollingerBreakout: [OBV] SOL/USD: rising=False falling=True now=-4796.0 prev=-4776.0

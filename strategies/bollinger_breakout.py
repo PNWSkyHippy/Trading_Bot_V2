@@ -109,7 +109,33 @@ class BollingerBreakout(BaseStrategy):
             extra=f"upper={upper:.4f} lower={lower:.4f} mid={mid:.4f}"
         )
 
-        squeeze_bonus = 0.10 if squeeze else 0.0
+        squeeze_bonus = 0.10 if np.squeeze else 0.0
+
+        # ----------------------------------------------------------------
+        # OBV CONFIRMATION — filter fake breakouts with no volume support
+        # OBV must be trending up over last 3 bars for long signals,
+        # and down for short signals. Neutral/flat OBV = skip.
+        # ----------------------------------------------------------------
+        try:
+            obv = ta.obv(candles["close"], candles["volume"])
+            if obv is None or len(obv) < 4:
+                self.verbose_log_skip(symbol, "OBV: insufficient data for confirmation")
+                return None
+            obv_now   = obv.iloc[-1]
+            obv_prev  = obv.iloc[-4]   # 3 bars ago
+            obv_rising  = obv_now > obv_prev
+            obv_falling = obv_now < obv_prev
+            self.logger.info(f"[OBV] {symbol}: rising={obv_rising} falling={obv_falling} now={round(obv_now,0)} prev={round(obv_prev,0)}")
+            self.verbose_log(
+                symbol, "OBV direction check",
+                obv_rising or obv_falling,
+                round(obv_now, 0),
+                f"prev={round(obv_prev, 0)}",
+                extra=f"rising={obv_rising} falling={obv_falling}"
+            )
+        except Exception as e:
+            self.verbose_log_skip(symbol, f"OBV calculation error: {e}")
+            return None
 
         # ----------------------------------------------------------------
         # LONG SIGNAL: price breaks above upper band
