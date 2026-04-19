@@ -310,9 +310,21 @@ class PositionMonitor:
                 else:
                     new_tp = current_price * (1 - tp_pct)
                 new_tp = round(new_tp, 4)
-
                 self._db.update_trade_levels(trade_id, take_profit=new_tp)
-                self._db.set_state(f"momentum_ext_{trade_id}", ext_count + 1)
+                self._db.set_state(f"momentum_ext_{trade_id}", 0)
+                with self._db._conn() as conn:
+                    conn.execute(
+                        "UPDATE trades SET tp_hit_count = 0 WHERE trade_id = ?",
+                        (trade_id,)
+                    )
+                    conn.commit()               
+                # Also write to trades table for dashboard display
+                with self._db._conn() as conn:
+                    conn.execute(
+                        "UPDATE trades SET tp_hit_count = ? WHERE trade_id = ?",
+                        (ext_count + 1, trade_id)
+                    )
+                    conn.commit()
                 logger.info(
                     f"MOMENTUM RIDER: {symbol} TP extended "
                     f"${trade['take_profit']:.4f} → ${new_tp:.4f} "
@@ -328,7 +340,14 @@ class PositionMonitor:
                     f"Take-profit exit: {symbol} @ ${current_price:.4f} "
                     f"(P&L {pnl_pct:+.2f}%, extensions used: {ext_count})"
                 )
+
                 self._db.set_state(f"momentum_ext_{trade_id}", 0)
+                with self._db._conn() as conn:
+                    conn.execute(
+                        "UPDATE trades SET tp_hit_count = 0 WHERE trade_id = ?",
+                        (trade_id,)
+                    )
+                    conn.commit()                    
                 self._get_executor().close_trade(trade, current_price, "take_profit")
                 return
 
@@ -402,6 +421,7 @@ class PositionMonitor:
                 ),
                 # Pass through overnight flag for dashboard display
                 "is_overnight": bool(trade.get("is_overnight", False)),
+                "tp_hit_count": int(trade.get("tp_hit_count", 0)),              
             })
 
         return enriched

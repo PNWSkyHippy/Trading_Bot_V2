@@ -139,6 +139,12 @@ class Backtester:
         except ImportError:
             raise ImportError("Run: pip install --upgrade yfinance --break-system-packages")
 
+        try:
+            import ccxt
+            self.ccxt = ccxt
+        except ImportError:
+            self.ccxt = None
+
         # TechnicalAnalysis used by the default scorer
         try:
             from scanners.market_scanner import TechnicalAnalysis
@@ -210,6 +216,148 @@ class Backtester:
             logger.error(f"fetch_history failed for {symbol}: {e}")
             return None
 
+    def fetch_history_crypto(self, symbol: str, days: int = 30,
+                              timeframe: str = "1h") -> Optional[pd.DataFrame]:
+        """
+        Download crypto OHLCV data via yfinance.
+        Symbol format: BTC/USD (slash) → converted to BTC-USD for Yahoo Finance.
+        """
+        yf_symbol = symbol.replace("/", "-")
+
+        cfg    = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
+        tf     = cfg["interval"]
+        max_d  = cfg["max_days"]
+        days   = min(days, max_d)
+
+        fetch_days = days + 5
+        end   = datetime.now()
+        start = end - timedelta(days=fetch_days)
+
+        logger.info(f"Fetching {days}d of {tf} crypto data for {yf_symbol} via yfinance…")
+
+        try:
+            ticker = self.yf.Ticker(yf_symbol)
+            df = ticker.history(
+                start       = start.strftime("%Y-%m-%d"),
+                end         = end.strftime("%Y-%m-%d"),
+                interval    = tf,
+                auto_adjust = True,
+            )
+
+            if df is None or df.empty:
+                logger.error(f"No yfinance data returned for {yf_symbol}")
+                return None
+
+            df.columns = [c.lower() for c in df.columns]
+
+            if df.index.tz is not None:
+                df.index = df.index.tz_localize(None)
+
+            cutoff = end - timedelta(days=days)
+            df = df[df.index >= pd.Timestamp(cutoff)]
+
+            if len(df) < 30:
+                logger.error(f"Only {len(df)} bars for {yf_symbol} — need ≥30")
+                return None
+
+            logger.info(f"  → {len(df)} bars  ({df.index[0].date()} – {df.index[-1].date()})")
+            return df
+
+        except Exception as e:
+            logger.error(f"fetch_history_crypto failed for {yf_symbol}: {e}")
+            return None
+
+        # Timeframe map: dashboard tf string → CCXT timeframe string
+        tf_map = {"5m": "5m", "1h": "1h", "1d": "1d"}
+        ccxt_tf = tf_map.get(timeframe, "1h")
+
+        cfg    = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
+        max_d  = cfg["max_days"]
+        days   = min(days, max_d)
+
+        # CCXT wants millisecond timestamp for since
+        since_ms = int(
+            (datetime.now() - timedelta(days=days)).timestamp() * 1000
+        )
+
+        # Bars per fetch (CCXT caps at 300 for most exchanges)
+        limit = 300
+
+        logger.info(f"Fetching {days}d of {ccxt_tf} crypto data for {symbol}…")
+
+        try:
+            # Convert symbol format for Kraken: BTC/USD → XBT/USD
+            kraken_sym = symbol.replace("BTC/", "XBT/")
+
+            exchange = self.ccxt.kraken({
+                "enableRateLimit": True,
+            })
+
+            # Must load markets first so Kraken recognizes symbols
+            try:
+                exchange.load_markets()
+            except Exception as e:
+                logger.warning(f"Kraken load_markets failed: {e}")
+
+            all_ohlcv = []
+            fetch_since = since_ms
+
+            # Paginate to get full history
+            while True:
+                try:
+                    ohlcv = exchange.fetch_ohlcv(
+                        kraken_sym, ccxt_tf, since=fetch_since, limit=limit
+                    )
+                except Exception as e:
+                    logger.warning(f"Kraken fetch failed for {kraken_sym}: {e} — trying Coinbase Pro")
+                    try:
+                        cb = self.ccxt.coinbasepro({"enableRateLimit": True})
+                        cb.load_markets()
+                        ohlcv = cb.fetch_ohlcv(
+                            symbol, ccxt_tf, since=fetch_since, limit=limit
+                        )
+                    except Exception as e2:
+                        logger.error(f"Both exchanges failed for {symbol}: {e2}")
+                        break
+
+                if not ohlcv:
+                    break
+
+                all_ohlcv.extend(ohlcv)
+
+                if len(ohlcv) < limit:
+                    break
+
+                # Advance since to last candle timestamp + 1ms
+                fetch_since = ohlcv[-1][0] + 1
+
+                # Stop if we've gone past now
+                if fetch_since > int(datetime.now().timestamp() * 1000):
+                    break
+
+            if not all_ohlcv:
+                logger.error(f"No crypto OHLCV data returned for {symbol}")
+                return None
+
+            df = pd.DataFrame(
+                all_ohlcv,
+                columns=["timestamp", "open", "high", "low", "close", "volume"]
+            )
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+            df = df.set_index("timestamp")
+            df = df[~df.index.duplicated(keep="last")]
+            df = df.sort_index()
+
+            if len(df) < 30:
+                logger.error(f"Only {len(df)} bars for {symbol} — need ≥30")
+                return None
+
+            logger.info(f"  → {len(df)} bars  ({df.index[0].date()} – {df.index[-1].date()})")
+            return df
+
+        except Exception as e:
+            logger.error(f"fetch_history_crypto failed for {symbol}: {e}")
+            return None
     # -----------------------------------------------------------------------
     # Default signal scorer (used when no specific strategy is selected)
     # -----------------------------------------------------------------------
@@ -581,10 +729,14 @@ class Backtester:
 
     def run(self, symbol: str, days: int = 365,
             starting_capital: float = None,
-            timeframe: str = "1h") -> Optional[BacktestResult]:
+            timeframe: str = "1h",
+            asset_class: str = "stock") -> Optional[BacktestResult]:
         """Run backtest using the default composite indicator scorer."""
         capital = starting_capital or self.starting_capital
-        df = self.fetch_history(symbol, days, timeframe)
+        if asset_class == "crypto":
+            df = self.fetch_history_crypto(symbol, days, timeframe)
+        else:
+            df = self.fetch_history(symbol, days, timeframe)
         if df is None or len(df) < 30:
             return None
         return self._simulate(symbol, df, "default", None, capital, timeframe)
@@ -592,13 +744,16 @@ class Backtester:
     def run_strategy(self, symbol: str, strategy_name: str,
                      days: int = 365,
                      starting_capital: float = None,
-                     timeframe: str = "1h") -> Optional[BacktestResult]:
+                     timeframe: str = "1h",
+                     asset_class: str = "stock") -> Optional[BacktestResult]:
         """Run backtest using one of the 8 named trading strategies."""
         capital = starting_capital or self.starting_capital
-        df = self.fetch_history(symbol, days, timeframe)
+        if asset_class == "crypto":
+            df = self.fetch_history_crypto(symbol, days, timeframe)
+        else:
+            df = self.fetch_history(symbol, days, timeframe)
         if df is None or len(df) < 30:
-            return None
-
+            return None   
         try:
             strategy_obj = self._load_strategy(strategy_name)
             if strategy_obj is None:
@@ -614,15 +769,16 @@ class Backtester:
 
     def run_all(self, symbols: List[str], strategy_name: str = None,
                 days: int = 365, starting_capital: float = None,
-                timeframe: str = "1h") -> List[BacktestResult]:
+                timeframe: str = "1h",
+                asset_class: str = "stock") -> List[BacktestResult]:
         """Run backtest across a list of symbols, return all results."""
         results = []
         for sym in symbols:
             if strategy_name:
                 r = self.run_strategy(sym, strategy_name, days,
-                                      starting_capital, timeframe)
+                                      starting_capital, timeframe, asset_class)
             else:
-                r = self.run(sym, days, starting_capital, timeframe)
+                r = self.run(sym, days, starting_capital, timeframe, asset_class)
             if r:
                 results.append(r)
         return results

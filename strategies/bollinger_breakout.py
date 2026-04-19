@@ -31,7 +31,14 @@ from strategies.base_strategy import BaseStrategy, TradeSignal
 # SMCI: extreme intraday volatility causes outsized losses that dwarf avg wins.
 # Update after each monthly backtest review.
 BOLLINGER_BLACKLIST = {"SMCI"}
-
+# Crypto pairs blacklisted based on Apr 2026 backtest (365d 1h)
+# These showed significant negative returns — counter-trend losers
+BOLLINGER_CRYPTO_BLACKLIST = {
+    "TON/USD", "AGIX/USD", "HOT/USD", "STRK/USD", "EOS/USD",
+    "OCEAN/USD", "REN/USD", "MKR/USD", "BAL/USD", "HT/USD",
+    "XMR/USD", "GT/USD", "ARB/USD", "BCH/USD", "XTZ/USD",
+    "RLC/USD", "FLOW/USD", "OKB/USD",
+}
 
 class BollingerBreakout(BaseStrategy):
 
@@ -138,6 +145,50 @@ class BollingerBreakout(BaseStrategy):
             return None
 
         # ----------------------------------------------------------------
+        # CRYPTO BLACKLIST — pairs with confirmed negative edge on 1h bars
+        # ----------------------------------------------------------------
+        if "/" in symbol and symbol.upper() in BOLLINGER_CRYPTO_BLACKLIST:
+            self.verbose_log_skip(symbol, f"In crypto blacklist — skipping {symbol}")
+            return None
+
+        # ----------------------------------------------------------------
+        # EMA200 TREND FILTER — only trade with the trend
+        # Long signals require price above EMA200 (uptrend)
+        # Short signals require price below EMA200 (downtrend)
+        # Filters counter-trend trades which are the biggest losers
+        # ----------------------------------------------------------------
+        try:
+            ema200 = ta.ema(candles["close"], length=200)
+            if ema200 is None or len(ema200) < 1 or pd.isna(ema200.iloc[-1]):
+                self.verbose_log_skip(symbol, "EMA200: insufficient data")
+                return None
+            ema200_val = ema200.iloc[-1]
+            price_above_ema200 = close > ema200_val
+            self.logger.info(f"[EMA200] {symbol}: close={close:.4f} ema200={ema200_val:.4f} above={price_above_ema200}")
+        except Exception as e:
+            self.verbose_log_skip(symbol, f"EMA200 calculation error: {e}")
+            return None
+
+        # ----------------------------------------------------------------
+        # RSI DIRECTION FILTER — RSI must be moving the right way
+        # Long: RSI rising over last 3 bars (momentum building up)
+        # Short: RSI falling over last 3 bars (momentum building down)
+        # ----------------------------------------------------------------
+        try:
+            rsi = ta.rsi(candles["close"], length=14)
+            if rsi is None or len(rsi) < 4:
+                self.verbose_log_skip(symbol, "RSI: insufficient data for direction check")
+                return None
+            rsi_now  = rsi.iloc[-1]
+            rsi_prev = rsi.iloc[-4]
+            rsi_rising  = rsi_now > rsi_prev
+            rsi_falling = rsi_now < rsi_prev
+            self.logger.info(f"[RSI] {symbol}: now={rsi_now:.1f} prev={rsi_prev:.1f} rising={rsi_rising} falling={rsi_falling}")
+        except Exception as e:
+            self.verbose_log_skip(symbol, f"RSI direction check error: {e}")
+            return None
+
+        # ----------------------------------------------------------------
         # LONG SIGNAL: price breaks above upper band
         # ----------------------------------------------------------------
         breaks_upper = close > upper
@@ -150,6 +201,13 @@ class BollingerBreakout(BaseStrategy):
             if not obv_rising:
                 self.logger.info(f"[OBV] {symbol}: LONG rejected — OBV not rising (rising={obv_rising})")
                 return None
+            if not price_above_ema200:
+                self.logger.info(f"[EMA200] {symbol}: LONG rejected — price below EMA200 (counter-trend)")
+                return None
+            if not rsi_rising:
+                self.logger.info(f"[RSI] {symbol}: LONG rejected — RSI not rising (rsi_now={rsi_now:.1f})")
+                return None
+
             breakout_pct = (close - upper) / upper if upper != 0 else 0
             score = min(1.0, min_score + squeeze_bonus + breakout_pct * 2)
             self.verbose_log_score(symbol, score, min_score)
@@ -172,12 +230,18 @@ class BollingerBreakout(BaseStrategy):
         self.verbose_log(
             symbol, "Price breaks below lower Bollinger Band (short)",
             breaks_lower, close, f"<{lower:.4f}", "short"
-        )
-
+        ) 
         if breaks_lower:
             if not obv_falling:
                 self.logger.info(f"[OBV] {symbol}: SHORT rejected — OBV not falling (falling={obv_falling})")
                 return None
+            if price_above_ema200:
+                self.logger.info(f"[EMA200] {symbol}: SHORT rejected — price above EMA200 (counter-trend)")
+                return None
+            if not rsi_falling:
+                self.logger.info(f"[RSI] {symbol}: SHORT rejected — RSI not falling (rsi_now={rsi_now:.1f})")
+                return None
+            
             breakout_pct = (lower - close) / lower if lower != 0 else 0
             score = min(1.0, min_score + squeeze_bonus + breakout_pct * 2)
             self.verbose_log_score(symbol, score, min_score)
