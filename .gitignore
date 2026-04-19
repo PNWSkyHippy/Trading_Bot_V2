@@ -1,2 +1,3 @@
 logs/bot.log
 *.log
+data/trading_bot.db
