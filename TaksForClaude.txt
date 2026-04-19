@@ -1,0 +1,2 @@
+1) ck Trades, should close trades out at 3:45PM EST (15 minutes before market closes) unless Long Term trade has been flagged. Add option on dashboard for users manual trade enteries to mark a tade as long term , to override day trading closure. Bot may do so if deemed appropriate.
+2)  Vaarious ,essages are displayed after commands such as manuallly cancel a trade, saying things like Trade cannot be canceled. They need better focus, colored background perhaps to make then visible. Also in Backtests.

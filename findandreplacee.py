@@ -1,0 +1,1 @@
+(Get-Content dashboard.py) -replace '729', '720' | Set-Content dashboard.py
