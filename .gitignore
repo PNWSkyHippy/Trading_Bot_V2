@@ -10,3 +10,4 @@ venv311/
 venv312/
 exports/
 *.pyc
+*.ignore
