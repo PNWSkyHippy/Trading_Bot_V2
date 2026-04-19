@@ -1,3 +1,12 @@
 logs/bot.log
 *.log
 data/trading_bot.db
+.env
+*.db
+*.pkl
+logs/
+__pycache__/
+venv311/
+venv312/
+exports/
+*.pyc
