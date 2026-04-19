@@ -109,7 +109,7 @@ class BollingerBreakout(BaseStrategy):
             extra=f"upper={upper:.4f} lower={lower:.4f} mid={mid:.4f}"
         )
 
-        squeeze_bonus = 0.10 if np.squeeze else 0.0
+        squeeze_bonus = 0.10 if squeeze else 0.0
 
         # ----------------------------------------------------------------
         # OBV CONFIRMATION — filter fake breakouts with no volume support
@@ -121,8 +121,8 @@ class BollingerBreakout(BaseStrategy):
             if obv is None or len(obv) < 4:
                 self.verbose_log_skip(symbol, "OBV: insufficient data for confirmation")
                 return None
-            obv_now   = obv.iloc[-1]
-            obv_prev  = obv.iloc[-4]   # 3 bars ago
+            obv_now     = obv.iloc[-1]
+            obv_prev    = obv.iloc[-4]
             obv_rising  = obv_now > obv_prev
             obv_falling = obv_now < obv_prev
             self.logger.info(f"[OBV] {symbol}: rising={obv_rising} falling={obv_falling} now={round(obv_now,0)} prev={round(obv_prev,0)}")
@@ -147,6 +147,9 @@ class BollingerBreakout(BaseStrategy):
         )
 
         if breaks_upper:
+            if not obv_rising:
+                self.logger.info(f"[OBV] {symbol}: LONG rejected — OBV not rising (rising={obv_rising})")
+                return None
             breakout_pct = (close - upper) / upper if upper != 0 else 0
             score = min(1.0, min_score + squeeze_bonus + breakout_pct * 2)
             self.verbose_log_score(symbol, score, min_score)
@@ -172,6 +175,9 @@ class BollingerBreakout(BaseStrategy):
         )
 
         if breaks_lower:
+            if not obv_falling:
+                self.logger.info(f"[OBV] {symbol}: SHORT rejected — OBV not falling (falling={obv_falling})")
+                return None
             breakout_pct = (lower - close) / lower if lower != 0 else 0
             score = min(1.0, min_score + squeeze_bonus + breakout_pct * 2)
             self.verbose_log_score(symbol, score, min_score)
