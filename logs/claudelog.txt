@@ -1,4 +1,0 @@
-2026-04-13 06:54:40 [ERROR] core.trade_executor: Failed to close MRVL: position not found: MRVL
-2026-04-13 06:54:02 [ERROR] core.trade_executor: Failed to close NBIS: position not found: NBIS
-
-
