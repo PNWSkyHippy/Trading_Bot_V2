@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.barchart.com)",
+      "WebFetch(domain:stockanalysis.com)",
+      "WebSearch",
+      "WebFetch(domain:coinmarketcap.com)"
+    ]
+  }
+}
