@@ -1,4 +1,0 @@
-4) Explain to me the code logic behind when the take profit is 
-  moved up due to favorable conditions, and at what controls so 
-  it doesn't just move up forever but so it may have ridden that 
-  2000% increase on RAVE/USD for instance.
