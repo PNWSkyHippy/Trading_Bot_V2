@@ -5,3 +5,4 @@ param (
     [string]$FileName3
 )
 Get-Content t$FileName3) -replace $FileName1, $FileName2 | Set-Content $FileName3
+#test
