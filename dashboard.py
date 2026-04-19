@@ -504,7 +504,10 @@ if positions:
             "Entry $":       float(p["entry_price"]),
             "Current $":     float(p["current_price"]),
             "Stop Loss $":   float(p["stop_loss"]),
-            "Take Profit $": float(p["take_profit"]),
+            "Take Profit $": (
+                f"${p['take_profit']:.4f}"
+                + (" 🔴 *" + str(p.get("tp_hit_count", 0)) if p.get("tp_hit_count", 0) > 0 else "")
+            ),
             "Unreal P&L $":  float(pnl_val),
             "P&L %":         float(pnl_pct),
             "To SL %":       float(dist_sl),
@@ -865,8 +868,17 @@ section_note("Test any strategy on historical data. Charts show real equity curv
 bt_c1, bt_c2, bt_c3, bt_c4 = st.columns(4)
 
 with bt_c1:
-    all_symbols = ["ALL"] + sorted(config.STOCK_WATCHLIST)
-    bt_symbol   = st.selectbox("Symbol", all_symbols, index=0)
+    bt_asset = st.selectbox("Asset Class", ["Stocks", "Crypto"], index=0)
+    if bt_asset == "Stocks":
+        all_symbols = ["ALL"] + sorted(config.STOCK_WATCHLIST)
+    else:
+        try:
+            with open("watchlists/crypto.txt") as f:
+                crypto_list = [l.strip() for l in f if l.strip() and not l.startswith("#")]
+        except Exception:
+            crypto_list = []
+        all_symbols = ["ALL"] + sorted(crypto_list)
+    bt_symbol = st.selectbox("Symbol", all_symbols, index=0)
 
 with bt_c2:
     strategy_names = [
@@ -910,14 +922,22 @@ if run_bt:
 
         bt = Backtester(starting_capital=bt_capital)
 
-        if bt_symbol == "ALL":
-            symbols_to_test = [s for s in config.STOCK_WATCHLIST if "/" not in s and "-" not in s]
-        else:
-            if "/" in bt_symbol or "-" in bt_symbol:
-                notify_info(f"{bt_symbol} is a crypto pair — Yahoo Finance stocks only.")
-                symbols_to_test = []
+        if bt_asset == "Crypto":
+            if bt_symbol == "ALL":
+                try:
+                    with open("watchlists/crypto.txt") as f:
+                        symbols_to_test = [l.strip() for l in f if l.strip() and not l.startswith("#")]
+                except Exception:
+                    symbols_to_test = []
             else:
                 symbols_to_test = [bt_symbol]
+            data_source = "ccxt"
+        else:
+            if bt_symbol == "ALL":
+                symbols_to_test = [s for s in config.STOCK_WATCHLIST if "/" not in s and "-" not in s]
+            else:
+                symbols_to_test = [bt_symbol]
+            data_source = "yfinance"
 
         if bt_strategy == "ALL strategies":
             strategies_to_run = [
@@ -941,11 +961,18 @@ if run_bt:
             for strat in strategies_to_run:
                 for sym in symbols_to_test:
                     status_text.text(f"Testing {strat} on {sym} ({bt_tf}, {bt_days}d)…")
+ 
                     try:
-                        if strat == "original_scorer":
-                            result = bt.run(sym, bt_days, bt_capital, bt_tf)
+                        if data_source == "ccxt":
+                            if strat == "original_scorer":
+                                result = bt.run(sym, bt_days, bt_capital, bt_tf, asset_class="crypto")
+                            else:
+                                result = bt.run_strategy(sym, strat, bt_days, bt_capital, bt_tf, asset_class="crypto")
                         else:
-                            result = bt.run_strategy(sym, strat, bt_days, bt_capital, bt_tf)
+                            if strat == "original_scorer":
+                                result = bt.run(sym, bt_days, bt_capital, bt_tf)
+                            else:
+                                result = bt.run_strategy(sym, strat, bt_days, bt_capital, bt_tf) 
                         if result and result.total_trades > 0:
                             all_results.append((strat, sym, result))
                         else:
