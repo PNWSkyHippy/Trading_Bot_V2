@@ -31,7 +31,7 @@ from intelligence.backtester import Backtester, BacktestResult, print_portfolio_
 # ── config ────────────────────────────────────────────────────────────────────
 WATCHLIST_PATH = os.path.join(_root, "watchlists", "crypto.txt")
 STRATEGIES     = ["bollinger_breakout", "mean_reversion", "scalp_master", "dca_accumulator"]
-DAYS           = 730
+DAYS           = 365
 TIMEFRAME      = "1h"
 CAPITAL        = 10_000.0
 
