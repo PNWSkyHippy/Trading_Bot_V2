@@ -1,0 +1,15 @@
+ streamlit run dashboard.py  # Connect to dashboard
+#Run the bot
+ python bot_engine.py --verbose  
+>> venv312\Scripts\activate
+>> cd C:\Users\Linda\trading_bot_v2
+
+ venv312\Scripts\activate  #Acctivate virtual env for python
+python intelligence/backtester.py --all --days 730  #backtest trades
+ python intelligence/backtester.py --symbol AAPL --days 730 #one symbol
+py -3.12 -m venv venv312  #Create pythin virtual
+.\venv313\Scripts\activate   #Activate and use Virtual
+#status of settlement
+python -c "from core.settlement_tracker import settlement_tracker; import json; print(json.dumps(settlement_tracker.get_settlement_status(), indent=2))"
+ #start famous,ai trading bot
+c:\"Program Files"\nodejs\npm.cmd preview  
