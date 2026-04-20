@@ -18,16 +18,12 @@ webhook_url     = input.string("", "Webhook URL (for alerts)")
 // ─────────────────────────────────────────────
 dji_close = request.security("DJ:DJI", timeframe.period, close, lookahead=barmerge.lookahead_off)
 
-// Dow move over last N bars
 dji_now  = dji_close
 dji_prev = dji_close[lookback_bars]
-dow_move = dji_now - dji_prev          // positive = up, negative = down
+dow_move = dji_now - dji_prev
 
 // ─────────────────────────────────────────────
 // BANDWIDTH STATE MACHINE
-// Prevents rapid flickering at the 18-pt edge.
-// Once GREEN, stay green until Dow drops 10 pts
-// from the high that triggered it (and vice-versa).
 // ─────────────────────────────────────────────
 var float trigger_level = na
 var int   cloud_state   = 0   // 0=none, 1=green, -1=red
@@ -40,15 +36,12 @@ if cloud_state == 0
         cloud_state   := -1
         trigger_level := dji_now
 else if cloud_state == 1
-    // stay green unless Dow falls bandwidth below the trigger
     if dji_now < trigger_level - bandwidth_pts
         cloud_state   := 0
         trigger_level := na
-    // Update trigger upward so we track the new high
     if dji_now > trigger_level
         trigger_level := dji_now
 else if cloud_state == -1
-    // stay red unless Dow rises bandwidth above the trigger
     if dji_now > trigger_level + bandwidth_pts
         cloud_state   := 0
         trigger_level := na
@@ -60,25 +53,17 @@ widget_red   = cloud_state == -1
 
 // ─────────────────────────────────────────────
 // RSI  (5-second resolution, length 14, SMA type)
-// FIX Apr 2026: changed lookahead_off → lookahead_on
-// so the RSI value gating signals matches the RSI
-// value displayed in the RSI panel. Previously the
-// gate was reading the prior completed 5s bar while
-// the panel showed the current bar — causing false
-// signals when RSI appeared in the wrong zone.
+// FIX Apr 2026: lookahead_on so gating RSI matches
+// the displayed RSI panel value exactly.
 // ─────────────────────────────────────────────
-rsi_src_5s = request.security(syminfo.tickerid, "5S", close,
-             gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+rsi_src_5s = request.security(syminfo.tickerid, "5S", close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
 
-// Manual SMA-smoothed RSI (Pine's ta.rsi uses RMA; we need SMA)
-rsi_delta = ta.change(rsi_src_5s)
-rsi_up    = math.max(rsi_delta, 0)
-rsi_down  = -math.min(rsi_delta, 0)
+rsi_delta    = ta.change(rsi_src_5s)
+rsi_up       = math.max(rsi_delta, 0)
+rsi_down     = -math.min(rsi_delta, 0)
 rsi_avg_up   = ta.sma(rsi_up,   rsi_length)
 rsi_avg_down = ta.sma(rsi_down, rsi_length)
-rsi_val = rsi_avg_down == 0 ? 100 :
-          rsi_avg_up   == 0 ?   0 :
-          100 - (100 / (1 + rsi_avg_up / rsi_avg_down))
+rsi_val      = rsi_avg_down == 0 ? 100 : rsi_avg_up == 0 ? 0 : 100 - (100 / (1 + rsi_avg_up / rsi_avg_down))
 
 rsi_long_ok  = rsi_val <= 48
 rsi_short_ok = rsi_val >= 52
@@ -100,30 +85,18 @@ go_short = widget_red   and rsi_short_ok and macd_falling
 // ─────────────────────────────────────────────
 // BACKGROUND CLOUD
 // ─────────────────────────────────────────────
-bgcolor(widget_green ? color.new(color.green, 80) :
-        widget_red   ? color.new(color.red,   80) :
-        na,
-        title="Widget Cloud")
+cloud_color = widget_green ? color.new(color.green, 80) : widget_red ? color.new(color.red, 80) : na
+bgcolor(cloud_color, title="Widget Cloud")
 
 // Signal markers
-plotshape(go_long,  title="GO LONG",  location=location.belowbar,
-          style=shape.triangleup,   color=color.lime,  size=size.normal)
-plotshape(go_short, title="GO SHORT", location=location.abovebar,
-          style=shape.triangledown, color=color.red,   size=size.normal)
+plotshape(go_long,  title="GO LONG",  location=location.belowbar, style=shape.triangleup,   color=color.lime, size=size.normal)
+plotshape(go_short, title="GO SHORT", location=location.abovebar, style=shape.triangledown, color=color.red,  size=size.normal)
 
 // ─────────────────────────────────────────────
 // ALERTS / WEBHOOK
 // ─────────────────────────────────────────────
-// Build JSON payload strings
-long_payload  = '{"direction":"long","rsi":' + str.tostring(math.round(rsi_val, 2)) +
-                ',"macd_direction":"rising"' +
-                ',"dow_move":' + str.tostring(math.round(dow_move, 2)) +
-                ',"widget_color":"green"}'
-
-short_payload = '{"direction":"short","rsi":' + str.tostring(math.round(rsi_val, 2)) +
-                ',"macd_direction":"falling"' +
-                ',"dow_move":' + str.tostring(math.round(dow_move, 2)) +
-                ',"widget_color":"red"}'
+long_payload  = '{"direction":"long","rsi":'  + str.tostring(math.round(rsi_val, 2)) + ',"macd_direction":"rising","dow_move":'  + str.tostring(math.round(dow_move, 2)) + ',"widget_color":"green"}'
+short_payload = '{"direction":"short","rsi":' + str.tostring(math.round(rsi_val, 2)) + ',"macd_direction":"falling","dow_move":' + str.tostring(math.round(dow_move, 2)) + ',"widget_color":"red"}'
 
 alertcondition(go_long,  title="GO LONG Signal",  message=long_payload)
 alertcondition(go_short, title="GO SHORT Signal", message=short_payload)
