@@ -7,6 +7,7 @@
   3. Picks the highest-scoring signal per symbol
   4. Tracks per-strategy performance (win rate, profit factor)
   5. Auto-disables strategies below minimum win rate
+     (skipped for strategies with auto_disable_exempt=True)
   6. Provides performance dashboard data
 =============================================================
 """
@@ -64,8 +65,10 @@ class StrategyEngine:
             f"Strategy engine initialized with {len(self.strategies)} strategies:"
         )
         for s in self.strategies:
-            status = "ENABLED" if s.enabled else "DISABLED"
-            logger.info(f"  {s.name}: {status}")
+            status   = "ENABLED"  if s.enabled           else "DISABLED"
+            ml_flag  = " [ML-EXEMPT]"      if getattr(s, "ml_exempt",           False) else ""
+            ad_flag  = " [NO-AUTO-DISABLE]" if getattr(s, "auto_disable_exempt", False) else ""
+            logger.info(f"  [{status}] {s.name}{ml_flag}{ad_flag}")
 
     def get_all_strategies(self) -> List[BaseStrategy]:
         """Return all strategy objects (used by bot_engine for startup logging)."""
@@ -107,6 +110,10 @@ class StrategyEngine:
         Run all enabled strategies against one symbol.
         Returns a list of StrategySignalCompat objects (compatible with
         the Signal format expected by market_scanner).
+
+        The ml_exempt flag from each strategy is passed through in the
+        indicators dict so that market_scanner / ml_scorer can skip
+        ML blending for protected strategies.
         """
         results = []
 
@@ -122,18 +129,20 @@ class StrategyEngine:
                     continue
 
                 # Wrap into a StrategySignalCompat for the scanner
+                # Pass ml_exempt through so market_scanner can skip ML blending
                 compat = StrategySignalCompat(
-                    symbol               = symbol,
-                    asset_class          = asset_class,
-                    direction            = trade_signal.direction,
-                    score                = trade_signal.score,
-                    current_price        = price,
-                    indicators           = trade_signal.metadata or {},
-                    reason               = trade_signal.reason,
-                    strategy_name        = strategy.strategy_name,
-                    custom_stop_loss_pct = trade_signal.stop_loss_pct,
+                    symbol                 = symbol,
+                    asset_class            = asset_class,
+                    direction              = trade_signal.direction,
+                    score                  = trade_signal.score,
+                    current_price          = price,
+                    indicators             = trade_signal.metadata or {},
+                    reason                 = trade_signal.reason,
+                    strategy_name          = strategy.strategy_name,
+                    custom_stop_loss_pct   = trade_signal.stop_loss_pct,
                     custom_take_profit_pct = trade_signal.take_profit_pct,
-                    custom_position_pct  = None,  # set per-strategy if needed
+                    custom_position_pct    = None,
+                    ml_exempt              = getattr(strategy, "ml_exempt", False),
                 )
                 results.append(compat)
 
@@ -170,9 +179,24 @@ class StrategyEngine:
         self._evaluate_strategy(strategy_name)
 
     def _evaluate_strategy(self, strategy_name: str):
-        """Check if a strategy should be auto-disabled or re-enabled."""
+        """
+        Check if a strategy should be auto-disabled or re-enabled.
+
+        Skipped entirely for strategies with auto_disable_exempt=True.
+        These strategies are critical infrastructure (e.g. the only coverage
+        for an asset class) and must not be taken offline by the auto-disable
+        system regardless of win rate performance.
+        """
         strategy = self._get_strategy(strategy_name)
         if strategy is None:
+            return
+
+        # Never auto-disable exempt strategies — log and return
+        if getattr(strategy, "auto_disable_exempt", False):
+            logger.debug(
+                f"[AUTO-DISABLE SKIPPED] '{strategy_name}' is exempt "
+                f"(auto_disable_exempt=True) — win rate check bypassed"
+            )
             return
 
         stats = self.get_strategy_stats(strategy_name)
@@ -244,7 +268,9 @@ class StrategyEngine:
         all_stats = []
         for strategy in self.strategies:
             stats = self.get_strategy_stats(strategy.name)
-            stats["enabled"] = strategy.enabled
+            stats["enabled"]           = strategy.enabled
+            stats["ml_exempt"]         = getattr(strategy, "ml_exempt",           False)
+            stats["auto_disable_exempt"]= getattr(strategy, "auto_disable_exempt", False)
             all_stats.append(stats)
         return all_stats
 
@@ -272,10 +298,12 @@ class StrategyEngine:
         """List all strategies with their current state."""
         return [
             {
-                "name":        s.name,
-                "enabled":     s.enabled,
-                "description": s.__class__.__doc__.strip().split("\n")[0]
-                               if s.__class__.__doc__ else s.name,
+                "name":               s.name,
+                "enabled":            s.enabled,
+                "ml_exempt":          getattr(s, "ml_exempt",           False),
+                "auto_disable_exempt":getattr(s, "auto_disable_exempt", False),
+                "description":        s.__class__.__doc__.strip().split("\n")[0]
+                                      if s.__class__.__doc__ else s.name,
             }
             for s in self.strategies
         ]
@@ -300,18 +328,24 @@ class StrategySignalCompat:
     """
     Lightweight wrapper that presents a TradeSignal in the format
     that market_scanner.py and trade_executor.py expect.
+
+    ml_exempt is passed through in the indicators dict under the key
+    'ml_exempt' so that market_scanner's ML scoring step can check it
+    and skip blending for protected strategies.
     """
     __slots__ = [
         "symbol", "asset_class", "direction", "score",
         "current_price", "indicators", "reason",
         "strategy_name", "custom_stop_loss_pct",
-        "custom_take_profit_pct", "custom_position_pct"
+        "custom_take_profit_pct", "custom_position_pct",
+        "ml_exempt"
     ]
 
     def __init__(self, symbol, asset_class, direction, score,
                  current_price, indicators, reason,
                  strategy_name, custom_stop_loss_pct,
-                 custom_take_profit_pct, custom_position_pct):
+                 custom_take_profit_pct, custom_position_pct,
+                 ml_exempt=False):
         self.symbol                 = symbol
         self.asset_class            = asset_class
         self.direction              = direction
@@ -323,12 +357,14 @@ class StrategySignalCompat:
             "custom_stop_loss_pct":    custom_stop_loss_pct,
             "custom_take_profit_pct":  custom_take_profit_pct,
             "custom_position_pct":     custom_position_pct,
+            "ml_exempt":               ml_exempt,
         }
         self.reason                 = reason
         self.strategy_name          = strategy_name
         self.custom_stop_loss_pct   = custom_stop_loss_pct
         self.custom_take_profit_pct = custom_take_profit_pct
         self.custom_position_pct    = custom_position_pct
+        self.ml_exempt              = ml_exempt
 
 
 # Singleton
