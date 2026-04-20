@@ -117,7 +117,7 @@ class BollingerBreakout(BaseStrategy):
         )
 
         squeeze_bonus = 0.10 if squeeze else 0.0
-        """""
+
         # ----------------------------------------------------------------
         # OBV CONFIRMATION — filter fake breakouts with no volume support
         # OBV must be trending up over last 3 bars for long signals,
@@ -145,7 +145,6 @@ class BollingerBreakout(BaseStrategy):
         except Exception as e:
             self.verbose_log_skip(symbol, f"OBV calculation error: {e}")
             return None
-        """""
         # ----------------------------------------------------------------
         # CRYPTO BLACKLIST — pairs with confirmed negative edge on 1h bars
         # ----------------------------------------------------------------
@@ -160,13 +159,14 @@ class BollingerBreakout(BaseStrategy):
         # Filters counter-trend trades which are the biggest losers
         # ----------------------------------------------------------------
         try:
-            ema200 = ta.ema(candles["close"], length=200)
-            if ema200 is None or len(ema200) < 1 or pd.isna(ema200.iloc[-1]):
-                self.verbose_log_skip(symbol, "EMA200: insufficient data")
+            ema50 = ta.ema(candles["close"], length=50)
+            if ema50 is None or len(ema50) < 1 or pd.isna(ema50.iloc[-1]):
+                self.verbose_log_skip(symbol, "EMA50: insufficient data")
                 return None
-            ema200_val = ema200.iloc[-1]
+            ema200_val = ema50.iloc[-1]  # keeping variable name for compatibility
             price_above_ema200 = close > ema200_val
-            self.logger.info(f"[EMA200] {symbol}: close={close:.4f} ema200={ema200_val:.4f} above={price_above_ema200}")
+            self.logger.info(f"[EMA50] {symbol}: close={close:.4f} ema50={ema200_val:.4f} above={price_above_ema200}")
+
         except Exception as e:
             self.verbose_log_skip(symbol, f"EMA200 calculation error: {e}")
             return None
