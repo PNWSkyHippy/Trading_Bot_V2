@@ -229,7 +229,7 @@ class CryptoScanner:
                 logger.warning(f"Kraken init failed: {e}")
 
     def get_ohlcv(self, pair: str, timeframe: str = "5m",
-                  limit: int = 100,
+                  limit: int = 210,
                   exchange=None) -> Optional[pd.DataFrame]:
         ex = exchange or self.coinbase
         try:
