@@ -60,9 +60,15 @@ widget_red   = cloud_state == -1
 
 // ─────────────────────────────────────────────
 // RSI  (5-second resolution, length 14, SMA type)
+// FIX Apr 2026: changed lookahead_off → lookahead_on
+// so the RSI value gating signals matches the RSI
+// value displayed in the RSI panel. Previously the
+// gate was reading the prior completed 5s bar while
+// the panel showed the current bar — causing false
+// signals when RSI appeared in the wrong zone.
 // ─────────────────────────────────────────────
 rsi_src_5s = request.security(syminfo.tickerid, "5S", close,
-             gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
+             gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
 
 // Manual SMA-smoothed RSI (Pine's ta.rsi uses RMA; we need SMA)
 rsi_delta = ta.change(rsi_src_5s)
