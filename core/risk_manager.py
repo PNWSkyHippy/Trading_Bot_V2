@@ -142,8 +142,8 @@ class RiskManager:
             return False, "10% daily loss ceiling reached. Trading halted until tomorrow."
         """ RON HERE """
         if self._session.get("consecutive_losses", 0) >= config.MAX_CONSECUTIVE_LOSSES:
-            self._halt_trading("3 consecutive losses triggered halt")
-            return False, "3 consecutive losing trades. Trading halted until tomorrow."
+            self._halt_trading("10 consecutive losses triggered halt")
+            return False, "10 consecutive losing trades. Trading halted until tomorrow."
     
         open_trades = db.get_open_trades()
         if len(open_trades) >= config.MAX_OPEN_POSITIONS:
