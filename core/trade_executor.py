@@ -40,6 +40,22 @@ class AlpacaExecutor:
 
     def submit_order(self, symbol: str, qty: float, side: str,
                      stop_loss: float, take_profit: float) -> Optional[Dict]:
+        """
+        Submit a stock order to Alpaca.
+
+        Alpaca silently rejects bracket orders for symbols with 1-2 character
+        tickers (e.g. V, GE, ON). These orders appear 'submitted' on our side
+        but never appear in the Alpaca account, causing ghost trades.
+
+        Fix: detect short symbols and submit a plain market order instead.
+        SL/TP for these trades will be managed by position_monitor.py,
+        exactly the same way crypto SL/TP is handled.
+        """
+        # ── Short-symbol fallback (1-2 char tickers reject bracket orders) ──
+        if len(symbol) <= 2:
+            return self._submit_plain_market(symbol, qty, side, stop_loss, take_profit)
+
+        # ── Normal bracket order ─────────────────────────────────────────────
         try:
             order = self.api.submit_order(
                 symbol        = symbol,
@@ -52,17 +68,58 @@ class AlpacaExecutor:
                 take_profit   = {"limit_price": str(round(take_profit, 2))}
             )
             logger.info(
-                f"Alpaca order submitted: {symbol} {side} {qty} shares | "
+                f"Alpaca bracket order submitted: {symbol} {side} {qty} shares | "
                 f"SL={stop_loss} TP={take_profit} | Order ID: {order.id}"
             )
             return {
                 "broker_order_id":  order.id,
                 "status":           order.status,
                 "filled_qty":       float(order.filled_qty or 0),
-                "filled_avg_price": float(order.filled_avg_price or 0)
+                "filled_avg_price": float(order.filled_avg_price or 0),
+                "manual_sl_tp":     False
             }
         except Exception as e:
-            logger.error(f"Alpaca order failed for {symbol}: {e}")
+            logger.error(f"Alpaca bracket order failed for {symbol}: {e}")
+            # If bracket order fails for any other reason, attempt plain market
+            # order as a last-resort fallback so we don't silently drop the signal.
+            logger.warning(
+                f"Falling back to plain market order for {symbol} "
+                f"(bracket rejected — SL/TP will be managed by position monitor)"
+            )
+            return self._submit_plain_market(symbol, qty, side, stop_loss, take_profit)
+
+    def _submit_plain_market(self, symbol: str, qty: float, side: str,
+                             stop_loss: float, take_profit: float) -> Optional[Dict]:
+        """
+        Submit a plain market order (no bracket) and flag the result so the
+        trade record notes that SL/TP is managed by position_monitor.py.
+
+        Used for:
+          - 1-2 character symbols (Alpaca bracket limitation)
+          - Fallback when a bracket order is rejected for any other reason
+        """
+        try:
+            order = self.api.submit_order(
+                symbol        = symbol,
+                qty           = round(qty, 0) if qty >= 1 else qty,
+                side          = side,
+                type          = "market",
+                time_in_force = "day"
+            )
+            logger.info(
+                f"Alpaca plain market order submitted: {symbol} {side} "
+                f"{qty} shares | SL/TP managed by position monitor | "
+                f"SL={stop_loss:.4f} TP={take_profit:.4f} | Order ID: {order.id}"
+            )
+            return {
+                "broker_order_id":  order.id,
+                "status":           order.status,
+                "filled_qty":       float(order.filled_qty or 0),
+                "filled_avg_price": float(order.filled_avg_price or 0),
+                "manual_sl_tp":     True   # flag for logging purposes
+            }
+        except Exception as e:
+            logger.error(f"Alpaca plain market order also failed for {symbol}: {e}")
             return None
 
     def close_position(self, symbol: str) -> bool:
@@ -232,6 +289,13 @@ class TradeExecutor:
             take_profit = entry_price * (1 - tp_pct)
 
         broker_name = self._get_broker_name(signal)
+
+        # Note in log if this trade uses manual SL/TP tracking
+        if broker_result.get("manual_sl_tp"):
+            logger.info(
+                f"[SHORT TICKER] {signal.symbol} — bracket order not supported. "
+                f"SL=${stop_loss:.4f} TP=${take_profit:.4f} tracked by position monitor."
+            )
 
         # Log trade to database
         trade_record = {
