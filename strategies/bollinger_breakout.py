@@ -117,7 +117,7 @@ class BollingerBreakout(BaseStrategy):
         )
 
         squeeze_bonus = 0.10 if squeeze else 0.0
-
+        """""
         # ----------------------------------------------------------------
         # OBV CONFIRMATION — filter fake breakouts with no volume support
         # OBV must be trending up over last 3 bars for long signals,
@@ -145,7 +145,7 @@ class BollingerBreakout(BaseStrategy):
         except Exception as e:
             self.verbose_log_skip(symbol, f"OBV calculation error: {e}")
             return None
-
+        """""
         # ----------------------------------------------------------------
         # CRYPTO BLACKLIST — pairs with confirmed negative edge on 1h bars
         # ----------------------------------------------------------------
