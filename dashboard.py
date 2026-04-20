@@ -675,7 +675,7 @@ else:
 #  MANUAL TRADE ENTRY
 # ----------------------------------------------------------
 st.markdown("### ✍️ Manual Trade Entry")
-section_note("Enter a trade you spotted yourself — bot fetches live price and manages it with trailing stops.")
+section_note("Enter a trade you spotted yourself — bot submits to broker and manages it with trailing stops.")
 with st.expander("➕ Open Manual Trade", expanded=False):
     mc1, mc2, mc3 = st.columns(3)
     with mc1:
@@ -684,12 +684,12 @@ with st.expander("➕ Open Manual Trade", expanded=False):
         m_asset     = st.selectbox("Asset Class", ["crypto", "stock"])
     with mc2:
         m_size      = st.number_input("Position Size ($)", min_value=1.0, value=2000.0)
-        m_broker    = st.selectbox("Broker", ["kraken", "coinbase", "alpaca", "paper"])
+        m_broker    = st.selectbox("Broker", ["alpaca", "coinbase", "kraken", "paper"])
         m_overnight = st.checkbox(
             "🌙 Hold Overnight (!Day_Trade)",
             value=False,
             help="Stock will NOT be auto-closed at 15:45 ET. Use for swing trades only."
-        )       
+        )
     with mc3:
         m_sl_pct    = st.number_input("Stop Loss %", min_value=0.1, value=1.5, step=0.1)
         m_tp_pct    = st.number_input("Take Profit %", min_value=0.1, value=3.0, step=0.1)
@@ -745,25 +745,83 @@ with st.expander("➕ Open Manual Trade", expanded=False):
                     sl = m_entry * (1 + m_sl_pct / 100)
                     tp = m_entry * (1 - m_tp_pct / 100)
 
+                side = "buy" if m_direction == "long" else "sell"
+
+                # ── Submit to Alpaca FIRST for stock trades ───────────────
+                # Previously this wrote directly to SQLite without calling
+                # the broker API, causing ghost trades (DB said open, Alpaca
+                # never received it, position monitor cleaned it as ghost).
+                #
+                # Crypto manual trades are correct as-is: they use paper
+                # simulation and SL/TP is tracked locally by position_monitor,
+                # consistent with how all crypto trades work.
+                # Only stock+alpaca needs real broker API submission.
+                broker_order_id   = None
+                actual_fill_price = m_entry  # updated from broker response if available
+
+                if m_broker == "alpaca" and m_asset == "stock":
+                    from core.trade_executor import AlpacaExecutor
+                    alpaca_ex = AlpacaExecutor()
+                    result = alpaca_ex.submit_order(
+                        symbol      = sym_upper,
+                        qty         = round(qty, 0) if qty >= 1 else qty,
+                        side        = side,
+                        stop_loss   = round(sl, 2),
+                        take_profit = round(tp, 2)
+                    )
+                    if result is None:
+                        notify_error(
+                            f"Alpaca rejected the order for {sym_upper}. "
+                            f"Check the bot log for the exact error."
+                        )
+                        st.stop()
+                    broker_order_id   = result.get("broker_order_id")
+                    fill_price        = result.get("filled_avg_price", 0)
+                    actual_fill_price = fill_price if fill_price and fill_price > 0 else m_entry
+                    dash_logger.info(
+                        f"Manual stock trade submitted to Alpaca: {sym_upper} {side} "
+                        f"qty={round(qty, 4)} | order_id={broker_order_id} | "
+                        f"fill=${actual_fill_price:.4f} | "
+                        f"{'plain market (short ticker)' if result.get('manual_sl_tp') else 'bracket order'}"
+                    )
+
+                # Recalculate SL/TP at actual fill price
+                if m_direction == "long":
+                    sl  = actual_fill_price * (1 - m_sl_pct / 100)
+                    tp  = actual_fill_price * (1 + m_tp_pct / 100)
+                else:
+                    sl  = actual_fill_price * (1 + m_sl_pct / 100)
+                    tp  = actual_fill_price * (1 - m_tp_pct / 100)
+                qty = m_size / actual_fill_price
+
+                # ── Write to DB only after broker accepted (or paper/crypto) ─
                 conn = sqlite3.connect(config.DB_PATH)
                 conn.execute("""
                     INSERT INTO trades
                         (trade_id, symbol, asset_class, direction, status,
                          entry_time, entry_price, quantity, position_value,
                          stop_loss, take_profit, pnl, pnl_pct,
-                         signal_score, broker, strategy_name, is_overnight)
-                    VALUES (?,?,?,?,?,?,?,?,?,?,?,0,0,1.0,?,?,?)
+                         signal_score, broker, strategy_name, is_overnight,
+                         broker_order_id)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,0,0,1.0,?,?,?,?)
                 """, (
                     trade_id, sym_upper, m_asset, m_direction, "open",
-                    dt.utcnow().isoformat(), m_entry, round(qty, 6), round(m_size, 2),
-                    round(sl, 6), round(tp, 6), m_broker, m_strat,
-                    1 if m_overnight else 0 
+                    dt.utcnow().isoformat(),
+                    round(actual_fill_price, 6),
+                    round(qty, 6),
+                    round(m_size, 2),
+                    round(sl, 6),
+                    round(tp, 6),
+                    m_broker, m_strat,
+                    1 if m_overnight else 0,
+                    broker_order_id
                 ))
                 conn.commit()
                 conn.close()
                 notify_success(
-                    f"{m_direction.upper()} {sym_upper} opened @ ${m_entry:.6f} | "
-                    f"SL: ${sl:.6f} | TP: ${tp:.6f} | Qty: {qty:.4f}"
+                    f"{m_direction.upper()} {sym_upper} opened @ ${actual_fill_price:.6f} | "
+                    f"SL: ${sl:.6f} | TP: ${tp:.6f} | Qty: {qty:.4f} | "
+                    f"Broker: {m_broker}"
                 )
                 st.cache_data.clear()
                 st.rerun()
@@ -961,7 +1019,7 @@ if run_bt:
             for strat in strategies_to_run:
                 for sym in symbols_to_test:
                     status_text.text(f"Testing {strat} on {sym} ({bt_tf}, {bt_days}d)…")
- 
+
                     try:
                         if data_source == "ccxt":
                             if strat == "original_scorer":
@@ -972,7 +1030,7 @@ if run_bt:
                             if strat == "original_scorer":
                                 result = bt.run(sym, bt_days, bt_capital, bt_tf)
                             else:
-                                result = bt.run_strategy(sym, strat, bt_days, bt_capital, bt_tf) 
+                                result = bt.run_strategy(sym, strat, bt_days, bt_capital, bt_tf)
                         if result and result.total_trades > 0:
                             all_results.append((strat, sym, result))
                         else:
