@@ -1,7 +1,8 @@
 # Autonomous Day Trading AI — Project Summary
 
-**Date:** April 17, 2026
+**Date:** April 20, 2026
 **Project Location:** `C:\Users\Linda\trading_bot_v2`
+**GitHub:** https://github.com/PNWSkyHippy/Trading_Bot_V2 (private)
 **Status:** Running in paper trading mode (Alpaca stocks + Coinbase/Kraken crypto)
 **Capital:** ~$100,214 (Alpaca paper account)
 
@@ -28,90 +29,109 @@
 
 ## Project Architecture
 
-```
-trading_bot_v2/
-├── bot_engine.py              ← MAIN ENTRY POINT
-├── dashboard.py               ← Streamlit browser dashboard (port 8501)
-├── config.py                  ← All settings, API keys, parameters
-├── requirements.txt
-├── symbol_params.json         ← Scalp master adaptive SL/TP per symbol
-├── full_strategy_stress_test.py ← Adversarial backtest battery
-├── .env                       ← API keys (never commit)
-│
-├── core/
-│   ├── risk_manager.py        ← All risk rules enforced here
-│   ├── trade_executor.py      ← Sends orders to brokers
-│   ├── position_monitor.py    ← Watches open trades, trailing stops
-│   ├── broker_manager.py      ← Multi-broker management
-│   ├── inverse_etf_mapper.py  ← Maps bearish signals to inverse ETFs
-│   └── kraken_executor.py     ← Kraken crypto trading
-│
-├── scanners/
-│   └── market_scanner.py      ← Scans stocks + crypto, routes through strategy engine
-│
-├── strategies/
-│   ├── base_strategy.py
-│   ├── strategy_engine.py
-│   ├── bollinger_breakout.py  ← ENABLED — Run C params, SMCI blacklisted
-│   ├── mean_reversion.py      ← ENABLED — symbol whitelist added
-│   ├── scalp_master.py        ← ENABLED — 8-symbol whitelist, adaptive SL/TP
-│   ├── dca_accumulator.py     ← ENABLED
-│   ├── rsi_momentum.py        ← DISABLED (negative expectancy)
-│   ├── ema_crossover.py       ← DISABLED (fails slippage test)
-│   ├── swing_trader.py        ← DISABLED (insufficient sample size)
-│   └── grid_bot.py            ← DISABLED (confirmed abandon)
-│
-├── intelligence/
-│   ├── claude_reviewer.py     ← Claude autonomous signal reviewer
-│   │                             CURRENTLY DISABLED (API limit, resets May 1)
-│   ├── chat_interface.py      ← Claude AI chat (commands + context)
-│   ├── condition_detector.py  ← Market condition classifier
-│   ├── ml_scorer.py           ← Random Forest ML model
-│   └── backtester.py          ← Historical backtesting engine
-│
-├── reporting/
-│   └── report_generator.py
-│
-├── data/
-│   ├── database.py
-│   └── trading_bot.db
-│
-├── watchlists/
-│   ├── stocks.txt             ← 121 symbols (expanded from 21)
-│   └── crypto.txt             ← 115 pairs (expanded from 30)
-│
-├── logs/
-│   └── bot.log
-└── exports/                   ← Tax CSVs
-```
-
 ---
 
 ## Active Strategy Status
 
 | Strategy | Status | Timeframe | Key Feature |
 |----------|--------|-----------|-------------|
-| **bollinger_breakout** | ENABLED | 5m | Run C params (period=20, std=2.0, sq=0.04, ms=0.70), SMCI blacklisted |
-| **mean_reversion** | ENABLED | 1h | Whitelist: NVDA,PLTR,MRVL,AMZN,INTC,AMD,META,TSLA,ALAB,NIO,MARA,IREN,CLS,CRWV,APLD,LUNR |
-| **scalp_master** | ENABLED | 5m | Whitelist: META,PLTR,ALAB,AMZN,GOOGL,MSFT,IREN,INTV. Adaptive SL/TP via symbol_params.json |
+| **bollinger_breakout** | ENABLED | 5m/1h | Triple filter: OBV + EMA50 + RSI direction. Stock blacklist: SMCI. Crypto blacklist: 18 pairs |
+| **mean_reversion** | ENABLED | 1h | Stock whitelist: NVDA,PLTR,MRVL,AMZN,INTC,AMD,META,TSLA,ALAB,NIO,MARA,IREN,CLS,CRWV,APLD,LUNR |
+| **scalp_master** | ENABLED | 5m | Stock whitelist: META,PLTR,ALAB,AMZN,GOOGL,MSFT,IREN,INTV |
 | **dca_accumulator** | ENABLED | 1h | Buy dips 2% below EMA50, RSI<=45 |
-| rsi_momentum | DISABLED | — | Negative expectancy confirmed |
-| ema_crossover | DISABLED | — | Fails 1x slippage test |
+| rsi_momentum | DISABLED | — | Negative expectancy |
+| ema_crossover | DISABLED | — | Fails slippage test |
 | swing_trader | DISABLED | — | Insufficient sample size |
 | grid_bot | DISABLED | — | Confirmed abandon |
 
 ---
 
-## Full Adversarial Stress Test Results (April 16, 2026)
+## Bollinger Breakout — Triple Filter Stack (Added April 20, 2026)
 
-| Strategy | Score | Verdict | PF | Sharpe | 1.5x Slip | Action |
-|----------|------:|---------|-----|--------|-----------|--------|
-| DCA Accumulator | 47 | Refine | 1.494 | 5.57 | 1.263 PASS | KEEP |
-| Bollinger Breakout | 44 | Refine | 1.380 | 9.58 | 1.076 PASS | KEEP |
-| Scalp Master | 44 | Refine | 1.857 | 27.29 | 1.273 PASS | KEEP |
-| EMA Crossover | 42 | Refine | 1.049 | 0.52 | 0.925 FAIL | DISABLED |
-| Mean Reversion | 37 | Abandon | 0.999 | -0.42 | 0.884 FAIL | WHITELIST FIX APPLIED |
-| Swing Trader | 32 | Abandon | 1.401 | -7.87 | 0.802 FAIL | DISABLED |
+All three filters must pass before any signal is generated:
+
+1. **OBV Confirmation** — On-Balance Volume must be rising (long) or falling (short) over 3 bars
+2. **EMA50 Trend Filter** — Price must be above EMA50 for longs, below for shorts
+3. **RSI Direction Filter** — RSI must be rising (long) or falling (short) over 3 bars
+
+**Stock Blacklist:** SMCI (extreme intraday volatility)
+
+**Crypto Blacklist (Apr 2026 backtest — 365d 1h):**
+TON/USD, AGIX/USD, HOT/USD, STRK/USD, EOS/USD, OCEAN/USD, REN/USD, MKR/USD, BAL/USD, HT/USD, XMR/USD, GT/USD, ARB/USD, BCH/USD, XTZ/USD, RLC/USD, FLOW/USD, OKB/USD
+
+---
+
+## Crypto Backtest Results (April 19, 2026 — 365d 1h, 115 pairs)
+
+**Bollinger Breakout** — only strategy that fires on crypto (mean_reversion and scalp_master are stock-only via whitelist, DCA fired on 3 pairs and lost on all)
+
+Top performing crypto pairs for bollinger:
+JUP, WLD, DASH, CBETH, WIF, OP, RETH, TIA, FIL, BONK, PYTH, SEI, AVAX, ALGO, ADA, ETH, SOL
+
+**Note:** Backtest did not include OBV/EMA50/RSI filters — live results should be better than backtest shows.
+
+---
+
+## Dashboard — Crypto Backtesting Added
+
+- Asset Class toggle (Stocks / Crypto) added to backtest panel
+- Crypto symbols populate from watchlists/crypto.txt
+- Uses yfinance with BTC/USD → BTC-USD conversion (no exchange API needed)
+- backtester.py: fetch_history_crypto() added, run_all() supports asset_class parameter
+- market_scanner.py: get_ohlcv default limit raised from 100 to 210 bars
+
+---
+
+## TP Hit Count — Dashboard Display
+
+- DB column: tp_hit_count INTEGER DEFAULT 0 (added to trades table)
+- position_monitor.py writes tp_hit_count on every momentum extension
+- Dashboard Take Profit column shows: $X.XXXX 🔴 *1 / *2 / *3 when extensions active
+
+---
+
+## Known Bugs (Pending Fix)
+
+1. **1-2 letter ticker bracket orders** — GE, BE, V, ON etc. silently rejected by Alpaca. Bot records as open, Alpaca never accepts. Fix: detect len(symbol) <= 2, fall back to simple market order + manual SL/TP via position monitor
+2. **use_container_width deprecation** — Streamlit warning, harmless until Dec 2025 deadline
+3. **Coinbase Non-base16 error** — harmless, falls back to paper mode
+4. **Dashboard capital display** — shows DB value not live Alpaca balance
+
+---
+
+## U-Shape Widget (Pine Script — TradingView)
+
+Separate from the trading bot. ES/MES futures trading assistant widget.
+
+**File:** UShapedWidget.txt in repo root
+
+**Current settings:**
+- Lookback: 20 bars, Threshold: 18pts, Bandwidth: 10pts
+- RSI: length=14, 5-second bars, thresholds 45 long / 55 short
+- MACD: 3/10/4 on 5-second source bars, requires 3 consecutive bars in direction
+- Signals: GO LONG (green triangle) / GO SHORT (red triangle)
+
+**Known issues:**
+- False arrows firing when RSI appears in wrong zone — root cause: request.security("5S") returning previous completed bar not current. Fix: change lookahead=barmerge.lookahead_off to lookahead_on
+- MACD panel on separate chart updates every 10 seconds vs 1 second on main chart — moved MACD to main panel as workaround
+
+**Pending fix:**
+```pine
+rsi_src_5s = request.security(syminfo.tickerid, "5S", close,
+             gaps=barmerge.gaps_on, lookahead=barmerge.lookahead_on)
+```
+
+---
+
+## ES Trading Assistant (Claude.ai Project)
+
+Separate Claude.ai Project with system prompt for prop firm ES/MES trading.
+- 5 conditions: Widget color, SPY direction, Dow spike, RSI quadrant, MACD direction
+- Response format: GO or NO, 2 lines max
+- RSI thresholds: <=48 long, >=52 short (based on prop firm training videos)
+- Used manually during trading session — automated webhook version planned
+
+**Prop firm eval status:** In progress. Lost first trade April 20 due to trailing drawdown rule (unrealized high watermark). Rule now understood, lockout switch removed.
 
 ---
 
@@ -135,106 +155,26 @@ trading_bot_v2/
 
 | Job | Schedule PT | ET | Description |
 |-----|------------|-----|-------------|
-| Stock scan | Every 60s | Mon-Fri 10:00-15:44 ET gated | ZoneInfo ET check |
+| Stock scan | Every 60s | Mon-Fri 10:00-15:44 ET | ZoneInfo ET check |
 | Crypto scan | Every 5 min | 24/7 | Always runs |
 | Stock EOD close | 12:45 PT weekdays | 15:45 ET | Closes non-overnight stocks |
-| Position monitor | Every 30s | 24/7 | Trailing stops |
+| Position monitor | Every 30s | 24/7 | Trailing stops + tp_hit_count |
 | Capital sync | Every 15 min | 24/7 | Syncs Alpaca |
 | EOD report | 14:00 PT | 17:00 ET | Email + SMS |
 | ML retrain | 15:00 PT | 18:00 ET | Random Forest |
-
-Machine is Pacific Time (Spokane WA). schedule.at() times are PT. Market hours use ZoneInfo ET in code.
-
----
-
-## Claude Autonomous Reviewer (intelligence/claude_reviewer.py)
-
-**Status: DISABLED** — API limit hit April 17. Resets May 1, 2026.
-
-**Architecture:**
-- Morning briefing once per hour (120 min cache) sets MarketContext
-- Per-signal review: APPROVE / REJECT / SKIP
-- Conservative fallback: ANY failure = SKIP, never default to APPROVE
-- Level 2 autonomy: veto power only, cannot initiate trades
-
-**Fixes needed before May 1 rebuild:**
-1. Tiered architecture: rules engine filters 1000 to 50 candidates, Claude only reviews top 50
-2. Batch signals: one API call evaluates 4-5 signals simultaneously
-3. Morning briefing on schedule (10 AM ET) not triggered by first signal
-4. Delta-only payloads: send only changed data
-5. JSON-only responses: no narrative in auto mode
-6. Target: 15-25 API calls/day at $0.50-2/day cost
-
-**40 Skills available in ~/.claude/Skills/ for reviewer v2:**
-- Daily open: market-environment-analysis, market-news-analyst, economic-calendar-fetcher, earnings-calendar, market-breadth-analyzer, market-top-detector, ftd-detector, sector-analyst, theme-detector, exposure-coach, stanley-druckenmiller
-- Per signal: us-stock-analysis, technical-analyst, earnings-trade-analyzer, institutional-flow-tracker
-- Pre-execution: position-sizer
-- Weekly: macro-regime-detector, backtest-expert
-
----
-
-## Key Bugs Fixed This Session
-
-1. **ETF Price Mismatch** — MSFT->TQQQ used MSFT price for TQQQ. Fixed: fetch real ETF price after remap in market_scanner.py
-2. **Stock scan after hours** — schedule library has no TZ. Fixed: ZoneInfo ET check inside _run_stock_scan()
-3. **Stock EOD close missing** — stocks open all weekend. Fixed: _close_stocks_eod() at 12:45 PT
-4. **Claude reviewer retry storm** — failed briefings retried every scan. Fixed: cache failures 120 min
-5. **Ghost positions** — APLD etc in DB not in Alpaca. Cleaned via SQL UPDATE
-6. **Strategy state persistence** — key format mismatch. Fixed: consistent strategy_{name}_enabled
-7. **Manual closes polluting stats** — fixed: skip when exit_reason == manual_close
-8. **Position monitor after hours** — stock price fetches failing. Fixed: _stock_market_open() check
-
----
-
-## !Day_Trade Overnight Flag
-
-- DB column: is_overnight INTEGER DEFAULT 0
-- Dashboard checkbox: Hold Overnight in manual trade form
-- EOD close skips is_overnight=1 positions
-- Bot-generated trades always is_overnight=0
-
----
-
-## Scalp Master Adaptive SL/TP
-
-- File: symbol_params.json (project root)
-- Recalculates every 20 closed scalp trades per symbol
-- new_sl = avg_actual_loss * 0.85
-- new_tp = max(avg_actual_win * 0.90, new_sl * 2.5)
-- MIN_RR = 2.5 enforced always
-- Thread-safe atomic file writes
-
----
-
-## Trailing Stop / TP Extension — Known Issue
-
-In position_monitor._process_position(), check_exit_conditions() fires BEFORE calculate_trailing_stop(). This means trades close AT the TP price instead of extending. To ride momentum moves the order needs reversing — extend TP first, then check exit against new levels.
-
-Momentum Rider Mode (not yet built): flip is_overnight=True on strong momentum, switch to trailing-stop-only mode, reorder exit logic.
-
----
-
-## Performance Goals vs Reality
-
-- Goal: 2% daily = ~$2,004/day on $100k
-- Need: ~60 completed trades/day at 66% win rate
-- Before expansion: 30-50 trades/day, 43-50% win rate
-- After Claude reviewer (disabled): 3-4 trades/day
-- After watchlist expansion: 26 positions open within one session
-- Best single day: ~0.7% ($700) on April 16, 2026
 
 ---
 
 ## Pending Work
 
-1. May 1: Claude reviewer tiered rebuild
-2. Momentum rider mode (reorder exit logic)
-3. DCA Accumulator NVDA blacklist
-4. Monitor expanded watchlist signal quality
-5. ES trading assistant Claude.ai Project for prop firm
-6. Fix dashboard capital display (DB value vs live Alpaca)
-7. use_container_width deprecation warnings in dashboard.py
-8. Coinbase Non-base16 error (harmless but noisy)
+1. **May 1** — Claude reviewer tiered rebuild
+2. **Widget RSI lookahead fix** — change lookahead_off to lookahead_on
+3. **1-2 letter ticker fix** — bracket order fallback for short symbols
+4. **Momentum rider mode** — reorder exit logic in position_monitor
+5. **Dashboard capital display** — DB value vs live Alpaca
+6. **use_container_width** — replace with width='stretch'/'content'
+7. **Webhook automation** — Pine Script → Python middleware → Alpaca for ES trades
+8. **DCA Accumulator NVDA blacklist**
 
 ---
 
@@ -242,7 +182,8 @@ Momentum Rider Mode (not yet built): flip is_overnight=True on strong momentum, 
 
 - Python 3.12, venv at venv312
 - 4-space indentation, no tabs
-- PowerShell: use semicolons on one line for -c commands (multiline gets scrambled)
-- Streamlit port 8501, other apps use --server.port 8502
-- Close old browser tabs before restart to avoid React error 185
-- User background: BASIC, COBOL, C, C++, Pascal, mainframe assembly
+- PowerShell: multiline -c commands fail — always use script files instead
+- Streamlit port 8501
+- GitHub: https://github.com/PNWSkyHippy/Trading_Bot_V2 (private)
+- .env excluded from git — PGP encrypt for cloud backup
+- User background: BASIC, COBOL, C, C++, Pascal, mainframe assembly, Spokane WA
