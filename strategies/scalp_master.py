@@ -2,7 +2,7 @@
 scalp_master.py — Strategy 5: Scalp Master
 Trading Bot v2
 
-High-frequency scalping with tight stops (0.5%) and quick profit targets (1%).
+High-frequency scalping with tight stops and quick profit targets.
 Uses a short RSI period (7) and requires volume confirmation to avoid noise.
 Position size is slightly smaller (1.5% vs default 2%) due to higher frequency.
 
@@ -15,6 +15,11 @@ Anthropic backtest review Apr 2026.
 Per-symbol adaptive SL/TP: After every 20 closed trades per symbol,
 SL and TP are recalculated from actual trade history and saved to
 symbol_params.json. Minimum R:R of 2.5 is always enforced.
+
+Signal filters (Apr 2026 update):
+  - VWAP filter: only long above VWAP, only short below VWAP
+  - ADX filter: skip when ADX < 20 (choppy market, scalping unreliable)
+  - EMA 9/21 filter: fast EMA must agree with signal direction
 """
 
 import json
@@ -25,6 +30,7 @@ from typing import Dict, Optional
 
 import pandas as pd
 import pandas_ta as ta
+import numpy as np
 
 import config
 from strategies.base_strategy import BaseStrategy, TradeSignal
@@ -34,7 +40,6 @@ from strategies.base_strategy import BaseStrategy, TradeSignal
 SCALP_WHITELIST = {"META", "PLTR", "ALAB", "AMZN", "GOOGL", "MSFT", "IREN", "INTV"}
 
 # ── Adaptive params file path ───────────────────────────────────────────────
-# Lives in project root next to config.py
 PARAMS_FILE = os.path.join(
     os.path.dirname(os.path.abspath(__file__)), "..", "symbol_params.json"
 )
@@ -48,7 +53,6 @@ SYMBOL_DEFAULTS: Dict[str, Dict] = {
     "AMZN":  {"sl": 0.50, "tp": 1.25},
     "ALAB":  {"sl": 0.40, "tp": 1.00, "min_confidence": 0.58},
     "IREN":  {"sl": 0.35, "tp": 1.00, "min_confidence": 0.60},
-    # INTV has no specific default — falls through to GLOBAL_FALLBACK
 }
 
 # ── Global fallback for symbols not in SYMBOL_DEFAULTS ─────────────────────
@@ -58,8 +62,7 @@ GLOBAL_FALLBACK = {"sl": 0.50, "tp": 1.25}
 MIN_RR       = 2.5   # Minimum reward:risk ratio enforced at all times
 RECALC_EVERY = 20    # Recalculate after this many closed trades per symbol
 
-# ── File write lock — prevents simultaneous write conflicts ─────────────────
-# Two symbols cannot write symbol_params.json at the exact same moment.
+# ── File write lock ─────────────────────────────────────────────────────────
 _params_lock = threading.Lock()
 
 
@@ -68,12 +71,6 @@ _params_lock = threading.Lock()
 # ===========================================================================
 
 def _load_params_file() -> Dict:
-    """
-    Load symbol_params.json from disk.
-    Returns empty dict if file doesn't exist or is corrupt — never raises.
-    Edge case Q2: file doesn't exist → os.path.exists returns False →
-    we skip the open() and return {} safely.
-    """
     try:
         if os.path.exists(PARAMS_FILE):
             with open(PARAMS_FILE, "r") as f:
@@ -86,18 +83,12 @@ def _load_params_file() -> Dict:
 
 
 def _save_params_file(data: Dict) -> None:
-    """
-    Write symbol_params.json atomically.
-    Uses write-to-temp + os.replace() so a crash mid-write never
-    leaves a corrupt file. The threading lock prevents two symbols
-    from writing simultaneously (edge case Q6).
-    """
     with _params_lock:
         try:
             tmp = PARAMS_FILE + ".tmp"
             with open(tmp, "w") as f:
                 json.dump(data, f, indent=2)
-            os.replace(tmp, PARAMS_FILE)  # atomic rename on all OS
+            os.replace(tmp, PARAMS_FILE)
         except Exception as e:
             logging.getLogger("ScalpMaster").error(
                 f"Failed to save {PARAMS_FILE}: {e}"
@@ -107,71 +98,33 @@ def _save_params_file(data: Dict) -> None:
 def get_symbol_params(symbol: str) -> Dict:
     """
     Return current SL/TP params for a symbol.
-
-    Priority:
-      1. Learned params stored in symbol_params.json  (post-recalc)
-      2. Per-symbol seed defaults in SYMBOL_DEFAULTS  (first run)
-      3. GLOBAL_FALLBACK                              (unknown symbols)
-
-    Edge case Q7: symbol not in SYMBOL_DEFAULTS (e.g. INTV, new crypto)
-    → falls through to GLOBAL_FALLBACK, returns sl=0.50, tp=1.25.
-    This is safe — conservative defaults, no crash.
-
-    Returns dict with keys: sl, tp, and optionally min_confidence.
-    sl/tp are percentages: 0.5 = 0.5%
+    Priority: learned params on disk → per-symbol seed → global fallback.
     """
     sym = symbol.upper()
-
-    # 1. Learned params on disk take highest priority
     stored = _load_params_file()
     if sym in stored and "sl" in stored[sym] and "tp" in stored[sym]:
         return stored[sym]
-
-    # 2. Per-symbol seed default
     if sym in SYMBOL_DEFAULTS:
         return dict(SYMBOL_DEFAULTS[sym])
-
-    # 3. Global fallback
     return dict(GLOBAL_FALLBACK)
 
 
 def log_trade_result(symbol: str, pnl_pct: float, won: bool) -> None:
     """
-    Record a closed scalp trade result for a symbol and trigger
-    recalculation if RECALC_EVERY trades have accumulated.
-
-    INTEGRATION NOTE: This function must be called from
-    trade_executor.py's close_trade() method when strategy_name
-    == "scalp_master". Add after the existing strategy result recording:
-
-        if trade.get("strategy_name") == "scalp_master":
-            from strategies.scalp_master import log_trade_result
-            log_trade_result(symbol, pnl_pct, trade_won)
-
-    Edge case Q3: bot restarts with 19 trades saved.
-    → _load_params_file() reads history list from disk.
-    → history already has 19 entries.
-    → 20th trade appended → len(history) % 20 == 0 → recalc fires.
-    → Trade count resumes correctly from disk, NOT from 0.
+    Record a closed scalp trade result and trigger adaptive recalculation
+    every RECALC_EVERY trades. Called from trade_executor.close_trade().
     """
     sym = symbol.upper()
     stored = _load_params_file()
 
-    # Initialise symbol entry if missing
     if sym not in stored:
         stored[sym] = {}
     if "history" not in stored[sym]:
         stored[sym]["history"] = []
 
-    # Append this trade's result
-    stored[sym]["history"].append({
-        "pnl_pct": round(pnl_pct, 4),
-        "won":     won
-    })
-
+    stored[sym]["history"].append({"pnl_pct": round(pnl_pct, 4), "won": won})
     history = stored[sym]["history"]
 
-    # Trigger recalc every RECALC_EVERY trades
     if len(history) % RECALC_EVERY == 0:
         stored[sym] = _recalculate_params(sym, history, stored[sym])
         logging.getLogger("ScalpMaster").info(
@@ -183,59 +136,72 @@ def log_trade_result(symbol: str, pnl_pct: float, won: bool) -> None:
 
 
 def _recalculate_params(symbol: str, history: list, current: Dict) -> Dict:
-    """
-    Recalculate SL and TP from actual closed trade history.
-
-    Formula:
-      new_sl = avg_actual_loss_pct * 0.85
-      new_tp = max(avg_actual_win_pct * 0.90, new_sl * MIN_RR)
-
-    Edge cases:
-      Q4 (all winners, avg_loss=0): keeps current SL, recalcs TP only.
-      Q5 (TP below 2.5R floor): line "new_tp = max(new_tp, new_sl * MIN_RR)"
-         catches this — guaranteed to enforce minimum R:R.
-      Fewer than 5 wins or losses: insufficient data, keeps that side unchanged.
-    """
+    """Recalculate SL/TP from actual closed trade history."""
     logger = logging.getLogger("ScalpMaster")
     wins   = [abs(t["pnl_pct"]) for t in history if     t["won"]]
     losses = [abs(t["pnl_pct"]) for t in history if not t["won"]]
 
-    # ── Recalculate SL ───────────────────────────────────────────────────
     if len(losses) < 5:
-        # Insufficient loss data — keep current SL
         logger.info(f"[Adaptive] {symbol}: {len(losses)} losses < 5 — keeping SL")
         new_sl = current.get("sl", GLOBAL_FALLBACK["sl"])
     else:
         avg_loss = sum(losses) / len(losses)
-        if avg_loss == 0:
-            # Edge case Q4: all losses were exactly 0% — keep current SL
-            logger.info(f"[Adaptive] {symbol}: avg_loss=0 — keeping current SL")
-            new_sl = current.get("sl", GLOBAL_FALLBACK["sl"])
-        else:
-            new_sl = avg_loss * 0.85
+        new_sl = current.get("sl", GLOBAL_FALLBACK["sl"]) if avg_loss == 0 else avg_loss * 0.85
 
-    # ── Recalculate TP ───────────────────────────────────────────────────
     if len(wins) < 5:
         logger.info(f"[Adaptive] {symbol}: {len(wins)} wins < 5 — keeping TP")
         new_tp = current.get("tp", GLOBAL_FALLBACK["tp"])
     else:
-        avg_win = sum(wins) / len(wins)
-        new_tp  = avg_win * 0.90
+        new_tp = (sum(wins) / len(wins)) * 0.90
 
-    # ── Enforce minimum R:R = MIN_RR (2.5) ──────────────────────────────
-    # Edge case Q5: this is the exact line that catches TP below the floor.
     new_tp = max(new_tp, new_sl * MIN_RR)
+    new_sl = max(0.10, min(new_sl, 3.0))
+    new_tp = max(0.25, min(new_tp, 10.0))
 
-    # ── Clamp to sane operational ranges ────────────────────────────────
-    new_sl = max(0.10, min(new_sl, 3.0))   # 0.1% to 3.0%
-    new_tp = max(0.25, min(new_tp, 10.0))  # 0.25% to 10.0%
-
-    # Build updated entry — preserve history, min_confidence, and any
-    # other fields that may have been stored
     updated = dict(current)
     updated["sl"] = round(new_sl, 4)
     updated["tp"] = round(new_tp, 4)
     return updated
+
+
+# ===========================================================================
+#  Indicator helpers
+# ===========================================================================
+
+def _calc_vwap(candles: pd.DataFrame) -> Optional[float]:
+    """
+    Calculate intraday VWAP from available bars.
+    VWAP = cumulative(typical_price * volume) / cumulative(volume)
+    Typical price = (high + low + close) / 3
+    Returns the current bar's VWAP value, or None on failure.
+    """
+    try:
+        typical = (candles["high"] + candles["low"] + candles["close"]) / 3
+        cum_vol = candles["volume"].cumsum()
+        cum_tpv = (typical * candles["volume"]).cumsum()
+        vwap = cum_tpv / cum_vol.replace(0, float("nan"))
+        val = vwap.iloc[-1]
+        return float(val) if not pd.isna(val) else None
+    except Exception:
+        return None
+
+
+def _calc_adx(candles: pd.DataFrame, period: int = 14) -> Optional[float]:
+    """
+    Calculate ADX using pandas_ta. Returns current ADX value or None.
+    ADX < 20 = choppy/ranging. ADX > 25 = trending.
+    """
+    try:
+        adx_df = ta.adx(candles["high"], candles["low"], candles["close"], length=period)
+        if adx_df is None or adx_df.empty:
+            return None
+        col = [c for c in adx_df.columns if c.startswith("ADX_")]
+        if not col:
+            return None
+        val = adx_df[col[0]].iloc[-1]
+        return float(val) if not pd.isna(val) else None
+    except Exception:
+        return None
 
 
 # ===========================================================================
@@ -247,8 +213,6 @@ class ScalpMaster(BaseStrategy):
     def __init__(self):
         super().__init__()
         self.strategy_name   = "scalp_master"
-        # Class-level values are global defaults only.
-        # Per-symbol params from get_symbol_params() override at signal time.
         self.stop_loss_pct   = 0.5
         self.take_profit_pct = 1.0
         self.logger = logging.getLogger("ScalpMaster")
@@ -270,8 +234,6 @@ class ScalpMaster(BaseStrategy):
             return None
 
         # ── Load per-symbol adaptive params ─────────────────────────────
-        # Loaded fresh every call so recalculated values are used immediately
-        # without requiring a bot restart.
         sym_params   = get_symbol_params(symbol)
         sym_sl       = sym_params.get("sl",             self.stop_loss_pct)
         sym_tp       = sym_params.get("tp",             self.take_profit_pct)
@@ -283,8 +245,9 @@ class ScalpMaster(BaseStrategy):
         rsi_overbought   = tuning["scalp_rsi_overbought"]
         rsi_period       = tuning["scalp_rsi_period"]
         min_volume_ratio = tuning["scalp_min_volume_ratio"]
+        adx_min          = tuning.get("scalp_adx_min", 20)
 
-        required = rsi_period + 10
+        required = max(rsi_period + 10, 30)
         if not self._check_enough_candles(symbol, candles, required):
             return None
 
@@ -295,6 +258,61 @@ class ScalpMaster(BaseStrategy):
         close  = candles["close"]
         volume = candles["volume"]
 
+        # ── ADX filter — skip in choppy/non-trending conditions ──────────
+        # Scalping RSI reversals in a directionless market produces whipsaws.
+        # ADX < adx_min means there is no meaningful trend to ride.
+        adx_val = _calc_adx(candles)
+        if adx_val is not None:
+            adx_ok = adx_val >= adx_min
+            self.verbose_log(
+                symbol, f"ADX trend strength (need >={adx_min} to scalp)",
+                adx_ok, round(adx_val, 1), f">={adx_min}",
+                extra=f"adx={adx_val:.1f}"
+            )
+            if not adx_ok:
+                self.logger.info(
+                    f"[ScalpMaster] {symbol}: SKIP — ADX={adx_val:.1f} < {adx_min} "
+                    f"(market too choppy to scalp)"
+                )
+                return None
+        else:
+            self.verbose_log_skip(symbol, "ADX unavailable — proceeding without filter")
+
+        # ── VWAP calculation ─────────────────────────────────────────────
+        # Used directionally: only long above VWAP, only short below VWAP.
+        # Entering a long scalp while price is below VWAP means fighting
+        # the intraday sell pressure — historically high-loss scenario.
+        vwap_val = _calc_vwap(candles)
+        current_close = float(close.iloc[-1])
+
+        if vwap_val is not None:
+            price_above_vwap = current_close > vwap_val
+            self.logger.info(
+                f"[ScalpMaster] {symbol}: VWAP={vwap_val:.4f} "
+                f"price={current_close:.4f} above={price_above_vwap}"
+            )
+        else:
+            price_above_vwap = None
+            self.verbose_log_skip(symbol, "VWAP unavailable — proceeding without VWAP filter")
+
+        # ── EMA 9/21 trend filter ────────────────────────────────────────
+        # Fast EMA must be above slow EMA for longs (uptrend), below for shorts.
+        # Second trend confirmation independent of VWAP.
+        try:
+            ema9  = ta.ema(close, length=9)
+            ema21 = ta.ema(close, length=21)
+            ema9_val  = float(ema9.iloc[-1])  if ema9  is not None else None
+            ema21_val = float(ema21.iloc[-1]) if ema21 is not None else None
+            ema_bullish = (ema9_val > ema21_val) if (ema9_val and ema21_val) else None
+            if ema9_val and ema21_val:
+                self.logger.info(
+                    f"[ScalpMaster] {symbol}: EMA9={ema9_val:.4f} "
+                    f"EMA21={ema21_val:.4f} bullish={ema_bullish}"
+                )
+        except Exception:
+            ema_bullish = None
+
+        # ── RSI calculation ──────────────────────────────────────────────
         try:
             rsi_series = ta.rsi(close, length=rsi_period)
             if rsi_series is None or rsi_series.isna().all():
@@ -311,6 +329,7 @@ class ScalpMaster(BaseStrategy):
             self.verbose_log_skip(symbol, "RSI is NaN")
             return None
 
+        # ── Volume confirmation ──────────────────────────────────────────
         avg_volume     = volume.iloc[-20:].mean()
         current_volume = volume.iloc[-1]
         volume_ratio   = current_volume / avg_volume if avg_volume > 0 else 0
@@ -333,27 +352,46 @@ class ScalpMaster(BaseStrategy):
             was_oversold, previous_rsi, f"<{rsi_oversold}", "long"
         )
 
-        if was_oversold:
+        if was_oversold and now_recovering:
             self.verbose_log(
                 symbol, "Scalp: RSI recovering from oversold (long entry)",
                 now_recovering, current_rsi, f">={rsi_oversold}", "long"
             )
-            if now_recovering:
-                score = min(1.0, sym_min_conf + volume_ratio * 0.05)
-                self.verbose_log_score(symbol, score, sym_min_conf)
-                if score >= sym_min_conf:
-                    return self._make_signal(
-                        symbol          = symbol,
-                        direction       = "long",
-                        score           = score,
-                        stop_loss_pct   = sym_sl,
-                        take_profit_pct = sym_tp,
-                        reason          = (
-                            f"Scalp long: RSI {previous_rsi:.1f}→{current_rsi:.1f} "
-                            f"vol={volume_ratio:.2f}x "
-                            f"SL={sym_sl}% TP={sym_tp}%"
-                        )
+
+            # VWAP check — reject long if price is below VWAP
+            if price_above_vwap is not None and not price_above_vwap:
+                self.logger.info(
+                    f"[ScalpMaster] {symbol}: LONG rejected — "
+                    f"price ${current_close:.4f} below VWAP ${vwap_val:.4f} "
+                    f"(counter-trend scalp)"
+                )
+                return None
+
+            # EMA check — reject long if fast EMA is below slow EMA
+            if ema_bullish is not None and not ema_bullish:
+                self.logger.info(
+                    f"[ScalpMaster] {symbol}: LONG rejected — "
+                    f"EMA9 below EMA21 (downtrend)"
+                )
+                return None
+
+            score = min(1.0, sym_min_conf + volume_ratio * 0.05)
+            self.verbose_log_score(symbol, score, sym_min_conf)
+            if score >= sym_min_conf:
+                return self._make_signal(
+                    symbol          = symbol,
+                    direction       = "long",
+                    score           = score,
+                    stop_loss_pct   = sym_sl,
+                    take_profit_pct = sym_tp,
+                    reason          = (
+                        f"Scalp long: RSI {previous_rsi:.1f}→{current_rsi:.1f} "
+                        f"vol={volume_ratio:.2f}x "
+                        f"ADX={adx_val:.1f if adx_val else 'N/A'} "
+                        f"VWAP={'above' if price_above_vwap else 'N/A'} "
+                        f"SL={sym_sl}% TP={sym_tp}%"
                     )
+                )
 
         # ── SHORT SIGNAL ─────────────────────────────────────────────────
         was_overbought = previous_rsi > rsi_overbought
@@ -364,27 +402,46 @@ class ScalpMaster(BaseStrategy):
             was_overbought, previous_rsi, f">{rsi_overbought}", "short"
         )
 
-        if was_overbought:
+        if was_overbought and now_retreating:
             self.verbose_log(
                 symbol, "Scalp: RSI retreating from overbought (short entry)",
                 now_retreating, current_rsi, f"<={rsi_overbought}", "short"
             )
-            if now_retreating:
-                score = min(1.0, sym_min_conf + volume_ratio * 0.05)
-                self.verbose_log_score(symbol, score, sym_min_conf)
-                if score >= sym_min_conf:
-                    return self._make_signal(
-                        symbol          = symbol,
-                        direction       = "short",
-                        score           = score,
-                        stop_loss_pct   = sym_sl,
-                        take_profit_pct = sym_tp,
-                        reason          = (
-                            f"Scalp short: RSI {previous_rsi:.1f}→{current_rsi:.1f} "
-                            f"vol={volume_ratio:.2f}x "
-                            f"SL={sym_sl}% TP={sym_tp}%"
-                        )
+
+            # VWAP check — reject short if price is above VWAP
+            if price_above_vwap is not None and price_above_vwap:
+                self.logger.info(
+                    f"[ScalpMaster] {symbol}: SHORT rejected — "
+                    f"price ${current_close:.4f} above VWAP ${vwap_val:.4f} "
+                    f"(counter-trend scalp)"
+                )
+                return None
+
+            # EMA check — reject short if fast EMA is above slow EMA
+            if ema_bullish is not None and ema_bullish:
+                self.logger.info(
+                    f"[ScalpMaster] {symbol}: SHORT rejected — "
+                    f"EMA9 above EMA21 (uptrend)"
+                )
+                return None
+
+            score = min(1.0, sym_min_conf + volume_ratio * 0.05)
+            self.verbose_log_score(symbol, score, sym_min_conf)
+            if score >= sym_min_conf:
+                return self._make_signal(
+                    symbol          = symbol,
+                    direction       = "short",
+                    score           = score,
+                    stop_loss_pct   = sym_sl,
+                    take_profit_pct = sym_tp,
+                    reason          = (
+                        f"Scalp short: RSI {previous_rsi:.1f}→{current_rsi:.1f} "
+                        f"vol={volume_ratio:.2f}x "
+                        f"ADX={adx_val:.1f if adx_val else 'N/A'} "
+                        f"VWAP={'below' if price_above_vwap is False else 'N/A'} "
+                        f"SL={sym_sl}% TP={sym_tp}%"
                     )
+                )
 
         self.verbose_log(
             symbol, "Scalp: RSI in neutral zone",
