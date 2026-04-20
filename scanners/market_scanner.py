@@ -436,16 +436,36 @@ class MarketScanner:
         min_confidence = config.SIGNAL_TUNING.get(
             "min_signal_confidence", config.MIN_SIGNAL_CONFIDENCE
         )
+
         for signal in unique_signals:
-            try:
-                enhanced = self._get_ml_scorer().score(
-                    indicators    = signal.indicators,
-                    base_score    = signal.score,
-                    condition_adx = adx
+            # ── ML score blending ─────────────────────────────────────────
+            # Skip ML blending entirely for strategies marked ml_exempt=True.
+            #
+            # Reason: ML blending on a bad/sparse training batch pushes scores
+            # below min_confidence, silently dropping signals with no log entry.
+            # Exempt strategies (e.g. bollinger_breakout as sole crypto coverage)
+            # use their raw rule-based score only — which already passed the
+            # strategy's own internal threshold to get this far.
+            #
+            # The ml_exempt flag is set per-strategy in base_strategy.py and
+            # flows through StrategySignalCompat.indicators['ml_exempt'].
+            ml_exempt = signal.indicators.get("ml_exempt", False)
+
+            if ml_exempt:
+                logger.debug(
+                    f"[ML-EXEMPT] {signal.symbol} [{signal.indicators.get('strategy_name', '?')}] "
+                    f"— keeping raw score {signal.score:.3f} (ML blending skipped)"
                 )
-                signal.score = round(enhanced, 3)
-            except Exception:
-                pass
+            else:
+                try:
+                    enhanced = self._get_ml_scorer().score(
+                        indicators    = signal.indicators,
+                        base_score    = signal.score,
+                        condition_adx = adx
+                    )
+                    signal.score = round(enhanced, 3)
+                except Exception:
+                    pass
 
             signal.indicators["market_condition"] = condition_value
             signal.indicators["condition_scalar"] = position_scalar
