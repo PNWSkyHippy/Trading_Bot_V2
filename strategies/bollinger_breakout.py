@@ -14,6 +14,14 @@ Symbol blacklist: backtest data (30d 5m, Apr 2026) showed SMCI producing
 catastrophic outlier losses ($53 largest loss vs $7 avg win) due to extreme
 intraday volatility and thin liquidity on 5m bars. All other symbols showed
 positive returns and acceptable risk metrics.
+
+ml_exempt=True: This strategy is the sole crypto coverage (24/7). ML blending
+on a small or bad training batch suppresses scores below 0.65 and cuts off all
+crypto trading. Rule-based scoring is sufficient and well-tested.
+
+auto_disable_exempt=True: Disabling this strategy leaves the bot with zero
+crypto coverage. It must remain enabled while we accumulate enough live trade
+data to properly evaluate it. Win rate threshold does not apply here.
 """
 
 import logging
@@ -48,6 +56,13 @@ class BollingerBreakout(BaseStrategy):
         self.stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT
         self.take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT
         self.logger = logging.getLogger("BollingerBreakout")
+
+        # Bollinger is the sole crypto strategy running 24/7.
+        # ML blending on bad/small training batches suppresses scores and
+        # triggers auto-disable, cutting off all crypto coverage.
+        # Both protections stay on until a replacement crypto strategy exists.
+        self.ml_exempt           = True
+        self.auto_disable_exempt = True
 
     def analyze(
         self,
@@ -125,12 +140,10 @@ class BollingerBreakout(BaseStrategy):
         # ----------------------------------------------------------------
         try:
             obv = ta.obv(candles["close"], candles["volume"])
-            #if obv is None or len(obv) < 4:
             if obv is None or len(obv) < 2:
                 self.verbose_log_skip(symbol, "OBV: insufficient data for confirmation")
                 return None
             obv_now     = obv.iloc[-1]
-            #obv_prev    = obv.iloc[-4]
             obv_prev    = obv.iloc[-2]
             obv_rising  = obv_now > obv_prev
             obv_falling = obv_now < obv_prev
@@ -153,9 +166,9 @@ class BollingerBreakout(BaseStrategy):
             return None
 
         # ----------------------------------------------------------------
-        # EMA200 TREND FILTER — only trade with the trend
-        # Long signals require price above EMA200 (uptrend)
-        # Short signals require price below EMA200 (downtrend)
+        # EMA50 TREND FILTER — only trade with the trend
+        # Long signals require price above EMA50 (uptrend)
+        # Short signals require price below EMA50 (downtrend)
         # Filters counter-trend trades which are the biggest losers
         # ----------------------------------------------------------------
         try:
@@ -163,12 +176,12 @@ class BollingerBreakout(BaseStrategy):
             if ema50 is None or len(ema50) < 1 or pd.isna(ema50.iloc[-1]):
                 self.verbose_log_skip(symbol, "EMA50: insufficient data")
                 return None
-            ema200_val = ema50.iloc[-1]  # keeping variable name for compatibility
-            price_above_ema200 = close > ema200_val
-            self.logger.info(f"[EMA50] {symbol}: close={close:.4f} ema50={ema200_val:.4f} above={price_above_ema200}")
+            ema50_val = ema50.iloc[-1]
+            price_above_ema50 = close > ema50_val
+            self.logger.info(f"[EMA50] {symbol}: close={close:.4f} ema50={ema50_val:.4f} above={price_above_ema50}")
 
         except Exception as e:
-            self.verbose_log_skip(symbol, f"EMA200 calculation error: {e}")
+            self.verbose_log_skip(symbol, f"EMA50 calculation error: {e}")
             return None
 
         # ----------------------------------------------------------------
@@ -203,8 +216,8 @@ class BollingerBreakout(BaseStrategy):
             if not obv_rising:
                 self.logger.info(f"[OBV] {symbol}: LONG rejected — OBV not rising (rising={obv_rising})")
                 return None
-            if not price_above_ema200:
-                self.logger.info(f"[EMA200] {symbol}: LONG rejected — price below EMA200 (counter-trend)")
+            if not price_above_ema50:
+                self.logger.info(f"[EMA50] {symbol}: LONG rejected — price below EMA50 (counter-trend)")
                 return None
             if not rsi_rising:
                 self.logger.info(f"[RSI] {symbol}: LONG rejected — RSI not rising (rsi_now={rsi_now:.1f})")
@@ -232,18 +245,18 @@ class BollingerBreakout(BaseStrategy):
         self.verbose_log(
             symbol, "Price breaks below lower Bollinger Band (short)",
             breaks_lower, close, f"<{lower:.4f}", "short"
-        ) 
+        )
         if breaks_lower:
             if not obv_falling:
                 self.logger.info(f"[OBV] {symbol}: SHORT rejected — OBV not falling (falling={obv_falling})")
                 return None
-            if price_above_ema200:
-                self.logger.info(f"[EMA200] {symbol}: SHORT rejected — price above EMA200 (counter-trend)")
+            if price_above_ema50:
+                self.logger.info(f"[EMA50] {symbol}: SHORT rejected — price above EMA50 (counter-trend)")
                 return None
             if not rsi_falling:
                 self.logger.info(f"[RSI] {symbol}: SHORT rejected — RSI not falling (rsi_now={rsi_now:.1f})")
                 return None
-            
+
             breakout_pct = (lower - close) / lower if lower != 0 else 0
             score = min(1.0, min_score + squeeze_bonus + breakout_pct * 2)
             self.verbose_log_score(symbol, score, min_score)

@@ -49,6 +49,20 @@ class BaseStrategy(ABC):
       - self.stop_loss_pct (float)
       - self.take_profit_pct (float)
       - analyze(symbol, candles, market_condition) -> Optional[TradeSignal]
+
+    Optional flags (set in subclass __init__):
+      - self.ml_exempt (bool, default False)
+            When True, this strategy's signals bypass ML score blending.
+            Use for strategies that are the sole provider for an asset class
+            (e.g. bollinger_breakout for crypto) where ML blending on a small
+            or bad training batch would suppress signals below threshold and
+            cut off all trading in that asset class.
+
+      - self.auto_disable_exempt (bool, default False)
+            When True, the strategy engine will never auto-disable this
+            strategy based on win rate, regardless of how many trades it
+            has taken. Use when a strategy is the only coverage for an asset
+            class and disabling it would halt all trading there entirely.
     """
 
     def __init__(self):
@@ -59,6 +73,10 @@ class BaseStrategy(ABC):
         self.strategy_name   = "BaseStrategy"
         self.stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT
         self.take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT
+
+        # Protection flags — override in subclass __init__ as needed
+        self.ml_exempt          = False  # Skip ML score blending for this strategy
+        self.auto_disable_exempt= False  # Never auto-disable this strategy
 
     @property
     def name(self) -> str:
