@@ -83,12 +83,12 @@ go_short = widget_red   and rsi_short_ok and macd_falling
 
 // ─────────────────────────────────────────────
 // BACKGROUND CLOUD
-// show_last=500 limits painting to recent bars
-// only — prevents bleed across all historical
-// bars back to the start of the chart session.
+// show_last=150 = ~2.5 minutes on 1s chart.
+// Matches the visible window you actually trade
+// on — prevents bleed into older history.
 // ─────────────────────────────────────────────
-bgcolor(widget_green ? color.new(color.green, 80) : na, title="Green Cloud", show_last=500)
-bgcolor(widget_red   ? color.new(color.red,   80) : na, title="Red Cloud",   show_last=500)
+bgcolor(widget_green ? color.new(color.green, 80) : na, title="Green Cloud", show_last=150)
+bgcolor(widget_red   ? color.new(color.red,   80) : na, title="Red Cloud",   show_last=150)
 
 // Signal markers
 plotshape(go_long,  title="GO LONG",  location=location.belowbar, style=shape.triangleup,   color=color.lime, size=size.normal)
