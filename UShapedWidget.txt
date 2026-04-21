@@ -15,16 +15,21 @@ show_dow_line   = input.bool(true, "Show Dow divergence line")
 
 // ─────────────────────────────────────────────
 // DOW DATA
+// display=display.none prevents TradingView from
+// creating a second Y-axis for the raw Dow price
+// (~49,000 pts). We only use dow_move for logic
+// and dji_norm for the visible line — never the
+// raw Dow level on any axis.
 // ─────────────────────────────────────────────
-dji_close = request.security("DJ:DJI", timeframe.period, close, lookahead=barmerge.lookahead_off)
+dji_close = request.security("DJ:DJI", timeframe.period, close, lookahead=barmerge.lookahead_off, display=display.none)
 
 dji_now  = dji_close
 dji_prev = dji_close[lookback_bars]
 dow_move = dji_now - dji_prev
 
-// Normalised Dow line — plots Dow as % change from session open
-// so it moves independently on the SPY price scale.
-// Base both to their first bar value so divergence is visible.
+// Normalised Dow line — scales Dow to SPY price space
+// so both move on the same axis. Base both to their
+// first bar so divergence between SPY and Dow is clear.
 var float dji_base = na
 var float spy_base = na
 if na(dji_base) and not na(dji_close) and not na(close)
@@ -93,12 +98,11 @@ go_short = widget_red   and rsi_short_ok and macd_falling
 
 // ─────────────────────────────────────────────
 // BACKGROUND CLOUD
-// FIX: use color(na) not bare na to prevent bleed
 // ─────────────────────────────────────────────
 cloud_color = widget_green ? color.new(color.green, 80) : widget_red ? color.new(color.red, 80) : color(na)
 bgcolor(cloud_color, title="Widget Cloud")
 
-// Normalised Dow divergence line
+// Normalised Dow divergence line (orange) — same axis as SPY
 plot(show_dow_line ? dji_norm : na, title="Dow (normalised)", color=color.orange, linewidth=1)
 
 // Signal markers
@@ -106,7 +110,7 @@ plotshape(go_long,  title="GO LONG",  location=location.belowbar, style=shape.tr
 plotshape(go_short, title="GO SHORT", location=location.abovebar, style=shape.triangledown, color=color.red,  size=size.normal)
 
 // ─────────────────────────────────────────────
-// ALERTS (Pine v5 — variables allowed here)
+// ALERTS
 // ─────────────────────────────────────────────
 long_payload  = '{"direction":"long","rsi":'  + str.tostring(math.round(rsi_val, 2)) + ',"macd_direction":"rising","dow_move":'  + str.tostring(math.round(dow_move, 2)) + ',"widget_color":"green"}'
 short_payload = '{"direction":"short","rsi":' + str.tostring(math.round(rsi_val, 2)) + ',"macd_direction":"falling","dow_move":' + str.tostring(math.round(dow_move, 2)) + ',"widget_color":"red"}'
