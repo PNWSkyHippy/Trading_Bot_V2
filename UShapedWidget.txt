@@ -14,10 +14,6 @@ macd_signal_len = input.int(9,     "MACD Signal")
 
 // ─────────────────────────────────────────────
 // DOW DATA — calculation only, never plotted
-// The raw Dow price (~49,000) is only used to
-// compute dow_move. It is never passed to plot()
-// so TradingView has no reason to create a second
-// Y-axis for it.
 // ─────────────────────────────────────────────
 dji_close = request.security("DJ:DJI", timeframe.period, close, lookahead=barmerge.lookahead_off)
 
@@ -51,8 +47,12 @@ else if cloud_state == -1
     if dji_now < trigger_level
         trigger_level := dji_now
 
-widget_green = cloud_state ==  1
-widget_red   = cloud_state == -1
+// Only activate cloud after enough bars for the
+// state machine to have valid data — prevents
+// color bleed on the left wall of the chart.
+data_ready   = bar_index >= lookback_bars and not na(dji_close)
+widget_green = data_ready and cloud_state ==  1
+widget_red   = data_ready and cloud_state == -1
 
 // ─────────────────────────────────────────────
 // RSI  (5-second bars, SMA-smoothed)
@@ -85,9 +85,11 @@ go_short = widget_red   and rsi_short_ok and macd_falling
 
 // ─────────────────────────────────────────────
 // BACKGROUND CLOUD
+// Pass na directly when no state — color(na) can
+// cause bgcolor() to misbehave in Pine v5.
 // ─────────────────────────────────────────────
-cloud_color = widget_green ? color.new(color.green, 80) : widget_red ? color.new(color.red, 80) : color(na)
-bgcolor(cloud_color, title="Widget Cloud")
+bgcolor(widget_green ? color.new(color.green, 80) : na, title="Green Cloud")
+bgcolor(widget_red   ? color.new(color.red,   80) : na, title="Red Cloud")
 
 // Signal markers
 plotshape(go_long,  title="GO LONG",  location=location.belowbar, style=shape.triangleup,   color=color.lime, size=size.normal)
