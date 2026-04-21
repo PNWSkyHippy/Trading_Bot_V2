@@ -78,7 +78,10 @@ class Database:
                     signal_score    REAL,
                     indicators_json TEXT,
                     broker          TEXT,
-                    strategy_name   TEXT DEFAULT 'original'
+                    strategy_name   TEXT DEFAULT 'original',
+                    is_overnight    INTEGER DEFAULT 0,
+                    broker_order_id TEXT,
+                    tp_hit_count    INTEGER DEFAULT 0
                 );
 
                 -- Daily session summaries
@@ -166,13 +169,20 @@ class Database:
                 );
             """)
 
-            # Add strategy_name column to trades table if missing (safe to run multiple times)
-            try:
-                conn.execute(
-                    "ALTER TABLE trades ADD COLUMN strategy_name TEXT DEFAULT 'original'"
-                )
-            except Exception:
-                pass  # Column already exists — that's fine
+            # Safe migrations — add columns to existing DBs if missing.
+            # Each ALTER TABLE is wrapped in try/except so it's safe to run
+            # on every startup regardless of DB age.
+            migrations = [
+                "ALTER TABLE trades ADD COLUMN strategy_name   TEXT    DEFAULT 'original'",
+                "ALTER TABLE trades ADD COLUMN is_overnight    INTEGER DEFAULT 0",
+                "ALTER TABLE trades ADD COLUMN broker_order_id TEXT",
+                "ALTER TABLE trades ADD COLUMN tp_hit_count    INTEGER DEFAULT 0",
+            ]
+            for sql in migrations:
+                try:
+                    conn.execute(sql)
+                except Exception:
+                    pass  # Column already exists — safe to ignore
 
         logger.info("Database initialized successfully.")
 
