@@ -47,10 +47,8 @@ else if cloud_state == -1
     if dji_now < trigger_level
         trigger_level := dji_now
 
-// Only activate cloud after enough bars for the
-// state machine to have valid data — prevents
-// color bleed on the left wall of the chart.
-data_ready   = bar_index >= lookback_bars and not na(dji_close)
+// Gate on valid Dow data
+data_ready   = bar_index >= lookback_bars and not na(dji_close) and not na(dow_move)
 widget_green = data_ready and cloud_state ==  1
 widget_red   = data_ready and cloud_state == -1
 
@@ -85,11 +83,12 @@ go_short = widget_red   and rsi_short_ok and macd_falling
 
 // ─────────────────────────────────────────────
 // BACKGROUND CLOUD
-// Pass na directly when no state — color(na) can
-// cause bgcolor() to misbehave in Pine v5.
+// show_last=500 limits painting to recent bars
+// only — prevents bleed across all historical
+// bars back to the start of the chart session.
 // ─────────────────────────────────────────────
-bgcolor(widget_green ? color.new(color.green, 80) : na, title="Green Cloud")
-bgcolor(widget_red   ? color.new(color.red,   80) : na, title="Red Cloud")
+bgcolor(widget_green ? color.new(color.green, 80) : na, title="Green Cloud", show_last=500)
+bgcolor(widget_red   ? color.new(color.red,   80) : na, title="Red Cloud",   show_last=500)
 
 // Signal markers
 plotshape(go_long,  title="GO LONG",  location=location.belowbar, style=shape.triangleup,   color=color.lime, size=size.normal)
