@@ -11,32 +11,19 @@ rsi_length      = input.int(14,    "RSI Length")
 macd_fast       = input.int(3,     "MACD Fast")
 macd_slow       = input.int(26,    "MACD Slow")
 macd_signal_len = input.int(9,     "MACD Signal")
-show_dow_line   = input.bool(true, "Show Dow divergence line")
 
 // ─────────────────────────────────────────────
-// DOW DATA
-// display=display.none prevents TradingView from
-// creating a second Y-axis for the raw Dow price
-// (~49,000 pts). We only use dow_move for logic
-// and dji_norm for the visible line — never the
-// raw Dow level on any axis.
+// DOW DATA — calculation only, never plotted
+// The raw Dow price (~49,000) is only used to
+// compute dow_move. It is never passed to plot()
+// so TradingView has no reason to create a second
+// Y-axis for it.
 // ─────────────────────────────────────────────
-dji_close = request.security("DJ:DJI", timeframe.period, close, lookahead=barmerge.lookahead_off, display=display.none)
+dji_close = request.security("DJ:DJI", timeframe.period, close, lookahead=barmerge.lookahead_off)
 
 dji_now  = dji_close
 dji_prev = dji_close[lookback_bars]
 dow_move = dji_now - dji_prev
-
-// Normalised Dow line — scales Dow to SPY price space
-// so both move on the same axis. Base both to their
-// first bar so divergence between SPY and Dow is clear.
-var float dji_base = na
-var float spy_base = na
-if na(dji_base) and not na(dji_close) and not na(close)
-    dji_base := dji_close
-    spy_base  := close
-
-dji_norm = na(dji_base) or dji_base == 0 ? na : close * (dji_close / dji_base)
 
 // ─────────────────────────────────────────────
 // BANDWIDTH STATE MACHINE
@@ -69,7 +56,7 @@ widget_red   = cloud_state == -1
 
 // ─────────────────────────────────────────────
 // RSI  (5-second bars, SMA-smoothed)
-// FIX: lookahead_on so gating RSI matches display
+// lookahead_on so gating RSI matches display
 // ─────────────────────────────────────────────
 rsi_src_5s   = request.security(syminfo.tickerid, "5S", close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
 rsi_delta    = ta.change(rsi_src_5s)
@@ -101,9 +88,6 @@ go_short = widget_red   and rsi_short_ok and macd_falling
 // ─────────────────────────────────────────────
 cloud_color = widget_green ? color.new(color.green, 80) : widget_red ? color.new(color.red, 80) : color(na)
 bgcolor(cloud_color, title="Widget Cloud")
-
-// Normalised Dow divergence line (orange) — same axis as SPY
-plot(show_dow_line ? dji_norm : na, title="Dow (normalised)", color=color.orange, linewidth=1)
 
 // Signal markers
 plotshape(go_long,  title="GO LONG",  location=location.belowbar, style=shape.triangleup,   color=color.lime, size=size.normal)
