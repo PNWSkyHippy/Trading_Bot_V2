@@ -155,8 +155,6 @@ class BotEngine:
         self._log_strategy_status()
 
         # ── Reconcile DB positions against Alpaca at startup ──────────
-        # Cleans ghost positions left from crashes, failed orders,
-        # or paper sim trades that Alpaca never knew about.
         self._reconcile_positions()
 
         self._register_scheduled_jobs()
@@ -174,7 +172,7 @@ class BotEngine:
             self.logger.info(f"  [DISABLED] {s.name}")
 
     # ------------------------------------------------------------------
-    #  POSITION RECONCILIATION — runs at startup and every capital sync
+    #  POSITION RECONCILIATION
     # ------------------------------------------------------------------
 
     def _reconcile_positions(self):
@@ -183,11 +181,8 @@ class BotEngine:
         Any stock trade in DB that Alpaca doesn't have gets marked closed
         with pnl=0 and exit_reason='reconciled_ghost'.
 
-        Crypto positions are skipped — Coinbase paper sim trades are
-        intentionally not in Alpaca and should not be ghost-cleaned.
-
-        This prevents the 'insufficient qty' errors on EOD close and
-        stops the position monitor from hammering dead positions.
+        Crypto positions are skipped — paper sim trades are intentionally
+        not in Alpaca and should not be ghost-cleaned.
         """
         try:
             import alpaca_trade_api as tradeapi
@@ -197,7 +192,6 @@ class BotEngine:
                 config.ALPACA_BASE_URL
             )
 
-            # Get actual Alpaca positions
             try:
                 alpaca_positions = api.list_positions()
                 alpaca_symbols   = {p.symbol for p in alpaca_positions}
@@ -205,7 +199,6 @@ class BotEngine:
                 self.logger.warning(f"Reconciliation: could not fetch Alpaca positions: {e}")
                 return
 
-            # Get DB open stock trades
             open_trades   = self.db.get_open_trades()
             stock_trades  = [t for t in open_trades if t.get("asset_class") == "stock"]
 
@@ -216,7 +209,6 @@ class BotEngine:
             ghost_count = 0
             for trade in stock_trades:
                 symbol = trade["symbol"]
-                # Check if this symbol exists in Alpaca
                 if symbol not in alpaca_symbols:
                     self.logger.warning(
                         f"Reconciliation: {symbol} in DB but not in Alpaca — "
@@ -225,7 +217,7 @@ class BotEngine:
                     try:
                         self.db.close_trade(
                             trade_id    = trade["trade_id"],
-                            exit_price  = trade["entry_price"],  # close at entry = $0 PnL
+                            exit_price  = trade["entry_price"],
                             exit_reason = "reconciled_ghost",
                             pnl         = 0.0,
                             pnl_pct     = 0.0
@@ -273,13 +265,13 @@ class BotEngine:
         schedule.every().day.at("15:00").do(self._retrain_ml)
 
         self.logger.info("All scheduled jobs registered.")
-        self.logger.info("  - Crypto scan:    every 5 min (24/7)")
-        self.logger.info("  - Stock scan:     every 60s (gated: Mon-Fri 10:00-15:44 ET)")
-        self.logger.info("  - Stock EOD close: 15:45 ET (12:45 PT) weekdays")
+        self.logger.info("  - Crypto scan:      every 5 min (24/7)")
+        self.logger.info("  - Stock scan:       every 60s (gated: Mon-Fri 10:00-15:44 ET)")
+        self.logger.info("  - Stock EOD close:  15:45 ET (12:45 PT) weekdays — respects is_overnight flag")
         self.logger.info("  - Position monitor: every 30s (24/7)")
-        self.logger.info("  - Capital sync:   every 15 min")
-        self.logger.info("  - EOD report:     17:00 ET (14:00 PT) daily")
-        self.logger.info("  - ML retrain:     18:00 ET (15:00 PT) daily")
+        self.logger.info("  - Capital sync:     every 15 min")
+        self.logger.info("  - EOD report:       17:00 ET (14:00 PT) daily")
+        self.logger.info("  - ML retrain:       18:00 ET (15:00 PT) daily")
 
     # ------------------------------------------------------------------
     #  STOCK SCAN
@@ -309,10 +301,15 @@ class BotEngine:
             self.logger.error(f"Crypto scan error: {e}", exc_info=True)
 
     # ------------------------------------------------------------------
-    #  STOCK EOD CLOSE
+    #  STOCK EOD CLOSE  (3:45 PM ET — respects is_overnight flag)
     # ------------------------------------------------------------------
 
     def _close_stocks_eod(self):
+        """
+        Close all open day-trade stock positions at 3:45 PM ET.
+        Positions flagged is_overnight=1 (the !Day_Trade checkbox) are
+        skipped and left open for swing trade holding overnight.
+        """
         try:
             self.logger.info(
                 f"15:45 ET stock EOD close starting ({_et_now_str()})..."
@@ -333,10 +330,11 @@ class BotEngine:
             skipped_count = 0
 
             for trade in stock_trades:
-                if trade.get("is_overnight", False):
+                # Respect the !Day_Trade / is_overnight flag
+                if trade.get("is_overnight"):
                     self.logger.info(
                         f"Stock EOD close: SKIPPING {trade['symbol']} "
-                        f"— flagged !Day_Trade"
+                        f"— flagged is_overnight (!Day_Trade)"
                     )
                     skipped_count += 1
                     continue
@@ -372,13 +370,20 @@ class BotEngine:
             self.logger.error(f"Stock EOD close error: {e}", exc_info=True)
 
     # ------------------------------------------------------------------
-    #  EOD REPORT
+    #  EOD REPORT  (5:00 PM ET)
     # ------------------------------------------------------------------
 
     def _end_of_day(self):
+        """
+        End-of-day routine at 5 PM ET.
+        NOTE: Does NOT close stock positions — that is handled selectively
+        by _close_stocks_eod() at 3:45 ET which respects the is_overnight
+        flag. Calling close_all_stock_positions() here would wipe overnight
+        swing trades. This routine only generates the report and resets
+        the daily session counters.
+        """
         try:
-            self.logger.info("Running end-of-day routine...")
-            self.trade_executor.close_all_stock_positions()
+            self.logger.info("Running end-of-day routine (report + session reset)...")
             self.report_generator.generate_and_send_daily_report()
             self.db.reset_session_state()
             self.logger.info("End-of-day routine complete.")
@@ -386,7 +391,7 @@ class BotEngine:
             self.logger.error(f"End-of-day routine error: {e}", exc_info=True)
 
     # ------------------------------------------------------------------
-    #  CAPITAL SYNC — also runs reconciliation every sync cycle
+    #  CAPITAL SYNC
     # ------------------------------------------------------------------
 
     def _sync_capital(self):
@@ -414,8 +419,6 @@ class BotEngine:
                     "(normal in paper mode until broker API connects)"
                 )
 
-            # Run reconciliation on every capital sync (every 15 min)
-            # to catch ghosts that accumulate during the trading session
             self._reconcile_positions()
 
         except Exception as e:
