@@ -603,8 +603,9 @@ class Backtester:
                     if (start_cap > 0 and
                             daily_pnl / start_cap <= -max_daily_loss_pct):
                         trading_halted = True
-                    if consecutive_losses >= max_consec_losses:
-                        trading_halted = True
+                    consecutive_losses = 0
+                    #if consecutive_losses >= max_consec_losses:
+                    #   trading_halted = True
                 else:
                     still_open.append(trade)
 
