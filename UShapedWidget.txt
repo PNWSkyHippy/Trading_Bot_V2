@@ -11,6 +11,8 @@ rsi_length      = input.int(14,    "RSI Length")
 macd_fast       = input.int(3,     "MACD Fast")
 macd_slow       = input.int(26,    "MACD Slow")
 macd_signal_len = input.int(9,     "MACD Signal")
+cloud_bars      = input.int(150,   "Cloud history (bars)", minval=10, maxval=500,
+                  tooltip="Limits how many bars back the green/red cloud paints.\nOn a 1-second chart: 60=1min, 120=2min, 150=2.5min, 180=3min.\nIncrease if cloud cuts off too early; decrease to eliminate left-wall bleed.")
 
 // ─────────────────────────────────────────────
 // DOW DATA — calculation only, never plotted
@@ -83,12 +85,11 @@ go_short = widget_red   and rsi_short_ok and macd_falling
 
 // ─────────────────────────────────────────────
 // BACKGROUND CLOUD
-// show_last=150 = ~2.5 minutes on 1s chart.
-// Matches the visible window you actually trade
-// on — prevents bleed into older history.
+// cloud_bars is now a user input — tune it in
+// the widget settings without touching code.
 // ─────────────────────────────────────────────
-bgcolor(widget_green ? color.new(color.green, 80) : na, title="Green Cloud", show_last=150)
-bgcolor(widget_red   ? color.new(color.red,   80) : na, title="Red Cloud",   show_last=150)
+bgcolor(widget_green ? color.new(color.green, 80) : na, title="Green Cloud", show_last=cloud_bars)
+bgcolor(widget_red   ? color.new(color.red,   80) : na, title="Red Cloud",   show_last=cloud_bars)
 
 // Signal markers
 plotshape(go_long,  title="GO LONG",  location=location.belowbar, style=shape.triangleup,   color=color.lime, size=size.normal)
