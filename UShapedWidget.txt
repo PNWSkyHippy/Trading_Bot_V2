@@ -13,13 +13,29 @@ macd_slow       = input.int(26,    "MACD Slow")
 macd_signal_len = input.int(9,     "MACD Signal")
 
 // ─────────────────────────────────────────────
-// DOW DATA — calculation only, never plotted
+// DOW DATA
 // ─────────────────────────────────────────────
 dji_close = request.security("DJ:DJI", timeframe.period, close, lookahead=barmerge.lookahead_off)
 
 dji_now  = dji_close
 dji_prev = dji_close[lookback_bars]
 dow_move = dji_now - dji_prev
+
+// Normalise Dow to SPY price space so both lines
+// move on the same axis. Base both to their first
+// valid bar so divergence between SPY and Dow is
+// visible as the gap between the two lines.
+var float dji_base = na
+var float spy_base = na
+if na(dji_base) and not na(dji_close) and not na(close)
+    dji_base := dji_close
+    spy_base  := close
+
+// dji_norm tracks what SPY *would* be if it moved
+// exactly like the Dow from session open.
+// When SPY > dji_norm → SPY outperforming Dow (bullish divergence)
+// When SPY < dji_norm → Dow outperforming SPY (bearish divergence)
+dji_norm = (na(dji_base) or dji_base == 0) ? na : spy_base * (dji_close / dji_base)
 
 // ─────────────────────────────────────────────
 // BANDWIDTH STATE MACHINE
@@ -50,14 +66,9 @@ else if cloud_state == -1
     if dji_now < trigger_level
         trigger_level := dji_now
 
-// Gate on valid Dow data AND real-time only.
-// barstate.isrealtime ensures the cloud only paints
-// on live bars as they arrive — never on historical
-// bars during replay/load, eliminating all bleed
-// regardless of how far back the chart scrolls.
 data_ready   = not na(dji_close) and not na(dow_move) and bar_index >= lookback_bars
-widget_green = data_ready and barstate.isrealtime and cloud_state ==  1
-widget_red   = data_ready and barstate.isrealtime and cloud_state == -1
+widget_green = data_ready and cloud_state ==  1
+widget_red   = data_ready and cloud_state == -1
 
 // ─────────────────────────────────────────────
 // RSI  (5-second bars, SMA-smoothed)
@@ -89,13 +100,27 @@ go_long  = widget_green and rsi_long_ok  and macd_rising
 go_short = widget_red   and rsi_short_ok and macd_falling
 
 // ─────────────────────────────────────────────
-// BACKGROUND CLOUD
-// No show_last needed — widget_green/widget_red
-// are already false on all historical bars due to
-// barstate.isrealtime gate above.
+// PLOTS — SPY (invisible anchor) + Dow normalised
+// Both are plotted so fill() can colour between them.
+// SPY close is already the main chart line so we
+// plot it transparent — we just need the plot ID
+// for fill() to reference.
 // ─────────────────────────────────────────────
-bgcolor(widget_green ? color.new(color.green, 80) : na, title="Green Cloud")
-bgcolor(widget_red   ? color.new(color.red,   80) : na, title="Red Cloud")
+spy_plot = plot(close,    title="SPY",          color=color.new(color.white, 100), display=display.none)
+dow_plot = plot(dji_norm, title="Dow (scaled)", color=color.new(color.orange, 30), linewidth=1)
+
+// ─────────────────────────────────────────────
+// FILL between SPY and Dow lines
+// Green fill when Dow is rising (widget_green)
+// Red fill when Dow is falling (widget_red)
+// Transparent when no cloud state
+// This paints ONLY the area between the two lines
+// — exactly like the 20-minute trader widget.
+// ─────────────────────────────────────────────
+fill_color = widget_green ? color.new(color.green, 70) :
+             widget_red   ? color.new(color.red,   70) :
+             color.new(color.gray, 100)
+fill(spy_plot, dow_plot, color=fill_color, title="SPY/Dow Cloud")
 
 // Signal markers
 plotshape(go_long,  title="GO LONG",  location=location.belowbar, style=shape.triangleup,   color=color.lime, size=size.normal)
