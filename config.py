@@ -23,6 +23,13 @@ KRAKEN_API_KEY      = os.getenv("KRAKEN_API_KEY", "")
 KRAKEN_SECRET_KEY   = os.getenv("KRAKEN_SECRET_KEY", "")
 KRAKEN_ENABLED      = False
 
+# Interactive Brokers — add keys to .env when account is ready
+# IBKR uses TWS or IB Gateway running locally (no REST key — just account ID)
+# TWS paper port: 7497  |  TWS live port: 7496
+IBKR_ACCOUNT        = os.getenv("IBKR_ACCOUNT", "")    # Account ID e.g. DU1234567
+IBKR_ENABLED        = False                              # Set True after TWS is running
+IBKR_PAPER_MODE     = True                               # True = paper (port 7497)
+
 ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY", "")
 
 EMAIL_SENDER        = os.getenv("EMAIL_SENDER", "")
@@ -71,8 +78,11 @@ CRYPTO_MAX_PRICE    = 999999.00
 USE_LEVERAGED_LONGS = False
 
 # Cash account / PDT settings
+# T+1 is the SEC standard since May 2024 (was T+2).
+# IBKR cash accounts use T+1. Alpaca cash accounts use T+1.
+# Set SETTLEMENT_DAYS=2 only if your broker still settles T+2.
 CASH_ACCOUNT_MODE   = True
-SETTLEMENT_DAYS     = 2
+SETTLEMENT_DAYS     = 1
 
 # Market timing (Eastern Time)
 MARKET_OPEN_BUFFER_MIN  = 30
@@ -224,7 +234,7 @@ SIGNAL_TUNING = {
     "scalp_rsi_period":             7,
     "scalp_min_volume_ratio":       1.2,
     "scalp_min_score":              0.60,
-    "scalp_adx_min":                20,     # NEW: ADX floor for scalp_master (Apr 2026)
+    "scalp_adx_min":                20,
 
     # -------------------------------------------------------------------------
     # STRATEGY 6: Swing Trader
@@ -252,26 +262,15 @@ SIGNAL_TUNING = {
     "dca_min_score":                0.60,
 
     # -------------------------------------------------------------------------
-    # STRATEGY 9: VWAP Momentum  (NEW — Apr 2026)
-    # EMA 5/13/34 stack + VWAP directional filter + ADX + RSI zone + volume.
-    # Stock-only, 5-minute bars.
-    #
-    # Tuning guide:
-    #   vwap_mom_adx_min:      Raise to 30 for stricter trend requirement.
-    #                          Lower to 20 if signal volume is too low.
-    #   vwap_mom_rsi_low/high: The 40-60 zone is the "momentum sweet spot".
-    #                          Widen to 35-65 for more signals, narrow to
-    #                          45-55 for higher quality but fewer trades.
-    #   vwap_mom_volume_ratio: 1.5x is the minimum conviction bar.
-    #                          Raise to 2.0x if too many false signals.
+    # STRATEGY 9: VWAP Momentum
     # -------------------------------------------------------------------------
-    "vwap_mom_adx_min":             25,     # ADX must be >= this (trending market)
-    "vwap_mom_adx_period":          14,     # ADX lookback period
-    "vwap_mom_rsi_period":          14,     # RSI lookback period
-    "vwap_mom_rsi_low":             40,     # RSI lower bound of momentum zone
-    "vwap_mom_rsi_high":            60,     # RSI upper bound of momentum zone
-    "vwap_mom_volume_ratio":        1.5,    # Volume must be >= Nx 20-bar average
-    "vwap_mom_min_score":           0.65,   # Minimum confidence to fire signal
+    "vwap_mom_adx_min":             25,
+    "vwap_mom_adx_period":          14,
+    "vwap_mom_rsi_period":          14,
+    "vwap_mom_rsi_low":             40,
+    "vwap_mom_rsi_high":            60,
+    "vwap_mom_volume_ratio":        1.5,
+    "vwap_mom_min_score":           0.65,
 
     # -------------------------------------------------------------------------
     # ML SCORER BOOST
