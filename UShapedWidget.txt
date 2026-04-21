@@ -4,23 +4,34 @@ indicator("U-Shape Widget [SPY/Dow Setup]", overlay=true, max_bars_back=500)
 // ─────────────────────────────────────────────
 // INPUTS
 // ─────────────────────────────────────────────
-lookback_bars   = input.int(20,  "Lookback (seconds/bars)", minval=1)
-threshold_pts   = input.float(18.0, "Dow Move Threshold (pts)", minval=1)
-bandwidth_pts   = input.float(10.0, "Bandwidth / Hysteresis (pts)", minval=0)
-rsi_length      = input.int(14,  "RSI Length")
-macd_fast       = input.int(3,   "MACD Fast")
-macd_slow       = input.int(26,  "MACD Slow")
-macd_signal_len = input.int(9,   "MACD Signal")
-webhook_url     = input.string("", "Webhook URL (for alerts)")
+lookback_bars   = input.int(20,    "Lookback (seconds/bars)", minval=1)
+threshold_pts   = input.float(18.0,"Dow Move Threshold (pts)", minval=1)
+bandwidth_pts   = input.float(10.0,"Bandwidth / Hysteresis (pts)", minval=0)
+rsi_length      = input.int(14,    "RSI Length")
+macd_fast       = input.int(3,     "MACD Fast")
+macd_slow       = input.int(26,    "MACD Slow")
+macd_signal_len = input.int(9,     "MACD Signal")
+show_dow_line   = input.bool(true, "Show Dow divergence line")
 
 // ─────────────────────────────────────────────
-// DOW DATA  (request at chart resolution = 1s)
+// DOW DATA
 // ─────────────────────────────────────────────
 dji_close = request.security("DJ:DJI", timeframe.period, close, lookahead=barmerge.lookahead_off)
 
 dji_now  = dji_close
 dji_prev = dji_close[lookback_bars]
 dow_move = dji_now - dji_prev
+
+// Normalised Dow line — plots Dow as % change from session open
+// so it moves independently on the SPY price scale.
+// Base both to their first bar value so divergence is visible.
+var float dji_base = na
+var float spy_base = na
+if na(dji_base) and not na(dji_close) and not na(close)
+    dji_base := dji_close
+    spy_base  := close
+
+dji_norm = na(dji_base) or dji_base == 0 ? na : close * (dji_close / dji_base)
 
 // ─────────────────────────────────────────────
 // BANDWIDTH STATE MACHINE
@@ -52,12 +63,10 @@ widget_green = cloud_state ==  1
 widget_red   = cloud_state == -1
 
 // ─────────────────────────────────────────────
-// RSI  (5-second resolution, length 14, SMA type)
-// FIX Apr 2026: lookahead_on so gating RSI matches
-// the displayed RSI panel value exactly.
+// RSI  (5-second bars, SMA-smoothed)
+// FIX: lookahead_on so gating RSI matches display
 // ─────────────────────────────────────────────
-rsi_src_5s = request.security(syminfo.tickerid, "5S", close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
-
+rsi_src_5s   = request.security(syminfo.tickerid, "5S", close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
 rsi_delta    = ta.change(rsi_src_5s)
 rsi_up       = math.max(rsi_delta, 0)
 rsi_down     = -math.min(rsi_delta, 0)
@@ -69,7 +78,7 @@ rsi_long_ok  = rsi_val <= 48
 rsi_short_ok = rsi_val >= 52
 
 // ─────────────────────────────────────────────
-// MACD  (1-second chart, Close, 3/26/9 EMA)
+// MACD  (1-second chart, 3/26/9)
 // ─────────────────────────────────────────────
 [macd_line, _, _] = ta.macd(close, macd_fast, macd_slow, macd_signal_len)
 
@@ -84,19 +93,25 @@ go_short = widget_red   and rsi_short_ok and macd_falling
 
 // ─────────────────────────────────────────────
 // BACKGROUND CLOUD
+// FIX: use color(na) not bare na to prevent bleed
 // ─────────────────────────────────────────────
-cloud_color = widget_green ? color.new(color.green, 80) : widget_red ? color.new(color.red, 80) : na
+cloud_color = widget_green ? color.new(color.green, 80) : widget_red ? color.new(color.red, 80) : color(na)
 bgcolor(cloud_color, title="Widget Cloud")
+
+// Normalised Dow divergence line
+plot(show_dow_line ? dji_norm : na, title="Dow (normalised)", color=color.orange, linewidth=1)
 
 // Signal markers
 plotshape(go_long,  title="GO LONG",  location=location.belowbar, style=shape.triangleup,   color=color.lime, size=size.normal)
 plotshape(go_short, title="GO SHORT", location=location.abovebar, style=shape.triangledown, color=color.red,  size=size.normal)
 
 // ─────────────────────────────────────────────
-// ALERTS / WEBHOOK
+// ALERTS (Pine v5 — variables allowed here)
 // ─────────────────────────────────────────────
 long_payload  = '{"direction":"long","rsi":'  + str.tostring(math.round(rsi_val, 2)) + ',"macd_direction":"rising","dow_move":'  + str.tostring(math.round(dow_move, 2)) + ',"widget_color":"green"}'
 short_payload = '{"direction":"short","rsi":' + str.tostring(math.round(rsi_val, 2)) + ',"macd_direction":"falling","dow_move":' + str.tostring(math.round(dow_move, 2)) + ',"widget_color":"red"}'
 
-alertcondition(go_long,  title="GO LONG Signal",  message=long_payload)
-alertcondition(go_short, title="GO SHORT Signal", message=short_payload)
+if go_long
+    alert(long_payload, alert.freq_once_per_bar)
+if go_short
+    alert(short_payload, alert.freq_once_per_bar)
