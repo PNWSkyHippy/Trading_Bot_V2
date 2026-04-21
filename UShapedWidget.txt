@@ -4,35 +4,49 @@ indicator("U-Shape Widget [SPY/Dow Setup]", overlay=true, max_bars_back=500)
 // ─────────────────────────────────────────────
 // INPUTS
 // ─────────────────────────────────────────────
-lookback_bars   = input.int(20,  "Lookback (seconds/bars)", minval=1)
-threshold_pts   = input.float(18.0, "Dow Move Threshold (pts)", minval=1)
-bandwidth_pts   = input.float(10.0, "Bandwidth / Hysteresis (pts)", minval=0)
-rsi_length      = input.int(14,  "RSI Length")
-macd_fast       = input.int(3,   "MACD Fast")
-macd_slow       = input.int(26,  "MACD Slow")
-macd_signal_len = input.int(9,   "MACD Signal")
-webhook_url     = input.string("", "Webhook URL (for alerts)")
+lookback_bars   = input.int(20,    "Lookback (seconds/bars)", minval=1)
+threshold_pts   = input.float(18.0,"Dow Move Threshold (pts)", minval=1)
+bandwidth_pts   = input.float(10.0,"Bandwidth / Hysteresis (pts)", minval=0)
+rsi_length      = input.int(14,    "RSI Length")
+macd_fast       = input.int(3,     "MACD Fast")
+macd_slow       = input.int(26,    "MACD Slow")
+macd_signal_len = input.int(9,     "MACD Signal")
 
 // ─────────────────────────────────────────────
-// DOW DATA  (request at chart resolution = 1s)
+// DOW DATA
 // ─────────────────────────────────────────────
 dji_close = request.security("DJ:DJI", timeframe.period, close, lookahead=barmerge.lookahead_off)
 
-// Dow move over last N bars
 dji_now  = dji_close
 dji_prev = dji_close[lookback_bars]
-dow_move = dji_now - dji_prev          // positive = up, negative = down
+dow_move = dji_now - dji_prev
+
+// Normalise Dow to SPY price space so both lines
+// move on the same axis. Base both to their first
+// valid bar so divergence between SPY and Dow is
+// visible as the gap between the two lines.
+var float dji_base = na
+var float spy_base = na
+if na(dji_base) and not na(dji_close) and not na(close)
+    dji_base := dji_close
+    spy_base  := close
+
+// dji_norm tracks what SPY *would* be if it moved
+// exactly like the Dow from session open.
+// When SPY > dji_norm → SPY outperforming Dow (bullish divergence)
+// When SPY < dji_norm → Dow outperforming SPY (bearish divergence)
+dji_norm = (na(dji_base) or dji_base == 0) ? na : spy_base * (dji_close / dji_base)
 
 // ─────────────────────────────────────────────
 // BANDWIDTH STATE MACHINE
-// Prevents rapid flickering at the 18-pt edge.
-// Once GREEN, stay green until Dow drops 10 pts
-// from the high that triggered it (and vice-versa).
 // ─────────────────────────────────────────────
 var float trigger_level = na
 var int   cloud_state   = 0   // 0=none, 1=green, -1=red
 
-if cloud_state == 0
+if na(dji_close) or na(dow_move)
+    cloud_state   := 0
+    trigger_level := na
+else if cloud_state == 0
     if dow_move >= threshold_pts
         cloud_state   := 1
         trigger_level := dji_now
@@ -40,45 +54,39 @@ if cloud_state == 0
         cloud_state   := -1
         trigger_level := dji_now
 else if cloud_state == 1
-    // stay green unless Dow falls bandwidth below the trigger
     if dji_now < trigger_level - bandwidth_pts
         cloud_state   := 0
         trigger_level := na
-    // Update trigger upward so we track the new high
     if dji_now > trigger_level
         trigger_level := dji_now
 else if cloud_state == -1
-    // stay red unless Dow rises bandwidth above the trigger
     if dji_now > trigger_level + bandwidth_pts
         cloud_state   := 0
         trigger_level := na
     if dji_now < trigger_level
         trigger_level := dji_now
 
-widget_green = cloud_state ==  1
-widget_red   = cloud_state == -1
+data_ready   = not na(dji_close) and not na(dow_move) and bar_index >= lookback_bars
+widget_green = data_ready and cloud_state ==  1
+widget_red   = data_ready and cloud_state == -1
 
 // ─────────────────────────────────────────────
-// RSI  (5-second resolution, length 14, SMA type)
+// RSI  (5-second bars, SMA-smoothed)
+// lookahead_on so gating RSI matches display
 // ─────────────────────────────────────────────
-rsi_src_5s = request.security(syminfo.tickerid, "5S", close,
-             gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_off)
-
-// Manual SMA-smoothed RSI (Pine's ta.rsi uses RMA; we need SMA)
-rsi_delta = ta.change(rsi_src_5s)
-rsi_up    = math.max(rsi_delta, 0)
-rsi_down  = -math.min(rsi_delta, 0)
+rsi_src_5s   = request.security(syminfo.tickerid, "5S", close, gaps=barmerge.gaps_off, lookahead=barmerge.lookahead_on)
+rsi_delta    = ta.change(rsi_src_5s)
+rsi_up       = math.max(rsi_delta, 0)
+rsi_down     = -math.min(rsi_delta, 0)
 rsi_avg_up   = ta.sma(rsi_up,   rsi_length)
 rsi_avg_down = ta.sma(rsi_down, rsi_length)
-rsi_val = rsi_avg_down == 0 ? 100 :
-          rsi_avg_up   == 0 ?   0 :
-          100 - (100 / (1 + rsi_avg_up / rsi_avg_down))
+rsi_val      = rsi_avg_down == 0 ? 100 : rsi_avg_up == 0 ? 0 : 100 - (100 / (1 + rsi_avg_up / rsi_avg_down))
 
 rsi_long_ok  = rsi_val <= 48
 rsi_short_ok = rsi_val >= 52
 
 // ─────────────────────────────────────────────
-// MACD  (1-second chart, Close, 3/26/9 EMA)
+// MACD  (1-second chart, 3/26/9)
 // ─────────────────────────────────────────────
 [macd_line, _, _] = ta.macd(close, macd_fast, macd_slow, macd_signal_len)
 
@@ -92,32 +100,39 @@ go_long  = widget_green and rsi_long_ok  and macd_rising
 go_short = widget_red   and rsi_short_ok and macd_falling
 
 // ─────────────────────────────────────────────
-// BACKGROUND CLOUD
+// PLOTS — SPY (invisible anchor) + Dow normalised
+// Both are plotted so fill() can colour between them.
+// SPY close is already the main chart line so we
+// plot it transparent — we just need the plot ID
+// for fill() to reference.
 // ─────────────────────────────────────────────
-bgcolor(widget_green ? color.new(color.green, 80) :
-        widget_red   ? color.new(color.red,   80) :
-        na,
-        title="Widget Cloud")
+spy_plot = plot(close,    title="SPY",          color=color.new(color.white, 100), display=display.none)
+dow_plot = plot(dji_norm, title="Dow (scaled)", color=color.new(color.orange, 30), linewidth=1)
+
+// ─────────────────────────────────────────────
+// FILL between SPY and Dow lines
+// Green fill when Dow is rising (widget_green)
+// Red fill when Dow is falling (widget_red)
+// Transparent when no cloud state
+// This paints ONLY the area between the two lines
+// — exactly like the 20-minute trader widget.
+// ─────────────────────────────────────────────
+fill_color = widget_green ? color.new(color.green, 70) :
+             widget_red   ? color.new(color.red,   70) :
+             color.new(color.gray, 100)
+fill(spy_plot, dow_plot, color=fill_color, title="SPY/Dow Cloud")
 
 // Signal markers
-plotshape(go_long,  title="GO LONG",  location=location.belowbar,
-          style=shape.triangleup,   color=color.lime,  size=size.normal)
-plotshape(go_short, title="GO SHORT", location=location.abovebar,
-          style=shape.triangledown, color=color.red,   size=size.normal)
+plotshape(go_long,  title="GO LONG",  location=location.belowbar, style=shape.triangleup,   color=color.lime, size=size.normal)
+plotshape(go_short, title="GO SHORT", location=location.abovebar, style=shape.triangledown, color=color.red,  size=size.normal)
 
 // ─────────────────────────────────────────────
-// ALERTS / WEBHOOK
+// ALERTS
 // ─────────────────────────────────────────────
-// Build JSON payload strings
-long_payload  = '{"direction":"long","rsi":' + str.tostring(math.round(rsi_val, 2)) +
-                ',"macd_direction":"rising"' +
-                ',"dow_move":' + str.tostring(math.round(dow_move, 2)) +
-                ',"widget_color":"green"}'
+long_payload  = '{"direction":"long","rsi":'  + str.tostring(math.round(rsi_val, 2)) + ',"macd_direction":"rising","dow_move":'  + str.tostring(math.round(dow_move, 2)) + ',"widget_color":"green"}'
+short_payload = '{"direction":"short","rsi":' + str.tostring(math.round(rsi_val, 2)) + ',"macd_direction":"falling","dow_move":' + str.tostring(math.round(dow_move, 2)) + ',"widget_color":"red"}'
 
-short_payload = '{"direction":"short","rsi":' + str.tostring(math.round(rsi_val, 2)) +
-                ',"macd_direction":"falling"' +
-                ',"dow_move":' + str.tostring(math.round(dow_move, 2)) +
-                ',"widget_color":"red"}'
-
-alertcondition(go_long,  title="GO LONG Signal",  message=long_payload)
-alertcondition(go_short, title="GO SHORT Signal", message=short_payload)
+if go_long
+    alert(long_payload, alert.freq_once_per_bar)
+if go_short
+    alert(short_payload, alert.freq_once_per_bar)
