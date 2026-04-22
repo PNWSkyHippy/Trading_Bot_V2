@@ -4,11 +4,11 @@
   The single most important module. Every trade must pass
   through here before execution. Enforces all rules:
   - 2% max position sizing
-  - 1% stop-loss on all trades
+  - 1.5% stop-loss on all trades
   - 3% take-profit (initial)
-  - 10% max daily loss ceiling
-  - 3 consecutive loss halt
-  - Max 5 open positions
+  - 15% max daily loss ceiling
+  - 10 consecutive loss halt
+  - Max 30 open positions
 =============================================================
 """
 
@@ -73,12 +73,10 @@ class RiskManager:
         This ensures capital tracks correctly even though Alpaca paper balance never changes.
         """
         try:
-            # Sum all realized P&L from closed trades
             closed = db.get_all_closed_trades(limit=99999)
             total_pnl = sum(t.get("pnl", 0.0) or 0.0 for t in closed)
             total = config.STARTING_CAPITAL + total_pnl
 
-            # Record snapshot if significantly different from last recorded
             cap = db.get_latest_capital()
             last = cap["total_capital"] if cap else 0
             if abs(total - last) > 0.50:
@@ -87,7 +85,7 @@ class RiskManager:
             allocation = getattr(config, "BOT_CAPITAL_ALLOCATION", None)
             if allocation and allocation > 0:
                 return min(total, allocation)
-            return max(total, 1.0)  # never return zero or negative
+            return max(total, 1.0)
         except Exception:
             cap = db.get_latest_capital()
             total = cap["total_capital"] if cap else config.STARTING_CAPITAL
@@ -106,7 +104,7 @@ class RiskManager:
         pnl_today = self._session.get("pnl_today", 0.0)
         pnl_pct   = (pnl_today / capital * 100) if capital else 0
         max_daily_loss       = capital * (config.MAX_DAILY_LOSS_PCT / 100)
-        daily_loss_remaining = max_daily_loss + pnl_today  # pnl_today is negative when losing
+        daily_loss_remaining = max_daily_loss + pnl_today
 
         return DailyStatus(
             trading_active       = not bool(self._session.get("trading_halted", 0)),
@@ -120,10 +118,6 @@ class RiskManager:
         )
 
     def is_trading_allowed(self) -> Tuple[bool, str]:
-        """
-        Master gate. Returns (allowed, reason).
-        Call this before every trade attempt.
-        """
         self._refresh_session()
 
         if self._session.get("trading_halted"):
@@ -139,12 +133,12 @@ class RiskManager:
                 f"Daily loss limit reached: ${abs(pnl_today):.2f} "
                 f"({abs(pnl_today / capital * 100):.1f}%)"
             )
-            return False, "10% daily loss ceiling reached. Trading halted until tomorrow."
-        """ RON HERE """
+            return False, f"{config.MAX_DAILY_LOSS_PCT:.0f}% daily loss ceiling reached. Trading halted until tomorrow."
+
         if self._session.get("consecutive_losses", 0) >= config.MAX_CONSECUTIVE_LOSSES:
-            self._halt_trading("10 consecutive losses triggered halt")
-            return False, "10 consecutive losing trades. Trading halted until tomorrow."
-    
+            self._halt_trading(f"{config.MAX_CONSECUTIVE_LOSSES} consecutive losses triggered halt")
+            return False, f"{config.MAX_CONSECUTIVE_LOSSES} consecutive losing trades. Trading halted until tomorrow."
+
         open_trades = db.get_open_trades()
         if len(open_trades) >= config.MAX_OPEN_POSITIONS:
             return False, f"Maximum {config.MAX_OPEN_POSITIONS} open positions reached."
@@ -160,10 +154,6 @@ class RiskManager:
                       custom_stop_loss_pct: float = None,
                       custom_take_profit_pct: float = None,
                       custom_position_pct: float = None) -> TradeApproval:
-        """
-        Full trade approval with position sizing, stop-loss, and take-profit.
-        Strategies can pass custom SL/TP/position percentages.
-        """
         allowed, reason = self.is_trading_allowed()
         if not allowed:
             return TradeApproval(approved=False, reason=reason)
@@ -182,18 +172,15 @@ class RiskManager:
         if capital <= 0:
             return TradeApproval(approved=False, reason="No capital available")
 
-        # Use custom position size if strategy provides one, else default
         position_pct   = (custom_position_pct or config.MAX_POSITION_PCT) / 100
         position_value = capital * position_pct
         quantity       = position_value / entry_price
 
-        # Use custom SL/TP if strategy provides them, else defaults
         stop_loss_pct   = (custom_stop_loss_pct   or config.DEFAULT_STOP_LOSS_PCT)   / 100
         take_profit_pct = (custom_take_profit_pct or config.DEFAULT_TAKE_PROFIT_PCT) / 100
 
         risk_amount = position_value * stop_loss_pct
 
-        # Scale down if exceeds remaining daily loss budget
         pnl_today              = self._session.get("pnl_today", 0.0)
         max_daily_loss         = capital * (config.MAX_DAILY_LOSS_PCT / 100)
         remaining_loss_budget  = max_daily_loss + pnl_today
@@ -240,16 +227,9 @@ class RiskManager:
 
     def calculate_trailing_stop(self, trade: Dict,
                                  current_price: float) -> Optional[Dict]:
-        """
-        Calculate new stop-loss and potentially new take-profit.
-        Only raises stops, never lowers them.
-        Returns updated levels if adjustment needed, else None.
-        """
         direction  = trade["direction"]
         current_sl = trade["stop_loss"]
-        current_tp = trade["take_profit"]
         trailing_gap = config.TRAILING_STOP_PCT / 100
-        take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT / 100
         updates = {}
 
         if direction == "long":
@@ -260,7 +240,6 @@ class RiskManager:
                     f"Trailing stop raised for {trade['symbol']}: "
                     f"${current_sl:.4f} -> ${new_sl:.4f}"
                 )
-
         elif direction == "short":
             new_sl = current_price * (1 + trailing_gap)
             if new_sl < current_sl:
@@ -269,10 +248,6 @@ class RiskManager:
         return updates if updates else None
 
     def check_sl_exit(self, trade: Dict, current_price: float) -> Optional[str]:
-        """
-        Check stop-loss only — never take-profit.
-        Used by the momentum rider so TP handling is a separate decision.
-        """
         direction = trade["direction"]
         sl = trade["stop_loss"]
         if direction == "long"  and current_price <= sl: return "stop_loss"
@@ -281,10 +256,6 @@ class RiskManager:
 
     def check_exit_conditions(self, trade: Dict,
                                current_price: float) -> Optional[str]:
-        """
-        Check if a trade should be closed.
-        Returns exit reason string or None to keep position open.
-        """
         direction = trade["direction"]
         sl = trade["stop_loss"]
         tp = trade["take_profit"]
@@ -326,20 +297,22 @@ class RiskManager:
                 f"Losing trade recorded. Consecutive losses: {new_losses}"
             )
             if new_losses >= config.MAX_CONSECUTIVE_LOSSES:
-                self._halt_trading("3 consecutive losing trades")
+                self._halt_trading(
+                    f"{config.MAX_CONSECUTIVE_LOSSES} consecutive losing trades"
+                )
         else:
             logger.info(f"Winning trade: +${pnl:.2f}. Consecutive loss counter reset.")
 
     def _halt_trading(self, reason: str):
-         session_date= date.today().isoformat()
-         db.update_session(session_date, trading_halted=1, halt_reason=reason)
-         self._session["trading_halted"] = 1
-         self._session["halt_reason"]    = reason
-         logger.critical(f"[HALT] TRADING HALTED: {reason}")
-         try:
+        session_date = date.today().isoformat()
+        db.update_session(session_date, trading_halted=1, halt_reason=reason)
+        self._session["trading_halted"] = 1
+        self._session["halt_reason"]    = reason
+        logger.critical(f"[HALT] TRADING HALTED: {reason}")
+        try:
             if alert_manager:
                 alert_manager.trading_halted(reason)
-         except Exception:
+        except Exception:
             pass
 
     def manual_halt(self, reason: str = "Manual halt by user"):
