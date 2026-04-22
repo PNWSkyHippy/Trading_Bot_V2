@@ -36,6 +36,16 @@ SYSTEM_PROMPT = """You are the AI controller for an autonomous day trading bot.
 Help the owner monitor and control it through natural conversation.
 Be concise. Use numbers. Confirm before withdrawals.
 
+CRITICAL RULES — read carefully before taking any action:
+- NEVER halt trading unless the user gives an EXPLICIT, DIRECT instruction like
+  "halt trading", "pause trading", or "stop all trades".
+- Do NOT infer intent from vague statements. If the user says something ambiguous
+  like "resources are used up", "I'm exhausted", "things are slow", or "the budget
+  ran out" — these are NOT instructions to halt trading. Ask for clarification instead.
+- Only execute an action when you are 100% certain that is what the user is asking for.
+- When in doubt, ASK. Never assume a command from conversational language.
+- Treat halt_trading and withdraw as high-risk actions requiring explicit confirmation.
+
 You can execute commands by including JSON in your response:
 {"action": "halt_trading", "reason": "user request"}
 {"action": "resume_trading"}
@@ -118,11 +128,9 @@ class ChatInterface:
                 "Add ANTHROPIC_API_KEY to your .env file."
             )
 
-        # Log the incoming message
         logger.info(f"[CLAUDE] User message: {user_message[:120]}")
         self._last_user_message = user_message
 
-        # Log to DB as a message event (no action yet)
         try:
             db.log_chat_action(
                 user_message = user_message,
@@ -327,7 +335,6 @@ class ChatInterface:
                     result_msg = broker_manager.disable_broker(name)
                     logger.info(f"[CLAUDE] ACTION disable_broker | name={name}")
 
-                # Log every executed action to the DB
                 if result_msg:
                     results.append(result_msg)
                     try:
