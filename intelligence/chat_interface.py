@@ -2,15 +2,18 @@
 =============================================================
   CLAUDE AI CHAT INTERFACE
   Lets you talk to your trading bot in plain English.
-  Commands include: pause trading, show stats, withdraw funds,
-  change risk settings, view positions, generate reports,
-  manage strategies, manage brokers, inject/withdraw funds.
 
   Model: claude-haiku-4-5-20251001 (cheapest Claude, fast)
   Cost controls:
-    - max_tokens capped at 512 (was 1024)
+    - max_tokens capped at 512
     - context trimmed to essentials only
-    - conversation history capped at 10 turns (was 20)
+    - conversation history capped at 10 turns
+
+  Activity logging:
+    Every user message and every action executed is logged
+    to the chat_actions table in the database.
+    Search logs for [CLAUDE] to see all activity.
+    EOD report includes a Claude Activity Summary section.
 =============================================================
 """
 
@@ -27,7 +30,6 @@ from core.position_monitor import monitor
 
 logger = logging.getLogger(__name__)
 
-# Cheapest Claude model — fast and sufficient for bot commands
 CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
 SYSTEM_PROMPT = """You are the AI controller for an autonomous day trading bot.
@@ -59,10 +61,10 @@ class ChatInterface:
 
     def __init__(self):
         self.conversation_history: List[Dict] = []
-        self.max_history = 10  # 10 turns max to control token costs
+        self.max_history = 10
+        self._last_user_message = ""
 
     def _build_context(self) -> str:
-        """Build a concise context string — trimmed to reduce API token costs."""
         session      = risk_manager.get_daily_status()
         capital_rec  = db.get_latest_capital()
         positions    = monitor.get_positions_summary()
@@ -96,7 +98,7 @@ class ChatInterface:
 
         if closed_today:
             recent = closed_today[-5:]
-            context += f"RECENT TRADES: "
+            context += "RECENT TRADES: "
             context += " | ".join(
                 f"{t['symbol']} {'W' if t.get('pnl',0)>0 else 'L'} "
                 f"${t.get('pnl',0):+.2f}"
@@ -116,6 +118,21 @@ class ChatInterface:
                 "Add ANTHROPIC_API_KEY to your .env file."
             )
 
+        # Log the incoming message
+        logger.info(f"[CLAUDE] User message: {user_message[:120]}")
+        self._last_user_message = user_message
+
+        # Log to DB as a message event (no action yet)
+        try:
+            db.log_chat_action(
+                user_message = user_message,
+                action_type  = "message",
+                action_detail= "",
+                result       = ""
+            )
+        except Exception:
+            pass
+
         context       = self._build_context()
         full_user_msg = f"{context}\nUser: {user_message}"
 
@@ -123,7 +140,6 @@ class ChatInterface:
             {"role": "user", "content": full_user_msg}
         )
 
-        # Trim history to control costs
         if len(self.conversation_history) > self.max_history * 2:
             self.conversation_history = \
                 self.conversation_history[-self.max_history * 2:]
@@ -138,7 +154,7 @@ class ChatInterface:
                 },
                 json={
                     "model":      CLAUDE_MODEL,
-                    "max_tokens": 512,          # was 1024 — halved to cut costs
+                    "max_tokens": 512,
                     "system":     SYSTEM_PROMPT,
                     "messages":   self.conversation_history
                 },
@@ -152,7 +168,9 @@ class ChatInterface:
                 {"role": "assistant", "content": assistant_reply}
             )
 
-            action_results = self._parse_and_execute_actions(assistant_reply)
+            action_results = self._parse_and_execute_actions(
+                assistant_reply, user_message
+            )
             if action_results:
                 assistant_reply += "\n\n" + "\n".join(action_results)
 
@@ -165,7 +183,9 @@ class ChatInterface:
                 "Bot is still running normally."
             )
 
-    def _parse_and_execute_actions(self, response_text: str) -> List[str]:
+    def _parse_and_execute_actions(
+        self, response_text: str, user_message: str = ""
+    ) -> List[str]:
         results = []
         import re
         json_matches = re.findall(r'\{[^{}]+\}', response_text)
@@ -174,37 +194,46 @@ class ChatInterface:
             try:
                 cmd    = json.loads(match)
                 action = cmd.get("action")
+                if not action:
+                    continue
+
+                result_msg = ""
 
                 if action == "halt_trading":
                     reason = cmd.get("reason", "User request via chat")
                     risk_manager.manual_halt(reason)
-                    results.append(f"Trading halted: {reason}")
+                    result_msg = f"Trading halted: {reason}"
+                    logger.info(f"[CLAUDE] ACTION halt_trading | reason={reason}")
 
                 elif action == "resume_trading":
                     risk_manager.manual_resume()
-                    results.append("Trading resumed.")
+                    result_msg = "Trading resumed."
+                    logger.info("[CLAUDE] ACTION resume_trading")
 
                 elif action == "withdraw":
                     amount = float(cmd.get("amount", 0))
                     reason = cmd.get("reason", "Withdrawal")
-                    result = risk_manager.process_withdrawal(amount, reason)
-                    results.append(result["message"])
+                    res    = risk_manager.process_withdrawal(amount, reason)
+                    result_msg = res["message"]
+                    logger.info(f"[CLAUDE] ACTION withdraw | amount=${amount:.2f} reason={reason}")
 
                 elif action == "set_risk":
                     param = cmd.get("param")
                     value = cmd.get("value")
                     if hasattr(config, param):
                         setattr(config, param, value)
-                        results.append(f"Risk setting updated: {param} = {value}")
+                        result_msg = f"Risk setting updated: {param} = {value}"
                         db.set_state(f"risk_{param}", value)
+                        logger.info(f"[CLAUDE] ACTION set_risk | {param}={value}")
                     else:
-                        results.append(f"Unknown config param: {param}")
+                        result_msg = f"Unknown config param: {param}"
 
                 elif action == "export_taxes":
                     year     = cmd.get("year", datetime.now().year)
                     filepath = f"exports/tax_form_8949_{year}.csv"
                     db.export_8949_csv(year, filepath)
-                    results.append(f"Tax export saved: {filepath}")
+                    result_msg = f"Tax export saved: {filepath}"
+                    logger.info(f"[CLAUDE] ACTION export_taxes | year={year}")
 
                 elif action == "list_strategies":
                     from strategies.strategy_engine import strategy_engine
@@ -213,17 +242,20 @@ class ChatInterface:
                         f"  {'ON' if s['enabled'] else 'OFF'} {s['name']}"
                         for s in strategies
                     )
-                    results.append(f"Strategies:\n{info}")
+                    result_msg = f"Strategies:\n{info}"
+                    logger.info("[CLAUDE] ACTION list_strategies")
 
                 elif action == "enable_strategy":
                     from strategies.strategy_engine import strategy_engine
-                    msg = strategy_engine.enable_strategy(cmd.get("name", ""))
-                    results.append(msg)
+                    name = cmd.get("name", "")
+                    result_msg = strategy_engine.enable_strategy(name)
+                    logger.info(f"[CLAUDE] ACTION enable_strategy | name={name}")
 
                 elif action == "disable_strategy":
                     from strategies.strategy_engine import strategy_engine
-                    msg = strategy_engine.disable_strategy(cmd.get("name", ""))
-                    results.append(msg)
+                    name = cmd.get("name", "")
+                    result_msg = strategy_engine.disable_strategy(name)
+                    logger.info(f"[CLAUDE] ACTION disable_strategy | name={name}")
 
                 elif action == "strategy_stats":
                     from strategies.strategy_engine import strategy_engine
@@ -237,7 +269,8 @@ class ChatInterface:
                             f"Win rate: {s['win_rate']:.1f}% | "
                             f"P&L: ${s['total_pnl']:+.2f}"
                         )
-                    results.append(f"Strategy Performance:{info}")
+                    result_msg = f"Strategy Performance:{info}"
+                    logger.info("[CLAUDE] ACTION strategy_stats")
 
                 elif action == "list_brokers":
                     from core.broker_manager import broker_manager
@@ -249,23 +282,26 @@ class ChatInterface:
                             f"\n  {'ON' if b['enabled'] else 'OFF'} "
                             f"{b['display_name']} [{b['name']}]{paper}"
                         )
-                    results.append(f"Registered Brokers:{info}")
+                    result_msg = f"Registered Brokers:{info}"
+                    logger.info("[CLAUDE] ACTION list_brokers")
 
                 elif action == "inject_funds":
                     from core.broker_manager import broker_manager
                     broker = cmd.get("broker", "")
                     amount = float(cmd.get("amount", 0))
                     reason = cmd.get("reason", "Fund deposit")
-                    result = broker_manager.inject_funds(broker, amount, reason)
-                    results.append(result["message"])
+                    res    = broker_manager.inject_funds(broker, amount, reason)
+                    result_msg = res["message"]
+                    logger.info(f"[CLAUDE] ACTION inject_funds | broker={broker} amount=${amount:.2f}")
 
                 elif action == "withdraw_funds":
                     from core.broker_manager import broker_manager
                     broker = cmd.get("broker", "")
                     amount = float(cmd.get("amount", 0))
                     reason = cmd.get("reason", "Withdrawal")
-                    result = broker_manager.withdraw_funds(broker, amount, reason)
-                    results.append(result["message"])
+                    res    = broker_manager.withdraw_funds(broker, amount, reason)
+                    result_msg = res["message"]
+                    logger.info(f"[CLAUDE] ACTION withdraw_funds | broker={broker} amount=${amount:.2f}")
 
                 elif action == "capital_breakdown":
                     from core.broker_manager import broker_manager
@@ -275,21 +311,36 @@ class ChatInterface:
                     info += f" | Available: ${breakdown['total_available']:,.2f}"
                     for b in breakdown["brokers"]:
                         paper = " (PAPER)" if b.get("paper") else ""
-                        info += (
-                            f"\n  {b['display_name']}{paper}: "
-                            f"${b['balance']:,.2f}"
-                        )
-                    results.append(f"Capital Breakdown:{info}")
+                        info += f"\n  {b['display_name']}{paper}: ${b['balance']:,.2f}"
+                    result_msg = f"Capital Breakdown:{info}"
+                    logger.info("[CLAUDE] ACTION capital_breakdown")
 
                 elif action == "enable_broker":
                     from core.broker_manager import broker_manager
-                    msg = broker_manager.enable_broker(cmd.get("name", ""))
-                    results.append(msg)
+                    name = cmd.get("name", "")
+                    result_msg = broker_manager.enable_broker(name)
+                    logger.info(f"[CLAUDE] ACTION enable_broker | name={name}")
 
                 elif action == "disable_broker":
                     from core.broker_manager import broker_manager
-                    msg = broker_manager.disable_broker(cmd.get("name", ""))
-                    results.append(msg)
+                    name = cmd.get("name", "")
+                    result_msg = broker_manager.disable_broker(name)
+                    logger.info(f"[CLAUDE] ACTION disable_broker | name={name}")
+
+                # Log every executed action to the DB
+                if result_msg:
+                    results.append(result_msg)
+                    try:
+                        db.log_chat_action(
+                            user_message = user_message,
+                            action_type  = action,
+                            action_detail= json.dumps(
+                                {k: v for k, v in cmd.items() if k != "action"}
+                            ),
+                            result       = result_msg[:200]
+                        )
+                    except Exception:
+                        pass
 
             except (json.JSONDecodeError, ValueError, TypeError):
                 pass
