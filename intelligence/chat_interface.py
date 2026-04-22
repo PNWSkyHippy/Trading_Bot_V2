@@ -5,6 +5,12 @@
   Commands include: pause trading, show stats, withdraw funds,
   change risk settings, view positions, generate reports,
   manage strategies, manage brokers, inject/withdraw funds.
+
+  Model: claude-haiku-4-5-20251001 (cheapest Claude, fast)
+  Cost controls:
+    - max_tokens capped at 512 (was 1024)
+    - context trimmed to essentials only
+    - conversation history capped at 10 turns (was 20)
 =============================================================
 """
 
@@ -21,16 +27,14 @@ from core.position_monitor import monitor
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are the AI controller for an autonomous day trading system.
-You help the owner monitor and control their trading bot through natural conversation.
+# Cheapest Claude model — fast and sufficient for bot commands
+CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
-You have access to live data provided in each message including:
-- Current capital and daily P&L
-- Open positions with unrealized gains/losses
-- Today's trade history
-- Risk settings and session status
+SYSTEM_PROMPT = """You are the AI controller for an autonomous day trading bot.
+Help the owner monitor and control it through natural conversation.
+Be concise. Use numbers. Confirm before withdrawals.
 
-You can execute the following commands by including them in your response as JSON:
+You can execute commands by including JSON in your response:
 {"action": "halt_trading", "reason": "user request"}
 {"action": "resume_trading"}
 {"action": "withdraw", "amount": 500.00, "reason": "living expenses"}
@@ -42,36 +46,27 @@ You can execute the following commands by including them in your response as JSO
 {"action": "disable_strategy", "name": "grid_bot"}
 {"action": "strategy_stats"}
 {"action": "list_brokers"}
-{"action": "inject_funds", "broker": "kraken", "amount": 500.00, "reason": "initial deposit"}
+{"action": "inject_funds", "broker": "kraken", "amount": 500.00, "reason": "deposit"}
 {"action": "withdraw_funds", "broker": "alpaca", "amount": 200.00, "reason": "rent"}
 {"action": "capital_breakdown"}
-{"action": "add_broker", "name": "kraken", "type": "crypto", "display_name": "Kraken"}
 {"action": "enable_broker", "name": "kraken"}
 {"action": "disable_broker", "name": "kraken"}
 
-IMPORTANT RULES:
-- You manage capital belonging solely to the user. Never suggest external transfers.
-- Be concise but thorough. Use numbers when discussing performance.
-- Always confirm before executing withdraw commands.
-- Fund injections and withdrawals are INFORMATIONAL ONLY — the user moves money manually.
-- If trading is halted, explain why and what conditions would allow resumption.
-- Keep responses conversational and direct. Use dollar signs and percentages clearly.
-- You genuinely care about the user's financial wellbeing and long-term goals.
-"""
+Fund injections/withdrawals are INFORMATIONAL ONLY — user moves money manually."""
 
 
 class ChatInterface:
 
     def __init__(self):
         self.conversation_history: List[Dict] = []
-        self.max_history = 20
+        self.max_history = 10  # 10 turns max to control token costs
 
     def _build_context(self) -> str:
+        """Build a concise context string — trimmed to reduce API token costs."""
         session      = risk_manager.get_daily_status()
         capital_rec  = db.get_latest_capital()
         positions    = monitor.get_positions_summary()
         today_trades = db.get_trades_for_date(date.today().isoformat())
-        summaries    = db.get_daily_summaries(7)
 
         capital   = capital_rec["total_capital"] if capital_rec else 0
         daily_pnl = session.pnl_today
@@ -81,85 +76,32 @@ class ChatInterface:
         wins     = sum(1 for t in closed_today if t.get("pnl", 0) > 0)
         win_rate = (wins / len(closed_today) * 100) if closed_today else 0
 
-        broker_info = ""
-        try:
-            from core.broker_manager import broker_manager
-            breakdown = broker_manager.get_capital_breakdown()
-            for b in breakdown["brokers"]:
-                paper = " (PAPER)" if b.get("paper") else ""
-                broker_info += (
-                    f"  {b['display_name']}{paper}: ${b['balance']:,.2f} "
-                    f"(invested: ${b['invested']:,.2f}, "
-                    f"available: ${b['available']:,.2f})\n"
-                )
-        except Exception:
-            broker_info = "  (broker manager not available)\n"
-
-        daily_target = starting * (config.DAILY_PROFIT_TARGET_PCT / 100)
-
-        context = f"""
-=== LIVE TRADING BOT STATUS - {datetime.now().strftime('%Y-%m-%d %H:%M')} ===
-
-CAPITAL:
-  Current Total:   ${capital:,.2f}
-  Today Starting:  ${starting:,.2f}
-  Daily P&L:       ${daily_pnl:+,.2f} ({(daily_pnl/starting*100) if starting else 0:+.2f}%)
-  Daily Target:    ${daily_target:,.2f} ({config.DAILY_PROFIT_TARGET_PCT:.0f}%)
-
-CAPITAL BY BROKER:
-{broker_info}
-SESSION:
-  Trading Active:     {'YES' if session.trading_active else 'HALTED'}
-  Halt Reason:        {session.halt_reason or 'N/A'}
-  Trades Today:       {session.trades_today}
-  Consecutive Losses: {session.consecutive_losses}
-  Daily Loss Remaining: ${session.daily_loss_remaining:,.2f}
-  Today Win Rate:     {win_rate:.1f}% ({wins}W / {len(closed_today)-wins}L)
-
-OPEN POSITIONS ({len(positions)}):
-"""
-        for pos in positions:
-            context += (
-                f"  {pos['symbol']} {pos['direction'].upper()} | "
-                f"Entry: ${pos['entry_price']:.4f} | Now: ${pos['current_price']:.4f} | "
-                f"P&L: ${pos['unrealized_pnl']:+.2f} ({pos['pnl_pct']:+.2f}%) | "
-                f"SL: ${pos['stop_loss']:.4f} | TP: ${pos['take_profit']:.4f}\n"
-            )
-        if not positions:
-            context += "  No open positions.\n"
-
-        context += "\nTODAY'S CLOSED TRADES:\n"
-        for t in closed_today[-10:]:
-            pnl = t.get("pnl", 0)
-            context += (
-                f"  {t['symbol']} {t['direction'].upper()} -> "
-                f"{'WIN' if pnl > 0 else 'LOSS'} ${pnl:+.2f} "
-                f"({t.get('pnl_pct', 0):+.2f}%) [{t.get('exit_reason', '')}]\n"
-            )
-        if not closed_today:
-            context += "  No closed trades today.\n"
-
-        context += "\nRECENT DAILY SUMMARIES (last 7 days):\n"
-        for s in summaries[:7]:
-            goal   = "Y" if s.get("goal_met") else "N"
-            halted = " HALTED" if s.get("trading_halted") else ""
-            context += (
-                f"  {s['trade_date']}: ${s['daily_pnl']:+.2f} "
-                f"({s['daily_pnl_pct']:+.2f}%) | "
-                f"{s['winning_trades']}W/{s['losing_trades']}L | "
-                f"Capital: ${s['ending_capital']:,.2f} Goal:{goal}{halted}\n"
-            )
-
-        context += "\nRISK SETTINGS:\n"
-        context += f"  Max position:    {config.MAX_POSITION_PCT:.0f}% of capital\n"
-        context += f"  Stop-loss:       {config.DEFAULT_STOP_LOSS_PCT:.0f}%\n"
-        context += f"  Take-profit:     {config.DEFAULT_TAKE_PROFIT_PCT:.0f}%\n"
-        context += f"  Max daily loss:  {config.MAX_DAILY_LOSS_PCT:.0f}%\n"
-        context += f"  Max positions:   {config.MAX_OPEN_POSITIONS}\n"
-        context += (
-            f"  Min confidence:  "
-            f"{config.SIGNAL_TUNING.get('min_signal_confidence', config.MIN_SIGNAL_CONFIDENCE):.2f}\n"
+        context = (
+            f"[BOT STATUS {datetime.now().strftime('%H:%M')}] "
+            f"Capital: ${capital:,.2f} | "
+            f"P&L: ${daily_pnl:+,.2f} | "
+            f"Trading: {'ON' if session.trading_active else 'HALTED'} | "
+            f"Trades: {session.trades_today} | "
+            f"Win rate: {win_rate:.0f}% | "
+            f"Consec losses: {session.consecutive_losses}\n"
         )
+
+        if positions:
+            context += f"OPEN ({len(positions)}): "
+            context += " | ".join(
+                f"{p['symbol']} {p['direction'].upper()} "
+                f"${p['unrealized_pnl']:+.2f} ({p['pnl_pct']:+.1f}%)"
+                for p in positions
+            ) + "\n"
+
+        if closed_today:
+            recent = closed_today[-5:]
+            context += f"RECENT TRADES: "
+            context += " | ".join(
+                f"{t['symbol']} {'W' if t.get('pnl',0)>0 else 'L'} "
+                f"${t.get('pnl',0):+.2f}"
+                for t in recent
+            ) + "\n"
 
         return context
 
@@ -173,13 +115,15 @@ OPEN POSITIONS ({len(positions)}):
                 "Chat interface requires an Anthropic API key. "
                 "Add ANTHROPIC_API_KEY to your .env file."
             )
-        context      = self._build_context()
-        full_user_msg= f"{context}\n\nUser message: {user_message}"
+
+        context       = self._build_context()
+        full_user_msg = f"{context}\nUser: {user_message}"
 
         self.conversation_history.append(
             {"role": "user", "content": full_user_msg}
         )
 
+        # Trim history to control costs
         if len(self.conversation_history) > self.max_history * 2:
             self.conversation_history = \
                 self.conversation_history[-self.max_history * 2:]
@@ -188,13 +132,13 @@ OPEN POSITIONS ({len(positions)}):
             response = requests.post(
                 "https://api.anthropic.com/v1/messages",
                 headers={
-                    "x-api-key": api_key,
+                    "x-api-key":          api_key,
                     "anthropic-version":  "2023-06-01",
                     "content-type":       "application/json"
                 },
                 json={
-                    "model":      "claude-sonnet-4-6",
-                    "max_tokens": 1024,
+                    "model":      CLAUDE_MODEL,
+                    "max_tokens": 512,          # was 1024 — halved to cut costs
                     "system":     SYSTEM_PROMPT,
                     "messages":   self.conversation_history
                 },
@@ -266,8 +210,7 @@ OPEN POSITIONS ({len(positions)}):
                     from strategies.strategy_engine import strategy_engine
                     strategies = strategy_engine.list_strategies()
                     info = "\n".join(
-                        f"  {'ON' if s['enabled'] else 'OFF'} "
-                        f"{s['name']}: {s.get('description', '')}"
+                        f"  {'ON' if s['enabled'] else 'OFF'} {s['name']}"
                         for s in strategies
                     )
                     results.append(f"Strategies:\n{info}")
@@ -292,8 +235,7 @@ OPEN POSITIONS ({len(positions)}):
                             f"\n{status} {s['strategy_name']}: "
                             f"{s['total_trades']} trades | "
                             f"Win rate: {s['win_rate']:.1f}% | "
-                            f"P&L: ${s['total_pnl']:+.2f} | "
-                            f"PF: {s['profit_factor']:.2f}"
+                            f"P&L: ${s['total_pnl']:+.2f}"
                         )
                     results.append(f"Strategy Performance:{info}")
 
@@ -305,8 +247,7 @@ OPEN POSITIONS ({len(positions)}):
                         paper = " (PAPER)" if b.get("paper") else ""
                         info += (
                             f"\n  {'ON' if b['enabled'] else 'OFF'} "
-                            f"{b['display_name']} [{b['name']}] - "
-                            f"{b['broker_type']}{paper}"
+                            f"{b['display_name']} [{b['name']}]{paper}"
                         )
                     results.append(f"Registered Brokers:{info}")
 
@@ -329,28 +270,16 @@ OPEN POSITIONS ({len(positions)}):
                 elif action == "capital_breakdown":
                     from core.broker_manager import broker_manager
                     breakdown = broker_manager.get_capital_breakdown()
-                    info  = f"\nTotal Capital:    ${breakdown['total_balance']:,.2f}"
-                    info += f"\nTotal Invested:   ${breakdown['total_invested']:,.2f}"
-                    info += f"\nTotal Available:  ${breakdown['total_available']:,.2f}"
-                    info += f"\n\nPer Broker:"
+                    info  = f"\nTotal: ${breakdown['total_balance']:,.2f}"
+                    info += f" | Invested: ${breakdown['total_invested']:,.2f}"
+                    info += f" | Available: ${breakdown['total_available']:,.2f}"
                     for b in breakdown["brokers"]:
                         paper = " (PAPER)" if b.get("paper") else ""
                         info += (
                             f"\n  {b['display_name']}{paper}: "
-                            f"${b['balance']:,.2f} "
-                            f"(invested: ${b['invested']:,.2f}, "
-                            f"available: ${b['available']:,.2f})"
+                            f"${b['balance']:,.2f}"
                         )
                     results.append(f"Capital Breakdown:{info}")
-
-                elif action == "add_broker":
-                    from core.broker_manager import broker_manager
-                    msg = broker_manager.register_broker(
-                        name         = cmd.get("name", ""),
-                        broker_type  = cmd.get("type", "crypto"),
-                        display_name = cmd.get("display_name", ""),
-                    )
-                    results.append(msg)
 
                 elif action == "enable_broker":
                     from core.broker_manager import broker_manager
