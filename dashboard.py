@@ -53,19 +53,19 @@ st.markdown("""
     .stSelectbox > label, .stNumberInput > label, .stTextInput > label, .stSlider > label { color: #cfd8dc !important; font-weight: 500 !important; }
     .streamlit-expanderHeader { color: #e0e0e0 !important; font-weight: 600 !important; }
     [data-testid="stMetricLabel"] { color: #cfd8dc !important; font-size: 13px !important; font-weight: 500 !important; }
-    [data-testid="stMetricValue"] { color: #e0e0e0 !important; }
-    .stSelectbox div[data-baseweb="select"] { color: #e0e0e0 !important; }
-    div[data-testid="stChatMessage"] { background: #1a1f35 !important; border-radius: 10px !important; color: #e0e0e0 !important; }
-    div[data-testid="stChatMessage"] p { color: #e0e0e0 !important; }
+    [data-testid="stMetricValue"] { color: #ffffff !important; }
+    .stSelectbox div[data-baseweb="select"] { color: #ffffff !important; }
+    div[data-testid="stChatMessage"] { background: #1a1f35 !important; border-radius: 10px !important; color: #ffffff !important; }
+    div[data-testid="stChatMessage"] p { color: #ffffff !important; }
     div[data-testid="stChatInput"] { background: #1a1f35 !important; border: 1px solid #2a3a5c !important; border-radius: 10px !important; }
-    div[data-testid="stChatInput"] textarea { color: #e0e0e0 !important; }
+    div[data-testid="stChatInput"] textarea { color: #ffffff !important; }
     div[data-testid="stSuccess"] { background-color: #0d3b1a !important; border-color: #22c55e !important; color: #86efac !important; }
     div[data-testid="stError"]   { background-color: #3b0d0d !important; border-color: #ef4444 !important; color: #fca5a5 !important; }
     div[data-testid="stWarning"] { background-color: #3b2500 !important; border-color: #f59e0b !important; color: #fcd34d !important; }
     div[data-testid="stInfo"]    { background-color: #0d1f3b !important; border-color: #3b82f6 !important; color: #93c5fd !important; }
     .section-label { color: #90a4ae; font-size: 13px; margin-top: -8px; margin-bottom: 8px; }
     section[data-testid="stSidebar"] { background-color: #0d1117 !important; }
-    section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] span, section[data-testid="stSidebar"] label, section[data-testid="stSidebar"] div, section[data-testid="stSidebar"] small { color: #e0e0e0 !important; }
+    section[data-testid="stSidebar"] p, section[data-testid="stSidebar"] span, section[data-testid="stSidebar"] label, section[data-testid="stSidebar"] div, section[data-testid="stSidebar"] small { color: #ffffff !important; }
     section[data-testid="stSidebar"] [data-testid="stMetricValue"] { color: #4fc3f7 !important; }
     section[data-testid="stSidebar"] [data-testid="stMetricLabel"] { color: #90a4ae !important; }
     section[data-testid="stSidebar"] hr { border-color: #2a3a5c !important; }
