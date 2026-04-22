@@ -3,7 +3,7 @@
   DATABASE LAYER
   Manages all persistent storage: trades, capital, tax records,
   daily summaries, withdrawal history, strategy results,
-  fund events, and broker balance tracking.
+  fund events, broker balance tracking, and Claude chat actions.
 =============================================================
 """
 
@@ -167,11 +167,22 @@ class Database:
                     balance_before  REAL NOT NULL,
                     balance_after   REAL NOT NULL
                 );
+
+                -- Claude AI chat action log
+                -- Records every action the Haiku model executes via the dashboard chat.
+                -- Used for EOD reporting to show Claude's influence on the session.
+                CREATE TABLE IF NOT EXISTS chat_actions (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp       TEXT NOT NULL,
+                    action_date     TEXT NOT NULL,
+                    user_message    TEXT,
+                    action_type     TEXT NOT NULL,
+                    action_detail   TEXT,
+                    result          TEXT
+                );
             """)
 
-            # Safe migrations — add columns to existing DBs if missing.
-            # Each ALTER TABLE is wrapped in try/except so it's safe to run
-            # on every startup regardless of DB age.
+            # Safe migrations
             migrations = [
                 "ALTER TABLE trades ADD COLUMN strategy_name   TEXT    DEFAULT 'original'",
                 "ALTER TABLE trades ADD COLUMN is_overnight    INTEGER DEFAULT 0",
@@ -182,7 +193,7 @@ class Database:
                 try:
                     conn.execute(sql)
                 except Exception:
-                    pass  # Column already exists — safe to ignore
+                    pass
 
         logger.info("Database initialized successfully.")
 
@@ -199,7 +210,6 @@ class Database:
             """, (datetime.utcnow().isoformat(), total, available,
                   invested, daily_pnl, total_pnl, note))
 
-    # Alias used by risk_manager
     def record_capital_snapshot(self, total: float):
         self.log_capital(total=total, available=total, invested=0)
 
@@ -324,7 +334,6 @@ class Database:
             )
 
     def reset_session_state(self):
-        """Reset daily session — called at end of day."""
         today = date.today().isoformat()
         self.update_session(today,
             trading_halted     = 0,
@@ -376,7 +385,6 @@ class Database:
         gain_loss = proceeds - cost_basis
         term      = "long" if hold_days >= 365 else "short"
         tax_year  = close_dt.year
-
         with self._conn() as conn:
             conn.execute("""
                 INSERT OR REPLACE INTO tax_ledger
@@ -412,13 +420,10 @@ class Database:
                 FROM tax_ledger WHERE tax_year=?
                 ORDER BY close_date
             """, (year,)).fetchall()
-
         with open(filepath, "w", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow([
-                "Description", "Date Acquired", "Date Sold",
-                "Proceeds", "Cost Basis", "Gain/Loss", "Term"
-            ])
+            writer.writerow(["Description", "Date Acquired", "Date Sold",
+                             "Proceeds", "Cost Basis", "Gain/Loss", "Term"])
             for r in rows:
                 writer.writerow(list(r))
         logger.info(f"Form 8949 CSV exported: {filepath}")
@@ -507,6 +512,48 @@ class Database:
                     "SELECT * FROM fund_events ORDER BY id DESC LIMIT ?",
                     (limit,)
                 ).fetchall()
+            return [dict(r) for r in rows]
+
+    # --- CLAUDE CHAT ACTION TRACKING -----------------------------------
+
+    def log_chat_action(self, user_message: str, action_type: str,
+                         action_detail: str = "", result: str = ""):
+        """
+        Record a Claude chat action to the database.
+        Called every time the Haiku model executes a command.
+
+        action_type examples:
+          'message'           — user sent a message (no action taken)
+          'halt_trading'      — Claude halted trading
+          'resume_trading'    — Claude resumed trading
+          'enable_strategy'   — Claude enabled a strategy
+          'disable_strategy'  — Claude disabled a strategy
+          'set_risk'          — Claude changed a risk parameter
+          'withdraw'          — Claude processed a withdrawal
+          'strategy_stats'    — Claude reported strategy stats (info only)
+        """
+        today = date.today().isoformat()
+        with self._conn() as conn:
+            conn.execute("""
+                INSERT INTO chat_actions
+                    (timestamp, action_date, user_message, action_type,
+                     action_detail, result)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (
+                datetime.utcnow().isoformat(), today,
+                user_message[:200] if user_message else "",
+                action_type, action_detail[:500] if action_detail else "",
+                result[:200] if result else ""
+            ))
+
+    def get_chat_actions_for_date(self, action_date: str = None) -> List[Dict]:
+        """Get all Claude chat actions for a given date (default today)."""
+        today = action_date or date.today().isoformat()
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM chat_actions WHERE action_date=? ORDER BY id",
+                (today,)
+            ).fetchall()
             return [dict(r) for r in rows]
 
 
