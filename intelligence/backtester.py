@@ -309,6 +309,7 @@ class Backtester:
             "dca_accumulator":    ("strategies.dca_accumulator",     "DCAAccumulator"),
             "vwap_momentum":      ("strategies.vwap_momentum",       "VWAPMomentum"),
             "hammer_reversal":    ("strategies.hammer_reversal",     "HammerReversal"),
+            "orb_breakout":       ("strategies.orb_breakout",        "ORBBreakout"),
         }
         if strategy_name not in strategy_map:
             return None
