@@ -518,7 +518,7 @@ with bt_c1:
         all_symbols = ["ALL"] + sorted(crypto_list)
     bt_symbol = st.selectbox("Symbol", all_symbols, index=0)
 with bt_c2:
-    strategy_names = ["ALL strategies", "original_scorer", "rsi_momentum", "bollinger_breakout", "ema_crossover", "mean_reversion", "scalp_master", "swing_trader", "grid_bot", "dca_accumulator"]
+    strategy_names = ["ALL strategies", "original_scorer", "rsi_momentum", "bollinger_breakout", "ema_crossover", "mean_reversion", "scalp_master", "swing_trader", "grid_bot", "dca_accumulator", "vwap_momentum", "hammer_reversal"]
     bt_strategy = st.selectbox("Strategy", strategy_names, index=0)
 with bt_c3:
     bt_tf = st.selectbox("Timeframe", ["1h", "1d", "5m"], index=0, help="1h = up to 730 days | 1d = up to 10 years | 5m = max 30 days")
@@ -553,7 +553,7 @@ if run_bt:
         else:
             symbols_to_test = [s for s in config.STOCK_WATCHLIST if "/" not in s and "-" not in s] if bt_symbol == "ALL" else [bt_symbol]
             data_source = "yfinance"
-        strategies_to_run = ["original_scorer", "rsi_momentum", "bollinger_breakout", "ema_crossover", "mean_reversion", "scalp_master", "swing_trader", "grid_bot", "dca_accumulator"] if bt_strategy == "ALL strategies" else [bt_strategy]
+        strategies_to_run = ["original_scorer", "rsi_momentum", "bollinger_breakout", "ema_crossover", "mean_reversion", "scalp_master", "swing_trader", "grid_bot", "dca_accumulator", "vwap_momentum", "hammer_reversal"] if bt_strategy == "ALL strategies" else [bt_strategy]
         if not symbols_to_test:
             notify_info("No valid symbols selected.")
         else:
