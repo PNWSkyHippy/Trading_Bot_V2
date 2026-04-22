@@ -55,8 +55,15 @@ st.markdown("""
     [data-testid="stMetricLabel"] { color: #cfd8dc !important; font-size: 13px !important; font-weight: 500 !important; }
     [data-testid="stMetricValue"] { color: #ffffff !important; }
     .stSelectbox div[data-baseweb="select"] { color: #ffffff !important; }
-    div[data-testid="stChatMessage"] { background: #1a1f35 !important; border-radius: 10px !important; color: #ffffff !important; }
-    div[data-testid="stChatMessage"] p { color: #ffffff !important; }
+    div[data-testid="stChatMessage"] { background: #1a1f35 !important; border-radius: 10px !important; }
+    div[data-testid="stChatMessage"] p { color: #ffffff !important; font-size: 14px !important; }
+    div[data-testid="stChatMessage"] li { color: #ffffff !important; }
+    div[data-testid="stChatMessage"] td { color: #ffffff !important; }
+    div[data-testid="stChatMessage"] th { color: #ffffff !important; }
+    div[data-testid="stChatMessage"] code { color: #4fc3f7 !important; }
+    div[data-testid="stChatMessage"] strong { color: #ffffff !important; }
+    div[data-testid="stChatMessage"] em { color: #e0e0e0 !important; }
+    div[data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] * { color: #ffffff !important; }
     div[data-testid="stChatInput"] { background: #1a1f35 !important; border: 1px solid #2a3a5c !important; border-radius: 10px !important; }
     div[data-testid="stChatInput"] textarea { color: #ffffff !important; }
     div[data-testid="stSuccess"] { background-color: #0d3b1a !important; border-color: #22c55e !important; color: #86efac !important; }
@@ -399,8 +406,6 @@ with st.expander("➕ Open Manual Trade", expanded=False):
                 if m_broker == "alpaca" and m_asset == "stock":
                     from core.trade_executor import AlpacaExecutor
                     alpaca_ex  = AlpacaExecutor()
-                    # Use int() for whole shares — Alpaca rejects float qty
-                    # on plain market orders (short tickers esp.)
                     submit_qty = int(qty) if qty >= 1 else qty
                     result = alpaca_ex.submit_order(
                         symbol      = sym_upper,
@@ -417,7 +422,6 @@ with st.expander("➕ Open Manual Trade", expanded=False):
                     actual_fill_price = fill_price if fill_price and fill_price > 0 else m_entry
                     dash_logger.info(f"Manual stock trade: {sym_upper} {side} qty={submit_qty} | order_id={broker_order_id} | fill=${actual_fill_price:.4f} | {'plain market' if result.get('manual_sl_tp') else 'bracket'}")
 
-                # Recalculate SL/TP at actual fill price
                 if m_direction == "long":
                     sl  = actual_fill_price * (1 - m_sl_pct / 100)
                     tp  = actual_fill_price * (1 + m_tp_pct / 100)
@@ -426,9 +430,6 @@ with st.expander("➕ Open Manual Trade", expanded=False):
                     tp  = actual_fill_price * (1 - m_tp_pct / 100)
                 qty = m_size / actual_fill_price
 
-                # Write to DB using only columns guaranteed to exist.
-                # broker_order_id and is_overnight are added by migrations
-                # in database.py _init_db() but older DBs may need a restart.
                 conn = sqlite3.connect(config.DB_PATH)
                 conn.execute("""
                     INSERT INTO trades
@@ -447,7 +448,6 @@ with st.expander("➕ Open Manual Trade", expanded=False):
                     round(tp, 6),
                     m_broker, m_strat
                 ))
-                # Update optional columns separately — safe even if missing
                 try:
                     conn.execute("UPDATE trades SET is_overnight=?, broker_order_id=? WHERE trade_id=?", (1 if m_overnight else 0, broker_order_id, trade_id))
                 except Exception:
@@ -837,5 +837,3 @@ with st.sidebar:
             st.warning("Conditions unfavorable — bot is pausing new entries")
     except Exception:
         st.caption("Condition detector initializing...")
-
-
