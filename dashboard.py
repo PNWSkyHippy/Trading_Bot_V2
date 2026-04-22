@@ -837,3 +837,4 @@ with st.sidebar:
             st.warning("Conditions unfavorable — bot is pausing new entries")
     except Exception:
         st.caption("Condition detector initializing...")
+
