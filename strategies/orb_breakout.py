@@ -19,6 +19,7 @@ Entry conditions (long):
   3. Price above VWAP (confirms institutional buying)
   4. Breakout bar volume >= 1.5x 20-bar average (conviction)
   5. Opening range not too small (avoids false breakouts on quiet days)
+  6. Minimum signal score >= 0.70
 
 Entry conditions (short): mirror of above.
 
@@ -30,6 +31,10 @@ Take profit:
 Stop loss:
   Opposite side of the opening range. If long, stop = ORB low.
   This is the natural invalidation point for the breakout thesis.
+
+Whitelist:
+  GO stocks only from 5m 30-day backtest (Apr 2026).
+  Excluded: NVDA, INTC, NIO, APLD, MARA (TUNE verdict)
 
 Timeframe: 5-minute bars (stock market hours, 9:30-16:00 ET)
 Stock only: ORB requires a defined market open which crypto lacks.
@@ -63,12 +68,15 @@ MIN_RANGE_PCT    = 0.003   # 0.3% minimum range
 # ATR multiplier for take profit
 ATR_TP_MULT      = 2.0
 
-# High-liquidity stocks where ORB is most reliable.
-# Large caps with high institutional participation respect ORB levels best.
+# Minimum signal score — all 3 filters must pass AND score >= this
+MIN_SCORE        = 0.70
+
+# GO stocks only from 5m 30-day backtest (Apr 2026)
+# TUNE stocks excluded: NVDA, INTC, NIO, APLD, MARA
 ORB_WHITELIST = {
-    "AAPL", "MSFT", "NVDA", "GOOGL", "AMZN", "META", "TSLA",
-    "AMD",  "PLTR", "SPY",  "QQQ",  "MARA", "MRVL", "ALAB",
-    "IREN", "CLS",  "CRWV", "APLD", "NIO",  "INTC",
+    "META",  "TSLA",  "MSFT",  "AMD",   "MRVL",
+    "ALAB",  "PLTR",  "CRWV",  "IREN",  "CLS",
+    "AMZN",  "GOOGL", "AAPL",  "SPY",   "QQQ",
 }
 
 
@@ -105,12 +113,8 @@ def _get_orb_levels(
     """
     Extract opening range high and low from the first 15 minutes.
     Returns (orb_high, orb_low) or (None, None) if insufficient data.
-
-    Looks for candles with timestamps between 9:30 and 9:44 ET.
-    Requires at least 2 candles in that window.
     """
     try:
-        # Try to filter by time if index is datetime
         if hasattr(candles.index, 'hour'):
             orb_mask = (
                 (candles.index.hour == ORB_START_HOUR) &
@@ -121,11 +125,9 @@ def _get_orb_levels(
             )
             orb_candles = candles[orb_mask]
         else:
-            # Fallback: use first 3 candles as opening range
             orb_candles = candles.iloc[:3]
 
         if len(orb_candles) < 2:
-            # Not enough opening range candles — use first 3 available
             orb_candles = candles.iloc[:3]
 
         if len(orb_candles) < 2:
@@ -144,6 +146,7 @@ class ORBBreakout(BaseStrategy):
     """
     Opening Range Breakout — Strategy 11.
     5m bars, stock only, VWAP + volume filtered.
+    GO stocks only whitelist from 5m backtest.
     """
 
     def __init__(self):
@@ -155,7 +158,7 @@ class ORBBreakout(BaseStrategy):
 
         logger.info(
             "[ORBBreakout] Strategy 11 initialized — DISABLED. "
-            "Backtest first, then enable via dashboard."
+            "Enable via dashboard after reviewing backtest results."
         )
 
     def analyze(
@@ -165,12 +168,11 @@ class ORBBreakout(BaseStrategy):
         market_condition: str = "unknown"
     ) -> Optional[TradeSignal]:
 
-        # ── Whitelist check ─────────────────────────────────────────────────
+        # ── Whitelist: GO stocks only ────────────────────────────────────
         if symbol.upper() not in ORB_WHITELIST:
-            self.verbose_log_skip(symbol, "Not in ORB whitelist")
+            self.verbose_log_skip(symbol, "Not in ORB GO whitelist")
             return None
 
-        # Need enough bars for ATR + VWAP to be meaningful
         if not self._check_enough_candles(symbol, candles, 20):
             return None
 
@@ -182,7 +184,7 @@ class ORBBreakout(BaseStrategy):
         current_high  = float(high.iloc[-1])
         current_low   = float(low.iloc[-1])
 
-        # ── Get opening range levels ──────────────────────────────────────
+        # ── Opening range ────────────────────────────────────────────────
         orb_high, orb_low = _get_orb_levels(candles)
         if orb_high is None or orb_low is None:
             self.verbose_log_skip(symbol, "Could not establish opening range")
@@ -191,7 +193,6 @@ class ORBBreakout(BaseStrategy):
         orb_range = orb_high - orb_low
         orb_range_pct = orb_range / orb_low if orb_low > 0 else 0
 
-        # Skip days where the opening range is too tight
         if orb_range_pct < MIN_RANGE_PCT:
             self.verbose_log_skip(
                 symbol,
@@ -199,61 +200,48 @@ class ORBBreakout(BaseStrategy):
             )
             return None
 
-        logger.debug(
-            f"[ORB] {symbol}: ORB high={orb_high:.4f} low={orb_low:.4f} "
-            f"range={orb_range_pct:.2%} current={current_close:.4f}"
-        )
-
-        # ── Check we’re past the opening range window ────────────────────
-        # Need at least 4 candles (opening range = candles 0-2, breakout = candle 3+)
         if len(candles) < 4:
             self.verbose_log_skip(symbol, "Not enough candles past opening range")
             return None
 
-        # ── VWAP filter ─────────────────────────────────────────────────
+        # ── VWAP filter ──────────────────────────────────────────────────
         vwap_val = _calc_vwap(candles)
         if vwap_val is None:
             self.verbose_log_skip(symbol, "VWAP unavailable")
             return None
         price_above_vwap = current_close > vwap_val
 
-        # ── Volume conviction ─────────────────────────────────────────────
-        avg_vol       = float(volume.iloc[-20:].mean())
-        current_vol   = float(volume.iloc[-1])
-        vol_ratio     = current_vol / avg_vol if avg_vol > 0 else 0
-        volume_ok     = vol_ratio >= 1.5
-
-        self.verbose_log(
-            symbol, "Volume conviction (need >=1.5x)",
-            volume_ok, round(vol_ratio, 2), ">=1.5x"
-        )
+        # ── Volume conviction ────────────────────────────────────────────
+        avg_vol     = float(volume.iloc[-20:].mean())
+        current_vol = float(volume.iloc[-1])
+        vol_ratio   = current_vol / avg_vol if avg_vol > 0 else 0
+        volume_ok   = vol_ratio >= 1.5
 
         if not volume_ok:
             logger.debug(f"[ORB] {symbol}: SKIP — volume {vol_ratio:.2f}x < 1.5x")
             return None
 
-        # ── ATR for dynamic take profit ──────────────────────────────────
+        # ── ATR dynamic take profit ──────────────────────────────────────
         atr_val = _calc_atr(candles)
         if atr_val is None or atr_val <= 0:
-            # Fall back to default take profit if ATR unavailable
             tp_pct = config.DEFAULT_TAKE_PROFIT_PCT
         else:
-            # Convert ATR to percentage of current price
             tp_pct = (atr_val * ATR_TP_MULT / current_close) * 100
-            # Cap between 1% and 8% to avoid extreme values
             tp_pct = max(1.0, min(8.0, tp_pct))
 
-        # ── LONG signal: price breaks above ORB high above VWAP ──────────
+        # ── LONG: breaks above ORB high + above VWAP + volume ────────────
         if current_high > orb_high and price_above_vwap:
 
-            # Stop loss = ORB low (natural invalidation)
             sl_pct = ((current_close - orb_low) / current_close) * 100
-            sl_pct = max(0.5, min(5.0, sl_pct))  # cap between 0.5% and 5%
+            sl_pct = max(0.5, min(5.0, sl_pct))
 
-            score = min(1.0, 0.70 + (vol_ratio - 1.5) * 0.05)
+            score = min(1.0, MIN_SCORE + (vol_ratio - 1.5) * 0.05)
+
+            if score < MIN_SCORE:
+                return None
 
             reason = (
-                f"ORB long breakout: price {current_close:.4f} > ORB high {orb_high:.4f} "
+                f"ORB long: price {current_close:.4f} > ORB high {orb_high:.4f} "
                 f"| VWAP {vwap_val:.4f} ✓ "
                 f"| vol {vol_ratio:.2f}x "
                 f"| range {orb_range_pct:.2%} "
@@ -281,16 +269,19 @@ class ORBBreakout(BaseStrategy):
                 }
             )
 
-        # ── SHORT signal: price breaks below ORB low below VWAP ─────────
+        # ── SHORT: breaks below ORB low + below VWAP + volume ───────────
         if current_low < orb_low and not price_above_vwap:
 
             sl_pct = ((orb_high - current_close) / current_close) * 100
             sl_pct = max(0.5, min(5.0, sl_pct))
 
-            score = min(1.0, 0.70 + (vol_ratio - 1.5) * 0.05)
+            score = min(1.0, MIN_SCORE + (vol_ratio - 1.5) * 0.05)
+
+            if score < MIN_SCORE:
+                return None
 
             reason = (
-                f"ORB short breakdown: price {current_close:.4f} < ORB low {orb_low:.4f} "
+                f"ORB short: price {current_close:.4f} < ORB low {orb_low:.4f} "
                 f"| VWAP {vwap_val:.4f} ✓ "
                 f"| vol {vol_ratio:.2f}x "
                 f"| range {orb_range_pct:.2%} "
