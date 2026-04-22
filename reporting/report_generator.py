@@ -3,6 +3,7 @@
   DAILY REPORT GENERATOR
   Generates comprehensive daily trading reports and emails them.
   Also produces end-of-day database summaries for tax records.
+  Includes a Claude AI Activity Summary section in every report.
 =============================================================
 """
 
@@ -56,7 +57,6 @@ class ReportGenerator:
             win_sum  = sum(t["pnl"] for t in wins)
             profit_factor = round(win_sum / loss_sum, 2) if loss_sum else 999
 
-
         summary = {
             "trade_date":        report_date,
             "starting_capital":  round(starting_capital or 0, 2),
@@ -79,8 +79,38 @@ class ReportGenerator:
         }
         return summary
 
+    def _build_claude_summary(self, report_date: str) -> Dict:
+        """
+        Compile Claude AI activity stats for the given date.
+        Returns a dict with counts and action breakdown for the EOD report.
+        """
+        try:
+            actions = self._db.get_chat_actions_for_date(report_date)
+        except Exception:
+            return {}
+
+        if not actions:
+            return {"total": 0, "actions": [], "breakdown": {}}
+
+        # Separate informational messages from actual commands
+        messages  = [a for a in actions if a["action_type"] == "message"]
+        commands  = [a for a in actions if a["action_type"] != "message"]
+
+        # Count by action type
+        breakdown = {}
+        for a in commands:
+            t = a["action_type"]
+            breakdown[t] = breakdown.get(t, 0) + 1
+
+        return {
+            "total":        len(messages),       # how many times user talked to Claude
+            "commands":     len(commands),        # how many actions Claude executed
+            "breakdown":    breakdown,            # action type -> count
+            "actions":      commands,             # full list for detail table
+        }
+
     def generate_html_report(self, summary: Dict) -> str:
-        """Generate a clean HTML email report."""
+        """Generate a clean HTML email report including Claude activity."""
         trades_html = ""
         for t in summary.get("trades", []):
             pnl   = t.get("pnl", 0)
@@ -100,14 +130,61 @@ class ReportGenerator:
                 <td style="color:{color}">{t.get('pnl_pct', 0):+.2f}%</td>
             </tr>"""
 
-        goal_color = "#27ae60" if summary["goal_met"] else "#e67e22"
-        goal_text  = "GOAL MET" if summary["goal_met"] else "GOAL NOT MET"
-        halt_banner= ""
+        goal_color  = "#27ae60" if summary["goal_met"] else "#e67e22"
+        goal_text   = "GOAL MET" if summary["goal_met"] else "GOAL NOT MET"
+        halt_banner = ""
         if summary.get("trading_halted"):
             halt_banner = f"""
             <div style="background:#e74c3c;color:white;padding:10px;margin:10px 0;border-radius:4px;">
                 <b>TRADING HALTED:</b> {summary.get('halt_reason', 'Unknown reason')}
             </div>"""
+
+        # Claude activity section
+        claude_data = self._build_claude_summary(summary["trade_date"])
+        if claude_data.get("total", 0) > 0 or claude_data.get("commands", 0) > 0:
+            breakdown_rows = ""
+            for action_type, count in claude_data.get("breakdown", {}).items():
+                breakdown_rows += f"""
+                <tr>
+                    <td style="padding:4px 8px;">{action_type.replace('_', ' ').title()}</td>
+                    <td style="padding:4px 8px;text-align:right;">{count}</td>
+                </tr>"""
+
+            action_detail_rows = ""
+            for a in claude_data.get("actions", [])[-10:]:  # last 10 actions
+                ts = a.get("timestamp", "")[:16].replace("T", " ")
+                action_detail_rows += f"""
+                <tr style="font-size:11px;">
+                    <td style="padding:3px 6px;color:#7f8c8d;">{ts}</td>
+                    <td style="padding:3px 6px;">{a['action_type'].replace('_', ' ').title()}</td>
+                    <td style="padding:3px 6px;color:#7f8c8d;">{a.get('user_message', '')[:60]}</td>
+                    <td style="padding:3px 6px;">{a.get('result', '')[:60]}</td>
+                </tr>"""
+
+            claude_section = f"""
+        <h3 style="color:#8e44ad;margin-top:30px;">🤖 Claude AI Activity Summary</h3>
+        <table style="width:100%;border-collapse:collapse;margin-bottom:10px;">
+            <tr style="background:#8e44ad;color:white;">
+                <th style="padding:8px;text-align:left;">Metric</th>
+                <th style="padding:8px;text-align:right;">Count</th>
+            </tr>
+            <tr style="background:#f8f9fa;">
+                <td style="padding:6px 8px;">User messages to Claude</td>
+                <td style="padding:6px 8px;text-align:right;">{claude_data['total']}</td>
+            </tr>
+            <tr>
+                <td style="padding:6px 8px;">Commands Claude executed</td>
+                <td style="padding:6px 8px;text-align:right;">{claude_data['commands']}</td>
+            </tr>
+            {breakdown_rows}
+        </table>
+        {'<h4 style="color:#8e44ad;">Action Log (last 10)</h4><table style="width:100%;border-collapse:collapse;font-size:11px;"><tr style="background:#8e44ad;color:white;"><th style="padding:4px 6px;">Time</th><th style="padding:4px 6px;">Action</th><th style="padding:4px 6px;">Message</th><th style="padding:4px 6px;">Result</th></tr>' + action_detail_rows + '</table>' if action_detail_rows else ''}
+            """
+        else:
+            claude_section = """
+        <h3 style="color:#8e44ad;margin-top:30px;">🤖 Claude AI Activity</h3>
+        <p style="color:#7f8c8d;font-size:12px;">No Claude chat interactions today.</p>
+            """
 
         html = f"""
         <html><body style="font-family:Arial,sans-serif;max-width:800px;margin:auto;padding:20px;">
@@ -174,6 +251,8 @@ class ReportGenerator:
             {trades_html if trades_html else '<tr><td colspan="9" style="padding:10px;text-align:center;color:#7f8c8d;">No trades today.</td></tr>'}
         </table>
 
+        {claude_section}
+
         <p style="color:#7f8c8d;font-size:11px;margin-top:20px;">
             Generated by Trading Bot v2 at {datetime.now().strftime('%Y-%m-%d %H:%M:%S ET')}
         </p>
@@ -185,17 +264,14 @@ class ReportGenerator:
         """Generate end-of-day summary, save to DB, and email it."""
         summary = self.generate_daily_summary(report_date)
 
-        # Save to database
         self._db.save_daily_summary(summary)
 
-        # Record tax events for all closed trades
         for trade in summary.get("trades", []):
             try:
                 self._db.record_tax_event(trade)
             except Exception as e:
                 logger.error(f"Tax record error for {trade.get('trade_id')}: {e}")
 
-        # Send email if configured
         if config.EMAIL_SENDER and config.EMAIL_PASSWORD and config.EMAIL_RECIPIENT:
             try:
                 self._send_email(summary)
@@ -205,6 +281,15 @@ class ReportGenerator:
             logger.info(
                 "Email not configured — daily report saved to database only. "
                 "Add EMAIL_SENDER, EMAIL_PASSWORD, EMAIL_RECIPIENT to .env to enable."
+            )
+
+        # Log Claude activity count for the day
+        claude_data = self._build_claude_summary(summary["trade_date"])
+        if claude_data.get("total", 0) > 0:
+            logger.info(
+                f"Claude activity today: {claude_data['total']} messages, "
+                f"{claude_data['commands']} commands executed: "
+                f"{claude_data['breakdown']}"
             )
 
         logger.info(
@@ -217,10 +302,10 @@ class ReportGenerator:
 
     def _send_email(self, summary: Dict):
         """Send the HTML report via email (Gmail SMTP)."""
-        pnl_str    = f"{summary['daily_pnl']:+.2f}"
-        pnl_pct    = f"{summary['daily_pnl_pct']:+.2f}%"
-        goal_str   = "GOAL MET" if summary["goal_met"] else "goal not met"
-        subject    = (
+        pnl_str  = f"{summary['daily_pnl']:+.2f}"
+        pnl_pct  = f"{summary['daily_pnl_pct']:+.2f}%"
+        goal_str = "GOAL MET" if summary["goal_met"] else "goal not met"
+        subject  = (
             f"Trading Bot Report {summary['trade_date']} | "
             f"P&L: ${pnl_str} ({pnl_pct}) | {goal_str}"
         )
