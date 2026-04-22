@@ -30,6 +30,7 @@ from strategies.grid_bot import GridBot
 from strategies.dca_accumulator import DCAAccumulator
 from strategies.vwap_momentum import VWAPMomentum
 from strategies.hammer_reversal import HammerReversal
+from strategies.orb_breakout import ORBBreakout
 from data.database import db
 
 logger = logging.getLogger(__name__)
@@ -48,7 +49,7 @@ class StrategyEngine:
     def __init__(self, db_ref=None):
         self._db = db_ref or db
 
-        # All 10 strategies
+        # All 11 strategies
         self.strategies: List[BaseStrategy] = [
             RSIMomentum(),
             BollingerBreakout(),
@@ -59,7 +60,8 @@ class StrategyEngine:
             GridBot(),
             DCAAccumulator(),
             VWAPMomentum(),       # Strategy 9
-            HammerReversal(),     # Strategy 10 — disabled by default, backtest first
+            HammerReversal(),     # Strategy 10 — disabled, backtest first
+            ORBBreakout(),        # Strategy 11 — disabled, backtest first
         ]
 
         self._load_strategy_states()
@@ -80,7 +82,6 @@ class StrategyEngine:
         for strategy in self.strategies:
             key   = f"strategy_{strategy.name}_enabled"
             state = self._db.get_state(key, default=None)
-            # Only override the strategy's default if a saved state exists
             if state is not None:
                 strategy.enabled = (str(state).lower() == "true")
 
@@ -149,9 +150,6 @@ class StrategyEngine:
             return
 
         if getattr(strategy, "auto_disable_exempt", False):
-            logger.debug(
-                f"[AUTO-DISABLE SKIPPED] '{strategy_name}' is exempt"
-            )
             return
 
         stats = self.get_strategy_stats(strategy_name)
