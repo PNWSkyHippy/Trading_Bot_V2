@@ -29,11 +29,11 @@ from strategies.swing_trader import SwingTrader
 from strategies.grid_bot import GridBot
 from strategies.dca_accumulator import DCAAccumulator
 from strategies.vwap_momentum import VWAPMomentum
+from strategies.hammer_reversal import HammerReversal
 from data.database import db
 
 logger = logging.getLogger(__name__)
 
-# Auto-disable thresholds (also in config for reference)
 MIN_TRADES_FOR_EVAL = config.STRATEGY_MIN_TRADES
 MIN_WIN_RATE        = config.STRATEGY_DISABLE_WIN_RATE / 100
 REENABLE_WIN_RATE   = config.STRATEGY_REENABLE_WIN_RATE / 100
@@ -48,7 +48,7 @@ class StrategyEngine:
     def __init__(self, db_ref=None):
         self._db = db_ref or db
 
-        # All 9 strategies
+        # All 10 strategies
         self.strategies: List[BaseStrategy] = [
             RSIMomentum(),
             BollingerBreakout(),
@@ -58,7 +58,8 @@ class StrategyEngine:
             SwingTrader(),
             GridBot(),
             DCAAccumulator(),
-            VWAPMomentum(),       # Strategy 9 — VWAP + EMA 5/13/34 momentum
+            VWAPMomentum(),       # Strategy 9
+            HammerReversal(),     # Strategy 10 — disabled by default, backtest first
         ]
 
         self._load_strategy_states()
@@ -78,8 +79,10 @@ class StrategyEngine:
     def _load_strategy_states(self):
         for strategy in self.strategies:
             key   = f"strategy_{strategy.name}_enabled"
-            state = self._db.get_state(key, default="true")
-            strategy.enabled = (str(state).lower() == "true")
+            state = self._db.get_state(key, default=None)
+            # Only override the strategy's default if a saved state exists
+            if state is not None:
+                strategy.enabled = (str(state).lower() == "true")
 
     def _save_strategy_state(self, strategy: BaseStrategy):
         key   = f"strategy_{strategy.name}_enabled"
@@ -89,11 +92,6 @@ class StrategyEngine:
     def run_strategies(self, symbol: str, asset_class: str,
                        bars: pd.DataFrame,
                        price: float) -> List["StrategySignalCompat"]:
-        """
-        Run all enabled strategies against one symbol.
-        ml_exempt flag is passed through in indicators so market_scanner
-        can skip ML blending for protected strategies.
-        """
         results = []
 
         for strategy in self.strategies:
@@ -146,18 +144,13 @@ class StrategyEngine:
         self._evaluate_strategy(strategy_name)
 
     def _evaluate_strategy(self, strategy_name: str):
-        """
-        Check if a strategy should be auto-disabled or re-enabled.
-        Skipped for strategies with auto_disable_exempt=True.
-        """
         strategy = self._get_strategy(strategy_name)
         if strategy is None:
             return
 
         if getattr(strategy, "auto_disable_exempt", False):
             logger.debug(
-                f"[AUTO-DISABLE SKIPPED] '{strategy_name}' is exempt "
-                f"(auto_disable_exempt=True)"
+                f"[AUTO-DISABLE SKIPPED] '{strategy_name}' is exempt"
             )
             return
 
@@ -217,7 +210,7 @@ class StrategyEngine:
             "win_rate":      round(len(wins) / len(results) * 100, 1),
             "total_pnl":     round(total_pnl, 2),
             "avg_pnl":       round(total_pnl / len(results), 2),
-            "profit_factor": round(gross_wins / gross_losses, 2) if gross_losses > 0 else 999,
+            "profit_factor": round(gross_wins / gross_losses, 2) if gross_losses else 999,
             "avg_win":       round(gross_wins   / len(wins),   2) if wins   else 0,
             "avg_loss":      round(-gross_losses / len(losses), 2) if losses else 0,
             "largest_win":   round(max((r["pnl"] for r in wins),   default=0), 2),
@@ -274,12 +267,6 @@ class StrategyEngine:
 
 
 class StrategySignalCompat:
-    """
-    Lightweight wrapper presenting a TradeSignal in the format that
-    market_scanner.py and trade_executor.py expect.
-    ml_exempt flows through indicators['ml_exempt'] so market_scanner
-    can skip ML blending for protected strategies.
-    """
     __slots__ = [
         "symbol", "asset_class", "direction", "score",
         "current_price", "indicators", "reason",
