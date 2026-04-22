@@ -838,3 +838,4 @@ with st.sidebar:
     except Exception:
         st.caption("Condition detector initializing...")
 
+
