@@ -20,6 +20,7 @@
 """
 
 import uuid
+import time
 import logging
 from datetime import datetime
 from typing import Optional, Dict
@@ -114,14 +115,72 @@ class AlpacaExecutor:
             logger.error(f"Alpaca plain market order also failed for {symbol}: {e}")
             return None
 
+    def cancel_open_orders(self, symbol: str) -> int:
+        """
+        Cancel all open orders for a symbol before closing the position.
+        This is CRITICAL for bracket orders — the limit (TP) and stop (SL)
+        legs must be canceled first or Alpaca will reject the close order
+        with 'insufficient qty available'.
+
+        Returns number of orders canceled.
+        """
+        canceled = 0
+        try:
+            open_orders = self.api.list_orders(status="open", symbols=[symbol])
+            for order in open_orders:
+                try:
+                    self.api.cancel_order(order.id)
+                    canceled += 1
+                    logger.info(
+                        f"Canceled open order for {symbol}: "
+                        f"{order.order_type} {order.side} @ {order.limit_price or order.stop_price} "
+                        f"| ID: {order.id}"
+                    )
+                except Exception as e:
+                    logger.warning(f"Could not cancel order {order.id} for {symbol}: {e}")
+            if canceled > 0:
+                # Brief pause to let Alpaca process cancellations before closing
+                time.sleep(0.5)
+        except Exception as e:
+            logger.warning(f"Error listing open orders for {symbol}: {e}")
+        return canceled
+
     def close_position(self, symbol: str) -> bool:
+        """
+        Close a position at Alpaca.
+        ALWAYS cancels open orders first (bracket legs) before sending
+        the close order. Without this, Alpaca returns 'insufficient qty
+        available' because the bracket order has already allocated the shares.
+        """
+        # Step 1: Cancel all open orders (bracket legs) first
+        canceled = self.cancel_open_orders(symbol)
+        if canceled > 0:
+            logger.info(f"Canceled {canceled} open order(s) for {symbol} before closing")
+
+        # Step 2: Now close the actual position
         try:
             self.api.close_position(symbol)
             logger.info(f"Alpaca position closed: {symbol}")
             return True
         except Exception as e:
-            logger.error(f"Failed to close {symbol}: {e}")
-            return False
+            # If close_position fails, try a manual market sell
+            logger.warning(f"close_position failed for {symbol}: {e} — trying manual market order")
+            try:
+                pos = self.api.get_position(symbol)
+                qty = abs(float(pos.qty))
+                side = "sell" if float(pos.qty) > 0 else "buy"
+                self.api.submit_order(
+                    symbol        = symbol,
+                    qty           = qty,
+                    side          = side,
+                    type          = "market",
+                    time_in_force = "day"
+                )
+                logger.info(f"Manual market close submitted for {symbol} {side} {qty}")
+                return True
+            except Exception as e2:
+                logger.error(f"Failed to close {symbol}: {e2}")
+                return False
 
     def get_position(self, symbol: str) -> Optional[Dict]:
         try:
@@ -147,13 +206,36 @@ class AlpacaExecutor:
         }
 
     def close_all_stock_positions(self):
+        """
+        Close all open stock positions at EOD.
+        Cancels all open orders first, then closes positions.
+        """
         try:
+            # Cancel ALL open orders first before closing any positions
+            try:
+                all_open_orders = self.api.list_orders(status="open")
+                for order in all_open_orders:
+                    try:
+                        self.api.cancel_order(order.id)
+                        logger.info(f"EOD: Canceled order {order.id} for {order.symbol}")
+                    except Exception as e:
+                        logger.warning(f"EOD: Could not cancel order {order.id}: {e}")
+                if all_open_orders:
+                    time.sleep(1)  # Let cancellations process
+            except Exception as e:
+                logger.warning(f"EOD: Error canceling open orders: {e}")
+
+            # Now close all positions
             positions = self.api.list_positions()
             for pos in positions:
-                self.close_position(pos.symbol)
-            logger.info(f"Closed {len(positions)} stock positions at end of day.")
+                try:
+                    self.api.close_position(pos.symbol)
+                    logger.info(f"EOD: Closed position {pos.symbol}")
+                except Exception as e:
+                    logger.error(f"EOD: Failed to close {pos.symbol}: {e}")
+            logger.info(f"EOD close complete: {len(positions)} position(s) processed.")
         except Exception as e:
-            logger.error(f"Error closing all stock positions: {e}")
+            logger.error(f"Error in EOD close all: {e}")
 
 
 class CoinbaseExecutor:
@@ -233,8 +315,6 @@ class TradeExecutor:
             paper      = config.KRAKEN_PAPER_MODE
         )
 
-        # IBKR executor — lazy loaded only when IBKR_ENABLED=True
-        # so the bot starts fine even without ib_insync installed
         self._ibkr = None
         if getattr(config, "IBKR_ENABLED", False):
             try:
@@ -252,9 +332,6 @@ class TradeExecutor:
                 )
 
     def execute_signal(self, signal) -> Optional[str]:
-        """
-        Full pipeline: approve → settlement check → execute → log → return trade_id.
-        """
         logger.info(
             f"Attempting to execute signal: {signal.symbol} {signal.direction}"
         )
@@ -276,7 +353,6 @@ class TradeExecutor:
             logger.info(f"Trade rejected for {signal.symbol}: {approval.reason}")
             return None
 
-        # ── Settlement check for IBKR cash account stock trades ────────
         if (signal.asset_class == "stock" and
                 self._ibkr is not None and
                 settlement_tracker is not None and
@@ -289,10 +365,6 @@ class TradeExecutor:
                     f"Trade blocked by settlement tracker: {signal.symbol} — {reason}"
                 )
                 return None
-            logger.debug(
-                f"Settlement check passed: {signal.symbol} | "
-                f"need=${approval.position_value:,.2f} available=${available:,.2f}"
-            )
 
         trade_id     = str(uuid.uuid4())[:12]
         broker_result= self._submit(signal, approval)
@@ -315,12 +387,6 @@ class TradeExecutor:
             take_profit = entry_price * (1 - tp_pct)
 
         broker_name = self._get_broker_name(signal)
-
-        if broker_result.get("manual_sl_tp"):
-            logger.info(
-                f"[SHORT TICKER] {signal.symbol} — bracket order not supported. "
-                f"SL=${stop_loss:.4f} TP=${take_profit:.4f} tracked by position monitor."
-            )
 
         trade_record = {
             "trade_id":        trade_id,
@@ -373,6 +439,7 @@ class TradeExecutor:
             if broker == "ibkr" and self._ibkr is not None:
                 success = self._ibkr.close_position(symbol)
             else:
+                # cancel_open_orders is now built into AlpacaExecutor.close_position
                 success = self.alpaca.close_position(symbol)
         elif asset_class == "crypto" and broker == "kraken" and config.KRAKEN_ENABLED:
             side    = "buy" if direction == "long" else "sell"
@@ -401,7 +468,6 @@ class TradeExecutor:
         pnl_pct   = (pnl / trade["position_value"]) * 100 if trade["position_value"] else 0
         trade_won = pnl > 0
 
-        # Record T+1 settlement for stock trades on IBKR cash account
         if asset_class == "stock" and settlement_tracker:
             try:
                 settlement_tracker.record_trade_closed(
@@ -482,12 +548,10 @@ class TradeExecutor:
         self.alpaca.close_all_stock_positions()
 
     def _submit(self, signal, approval: TradeApproval) -> Optional[Dict]:
-        """Route order to the correct broker."""
         side   = "buy" if signal.direction == "long" else "sell"
         broker = signal.indicators.get("exchange", "").lower()
 
         if signal.asset_class == "stock":
-            # Try IBKR first if enabled and reachable
             if self._ibkr is not None:
                 if self._ibkr.is_available():
                     logger.info(f"Routing {signal.symbol} to IBKR (cash account)")
@@ -506,7 +570,6 @@ class TradeExecutor:
                         f"IBKR unreachable (TWS not running?) — "
                         f"falling back to Alpaca for {signal.symbol}"
                     )
-            # Alpaca fallback
             return self.alpaca.submit_order(
                 signal.symbol, approval.quantity, side,
                 approval.stop_loss, approval.take_profit
@@ -514,7 +577,6 @@ class TradeExecutor:
 
         elif signal.asset_class == "crypto" and "kraken" in broker:
             if not config.KRAKEN_ENABLED:
-                logger.info(f"Kraken disabled — routing {signal.symbol} to paper")
                 return self._paper_fill(signal, approval)
             return self.kraken.submit_order(
                 signal.symbol, approval.quantity, side,
@@ -526,12 +588,10 @@ class TradeExecutor:
                 approval.stop_loss, approval.take_profit
             )
             if result is None:
-                logger.info(f"Coinbase unavailable — paper sim for {signal.symbol}")
                 return self._paper_fill(signal, approval)
             return result
 
     def _paper_fill(self, signal, approval: TradeApproval) -> Dict:
-        """Simulate a paper trade fill locally."""
         logger.info(
             f"[PAPER] Simulated fill: {signal.symbol} {signal.direction.upper()} "
             f"@ ${signal.current_price:.4f} x {approval.quantity:.6f}"
@@ -544,7 +604,6 @@ class TradeExecutor:
         }
 
     def _get_broker_name(self, signal) -> str:
-        """Determine broker name to record for this trade."""
         exchange = signal.indicators.get("exchange", "").lower()
         if signal.asset_class == "stock":
             if self._ibkr is not None and self._ibkr.is_available():
@@ -557,9 +616,7 @@ class TradeExecutor:
         return "coinbase"
 
     def get_account_value(self) -> float:
-        """Get total account equity."""
         try:
-            # Prefer IBKR balance if enabled
             if self._ibkr is not None and self._ibkr.is_available():
                 acct = self._ibkr.get_account()
                 return acct["equity"]
