@@ -158,9 +158,12 @@ def load_data():
     return session, cap, positions, summaries, today_trades, all_trades
 
 session, cap, positions, summaries, today_trades, all_trades = load_data()
-capital       = cap["total_capital"] if cap else 0
-daily_pnl     = session.pnl_today
-starting_cap  = capital - daily_pnl
+capital      = cap["total_capital"] if cap else 0
+daily_pnl    = session.pnl_today
+
+# Use locked starting capital — never drifts on restart
+# Falls back to derived value only if not yet set (before first trade of the day)
+starting_cap = session.starting_capital_today if session.starting_capital_today > 0 else max(capital - daily_pnl, 1.0)
 daily_pnl_pct = (daily_pnl / starting_cap * 100) if starting_cap else 0
 
 # ----------------------------------------------------------
@@ -244,11 +247,13 @@ if positions:
         pnl_pct = p.get("pnl_pct", 0) or 0
         dist_sl = p.get("distance_to_sl", 0) or 0
         dist_tp = p.get("distance_to_tp", 0) or 0
-        pos_rows.append({"_entry_dt": entry_dt, "Opened": entry_str, "Symbol": p["symbol"], "Type": p["asset_class"].capitalize(), "Dir": p["direction"].upper(), "Entry $": float(p["entry_price"]), "Current $": float(p["current_price"]), "Stop Loss $": float(p["stop_loss"]), "Take Profit $": (f"${p['take_profit']:.4f}" + (" 🔴 *" + str(p.get("tp_hit_count", 0)) if p.get("tp_hit_count", 0) > 0 else "")), "Unreal P&L $": float(pnl_val), "P&L %": float(pnl_pct), "To SL %": float(dist_sl), "To TP %": float(dist_tp)})
+        is_stuck = p.get("is_stuck", False)
+        stuck_label = " ⚠️ STUCK" if is_stuck else ""
+        pos_rows.append({"_entry_dt": entry_dt, "Opened": entry_str, "Symbol": p["symbol"] + stuck_label, "Type": p["asset_class"].capitalize(), "Dir": p["direction"].upper(), "Entry $": float(p["entry_price"]), "Current $": float(p["current_price"]), "Stop Loss $": float(p["stop_loss"]), "Take Profit $": (f"${p['take_profit']:.4f}" + (" 🔴 *" + str(p.get("tp_hit_count", 0)) if p.get("tp_hit_count", 0) > 0 else "")), "Unreal P&L $": float(pnl_val), "P&L %": float(pnl_pct), "To SL %": float(dist_sl), "To TP %": float(dist_tp)})
     df_pos = pd.DataFrame(pos_rows).sort_values("_entry_dt", ascending=False).reset_index(drop=True).drop(columns=["_entry_dt"])
     st.dataframe(df_pos, use_container_width=True, hide_index=True, column_config={"Opened": st.column_config.TextColumn("Opened", width="small"), "Symbol": st.column_config.TextColumn("Symbol", width="small"), "Type": st.column_config.TextColumn("Type", width="small"), "Dir": st.column_config.TextColumn("Dir", width="small"), "Entry $": st.column_config.NumberColumn("Entry $", format="$%.4f"), "Current $": st.column_config.NumberColumn("Current $", format="$%.4f"), "Stop Loss $": st.column_config.NumberColumn("Stop Loss $", format="$%.4f"), "Take Profit $": st.column_config.NumberColumn("Take Profit $", format="$%.4f"), "Unreal P&L $": st.column_config.NumberColumn("Unreal P&L $", format="$%+.2f"), "P&L %": st.column_config.NumberColumn("P&L %", format="%+.2f%%"), "To SL %": st.column_config.NumberColumn("To SL %", format="%.2f%%"), "To TP %": st.column_config.NumberColumn("To TP %", format="%.2f%%")})
     with st.expander(f"💰 Manage Positions — Close or Review ({len(positions)} open)", expanded=False):
-        section_note("Stocks: cancels bracket orders first then closes. Crypto: closes via exchange.")
+        section_note("Stocks: cancels bracket orders first then closes. Crypto: closes via exchange. ⚠️ STUCK = exceeded 3 failed close attempts, needs manual close.")
         if "close_messages" not in st.session_state:
             st.session_state.close_messages = {}
         for trade_id, msg_data in st.session_state.close_messages.items():
@@ -259,6 +264,7 @@ if positions:
         for p in positions:
             pnl       = p.get("unrealized_pnl", 0)
             pnl_pct   = p.get("pnl_pct", 0)
+            is_stuck  = p.get("is_stuck", False)
             pnl_color = "#4caf50" if pnl >= 0 else "#f44336"
             pnl_icon  = "🟢" if pnl >= 0 else "🔴"
             dir_color = "#4fc3f7" if p["direction"] == "long" else "#ff8a65"
@@ -269,12 +275,14 @@ if positions:
             progress = max(0.0, min(1.0, (cur - sl) / (tp - sl))) if tp != sl else 0.5
             progress_pct   = int(progress * 100)
             progress_color = "#4caf50" if progress > 0.5 else "#ff8a65" if progress > 0.25 else "#f44336"
+            border_color   = "#f59e0b" if is_stuck else "#2a3a5c"
+            stuck_badge    = '<span style="background:#f59e0b;color:#000;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:bold;margin-left:8px;">⚠️ STUCK — needs manual close</span>' if is_stuck else ""
             card_col, btn_col = st.columns([5, 1])
             with card_col:
                 st.markdown(f"""
-                <div style="background:#1a1f35;border:1px solid #2a3a5c;border-radius:10px;padding:14px 18px;margin-bottom:6px;">
+                <div style="background:#1a1f35;border:1px solid {border_color};border-radius:10px;padding:14px 18px;margin-bottom:6px;">
                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-                        <span style="font-weight:bold;font-size:16px;">{p['symbol']} {'🌙' if p.get('is_overnight') else ''}</span>
+                        <span style="font-weight:bold;font-size:16px;">{p['symbol']} {'🌙' if p.get('is_overnight') else ''}{stuck_badge}</span>
                         <span style="color:{dir_color};font-weight:bold;">{dir_icon} {p['direction'].upper()}</span>
                         <span style="color:{pnl_color};font-weight:bold;font-size:15px;">{pnl_icon} ${pnl:+.2f} <small>({pnl_pct:+.2f}%)</small></span>
                     </div>
@@ -295,6 +303,9 @@ if positions:
                 st.markdown("<div style='margin-top:18px'></div>", unsafe_allow_html=True)
                 if st.button("💰 Close Now", key=f"cancel_{p['trade_id']}", use_container_width=True):
                     trade_id = p["trade_id"]
+                    # Reset stuck flag so close attempt is tried again
+                    db.set_state(f"close_stuck_{trade_id}", 0)
+                    db.set_state(f"close_attempts_{trade_id}", 0)
                     trade_record = None
                     try:
                         open_trades = db.get_open_trades()
@@ -533,7 +544,7 @@ with bt_c4:
     st.markdown("&nbsp;")
     run_bt = st.button("🚀 Run Backtest", type="primary", use_container_width=True)
 if bt_tf == "5m":
-    notify_info("5m timeframe: max 30 days. Best for Scalp Master strategy.")
+    notify_info("5m timeframe: max 30 days. Best for Scalp Master and ORB strategies.")
 elif bt_tf == "1d":
     notify_info("Daily timeframe: signals are infrequent — best for long multi-year views.")
 if run_bt:
