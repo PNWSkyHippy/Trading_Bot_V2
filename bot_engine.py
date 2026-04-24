@@ -13,10 +13,6 @@ IMPORTANT — TIMEZONE NOTE:
     the system clock says. All schedule.at() times below are therefore in
     PACIFIC TIME. The actual ET times are noted in comments.
 
-    Market hours gate inside _run_stock_scan() uses ZoneInfo("America/New_York")
-    and checks real ET time regardless of machine timezone — this is the
-    authoritative gate for stock scanning.
-
     Schedule times (PT = machine time, ET = actual market time):
       Stock close:   12:45 PT = 15:45 ET (15 min before market close)
       EOD report:    14:00 PT = 17:00 ET
@@ -51,16 +47,6 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description="Autonomous Day Trading Bot v2",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-  python bot_engine.py                 Normal operation
-  python bot_engine.py --verbose       Debug mode: logs every signal condition
-  python bot_engine.py -v              Same as --verbose
-
-WARNING: Verbose mode writes a log entry for every signal condition checked
-on every symbol every scan cycle. Log files will grow very quickly.
-Use verbose mode for short diagnostic sessions only.
-        """
     )
     parser.add_argument(
         "--verbose", "-v",
@@ -134,8 +120,7 @@ class BotEngine:
         self.logger.info("=" * 60)
 
         if config.VERBOSE_MODE:
-            self.logger.info("*** VERBOSE MODE ACTIVE - Signal details will be logged ***")
-            self.logger.info("*** Log files will grow quickly. Use for short sessions. ***")
+            self.logger.info("*** VERBOSE MODE ACTIVE ***")
 
         self.db                = Database(config.DB_PATH)
         self.risk_manager      = RiskManager()
@@ -150,7 +135,12 @@ class BotEngine:
 
         self.logger.info("All components initialized successfully.")
         self._log_strategy_status()
+
+        # Reconcile BEFORE registering jobs so ghosts are cleared
+        # before any trading decisions are made today.
+        # Ghost closures do NOT increment the consecutive loss counter.
         self._reconcile_positions()
+
         self._register_scheduled_jobs()
 
     def _log_strategy_status(self):
@@ -158,14 +148,37 @@ class BotEngine:
         enabled    = [s for s in strategies if s.enabled]
         disabled   = [s for s in strategies if not s.enabled]
         self.logger.info(
-            f"Strategy engine loaded: {len(enabled)} enabled, {len(disabled)} disabled"
+            f"Strategy engine loaded: {len(enabled)} enabled, "
+            f"{len(disabled)} disabled"
         )
         for s in enabled:
             self.logger.info(f"  [ENABLED]  {s.name}")
         for s in disabled:
             self.logger.info(f"  [DISABLED] {s.name}")
 
+    # ------------------------------------------------------------------
+    #  POSITION RECONCILIATION
+    #
+    #  IMPORTANT: Ghost closures bypass risk_manager.record_trade_result()
+    #  entirely. They write directly to the DB so the consecutive loss
+    #  counter is NOT incremented. Ghosts are not real trades and should
+    #  never trigger a trading halt.
+    # ------------------------------------------------------------------
+
     def _reconcile_positions(self):
+        """
+        Compare DB open trades against actual Alpaca positions at startup.
+        Any stock trade in DB that Alpaca no longer holds gets marked
+        closed with exit_reason='reconciled_ghost' and pnl=0.
+
+        Ghost closures do NOT call risk_manager.record_trade_result()
+        so they never increment the consecutive loss counter or trigger
+        a halt. This prevents the bot from halting at startup because
+        yesterday's ghost positions looked like 10 consecutive losses.
+
+        Crypto positions are skipped — paper sim trades are intentionally
+        not in Alpaca.
+        """
         try:
             import alpaca_trade_api as tradeapi
             api = tradeapi.REST(
@@ -173,18 +186,26 @@ class BotEngine:
                 config.ALPACA_SECRET_KEY,
                 config.ALPACA_BASE_URL
             )
+
             try:
                 alpaca_positions = api.list_positions()
                 alpaca_symbols   = {p.symbol for p in alpaca_positions}
             except Exception as e:
-                self.logger.warning(f"Reconciliation: could not fetch Alpaca positions: {e}")
+                self.logger.warning(
+                    f"Reconciliation: could not fetch Alpaca positions: {e}"
+                )
                 return
 
-            open_trades   = self.db.get_open_trades()
-            stock_trades  = [t for t in open_trades if t.get("asset_class") == "stock"]
+            open_trades  = self.db.get_open_trades()
+            stock_trades = [
+                t for t in open_trades
+                if t.get("asset_class") == "stock"
+            ]
 
             if not stock_trades:
-                self.logger.debug("Reconciliation: no open stock trades to check.")
+                self.logger.debug(
+                    "Reconciliation: no open stock trades to check."
+                )
                 return
 
             ghost_count = 0
@@ -193,9 +214,12 @@ class BotEngine:
                 if symbol not in alpaca_symbols:
                     self.logger.warning(
                         f"Reconciliation: {symbol} in DB but not in Alpaca — "
-                        f"marking as ghost (trade_id={trade['trade_id']})"
+                        f"marking as ghost (trade_id={trade['trade_id']}). "
+                        f"Consecutive loss counter NOT incremented."
                     )
                     try:
+                        # Write directly to DB — bypass trade_executor and
+                        # risk_manager so consecutive_losses stays untouched
                         self.db.close_trade(
                             trade_id    = trade["trade_id"],
                             exit_price  = trade["entry_price"],
@@ -206,20 +230,27 @@ class BotEngine:
                         ghost_count += 1
                     except Exception as e:
                         self.logger.error(
-                            f"Reconciliation: failed to close ghost {symbol}: {e}"
+                            f"Reconciliation: failed to close ghost "
+                            f"{symbol}: {e}"
                         )
 
             if ghost_count > 0:
                 self.logger.info(
-                    f"Reconciliation complete: {ghost_count} ghost position(s) cleaned."
+                    f"Reconciliation complete: {ghost_count} ghost(s) cleared. "
+                    f"Alpaca has {len(alpaca_symbols)} real position(s): "
+                    f"{', '.join(alpaca_symbols) if alpaca_symbols else 'none'}. "
+                    f"Consecutive loss counter unchanged."
                 )
             else:
                 self.logger.info(
-                    f"Reconciliation complete: all {len(stock_trades)} DB stock "
-                    f"position(s) confirmed in Alpaca."
+                    f"Reconciliation complete: all {len(stock_trades)} DB "
+                    f"stock position(s) confirmed in Alpaca. No ghosts."
                 )
+
         except Exception as e:
-            self.logger.error(f"Reconciliation error: {e}", exc_info=True)
+            self.logger.error(
+                f"Reconciliation error: {e}", exc_info=True
+            )
 
     def _register_scheduled_jobs(self):
         self.logger.info("Registering scheduled jobs...")
@@ -241,20 +272,17 @@ class BotEngine:
             getattr(schedule.every(), day).at("14:00").do(self._end_of_day)
 
         schedule.every().day.at("15:00").do(self._retrain_ml)
-
-        # Weekly trade log — every Sunday at midnight PT
-        # Covers the Sunday-Saturday week that just ended
         schedule.every().sunday.at("00:00").do(run_weekly_export)
 
         self.logger.info("All scheduled jobs registered.")
         self.logger.info("  - Crypto scan:      every 5 min (24/7)")
-        self.logger.info("  - Stock scan:       every 60s (gated: Mon-Fri 10:00-15:44 ET)")
+        self.logger.info("  - Stock scan:       every 60s (Mon-Fri 10:00-15:44 ET)")
         self.logger.info("  - Stock EOD close:  15:45 ET (12:45 PT) weekdays")
         self.logger.info("  - Position monitor: every 30s (24/7)")
         self.logger.info("  - Capital sync:     every 15 min")
         self.logger.info("  - EOD report:       17:00 ET (14:00 PT) daily")
         self.logger.info("  - ML retrain:       18:00 ET (15:00 PT) daily")
-        self.logger.info("  - Weekly trade log: Sunday 00:00 PT (covers prev Sun-Sat)")
+        self.logger.info("  - Weekly trade log: Sunday 00:00 PT")
 
     def _run_stock_scan(self):
         try:
@@ -296,7 +324,7 @@ class BotEngine:
                 if trade.get("is_overnight"):
                     self.logger.info(
                         f"Stock EOD close: SKIPPING {trade['symbol']} "
-                        f"— flagged is_overnight (!Day_Trade)"
+                        f"— flagged is_overnight"
                     )
                     skipped_count += 1
                     continue
@@ -315,23 +343,27 @@ class BotEngine:
                 if success:
                     closed_count += 1
                     self.logger.info(
-                        f"EOD closed: {trade['symbol']} @ ${current_price:.4f}"
+                        f"EOD closed: {trade['symbol']} @ "
+                        f"${current_price:.4f}"
                     )
                 else:
                     self.logger.error(
-                        f"EOD close FAILED for {trade['symbol']} — manual close needed"
+                        f"EOD close FAILED for {trade['symbol']} — "
+                        f"manual close needed"
                     )
 
             self.logger.info(
-                f"Stock EOD close complete: "
-                f"{closed_count} closed, {skipped_count} overnight holds skipped"
+                f"Stock EOD close complete: {closed_count} closed, "
+                f"{skipped_count} overnight holds skipped"
             )
         except Exception as e:
             self.logger.error(f"Stock EOD close error: {e}", exc_info=True)
 
     def _end_of_day(self):
         try:
-            self.logger.info("Running end-of-day routine (report + session reset)...")
+            self.logger.info(
+                "Running end-of-day routine (report + session reset)..."
+            )
             self.report_generator.generate_and_send_daily_report()
             self.db.reset_session_state()
             self.logger.info("End-of-day routine complete.")
@@ -351,13 +383,17 @@ class BotEngine:
             total     = breakdown.get("total_balance", 0.0)
             if total > 0:
                 self.db.record_capital_snapshot(total)
-                self.logger.info(f"Capital sync complete. Total: ${total:,.2f}")
+                self.logger.info(
+                    f"Capital sync complete. Total: ${total:,.2f}"
+                )
                 for b in breakdown.get("brokers", []):
-                    self.logger.info(f"  {b['display_name']}: ${b['balance']:,.2f}")
+                    self.logger.info(
+                        f"  {b['display_name']}: ${b['balance']:,.2f}"
+                    )
             else:
                 self.logger.info(
                     "Capital sync: no live balances yet "
-                    "(normal in paper mode until broker API connects)"
+                    "(normal in paper mode)"
                 )
             self._reconcile_positions()
         except Exception as e:
@@ -371,7 +407,8 @@ class BotEngine:
                 self.logger.info("ML model retrained successfully.")
             else:
                 self.logger.info(
-                    f"ML retrain skipped (need {config.ML_MIN_TRADES}+ trades)."
+                    f"ML retrain skipped "
+                    f"(need {config.ML_MIN_TRADES}+ trades)."
                 )
         except Exception as e:
             self.logger.error(f"ML retrain error: {e}", exc_info=True)
@@ -391,7 +428,7 @@ class BotEngine:
                 schedule.run_pending()
                 time.sleep(1)
         except KeyboardInterrupt:
-            self.logger.info("Shutdown requested (Ctrl+C). Stopping bot.")
+            self.logger.info("Shutdown requested. Stopping bot.")
             self._shutdown()
 
     def _shutdown(self):
@@ -405,15 +442,10 @@ if __name__ == "__main__":
     logger = setup_logging(args.verbose)
 
     if args.verbose:
-        print()
         print("=" * 60)
         print("  VERBOSE MODE ENABLED")
-        print("  Every signal condition will be logged to bot.log")
-        print("  PASS conditions shown in logs, FAIL conditions marked")
-        print("  Use this for short diagnostic sessions only!")
         print("  Log file: logs/bot.log")
         print("=" * 60)
-        print()
 
     bot = BotEngine()
     bot.run()
