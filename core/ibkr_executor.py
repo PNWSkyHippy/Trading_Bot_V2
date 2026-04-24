@@ -14,6 +14,7 @@
     2. Run TWS or IB Gateway on localhost
     3. Enable API access in TWS: File -> Global Config -> API -> Settings
        Check 'Enable ActiveX and Socket Clients'
+       UNCHECK 'Read-Only API'
        Set port to 7497 (paper) or 7496 (live)
     4. Add IBKR_ACCOUNT to .env
     5. Set IBKR_ENABLED=True in config.py when ready
@@ -24,6 +25,11 @@
     called before every order and reconnects if dropped with backoff.
     This avoids the clientId conflict that caused 'unreachable' warnings
     when connect/disconnect/reconnect happened on every trade.
+
+  ClientId:
+    IBKR_CLIENT_ID = 2. If you see 'clientId already in use' change this
+    to any unused number (3, 4, etc). Each connection to TWS needs a
+    unique clientId. ClientId 1 is often used by TWS itself or other tools.
 =============================================================
 """
 
@@ -38,7 +44,7 @@ logger = logging.getLogger(__name__)
 IBKR_PAPER_PORT = 7497
 IBKR_LIVE_PORT  = 7496
 IBKR_HOST       = "127.0.0.1"
-IBKR_CLIENT_ID  = 1
+IBKR_CLIENT_ID  = 2      # Changed from 1 — avoids conflict with TWS own clientId
 MAX_RECONNECT_ATTEMPTS = 3
 
 
@@ -81,7 +87,8 @@ class IBKRExecutor:
                 logger.info(
                     f"IBKR connected: port={self.port} "
                     f"({'paper' if self.paper_mode else 'LIVE'}) "
-                    f"account={self.account or 'default'}"
+                    f"account={self.account or 'default'} "
+                    f"clientId={IBKR_CLIENT_ID}"
                 )
                 return True
             return False
@@ -118,7 +125,6 @@ class IBKRExecutor:
         """
         if self._ib and self._ib.isConnected():
             return True
-        # Try one reconnect before giving up
         return self._establish_connection()
 
     def submit_order(self, symbol: str, qty: float, side: str,
@@ -201,9 +207,7 @@ class IBKRExecutor:
             return None
 
     def close_position(self, symbol: str) -> bool:
-        """
-        Close an open IBKR position via market order.
-        """
+        """Close an open IBKR position via market order."""
         if not self._ensure_connected():
             logger.error(f"IBKR close_position: cannot connect for {symbol}")
             return False
