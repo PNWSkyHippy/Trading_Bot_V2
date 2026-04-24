@@ -1,200 +1,242 @@
-# 🤖 Autonomous Day Trading AI
+# Autonomous Day Trading Bot v2
 
-A self-sufficient algorithmic trading system that scans stocks and crypto,
-executes trades with strict risk management, compounds gains, and reports
-daily — all running on your own desktop.
-
----
-
-## 📁 Project Structure
-
-```
-trading_bot/
-├── bot_engine.py           ← MAIN ENTRY POINT — run this to start
-├── dashboard.py            ← Live browser dashboard (Streamlit)
-├── config.py               ← All settings and parameters
-├── requirements.txt        ← Python dependencies
-├── .env.template           ← API key template (copy to .env)
-│
-├── core/
-│   ├── risk_manager.py     ← ALL risk rules enforced here
-│   ├── trade_executor.py   ← Sends orders to brokers
-│   └── position_monitor.py ← Watches open trades, trailing stops
-│
-├── scanners/
-│   └── market_scanner.py   ← Scans stocks + crypto for signals
-│
-├── intelligence/
-│   └── chat_interface.py   ← Claude AI chat — talk to your bot
-│
-├── reporting/
-│   └── report_generator.py ← Daily reports, email, tax exports
-│
-├── data/
-│   └── database.py         ← All storage (SQLite, local)
-│
-├── logs/                   ← Auto-created, all activity logged
-├── exports/                ← Tax CSVs and reports saved here
-└── data/trading_bot.db     ← Your complete trade history (SQLite)
-```
+A fully autonomous AI-powered day trading bot with:
+- **11 trading strategies** (stocks + crypto)
+- **Streamlit dashboard** with live P&L, positions, backtester
+- **Claude AI chat interface** (Haiku model) for natural language control
+- **Multi-broker support**: Alpaca (stocks), Coinbase, Kraken, IBKR
+- **IRS Form 8949** compatible tax records
+- **Risk management**: position limits, trailing stops, daily loss ceiling
 
 ---
 
-## 🚀 Quick Start
+## ⚠️ Disclaimer
 
-### Step 1 — Install Python 3.11+
-Download from: https://python.org/downloads
+This bot trades real money. Paper trading mode is enabled by default.
+**Test thoroughly in paper mode before switching to live trading.**
+Past backtest performance does not guarantee future results.
 
-### Step 2 — Install dependencies
-```bash
-cd trading_bot
+---
+
+## ⚙️ Requirements
+
+- **Python 3.12** (required — tested on 3.12 only)
+- **Windows 10/11** (developed on Windows, Linux/Mac may work)
+- **Git** for version control
+- **4GB+ RAM** recommended
+
+---
+
+## 🚀 Installation
+
+### Step 1 — Clone the repo
+```powershell
+git clone https://github.com/PNWSkyHippy/Trading_Bot_V2.git
+cd Trading_Bot_V2
+```
+
+### Step 2 — Create Python virtual environment
+```powershell
+python -m venv venv312
+venv312\Scripts\activate
+```
+
+### Step 3 — Install dependencies
+```powershell
 pip install -r requirements.txt
 ```
 
-### Step 3 — Set up your API keys
-```bash
-cp .env.template .env
-# Edit .env with your actual API keys
+### Step 4 — Set up API keys
+Copy the template and fill in your keys:
+```powershell
+copy .env.template .env
+notepad .env
 ```
 
-### Step 4 — Create accounts (all free to start)
-- **Alpaca Markets**: https://alpaca.markets (paper trading is free, no real money needed to start)
-- **Anthropic Claude API**: https://console.anthropic.com (~$5-10/month)
-- **Binance US** (crypto): https://binance.us
+See **API Keys** section below for where to get each key.
 
-### Step 5 — Start paper trading (NO real money yet)
-```bash
-# Terminal 1 — Start the bot
+### Step 5 — Configure settings
+Open `config.py` and review/adjust:
+- `STARTING_CAPITAL` — your starting capital amount
+- `MAX_POSITION_PCT` — max % of capital per trade (default 2%)
+- `DEFAULT_STOP_LOSS_PCT` — stop loss % (default 1.5%)
+- `DEFAULT_TAKE_PROFIT_PCT` — take profit % (default 3%)
+- `STOCK_WATCHLIST` — stocks to scan
+- `CRYPTO_WATCHLIST` — crypto pairs to scan
+
+### Step 6 — Start the bot
+```powershell
+# Terminal 1: Start the trading engine
 python bot_engine.py
 
-# Terminal 2 — Start the dashboard
+# Terminal 2: Start the dashboard
 streamlit run dashboard.py
 ```
-Open your browser to: http://localhost:8501
 
-### Step 6 — Monitor for 30 days on paper trading
-Review daily reports. When consistently profitable, switch to live in config.py:
-```python
-ALPACA_BASE_URL = "https://api.alpaca.markets"  # Remove "paper-" prefix
-```
+Dashboard opens at: `http://localhost:8501`
 
 ---
 
-## ⚙️ Configuring Your Settings
+## 🔑 API Keys
 
-Edit `config.py` to customize:
+All keys go in your `.env` file. Never commit `.env` to git.
 
-```python
-# Risk rules
-max_position_pct = 0.02    # 2% of capital per trade
-stop_loss_pct    = 0.01    # 1% stop-loss
-take_profit_pct  = 0.03    # 3% take-profit
-max_daily_loss_pct = 0.10  # Halt after 10% daily loss
-max_consecutive_losses = 3  # Halt after 3 losing trades in a row
-
-# What to scan
-stock_watchlist = ["AAPL", "NVDA", "TSLA", ...]  # Add/remove symbols
-crypto_pairs    = ["BTC/USDT", "ETH/USDT", ...]
-```
-
----
-
-## 💬 Talking to Your Bot
-
-From the dashboard chat or directly via the chat interface:
-
-| What you say | What happens |
-|---|---|
-| "Show my stats" | Displays full performance summary |
-| "Pause trading today" | Halts all new trades immediately |
-| "Resume trading" | Re-enables trading |
-| "Withdraw $500 for rent" | Deducts from capital, logs it |
-| "What's my win rate this week?" | Calculates and reports |
-| "Export my taxes for 2024" | Saves Form 8949 CSV to exports/ |
-| "Lower my risk to 1.5% per trade" | Adjusts position sizing |
-
----
-
-## 📊 Risk Rules (Hardcoded)
-
-These rules run on every trade, no exceptions:
-
-| Rule | Value |
-|---|---|
-| Max position size | 2% of total capital |
-| Stop-loss | 1% below entry (automatic) |
-| Initial take-profit | 3% above entry (automatic) |
-| Trailing stop | Rises with price, stays 1% behind |
-| Daily loss ceiling | 10% — trading halts for the day |
-| Consecutive loss halt | 3 losses in a row = halt for the day |
-| Max open positions | 5 simultaneous trades |
-| Opening noise avoidance | No trades in first 30 min after open |
-| End-of-day | All stock positions closed before close |
-
----
-
-## 📄 Tax Records
-
-Every trade is automatically recorded in the tax ledger with:
-- Open and close dates
-- Proceeds and cost basis
-- Gain/loss amounts
-- Short-term vs long-term classification
-
-Export Form 8949-ready CSV anytime:
-```bash
-# Via dashboard sidebar, or via chat:
-"Export my taxes for 2024"
-```
-
----
-
-## 💸 Withdrawals
-
-Process a withdrawal anytime via the dashboard or chat:
-- Capital base is reduced accordingly
-- All compounding recalculates from new base
-- Withdrawal is logged as a capital return event (not taxable income)
-
----
-
-## 📈 Compounding Projection
-
-At 65% win rate with 2% avg daily gain on winning days:
-
-| Timeframe | Conservative | Moderate |
+| Key | Where to get it | Required? |
 |---|---|---|
-| 6 months  | $250–$400    | $500–$800 |
-| 1 year    | $700–$1,500  | $2,000–$5,000 |
-| 2 years   | $3,000–$8,000| $20,000–$60,000 |
-| 3 years   | $15,000+     | $100,000+ |
+| `ALPACA_API_KEY` | [alpaca.markets](https://alpaca.markets) → Paper Trading | Yes |
+| `ALPACA_SECRET_KEY` | Same as above | Yes |
+| `COINBASE_API_KEY` | [Coinbase Advanced Trade API](https://www.coinbase.com/settings/api) | Optional |
+| `COINBASE_SECRET_KEY` | Same as above | Optional |
+| `KRAKEN_API_KEY` | [Kraken API](https://www.kraken.com/u/security/api) | Optional |
+| `KRAKEN_SECRET_KEY` | Same as above | Optional |
+| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com) | For chat only |
+| `EMAIL_ADDRESS` | Your Gmail address | For daily reports |
+| `EMAIL_PASSWORD` | Gmail App Password (not regular password) | For daily reports |
+| `EMAIL_RECIPIENT` | Where to send reports | For daily reports |
 
-*Assumes reinvestment of profits and modest monthly withdrawals from year 2*
+### Alpaca Setup
+- Sign up at alpaca.markets
+- Go to **Paper Trading** → Generate API keys
+- Use paper URL: `https://paper-api.alpaca.markets`
+- For live trading change to: `https://api.alpaca.markets`
 
----
-
-## ⚠️ Important Disclaimers
-
-1. **Paper trade first.** Run for at least 30 days on paper before real money.
-2. **Past performance** of any strategy does not guarantee future results.
-3. **Day trading involves substantial risk** of loss and is not suitable for all investors.
-4. **Tax obligations**: Consult a CPA — the bot tracks data but doesn't give tax advice.
-5. **Your capital is yours.** The bot only trades on your connected brokerage accounts.
-6. **Never trade money you cannot afford to lose.**
-
----
-
-## 🔧 Built With
-
-- **Python 3.11** — Core language
-- **Alpaca Markets API** — Stock execution
-- **CCXT** — Crypto exchange connectivity  
-- **pandas + numpy** — Data analysis
-- **APScheduler** — Task scheduling
-- **Streamlit + Plotly** — Live dashboard
-- **Claude AI (Anthropic)** — Conversational intelligence
-- **SQLite** — Local database (no server needed)
+### Gmail App Password
+- Google Account → Security → 2-Step Verification → App Passwords
+- Generate a password for "Mail"
+- Use that 16-character password as `EMAIL_PASSWORD`
 
 ---
 
-*Built with care. Trade responsibly. 📈*
+## 📦 Key Configurable Settings (`config.py`)
+
+```python
+# Capital
+STARTING_CAPITAL = 100.0        # Your starting capital
+
+# Position sizing
+MAX_POSITION_PCT = 2.0          # Max % of capital per trade
+DEFAULT_STOP_LOSS_PCT = 1.5     # Stop loss %
+DEFAULT_TAKE_PROFIT_PCT = 3.0   # Take profit %
+TRAILING_STOP_PCT = 1.0         # Trailing stop gap %
+
+# Daily limits
+MAX_DAILY_LOSS_PCT = 10.0       # Halt trading if down this % in a day
+MAX_CONSECUTIVE_LOSSES = 10     # Halt after this many losses in a row
+MAX_OPEN_POSITIONS = 5          # Max simultaneous trades
+
+# Scan intervals
+STOCK_SCAN_INTERVAL_SEC = 60    # Stock scan every 60 seconds
+CRYPTO_SCAN_INTERVAL_SEC = 300  # Crypto scan every 5 minutes
+
+# Broker mode
+ALPACA_BASE_URL = "https://paper-api.alpaca.markets"  # Change for live
+```
+
+---
+
+## 💻 Dashboard
+
+Open `http://localhost:8501` after running `streamlit run dashboard.py`
+
+**Sections:**
+- **Top metrics** — capital, daily P&L, open positions, win rate
+- **Capital growth chart** — 30-day equity curve
+- **Open positions** — live P&L, trailing stops, close button
+- **Manual trade entry** — open a trade you spotted yourself
+- **Today's trade log** — all closed trades with exit reason
+- **Backtester** — test any strategy on historical data
+- **Chat interface** — talk to the bot in plain English
+- **Sidebar** — risk controls, bot restart, tax export, withdrawals
+
+---
+
+## 🤖 Chat Interface
+
+Type commands in the dashboard chat box. See `CHAT_COMMANDS.md` for the full list.
+
+Quick reference:
+```
+morning scan          → Top trading candidates for the day
+enable orb_breakout   → Enable a strategy
+disable grid_bot      → Disable a strategy
+list strategies       → Show all 11 with ON/OFF status
+pause trading         → Halt new trades
+resume trading        → Resume trading
+withdraw $500 for rent → Record a withdrawal
+show my stats         → Full performance summary
+```
+
+---
+
+## ⭐ Strategies
+
+11 strategies run simultaneously. Each scores every symbol independently.
+Highest score per symbol wins. See `strategies/INTEGRATION_GUIDE.py` to add your own.
+
+| Strategy | Style | Default |
+|---|---|---|
+| RSI Momentum | Momentum | Disabled |
+| Bollinger Breakout | Breakout + OBV | **Enabled** |
+| EMA Crossover | Trend | Disabled |
+| Mean Reversion | Mean reversion | **Enabled** |
+| Scalp Master | Scalping | **Enabled** |
+| Swing Trader | Swing | Disabled |
+| Grid Bot | Range | Disabled |
+| DCA Accumulator | Accumulation | **Enabled** |
+| VWAP Momentum | VWAP trend | **Enabled** |
+| Hammer Reversal | Reversal (SOL only) | **Enabled** |
+| ORB Breakout | Opening range | **Enabled** |
+
+---
+
+## 📧 Daily Reports
+
+At 5 PM ET the bot emails an HTML report with:
+- P&L summary, win rate, trade log
+- Strategy performance breakdown
+- Claude AI activity log (what Haiku did)
+- Capital growth chart
+
+Set `EMAIL_ADDRESS`, `EMAIL_PASSWORD`, `EMAIL_RECIPIENT` in `.env` to enable.
+
+---
+
+## 🛠️ Troubleshooting
+
+| Problem | Fix |
+|---|---|
+| Bot halted, won't resume | Run `python UnHaltBot.py` |
+| Ghost positions in dashboard | Use dashboard **Close Now** button |
+| P&L % wrong after restart | Fixed in latest version — git pull |
+| Haiku won't enable a strategy | Use `python dashboard_strategy_fix.py` |
+| Strategy not firing | Check `bot_state` table in DB Browser for `strategy_X_enabled` |
+| No trades executing | Check `logs/bot.log` for signal details |
+| Dashboard won't load | Ensure `streamlit run dashboard.py` is running |
+
+---
+
+## 📖 Documentation
+
+| File | Purpose |
+|---|---|
+| `REFERENCE_DOCS.md` | Index of all reference documents |
+| `CHAT_COMMANDS.md` | All chat commands with examples |
+| `PROJECT_SUMMARY.md` | Full architecture deep-dive |
+| `config.py` | All settings with comments |
+| `strategies/INTEGRATION_GUIDE.py` | How to add a new strategy |
+| `data/BROKER_INTEGRATION_GUIDE.py` | How to add a new broker |
+
+---
+
+## 🔒 Security Notes
+
+- `.env` is in `.gitignore` — your API keys are never committed
+- Paper trading mode is default — no real money until you change the URL
+- All withdrawals require explicit confirmation from the chat bot
+- Halt commands require exact wording to prevent accidental triggers
+
+---
+
+## 📜 License
+
+Personal use only. Not for redistribution without permission.
