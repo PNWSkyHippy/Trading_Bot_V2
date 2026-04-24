@@ -162,8 +162,7 @@ capital      = cap["total_capital"] if cap else 0
 daily_pnl    = session.pnl_today
 
 # Use locked starting capital — never drifts on restart
-# Falls back to derived value only if not yet set (before first trade of the day)
-starting_cap = session.starting_capital_today if session.starting_capital_today > 0 else max(capital - daily_pnl, 1.0)
+starting_cap  = session.starting_capital_today if session.starting_capital_today > 0 else max(capital - daily_pnl, 1.0)
 daily_pnl_pct = (daily_pnl / starting_cap * 100) if starting_cap else 0
 
 # ----------------------------------------------------------
@@ -243,10 +242,10 @@ if positions:
         except Exception:
             entry_dt  = pd.Timestamp.min
             entry_str = raw_time[:16] if raw_time else "—"
-        pnl_val = p.get("unrealized_pnl", 0) or 0
-        pnl_pct = p.get("pnl_pct", 0) or 0
-        dist_sl = p.get("distance_to_sl", 0) or 0
-        dist_tp = p.get("distance_to_tp", 0) or 0
+        pnl_val  = p.get("unrealized_pnl", 0) or 0
+        pnl_pct  = p.get("pnl_pct", 0) or 0
+        dist_sl  = p.get("distance_to_sl", 0) or 0
+        dist_tp  = p.get("distance_to_tp", 0) or 0
         is_stuck = p.get("is_stuck", False)
         stuck_label = " ⚠️ STUCK" if is_stuck else ""
         pos_rows.append({"_entry_dt": entry_dt, "Opened": entry_str, "Symbol": p["symbol"] + stuck_label, "Type": p["asset_class"].capitalize(), "Dir": p["direction"].upper(), "Entry $": float(p["entry_price"]), "Current $": float(p["current_price"]), "Stop Loss $": float(p["stop_loss"]), "Take Profit $": (f"${p['take_profit']:.4f}" + (" 🔴 *" + str(p.get("tp_hit_count", 0)) if p.get("tp_hit_count", 0) > 0 else "")), "Unreal P&L $": float(pnl_val), "P&L %": float(pnl_pct), "To SL %": float(dist_sl), "To TP %": float(dist_tp)})
@@ -303,7 +302,6 @@ if positions:
                 st.markdown("<div style='margin-top:18px'></div>", unsafe_allow_html=True)
                 if st.button("💰 Close Now", key=f"cancel_{p['trade_id']}", use_container_width=True):
                     trade_id = p["trade_id"]
-                    # Reset stuck flag so close attempt is tried again
                     db.set_state(f"close_stuck_{trade_id}", 0)
                     db.set_state(f"close_attempts_{trade_id}", 0)
                     trade_record = None
@@ -353,10 +351,14 @@ with st.expander("➕ Open Manual Trade", expanded=False):
     with mc1:
         m_symbol    = st.text_input("Symbol", placeholder="RAVE/USD or SOXL")
         m_direction = st.selectbox("Direction", ["long", "short"])
-        m_asset     = st.selectbox("Asset Class", ["crypto", "stock"])
+        m_asset     = st.selectbox("Asset Class", ["stock", "crypto"])
     with mc2:
         m_size      = st.number_input("Position Size ($)", min_value=1.0, value=2000.0)
-        m_broker    = st.selectbox("Broker", ["alpaca", "coinbase", "kraken", "paper"])
+        # Broker list — ibkr shown only if enabled in config
+        _brokers = ["alpaca", "coinbase", "kraken", "paper"]
+        if getattr(config, "IBKR_ENABLED", False):
+            _brokers.insert(0, "ibkr")
+        m_broker    = st.selectbox("Broker", _brokers)
         m_overnight = st.checkbox("🌙 Hold Overnight (!Day_Trade)", value=False, help="Stock will NOT be auto-closed at 15:45 ET.")
     with mc3:
         m_sl_pct = st.number_input("Stop Loss %", min_value=0.1, value=1.5, step=0.1)
@@ -415,7 +417,34 @@ with st.expander("➕ Open Manual Trade", expanded=False):
                 broker_order_id   = None
                 actual_fill_price = m_entry
 
-                if m_broker == "alpaca" and m_asset == "stock":
+                if m_broker == "ibkr" and m_asset == "stock":
+                    # Route manual stock trade through IBKR
+                    try:
+                        from core.trade_executor import executor
+                        if executor._ibkr and executor._ibkr.is_available():
+                            submit_qty = int(qty) if qty >= 1 else qty
+                            result = executor._ibkr.submit_order(
+                                symbol      = sym_upper,
+                                qty         = submit_qty,
+                                side        = side,
+                                stop_loss   = round(sl, 2),
+                                take_profit = round(tp, 2)
+                            )
+                            if result:
+                                broker_order_id   = result.get("broker_order_id")
+                                fill_price        = result.get("filled_avg_price", 0)
+                                actual_fill_price = fill_price if fill_price and fill_price > 0 else m_entry
+                            else:
+                                notify_error(f"IBKR rejected the order for {sym_upper}. Check TWS is running.")
+                                st.stop()
+                        else:
+                            notify_error("IBKR is not available. Check TWS is running on port 7497.")
+                            st.stop()
+                    except Exception as e:
+                        notify_error(f"IBKR order error: {e}")
+                        st.stop()
+
+                elif m_broker == "alpaca" and m_asset == "stock":
                     from core.trade_executor import AlpacaExecutor
                     alpaca_ex  = AlpacaExecutor()
                     submit_qty = int(qty) if qty >= 1 else qty
@@ -432,7 +461,7 @@ with st.expander("➕ Open Manual Trade", expanded=False):
                     broker_order_id   = result.get("broker_order_id")
                     fill_price        = result.get("filled_avg_price", 0)
                     actual_fill_price = fill_price if fill_price and fill_price > 0 else m_entry
-                    dash_logger.info(f"Manual stock trade: {sym_upper} {side} qty={submit_qty} | order_id={broker_order_id} | fill=${actual_fill_price:.4f} | {'plain market' if result.get('manual_sl_tp') else 'bracket'}")
+                    dash_logger.info(f"Manual stock trade: {sym_upper} {side} qty={submit_qty} | order_id={broker_order_id} | fill=${actual_fill_price:.4f}")
 
                 if m_direction == "long":
                     sl  = actual_fill_price * (1 - m_sl_pct / 100)
