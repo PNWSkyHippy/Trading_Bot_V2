@@ -21,6 +21,7 @@ IMPORTANT — TIMEZONE NOTE:
       Stock close:   12:45 PT = 15:45 ET (15 min before market close)
       EOD report:    14:00 PT = 17:00 ET
       ML retrain:    15:00 PT = 18:00 ET
+      Weekly log:    00:00 PT Sunday (midnight, covers prev Sun-Sat)
 """
 
 import argparse
@@ -43,6 +44,7 @@ from strategies.strategy_engine import StrategyEngine
 from intelligence.ml_scorer import MLScorer
 from intelligence.condition_detector import ConditionDetector
 from reporting.report_generator import ReportGenerator
+from reporting.weekly_tradelog import run_weekly_export
 
 
 def parse_args():
@@ -96,11 +98,6 @@ def setup_logging(verbose: bool) -> logging.Logger:
 
 
 def _is_market_open() -> bool:
-    """
-    Returns True if US stock market is currently open for trading.
-    Uses real Eastern Time via ZoneInfo — immune to machine timezone.
-    Trading window: Monday-Friday, 10:00-15:45 ET.
-    """
     try:
         from zoneinfo import ZoneInfo
     except ImportError:
@@ -153,10 +150,7 @@ class BotEngine:
 
         self.logger.info("All components initialized successfully.")
         self._log_strategy_status()
-
-        # ── Reconcile DB positions against Alpaca at startup ──────────
         self._reconcile_positions()
-
         self._register_scheduled_jobs()
 
     def _log_strategy_status(self):
@@ -171,19 +165,7 @@ class BotEngine:
         for s in disabled:
             self.logger.info(f"  [DISABLED] {s.name}")
 
-    # ------------------------------------------------------------------
-    #  POSITION RECONCILIATION
-    # ------------------------------------------------------------------
-
     def _reconcile_positions(self):
-        """
-        Compare DB open trades against actual Alpaca positions.
-        Any stock trade in DB that Alpaca doesn't have gets marked closed
-        with pnl=0 and exit_reason='reconciled_ghost'.
-
-        Crypto positions are skipped — paper sim trades are intentionally
-        not in Alpaca and should not be ghost-cleaned.
-        """
         try:
             import alpaca_trade_api as tradeapi
             api = tradeapi.REST(
@@ -191,7 +173,6 @@ class BotEngine:
                 config.ALPACA_SECRET_KEY,
                 config.ALPACA_BASE_URL
             )
-
             try:
                 alpaca_positions = api.list_positions()
                 alpaca_symbols   = {p.symbol for p in alpaca_positions}
@@ -230,16 +211,13 @@ class BotEngine:
 
             if ghost_count > 0:
                 self.logger.info(
-                    f"Reconciliation complete: {ghost_count} ghost position(s) cleaned. "
-                    f"Alpaca has {len(alpaca_symbols)} real position(s): "
-                    f"{', '.join(alpaca_symbols) if alpaca_symbols else 'none'}"
+                    f"Reconciliation complete: {ghost_count} ghost position(s) cleaned."
                 )
             else:
                 self.logger.info(
                     f"Reconciliation complete: all {len(stock_trades)} DB stock "
-                    f"position(s) confirmed in Alpaca. No ghosts found."
+                    f"position(s) confirmed in Alpaca."
                 )
-
         except Exception as e:
             self.logger.error(f"Reconciliation error: {e}", exc_info=True)
 
@@ -264,18 +242,19 @@ class BotEngine:
 
         schedule.every().day.at("15:00").do(self._retrain_ml)
 
+        # Weekly trade log — every Sunday at midnight PT
+        # Covers the Sunday-Saturday week that just ended
+        schedule.every().sunday.at("00:00").do(run_weekly_export)
+
         self.logger.info("All scheduled jobs registered.")
         self.logger.info("  - Crypto scan:      every 5 min (24/7)")
         self.logger.info("  - Stock scan:       every 60s (gated: Mon-Fri 10:00-15:44 ET)")
-        self.logger.info("  - Stock EOD close:  15:45 ET (12:45 PT) weekdays — respects is_overnight flag")
+        self.logger.info("  - Stock EOD close:  15:45 ET (12:45 PT) weekdays")
         self.logger.info("  - Position monitor: every 30s (24/7)")
         self.logger.info("  - Capital sync:     every 15 min")
         self.logger.info("  - EOD report:       17:00 ET (14:00 PT) daily")
         self.logger.info("  - ML retrain:       18:00 ET (15:00 PT) daily")
-
-    # ------------------------------------------------------------------
-    #  STOCK SCAN
-    # ------------------------------------------------------------------
+        self.logger.info("  - Weekly trade log: Sunday 00:00 PT (covers prev Sun-Sat)")
 
     def _run_stock_scan(self):
         try:
@@ -289,10 +268,6 @@ class BotEngine:
         except Exception as e:
             self.logger.error(f"Stock scan error: {e}", exc_info=True)
 
-    # ------------------------------------------------------------------
-    #  CRYPTO SCAN
-    # ------------------------------------------------------------------
-
     def _run_crypto_scan(self):
         try:
             self.logger.debug("Running crypto scan...")
@@ -300,37 +275,24 @@ class BotEngine:
         except Exception as e:
             self.logger.error(f"Crypto scan error: {e}", exc_info=True)
 
-    # ------------------------------------------------------------------
-    #  STOCK EOD CLOSE  (3:45 PM ET — respects is_overnight flag)
-    # ------------------------------------------------------------------
-
     def _close_stocks_eod(self):
-        """
-        Close all open day-trade stock positions at 3:45 PM ET.
-        Positions flagged is_overnight=1 (the !Day_Trade checkbox) are
-        skipped and left open for swing trade holding overnight.
-        """
         try:
             self.logger.info(
                 f"15:45 ET stock EOD close starting ({_et_now_str()})..."
             )
-
             from data.database import db as _db
             open_trades  = _db.get_open_trades()
             stock_trades = [
                 t for t in open_trades
                 if t.get("asset_class") == "stock"
             ]
-
             if not stock_trades:
                 self.logger.info("Stock EOD close: no open stock positions.")
                 return
 
             closed_count  = 0
             skipped_count = 0
-
             for trade in stock_trades:
-                # Respect the !Day_Trade / is_overnight flag
                 if trade.get("is_overnight"):
                     self.logger.info(
                         f"Stock EOD close: SKIPPING {trade['symbol']} "
@@ -338,7 +300,6 @@ class BotEngine:
                     )
                     skipped_count += 1
                     continue
-
                 try:
                     current_price = self.market_scanner.get_current_price(
                         trade["symbol"], "stock"
@@ -365,23 +326,10 @@ class BotEngine:
                 f"Stock EOD close complete: "
                 f"{closed_count} closed, {skipped_count} overnight holds skipped"
             )
-
         except Exception as e:
             self.logger.error(f"Stock EOD close error: {e}", exc_info=True)
 
-    # ------------------------------------------------------------------
-    #  EOD REPORT  (5:00 PM ET)
-    # ------------------------------------------------------------------
-
     def _end_of_day(self):
-        """
-        End-of-day routine at 5 PM ET.
-        NOTE: Does NOT close stock positions — that is handled selectively
-        by _close_stocks_eod() at 3:45 ET which respects the is_overnight
-        flag. Calling close_all_stock_positions() here would wipe overnight
-        swing trades. This routine only generates the report and resets
-        the daily session counters.
-        """
         try:
             self.logger.info("Running end-of-day routine (report + session reset)...")
             self.report_generator.generate_and_send_daily_report()
@@ -390,10 +338,6 @@ class BotEngine:
         except Exception as e:
             self.logger.error(f"End-of-day routine error: {e}", exc_info=True)
 
-    # ------------------------------------------------------------------
-    #  CAPITAL SYNC
-    # ------------------------------------------------------------------
-
     def _sync_capital(self):
         try:
             try:
@@ -401,13 +345,10 @@ class BotEngine:
                 settlement_tracker.process_settlements()
             except Exception:
                 pass
-
             self.logger.debug("Syncing capital from all brokers...")
             self.broker_manager.sync_all_balances()
-
             breakdown = self.broker_manager.get_capital_breakdown()
             total     = breakdown.get("total_balance", 0.0)
-
             if total > 0:
                 self.db.record_capital_snapshot(total)
                 self.logger.info(f"Capital sync complete. Total: ${total:,.2f}")
@@ -418,15 +359,9 @@ class BotEngine:
                     "Capital sync: no live balances yet "
                     "(normal in paper mode until broker API connects)"
                 )
-
             self._reconcile_positions()
-
         except Exception as e:
             self.logger.error(f"Capital sync error: {e}", exc_info=True)
-
-    # ------------------------------------------------------------------
-    #  ML RETRAIN
-    # ------------------------------------------------------------------
 
     def _retrain_ml(self):
         try:
@@ -441,10 +376,6 @@ class BotEngine:
         except Exception as e:
             self.logger.error(f"ML retrain error: {e}", exc_info=True)
 
-    # ------------------------------------------------------------------
-    #  MAIN LOOP
-    # ------------------------------------------------------------------
-
     def run(self):
         self.logger.info("Bot is running. Press Ctrl+C to stop.")
         self.logger.info(
@@ -454,9 +385,7 @@ class BotEngine:
             f"Monitoring {len(config.STOCK_WATCHLIST)} stocks "
             f"(market hours only: Mon-Fri 10:00-15:44 ET)"
         )
-
         self._sync_capital()
-
         try:
             while True:
                 schedule.run_pending()
