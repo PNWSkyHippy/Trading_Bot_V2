@@ -1,0 +1,175 @@
+# Trading Bot Chat Command Reference
+Last updated: April 23, 2026
+
+Type any of these in the **dashboard chat box** (🤖 Chat with Your Bot section).
+Commands marked ⚡ are handled by the **pre-parse layer** — they execute instantly
+without going through Haiku, so they always work reliably.
+
+---
+
+## 🛑 Trading Control
+
+| What you type | What happens |
+|---|---|
+| `pause trading` | Halts all new trades immediately |
+| `halt trading` | Same as pause |
+| `stop all trades` | Same as pause |
+| `resume trading` | Re-enables trading |
+
+> ⚠️ These are HIGH RISK commands. Haiku requires explicit wording — vague phrases like
+> "things are slow" or "resources used up" will NOT trigger a halt.
+
+---
+
+## 📊 Status & Stats
+
+| What you type | What happens |
+|---|---|
+| `show my stats` | Full performance summary |
+| `how am I doing` | Same — P&L, win rate, open positions |
+| `capital breakdown` | Per-broker balance breakdown |
+| `strategy stats` | Win rate, P&L, profit factor per strategy |
+
+---
+
+## 🔍 Morning Scan ⚡
+
+| What you type | What happens |
+|---|---|
+| `morning scan` | Scans ORB whitelist, surfaces top 5 candidates |
+| `what should I trade` | Same |
+| `top setups` | Same |
+| `best setups` | Same |
+| `what to trade` | Same |
+| `scan for me` | Same |
+
+> 💡 Best used at 10:00 AM ET. Shows move %, volume ratio, direction for each candidate.
+> Wait for 9:45 ET ORB window before entering. Exit when price crosses VWAP or EOD.
+
+---
+
+## ♟️ Strategy Management ⚡
+
+All enable/disable commands bypass Haiku and execute instantly.
+
+| What you type | What happens |
+|---|---|
+| `enable orb_breakout` | Enables ORB strategy |
+| `disable orb_breakout` | Disables ORB strategy |
+| `enable hammer_reversal` | Enables Hammer Reversal |
+| `disable hammer_reversal` | Disables Hammer Reversal |
+| `enable scalp_master` | Enables Scalp Master |
+| `disable scalp_master` | Disables Scalp Master |
+| `enable bollinger_breakout` | Enables Bollinger Breakout |
+| `disable bollinger_breakout` | Disables Bollinger Breakout |
+| `enable vwap_momentum` | Enables VWAP Momentum |
+| `disable vwap_momentum` | Disables VWAP Momentum |
+| `enable rsi_momentum` | Enables RSI Momentum |
+| `disable rsi_momentum` | Disables RSI Momentum |
+| `enable ema_crossover` | Enables EMA Crossover |
+| `disable ema_crossover` | Disables EMA Crossover |
+| `enable mean_reversion` | Enables Mean Reversion |
+| `disable mean_reversion` | Disables Mean Reversion |
+| `enable swing_trader` | Enables Swing Trader |
+| `disable swing_trader` | Disables Swing Trader |
+| `enable grid_bot` | Enables Grid Bot |
+| `disable grid_bot` | Disables Grid Bot |
+| `enable dca_accumulator` | Enables DCA Accumulator |
+| `disable dca_accumulator` | Disables DCA Accumulator |
+| `list strategies` | Shows all 11 with ON/OFF status |
+| `strategy stats` | Win rate and P&L per strategy |
+
+### Strategy names (for reference)
+```
+rsi_momentum        bollinger_breakout    ema_crossover
+mean_reversion      scalp_master          swing_trader
+grid_bot            dca_accumulator       vwap_momentum
+hammer_reversal     orb_breakout
+```
+
+---
+
+## 🏦 Broker Management
+
+| What you type | What happens |
+|---|---|
+| `list brokers` | Shows all registered brokers |
+| `capital breakdown` | Per-broker balance |
+| `I deposited $500 into Kraken` | Records fund injection (informational only — you move money manually) |
+| `I withdrew $200 from Alpaca` | Records fund withdrawal (informational only) |
+| `enable kraken` | Enables Kraken broker |
+| `disable kraken` | Disables Kraken broker |
+
+---
+
+## 💰 Financial
+
+| What you type | What happens |
+|---|---|
+| `withdraw $500 for rent` | Deducts from capital tracking |
+| `export my taxes for 2025` | Saves IRS Form 8949 CSV to exports/ folder |
+| `lower my risk to 1.5% per trade` | Adjusts MAX_POSITION_PCT |
+
+> ⚠️ Withdrawals require explicit confirmation — Haiku will ask before executing.
+
+---
+
+## ⚙️ Risk Settings
+
+| What you type | What happens |
+|---|---|
+| `set risk to 1.5%` | Changes position size to 1.5% of capital per trade |
+| `lower my risk` | Haiku will ask what % you want |
+| `raise my risk` | Haiku will ask what % you want |
+
+---
+
+## 💬 Natural Language (Haiku handles these)
+
+These don't have fixed syntax — just ask naturally:
+
+- "What are my open positions?"
+- "How much did I make today?"
+- "Which strategy is performing best?"
+- "Am I on track for my daily goal?"
+- "What's my win rate this week?"
+- "Close all my positions" *(Haiku will confirm first)*
+- "Generate today's report"
+
+---
+
+## 🔧 Fallback — If Haiku Fumbles a Command
+
+If the chat doesn't work, use PowerShell directly:
+
+```powershell
+cd C:\users\linda\trading_bot_v2
+python -c "
+from strategies.strategy_engine import strategy_engine
+print(strategy_engine.enable_strategy('orb_breakout'))
+print(strategy_engine.disable_strategy('grid_bot'))
+print(strategy_engine.list_strategies())
+"
+```
+
+Or use **DB Browser for SQLite**:
+- Open `data/trading_bot.db`
+- Browse Data → `bot_state` table
+- Find `strategy_orb_breakout_enabled` → change value to `"true"` or `"false"`
+- Write Changes
+
+---
+
+## 📋 Quick Reference Card
+
+```
+SCAN:      morning scan
+PAUSE:     pause trading / resume trading
+STRATEGY:  enable/disable <strategy_name>
+LIST:      list strategies / strategy stats
+BROKERS:   list brokers / capital breakdown
+MONEY:     withdraw $X for <reason>
+TAXES:     export my taxes for 2025
+RISK:      set risk to 1.5%
+STATUS:    show my stats / how am I doing
+```
