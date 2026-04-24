@@ -40,14 +40,15 @@ class TradeApproval:
 
 @dataclass
 class DailyStatus:
-    trading_active:       bool
-    halt_reason:          str
-    pnl_today:            float
-    pnl_pct_today:        float
-    consecutive_losses:   int
-    trades_today:         int
-    capital:              float
-    daily_loss_remaining: float
+    trading_active:         bool
+    halt_reason:            str
+    pnl_today:              float
+    pnl_pct_today:          float
+    consecutive_losses:     int
+    trades_today:           int
+    capital:                float
+    daily_loss_remaining:   float
+    starting_capital_today: float   # Locked at market open, never recalculated
 
 
 class RiskManager:
@@ -73,11 +74,11 @@ class RiskManager:
         This ensures capital tracks correctly even though Alpaca paper balance never changes.
         """
         try:
-            closed = db.get_all_closed_trades(limit=99999)
+            closed    = db.get_all_closed_trades(limit=99999)
             total_pnl = sum(t.get("pnl", 0.0) or 0.0 for t in closed)
-            total = config.STARTING_CAPITAL + total_pnl
+            total     = config.STARTING_CAPITAL + total_pnl
 
-            cap = db.get_latest_capital()
+            cap  = db.get_latest_capital()
             last = cap["total_capital"] if cap else 0
             if abs(total - last) > 0.50:
                 db.record_capital_snapshot(total)
@@ -87,12 +88,27 @@ class RiskManager:
                 return min(total, allocation)
             return max(total, 1.0)
         except Exception:
-            cap = db.get_latest_capital()
+            cap   = db.get_latest_capital()
             total = cap["total_capital"] if cap else config.STARTING_CAPITAL
             allocation = getattr(config, "BOT_CAPITAL_ALLOCATION", None)
             if allocation and allocation > 0:
                 return min(total, allocation)
             return total
+
+    def _get_or_lock_starting_capital(self) -> float:
+        """
+        Get today's starting capital.
+        If not yet set (first call of the day), calculate and lock it now.
+        Once locked it never changes during the day regardless of restarts.
+        This is the core fix for the P&L% restart bug.
+        """
+        locked = db.get_starting_capital_today()
+        if locked > 0:
+            return locked
+        # First call today — calculate and lock
+        capital = self._get_capital()
+        db.set_starting_capital_today(capital)
+        return capital
 
     # ----------------------------------------------------------
     #  DAILY STATUS CHECK
@@ -100,21 +116,27 @@ class RiskManager:
 
     def get_daily_status(self) -> DailyStatus:
         self._refresh_session()
-        capital   = self._get_capital()
-        pnl_today = self._session.get("pnl_today", 0.0)
-        pnl_pct   = (pnl_today / capital * 100) if capital else 0
-        max_daily_loss       = capital * (config.MAX_DAILY_LOSS_PCT / 100)
+        capital         = self._get_capital()
+        starting_cap    = self._get_or_lock_starting_capital()
+        pnl_today       = self._session.get("pnl_today", 0.0)
+
+        # Use locked starting capital for percentage calculation
+        # This never drifts on restart
+        pnl_pct = (pnl_today / starting_cap * 100) if starting_cap else 0
+
+        max_daily_loss       = starting_cap * (config.MAX_DAILY_LOSS_PCT / 100)
         daily_loss_remaining = max_daily_loss + pnl_today
 
         return DailyStatus(
-            trading_active       = not bool(self._session.get("trading_halted", 0)),
-            halt_reason          = self._session.get("halt_reason", ""),
-            pnl_today            = pnl_today,
-            pnl_pct_today        = pnl_pct,
-            consecutive_losses   = self._session.get("consecutive_losses", 0),
-            trades_today         = self._session.get("trades_today", 0),
-            capital              = capital,
-            daily_loss_remaining = max(0, daily_loss_remaining)
+            trading_active          = not bool(self._session.get("trading_halted", 0)),
+            halt_reason             = self._session.get("halt_reason", ""),
+            pnl_today               = pnl_today,
+            pnl_pct_today           = pnl_pct,
+            consecutive_losses      = self._session.get("consecutive_losses", 0),
+            trades_today            = self._session.get("trades_today", 0),
+            capital                 = capital,
+            daily_loss_remaining    = max(0, daily_loss_remaining),
+            starting_capital_today  = starting_cap,
         )
 
     def is_trading_allowed(self) -> Tuple[bool, str]:
@@ -126,18 +148,19 @@ class RiskManager:
 
         capital        = self._get_capital()
         pnl_today      = self._session.get("pnl_today", 0.0)
-        max_daily_loss = capital * (config.MAX_DAILY_LOSS_PCT / 100)
+        starting_cap   = self._get_or_lock_starting_capital()
+        max_daily_loss = starting_cap * (config.MAX_DAILY_LOSS_PCT / 100)
 
         if pnl_today <= -max_daily_loss:
             self._halt_trading(
                 f"Daily loss limit reached: ${abs(pnl_today):.2f} "
-                f"({abs(pnl_today / capital * 100):.1f}%)"
+                f"({abs(pnl_today / starting_cap * 100):.1f}%)"
             )
-            return False, f"{config.MAX_DAILY_LOSS_PCT:.0f}% daily loss ceiling reached. Trading halted until tomorrow."
+            return False, f"{config.MAX_DAILY_LOSS_PCT:.0f}% daily loss ceiling reached."
 
         if self._session.get("consecutive_losses", 0) >= config.MAX_CONSECUTIVE_LOSSES:
-            self._halt_trading(f"{config.MAX_CONSECUTIVE_LOSSES} consecutive losses triggered halt")
-            return False, f"{config.MAX_CONSECUTIVE_LOSSES} consecutive losing trades. Trading halted until tomorrow."
+            self._halt_trading(f"{config.MAX_CONSECUTIVE_LOSSES} consecutive losing trades")
+            return False, f"{config.MAX_CONSECUTIVE_LOSSES} consecutive losing trades. Trading halted."
 
         open_trades = db.get_open_trades()
         if len(open_trades) >= config.MAX_OPEN_POSITIONS:
@@ -181,9 +204,10 @@ class RiskManager:
 
         risk_amount = position_value * stop_loss_pct
 
-        pnl_today              = self._session.get("pnl_today", 0.0)
-        max_daily_loss         = capital * (config.MAX_DAILY_LOSS_PCT / 100)
-        remaining_loss_budget  = max_daily_loss + pnl_today
+        pnl_today             = self._session.get("pnl_today", 0.0)
+        starting_cap          = self._get_or_lock_starting_capital()
+        max_daily_loss        = starting_cap * (config.MAX_DAILY_LOSS_PCT / 100)
+        remaining_loss_budget = max_daily_loss + pnl_today
         if risk_amount > remaining_loss_budget and remaining_loss_budget > 0:
             position_value = remaining_loss_budget / stop_loss_pct
             quantity       = position_value / entry_price
@@ -374,11 +398,12 @@ class RiskManager:
         """Reset the daily session state (called at end of day)."""
         session_date = date.today().isoformat()
         db.update_session(session_date,
-            trading_halted     = 0,
-            halt_reason        = None,
-            consecutive_losses = 0,
-            pnl_today          = 0.0,
-            trades_today       = 0
+            trading_halted          = 0,
+            halt_reason             = None,
+            consecutive_losses      = 0,
+            pnl_today               = 0.0,
+            trades_today            = 0,
+            starting_capital_today  = 0.0
         )
         self._session = db.get_session(session_date)
         logger.info("Session state reset for new trading day.")
