@@ -6,7 +6,7 @@ Port of Gerald Lonlas' freqtrade Strategy002 to our framework.
 Original backtest: 9 trades, 3.21% avg profit, Jan 2018 (crypto 5m bars).
 
 Entry conditions (ALL must be true — very selective by design):
-  1. RSI < 30          (oversold)
+  1. RSI < 30               (oversold)
   2. Stochastic slowK < 20  (confirming oversold)
   3. Price < lower Bollinger Band  (extreme deviation below mean)
   4. Hammer candlestick detected   (reversal signal)
@@ -22,15 +22,16 @@ Exit / Take-profit — tiered ROI ladder (mirrors freqtrade original):
   30-60 bars     → target 3%
   60+ bars       → target 1% (kill switch — take anything)
 
-  We implement this by setting take_profit_pct based on time held,
-  which position_monitor adjusts dynamically via update_trade_levels.
-  Initial take_profit is set to 5% (the best case target).
-
 Stop-loss: 10% (wide, matching original — the hammer entry is already
   conservative so a tight stop would whipsaw too often).
 
-Asset class: stocks + crypto (5-minute bars)
-Default: DISABLED — backtest first, enable via dashboard or chat.
+Whitelist (Apr 2026 backtest results 5m 30d):
+  SOL/USD — Sharpe 1.37, Profit Factor 2.17 ✔ GO
+  BTC/USD — Sharpe 0.75, marginal — excluded for now
+  ETH/USD — Sharpe -3.20 — hard fail, excluded
+
+Asset class: crypto only, 5-minute bars
+Default: DISABLED — enable via dashboard chat: 'enable hammer_reversal'
 """
 
 import logging
@@ -43,12 +44,21 @@ from strategies.base_strategy import BaseStrategy, TradeSignal
 
 logger = logging.getLogger(__name__)
 
+# GO symbols only from Apr 2026 5m 30-day backtest
+# BTC excluded (marginal Sharpe 0.75), ETH excluded (Sharpe -3.20)
+# Add BTC back here if SOL live results are consistently strong
+HAMMER_WHITELIST = {
+    "SOL/USD",
+    "SOL/USDT",
+}
+
 
 class HammerReversal(BaseStrategy):
     """
     Hammer Reversal — port of freqtrade Strategy002.
     RSI+Stoch oversold + below lower Bollinger Band + Hammer candle.
     Very selective, high average profit per trade.
+    SOL/USD only based on backtest results.
     """
 
     def __init__(self):
@@ -65,17 +75,16 @@ class HammerReversal(BaseStrategy):
         self.stoch_oversold   = 20
         self.bb_period        = 20
         self.bb_std           = 2.0
-        self.min_score        = 0.70   # High threshold — 4/4 conditions = score 1.0
-
-        # Fisher RSI exit threshold (secondary — used by position_monitor in future)
+        self.min_score        = 0.70
         self.fisher_rsi_exit  = 0.3
 
-        # Start disabled — must be validated via backtest before going live
+        # Start disabled — enable via dashboard after reviewing
         self.enabled          = False
 
         logger.info(
-            f"[{self.strategy_name}] Initialized — DISABLED by default. "
-            f"Run backtest first, then enable via dashboard."
+            f"[{self.strategy_name}] Initialized — DISABLED. "
+            f"Whitelist: {sorted(HAMMER_WHITELIST)}. "
+            f"Enable via dashboard chat: 'enable hammer_reversal'"
         )
 
     def analyze(
@@ -86,7 +95,13 @@ class HammerReversal(BaseStrategy):
     ) -> Optional[TradeSignal]:
         """
         Check all four entry conditions. Returns signal only when ALL fire.
+        SOL/USD only — whitelist check is first gate.
         """
+        # ── Whitelist gate ────────────────────────────────────────────────
+        if symbol.upper() not in HAMMER_WHITELIST:
+            self.verbose_log_skip(symbol, "Not in Hammer whitelist (SOL only)")
+            return None
+
         if not self._check_enough_candles(symbol, candles, 60):
             return None
 
@@ -96,7 +111,7 @@ class HammerReversal(BaseStrategy):
             lows    = candles["low"].astype(float)
             opens   = candles["open"].astype(float)
 
-            # ── 1. RSI ──────────────────────────────────────────────────
+            # ── 1. RSI ──────────────────────────────────────────────────────
             delta    = closes.diff()
             gain     = delta.clip(lower=0)
             loss     = -delta.clip(upper=0)
@@ -112,7 +127,7 @@ class HammerReversal(BaseStrategy):
             if not rsi_ok:
                 return None
 
-            # ── 2. Stochastic slowK ─────────────────────────────────────
+            # ── 2. Stochastic slowK ────────────────────────────────────────
             low_min  = lows.rolling(self.stoch_k_period).min()
             high_max = highs.rolling(self.stoch_k_period).max()
             fastk    = 100 * (closes - low_min) / (high_max - low_min + 1e-10)
@@ -125,12 +140,12 @@ class HammerReversal(BaseStrategy):
             if not stoch_ok:
                 return None
 
-            # ── 3. Price below lower Bollinger Band ─────────────────────
+            # ── 3. Price below lower Bollinger Band ───────────────────────
             typical  = (highs + lows + closes) / 3
             bb_mid   = typical.rolling(self.bb_period).mean()
             bb_std   = typical.rolling(self.bb_period).std()
             bb_lower = bb_mid - self.bb_std * bb_std
-            price_now= closes.iloc[-1]
+            price_now  = closes.iloc[-1]
             bb_low_now = bb_lower.iloc[-1]
 
             bb_ok = price_now < bb_low_now
@@ -139,7 +154,7 @@ class HammerReversal(BaseStrategy):
             if not bb_ok:
                 return None
 
-            # ── 4. Hammer candlestick ───────────────────────────────────
+            # ── 4. Hammer candlestick ────────────────────────────────────
             hammer_ok = self._detect_hammer(
                 opens.iloc[-1], highs.iloc[-1],
                 lows.iloc[-1],  closes.iloc[-1]
@@ -149,14 +164,11 @@ class HammerReversal(BaseStrategy):
             if not hammer_ok:
                 return None
 
-            # ── All 4 conditions met — compute Fisher RSI for metadata ──
-            rsi_scaled  = 0.1 * (rsi_now - 50)
-            fisher_rsi  = (np.exp(2 * rsi_scaled) - 1) / (np.exp(2 * rsi_scaled) + 1)
+            # ── All 4 conditions met ──────────────────────────────────────
+            rsi_scaled = 0.1 * (rsi_now - 50)
+            fisher_rsi = (np.exp(2 * rsi_scaled) - 1) / (np.exp(2 * rsi_scaled) + 1)
 
-            # Score = 1.0 when all 4 conditions fire (very high conviction)
-            score = 1.0
-            self.verbose_log_score(symbol, score, self.min_score)
-
+            score  = 1.0
             reason = (
                 f"Hammer Reversal: RSI={rsi_now:.1f} "
                 f"SlowK={slowk_now:.1f} "
@@ -168,24 +180,22 @@ class HammerReversal(BaseStrategy):
 
             return self._make_signal(
                 symbol          = symbol,
-                direction       = "long",   # Long only — hammer is a bottom reversal
+                direction       = "long",
                 score           = score,
                 reason          = reason,
                 stop_loss_pct   = self.stop_loss_pct,
                 take_profit_pct = self.take_profit_pct,
                 metadata        = {
-                    "rsi":          round(rsi_now, 2),
-                    "slowk":        round(slowk_now, 2),
-                    "bb_lower":     round(bb_low_now, 4),
-                    "fisher_rsi":   round(fisher_rsi, 4),
-                    "hammer":       True,
-                    # Tiered ROI ladder — position_monitor uses these
-                    # to step down TP as hold time increases
-                    "roi_ladder":   {
-                        "0":  5.0,   # 0-20 bars: target 5%
-                        "20": 4.0,   # 20-30 bars: target 4%
-                        "30": 3.0,   # 30-60 bars: target 3%
-                        "60": 1.0,   # 60+ bars: take 1% and exit
+                    "rsi":        round(rsi_now, 2),
+                    "slowk":      round(slowk_now, 2),
+                    "bb_lower":   round(bb_low_now, 4),
+                    "fisher_rsi": round(fisher_rsi, 4),
+                    "hammer":     True,
+                    "roi_ladder": {
+                        "0":  5.0,
+                        "20": 4.0,
+                        "30": 3.0,
+                        "60": 1.0,
                     }
                 }
             )
@@ -201,19 +211,15 @@ class HammerReversal(BaseStrategy):
         low: float,   close: float
     ) -> bool:
         """
-        Detect a hammer candlestick pattern.
-
-        A hammer has:
-        - Small real body (open/close) in the upper third of the range
-        - Long lower shadow >= 2x the body size
-        - Little or no upper shadow (<= 10% of range)
-
-        This is a pure Python port of TA-Lib's CDLHAMMER logic.
+        Detect a hammer candlestick.
+        - Small real body (<=30% of range) in upper portion
+        - Long lower shadow (>=2x body)
+        - Little or no upper shadow (<=10% of range)
         """
         body      = abs(close - open_)
         range_    = high - low
 
-        if range_ < 1e-10:   # Doji / zero-range candle — not a hammer
+        if range_ < 1e-10:
             return False
 
         body_top    = max(open_, close)
@@ -221,10 +227,9 @@ class HammerReversal(BaseStrategy):
         upper_shadow= high - body_top
         lower_shadow= body_bottom - low
 
-        # Hammer criteria
-        small_body    = body <= range_ * 0.3          # Body <= 30% of range
-        long_lower    = lower_shadow >= body * 2.0    # Lower shadow >= 2x body
-        small_upper   = upper_shadow <= range_ * 0.1  # Upper shadow <= 10% of range
-        body_upper    = body_top >= low + range_ * 0.6 # Body in upper 40% of range
+        small_body  = body <= range_ * 0.3
+        long_lower  = lower_shadow >= body * 2.0
+        small_upper = upper_shadow <= range_ * 0.1
+        body_upper  = body_top >= low + range_ * 0.6
 
         return small_body and long_lower and small_upper and body_upper
