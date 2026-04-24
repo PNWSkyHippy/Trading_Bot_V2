@@ -10,11 +10,18 @@ Entry conditions (ALL must be true — very selective by design):
   2. Stochastic slowK < 20  (confirming oversold)
   3. Price < lower Bollinger Band  (extreme deviation below mean)
   4. Hammer candlestick detected   (reversal signal)
+  5. OBV rising over last 3 bars   (volume confirming buyers stepping in)
 
-All four firing simultaneously means the market has:
+All five firing simultaneously means the market has:
   - Been sold off hard (RSI + Stoch both oversold)
   - Closed below the lower BB (statistically extreme)
   - Printed a reversal candle (buyers stepping in)
+  - Volume confirming the reversal (OBV rising = accumulation not distribution)
+
+The OBV filter is the key addition over the original freqtrade strategy.
+Without it, hammer candles in a waterfall selloff get triggered on every
+bounce attempt even when volume is still flowing out. OBV rising means
+real buyers are absorbing the sell pressure.
 
 Exit / Take-profit — tiered ROI ladder (mirrors freqtrade original):
   <20 bars held  → target 5% gain
@@ -30,8 +37,11 @@ Whitelist (Apr 2026 backtest results 5m 30d):
   BTC/USD — Sharpe 0.75, marginal — excluded for now
   ETH/USD — Sharpe -3.20 — hard fail, excluded
 
+  Add BTC back to HAMMER_WHITELIST once SOL shows consistent
+  live results (suggest 20+ live trades with WR >= 55%).
+
 Asset class: crypto only, 5-minute bars
-Default: DISABLED — enable via dashboard chat: 'enable hammer_reversal'
+Default: ENABLED — SOL/USD only with OBV filter active
 """
 
 import logging
@@ -46,17 +56,20 @@ logger = logging.getLogger(__name__)
 
 # GO symbols only from Apr 2026 5m 30-day backtest
 # BTC excluded (marginal Sharpe 0.75), ETH excluded (Sharpe -3.20)
-# Add BTC back here if SOL live results are consistently strong
+# Add BTC back here once SOL live results show WR >= 55% over 20+ trades
 HAMMER_WHITELIST = {
     "SOL/USD",
     "SOL/USDT",
 }
 
+# Number of consecutive OBV bars that must be rising to confirm buying pressure
+OBV_RISING_BARS = 3
+
 
 class HammerReversal(BaseStrategy):
     """
     Hammer Reversal — port of freqtrade Strategy002.
-    RSI+Stoch oversold + below lower Bollinger Band + Hammer candle.
+    RSI+Stoch oversold + below lower BB + Hammer candle + OBV rising.
     Very selective, high average profit per trade.
     SOL/USD only based on backtest results.
     """
@@ -77,15 +90,28 @@ class HammerReversal(BaseStrategy):
         self.bb_std           = 2.0
         self.min_score        = 0.70
         self.fisher_rsi_exit  = 0.3
+        self.obv_rising_bars  = OBV_RISING_BARS
 
-        # Start disabled — enable via dashboard after reviewing
-        self.enabled          = False
+        # Enabled — SOL/USD only, all 5 filters active
+        self.enabled          = True
 
         logger.info(
-            f"[{self.strategy_name}] Initialized — DISABLED. "
+            f"[{self.strategy_name}] Initialized — ENABLED. "
             f"Whitelist: {sorted(HAMMER_WHITELIST)}. "
-            f"Enable via dashboard chat: 'enable hammer_reversal'"
+            f"5-filter stack: RSI + Stoch + BB + Hammer + OBV"
         )
+
+    def _calc_obv(self, closes: pd.Series, volumes: pd.Series) -> pd.Series:
+        """
+        On-Balance Volume (OBV).
+        OBV rises when close > previous close (buying pressure).
+        OBV falls when close < previous close (selling pressure).
+        """
+        direction = closes.diff().apply(
+            lambda x: 1 if x > 0 else (-1 if x < 0 else 0)
+        )
+        obv = (volumes * direction).cumsum()
+        return obv
 
     def analyze(
         self,
@@ -94,7 +120,7 @@ class HammerReversal(BaseStrategy):
         market_condition: str = "unknown"
     ) -> Optional[TradeSignal]:
         """
-        Check all four entry conditions. Returns signal only when ALL fire.
+        Check all five entry conditions. Returns signal only when ALL fire.
         SOL/USD only — whitelist check is first gate.
         """
         # ── Whitelist gate ────────────────────────────────────────────────
@@ -110,6 +136,7 @@ class HammerReversal(BaseStrategy):
             highs   = candles["high"].astype(float)
             lows    = candles["low"].astype(float)
             opens   = candles["open"].astype(float)
+            volumes = candles["volume"].astype(float)
 
             # ── 1. RSI ──────────────────────────────────────────────────────
             delta    = closes.diff()
@@ -164,7 +191,30 @@ class HammerReversal(BaseStrategy):
             if not hammer_ok:
                 return None
 
-            # ── All 4 conditions met ──────────────────────────────────────
+            # ── 5. OBV rising (buying pressure confirming reversal) ─────────
+            # OBV must be rising for last N bars to confirm buyers are
+            # absorbing sell pressure. Without this, hammer signals fire
+            # on every bounce attempt in a waterfall selloff.
+            obv = self._calc_obv(closes, volumes)
+            obv_vals = obv.iloc[-(self.obv_rising_bars + 1):].values
+            obv_rising = all(
+                obv_vals[i] < obv_vals[i + 1]
+                for i in range(len(obv_vals) - 1)
+            )
+
+            self.verbose_log(symbol, f"OBV rising ({self.obv_rising_bars} bars)",
+                             obv_rising,
+                             round(float(obv.iloc[-1]), 0),
+                             "rising", "long")
+            if not obv_rising:
+                logger.debug(
+                    f"[HammerReversal] {symbol}: SKIP — OBV not rising "
+                    f"(last {self.obv_rising_bars} bars: "
+                    f"{[round(float(v), 0) for v in obv_vals]})"
+                )
+                return None
+
+            # ── All 5 conditions met ──────────────────────────────────────
             rsi_scaled = 0.1 * (rsi_now - 50)
             fisher_rsi = (np.exp(2 * rsi_scaled) - 1) / (np.exp(2 * rsi_scaled) + 1)
 
@@ -173,6 +223,7 @@ class HammerReversal(BaseStrategy):
                 f"Hammer Reversal: RSI={rsi_now:.1f} "
                 f"SlowK={slowk_now:.1f} "
                 f"Price={price_now:.4f}<BB={bb_low_now:.4f} "
+                f"OBV rising✓ "
                 f"Fisher={fisher_rsi:.3f}"
             )
 
@@ -186,12 +237,14 @@ class HammerReversal(BaseStrategy):
                 stop_loss_pct   = self.stop_loss_pct,
                 take_profit_pct = self.take_profit_pct,
                 metadata        = {
-                    "rsi":        round(rsi_now, 2),
-                    "slowk":      round(slowk_now, 2),
-                    "bb_lower":   round(bb_low_now, 4),
-                    "fisher_rsi": round(fisher_rsi, 4),
-                    "hammer":     True,
-                    "roi_ladder": {
+                    "rsi":          round(rsi_now, 2),
+                    "slowk":        round(slowk_now, 2),
+                    "bb_lower":     round(bb_low_now, 4),
+                    "fisher_rsi":   round(fisher_rsi, 4),
+                    "hammer":       True,
+                    "obv_rising":   True,
+                    "obv_value":    round(float(obv.iloc[-1]), 0),
+                    "roi_ladder":   {
                         "0":  5.0,
                         "20": 4.0,
                         "30": 3.0,
