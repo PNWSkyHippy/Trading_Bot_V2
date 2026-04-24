@@ -35,8 +35,7 @@ from typing import Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
-# Pacific Time offset (PT = UTC-7 in summer DST, UTC-8 in winter)
-# Using zoneinfo for accurate DST handling
+
 def _to_pacific(utc_str: str) -> Optional[datetime]:
     """Convert UTC ISO string to Pacific Time datetime."""
     if not utc_str:
@@ -58,21 +57,17 @@ def get_week_range(reference_date: date = None) -> Tuple[date, date]:
     """
     Get the Sunday-Saturday week range for the week that just ended.
     If called at midnight Sunday, covers the previous Sun-Sat.
-
     Returns (start_date, end_date) both inclusive.
     """
     if reference_date is None:
         reference_date = date.today()
 
-    # Find most recent Saturday (the end of the last complete week)
     days_since_saturday = (reference_date.weekday() + 2) % 7
     if days_since_saturday == 0:
-        # Today is Saturday — last complete week ended yesterday
         end_date = reference_date - timedelta(days=1)
     else:
         end_date = reference_date - timedelta(days=days_since_saturday)
 
-    # Week starts on Sunday (7 days before Saturday)
     start_date = end_date - timedelta(days=6)
     return start_date, end_date
 
@@ -93,7 +88,6 @@ def generate_weekly_tradelog(
     Returns:
         Path to the generated CSV file, or None if no trades found.
     """
-    # Resolve date range
     if start_date is None or end_date is None:
         start_date, end_date = get_week_range()
 
@@ -102,12 +96,8 @@ def generate_weekly_tradelog(
         f"{start_date.strftime('%m-%d-%Y')} to {end_date.strftime('%m-%d-%Y')}"
     )
 
-    # Import DB here to avoid circular imports when run standalone
     sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    from data.database import db
 
-    # Query closed trades in the date range
-    # entry_time is stored as UTC ISO string — filter by date portion
     import sqlite3
     import config
 
@@ -147,7 +137,6 @@ def generate_weekly_tradelog(
         )
         return None
 
-    # Build output filename
     os.makedirs(output_dir, exist_ok=True)
     filename = (
         f"{start_date.strftime('%m-%d-%Y')}_"
@@ -155,11 +144,9 @@ def generate_weekly_tradelog(
     )
     filepath = os.path.join(output_dir, filename)
 
-    # Write CSV
     with open(filepath, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
 
-        # Header row
         writer.writerow([
             "Symbol",
             "Entry Date",
@@ -170,7 +157,6 @@ def generate_weekly_tradelog(
             "Exit Price",
             "Shares",
             "P&L",
-            # Extra columns useful for Opus analysis
             "Direction",
             "Strategy",
             "Broker",
@@ -186,12 +172,13 @@ def generate_weekly_tradelog(
             entry_pt = _to_pacific(t["entry_time"])
             exit_pt  = _to_pacific(t["exit_time"])
 
+            # Date and time output WITHOUT timezone suffix
+            # Keeping it clean so pandas can parse without warnings
             entry_date_str = entry_pt.strftime("%m/%d/%Y") if entry_pt else ""
             entry_time_str = entry_pt.strftime("%H:%M:%S") if entry_pt else ""
             exit_date_str  = exit_pt.strftime("%m/%d/%Y")  if exit_pt  else ""
             exit_time_str  = exit_pt.strftime("%H:%M:%S")  if exit_pt  else ""
 
-            # Hold duration
             if entry_pt and exit_pt:
                 delta      = exit_pt - entry_pt
                 total_secs = int(delta.total_seconds())
@@ -224,20 +211,21 @@ def generate_weekly_tradelog(
                 hold_str,
             ])
 
-        # Summary footer rows
+        # Summary footer
         writer.writerow([])
         writer.writerow(["--- SUMMARY ---"])
-        writer.writerow(["Total Trades",  trade_count])
-        writer.writerow(["Winning Trades", win_count])
-        writer.writerow(["Losing Trades",  trade_count - win_count])
+        writer.writerow(["Total Trades",   trade_count])
+        writer.writerow(["Winning Trades",  win_count])
+        writer.writerow(["Losing Trades",   trade_count - win_count])
         win_rate = (win_count / trade_count * 100) if trade_count else 0
-        writer.writerow(["Win Rate",       f"{win_rate:.1f}%"])
-        writer.writerow(["Total P&L",      f"${total_pnl:+.4f}"])
+        writer.writerow(["Win Rate",        f"{win_rate:.1f}%"])
+        writer.writerow(["Total P&L",       f"${total_pnl:+.4f}"])
         writer.writerow(["Period",
             f"{start_date.strftime('%m/%d/%Y')} - {end_date.strftime('%m/%d/%Y')}"
         ])
+        # Generated line uses plain time, no timezone suffix
         writer.writerow(["Generated",
-            datetime.now().strftime("%m/%d/%Y %H:%M:%S PT")
+            datetime.now().strftime("%m/%d/%Y %H:%M:%S")
         ])
 
     logger.info(
@@ -254,7 +242,7 @@ def run_weekly_export():
         if filepath:
             logger.info(f"[WEEKLY LOG] Exported: {filepath}")
         else:
-            logger.info("[WEEKLY LOG] No trades this week — skipped.")
+            logger.info("[WEEKLY LOG] No trades this week \u2014 skipped.")
     except Exception as e:
         logger.error(f"[WEEKLY LOG] Export failed: {e}", exc_info=True)
 
@@ -270,7 +258,6 @@ if __name__ == "__main__":
     )
 
     if len(sys.argv) == 3:
-        # Custom date range: python weekly_tradelog.py 2026-04-10 2026-04-11
         try:
             start = date.fromisoformat(sys.argv[1])
             end   = date.fromisoformat(sys.argv[2])
@@ -281,7 +268,6 @@ if __name__ == "__main__":
             print("Usage: python weekly_tradelog.py YYYY-MM-DD YYYY-MM-DD")
             sys.exit(1)
     else:
-        # Default: last complete week
         start, end = get_week_range()
         print(f"Generating trade log for last week: {start} to {end}...")
         result = generate_weekly_tradelog(start, end)
