@@ -10,6 +10,14 @@
   - VWAP cross exit for ORB trades
   - EOD close for all stock positions
 
+  Close attempt throttle:
+    If a close attempt fails (bracket order blocking, API error etc)
+    the trade stays open in DB and would retry every 30 seconds forever.
+    We track close attempts in bot_state. After MAX_CLOSE_ATTEMPTS the
+    trade is flagged STUCK and skipped until human intervenes.
+    Dashboard shows STUCK trades. Use Close Now button or DB Browser
+    to manually resolve.
+
   Stock positions are only monitored during market hours
   (Mon-Fri 09:30-16:00 ET). Crypto is monitored 24/7.
 =============================================================
@@ -39,6 +47,10 @@ ADX_STALE_THRESHOLD = 25.0
 # EOD close time: 15:45 ET (gives 15 min buffer before 16:00 close)
 EOD_CLOSE_HOUR   = 15
 EOD_CLOSE_MINUTE = 45
+
+# Max close attempts before flagging trade as STUCK
+# Prevents infinite retry loops when bracket orders block closes
+MAX_CLOSE_ATTEMPTS = 3
 
 
 def _stock_market_open() -> bool:
@@ -87,7 +99,6 @@ def _get_position_age_seconds(trade: Dict) -> float:
         entry_raw = trade.get("entry_time", "")
         if not entry_raw:
             return 0.0
-        # Handle both naive and aware datetimes
         entry_dt = pd.to_datetime(entry_raw)
         if entry_dt.tzinfo is None:
             entry_dt = entry_dt.replace(tzinfo=timezone.utc)
@@ -140,6 +151,62 @@ class PositionMonitor:
                 logger.error(f"Monitor loop error: {e}")
             time.sleep(self.check_interval)
 
+    # ------------------------------------------------------------------
+    #  CLOSE ATTEMPT THROTTLE
+    # ------------------------------------------------------------------
+
+    def _get_close_attempts(self, trade_id: str) -> int:
+        """Return number of failed close attempts for this trade."""
+        return int(self._db.get_state(f"close_attempts_{trade_id}", default=0))
+
+    def _increment_close_attempts(self, trade_id: str, symbol: str) -> int:
+        """Increment close attempt counter. Returns new count."""
+        count = self._get_close_attempts(trade_id) + 1
+        self._db.set_state(f"close_attempts_{trade_id}", count)
+        if count >= MAX_CLOSE_ATTEMPTS:
+            # Flag as stuck so dashboard can highlight it
+            self._db.set_state(f"close_stuck_{trade_id}", 1)
+            logger.error(
+                f"[STUCK] {symbol}: {count} failed close attempts. "
+                f"Manual intervention required. Use dashboard Close Now "
+                f"button or DB Browser to resolve."
+            )
+        return count
+
+    def _reset_close_attempts(self, trade_id: str):
+        """Reset counter after successful close."""
+        self._db.set_state(f"close_attempts_{trade_id}", 0)
+        self._db.set_state(f"close_stuck_{trade_id}", 0)
+
+    def _is_stuck(self, trade_id: str) -> bool:
+        """Returns True if trade has exceeded max close attempts."""
+        return int(self._db.get_state(f"close_stuck_{trade_id}", default=0)) == 1
+
+    def _attempt_close(self, trade: Dict, current_price: float,
+                       reason: str) -> bool:
+        """
+        Wrapper around close_trade that tracks failed attempts.
+        After MAX_CLOSE_ATTEMPTS failures, flags trade as STUCK
+        and stops retrying to prevent infinite loops like the PSQ issue.
+        """
+        trade_id = trade["trade_id"]
+        symbol   = trade["symbol"]
+
+        success = self._get_executor().close_trade(trade, current_price, reason)
+
+        if success:
+            self._reset_close_attempts(trade_id)
+            return True
+        else:
+            count = self._increment_close_attempts(trade_id, symbol)
+            logger.warning(
+                f"Close attempt {count}/{MAX_CLOSE_ATTEMPTS} failed for "
+                f"{symbol} | reason={reason}"
+            )
+            return False
+
+    # ------------------------------------------------------------------
+
     def check_positions(self):
         open_trades = self._db.get_open_trades()
         if not open_trades:
@@ -153,7 +220,7 @@ class PositionMonitor:
         if stock_trades and not market_open:
             logger.debug(
                 f"Position monitor: skipping {len(stock_trades)} stock position(s) "
-                f"\u2014 market closed"
+                f"— market closed"
             )
 
         trades_to_check = crypto_trades
@@ -206,10 +273,6 @@ class PositionMonitor:
     # ------------------------------------------------------------------
 
     def _get_adx_di(self, symbol: str, asset_class: str) -> Optional[Dict]:
-        """
-        Fetch ADX, +DI, -DI for the stale position sell-off check.
-        Returns dict with keys adx, plus_di, minus_di or None on failure.
-        """
         try:
             import pandas_ta as ta
             bars = self._get_bars(symbol, asset_class, limit=50)
@@ -221,16 +284,16 @@ class PositionMonitor:
                 return None
 
             adx_col  = [c for c in adx_df.columns if c.startswith("ADX_")]
-            dmp_col  = [c for c in adx_df.columns if c.startswith("DMP_")]  # +DI
-            dmn_col  = [c for c in adx_df.columns if c.startswith("DMN_")]  # -DI
+            dmp_col  = [c for c in adx_df.columns if c.startswith("DMP_")]
+            dmn_col  = [c for c in adx_df.columns if c.startswith("DMN_")]
 
             if not adx_col or not dmp_col or not dmn_col:
                 return None
 
             return {
                 "adx":      float(adx_df[adx_col[0]].iloc[-1]),
-                "plus_di":  float(adx_df[dmp_col[0]].iloc[-1]),   # Green/bullish
-                "minus_di": float(adx_df[dmn_col[0]].iloc[-1]),   # Red/bearish
+                "plus_di":  float(adx_df[dmp_col[0]].iloc[-1]),
+                "minus_di": float(adx_df[dmn_col[0]].iloc[-1]),
             }
         except Exception as e:
             logger.debug(f"ADX/DI fetch error for {symbol}: {e}")
@@ -238,39 +301,31 @@ class PositionMonitor:
 
     def _check_stale_position(self, trade: Dict) -> Optional[str]:
         """
-        Implements the stale asset sell-off logic.
-        Called when position has been open >= 3 hours.
-
-        Logic (from Linda's pseudo-code):
+        Stale asset sell-off logic (Linda's pseudo-code):
           If ADX < 25 (trend stalled) → sell immediately
-          Else (trend exists):
-            Long position:
-              -DI > +DI (bearish) → sell immediately
-              +DI > -DI (bullish) → stay (exit = None)
-            Short position:
-              +DI > -DI (bullish) → sell immediately
-              -DI > +DI (bearish) → stay (exit = None)
-
-        Returns exit reason string if should close, None if should stay.
+          Else:
+            Long  + bearish (-DI > +DI) → sell
+            Long  + bullish (+DI > -DI) → hold
+            Short + bullish (+DI > -DI) → sell
+            Short + bearish (-DI > +DI) → hold
         """
         symbol    = trade["symbol"]
         direction = trade["direction"]
 
         adx_data = self._get_adx_di(symbol, trade["asset_class"])
         if adx_data is None:
-            logger.debug(f"[STALE] {symbol}: could not get ADX data — skipping stale check")
-            return None  # Can't check, don't close
+            logger.debug(f"[STALE] {symbol}: could not get ADX data — skipping")
+            return None
 
         adx      = adx_data["adx"]
-        plus_di  = adx_data["plus_di"]   # Green — bullish
-        minus_di = adx_data["minus_di"]  # Red — bearish
+        plus_di  = adx_data["plus_di"]
+        minus_di = adx_data["minus_di"]
 
         logger.info(
             f"[STALE CHECK] {symbol} {direction.upper()} | "
             f"Open 3+ hrs | ADX={adx:.1f} +DI={plus_di:.1f} -DI={minus_di:.1f}"
         )
 
-        # ADX < 25: trend has stalled — close regardless of direction
         if adx < ADX_STALE_THRESHOLD:
             logger.info(
                 f"[STALE EXIT] {symbol}: ADX={adx:.1f} < {ADX_STALE_THRESHOLD} "
@@ -278,29 +333,27 @@ class PositionMonitor:
             )
             return "stale_no_trend"
 
-        # ADX >= 25: trend exists, check direction vs position
         if direction == "long":
-            if minus_di > plus_di:  # Bearish — trend against long
+            if minus_di > plus_di:
                 logger.info(
                     f"[STALE EXIT] {symbol}: LONG but -DI({minus_di:.1f}) > "
-                    f"+DI({plus_di:.1f}) (bearish trend) — closing"
+                    f"+DI({plus_di:.1f}) (bearish) — closing"
                 )
                 return "stale_trend_reversed"
-            else:  # Bullish — trend still supporting long
+            else:
                 logger.info(
                     f"[STALE HOLD] {symbol}: LONG and +DI({plus_di:.1f}) > "
                     f"-DI({minus_di:.1f}) (bullish) — holding"
                 )
                 return None
-
-        else:  # short
-            if plus_di > minus_di:  # Bullish — trend against short
+        else:
+            if plus_di > minus_di:
                 logger.info(
                     f"[STALE EXIT] {symbol}: SHORT but +DI({plus_di:.1f}) > "
-                    f"-DI({minus_di:.1f}) (bullish trend) — closing"
+                    f"-DI({minus_di:.1f}) (bullish) — closing"
                 )
                 return "stale_trend_reversed"
-            else:  # Bearish — trend still supporting short
+            else:
                 logger.info(
                     f"[STALE HOLD] {symbol}: SHORT and -DI({minus_di:.1f}) > "
                     f"+DI({plus_di:.1f}) (bearish) — holding"
@@ -308,12 +361,7 @@ class PositionMonitor:
                 return None
 
     def _check_vwap_cross_exit(self, trade: Dict, current_price: float) -> bool:
-        """
-        VWAP cross exit for ORB trades.
-        Long:  price crosses back below VWAP → exit
-        Short: price crosses back above VWAP → exit
-        Returns True if should exit.
-        """
+        """VWAP cross exit for ORB trades."""
         try:
             bars = self._get_bars(trade["symbol"], trade["asset_class"], limit=50)
             if bars is None or len(bars) < 5:
@@ -352,7 +400,6 @@ class PositionMonitor:
 
     def _get_bars(self, symbol: str, asset_class: str,
                   limit: int = 25) -> Optional[pd.DataFrame]:
-        """Fetch recent OHLCV bars for momentum scoring."""
         try:
             sc = self._get_scanner()
             if asset_class == "stock":
@@ -371,8 +418,7 @@ class PositionMonitor:
 
             closes  = bars["close"]
             volumes = bars["volume"]
-
-            hits = 0
+            hits    = 0
 
             delta    = closes.diff()
             gain     = delta.clip(lower=0)
@@ -395,8 +441,7 @@ class PositionMonitor:
             if vol_avg > 0 and vol_now >= vol_avg * config.MOMENTUM_RIDER_VOL_RATIO:
                 hits += 1
 
-            score = hits / 3
-            return score
+            return hits / 3
 
         except Exception as e:
             logger.debug(f"Momentum score error for {symbol}: {e}")
@@ -409,12 +454,13 @@ class PositionMonitor:
         Process a single open position.
 
         Exit priority order:
-          1. EOD close (15:45 ET) — all stock positions
-          2. Stop-loss — always fires immediately
-          3. ORB VWAP cross exit — only for orb_breakout strategy
-          4. Take-profit + momentum rider decision
-          5. Stale position check (3hr ADX/DI)
-          6. Trailing stop update
+          1. STUCK check — skip if too many failed close attempts
+          2. EOD close (15:45 ET) — all non-overnight stock positions
+          3. Stop-loss — always fires immediately
+          4. ORB VWAP cross exit — only for orb_breakout strategy
+          5. Take-profit + momentum rider (non-ORB)
+          6. Stale position check (3hr ADX/DI)
+          7. Trailing stop update
         """
         symbol      = trade["symbol"]
         asset_class = trade["asset_class"]
@@ -423,6 +469,16 @@ class PositionMonitor:
         strategy    = trade.get("strategy_name", "")
         is_overnight= bool(trade.get("is_overnight", False))
 
+        # ── 1. STUCK CHECK ───────────────────────────────────────────────
+        # Skip processing if too many close attempts have failed.
+        # Prevents infinite retry loops (e.g. PSQ retrying 50+ times).
+        if self._is_stuck(trade_id):
+            logger.warning(
+                f"[STUCK] {symbol}: skipping — exceeded {MAX_CLOSE_ATTEMPTS} "
+                f"close attempts. Use dashboard Close Now to resolve."
+            )
+            return
+
         current_price = self._get_scanner().get_current_price(symbol, asset_class)
         if current_price is None:
             logger.warning(f"Could not get price for {symbol} — skipping check")
@@ -430,10 +486,8 @@ class PositionMonitor:
 
         qty = trade["quantity"]
         if direction == "long":
-            unrealized_pnl = (current_price - trade["entry_price"]) * qty
             pnl_pct = (current_price - trade["entry_price"]) / trade["entry_price"] * 100
         else:
-            unrealized_pnl = (trade["entry_price"] - current_price) * qty
             pnl_pct = (trade["entry_price"] - current_price) / trade["entry_price"] * 100
 
         logger.debug(
@@ -442,35 +496,31 @@ class PositionMonitor:
             f"P&L: {pnl_pct:+.2f}%"
         )
 
-        # ── 1. EOD CLOSE (15:45 ET) ─────────────────────────────────────
-        # Close all non-overnight stock positions before market close
+        # ── 2. EOD CLOSE (15:45 ET) ──────────────────────────────────────
         if asset_class == "stock" and not is_overnight and _approaching_eod():
             logger.info(
-                f"[EOD CLOSE] {symbol}: market approaching close @ 15:45 ET — closing"
+                f"[EOD CLOSE] {symbol}: closing before market close @ 15:45 ET"
             )
             self._db.set_state(f"momentum_ext_{trade_id}", 0)
-            self._get_executor().close_trade(trade, current_price, "eod_close")
+            self._attempt_close(trade, current_price, "eod_close")
             return
 
-        # ── 2. STOP-LOSS ───────────────────────────────────────────────────
+        # ── 3. STOP-LOSS ──────────────────────────────────────────────────
         sl_exit = risk_manager.check_sl_exit(trade, current_price)
         if sl_exit:
             logger.info(f"Stop-loss triggered: {symbol} @ ${current_price:.4f}")
             self._db.set_state(f"momentum_ext_{trade_id}", 0)
-            self._get_executor().close_trade(trade, current_price, sl_exit)
+            self._attempt_close(trade, current_price, sl_exit)
             return
 
-        # ── 3. ORB VWAP CROSS EXIT ───────────────────────────────────────
-        # ORB trades ride until VWAP cross instead of fixed TP
+        # ── 4. ORB VWAP CROSS EXIT ──────────────────────────────────────
         if strategy == "orb_breakout":
             if self._check_vwap_cross_exit(trade, current_price):
                 self._db.set_state(f"momentum_ext_{trade_id}", 0)
-                self._get_executor().close_trade(trade, current_price, "vwap_cross")
+                self._attempt_close(trade, current_price, "vwap_cross")
                 return
-            # ORB trades skip the fixed TP check below — VWAP is the exit
-            # Still fall through to stale check and trailing stop
         else:
-            # ── 4. TAKE-PROFIT + MOMENTUM RIDER (non-ORB trades) ──────────
+            # ── 5. TAKE-PROFIT + MOMENTUM RIDER (non-ORB) ───────────────
             at_tp = (
                 (direction == "long"  and current_price >= trade["take_profit"]) or
                 (direction == "short" and current_price <= trade["take_profit"])
@@ -489,48 +539,30 @@ class PositionMonitor:
 
                 if ride:
                     tp_pct = config.DEFAULT_TAKE_PROFIT_PCT / 100
-                    if direction == "long":
-                        new_tp = current_price * (1 + tp_pct)
-                    else:
-                        new_tp = current_price * (1 - tp_pct)
+                    new_tp = current_price * (1 + tp_pct) if direction == "long" else current_price * (1 - tp_pct)
                     new_tp = round(new_tp, 4)
                     self._db.update_trade_levels(trade_id, take_profit=new_tp)
                     self._db.set_state(f"momentum_ext_{trade_id}", 0)
                     with self._db._conn() as conn:
-                        conn.execute(
-                            "UPDATE trades SET tp_hit_count = 0 WHERE trade_id = ?",
-                            (trade_id,)
-                        )
-                        conn.commit()
-                    with self._db._conn() as conn:
-                        conn.execute(
-                            "UPDATE trades SET tp_hit_count = ? WHERE trade_id = ?",
-                            (ext_count + 1, trade_id)
-                        )
+                        conn.execute("UPDATE trades SET tp_hit_count = ? WHERE trade_id = ?", (ext_count + 1, trade_id))
                         conn.commit()
                     logger.info(
-                        f"MOMENTUM RIDER: {symbol} TP extended "
-                        f"${trade['take_profit']:.4f} → ${new_tp:.4f} "
-                        f"(extension {ext_count + 1}/{max_extensions}, "
-                        f"P&L {pnl_pct:+.2f}%)"
+                        f"MOMENTUM RIDER: {symbol} TP extended → ${new_tp:.4f} "
+                        f"(ext {ext_count + 1}/{max_extensions}, P&L {pnl_pct:+.2f}%)"
                     )
                 else:
                     logger.info(
                         f"Take-profit exit: {symbol} @ ${current_price:.4f} "
-                        f"(P&L {pnl_pct:+.2f}%, extensions used: {ext_count})"
+                        f"(P&L {pnl_pct:+.2f}%, extensions: {ext_count})"
                     )
                     self._db.set_state(f"momentum_ext_{trade_id}", 0)
                     with self._db._conn() as conn:
-                        conn.execute(
-                            "UPDATE trades SET tp_hit_count = 0 WHERE trade_id = ?",
-                            (trade_id,)
-                        )
+                        conn.execute("UPDATE trades SET tp_hit_count = 0 WHERE trade_id = ?", (trade_id,))
                         conn.commit()
-                    self._get_executor().close_trade(trade, current_price, "take_profit")
+                    self._attempt_close(trade, current_price, "take_profit")
                     return
 
-        # ── 5. STALE POSITION CHECK (3hr ADX/DI) ───────────────────────
-        # Check every hour after the 3-hour mark
+        # ── 6. STALE POSITION CHECK (3hr ADX/DI) ──────────────────────
         age_seconds = _get_position_age_seconds(trade)
         if age_seconds >= STALE_THRESHOLD_SEC:
             stale_exit = self._check_stale_position(trade)
@@ -540,10 +572,10 @@ class PositionMonitor:
                     f"{age_seconds/3600:.1f}hrs | reason={stale_exit}"
                 )
                 self._db.set_state(f"momentum_ext_{trade_id}", 0)
-                self._get_executor().close_trade(trade, current_price, stale_exit)
+                self._attempt_close(trade, current_price, stale_exit)
                 return
 
-        # ── 6. TRAILING STOP UPDATE ─────────────────────────────────────
+        # ── 7. TRAILING STOP UPDATE ───────────────────────────────────
         updates = risk_manager.calculate_trailing_stop(trade, current_price)
         if updates:
             self._db.update_trade_levels(
@@ -586,20 +618,26 @@ class PositionMonitor:
                 unrealized_pnl = (trade["entry_price"] - current_price) * qty
                 pnl_pct = (trade["entry_price"] / current_price - 1) * 100
 
+            # Check if trade is stuck
+            is_stuck = self._is_stuck(trade["trade_id"])
+            close_attempts = self._get_close_attempts(trade["trade_id"])
+
             enriched.append({
                 **trade,
-                "current_price":  round(current_price, 6),
-                "unrealized_pnl": round(unrealized_pnl, 4),
-                "pnl_pct":        round(pnl_pct, 2),
-                "market_value":   round(current_price * qty, 2),
-                "distance_to_sl": round(
+                "current_price":   round(current_price, 6),
+                "unrealized_pnl":  round(unrealized_pnl, 4),
+                "pnl_pct":         round(pnl_pct, 2),
+                "market_value":    round(current_price * qty, 2),
+                "distance_to_sl":  round(
                     abs(current_price - trade["stop_loss"]) / current_price * 100, 2
                 ),
-                "distance_to_tp": round(
+                "distance_to_tp":  round(
                     abs(trade["take_profit"] - current_price) / current_price * 100, 2
                 ),
-                "is_overnight": bool(trade.get("is_overnight", False)),
-                "tp_hit_count": int(trade.get("tp_hit_count", 0)),
+                "is_overnight":    bool(trade.get("is_overnight", False)),
+                "tp_hit_count":    int(trade.get("tp_hit_count", 0)),
+                "is_stuck":        is_stuck,
+                "close_attempts":  close_attempts,
             })
 
         return enriched
