@@ -136,14 +136,18 @@ class Database:
                 );
 
                 -- Daily session tracking
+                -- starting_capital_today: stored ONCE at market open each day,
+                -- never recalculated on restart. This is the fix for the
+                -- P&L percentage dropping after reboots.
                 CREATE TABLE IF NOT EXISTS session_state (
-                    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-                    session_date        TEXT UNIQUE NOT NULL,
-                    consecutive_losses  INTEGER DEFAULT 0,
-                    trades_today        INTEGER DEFAULT 0,
-                    pnl_today           REAL DEFAULT 0,
-                    trading_halted      INTEGER DEFAULT 0,
-                    halt_reason         TEXT
+                    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_date            TEXT UNIQUE NOT NULL,
+                    consecutive_losses      INTEGER DEFAULT 0,
+                    trades_today            INTEGER DEFAULT 0,
+                    pnl_today               REAL DEFAULT 0,
+                    trading_halted          INTEGER DEFAULT 0,
+                    halt_reason             TEXT,
+                    starting_capital_today  REAL DEFAULT 0
                 );
 
                 -- Strategy performance tracking
@@ -169,8 +173,6 @@ class Database:
                 );
 
                 -- Claude AI chat action log
-                -- Records every action the Haiku model executes via the dashboard chat.
-                -- Used for EOD reporting to show Claude's influence on the session.
                 CREATE TABLE IF NOT EXISTS chat_actions (
                     id              INTEGER PRIMARY KEY AUTOINCREMENT,
                     timestamp       TEXT NOT NULL,
@@ -182,12 +184,14 @@ class Database:
                 );
             """)
 
-            # Safe migrations
+            # Safe migrations — add new columns to existing DBs
             migrations = [
                 "ALTER TABLE trades ADD COLUMN strategy_name   TEXT    DEFAULT 'original'",
                 "ALTER TABLE trades ADD COLUMN is_overnight    INTEGER DEFAULT 0",
                 "ALTER TABLE trades ADD COLUMN broker_order_id TEXT",
                 "ALTER TABLE trades ADD COLUMN tp_hit_count    INTEGER DEFAULT 0",
+                # Fix for P&L restart bug — store starting capital explicitly
+                "ALTER TABLE session_state ADD COLUMN starting_capital_today REAL DEFAULT 0",
             ]
             for sql in migrations:
                 try:
@@ -316,12 +320,13 @@ class Database:
                 "INSERT INTO session_state (session_date) VALUES (?)", (today,)
             )
             return {
-                "session_date":      today,
-                "consecutive_losses": 0,
-                "trades_today":      0,
-                "pnl_today":         0.0,
-                "trading_halted":    0,
-                "halt_reason":       None
+                "session_date":          today,
+                "consecutive_losses":    0,
+                "trades_today":          0,
+                "pnl_today":             0.0,
+                "trading_halted":        0,
+                "halt_reason":           None,
+                "starting_capital_today": 0.0,
             }
 
     def update_session(self, session_date: str, **kwargs):
@@ -333,14 +338,57 @@ class Database:
                 values
             )
 
+    def set_starting_capital_today(self, capital: float):
+        """
+        Store today's starting capital ONCE at the beginning of the trading day.
+        This value never changes during the day regardless of restarts.
+        Used by dashboard to calculate P&L% correctly after reboots.
+        """
+        today = date.today().isoformat()
+        with self._conn() as conn:
+            # Only set if not already set today (i.e. first run of the day)
+            row = conn.execute(
+                "SELECT starting_capital_today FROM session_state WHERE session_date=?",
+                (today,)
+            ).fetchone()
+            if row and float(row["starting_capital_today"] or 0) > 0:
+                logger.debug(
+                    f"Starting capital already set for today: "
+                    f"${row['starting_capital_today']:,.2f} — skipping"
+                )
+                return
+            conn.execute(
+                "UPDATE session_state SET starting_capital_today=? "
+                "WHERE session_date=?",
+                (capital, today)
+            )
+            logger.info(f"Starting capital locked for today: ${capital:,.2f}")
+
+    def get_starting_capital_today(self) -> float:
+        """
+        Return today's locked starting capital.
+        Returns 0.0 if not set yet (first run before market open).
+        """
+        today = date.today().isoformat()
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT starting_capital_today FROM session_state "
+                "WHERE session_date=?",
+                (today,)
+            ).fetchone()
+            if row:
+                return float(row["starting_capital_today"] or 0.0)
+            return 0.0
+
     def reset_session_state(self):
         today = date.today().isoformat()
         self.update_session(today,
-            trading_halted     = 0,
-            halt_reason        = None,
-            consecutive_losses = 0,
-            pnl_today          = 0.0,
-            trades_today       = 0
+            trading_halted          = 0,
+            halt_reason             = None,
+            consecutive_losses      = 0,
+            pnl_today               = 0.0,
+            trades_today            = 0,
+            starting_capital_today  = 0.0   # Reset for next day
         )
 
     # --- DAILY SUMMARY -------------------------------------------------
@@ -518,20 +566,6 @@ class Database:
 
     def log_chat_action(self, user_message: str, action_type: str,
                          action_detail: str = "", result: str = ""):
-        """
-        Record a Claude chat action to the database.
-        Called every time the Haiku model executes a command.
-
-        action_type examples:
-          'message'           — user sent a message (no action taken)
-          'halt_trading'      — Claude halted trading
-          'resume_trading'    — Claude resumed trading
-          'enable_strategy'   — Claude enabled a strategy
-          'disable_strategy'  — Claude disabled a strategy
-          'set_risk'          — Claude changed a risk parameter
-          'withdraw'          — Claude processed a withdrawal
-          'strategy_stats'    — Claude reported strategy stats (info only)
-        """
         today = date.today().isoformat()
         with self._conn() as conn:
             conn.execute("""
@@ -547,7 +581,6 @@ class Database:
             ))
 
     def get_chat_actions_for_date(self, action_date: str = None) -> List[Dict]:
-        """Get all Claude chat actions for a given date (default today)."""
         today = action_date or date.today().isoformat()
         with self._conn() as conn:
             rows = conn.execute(
