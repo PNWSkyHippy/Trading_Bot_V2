@@ -1,0 +1,218 @@
+//@version=5
+// =============================================================================
+// Hurricane Window — ES Scalping Confluence Indicator
+// =============================================================================
+// Designed for ES futures scalping AFTER the first 30 minutes of the session.
+// Paints a visual "hurricane window" when momentum + direction all align,
+// so your finger is ready before the wave breaks.
+//
+// Conditions for a LONG hurricane window (green background):
+//   1. ADX >= threshold (momentum is strong enough to surf)
+//   2. DI+ > DI- (buyers in control)
+//   3. TSI > TSI signal line (momentum confirming upward)
+//   4. Price above VWAP (institutional bias bullish)
+//   5. Time is past the wild-west open filter (default: after 10:00 AM EST)
+//
+// Conditions for a SHORT hurricane window (red background):
+//   1. ADX >= threshold
+//   2. DI- > DI+ (sellers in control)
+//   3. TSI < TSI signal line
+//   4. Price below VWAP
+//   5. Past open filter
+//
+// Additional visuals:
+//   - Price bars colored green/red based on DI direction
+//   - TSI crosses marked with small arrows
+//   - VWAP with stretch bands (1 and 2 ATR from VWAP)
+//   - ADX strength label in a separate pane
+//
+// Strategy: tight stop loss, NO take profit, manual exit when wave reverses.
+// Enter on green/red background, ride till color fades or flips.
+// =============================================================================
+
+indicator("Hurricane Window — ES Scalp", shorttitle="Hurricane", overlay=true)
+
+// -----------------------------------------------------------------------------
+// User Inputs
+// -----------------------------------------------------------------------------
+
+// Time filter — ignore signals during wild-west open period
+filterHour   = input.int(10, "Open Filter Hour (EST)",   minval=0, maxval=23,
+     tooltip="No signals before this hour. Default 10:00 skips the chaotic open 30 min.")
+filterMinute = input.int(0,  "Open Filter Minute (EST)", minval=0, maxval=59)
+
+// ADX settings
+adxLen       = input.int(14,  "ADX Length",              minval=1)
+adxThreshold = input.float(20, "ADX Threshold (min momentum)", minval=5, step=1,
+     tooltip="ADX must be above this to consider a wave tradeable. 20 = moderate trend, 25 = strong.")
+
+// TSI settings
+tsiLong  = input.int(13, "TSI Long Length",   minval=1)
+tsiShort = input.int(7,  "TSI Short Length",  minval=1)
+tsiSig   = input.int(7,  "TSI Signal Length", minval=1)
+
+// Visual settings
+showVwapBands = input.bool(true, "Show VWAP Stretch Bands")
+showBarColor  = input.bool(true, "Color Bars by DI Direction")
+showArrows    = input.bool(true, "Show TSI Cross Arrows")
+
+// -----------------------------------------------------------------------------
+// Time Filter
+// -----------------------------------------------------------------------------
+tz           = "America/New_York"
+hourEst      = hour(time, tz)
+minuteEst    = minute(time, tz)
+pastOpenFilter = (hourEst > filterHour) or
+     (hourEst == filterHour and minuteEst >= filterMinute)
+
+// -----------------------------------------------------------------------------
+// ADX + DI+/DI- Calculation
+// -----------------------------------------------------------------------------
+// ADX measures trend STRENGTH. DI+ vs DI- shows DIRECTION.
+// Both together tell you: strong move AND which way.
+// -----------------------------------------------------------------------------
+[diPlus, diMinus, adxVal] = ta.dmi(adxLen, adxLen)
+
+adxOk        = adxVal >= adxThreshold
+bullishDI    = diPlus > diMinus    // buyers in control
+bearishDI    = diMinus > diPlus    // sellers in control
+
+// -----------------------------------------------------------------------------
+// TSI — True Strength Index
+// Double-smoothed momentum oscillator. Cuts through 1-second noise better
+// than RSI. Cross of TSI above signal = momentum turning up.
+// -----------------------------------------------------------------------------
+tsiPrice  = close
+tsiPC     = tsiPrice - tsiPrice[1]
+
+double_smooth(src, long, short) =>
+    ta.ema(ta.ema(src, long), short)
+
+numerator   = double_smooth(tsiPC,          tsiLong, tsiShort)
+denominator = double_smooth(math.abs(tsiPC), tsiLong, tsiShort)
+tsiValue    = denominator != 0 ? 100 * numerator / denominator : 0
+tsiSignal   = ta.ema(tsiValue, tsiSig)
+
+tsiUp       = tsiValue > tsiSignal   // momentum bullish
+tsiDown     = tsiValue < tsiSignal   // momentum bearish
+
+// TSI cross events for arrow markers
+tsiCrossUp   = ta.crossover(tsiValue,  tsiSignal)
+tsiCrossDown = ta.crossunder(tsiValue, tsiSignal)
+
+// -----------------------------------------------------------------------------
+// VWAP + Stretch Bands
+// -----------------------------------------------------------------------------
+// VWAP = institutional fair value for the session.
+// Price above VWAP = buyers have been in control all day.
+// Stretch bands show when price is extended — potential mean reversion zone.
+// -----------------------------------------------------------------------------
+vwapValue = ta.vwap(hlc3)
+
+// ATR-based bands around VWAP
+atrLen    = 14
+atrValue  = ta.atr(atrLen)
+vwapUp1   = vwapValue + atrValue
+vwapUp2   = vwapValue + atrValue * 2
+vwapDn1   = vwapValue - atrValue
+vwapDn2   = vwapValue - atrValue * 2
+
+aboveVwap = close > vwapValue
+belowVwap = close < vwapValue
+
+// -----------------------------------------------------------------------------
+// Hurricane Window Conditions
+// -----------------------------------------------------------------------------
+// ALL conditions must align simultaneously.
+// This is intentionally strict — you want high-confidence waves only.
+// A partial alignment means wait, not trade.
+// -----------------------------------------------------------------------------
+
+longWindow  = pastOpenFilter and adxOk and bullishDI and tsiUp   and aboveVwap
+shortWindow = pastOpenFilter and adxOk and bearishDI and tsiDown and belowVwap
+
+// -----------------------------------------------------------------------------
+// Bar Coloring — direction bias at a glance
+// -----------------------------------------------------------------------------
+// Green bars = DI+ dominant (buyers)
+// Red bars   = DI- dominant (sellers)
+// Gray bars  = no clear direction or below ADX threshold
+// -----------------------------------------------------------------------------
+barCol = showBarColor ?
+     (adxOk and bullishDI ? color.new(color.green, 40) :
+      adxOk and bearishDI ? color.new(color.red,   40) :
+      color.new(color.gray, 60)) : na
+
+barcolor(barCol)
+
+// -----------------------------------------------------------------------------
+// Plots — Price Overlay
+// -----------------------------------------------------------------------------
+
+// VWAP line
+plot(vwapValue, title="VWAP",
+     color=color.new(color.orange, 0), linewidth=2)
+
+// VWAP stretch bands (optional)
+plot(showVwapBands ? vwapUp1 : na, title="VWAP +1 ATR",
+     color=color.new(color.orange, 60), linewidth=1, style=plot.style_linebr)
+plot(showVwapBands ? vwapUp2 : na, title="VWAP +2 ATR",
+     color=color.new(color.orange, 40), linewidth=1, style=plot.style_linebr)
+plot(showVwapBands ? vwapDn1 : na, title="VWAP -1 ATR",
+     color=color.new(color.orange, 60), linewidth=1, style=plot.style_linebr)
+plot(showVwapBands ? vwapDn2 : na, title="VWAP -2 ATR",
+     color=color.new(color.orange, 40), linewidth=1, style=plot.style_linebr)
+
+// TSI cross arrows on price chart
+plotshape(showArrows and tsiCrossUp,   title="TSI Cross Up",
+     style=shape.triangleup,   location=location.belowbar,
+     color=color.new(color.lime, 0), size=size.tiny)
+plotshape(showArrows and tsiCrossDown, title="TSI Cross Down",
+     style=shape.triangledown, location=location.abovebar,
+     color=color.new(color.red,  0), size=size.tiny)
+
+// Hurricane window background
+// Bright but semi-transparent so you can still see candles
+bgcolor(longWindow  ? color.new(color.green, 75) : na, title="Long Hurricane Window")
+bgcolor(shortWindow ? color.new(color.red,   75) : na, title="Short Hurricane Window")
+
+// Open filter zone — subtle gray so you know to stay out
+bgcolor(not pastOpenFilter ? color.new(color.gray, 88) : na, title="Open Filter Zone")
+
+// -----------------------------------------------------------------------------
+// DI+ / DI- Lines — separate pane
+// Shows exactly which side is winning and by how much
+// -----------------------------------------------------------------------------
+// NOTE: These plot in a separate pane because overlay=true is set above.
+// To see DI lines add the built-in DMI/ADX indicator separately in TradingView
+// and enable DI+ and DI- lines — they'll mirror this script's calculation.
+// Alternatively change overlay=false above if you want everything in one pane.
+// -----------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------
+// Alerts
+// -----------------------------------------------------------------------------
+alertcondition(longWindow  and not longWindow[1],
+     title="Hurricane Window LONG opened",
+     message="Hurricane Window LONG | {{ticker}} | Price: {{close}} | Time: {{time}}")
+
+alertcondition(shortWindow and not shortWindow[1],
+     title="Hurricane Window SHORT opened",
+     message="Hurricane Window SHORT | {{ticker}} | Price: {{close}} | Time: {{time}}")
+
+alertcondition((longWindow[1] or shortWindow[1]) and not longWindow and not shortWindow,
+     title="Hurricane Window CLOSED",
+     message="Hurricane Window closed — consider exit | {{ticker}} | Price: {{close}}")
+
+// Fire dynamic alerts too
+if longWindow and not longWindow[1]
+    alert("Hurricane LONG | " + syminfo.ticker +
+          " | ADX=" + str.tostring(adxVal, "#.#") +
+          " DI+>DI- | TSI up | Above VWAP",
+          alert.freq_once_per_bar)
+
+if shortWindow and not shortWindow[1]
+    alert("Hurricane SHORT | " + syminfo.ticker +
+          " | ADX=" + str.tostring(adxVal, "#.#") +
+          " DI->DI+ | TSI down | Below VWAP",
+          alert.freq_once_per_bar)
