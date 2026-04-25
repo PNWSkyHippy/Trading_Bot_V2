@@ -19,6 +19,7 @@ import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
 from datetime import date, datetime, timedelta
+from pathlib import Path
 
 import config
 from data.database import db
@@ -498,6 +499,87 @@ with st.expander("➕ Open Manual Trade", expanded=False):
                 st.rerun()
             except Exception as e:
                 notify_error(f"Trade entry error: {e}")
+
+# ----------------------------------------------------------
+#  MANUAL WATCHLIST INJECTION
+# ----------------------------------------------------------
+st.markdown("### 🔭 Inject Symbols Into Today's Watchlist")
+section_note("Spotted something? Add it here — temporary for today only. Resets on next scan or reboot. To make permanent, edit the master watchlist files.")
+with st.expander("➕ Inject Stocks or Crypto", expanded=False):
+    inj_col1, inj_col2 = st.columns(2)
+
+    with inj_col1:
+        st.markdown("**📈 Stocks**")
+        stock_input = st.text_area(
+            "Tickers (one per line or comma-separated)",
+            height=100,
+            key="manual_stock_inject",
+            placeholder="AAPL\nMSFT\nNVDA",
+        )
+        if st.button("Inject Stocks", key="inject_stocks_btn", use_container_width=True):
+            raw     = stock_input.replace(",", "\n")
+            tickers = [t.strip().upper() for t in raw.splitlines() if t.strip()]
+            if tickers:
+                temp_file = Path("watchlist/scanned_stocks.txt")
+                temp_file.parent.mkdir(parents=True, exist_ok=True)
+                existing = []
+                if temp_file.exists():
+                    existing = [t for t in temp_file.read_text().splitlines()
+                                if t.strip() and t.strip() not in tickers]
+                temp_file.write_text("\n".join(tickers + existing))
+                notify_success(f"Injected {len(tickers)} stock(s): {', '.join(tickers)}")
+                st.caption("Bot will pick these up on next scan cycle. Restart bot to load immediately.")
+            else:
+                st.warning("No valid tickers entered.")
+
+    with inj_col2:
+        st.markdown("**🪙 Crypto**")
+        crypto_input = st.text_area(
+            "Symbols (e.g. BTC or BTC/USD, one per line or comma-separated)",
+            height=100,
+            key="manual_crypto_inject",
+            placeholder="BTC\nETH\nSOL",
+        )
+        if st.button("Inject Crypto", key="inject_crypto_btn", use_container_width=True):
+            raw     = crypto_input.replace(",", "\n")
+            symbols = [s.strip().upper() for s in raw.splitlines() if s.strip()]
+            pairs   = [s if "/" in s else f"{s}/USD" for s in symbols]
+            if pairs:
+                temp_file = Path("watchlist/scanned_crypto.txt")
+                temp_file.parent.mkdir(parents=True, exist_ok=True)
+                existing = []
+                if temp_file.exists():
+                    existing = [p for p in temp_file.read_text().splitlines()
+                                if p.strip() and p.strip() not in pairs]
+                temp_file.write_text("\n".join(pairs + existing))
+                notify_success(f"Injected {len(pairs)} crypto pair(s): {', '.join(pairs)}")
+                st.caption("Bot will pick these up on next scan cycle. Restart bot to load immediately.")
+            else:
+                st.warning("No valid symbols entered.")
+
+    # Show current temp watchlist contents
+    stocks_file = Path("watchlist/scanned_stocks.txt")
+    crypto_file = Path("watchlist/scanned_crypto.txt")
+    has_stocks  = stocks_file.exists() and stocks_file.read_text().strip()
+    has_crypto  = crypto_file.exists() and crypto_file.read_text().strip()
+
+    if has_stocks or has_crypto:
+        st.markdown("---")
+        st.markdown("**Currently active injected symbols:**")
+        if has_stocks:
+            tickers = [t for t in stocks_file.read_text().splitlines() if t.strip()]
+            st.info(f"📈 Stocks ({len(tickers)}): {', '.join(tickers)}")
+        if has_crypto:
+            pairs = [p for p in crypto_file.read_text().splitlines() if p.strip()]
+            st.info(f"🪙 Crypto ({len(pairs)}): {', '.join(pairs)}")
+
+        if st.button("🗑️ Clear All Injected Symbols", key="clear_injected_btn"):
+            if stocks_file.exists():
+                stocks_file.write_text("")
+            if crypto_file.exists():
+                crypto_file.write_text("")
+            notify_success("Injected symbols cleared.")
+            st.rerun()
 
 # ----------------------------------------------------------
 #  TODAY'S TRADE LOG
