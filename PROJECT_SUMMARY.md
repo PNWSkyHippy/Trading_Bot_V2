@@ -1,189 +1,244 @@
-# Autonomous Day Trading AI — Project Summary
+# Trading Bot V2 — Project Summary
+Last updated: April 24, 2026 (End of Session 4)
 
-**Date:** April 20, 2026
-**Project Location:** `C:\Users\Linda\trading_bot_v2`
-**GitHub:** https://github.com/PNWSkyHippy/Trading_Bot_V2 (private)
-**Status:** Running in paper trading mode (Alpaca stocks + Coinbase/Kraken crypto)
-**Capital:** ~$100,214 (Alpaca paper account)
-
----
-
-## Original Requirements
-
-- Scans stocks, crypto, and futures for profitable opportunities
-- Invests no more than **2% of total capital per trade**
-- Uses a **1.5% stop-loss** and **3% take-profit** on every trade
-- Dynamically raises take-profit if continued growth is expected
-- Trails the stop-loss upward, staying **1.5% behind** the current price
-- Targets at least **2% daily profit**, compounded each day
-- Starting capital of **$100,000**
-- **15% max daily loss** halts trading for the day
-- **10 consecutive losing trades** halts trading for the day
-- Provides **detailed daily reports** of all trades via email + SMS
-- Shows real-time statistics: open trades, capital value, profit/loss ratios
-- Includes a **chat interface** (Claude AI) to talk to the bot and issue commands
-- Supports **monthly withdrawals** for living expenses
-- Maintains **IRS Form 8949-compatible tax records**
+## Project Overview
+Autonomous day trading bot. Paper trading → live trading transition.
+- **Repo:** https://github.com/PNWSkyHippy/Trading_Bot_V2 (private)
+- **Location:** C:\users\linda\trading_bot_v2
+- **Stack:** Python 3.12, venv312, Streamlit port 8501, SQLite
+- **Status:** Paper trading IBKR + Alpaca stocks, Kraken crypto paper
+- **Capital:** ~$50,523 prop firm combine (target $53,000 for funded account)
 
 ---
 
-## Project Architecture
+## Architecture
+
+### Core Files
+| File | Purpose |
+|---|---|
+| `bot_engine.py` | Main entry point, scheduler, all timed jobs |
+| `dashboard.py` | Streamlit dashboard port 8501 |
+| `config.py` | All settings — position sizes, stop loss %, watchlists |
+| `.env` | API keys (never committed) |
+| `data/trading_bot.db` | SQLite database |
+
+### Key Modules
+| File | Purpose |
+|---|---|
+| `core/risk_manager.py` | ALL risk rules — position sizing, stops, daily limits |
+| `core/position_monitor.py` | Watches open trades — trailing stops, stale check, VWAP exit, stuck trade throttle |
+| `core/trade_executor.py` | Routes orders to correct broker, bracket order handling |
+| `core/ibkr_executor.py` | IBKR integration — persistent connection clientId=2, port 7497 paper |
+| `core/settlement_tracker.py` | T+1 settlement tracking for IBKR cash account |
+| `core/broker_manager.py` | Multi-broker management |
+| `data/database.py` | All DB operations including session_state, starting_capital_today |
+| `intelligence/chat_interface.py` | Haiku chatbot with pre-parse layer |
+| `intelligence/backtester.py` | Backtesting engine with 2-bar trailing stop mode |
+| `intelligence/ml_scorer.py` | Random Forest ML model |
+| `intelligence/condition_detector.py` | Market condition classifier |
+| `reporting/weekly_tradelog.py` | Weekly CSV trade log exporter |
+| `reporting/analyze_trades.py` | Performance analyzer (Opus 4, integrated) |
+| `reporting/report_generator.py` | Daily HTML email report |
+
+### Strategies (11 total)
+| Strategy | Status | Notes |
+|---|---|---|
+| rsi_momentum | Disabled | |
+| bollinger_breakout | **Enabled** | OBV triple filter |
+| ema_crossover | Disabled | |
+| mean_reversion | Disabled | 21% WR, -$396 — killed |
+| scalp_master | **Enabled** | |
+| swing_trader | Disabled | |
+| grid_bot | Disabled | |
+| dca_accumulator | **Enabled** | |
+| vwap_momentum | **Enabled** | VWAP + EMA 5/13/34 |
+| hammer_reversal | **Enabled** | SOL/USD only, 5-filter stack: RSI+Stoch+BB+Hammer+OBV |
+| orb_breakout | **Enabled** | GO whitelist stocks, 5m bars, VWAP exit |
+
+### ORB GO Whitelist
+META, TSLA, MSFT, AMD, MRVL, ALAB, PLTR, CRWV, IREN, CLS, AMZN, GOOGL, AAPL, SPY, QQQ
+
+### ORB TUNE (excluded)
+NVDA, INTC, NIO, APLD, MARA
 
 ---
 
-## Active Strategy Status
+## Broker Setup
 
-| Strategy | Status | Timeframe | Key Feature |
-|----------|--------|-----------|-------------|
-| **bollinger_breakout** | ENABLED | 5m/1h | Triple filter: OBV + EMA50 + RSI direction. Stock blacklist: SMCI. Crypto blacklist: 18 pairs |
-| **mean_reversion** | ENABLED | 1h | Stock whitelist: NVDA,PLTR,MRVL,AMZN,INTC,AMD,META,TSLA,ALAB,NIO,MARA,IREN,CLS,CRWV,APLD,LUNR |
-| **scalp_master** | ENABLED | 5m | Stock whitelist: META,PLTR,ALAB,AMZN,GOOGL,MSFT,IREN,INTV |
-| **dca_accumulator** | ENABLED | 1h | Buy dips 2% below EMA50, RSI<=45 |
-| rsi_momentum | DISABLED | — | Negative expectancy |
-| ema_crossover | DISABLED | — | Fails slippage test |
-| swing_trader | DISABLED | — | Insufficient sample size |
-| grid_bot | DISABLED | — | Confirmed abandon |
+### IBKR (Primary Stock Broker)
+- Paper account: DUQ511882
+- Live account: approved, deposit hold until April 28
+- TWS must be running before bot starts
+- Port 7497 (paper), 7496 (live)
+- ClientId=2 (1 causes conflict with TWS)
+- Read-Only API must be UNCHECKED in TWS settings
+- `IBKR_ENABLED = True` in config.py
+- `IBKR_PAPER_MODE = True` until live flip
+- First successful trades: OPEN LONG +$5.44, CRWV SHORT +$15.04 (Apr 24)
+- IBC installed at C:\IBC — partially configured, needs IB Gateway installer to work
 
----
+### Alpaca (Fallback Stock Broker)
+- Live account approved
+- Paper URL: https://paper-api.alpaca.markets
+- Live URL: https://api.alpaca.markets
+- Fallback when IBKR unreachable
 
-## Bollinger Breakout — Triple Filter Stack (Added April 20, 2026)
+### Kraken (Crypto — disabled)
+- KRAKEN_ENABLED = False
+- All crypto currently paper simulation
 
-All three filters must pass before any signal is generated:
-
-1. **OBV Confirmation** — On-Balance Volume must be rising (long) or falling (short) over 3 bars
-2. **EMA50 Trend Filter** — Price must be above EMA50 for longs, below for shorts
-3. **RSI Direction Filter** — RSI must be rising (long) or falling (short) over 3 bars
-
-**Stock Blacklist:** SMCI (extreme intraday volatility)
-
-**Crypto Blacklist (Apr 2026 backtest — 365d 1h):**
-TON/USD, AGIX/USD, HOT/USD, STRK/USD, EOS/USD, OCEAN/USD, REN/USD, MKR/USD, BAL/USD, HT/USD, XMR/USD, GT/USD, ARB/USD, BCH/USD, XTZ/USD, RLC/USD, FLOW/USD, OKB/USD
-
----
-
-## Crypto Backtest Results (April 19, 2026 — 365d 1h, 115 pairs)
-
-**Bollinger Breakout** — only strategy that fires on crypto (mean_reversion and scalp_master are stock-only via whitelist, DCA fired on 3 pairs and lost on all)
-
-Top performing crypto pairs for bollinger:
-JUP, WLD, DASH, CBETH, WIF, OP, RETH, TIA, FIL, BONK, PYTH, SEI, AVAX, ALGO, ADA, ETH, SOL
-
-**Note:** Backtest did not include OBV/EMA50/RSI filters — live results should be better than backtest shows.
+### Coinbase
+- Connected, paper mode
 
 ---
 
-## Dashboard — Crypto Backtesting Added
+## Key Bugs Fixed This Session
 
-- Asset Class toggle (Stocks / Crypto) added to backtest panel
-- Crypto symbols populate from watchlists/crypto.txt
-- Uses yfinance with BTC/USD → BTC-USD conversion (no exchange API needed)
-- backtester.py: fetch_history_crypto() added, run_all() supports asset_class parameter
-- market_scanner.py: get_ohlcv default limit raised from 100 to 210 bars
+### P&L Restart Bug
+- **Root cause:** `starting_cap = capital - pnl_today` drifted on restart
+- **Fix:** `set_starting_capital_today()` locks capital ONCE at first call each day in session_state
+- **Files:** `data/database.py`, `core/risk_manager.py`, `dashboard.py`
 
----
+### IBKR Persistent Connection
+- **Root cause:** `is_available()` was connecting/disconnecting on every trade check, causing clientId conflicts
+- **Fix:** Persistent connection held all session. `is_available()` just checks `isConnected()`
+- **File:** `core/ibkr_executor.py`
 
-## TP Hit Count — Dashboard Display
+### Bracket Order Ghost Fix
+- **Root cause:** Alpaca bracket orders lock shares, close attempt fails with "insufficient qty"
+- **Fix:** `cancel_open_orders()` before close, 0.5s wait, then close
+- **File:** `core/trade_executor.py`
 
-- DB column: tp_hit_count INTEGER DEFAULT 0 (added to trades table)
-- position_monitor.py writes tp_hit_count on every momentum extension
-- Dashboard Take Profit column shows: $X.XXXX 🔴 *1 / *2 / *3 when extensions active
+### PSQ Infinite Retry Loop
+- **Root cause:** Failed close left trade open in DB, stale check retried every 30s forever
+- **Fix:** `_attempt_close()` tracks failed attempts. After `MAX_CLOSE_ATTEMPTS=3` flags STUCK
+- **File:** `core/position_monitor.py`
 
----
-
-## Known Bugs (Pending Fix)
-
-1. **1-2 letter ticker bracket orders** — GE, BE, V, ON etc. silently rejected by Alpaca. Bot records as open, Alpaca never accepts. Fix: detect len(symbol) <= 2, fall back to simple market order + manual SL/TP via position monitor
-2. **use_container_width deprecation** — Streamlit warning, harmless until Dec 2025 deadline
-3. **Coinbase Non-base16 error** — harmless, falls back to paper mode
-4. **Dashboard capital display** — shows DB value not live Alpaca balance
-
----
-
-## U-Shape Widget (Pine Script — TradingView)
-
-Separate from the trading bot. ES/MES futures trading assistant widget.
-
-**File:** UShapedWidget.txt in repo root
-
-**Current settings:**
-- Lookback: 20 bars, Threshold: 18pts, Bandwidth: 10pts
-- RSI: length=14, 5-second bars, thresholds 45 long / 55 short
-- MACD: 3/10/4 on 5-second source bars, requires 3 consecutive bars in direction
-- Signals: GO LONG (green triangle) / GO SHORT (red triangle)
-
-**Known issues:**
-- False arrows firing when RSI appears in wrong zone — root cause: request.security("5S") returning previous completed bar not current. Fix: change lookahead=barmerge.lookahead_off to lookahead_on
-- MACD panel on separate chart updates every 10 seconds vs 1 second on main chart — moved MACD to main panel as workaround
-
-**Pending fix:**
-```pine
-rsi_src_5s = request.security(syminfo.tickerid, "5S", close,
-             gaps=barmerge.gaps_on, lookahead=barmerge.lookahead_on)
-```
+### Haiku Enable/Disable Strategy
+- **Root cause:** Haiku second-guessed simple commands, denied strategy existence
+- **Fix:** Pre-parse layer detects enable/disable/morning scan BEFORE sending to Haiku
+- **File:** `intelligence/chat_interface.py`
 
 ---
 
-## ES Trading Assistant (Claude.ai Project)
+## New Features This Session
 
-Separate Claude.ai Project with system prompt for prop firm ES/MES trading.
-- 5 conditions: Widget color, SPY direction, Dow spike, RSI quadrant, MACD direction
-- Response format: GO or NO, 2 lines max
-- RSI thresholds: <=48 long, >=52 short (based on prop firm training videos)
-- Used manually during trading session — automated webhook version planned
+### Morning Scan Command
+- Triggers: "morning scan", "what should I trade", "top setups", "best setups"
+- Scans ORB whitelist stocks for moves ≥0.3% with volume ≥1.2x average
+- Returns top 5 sorted by move×volume with direction, price, guidance
 
-**Prop firm eval status:** In progress. Lost first trade April 20 due to trailing drawdown rule (unrealized high watermark). Rule now understood, lockout switch removed.
+### Stale Position Sell-Off (ADX/DI)
+- After 3 hours open: check ADX
+- ADX < 25 (stalled) → close immediately
+- ADX ≥ 25: direction mismatch → close; aligned → hold
+- Validated live: NU closed on first attempt
 
----
+### ORB VWAP Cross Exit
+- ORB trades skip fixed TP — ride until price crosses back below VWAP (long) or above VWAP (short)
+- Safety ceiling TP still applies at 10-15%
 
-## Risk Management Settings
+### OBV Filter on Hammer Reversal
+- OBV must be rising for last 3 consecutive bars before signal fires
+- Prevents signals on bounce attempts in waterfall selloffs
 
-| Rule | Value |
-|------|-------|
-| Max position size | 2% of total capital |
-| Stop-loss | 1.5% below entry |
-| Take-profit | 3% above entry |
-| Trailing stop | 1.5% behind current price |
-| Daily loss ceiling | 15% |
-| Consecutive loss halt | 10 losses |
-| Max open positions | 30 |
-| Min signal confidence | 0.65 |
-| Stock EOD close | 3:45 PM ET (12:45 PT) weekdays |
+### 2-Bar Trailing Stop (Pine Script Port)
+- `TwoBarStop` class in `intelligence/backtester.py`
+- `initial_stop()`: lowest low of prior N bars at entry (no lookahead)
+- `update_stop()`: ratchets up on new N-bar high, never down
+- `check_stop_hit()`: intrabar logic, fills at stop price not close
+- N=2 default, configurable 1-20
+- Dashboard backtest panel: radio button Standard vs 2-Bar, lookback N input
 
----
+### Weekly Trade Log Exporter
+- File: `reporting/weekly_tradelog.py`
+- Runs every Sunday midnight PT via scheduler, covers previous Sun-Sat
+- Output: `reports/MM-DD-YYYY_MM-DD-YYYY_tradelog.csv`
+- Columns: Symbol, Entry Date, Entry Time, Entry Price, Exit Date, Exit Time, Exit Price, Shares, P&L, Direction, Strategy, Broker, Exit Reason, Hold Duration
 
-## Scheduled Jobs
-
-| Job | Schedule PT | ET | Description |
-|-----|------------|-----|-------------|
-| Stock scan | Every 60s | Mon-Fri 10:00-15:44 ET | ZoneInfo ET check |
-| Crypto scan | Every 5 min | 24/7 | Always runs |
-| Stock EOD close | 12:45 PT weekdays | 15:45 ET | Closes non-overnight stocks |
-| Position monitor | Every 30s | 24/7 | Trailing stops + tp_hit_count |
-| Capital sync | Every 15 min | 24/7 | Syncs Alpaca |
-| EOD report | 14:00 PT | 17:00 ET | Email + SMS |
-| ML retrain | 15:00 PT | 18:00 ET | Random Forest |
-
----
-
-## Pending Work
-
-1. **May 1** — Claude reviewer tiered rebuild
-2. **Widget RSI lookahead fix** — change lookahead_off to lookahead_on
-3. **1-2 letter ticker fix** — bracket order fallback for short symbols
-4. **Momentum rider mode** — reorder exit logic in position_monitor
-5. **Dashboard capital display** — DB value vs live Alpaca
-6. **use_container_width** — replace with width='stretch'/'content'
-7. **Webhook automation** — Pine Script → Python middleware → Alpaca for ES trades
-8. **DCA Accumulator NVDA blacklist**
+### Performance Analyzer
+- File: `reporting/analyze_trades.py` (Opus 4 generated, integrated)
+- 7-section report: Overall stats, by setup, by time of day (full 24h), by day of week (full 7 days), pattern detection, summary, recommendations
+- Min trades threshold: 10
+- Usage: `python reporting/analyze_trades.py reports/04-19-2026_04-25-2026_tradelog.csv --output reports/analysis.txt`
 
 ---
 
-## Technical Notes
+## Monday Checklist (April 27)
+1. Start TWS first, wait for full load
+2. Approve API connection dialog in TWS
+3. Start bot: `python bot_engine.py`
+4. Watch for `IBKR connected: port=7497 paper clientId=2`
+5. Confirm stock trades routing to IBKR not Alpaca
+6. Run full IBKR paper session
 
-- Python 3.12, venv at venv312
-- 4-space indentation, no tabs
-- PowerShell: multiline -c commands fail — always use script files instead
-- Streamlit port 8501
-- GitHub: https://github.com/PNWSkyHippy/Trading_Bot_V2 (private)
-- .env excluded from git — PGP encrypt for cloud backup
-- User background: BASIC, COBOL, C, C++, Pascal, mainframe assembly, Spokane WA
+## Tuesday/Wednesday (April 28-29)
+- IBKR deposit hold clears April 28
+- Flip to live: `IBKR_PAPER_MODE = False` in config.py
+- Update `.env` with live DU account number
+- TWS: switch to port 7496
+
+---
+
+## Key Analysis Findings (Apr 12-18 backtest data, 716 trades)
+
+**Time of day:**
+- 00:00-09:30 overnight: -$1,067 over 263 trades (35.7% WR) — biggest drain (crypto paper)
+- 10:30-11:30: best hour +$558 (52% WR)
+- 11:30-12:30: 84% WR, +$556
+- 13:30-14:30: 87% WR, +$191
+
+**Day of week:**
+- Tuesday: +$1,219 (61% WR) ⭐
+- Thursday: +$1,081 (47% WR) ⭐
+- Sunday: -$911, Monday: -$185, Wednesday: -$179, Friday: -$187, Saturday: -$187
+
+**Strategy performance:**
+- mean_reversion: 21% WR, -$396 — KILLED
+- bollinger_breakout: quietly bleeding, needs monitoring
+- manual trades: -$230 from one -$376 outlier
+
+---
+
+## Pending Items
+
+### High Priority
+1. **IBC / IB Gateway** — needs IB Gateway installer (not TWS). IBC at C:\IBC configured but fails because TWS installed without version subfolder structure IBC expects.
+2. **IBKR MAX_RECONNECT_ATTEMPTS** — increase from 3 to 5 for market-close hiccup resilience
+3. **Alpaca ghost cleanup** — 6 positions (PSQ, MSFT, GEM, NIO, NFLX, SOFI) still open at Alpaca from Apr 23. Close manually at 9:30 AM Monday April 27.
+
+### Strategy Work
+4. **BTC on Hammer whitelist** — add back once SOL shows WR ≥55% over 20+ live trades
+5. **Overnight crypto drain** — disable crypto scanning 00:00-06:00 ET? -$1,067 in that block
+
+### Distribution / Future
+6. **Dashboard login** — password protection for distribution
+7. **Distribution cleanup script** — blank .env, cleared DB, removed personal screenshots
+8. **Unusual Whales MCP** — $50/month, multi-model Opus/Sonnet/Haiku architecture (finish book first)
+9. **Morning scan — add crypto candidates** — currently stocks only
+10. **Walk-forward backtesting** — proper out-of-sample validation
+
+---
+
+## Key File Locations
+- DB path: `data/trading_bot.db`
+- Reports folder: `reports/`
+- Logs: `logs/bot.log`
+- IBC: `C:\IBC\` (config.ini configured, needs IB Gateway installer)
+- TWS: `C:\Jts\` (auto-updating) and `C:\Jts\1019\` (offline copy for IBC)
+- venv: `venv312\Scripts\activate`
+
+## Chat Commands Quick Reference
+- `morning scan` — top ORB candidates
+- `enable/disable <strategy>` — pre-parsed, bypasses Haiku
+- `list strategies` — all 11 with ON/OFF status
+- `pause trading` / `resume trading`
+- `strategy stats` — win rate and P&L per strategy
+- See `CHAT_COMMANDS.md` for full list
+
+## Reference Documents
+- `README.md` — installer guide
+- `REFERENCE_DOCS.md` — index of all files
+- `CHAT_COMMANDS.md` — all chat commands
+- `strategies/INTEGRATION_GUIDE.py` — how to add a strategy
+- `data/BROKER_INTEGRATION_GUIDE.py` — how to add a broker
