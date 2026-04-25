@@ -354,7 +354,6 @@ with st.expander("➕ Open Manual Trade", expanded=False):
         m_asset     = st.selectbox("Asset Class", ["stock", "crypto"])
     with mc2:
         m_size      = st.number_input("Position Size ($)", min_value=1.0, value=2000.0)
-        # Broker list — ibkr shown only if enabled in config
         _brokers = ["alpaca", "coinbase", "kraken", "paper"]
         if getattr(config, "IBKR_ENABLED", False):
             _brokers.insert(0, "ibkr")
@@ -418,7 +417,6 @@ with st.expander("➕ Open Manual Trade", expanded=False):
                 actual_fill_price = m_entry
 
                 if m_broker == "ibkr" and m_asset == "stock":
-                    # Route manual stock trade through IBKR
                     try:
                         from core.trade_executor import executor
                         if executor._ibkr and executor._ibkr.is_available():
@@ -544,7 +542,7 @@ st.divider()
 #  BACKTEST PANEL
 # ===========================================================================
 st.markdown("### 🔬 Strategy Backtester")
-section_note("Test any strategy on historical data. Charts show real equity curve, drawdown, and daily returns.")
+section_note("Test any strategy on historical data. Compare Standard vs 2-Bar Trailing stop to find the best exit approach.")
 bt_c1, bt_c2, bt_c3, bt_c4 = st.columns(4)
 with bt_c1:
     bt_asset = st.selectbox("Asset Class", ["Stocks", "Crypto"], index=0)
@@ -572,6 +570,32 @@ with bt_c4:
     bt_capital = st.number_input("Starting Capital ($)", min_value=100.0, value=float(config.STARTING_CAPITAL), step=1000.0)
     st.markdown("&nbsp;")
     run_bt = st.button("🚀 Run Backtest", type="primary", use_container_width=True)
+
+# Stop loss mode row
+bt_stop_c1, bt_stop_c2, bt_stop_c3 = st.columns([2, 1, 3])
+with bt_stop_c1:
+    bt_stop_mode = st.radio(
+        "Stop Loss Mode",
+        options=["Standard Stop Loss %", "2-Bar Trailing Stop"],
+        index=0,
+        horizontal=True,
+        help="Standard: fixed % stop from strategy config. 2-Bar: places stop at lowest low of prior N bars, trails up on new N-bar highs. Never moves down."
+    )
+with bt_stop_c2:
+    bt_lookback = st.number_input(
+        "Lookback Bars (N)",
+        min_value=1, max_value=20, value=2, step=1,
+        help="N bars for 2-bar trailing stop. Default 2. Higher = wider stop, slower trail. Only active in 2-Bar mode.",
+        disabled=(bt_stop_mode == "Standard Stop Loss %")
+    )
+with bt_stop_c3:
+    if bt_stop_mode == "2-Bar Trailing Stop":
+        notify_info(f"📏 2-Bar Stop (N={bt_lookback}): initial stop = lowest low of prior {bt_lookback} bars. Trails up on each new {bt_lookback}-bar high. Ratchets up only — never down. Fills at stop price on exit.")
+    else:
+        st.markdown("<div style='padding-top:8px;color:#90a4ae;font-size:13px;'>Fixed % stop from strategy config with trailing. Standard bot behavior unchanged.</div>", unsafe_allow_html=True)
+
+bt_stop_mode_val = "two_bar" if bt_stop_mode == "2-Bar Trailing Stop" else "standard"
+
 if bt_tf == "5m":
     notify_info("5m timeframe: max 30 days. Best for Scalp Master and ORB strategies.")
 elif bt_tf == "1d":
@@ -606,12 +630,13 @@ if run_bt:
             skip_count   = 0
             for strat in strategies_to_run:
                 for sym in symbols_to_test:
-                    status_text.text(f"Testing {strat} on {sym} ({bt_tf}, {bt_days}d)…")
+                    stop_label = f" [{bt_stop_mode_val} N={bt_lookback}]" if bt_stop_mode_val == "two_bar" else ""
+                    status_text.text(f"Testing {strat} on {sym} ({bt_tf}, {bt_days}d){stop_label}…")
                     try:
                         if data_source == "ccxt":
-                            result = bt.run(sym, bt_days, bt_capital, bt_tf, asset_class="crypto") if strat == "original_scorer" else bt.run_strategy(sym, strat, bt_days, bt_capital, bt_tf, asset_class="crypto")
+                            result = bt.run(sym, bt_days, bt_capital, bt_tf, asset_class="crypto", stop_mode=bt_stop_mode_val, two_bar_lookback=bt_lookback) if strat == "original_scorer" else bt.run_strategy(sym, strat, bt_days, bt_capital, bt_tf, asset_class="crypto", stop_mode=bt_stop_mode_val, two_bar_lookback=bt_lookback)
                         else:
-                            result = bt.run(sym, bt_days, bt_capital, bt_tf) if strat == "original_scorer" else bt.run_strategy(sym, strat, bt_days, bt_capital, bt_tf)
+                            result = bt.run(sym, bt_days, bt_capital, bt_tf, stop_mode=bt_stop_mode_val, two_bar_lookback=bt_lookback) if strat == "original_scorer" else bt.run_strategy(sym, strat, bt_days, bt_capital, bt_tf, stop_mode=bt_stop_mode_val, two_bar_lookback=bt_lookback)
                         if result and result.total_trades > 0:
                             all_results.append((strat, sym, result))
                         else:
@@ -625,7 +650,8 @@ if run_bt:
             if skip_count > 0 and not all_results:
                 notify_error(f"No results — {skip_count} symbol(s) had insufficient data for {bt_days}d on {bt_tf}.")
             if all_results:
-                notify_success(f"Backtest complete — {len(all_results)} result(s)")
+                stop_display = f"2-Bar Trailing (N={bt_lookback})" if bt_stop_mode_val == "two_bar" else "Standard Stop %"
+                notify_success(f"Backtest complete — {len(all_results)} result(s) | Stop mode: {stop_display}")
                 if len(all_results) > 1:
                     avg_ret = np.mean([r.total_return_pct for _, _, r in all_results])
                     avg_pf  = np.mean([r.profit_factor    for _, _, r in all_results])
@@ -645,7 +671,7 @@ if run_bt:
                 summary_rows = []
                 for strategy, sym, r in all_results:
                     approved = r.win_rate >= 50 and r.profit_factor >= 1.2
-                    summary_rows.append({"Symbol": sym, "Strategy": strategy, "Period": f"{r.start_date} → {r.end_date}", "Start $": f"${r.starting_capital:,.2f}", "End $": f"${r.ending_capital:,.2f}", "Return %": f"{r.total_return_pct:+.2f}%", "Win Rate": f"{r.win_rate:.1f}%", "Trades": r.total_trades, "W/L": f"{r.winning_trades}W/{r.losing_trades}L", "Profit Factor": f"{r.profit_factor:.2f}", "Max Drawdown": f"{r.max_drawdown_pct:.2f}%", "Sharpe": f"{r.sharpe_ratio:.2f}", "Sortino": f"{r.sortino_ratio:.2f}", "Verdict": "✅ GO" if approved else "⚠️ TUNE"})
+                    summary_rows.append({"Symbol": sym, "Strategy": strategy, "Stop": "2-Bar" if r.stop_mode == "two_bar" else "Std%", "Period": f"{r.start_date} → {r.end_date}", "Start $": f"${r.starting_capital:,.2f}", "End $": f"${r.ending_capital:,.2f}", "Return %": f"{r.total_return_pct:+.2f}%", "Win Rate": f"{r.win_rate:.1f}%", "Trades": r.total_trades, "W/L": f"{r.winning_trades}W/{r.losing_trades}L", "Profit Factor": f"{r.profit_factor:.2f}", "Max Drawdown": f"{r.max_drawdown_pct:.2f}%", "Sharpe": f"{r.sharpe_ratio:.2f}", "Sortino": f"{r.sortino_ratio:.2f}", "Verdict": "✅ GO" if approved else "⚠️ TUNE"})
                 st.markdown("**📋 Results Table**")
                 st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, hide_index=True)
                 chart_result = None
@@ -669,7 +695,8 @@ if run_bt:
                     drawdowns   = [ep.drawdown for ep in sampled]
                     bar_returns = [ep.daily_ret for ep in sampled]
                     r = chart_result
-                    st.markdown(f"#### 📈 Equity Charts — {chart_label}")
+                    stop_label_chart = f"2-Bar N={bt_lookback}" if r.stop_mode == "two_bar" else "Standard %"
+                    st.markdown(f"#### 📈 Equity Charts — {chart_label} | Stop: {stop_label_chart}")
                     s1, s2, s3, s4, s5, s6 = st.columns(6)
                     s1.metric("Total Return",  f"{r.total_return_pct:+.2f}%")
                     s2.metric("Final Equity",  f"${r.ending_capital:,.2f}")
@@ -706,7 +733,7 @@ if run_bt:
                         with st.expander(f"📋 Trade Log ({len(r.trades)} trades)", expanded=False):
                             trade_rows = []
                             for t in r.trades:
-                                trade_rows.append({"Entry": t.entry_date[:10], "Exit": t.exit_date[:10], "Dir": t.direction.upper(), "Entry $": f"${t.entry_price:.2f}", "Exit $": f"${t.exit_price:.2f}", "P&L $": f"${t.pnl:+.2f}", "P&L %": f"{t.pnl_pct:+.2f}%", "Reason": t.exit_reason.replace("_", " ").title(), "Bars": t.bars_held, "Score": f"{t.signal_score:.2f}", "Strategy": t.strategy_name, "Result": "✅" if t.pnl > 0 else "❌"})
+                                trade_rows.append({"Entry": t.entry_date[:10], "Exit": t.exit_date[:10], "Dir": t.direction.upper(), "Entry $": f"${t.entry_price:.2f}", "Exit $": f"${t.exit_price:.2f}", "P&L $": f"${t.pnl:+.2f}", "P&L %": f"{t.pnl_pct:+.2f}%", "Reason": t.exit_reason.replace("_", " ").title(), "Bars": t.bars_held, "Score": f"{t.signal_score:.2f}", "Strategy": t.strategy_name, "Stop": t.stop_mode, "Result": "✅" if t.pnl > 0 else "❌"})
                             st.dataframe(pd.DataFrame(trade_rows), use_container_width=True, hide_index=True)
     except ImportError:
         notify_error("yfinance not installed. Run: pip install yfinance --break-system-packages")
