@@ -1,0 +1,251 @@
+Crypto BTS/USD, 5 min candles 30 days std stop loss
+Overall Win Rate 36.4%
+Avg Profit Factor 0.96 
+Avg Return -0.06%
+Avg Max Drawdown -0.15%
+Avg Sharpe -0.93
+Total Return +0.07%
+Final Equity $100,066.60
+Max Drawdown -0.05%
+Sharpe Ratio 1.13
+Sortino Ratio 0.52
+Profit Factor 2.15
+Symbol	Strategy	Stop	Period	Start	$	End	$	Return	%	Win	Rate	Trades	W/L	Profit	Factor	Max	Drawdown	Sharpe	Sortino	Verdict
+BTC/USD	original_scorer	Std%	2026-03-26	→	2026-04-24	$100,000.00	$100,066.60	+0.07%	40.0%	5	2W/3L	2.15	-0.05%	1.14	0.52	⚠️	TUNE			
+BTC/USD	rsi_momentum	Std%	2026-03-26	→	2026-04-24	$100,000.00	$99,866.01	-0.13%	34.0%	53	18W/35L	0.85	-0.17%	-1.55	-1.45	⚠️	TUNE			
+BTC/USD	bollinger_breakout	Std%	2026-03-26	→	2026-04-24	$100,000.00	$99,730.83	-0.27%	35.2%	54	19W/35L	0.72	-0.33%	-2.81	-2.72	⚠️	TUNE			
+BTC/USD	ema_crossover	Std%	2026-03-26	→	2026-04-24	$100,000.00	$99,826.97	-0.17%	35.1%	57	20W/37L	0.82	-0.21%	-2.56	-2.13	⚠️	TUNE			
+BTC/USD	grid_bot	Std%	2026-03-26	→	2026-04-24	$100,000.00	$100,185.64	+0.19%	40.5%	79	32W/47L	1.22	-0.07%	2.52	1.93	⚠️	TUNE			
+BTC/USD	dca_accumulator	Std%	2026-03-26	→	2026-04-24	$100,000.00	$99,957.17	-0.04%	0.0%	2	0W/2L	0	-0.05%	-2.37	-0.4	⚠️	TUNE			
+
+Crypto BTS/USD, 5 min candles 30 days2 bar trailing stop, 2 loopback b
+Overall Win Rate 56.5%
+Avg Profit Factor 278.45
+Avg Return +0.24%
+Avg Max Drawdown -0.06%
+Avg Sharpe 4.62
+Total Return +0.03%
+Final Equity $100,025.17
+Max Drawdown -0.00% 
+Sharpe Ratio 2.47
+Sortino Ratio 0.38
+Profit Factor 659.89
+Symbol	Strategy	Stop	Period	Start	$	End	$	Return	%	Win	Rate	Trades	W/L	Profit	Factor	Max	Drawdown	Sharpe	Sortino	Verdict
+BTC/USD	original_scorer	2-Bar	2026-03-26	→	2026-04-24	$100,000.00	$100,025.17	+0.03%	80.0%	5	4W/1L	659.89	-0.00%	2.49	0.39	✅	GO			
+BTC/USD	rsi_momentum	2-Bar	2026-03-26	→	2026-04-24	$100,000.00	$100,054.45	+0.05%	38.9%	216	84W/132L	1.16	-0.08%	0.94	0.64	⚠️	TUNE			
+BTC/USD	bollinger_breakout	2-Bar	2026-03-26	→	2026-04-24	$100,000.00	$99,961.75	-0.04%	33.3%	222	74W/148L	0.93	-0.16%	-0.47	-0.37	⚠️	TUNE			
+BTC/USD	ema_crossover	2-Bar	2026-03-26	→	2026-04-24	$100,000.00	$100,007.45	+0.01%	33.3%	372	124W/248L	1.01	-0.10%	0.1	0.09	⚠️	TUNE			
+BTC/USD	grid_bot	2-Bar	2026-03-26	→	2026-04-24	$100,000.00	$101,343.37	+1.34%	75.8%	880	667W/213L	8.54	-0.01%	22.13	23.02	✅	GO			
+BTC/USD	dca_accumulator	2-Bar	2026-03-26	→	2026-04-24	$100,000.00	$100,022.23	+0.02%	100.0%	3	3W/0L	999	-0.00%	2.25	0	✅	GO			
+
+Crypto BTS/USD, 5 min candles 30 days2 bar trailing stop, 5 loopback
+Overall Win Rate 53.7%
+Avg Profit Factor 189.14
+Avg Return +0.31%
+Avg Max Drawdown -0.07%
+Avg Sharpe 4.84
+Total Return +0.04%
+Final Equity $100,038.67
+Max Drawdown -0.01% 
+Sharpe Ratio 2.80
+Sortino Ratio 0.69
+Profit Factor 125.43
+Symbol	Strategy	Stop	Period	Start	$	End	$	Return	%	Win	Rate	Trades	W/L	Profit	Factor	Max	Drawdown	Sharpe	Sortino
+BTC/USD	original_scorer	2-Bar	2026-03-26	→	2026-04-24	$100,000.00	$100,038.67	+0.04%	80.0%	5	4W/1L	125.43	-0.01%	2.81	0.7	✅	GO		
+BTC/USD	rsi_momentum	2-Bar	2026-03-26	→	2026-04-24	$100,000.00	$100,086.56	+0.09%	32.2%	211	68W/143L	1.19	-0.11%	1.14	1.01	⚠️	TUNE		
+BTC/USD	bollinger_breakout	2-Bar	2026-03-26	→	2026-04-24	$100,000.00	$100,085.83	+0.09%	34.9%	186	65W/121L	1.13	-0.16%	0.82	0.87	⚠️	TUNE		
+BTC/USD	ema_crossover	2-Bar	2026-03-26	→	2026-04-24	$100,000.00	$100,304.78	+0.30%	35.0%	346	121W/225L	1.35	-0.12%	2.7	3.57	⚠️	TUNE		
+BTC/USD	grid_bot	2-Bar	2026-03-26	→	2026-04-24	$100,000.00	$101,295.82	+1.30%	70.8%	825	584W/241L	6.65	-0.02%	19.22	20.43	✅	GO		
+BTC/USD	dca_accumulator	2-Bar	2026-03-26	→	2026-04-24	$100,000.00	$100,022.23	+0.02%	100.0%	3	3W/0L	999	-0.00%	2.25	0	✅	GO		
+
+Crypto BTC/USD1 hour candles 365 Days, 2 bar trailing stop, 5 loopback
+Overall Win Rate 47.9%
+Avg Profit Factor 144.56
+Avg Return +0.92%
+Avg Max Drawdown -0.25%
+Avg Sharpe 1.15
+Total Return +0.02%
+Final Equity $100,022.12
+Max Drawdown -0.02%
+Sharpe Ratio 0.26
+Sortino Ratio 0.03
+Profit Factor 1.89
+Symbol	Strategy	Stop	Period	Start	$	End	$	Return	%	Win	Rate	Trades	W/L	Profit	Factor	Max	Drawdown	Sharpe	Sortino
+BTC/USD	original_scorer	2-Bar	2025-04-25	→	2026-04-24	$100,000.00	$100,022.12	+0.02%	75.0%	4	3W/1L	1.89	-0.02%	0.26	0.03	✅	GO		
+BTC/USD	rsi_momentum	2-Bar	2025-04-25	→	2026-04-24	$100,000.00	$99,823.35	-0.18%	26.5%	245	65W/180L	0.92	-0.50%	-0.2	-0.17	⚠️	TUNE		
+BTC/USD	bollinger_breakout	2-Bar	2025-04-25	→	2026-04-24	$100,000.00	$100,013.20	+0.01%	34.4%	276	95W/181L	1	-0.53%	0.01	0.01	⚠️	TUNE		
+BTC/USD	ema_crossover	2-Bar	2025-04-25	→	2026-04-24	$100,000.00	$100,511.77	+0.51%	33.2%	349	116W/233L	1.14	-0.55%	0.44	0.5	⚠️	TUNE		
+BTC/USD	swing_trader	2-Bar	2025-04-25	→	2026-04-24	$100,000.00	$100,003.31	+0.00%	100.0%	1	1W/0L	999	0.00%	0.46	0	✅	GO		
+BTC/USD	grid_bot	2-Bar	2025-04-25	→	2026-04-24	$100,000.00	$103,129.31	+3.13%	64.0%	609	390W/219L	4.56	-0.05%	4.49	4.15	✅	GO		
+BTC/USD	dca_accumulator	2-Bar	2025-04-25	→	2026-04-24	$100,000.00	$102,928.37	+2.93%	59.8%	338	202W/136L	3.38	-0.11%	2.52	2.22	✅	GO		
+
+Crypto BTC/USD1 hour candles 365 Days, 2 bar trailing stop, 2 loopback
+Overall Win Rate 50.4%
+Avg Profit Factor 144.81
+Avg Return +0.90%
+Avg Max Drawdown -0.25%
+Avg Sharpe 1.20
+Total Return +0.03%
+Final Equity $100,029.88
+Max Drawdown -0.02%
+Sharpe Ratio 0.36
+Sortino Ratio 0.04
+Profit Factor 2.20
+
+Symbol	Strategy	Stop	Period	Start	$	End	$	Return	%	Win	Rate	Trades	W/L	Profit	Factor	Max	Drawdown	Sharpe	Sortino	Verdict
+BTC/USD	original_scorer	2-Bar	2025-04-25	→	2026-04-24	$100,000.00	$100,029.88	+0.03%	75.0%	4	3W/1L	2.2	-0.02%	0.36	0.04	✅	GO			
+BTC/USD	rsi_momentum	2-Bar	2025-04-25	→	2026-04-24	$100,000.00	$99,842.47	-0.16%	26.0%	250	65W/185L	0.91	-0.41%	-0.23	-0.16	⚠️	TUNE			
+BTC/USD	bollinger_breakout	2-Bar	2025-04-25	→	2026-04-24	$100,000.00	$100,077.31	+0.08%	35.6%	312	111W/201L	1.03	-0.51%	0.08	0.07	⚠️	TUNE			
+BTC/USD	ema_crossover	2-Bar	2025-04-25	→	2026-04-24	$100,000.00	$99,886.15	-0.11%	31.8%	377	120W/257L	0.95	-0.66%	-0.13	-0.12	⚠️	TUNE			
+BTC/USD	swing_trader	2-Bar	2025-04-25	→	2026-04-24	$100,000.00	$100,003.31	+0.00%	100.0%	1	1W/0L	999	0.00%	0.46	0	✅	GO			
+BTC/USD	grid_bot	2-Bar	2025-04-25	→	2026-04-24	$100,000.00	$103,191.29	+3.19%	69.8%	633	442W/191L	5.42	-0.05%	4.92	4.27	✅	GO			
+BTC/USD	dca_accumulator	2-Bar	2025-04-25	→	2026-04-24	$100,000.00	$103,271.39	+3.27%	64.3%	378	243W/135L	4.14	-0.09%	2.91	2.41	✅	GO			
+
+Crypto BTC/USD1 hour candles 365 Days, Std Stop Loss
+Overall Win Rate 35.5%
+Avg Profit Factor 0.74
+Avg Return +0.03%
+Avg Max Drawdown -0.44%
+Avg Sharpe -0.11
+Total Return -0.04%
+Final Equity $99,955.19
+Max Drawdown -0.10%
+Sharpe Ratio -0.36
+Sortino Ratio -0.05
+Profit Factor 0.17
+Symbol	Strategy	Stop	Period	Start	$	End	$	Return	%	Win	Rate	Trades	W/L	Profit	Factor	Max	Drawdown	Sharpe	Sortino	Verdict
+BTC/USD	original_scorer	Std%	2025-04-25	→	2026-04-24	$100,000.00	$99,955.19	-0.04%	25.0%	4	1W/3L	0.17	-0.10%	-0.36	-0.05	⚠️	TUNE			
+BTC/USD	rsi_momentum	Std%	2025-04-25	→	2026-04-24	$100,000.00	$99,326.92	-0.67%	31.3%	179	56W/123L	0.83	-0.91%	-0.5	-0.42	⚠️	TUNE			
+BTC/USD	bollinger_breakout	Std%	2025-04-25	→	2026-04-24	$100,000.00	$100,425.90	+0.43%	35.5%	220	78W/142L	1.09	-0.45%	0.28	0.35	⚠️	TUNE			
+BTC/USD	ema_crossover	Std%	2025-04-25	→	2026-04-24	$100,000.00	$100,730.61	+0.73%	37.3%	236	88W/148L	1.16	-0.34%	0.56	0.65	⚠️	TUNE			
+BTC/USD	swing_trader	Std%	2025-04-25	→	2026-04-24	$100,000.00	$99,947.21	-0.05%	0.0%	1	0W/1L	0	-0.07%	-0.69	-0.09	⚠️	TUNE			
+BTC/USD	grid_bot	Std%	2025-04-25	→	2026-04-24	$100,000.00	$100,160.89	+0.16%	37.6%	218	82W/136L	1.05	-0.41%	0.2	0.14	⚠️	TUNE			
+BTC/USD	dca_accumulator	Std%	2025-04-25	→	2026-04-24	$100,000.00	$99,664.11	-0.34%	35.1%	114	40W/74L	0.85	-0.83%	-0.27	-0.16	⚠️	TUNE			
+
+Stock BiiB, 5 min candles 30 days Std Stop Loss
+Overall Win Rate 38.0%
+Avg Profit Factor 167.52
+Avg Return +0.04%
+Avg Max Drawdown -0.09%
+Avg Sharpe 1.91
+Total Return +0.07%
+Final Equity $100,069.20
+Max Drawdown -0.03%
+Sharpe Ratio 5.32
+Sortino Ratio 3.33
+Profit Factor 999.00
+Symbol	Strategy	Stop	Period	Start	$	End	$	Return	%	Win	Rate	Trades	W/L	Profit	Factor	Max	Drawdown	Sharpe	Sortino
+	$100,000.00	$100,070.48	+0.07%	37.5%	24	9W/15L
+BIIB	original_scorer	Std%	2026-03-27	→	2026-04-24	$100,000.00	$100,069.20	+0.07%	100.0%	1	1W/0L	999	-0.03%	5.32	3.33	✅	GO		
+BIIB	rsi_momentum	Std%	2026-03-27	→	2026-04-24	$100,000.00	$99,899.14	-0.10%	29.2%	24	7W/17L	0.82	-0.15%	-2.97	-2.87	⚠️	TUNE		
+BIIB	bollinger_breakout	Std%	2026-03-27	→	2026-04-24	$100,000.00	$99,899.09	-0.10%	28.0%	25	7W/18L	0.81	-0.17%	-2.32	-1.85	⚠️	TUNE		
+BIIB	ema_crossover	Std%	2026-03-27	→	2026-04-24	$100,000.00	$100,087.59	+0.09%	36.0%	25	9W/16L	1.16	-0.08%	3.46	3.12	⚠️	TUNE		
+BIIB	swing_trader	Std%	2026-03-27	→	2026-04-24	$100,000.00	$100,050.07	+0.05%	50.0%	2	1W/1L	1.71	-0.09%	2.08	1.1	✅	GO		
+BIIB	grid_bot	Std%	2026-03-27	→	2026-04-241.23	-0.10%	2.03	2.78	⚠️	TUNE
+			
+
+
+Stock BiiB, 1 hour candles 365 Days Std stop loss
+Overall Win Rate 38.4%
+Avg Profit Factor 0.70
+Avg Return +0.05%
+Avg Max Drawdown -0.31%
+Avg Sharpe -0.08
+Total Return -0.01%
+Final Equity $99,988.98
+Max Drawdown -0.06%
+Sharpe Ratio -0.20
+Sortino Ratio -0.09
+Profit Factor 0.00
+Symbol	Strategy	Stop	Period	Start	$	End	$	Return	%	Win	Rate	Trades	W/L	Profit	Factor	Max	Drawdown	Sharpe	Sortino
+BIIB	original_scorer	Std%	2025-04-28	→	2026-04-24	$100,000.00	$99,988.98	-0.01%	0.0%	1	0W/1L	0	-0.06%	-0.2	-0.09	⚠️	TUNE		
+BIIB	rsi_momentum	Std%	2025-04-28	→	2026-04-24	$100,000.00	$100,028.21	+0.03%	39.0%	41	16W/25L	1.03	-0.42%	0.09	0.05	⚠️	TUNE		
+BIIB	bollinger_breakout	Std%	2025-04-28	→	2026-04-24	$100,000.00	$100,440.69	+0.44%	41.8%	67	28W/39L	1.3	-0.30%	1.05	1.01	⚠️	TUNE		
+BIIB	ema_crossover	Std%	2025-04-28	→	2026-04-24	$100,000.00	$100,118.43	+0.12%	39.0%	59	23W/36L	1.09	-0.43%	0.31	0.26	⚠️	TUNE		
+BIIB	swing_trader	Std%	2025-04-28	→	2026-04-24	$100,000.00	$99,897.43	-0.10%	0.0%	2	0W/2L	0	-0.12%	-0.88	-0.29	⚠️	TUNE		
+BIIB	grid_bot	Std%	2025-04-28	→	2026-04-24	$100,000.00	$99,741.33	-0.26%	32.5%	40	13W/27L	0.7	-0.52%	-1.02	-0.46	⚠️	TUNE		
+																			
+
+Stock BiiB, 5 min candles 30 days, 2 bar trailing stop, 2 loopback bars
+📊 Portfolio Summary
+Overall Win Rate 49.1%
+Avg Profit Factor 2.13
+Avg Return +0.01%
+Avg Max Drawdown -0.06%
+Avg Sharpe 0.43
+Total Return -0.00%
+Final Equity $99,995.56
+Max Drawdown -0.00%
+Sharpe Ratio -5.04
+Sortino Ratio -0.59
+Profit Factor 0.00
+Symbol	Strategy	Stop	Period	Start	$	End	$	Return	%	Win	Rate	Trades	W/L	Profit	Factor	Max	Drawdown	Sharpe	Sortino
+BIIB	original_scorer	2-Bar	2026-03-27	→	2026-04-24	$100,000.00	$99,995.56	-0.00%	0.0%	1	0W/1L	0	-0.00%	-5.1	-0.6	⚠️	TUNE		
+BIIB	rsi_momentum	2-Bar	2026-03-27	→	2026-04-24	$100,000.00	$99,894.74	-0.11%	24.2%	33	8W/25L	0.45	-0.13%	-4.91	-2.86	⚠️	TUNE		
+BIIB	bollinger_breakout	2-Bar	2026-03-27	→	2026-04-24	$100,000.00	$99,925.13	-0.07%	37.5%	64	24W/40L	0.75	-0.09%	-2.62	-2.15	⚠️	TUNE		
+BIIB	ema_crossover	2-Bar	2026-03-27	→	2026-04-24	$100,000.00	$99,889.51	-0.11%	31.1%	61	19W/42L	0.51	-0.11%	-4.99	-3.32	⚠️	TUNE		
+BIIB	swing_trader	2-Bar	2026-03-27	→	2026-04-24	$100,000.00	$100,004.43	+0.00%	50.0%	2	1W/1L	4.54	-0.00%	2.82	0	✅	GO		
+BIIB	grid_bot	2-Bar	2026-03-27	→	2026-04-24	$100,000.00	$100,368.61	+0.37%	72.6%	124	90W/34L	6.72	-0.01%	17.41	21.79	✅	GO		
+																			
+
+Stock BiiB, 1 hour candles 365 Days, 2 bar trailing stop, 2 loopback bar
+Overall Win Rate 45.0%
+Avg Profit Factor 1.85
+Avg Return +0.18%
+Avg Max Drawdown -0.14%
+Avg Sharpe 1.05
+Total Return -0.01%
+Final Equity $99,992.47
+Max Drawdown -0.05%
+Sharpe Ratio -0.14
+Sortino Ratio -0.04
+Profit Factor 0.00
+Symbol	Strategy	Stop	Period	Start	$	End	$	Return	%	Win	Rate	Trades	W/L	Profit	Factor	Max	Drawdown	Sharpe
+BIIB	original_scorer	2-Bar	2025-04-28	→	2026-04-24	$100,000.00	$99,984.24	-0.02%	0.0%	1	0W/1L	0	-0.06%	-0.28	-0.03	⚠️	TUNE	
+BIIB	rsi_momentum	2-Bar	2025-04-28	→	2026-04-24	$100,000.00	$100,390.13	+0.39%	35.4%	48	17W/31L	1.68	-0.26%	1.46	0.99	⚠️	TUNE	
+BIIB	bollinger_breakout	2-Bar	2025-04-28	→	2026-04-24	$100,000.00	$99,916.32	-0.08%	32.4%	74	24W/50L	0.95	-0.45%	-0.19	-0.24	⚠️	TUNE	
+BIIB	ema_crossover	2-Bar	2025-04-28	→	2026-04-24	$100,000.00	$100,020.76	+0.02%	29.7%	64	19W/45L	1.02	-0.34%	0.07	0.06	⚠️	TUNE	
+BIIB	swing_trader	2-Bar	2025-04-28	→	2026-04-24	$100,000.00	$99,986.41	-0.01%	25.0%	4	1W/3L	0.42	-0.02%	-0.64	-0.07	⚠️	TUNE	
+BIIB	grid_bot	2-Bar	2025-04-28	→	2026-04-24	$100,000.00	$100,575.98	+0.58%	54.8%	93	51W/42L	2.96	-0.06%	3.12	2.72	✅	GO	
+
+Stock BiiB, 5 min candles 30 days 2 bar trailing stop, 5 loopback bars
+📊 Portfolio Summary
+Overall Win Rate 45.7%
+Avg Profit Factor 1.43
+Avg Return +0.07%
+Avg Max Drawdown -0.06%
+Avg Sharpe 1.63
+Total Return -0.00%
+Final Equity $99,995.56
+Max Drawdown -0.00%
+Sharpe Ratio -4.97
+Sortino Ratio -0.57
+Profit Factor 0.00
+Symbol	Strategy	Stop	Period	Start	$	End	$	Return	%	Win	Rate	Trades	W/L	Profit	Factor	Max	Drawdown	Sharpe
+BIIB	original_scorer	2-Bar	2026-03-27	→	2026-04-24	$100,000.00	$99,995.56	-0.00%	0.0%	1	0W/1L	0	-0.00%	-5.1	-0.6	⚠️	TUNE	
+BIIB	rsi_momentum	2-Bar	2026-03-27	→	2026-04-24	$100,000.00	$99,924.55	-0.08%	21.9%	32	7W/25L	0.65	-0.13%	-3	-2.63	⚠️	TUNE	
+BIIB	bollinger_breakout	2-Bar	2026-03-27	→	2026-04-24	$100,000.00	$100,096.57	+0.10%	40.8%	49	20W/29L	1.38	-0.08%	2.57	2.88	⚠️	TUNE	
+BIIB	ema_crossover	2-Bar	2026-03-27	→	2026-04-24	$100,000.00	$100,136.40	+0.14%	33.3%	57	19W/38L	1.62	-0.08%	3.13	4.46	⚠️	TUNE	
+BIIB	swing_trader	2-Bar	2026-03-27	→	2026-04-24	$100,000.00	$99,998.02	-0.00%	50.0%	2	1W/1L	0.74	-0.01%	-0.77	0	⚠️	TUNE	
+BIIB	grid_bot	2-Bar	2026-03-27	→	2026-04-24	$100,000.00	$100,281.68	+0.28%	61.9%	118	73W/45L	4.38	-0.02%	13.86	16.98	✅	GO	
+
+Stock BiiB, 1 hour candles 365 Days, 2 bar trailing stop, 5 loopback
+Overall Win Rate 39.6%
+Avg Profit Factor 1.19
+Avg Return +0.16%
+Avg Max Drawdown -0.20%
+Avg Sharpe 0.62
+Total Return -0.02%
+Final Equity $99,984.24
+Max Drawdown -0.06% 
+Sharpe Ratio -0.28
+Sortino Ratio -0.03
+Profit Factor 0.00
+Symbol	Strategy	Stop	Period	Start	$	End	$	Return	%	Win	Rate	Trades	W/L	Profit	Factor	Max	Drawdown	Sharpe
+BIIB	original_scorer	2-Bar	2025-04-28	→	2026-04-24	$100,000.00	$99,984.24	-0.02%	0.0%	1	0W/1L	0	-0.06%	-0.28	-0.03	⚠️	TUNE	
+BIIB	rsi_momentum	2-Bar	2025-04-28	→	2026-04-24	$100,000.00	$100,390.13	+0.39%	35.4%	48	17W/31L	1.68	-0.26%	1.46	0.99	⚠️	TUNE	
+BIIB	bollinger_breakout	2-Bar	2025-04-28	→	2026-04-24	$100,000.00	$99,916.32	-0.08%	32.4%	74	24W/50L	0.95	-0.45%	-0.19	-0.24	⚠️	TUNE	
+BIIB	ema_crossover	2-Bar	2025-04-28	→	2026-04-24	$100,000.00	$100,020.76	+0.02%	29.7%	64	19W/45L	1.02	-0.34%	0.07	0.06	⚠️	TUNE	
+BIIB	swing_trader	2-Bar	2025-04-28	→	2026-04-24	$100,000.00	$99,986.41	-0.01%	25.0%	4	1W/3L	0.42	-0.02%	-0.64	-0.07	⚠️	TUNE	
+BIIB	grid_bot	2-Bar	2025-04-28	→	2026-04-24	$100,000.00	$100,575.98	+0.58%	54.8%	93	51W/42L	2.96	-0.06%	3.12	2.72	✅	GO	
+

@@ -28,7 +28,7 @@ KRAKEN_ENABLED      = False
 # TWS paper port: 7497  |  TWS live port: 7496
 IBKR_ACCOUNT        = os.getenv("IBKR_ACCOUNT", "")    # Account ID e.g. DU1234567
 IBKR_ENABLED        = True                              # Set True after TWS is running
-IBKR_PAPER_MODE     = True                               # True = paper (port 7497)
+IBKR_PAPER_MODE     = True                              # True = paper (port 7497)
 
 ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY", "")
 
@@ -85,9 +85,9 @@ CASH_ACCOUNT_MODE   = True
 SETTLEMENT_DAYS     = 1
 
 # Market timing (Eastern Time)
-MARKET_OPEN_BUFFER_MIN  = 30
-STOCK_SCAN_INTERVAL_SEC = 60
-CRYPTO_SCAN_INTERVAL_SEC= 300
+MARKET_OPEN_BUFFER_MIN   = 30
+STOCK_SCAN_INTERVAL_SEC  = 60
+CRYPTO_SCAN_INTERVAL_SEC = 300
 
 # =============================================================================
 # BROKER SETTINGS
@@ -160,6 +160,61 @@ STRATEGY_REENABLE_WIN_RATE  = 50.0
 VERBOSE_MODE = False
 
 # =============================================================================
+# POSITION MONITOR EXIT SETTINGS
+# =============================================================================
+
+# Performance-contingent time stops
+# Closes trades that aren't producing within expected timeframes.
+# Frees up capital for better opportunities rather than waiting for stop loss.
+PERF_TIME_STOP_ENABLED   = True
+PERF_CHECK_1HR_MIN_PCT   = 0.5    # need at least 0.5% profit after 1 hour
+PERF_CHECK_3HR_MIN_PCT   = 1.5    # need at least 1.5% profit after 3 hours
+HARD_TIME_STOP_HOURS     = 3.5    # hard kill after 3.5 hours regardless
+
+# Early loss identification
+# At 20 min: if trade is negative AND still moving wrong direction → close
+EARLY_LOSS_ENABLED       = True
+EARLY_LOSS_CHECK_MINUTES = 20
+EARLY_LOSS_MIN_PCT       = -0.3   # trigger threshold (negative = loss)
+
+# Pivot point break exit
+# Long breaks below S1 → close | Short breaks above R1 → close
+# Only fires after 30 minutes to allow trade to breathe past entry noise
+PIVOT_EXIT_ENABLED       = True
+PIVOT_EXIT_BARS          = 20     # bars used to calculate pivot levels
+
+# =============================================================================
+# DAILY MARKET SCANNER
+# =============================================================================
+
+SCANNER_ENABLED          = True
+SCANNER_TOP_N            = 10
+SCANNER_RUN_TIME_ET      = "16:30"   # 4:30 PM ET = 1:30 PM PT
+
+# Stock filter thresholds
+STOCK_PCT_OF_52W_HIGH    = 0.98
+STOCK_VOL_SURGE_MIN      = 1.30
+STOCK_HISTORY_DAYS       = "1y"
+
+# Crypto filter thresholds
+CRYPTO_RSI_MIN           = 50
+CRYPTO_RSI_MAX           = 80
+CRYPTO_VOL_SURGE_MIN     = 1.20
+
+# CoinGecko rate limiting
+COINGECKO_API_KEY        = ""     # leave blank for free tier
+COINGECKO_DELAY          = 2.5
+COINGECKO_MAX_RETRIES    = 3
+COINGECKO_BASE_WAIT      = 30
+WIKIPEDIA_DELAY          = 3.0
+
+# Scanner file paths
+SCANNER_REPORTS_DIR      = "reports"
+SCANNER_WATCHLIST_DIR    = "watchlist"
+TEMP_STOCKS_FILE         = "watchlist/scanned_stocks.txt"
+TEMP_CRYPTO_FILE         = "watchlist/scanned_crypto.txt"
+
+# =============================================================================
 # SIGNAL FINE-TUNING
 # =============================================================================
 
@@ -171,65 +226,6 @@ SIGNAL_TUNING = {
     "min_signal_confidence":        0.65,
 
     # -------------------------------------------------------------------------
-# =============================================================================
-# POSITION MONITOR EXIT SETTINGS
-# Add these to config.py alongside your existing risk settings
-# =============================================================================
-
-# ── Performance-contingent time stops ────────────────────────────────────────
-# Closes trades that aren't producing within expected timeframes.
-# Frees up capital for better opportunities rather than waiting for stop loss.
-
-PERF_TIME_STOP_ENABLED    = True
-
-# After 1 hour: if profit < this %, close (trade going nowhere)
-PERF_CHECK_1HR_MIN_PCT    = 0.5
-
-# After 3 hours: if profit < this %, close (too slow for day trade)
-PERF_CHECK_3HR_MIN_PCT    = 1.5
-
-# Hard kill after this many hours regardless of profit
-HARD_TIME_STOP_HOURS      = 3.5
-
-
-# ── Early loss identification ─────────────────────────────────────────────────
-# Catches trades where the thesis was wrong from the start.
-# At 20 minutes: if trade is negative AND still moving wrong → close early.
-# Limits losses on immediately-wrong trades vs waiting for full stop loss.
-
-EARLY_LOSS_ENABLED        = True
-EARLY_LOSS_CHECK_MINUTES  = 20       # when to check
-EARLY_LOSS_MIN_PCT        = -0.3     # trigger threshold (negative = loss)
-
-
-# ── Pivot point break exit ────────────────────────────────────────────────────
-# Closes when price breaks structural support/resistance.
-# Long breaks below S1 → structure failed → close
-# Short breaks above R1 → structure failed → close
-# Only fires after 30 minutes (gives trade time to breathe past entry noise).
-
-PIVOT_EXIT_ENABLED        = True
-PIVOT_EXIT_BARS           = 20       # bars used to calculate pivot levels
-
-
-# ── Trailing stop and TP logging ──────────────────────────────────────────────
-# Already enabled — no config needed. Logs appear in bot.log as:
-#   [TRAILING STOP] SYMBOL LONG | SL ratcheted $X.XX → $Y.YY | Locked in +Z.ZZ%
-#   [DYNAMIC TP]    SYMBOL LONG | TP adjusted $X.XX → $Y.YY
-#   [TP EXTENDED]   SYMBOL LONG | TP raised $X.XX → $Y.YY | Extension N/3
-#   [TAKE PROFIT]   SYMBOL @ $X.XX | P&L +Z.ZZ% | Extensions used: N
-
-PERF_TIME_STOP_ENABLED    = True
-PERF_CHECK_1HR_MIN_PCT    = 0.5
-PERF_CHECK_3HR_MIN_PCT    = 1.5
-HARD_TIME_STOP_HOURS      = 3.5
-EARLY_LOSS_ENABLED        = True
-EARLY_LOSS_CHECK_MINUTES  = 20
-EARLY_LOSS_MIN_PCT        = -0.3
-PIVOT_EXIT_ENABLED        = True
-PIVOT_EXIT_BARS           = 20
-
-
     # ORIGINAL SCANNER
     # -------------------------------------------------------------------------
     "stock_rsi_oversold":           35,
