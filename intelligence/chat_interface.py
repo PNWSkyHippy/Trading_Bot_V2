@@ -10,10 +10,21 @@
     - conversation history capped at 10 turns
 
   Pre-parse layer:
-    Simple commands (enable/disable strategy, morning scan) are
-    detected directly from the user message BEFORE sending to
-    Haiku. This bypasses Haiku's tendency to second-guess simple
-    commands and ensures they always execute reliably.
+    Simple commands (enable/disable strategy, morning scan, watchlist
+    queries, reload watchlist) are detected directly from the user
+    message BEFORE sending to Haiku. This bypasses Haiku's tendency
+    to second-guess simple commands and ensures they always execute
+    reliably.
+
+  Watchlist commands (pre-parsed, no Haiku needed):
+    "what stocks are you watching"    → lists master + injected stocks
+    "what crypto are you watching"    → lists master + injected crypto
+    "show watchlist"                  → full combined watchlist
+    "show injected symbols"           → only temp/injected symbols
+    "is AAPL in watchlist"            → checks if specific symbol active
+    "is BTC/USD being watched"        → same for crypto
+    "reload watchlist"                → reloads temp files into memory
+    "refresh watchlist"               → same as reload
 
   Activity logging:
     Every user message and every action executed is logged
@@ -28,6 +39,7 @@ import logging
 import re
 import requests
 from datetime import date, datetime
+from pathlib import Path
 from typing import List, Dict, Optional
 
 import config
@@ -46,6 +58,13 @@ STRATEGY_NAMES = [
     "vwap_momentum", "hammer_reversal", "orb_breakout",
 ]
 
+# Watchlist file paths
+WATCHLIST_DIR        = Path("watchlists")
+MASTER_STOCKS_FILE   = WATCHLIST_DIR / "stocks.txt"
+MASTER_CRYPTO_FILE   = WATCHLIST_DIR / "crypto.txt"
+TEMP_STOCKS_FILE     = Path("watchlist/scanned_stocks.txt")
+TEMP_CRYPTO_FILE     = Path("watchlist/scanned_crypto.txt")
+
 SYSTEM_PROMPT = """You are the AI controller for an autonomous day trading bot.
 Help the owner monitor and control it through natural conversation.
 Be concise. Use numbers. Confirm before withdrawals.
@@ -58,7 +77,7 @@ CRITICAL RULES:
 
 STRATEGY COMMANDS:
 Valid names: rsi_momentum, bollinger_breakout, ema_crossover, mean_reversion,
-salp_master, swing_trader, grid_bot, dca_accumulator, vwap_momentum,
+scalp_master, swing_trader, grid_bot, dca_accumulator, vwap_momentum,
 hammer_reversal, orb_breakout
 
 When user says "enable X" or "disable X" — execute IMMEDIATELY, no questions.
@@ -68,6 +87,9 @@ MORNING SCAN command:
 When user says "morning scan" or "what should I trade" or "top setups":
 - Execute {"action": "morning_scan"} immediately
 - This surfaces top ORB and momentum candidates for manual trading
+
+WATCHLIST commands are handled by pre-parse layer — do NOT attempt to answer
+watchlist queries yourself. They are already handled before reaching you.
 
 Available actions (include JSON in response to execute):
 {"action": "halt_trading", "reason": "user request"}
@@ -99,6 +121,270 @@ class ChatInterface:
         self._last_strategy_mentioned: Optional[str] = None
 
     # ------------------------------------------------------------------
+    #  WATCHLIST HELPERS
+    # ------------------------------------------------------------------
+
+    def _read_watchlist_file(self, filepath: Path) -> List[str]:
+        """Read a watchlist file and return list of symbols, ignoring comments."""
+        if not filepath.exists():
+            return []
+        try:
+            lines = filepath.read_text().splitlines()
+            return [l.strip() for l in lines if l.strip() and not l.strip().startswith("#")]
+        except Exception:
+            return []
+
+    def _get_active_stocks(self) -> tuple[List[str], List[str]]:
+        """
+        Returns (master_stocks, injected_stocks).
+        Master = from watchlists/stocks.txt
+        Injected = from watchlist/scanned_stocks.txt (temp, from scanner or dashboard)
+        """
+        master   = self._read_watchlist_file(MASTER_STOCKS_FILE)
+        injected = self._read_watchlist_file(TEMP_STOCKS_FILE)
+        return master, injected
+
+    def _get_active_crypto(self) -> tuple[List[str], List[str]]:
+        """
+        Returns (master_crypto, injected_crypto).
+        Master = from watchlists/crypto.txt
+        Injected = from watchlist/scanned_crypto.txt
+        """
+        master   = self._read_watchlist_file(MASTER_CRYPTO_FILE)
+        injected = self._read_watchlist_file(TEMP_CRYPTO_FILE)
+        return master, injected
+
+    def _check_symbol_in_watchlist(self, symbol: str) -> str:
+        """Check if a specific symbol is in any watchlist and report where."""
+        sym_upper = symbol.upper().strip()
+        # Normalize — add /USD if crypto-like and no slash
+        is_crypto_query = "/" in sym_upper or any(
+            sym_upper == s for s in [
+                "BTC", "ETH", "SOL", "XRP", "BNB", "DOGE", "ADA",
+                "AVAX", "DOT", "LINK", "MATIC", "LTC", "UNI", "ATOM"
+            ]
+        )
+
+        found_in = []
+
+        # Check stocks master
+        master_stocks, injected_stocks = self._get_active_stocks()
+        if sym_upper in [s.upper() for s in master_stocks]:
+            found_in.append("master stock watchlist")
+        if sym_upper in [s.upper() for s in injected_stocks]:
+            found_in.append("injected stocks (today only)")
+
+        # Check crypto master — try both formats (BTC and BTC/USD)
+        master_crypto, injected_crypto = self._get_active_crypto()
+        crypto_syms = [s.upper() for s in master_crypto]
+        crypto_base = [s.split("/")[0].upper() for s in master_crypto]
+        if sym_upper in crypto_syms or sym_upper in crypto_base:
+            found_in.append("master crypto watchlist")
+
+        inj_syms = [s.upper() for s in injected_crypto]
+        inj_base = [s.split("/")[0].upper() for s in injected_crypto]
+        if sym_upper in inj_syms or sym_upper in inj_base:
+            found_in.append("injected crypto (today only)")
+
+        if found_in:
+            return f"✅ {sym_upper} is active — found in: {', '.join(found_in)}"
+        else:
+            return (
+                f"❌ {sym_upper} is NOT currently being watched.\n"
+                f"Use the dashboard Inject Symbols panel or say "
+                f"'add {sym_upper} to watchlist' to add it temporarily."
+            )
+
+    def _handle_watchlist_query(self, msg: str) -> Optional[str]:
+        """
+        Handle watchlist-related queries from the pre-parse layer.
+        Returns formatted response string or None if not a watchlist query.
+        """
+        msg_lower = msg.lower().strip()
+
+        # ── "is X in watchlist / being watched" ──────────────────────────
+        # Patterns: "is AAPL in watchlist", "is BTC/USD being watched",
+        #           "are you watching TSLA", "do you have SOL"
+        is_watching_patterns = [
+            r'\bis\s+(\S+)\s+(?:in\s+(?:the\s+)?watchlist|being\s+watched)',
+            r'\bare\s+you\s+watching\s+(\S+)',
+            r'\bdo\s+you\s+(?:have|watch|track)\s+(\S+)',
+            r'\bwatching\s+(\S+)\b',
+            r'\bcheck\s+(?:if\s+)?(\S+)\s+(?:is\s+)?(?:in\s+)?(?:the\s+)?watchlist',
+        ]
+        for pattern in is_watching_patterns:
+            match = re.search(pattern, msg_lower)
+            if match:
+                symbol = match.group(1).upper().rstrip("?.,")
+                # Filter out common words that aren't symbols
+                if symbol not in {"THE", "A", "AN", "MY", "YOUR", "IT", "THIS"}:
+                    logger.info(f"[CLAUDE] PRE-PARSE watchlist_check | symbol={symbol}")
+                    return self._check_symbol_in_watchlist(symbol)
+
+        # ── Show injected/scanned symbols only ───────────────────────────
+        if any(p in msg_lower for p in [
+            "show injected", "injected symbols", "scanned symbols",
+            "what did scanner find", "scanner results", "what was injected"
+        ]):
+            _, injected_stocks = self._get_active_stocks()
+            _, injected_crypto = self._get_active_crypto()
+            lines = ["📋 Currently Injected Symbols (temporary, today only):\n"]
+            if injected_stocks:
+                lines.append(f"📈 Stocks ({len(injected_stocks)}): {', '.join(injected_stocks)}")
+            else:
+                lines.append("📈 Stocks: none injected")
+            if injected_crypto:
+                lines.append(f"🪙 Crypto ({len(injected_crypto)}): {', '.join(injected_crypto)}")
+            else:
+                lines.append("🪙 Crypto: none injected")
+            lines.append("\nThese were added by the daily scanner or dashboard injection.")
+            lines.append("They reset on next scan or reboot.")
+            logger.info("[CLAUDE] PRE-PARSE show_injected")
+            return "\n".join(lines)
+
+        # ── Full watchlist ────────────────────────────────────────────────
+        if any(p in msg_lower for p in [
+            "show watchlist", "full watchlist", "all watchlist",
+            "list watchlist", "what's in watchlist", "whats in watchlist"
+        ]):
+            master_stocks, injected_stocks = self._get_active_stocks()
+            master_crypto, injected_crypto = self._get_active_crypto()
+            lines = ["📋 Full Active Watchlist:\n"]
+            lines.append(
+                f"📈 Master Stocks ({len(master_stocks)}): "
+                f"{', '.join(master_stocks[:20])}"
+                f"{'...' if len(master_stocks) > 20 else ''}"
+            )
+            if injected_stocks:
+                lines.append(
+                    f"📈 + Injected Stocks ({len(injected_stocks)}): "
+                    f"{', '.join(injected_stocks)}"
+                )
+            lines.append(
+                f"🪙 Master Crypto ({len(master_crypto)}): "
+                f"{', '.join(master_crypto[:20])}"
+                f"{'...' if len(master_crypto) > 20 else ''}"
+            )
+            if injected_crypto:
+                lines.append(
+                    f"🪙 + Injected Crypto ({len(injected_crypto)}): "
+                    f"{', '.join(injected_crypto)}"
+                )
+            logger.info("[CLAUDE] PRE-PARSE show_full_watchlist")
+            return "\n".join(lines)
+
+        # ── Stocks watchlist only ─────────────────────────────────────────
+        if any(p in msg_lower for p in [
+            "what stocks", "which stocks", "stocks watching",
+            "stock watchlist", "list stocks"
+        ]):
+            master_stocks, injected_stocks = self._get_active_stocks()
+            lines = [f"📈 Stock Watchlist:\n"]
+            lines.append(
+                f"Master ({len(master_stocks)}): "
+                f"{', '.join(master_stocks)}"
+            )
+            if injected_stocks:
+                lines.append(
+                    f"\nInjected today ({len(injected_stocks)}): "
+                    f"{', '.join(injected_stocks)}"
+                )
+            else:
+                lines.append("\nNo stocks injected today.")
+            logger.info("[CLAUDE] PRE-PARSE show_stock_watchlist")
+            return "\n".join(lines)
+
+        # ── Crypto watchlist only ─────────────────────────────────────────
+        if any(p in msg_lower for p in [
+            "what crypto", "which crypto", "crypto watching",
+            "crypto watchlist", "list crypto"
+        ]):
+            master_crypto, injected_crypto = self._get_active_crypto()
+            lines = [f"🪙 Crypto Watchlist:\n"]
+            lines.append(
+                f"Master ({len(master_crypto)}): "
+                f"{', '.join(master_crypto)}"
+            )
+            if injected_crypto:
+                lines.append(
+                    f"\nInjected today ({len(injected_crypto)}): "
+                    f"{', '.join(injected_crypto)}"
+                )
+            else:
+                lines.append("\nNo crypto injected today.")
+            logger.info("[CLAUDE] PRE-PARSE show_crypto_watchlist")
+            return "\n".join(lines)
+
+        # ── Reload watchlist from temp files ─────────────────────────────
+        if any(p in msg_lower for p in [
+            "reload watchlist", "refresh watchlist",
+            "reload symbols", "refresh symbols",
+            "load scanner results", "pick up scanner"
+        ]):
+            return self._reload_watchlist()
+
+        return None  # Not a watchlist query
+
+    def _reload_watchlist(self) -> str:
+        """
+        Reload temp watchlist files into the bot's in-memory lists.
+        This picks up new scanner results or dashboard injections without
+        requiring a full bot reboot.
+        """
+        try:
+            from market_scanner import load_watchlist_temps
+            scanned_stocks, scanned_crypto = load_watchlist_temps()
+
+            reloaded = []
+
+            if scanned_stocks:
+                # Update bot engine's stock watchlist if accessible
+                try:
+                    import bot_engine as _be
+                    existing = getattr(_be.bot, "stock_watchlist", [])
+                    _be.bot.stock_watchlist = scanned_stocks + [
+                        t for t in existing if t not in scanned_stocks
+                    ]
+                    reloaded.append(f"{len(scanned_stocks)} stocks")
+                except Exception:
+                    # Bot engine not directly accessible — file is updated,
+                    # will load on next scan cycle
+                    reloaded.append(
+                        f"{len(scanned_stocks)} stocks (file updated, "
+                        f"active on next scan cycle)"
+                    )
+
+            if scanned_crypto:
+                try:
+                    import bot_engine as _be
+                    existing = getattr(_be.bot, "crypto_watchlist", [])
+                    _be.bot.crypto_watchlist = scanned_crypto + [
+                        p for p in existing if p not in scanned_crypto
+                    ]
+                    reloaded.append(f"{len(scanned_crypto)} crypto pairs")
+                except Exception:
+                    reloaded.append(
+                        f"{len(scanned_crypto)} crypto pairs (file updated, "
+                        f"active on next scan cycle)"
+                    )
+
+            if reloaded:
+                logger.info(f"[CLAUDE] PRE-PARSE reload_watchlist | {', '.join(reloaded)}")
+                return (
+                    f"✅ Watchlist reloaded: {', '.join(reloaded)}\n"
+                    f"Injected symbols are now active for signal scanning."
+                )
+            else:
+                return (
+                    "📋 No injected symbols found in temp files.\n"
+                    "Run the market scanner or inject symbols via the dashboard first."
+                )
+
+        except Exception as e:
+            logger.error(f"Watchlist reload error: {e}")
+            return f"Watchlist reload error: {e}"
+
+    # ------------------------------------------------------------------
     #  PRE-PARSE LAYER
     #  Detects simple commands directly from user message.
     #  Bypasses Haiku entirely for reliability.
@@ -113,8 +399,14 @@ class ChatInterface:
         Handles:
         - enable/disable strategy (by name or alias)
         - morning scan
+        - watchlist queries (show, check, reload)
         """
         msg = user_message.strip().lower()
+
+        # --- watchlist queries (check before strategy names to avoid conflicts) ---
+        watchlist_result = self._handle_watchlist_query(msg)
+        if watchlist_result is not None:
+            return [watchlist_result]
 
         # --- enable strategy ---
         for name in STRATEGY_NAMES:
@@ -165,10 +457,9 @@ class ChatInterface:
             except ImportError:
                 from backports.zoneinfo import ZoneInfo
 
-            now_et = datetime.now(ZoneInfo("America/New_York"))
+            now_et   = datetime.now(ZoneInfo("America/New_York"))
             time_str = now_et.strftime("%H:%M ET")
 
-            # ORB whitelist stocks to scan
             orb_candidates = [
                 "META", "TSLA", "MSFT", "AMD", "MRVL",
                 "ALAB", "PLTR", "CRWV", "IREN", "CLS", "AMZN"
@@ -181,21 +472,20 @@ class ChatInterface:
                     if not price:
                         continue
 
-                    # Get recent bars for basic momentum check
-                    bars = scanner.stock_scanner.get_bars(symbol, timeframe="5Min", limit=20)
+                    bars = scanner.stock_scanner.get_bars(
+                        symbol, timeframe="5Min", limit=20
+                    )
                     if bars is None or len(bars) < 5:
                         continue
 
-                    closes = bars["close"]
-                    volumes = bars["volume"]
-
-                    # Simple momentum: is price above open? Volume above average?
-                    open_price  = float(closes.iloc[0])
-                    curr_price  = float(closes.iloc[-1])
-                    avg_vol     = float(volumes.iloc[:-1].mean())
-                    curr_vol    = float(volumes.iloc[-1])
-                    pct_move    = (curr_price - open_price) / open_price * 100
-                    vol_ratio   = curr_vol / avg_vol if avg_vol > 0 else 0
+                    closes     = bars["close"]
+                    volumes    = bars["volume"]
+                    open_price = float(closes.iloc[0])
+                    curr_price = float(closes.iloc[-1])
+                    avg_vol    = float(volumes.iloc[:-1].mean())
+                    curr_vol   = float(volumes.iloc[-1])
+                    pct_move   = (curr_price - open_price) / open_price * 100
+                    vol_ratio  = curr_vol / avg_vol if avg_vol > 0 else 0
 
                     if abs(pct_move) >= 0.3 and vol_ratio >= 1.2:
                         direction = "▲ LONG" if pct_move > 0 else "▼ SHORT"
@@ -215,18 +505,14 @@ class ChatInterface:
                     f"Check back after 10:00 AM ET when ORB window opens."
                 )
 
-            # Sort by move size × volume
             results.sort(key=lambda x: x[0] * x[1], reverse=True)
-            top = results[:5]
-
+            top   = results[:5]
             lines = [f"🔍 Morning Scan ({time_str}) — Top {len(top)} Candidates:\n"]
             for i, (_, _, line) in enumerate(top, 1):
                 lines.append(f"{i}. {line}")
-
             lines.append("\n💡 Wait for 9:45 ET ORB window before entering.")
             lines.append("Enter in direction of move if volume confirms.")
             lines.append("Exit when price crosses back below VWAP or EOD.")
-
             return "\n".join(lines)
 
         except Exception as e:
@@ -278,7 +564,11 @@ class ChatInterface:
     def chat(self, user_message: str) -> str:
         import os
         from dotenv import load_dotenv
-        load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '.env'))
+        load_dotenv(
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), '..', '.env'
+            )
+        )
         api_key = config.ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY", "")
         if not api_key:
             return (
@@ -291,10 +581,10 @@ class ChatInterface:
 
         try:
             db.log_chat_action(
-                user_message = user_message,
-                action_type  = "message",
-                action_detail= "",
-                result       = ""
+                user_message  = user_message,
+                action_type   = "message",
+                action_detail = "",
+                result        = ""
             )
         except Exception:
             pass
@@ -303,7 +593,6 @@ class ChatInterface:
         pre_results = self._pre_parse(user_message)
         if pre_results is not None:
             reply = "\n".join(pre_results)
-            # Add to history so Haiku has context on follow-up messages
             self.conversation_history.append(
                 {"role": "user", "content": user_message}
             )
@@ -328,9 +617,9 @@ class ChatInterface:
             response = requests.post(
                 "https://api.anthropic.com/v1/messages",
                 headers={
-                    "x-api-key":          api_key,
-                    "anthropic-version":  "2023-06-01",
-                    "content-type":       "application/json"
+                    "x-api-key":         api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type":      "application/json"
                 },
                 json={
                     "model":      CLAUDE_MODEL,
@@ -366,7 +655,7 @@ class ChatInterface:
     def _parse_and_execute_actions(
         self, response_text: str, user_message: str = ""
     ) -> List[str]:
-        results = []
+        results      = []
         json_matches = re.findall(r'\{[^{}]+\}', response_text)
 
         for match in json_matches:
@@ -394,7 +683,10 @@ class ChatInterface:
                     reason = cmd.get("reason", "Withdrawal")
                     res    = risk_manager.process_withdrawal(amount, reason)
                     result_msg = res["message"]
-                    logger.info(f"[CLAUDE] ACTION withdraw | amount=${amount:.2f} reason={reason}")
+                    logger.info(
+                        f"[CLAUDE] ACTION withdraw | "
+                        f"amount=${amount:.2f} reason={reason}"
+                    )
 
                 elif action == "set_risk":
                     param = cmd.get("param")
@@ -475,7 +767,10 @@ class ChatInterface:
                     reason = cmd.get("reason", "Fund deposit")
                     res    = broker_manager.inject_funds(broker, amount, reason)
                     result_msg = res["message"]
-                    logger.info(f"[CLAUDE] ACTION inject_funds | broker={broker} amount=${amount:.2f}")
+                    logger.info(
+                        f"[CLAUDE] ACTION inject_funds | "
+                        f"broker={broker} amount=${amount:.2f}"
+                    )
 
                 elif action == "withdraw_funds":
                     from core.broker_manager import broker_manager
@@ -484,7 +779,10 @@ class ChatInterface:
                     reason = cmd.get("reason", "Withdrawal")
                     res    = broker_manager.withdraw_funds(broker, amount, reason)
                     result_msg = res["message"]
-                    logger.info(f"[CLAUDE] ACTION withdraw_funds | broker={broker} amount=${amount:.2f}")
+                    logger.info(
+                        f"[CLAUDE] ACTION withdraw_funds | "
+                        f"broker={broker} amount=${amount:.2f}"
+                    )
 
                 elif action == "capital_breakdown":
                     from core.broker_manager import broker_manager
@@ -494,7 +792,10 @@ class ChatInterface:
                     info += f" | Available: ${breakdown['total_available']:,.2f}"
                     for b in breakdown["brokers"]:
                         paper = " (PAPER)" if b.get("paper") else ""
-                        info += f"\n  {b['display_name']}{paper}: ${b['balance']:,.2f}"
+                        info += (
+                            f"\n  {b['display_name']}{paper}: "
+                            f"${b['balance']:,.2f}"
+                        )
                     result_msg = f"Capital Breakdown:{info}"
                     logger.info("[CLAUDE] ACTION capital_breakdown")
 
@@ -514,12 +815,12 @@ class ChatInterface:
                     results.append(result_msg)
                     try:
                         db.log_chat_action(
-                            user_message = user_message,
-                            action_type  = action,
-                            action_detail= json.dumps(
+                            user_message  = user_message,
+                            action_type   = action,
+                            action_detail = json.dumps(
                                 {k: v for k, v in cmd.items() if k != "action"}
                             ),
-                            result       = result_msg[:200]
+                            result        = result_msg[:200]
                         )
                     except Exception:
                         pass

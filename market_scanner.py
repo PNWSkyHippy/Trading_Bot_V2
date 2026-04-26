@@ -89,7 +89,7 @@ STOCK_HISTORY_DAYS    = "1y"      # yfinance period string
 
 # Crypto filter parameters
 # Note: widened from original 55-75 / 1.5x to catch more setups on weak days.
-# Tighten back to 55/75/1.5 in config.py if you want stricter signals.
+# Tighten back to 55/75/1.5 in config.py if you want stricter signals. avg volume (was 1.50)
 CRYPTO_RSI_MIN        = 50        # momentum floor (was 55)
 CRYPTO_RSI_MAX        = 80        # cap before overbought (was 75)
 CRYPTO_VOL_SURGE_MIN  = 1.20      # above 7d avg volume (was 1.50)

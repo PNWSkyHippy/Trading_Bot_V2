@@ -7,7 +7,7 @@ import sqlite3
 import config
 
 # Show all open trades first
-open_trades = db.get_all_closed_trades()
+open_trades = db.get_open_trades()
 #open_trades = db.get_open_trades()
 print(f"\nOpen trades ({len(open_trades)}):")
 print(f"{'#':<4} {'Symbol':<12} {'Dir':<6} {'Entry':>10} {'P&L':>10} {'Trade ID'}")

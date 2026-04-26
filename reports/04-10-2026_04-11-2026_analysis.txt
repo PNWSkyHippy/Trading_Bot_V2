@@ -1,0 +1,61 @@
+
+==============================================================================
+1. OVERALL STATISTICS
+==============================================================================
+  Trades                       10
+  Winners                       8
+  Losers                        2
+  Win Rate %                 80.0
+  Avg Win            $      49.59
+  Avg Loss           $     -48.76
+  Expectancy         $      29.92
+  Largest Win        $      61.05
+  Largest Loss       $     -52.92
+  Total P&L          $     299.23
+  Avg P&L            $      29.92
+
+==============================================================================
+2. PERFORMANCE BY SETUP TYPE
+==============================================================================
+setup_type  Trades  Winners  Losers  Win Rate %  Avg Win  Avg Loss  Expectancy  Largest Win  Largest Loss  Total P&L  Avg P&L
+  grid_bot      10        8       2        80.0    49.59    -48.76       29.92        61.05        -52.92     299.23    29.92
+
+==============================================================================
+3. PERFORMANCE BY TIME OF DAY
+==============================================================================
+ time_block  Trades  Winners  Losers  Win Rate %  Avg Win  Avg Loss  Expectancy  Largest Win  Largest Loss  Total P&L  Avg P&L
+14:30-16:00      10        8       2        80.0    49.59    -48.76       29.92        61.05        -52.92     299.23    29.92
+
+==============================================================================
+4. PERFORMANCE BY DAY OF WEEK
+==============================================================================
+day_of_week  Trades  Winners  Losers  Win Rate %  Avg Win  Avg Loss  Expectancy  Largest Win  Largest Loss  Total P&L  Avg P&L
+        NaN      10        8       2        80.0    49.59    -48.76       29.92        61.05        -52.92     299.23    29.92
+
+==============================================================================
+5. PATTERN DETECTION
+==============================================================================
+  (buckets with < 3 trades excluded to avoid small-sample noise)
+
+  Best Hour: 14:30-16:00  (Total P&L: $299.23, Win Rate: 80.0%, Trades: 10)
+  Worst Hour: Not enough data: only one hourly bucket met the minimum-trades threshold (3).
+  Best Setup: grid_bot  (Total P&L: $299.23, Win Rate: 80.0%, Expectancy: $29.92, Trades: 10)
+  Worst Setup: Not enough data: only one setup met the minimum-trades threshold (3).
+  Consistent Loss Periods: None flagged (no qualifying bucket had both negative P&L and <40% win rate).
+
+==============================================================================
+6. WRITTEN SUMMARY
+==============================================================================
+Across 10 trades you produced a total profit of $299.23, with a 80.0% win rate and an expectancy of $29.92 per trade.
+Your average winner is $49.59 and average loser is $-48.76, a 1.02:1 win/loss ratio.
+Of 1 setup(s) with >= 3 trades, 1 is profitable and 0 are losing money.
+
+==============================================================================
+7. RECOMMENDATIONS
+==============================================================================
+  1. 'grid_bot' is your highest-P&L setup ($299.23, expectancy $29.92).
+     Consider allocating more size or more attention here.
+
+  2. Sample size is small (10 trades).
+     Treat these findings as directional hints, not conclusions -- revisit after 30+ trades per bucket before making big rule changes.
+

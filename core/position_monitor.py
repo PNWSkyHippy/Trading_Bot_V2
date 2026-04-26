@@ -4,19 +4,40 @@
   Runs every 30 seconds. Watches all open positions for:
   - Stop-loss triggers
   - Take-profit triggers
-  - Trailing stop adjustments
-  - Extended take-profit on continued momentum
+  - Trailing stop adjustments (with logging)
+  - Extended take-profit on continued momentum (with logging)
+  - Performance-contingent time stops (NEW):
+      < 0.5% profit after 1 hour  → close (going nowhere)
+      < 1.5% profit after 3 hours → close (too slow)
+  - Early loss identification (NEW):
+      If trade is negative AND moving further wrong at 20 min → close
+  - Hard time stop (NEW): 3.5 hours regardless of profit
   - Stale position sell-off (3hr ADX/DI trend check)
+  - Pivot point break exit (NEW):
+      Long  breaks below S1 → close (structure failed)
+      Short breaks above R1 → close (structure failed)
   - VWAP cross exit for ORB trades
   - EOD close for all stock positions
 
+  Exit priority order:
+    1.  STUCK check
+    2.  EOD close (15:45 ET)
+    3.  Stop-loss
+    4.  ORB VWAP cross exit
+    5.  Early loss identification (20 min check)
+    6.  Performance-contingent time stop (1hr check)
+    7.  Performance-contingent time stop (3hr check)
+    8.  Hard time stop (3.5hr)
+    9.  Take-profit + momentum rider
+    10. Pivot point break
+    11. Stale position ADX/DI check (3hr)
+    12. Trailing stop update
+
   Close attempt throttle:
-    If a close attempt fails (bracket order blocking, API error etc)
-    the trade stays open in DB and would retry every 30 seconds forever.
-    We track close attempts in bot_state. After MAX_CLOSE_ATTEMPTS the
-    trade is flagged STUCK and skipped until human intervenes.
-    Dashboard shows STUCK trades. Use Close Now button or DB Browser
-    to manually resolve.
+    If a close attempt fails the trade stays open in DB and would
+    retry every 30s forever. We track close attempts in bot_state.
+    After MAX_CLOSE_ATTEMPTS the trade is flagged STUCK and skipped
+    until human intervenes. Dashboard shows STUCK trades.
 
   Stock positions are only monitored during market hours
   (Mon-Fri 09:30-16:00 ET). Crypto is monitored 24/7.
@@ -38,18 +59,37 @@ from core.risk_manager import risk_manager
 
 logger = logging.getLogger(__name__)
 
-# Stale position check: 3 hours in seconds
-STALE_THRESHOLD_SEC = 3 * 60 * 60
+# ── Stale position check ─────────────────────────────────────────────────────
+STALE_THRESHOLD_SEC = 3 * 60 * 60       # 3 hours before ADX/DI stale check fires
 
 # ADX threshold below which trend is considered stalled
 ADX_STALE_THRESHOLD = 25.0
 
-# EOD close time: 15:45 ET (gives 15 min buffer before 16:00 close)
+# ── NEW: Time-based exit thresholds ──────────────────────────────────────────
+# Performance-contingent: close if profit is below threshold after N hours.
+# Prevents capital being locked in trades that never got going.
+PERF_CHECK_1HR_SEC     = 1 * 60 * 60    # 1 hour
+PERF_CHECK_1HR_MIN_PCT = 0.5            # need at least 0.5% profit by 1hr
+
+PERF_CHECK_3HR_SEC     = 3 * 60 * 60    # 3 hours
+PERF_CHECK_3HR_MIN_PCT = 1.5            # need at least 1.5% profit by 3hr
+
+HARD_TIME_STOP_SEC     = 3.5 * 60 * 60  # 3.5 hours — hard kill regardless
+
+# Early loss check: if trade is negative AND worsening at 20 minutes, kill it.
+# Catches trades where thesis was wrong from the start.
+EARLY_LOSS_CHECK_SEC   = 20 * 60        # 20 minutes
+EARLY_LOSS_MIN_PCT     = -0.3           # if worse than -0.3% AND still falling
+
+# Pivot point break exit
+# Uses last N bars to calculate classic floor trader pivots (PP, S1, S2, R1, R2)
+PIVOT_BARS             = 20             # bars to use for pivot calculation
+
+# ── EOD close ────────────────────────────────────────────────────────────────
 EOD_CLOSE_HOUR   = 15
 EOD_CLOSE_MINUTE = 45
 
-# Max close attempts before flagging trade as STUCK
-# Prevents infinite retry loops when bracket orders block closes
+# ── Max close attempts ────────────────────────────────────────────────────────
 MAX_CLOSE_ATTEMPTS = 3
 
 
@@ -69,7 +109,6 @@ def _stock_market_open() -> bool:
 
     after_open   = hour > 9 or (hour == 9 and minute >= 30)
     before_close = hour < 16
-
     return after_open and before_close
 
 
@@ -156,15 +195,12 @@ class PositionMonitor:
     # ------------------------------------------------------------------
 
     def _get_close_attempts(self, trade_id: str) -> int:
-        """Return number of failed close attempts for this trade."""
         return int(self._db.get_state(f"close_attempts_{trade_id}", default=0))
 
     def _increment_close_attempts(self, trade_id: str, symbol: str) -> int:
-        """Increment close attempt counter. Returns new count."""
         count = self._get_close_attempts(trade_id) + 1
         self._db.set_state(f"close_attempts_{trade_id}", count)
         if count >= MAX_CLOSE_ATTEMPTS:
-            # Flag as stuck so dashboard can highlight it
             self._db.set_state(f"close_stuck_{trade_id}", 1)
             logger.error(
                 f"[STUCK] {symbol}: {count} failed close attempts. "
@@ -174,20 +210,17 @@ class PositionMonitor:
         return count
 
     def _reset_close_attempts(self, trade_id: str):
-        """Reset counter after successful close."""
         self._db.set_state(f"close_attempts_{trade_id}", 0)
         self._db.set_state(f"close_stuck_{trade_id}", 0)
 
     def _is_stuck(self, trade_id: str) -> bool:
-        """Returns True if trade has exceeded max close attempts."""
         return int(self._db.get_state(f"close_stuck_{trade_id}", default=0)) == 1
 
     def _attempt_close(self, trade: Dict, current_price: float,
                        reason: str) -> bool:
         """
         Wrapper around close_trade that tracks failed attempts.
-        After MAX_CLOSE_ATTEMPTS failures, flags trade as STUCK
-        and stops retrying to prevent infinite loops like the PSQ issue.
+        After MAX_CLOSE_ATTEMPTS failures, flags trade as STUCK.
         """
         trade_id = trade["trade_id"]
         symbol   = trade["symbol"]
@@ -206,67 +239,188 @@ class PositionMonitor:
             return False
 
     # ------------------------------------------------------------------
+    #  NEW: PERFORMANCE-CONTINGENT TIME STOPS
+    # ------------------------------------------------------------------
 
-    def check_positions(self):
-        open_trades = self._db.get_open_trades()
-        if not open_trades:
-            return
+    def _check_performance_time_stop(
+        self, trade: Dict, pnl_pct: float, age_seconds: float
+    ) -> Optional[str]:
+        """
+        Kill trades that aren't performing within expected timeframes.
 
-        market_open = _stock_market_open()
+        Logic:
+          - After 20 min: if pnl < -0.3% AND still moving wrong → early exit
+          - After 1 hour: if pnl < 0.5% → going nowhere, free up capital
+          - After 3 hours: if pnl < 1.5% → too slow for a day trade
+          - After 3.5 hours: hard kill regardless of profit
 
-        stock_trades  = [t for t in open_trades if t.get("asset_class") == "stock"]
-        crypto_trades = [t for t in open_trades if t.get("asset_class") != "stock"]
+        Returns exit reason string or None if trade should continue.
+        """
+        symbol    = trade["symbol"]
+        direction = trade["direction"]
+        trade_id  = trade["trade_id"]
 
-        if stock_trades and not market_open:
-            logger.debug(
-                f"Position monitor: skipping {len(stock_trades)} stock position(s) "
-                f"— market closed"
+        # ── Hard time stop: 3.5 hours ─────────────────────────────────
+        if age_seconds >= HARD_TIME_STOP_SEC:
+            logger.info(
+                f"[HARD TIME STOP] {symbol}: open {age_seconds/3600:.1f}hrs — "
+                f"3.5hr max reached | P&L {pnl_pct:+.2f}% | closing"
             )
+            return "hard_time_stop"
 
-        trades_to_check = crypto_trades
-        if market_open:
-            trades_to_check = trades_to_check + stock_trades
-
-        if not trades_to_check:
-            return
-
-        logger.debug(f"Monitoring {len(trades_to_check)} open positions...")
-
-        for trade in trades_to_check:
-            try:
-                self._process_position(trade)
-            except Exception as e:
-                logger.error(
-                    f"Error processing position {trade['symbol']}: {e}"
+        # ── 3-hour performance check ──────────────────────────────────
+        if age_seconds >= PERF_CHECK_3HR_SEC:
+            if pnl_pct < PERF_CHECK_3HR_MIN_PCT:
+                logger.info(
+                    f"[PERF TIME STOP 3HR] {symbol}: open {age_seconds/3600:.1f}hrs | "
+                    f"P&L {pnl_pct:+.2f}% < {PERF_CHECK_3HR_MIN_PCT}% target — closing"
                 )
+                return "perf_time_stop_3hr"
 
-        # Price alerts
-        try:
-            from reporting.alerts import alert_manager
-            from data.database import db as _db
-
-            all_symbols = list(config.CRYPTO_WATCHLIST)
-            if market_open:
-                all_symbols += (
-                    list(config.STOCK_WATCHLIST) +
-                    ["SOXL", "SOXS", "TQQQ", "SQQQ", "SPXL", "SPXS",
-                     "UVXY", "SVXY", "LABU", "LABD"]
+        # ── 1-hour performance check ──────────────────────────────────
+        if age_seconds >= PERF_CHECK_1HR_SEC:
+            if pnl_pct < PERF_CHECK_1HR_MIN_PCT:
+                logger.info(
+                    f"[PERF TIME STOP 1HR] {symbol}: open {age_seconds/3600:.1f}hrs | "
+                    f"P&L {pnl_pct:+.2f}% < {PERF_CHECK_1HR_MIN_PCT}% target — closing"
                 )
+                return "perf_time_stop_1hr"
 
-            for sym in all_symbols:
-                alerts = _db.get_state(f"price_alerts_{sym}", default=[])
-                if not alerts:
-                    continue
-                asset = "crypto" if "/" in sym else "stock"
-                price = self._get_scanner().get_current_price(sym, asset)
-                if price:
-                    alert_manager.check_price_alerts(sym, price)
-        except Exception as e:
-            logger.debug(f"Price alert check error: {e}")
+        return None
 
-    def check_all_positions(self):
-        """Alias for backward compatibility."""
-        self.check_positions()
+    # ------------------------------------------------------------------
+    #  NEW: EARLY LOSS IDENTIFICATION (20 MIN CHECK)
+    # ------------------------------------------------------------------
+
+    def _check_early_loss(
+        self, trade: Dict, current_price: float, pnl_pct: float, age_seconds: float
+    ) -> Optional[str]:
+        """
+        Catch trades where the thesis was wrong from the start.
+        At 20 minutes: if trade is negative AND still moving against us → close.
+        This limits losses on trades that immediately went the wrong way
+        rather than waiting for the full stop loss to be hit.
+
+        Uses last 3 bars to confirm the move is still going against us,
+        not just a brief wick.
+        """
+        symbol    = trade["symbol"]
+        direction = trade["direction"]
+        trade_id  = trade["trade_id"]
+
+        # Only check in the 20-40 minute window (don't re-check after)
+        if age_seconds < EARLY_LOSS_CHECK_SEC:
+            return None
+        if age_seconds > EARLY_LOSS_CHECK_SEC * 2:  # 40 minutes max window
+            return None
+
+        # Already checked this trade at 20 min?
+        already_checked = int(
+            self._db.get_state(f"early_loss_checked_{trade_id}", default=0)
+        )
+        if already_checked:
+            return None
+
+        # Mark as checked so we don't re-evaluate
+        self._db.set_state(f"early_loss_checked_{trade_id}", 1)
+
+        if pnl_pct >= EARLY_LOSS_MIN_PCT:
+            # Trade is flat or positive — no early exit needed
+            logger.debug(
+                f"[EARLY CHECK] {symbol}: P&L {pnl_pct:+.2f}% at 20min — OK"
+            )
+            return None
+
+        # Trade is negative — check if still moving against us
+        bars = self._get_bars(symbol, trade["asset_class"], limit=5)
+        if bars is None or len(bars) < 3:
+            logger.info(
+                f"[EARLY LOSS EXIT] {symbol}: P&L {pnl_pct:+.2f}% at 20min, "
+                f"no bar data to confirm — closing on loss threshold"
+            )
+            return "early_loss_no_data"
+
+        closes = bars["close"].values
+        still_wrong = (
+            direction == "long"  and closes[-1] < closes[-2] < closes[-3]
+        ) or (
+            direction == "short" and closes[-1] > closes[-2] > closes[-3]
+        )
+
+        if still_wrong:
+            logger.info(
+                f"[EARLY LOSS EXIT] {symbol}: P&L {pnl_pct:+.2f}% at 20min "
+                f"AND still moving wrong direction — thesis failed, closing"
+            )
+            return "early_loss"
+        else:
+            logger.info(
+                f"[EARLY CHECK] {symbol}: P&L {pnl_pct:+.2f}% at 20min but "
+                f"price stabilizing — holding, watching stop loss"
+            )
+            return None
+
+    # ------------------------------------------------------------------
+    #  NEW: PIVOT POINT BREAK EXIT
+    # ------------------------------------------------------------------
+
+    def _check_pivot_break(
+        self, trade: Dict, current_price: float
+    ) -> Optional[str]:
+        """
+        Classic floor trader pivot points calculated from recent bars.
+        PP  = (High + Low + Close) / 3
+        S1  = 2*PP - High   (first support)
+        S2  = PP - (High - Low)  (second support)
+        R1  = 2*PP - Low    (first resistance)
+        R2  = PP + (High - Low)  (second resistance)
+
+        Exit logic:
+          Long:  if price breaks below S1 → structural support failed → close
+          Short: if price breaks above R1 → structural resistance failed → close
+
+        Only fires after 30 minutes (gives trade time to breathe past entry noise).
+        """
+        symbol    = trade["symbol"]
+        direction = trade["direction"]
+        trade_id  = trade["trade_id"]
+
+        bars = self._get_bars(symbol, trade["asset_class"], limit=PIVOT_BARS)
+        if bars is None or len(bars) < 5:
+            return None
+
+        # Calculate pivots from the lookback window (excluding current bar)
+        h   = float(bars["high"].iloc[:-1].max())
+        l   = float(bars["low"].iloc[:-1].min())
+        c   = float(bars["close"].iloc[-2])  # last closed bar
+
+        pp  = (h + l + c) / 3
+        s1  = 2 * pp - h
+        s2  = pp - (h - l)
+        r1  = 2 * pp + l   # corrected: 2*PP - Low
+        r1  = 2 * pp - l
+        r2  = pp + (h - l)
+
+        logger.debug(
+            f"[PIVOT] {symbol}: PP={pp:.4f} S1={s1:.4f} S2={s2:.4f} "
+            f"R1={r1:.4f} R2={r2:.4f} | current={current_price:.4f}"
+        )
+
+        if direction == "long" and current_price < s1:
+            logger.info(
+                f"[PIVOT EXIT] {symbol}: LONG broke below S1={s1:.4f} "
+                f"(current={current_price:.4f}) — structural support failed, closing"
+            )
+            return "pivot_break_s1"
+
+        if direction == "short" and current_price > r1:
+            logger.info(
+                f"[PIVOT EXIT] {symbol}: SHORT broke above R1={r1:.4f} "
+                f"(current={current_price:.4f}) — structural resistance failed, closing"
+            )
+            return "pivot_break_r1"
+
+        return None
 
     # ------------------------------------------------------------------
     #  ADX / DI HELPERS FOR STALE POSITION CHECK
@@ -279,13 +433,13 @@ class PositionMonitor:
             if bars is None or len(bars) < 20:
                 return None
 
-            adx_df = ta.adx(bars["high"], bars["low"], bars["close"], length=14)
+            adx_df  = ta.adx(bars["high"], bars["low"], bars["close"], length=14)
             if adx_df is None or adx_df.empty:
                 return None
 
-            adx_col  = [c for c in adx_df.columns if c.startswith("ADX_")]
-            dmp_col  = [c for c in adx_df.columns if c.startswith("DMP_")]
-            dmn_col  = [c for c in adx_df.columns if c.startswith("DMN_")]
+            adx_col = [c for c in adx_df.columns if c.startswith("ADX_")]
+            dmp_col = [c for c in adx_df.columns if c.startswith("DMP_")]
+            dmn_col = [c for c in adx_df.columns if c.startswith("DMN_")]
 
             if not adx_col or not dmp_col or not dmn_col:
                 return None
@@ -301,7 +455,7 @@ class PositionMonitor:
 
     def _check_stale_position(self, trade: Dict) -> Optional[str]:
         """
-        Stale asset sell-off logic (Linda's pseudo-code):
+        Stale position sell-off logic:
           If ADX < 25 (trend stalled) → sell immediately
           Else:
             Long  + bearish (-DI > +DI) → sell
@@ -329,7 +483,7 @@ class PositionMonitor:
         if adx < ADX_STALE_THRESHOLD:
             logger.info(
                 f"[STALE EXIT] {symbol}: ADX={adx:.1f} < {ADX_STALE_THRESHOLD} "
-                f"(trend stalled) — closing position"
+                f"(trend stalled) — closing"
             )
             return "stale_no_trend"
 
@@ -448,19 +602,26 @@ class PositionMonitor:
             return 0.0
 
     # ------------------------------------------------------------------
+    #  MAIN POSITION PROCESSOR
+    # ------------------------------------------------------------------
 
     def _process_position(self, trade: Dict):
         """
         Process a single open position.
 
         Exit priority order:
-          1. STUCK check — skip if too many failed close attempts
-          2. EOD close (15:45 ET) — all non-overnight stock positions
-          3. Stop-loss — always fires immediately
-          4. ORB VWAP cross exit — only for orb_breakout strategy
-          5. Take-profit + momentum rider (non-ORB)
-          6. Stale position check (3hr ADX/DI)
-          7. Trailing stop update
+          1.  STUCK check
+          2.  EOD close (15:45 ET)
+          3.  Stop-loss
+          4.  ORB VWAP cross exit
+          5.  Early loss identification (20 min)
+          6.  Performance-contingent time stop (1hr)
+          7.  Performance-contingent time stop (3hr)
+          8.  Hard time stop (3.5hr)
+          9.  Take-profit + momentum rider
+          10. Pivot point break
+          11. Stale position ADX/DI (3hr)
+          12. Trailing stop update + logging
         """
         symbol      = trade["symbol"]
         asset_class = trade["asset_class"]
@@ -470,8 +631,6 @@ class PositionMonitor:
         is_overnight= bool(trade.get("is_overnight", False))
 
         # ── 1. STUCK CHECK ───────────────────────────────────────────────
-        # Skip processing if too many close attempts have failed.
-        # Prevents infinite retry loops (e.g. PSQ retrying 50+ times).
         if self._is_stuck(trade_id):
             logger.warning(
                 f"[STUCK] {symbol}: skipping — exceeded {MAX_CLOSE_ATTEMPTS} "
@@ -490,10 +649,13 @@ class PositionMonitor:
         else:
             pnl_pct = (trade["entry_price"] - current_price) / trade["entry_price"] * 100
 
+        age_seconds = _get_position_age_seconds(trade)
+        age_hrs     = age_seconds / 3600
+
         logger.debug(
             f"{symbol}: price=${current_price:.4f} | "
             f"SL=${trade['stop_loss']:.4f} | TP=${trade['take_profit']:.4f} | "
-            f"P&L: {pnl_pct:+.2f}%"
+            f"P&L: {pnl_pct:+.2f}% | Age: {age_hrs:.1f}hr"
         )
 
         # ── 2. EOD CLOSE (15:45 ET) ──────────────────────────────────────
@@ -508,7 +670,10 @@ class PositionMonitor:
         # ── 3. STOP-LOSS ──────────────────────────────────────────────────
         sl_exit = risk_manager.check_sl_exit(trade, current_price)
         if sl_exit:
-            logger.info(f"Stop-loss triggered: {symbol} @ ${current_price:.4f}")
+            logger.info(
+                f"[STOP LOSS] {symbol} @ ${current_price:.4f} | "
+                f"P&L {pnl_pct:+.2f}% | age {age_hrs:.1f}hr"
+            )
             self._db.set_state(f"momentum_ext_{trade_id}", 0)
             self._attempt_close(trade, current_price, sl_exit)
             return
@@ -519,8 +684,31 @@ class PositionMonitor:
                 self._db.set_state(f"momentum_ext_{trade_id}", 0)
                 self._attempt_close(trade, current_price, "vwap_cross")
                 return
-        else:
-            # ── 5. TAKE-PROFIT + MOMENTUM RIDER (non-ORB) ───────────────
+
+        # ── 5. EARLY LOSS IDENTIFICATION (20 min) ────────────────────────
+        # Skip for ORB — it needs time to develop past the opening range
+        if strategy != "orb_breakout":
+            early_exit = self._check_early_loss(
+                trade, current_price, pnl_pct, age_seconds
+            )
+            if early_exit:
+                self._db.set_state(f"momentum_ext_{trade_id}", 0)
+                self._attempt_close(trade, current_price, early_exit)
+                return
+
+        # ── 6-8. PERFORMANCE-CONTINGENT AND HARD TIME STOPS ──────────────
+        # Skip for overnight positions — they're explicitly held longer
+        if not is_overnight:
+            time_exit = self._check_performance_time_stop(
+                trade, pnl_pct, age_seconds
+            )
+            if time_exit:
+                self._db.set_state(f"momentum_ext_{trade_id}", 0)
+                self._attempt_close(trade, current_price, time_exit)
+                return
+
+        # ── 9. TAKE-PROFIT + MOMENTUM RIDER (non-ORB) ────────────────────
+        if strategy != "orb_breakout":
             at_tp = (
                 (direction == "long"  and current_price >= trade["take_profit"]) or
                 (direction == "short" and current_price <= trade["take_profit"])
@@ -530,7 +718,9 @@ class PositionMonitor:
                 rider_enabled  = getattr(config, "MOMENTUM_RIDER_ENABLED", True)
                 max_extensions = getattr(config, "MOMENTUM_RIDER_MAX_EXTENSIONS", 3)
                 min_score      = getattr(config, "MOMENTUM_RIDER_MIN_SCORE", 0.67)
-                ext_count      = self._db.get_state(f"momentum_ext_{trade_id}", default=0)
+                ext_count      = int(self._db.get_state(
+                    f"momentum_ext_{trade_id}", default=0
+                ))
 
                 ride = False
                 if rider_enabled and ext_count < max_extensions:
@@ -539,56 +729,155 @@ class PositionMonitor:
 
                 if ride:
                     tp_pct = config.DEFAULT_TAKE_PROFIT_PCT / 100
-                    new_tp = current_price * (1 + tp_pct) if direction == "long" else current_price * (1 - tp_pct)
+                    new_tp = (
+                        current_price * (1 + tp_pct)
+                        if direction == "long"
+                        else current_price * (1 - tp_pct)
+                    )
                     new_tp = round(new_tp, 4)
                     self._db.update_trade_levels(trade_id, take_profit=new_tp)
-                    self._db.set_state(f"momentum_ext_{trade_id}", 0)
+                    self._db.set_state(f"momentum_ext_{trade_id}", ext_count + 1)
                     with self._db._conn() as conn:
-                        conn.execute("UPDATE trades SET tp_hit_count = ? WHERE trade_id = ?", (ext_count + 1, trade_id))
+                        conn.execute(
+                            "UPDATE trades SET tp_hit_count = ? WHERE trade_id = ?",
+                            (ext_count + 1, trade_id)
+                        )
                         conn.commit()
+                    # ── LOG TP EXTENSION ──────────────────────────────────
                     logger.info(
-                        f"MOMENTUM RIDER: {symbol} TP extended → ${new_tp:.4f} "
-                        f"(ext {ext_count + 1}/{max_extensions}, P&L {pnl_pct:+.2f}%)"
+                        f"[TP EXTENDED] {symbol} {direction.upper()} | "
+                        f"TP raised {trade['take_profit']:.4f} → {new_tp:.4f} | "
+                        f"Extension {ext_count + 1}/{max_extensions} | "
+                        f"Momentum score: {mom_score:.2f} | P&L {pnl_pct:+.2f}%"
                     )
                 else:
                     logger.info(
-                        f"Take-profit exit: {symbol} @ ${current_price:.4f} "
-                        f"(P&L {pnl_pct:+.2f}%, extensions: {ext_count})"
+                        f"[TAKE PROFIT] {symbol} @ ${current_price:.4f} | "
+                        f"P&L {pnl_pct:+.2f}% | "
+                        f"Extensions used: {ext_count} | "
+                        f"Original TP was ${trade['take_profit']:.4f}"
                     )
                     self._db.set_state(f"momentum_ext_{trade_id}", 0)
                     with self._db._conn() as conn:
-                        conn.execute("UPDATE trades SET tp_hit_count = 0 WHERE trade_id = ?", (trade_id,))
+                        conn.execute(
+                            "UPDATE trades SET tp_hit_count = 0 WHERE trade_id = ?",
+                            (trade_id,)
+                        )
                         conn.commit()
                     self._attempt_close(trade, current_price, "take_profit")
                     return
 
-        # ── 6. STALE POSITION CHECK (3hr ADX/DI) ──────────────────────
-        age_seconds = _get_position_age_seconds(trade)
+        # ── 10. PIVOT POINT BREAK ─────────────────────────────────────────
+        # Only check after 30 min to allow trade to breathe past entry noise
+        if age_seconds >= 30 * 60 and strategy != "orb_breakout":
+            pivot_exit = self._check_pivot_break(trade, current_price)
+            if pivot_exit:
+                logger.info(
+                    f"[PIVOT BREAK] {symbol}: structural level broken | "
+                    f"P&L {pnl_pct:+.2f}% | age {age_hrs:.1f}hr"
+                )
+                self._db.set_state(f"momentum_ext_{trade_id}", 0)
+                self._attempt_close(trade, current_price, pivot_exit)
+                return
+
+        # ── 11. STALE POSITION CHECK (3hr ADX/DI) ────────────────────────
+        # Note: by this point the performance time stop at 3hr has already
+        # fired if profit was below 1.5%. This catches winning positions
+        # that are starting to show trend exhaustion.
         if age_seconds >= STALE_THRESHOLD_SEC:
             stale_exit = self._check_stale_position(trade)
             if stale_exit:
                 logger.info(
                     f"[STALE EXIT] {symbol}: closing after "
-                    f"{age_seconds/3600:.1f}hrs | reason={stale_exit}"
+                    f"{age_hrs:.1f}hrs | reason={stale_exit}"
                 )
                 self._db.set_state(f"momentum_ext_{trade_id}", 0)
                 self._attempt_close(trade, current_price, stale_exit)
                 return
 
-        # ── 7. TRAILING STOP UPDATE ───────────────────────────────────
+        # ── 12. TRAILING STOP UPDATE + LOGGING ───────────────────────────
         updates = risk_manager.calculate_trailing_stop(trade, current_price)
         if updates:
+            old_sl = trade.get("stop_loss", 0)
+            old_tp = trade.get("take_profit", 0)
             self._db.update_trade_levels(
                 trade_id,
                 stop_loss   = updates.get("stop_loss"),
-                take_profit = updates.get("take_profit")
+                take_profit = updates.get("take_profit"),
             )
-            if "stop_loss" in updates:
+            # Log trailing stop moves so closed trade history is clear
+            if "stop_loss" in updates and updates["stop_loss"] != old_sl:
                 logger.info(
-                    f"Trailing stop updated: {symbol} SL → "
-                    f"${updates['stop_loss']:.4f} "
-                    f"(locked in {pnl_pct:+.2f}% gain)"
+                    f"[TRAILING STOP] {symbol} {direction.upper()} | "
+                    f"SL ratcheted ${old_sl:.4f} → ${updates['stop_loss']:.4f} | "
+                    f"Locked in {pnl_pct:+.2f}% gain"
                 )
+            if "take_profit" in updates and updates["take_profit"] != old_tp:
+                logger.info(
+                    f"[DYNAMIC TP] {symbol} {direction.upper()} | "
+                    f"TP adjusted ${old_tp:.4f} → ${updates['take_profit']:.4f}"
+                )
+
+    def check_positions(self):
+        open_trades = self._db.get_open_trades()
+        if not open_trades:
+            return
+
+        market_open = _stock_market_open()
+
+        stock_trades  = [t for t in open_trades if t.get("asset_class") == "stock"]
+        crypto_trades = [t for t in open_trades if t.get("asset_class") != "stock"]
+
+        if stock_trades and not market_open:
+            logger.debug(
+                f"Position monitor: skipping {len(stock_trades)} stock position(s) "
+                f"— market closed"
+            )
+
+        trades_to_check = crypto_trades
+        if market_open:
+            trades_to_check = trades_to_check + stock_trades
+
+        if not trades_to_check:
+            return
+
+        logger.debug(f"Monitoring {len(trades_to_check)} open positions...")
+
+        for trade in trades_to_check:
+            try:
+                self._process_position(trade)
+            except Exception as e:
+                logger.error(
+                    f"Error processing position {trade['symbol']}: {e}"
+                )
+
+        # Price alerts
+        try:
+            from reporting.alerts import alert_manager
+            from data.database import db as _db
+
+            all_symbols = list(config.CRYPTO_WATCHLIST)
+            if market_open:
+                all_symbols += (
+                    list(config.STOCK_WATCHLIST) +
+                    ["SOXL", "SOXS", "TQQQ", "SQQQ", "SPXL", "SPXS",
+                     "UVXY", "SVXY", "LABU", "LABD"]
+                )
+
+            for sym in all_symbols:
+                alerts = _db.get_state(f"price_alerts_{sym}", default=[])
+                if not alerts:
+                    continue
+                asset = "crypto" if "/" in sym else "stock"
+                price = self._get_scanner().get_current_price(sym, asset)
+                if price:
+                    alert_manager.check_price_alerts(sym, price)
+        except Exception as e:
+            logger.debug(f"Price alert check error: {e}")
+
+    def check_all_positions(self):
+        """Alias for backward compatibility."""
+        self.check_positions()
 
     def get_positions_summary(self) -> List[Dict]:
         open_trades = self._db.get_open_trades()
@@ -618,8 +907,8 @@ class PositionMonitor:
                 unrealized_pnl = (trade["entry_price"] - current_price) * qty
                 pnl_pct = (trade["entry_price"] / current_price - 1) * 100
 
-            # Check if trade is stuck
-            is_stuck = self._is_stuck(trade["trade_id"])
+            age_seconds = _get_position_age_seconds(trade)
+            is_stuck    = self._is_stuck(trade["trade_id"])
             close_attempts = self._get_close_attempts(trade["trade_id"])
 
             enriched.append({
@@ -634,6 +923,7 @@ class PositionMonitor:
                 "distance_to_tp":  round(
                     abs(trade["take_profit"] - current_price) / current_price * 100, 2
                 ),
+                "age_hours":       round(age_seconds / 3600, 2),
                 "is_overnight":    bool(trade.get("is_overnight", False)),
                 "tp_hit_count":    int(trade.get("tp_hit_count", 0)),
                 "is_stuck":        is_stuck,

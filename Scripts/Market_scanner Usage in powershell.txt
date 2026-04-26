@@ -1,0 +1,12 @@
+Market_scanner Usage in powershell
+python market_scanner.py                    # both, top 10
+python market_scanner.py --top 20           # both, top 20
+python market_scanner.py --stocks-only      # stocks only
+python market_scanner.py --crypto-only      # crypto only
+python market_scanner.py -o scan.csv        # save combined to CSV
+
+market_scanner platform integration
+from market_scanner import scan_stocks, scan_crypto
+
+stock_df = scan_stocks(top_n=10)    # returns ranked DataFrame
+crypto_df = scan_crypto(top_n=10)

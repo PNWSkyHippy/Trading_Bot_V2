@@ -1,0 +1,85 @@
+
+==============================================================================
+1. OVERALL STATISTICS
+==============================================================================
+  Trades                      716
+  Winners                     283
+  Losers                      365
+  Win Rate %                43.67
+  Avg Win            $      35.02
+  Avg Loss           $     -25.37
+  Expectancy         $       1.00
+  Largest Win        $     218.87
+  Largest Loss       $    -376.56
+  Total P&L          $     649.44
+  Avg P&L            $       0.91
+
+==============================================================================
+2. PERFORMANCE BY SETUP TYPE
+==============================================================================
+        setup_type  Trades  Winners  Losers  Win Rate %  Avg Win  Avg Loss  Expectancy  Largest Win  Largest Loss  Total P&L  Avg P&L
+bollinger_breakout     609      241     315       43.35    30.66    -20.67        1.58       137.81        -87.39     875.76     1.44
+    mean_reversion      11        3       2       60.00    15.20    -20.81        0.80        19.90        -32.87       3.99     0.36
+            manual      96       39      48       44.83    63.52    -56.41       -2.65       218.87       -376.56    -230.31    -2.40
+
+==============================================================================
+3. PERFORMANCE BY TIME OF DAY (ALL 24 HOURS)
+==============================================================================
+  All trades included (stocks + crypto, full 24h coverage).
+
+ time_block  Trades  Winners  Losers  Win Rate %  Avg Win  Avg Loss  Expectancy  Largest Win  Largest Loss  Total P&L  Avg P&L
+00:00-09:30     263       81     146       35.68    32.17    -25.15       -4.70       137.81       -258.22   -1067.14    -4.06
+09:30-10:30      33        6      16       27.27    13.13    -12.59       -5.57        21.40        -27.94    -122.65    -3.72
+10:30-11:30      29       12      11       52.17    69.03    -24.52       24.29        99.11        -33.95     558.65    19.26
+11:30-12:30      18       11       2       84.62    55.58    -27.36       42.82        68.53        -31.85     556.63    30.92
+12:30-13:30      11        3       5       37.50    29.24    -21.74       -2.62        63.25        -40.40     -20.98    -1.91
+13:30-14:30      12        7       1       87.50    28.86    -10.52       23.94        45.60        -10.52     191.48    15.96
+14:30-16:00      36       19      17       52.78    28.43    -20.89        5.14       126.30        -40.07     185.08     5.14
+16:00-24:00     314      144     167       46.30    34.42    -27.48        1.18       218.87       -376.56     368.36     1.17
+
+==============================================================================
+4. PERFORMANCE BY DAY OF WEEK (ALL 7 DAYS)
+==============================================================================
+day_of_week  Trades  Winners  Losers  Win Rate %  Avg Win  Avg Loss  Expectancy  Largest Win  Largest Loss  Total P&L  Avg P&L
+     Sunday     127       45      80       36.00    48.15    -38.48       -7.29       218.87       -376.56    -911.84    -7.18
+     Monday     106       33      56       37.08    40.54    -27.20       -2.08       126.30       -258.22    -185.45    -1.75
+    Tuesday      97       60      37       61.86    34.24    -22.56       12.57       216.14        -66.55    1219.75    12.57
+  Wednesday     159       60      78       43.48    19.90    -17.61       -1.30        65.51        -87.39    -179.49    -1.13
+   Thursday     153       59      66       47.20    42.82    -21.89        8.65       137.81        -43.03    1081.28     7.07
+     Friday      26        8      18       30.77    21.67    -20.06       -7.22        63.40        -37.33    -187.65    -7.22
+   Saturday      48       18      30       37.50    25.49    -21.53       -3.90        75.05        -40.38    -187.16    -3.90
+
+==============================================================================
+5. PATTERN DETECTION
+==============================================================================
+  (buckets with < 3 trades excluded to avoid small-sample noise)
+
+  Best Hour: 10:30-11:30  (Total P&L: $558.65, Win Rate: 52.17%, Trades: 29)
+  Worst Hour: 00:00-09:30  (Total P&L: $-1,067.14, Win Rate: 35.68%, Trades: 263)
+  Best Setup: bollinger_breakout  (Total P&L: $875.76, Win Rate: 43.35%, Expectancy: $1.58, Trades: 609)
+  Worst Setup: manual  (Total P&L: $-230.31, Win Rate: 44.83%, Expectancy: $-2.65, Trades: 96)
+  Consistent Loss Periods: 00:00-09:30: $-1,067.14 over 263 trades (35.68% win rate); 09:30-10:30: $-122.65 over 33 trades (27.27% win rate); 12:30-13:30: $-20.98 over 11 trades (37.5% win rate)
+
+==============================================================================
+6. WRITTEN SUMMARY
+==============================================================================
+Across 716 trades you produced a total profit of $649.44, with a 43.7% win rate and an expectancy of $1.00 per trade.
+Your average winner is $35.02 and average loser is $-25.37, a 1.38:1 win/loss ratio.
+Of 3 setup(s) with >= 3 trades, 2 are profitable and 1 is losing money.
+Your best time block is 10:30-11:30 ($558.65) and worst is 00:00-09:30 ($-1,067.14).
+
+==============================================================================
+7. RECOMMENDATIONS
+==============================================================================
+  1. 'manual' is costing you $230.31 over 96 trades (44.83% win rate).
+     Consider paper-trading this setup until it proves out, or dropping it from your playbook entirely.
+
+  2. 'bollinger_breakout' is your highest-P&L setup ($875.76, expectancy $1.58).
+     Consider allocating more size or more attention here.
+
+  3. You're consistently losing during 00:00-09:30 ($-1,067.14 over 263 trades).
+     Consider sitting out this block, or at minimum cutting size until you identify what's different.
+
+  4. Losing money on: Sunday, Monday, Wednesday, Friday, Saturday.
+     Review whether these days have a pattern in strategy mix, market conditions, or session timing.
+
