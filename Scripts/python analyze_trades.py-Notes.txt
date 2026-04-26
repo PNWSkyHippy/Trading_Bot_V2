@@ -1,0 +1,20 @@
+python analyze_trades.py trades.csv --output report.txt
+
+Then paste report.txt into Claude along with the raw CSV and ask 
+something like "Look at the report summary and the underlying 
+trades — what patterns does the report miss?" 
+
+Giving both the aggregated report AND the raw data matters: 
+the report gives Claude the framing, the raw CSV lets it actually 
+verify or dig deeper.
+One caveat worth naming: Claude will find patterns whether they're 
+real or not. With 20 trades, any "pattern" Claude spots is a 
+hypothesis to test, not a conclusion. The script's 3-trade and 
+30-trade warnings apply even harder to narrative claims, because 
+stories are more convincing than numbers even when they 
+shouldn't be.
+If you want, I can add a flag to the script — something like 
+--for-claude — that outputs a more machine-readable version 
+(JSON or a structured markdown block) specifically designed to 
+paste into a chat. Or leave it as-is; the current text output 
+works fine for that purpose.Opus 4.7
