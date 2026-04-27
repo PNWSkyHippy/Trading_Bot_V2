@@ -242,9 +242,9 @@ class CoinbaseExecutor:
     """Executes crypto trades via Coinbase Advanced Trade."""
 
     def __init__(self):
-        self.exchange = ccxt.coinbase({
-            "apiKey":          config.COINBASE_API_KEY,
-            "secret":          config.COINBASE_SECRET_KEY,
+        self.exchange = ccxt.kraken({
+            "apiKey":          config.KRAKEN_API_KEY,
+            "secret":          config.KRAKEN_SECRET_KEY,
             "enableRateLimit": True,
         })
 
@@ -441,18 +441,12 @@ class TradeExecutor:
             else:
                 # cancel_open_orders is now built into AlpacaExecutor.close_position
                 success = self.alpaca.close_position(symbol)
-        elif asset_class == "crypto" and broker == "kraken" and config.KRAKEN_ENABLED:
-            side    = "buy" if direction == "long" else "sell"
-            success = self.kraken.close_position(symbol, qty, side)
         elif asset_class == "crypto":
+            # Kraken is the default crypto executor — Coinbase API is deprecated.
             side = "buy" if direction == "long" else "sell"
-            try:
-                result = self.coinbase.close_position(symbol, qty, side)
-                success = result is not False and result is not None
-            except Exception as e:
-                logger.debug(f"Coinbase close failed for {symbol}: {e} — paper sim")
-                success = False
-            if not success:
+            if config.KRAKEN_ENABLED:
+                success = self.kraken.close_position(symbol, qty, side)
+            else:
                 logger.info(f"[PAPER] Simulated close: {symbol} {side.upper()} @ ${current_price:.4f}")
                 success = True
 
@@ -575,21 +569,14 @@ class TradeExecutor:
                 approval.stop_loss, approval.take_profit
             )
 
-        elif signal.asset_class == "crypto" and "kraken" in broker:
+        elif signal.asset_class == "crypto":
+            # Kraken is the default crypto executor — Coinbase API is deprecated.
             if not config.KRAKEN_ENABLED:
                 return self._paper_fill(signal, approval)
             return self.kraken.submit_order(
                 signal.symbol, approval.quantity, side,
                 approval.stop_loss, approval.take_profit
             )
-        else:
-            result = self.coinbase.submit_order(
-                signal.symbol, approval.quantity, side,
-                approval.stop_loss, approval.take_profit
-            )
-            if result is None:
-                return self._paper_fill(signal, approval)
-            return result
 
     def _paper_fill(self, signal, approval: TradeApproval) -> Dict:
         logger.info(
@@ -609,11 +596,8 @@ class TradeExecutor:
             if self._ibkr is not None and self._ibkr.is_available():
                 return "ibkr"
             return "alpaca"
-        if "kraken" in exchange and config.KRAKEN_ENABLED:
-            return "kraken"
-        if "kraken" in exchange and not config.KRAKEN_ENABLED:
-            return "paper"
-        return "coinbase"
+        if signal.asset_class == "crypto":
+            return "kraken" if config.KRAKEN_ENABLED else "paper"
 
     def get_account_value(self) -> float:
         try:

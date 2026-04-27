@@ -67,7 +67,6 @@ JUP/USD
 CAKE/USD
 
 # ── AI / Data / Oracle ───────────────────────────────────────────────────────
-FET/USD
 TAO/USD
 WLD/USD
 RNDR/USD

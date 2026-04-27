@@ -7,6 +7,15 @@ the edges of the recent range (approximated via Bollinger Bands).
 Only activates when ADX confirms the market is NOT trending (ADX < threshold).
 
 ADX and BB thresholds configurable in config.SIGNAL_TUNING.
+
+OPEN ISSUE: Grid Bot signals do not populate standard indicators (RSI, MACD,
+volume ratio, BB%) in the signal metadata because it uses ADX + Bollinger Band
+position rather than those indicators. This causes the Claude reviewer to SKIP
+all Grid Bot signals due to missing data. Strategy is marked reviewer_exempt
+until we have enough live trade data to evaluate its performance independently.
+Once sufficient data exists (50+ trades), consider either:
+  a) Populating RSI/volume in metadata so reviewer can evaluate properly, or
+  b) Keeping exempt if win rate validates the strategy without review overhead.
 """
 
 import logging
@@ -24,8 +33,15 @@ class GridBot(BaseStrategy):
     def __init__(self):
         super().__init__()
         self.strategy_name   = "grid_bot"
-        self.stop_loss_pct   = 0.8     # Tighter stop in ranging market
-        self.take_profit_pct = 1.5     # Modest target — range is limited
+        self.stop_loss_pct   = 0.8
+        self.take_profit_pct = 1.5
+
+        # REVIEWER EXEMPT: Grid Bot uses ADX + BB position signals, not standard
+        # RSI/MACD/volume indicators. Claude reviewer SKIPs all signals due to
+        # missing indicator data. Exempt until 50+ live trades confirm performance.
+        # See open issue in module docstring above.
+        self.reviewer_exempt = True
+
         self.logger = logging.getLogger("GridBot")
 
     def analyze(

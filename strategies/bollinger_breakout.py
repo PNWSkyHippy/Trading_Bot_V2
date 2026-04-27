@@ -57,6 +57,15 @@ class BollingerBreakout(BaseStrategy):
         self.take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT
         self.logger = logging.getLogger("BollingerBreakout")
 
+        # Bollinger works well on stocks but bleeds on crypto.
+        # Disabled for crypto based on Apr 2026 live data:
+        #   Stocks: 123 trades, 30.9% WR, +$1,064
+        #   Crypto: 773 trades, 39.2% WR, -$860
+        # Re-evaluate after 200+ stock trades confirm the edge.
+        # OPEN ISSUE: if a crypto-specific Bollinger variant is developed,
+        # re-enable with tighter filters and crypto-specific thresholds.
+        self.crypto_enabled      = False
+
         # Bollinger is the sole crypto strategy running 24/7.
         # ML blending on bad/small training batches suppresses scores and
         # triggers auto-disable, cutting off all crypto coverage.
