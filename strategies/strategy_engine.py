@@ -80,6 +80,20 @@ class StrategyEngine:
 
     def _load_strategy_states(self):
         for strategy in self.strategies:
+            # auto_disable_exempt strategies must never load a persisted disabled
+            # state from the DB. They were exempt from auto-disable but a previous
+            # session may have saved 'false' before the flag was added.
+            # Always trust the code default for these strategies.
+            if getattr(strategy, "auto_disable_exempt", False):
+                logger.info(
+                    f"[STRATEGY LOAD] {strategy.name}: auto_disable_exempt — "
+                    f"ignoring DB state, using code default (enabled={strategy.enabled})"
+                )
+                # Clear any stale DB entry so it doesn't cause confusion
+                self._db.set_state(f"strategy_{strategy.name}_enabled",
+                                   "true" if strategy.enabled else "false")
+                continue
+
             key   = f"strategy_{strategy.name}_enabled"
             state = self._db.get_state(key, default=None)
             if state is not None:
