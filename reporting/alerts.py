@@ -33,9 +33,11 @@
 import logging
 import os
 import smtplib
-from datetime import datetime
+from collections import deque
+from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from threading import Lock
 from typing import Dict, List, Optional
 
 import config
@@ -60,13 +62,27 @@ class AlertManager:
         self.alert_on_halt   = os.getenv("ALERT_ON_HALT",        "true").lower() == "true"
         self.alert_min_pnl   = float(os.getenv("ALERT_MIN_PNL",  "0"))
 
+        # ── Digest queue ─────────────────────────────────────────────────────
+        # Trade open/close alerts are batched and sent as a single digest email
+        # every ALERT_DIGEST_HOURS hours instead of one email per trade.
+        # Errors and halts always bypass the queue and send immediately.
+        # Set ALERT_DIGEST_HOURS = 0 in config.py to disable batching (old behavior).
+        self._digest_hours   = getattr(config, "ALERT_DIGEST_HOURS", 1)
+        self._queue: deque   = deque()   # list of (timestamp, kind, subject, body, sms)
+        self._queue_lock     = Lock()
+        self._last_flush     = datetime.now(timezone.utc)  # track last digest send time
+
         self._email_configured = bool(
             self.email_sender and self.email_password and self.email_recipient
         )
         self._sms_configured = bool(self.sms_recipient and self._email_configured)
 
         if self._email_configured:
-            logger.info(f"Alerts: email configured → {self.email_recipient}")
+            logger.info(
+                f"Alerts: email configured → {self.email_recipient} "
+                f"| digest every {self._digest_hours}hr(s) "
+                f"({'batching disabled' if self._digest_hours == 0 else 'errors send immediately'})"
+            )
         if self._sms_configured:
             logger.info(f"Alerts: SMS configured → {self.sms_recipient}")
         if not self._email_configured:
@@ -80,7 +96,7 @@ class AlertManager:
     # ----------------------------------------------------------
 
     def trade_opened(self, trade: Dict):
-        """Send alert when a new trade opens."""
+        """Queue alert when a new trade opens (sent in next digest)."""
         if not self.alert_on_open or not self._email_configured:
             return
         symbol    = trade.get("symbol", "?")
@@ -90,6 +106,7 @@ class AlertManager:
         tp        = trade.get("take_profit", 0)
         value     = trade.get("position_value", 0)
         strategy  = trade.get("strategy_name", "unknown")
+        ts        = datetime.now().strftime("%H:%M")
 
         subject = f"[BOT] TRADE OPEN: {direction} {symbol} @ ${entry:.4f}"
         body = (
@@ -103,10 +120,17 @@ class AlertManager:
             f"Strategy:  {strategy}\n"
             f"Time:      {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         )
-        self._send(subject, body, sms_body=f"OPEN {direction} {symbol} @ ${entry:.4f} | SL:${sl:.4f} TP:${tp:.4f}")
+        summary = f"{ts} OPEN {direction} {symbol} @ ${entry:.4f} | SL:${sl:.4f} TP:${tp:.4f} [{strategy}]"
+        self._queue_trade_alert(
+            kind    = "open",
+            summary = summary,
+            subject = subject,
+            body    = body,
+            sms_body= f"OPEN {direction} {symbol} @ ${entry:.4f}",
+        )
 
     def trade_closed(self, trade: Dict):
-        """Send alert when a trade closes."""
+        """Queue alert when a trade closes (sent in next digest)."""
         if not self.alert_on_close or not self._email_configured:
             return
         pnl = trade.get("pnl", 0) or 0
@@ -121,6 +145,7 @@ class AlertManager:
         reason    = trade.get("exit_reason", "?").replace("_", " ").title()
         result    = "WIN" if pnl > 0 else "LOSS"
         strategy  = trade.get("strategy_name", "unknown")
+        ts        = datetime.now().strftime("%H:%M")
 
         subject = f"[BOT] TRADE {result}: {symbol} {direction} | P&L: ${pnl:+.2f} ({pnl_pct:+.2f}%)"
         body = (
@@ -134,13 +159,21 @@ class AlertManager:
             f"Strategy:  {strategy}\n"
             f"Time:      {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
         )
-        self._send(
-            subject, body,
-            sms_body=f"{result} {symbol} {direction} ${pnl:+.2f} ({pnl_pct:+.2f}%) via {reason}"
+        summary = (
+            f"{ts} {result} {direction} {symbol} "
+            f"${pnl:+.2f} ({pnl_pct:+.2f}%) via {reason} [{strategy}]"
+        )
+        self._queue_trade_alert(
+            kind    = "close_win" if pnl > 0 else "close_loss",
+            summary = summary,
+            subject = subject,
+            body    = body,
+            sms_body= f"{result} {symbol} ${pnl:+.2f} ({pnl_pct:+.2f}%)",
+            pnl     = pnl,
         )
 
     def trading_halted(self, reason: str):
-        """Send alert when trading is halted."""
+        """Send IMMEDIATE alert when trading is halted — bypasses digest queue."""
         if not self.alert_on_halt or not self._email_configured:
             return
         subject  = f"[BOT] TRADING HALTED — {reason}"
@@ -150,7 +183,8 @@ class AlertManager:
             f"Time:   {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
             f"Trading will resume tomorrow unless manually overridden."
         )
-        self._send(subject, body, sms_body=f"BOT HALTED: {reason}")
+        # Halts always bypass the queue — you need to know immediately
+        self._send_now(subject, body, sms_body=f"BOT HALTED: {reason}")
 
     # ----------------------------------------------------------
     #  PRICE ALERTS (for your personal manual trades)
@@ -252,8 +286,124 @@ class AlertManager:
     #  INTERNAL EMAIL/SMS SENDER
     # ----------------------------------------------------------
 
-    def _send(self, subject: str, body: str, sms_body: str = None):
-        """Send email and optionally SMS."""
+    # ----------------------------------------------------------
+    #  DIGEST QUEUE — called by position_monitor / bot_engine
+    #  on a schedule (e.g. every 30s) to flush queued alerts
+    # ----------------------------------------------------------
+
+    def flush_digest_if_due(self):
+        """
+        Called externally on a schedule (recommend every 60s from bot_engine).
+        Sends a single digest email containing all queued trade alerts if the
+        digest interval has elapsed. Safe to call frequently — does nothing
+        until the interval is reached.
+        """
+        if self._digest_hours == 0:
+            return  # batching disabled — alerts sent immediately in _send()
+
+        now     = datetime.now(timezone.utc)
+        elapsed = (now - self._last_flush).total_seconds() / 3600
+
+        if elapsed < self._digest_hours:
+            return  # not time yet
+
+        with self._queue_lock:
+            if not self._queue:
+                self._last_flush = now
+                return  # nothing queued
+
+            items = list(self._queue)
+            self._queue.clear()
+            self._last_flush = now
+
+        # Build digest email
+        wins   = [i for i in items if i["kind"] == "close_win"]
+        losses = [i for i in items if i["kind"] == "close_loss"]
+        opens  = [i for i in items if i["kind"] == "open"]
+
+        total_pnl = sum(i.get("pnl", 0) for i in wins + losses)
+        period    = f"Last {self._digest_hours}hr digest"
+
+        lines = [
+            f"Trading Bot Digest — {period}",
+            f"Generated: {now.strftime('%Y-%m-%d %H:%M UTC')}",
+            "",
+            f"Summary: {len(opens)} opened | {len(wins)} wins | {len(losses)} losses | Net P&L: ${total_pnl:+.2f}",
+            "=" * 55,
+        ]
+
+        if opens:
+            lines.append(f"\nOPENED ({len(opens)}):")
+            for i in opens:
+                lines.append(f"  {i['summary']}")
+
+        if wins:
+            lines.append(f"\nWINS ({len(wins)}):")
+            for i in wins:
+                lines.append(f"  {i['summary']}")
+
+        if losses:
+            lines.append(f"\nLOSSES ({len(losses)}):")
+            for i in losses:
+                lines.append(f"  {i['summary']}")
+
+        subject = (
+            f"[BOT DIGEST] {len(wins)}W/{len(losses)}L | "
+            f"Net ${total_pnl:+.2f} | {period}"
+        )
+        body = "\n".join(lines)
+
+        # Single SMS summary
+        sms = (
+            f"BOT {period}: {len(wins)}W/{len(losses)}L "
+            f"Net ${total_pnl:+.2f}"
+        )
+
+        self._send_now(subject, body, sms_body=sms)
+        logger.info(
+            f"[ALERT DIGEST] Sent: {len(opens)} opens, "
+            f"{len(wins)} wins, {len(losses)} losses, net ${total_pnl:+.2f}"
+        )
+
+    def _queue_trade_alert(self, kind: str, summary: str,
+                           subject: str, body: str,
+                           sms_body: str = None, pnl: float = 0.0):
+        """
+        Add a trade alert to the digest queue.
+        kind: 'open', 'close_win', 'close_loss'
+        If digest is disabled (ALERT_DIGEST_HOURS=0), sends immediately.
+        """
+        if self._digest_hours == 0:
+            # Batching disabled — fire immediately like old behavior
+            self._send_now(subject, body, sms_body)
+            return
+
+        with self._queue_lock:
+            self._queue.append({
+                "kind":    kind,
+                "summary": summary,
+                "subject": subject,
+                "body":    body,
+                "sms":     sms_body,
+                "pnl":     pnl,
+                "time":    datetime.now(timezone.utc).isoformat(),
+            })
+
+    def _send(self, subject: str, body: str, sms_body: str = None,
+              immediate: bool = False):
+        """
+        Route alert to queue (trade alerts) or send immediately (errors/halts).
+        Pass immediate=True to bypass the queue — used for halts and errors.
+        """
+        if immediate or self._digest_hours == 0:
+            self._send_now(subject, body, sms_body)
+        else:
+            # Trade alerts go through the queue — caller uses _queue_trade_alert()
+            # directly so _send() with immediate=False is only called for halts
+            self._send_now(subject, body, sms_body)
+
+    def _send_now(self, subject: str, body: str, sms_body: str = None):
+        """Actually send email and SMS immediately — bypasses queue."""
         if not self._email_configured:
             return
 
