@@ -51,6 +51,24 @@ for cmd in [
     if result.stderr:
         print(result.stderr)
     if result.returncode != 0:
+        # Auto-recover from non-fast-forward (remote has commits we don't have)
+        if "non-fast-forward" in result.stderr or "rejected" in result.stderr:
+            print("Remote has new commits — pulling and rebasing...")
+            pull = run(["git", "pull", "--rebase"])
+            if pull.stdout: print(pull.stdout)
+            if pull.stderr: print(pull.stderr)
+            if pull.returncode != 0:
+                print("Rebase failed — resolve conflicts manually.")
+                sys.exit(1)
+            # Retry push
+            retry = run(["git", "push"])
+            if retry.stdout: print(retry.stdout)
+            if retry.stderr: print(retry.stderr)
+            if retry.returncode != 0:
+                print("Push still failed after rebase — check manually.")
+                sys.exit(1)
+            print(f"Done — pulled, rebased, and pushed: '{message}'")
+            sys.exit(0)
         print(f"Error on: {' '.join(cmd)}")
         sys.exit(1)
 
