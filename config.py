@@ -21,7 +21,7 @@ COINBASE_SECRET_KEY = os.getenv("COINBASE_SECRET_KEY", "")
 
 KRAKEN_API_KEY      = os.getenv("KRAKEN_API_KEY", "")
 KRAKEN_SECRET_KEY   = os.getenv("KRAKEN_SECRET_KEY", "")
-KRAKEN_ENABLED      = False
+KRAKEN_ENABLED      = True
 
 # Interactive Brokers — add keys to .env when account is ready
 # IBKR uses TWS or IB Gateway running locally (no REST key — just account ID)
@@ -167,7 +167,7 @@ VERBOSE_MODE = False
 # Closes trades that aren't producing within expected timeframes.
 # Frees up capital for better opportunities rather than waiting for stop loss.
 PERF_TIME_STOP_ENABLED   = True
-PERF_CHECK_1HR_MIN_PCT   = 0.5    # need at least 0.5% profit after 1 hour
+PERF_CHECK_1HR_MIN_PCT   = 0.2    # need at least 0.5% profit after 1 hour
 PERF_CHECK_3HR_MIN_PCT   = 1.5    # need at least 1.5% profit after 3 hours
 HARD_TIME_STOP_HOURS     = 3.5    # hard kill after 3.5 hours regardless
 

@@ -49,47 +49,54 @@ class TechnicalAnalysis:
         loss     = -delta.clip(upper=0)
         avg_gain = gain.ewm(com=period - 1, adjust=False).mean()
         avg_loss = loss.ewm(com=period - 1, adjust=False).mean()
-        rs = avg_gain / avg_loss.replace(0, np.nan)
+        rs       = avg_gain / avg_loss.replace(0, float("nan"))
         return 100 - (100 / (1 + rs))
 
     @staticmethod
     def macd(series: pd.Series, fast: int = 12, slow: int = 26,
-             signal: int = 9) -> pd.DataFrame:
+             signal: int = 9) -> tuple:
         ema_fast    = series.ewm(span=fast,   adjust=False).mean()
         ema_slow    = series.ewm(span=slow,   adjust=False).mean()
         macd_line   = ema_fast - ema_slow
         signal_line = macd_line.ewm(span=signal, adjust=False).mean()
         histogram   = macd_line - signal_line
-        return pd.DataFrame({
-            "macd":   macd_line,
-            "signal": signal_line,
-            "hist":   histogram
-        })
+        return macd_line, signal_line, histogram
 
     @staticmethod
     def bollinger_bands(series: pd.Series, period: int = 20,
-                        std: float = 2.0) -> pd.DataFrame:
-        mid   = series.rolling(period).mean()
-        sigma = series.rolling(period).std()
-        return pd.DataFrame({
-            "upper": mid + std * sigma,
-            "mid":   mid,
-            "lower": mid - std * sigma,
-            "pct_b": (series - (mid - std * sigma)) / (2 * std * sigma)
-        })
+                        std_dev: float = 2.0) -> tuple:
+        sma   = series.rolling(period).mean()
+        std   = series.rolling(period).std()
+        upper = sma + std_dev * std
+        lower = sma - std_dev * std
+        pct_b = (series - lower) / (upper - lower).replace(0, float("nan"))
+        return upper, lower, pct_b
 
     @staticmethod
-    def volume_ratio(volume: pd.Series, period: int = 20) -> pd.Series:
-        avg = volume.rolling(period).mean()
-        return volume / avg.replace(0, np.nan)
+    def vwap(df: pd.DataFrame) -> pd.Series:
+        typical_price = (df["high"] + df["low"] + df["close"]) / 3
+        cum_tp_vol    = (typical_price * df["volume"]).cumsum()
+        cum_vol       = df["volume"].cumsum()
+        return cum_tp_vol / cum_vol.replace(0, float("nan"))
+
+    @staticmethod
+    def obv(df: pd.DataFrame) -> pd.Series:
+        direction = df["close"].diff().apply(
+            lambda x: 1 if x > 0 else (-1 if x < 0 else 0)
+        )
+        return (direction * df["volume"]).cumsum()
+
+    @staticmethod
+    def stochastic(df: pd.DataFrame, k_period: int = 14,
+                   d_period: int = 3) -> tuple:
+        low_min  = df["low"].rolling(k_period).min()
+        high_max = df["high"].rolling(k_period).max()
+        k = 100 * (df["close"] - low_min) / (high_max - low_min).replace(0, float("nan"))
+        d = k.rolling(d_period).mean()
+        return k, d
 
 
 class StockScanner:
-    """Scans stock watchlist for opportunities using Alpaca market data."""
-
-    MIN_PRICE   = getattr(config, "STOCK_MIN_PRICE",  1.0)
-    MAX_PRICE   = getattr(config, "STOCK_MAX_PRICE",  5000.0)
-    MIN_VOLUME  = getattr(config, "STOCK_MIN_VOLUME", 100000)
 
     def __init__(self):
         self.api = tradeapi.REST(
@@ -97,278 +104,173 @@ class StockScanner:
             config.ALPACA_SECRET_KEY,
             config.ALPACA_BASE_URL
         )
+        self.ta = TechnicalAnalysis()
 
     def get_bars(self, symbol: str, timeframe: str = "5Min",
                  limit: int = 100) -> Optional[pd.DataFrame]:
         try:
-            bars = self.api.get_bars(symbol, timeframe, limit=limit).df
-            if bars.empty or len(bars) < 50:
+            bars = self.api.get_bars(
+                symbol, timeframe,
+                limit=limit, adjustment="raw"
+            ).df
+            if bars.empty:
                 return None
-            bars.index = pd.to_datetime(bars.index)
+            bars.columns = [c.lower() for c in bars.columns]
+            bars = bars.rename(columns={"vwap": "vwap_raw"}) if "vwap" in bars.columns else bars
             return bars
         except Exception as e:
-            logger.debug(f"Failed to get bars for {symbol}: {e}")
+            logger.debug(f"Bars fetch failed for {symbol}: {e}")
             return None
 
     def get_current_price(self, symbol: str) -> Optional[float]:
         try:
-            quote = self.api.get_latest_quote(symbol)
-            return (quote.ap + quote.bp) / 2
-        except Exception as e:
-            logger.debug(f"Price lookup failed for {symbol}: {e}")
-            return None
+            trade = self.api.get_latest_trade(symbol)
+            return float(trade.price)
+        except Exception:
+            try:
+                bars = self.get_bars(symbol, "1Min", 1)
+                if bars is not None and not bars.empty:
+                    return float(bars["close"].iloc[-1])
+            except Exception:
+                pass
+        return None
 
     def scan(self) -> List[Signal]:
-        """Scan all stocks in watchlist and return signals."""
         signals = []
         for symbol in config.STOCK_WATCHLIST:
             try:
-                bars = self.get_bars(symbol)
-                if bars is None:
+                price = self.get_current_price(symbol)
+                if not price:
                     continue
-                price = bars["close"].iloc[-1]
-
-                # Basic filters
-                if price < self.MIN_PRICE or price > self.MAX_PRICE:
+                if not (config.STOCK_MIN_PRICE <= price <= config.STOCK_MAX_PRICE):
                     continue
-                if bars["volume"].iloc[-20:].mean() < self.MIN_VOLUME:
+                bars = self.get_bars(symbol, "5Min", 100)
+                if bars is None or len(bars) < 20:
                     continue
-
-                strat_signals = strategy_engine.run_strategies(
+                strategy_signals = strategy_engine.run_strategies(
                     symbol, "stock", bars, price
                 )
-                for ss in strat_signals:
-                    raw_indicators = {
-                        **ss.indicators,
-                        "strategy_name":          ss.strategy_name,
-                        "custom_stop_loss_pct":   ss.custom_stop_loss_pct,
-                        "custom_take_profit_pct": ss.custom_take_profit_pct,
-                        "custom_position_pct":    ss.custom_position_pct,
-                    }
-
-                    use_lev = getattr(config, "USE_LEVERAGED_LONGS", False)
-                    mapped_sym, mapped_dir, mapped_ind = map_signal(
-                        symbol              = ss.symbol,
-                        direction           = ss.direction,
-                        score               = ss.score,
-                        current_price       = ss.current_price,
-                        indicators          = raw_indicators,
-                        use_leveraged_longs = use_lev,
-                    )
-
-                    # ── CRITICAL FIX ──────────────────────────────────────
-                    # If the symbol was remapped to an ETF (e.g. MSFT→TQQQ),
-                    # the original stock price is WRONG for the ETF.
-                    # Fetch the actual current price of the mapped symbol
-                    # so stop-loss and take-profit are calculated correctly.
-                    if mapped_sym != ss.symbol:
-                        etf_price = self.get_current_price(mapped_sym)
-                        if etf_price is None or etf_price <= 0:
-                            logger.warning(
-                                f"Could not fetch price for mapped ETF {mapped_sym} "
-                                f"(from {ss.symbol}) — skipping signal"
-                            )
-                            continue
-                        signal_price = etf_price
-                        logger.info(
-                            f"ETF remap: {ss.symbol} ${ss.current_price:.2f} → "
-                            f"{mapped_sym} ${etf_price:.2f} "
-                            f"({'leveraged' if use_lev else 'inverse'})"
-                        )
-                    else:
-                        signal_price = ss.current_price
-
+                for ss in strategy_signals:
                     signals.append(Signal(
-                        symbol        = mapped_sym,
+                        symbol        = ss.symbol,
                         asset_class   = ss.asset_class,
-                        direction     = mapped_dir,
+                        direction     = ss.direction,
                         score         = ss.score,
-                        current_price = signal_price,
-                        indicators    = mapped_ind,
-                        reason        = f"[{ss.strategy_name}] {ss.reason}",
+                        current_price = ss.current_price,
+                        indicators    = ss.indicators,
+                        reason        = ss.reason,
                     ))
-
             except Exception as e:
-                logger.debug(f"Error scanning {symbol}: {e}")
-
-        signals.sort(key=lambda x: x.score, reverse=True)
-        logger.info(f"Stock scan complete: {len(signals)} signals found")
+                logger.debug(f"Stock scan error {symbol}: {e}")
         return signals
 
+
 class CryptoScanner:
-    """
-    Scans crypto pairs using Coinbase Advanced Trade via CCXT.
-    Also supports Kraken if keys are configured.
-    """
 
     def __init__(self):
-        self.coinbase = ccxt.coinbase({
-            "apiKey":          config.COINBASE_API_KEY,
-            "secret":          config.COINBASE_SECRET_KEY,
+        self.exchange = ccxt.kraken({
+            "apiKey":          config.KRAKEN_API_KEY,
+            "secret":          config.KRAKEN_SECRET_KEY,
             "enableRateLimit": True,
         })
-        # Load markets once at startup to cache currency list
-        # Prevents repeated /v2/currencies calls every scan cycle
+        self.ta = TechnicalAnalysis()
+
+    def get_ohlcv(self, symbol: str, timeframe: str = "5m",
+                  limit: int = 100) -> Optional[pd.DataFrame]:
         try:
-            self.coinbase.load_markets()
-            logger.info("Coinbase markets loaded and cached.")
-        except Exception as e:
-            logger.warning(f"Coinbase market preload failed: {e}")
-
-
-        self.kraken = None
-        if config.KRAKEN_API_KEY and config.KRAKEN_SECRET_KEY:
-            try:
-                self.kraken = ccxt.kraken({
-                    "apiKey":          config.KRAKEN_API_KEY,
-                    "secret":          config.KRAKEN_SECRET_KEY,
-                    "enableRateLimit": True,
-                })
-                logger.info("Kraken exchange initialized.")
-            except Exception as e:
-                logger.warning(f"Kraken init failed: {e}")
-
-    def get_ohlcv(self, pair: str, timeframe: str = "5m",
-                  limit: int = 210,
-                  exchange=None) -> Optional[pd.DataFrame]:
-        ex = exchange or self.coinbase
-        try:
-            ohlcv = ex.fetch_ohlcv(pair, timeframe, limit=limit)
-            if not ohlcv or len(ohlcv) < 50:
+            ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+            if not ohlcv:
                 return None
             df = pd.DataFrame(
-                ohlcv,
-                columns=["timestamp", "open", "high", "low", "close", "volume"]
+                ohlcv, columns=["timestamp", "open", "high", "low", "close", "volume"]
             )
             df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
             df.set_index("timestamp", inplace=True)
             return df
         except Exception as e:
-            logger.debug(f"Failed OHLCV for {pair}: {e}")
+            logger.debug(f"OHLCV fetch failed for {symbol}: {e}")
             return None
 
-    def get_current_price(self, pair: str) -> Optional[float]:
-        if self.kraken:
-            try:
-                ticker = self.kraken.fetch_ticker(pair)
-                if ticker and ticker.get("last"):
-                    return float(ticker["last"])
-            except Exception as e:
-                logger.debug(f"Kraken price lookup failed for {pair}: {e}")
-
+    def get_current_price(self, symbol: str) -> Optional[float]:
         try:
-            ticker = self.coinbase.fetch_ticker(pair)
-            if ticker and ticker.get("last"):
-                return float(ticker["last"])
-        except Exception as e:
-            logger.debug(f"Coinbase price lookup failed for {pair}: {e}")
-
-        try:
-            df = self.get_ohlcv(pair, timeframe="1m", limit=2)
-            if df is not None and not df.empty:
-                return float(df["close"].iloc[-1])
-        except Exception as e:
-            logger.debug(f"OHLCV price fallback failed for {pair}: {e}")
-
-        return None
+            ticker = self.exchange.fetch_ticker(symbol)
+            return float(ticker["last"])
+        except Exception:
+            return None
 
     def scan(self) -> List[Signal]:
-        """Scan all crypto pairs and return signals."""
         signals = []
-        for pair in config.CRYPTO_WATCHLIST:
-            for exchange_name, exchange in [
-                ("Coinbase", self.coinbase),
-                ("Kraken",   self.kraken)
-            ]:
-                if exchange is None:
+        for symbol in config.CRYPTO_WATCHLIST:
+            try:
+                price = self.get_current_price(symbol)
+                if not price:
                     continue
-                try:
-                    df = self.get_ohlcv(pair, exchange=exchange)
-                    if df is None:
-                        continue
-                    price = df["close"].iloc[-1]
-
-                    crypto_min = getattr(config, "CRYPTO_MIN_PRICE", 0.001)
-                    crypto_max = getattr(config, "CRYPTO_MAX_PRICE", 999999.0)
-                    if price < crypto_min or price > crypto_max:
-                        logger.debug(
-                            f"Skipping {pair} — price ${price:.8f} outside "
-                            f"filter (min=${crypto_min}, max=${crypto_max})"
-                        )
-                        continue
-
-                    strat_signals = strategy_engine.run_strategies(
-                        pair, "crypto", df, price
-                    )
-                    for ss in strat_signals:
-                        signals.append(Signal(
-                            symbol        = ss.symbol,
-                            asset_class   = ss.asset_class,
-                            direction     = ss.direction,
-                            score         = ss.score,
-                            current_price = ss.current_price,
-                            indicators    = {
-                                **ss.indicators,
-                                "strategy_name":          ss.strategy_name,
-                                "custom_stop_loss_pct":   ss.custom_stop_loss_pct,
-                                "custom_take_profit_pct": ss.custom_take_profit_pct,
-                                "custom_position_pct":    ss.custom_position_pct,
-                                "exchange":               exchange_name,
-                            },
-                            reason = f"[{ss.strategy_name}][{exchange_name}] {ss.reason}",
-                        ))
-                    break
-                except Exception as e:
-                    logger.debug(f"Error scanning {pair} on {exchange_name}: {e}")
-
-        signals.sort(key=lambda x: x.score, reverse=True)
-        logger.info(f"Crypto scan complete: {len(signals)} signals found")
+                if not (config.CRYPTO_MIN_PRICE <= price <= config.CRYPTO_MAX_PRICE):
+                    continue
+                bars = self.get_ohlcv(symbol, "5m", 100)
+                if bars is None or len(bars) < 20:
+                    continue
+                strategy_signals = strategy_engine.run_strategies(
+                    symbol, "crypto", bars, price
+                )
+                for ss in strategy_signals:
+                    signals.append(Signal(
+                        symbol        = ss.symbol,
+                        asset_class   = ss.asset_class,
+                        direction     = ss.direction,
+                        score         = ss.score,
+                        current_price = ss.current_price,
+                        indicators    = ss.indicators,
+                        reason        = ss.reason,
+                    ))
+            except Exception as e:
+                logger.debug(f"Crypto scan error {symbol}: {e}")
         return signals
 
 
 class MarketScanner:
-    """Combines stock and crypto scanners into one unified interface."""
 
-    def __init__(self, db_ref=None, trade_executor=None, risk_manager=None,
-                 strategy_engine_ref=None, ml_scorer=None, condition_detector=None):
-        self.stock_scanner   = StockScanner()
-        self.crypto_scanner  = CryptoScanner()
-        self._executor       = trade_executor
-        self._risk_manager   = risk_manager
-        self._ml_scorer      = ml_scorer
-        self._condition_detector = condition_detector
+    def __init__(self):
+        self.stock_scanner  = StockScanner()
+        self.crypto_scanner = CryptoScanner()
+
+    def _get_executor(self):
+        from core.trade_executor import executor
+        return executor
 
     def _get_ml_scorer(self):
-        if self._ml_scorer:
-            return self._ml_scorer
         from intelligence.ml_scorer import ml_scorer
         return ml_scorer
 
     def _get_condition_detector(self):
-        if self._condition_detector:
-            return self._condition_detector
         from intelligence.condition_detector import condition_detector
         return condition_detector
 
-    def _get_executor(self):
-        if self._executor:
-            return self._executor
-        from core.trade_executor import executor
-        return executor
-
     def scan_stocks(self):
-        self._process_signals(self.stock_scanner.scan())
+        signals = self.stock_scanner.scan()
+        if signals:
+            self._process_signals(signals)
 
     def scan_crypto(self):
-        self._process_signals(self.crypto_scanner.scan())
+        signals = self.crypto_scanner.scan()
+        if signals:
+            self._process_signals(signals)
 
     def _process_signals(self, signals: List[Signal]):
         if not signals:
             return
 
+        # Determine asset class FIRST — before any gate checks
+        # is_crypto must be known before the morning briefing gate
+        is_crypto = all(s.asset_class == "crypto" for s in signals)
+
         # ── Claude morning briefing ───────────────────────────────────────
-        # Get or refresh market context — cached 60 min, conservative on failure.
-        # If briefing fails or blocks trading, no signals execute today.
+        # Get or refresh market context — cached 120 min, conservative on failure.
+        #
+        # CRITICAL: allow_trading=False only blocks STOCKS.
+        # Crypto trades 24/7 — the morning briefing gate is irrelevant for crypto.
+        # Crypto signals bypass this gate and go straight to per-signal review.
+        #
         # FALLBACK: if reviewer unavailable, market_context = None and signals
         # proceed through mechanical execution only (no Claude veto).
         market_context = None
@@ -376,20 +278,25 @@ class MarketScanner:
             from intelligence.claude_reviewer import claude_reviewer
             if claude_reviewer.is_enabled():
                 market_context = claude_reviewer.get_morning_context()
-                if not market_context.allow_trading:
+                if not market_context.allow_trading and not is_crypto:
+                    # Stock trading blocked by morning briefing — return early
                     logger.info(
-                        f"Claude reviewer: trading blocked — "
+                        f"Claude reviewer: stock trading blocked — "
                         f"{market_context.briefing_text[:120]}"
                     )
                     return
+                elif not market_context.allow_trading and is_crypto:
+                    # Crypto bypasses the allow_trading gate — log and continue
+                    logger.debug(
+                        "Claude reviewer: allow_trading=False but this is a crypto scan "
+                        "— bypassing market hours gate, proceeding to signal review"
+                    )
         except Exception as e:
             logger.warning(
                 f"Claude reviewer unavailable: {e} — "
                 f"proceeding with mechanical execution only"
             )
             market_context = None
-
-        is_crypto = all(s.asset_class == "crypto" for s in signals)
 
         condition_value = "unknown"
         position_scalar = 1.0
@@ -438,17 +345,6 @@ class MarketScanner:
         )
 
         for signal in unique_signals:
-            # ── ML score blending ─────────────────────────────────────────
-            # Skip ML blending entirely for strategies marked ml_exempt=True.
-            #
-            # Reason: ML blending on a bad/sparse training batch pushes scores
-            # below min_confidence, silently dropping signals with no log entry.
-            # Exempt strategies (e.g. bollinger_breakout as sole crypto coverage)
-            # use their raw rule-based score only — which already passed the
-            # strategy's own internal threshold to get this far.
-            #
-            # The ml_exempt flag is set per-strategy in base_strategy.py and
-            # flows through StrategySignalCompat.indicators['ml_exempt'].
             ml_exempt = signal.indicators.get("ml_exempt", False)
 
             if ml_exempt:
@@ -475,7 +371,7 @@ class MarketScanner:
 
         logger.info(f"Signals after ML/filter: {len(final)}")
 
-        executor = self._get_executor()
+        executor     = self._get_executor()
         from data.database import db
         open_trades  = db.get_open_trades()
         open_symbols = set(t["symbol"] for t in open_trades)
@@ -489,8 +385,9 @@ class MarketScanner:
 
             # ── Claude per-signal review ──────────────────────────────────
             # Only runs if morning briefing succeeded (market_context is not None).
-            # Any failure, timeout, or non-APPROVE response = SKIP this signal.
-            # The only path to execution is an explicit APPROVE from Claude.
+            # For crypto: market_context may exist but allow_trading=False is ignored
+            # at the gate above — per-signal review still runs for quality control.
+            # Any failure, timeout, or non-APPROVE = SKIP. Never default to approve.
             if market_context is not None:
                 try:
                     from intelligence.claude_reviewer import claude_reviewer
@@ -500,8 +397,7 @@ class MarketScanner:
                             f"Claude reviewer: {decision.decision} {signal.symbol} — "
                             f"{decision.reasoning}"
                         )
-                        continue   # Skip — never default to approve
-                    # Apply suggested position size override if provided
+                        continue
                     if decision.suggested_size_pct:
                         signal.indicators["condition_scalar"] = (
                             decision.suggested_size_pct / config.MAX_POSITION_PCT
@@ -515,7 +411,7 @@ class MarketScanner:
                         f"Claude reviewer error for {signal.symbol}: {e} "
                         f"— SKIPPING signal (conservative fallback)"
                     )
-                    continue   # Skip on any reviewer error — never default to approve
+                    continue
 
             # ── Execute signal ────────────────────────────────────────────
             try:

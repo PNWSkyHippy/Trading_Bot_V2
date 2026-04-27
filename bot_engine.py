@@ -266,6 +266,10 @@ class BotEngine:
         self.logger.info("  - Weekly trade log: Sunday 00:00 PT (covers prev Sun-Sat)")
 
     def _run_stock_scan(self):
+        import threading
+        threading.Thread(target=self._do_stock_scan, daemon=True).start()
+
+    def _do_stock_scan(self):
         try:
             if not _is_market_open():
                 return
@@ -274,10 +278,15 @@ class BotEngine:
             self.logger.error(f"Stock scan error: {e}", exc_info=True)
 
     def _run_crypto_scan(self):
+        import threading
+        threading.Thread(target=self._do_crypto_scan, daemon=True).start()
+
+    def _do_crypto_scan(self):
         try:
             self.market_scanner.scan_crypto()
         except Exception as e:
             self.logger.error(f"Crypto scan error: {e}", exc_info=True)
+
 
     def _run_daily_scan(self):
         """After-market daily scanner. Saves CSV report and injects picks into watchlists."""

@@ -7,17 +7,8 @@
   3. Picks the highest-scoring signal per symbol
   4. Tracks per-strategy performance (win rate, profit factor)
   5. Auto-disables strategies below minimum win rate
+     (skipped for strategies with auto_disable_exempt=True)
   6. Provides performance dashboard data
-
-  Stop mode routing (based on backtest results Apr 2026):
-    Crypto: 2-Bar trailing stop N=2 — proven superior
-      Standard stop: 0 GO signals, 35% WR
-      2-Bar N=2:     4 GO signals, 50% WR
-      Grid Bot 2-Bar: 75% WR, Sharpe 22, PF 8.54 (BTC 5min)
-      DCA 2-Bar:      64% WR, +3.27% return (BTC 1hr/365d)
-    Stocks: standard % stop — adequate performance
-
-  Grid Bot and DCA Accumulator re-enabled based on 2-Bar results.
 =============================================================
 """
 
@@ -58,6 +49,7 @@ class StrategyEngine:
     def __init__(self, db_ref=None):
         self._db = db_ref or db
 
+        # All 11 strategies
         self.strategies: List[BaseStrategy] = [
             RSIMomentum(),
             BollingerBreakout(),
@@ -65,32 +57,20 @@ class StrategyEngine:
             MeanReversion(),
             ScalpMaster(),
             SwingTrader(),
-            GridBot(),          # RE-ENABLED: 2-Bar backtest GO — 75% WR, Sharpe 22
-            DCAAccumulator(),   # RE-ENABLED: 2-Bar backtest GO — 64% WR, +3.27%
-            VWAPMomentum(),
-            HammerReversal(),
-            ORBBreakout(),
+            GridBot(),
+            DCAAccumulator(),
+            VWAPMomentum(),       # Strategy 9
+            HammerReversal(),     # Strategy 10 — disabled, backtest first
+            ORBBreakout(),        # Strategy 11 — disabled, backtest first
         ]
 
         self._load_strategy_states()
-
-        # Force-enable Grid Bot and DCA — they were disabled based on
-        # standard stop data which the 2-Bar backtest proved was misleading.
-        for s in self.strategies:
-            if s.name in ("grid_bot", "dca_accumulator"):
-                if not s.enabled:
-                    s.enabled = True
-                    self._save_strategy_state(s)
-                    logger.info(
-                        f"[FORCE-ENABLE] {s.name} — re-enabled based on "
-                        f"2-Bar backtest results (was disabled on standard stop data)"
-                    )
 
         logger.info(
             f"Strategy engine initialized with {len(self.strategies)} strategies:"
         )
         for s in self.strategies:
-            status  = "ENABLED"  if s.enabled                          else "DISABLED"
+            status  = "ENABLED"  if s.enabled           else "DISABLED"
             ml_flag = " [ML-EXEMPT]"       if getattr(s, "ml_exempt",           False) else ""
             ad_flag = " [NO-AUTO-DISABLE]" if getattr(s, "auto_disable_exempt", False) else ""
             logger.info(f"  [{status}] {s.name}{ml_flag}{ad_flag}")
@@ -110,36 +90,23 @@ class StrategyEngine:
         value = "true" if strategy.enabled else "false"
         self._db.set_state(key, value)
 
-    def _get_stop_mode(self, asset_class: str) -> tuple[str, int]:
-        """
-        Return (stop_mode, lookback_n) for the given asset class.
-        Reads from config so adjustable without code changes.
-          Crypto → two_bar N=2 (proven superior by backtest)
-          Stocks → standard   (adequate performance)
-        """
-        if asset_class == "crypto":
-            return (
-                getattr(config, "CRYPTO_STOP_MODE",   "two_bar"),
-                getattr(config, "TWO_BAR_LOOKBACK_N", 2),
-            )
-        else:
-            return (
-                getattr(config, "STOCK_STOP_MODE",    "standard"),
-                getattr(config, "TWO_BAR_LOOKBACK_N", 2),
-            )
-
     def run_strategies(self, symbol: str, asset_class: str,
                        bars: pd.DataFrame,
                        price: float) -> List["StrategySignalCompat"]:
-        results               = []
-        stop_mode, lookback_n = self._get_stop_mode(asset_class)
+        results = []
 
         for strategy in self.strategies:
             if not strategy.enabled:
                 continue
+            # Per-asset-class enable check
+            # Allows disabling a strategy for crypto but keeping it for stocks
+            if asset_class == "crypto" and not getattr(strategy, "crypto_enabled", True):
+                continue
+            if asset_class == "stock" and not getattr(strategy, "stock_enabled", True):
+                continue
             try:
                 market_condition = "unknown"
-                trade_signal     = strategy.analyze(symbol, bars, market_condition)
+                trade_signal = strategy.analyze(symbol, bars, market_condition)
 
                 if trade_signal is None:
                     continue
@@ -157,16 +124,13 @@ class StrategyEngine:
                     custom_take_profit_pct = trade_signal.take_profit_pct,
                     custom_position_pct    = None,
                     ml_exempt              = getattr(strategy, "ml_exempt", False),
-                    stop_mode              = stop_mode,
-                    two_bar_lookback_n     = lookback_n,
                 )
                 results.append(compat)
 
                 logger.info(
                     f"[{strategy.name}] Signal: {symbol} "
                     f"{trade_signal.direction.upper()} "
-                    f"score={trade_signal.score:.3f} "
-                    f"stop={stop_mode}(N={lookback_n}) | {trade_signal.reason}"
+                    f"score={trade_signal.score:.3f} | {trade_signal.reason}"
                 )
 
             except Exception as e:
@@ -190,15 +154,18 @@ class StrategyEngine:
         strategy = self._get_strategy(strategy_name)
         if strategy is None:
             return
+
         if getattr(strategy, "auto_disable_exempt", False):
             return
 
-        stats    = self.get_strategy_stats(strategy_name)
-        total    = stats["total_trades"]
+        stats = self.get_strategy_stats(strategy_name)
+        total = stats["total_trades"]
+
         if total < MIN_TRADES_FOR_EVAL:
             return
 
         win_rate = stats["win_rate"] / 100
+
         if win_rate < MIN_WIN_RATE:
             strategy.enabled = False
             self._save_strategy_state(strategy)
@@ -258,9 +225,9 @@ class StrategyEngine:
         all_stats = []
         for strategy in self.strategies:
             stats = self.get_strategy_stats(strategy.name)
-            stats["enabled"]             = strategy.enabled
-            stats["ml_exempt"]           = getattr(strategy, "ml_exempt",           False)
-            stats["auto_disable_exempt"] = getattr(strategy, "auto_disable_exempt", False)
+            stats["enabled"]            = strategy.enabled
+            stats["ml_exempt"]          = getattr(strategy, "ml_exempt",           False)
+            stats["auto_disable_exempt"]= getattr(strategy, "auto_disable_exempt", False)
             all_stats.append(stats)
         return all_stats
 
@@ -309,15 +276,14 @@ class StrategySignalCompat:
         "current_price", "indicators", "reason",
         "strategy_name", "custom_stop_loss_pct",
         "custom_take_profit_pct", "custom_position_pct",
-        "ml_exempt", "stop_mode", "two_bar_lookback_n",
+        "ml_exempt"
     ]
 
     def __init__(self, symbol, asset_class, direction, score,
                  current_price, indicators, reason,
                  strategy_name, custom_stop_loss_pct,
                  custom_take_profit_pct, custom_position_pct,
-                 ml_exempt=False, stop_mode="standard",
-                 two_bar_lookback_n=2):
+                 ml_exempt=False):
         self.symbol                 = symbol
         self.asset_class            = asset_class
         self.direction              = direction
@@ -330,8 +296,6 @@ class StrategySignalCompat:
             "custom_take_profit_pct":  custom_take_profit_pct,
             "custom_position_pct":     custom_position_pct,
             "ml_exempt":               ml_exempt,
-            "stop_mode":               stop_mode,
-            "two_bar_lookback_n":      two_bar_lookback_n,
         }
         self.reason                 = reason
         self.strategy_name          = strategy_name
@@ -339,8 +303,6 @@ class StrategySignalCompat:
         self.custom_take_profit_pct = custom_take_profit_pct
         self.custom_position_pct    = custom_position_pct
         self.ml_exempt              = ml_exempt
-        self.stop_mode              = stop_mode
-        self.two_bar_lookback_n     = two_bar_lookback_n
 
 
 # Singleton

@@ -78,6 +78,13 @@ class BaseStrategy(ABC):
         self.ml_exempt          = False  # Skip ML score blending for this strategy
         self.auto_disable_exempt= False  # Never auto-disable this strategy
 
+        # Per-asset-class enable flags
+        # Set stock_enabled=False to skip for stocks
+        # Set crypto_enabled=False to skip for crypto
+        # Both default True — runs on all asset classes
+        self.stock_enabled  = True
+        self.crypto_enabled = True
+
     @property
     def name(self) -> str:
         return self.strategy_name

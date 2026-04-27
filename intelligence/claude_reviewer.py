@@ -17,6 +17,12 @@
     Therefore: ANY failure, timeout, or ambiguity = SKIP.
     The only path to APPROVE is an explicit, confident response.
 
+  CRYPTO vs STOCK handling:
+    Crypto trades run 24/7 — they bypass the stock market hours
+    gate entirely. The morning briefing allow_trading flag only
+    applies to stocks. Crypto signals go straight to per-signal
+    review regardless of time of day or briefing result.
+
   Level 2 autonomy: Claude can VETO signals but cannot
   INITIATE trades. Bot mechanical execution runs underneath.
 =============================================================
@@ -109,11 +115,7 @@ class ClaudeReviewer:
         self._api_key         = config.ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY", "")
         self._morning_context: Optional[MarketContext] = None
         self._briefing_time:  Optional[datetime]       = None
-
-        # FIX: original code had `self.enabled = bool = False` which
-        # hardcoded False by accidentally overwriting Python's built-in bool.
-        # Correct form: evaluate whether API key exists.
-        self.enabled = bool(self._api_key)
+        self.enabled          = bool(self._api_key)
 
         if not self.enabled:
             logger.warning(
@@ -131,13 +133,12 @@ class ClaudeReviewer:
     def get_morning_context(self, force_refresh: bool = False) -> MarketContext:
         """
         Build or return cached morning market context.
-        Cached for BRIEFING_CACHE_MIN minutes — no need to re-run every scan.
-        Returns conservative MarketContext with allow_trading=False on ANY failure.
+        NOTE: This is only meaningful for stock trading. Crypto signals
+        bypass the allow_trading gate entirely — see review_signal().
         """
         if not self.enabled:
             return self._safe_context("Reviewer disabled — API key missing")
 
-        # Return cached briefing if fresh enough
         if (not force_refresh
                 and self._morning_context
                 and self._briefing_time
@@ -152,8 +153,8 @@ class ClaudeReviewer:
 
         if context.error:
             logger.warning(
-                f"Morning briefing failed — trading conservatively blocked. "
-                f"Reason: {context.briefing_text[:100]}"
+                f"Morning briefing failed — stock trading conservatively blocked. "
+                f"Crypto trading unaffected. Reason: {context.briefing_text[:100]}"
             )
         else:
             logger.info(
@@ -168,33 +169,49 @@ class ClaudeReviewer:
     def review_signal(self, signal, market_context: MarketContext) -> SignalDecision:
         """
         Review a single trading signal. Returns APPROVE, REJECT, or SKIP.
-        Conservative fallback on any failure.
+
+        KEY BEHAVIOUR:
+          - Crypto signals (asset_class == 'crypto') run 24/7 and BYPASS
+            the allow_trading gate. They go straight to per-signal review.
+          - Stock signals respect the morning briefing allow_trading flag.
+          - Both asset classes still go through individual signal review.
         """
-        start_ms = int(time.time() * 1000)
+        start_ms   = int(time.time() * 1000)
+        is_crypto  = getattr(signal, "asset_class", "").lower() == "crypto"
 
+        # ── Gate 1: Reviewer must be enabled ─────────────────────────────
         if not self.enabled:
-            return SignalDecision(decision="SKIP", reasoning="Reviewer disabled", error=True, elapsed_ms=0)
-
-        if market_context.error:
             return SignalDecision(
-                decision=SKIP,
-                reasoning="Morning briefing failed — conservative skip",
-                error=True,
-                elapsed_ms=int(time.time()*1000) - start_ms
+                decision=SKIP, reasoning="Reviewer disabled",
+                error=True, elapsed_ms=0
             )
 
-        if not market_context.allow_trading:
-            return SignalDecision(
-                decision=SKIP,
-                reasoning=(
-                    f"Trading blocked by morning briefing: "
-                    f"conviction={market_context.conviction_score}, "
-                    f"sentiment={market_context.market_sentiment}"
-                ),
-                error=False,
-                elapsed_ms=int(time.time()*1000) - start_ms
-            )
+        # ── Gate 2: Morning context error — only blocks stocks ────────────
+        # Crypto bypasses this gate entirely — it trades 24/7
+        if not is_crypto:
+            if market_context.error:
+                return SignalDecision(
+                    decision=SKIP,
+                    reasoning="Morning briefing failed — conservative skip for stocks",
+                    error=True,
+                    elapsed_ms=int(time.time()*1000) - start_ms
+                )
 
+            # ── Gate 3: Stock market trading hours gate ───────────────────
+            if not market_context.allow_trading:
+                return SignalDecision(
+                    decision=SKIP,
+                    reasoning=(
+                        f"Stock trading blocked by morning briefing: "
+                        f"conviction={market_context.conviction_score}, "
+                        f"sentiment={market_context.market_sentiment}"
+                    ),
+                    error=False,
+                    elapsed_ms=int(time.time()*1000) - start_ms
+                )
+
+        # ── Gate 4: Never trade symbols reporting earnings today ──────────
+        # Applies to both stocks and crypto (e.g. exchange tokens)
         symbol = signal.symbol.split("/")[0].split("-")[0]
         if symbol in market_context.earnings_today:
             return SignalDecision(
@@ -205,17 +222,26 @@ class ClaudeReviewer:
                 elapsed_ms=int(time.time()*1000) - start_ms
             )
 
+        # ── Gate 5: Cold sector warning (soft — log only, don't block) ────
         warnings = []
-        if market_context.cold_sectors:
+        if not is_crypto and market_context.cold_sectors:
             warnings.append(
                 f"Note: cold sectors today: {', '.join(market_context.cold_sectors[:3])}"
             )
 
+        if is_crypto:
+            logger.debug(
+                f"Crypto signal {signal.symbol} — bypassing market hours gate, "
+                f"proceeding to signal review"
+            )
+
+        # ── Gate 6: Per-signal Claude review ─────────────────────────────
         decision = self._call_signal_review(signal, market_context, warnings)
         decision.elapsed_ms = int(time.time()*1000) - start_ms
 
         logger.info(
-            f"Signal review: {signal.symbol} {signal.direction} → "
+            f"Signal review: {signal.symbol} {signal.direction} "
+            f"[{'CRYPTO' if is_crypto else 'STOCK'}] → "
             f"{decision.decision} (confidence={decision.confidence}, "
             f"{decision.elapsed_ms}ms) | {decision.reasoning[:80]}"
         )
@@ -231,7 +257,7 @@ class ClaudeReviewer:
 
     def _run_morning_briefing(self) -> MarketContext:
         """
-        Call Claude with a comprehensive morning briefing prompt.
+        Call Claude with a morning briefing prompt.
         Returns conservative MarketContext on ANY failure.
         """
         summaries   = db.get_daily_summaries(5)
@@ -241,13 +267,13 @@ class ClaudeReviewer:
         prompt = (
             f"Today is {datetime.now().strftime('%A, %B %d, %Y')}. "
             f"You are a trading bot morning briefing system. "
-            f"Assess current US market conditions briefly, then respond with ONLY this JSON and nothing else:\n\n"
+            f"Assess current US market conditions briefly, then respond with ONLY this JSON:\n\n"
             f'{{"allow_trading": true, "conviction_score": 70, "market_sentiment": "BULLISH", '
             f'"breadth_health": "HEALTHY", "top_risk_score": 30, "hot_sectors": ["Technology"], '
             f'"cold_sectors": ["Utilities"], "active_themes": ["AI"], "high_impact_events": [], '
             f'"earnings_today": [], "max_exposure_pct": 60, "summary": "Brief summary."}}\n\n'
             f"Replace all values with your actual assessment. "
-            f"Return ONLY the JSON object. No markdown. No headers. No explanation before or after."
+            f"Return ONLY the JSON object. No markdown. No explanation."
         )
         try:
             response = self._call_claude(
@@ -294,35 +320,46 @@ class ClaudeReviewer:
         """
         indicators = signal.indicators or {}
         strategy   = indicators.get("strategy_name", "unknown")
+        is_crypto  = getattr(signal, "asset_class", "").lower() == "crypto"
+
+        # Build a crypto-aware context note for the prompt
+        asset_note = (
+            "NOTE: This is a CRYPTOCURRENCY signal. Crypto trades 24/7 — "
+            "do NOT factor in stock market hours when reviewing this signal. "
+            "Evaluate purely on technical merit and crypto market conditions."
+            if is_crypto else
+            "This is a STOCK signal during regular market hours."
+        )
 
         prompt = f"""You are reviewing a trading signal for an autonomous day trading bot.
 
-MORNING CONTEXT:
-- Market sentiment: {context.market_sentiment}
-- Conviction score: {context.conviction_score}/100
-- Market breadth: {context.breadth_health}
-- Top/Distribution risk: {context.top_risk_score}/100
-- Hot sectors: {', '.join(context.hot_sectors) or 'none identified'}
-- Cold sectors: {', '.join(context.cold_sectors) or 'none identified'}
-- Active themes: {', '.join(context.active_themes) or 'none identified'}
-- High impact events today: {', '.join(context.high_impact_events) or 'none'}
+{asset_note}
+
+MARKET CONTEXT:
+- Sentiment: {context.market_sentiment}
+- Conviction: {context.conviction_score}/100
+- Breadth: {context.breadth_health}
+- Distribution risk: {context.top_risk_score}/100
+- Hot sectors: {', '.join(context.hot_sectors) or 'none'}
+- Active themes: {', '.join(context.active_themes) or 'none'}
+- High impact events: {', '.join(context.high_impact_events) or 'none'}
 - Summary: {context.briefing_text}
 
-SIGNAL TO REVIEW:
-- Symbol:     {signal.symbol}
-- Direction:  {signal.direction.upper()}
-- Strategy:   {strategy}
-- Score:      {signal.score:.3f} (min required: {config.MIN_SIGNAL_CONFIDENCE})
-- Price:      ${signal.current_price:.4f}
-- Asset:      {signal.asset_class}
+SIGNAL:
+- Symbol:    {signal.symbol}
+- Direction: {signal.direction.upper()}
+- Strategy:  {strategy}
+- Score:     {signal.score:.3f} (min: {config.MIN_SIGNAL_CONFIDENCE})
+- Price:     ${signal.current_price:.4f}
+- Asset:     {signal.asset_class}
 
-KEY INDICATORS:
+INDICATORS:
 - RSI:          {indicators.get('rsi', 'N/A')}
 - MACD hist:    {indicators.get('macd_hist', 'N/A')}
 - Volume ratio: {indicators.get('volume_ratio', 'N/A')}
 - BB%:          {indicators.get('bb_pct', 'N/A')}
 
-RISK PARAMETERS:
+RISK:
 - Stop loss:   {config.DEFAULT_STOP_LOSS_PCT}%
 - Take profit: {config.DEFAULT_TAKE_PROFIT_PCT}%
 - Position:    {config.MAX_POSITION_PCT}% of capital
@@ -333,11 +370,11 @@ Respond in this EXACT JSON format:
 {{"decision": "APPROVE" or "REJECT" or "SKIP", "confidence": 0-100, "reasoning": "one clear sentence", "suggested_size_pct": null or number, "warnings": []}}
 
 RULES:
-- APPROVE only if genuinely confident this is a good trade
-- REJECT if specific reasons to believe this trade will lose
-- SKIP if uncertain, missing data, or conditions are ambiguous
-- Never APPROVE during high-impact economic events
-- Never APPROVE if market_sentiment is BEARISH and direction is long
+- APPROVE only if genuinely confident
+- REJECT if specific reasons to believe trade will lose
+- SKIP if uncertain or missing data
+- For crypto: evaluate on technical merit only, ignore stock market hours
+- Never APPROVE if market_sentiment is BEARISH and direction is long (stocks only)
 - When in doubt: SKIP"""
 
         try:
@@ -370,12 +407,12 @@ RULES:
                     error=True
                 )
 
-            # Safety overrides
-            if raw_decision == APPROVE:
+            # Safety overrides — stocks only
+            if raw_decision == APPROVE and not is_crypto:
                 if context.market_sentiment == "BEARISH" and signal.direction == "long":
                     return SignalDecision(
                         decision=REJECT,
-                        reasoning="Safety override: bearish market + long signal rejected",
+                        reasoning="Safety override: bearish market + long stock signal rejected",
                         confidence=90,
                         error=False
                     )
@@ -410,10 +447,6 @@ RULES:
 
     def _call_claude(self, prompt: str, timeout: int,
                      max_tokens: int) -> Optional[str]:
-        """
-        Make a single Claude API call with timeout enforcement.
-        Returns None on ANY failure — caller handles the conservative fallback.
-        """
         if not self._api_key:
             logger.warning("Claude API call attempted with no API key")
             return None
@@ -470,10 +503,6 @@ RULES:
     # =========================================================================
 
     def _extract_json(self, text: str) -> Optional[Dict]:
-        """
-        Extract and parse the first JSON object from Claude's response.
-        Returns None if no valid JSON found.
-        """
         matches = re.findall(r'\{.*?\}', text, re.DOTALL)
         for match in matches:
             try:
@@ -484,17 +513,18 @@ RULES:
                     return parsed
             except json.JSONDecodeError:
                 continue
-
         try:
             return json.loads(text.strip())
         except json.JSONDecodeError:
             pass
-
         logger.warning(f"No valid JSON found in Claude response: {text[:200]}")
         return None
 
     def _safe_context(self, reason: str) -> MarketContext:
-        """Return a maximally conservative MarketContext."""
+        """
+        Return a conservative MarketContext for error cases.
+        allow_trading=False blocks stocks but crypto bypasses this anyway.
+        """
         return MarketContext(
             allow_trading    = False,
             conviction_score = 0,
@@ -506,7 +536,6 @@ RULES:
         )
 
     def get_status(self) -> Dict:
-        """Return reviewer status for dashboard display."""
         return {
             "enabled":          self.enabled,
             "has_briefing":     self._morning_context is not None,
