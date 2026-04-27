@@ -28,10 +28,12 @@ class KrakenExecutor:
         self.paper = paper
 
         # Always init the exchange for price lookups
+        # timeout=10000ms — prevents API hangs from freezing the scan thread
         self.exchange = ccxt.kraken({
             "apiKey":          api_key,
             "secret":          api_secret,
             "enableRateLimit": True,
+            "timeout":         10000,   # 10 second hard timeout on all API calls
         })
 
         if paper:
