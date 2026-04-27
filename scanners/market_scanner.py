@@ -385,10 +385,12 @@ class MarketScanner:
 
             # ── Claude per-signal review ──────────────────────────────────
             # Only runs if morning briefing succeeded (market_context is not None).
-            # For crypto: market_context may exist but allow_trading=False is ignored
-            # at the gate above — per-signal review still runs for quality control.
+            # Skipped for reviewer_exempt strategies (e.g. Grid Bot) which use
+            # non-standard indicators that Claude can't evaluate meaningfully.
             # Any failure, timeout, or non-APPROVE = SKIP. Never default to approve.
-            if market_context is not None:
+            reviewer_exempt = signal.indicators.get("reviewer_exempt", False)
+
+            if market_context is not None and not reviewer_exempt:
                 try:
                     from intelligence.claude_reviewer import claude_reviewer
                     decision = claude_reviewer.review_signal(signal, market_context)
