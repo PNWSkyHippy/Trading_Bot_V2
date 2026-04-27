@@ -592,7 +592,8 @@ if closed_today:
     for t in closed_today:
         pnl     = t.get("pnl", 0) or 0
         pnl_pct = t.get("pnl_pct", 0) or 0
-        raw_exit = t.get("exit_time", "") or ""
+        raw_exit  = t.get("exit_time", "") or ""
+        raw_entry = t.get("entry_time", "") or ""
         try:
             exit_dt       = pd.to_datetime(raw_exit)
             exit_dt_local = exit_dt.tz_localize("UTC").tz_convert("America/Los_Angeles")
@@ -600,9 +601,22 @@ if closed_today:
         except Exception:
             exit_dt  = pd.Timestamp.min
             exit_str = raw_exit[:16] if raw_exit else "—"
-        log_rows.append({"_exit_dt": exit_dt, "Closed": exit_str, "Symbol": t["symbol"], "Dir": t["direction"].upper(), "Strategy": t.get("strategy_name", "original"), "Entry $": float(t.get("entry_price", 0) or 0), "Exit $": float(t.get("exit_price", 0) or 0), "Reason": t.get("exit_reason", "").replace("_", " ").title(), "P&L $": float(pnl), "P&L %": float(pnl_pct), "Result": "✅ Win" if pnl > 0 else "❌ Loss"})
+        try:
+            entry_dt       = pd.to_datetime(raw_entry)
+            entry_dt_local = entry_dt.tz_localize("UTC").tz_convert("America/Los_Angeles")
+            entry_str      = entry_dt_local.strftime("%m/%d %H:%M PDT")
+            # Calculate duration
+            duration_mins  = int((exit_dt - entry_dt).total_seconds() / 60)
+            if duration_mins >= 60:
+                duration_str = f"{duration_mins // 60}h {duration_mins % 60}m"
+            else:
+                duration_str = f"{duration_mins}m"
+        except Exception:
+            entry_str    = raw_entry[:16] if raw_entry else "—"
+            duration_str = "—"
+        log_rows.append({"_exit_dt": exit_dt, "Opened": entry_str, "Closed": exit_str, "Duration": duration_str, "Symbol": t["symbol"], "Dir": t["direction"].upper(), "Strategy": t.get("strategy_name", "original"), "Entry $": float(t.get("entry_price", 0) or 0), "Exit $": float(t.get("exit_price", 0) or 0), "Reason": t.get("exit_reason", "").replace("_", " ").title(), "P&L $": float(pnl), "P&L %": float(pnl_pct), "Result": "✅ Win" if pnl > 0 else "❌ Loss"})
     df_log = pd.DataFrame(log_rows).sort_values("_exit_dt", ascending=False).reset_index(drop=True).drop(columns=["_exit_dt"])
-    st.dataframe(df_log, use_container_width=True, hide_index=True, column_config={"Closed": st.column_config.TextColumn("Closed", width="small"), "Symbol": st.column_config.TextColumn("Symbol", width="small"), "Dir": st.column_config.TextColumn("Dir", width="small"), "Strategy": st.column_config.TextColumn("Strategy", width="medium"), "Entry $": st.column_config.NumberColumn("Entry $", format="$%.4f"), "Exit $": st.column_config.NumberColumn("Exit $", format="$%.4f"), "Reason": st.column_config.TextColumn("Reason", width="medium"), "P&L $": st.column_config.NumberColumn("P&L $", format="$%+.2f"), "P&L %": st.column_config.NumberColumn("P&L %", format="%+.2f%%"), "Result": st.column_config.TextColumn("Result", width="small")})
+    st.dataframe(df_log, use_container_width=True, hide_index=True, column_config={"Opened": st.column_config.TextColumn("Opened", width="small"), "Closed": st.column_config.TextColumn("Closed", width="small"), "Duration": st.column_config.TextColumn("Duration", width="small"), "Symbol": st.column_config.TextColumn("Symbol", width="small"), "Dir": st.column_config.TextColumn("Dir", width="small"), "Strategy": st.column_config.TextColumn("Strategy", width="medium"), "Entry $": st.column_config.NumberColumn("Entry $", format="$%.4f"), "Exit $": st.column_config.NumberColumn("Exit $", format="$%.4f"), "Reason": st.column_config.TextColumn("Reason", width="medium"), "P&L $": st.column_config.NumberColumn("P&L $", format="$%+.2f"), "P&L %": st.column_config.NumberColumn("P&L %", format="%+.2f%%"), "Result": st.column_config.TextColumn("Result", width="small")})
 else:
     st.info("No closed trades today.")
 st.divider()

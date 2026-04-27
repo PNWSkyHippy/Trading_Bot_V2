@@ -68,18 +68,20 @@ ADX_STALE_THRESHOLD = 25.0
 # ── NEW: Time-based exit thresholds ──────────────────────────────────────────
 # Performance-contingent: close if profit is below threshold after N hours.
 # Prevents capital being locked in trades that never got going.
-PERF_CHECK_1HR_SEC     = 1 * 60 * 60    # 1 hour
-PERF_CHECK_1HR_MIN_PCT = 0.5            # need at least 0.5% profit by 1hr
+# NOTE: grid_bot trades are EXEMPT from all time stops (see _check_performance_time_stop)
+# Grid strategies need time to oscillate — time stops kill them prematurely.
+PERF_CHECK_1HR_SEC     = 2 * 60 * 60    # 2 hours (was 1hr — too aggressive)
+PERF_CHECK_1HR_MIN_PCT = 0.3            # need at least 0.3% profit by 2hr (was 0.5%)
 
-PERF_CHECK_3HR_SEC     = 3 * 60 * 60    # 3 hours
-PERF_CHECK_3HR_MIN_PCT = 1.5            # need at least 1.5% profit by 3hr
+PERF_CHECK_3HR_SEC     = 5 * 60 * 60    # 5 hours (was 3hr)
+PERF_CHECK_3HR_MIN_PCT = 1.0            # need at least 1.0% profit by 5hr (was 1.5%)
 
-HARD_TIME_STOP_SEC     = 3.5 * 60 * 60  # 3.5 hours — hard kill regardless
+HARD_TIME_STOP_SEC     = 8 * 60 * 60    # 8 hours — hard kill (was 3.5hr)
 
 # Early loss check: if trade is negative AND worsening at 20 minutes, kill it.
 # Catches trades where thesis was wrong from the start.
-EARLY_LOSS_CHECK_SEC   = 20 * 60        # 20 minutes
-EARLY_LOSS_MIN_PCT     = -0.3           # if worse than -0.3% AND still falling
+EARLY_LOSS_CHECK_SEC   = 30 * 60        # 30 minutes (was 20min — too tight)
+EARLY_LOSS_MIN_PCT     = -0.5           # if worse than -0.5% AND still falling (was -0.3%)
 
 # Pivot point break exit
 # Uses last N bars to calculate classic floor trader pivots (PP, S1, S2, R1, R2)
@@ -259,6 +261,17 @@ class PositionMonitor:
         symbol    = trade["symbol"]
         direction = trade["direction"]
         trade_id  = trade["trade_id"]
+        strategy  = trade.get("strategy_name", "")
+
+        # ── Grid bot exemption: time stops kill grid strategies ────────
+        # Grid bot profits from oscillations that can take hours to complete.
+        # Applying time stops to grid_bot directly contradicts its thesis.
+        if strategy in ("grid_bot", "dca_accumulator"):
+            logger.debug(
+                f"[TIME STOP EXEMPT] {symbol}: strategy={strategy} "
+                f"is exempt from performance time stops"
+            )
+            return None
 
         # ── Hard time stop: 3.5 hours ─────────────────────────────────
         if age_seconds >= HARD_TIME_STOP_SEC:
