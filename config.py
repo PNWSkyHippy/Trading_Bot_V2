@@ -332,3 +332,10 @@ SIGNAL_TUNING = {
     "ml_score_multiplier":          1.5,
     "ml_min_confidence":            0.55,
 }
+
+# ── Alert Digest Queue ──────────────────────────────────────────────────────────────
+# Trade open/close alerts are batched into a single digest email sent every
+# ALERT_DIGEST_HOURS hours instead of one email per trade.
+# Errors and trading halts always bypass the queue and send immediately.
+# Set to 0 to disable batching (reverts to one email per trade — old behavior).
+ALERT_DIGEST_HOURS = 1   # Change to 2 or 3 to reduce email further

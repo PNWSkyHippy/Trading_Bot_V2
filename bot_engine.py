@@ -238,6 +238,7 @@ class BotEngine:
         schedule.every(config.STOCK_SCAN_INTERVAL_SEC).seconds.do(self._run_stock_scan)
         schedule.every(30).seconds.do(self.position_monitor.check_positions)
         schedule.every(config.CAPITAL_SYNC_MIN).minutes.do(self._sync_capital)
+        schedule.every(1).minutes.do(self._flush_alert_digest)  # digest queue check
 
         for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
             getattr(schedule.every(), day).at("12:45").do(self._close_stocks_eod)
@@ -358,6 +359,14 @@ class BotEngine:
             self._reconcile_positions()
         except Exception as e:
             self.logger.error(f"Capital sync error: {e}", exc_info=True)
+
+    def _flush_alert_digest(self):
+        """Check if digest queue is due and send if so. Runs every minute."""
+        try:
+            from reporting.alerts import alert_manager
+            alert_manager.flush_digest_if_due()
+        except Exception as e:
+            self.logger.error(f"Alert digest flush error: {e}")
 
     def _retrain_ml(self):
         try:
