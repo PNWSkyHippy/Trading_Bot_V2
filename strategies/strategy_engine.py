@@ -123,7 +123,8 @@ class StrategyEngine:
                     custom_stop_loss_pct   = trade_signal.stop_loss_pct,
                     custom_take_profit_pct = trade_signal.take_profit_pct,
                     custom_position_pct    = None,
-                    ml_exempt              = getattr(strategy, "ml_exempt", False),
+                    ml_exempt              = getattr(strategy, "ml_exempt",        False),
+                    reviewer_exempt        = getattr(strategy, "reviewer_exempt",  False),
                 )
                 results.append(compat)
 
@@ -276,14 +277,14 @@ class StrategySignalCompat:
         "current_price", "indicators", "reason",
         "strategy_name", "custom_stop_loss_pct",
         "custom_take_profit_pct", "custom_position_pct",
-        "ml_exempt"
+        "ml_exempt", "reviewer_exempt",
     ]
 
     def __init__(self, symbol, asset_class, direction, score,
                  current_price, indicators, reason,
                  strategy_name, custom_stop_loss_pct,
                  custom_take_profit_pct, custom_position_pct,
-                 ml_exempt=False):
+                 ml_exempt=False, reviewer_exempt=False):
         self.symbol                 = symbol
         self.asset_class            = asset_class
         self.direction              = direction
@@ -296,6 +297,7 @@ class StrategySignalCompat:
             "custom_take_profit_pct":  custom_take_profit_pct,
             "custom_position_pct":     custom_position_pct,
             "ml_exempt":               ml_exempt,
+            "reviewer_exempt":         reviewer_exempt,
         }
         self.reason                 = reason
         self.strategy_name          = strategy_name
@@ -303,6 +305,7 @@ class StrategySignalCompat:
         self.custom_take_profit_pct = custom_take_profit_pct
         self.custom_position_pct    = custom_position_pct
         self.ml_exempt              = ml_exempt
+        self.reviewer_exempt        = reviewer_exempt
 
 
 # Singleton

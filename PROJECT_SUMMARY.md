@@ -1,244 +1,270 @@
-# Trading Bot V2 — Project Summary
-Last updated: April 24, 2026 (End of Session 4)
+# Autonomous Day Trading Bot V2 — Project Summary
 
-## Project Overview
-Autonomous day trading bot. Paper trading → live trading transition.
-- **Repo:** https://github.com/PNWSkyHippy/Trading_Bot_V2 (private)
-- **Location:** C:\users\linda\trading_bot_v2
-- **Stack:** Python 3.12, venv312, Streamlit port 8501, SQLite
-- **Status:** Paper trading IBKR + Alpaca stocks, Kraken crypto paper
-- **Capital:** ~$50,523 prop firm combine (target $53,000 for funded account)
+**Last Updated:** April 26, 2026  
+**Project Location:** `C:\Users\Linda\trading_bot_v2`  
+**Status:** Running in paper trading mode (Alpaca stocks + Kraken crypto paper sim)  
+**Python:** 3.12, venv312, Streamlit dashboard port 8501
 
 ---
 
-## Architecture
+## Current Architecture
 
-### Core Files
-| File | Purpose |
-|---|---|
-| `bot_engine.py` | Main entry point, scheduler, all timed jobs |
-| `dashboard.py` | Streamlit dashboard port 8501 |
-| `config.py` | All settings — position sizes, stop loss %, watchlists |
-| `.env` | API keys (never committed) |
-| `data/trading_bot.db` | SQLite database |
-
-### Key Modules
-| File | Purpose |
-|---|---|
-| `core/risk_manager.py` | ALL risk rules — position sizing, stops, daily limits |
-| `core/position_monitor.py` | Watches open trades — trailing stops, stale check, VWAP exit, stuck trade throttle |
-| `core/trade_executor.py` | Routes orders to correct broker, bracket order handling |
-| `core/ibkr_executor.py` | IBKR integration — persistent connection clientId=2, port 7497 paper |
-| `core/settlement_tracker.py` | T+1 settlement tracking for IBKR cash account |
-| `core/broker_manager.py` | Multi-broker management |
-| `data/database.py` | All DB operations including session_state, starting_capital_today |
-| `intelligence/chat_interface.py` | Haiku chatbot with pre-parse layer |
-| `intelligence/backtester.py` | Backtesting engine with 2-bar trailing stop mode |
-| `intelligence/ml_scorer.py` | Random Forest ML model |
-| `intelligence/condition_detector.py` | Market condition classifier |
-| `reporting/weekly_tradelog.py` | Weekly CSV trade log exporter |
-| `reporting/analyze_trades.py` | Performance analyzer (Opus 4, integrated) |
-| `reporting/report_generator.py` | Daily HTML email report |
-
-### Strategies (11 total)
-| Strategy | Status | Notes |
-|---|---|---|
-| rsi_momentum | Disabled | |
-| bollinger_breakout | **Enabled** | OBV triple filter |
-| ema_crossover | Disabled | |
-| mean_reversion | Disabled | 21% WR, -$396 — killed |
-| scalp_master | **Enabled** | |
-| swing_trader | Disabled | |
-| grid_bot | Disabled | |
-| dca_accumulator | **Enabled** | |
-| vwap_momentum | **Enabled** | VWAP + EMA 5/13/34 |
-| hammer_reversal | **Enabled** | SOL/USD only, 5-filter stack: RSI+Stoch+BB+Hammer+OBV |
-| orb_breakout | **Enabled** | GO whitelist stocks, 5m bars, VWAP exit |
-
-### ORB GO Whitelist
-META, TSLA, MSFT, AMD, MRVL, ALAB, PLTR, CRWV, IREN, CLS, AMZN, GOOGL, AAPL, SPY, QQQ
-
-### ORB TUNE (excluded)
-NVDA, INTC, NIO, APLD, MARA
-
----
-
-## Broker Setup
-
-### IBKR (Primary Stock Broker)
-- Paper account: DUQ511882
-- Live account: approved, deposit hold until April 28
-- TWS must be running before bot starts
-- Port 7497 (paper), 7496 (live)
-- ClientId=2 (1 causes conflict with TWS)
-- Read-Only API must be UNCHECKED in TWS settings
-- `IBKR_ENABLED = True` in config.py
-- `IBKR_PAPER_MODE = True` until live flip
-- First successful trades: OPEN LONG +$5.44, CRWV SHORT +$15.04 (Apr 24)
-- IBC installed at C:\IBC — partially configured, needs IB Gateway installer to work
-
-### Alpaca (Fallback Stock Broker)
-- Live account approved
-- Paper URL: https://paper-api.alpaca.markets
-- Live URL: https://api.alpaca.markets
-- Fallback when IBKR unreachable
-
-### Kraken (Crypto — disabled)
-- KRAKEN_ENABLED = False
-- All crypto currently paper simulation
-
-### Coinbase
-- Connected, paper mode
+```
+trading_bot_v2/
+├── bot_engine.py              ← MAIN ENTRY POINT
+├── dashboard.py               ← Streamlit browser dashboard
+├── config.py                  ← All settings, API keys, parameters
+├── requirements.txt
+├── .env                       ← API keys (not committed to git)
+│
+├── core/
+│   ├── risk_manager.py
+│   ├── trade_executor.py      ← Routes crypto to Kraken, stocks to Alpaca/IBKR
+│   ├── position_monitor.py    ← Exit logic: trailing stop, time stops, pivot break
+│   ├── broker_manager.py      ← Per-broker capital tracking
+│   └── kraken_executor.py     ← Kraken crypto (paper mode = local simulation)
+│
+├── scanners/
+│   ├── market_scanner.py      ← Main scanner — routes through strategy engine
+│   └── daily_market_scanner.py← 4:30 PM ET scan, writes temp watchlist files
+│
+├── strategies/
+│   ├── base_strategy.py       ← Abstract base — stock_enabled/crypto_enabled flags
+│   ├── strategy_engine.py     ← Orchestrates all strategies, asset class filtering
+│   ├── rsi_momentum.py        ← DISABLED (poor live performance)
+│   ├── bollinger_breakout.py  ← ENABLED stocks only (crypto_enabled=False)
+│   ├── ema_crossover.py       ← DISABLED
+│   ├── mean_reversion.py      ← DISABLED
+│   ├── scalp_master.py        ← ENABLED
+│   ├── swing_trader.py        ← DISABLED
+│   ├── grid_bot.py            ← ENABLED — primary crypto strategy, reviewer_exempt
+│   ├── dca_accumulator.py     ← ENABLED
+│   ├── vwap_momentum.py       ← ENABLED
+│   ├── hammer_reversal.py     ← ENABLED
+│   └── orb_breakout.py        ← ENABLED
+│
+├── intelligence/
+│   ├── chat_interface.py      ← Haiku chat + pre-parse commands + watchlist queries
+│   ├── claude_reviewer.py     ← Signal reviewer — crypto bypasses market hours gate
+│   ├── condition_detector.py
+│   ├── ml_scorer.py
+│   └── backtester.py
+│
+├── reporting/
+│   └── report_generator.py
+│
+├── data/
+│   ├── database.py
+│   └── trading_bot.db
+│
+├── watchlists/
+│   ├── stocks.txt             ← Master stock watchlist
+│   └── crypto.txt             ← Master crypto watchlist
+│
+├── watchlist/
+│   ├── scanned_stocks.txt     ← Temp: daily scanner results (stocks)
+│   └── scanned_crypto.txt     ← Temp: daily scanner results (crypto)
+│
+├── logs/bot.log
+│
+└── Utility Scripts (project root):
+    ├── check_trades.py        ← Last 20 closed trades with entry/exit/reason
+    ├── todays_stats.py        ← Today's P&L by asset class and strategy
+    ├── weekly_stats.py        ← 7-day breakdown by day/asset/strategy/broker
+    ├── clear_stuck_trades.py  ← Resets stuck/failed close flags
+    ├── force_close_paper_trades.py ← Force-closes ghost DB positions
+    ├── flush_log.py           ← Clears bot.log keeping last 50 lines
+    └── git_push.py            ← Quick git add/commit/push
+```
 
 ---
 
-## Key Bugs Fixed This Session
+## Brokers
 
-### P&L Restart Bug
-- **Root cause:** `starting_cap = capital - pnl_today` drifted on restart
-- **Fix:** `set_starting_capital_today()` locks capital ONCE at first call each day in session_state
-- **Files:** `data/database.py`, `core/risk_manager.py`, `dashboard.py`
+| Broker | Type | Mode | Status |
+|--------|------|------|--------|
+| **Alpaca** | Stocks | Paper | Active — `https://paper-api.alpaca.markets` |
+| **IBKR** | Stocks | Paper | Active — TWS must be running manually (port 7497) |
+| **Kraken** | Crypto | Paper | Active — paper mode simulated LOCALLY (Kraken has no sandbox) |
+| **Coinbase** | Crypto | — | DEPRECATED — Coinbase Pro API shut down, Advanced Trade auth incompatible |
 
-### IBKR Persistent Connection
-- **Root cause:** `is_available()` was connecting/disconnecting on every trade check, causing clientId conflicts
-- **Fix:** Persistent connection held all session. `is_available()` just checks `isConnected()`
-- **File:** `core/ibkr_executor.py`
-
-### Bracket Order Ghost Fix
-- **Root cause:** Alpaca bracket orders lock shares, close attempt fails with "insufficient qty"
-- **Fix:** `cancel_open_orders()` before close, 0.5s wait, then close
-- **File:** `core/trade_executor.py`
-
-### PSQ Infinite Retry Loop
-- **Root cause:** Failed close left trade open in DB, stale check retried every 30s forever
-- **Fix:** `_attempt_close()` tracks failed attempts. After `MAX_CLOSE_ATTEMPTS=3` flags STUCK
-- **File:** `core/position_monitor.py`
-
-### Haiku Enable/Disable Strategy
-- **Root cause:** Haiku second-guessed simple commands, denied strategy existence
-- **Fix:** Pre-parse layer detects enable/disable/morning scan BEFORE sending to Haiku
-- **File:** `intelligence/chat_interface.py`
+### Important Notes
+- `KRAKEN_PAPER_MODE = True` — simulates fills locally, uses real Kraken prices
+- Coinbase is completely removed from trade execution (auth format incompatible)
+- IBKR launches TWS manually — IBC automation not yet working
+- All fund inject/withdraw operations are informational only
 
 ---
 
-## New Features This Session
+## Strategy Status (as of Apr 26, 2026)
 
-### Morning Scan Command
-- Triggers: "morning scan", "what should I trade", "top setups", "best setups"
-- Scans ORB whitelist stocks for moves ≥0.3% with volume ≥1.2x average
-- Returns top 5 sorted by move×volume with direction, price, guidance
+| Strategy | Status | Asset Class | Notes |
+|----------|--------|-------------|-------|
+| rsi_momentum | DISABLED | — | Poor live performance |
+| bollinger_breakout | ENABLED | **Stocks only** | `crypto_enabled=False` — bleeds -$860 on crypto vs +$1,064 on stocks |
+| ema_crossover | DISABLED | — | |
+| mean_reversion | DISABLED | — | |
+| scalp_master | ENABLED | Both | |
+| swing_trader | DISABLED | — | |
+| **grid_bot** | **ENABLED** | **Crypto primary** | `reviewer_exempt=True` — 53% WR, +$291 today. Star performer |
+| dca_accumulator | ENABLED | Both | |
+| vwap_momentum | ENABLED | Both | |
+| hammer_reversal | ENABLED | Both | |
+| orb_breakout | ENABLED | Stocks | ORB window 9:45-10:15 ET |
 
-### Stale Position Sell-Off (ADX/DI)
-- After 3 hours open: check ADX
-- ADX < 25 (stalled) → close immediately
-- ADX ≥ 25: direction mismatch → close; aligned → hold
-- Validated live: NU closed on first attempt
-
-### ORB VWAP Cross Exit
-- ORB trades skip fixed TP — ride until price crosses back below VWAP (long) or above VWAP (short)
-- Safety ceiling TP still applies at 10-15%
-
-### OBV Filter on Hammer Reversal
-- OBV must be rising for last 3 consecutive bars before signal fires
-- Prevents signals on bounce attempts in waterfall selloffs
-
-### 2-Bar Trailing Stop (Pine Script Port)
-- `TwoBarStop` class in `intelligence/backtester.py`
-- `initial_stop()`: lowest low of prior N bars at entry (no lookahead)
-- `update_stop()`: ratchets up on new N-bar high, never down
-- `check_stop_hit()`: intrabar logic, fills at stop price not close
-- N=2 default, configurable 1-20
-- Dashboard backtest panel: radio button Standard vs 2-Bar, lookback N input
-
-### Weekly Trade Log Exporter
-- File: `reporting/weekly_tradelog.py`
-- Runs every Sunday midnight PT via scheduler, covers previous Sun-Sat
-- Output: `reports/MM-DD-YYYY_MM-DD-YYYY_tradelog.csv`
-- Columns: Symbol, Entry Date, Entry Time, Entry Price, Exit Date, Exit Time, Exit Price, Shares, P&L, Direction, Strategy, Broker, Exit Reason, Hold Duration
-
-### Performance Analyzer
-- File: `reporting/analyze_trades.py` (Opus 4 generated, integrated)
-- 7-section report: Overall stats, by setup, by time of day (full 24h), by day of week (full 7 days), pattern detection, summary, recommendations
-- Min trades threshold: 10
-- Usage: `python reporting/analyze_trades.py reports/04-19-2026_04-25-2026_tradelog.csv --output reports/analysis.txt`
+### Key Strategy Flags (base_strategy.py)
+- `stock_enabled` / `crypto_enabled` — per-asset-class on/off
+- `ml_exempt` — skip ML score blending
+- `auto_disable_exempt` — never auto-disable based on win rate
+- `reviewer_exempt` — skip Claude reviewer (Grid Bot uses non-standard indicators)
 
 ---
 
-## Monday Checklist (April 27)
-1. Start TWS first, wait for full load
-2. Approve API connection dialog in TWS
-3. Start bot: `python bot_engine.py`
-4. Watch for `IBKR connected: port=7497 paper clientId=2`
-5. Confirm stock trades routing to IBKR not Alpaca
-6. Run full IBKR paper session
+## Stop Mode Settings
 
-## Tuesday/Wednesday (April 28-29)
-- IBKR deposit hold clears April 28
-- Flip to live: `IBKR_PAPER_MODE = False` in config.py
-- Update `.env` with live DU account number
-- TWS: switch to port 7496
+```python
+STOCK_STOP_MODE    = "standard"   # standard % stop — adequate for stocks
+CRYPTO_STOP_MODE   = "two_bar"    # 2-Bar trailing stop — proven superior
+TWO_BAR_LOOKBACK_N = 2            # N=2 recommended
+```
 
----
-
-## Key Analysis Findings (Apr 12-18 backtest data, 716 trades)
-
-**Time of day:**
-- 00:00-09:30 overnight: -$1,067 over 263 trades (35.7% WR) — biggest drain (crypto paper)
-- 10:30-11:30: best hour +$558 (52% WR)
-- 11:30-12:30: 84% WR, +$556
-- 13:30-14:30: 87% WR, +$191
-
-**Day of week:**
-- Tuesday: +$1,219 (61% WR) ⭐
-- Thursday: +$1,081 (47% WR) ⭐
-- Sunday: -$911, Monday: -$185, Wednesday: -$179, Friday: -$187, Saturday: -$187
-
-**Strategy performance:**
-- mean_reversion: 21% WR, -$396 — KILLED
-- bollinger_breakout: quietly bleeding, needs monitoring
-- manual trades: -$230 from one -$376 outlier
+**Backtest results (Apr 2026) that drove this decision:**
+- Standard stop: 0 GO signals, 35% WR, avg PF 0.74
+- 2-Bar N=2: 4 GO signals, 50% WR, avg PF 144.81
+- Grid Bot 2-Bar: 75% WR, Sharpe 22, PF 8.54 (BTC 5min)
+- DCA 2-Bar: 64% WR, +3.27% (BTC 1hr/365d)
 
 ---
 
-## Pending Items
+## Position Monitor Exit Logic (priority order)
 
-### High Priority
-1. **IBC / IB Gateway** — needs IB Gateway installer (not TWS). IBC at C:\IBC configured but fails because TWS installed without version subfolder structure IBC expects.
-2. **IBKR MAX_RECONNECT_ATTEMPTS** — increase from 3 to 5 for market-close hiccup resilience
-3. **Alpaca ghost cleanup** — 6 positions (PSQ, MSFT, GEM, NIO, NFLX, SOFI) still open at Alpaca from Apr 23. Close manually at 9:30 AM Monday April 27.
-
-### Strategy Work
-4. **BTC on Hammer whitelist** — add back once SOL shows WR ≥55% over 20+ live trades
-5. **Overnight crypto drain** — disable crypto scanning 00:00-06:00 ET? -$1,067 in that block
-
-### Distribution / Future
-6. **Dashboard login** — password protection for distribution
-7. **Distribution cleanup script** — blank .env, cleared DB, removed personal screenshots
-8. **Unusual Whales MCP** — $50/month, multi-model Opus/Sonnet/Haiku architecture (finish book first)
-9. **Morning scan — add crypto candidates** — currently stocks only
-10. **Walk-forward backtesting** — proper out-of-sample validation
+1. STUCK check — skip if exceeded 3 close attempts
+2. EOD close — 15:45 ET stocks
+3. Stop-loss
+4. ORB VWAP cross exit
+5. Early loss (20 min check) — `EARLY_LOSS_MIN_PCT = -0.3`
+6. Perf time stop 1hr — `PERF_CHECK_1HR_MIN_PCT = 0.2` (lowered from 0.5)
+7. Perf time stop 3hr — `PERF_CHECK_3HR_MIN_PCT = 1.5`
+8. Hard time stop — `HARD_TIME_STOP_HOURS = 3.5`
+9. Take-profit + momentum rider (up to 3 extensions)
+10. Pivot point break (S1/R1) — after 30 min
+11. Stale ADX/DI check — after 3 hrs
+12. Trailing stop update + logging
 
 ---
 
-## Key File Locations
-- DB path: `data/trading_bot.db`
-- Reports folder: `reports/`
-- Logs: `logs/bot.log`
-- IBC: `C:\IBC\` (config.ini configured, needs IB Gateway installer)
-- TWS: `C:\Jts\` (auto-updating) and `C:\Jts\1019\` (offline copy for IBC)
-- venv: `venv312\Scripts\activate`
+## Claude Reviewer (claude_reviewer.py)
 
-## Chat Commands Quick Reference
-- `morning scan` — top ORB candidates
-- `enable/disable <strategy>` — pre-parsed, bypasses Haiku
-- `list strategies` — all 11 with ON/OFF status
-- `pause trading` / `resume trading`
-- `strategy stats` — win rate and P&L per strategy
-- See `CHAT_COMMANDS.md` for full list
+- **Enabled** — requires `ANTHROPIC_API_KEY` in `.env`
+- **Crypto bypass** — `allow_trading=False` from morning briefing does NOT block crypto (crypto runs 24/7)
+- **reviewer_exempt** — Grid Bot bypasses review entirely (no standard indicators to evaluate)
+- **Model:** claude-sonnet-4-5
+- **Fallback:** Any failure/timeout = SKIP (conservative)
 
-## Reference Documents
-- `README.md` — installer guide
-- `REFERENCE_DOCS.md` — index of all files
-- `CHAT_COMMANDS.md` — all chat commands
-- `strategies/INTEGRATION_GUIDE.py` — how to add a strategy
-- `data/BROKER_INTEGRATION_GUIDE.py` — how to add a broker
+---
+
+## Weekly Performance (Apr 19-26, 2026)
+
+```
+Total: 1219 trades | P&L: +$284.76
+
+By day:
+  Apr 26: 346 trades | 48.0% WR | +$149.54  (Grid Bot dominant, 2-Bar active)
+  Apr 25:  80 trades | 32.5% WR | -$160.27
+  Apr 24: 166 trades | 31.3% WR | -$555.72
+  Apr 23: 159 trades | 47.2% WR | +$1,349.14
+  Apr 22: 164 trades | 46.3% WR | +$891.30
+  Apr 21:  64 trades | 34.4% WR | -$30.72
+  Apr 20: 151 trades | 34.4% WR | -$671.48
+  Apr 19:  89 trades | 32.6% WR | -$687.04
+
+By asset class:
+  STOCKS: 151 trades | 29.1% WR | +$1,178 (Bollinger carrying stocks)
+  CRYPTO: 1068 trades | 42.5% WR | -$893 (Bollinger was destroying crypto — now disabled)
+
+By strategy (highlights):
+  grid_bot:              214 trades | 53.3% WR | +$291 ✅
+  bollinger_breakout (stocks): 123 trades | 30.9% WR | +$1,064 ✅
+  bollinger_breakout (crypto): 773 trades | 39.2% WR | -$860 ❌ NOW DISABLED FOR CRYPTO
+
+By broker:
+  alpaca:   142 trades | 31.0% WR | +$1,251
+  coinbase: 183 trades | 53.0% WR | +$238  (paper sim, pre-deprecation)
+  kraken:    87 trades | 40.2% WR | -$419  (new, still establishing)
+  paper:    805 trades | 39.8% WR | -$806  (old Bollinger crypto)
+```
+
+---
+
+## Haiku Chat Commands (pre-parsed, no API call needed)
+
+### Watchlist
+- `"what stocks are you watching"` / `"what crypto are you watching"`
+- `"show watchlist"` / `"show injected symbols"`
+- `"is BTC/USD being watched"` / `"is AAPL in watchlist"`
+- `"reload watchlist"` / `"refresh watchlist"`
+
+### Strategies
+- `"enable grid_bot"` / `"disable bollinger_breakout"`
+- `"list strategies"` / `"strategy stats"`
+
+### Trading
+- `"pause trading"` / `"resume trading"`
+- `"show my stats"` / `"capital breakdown"`
+- `"morning scan"` / `"top setups"`
+
+---
+
+## Filesystem Connector
+Claude now has direct read/write access to `C:\Users\Linda\trading_bot_v2` via the Filesystem MCP connector. No more file uploads needed — Claude can read and write files directly.
+
+---
+
+## Scheduled Jobs
+
+| Job | Schedule | Description |
+|-----|----------|-------------|
+| Crypto scan | Every 5 min, 24/7 | Threaded — won't block scheduler |
+| Stock scan | Every 60s, Mon-Fri 10:00-15:44 ET | Threaded |
+| Position monitor | Every 30s, 24/7 | Checks exits, trailing stops |
+| Capital sync | Every 15 min | Syncs broker balances |
+| EOD stock close | 15:45 ET weekdays | Closes all stock positions |
+| EOD report | 17:00 ET daily | Email report |
+| Daily scanner | 16:30 ET weekdays | Scans top stocks + crypto, updates watchlists |
+| ML retrain | 18:00 ET daily | Retrains Random Forest |
+| Weekly log | Sunday 00:00 PT | Weekly trade export |
+
+---
+
+## Known Open Issues
+
+1. **Grid Bot reviewer_exempt** — using ADX+BB signals not readable by Claude. Re-evaluate after 50+ live trades. Consider populating RSI/volume in metadata.
+
+2. **Bollinger crypto_enabled=False** — disabled based on Apr 2026 data. Re-evaluate monthly. Consider crypto-specific variant with tighter filters.
+
+3. **HARD_TIME_STOP_HOURS = 3.5** — kills profitable trades. Consider bypassing if pnl >= 2.0%.
+
+4. **PERF_CHECK_1HR_MIN_PCT = 0.2** — lowered from 0.5 today, monitor effect on trade quality.
+
+5. **Coinbase fully removed** — when Coinbase fixes their Advanced Trade API key generation (portal was broken Apr 26), consider adding back as secondary crypto broker.
+
+6. **IBKR IBC automation** — still launching TWS manually. IBC double-session loop unresolved.
+
+7. **Per-broker capital display** — broker_manager.py has the infrastructure but dashboard doesn't show per-broker breakdown yet.
+
+8. **Daily scanner crypto** — runs weekdays only. Should run 7 days for crypto.
+
+9. **Hard time stop bypass** — profitable trades getting killed at 3.5hr. Proposed: bypass if pnl >= 2.0%.
+
+10. **Dashboard overhaul** — planned full trading terminal with TradingView charts, draggable panels, manual trade entry, per-broker stats. Multi-session project.
+
+---
+
+## Technical Notes
+
+- **Python indentation:** 4-space, no tabs
+- **Linda's background:** BASIC, COBOL, C, C++, Pascal, mainframe assembly
+- **Timezone:** Bot uses ET for market hours, Linda is in Spokane WA (PT)
+- **Git:** Local `python git_push.py` for cloud backup
+- **Filesystem MCP:** Claude has direct read/write access to project directory
+- **GitHub connector:** Disconnected (was causing tool refresh loop every 60s)
