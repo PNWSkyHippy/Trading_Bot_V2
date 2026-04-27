@@ -279,11 +279,16 @@ class BotEngine:
 
     def _run_crypto_scan(self):
         import threading
-        threading.Thread(target=self._do_crypto_scan, daemon=True).start()
+        t = threading.Thread(target=self._do_crypto_scan, daemon=True)
+        t.start()
+        # Do NOT join here — let it run in background
+        # Each scan gets its own thread so a hung scan never blocks the next
 
     def _do_crypto_scan(self):
         try:
+            self.logger.info("[SCAN] Crypto scan starting...")
             self.market_scanner.scan_crypto()
+            self.logger.info("[SCAN] Crypto scan complete.")
         except Exception as e:
             self.logger.error(f"Crypto scan error: {e}", exc_info=True)
 
