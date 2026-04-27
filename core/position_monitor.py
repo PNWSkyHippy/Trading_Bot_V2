@@ -6,12 +6,13 @@
   - Take-profit triggers
   - Trailing stop adjustments (with logging)
   - Extended take-profit on continued momentum (with logging)
-  - Performance-contingent time stops (NEW):
-      < 0.5% profit after 1 hour  → close (going nowhere)
-      < 1.5% profit after 3 hours → close (too slow)
-  - Early loss identification (NEW):
-      If trade is negative AND moving further wrong at 20 min → close
-  - Hard time stop (NEW): 3.5 hours regardless of profit
+  - Performance-contingent time stops:
+      < 0.2% profit after 2 hours → close (going nowhere)
+      < 1.0% profit after 5 hours → close (too slow)
+      grid_bot and dca_accumulator are EXEMPT from all time stops
+  - Early loss identification:
+      If trade is negative AND moving further wrong at 30 min → close
+  - Hard time stop: 8 hours regardless of profit (grid_bot EXEMPT)
   - Stale position sell-off (3hr ADX/DI trend check)
   - Pivot point break exit (NEW):
       Long  breaks below S1 → close (structure failed)
@@ -24,10 +25,10 @@
     2.  EOD close (15:45 ET)
     3.  Stop-loss
     4.  ORB VWAP cross exit
-    5.  Early loss identification (20 min check)
-    6.  Performance-contingent time stop (1hr check)
-    7.  Performance-contingent time stop (3hr check)
-    8.  Hard time stop (3.5hr)
+    5.  Early loss identification (30 min check, -0.5% threshold)
+    6.  Performance-contingent time stop (2hr check, needs 0.2%)
+    7.  Performance-contingent time stop (5hr check, needs 1.0%)
+    8.  Hard time stop (8hr — grid_bot/dca_accumulator EXEMPT)
     9.  Take-profit + momentum rider
     10. Pivot point break
     11. Stale position ADX/DI check (3hr)
@@ -71,7 +72,7 @@ ADX_STALE_THRESHOLD = 25.0
 # NOTE: grid_bot trades are EXEMPT from all time stops (see _check_performance_time_stop)
 # Grid strategies need time to oscillate — time stops kill them prematurely.
 PERF_CHECK_1HR_SEC     = 2 * 60 * 60    # 2 hours (was 1hr — too aggressive)
-PERF_CHECK_1HR_MIN_PCT = 0.3            # need at least 0.3% profit by 2hr (was 0.5%)
+PERF_CHECK_1HR_MIN_PCT = 0.2            # need at least 0.2% profit by 2hr (was 0.5%)
 
 PERF_CHECK_3HR_SEC     = 5 * 60 * 60    # 5 hours (was 3hr)
 PERF_CHECK_3HR_MIN_PCT = 1.0            # need at least 1.0% profit by 5hr (was 1.5%)
