@@ -1,11 +1,16 @@
 {
-  "generated": "2026-04-27T13:31:12.770697",
+  "generated": "2026-04-28T13:31:13.155916",
   "valid_until": "next_market_close",
   "stocks": [
-    "MGM"
+    "NUE",
+    "BEN",
+    "VTR"
   ],
   "crypto": [
-    "TRX/USD",
-    "HTX/USD"
+    "RAIN/USD",
+    "TAO/USD",
+    "CC/USD",
+    "WLFI/USD",
+    "USDS/USD"
   ]
 }
