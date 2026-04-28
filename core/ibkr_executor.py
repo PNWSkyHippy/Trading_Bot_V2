@@ -46,6 +46,7 @@ IBKR_LIVE_PORT  = 7496
 IBKR_HOST       = "127.0.0.1"
 IBKR_CLIENT_ID  = 2      # Changed from 1 — avoids conflict with TWS own clientId
 MAX_RECONNECT_ATTEMPTS = 3
+CLIENT_ID_FALLBACKS = [2, 3, 4, 5]  # Try these in order if primary clientId is in use
 
 
 class IBKRExecutor:
@@ -66,7 +67,9 @@ class IBKRExecutor:
     def _establish_connection(self) -> bool:
         """
         Establish persistent connection to TWS.
-        Called once at startup and on reconnect attempts.
+        Tries multiple clientIds in sequence if the primary one is still
+        held by a previous bot instance (common after quick restarts).
+        TWS holds clientIds for ~30-60s after disconnect.
         Returns True if connected successfully.
         """
         try:
@@ -75,22 +78,48 @@ class IBKRExecutor:
                 self._ib = IB()
             if self._ib.isConnected():
                 return True
-            self._ib.connect(
-                host     = IBKR_HOST,
-                port     = self.port,
-                clientId = IBKR_CLIENT_ID,
-                timeout  = 10,
-                readonly = False
+
+            # Try each fallback clientId in order
+            for client_id in CLIENT_ID_FALLBACKS:
+                try:
+                    self._ib.connect(
+                        host     = IBKR_HOST,
+                        port     = self.port,
+                        clientId = client_id,
+                        timeout  = 10,
+                        readonly = False
+                    )
+                    if self._ib.isConnected():
+                        self._connected  = True
+                        self._client_id  = client_id
+                        logger.info(
+                            f"IBKR connected: port={self.port} "
+                            f"({'paper' if self.paper_mode else 'LIVE'}) "
+                            f"account={self.account or 'default'} "
+                            f"clientId={client_id}"
+                            + (f" (fallback — primary clientId {IBKR_CLIENT_ID} was in use)"
+                               if client_id != IBKR_CLIENT_ID else "")
+                        )
+                        return True
+                except Exception as e:
+                    if "clientId" in str(e) or "already" in str(e).lower():
+                        logger.warning(
+                            f"IBKR clientId {client_id} in use — trying next..."
+                        )
+                        try:
+                            self._ib.disconnect()
+                        except Exception:
+                            pass
+                        self._ib = IB()  # fresh IB instance for next attempt
+                        continue
+                    else:
+                        logger.warning(f"IBKR connection attempt failed: {e}")
+                        return False
+
+            logger.warning(
+                f"IBKR: all clientIds {CLIENT_ID_FALLBACKS} in use or failed. "
+                f"TWS may need 30-60s to release previous connections after restart."
             )
-            if self._ib.isConnected():
-                self._connected = True
-                logger.info(
-                    f"IBKR connected: port={self.port} "
-                    f"({'paper' if self.paper_mode else 'LIVE'}) "
-                    f"account={self.account or 'default'} "
-                    f"clientId={IBKR_CLIENT_ID}"
-                )
-                return True
             return False
         except Exception as e:
             self._connected = False

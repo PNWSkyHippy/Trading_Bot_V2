@@ -157,8 +157,45 @@ class BotEngine:
 
         # Load yesterday's scan results first (if any) then reconcile positions
         self._load_scan_results_on_startup()
+        self._clear_stuck_flags_on_startup()   # auto-clear STUCK so bot retries closes
         self._reconcile_positions()
         self._register_scheduled_jobs()
+
+    def _clear_stuck_flags_on_startup(self):
+        """
+        On every restart, automatically clear STUCK flags and close attempt
+        counters for all open trades. This gives the position monitor a fresh
+        chance to close trades that got stuck due to transient broker errors.
+        The IBKR fallback in _attempt_close will handle trades where TWS
+        was down — it will automatically retry via Alpaca.
+        """
+        try:
+            open_trades = self.db.get_open_trades()
+            if not open_trades:
+                return
+            cleared = 0
+            for trade in open_trades:
+                tid = trade["trade_id"]
+                sym = trade["symbol"]
+                was_stuck = int(self.db.get_state(f"close_stuck_{tid}", default=0))
+                if was_stuck:
+                    self.db.set_state(f"close_stuck_{tid}", 0)
+                    self.db.set_state(f"close_attempts_{tid}", 0)
+                    self.db.set_state(f"close_last_attempt_{tid}", 0)
+                    self.logger.info(
+                        f"[STARTUP] Cleared STUCK flag for {sym} — "
+                        f"position monitor will retry close"
+                    )
+                    cleared += 1
+            if cleared:
+                self.logger.info(
+                    f"[STARTUP] Auto-cleared {cleared} STUCK trade(s). "
+                    f"Position monitor will retry closes within 30s."
+                )
+            else:
+                self.logger.info("[STARTUP] No STUCK trades found — clean start.")
+        except Exception as e:
+            self.logger.error(f"Startup STUCK clear error: {e}")
 
     def _load_scan_results_on_startup(self):
         """
