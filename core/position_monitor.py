@@ -93,7 +93,13 @@ EOD_CLOSE_HOUR   = 15
 EOD_CLOSE_MINUTE = 45
 
 # ── Max close attempts ────────────────────────────────────────────────────────
-MAX_CLOSE_ATTEMPTS = 3
+# Raised from 3 to 8 — 3 was too low, a brief API hiccup caused permanent STUCK.
+# With 30s monitor interval this gives 4 minutes of retries before flagging STUCK.
+MAX_CLOSE_ATTEMPTS = 8
+
+# Minimum seconds between close attempts — prevents hammering the broker API
+# on repeated failures and gives TWS/Alpaca time to recover from transient errors.
+MIN_CLOSE_RETRY_SEC = 60   # wait at least 60s between failed close attempts
 
 
 def _stock_market_open() -> bool:
@@ -200,15 +206,21 @@ class PositionMonitor:
     def _get_close_attempts(self, trade_id: str) -> int:
         return int(self._db.get_state(f"close_attempts_{trade_id}", default=0))
 
+    def _get_last_attempt_time(self, trade_id: str) -> float:
+        """Return timestamp of last close attempt (0 if never attempted)."""
+        return float(self._db.get_state(f"close_last_attempt_{trade_id}", default=0))
+
     def _increment_close_attempts(self, trade_id: str, symbol: str) -> int:
         count = self._get_close_attempts(trade_id) + 1
         self._db.set_state(f"close_attempts_{trade_id}", count)
+        self._db.set_state(f"close_last_attempt_{trade_id}",
+                           datetime.now(timezone.utc).timestamp())
         if count >= MAX_CLOSE_ATTEMPTS:
             self._db.set_state(f"close_stuck_{trade_id}", 1)
             logger.error(
                 f"[STUCK] {symbol}: {count} failed close attempts. "
                 f"Manual intervention required. Use dashboard Close Now "
-                f"button or DB Browser to resolve."
+                f"button or Scripts/clear_stuck_trades.py to resolve."
             )
         return count
 
@@ -223,23 +235,62 @@ class PositionMonitor:
                        reason: str) -> bool:
         """
         Wrapper around close_trade that tracks failed attempts.
-        After MAX_CLOSE_ATTEMPTS failures, flags trade as STUCK.
+        - Enforces MIN_CLOSE_RETRY_SEC cooldown between attempts
+        - After MAX_CLOSE_ATTEMPTS failures, flags trade as STUCK
+        - If broker=ibkr and close fails, automatically retries via Alpaca
         """
         trade_id = trade["trade_id"]
         symbol   = trade["symbol"]
+        broker   = trade.get("broker", "")
+
+        # ── Cooldown: don't hammer broker on repeated failures ─────────────
+        last_attempt = self._get_last_attempt_time(trade_id)
+        if last_attempt > 0:
+            elapsed = datetime.now(timezone.utc).timestamp() - last_attempt
+            if elapsed < MIN_CLOSE_RETRY_SEC:
+                logger.debug(
+                    f"[CLOSE COOLDOWN] {symbol}: last attempt {elapsed:.0f}s ago, "
+                    f"waiting {MIN_CLOSE_RETRY_SEC - elapsed:.0f}s more before retry"
+                )
+                return False
 
         success = self._get_executor().close_trade(trade, current_price, reason)
 
         if success:
             self._reset_close_attempts(trade_id)
             return True
-        else:
-            count = self._increment_close_attempts(trade_id, symbol)
+
+        # ── IBKR fallback: if IBKR close fails try Alpaca directly ────────
+        # This handles the common case where TWS is not running but Alpaca is.
+        if broker == "ibkr" and trade.get("asset_class") == "stock":
             logger.warning(
-                f"Close attempt {count}/{MAX_CLOSE_ATTEMPTS} failed for "
-                f"{symbol} | reason={reason}"
+                f"[IBKR FALLBACK] {symbol}: IBKR close failed, "
+                f"attempting Alpaca fallback close..."
             )
-            return False
+            try:
+                from core.trade_executor import AlpacaExecutor
+                alpaca = AlpacaExecutor()
+                fallback_success = alpaca.close_position(symbol, current_price, reason)
+                if fallback_success:
+                    logger.info(
+                        f"[IBKR FALLBACK] {symbol}: Alpaca fallback close succeeded"
+                    )
+                    self._reset_close_attempts(trade_id)
+                    return True
+                else:
+                    logger.warning(
+                        f"[IBKR FALLBACK] {symbol}: Alpaca fallback also failed"
+                    )
+            except Exception as e:
+                logger.error(f"[IBKR FALLBACK] {symbol}: fallback error: {e}")
+
+        count = self._increment_close_attempts(trade_id, symbol)
+        logger.warning(
+            f"Close attempt {count}/{MAX_CLOSE_ATTEMPTS} failed for "
+            f"{symbol} | reason={reason} | "
+            f"next retry in {MIN_CLOSE_RETRY_SEC}s"
+        )
+        return False
 
     # ------------------------------------------------------------------
     #  NEW: PERFORMANCE-CONTINGENT TIME STOPS
