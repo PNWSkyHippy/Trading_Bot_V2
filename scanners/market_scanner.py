@@ -15,6 +15,10 @@ from datetime import datetime
 from typing import List, Dict, Optional
 from dataclasses import dataclass
 
+# Suppress Alpaca's verbose retry warnings — they spam the log on rate limits.
+# We handle rate limiting via time.sleep() between symbols instead.
+logging.getLogger("alpaca_trade_api.rest").setLevel(logging.ERROR)
+
 import alpaca_trade_api as tradeapi
 import ccxt
 
@@ -194,10 +198,10 @@ class StockScanner:
                         reason        = ss.reason,
                     ))
 
-                # Small delay between symbols to avoid Alpaca rate limiting.
-                # With 137 stocks × 2 timeframes = 274+ API calls per scan.
-                # 0.15s delay keeps us well under Alpaca's 200 req/min limit.
-                time.sleep(0.15)
+                # Delay between symbols to respect Alpaca rate limits.
+                # With 137 stocks × 2 timeframes + price = ~400 API calls per scan.
+                # 0.4s gives ~150 requests/min, well under Alpaca's 200/min limit.
+                time.sleep(0.4)
 
             except Exception as e:
                 logger.debug(f"Stock scan error {symbol}: {e}")
