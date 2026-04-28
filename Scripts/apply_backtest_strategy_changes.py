@@ -12,6 +12,9 @@ Results summary (5min/30day all stocks, 2-bar trailing stop):
 
 Run: python Scripts/apply_backtest_strategy_changes.py
 """
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import sqlite3
 from datetime import datetime, timezone
 
