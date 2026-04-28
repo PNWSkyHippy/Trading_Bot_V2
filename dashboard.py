@@ -98,6 +98,87 @@ def section_note(msg: str):
     st.markdown(f'<p class="section-label">{msg}</p>', unsafe_allow_html=True)
 
 # ----------------------------------------------------------
+#  CANDLESTICK CHART HELPER
+# ----------------------------------------------------------
+def render_chart(symbol: str, asset_class: str, entry_price: float = None, stop_loss: float = None, take_profit: float = None):
+    """
+    Fetch OHLCV bars and render a Plotly candlestick chart.
+    Supports 5Min, 1Hour, 1Day for stocks (Alpaca)
+    and 5m, 1h, 1d for crypto (CCXT/Kraken).
+    Entry, SL, TP lines drawn if provided.
+    """
+    tf_col, _ = st.columns([1, 3])
+    with tf_col:
+        timeframe = st.selectbox(
+            "Candle size",
+            options=["5 Min", "1 Hour", "1 Day"],
+            key=f"tf_{symbol}_{asset_class}"
+        )
+
+    tf_map_stock  = {"5 Min": "5Min",  "1 Hour": "1Hour", "1 Day": "1Day"}
+    tf_map_crypto = {"5 Min": "5m",    "1 Hour": "1h",    "1 Day": "1d"}
+    limit_map     = {"5 Min": 100,     "1 Hour": 100,     "1 Day": 90}
+
+    bars = None
+    try:
+        if asset_class == "stock":
+            import alpaca_trade_api as tradeapi
+            api  = tradeapi.REST(config.ALPACA_API_KEY, config.ALPACA_SECRET_KEY, config.ALPACA_BASE_URL)
+            tf   = tf_map_stock[timeframe]
+            raw  = api.get_bars(symbol, tf, limit=limit_map[timeframe]).df
+            if not raw.empty:
+                raw.index = pd.to_datetime(raw.index)
+                bars = raw.rename(columns={"open": "o", "high": "h", "low": "l", "close": "c"})
+        else:
+            import ccxt
+            exchange = ccxt.kraken({"enableRateLimit": True, "timeout": 10000})
+            tf       = tf_map_crypto[timeframe]
+            ohlcv    = exchange.fetch_ohlcv(symbol, tf, limit=limit_map[timeframe])
+            if ohlcv:
+                bars = pd.DataFrame(ohlcv, columns=["ts", "o", "h", "l", "c", "v"])
+                bars["ts"] = pd.to_datetime(bars["ts"], unit="ms")
+                bars = bars.set_index("ts")
+    except Exception as e:
+        st.warning(f"Could not load chart data: {e}")
+        return
+
+    if bars is None or bars.empty:
+        st.info("No chart data available.")
+        return
+
+    fig = go.Figure(go.Candlestick(
+        x     = bars.index,
+        open  = bars["o"],
+        high  = bars["h"],
+        low   = bars["l"],
+        close = bars["c"],
+        increasing_line_color = "#4caf50",
+        decreasing_line_color = "#f44336",
+        name  = symbol,
+    ))
+
+    # Draw entry / SL / TP reference lines
+    if entry_price:
+        fig.add_hline(y=entry_price, line_color="#4fc3f7",  line_dash="dash", annotation_text="Entry",  annotation_font_color="#4fc3f7")
+    if stop_loss:
+        fig.add_hline(y=stop_loss,   line_color="#f44336",  line_dash="dot",  annotation_text="SL",     annotation_font_color="#f44336")
+    if take_profit:
+        fig.add_hline(y=take_profit, line_color="#4caf50",  line_dash="dot",  annotation_text="TP",     annotation_font_color="#4caf50")
+
+    fig.update_layout(
+        paper_bgcolor = "#0f1117",
+        plot_bgcolor  = "#0f1117",
+        font          = dict(color="#e0e0e0"),
+        margin        = dict(l=10, r=10, t=30, b=10),
+        xaxis         = dict(gridcolor="#2a3a5c", rangeslider=dict(visible=False)),
+        yaxis         = dict(gridcolor="#2a3a5c", tickprefix="$"),
+        height        = 320,
+        title         = dict(text=f"{symbol} — {timeframe}", font=dict(color="#e0e0e0", size=14)),
+        showlegend    = False,
+    )
+    st.plotly_chart(fig, use_container_width=True)
+
+# ----------------------------------------------------------
 #  STOCK CLOSE HELPER
 # ----------------------------------------------------------
 def close_stock_position(symbol: str, trade_record: dict, current_price: float) -> tuple[bool, str]:
@@ -339,6 +420,16 @@ if positions:
                     st.session_state.close_messages[trade_id] = {"type": "success" if success else "error", "msg": msg}
                     st.cache_data.clear()
                     st.rerun()
+
+            # ── Clickable chart per position ────────────────────────────────────────
+            with st.expander(f"📊 {p['symbol']} — view chart", expanded=False):
+                render_chart(
+                    symbol      = p["symbol"],
+                    asset_class = p.get("asset_class", "crypto"),
+                    entry_price = float(p.get("entry_price") or 0) or None,
+                    stop_loss   = float(p.get("stop_loss")   or 0) or None,
+                    take_profit = float(p.get("take_profit") or 0) or None,
+                )
 else:
     st.info("No open positions currently.")
 
