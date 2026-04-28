@@ -349,10 +349,14 @@ st.markdown("### 🏦 IBKR Gateway Positions")
 section_note("Live positions from IB Gateway — read only. Refresh every 30 seconds. Close positions from the Open Positions panel above or use Dashboard Close Now button.")
 with st.expander("📊 View IBKR Account & Positions", expanded=False):
     try:
-        from core.ibkr_executor import IBKRExecutor
-        ibkr = IBKRExecutor(paper=True)
+        # Use the bot's existing singleton executor — never create a new
+        # IBKRExecutor instance here. A second instance would grab a new
+        # clientId and conflict with the bot's active Gateway connection,
+        # causing trades to fall back to Alpaca.
+        from core.trade_executor import executor
+        ibkr = getattr(executor, '_ibkr', None)
 
-        if not ibkr.is_available():
+        if not ibkr or not ibkr.is_available():
             st.warning("⚠️ IBKR Gateway not connected. Start Gateway via IBC and restart the bot.")
         else:
             # Account summary
