@@ -582,6 +582,25 @@ def run_daily_scan(top_n: int = 10,
 
     # Save temp JSON and inject into live watchlists
     save_scan_results(stock_df, crypto_df)
+
+    # Also write human-readable txt files to watchlist/ folder
+    # These mirror the JSON content for easy manual inspection
+    try:
+        os.makedirs("watchlist", exist_ok=True)
+        stocks_list = stock_df["Ticker"].tolist() if not stock_df.empty else []
+        crypto_list = [f"{r['Ticker']}/USD" if "/" not in r["Ticker"] else r["Ticker"]
+                       for _, r in crypto_df.iterrows()] if not crypto_df.empty else []
+        with open("watchlist/scanned_stocks.txt", "w") as f:
+            f.write("\n".join(stocks_list))
+        with open("watchlist/scanned_crypto.txt", "w") as f:
+            f.write("\n".join(crypto_list))
+        logger.info(
+            f"[DAILY SCAN] Watchlist txt files updated: "
+            f"{len(stocks_list)} stocks, {len(crypto_list)} crypto"
+        )
+    except Exception as e:
+        logger.warning(f"[DAILY SCAN] Could not write watchlist txt files: {e}")
+
     try:
         inject_scan_results_into_config()
     except Exception as e:
