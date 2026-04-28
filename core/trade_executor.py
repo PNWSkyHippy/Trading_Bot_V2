@@ -438,8 +438,25 @@ class TradeExecutor:
         if asset_class == "stock":
             if broker == "ibkr" and self._ibkr is not None:
                 success = self._ibkr.close_position(symbol)
+                # If IBKR close failed, check if position actually exists.
+                # In paper mode IBKR sometimes accepts orders but doesn't
+                # hold the position — "no position found" IS the desired state.
+                if not success:
+                    try:
+                        ibkr_positions = self._ibkr._ib.positions()
+                        has_pos = any(
+                            p.contract.symbol == symbol
+                            for p in ibkr_positions
+                        )
+                        if not has_pos:
+                            logger.info(
+                                f"[IBKR] {symbol}: no position found in Gateway "
+                                f"— treating as already closed (paper mode quirk)"
+                            )
+                            success = True
+                    except Exception:
+                        pass
             else:
-                # cancel_open_orders is now built into AlpacaExecutor.close_position
                 success = self.alpaca.close_position(symbol)
         elif asset_class == "crypto":
             # Kraken is the default crypto executor — Coinbase API is deprecated.
@@ -493,7 +510,9 @@ class TradeExecutor:
         if strategy_name not in ("original", "manual") and exit_reason != "manual_close":
             try:
                 from strategies.strategy_engine import strategy_engine
-                strategy_engine.record_trade_result(strategy_name, pnl, trade_won)
+                strategy_engine.record_trade_result(
+                    strategy_name, pnl, trade_won, exit_reason=exit_reason
+                )
             except Exception as e:
                 logger.debug(f"Strategy result recording error: {e}")
 
