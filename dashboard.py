@@ -100,7 +100,7 @@ def section_note(msg: str):
 # ----------------------------------------------------------
 #  CANDLESTICK CHART HELPER
 # ----------------------------------------------------------
-def render_chart(symbol: str, asset_class: str, entry_price: float = None, stop_loss: float = None, take_profit: float = None):
+def render_chart(symbol: str, asset_class: str, entry_price: float = None, stop_loss: float = None, take_profit: float = None, entry_time: str = None):
     """
     Fetch OHLCV bars and render a Plotly candlestick chart.
     Supports 5Min, 1Hour, 1Day for stocks (Alpaca)
@@ -164,19 +164,38 @@ def render_chart(symbol: str, asset_class: str, entry_price: float = None, stop_
         fig.add_hline(y=stop_loss,   line_color="#f44336",  line_dash="dot",  annotation_text="SL",     annotation_font_color="#f44336")
     if take_profit:
         fig.add_hline(y=take_profit, line_color="#4caf50",  line_dash="dot",  annotation_text="TP",     annotation_font_color="#4caf50")
+    if entry_time:
+        try:
+            et = pd.to_datetime(entry_time)
+            fig.add_vline(
+                x          = et.timestamp() * 1000,
+                line_color = "#4fc3f7",
+                line_dash  = "dash",
+                line_width = 1,
+                annotation_text      = f"Entered {et.strftime('%H:%M')}",
+                annotation_font_color= "#4fc3f7",
+                annotation_position  = "top right",
+            )
+        except Exception:
+            pass
 
     fig.update_layout(
         paper_bgcolor = "#0f1117",
         plot_bgcolor  = "#0f1117",
         font          = dict(color="#e0e0e0"),
         margin        = dict(l=10, r=10, t=30, b=10),
-        xaxis         = dict(gridcolor="#2a3a5c", rangeslider=dict(visible=False)),
-        yaxis         = dict(gridcolor="#2a3a5c", tickprefix="$"),
+        xaxis         = dict(gridcolor="#2a3a5c", rangeslider=dict(visible=False), fixedrange=True),
+        yaxis         = dict(gridcolor="#2a3a5c", tickprefix="$", fixedrange=True),
         height        = 320,
+        dragmode      = False,
         title         = dict(text=f"{symbol} — {timeframe}", font=dict(color="#e0e0e0", size=14)),
         showlegend    = False,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config={
+        "scrollZoom":    True,
+        "displayModeBar": False,   # hide the toolbar clutter
+        "dragmode":      False,    # disable drag-to-pan — use scroll only
+    })
 
 # ----------------------------------------------------------
 #  STOCK CLOSE HELPER
@@ -231,7 +250,16 @@ if "last_refresh" not in st.session_state:
 
 @st.cache_data(ttl=10)
 def load_data():
-    session      = risk_manager.get_daily_status()
+    session_obj  = risk_manager.get_daily_status()
+    # Convert session to plain dict so st.cache_data can pickle it
+    session = {
+        "trading_active":         session_obj.trading_active,
+        "halt_reason":            session_obj.halt_reason,
+        "pnl_today":              session_obj.pnl_today,
+        "trades_today":           session_obj.trades_today,
+        "consecutive_losses":     session_obj.consecutive_losses,
+        "starting_capital_today": session_obj.starting_capital_today,
+    }
     cap          = db.get_latest_capital()
     positions    = monitor.get_positions_summary()
     summaries    = db.get_daily_summaries(30)
@@ -241,10 +269,10 @@ def load_data():
 
 session, cap, positions, summaries, today_trades, all_trades = load_data()
 capital      = cap["total_capital"] if cap else 0
-daily_pnl    = session.pnl_today
+daily_pnl    = session["pnl_today"]
 
 # Use locked starting capital — never drifts on restart
-starting_cap  = session.starting_capital_today if session.starting_capital_today > 0 else max(capital - daily_pnl, 1.0)
+starting_cap  = session["starting_capital_today"] if session["starting_capital_today"] > 0 else max(capital - daily_pnl, 1.0)
 daily_pnl_pct = (daily_pnl / starting_cap * 100) if starting_cap else 0
 
 # ----------------------------------------------------------
@@ -259,8 +287,8 @@ with col_time:
         st.cache_data.clear()
         st.rerun()
 st.divider()
-if not session.trading_active:
-    st.markdown(f'<div class="halted-banner">🛑 TRADING HALTED — {session.halt_reason or "Unknown reason"}</div>', unsafe_allow_html=True)
+if not session["trading_active"]:
+    st.markdown(f'<div class="halted-banner">🛑 TRADING HALTED — {session["halt_reason"] or "Unknown reason"}</div>', unsafe_allow_html=True)
 else:
     st.markdown('<div class="active-banner">✅ Trading Active — Bot is running and scanning markets</div>', unsafe_allow_html=True)
 
@@ -275,8 +303,8 @@ metric_card(c1, "Total Capital",  f"${capital:,.2f}",        "blue")
 metric_card(c2, "Daily P&L",      f"${daily_pnl:+,.2f}",    pnl_color)
 metric_card(c3, "Daily P&L %",    f"{daily_pnl_pct:+.2f}%", pnl_color)
 metric_card(c4, "Open Positions", str(len(positions)),        "yellow")
-metric_card(c5, "Trades Today",   str(session.trades_today), "blue")
-metric_card(c6, "Consec. Losses", str(session.consecutive_losses), "red" if session.consecutive_losses >= 2 else "green")
+metric_card(c5, "Trades Today",   str(session["trades_today"]), "blue")
+metric_card(c6, "Consec. Losses", str(session["consecutive_losses"]), "red" if session["consecutive_losses"] >= 2 else "green")
 st.markdown("&nbsp;", unsafe_allow_html=True)
 
 # ----------------------------------------------------------
@@ -429,6 +457,7 @@ if positions:
                     entry_price = float(p.get("entry_price") or 0) or None,
                     stop_loss   = float(p.get("stop_loss")   or 0) or None,
                     take_profit = float(p.get("take_profit") or 0) or None,
+                    entry_time  = p.get("entry_time"),
                 )
 else:
     st.info("No open positions currently.")
