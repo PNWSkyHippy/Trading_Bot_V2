@@ -72,59 +72,69 @@ class IBKRExecutor:
         TWS holds clientIds for ~30-60s after disconnect.
         Returns True if connected successfully.
         """
-        try:
-            from ib_insync import IB
-            if self._ib is None:
-                self._ib = IB()
-            if self._ib.isConnected():
-                return True
+        from ib_insync import IB
 
-            # Try each fallback clientId in order
-            for client_id in CLIENT_ID_FALLBACKS:
-                try:
-                    self._ib.connect(
-                        host     = IBKR_HOST,
-                        port     = self.port,
-                        clientId = client_id,
-                        timeout  = 10,
-                        readonly = False
+        for client_id in CLIENT_ID_FALLBACKS:
+            ib = IB()
+            # Track if TWS sent error 326 (clientId in use) via error callback
+            client_id_rejected = [False]
+
+            def on_error(reqId, errorCode, errorString, contract):
+                if errorCode == 326:
+                    client_id_rejected[0] = True
+
+            ib.errorEvent += on_error
+
+            try:
+                ib.connect(
+                    host     = IBKR_HOST,
+                    port     = self.port,
+                    clientId = client_id,
+                    timeout  = 5,
+                    readonly = False
+                )
+                # Give TWS a moment to send back error 326 if clientId is in use
+                ib.sleep(1.0)
+
+                if client_id_rejected[0]:
+                    # TWS accepted socket but rejected clientId
+                    logger.warning(
+                        f"IBKR clientId {client_id} in use — trying next..."
                     )
-                    if self._ib.isConnected():
-                        self._connected  = True
-                        self._client_id  = client_id
-                        logger.info(
-                            f"IBKR connected: port={self.port} "
-                            f"({'paper' if self.paper_mode else 'LIVE'}) "
-                            f"account={self.account or 'default'} "
-                            f"clientId={client_id}"
-                            + (f" (fallback — primary clientId {IBKR_CLIENT_ID} was in use)"
-                               if client_id != IBKR_CLIENT_ID else "")
-                        )
-                        return True
-                except Exception as e:
-                    if "clientId" in str(e) or "already" in str(e).lower():
-                        logger.warning(
-                            f"IBKR clientId {client_id} in use — trying next..."
-                        )
-                        try:
-                            self._ib.disconnect()
-                        except Exception:
-                            pass
-                        self._ib = IB()  # fresh IB instance for next attempt
-                        continue
-                    else:
-                        logger.warning(f"IBKR connection attempt failed: {e}")
-                        return False
+                    try:
+                        ib.disconnect()
+                    except Exception:
+                        pass
+                    continue
 
-            logger.warning(
-                f"IBKR: all clientIds {CLIENT_ID_FALLBACKS} in use or failed. "
-                f"TWS may need 30-60s to release previous connections after restart."
-            )
-            return False
-        except Exception as e:
-            self._connected = False
-            logger.warning(f"IBKR connection attempt failed: {e}")
-            return False
+                if ib.isConnected():
+                    self._ib        = ib
+                    self._connected = True
+                    self._client_id = client_id
+                    logger.info(
+                        f"IBKR connected: port={self.port} "
+                        f"({'paper' if self.paper_mode else 'LIVE'}) "
+                        f"account={self.account or 'default'} "
+                        f"clientId={client_id}"
+                        + (f" (fallback — primary clientId {IBKR_CLIENT_ID} was in use)"
+                           if client_id != IBKR_CLIENT_ID else "")
+                    )
+                    return True
+
+            except Exception as e:
+                logger.warning(f"IBKR clientId {client_id} connect error: {e}")
+                try:
+                    ib.disconnect()
+                except Exception:
+                    pass
+                continue
+
+        logger.warning(
+            f"IBKR: all clientIds {CLIENT_ID_FALLBACKS} in use or failed. "
+            f"TWS may need 30-60s to release previous connections after restart."
+        )
+        self._connected = False
+        return False
 
     def _ensure_connected(self) -> bool:
         """
