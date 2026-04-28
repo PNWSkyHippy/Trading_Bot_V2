@@ -9,6 +9,9 @@ Safe to run while bot is stopped. Restart bot after running.
 Usage:
     python Scripts\reset_gridbot_stats.py
 """
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import sqlite3
 
 conn = sqlite3.connect("data/trading_bot.db")

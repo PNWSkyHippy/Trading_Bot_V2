@@ -11,6 +11,9 @@ Usage:
     python Scripts/force_close_stuck_stocks.py           # preview only
     python Scripts/force_close_stuck_stocks.py --commit  # actually close them
 """
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import sqlite3
 import sys

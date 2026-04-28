@@ -1,6 +1,9 @@
 """
 check_open_trades.py - Quick diagnostic to see whats actually open in DB
 """
+import sys, os
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import sqlite3
 
 conn = sqlite3.connect("data/trading_bot.db")
