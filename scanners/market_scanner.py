@@ -136,6 +136,25 @@ class StockScanner:
         return None
 
     def scan(self) -> List[Signal]:
+        """
+        Scan all stocks in the watchlist.
+        Fetches candles once per timeframe per symbol and reuses them
+        across all strategies that share the same timeframe.
+        This avoids redundant API calls while giving each strategy
+        the candle resolution it was designed and backtested for.
+        """
+        # Build timeframe → strategies map once (only enabled stock strategies)
+        tf_groups: dict = {}
+        for strategy in strategy_engine.get_all_strategies():
+            if not strategy.enabled:
+                continue
+            if not getattr(strategy, "stock_enabled", True):
+                continue
+            tf = getattr(strategy, "stock_candle_timeframe", "5Min")
+            tf_groups.setdefault(tf, [])
+            if strategy not in tf_groups[tf]:
+                tf_groups[tf].append(strategy)
+
         signals = []
         for symbol in config.STOCK_WATCHLIST:
             try:
@@ -144,11 +163,24 @@ class StockScanner:
                     continue
                 if not (config.STOCK_MIN_PRICE <= price <= config.STOCK_MAX_PRICE):
                     continue
-                bars = self.get_bars(symbol, "5Min", 100)
-                if bars is None or len(bars) < 20:
+
+                # Fetch bars once per unique timeframe — reused across strategies
+                bar_cache: dict = {}
+                for tf in tf_groups:
+                    limit = max(
+                        getattr(s, "candle_limit", 100)
+                        for s in tf_groups[tf]
+                    )
+                    bars = self.get_bars(symbol, tf, limit)
+                    if bars is not None and len(bars) >= 20:
+                        bar_cache[tf] = bars
+
+                if not bar_cache:
                     continue
-                strategy_signals = strategy_engine.run_strategies(
-                    symbol, "stock", bars, price
+
+                # Run strategies against their correct candle timeframe
+                strategy_signals = strategy_engine.run_strategies_multi_tf(
+                    symbol, "stock", bar_cache, price
                 )
                 for ss in strategy_signals:
                     signals.append(Signal(
@@ -199,6 +231,23 @@ class CryptoScanner:
             return None
 
     def scan(self) -> List[Signal]:
+        """
+        Scan all crypto pairs in the watchlist.
+        Fetches candles once per timeframe per symbol and reuses them
+        across all strategies that share the same timeframe.
+        """
+        # Build timeframe → strategies map once (only enabled crypto strategies)
+        tf_groups: dict = {}
+        for strategy in strategy_engine.get_all_strategies():
+            if not strategy.enabled:
+                continue
+            if not getattr(strategy, "crypto_enabled", True):
+                continue
+            tf = getattr(strategy, "crypto_candle_timeframe", "1h")
+            tf_groups.setdefault(tf, [])
+            if strategy not in tf_groups[tf]:
+                tf_groups[tf].append(strategy)
+
         signals = []
         for symbol in config.CRYPTO_WATCHLIST:
             try:
@@ -207,11 +256,24 @@ class CryptoScanner:
                     continue
                 if not (config.CRYPTO_MIN_PRICE <= price <= config.CRYPTO_MAX_PRICE):
                     continue
-                bars = self.get_ohlcv(symbol, "5m", 100)
-                if bars is None or len(bars) < 20:
+
+                # Fetch bars once per unique timeframe — reused across strategies
+                bar_cache: dict = {}
+                for tf in tf_groups:
+                    limit = max(
+                        getattr(s, "candle_limit", 100)
+                        for s in tf_groups[tf]
+                    )
+                    bars = self.get_ohlcv(symbol, tf, limit)
+                    if bars is not None and len(bars) >= 20:
+                        bar_cache[tf] = bars
+
+                if not bar_cache:
                     continue
-                strategy_signals = strategy_engine.run_strategies(
-                    symbol, "crypto", bars, price
+
+                # Run strategies against their correct candle timeframe
+                strategy_signals = strategy_engine.run_strategies_multi_tf(
+                    symbol, "crypto", bar_cache, price
                 )
                 for ss in strategy_signals:
                     signals.append(Signal(

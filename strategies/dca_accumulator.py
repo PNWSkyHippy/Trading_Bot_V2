@@ -38,6 +38,14 @@ class DCAAccumulator(BaseStrategy):
         self.strategy_name   = "dca_accumulator"
         self.stop_loss_pct   = 2.0     # Wider stop — willing to hold through dips
         self.take_profit_pct = 5.0     # Larger target
+
+        # DCA accumulator is a slow-moving strategy — 1hr bars are the right
+        # timeframe. Backtested at 1hr/365 days with all GO results.
+        # Needs more bars (200) to see EMA50 and RSI context clearly.
+        self.stock_candle_timeframe  = "1Hour"
+        self.crypto_candle_timeframe = "1h"
+        self.candle_limit            = 200
+
         self.logger = logging.getLogger("DCAAccumulator")
 
     def analyze(

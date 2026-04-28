@@ -78,6 +78,23 @@ class BaseStrategy(ABC):
         self.ml_exempt          = False  # Skip ML score blending for this strategy
         self.auto_disable_exempt= False  # Never auto-disable this strategy
 
+        # ── Candle timeframe ─────────────────────────────────────────────
+        # The timeframe and bar count this strategy needs to analyze correctly.
+        # The scanner fetches bars per timeframe and reuses them across strategies
+        # that share the same timeframe — only ONE API call per timeframe per symbol.
+        #
+        # Stock timeframes (Alpaca): "1Min", "5Min", "15Min", "1Hour", "1Day"
+        # Crypto timeframes (Kraken/CCXT): "1m", "5m", "15m", "1h", "1d"
+        #
+        # Strategies that need 1hr bars for proper signal generation should set:
+        #   self.stock_candle_timeframe  = "1Hour"
+        #   self.crypto_candle_timeframe = "1h"
+        #
+        # Default is 5min for stocks and 1hr for crypto (matches current behavior).
+        self.stock_candle_timeframe  = "5Min"   # Alpaca timeframe string
+        self.crypto_candle_timeframe = "1h"     # CCXT timeframe string
+        self.candle_limit            = 100       # Number of bars to fetch
+
         # Per-asset-class enable flags
         # Set stock_enabled=False to skip for stocks
         # Set crypto_enabled=False to skip for crypto

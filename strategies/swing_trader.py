@@ -26,6 +26,14 @@ class SwingTrader(BaseStrategy):
         self.strategy_name   = "swing_trader"
         self.stop_loss_pct   = 2.5     # Wider stop for swing trades
         self.take_profit_pct = 6.0     # Bigger target
+
+        # Swing trader needs 1hr candles — 5min produces too few trades
+        # to generate meaningful signals (1-5 per symbol at 5min).
+        # At 1hr/365 days swing_trader shows proper trade counts and GO results.
+        self.stock_candle_timeframe  = "1Hour"
+        self.crypto_candle_timeframe = "1h"
+        self.candle_limit            = 200   # Need more 1hr bars for trend context
+
         self.logger = logging.getLogger("SwingTrader")
 
     def analyze(

@@ -156,6 +156,88 @@ class StrategyEngine:
 
         return results
 
+    def run_strategies_multi_tf(
+        self,
+        symbol: str,
+        asset_class: str,
+        bar_cache: Dict[str, pd.DataFrame],
+        price: float
+    ) -> List["StrategySignalCompat"]:
+        """
+        Multi-timeframe version of run_strategies.
+        Each strategy declares its preferred candle timeframe via:
+          stock_candle_timeframe  (Alpaca format, e.g. "5Min", "1Hour")
+          crypto_candle_timeframe (CCXT format, e.g. "5m", "1h")
+
+        bar_cache is a dict of {timeframe_string: DataFrame} pre-fetched
+        by the scanner. Each strategy gets the bars for its declared timeframe.
+        If a strategy's timeframe isn't in bar_cache (fetch failed), it is
+        skipped gracefully rather than crashing.
+        """
+        results = []
+
+        for strategy in self.strategies:
+            if not strategy.enabled:
+                continue
+            if asset_class == "crypto" and not getattr(strategy, "crypto_enabled", True):
+                continue
+            if asset_class == "stock" and not getattr(strategy, "stock_enabled", True):
+                continue
+
+            # Look up the correct timeframe key for this asset class
+            if asset_class == "stock":
+                tf_key = getattr(strategy, "stock_candle_timeframe", "5Min")
+            else:
+                tf_key = getattr(strategy, "crypto_candle_timeframe", "1h")
+
+            bars = bar_cache.get(tf_key)
+            if bars is None:
+                # Bars for this timeframe weren't fetched (API error or too few bars)
+                logger.debug(
+                    f"[{strategy.name}] Skipping {symbol} — "
+                    f"no bars available for timeframe {tf_key}"
+                )
+                continue
+
+            try:
+                market_condition = "unknown"
+                trade_signal = strategy.analyze(symbol, bars, market_condition)
+
+                if trade_signal is None:
+                    continue
+
+                compat = StrategySignalCompat(
+                    symbol                 = symbol,
+                    asset_class            = asset_class,
+                    direction              = trade_signal.direction,
+                    score                  = trade_signal.score,
+                    current_price          = price,
+                    indicators             = trade_signal.metadata or {},
+                    reason                 = trade_signal.reason,
+                    strategy_name          = strategy.strategy_name,
+                    custom_stop_loss_pct   = trade_signal.stop_loss_pct,
+                    custom_take_profit_pct = trade_signal.take_profit_pct,
+                    custom_position_pct    = None,
+                    ml_exempt              = getattr(strategy, "ml_exempt",        False),
+                    reviewer_exempt        = getattr(strategy, "reviewer_exempt",  False),
+                )
+                results.append(compat)
+
+                logger.info(
+                    f"[{strategy.name}] Signal: {symbol} "
+                    f"{trade_signal.direction.upper()} "
+                    f"score={trade_signal.score:.3f} | "
+                    f"tf={tf_key} | {trade_signal.reason}"
+                )
+
+            except Exception as e:
+                logger.error(
+                    f"Strategy {strategy.name} error on {symbol}: {e}",
+                    exc_info=config.VERBOSE_MODE
+                )
+
+        return results
+
     def record_trade_result(self, strategy_name: str, pnl: float, won: bool):
         today = date.today().isoformat()
         self._db.record_strategy_result(strategy_name, today, pnl, won)

@@ -94,6 +94,15 @@ class VWAPMomentum(BaseStrategy):
         self.strategy_name   = "vwap_momentum"
         self.stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT
         self.take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT
+
+        # VWAP momentum confirmed at 1hr/365 days on stocks (almost all GO).
+        # 5min had very few trades per symbol — not enough for reliable signals.
+        # VWAP is a daily level concept and works better on 1hr bars.
+        # Crypto disabled — 24/7 markets have no reliable intraday VWAP anchor.
+        self.stock_candle_timeframe  = "1Hour"
+        self.candle_limit            = 200
+        self.crypto_enabled          = False
+
         self.logger          = logging.getLogger("VWAPMomentum")
 
     def analyze(
