@@ -1055,7 +1055,7 @@ with st.sidebar:
                     st.error(f"Start error: {e}")
     st.divider()
     st.markdown("**📊 Trading Control**")
-    if session.trading_active:
+    if session["trading_active"]:
         if st.button("⏸️ Pause Trading", use_container_width=True, type="secondary"):
             risk_manager.manual_halt("Paused via dashboard")
             st.rerun()
