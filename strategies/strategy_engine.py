@@ -238,7 +238,32 @@ class StrategyEngine:
 
         return results
 
-    def record_trade_result(self, strategy_name: str, pnl: float, won: bool):
+    def record_trade_result(self, strategy_name: str, pnl: float,
+                             won: bool, exit_reason: str = ""):
+        """
+        Record a trade result for win/loss tracking.
+        Infrastructure failures are excluded from strategy evaluation —
+        these are plumbing problems not strategy failures and would corrupt
+        the win rate used for auto-disable decisions.
+        """
+        # Exit reasons that are NOT strategy failures — never count against win rate
+        EXCLUDED_REASONS = {
+            "force_close",
+            "force_close_stuck_stock",
+            "force_close_stuck_crypto",
+            "manual_close",
+            "eod_close",           # EOD forced close is not a strategy signal
+            "stuck",
+            "broker_fallback",
+            "reconcile_close",
+        }
+        if exit_reason.lower() in EXCLUDED_REASONS:
+            logger.debug(
+                f"[STRATEGY STATS] Skipping {strategy_name} result — "
+                f"exit_reason='{exit_reason}' is excluded from win rate tracking"
+            )
+            return
+
         today = date.today().isoformat()
         self._db.record_strategy_result(strategy_name, today, pnl, won)
         logger.info(
