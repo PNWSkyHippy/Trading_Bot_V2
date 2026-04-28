@@ -56,6 +56,22 @@ class GridBot(BaseStrategy):
 
         self.logger = logging.getLogger("GridBot")
 
+        # High-volatility crypto symbols that need wider stops to survive
+        # wild intracandle swings without getting shaken out prematurely.
+        # These coins can swing 5-10% on a single 1hr candle — the default
+        # 0.8% stop gets blown through instantly on normal volatility.
+        # Wider stop = fewer premature stops = captures the big moves.
+        self.high_volatility_symbols = {
+            "RAVE/USD",   # 5,600% move in 5 days — extreme volatility
+            "TRUMP/USD",  # Meme coin — wild swings
+            "MELANIA/USD",# Meme coin — wild swings
+            "PEPE/USD",   # Meme coin
+            "DOGE/USD",   # High vol relative to price
+            "SHIB/USD",   # Extreme micro-price volatility
+        }
+        self.hv_stop_loss_pct   = 2.5   # Wider stop for high-vol coins
+        self.hv_take_profit_pct = 5.0   # Larger target to compensate
+
     def analyze(
         self,
         symbol: str,
@@ -162,12 +178,15 @@ class GridBot(BaseStrategy):
             self.verbose_log_score(symbol, score, min_score)
             if score >= min_score:
                 return self._make_signal(
-                    symbol    = symbol,
-                    direction = "long",
-                    score     = score,
-                    reason    = (
+                    symbol       = symbol,
+                    direction    = "long",
+                    score        = score,
+                    stop_loss_pct    = self.hv_stop_loss_pct if symbol in self.high_volatility_symbols else self.stop_loss_pct,
+                    take_profit_pct  = self.hv_take_profit_pct if symbol in self.high_volatility_symbols else self.take_profit_pct,
+                    reason       = (
                         f"Grid long: price at {position_pct:.1%} of range, "
                         f"ADX={adx_value:.1f} (ranging)"
+                        + (" [HV: wider stop]" if symbol in self.high_volatility_symbols else "")
                     )
                 )
 
@@ -186,12 +205,15 @@ class GridBot(BaseStrategy):
             self.verbose_log_score(symbol, score, min_score)
             if score >= min_score:
                 return self._make_signal(
-                    symbol    = symbol,
-                    direction = "short",
-                    score     = score,
-                    reason    = (
+                    symbol       = symbol,
+                    direction    = "short",
+                    score        = score,
+                    stop_loss_pct    = self.hv_stop_loss_pct if symbol in self.high_volatility_symbols else self.stop_loss_pct,
+                    take_profit_pct  = self.hv_take_profit_pct if symbol in self.high_volatility_symbols else self.take_profit_pct,
+                    reason       = (
                         f"Grid short: price at {position_pct:.1%} of range, "
                         f"ADX={adx_value:.1f} (ranging)"
+                        + (" [HV: wider stop]" if symbol in self.high_volatility_symbols else "")
                     )
                 )
 
