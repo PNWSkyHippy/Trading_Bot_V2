@@ -1,0 +1,5 @@
+1. clear_stuck_trades.py          ← clear the flags
+2. Restart the bot                ← let it retry closes through the broker
+3. Only if broker closes fail →
+   force_close_stuck_stocks.py    ← nuclear option for stocks
+   force_close_paper_trades.py    ← nuclear option for crypto
