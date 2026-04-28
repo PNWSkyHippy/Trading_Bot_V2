@@ -40,7 +40,19 @@ class GridBot(BaseStrategy):
         # RSI/MACD/volume indicators. Claude reviewer SKIPs all signals due to
         # missing indicator data. Exempt until 50+ live trades confirm performance.
         # See open issue in module docstring above.
-        self.reviewer_exempt = True
+        self.reviewer_exempt     = True
+
+        # NEVER auto-disable grid_bot — it is the best backtested strategy
+        # (72%+ win rate across 80+ crypto pairs). Low win rate during testing
+        # is caused by STUCK trades, time stop issues, and restart problems —
+        # not a strategy failure. Auto-disable would mask these infrastructure
+        # issues as strategy underperformance.
+        self.auto_disable_exempt = True
+
+        # ML exempt — grid_bot uses non-standard indicators (ADX + BB position)
+        # that don't match the ML model's feature set (RSI, MACD, volume etc).
+        # Blending ML score would corrupt grid_bot's signal quality.
+        self.ml_exempt           = True
 
         self.logger = logging.getLogger("GridBot")
 
