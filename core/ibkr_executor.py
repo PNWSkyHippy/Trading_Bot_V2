@@ -256,6 +256,12 @@ class IBKRExecutor:
 
             ib        = self._ib
             positions = ib.positions(account=self.account or "")
+
+            # If no positions found with account filter, try without filter
+            # (paper accounts sometimes return positions without account qualifier)
+            if not positions:
+                positions = ib.positions()
+
             target    = None
 
             for pos in positions:
