@@ -270,7 +270,8 @@ class PositionMonitor:
             try:
                 from core.trade_executor import AlpacaExecutor
                 alpaca = AlpacaExecutor()
-                fallback_success = alpaca.close_position(symbol, current_price, reason)
+                # close_position only takes symbol — no price or reason args
+                fallback_success = alpaca.close_position(symbol)
                 if fallback_success:
                     logger.info(
                         f"[IBKR FALLBACK] {symbol}: Alpaca fallback close succeeded"
