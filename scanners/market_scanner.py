@@ -8,6 +8,7 @@
 """
 
 import logging
+import time
 import numpy as np
 import pandas as pd
 from datetime import datetime
@@ -192,6 +193,12 @@ class StockScanner:
                         indicators    = ss.indicators,
                         reason        = ss.reason,
                     ))
+
+                # Small delay between symbols to avoid Alpaca rate limiting.
+                # With 137 stocks × 2 timeframes = 274+ API calls per scan.
+                # 0.15s delay keeps us well under Alpaca's 200 req/min limit.
+                time.sleep(0.15)
+
             except Exception as e:
                 logger.debug(f"Stock scan error {symbol}: {e}")
         return signals
