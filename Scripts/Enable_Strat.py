@@ -1,0 +1,1 @@
+python -c "from data.database import db; db.set_state('strategy_swing_trader_enabled', 'true'); print('Done')"
