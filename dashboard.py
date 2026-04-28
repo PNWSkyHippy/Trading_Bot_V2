@@ -343,6 +343,109 @@ else:
     st.info("No open positions currently.")
 
 # ----------------------------------------------------------
+#  IBKR LIVE POSITIONS (read-only via Gateway connection)
+# ----------------------------------------------------------
+st.markdown("### 🏦 IBKR Gateway Positions")
+section_note("Live positions from IB Gateway — read only. Refresh every 30 seconds. Close positions from the Open Positions panel above or use Dashboard Close Now button.")
+with st.expander("📊 View IBKR Account & Positions", expanded=False):
+    try:
+        from core.ibkr_executor import IBKRExecutor
+        ibkr = IBKRExecutor(paper=True)
+
+        if not ibkr.is_available():
+            st.warning("⚠️ IBKR Gateway not connected. Start Gateway via IBC and restart the bot.")
+        else:
+            # Account summary
+            try:
+                account = ibkr._ib.accountSummary()
+                if account:
+                    acct_data = {}
+                    for item in account:
+                        acct_data[item.tag] = item.value
+
+                    ia1, ia2, ia3, ia4 = st.columns(4)
+                    ia1.metric("Net Liquidation",  f"${float(acct_data.get('NetLiquidation', 0)):,.2f}")
+                    ia2.metric("Available Funds",  f"${float(acct_data.get('AvailableFunds', 0)):,.2f}")
+                    ia3.metric("Buying Power",     f"${float(acct_data.get('BuyingPower', 0)):,.2f}")
+                    ia4.metric("Unrealized P&L",   f"${float(acct_data.get('UnrealizedPnL', 0)):+,.2f}")
+                    st.markdown("---")
+            except Exception as e:
+                st.caption(f"Account summary unavailable: {e}")
+
+            # Open positions
+            try:
+                positions_raw = ibkr._ib.positions()
+                if not positions_raw:
+                    st.info("No open positions in IBKR Gateway.")
+                else:
+                    ibkr_rows = []
+                    for p in positions_raw:
+                        contract  = p.contract
+                        avg_cost  = p.avgCost
+                        qty       = p.position
+                        symbol    = contract.symbol
+                        sec_type  = contract.secType
+                        currency  = contract.currency
+
+                        # Get current market price
+                        mkt_price = 0.0
+                        mkt_val   = 0.0
+                        unreal_pnl = 0.0
+                        try:
+                            ticker = ibkr._ib.reqMktData(contract, '', True, False)
+                            ibkr._ib.sleep(0.5)
+                            mkt_price  = ticker.last or ticker.close or avg_cost
+                            mkt_val    = mkt_price * abs(qty)
+                            unreal_pnl = (mkt_price - avg_cost) * qty
+                        except Exception:
+                            mkt_price  = avg_cost
+                            mkt_val    = avg_cost * abs(qty)
+                            unreal_pnl = 0.0
+
+                        direction = "LONG" if qty > 0 else "SHORT"
+                        ibkr_rows.append({
+                            "Symbol":      symbol,
+                            "Type":        sec_type,
+                            "Currency":    currency,
+                            "Direction":   direction,
+                            "Quantity":    abs(qty),
+                            "Avg Cost $":  avg_cost,
+                            "Mkt Price $": mkt_price,
+                            "Mkt Value $": mkt_val,
+                            "Unreal P&L $": unreal_pnl,
+                        })
+
+                    df_ibkr = pd.DataFrame(ibkr_rows)
+                    st.dataframe(
+                        df_ibkr,
+                        use_container_width=True,
+                        hide_index=True,
+                        column_config={
+                            "Symbol":       st.column_config.TextColumn("Symbol",    width="small"),
+                            "Type":         st.column_config.TextColumn("Type",      width="small"),
+                            "Currency":     st.column_config.TextColumn("CCY",       width="small"),
+                            "Direction":    st.column_config.TextColumn("Dir",       width="small"),
+                            "Quantity":     st.column_config.NumberColumn("Qty",     format="%.4f"),
+                            "Avg Cost $":   st.column_config.NumberColumn("Avg Cost",format="$%.4f"),
+                            "Mkt Price $":  st.column_config.NumberColumn("Mkt Price",format="$%.4f"),
+                            "Mkt Value $":  st.column_config.NumberColumn("Mkt Value",format="$%.2f"),
+                            "Unreal P&L $": st.column_config.NumberColumn("Unreal P&L",format="$%+.2f"),
+                        }
+                    )
+                    total_unreal = sum(r["Unreal P&L $"] for r in ibkr_rows)
+                    st.markdown(
+                        f"<div style='text-align:right;color:#90a4ae;font-size:13px;'>" 
+                        f"Total Unrealized P&L: <b style='color:{'#4caf50' if total_unreal >= 0 else '#f44336'}'>" 
+                        f"${total_unreal:+,.2f}</b></div>",
+                        unsafe_allow_html=True
+                    )
+            except Exception as e:
+                st.error(f"Positions fetch error: {e}")
+
+    except Exception as e:
+        st.error(f"IBKR connection error: {e}")
+
+# ----------------------------------------------------------
 #  MANUAL TRADE ENTRY
 # ----------------------------------------------------------
 st.markdown("### ✍️ Manual Trade Entry")
