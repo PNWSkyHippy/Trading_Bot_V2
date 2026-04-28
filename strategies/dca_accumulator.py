@@ -20,14 +20,20 @@ import config
 from strategies.base_strategy import BaseStrategy, TradeSignal
 
 
-# Blue-chip stocks and major crypto appropriate for DCA
+# Blue-chip stocks and major crypto appropriate for DCA accumulation.
+# Crypto symbols must be in the 1hr/365 day backtest GO list —
+# DCA works best on established coins with real volume and liquidity.
+# Avoid meme coins and low-cap tokens — accumulation requires sustained demand.
 DCA_WHITELIST = {
-    # Stocks
+    # Blue-chip stocks
     "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA",
     "SPY", "QQQ", "JPM", "BAC", "XOM",
-    # Crypto — major coins only
+    # Major crypto — confirmed GO on 1hr/365 day backtest with 2-bar trailing stop
     "BTC/USD", "ETH/USD", "SOL/USD", "ADA/USD",
-    "BTC-USD", "ETH-USD", "SOL-USD",  # Coinbase format
+    "XRP/USD", "LINK/USD", "DOT/USD", "AVAX/USD",
+    "MATIC/USD", "UNI/USD", "ATOM/USD", "LTC/USD",
+    "BCH/USD", "ALGO/USD", "XLM/USD", "ETC/USD",
+    "BTC-USD", "ETH-USD", "SOL-USD",  # Coinbase format fallback
 }
 
 
