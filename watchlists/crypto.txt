@@ -128,9 +128,9 @@ ZRX/USD
 REN/USD
 
 # ── Staking / Liquid Staking ─────────────────────────────────────────────────
-STETH/USD
-CBETH/USD
-RETH/USD
+# REMOVED: STETH/USD, CBETH/USD, RETH/USD — ETH liquid staking tokens
+# These are pegged near ETH price, minimal independent volatility
+# Grid bot cannot profit from 0.01% daily movement
 ANKR/USD
 
 # ── Newer High-Volume ────────────────────────────────────────────────────────

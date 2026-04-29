@@ -208,6 +208,18 @@ class StockScanner:
         return signals
 
 
+# Stablecoins and pegged tokens that should never be traded
+# Grid_bot requires 1.5%+ movement — stablecoins are designed to NOT move
+CRYPTO_BLACKLIST = {
+    "USDT/USD", "USDC/USD", "DAI/USD", "BUSD/USD", "TUSD/USD",
+    "USDS/USD", "USDE/USD", "FDUSD/USD", "USDP/USD", "FRAX/USD",
+    "LUSD/USD", "PYUSD/USD", "USDD/USD", "GUSD/USD", "SUSD/USD",
+    "PAXG/USD", "XAUT/USD",  # gold-backed, near-zero volatility
+    "STETH/USD", "CBETH/USD", "RETH/USD", "WSTETH/USD",  # ETH-pegged
+    "WBTC/USD",  # BTC-pegged
+}
+
+
 class CryptoScanner:
 
     def __init__(self):
@@ -215,6 +227,7 @@ class CryptoScanner:
             "apiKey":          config.KRAKEN_API_KEY,
             "secret":          config.KRAKEN_SECRET_KEY,
             "enableRateLimit": True,
+            "timeout":         10000,   # 10 second hard timeout — prevents scan hangs
         })
         self.ta = TechnicalAnalysis()
 
@@ -262,6 +275,12 @@ class CryptoScanner:
         signals = []
         for symbol in config.CRYPTO_WATCHLIST:
             try:
+                # Skip stablecoins and pegged tokens — they can't generate
+                # the 1.5%+ moves needed for profitable grid_bot trades
+                if symbol in CRYPTO_BLACKLIST:
+                    logger.debug(f"Skipping blacklisted symbol: {symbol}")
+                    continue
+
                 price = self.get_current_price(symbol)
                 if not price:
                     continue

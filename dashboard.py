@@ -184,18 +184,34 @@ def render_chart(symbol: str, asset_class: str, entry_price: float = None, stop_
         plot_bgcolor  = "#0f1117",
         font          = dict(color="#e0e0e0"),
         margin        = dict(l=10, r=10, t=30, b=10),
-        xaxis         = dict(gridcolor="#2a3a5c", rangeslider=dict(visible=False), fixedrange=True),
-        yaxis         = dict(gridcolor="#2a3a5c", tickprefix="$", fixedrange=True),
-        height        = 320,
-        dragmode      = False,
-        title         = dict(text=f"{symbol} — {timeframe}", font=dict(color="#e0e0e0", size=14)),
-        showlegend    = False,
+        xaxis      = dict(
+            gridcolor   = "#2a3a5c",
+            rangeslider = dict(
+                visible    = True,
+                thickness  = 0.08,
+                bgcolor    = "#1a1f35",
+                bordercolor= "#2a3a5c",
+            ),
+            rangeselector = dict(
+                bgcolor     = "#1a2035",
+                activecolor = "#3266ad",
+                font        = dict(color="#e0e0e0", size=10),
+                buttons     = [
+                    dict(count=3,  label="3H",  step="hour", stepmode="backward"),
+                    dict(count=6,  label="6H",  step="hour", stepmode="backward"),
+                    dict(count=12, label="12H", step="hour", stepmode="backward"),
+                    dict(count=1,  label="1D",  step="day",  stepmode="backward"),
+                    dict(count=3,  label="3D",  step="day",  stepmode="backward"),
+                    dict(step="all", label="All"),
+                ]
+            )
+        ),
+        yaxis      = dict(gridcolor="#2a3a5c", tickprefix="$"),
+        height     = 320,
+        title      = dict(text=f"{symbol} — {timeframe}", font=dict(color="#e0e0e0", size=14)),
+        showlegend = False,
     )
-    st.plotly_chart(fig, use_container_width=True, config={
-        "scrollZoom":    True,
-        "displayModeBar": False,   # hide the toolbar clutter
-        "dragmode":      False,    # disable drag-to-pan — use scroll only
-    })
+    st.plotly_chart(fig, use_container_width=True)
 
 # ----------------------------------------------------------
 #  STOCK CLOSE HELPER

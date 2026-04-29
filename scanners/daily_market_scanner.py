@@ -90,6 +90,10 @@ CRYPTO_VOL_SURGE_MIN  = 1.50
 STABLECOIN_SYMBOLS = {
     "USDT", "USDC", "DAI", "BUSD", "TUSD", "USDP", "FRAX", "LUSD",
     "USDE", "FDUSD", "PYUSD", "USDD", "GUSD", "SUSD", "USD1",
+    # Additional stablecoins added 2026-04-28 after USDS/USD snuck into watchlist
+    "USDS", "USDY", "USDX", "EURC", "EURS", "EURT", "CEUR",
+    "PAXG", "XAUT",  # gold-backed pegged tokens
+    "MUSD", "CUSD", "HUSD", "OUSD", "DOLA",
 }
 WRAPPED_SYMBOLS = {"WBTC", "WETH", "STETH", "WSTETH", "WEETH", "CBETH", "RETH"}
 CRYPTO_EXCLUDE  = STABLECOIN_SYMBOLS | WRAPPED_SYMBOLS
