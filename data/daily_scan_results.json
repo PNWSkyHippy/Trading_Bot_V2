@@ -9,8 +9,6 @@
   "crypto": [
     "RAIN/USD",
     "TAO/USD",
-    "CC/USD",
-    "WLFI/USD",
-    "USDS/USD"
+    "WLFI/USD"
   ]
 }
