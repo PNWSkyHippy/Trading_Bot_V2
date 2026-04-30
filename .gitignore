@@ -11,3 +11,4 @@ venv312/
 exports/
 *.pyc
 *.ignore
+.env\n.mcp.json

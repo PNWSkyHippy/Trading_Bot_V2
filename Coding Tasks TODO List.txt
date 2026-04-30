@@ -1,0 +1,2 @@
+Dashboard consecutive losses is not staying up to date
+Also Halted Status on dashboard is not alerting when status is halted

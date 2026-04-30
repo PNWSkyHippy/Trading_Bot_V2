@@ -1,14 +1,18 @@
 {
-  "generated": "2026-04-28T13:31:13.155916",
+  "generated": "2026-04-29T13:31:20.535179",
   "valid_until": "next_market_close",
   "stocks": [
-    "NUE",
-    "BEN",
-    "VTR"
+    "INTC",
+    "NXPI",
+    "GNRC",
+    "SBUX"
   ],
   "crypto": [
+    "CC/USD",
+    "TRX/USD",
     "RAIN/USD",
-    "TAO/USD",
-    "WLFI/USD"
+    "TON/USD",
+    "DOGE/USD",
+    "USYC/USD"
   ]
 }

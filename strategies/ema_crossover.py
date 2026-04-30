@@ -29,7 +29,7 @@ class EMACrossover(BaseStrategy):
         self.stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT
         self.take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT
         self.logger = logging.getLogger("EMACrossover")
-
+        self.enabled = False 
     def analyze(
         self,
         symbol: str,

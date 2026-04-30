@@ -1,0 +1,11 @@
+AssetClass,Ticker,Price,Vol Change,RSI,% from 52W Hi,% vs 200SMA,Score,Signal,24h %,Funding %
+Stock,INTC,94.75,1.89,87.3,-0.21,140.4,265.28,Within 0.2% of 52W high | 1.9x avg vol | 140% above 200MA,,
+Stock,NXPI,289.25,3.22,86.5,-1.23,32.7,105.41,Within 1.2% of 52W high | 3.2x avg vol | 33% above 200MA,,
+Stock,GNRC,252.92,2.24,78.6,-1.16,40.1,89.79,Within 1.2% of 52W high | 2.2x avg vol | 40% above 200MA,,
+Stock,SBUX,105.5,3.24,73.3,-1.65,18.2,59.09,Within 1.6% of 52W high | 3.2x avg vol | 18% above 200MA,,
+Crypto,CC,0.151664,,69.8,,,20.19,+1.8% 24h | RSI 70 (momentum zone),1.81,
+Crypto,TRX,0.323238,,61.7,,,11.71,+0.0% 24h | RSI 62 (momentum zone),0.01,-0.0005
+Crypto,RAIN,0.007826,,60.4,,,10.81,+4.0% 24h | RSI 60 (momentum zone),3.98,
+Crypto,TON,1.31,,57.7,,,7.76,+0.5% 24h | RSI 58 (momentum zone),0.46,-0.0012
+Crypto,DOGE,0.101879,,56.7,,,6.83,+2.2% 24h | RSI 57 (momentum zone),2.22,0.0002
+Crypto,USYC,1.12,,55.9,,,5.93,+0.0% 24h | RSI 56 (momentum zone),0.02,

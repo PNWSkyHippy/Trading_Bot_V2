@@ -27,7 +27,7 @@ class RSIMomentum(BaseStrategy):
         self.stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT     # 1.0%
         self.take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT   # 3.0%
         self.logger = logging.getLogger("RSIMomentum")
-
+        self.enabled = False 
     def analyze(
         self,
         symbol: str,

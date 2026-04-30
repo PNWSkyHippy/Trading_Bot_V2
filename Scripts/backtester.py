@@ -17,6 +17,16 @@ import os
 import sys
 import pandas as pd
 import numpy as np
+import sys
+
+# Add project root to Python path and change working directory to root.
+# This allows scripts in Scripts/ to import from data/, core/, strategies/ etc.
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+os.chdir(_project_root)
+
+
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, field
