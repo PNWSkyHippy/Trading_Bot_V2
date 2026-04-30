@@ -1,0 +1,42 @@
+Then you can do things like:
+bash
+rg "TIME STOP EXEMPT|grid_bot" logs\bot.log | tail -20
+...to confirm the grid_bot exemption is actually firing once 
+you restart the bot.
+You said: all packages installed now inside the python virtual 
+venv312 might addall packages installed now inside the 
+python virtual venv312 might add
+10:38 PMClaude responded: Good — all four tools installed.
+Good — all four tools installed. Here's what you've now got 
+and what each is best for with your bot:
+ripgrep (rg) — your most used tool for log analysis:
+
+bash# Find all exit reasons today
+rg "EXIT|STOP|HALT" logs\bot.log | tail -30
+
+# See only grid_bot activity
+rg "grid_bot|TIME STOP EXEMPT" logs\bot.log | tail -20
+
+# Find all trades that closed under 5 minutes
+rg "perf_time|early_loss|hard_time" logs\bot.log
+
+bat — replaces cat for reading files with syntax highlighting:
+bat — replaces cat for reading files with syntax highlighting:
+
+bashbat logs\bot.log --tail 100
+bat core\position_monitor.py
+jq — useful if your bot ever outputs JSON, or for parsing Alpaca/Coinbase API responses during debugging:
+bash# Pretty print a JSON response
+cat some_api_response.json | jq .
+fd — fast file finder:
+bash# Find all Python files modified today
+fd -e py --changed-within 1d
+So if you know grep, you already know rg. Direct equivalents:
+bash# grep                          # rg equivalent
+grep -r "STOP" logs/            rg "STOP" logs/
+grep -n "grid_bot" *.py         rg "grid_bot" --type py
+grep -A 3 "EXIT" bot.log        rg -A 3 "EXIT" logs/bot.log
+grep -v "DEBUG" bot.log         rg -v "DEBUG" logs/bot.log
+One genuinely useful pattern for your bot specifically:
+bash# See all exit reasons with 2 lines of context to understand why
+rg "EXIT\]|STOP\]|HALT\]" logs\bot.log -C 2 | tail -60

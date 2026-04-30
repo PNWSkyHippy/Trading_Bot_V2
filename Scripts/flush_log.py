@@ -5,6 +5,16 @@ Keeps the last N lines so you don't lose recent context.
 Run any time: python flush_log.py
 """
 import os
+import sys
+
+# Add project root to Python path and change working directory to root.
+# This allows scripts in Scripts/ to import from data/, core/, strategies/ etc.
+_project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _project_root not in sys.path:
+    sys.path.insert(0, _project_root)
+os.chdir(_project_root)
+
+
 
 LOG_FILE  = "logs/bot.log"
 KEEP_LINES = 50  # how many recent lines to keep after flush

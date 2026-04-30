@@ -72,7 +72,7 @@ class MeanReversion(BaseStrategy):
         self.strategy_name   = "mean_reversion"
         self.stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT
         self.take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT
-
+        self.enabled = False 
         # NEVER auto-disable mean_reversion — 2nd best backtested strategy
         # (79.8% avg win rate on stocks, every symbol GO on 5min/30day test).
         # Low win rate during testing = infrastructure issues, not strategy failure.
