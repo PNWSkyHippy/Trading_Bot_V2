@@ -16,7 +16,45 @@ from typing import Dict, List, Optional, Callable, Any
 from collections import deque
 from enum import Enum
 import queue
+
+from numpy import rint
 from signal_engine import classify_signal
+
+import csv
+import os
+
+def log_signal_to_csv(signal):
+    file_exists = os.path.isfile("signals_log.csv")
+
+    with open("signals_log.csv", mode="a", newline="") as file:
+        writer = csv.writer(file)
+
+        # Write header once
+        if not file_exists:
+            writer.writerow([
+                "Symbol",
+                "Score",
+                "Confidence",
+                "Date",
+                "Time",
+                "Price"
+            ])
+
+        writer.writerow([
+            signal.symbol,
+            round(signal.predicted_move_pct, 2),
+            round(signal.confidence * 100, 2),
+            signal.timestamp.strftime("%Y-%m-%d"),
+            signal.timestamp.strftime("%H:%M:%S"),
+            signal.current_price
+        ])
+
+
+
+
+
+
+
 
 # Try to import optional dependencies
 try:
@@ -1043,7 +1081,7 @@ class ScannerGUI:
         # Top movers display
         movers_frame = tk.LabelFrame(
             self.root,
-            text="? TOP MOVERS",
+            text="? Stock Top Movers  (Performance)",
             font=('Helvetica', 14, 'bold'),
             bg='#16213e',
             fg='#00ccff',
@@ -1255,9 +1293,9 @@ class MarketScanner:
                         f"Score: {signal.predicted_move_pct:.0f} | "
                        f"Confidence: {signal.confidence*100:.0f}%" 
                     )
-
+                    log_signal_to_csv(signal)
                     self.alert_system.send_alert(signal)
-
+                    log_signal_to_csv(signal)  
                     if self.trading.can_auto_trade():
                         if self.trading.should_confirm_trade():
                             logger.info(f"Trade confirmation required for {signal.symbol}")
@@ -1267,7 +1305,8 @@ class MarketScanner:
 
         except Exception as e:
             logger.error(f"Stock scan error: {e}")
-    
+
+
     def _scan_cryptos(self):
         """Scan cryptos for breakout patterns."""
         logger.info("Scanning cryptos...")
@@ -1280,6 +1319,7 @@ class MarketScanner:
             for crypto in movers:
                 if crypto.symbol not in self.crypto_fetcher.exchange.symbols:
                     continue
+
                 hist = self.crypto_fetcher.get_historical_data(crypto.symbol)
 
                 for h in hist:
@@ -1301,43 +1341,83 @@ class MarketScanner:
                 if signal.confidence > 0.5:
 
                     logger.warning(
-                        f"? CRYPTO BREAKOUT: {signal.symbol} | "
-                        f"Score: {signal.predicted_move_pct:.0f} | " 
+                        f"CRYPTO BREAKOUT: {signal.symbol} | "
+                        f"Score: {signal.predicted_move_pct:.0f} | "
                         f"Confidence: {signal.confidence*100:.0f}%"
                     )
-
+                    log_signal_to_csv(signal)
                     self.alert_system.send_alert(signal)
 
-                    if self.trading.can_auto_trade():
-                        if self.trading.should_confirm_trade():
-                            logger.info(f"Trade confirmation required for {signal.symbol}")
-                        else:
-                            result = self.trading.execute_signal(signal)
-                            logger.info(f"Auto-trade result: {result}")
-
         except Exception as e:
-            logger.error(f"Crypto scan error: {e}")
-    
+            logger.error(f"Crypto scan failed: {e}")
+
+
+    def _scan_stocks(self):
+            """Scan stocks for breakout patterns."""
+            logger.info("Scanning stocks...")
+
+            try:
+                movers = self.stock_fetcher.get_top_movers(
+                    self.config.get("top_stocks_count", 100)
+                )
+                self.latest_movers = movers
+
+                for stock in movers:
+
+                    hist = self.stock_fetcher.get_historical_data(stock.symbol)
+
+                    for h in hist:
+                        self.detector.update_history(h)
+
+                    signal = self.detector.detect_breakout(stock)
+
+                    if not signal:
+                        continue
+                    meta = classify_signal(signal)
+
+                    if meta["direction"] != "LONG":
+                        continue
+
+                    if meta["poc"] < 60:
+                        continue
+
+                    if signal.confidence > 0.5:
+
+                        logger.warning(
+                            f"? STOCK BREAKOUT: {signal.symbol} | "
+                            f"Score: {signal.predicted_move_pct:.0f} | "
+                            f"Confidence: {signal.confidence*100:.0f}%" 
+                        )
+                        self.alert_system.send_alert(signal)
+                        if self.trading.can_auto_trade():
+                            if self.trading.should_confirm_trade():
+                                logger.info(f"Trade confirmation required for {signal.symbol}")
+                            else:
+                                result = self.trading.execute_signal(signal)
+                                logger.info(f"Auto-trade result: {result}")
+
+            except Exception as e:
+                logger.error(f"Crypto scan error: {e}")
     def run_gui(self):
         """Run with GUI."""
         self.gui = ScannerGUI(self)
         self.gui.start()
     
-    def run_console(self):
-        """Run in console mode."""
-        self.start()
+def run_console(self):
+    """Run in console mode."""
+    self.start()
         
-        print("\n" + "=" * 60)
-        print("  ? RON'S MARKET BREAKOUT SCANNER")
-        print("  Press Ctrl+C to stop")
-        print("=" * 60 + "\n")
+    print("\n" + "=" * 60)
+    print("  ? RON'S MARKET BREAKOUT SCANNER")
+    print("  Press Ctrl+C to stop")
+    print("=" * 60 + "\n")
         
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            print("\nStopping scanner...")
-            self.stop()
+    try:
+        while True:
+             time.sleep(1)
+    except KeyboardInterrupt:
+         print("\nStopping scanner...")
+         self.stop()
 
 
 # ============================================================
