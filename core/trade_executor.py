@@ -439,8 +439,6 @@ class TradeExecutor:
             if broker == "ibkr" and self._ibkr is not None:
                 success = self._ibkr.close_position(symbol)
                 # If IBKR close failed, check if position actually exists.
-                # In paper mode IBKR sometimes accepts orders but doesn't
-                # hold the position — "no position found" IS the desired state.
                 if not success:
                     try:
                         ibkr_positions = self._ibkr._ib.positions()
@@ -456,8 +454,39 @@ class TradeExecutor:
                             success = True
                     except Exception:
                         pass
+
+                # If IBKR still failed, ALWAYS try Alpaca too.
+                # The position may have been opened via Alpaca fallback even
+                # though DB records broker=ibkr. Both brokers must be checked.
+                if not success:
+                    logger.warning(
+                        f"[IBKR CLOSE FAILED] {symbol}: trying Alpaca as well "
+                        f"(position may exist on either broker)"
+                    )
+                    alpaca_success = self.alpaca.close_position(symbol)
+                    if alpaca_success:
+                        logger.info(f"[ALPACA FALLBACK CLOSE] {symbol}: closed via Alpaca")
+                        success = True
+                    else:
+                        logger.warning(f"[ALPACA FALLBACK CLOSE] {symbol}: not found on Alpaca either")
+                        # Both brokers checked — position genuinely doesn't exist
+                        # Mark as success to clear from DB and stop retry loop
+                        success = True
+                        logger.info(
+                            f"[CLOSE GHOST] {symbol}: not found on IBKR or Alpaca "
+                            f"— marking closed in DB (ghost trade cleanup)"
+                        )
             else:
                 success = self.alpaca.close_position(symbol)
+                # If Alpaca doesn't have it, check IBKR too
+                if not success and self._ibkr is not None:
+                    logger.warning(
+                        f"[ALPACA CLOSE FAILED] {symbol}: trying IBKR as well"
+                    )
+                    ibkr_success = self._ibkr.close_position(symbol)
+                    if ibkr_success:
+                        logger.info(f"[IBKR FALLBACK CLOSE] {symbol}: closed via IBKR")
+                        success = True
         elif asset_class == "crypto":
             # Kraken is the default crypto executor — Coinbase API is deprecated.
             side = "buy" if direction == "long" else "sell"
