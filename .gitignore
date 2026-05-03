@@ -12,4 +12,7 @@ venv312/
 exports/
 *.pyc
 *.ignore
-.env\n.mcp.json
+.env
+.mcp.json
+# Never commit encryption utility with real keys
+encrypt_key.py
