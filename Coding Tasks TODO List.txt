@@ -1,5 +1,5 @@
--Dashboard consecutive losses is not staying up to date @@PNWSkyHippy @@
-Also Halted Status on dashboard is not alerting when status is halted @@ @@
--daily market scan adding stablecoins to watchlist files and server @@
-is getting stuck on trades when it seems them need to filter them @@
--3rd day in a row stocks on alpaca not closing, have to flush them manually @@
+-Dashboard consecutive losses is not staying up to date
+Also Halted Status on dashboard is not alerting when status is halted
+-daily market scan adding stablecoins to watchlist files and server
+is getting stuck on trades when it seems them need to filter them
+-4th day in a row stocks on alpaca not closing, have to flush them manually
