@@ -260,6 +260,34 @@ class PositionMonitor:
             self._reset_close_attempts(trade_id)
             return True
 
+        # ── Check if symbol simply doesn't exist on the broker ────────────
+        # Non-existent pairs (e.g. CC/USD from bad scanner injection) will
+        # never close successfully. Detect this early and force-close in DB
+        # to stop the infinite retry loop.
+        if trade.get("asset_class") == "crypto":
+            try:
+                import ccxt
+                exchange = ccxt.kraken({"enableRateLimit": True, "timeout": 5000})
+                markets  = exchange.load_markets()
+                if symbol not in markets:
+                    logger.error(
+                        f"[INVALID PAIR] {symbol} does not exist on Kraken — "
+                        f"force-closing in DB to stop retry loop. "
+                        f"Remove from watchlist to prevent re-entry."
+                    )
+                    from data.database import db as _db_ref
+                    _db_ref.close_trade(
+                        trade_id    = trade_id,
+                        exit_price  = current_price or trade["entry_price"],
+                        exit_reason = "invalid_pair",
+                        pnl         = 0.0,
+                        pnl_pct     = 0.0,
+                    )
+                    self._reset_close_attempts(trade_id)
+                    return True
+            except Exception:
+                pass  # If market check fails, fall through to normal retry logic
+
         # ── IBKR fallback: if IBKR close fails try Alpaca directly ────────
         # This handles the common case where TWS is not running but Alpaca is.
         if broker == "ibkr" and trade.get("asset_class") == "stock":

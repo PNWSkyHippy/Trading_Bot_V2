@@ -8,10 +8,7 @@
     "SBUX"
   ],
   "crypto": [
-    "CC/USD",
     "TRX/USD",
-    "RAIN/USD",
-    "TON/USD",
     "DOGE/USD"
   ]
 }
