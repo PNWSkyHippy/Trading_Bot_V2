@@ -2,10 +2,10 @@
 config.py — All settings, API keys, and tunable parameters
 Trading Bot v2
 """
-
+from cryptography.fernet import Fernet
 import os
 from dotenv import load_dotenv
-
+import keyring
 load_dotenv()
 
 # =============================================================================
@@ -31,6 +31,20 @@ IBKR_ENABLED        = True                              # Set True after TWS is 
 IBKR_PAPER_MODE     = True                              # True = paper (port 7497)
 
 ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY", "")
+_fernet_key = keyring.get_password("trading_bot_v2", "fernet_key")
+BASE_KEY = _fernet_key.encode() if _fernet_key else None
+if ANTHROPIC_API_KEY and not BASE_KEY:
+    raise RuntimeError(
+        "Fernet key not found in Windows Credential Manager. "
+        "Run: python Scripts\\store_fernet_key.py"
+    )
+if ANTHROPIC_API_KEY:
+    cipher_suite = Fernet(BASE_KEY)
+    encrypted_val = ANTHROPIC_API_KEY.strip().encode()
+    decrypted_val = cipher_suite.decrypt(encrypted_val).decode()
+    ANTHROPIC_API_KEY = decrypted_val
+else:
+    pass
 
 EMAIL_SENDER        = os.getenv("EMAIL_SENDER", "")
 EMAIL_PASSWORD      = os.getenv("EMAIL_PASSWORD", "")

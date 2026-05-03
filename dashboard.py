@@ -211,7 +211,7 @@ def render_chart(symbol: str, asset_class: str, entry_price: float = None, stop_
         title      = dict(text=f"{symbol} — {timeframe}", font=dict(color="#e0e0e0", size=14)),
         showlegend = False,
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width='stretch')
 
 # ----------------------------------------------------------
 #  STOCK CLOSE HELPER
@@ -299,7 +299,7 @@ with col_title:
     st.markdown("# 📈 Autonomous Trading AI")
     st.markdown(f"*{datetime.now().strftime('%A, %B %d %Y — %H:%M:%S')}*")
 with col_time:
-    if st.button("🔄 Refresh", use_container_width=True):
+    if st.button("🔄 Refresh", width='stretch'):
         st.cache_data.clear()
         st.rerun()
 st.divider()
@@ -335,7 +335,7 @@ with chart_col1:
         fig.add_trace(go.Scatter(x=df_sum["trade_date"], y=df_sum["ending_capital"], mode="lines+markers", name="Capital", line=dict(color="#4fc3f7", width=2), fill="tozeroy", fillcolor="rgba(79,195,247,0.08)"))
         fig.add_hline(y=starting_cap, line_dash="dot", line_color="#546e7a", annotation_text="Today's Start")
         fig.update_layout(paper_bgcolor="#1a1f35", plot_bgcolor="#1a1f35", font=dict(color="#e0e0e0"), margin=dict(l=20, r=20, t=20, b=20), xaxis=dict(gridcolor="#2a3a5c"), yaxis=dict(gridcolor="#2a3a5c", tickprefix="$"))
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width='stretch')
     else:
         st.info("No historical data yet.")
 with chart_col2:
@@ -346,7 +346,7 @@ with chart_col2:
         fig_pie = go.Figure(go.Pie(labels=["Wins", "Losses"], values=[wins, losses], hole=0.5, marker_colors=["#4caf50", "#f44336"]))
         fig_pie.update_layout(paper_bgcolor="#1a1f35", font=dict(color="#e0e0e0"), margin=dict(l=10, r=10, t=10, b=10), showlegend=True)
         win_rate = (wins / len(all_trades) * 100) if all_trades else 0
-        st.plotly_chart(fig_pie, use_container_width=True)
+        st.plotly_chart(fig_pie, width='stretch')
         st.markdown(f"<div style='text-align:center;color:#90caf9'>Overall Win Rate: <b>{win_rate:.1f}%</b></div>", unsafe_allow_html=True)
     else:
         st.info("No trade history yet.")
@@ -376,7 +376,7 @@ if positions:
         stuck_label = " ⚠️ STUCK" if is_stuck else ""
         pos_rows.append({"_entry_dt": entry_dt, "Opened": entry_str, "Symbol": p["symbol"] + stuck_label, "Type": p["asset_class"].capitalize(), "Dir": p["direction"].upper(), "Entry $": float(p["entry_price"]), "Current $": float(p["current_price"]), "Stop Loss $": float(p["stop_loss"]), "Take Profit $": (f"${p['take_profit']:.4f}" + (" 🔴 *" + str(p.get("tp_hit_count", 0)) if p.get("tp_hit_count", 0) > 0 else "")), "Unreal P&L $": float(pnl_val), "P&L %": float(pnl_pct), "To SL %": float(dist_sl), "To TP %": float(dist_tp)})
     df_pos = pd.DataFrame(pos_rows).sort_values("_entry_dt", ascending=False).reset_index(drop=True).drop(columns=["_entry_dt"])
-    st.dataframe(df_pos, use_container_width=True, hide_index=True, column_config={"Opened": st.column_config.TextColumn("Opened", width="small"), "Symbol": st.column_config.TextColumn("Symbol", width="small"), "Type": st.column_config.TextColumn("Type", width="small"), "Dir": st.column_config.TextColumn("Dir", width="small"), "Entry $": st.column_config.NumberColumn("Entry $", format="$%.4f"), "Current $": st.column_config.NumberColumn("Current $", format="$%.4f"), "Stop Loss $": st.column_config.NumberColumn("Stop Loss $", format="$%.4f"), "Take Profit $": st.column_config.NumberColumn("Take Profit $", format="$%.4f"), "Unreal P&L $": st.column_config.NumberColumn("Unreal P&L $", format="$%+.2f"), "P&L %": st.column_config.NumberColumn("P&L %", format="%+.2f%%"), "To SL %": st.column_config.NumberColumn("To SL %", format="%.2f%%"), "To TP %": st.column_config.NumberColumn("To TP %", format="%.2f%%")})
+    st.dataframe(df_pos, width='stretch', hide_index=True, column_config={"Opened": st.column_config.TextColumn("Opened", width="small"), "Symbol": st.column_config.TextColumn("Symbol", width="small"), "Type": st.column_config.TextColumn("Type", width="small"), "Dir": st.column_config.TextColumn("Dir", width="small"), "Entry $": st.column_config.NumberColumn("Entry $", format="$%.4f"), "Current $": st.column_config.NumberColumn("Current $", format="$%.4f"), "Stop Loss $": st.column_config.NumberColumn("Stop Loss $", format="$%.4f"), "Take Profit $": st.column_config.NumberColumn("Take Profit $", format="$%.4f"), "Unreal P&L $": st.column_config.NumberColumn("Unreal P&L $", format="$%+.2f"), "P&L %": st.column_config.NumberColumn("P&L %", format="%+.2f%%"), "To SL %": st.column_config.NumberColumn("To SL %", format="%.2f%%"), "To TP %": st.column_config.NumberColumn("To TP %", format="%.2f%%")})
     with st.expander(f"💰 Manage Positions — Close or Review ({len(positions)} open)", expanded=False):
         section_note("Stocks: cancels bracket orders first then closes. Crypto: closes via exchange. ⚠️ STUCK = exceeded 3 failed close attempts, needs manual close.")
         if "close_messages" not in st.session_state:
@@ -426,7 +426,7 @@ if positions:
                 """, unsafe_allow_html=True)
             with btn_col:
                 st.markdown("<div style='margin-top:18px'></div>", unsafe_allow_html=True)
-                if st.button("💰 Close Now", key=f"cancel_{p['trade_id']}", use_container_width=True):
+                if st.button("💰 Close Now", key=f"cancel_{p['trade_id']}", width='stretch'):
                     trade_id = p["trade_id"]
                     db.set_state(f"close_stuck_{trade_id}", 0)
                     db.set_state(f"close_attempts_{trade_id}", 0)
@@ -534,7 +534,7 @@ with st.expander("➕ Open Manual Trade", expanded=False):
         except Exception as e:
             st.warning(f"Price lookup error: {e}")
 
-    if st.button("🚀 Open Trade at Market Price", type="primary", use_container_width=True):
+    if st.button("🚀 Open Trade at Market Price", type="primary", width='stretch'):
         if not m_symbol:
             st.error("Please enter a symbol.")
         elif not m_entry:
@@ -658,7 +658,7 @@ with st.expander("➕ Inject Stocks or Crypto", expanded=False):
             key="manual_stock_inject",
             placeholder="AAPL\nMSFT\nNVDA",
         )
-        if st.button("Inject Stocks", key="inject_stocks_btn", use_container_width=True):
+        if st.button("Inject Stocks", key="inject_stocks_btn", width='stretch'):
             raw     = stock_input.replace(",", "\n")
             tickers = [t.strip().upper() for t in raw.splitlines() if t.strip()]
             if tickers:
@@ -682,7 +682,7 @@ with st.expander("➕ Inject Stocks or Crypto", expanded=False):
             key="manual_crypto_inject",
             placeholder="BTC\nETH\nSOL",
         )
-        if st.button("Inject Crypto", key="inject_crypto_btn", use_container_width=True):
+        if st.button("Inject Crypto", key="inject_crypto_btn", width='stretch'):
             raw     = crypto_input.replace(",", "\n")
             symbols = [s.strip().upper() for s in raw.splitlines() if s.strip()]
             pairs   = [s if "/" in s else f"{s}/USD" for s in symbols]
@@ -758,7 +758,7 @@ if closed_today:
             duration_str = "—"
         log_rows.append({"_exit_dt": exit_dt, "Opened": entry_str, "Closed": exit_str, "Duration": duration_str, "Symbol": t["symbol"], "Dir": t["direction"].upper(), "Strategy": t.get("strategy_name", "original"), "Entry $": float(t.get("entry_price", 0) or 0), "Exit $": float(t.get("exit_price", 0) or 0), "Reason": t.get("exit_reason", "").replace("_", " ").title(), "P&L $": float(pnl), "P&L %": float(pnl_pct), "Result": "✅ Win" if pnl > 0 else "❌ Loss"})
     df_log = pd.DataFrame(log_rows).sort_values("_exit_dt", ascending=False).reset_index(drop=True).drop(columns=["_exit_dt"])
-    st.dataframe(df_log, use_container_width=True, hide_index=True, column_config={"Opened": st.column_config.TextColumn("Opened", width="small"), "Closed": st.column_config.TextColumn("Closed", width="small"), "Duration": st.column_config.TextColumn("Duration", width="small"), "Symbol": st.column_config.TextColumn("Symbol", width="small"), "Dir": st.column_config.TextColumn("Dir", width="small"), "Strategy": st.column_config.TextColumn("Strategy", width="medium"), "Entry $": st.column_config.NumberColumn("Entry $", format="$%.4f"), "Exit $": st.column_config.NumberColumn("Exit $", format="$%.4f"), "Reason": st.column_config.TextColumn("Reason", width="medium"), "P&L $": st.column_config.NumberColumn("P&L $", format="$%+.2f"), "P&L %": st.column_config.NumberColumn("P&L %", format="%+.2f%%"), "Result": st.column_config.TextColumn("Result", width="small")})
+    st.dataframe(df_log, width='stretch', hide_index=True, column_config={"Opened": st.column_config.TextColumn("Opened", width="small"), "Closed": st.column_config.TextColumn("Closed", width="small"), "Duration": st.column_config.TextColumn("Duration", width="small"), "Symbol": st.column_config.TextColumn("Symbol", width="small"), "Dir": st.column_config.TextColumn("Dir", width="small"), "Strategy": st.column_config.TextColumn("Strategy", width="medium"), "Entry $": st.column_config.NumberColumn("Entry $", format="$%.4f"), "Exit $": st.column_config.NumberColumn("Exit $", format="$%.4f"), "Reason": st.column_config.TextColumn("Reason", width="medium"), "P&L $": st.column_config.NumberColumn("P&L $", format="$%+.2f"), "P&L %": st.column_config.NumberColumn("P&L %", format="%+.2f%%"), "Result": st.column_config.TextColumn("Result", width="small")})
 else:
     st.info("No closed trades today.")
 st.divider()
@@ -771,7 +771,7 @@ if summaries:
     perf_data = []
     for s in summaries[:14]:
         perf_data.append({"Date": s["trade_date"], "P&L $": f"${s['daily_pnl']:+.2f}", "P&L %": f"{s['daily_pnl_pct']:+.2f}%", "Trades": s["total_trades"], "W/L": f"{s['winning_trades']}W / {s['losing_trades']}L", "Win Rate": f"{s['win_rate']:.1f}%", "Capital": f"${s['ending_capital']:,.2f}", "Goal Met": "✅" if s.get("goal_met") else "❌", "Halted": "⚠️" if s.get("trading_halted") else ""})
-    st.dataframe(pd.DataFrame(perf_data), use_container_width=True, hide_index=True)
+    st.dataframe(pd.DataFrame(perf_data), width='stretch', hide_index=True)
 else:
     st.info("No daily summaries yet.")
 st.divider()
@@ -807,7 +807,7 @@ with bt_c3:
 with bt_c4:
     bt_capital = st.number_input("Starting Capital ($)", min_value=100.0, value=float(config.STARTING_CAPITAL), step=1000.0)
     st.markdown("&nbsp;")
-    run_bt = st.button("🚀 Run Backtest", type="primary", use_container_width=True)
+    run_bt = st.button("🚀 Run Backtest", type="primary", width='stretch')
 
 # Stop loss mode row
 bt_stop_c1, bt_stop_c2, bt_stop_c3 = st.columns([2, 1, 3])
@@ -911,7 +911,7 @@ if run_bt:
                     approved = r.win_rate >= 50 and r.profit_factor >= 1.2
                     summary_rows.append({"Symbol": sym, "Strategy": strategy, "Stop": "2-Bar" if r.stop_mode == "two_bar" else "Std%", "Period": f"{r.start_date} → {r.end_date}", "Start $": f"${r.starting_capital:,.2f}", "End $": f"${r.ending_capital:,.2f}", "Return %": f"{r.total_return_pct:+.2f}%", "Win Rate": f"{r.win_rate:.1f}%", "Trades": r.total_trades, "W/L": f"{r.winning_trades}W/{r.losing_trades}L", "Profit Factor": f"{r.profit_factor:.2f}", "Max Drawdown": f"{r.max_drawdown_pct:.2f}%", "Sharpe": f"{r.sharpe_ratio:.2f}", "Sortino": f"{r.sortino_ratio:.2f}", "Verdict": "✅ GO" if approved else "⚠️ TUNE"})
                 st.markdown("**📋 Results Table**")
-                st.dataframe(pd.DataFrame(summary_rows), use_container_width=True, hide_index=True)
+                st.dataframe(pd.DataFrame(summary_rows), width='stretch', hide_index=True)
                 chart_result = None
                 chart_label  = ""
                 if len(all_results) == 1:
@@ -949,14 +949,14 @@ if run_bt:
                     fig_eq.add_hline(y=r.starting_capital, line_dash="dot", line_color="#475569", annotation_text=f"Start ${r.starting_capital:,.0f}", annotation_font_color=_TEXT)
                     fig_eq.update_layout(**_layout, title=dict(text="Equity Curve", font=dict(color=_TEXT, size=13)), height=300, showlegend=False)
                     fig_eq.update_yaxes(tickprefix="$", tickformat=",.0f")
-                    st.plotly_chart(fig_eq, use_container_width=True)
+                    st.plotly_chart(fig_eq, width='stretch')
                     ch2, ch3 = st.columns(2)
                     with ch2:
                         fig_dd = go.Figure()
                         fig_dd.add_trace(go.Scatter(x=timestamps, y=drawdowns, mode="lines", name="Drawdown", line=dict(color=_RED, width=1.5), fill="tozeroy", fillcolor="rgba(239,68,68,0.15)", hovertemplate="<b>%{x}</b><br>%{y:.2f}%<extra></extra>"))
                         fig_dd.update_layout(**_layout, title=dict(text="Drawdown %", font=dict(color=_TEXT, size=13)), height=260, showlegend=False)
                         fig_dd.update_yaxes(ticksuffix="%", autorange="reversed")
-                        st.plotly_chart(fig_dd, use_container_width=True)
+                        st.plotly_chart(fig_dd, width='stretch')
                     with ch3:
                         bar_colors = [_GREEN if v >= 0 else _RED for v in bar_returns]
                         fig_ret = go.Figure()
@@ -964,7 +964,7 @@ if run_bt:
                         fig_ret.add_hline(y=0, line_color="#475569", line_width=0.8)
                         fig_ret.update_layout(**_layout, title=dict(text="Returns per Bar", font=dict(color=_TEXT, size=13)), height=260, showlegend=False, bargap=0.1)
                         fig_ret.update_yaxes(ticksuffix="%")
-                        st.plotly_chart(fig_ret, use_container_width=True)
+                        st.plotly_chart(fig_ret, width='stretch')
                 if len(all_results) == 1:
                     _, _, r = all_results[0]
                     if r.trades:
@@ -972,7 +972,7 @@ if run_bt:
                             trade_rows = []
                             for t in r.trades:
                                 trade_rows.append({"Entry": t.entry_date[:10], "Exit": t.exit_date[:10], "Dir": t.direction.upper(), "Entry $": f"${t.entry_price:.2f}", "Exit $": f"${t.exit_price:.2f}", "P&L $": f"${t.pnl:+.2f}", "P&L %": f"{t.pnl_pct:+.2f}%", "Reason": t.exit_reason.replace("_", " ").title(), "Bars": t.bars_held, "Score": f"{t.signal_score:.2f}", "Strategy": t.strategy_name, "Stop": t.stop_mode, "Result": "✅" if t.pnl > 0 else "❌"})
-                            st.dataframe(pd.DataFrame(trade_rows), use_container_width=True, hide_index=True)
+                            st.dataframe(pd.DataFrame(trade_rows), width='stretch', hide_index=True)
     except ImportError:
         notify_error("yfinance not installed. Run: pip install yfinance --break-system-packages")
     except Exception as e:
@@ -1039,7 +1039,7 @@ with st.sidebar:
     st.markdown(f"**{bot_status_label}**")
     b1, b2 = st.columns(2)
     with b1:
-        if st.button("🔄 Restart Bot", use_container_width=True, type="primary"):
+        if st.button("🔄 Restart Bot", width='stretch', type="primary"):
             try:
                 import psutil
                 if bot_running and bot_pid:
@@ -1054,7 +1054,7 @@ with st.sidebar:
                 st.error(f"Restart error: {e}")
     with b2:
         if bot_running:
-            if st.button("🛑 Stop Bot", use_container_width=True, type="secondary"):
+            if st.button("🛑 Stop Bot", width='stretch', type="secondary"):
                 try:
                     psutil.Process(bot_pid).terminate()
                     st.success("Bot stopped.")
@@ -1062,7 +1062,7 @@ with st.sidebar:
                 except Exception as e:
                     st.error(f"Stop error: {e}")
         else:
-            if st.button("▶️ Start Bot", use_container_width=True, type="primary"):
+            if st.button("▶️ Start Bot", width='stretch', type="primary"):
                 try:
                     subprocess.Popen([sys.executable, "bot_engine.py"], cwd=os.path.dirname(os.path.abspath(__file__)), creationflags=subprocess.CREATE_NEW_CONSOLE if sys.platform == "win32" else 0)
                     st.success("✅ Bot started!")
@@ -1072,23 +1072,23 @@ with st.sidebar:
     st.divider()
     st.markdown("**📊 Trading Control**")
     if session["trading_active"]:
-        if st.button("⏸️ Pause Trading", use_container_width=True, type="secondary"):
+        if st.button("⏸️ Pause Trading", width='stretch', type="secondary"):
             risk_manager.manual_halt("Paused via dashboard")
             st.rerun()
     else:
-        if st.button("▶️ Resume Trading", use_container_width=True, type="primary"):
+        if st.button("▶️ Resume Trading", width='stretch', type="primary"):
             risk_manager.manual_resume()
             st.rerun()
     st.caption("Pause stops new trades but keeps bot running.")
     st.divider()
     st.markdown("**Tax & Reports**")
-    if st.button("📄 Generate Today's Report", use_container_width=True):
+    if st.button("📄 Generate Today's Report", width='stretch'):
         with st.spinner("Generating..."):
             summary = report_generator.generate_daily_summary()
             db.save_daily_summary(summary)
         st.success("Report generated!")
     year = st.number_input("Tax Year", value=datetime.now().year, step=1)
-    if st.button("📊 Export Form 8949 CSV", use_container_width=True):
+    if st.button("📊 Export Form 8949 CSV", width='stretch'):
         filepath = f"exports/tax_form_8949_{int(year)}.csv"
         os.makedirs("exports", exist_ok=True)
         db.export_8949_csv(int(year), filepath)
@@ -1097,7 +1097,7 @@ with st.sidebar:
     st.markdown("**Withdrawal**")
     withdraw_amount = st.number_input("Amount ($)", min_value=0.0, step=10.0)
     withdraw_reason = st.text_input("Reason", value="Living expenses")
-    if st.button("💸 Process Withdrawal", use_container_width=True):
+    if st.button("💸 Process Withdrawal", width='stretch'):
         if withdraw_amount > 0:
             result = risk_manager.process_withdrawal(withdraw_amount, withdraw_reason)
             if result["approved"]:
@@ -1122,7 +1122,7 @@ with st.sidebar:
         st.caption(ml_status["message"])
         if ml_status["stage"] == "warming_up":
             st.caption(f"{ml_status['trade_count']} / {ml_status['min_to_activate']} trades collected")
-        if st.button("🔄 Retrain ML Now", use_container_width=True):
+        if st.button("🔄 Retrain ML Now", width='stretch'):
             with st.spinner("Training..."):
                 ml_scorer.retrain()
             st.success("Retrain complete!")

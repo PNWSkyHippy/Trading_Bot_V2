@@ -63,10 +63,12 @@ class RiskManager:
         self._refresh_session()
 
     def _refresh_session(self):
+        """Always re-read session from DB to get latest values.
+        The dashboard runs as a separate process from the bot, so in-memory
+        state is stale. Always fetch fresh from DB."""
         today = date.today().isoformat()
-        if self._session_date != today:
-            self._session_date = today
-            self._session = db.get_session(today)
+        self._session_date = today
+        self._session = db.get_session(today)
 
     def _get_capital(self) -> float:
         """
