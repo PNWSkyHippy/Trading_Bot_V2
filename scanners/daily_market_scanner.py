@@ -504,11 +504,11 @@ def load_scan_results() -> dict:
 
 def inject_scan_results_into_config() -> None:
     """
-    Inject today's top scanner picks at the FRONT of the active watchlists.
-    Called at bot startup and after each daily scan.
-    Filters out stablecoins and pegged tokens before injection.
+    Inject scanner picks into the active watchlists.
+    PRIMARY source: watchlist/scanned_crypto.txt and watchlist/scanned_stocks.txt
+    These are human-editable — edit them and restart the bot to control injection.
+    The JSON (data/daily_scan_results.json) is output-only for dashboard/CSV reporting.
     """
-    # Symbols that should NEVER be injected regardless of scanner results
     INJECT_BLACKLIST = {
         "USDT/USD", "USDC/USD", "DAI/USD", "BUSD/USD", "TUSD/USD",
         "USDS/USD", "USDE/USD", "FDUSD/USD", "USDP/USD", "FRAX/USD",
@@ -516,55 +516,76 @@ def inject_scan_results_into_config() -> None:
         "PAXG/USD", "XAUT/USD", "STETH/USD", "CBETH/USD", "RETH/USD",
         "WBTC/USD", "WETH/USD", "USDY/USD", "USDX/USD",
     }
-    # Duplicates are removed (scanner picks take the front slot).
     import config
 
-    results = load_scan_results()
-    if not results["stocks"] and not results["crypto"]:
-        logger.info("No scan results to inject — using regular watchlists")
+    # ── Read from human-editable txt files (PRIMARY source) ──────────────────────
+    stock_symbols  = []
+    crypto_symbols = []
+
+    try:
+        stocks_file = Path("watchlist/scanned_stocks.txt")
+        if stocks_file.exists():
+            stock_symbols = [
+                s.strip() for s in stocks_file.read_text().splitlines()
+                if s.strip() and not s.strip().startswith("#")
+            ]
+    except Exception as e:
+        logger.warning(f"[SCAN INJECT] Could not read scanned_stocks.txt: {e}")
+
+    try:
+        crypto_file = Path("watchlist/scanned_crypto.txt")
+        if crypto_file.exists():
+            crypto_symbols = [
+                s.strip() for s in crypto_file.read_text().splitlines()
+                if s.strip() and not s.strip().startswith("#")
+            ]
+    except Exception as e:
+        logger.warning(f"[SCAN INJECT] Could not read scanned_crypto.txt: {e}")
+
+    if not stock_symbols and not crypto_symbols:
+        logger.info("[SCAN INJECT] No scan results to inject — using regular watchlists")
         return
 
-    if results["stocks"]:
-        existing_stocks = list(config.STOCK_WATCHLIST)
-        # Remove any existing occurrences of scanner picks
-        deduped = [s for s in existing_stocks if s not in results["stocks"]]
-        # Prepend scanner picks
-        config.STOCK_WATCHLIST = results["stocks"] + deduped
+    # ── Inject stocks ────────────────────────────────────────────────────────
+    if stock_symbols:
+        existing = list(config.STOCK_WATCHLIST)
+        deduped  = [s for s in existing if s not in stock_symbols]
+        config.STOCK_WATCHLIST = stock_symbols + deduped
         logger.info(
-            f"[SCAN INJECT] {len(results['stocks'])} stocks prepended to watchlist: "
-            f"{results['stocks']}"
+            f"[SCAN INJECT] {len(stock_symbols)} stocks prepended to watchlist: {stock_symbols}"
         )
 
-    if results["crypto"]:
-        # Filter out stablecoins and pegged tokens before injection
-        filtered_crypto = [c for c in results["crypto"] if c not in INJECT_BLACKLIST]
-        blocked = len(results["crypto"]) - len(filtered_crypto)
+    # ── Inject crypto (with blacklist + Kraken validation) ──────────────────────
+    if crypto_symbols:
+        filtered = [c for c in crypto_symbols if c not in INJECT_BLACKLIST]
+        blocked  = len(crypto_symbols) - len(filtered)
         if blocked:
-            logger.info(f"[SCAN INJECT] Blocked {blocked} stablecoins/pegged tokens from injection")
+            logger.info(f"[SCAN INJECT] Blocked {blocked} blacklisted symbols")
 
-        # Validate remaining pairs actually exist on Kraken before injecting
-        if filtered_crypto:
+        # Validate against Kraken's actual market list
+        if filtered:
             try:
                 import ccxt
-                exchange = ccxt.kraken({"enableRateLimit": True, "timeout": 10000})
+                exchange       = ccxt.kraken({"enableRateLimit": True, "timeout": 10000})
                 kraken_markets = set(exchange.load_markets().keys())
-                valid_crypto   = [c for c in filtered_crypto if c in kraken_markets]
-                invalid        = [c for c in filtered_crypto if c not in kraken_markets]
+                valid          = [c for c in filtered if c in kraken_markets]
+                invalid        = [c for c in filtered if c not in kraken_markets]
                 if invalid:
                     logger.warning(
                         f"[SCAN INJECT] Rejected {len(invalid)} pairs not on Kraken: {invalid}"
                     )
-                filtered_crypto = valid_crypto
+                filtered = valid
             except Exception as e:
-                logger.warning(f"[SCAN INJECT] Kraken validation failed ({e}) — injecting without validation")
+                logger.warning(
+                    f"[SCAN INJECT] Kraken validation failed ({e}) — injecting without validation"
+                )
 
-        if filtered_crypto:
-            existing_crypto = list(config.CRYPTO_WATCHLIST)
-            deduped = [c for c in existing_crypto if c not in filtered_crypto]
-            config.CRYPTO_WATCHLIST = filtered_crypto + deduped
+        if filtered:
+            existing = list(config.CRYPTO_WATCHLIST)
+            deduped  = [c for c in existing if c not in filtered]
+            config.CRYPTO_WATCHLIST = filtered + deduped
             logger.info(
-                f"[SCAN INJECT] {len(filtered_crypto)} crypto pairs prepended to watchlist: "
-                f"{filtered_crypto}"
+                f"[SCAN INJECT] {len(filtered)} crypto pairs prepended to watchlist: {filtered}"
             )
 
 
