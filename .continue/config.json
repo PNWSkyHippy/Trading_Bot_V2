@@ -1,0 +1,10 @@
+{
+  "models": [
+    {
+      "title": "Ollama Mistral",
+      "provider": "ollama",
+      "model": "mistral"
+    }
+  ],
+  "defaultModel": "Ollama Mistral"
+}

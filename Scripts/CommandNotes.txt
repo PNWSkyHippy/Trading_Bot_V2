@@ -1,3 +1,4 @@
+Start-Process python -ArgumentList ".\BreakoutScanner.py"
  streamlit run dashboard.py  # Connect to dashboard
 #Run the bot
  python bot_engine.py --verbose  
