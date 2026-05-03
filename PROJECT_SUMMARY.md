@@ -1,270 +1,161 @@
-# Autonomous Day Trading Bot V2 — Project Summary
-
-**Last Updated:** April 26, 2026  
-**Project Location:** `C:\Users\Linda\trading_bot_v2`  
-**Status:** Running in paper trading mode (Alpaca stocks + Kraken crypto paper sim)  
-**Python:** 3.12, venv312, Streamlit dashboard port 8501
+# Trading Bot V2 — Project Summary & Session Handoff
+**Last Updated:** 2026-05-03
+**Purpose:** Compact handoff document for new Claude sessions. Read this first.
+**Full reference:** See TECHNICAL_REFERENCE.md for complete documentation.
 
 ---
 
-## Current Architecture
+## Project In One Paragraph
+Ron's autonomous trading bot scans stocks (Alpaca) and crypto (Kraken) every 60s/5min,
+runs signals through 11 strategies, applies ML scoring, enforces risk rules, and executes
+trades through IBKR (stocks, paper port 7497) with Alpaca fallback. Crypto goes through
+Kraken paper mode (simulated locally). A Streamlit dashboard shows live positions, P&L,
+and candlestick charts per position. Ron is on a TopStep combine — $2,438 profit so far,
+$619 from funded trader status. Bot is in paper trading mode.
 
-```
-trading_bot_v2/
-├── bot_engine.py              ← MAIN ENTRY POINT
-├── dashboard.py               ← Streamlit browser dashboard
-├── config.py                  ← All settings, API keys, parameters
-├── requirements.txt
-├── .env                       ← API keys (not committed to git)
-│
-├── core/
-│   ├── risk_manager.py
-│   ├── trade_executor.py      ← Routes crypto to Kraken, stocks to Alpaca/IBKR
-│   ├── position_monitor.py    ← Exit logic: trailing stop, time stops, pivot break
-│   ├── broker_manager.py      ← Per-broker capital tracking
-│   └── kraken_executor.py     ← Kraken crypto (paper mode = local simulation)
-│
-├── scanners/
-│   ├── market_scanner.py      ← Main scanner — routes through strategy engine
-│   └── daily_market_scanner.py← 4:30 PM ET scan, writes temp watchlist files
-│
-├── strategies/
-│   ├── base_strategy.py       ← Abstract base — stock_enabled/crypto_enabled flags
-│   ├── strategy_engine.py     ← Orchestrates all strategies, asset class filtering
-│   ├── rsi_momentum.py        ← DISABLED (poor live performance)
-│   ├── bollinger_breakout.py  ← ENABLED stocks only (crypto_enabled=False)
-│   ├── ema_crossover.py       ← DISABLED
-│   ├── mean_reversion.py      ← DISABLED
-│   ├── scalp_master.py        ← ENABLED
-│   ├── swing_trader.py        ← DISABLED
-│   ├── grid_bot.py            ← ENABLED — primary crypto strategy, reviewer_exempt
-│   ├── dca_accumulator.py     ← ENABLED
-│   ├── vwap_momentum.py       ← ENABLED
-│   ├── hammer_reversal.py     ← ENABLED
-│   └── orb_breakout.py        ← ENABLED
-│
-├── intelligence/
-│   ├── chat_interface.py      ← Haiku chat + pre-parse commands + watchlist queries
-│   ├── claude_reviewer.py     ← Signal reviewer — crypto bypasses market hours gate
-│   ├── condition_detector.py
-│   ├── ml_scorer.py
-│   └── backtester.py
-│
-├── reporting/
-│   └── report_generator.py
-│
-├── data/
-│   ├── database.py
-│   └── trading_bot.db
-│
-├── watchlists/
-│   ├── stocks.txt             ← Master stock watchlist
-│   └── crypto.txt             ← Master crypto watchlist
-│
-├── watchlist/
-│   ├── scanned_stocks.txt     ← Temp: daily scanner results (stocks)
-│   └── scanned_crypto.txt     ← Temp: daily scanner results (crypto)
-│
-├── logs/bot.log
-│
-└── Utility Scripts (project root):
-    ├── check_trades.py        ← Last 20 closed trades with entry/exit/reason
-    ├── todays_stats.py        ← Today's P&L by asset class and strategy
-    ├── weekly_stats.py        ← 7-day breakdown by day/asset/strategy/broker
-    ├── clear_stuck_trades.py  ← Resets stuck/failed close flags
-    ├── force_close_paper_trades.py ← Force-closes ghost DB positions
-    ├── flush_log.py           ← Clears bot.log keeping last 50 lines
-    └── git_push.py            ← Quick git add/commit/push
-```
+**Stack:** Python 3.12, venv312, SQLite, Streamlit, ib_insync, ccxt, alpaca-trade-api
+**Location:** C:\Users\Linda\trading_bot_v2
+**GitHub:** PNWSkyHippy/Trading_Bot_V2 (private)
+**Owner:** Ron (Windows username is Linda)
 
 ---
 
-## Brokers
-
-| Broker | Type | Mode | Status |
-|--------|------|------|--------|
-| **Alpaca** | Stocks | Paper | Active — `https://paper-api.alpaca.markets` |
-| **IBKR** | Stocks | Paper | Active — TWS must be running manually (port 7497) |
-| **Kraken** | Crypto | Paper | Active — paper mode simulated LOCALLY (Kraken has no sandbox) |
-| **Coinbase** | Crypto | — | DEPRECATED — Coinbase Pro API shut down, Advanced Trade auth incompatible |
-
-### Important Notes
-- `KRAKEN_PAPER_MODE = True` — simulates fills locally, uses real Kraken prices
-- Coinbase is completely removed from trade execution (auth format incompatible)
-- IBKR launches TWS manually — IBC automation not yet working
-- All fund inject/withdraw operations are informational only
+## Current Bot Status
+- ✅ Running in paper mode — IBKR stocks + Kraken crypto
+- ✅ Multi-timeframe candle system — strategies fetch own TF bars
+- ✅ IBC headless Gateway — auto-starts on boot, ReadOnlyApi=no
+- ✅ Haiku model for signal reviews (was accidentally Sonnet — fixed, big cost saving)
+- ✅ Fernet encryption for ANTHROPIC_API_KEY — BASE_KEY in Windows Credential Manager
+- ✅ Dashboard charts per position — 5min/1hr/1day + Entry/SL/TP lines
+- ✅ Consecutive losses and halt status fixed to always read fresh from DB
+- ✅ Stablecoin injection blocked — 3 layers of protection
+- ✅ Both IBKR and Alpaca tried on every stock close (dual-broker fix)
+- ⚠️ BreakoutScanner.py GUI — signals fire in logs but not showing in GUI text widget yet
 
 ---
 
-## Strategy Status (as of Apr 26, 2026)
-
-| Strategy | Status | Asset Class | Notes |
-|----------|--------|-------------|-------|
-| rsi_momentum | DISABLED | — | Poor live performance |
-| bollinger_breakout | ENABLED | **Stocks only** | `crypto_enabled=False` — bleeds -$860 on crypto vs +$1,064 on stocks |
-| ema_crossover | DISABLED | — | |
-| mean_reversion | DISABLED | — | |
-| scalp_master | ENABLED | Both | |
-| swing_trader | DISABLED | — | |
-| **grid_bot** | **ENABLED** | **Crypto primary** | `reviewer_exempt=True` — 53% WR, +$291 today. Star performer |
-| dca_accumulator | ENABLED | Both | |
-| vwap_momentum | ENABLED | Both | |
-| hammer_reversal | ENABLED | Both | |
-| orb_breakout | ENABLED | Stocks | ORB window 9:45-10:15 ET |
-
-### Key Strategy Flags (base_strategy.py)
-- `stock_enabled` / `crypto_enabled` — per-asset-class on/off
-- `ml_exempt` — skip ML score blending
-- `auto_disable_exempt` — never auto-disable based on win rate
-- `reviewer_exempt` — skip Claude reviewer (Grid Bot uses non-standard indicators)
+## Strategy Status
+| Strategy | Status | Candle TF | Notes |
+|---|---|---|---|
+| grid_bot | ✅ ENABLED [NO-AUTO-DISABLE][ML-EXEMPT] | 5Min/1h | Best performer |
+| mean_reversion | ✅ ENABLED [NO-AUTO-DISABLE] | 5Min | Stocks only, 79.8% win rate |
+| bollinger_breakout | ✅ ENABLED [NO-AUTO-DISABLE] | 5Min | Stocks only |
+| scalp_master | ✅ ENABLED | 5Min/1h | |
+| swing_trader | ✅ ENABLED | **1Hour** | Now on correct TF |
+| dca_accumulator | ✅ ENABLED | **1Hour** | Major crypto + blue chips |
+| vwap_momentum | ✅ ENABLED | **1Hour** | Stocks only |
+| hammer_reversal | ✅ ENABLED | 5Min/1h | Monitor live |
+| rsi_momentum | ❌ DISABLED | — | Backtest confirmed dead |
+| ema_crossover | ❌ DISABLED | — | Backtest confirmed dead |
+| orb_breakout | ❌ DISABLED | — | Pending backtest |
 
 ---
 
-## Stop Mode Settings
-
-```python
-STOCK_STOP_MODE    = "standard"   # standard % stop — adequate for stocks
-CRYPTO_STOP_MODE   = "two_bar"    # 2-Bar trailing stop — proven superior
-TWO_BAR_LOOKBACK_N = 2            # N=2 recommended
-```
-
-**Backtest results (Apr 2026) that drove this decision:**
-- Standard stop: 0 GO signals, 35% WR, avg PF 0.74
-- 2-Bar N=2: 4 GO signals, 50% WR, avg PF 144.81
-- Grid Bot 2-Bar: 75% WR, Sharpe 22, PF 8.54 (BTC 5min)
-- DCA 2-Bar: 64% WR, +3.27% (BTC 1hr/365d)
+## Recent Fixes (Last 2 Sessions)
+1. **Haiku model fix** — claude_reviewer.py was using Sonnet 4.5 (expensive), switched to Haiku
+2. **Fernet encryption** — ANTHROPIC_API_KEY encrypted in .env, BASE_KEY in Windows Credential Manager via keyring
+3. **Dashboard session fix** — consecutive_losses and halt status now always read fresh from DB
+4. **Dual-broker close** — stock close now tries BOTH IBKR and Alpaca regardless of DB broker field
+5. **Invalid pair infinite loop fix** — position_monitor checks Kraken markets, force-closes invalid pairs in DB
+6. **Stablecoin injection** — 3-layer fix: daily scanner exclusion, price stability guard, INJECT_BLACKLIST
+7. **Watchlist txt files** — inject_scan_results_into_config() now reads from human-editable txt files (not JSON)
+8. **BreakoutScanner.py** — complete rewrite fixing 15 bugs (wrong imports, scope errors, hardcoded keys, duplicate code)
+9. **GitHub secret scanning** — encrypt_key.py had live API key, rotated, file cleaned, added to .gitignore
 
 ---
 
-## Position Monitor Exit Logic (priority order)
-
-1. STUCK check — skip if exceeded 3 close attempts
-2. EOD close — 15:45 ET stocks
-3. Stop-loss
-4. ORB VWAP cross exit
-5. Early loss (20 min check) — `EARLY_LOSS_MIN_PCT = -0.3`
-6. Perf time stop 1hr — `PERF_CHECK_1HR_MIN_PCT = 0.2` (lowered from 0.5)
-7. Perf time stop 3hr — `PERF_CHECK_3HR_MIN_PCT = 1.5`
-8. Hard time stop — `HARD_TIME_STOP_HOURS = 3.5`
-9. Take-profit + momentum rider (up to 3 extensions)
-10. Pivot point break (S1/R1) — after 30 min
-11. Stale ADX/DI check — after 3 hrs
-12. Trailing stop update + logging
+## Known Active Issues
+- **BreakoutScanner GUI alerts not showing** — signals fire in logs/console but don't appear in tkinter text widget. `_process_alerts` routes via `root.after()` but alerts still not reaching GUI. Last fix attempt: wired `alert_system.gui` reference in `_start_scanner` before `scanner.start()`. Needs further debugging.
+- **GitHub MCP 404** — GitHub connector connected but returns 404 on private repo. Tried fine-grained and classic tokens. Still unresolved.
+- **Alpaca ghost positions** — occasional IBKR hiccup causes fallback to Alpaca, leaving positions on Alpaca not tracked in DB. Dual-broker close fix should prevent future occurrences. Manual cleanup at market open when found.
 
 ---
 
-## Claude Reviewer (claude_reviewer.py)
-
-- **Enabled** — requires `ANTHROPIC_API_KEY` in `.env`
-- **Crypto bypass** — `allow_trading=False` from morning briefing does NOT block crypto (crypto runs 24/7)
-- **reviewer_exempt** — Grid Bot bypasses review entirely (no standard indicators to evaluate)
-- **Model:** claude-sonnet-4-5
-- **Fallback:** Any failure/timeout = SKIP (conservative)
+## Key Files
+| File | Purpose |
+|---|---|
+| bot_engine.py | Main entry point |
+| dashboard.py | Streamlit dashboard |
+| config.py | All settings, loads encrypted keys |
+| strategies/strategy_engine.py | run_strategies_multi_tf() |
+| scanners/market_scanner.py | Fetches bars per TF, reuses across strategies |
+| scanners/daily_market_scanner.py | 13:30 PT EOD scan, writes watchlist txt files |
+| core/trade_executor.py | Dual-broker close logic |
+| core/position_monitor.py | Invalid pair detection, force-close |
+| intelligence/claude_reviewer.py | Haiku signal review |
+| BreakoutScanner.py | Standalone breakout scanner (separate from bot) |
+| watchlist/scanned_crypto.txt | Human-editable daily scan results (edit + restart) |
+| watchlist/scanned_stocks.txt | Human-editable daily scan results |
+| data/daily_scan_results.json | Output-only archive (not read by bot) |
+| Scripts/clear_stuck_trades.py | Reset STUCK flags |
+| Scripts/reset_gridbot_stats.py | Clear grid_bot win/loss |
+| Scripts/store_fernet_key.py | One-time: store Fernet key in Windows vault |
 
 ---
 
-## Weekly Performance (Apr 19-26, 2026)
+## Emergency Commands
+```powershell
+# Clear stuck trades
+python Scripts\clear_stuck_trades.py
 
-```
-Total: 1219 trades | P&L: +$284.76
+# Reset grid_bot stats after mass infrastructure failures
+python Scripts\reset_gridbot_stats.py
 
-By day:
-  Apr 26: 346 trades | 48.0% WR | +$149.54  (Grid Bot dominant, 2-Bar active)
-  Apr 25:  80 trades | 32.5% WR | -$160.27
-  Apr 24: 166 trades | 31.3% WR | -$555.72
-  Apr 23: 159 trades | 47.2% WR | +$1,349.14
-  Apr 22: 164 trades | 46.3% WR | +$891.30
-  Apr 21:  64 trades | 34.4% WR | -$30.72
-  Apr 20: 151 trades | 34.4% WR | -$671.48
-  Apr 19:  89 trades | 32.6% WR | -$687.04
+# Check what's open in DB
+python Scripts\check_open_trades.py
 
-By asset class:
-  STOCKS: 151 trades | 29.1% WR | +$1,178 (Bollinger carrying stocks)
-  CRYPTO: 1068 trades | 42.5% WR | -$893 (Bollinger was destroying crypto — now disabled)
+# Push to GitHub
+python git_push.py "your message here"
 
-By strategy (highlights):
-  grid_bot:              214 trades | 53.3% WR | +$291 ✅
-  bollinger_breakout (stocks): 123 trades | 30.9% WR | +$1,064 ✅
-  bollinger_breakout (crypto): 773 trades | 39.2% WR | -$860 ❌ NOW DISABLED FOR CRYPTO
+# Start bot
+python bot_engine.py
 
-By broker:
-  alpaca:   142 trades | 31.0% WR | +$1,251
-  coinbase: 183 trades | 53.0% WR | +$238  (paper sim, pre-deprecation)
-  kraken:    87 trades | 40.2% WR | -$419  (new, still establishing)
-  paper:    805 trades | 39.8% WR | -$806  (old Bollinger crypto)
+# Start dashboard (separate terminal)
+streamlit run dashboard.py
+
+# Start BreakoutScanner GUI
+python BreakoutScanner.py
+
+# Start BreakoutScanner console
+python BreakoutScanner.py --console
 ```
 
 ---
 
-## Haiku Chat Commands (pre-parsed, no API call needed)
+## Watchlist Architecture
+- `watchlists/crypto.txt` — master crypto list (manual edit)
+- `watchlists/stocks.txt` — master stock list (manual edit)
+- `watchlist/scanned_crypto.txt` — daily scanner output (human-editable, READ by bot on startup)
+- `watchlist/scanned_stocks.txt` — daily scanner output (human-editable, READ by bot on startup)
+- `data/daily_scan_results.json` — archive only, NOT read by bot
 
-### Watchlist
-- `"what stocks are you watching"` / `"what crypto are you watching"`
-- `"show watchlist"` / `"show injected symbols"`
-- `"is BTC/USD being watched"` / `"is AAPL in watchlist"`
-- `"reload watchlist"` / `"refresh watchlist"`
-
-### Strategies
-- `"enable grid_bot"` / `"disable bollinger_breakout"`
-- `"list strategies"` / `"strategy stats"`
-
-### Trading
-- `"pause trading"` / `"resume trading"`
-- `"show my stats"` / `"capital breakdown"`
-- `"morning scan"` / `"top setups"`
+To remove a bad pair from injection: edit `watchlist/scanned_crypto.txt`, delete the line, restart bot.
 
 ---
 
-## Filesystem Connector
-Claude now has direct read/write access to `C:\Users\Linda\trading_bot_v2` via the Filesystem MCP connector. No more file uploads needed — Claude can read and write files directly.
+## Broker Routing
+- **Stocks:** IBKR first (paper port 7497) → Alpaca fallback
+- **Crypto:** Kraken via ccxt (paper = simulated locally)
+- **Stock close:** Tries BOTH IBKR and Alpaca regardless of DB broker field
+- **Ghost trades:** If neither broker has position, marks closed in DB (stops retry loop)
+- **Invalid crypto pairs:** Checks Kraken markets on close failure, force-closes in DB
 
 ---
 
-## Scheduled Jobs
-
-| Job | Schedule | Description |
-|-----|----------|-------------|
-| Crypto scan | Every 5 min, 24/7 | Threaded — won't block scheduler |
-| Stock scan | Every 60s, Mon-Fri 10:00-15:44 ET | Threaded |
-| Position monitor | Every 30s, 24/7 | Checks exits, trailing stops |
-| Capital sync | Every 15 min | Syncs broker balances |
-| EOD stock close | 15:45 ET weekdays | Closes all stock positions |
-| EOD report | 17:00 ET daily | Email report |
-| Daily scanner | 16:30 ET weekdays | Scans top stocks + crypto, updates watchlists |
-| ML retrain | 18:00 ET daily | Retrains Random Forest |
-| Weekly log | Sunday 00:00 PT | Weekly trade export |
+## TopStep Combine Status
+- Friday: +$1,220 | Monday: +$650 | Tuesday: +$568 = ~$2,438 total
+- ~$619 from funded trader status
+- Funded account rules: 2 contracts to start, floor rises from $48k to $50k then stays
+- Transition fee: $150 one-time
+- Ron trades ES futures 5min scalping: EMA5/EMA8-21/VWAP/SuperTrend(7)/MACD
 
 ---
 
-## Known Open Issues
-
-1. **Grid Bot reviewer_exempt** — using ADX+BB signals not readable by Claude. Re-evaluate after 50+ live trades. Consider populating RSI/volume in metadata.
-
-2. **Bollinger crypto_enabled=False** — disabled based on Apr 2026 data. Re-evaluate monthly. Consider crypto-specific variant with tighter filters.
-
-3. **HARD_TIME_STOP_HOURS = 3.5** — kills profitable trades. Consider bypassing if pnl >= 2.0%.
-
-4. **PERF_CHECK_1HR_MIN_PCT = 0.2** — lowered from 0.5 today, monitor effect on trade quality.
-
-5. **Coinbase fully removed** — when Coinbase fixes their Advanced Trade API key generation (portal was broken Apr 26), consider adding back as secondary crypto broker.
-
-6. **IBKR IBC automation** — still launching TWS manually. IBC double-session loop unresolved.
-
-7. **Per-broker capital display** — broker_manager.py has the infrastructure but dashboard doesn't show per-broker breakdown yet.
-
-8. **Daily scanner crypto** — runs weekdays only. Should run 7 days for crypto.
-
-9. **Hard time stop bypass** — profitable trades getting killed at 3.5hr. Proposed: bypass if pnl >= 2.0%.
-
-10. **Dashboard overhaul** — planned full trading terminal with TradingView charts, draggable panels, manual trade entry, per-broker stats. Multi-session project.
-
----
-
-## Technical Notes
-
-- **Python indentation:** 4-space, no tabs
-- **Linda's background:** BASIC, COBOL, C, C++, Pascal, mainframe assembly
-- **Timezone:** Bot uses ET for market hours, Linda is in Spokane WA (PT)
-- **Git:** Local `python git_push.py` for cloud backup
-- **Filesystem MCP:** Claude has direct read/write access to project directory
-- **GitHub connector:** Disconnected (was causing tool refresh loop every 60s)
+## BreakoutScanner.py Status
+Standalone scanner (not part of bot) created by Kimmy AI → ChatGPT → fixed by Claude.
+- Location: C:\Users\Linda\trading_bot_v2\BreakoutScanner.py
+- Console mode working: signals firing (ORCA +6.19%, OPEN +8.51%, TAO +4.60% etc)
+- GUI: tkinter launches, Start button works, but alerts not appearing in text widget
+- Next fix needed: debug why `root.after(0, gui.add_alert, ...)` isn't reaching the widget
+- Config: scanner_config.json (API keys go here)
+- Dependencies: yfinance (--no-deps), alpaca-trade-api, ccxt
