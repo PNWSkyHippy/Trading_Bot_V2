@@ -368,6 +368,17 @@ def scan_crypto(top_n: int = 10) -> pd.DataFrame:
         if sym in CRYPTO_EXCLUDE:
             continue
 
+        # Extra stablecoin guard — if 7d price range is less than 2%
+        # it's almost certainly a stablecoin or pegged token not in the list
+        sparkline_check = coin.get("sparkline_in_7d", {}) or {}
+        price_check = sparkline_check.get("price", [])
+        if len(price_check) >= 10:
+            p_min = min(price_check)
+            p_max = max(price_check)
+            if p_max > 0 and (p_max - p_min) / p_max < 0.02:  # <2% range in 7 days
+                logger.debug(f"Skipping {sym} — price too stable (<2% 7d range, likely stablecoin)")
+                continue
+
         try:
             change_24h = float(coin.get("price_change_percentage_24h") or 0)
             vol_24h    = float(coin.get("total_volume") or 0)
@@ -495,11 +506,17 @@ def inject_scan_results_into_config() -> None:
     """
     Inject today's top scanner picks at the FRONT of the active watchlists.
     Called at bot startup and after each daily scan.
-
-    Scanner picks go first so they get tried by signals before the
-    regular watchlist. Existing watchlist symbols stay in their positions.
-    Duplicates are removed (scanner picks take the front slot).
+    Filters out stablecoins and pegged tokens before injection.
     """
+    # Symbols that should NEVER be injected regardless of scanner results
+    INJECT_BLACKLIST = {
+        "USDT/USD", "USDC/USD", "DAI/USD", "BUSD/USD", "TUSD/USD",
+        "USDS/USD", "USDE/USD", "FDUSD/USD", "USDP/USD", "FRAX/USD",
+        "LUSD/USD", "PYUSD/USD", "USDD/USD", "GUSD/USD", "SUSD/USD",
+        "PAXG/USD", "XAUT/USD", "STETH/USD", "CBETH/USD", "RETH/USD",
+        "WBTC/USD", "WETH/USD", "USDY/USD", "USDX/USD",
+    }
+    # Duplicates are removed (scanner picks take the front slot).
     import config
 
     results = load_scan_results()
@@ -519,13 +536,36 @@ def inject_scan_results_into_config() -> None:
         )
 
     if results["crypto"]:
-        existing_crypto = list(config.CRYPTO_WATCHLIST)
-        deduped = [c for c in existing_crypto if c not in results["crypto"]]
-        config.CRYPTO_WATCHLIST = results["crypto"] + deduped
-        logger.info(
-            f"[SCAN INJECT] {len(results['crypto'])} crypto pairs prepended to watchlist: "
-            f"{results['crypto']}"
-        )
+        # Filter out stablecoins and pegged tokens before injection
+        filtered_crypto = [c for c in results["crypto"] if c not in INJECT_BLACKLIST]
+        blocked = len(results["crypto"]) - len(filtered_crypto)
+        if blocked:
+            logger.info(f"[SCAN INJECT] Blocked {blocked} stablecoins/pegged tokens from injection")
+
+        # Validate remaining pairs actually exist on Kraken before injecting
+        if filtered_crypto:
+            try:
+                import ccxt
+                exchange = ccxt.kraken({"enableRateLimit": True, "timeout": 10000})
+                kraken_markets = set(exchange.load_markets().keys())
+                valid_crypto   = [c for c in filtered_crypto if c in kraken_markets]
+                invalid        = [c for c in filtered_crypto if c not in kraken_markets]
+                if invalid:
+                    logger.warning(
+                        f"[SCAN INJECT] Rejected {len(invalid)} pairs not on Kraken: {invalid}"
+                    )
+                filtered_crypto = valid_crypto
+            except Exception as e:
+                logger.warning(f"[SCAN INJECT] Kraken validation failed ({e}) — injecting without validation")
+
+        if filtered_crypto:
+            existing_crypto = list(config.CRYPTO_WATCHLIST)
+            deduped = [c for c in existing_crypto if c not in filtered_crypto]
+            config.CRYPTO_WATCHLIST = filtered_crypto + deduped
+            logger.info(
+                f"[SCAN INJECT] {len(filtered_crypto)} crypto pairs prepended to watchlist: "
+                f"{filtered_crypto}"
+            )
 
 
 # =============================================================================
