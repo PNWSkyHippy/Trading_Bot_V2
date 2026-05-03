@@ -6,15 +6,7 @@
   "timezone": "US/Pacific",
   "top_stocks_count": 100,
   "top_cryptos_count": 100,
-  "breakout_thresholds": [
-    10,
-    20,
-    30,
-    50,
-    100,
-    200,
-    500
-  ],
+  "breakout_thresholds": [10, 20, 30, 50, 100, 200, 500],
   "momentum_window": 5,
   "volume_spike_multiplier": 3.0,
   "price_acceleration_threshold": 0.5,
@@ -36,18 +28,19 @@
   "coinbase_api_secret": "organizations/92656068-0785-41bd-94f1-c5fe0eb4190b/apiKeys/7544a55f-9a8b-4e41-bfe2-8db537cb3dee",
   "kraken_api_key": "maZKoR8dBNWRnWYzSfVkW9bVGDisy6uqx5O4Tle73NVnYdsESR740+21",
   "kraken_api_secret": "63ug0E5bdMtBWmy/sJB+aYQs9c1n+XDq2qXd6pavL1p5uFl1661DFXsNX3d5Bn6vPU430oKgnMRk5cPp3NE3mg==",
+  "massive_api_key": "DF5weXCva2lZ0QLRYdyVxhFMsmXCp7MC",
   "default_trade_amount_usd": 1000,
   "max_position_size_usd": 5000,
   "stop_loss_percent": 5,
   "take_profit_percent": 20,
-  "run_days": [
-    "Monday",
-    "Tuesday",
-    "Wednesday",
-    "Thursday",
-    "Friday"
-  ],
+  "run_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
   "exclude_dates": [],
   "alert_sound_frequency": 800,
-  "alert_sound_duration_ms": 1000
+  "alert_sound_duration_ms": 1000,
+  "watchlist_min_score": 0.40,
+  "momentum_gate_pct": 0.80,
+  "momentum_gate_scans": 3,
+  "escalate_2pct": 2.0,
+  "escalate_5pct": 5.0,
+  "escalate_10pct": 10.0
 }

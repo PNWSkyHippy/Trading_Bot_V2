@@ -1,0 +1,227 @@
+# Ron's Market Breakout Scanner
+
+A real-time market scanner that monitors the top 100 stocks and top 100 cryptocurrencies, detecting early breakout patterns before massive price moves (10%, 20%, 50%, 100%, 200%, 500%+).
+
+## Features
+
+### Core Scanning
+- **Top 100 Stocks**: Scanned during market hours (6:30 AM - 1:00 PM Pacific, configurable)
+- **Top 100 Cryptos**: Scanned 24/7 (configurable)
+- **Real-time Analysis**: Checks every 30 seconds (configurable)
+- **Early Detection**: Alerts when predicted move reaches 30% of target threshold
+
+### Breakout Detection Patterns
+- Consolidation Breakout (tight range + volume spike)
+- Volume-Price Surge
+- Parabolic Acceleration
+- Ascending Triangle
+- Momentum Building
+
+### Alert System (3 Modes)
+1. **Sound Alerts**: Audible beeps (frequency/duration configurable)
+2. **Visual Alerts**: GUI dashboard with live alerts and top movers
+3. **Email Alerts**: SMTP email notifications (Gmail compatible)
+
+### Auto-Trading (3 Modes)
+1. **Disabled**: Alerts only, manual trading
+2. **Confirm Required**: Alert + prompt to place trade
+3. **Fully Automatic**: Places trades without user intervention
+
+## Installation
+
+### Step 1: Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+
+### Step 2: Configure API Keys
+Edit `scanner_config.json` and add your credentials:
+
+**For Stocks (Alpaca)**:
+```json
+{
+  "alpaca_api_key": "YOUR_ALPACA_API_KEY",
+  "alpaca_secret_key": "YOUR_ALPACA_SECRET_KEY",
+  "alpaca_base_url": "https://paper-api.alpaca.markets"
+}
+```
+Note: Use paper trading URL for testing. Change to `https://api.alpaca.markets` for live trading.
+
+**For Crypto (Kraken - Recommended for Washington State)**:
+```json
+{
+  "kraken_api_key": "YOUR_KRAKEN_API_KEY",
+  "kraken_api_secret": "YOUR_KRAKEN_API_SECRET"
+}
+```
+
+**Alternative: Coinbase**:
+```json
+{
+  "coinbase_api_key": "YOUR_COINBASE_API_KEY",
+  "coinbase_api_secret": "YOUR_COINBASE_API_SECRET"
+}
+```
+
+**For Email Alerts**:
+```json
+{
+  "email_from": "your_email@gmail.com",
+  "email_to": "your_email@gmail.com",
+  "email_password": "your_app_password",
+  "email_smtp_server": "smtp.gmail.com",
+  "email_smtp_port": 587
+}
+```
+Note: For Gmail, use an App Password (not your regular password).
+
+### Step 3: Run the Scanner
+```bash
+python market_scanner.py
+```
+
+## Configuration Guide
+
+All settings are stored in `scanner_config.json`. Key options:
+
+### Market Hours
+```json
+{
+  "stock_market_open": "06:30",
+  "stock_market_close": "13:00",
+  "crypto_24_7": true,
+  "run_days": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+  "exclude_dates": ["2026-07-03", "2026-11-26"]
+}
+```
+
+### Breakout Thresholds
+```json
+{
+  "breakout_thresholds": [10, 20, 30, 50, 100, 200, 500],
+  "momentum_window": 5,
+  "volume_spike_multiplier": 3.0
+}
+```
+
+### Auto-Trading Settings
+```json
+{
+  "enable_auto_trade": false,
+  "auto_trade_without_confirm": false,
+  "default_trade_amount_usd": 1000,
+  "max_position_size_usd": 5000,
+  "stop_loss_percent": 5,
+  "take_profit_percent": 20
+}
+```
+
+### Alert Settings
+```json
+{
+  "enable_sound_alert": true,
+  "enable_visual_alert": true,
+  "enable_email_alert": true,
+  "alert_sound_frequency": 800,
+  "alert_sound_duration_ms": 1000
+}
+```
+
+## How It Works
+
+### Detection Algorithm
+1. **Data Collection**: Fetches real-time price and volume data
+2. **History Building**: Maintains rolling window of price/volume history
+3. **Momentum Calculation**: Computes rate of change over recent periods
+4. **Acceleration Detection**: Measures if momentum is increasing (second derivative)
+5. **Volume Analysis**: Detects unusual volume spikes vs. average
+6. **Pattern Recognition**: Identifies chart patterns (consolidation, triangles, etc.)
+7. **Move Prediction**: Projects potential price move based on momentum + acceleration
+8. **Confidence Scoring**: 0-100% score based on multiple factors
+9. **Alert Trigger**: Fires when predicted move >= 30% of threshold AND confidence > 50%
+
+### Confidence Scoring
+- **Momentum** (0-30%): Higher momentum = higher score
+- **Volume Spike** (0-30%): 5x+ volume = max score
+- **Acceleration** (0-20%): Increasing momentum = higher score
+- **Pattern Match** (0-20%): Known breakout patterns score higher
+
+## Broker Compatibility
+
+### Stocks
+- **Alpaca** (Recommended): Commission-free, API-first, paper trading available
+- **Interactive Brokers (IBKR)**: Planned future support
+
+### Crypto (Washington State Compatible)
+- **Kraken** (Recommended): Fully licensed in WA, low fees, robust API
+- **Coinbase**: Alternative option, higher fees but user-friendly
+- **Binance**: NOT available in Washington State (excluded by design)
+
+## Safety Features
+
+1. **Cooldown Period**: 5-minute cooldown between alerts for same symbol
+2. **Paper Trading**: Alpaca supports paper trading for testing
+3. **Confirmation Mode**: Auto-trade can require manual confirmation
+4. **Position Limits**: Configurable max position size
+5. **Market Hours**: Stocks only scanned during configured hours
+6. **Error Handling**: Graceful degradation if APIs fail
+
+## GUI Dashboard
+
+When running with Tkinter (default on most systems):
+- **Start/Stop Controls**: Easy scanner control
+- **Auto-Trade Toggle**: Enable/disable automatic trading
+- **Live Alerts Panel**: Real-time breakout alerts with details
+- **Top Movers Panel**: Current top 20 movers by daily change
+- **Status Indicator**: Shows scanning state
+
+## Console Mode
+
+If Tkinter is not available, runs in console mode with:
+- Colored log output
+- Keyboard interrupt (Ctrl+C) to stop
+- Full alert logging to `scanner.log`
+
+## File Structure
+```
+market_scanner.py      # Main scanner program
+scanner_config.json    # Configuration file (auto-created)
+scanner.log           # Log file
+requirements.txt      # Python dependencies
+```
+
+## Important Notes
+
+1. **API Rate Limits**: Be aware of your broker's API rate limits
+2. **Market Data Delay**: Free data may have 15-minute delay for some sources
+3. **Risk Management**: Always test with paper trading first
+4. **Not Financial Advice**: This tool is for informational purposes only
+5. **Washington State Compliance**: Uses Kraken/Coinbase (not Binance)
+
+## Troubleshooting
+
+**Issue**: No alerts firing
+- Check if market is open (stocks only during configured hours)
+- Verify API keys are correct
+- Check `scanner.log` for errors
+
+**Issue**: Email alerts not working
+- Verify SMTP settings
+- For Gmail, ensure App Password is used
+- Check spam folders
+
+**Issue**: Trades not executing
+- Verify auto-trade is enabled in config
+- Check broker API credentials
+- Ensure sufficient buying power
+
+## Future Enhancements
+- Machine learning prediction models
+- Backtesting framework
+- More chart patterns
+- Options scanning
+- Discord/Telegram alerts
+- Mobile app companion
+
+## Disclaimer
+This software is for educational and informational purposes only. Trading involves substantial risk of loss. Past performance is not indicative of future results. Always do your own research and consider consulting a financial advisor.

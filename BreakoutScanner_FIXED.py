@@ -1589,7 +1589,43 @@ class MarketScanner:
         except Exception as e:
             logger.error(f"Stock scan error: {e}")
 
-    def _scan_cryptos(self):         """Scan cryptos for breakout patterns."""         logger.info("Scanning cryptos...")          try:             movers = self.crypto_fetcher.get_top_movers(                 self.config.get("top_cryptos_count", 100)             )             logger.info(f"MOVERS COUNT: {len(movers) if movers else 0}")              for crypto in movers:                 if crypto.symbol not in self.crypto_fetcher.exchange.symbols:                     continue                  hist = self.crypto_fetcher.get_historical_data(crypto.symbol)                  for h in hist:                     self.detector.update_history(h)                  signal = self.detector.detect_breakout(crypto)                  if not signal:                     continue                  # per-symbol cooldown (60 sec)                 now = time.time()                 if not hasattr(self, "_last_alerts"):                     self._last_alerts = {}                  last = self._last_alerts.get(crypto.symbol)                 if last and now - last < 60:                     continue                  self._last_alerts[crypto.symbol] = now                  meta = classify_signal(signal)                  if signal.confidence < 0.4:                     continue                  if meta["poc"] < 40:                     continue                  logger.info(f"SIGNAL FOUND: {crypto.symbol}")                  self.alert_system.send_alert(signal)                  log_signal_to_csv(signal)          except Exception as e:             logger.error(f"Crypto scan failed: {e}")
+    def _scan_cryptos(self):         
+        """Scan cryptos for breakout patterns."""         
+        logger.info("Scanning cryptos...")          
+        try:            
+            movers = self.crypto_fetcher.get_top_movers(                
+                self.config.get("top_cryptos_count", 100)             
+                )             
+            logger.info(f"MOVERS COUNT: {len(movers) 
+                                         if movers else 0}")              
+            for crypto in movers:                 
+                if crypto.symbol not in self.crypto_fetcher.exchange.symbols:                     
+                    continue                  
+                hist = self.crypto_fetcher.get_historical_data(crypto.symbol)                  
+                for h in hist:                     
+                    self.detector.update_history(h)                  
+                    signal = self.detector.detect_breakout(crypto)                  
+                    if not signal:                     
+                        continue                  
+                    # per-symbol cooldown (60 sec)                 
+                    # now = time.time()                 
+                    # if not hasattr(self, "_last_alerts"):                     s
+                    # elf._last_alerts = {}                  
+                    # last = self._last_alerts.get(crypto.symbol)                 
+                    # if last and now - last < 60:                     
+                    # continue                  
+                    # self._last_alerts[crypto.symbol] = now                  
+                    # meta = classify_signal(signal)                  
+                    # if signal.confidence < 0.4:                     
+                    # continue                  
+                    # if meta["poc"] < 40:                     
+                    # continue                  
+                    # logger.info(f"SIGNAL FOUND: {crypto.symbol}")                  
+                    # self.alert_system.send_alert(signal)                  
+                    # log_signal_to_csv(signal)          
+                    # except Exception as e:             
+                    # logger.error(f"Crypto scan failed: {e}")
+
     def _scan_stocks_backup_backup(self):
         """Scan stocks for breakout patterns."""
         logger.info("Scanning stocks...")
