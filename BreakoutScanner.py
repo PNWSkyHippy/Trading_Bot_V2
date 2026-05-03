@@ -2,20 +2,31 @@
 Ron's Market Breakout Scanner
 ==============================
 Scans stocks and crypto for early breakout patterns.
-Detects price compression + volume spike + momentum acceleration
-before big moves happen.
+
+TWO-PHASE DETECTION:
+  Phase 1 — WATCHLIST: quiet setup spotted, symbol tracked silently.
+  Phase 2 — ALERT:     price actually starts moving in the right direction
+                        within the first two scan cycles → THEN alert fires.
+
+Escalating alerts:
+  Move >2%  → double beep
+  Move >5%  → triple high beep + row flashes orange
+  Move >10% → rapid triple beep + row flashes red/white
+
+CSV self-cleaning:
+  • Max 500 rows kept
+  • DEAD/FADING entries older than 48 h are pruned automatically
+  • Each symbol appears only once (latest entry wins)
+  • 30-minute per-symbol cooldown before re-alerting
+
+Historical bar data:
+  Stocks  → Massive.com REST API (5-min OHLC, no Claude involvement at runtime)
+            Falls back to yfinance if massive_api_key is blank.
+  Crypto  → Kraken / Coinbase via CCXT (unchanged)
 
 Run:
-    python BreakoutScanner.py          # GUI if tkinter available, else console
+    python BreakoutScanner.py           # GUI (tkinter) or console fallback
     python BreakoutScanner.py --console # Force console mode
-
-Config:
-    scanner_config.json is auto-created on first run.
-    Edit it to set API keys, thresholds, email settings.
-
-API Keys:
-    Store keys in scanner_config.json (gitignored) or .env
-    NEVER hardcode keys in this file.
 """
 
 import csv
@@ -24,27 +35,29 @@ import logging
 import os
 import queue
 import smtplib
-import sys
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta, time as dt_time
+from datetime import datetime, timedelta
+from datetime import time as dt_time
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
 # ── Optional dependencies ─────────────────────────────────────────────────────
 try:
+    import requests as _requests
+    REQUESTS_AVAILABLE = True
+except ImportError:
+    REQUESTS_AVAILABLE = False
+
+try:
     import yfinance as yf
     YFINANCE_AVAILABLE = True
 except ImportError:
     YFINANCE_AVAILABLE = False
-
-try:
-    import requests
-    REQUESTS_AVAILABLE = True
-except ImportError:
-    REQUESTS_AVAILABLE = False
 
 try:
     import alpaca_trade_api as tradeapi
@@ -60,7 +73,7 @@ except ImportError:
 
 try:
     import tkinter as tk
-    from tkinter import ttk, scrolledtext, messagebox
+    from tkinter import ttk
     TKINTER_AVAILABLE = True
 except ImportError:
     TKINTER_AVAILABLE = False
@@ -70,6 +83,20 @@ try:
     WINSOUND_AVAILABLE = True
 except ImportError:
     WINSOUND_AVAILABLE = False
+
+# pygame-based audio — plays through actual sound card, not PC speaker
+try:
+    from alert_sound import init_audio as _init_audio, play_alert as _play_alert
+    ALERT_SOUND_AVAILABLE = True
+except ImportError:
+    ALERT_SOUND_AVAILABLE = False
+
+# geometric chart pattern detection
+try:
+    from chart_patterns import score_patterns as _score_patterns
+    PATTERNS_AVAILABLE = True
+except ImportError:
+    PATTERNS_AVAILABLE = False
 
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -82,29 +109,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# ── Signal CSV ────────────────────────────────────────────────────────────────
-CSV_FILE = "signals_log.csv"
+CSV_FILE            = "signals_log.csv"
+CSV_MAX_ROWS        = 500
+CSV_PRUNE_AGE       = 48        # hours
+ALERT_COOLDOWN_SECS = 1800      # 30 min per symbol
 
+MASSIVE_BASE        = "https://api.massive.com"
 
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
 
 DEFAULT_CONFIG = {
-    # Market Hours (Pacific Time)
     "stock_market_open":  "06:30",
     "stock_market_close": "13:00",
     "crypto_24_7":        True,
     "scan_interval_seconds": 30,
-    "timezone": "US/Pacific",
-    # Top Lists
     "top_stocks_count":  100,
     "top_cryptos_count": 100,
-    # Breakout Detection Thresholds
-    "momentum_window":               5,    # candles to analyze momentum
-    "volume_spike_multiplier":       3.0,  # volume must be 3x average
-    "price_acceleration_threshold":  0.5,  # % increase per interval
-    # Alert Settings
     "enable_sound_alert":  True,
     "enable_visual_alert": True,
     "enable_email_alert":  False,
@@ -113,31 +135,32 @@ DEFAULT_CONFIG = {
     "email_from":          "",
     "email_to":            "",
     "email_password":      "",
-    # Auto-Trading Settings
     "enable_auto_trade":          False,
     "auto_trade_without_confirm": False,
     "broker":                     "alpaca",
-    # API Keys — fill these in scanner_config.json, never hardcode here
-    "alpaca_api_key":       "",
-    "alpaca_secret_key":    "",
-    "alpaca_base_url":      "https://paper-api.alpaca.markets",
-    "coinbase_api_key":     "",
-    "coinbase_api_secret":  "",
-    "kraken_api_key":       "",
-    "kraken_api_secret":    "",
-    # Trading Parameters
+    "alpaca_api_key":    "",
+    "alpaca_secret_key": "",
+    "alpaca_base_url":   "https://paper-api.alpaca.markets",
+    "coinbase_api_key":    "",
+    "coinbase_api_secret": "",
+    "kraken_api_key":    "",
+    "kraken_api_secret": "",
+    "massive_api_key":   "",
     "default_trade_amount_usd": 1000,
     "max_position_size_usd":    5000,
     "stop_loss_percent":        5,
     "take_profit_percent":      20,
-    # Schedule
-    "run_days":      ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"],
+    "run_days":      ["Monday","Tuesday","Wednesday","Thursday","Friday"],
     "exclude_dates": [],
-    # Sound
-    "alert_sound_frequency":  800,
+    "alert_sound_frequency":   800,
     "alert_sound_duration_ms": 1000,
+    "watchlist_min_score":  0.40,
+    "momentum_gate_pct":    0.80,
+    "momentum_gate_scans":  3,
+    "escalate_2pct":        2.0,
+    "escalate_5pct":        5.0,
+    "escalate_10pct":       10.0,
 }
-
 
 # =============================================================================
 # DATA CLASSES
@@ -149,11 +172,14 @@ class AlertType(Enum):
     EMAIL  = "email"
     TRADE  = "trade"
 
-
 class AssetType(Enum):
     STOCK  = "stock"
     CRYPTO = "crypto"
 
+class SignalPhase(Enum):
+    WATCHLIST = "watchlist"
+    ALERTED   = "alerted"
+    DEAD      = "dead"
 
 @dataclass
 class PriceData:
@@ -172,27 +198,24 @@ class PriceData:
             return 0.0
         return ((self.price - self.open_price) / self.open_price) * 100
 
-    @property
-    def daily_high_pct(self) -> float:
-        if self.open_price == 0:
-            return 0.0
-        return ((self.high - self.open_price) / self.open_price) * 100
-
-
 @dataclass
 class BreakoutSignal:
     symbol:             str
     asset_type:         AssetType
     current_price:      float
     predicted_move_pct: float
-    confidence:         float        # 0.0 to 1.0
+    confidence:         float
     volume_spike:       float
     momentum_score:     float
     pattern_detected:   str
     timestamp:          datetime
+    broker:             str         = "UNKNOWN"
+    phase:              SignalPhase = SignalPhase.WATCHLIST
+    entry_price:        float       = 0.0
+    scan_count:         int         = 0
+    best_move_pct:      float       = 0.0
     price_history:      List[float] = field(default_factory=list)
     volume_history:     List[float] = field(default_factory=list)
-
 
 @dataclass
 class Alert:
@@ -200,190 +223,158 @@ class Alert:
     alert_type:   AlertType
     message:      str
     timestamp:    datetime
+    escalation:   int  = 0
     acknowledged: bool = False
-
 
 # =============================================================================
 # SIGNAL CLASSIFICATION
 # =============================================================================
 
 def classify_signal(signal: BreakoutSignal) -> dict:
-    """
-    Classify signal direction, stage, and probability of continuation.
-    Returns dict with keys: direction, stage, poc (probability of continuation %)
-    """
-    score = signal.confidence
-
-    # Direction
-    if signal.momentum_score > 0:
-        direction = "LONG"
-    elif signal.momentum_score < -0.5:
-        direction = "SHORT"
-    else:
-        direction = "LONG"  # default to long for compression setups
-
-    # Stage
+    score     = signal.confidence
+    direction = "LONG" if signal.momentum_score >= -0.5 else "SHORT"
     if "strong" in signal.pattern_detected:
         stage = "CONFIRMED"
     elif "early" in signal.pattern_detected:
         stage = "EARLY"
     else:
         stage = "WATCHLIST"
-
-    # Probability of continuation
     poc = min(95, score * 100)
-
-    # Boost for volume confirmation
     if signal.volume_spike > 3.0:
         poc = min(95, poc + 10)
+    return {"direction": direction, "stage": stage, "poc": poc}
 
-    return {
-        "direction": direction,
-        "stage":     stage,
-        "poc":       poc,
-    }
-
-
-def classify_momentum(entry_price: float, current_price: float) -> tuple:
-    """Return (status_str, move_pct) for a position."""
-    try:
-        move_pct = ((float(current_price) - float(entry_price)) / float(entry_price)) * 100
-        if move_pct < 1:
-            return "DEAD", move_pct
-        elif move_pct < 3:
-            return "SMALL", move_pct
-        elif move_pct < 5:
-            return "MEDIUM", move_pct
-        else:
-            return "STRONG", move_pct
-    except Exception:
-        return "UNKNOWN", 0.0
-
+def move_pct(entry: float, current: float) -> float:
+    if entry == 0:
+        return 0.0
+    return ((current - entry) / entry) * 100.0
 
 # =============================================================================
-# SIGNAL CSV LOGGING
+# CSV  (self-cleaning)
 # =============================================================================
+
+CSV_FIELDS = ["Symbol","Broker","Phase","Score","Confidence","Date","Time",
+              "EntryPrice","t_5m","t_15m","t_1h","t_4h","t_24h",
+              "momentum","move_pct","best_move_pct"]
+
+def _load_csv() -> List[dict]:
+    if not os.path.isfile(CSV_FILE):
+        return []
+    with open(CSV_FILE, "r", newline="") as f:
+        rows = list(csv.DictReader(f))
+    for r in rows:
+        for col in CSV_FIELDS:
+            if col not in r:
+                r[col] = ""
+    return rows
+
+def _save_csv(rows: List[dict]):
+    with open(CSV_FILE, "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=CSV_FIELDS, extrasaction="ignore")
+        w.writeheader()
+        w.writerows(rows)
+
+def _prune_csv(rows: List[dict]) -> List[dict]:
+    cutoff = datetime.now() - timedelta(hours=CSV_PRUNE_AGE)
+    kept = []
+    for r in rows:
+        phase = r.get("Phase","").upper()
+        try:
+            ts = datetime.strptime(r["Date"] + " " + r["Time"], "%Y-%m-%d %H:%M:%S")
+        except Exception:
+            kept.append(r); continue
+        if phase in ("DEAD","FADING") and ts < cutoff:
+            continue
+        kept.append(r)
+    if len(kept) > CSV_MAX_ROWS:
+        dead   = [r for r in kept if r.get("Phase","").upper() in ("DEAD","FADING")]
+        live   = [r for r in kept if r.get("Phase","").upper() not in ("DEAD","FADING")]
+        remove = len(kept) - CSV_MAX_ROWS
+        dead   = dead[remove:]
+        kept   = live + dead
+    if len(kept) > CSV_MAX_ROWS:
+        kept = kept[-CSV_MAX_ROWS:]
+    return kept
 
 def log_signal_to_csv(signal: BreakoutSignal):
-    """Append a new signal to the CSV log."""
-    file_exists = os.path.isfile(CSV_FILE)
-
-    with open(CSV_FILE, mode="a", newline="") as f:
-        writer = csv.writer(f)
-        if not file_exists:
-            writer.writerow([
-                "Symbol", "Score", "Confidence",
-                "Date", "Time", "Price",
-                "t_5m", "t_15m", "t_1h", "t_4h", "t_24h",
-                "momentum", "move_pct",
-            ])
-        writer.writerow([
-            signal.symbol,
-            round(signal.predicted_move_pct, 2),
-            round(signal.confidence * 100, 2),
-            signal.timestamp.strftime("%Y-%m-%d"),
-            signal.timestamp.strftime("%H:%M:%S"),
-            signal.current_price,
-            "", "", "", "", "",
-            "", "",
-        ])
-
-
-def load_signal_results() -> dict:
-    """Load signal tracking results from CSV."""
-    results = {}
-    try:
-        with open(CSV_FILE, "r") as f:
-            for row in csv.DictReader(f):
-                symbol = row["Symbol"]
-                results[symbol] = {
-                    "move_pct": float(row["move_pct"]) if row.get("move_pct") else 0,
-                    "t_5m":     row.get("t_5m", ""),
-                    "t_15m":    row.get("t_15m", ""),
-                    "t_1h":     row.get("t_1h", ""),
-                    "momentum": row.get("momentum", ""),
-                }
-    except Exception:
-        pass
-    return results
-
+    rows = _load_csv()
+    rows = [r for r in rows if r.get("Symbol") != signal.symbol]
+    rows.append({
+        "Symbol":        signal.symbol,
+        "Broker":        signal.broker,
+        "Phase":         signal.phase.value.upper(),
+        "Score":         round(signal.predicted_move_pct, 2),
+        "Confidence":    round(signal.confidence * 100, 2),
+        "Date":          signal.timestamp.strftime("%Y-%m-%d"),
+        "Time":          signal.timestamp.strftime("%H:%M:%S"),
+        "EntryPrice":    signal.entry_price,
+        "t_5m": "", "t_15m": "", "t_1h": "",
+        "t_4h": "", "t_24h": "",
+        "momentum":      "",
+        "move_pct":      "",
+        "best_move_pct": "",
+    })
+    rows = _prune_csv(rows)
+    _save_csv(rows)
 
 def update_signal_tracking(scanner):
-    """
-    Update the CSV with price tracking at 5m / 15m / 1h / 4h / 24h intervals.
-    Called periodically by the scanner loop.
-    """
-    if not os.path.isfile(CSV_FILE):
+    rows = _load_csv()
+    if not rows:
         return
-
-    rows = []
-    with open(CSV_FILE, mode="r") as f:
-        rows = list(csv.DictReader(f))
-
     updated = False
-
+    now     = datetime.now()
     for row in rows:
-        symbol = row["Symbol"]
+        sym = row.get("Symbol","")
         try:
-            # Fetch current price
-            if "/" in symbol:
-                ticker = scanner.crypto_fetcher.exchange.fetch_ticker(symbol)
+            if "/" in sym:
+                if not scanner.crypto_fetcher.exchange:
+                    continue
+                ticker = scanner.crypto_fetcher.exchange.fetch_ticker(sym)
                 price  = ticker["last"]
             else:
-                hist_data = scanner.stock_fetcher.get_historical_data(symbol)
-                price     = hist_data[-1].price if hist_data else None
-
-            if price is None:
+                h     = scanner.stock_fetcher.get_historical_data(sym)
+                price = h[-1].price if h else None
+            if not price:
                 continue
+            try:
+                ts = datetime.strptime(row["Date"]+" "+row["Time"], "%Y-%m-%d %H:%M:%S")
+            except Exception:
+                continue
+            elapsed = (now - ts).total_seconds()
 
-            entry_time = datetime.strptime(
-                row["Date"] + " " + row["Time"],
-                "%Y-%m-%d %H:%M:%S"
-            )
-            elapsed = (datetime.now() - entry_time).total_seconds()
-
-            def fill(col, seconds):
+            def fill(col, secs):
                 nonlocal updated
-                if row[col] == "" and elapsed >= seconds:
-                    row[col] = round(price, 4)
+                if row.get(col,"") == "" and elapsed >= secs:
+                    row[col] = round(price, 6)
                     updated  = True
 
-            fill("t_5m",  300)
-            fill("t_15m", 900)
-            fill("t_1h",  3600)
-            fill("t_4h",  14400)
-            fill("t_24h", 86400)
+            fill("t_5m",300); fill("t_15m",900)
+            fill("t_1h",3600); fill("t_4h",14400); fill("t_24h",86400)
 
-            entry_price = float(row["Price"])
-            status, move_pct = classify_momentum(entry_price, price)
-            row["momentum"] = status
-            row["move_pct"] = round(move_pct, 2)
+            ep   = float(row.get("EntryPrice") or row.get("Price") or price)
+            mpct = move_pct(ep, price)
+            row["move_pct"] = round(mpct, 2)
 
-            if row["t_5m"] != "":
-                t5 = float(row["t_5m"])
-                if t5 <= entry_price:
-                    row["momentum"] = "DEAD"
-                elif move_pct < 1.0:
-                    row["momentum"] = "WEAK"
-                elif row["t_15m"] != "":
-                    t15 = float(row["t_15m"])
-                    if t15 <= t5:
-                        row["momentum"] = "FADING"
+            try:
+                prev_best = float(row.get("best_move_pct") or 0)
+                if mpct > prev_best:
+                    row["best_move_pct"] = round(mpct, 2)
+                    updated = True
+            except Exception:
+                pass
 
-            if move_pct >= 2.0:
-                logger.warning(f"STRONG MOVE: {symbol} +{move_pct:.2f}%")
-            elif move_pct >= 1.5:
-                logger.info(f"LIVE MOVE: {symbol} +{move_pct:.2f}%")
-
+            if   mpct >= 5.0:  row["momentum"] = "STRONG"
+            elif mpct >= 2.0:  row["momentum"] = "MOVING"
+            elif mpct >= 0.5:  row["momentum"] = "WEAK"
+            elif mpct <= -3.0: row["momentum"] = "FADING"
+            else:              row["momentum"] = "DEAD"
+            updated = True
         except Exception:
             continue
 
-    if updated and rows:
-        with open(CSV_FILE, mode="w", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=rows[0].keys())
-            writer.writeheader()
-            writer.writerows(rows)
-
+    if updated:
+        rows = _prune_csv(rows)
+        _save_csv(rows)
 
 # =============================================================================
 # CONFIGURATION MANAGER
@@ -398,7 +389,10 @@ class ConfigManager:
     def load(self):
         if os.path.exists(self.config_path):
             with open(self.config_path, "r") as f:
-                self.config = json.load(f)
+                stored = json.load(f)
+            merged = DEFAULT_CONFIG.copy()
+            merged.update(stored)
+            self.config = merged
             logger.info(f"Config loaded from {self.config_path}")
         else:
             self.config = DEFAULT_CONFIG.copy()
@@ -417,61 +411,107 @@ class ConfigManager:
         self.save()
 
     def is_market_open(self, asset_type: AssetType) -> bool:
-        now      = datetime.now()
-        today    = now.strftime("%Y-%m-%d")
-        day_name = now.strftime("%A")
-
-        if today in self.config.get("exclude_dates", []):
+        now = datetime.now()
+        if now.strftime("%Y-%m-%d") in self.config.get("exclude_dates", []):
             return False
-        if day_name not in self.config.get("run_days", []):
+        if now.strftime("%A") not in self.config.get("run_days", []):
             return False
-
         if asset_type == AssetType.CRYPTO and self.config.get("crypto_24_7", True):
             return True
-
         if asset_type == AssetType.STOCK:
-            open_time  = self.config.get("stock_market_open",  "06:30")
-            close_time = self.config.get("stock_market_close", "13:00")
-            oh, om     = map(int, open_time.split(":"))
-            ch, cm     = map(int, close_time.split(":"))
-            cur        = now.time()
-            return dt_time(oh, om) <= cur <= dt_time(ch, cm)
-
+            oh, om = map(int, self.config.get("stock_market_open",  "06:30").split(":"))
+            ch, cm = map(int, self.config.get("stock_market_close", "13:00").split(":"))
+            return dt_time(oh, om) <= now.time() <= dt_time(ch, cm)
         return False
 
+# =============================================================================
+# MASSIVE.COM DATA FETCHER
+# =============================================================================
+
+class MassiveDataFetcher:
+    _cache: Dict[str, tuple] = {}
+    CACHE_TTL_SECS = 240
+
+    def __init__(self, api_key: str):
+        self.api_key = api_key
+        self.session = _requests.Session() if REQUESTS_AVAILABLE else None
+        if self.session:
+            self.session.headers.update({
+                "Authorization": f"Bearer {self.api_key}",
+                "Accept":        "application/json",
+            })
+
+    def get_historical_data(self, symbol: str) -> List[PriceData]:
+        if not self.session or not self.api_key:
+            return []
+        cached = self._cache.get(symbol)
+        if cached:
+            fetched_at, bars = cached
+            if (datetime.now() - fetched_at).total_seconds() < self.CACHE_TTL_SECS:
+                return bars
+        try:
+            to_date   = datetime.now().strftime("%Y-%m-%d")
+            from_date = (datetime.now() - timedelta(days=5)).strftime("%Y-%m-%d")
+            url       = (f"{MASSIVE_BASE}/v2/aggs/ticker/{symbol}"
+                         f"/range/5/minute/{from_date}/{to_date}")
+            resp = self.session.get(url, params={
+                "adjusted": "true",
+                "sort":     "asc",
+                "limit":    100,
+            }, timeout=5)
+            if resp.status_code == 403:
+                logger.warning(f"Massive.com: not authorized for {symbol} bars")
+                return []
+            if resp.status_code != 200:
+                logger.debug(f"Massive.com {symbol}: HTTP {resp.status_code}")
+                return []
+            data    = resp.json()
+            results = data.get("results", [])
+            if not results:
+                return []
+            bars = [
+                PriceData(
+                    symbol=symbol, price=float(r["c"]), open_price=float(r["o"]),
+                    high=float(r["h"]), low=float(r["l"]), volume=float(r["v"]),
+                    timestamp=datetime.fromtimestamp(r["t"]/1000),
+                    asset_type=AssetType.STOCK,
+                )
+                for r in results
+            ]
+            self._cache[symbol] = (datetime.now(), bars)
+            return bars
+        except Exception as e:
+            logger.debug(f"Massive.com fetch error {symbol}: {e}")
+            return []
 
 # =============================================================================
 # DATA FETCHERS
 # =============================================================================
 
 class StockDataFetcher:
-    """Fetches stock data via Alpaca (primary) or yfinance (fallback)."""
-
-    # Major stocks for yfinance fallback
-    FALLBACK_SYMBOLS = [
-        "AAPL", "MSFT", "GOOGL", "AMZN", "TSLA", "META", "NVDA",
-        "JPM",  "V",    "JNJ",   "WMT",  "UNH",  "PG",   "HD",
-        "MA",   "BAC",  "ABBV",  "PFE",  "KO",   "AVGO", "PEP",
-        "LLY",  "COST", "TMO",   "CSCO", "ACN",  "CVX",  "MRK",
-        "NFLX", "QCOM", "TXN",   "AMD",  "INTC", "CRM",  "AMGN",
-        "IBM",  "GE",   "HON",   "SBUX", "GS",   "CAT",  "BLK",
-        "AXP",  "SPGI", "DE",    "ISRG", "MDLZ", "ADP",  "NOW",
-        "BKNG", "MO",   "AMAT",  "LRCX", "PANW", "SNOW", "PLTR",
-        "COIN", "SHOP", "CRWD",  "ABNB", "UBER", "LYFT", "ROKU",
-        "DDOG", "NET",  "ZS",    "OKTA", "MDB",  "BILL", "TTD",
-        "SMCI", "ARM",  "MSTR",  "IONQ", "SOUN", "BBAI", "ASTS",
+    FALLBACK = [
+        "AAPL","MSFT","GOOGL","AMZN","TSLA","META","NVDA","JPM","V","JNJ",
+        "WMT","UNH","PG","HD","MA","BAC","ABBV","PFE","KO","AVGO","PEP",
+        "LLY","COST","TMO","CSCO","ACN","CVX","MRK","NFLX","QCOM","TXN",
+        "AMD","INTC","CRM","AMGN","IBM","GE","HON","SBUX","GS","CAT","BLK",
+        "PANW","SNOW","PLTR","COIN","SHOP","CRWD","DDOG","NET","ZS","OKTA",
+        "SMCI","ARM","MSTR","IONQ","SOUN","BBAI","ASTS","NVAX","MRNA",
     ]
 
     def __init__(self, config: ConfigManager):
-        self.config = config
-        self.api    = None
+        self.config  = config
+        self.api     = None
+        massive_key  = config.get("massive_api_key", "")
+        self.massive = MassiveDataFetcher(massive_key) if massive_key else None
+        if self.massive:
+            logger.info("Massive.com stock bar fetcher active")
+        else:
+            logger.info("Massive.com key not set — using yfinance for stock bars")
         if ALPACA_AVAILABLE:
             try:
                 self.api = tradeapi.REST(
-                    config.get("alpaca_api_key"),
-                    config.get("alpaca_secret_key"),
-                    config.get("alpaca_base_url"),
-                    api_version="v2",
+                    config.get("alpaca_api_key"), config.get("alpaca_secret_key"),
+                    config.get("alpaca_base_url"), api_version="v2",
                 )
                 logger.info("Alpaca API initialized")
             except Exception as e:
@@ -479,56 +519,36 @@ class StockDataFetcher:
 
     def get_top_movers(self, count: int = 100) -> List[PriceData]:
         stocks = []
-
         if self.api:
             try:
                 assets    = self.api.list_assets(status="active", asset_class="us_equity")
                 symbols   = [a.symbol for a in assets[:500]]
                 snapshots = self.api.get_snapshots(symbols)
-
-                for symbol, snap in snapshots.items():
+                for sym, snap in snapshots.items():
                     if snap and snap.daily_bar:
-                        bar = snap.daily_bar
-                        stocks.append(PriceData(
-                            symbol     = symbol,
-                            price      = bar.c,
-                            open_price = bar.o,
-                            high       = bar.h,
-                            low        = bar.l,
-                            volume     = bar.v,
-                            timestamp  = datetime.now(),
-                            asset_type = AssetType.STOCK,
-                        ))
+                        b = snap.daily_bar
+                        stocks.append(PriceData(sym, b.c, b.o, b.h, b.l, b.v,
+                                                datetime.now(), AssetType.STOCK))
             except Exception as e:
                 logger.error(f"Alpaca snapshot error: {e}")
-
         if not stocks and YFINANCE_AVAILABLE:
-            stocks = self._get_movers_yfinance()
-
+            stocks = self._yfinance_movers()
         stocks.sort(key=lambda x: x.daily_change_pct, reverse=True)
         return stocks[:count]
 
-    def _get_movers_yfinance(self) -> List[PriceData]:
+    def _yfinance_movers(self) -> List[PriceData]:
         stocks = []
         try:
-            tickers = yf.download(
-                self.FALLBACK_SYMBOLS, period="1d", interval="1m",
-                progress=False, group_by="ticker"
-            )
-            for symbol in self.FALLBACK_SYMBOLS:
+            tickers = yf.download(self.FALLBACK, period="1d", interval="1m",
+                                  progress=False, group_by="ticker")
+            for sym in self.FALLBACK:
                 try:
-                    df = tickers[symbol].dropna()
-                    if df.empty:
-                        continue
+                    df = tickers[sym].dropna()
+                    if df.empty: continue
                     stocks.append(PriceData(
-                        symbol     = symbol,
-                        price      = float(df["Close"].iloc[-1]),
-                        open_price = float(df["Open"].iloc[0]),
-                        high       = float(df["High"].max()),
-                        low        = float(df["Low"].min()),
-                        volume     = float(df["Volume"].sum()),
-                        timestamp  = datetime.now(),
-                        asset_type = AssetType.STOCK,
+                        sym, float(df["Close"].iloc[-1]), float(df["Open"].iloc[0]),
+                        float(df["High"].max()), float(df["Low"].min()),
+                        float(df["Volume"].sum()), datetime.now(), AssetType.STOCK,
                     ))
                 except Exception:
                     continue
@@ -538,92 +558,71 @@ class StockDataFetcher:
 
     def get_historical_data(self, symbol: str, period: str = "5d",
                              interval: str = "5m") -> List[PriceData]:
-        data = []
+        if self.massive:
+            bars = self.massive.get_historical_data(symbol)
+            if bars:
+                return bars
         if not YFINANCE_AVAILABLE:
-            return data
+            return []
         try:
             df = yf.download(symbol, period=period, interval=interval,
-                             progress=False, auto_adjust=True)
-            df = df.dropna()
-            for ts, row in df.iterrows():
-                data.append(PriceData(
-                    symbol     = symbol,
-                    price      = float(row["Close"]),
-                    open_price = float(row["Open"]),
-                    high       = float(row["High"]),
-                    low        = float(row["Low"]),
-                    volume     = float(row["Volume"]),
-                    timestamp  = ts.to_pydatetime(),
-                    asset_type = AssetType.STOCK,
-                ))
+                             progress=False, auto_adjust=True).dropna()
+            return [
+                PriceData(symbol, float(r["Close"]), float(r["Open"]),
+                          float(r["High"]), float(r["Low"]), float(r["Volume"]),
+                          ts.to_pydatetime(), AssetType.STOCK)
+                for ts, r in df.iterrows()
+            ]
         except Exception as e:
-            logger.error(f"yfinance history error for {symbol}: {e}")
-        return data
+            logger.error(f"yfinance history error {symbol}: {e}")
+            return []
 
 
 class CryptoDataFetcher:
-    """Fetches crypto data via Kraken (primary) or Coinbase (fallback)."""
-
     def __init__(self, config: ConfigManager):
-        self.config   = config
-        self.exchange = None
-        self._init_exchange()
+        self.config        = config
+        self.exchange      = None
+        self.exchange_name = "UNKNOWN"
+        self._init()
 
-    def _init_exchange(self):
+    def _init(self):
         if not CCXT_AVAILABLE:
-            logger.warning("ccxt not installed — crypto scanning disabled")
             return
-
-        # Try Kraken first
-        try:
-            self.exchange = ccxt.kraken({
-                "apiKey":          self.config.get("kraken_api_key"),
-                "secret":          self.config.get("kraken_api_secret"),
-                "enableRateLimit": True,
-                "timeout":         10000,
-            })
-            self.exchange.load_markets()
-            logger.info("Kraken exchange initialized")
-            return
-        except Exception as e:
-            logger.warning(f"Kraken init failed: {e}")
-
-        # Fallback to Coinbase
-        try:
-            self.exchange = ccxt.coinbase({
-                "apiKey":          self.config.get("coinbase_api_key"),
-                "secret":          self.config.get("coinbase_api_secret"),
-                "enableRateLimit": True,
-            })
-            self.exchange.load_markets()
-            logger.info("Coinbase exchange initialized")
-        except Exception as e:
-            logger.warning(f"Coinbase init failed: {e}")
+        for name, kwargs in [
+            ("kraken",   {"apiKey": self.config.get("kraken_api_key"),
+                          "secret": self.config.get("kraken_api_secret"),
+                          "enableRateLimit": True, "timeout": 10000}),
+            ("coinbase", {"apiKey": self.config.get("coinbase_api_key"),
+                          "secret": self.config.get("coinbase_api_secret"),
+                          "enableRateLimit": True}),
+        ]:
+            try:
+                exc = getattr(ccxt, name)(kwargs)
+                exc.load_markets()
+                self.exchange      = exc
+                self.exchange_name = name.upper()
+                logger.info(f"{name.capitalize()} exchange initialized")
+                return
+            except Exception as e:
+                logger.warning(f"{name} init failed: {e}")
 
     def get_top_movers(self, count: int = 100) -> List[PriceData]:
         cryptos = []
         if not self.exchange:
             return cryptos
         try:
-            tickers = self.exchange.fetch_tickers()
-            for symbol, ticker in tickers.items():
-                if "/USD" not in symbol and "/USDT" not in symbol:
+            for sym, t in self.exchange.fetch_tickers().items():
+                if "/USD" not in sym and "/USDT" not in sym:
                     continue
                 try:
-                    change_pct = ticker.get("percentage", 0) or 0
-                    if change_pct == 0:
-                        continue
-                    open_p = (ticker["open"] if ticker.get("open")
-                              else ticker["last"] / (1 + change_pct / 100))
+                    chg = t.get("percentage", 0) or 0
+                    if chg == 0: continue
+                    op  = t["open"] if t.get("open") else t["last"] / (1 + chg/100)
                     cryptos.append(PriceData(
-                        symbol     = symbol,
-                        price      = ticker["last"],
-                        open_price = open_p,
-                        high       = ticker.get("high") or ticker["last"],
-                        low        = ticker.get("low")  or ticker["last"],
-                        volume     = ticker.get("quoteVolume") or ticker.get("baseVolume", 0),
-                        timestamp  = datetime.now(),
-                        asset_type = AssetType.CRYPTO,
+                        sym, t["last"], op,
+                        t.get("high") or t["last"], t.get("low") or t["last"],
+                        t.get("quoteVolume") or t.get("baseVolume", 0),
+                        datetime.now(), AssetType.CRYPTO,
                     ))
                 except Exception:
                     continue
@@ -634,165 +633,200 @@ class CryptoDataFetcher:
 
     def get_historical_data(self, symbol: str, timeframe: str = "5m",
                             limit: int = 100) -> List[PriceData]:
-        data = []
         if not self.exchange:
-            return data
+            return []
         try:
-            ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
-            for candle in ohlcv:
-                ts, open_p, high, low, close, volume = candle
-                data.append(PriceData(
-                    symbol     = symbol,
-                    price      = close,
-                    open_price = open_p,
-                    high       = high,
-                    low        = low,
-                    volume     = volume,
-                    timestamp  = datetime.fromtimestamp(ts / 1000),
-                    asset_type = AssetType.CRYPTO,
-                ))
+            return [
+                PriceData(symbol, c, o, h, l, v,
+                          datetime.fromtimestamp(ts/1000), AssetType.CRYPTO)
+                for ts, o, h, l, c, v in self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+            ]
         except Exception as e:
-            logger.error(f"Crypto history error for {symbol}: {e}")
-        return data
-
+            logger.error(f"Crypto history error {symbol}: {e}")
+            return []
 
 # =============================================================================
 # BREAKOUT DETECTION ENGINE
 # =============================================================================
 
 class BreakoutDetector:
-    """
-    Pro-grade breakout detector.
-    Focuses on EARLY breakout signals — before big moves happen.
-    Looks for: price compression + volume expansion + momentum acceleration.
-    """
-
     def __init__(self, config: ConfigManager):
-        self.config           = config
-        self.price_history    = {}
-        self.volume_history   = {}
-        self.detected_signals = {}
-        self.history_length   = 50
+        self.config         = config
+        self.price_history  = {}
+        self.volume_history = {}
+        self.history_length = 50
 
-    def update_history(self, price_data: PriceData):
-        sym = price_data.symbol
-        if sym not in self.price_history:
-            self.price_history[sym]  = deque(maxlen=self.history_length)
-            self.volume_history[sym] = deque(maxlen=self.history_length)
-        self.price_history[sym].append(price_data.price)
-        self.volume_history[sym].append(price_data.volume)
+    def update_history(self, pd: PriceData):
+        s = pd.symbol
+        if s not in self.price_history:
+            self.price_history[s]  = deque(maxlen=self.history_length)
+            self.volume_history[s] = deque(maxlen=self.history_length)
+        self.price_history[s].append(pd.price)
+        self.volume_history[s].append(pd.volume)
 
-    def detect_breakout(self, price_data: PriceData) -> Optional[BreakoutSignal]:
-        sym = price_data.symbol
-        self.update_history(price_data)
+    def score(self, pd: PriceData) -> float:
+        s = pd.symbol
+        self.update_history(pd)
+        if len(self.price_history[s]) < 25:
+            return 0.0
+        prices  = list(self.price_history[s])
+        volumes = list(self.volume_history[s])
+        sc = 0.0
+        if self._compressing(prices):          sc += 0.20
+        if self._early_volume(volumes, prices): sc += 0.25
+        if self._expanding(prices):            sc += 0.20
+        if self._near_vwap(prices, volumes):   sc += 0.15
+        if self._momentum(prices) > 0.5:       sc += 0.15
+        if self._not_overextended(prices):     sc += 0.05
+        vs = self._vol_spike(volumes)
+        if vs >= 3.0:   sc = min(1.0, sc + 0.10)
+        elif vs >= 2.0: sc = min(1.0, sc + 0.05)
 
-        if len(self.price_history[sym]) < 25:
+        # Chart pattern confirmation — adds up to +0.20 when a strong pattern aligns
+        if PATTERNS_AVAILABLE:
+            try:
+                pat = _score_patterns(prices, volumes)
+                if pat["best_confidence"] >= 0.55:
+                    sc = min(1.0, sc + pat["pattern_score"] * 0.20)
+                    pd._pattern     = pat["best_pattern"]
+                    pd._pattern_dir = pat["direction"]
+            except Exception:
+                pass
+
+        return round(sc, 3)
+
+    def vol_spike(self, pd: PriceData) -> float:
+        v = self.volume_history.get(pd.symbol)
+        return self._vol_spike(list(v)) if v else 1.0
+
+    def momentum_val(self, pd: PriceData) -> float:
+        p = self.price_history.get(pd.symbol)
+        return self._momentum(list(p)) if p else 0.0
+
+    def _compressing(self, p):
+        r = p[-20:]; avg = sum(r)/len(r)
+        return (max(r)-min(r))/avg*100 < 2.0
+    def _expanding(self, p):
+        return (p[-1]-p[-3])/p[-3]*100 > 1.2
+    def _early_volume(self, v, p):
+        if len(v) < 2: return False
+        avg = sum(v[:-1])/len(v[:-1])
+        return (v[-1]/avg > 2.5 if avg>0 else False) and (p[-1]-p[-5])/p[-5]*100 < 2.0
+    def _near_vwap(self, p, v):
+        tv = sum(v)
+        if tv==0: return False
+        vwap = sum(x*y for x,y in zip(p,v))/tv
+        return abs(p[-1]-vwap)/vwap*100 < 1.0
+    def _not_overextended(self, p):
+        return (p[-1]-p[-10])/p[-10]*100 < 8.0
+    def _momentum(self, p):
+        ch = [(p[i]-p[i-1])/p[i-1]*100 for i in range(1,len(p))]
+        return sum(ch[-5:])/5 if len(ch)>=5 else 0.0
+    def _vol_spike(self, v):
+        if len(v) < 2: return 1.0
+        avg = sum(v[:-1])/len(v[:-1])
+        return v[-1]/avg if avg>0 else 1.0
+
+# =============================================================================
+# WATCHLIST MANAGER
+# =============================================================================
+
+class WatchlistManager:
+    def __init__(self, config: ConfigManager):
+        self.config   = config
+        self._watched: Dict[str, BreakoutSignal] = {}
+
+    def add(self, signal: BreakoutSignal):
+        sym = signal.symbol
+        if sym in self._watched:
+            return
+        signal.entry_price = signal.current_price
+        signal.scan_count  = 0
+        signal.phase       = SignalPhase.WATCHLIST
+        self._watched[sym] = signal
+        logger.info(f"[WATCHLIST] {signal.broker} {sym} @ ${signal.current_price:.4f} "
+                    f"score={signal.confidence:.2f}")
+
+    def check(self, pd: PriceData) -> Optional[BreakoutSignal]:
+        sym = pd.symbol
+        if sym not in self._watched:
             return None
+        sig       = self._watched[sym]
+        sig.scan_count += 1
+        gate_pct  = self.config.get("momentum_gate_pct",  0.80)
+        max_scans = self.config.get("momentum_gate_scans", 3)
+        mpct      = move_pct(sig.entry_price, pd.price)
+        direction = "LONG" if sig.momentum_score >= -0.5 else "SHORT"
+        moved_right = (mpct >= gate_pct  if direction == "LONG"  else
+                       mpct <= -gate_pct if direction == "SHORT" else False)
+        if moved_right:
+            sig.phase         = SignalPhase.ALERTED
+            sig.current_price = pd.price
+            sig.best_move_pct = mpct
+            del self._watched[sym]
+            logger.warning(f"[GATE PASSED] {sig.broker} {sym} moved {mpct:+.2f}%")
+            return sig
+        if sig.scan_count >= max_scans:
+            logger.info(f"[WATCHLIST EXPIRED] {sym} — dropped after {max_scans} scans")
+            del self._watched[sym]
+        return None
 
-        prices  = list(self.price_history[sym])
-        volumes = list(self.volume_history[sym])
+    def is_watching(self, symbol: str) -> bool:
+        return symbol in self._watched
 
-        compression  = self._is_compressing(prices)
-        expansion    = self._is_expanding(prices)
-        early_volume = self._early_volume(volumes, prices)
-        vwap_ok      = self._near_vwap(prices, volumes)
-        not_chasing  = self._not_overextended(prices)
-        momentum     = self._momentum(prices)
+    def size(self) -> int:
+        return len(self._watched)
 
-        score = 0.0
-        if compression:  score += 0.25
-        if early_volume: score += 0.25
-        if expansion:    score += 0.20
-        if vwap_ok:      score += 0.15
-        if momentum > 1: score += 0.10
-        if not_chasing:  score += 0.05
+# =============================================================================
+# ESCALATION TRACKER
+# =============================================================================
 
-        if score < 0.5:
+class EscalationTracker:
+    def __init__(self, config: ConfigManager):
+        self.config   = config
+        self._tracked: Dict[str, dict] = {}
+
+    def register(self, signal: BreakoutSignal):
+        self._tracked[signal.symbol] = {"signal": signal, "level": 0}
+
+    def check(self, pd: PriceData) -> Optional[tuple]:
+        sym = pd.symbol
+        if sym not in self._tracked:
             return None
+        entry = self._tracked[sym]
+        sig   = entry["signal"]
+        mpct  = move_pct(sig.entry_price, pd.price)
+        if mpct > sig.best_move_pct:
+            sig.best_move_pct = mpct
+        lvl     = entry["level"]
+        t10     = self.config.get("escalate_10pct", 10.0)
+        t5      = self.config.get("escalate_5pct",   5.0)
+        t2      = self.config.get("escalate_2pct",   2.0)
+        new_lvl = lvl
+        if   mpct >= t10 and lvl < 3: new_lvl = 3
+        elif mpct >= t5  and lvl < 2: new_lvl = 2
+        elif mpct >= t2  and lvl < 1: new_lvl = 1
+        if new_lvl > lvl:
+            entry["level"]    = new_lvl
+            sig.current_price = pd.price
+            return sig, new_lvl
+        return None
 
-        # Cooldown — avoid signal spam per symbol
-        last = self.detected_signals.get(sym)
-        if last and (datetime.now() - last).total_seconds() < 300:
-            return None
-        self.detected_signals[sym] = datetime.now()
-
-        if score > 0.75:
-            pattern = "early_breakout_strong"
-        elif score > 0.60:
-            pattern = "early_breakout"
-        else:
-            pattern = "watchlist"
-
-        return BreakoutSignal(
-            symbol             = sym,
-            asset_type         = price_data.asset_type,
-            current_price      = price_data.price,
-            predicted_move_pct = score * 100,
-            confidence         = score,
-            volume_spike       = self._volume_spike(volumes),
-            momentum_score     = momentum,
-            pattern_detected   = pattern,
-            timestamp          = datetime.now(),
-            price_history      = prices[-20:],
-            volume_history     = volumes[-20:],
-        )
-
-    # ── Signal components ─────────────────────────────────────────────────────
-
-    def _is_compressing(self, prices: list) -> bool:
-        recent    = prices[-20:]
-        avg       = sum(recent) / len(recent)
-        range_pct = (max(recent) - min(recent)) / avg * 100
-        return range_pct < 2.0
-
-    def _is_expanding(self, prices: list) -> bool:
-        move = (prices[-1] - prices[-3]) / prices[-3] * 100
-        return move > 1.2
-
-    def _early_volume(self, volumes: list, prices: list) -> bool:
-        avg_vol      = sum(volumes[:-1]) / len(volumes[:-1])
-        spike        = volumes[-1] / avg_vol if avg_vol > 0 else 1.0
-        price_change = (prices[-1] - prices[-5]) / prices[-5] * 100
-        return spike > 2.5 and price_change < 2.0
-
-    def _near_vwap(self, prices: list, volumes: list) -> bool:
-        total_vol = sum(volumes)
-        if total_vol == 0:
-            return False
-        vwap     = sum(p * v for p, v in zip(prices, volumes)) / total_vol
-        distance = abs(prices[-1] - vwap) / vwap * 100
-        return distance < 1.0
-
-    def _not_overextended(self, prices: list) -> bool:
-        move = (prices[-1] - prices[-10]) / prices[-10] * 100
-        return move < 8.0
-
-    def _momentum(self, prices: list) -> float:
-        changes = [
-            (prices[i] - prices[i - 1]) / prices[i - 1] * 100
-            for i in range(1, len(prices))
-        ]
-        return sum(changes[-5:]) / 5 if len(changes) >= 5 else 0.0
-
-    def _volume_spike(self, volumes: list) -> float:
-        avg = sum(volumes[:-1]) / len(volumes[:-1]) if len(volumes) > 1 else 1.0
-        return volumes[-1] / avg if avg > 0 else 1.0
-
+    def unregister(self, symbol: str):
+        self._tracked.pop(symbol, None)
 
 # =============================================================================
 # ALERT SYSTEM
 # =============================================================================
 
 class AlertSystem:
-    """Handles sound, visual, and email alerts."""
-
     def __init__(self, config: ConfigManager):
-        self.config          = config
-        self.alert_queue:    queue.Queue = queue.Queue()
-        self.alert_history:  List[Alert] = []
+        self.config           = config
+        self.alert_queue      = queue.Queue()
+        self.alert_history:   List[Alert] = []
         self.email_last_sent: Dict[str, datetime] = {}
-        self.gui             = None
-        self.running         = False
+        self.gui              = None
+        self.running          = False
 
     def start(self):
         self.running      = True
@@ -803,266 +837,159 @@ class AlertSystem:
     def stop(self):
         self.running = False
 
-    def send_alert(self, signal: BreakoutSignal):
-        message = self._format_alert_message(signal)
-
-        if self.config.get("enable_sound_alert", True):
-            self._sound_alert()
-
+    def send_alert(self, signal: BreakoutSignal, escalation: int = 0):
+        message = self._format_message(signal, escalation)
         if self.config.get("enable_visual_alert", True):
-            self.alert_queue.put(Alert(
-                signal     = signal,
-                alert_type = AlertType.VISUAL,
-                message    = message,
-                timestamp  = datetime.now(),
-            ))
-            # Push to GUI if available
-            if self.gui and hasattr(self.gui, "add_alert"):
-                self.gui.add_alert(message, signal)
-
+            self.alert_queue.put(Alert(signal, AlertType.VISUAL, message,
+                                       datetime.now(), escalation))
         if self.config.get("enable_email_alert", False):
             self._email_alert(signal, message)
 
-    def _format_alert_message(self, signal: BreakoutSignal) -> str:
-        meta      = classify_signal(signal)
-        direction = meta["direction"]
-        stage     = meta["stage"]
-        poc       = meta["poc"]
-        strength  = "HIGH" if poc > 75 else "MEDIUM" if poc > 60 else "LOW"
-
-        reasons = []
-        if signal.volume_spike > 2:
-            reasons.append(f"Volume spike ({signal.volume_spike:.1f}x)")
-        if signal.momentum_score > 0.5:
-            reasons.append(f"Strong momentum ({signal.momentum_score:.2f})")
-        if "compression" in signal.pattern_detected:
-            reasons.append("Price compression detected")
-        if "early" in signal.pattern_detected:
-            reasons.append("Early breakout structure")
-        if "strong" in signal.pattern_detected:
-            reasons.append("Strong breakout pattern")
-
-        reason_text = "\n- " + "\n- ".join(reasons) if reasons else "N/A"
-
+    def _format_message(self, signal: BreakoutSignal, escalation: int) -> str:
+        meta  = classify_signal(signal)
+        flags = {0:"NEW ALERT", 1:"MOVING +2%", 2:"HOT +5%", 3:"ROCKET +10%"}
+        emoji = {0:"🚀", 1:"📈", 2:"🔥", 3:"⚡"}
+        flag  = f"{emoji.get(escalation,'')} {flags.get(escalation,'ALERT')}"
+        mpct  = move_pct(signal.entry_price, signal.current_price)
         return (
             f"{'='*50}\n"
-            f"BREAKOUT SIGNAL\n"
-            f"{'='*50}\n"
-            f"Symbol:    {signal.symbol}\n"
-            f"Type:      {signal.asset_type.value.upper()}\n"
-            f"Direction: {direction}  |  Stage: {stage}\n"
-            f"Prob Cont: {poc:.0f}% ({strength})\n"
-            f"Price:     ${signal.current_price:.4f}\n"
-            f"Score:     {signal.predicted_move_pct:.0f}\n"
-            f"Vol Spike: {signal.volume_spike:.1f}x\n"
-            f"Momentum:  {signal.momentum_score:.2f}\n"
-            f"Pattern:   {signal.pattern_detected}\n"
-            f"Reasons:{reason_text}\n"
-            f"Time:      {signal.timestamp.strftime('%Y-%m-%d %H:%M:%S')}\n"
+            f"{flag}  [{signal.broker}] {signal.symbol}\n"
+            f"Dir: {meta['direction']}  Stage: {meta['stage']}  PoC: {meta['poc']:.0f}%\n"
+            f"Entry: ${signal.entry_price:.4f}  Now: ${signal.current_price:.4f}  "
+            f"Move: {mpct:+.2f}%\n"
+            f"VolSpike: {signal.volume_spike:.1f}x  BestMove: {signal.best_move_pct:+.2f}%\n"
+            f"Time: {signal.timestamp.strftime('%H:%M:%S')}\n"
         )
 
-    def _sound_alert(self):
-        """Play alert sound with 3-second cooldown."""
-        now = time.time()
-        if not hasattr(self, "_last_sound"):
-            self._last_sound = 0
-        if now - self._last_sound < 3:
-            return
-        self._last_sound = now
-
-        try:
-            volume = 0.5
-            if self.gui and hasattr(self.gui, "volume_var"):
-                volume = self.gui.volume_var.get()
-            if volume < 0.05:
-                return
-
-            if WINSOUND_AVAILABLE:
-                repeats = max(1, int(volume * 3))
-                for _ in range(repeats):
-                    winsound.PlaySound(
-                        r"C:\Windows\Media\chimes.wav",
-                        winsound.SND_FILENAME | winsound.SND_ASYNC,
-                    )
-        except Exception:
-            pass
-
     def _email_alert(self, signal: BreakoutSignal, message: str):
-        symbol    = signal.symbol
-        last_sent = self.email_last_sent.get(symbol)
-        if last_sent and (datetime.now() - last_sent).total_seconds() < 600:
-            return
-
+        sym  = signal.symbol
+        last = self.email_last_sent.get(sym)
+        if last and (datetime.now()-last).total_seconds() < 600: return
         try:
-            smtp_server = self.config.get("email_smtp_server", "smtp.gmail.com")
-            smtp_port   = self.config.get("email_smtp_port", 587)
-            email_from  = self.config.get("email_from", "")
-            email_to    = self.config.get("email_to", "")
-            password    = self.config.get("email_password", "")
-
-            if not all([email_from, email_to, password]):
-                logger.warning("Email credentials not configured — skipping email alert")
-                return
-
-            subject   = f"BREAKOUT ALERT: {signal.symbol} (+{signal.predicted_move_pct:.1f}%)"
-            email_body = f"From: {email_from}\nTo: {email_to}\nSubject: {subject}\n\n{message}"
-
-            with smtplib.SMTP(smtp_server, smtp_port) as server:
-                server.starttls()
-                server.login(email_from, password)
-                server.sendmail(email_from, email_to, email_body)
-
-            self.email_last_sent[symbol] = datetime.now()
-            logger.info(f"Email alert sent for {symbol}")
-
+            ef = self.config.get("email_from",""); et = self.config.get("email_to","")
+            pw = self.config.get("email_password","")
+            if not all([ef, et, pw]): return
+            subj = f"BREAKOUT: [{signal.broker}] {sym}"
+            # MIME with UTF-8 so emojis in the body are handled correctly
+            msg = MIMEMultipart()
+            msg["From"]    = ef
+            msg["To"]      = et
+            msg["Subject"] = subj
+            msg.attach(MIMEText(message, "plain", "utf-8"))
+            with smtplib.SMTP(self.config.get("email_smtp_server","smtp.gmail.com"),
+                              self.config.get("email_smtp_port",587)) as srv:
+                srv.starttls()
+                srv.login(ef, pw)
+                srv.sendmail(ef, et, msg.as_bytes())
+            self.email_last_sent[sym] = datetime.now()
         except Exception as e:
-            logger.error(f"Email alert failed: {e}")
+            logger.error(f"Email failed: {e}")
 
     def _process_alerts(self):
         while self.running:
             try:
                 alert = self.alert_queue.get(timeout=1)
                 self.alert_history.append(alert)
-                logger.info(f"Alert: {alert.signal.symbol} — {alert.signal.pattern_detected}")
-                # Push to GUI on the main thread via after()
+                logger.warning(
+                    f"ALERT(esc={alert.escalation}): [{alert.signal.broker}] "
+                    f"{alert.signal.symbol} — {alert.signal.pattern_detected}"
+                )
                 if self.gui and hasattr(self.gui, "root") and self.gui.root:
                     try:
                         self.gui.root.after(
-                            0, self.gui.add_alert, alert.message, alert.signal
+                            0, self.gui.add_alert,
+                            alert.message, alert.signal, alert.escalation
                         )
                     except Exception:
                         pass
             except queue.Empty:
                 continue
             except Exception as e:
-                logger.error(f"Alert processing error: {e}")
-
+                logger.error(f"Alert error: {e}")
 
 # =============================================================================
 # TRADING ENGINE
 # =============================================================================
 
 class TradingEngine:
-    """Executes trades through configured brokers."""
-
     def __init__(self, config: ConfigManager):
         self.config          = config
         self.alpaca_api      = None
         self.crypto_exchange = None
-        self.positions:      Dict[str, dict] = {}
         self._init_brokers()
 
     def _init_brokers(self):
         if ALPACA_AVAILABLE and self.config.get("broker") == "alpaca":
             try:
                 self.alpaca_api = tradeapi.REST(
-                    self.config.get("alpaca_api_key"),
-                    self.config.get("alpaca_secret_key"),
-                    self.config.get("alpaca_base_url"),
-                    api_version="v2",
+                    self.config.get("alpaca_api_key"), self.config.get("alpaca_secret_key"),
+                    self.config.get("alpaca_base_url"), api_version="v2",
                 )
-                logger.info("Alpaca trading API initialized")
             except Exception as e:
-                logger.error(f"Alpaca init failed: {e}")
-
+                logger.error(f"Alpaca trading init failed: {e}")
         if CCXT_AVAILABLE:
-            try:
-                self.crypto_exchange = ccxt.kraken({
-                    "apiKey":          self.config.get("kraken_api_key"),
-                    "secret":          self.config.get("kraken_api_secret"),
-                    "enableRateLimit": True,
-                })
-            except Exception as e:
-                logger.warning(f"Kraken trading init failed: {e}")
+            for name, kw in [
+                ("kraken",   {"apiKey": self.config.get("kraken_api_key"),
+                              "secret": self.config.get("kraken_api_secret"),
+                              "enableRateLimit": True}),
+                ("coinbase", {"apiKey": self.config.get("coinbase_api_key"),
+                              "secret": self.config.get("coinbase_api_secret"),
+                              "enableRateLimit": True}),
+            ]:
                 try:
-                    self.crypto_exchange = ccxt.coinbase({
-                        "apiKey":          self.config.get("coinbase_api_key"),
-                        "secret":          self.config.get("coinbase_api_secret"),
-                        "enableRateLimit": True,
-                    })
-                except Exception as e2:
-                    logger.warning(f"Coinbase trading init also failed: {e2}")
+                    self.crypto_exchange = getattr(ccxt, name)(kw)
+                    break
+                except Exception:
+                    continue
 
-    def can_auto_trade(self) -> bool:
-        return self.config.get("enable_auto_trade", False)
-
-    def should_confirm_trade(self) -> bool:
-        return not self.config.get("auto_trade_without_confirm", False)
-
-    def place_stock_order(self, symbol: str, side: str,
-                          qty: float = None, notional: float = None) -> dict:
-        if not self.alpaca_api:
-            return {"error": "Alpaca API not available"}
-        try:
-            if notional:
-                order = self.alpaca_api.submit_order(
-                    symbol=symbol, notional=notional,
-                    side=side, type="market", time_in_force="day"
-                )
-            else:
-                order = self.alpaca_api.submit_order(
-                    symbol=symbol, qty=qty,
-                    side=side, type="market", time_in_force="day"
-                )
-            logger.info(f"Stock order placed: {side} {symbol}")
-            return {"success": True, "order_id": order.id, "status": order.status}
-        except Exception as e:
-            logger.error(f"Stock order failed: {e}")
-            return {"error": str(e)}
-
-    def place_crypto_order(self, symbol: str, side: str, amount: float) -> dict:
-        if not self.crypto_exchange:
-            return {"error": "Crypto exchange not available"}
-        try:
-            order = self.crypto_exchange.create_order(
-                symbol=symbol, type="market", side=side, amount=amount
-            )
-            logger.info(f"Crypto order placed: {side} {amount} {symbol}")
-            return {"success": True, "order_id": order.get("id"), "status": order.get("status")}
-        except Exception as e:
-            logger.error(f"Crypto order failed: {e}")
-            return {"error": str(e)}
+    def can_auto_trade(self):       return self.config.get("enable_auto_trade", False)
+    def should_confirm_trade(self): return not self.config.get("auto_trade_without_confirm", False)
 
     def execute_signal(self, signal: BreakoutSignal) -> dict:
-        if not self.can_auto_trade():
-            return {"status": "auto_trade_disabled"}
-        if self.should_confirm_trade():
-            return {"status": "confirmation_required"}
-
+        if not self.can_auto_trade():   return {"status": "disabled"}
+        if self.should_confirm_trade(): return {"status": "confirmation_required"}
         amount = self.config.get("default_trade_amount_usd", 1000)
         if signal.asset_type == AssetType.STOCK:
-            return self.place_stock_order(symbol=signal.symbol, side="buy", notional=amount)
+            if not self.alpaca_api: return {"error": "no alpaca"}
+            try:
+                o = self.alpaca_api.submit_order(
+                    symbol=signal.symbol, notional=amount,
+                    side="buy", type="market", time_in_force="day")
+                return {"success": True, "order_id": o.id}
+            except Exception as e:
+                return {"error": str(e)}
         else:
-            qty = amount / signal.current_price
-            return self.place_crypto_order(symbol=signal.symbol, side="buy", amount=qty)
-
+            if not self.crypto_exchange: return {"error": "no exchange"}
+            try:
+                qty = amount / signal.current_price
+                o   = self.crypto_exchange.create_order(
+                    signal.symbol, "market", "buy", qty)
+                return {"success": True, "order_id": o.get("id")}
+            except Exception as e:
+                return {"error": str(e)}
 
 # =============================================================================
 # MAIN SCANNER
 # =============================================================================
 
 class MarketScanner:
-    """
-    Main scanner — orchestrates stock and crypto breakout detection.
-    Runs both scanners in background threads on a configurable interval.
-    """
-
     def __init__(self, config_path: str = "scanner_config.json"):
-        self.config         = ConfigManager(config_path)
-        self.stock_fetcher  = StockDataFetcher(self.config)
-        self.crypto_fetcher = CryptoDataFetcher(self.config)
-        self.detector       = BreakoutDetector(self.config)
-        self.alert_system   = AlertSystem(self.config)
-        self.trading        = TradingEngine(self.config)
-        self.running        = False
-        self.scan_thread    = None
-        self.gui            = None
-        self.latest_movers: List[PriceData] = []
-        self.recent_signals: Dict[str, datetime] = {}
+        self.config          = ConfigManager(config_path)
+        self.stock_fetcher   = StockDataFetcher(self.config)
+        self.crypto_fetcher  = CryptoDataFetcher(self.config)
+        self.detector        = BreakoutDetector(self.config)
+        self.watchlist       = WatchlistManager(self.config)
+        self.escalation      = EscalationTracker(self.config)
+        self.alert_system    = AlertSystem(self.config)
+        self.trading         = TradingEngine(self.config)
+        self.running         = False
+        self.gui             = None
+        self.latest_movers:        List[PriceData]     = []
+        self.latest_crypto_movers: List[PriceData]     = []
+        self._alerted_at:          Dict[str, datetime] = {}
 
     def start(self):
-        """Start the scanner background thread."""
-        self.running = True
+        self.running     = True
         self.alert_system.start()
         self.scan_thread = threading.Thread(target=self._scan_loop, daemon=True)
         self.scan_thread.start()
@@ -1071,354 +998,447 @@ class MarketScanner:
     def stop(self):
         self.running = False
         self.alert_system.stop()
-        logger.info("Market scanner stopped")
+        logger.info("Scanner stopped")
 
     def _scan_loop(self):
         while self.running:
             try:
                 if self.config.is_market_open(AssetType.STOCK):
                     self._scan_stocks()
-
                 if self.config.is_market_open(AssetType.CRYPTO):
                     self._scan_cryptos()
-
                 update_signal_tracking(self)
-
             except Exception as e:
                 logger.error(f"Scan loop error: {e}")
+            time.sleep(self.config.get("scan_interval_seconds", 30))
 
-            interval = self.config.get("scan_interval_seconds", 30)
-            time.sleep(interval)
+    def _can_alert(self, symbol: str) -> bool:
+        last = self._alerted_at.get(symbol)
+        return not (last and (datetime.now()-last).total_seconds() < ALERT_COOLDOWN_SECS)
 
-    def should_log_signal(self, signal: BreakoutSignal) -> bool:
-        """10-minute cooldown per symbol to avoid duplicate alerts."""
-        key      = signal.symbol
-        now      = datetime.now()
-        last     = self.recent_signals.get(key)
-        if last and (now - last).total_seconds() < 600:
-            return False
-        self.recent_signals[key] = now
-        return True
+    def _mark_alerted(self, symbol: str):
+        self._alerted_at[symbol] = datetime.now()
 
-    def _passes_quality_filter(self, signal: BreakoutSignal) -> bool:
-        """Basic quality gate before logging or alerting."""
-        if signal.confidence < 0.5:
-            return False
-        if signal.volume_spike < 1.5:
-            return False
-        return True
+    def _process_symbol(self, pd: PriceData, broker: str):
+        sym = pd.symbol
+        result = self.escalation.check(pd)
+        if result:
+            sig, level = result
+            logger.warning(f"[ESCALATE {level}] {broker} {sym} move={sig.best_move_pct:+.2f}%")
+            self.alert_system.send_alert(sig, escalation=level)
+            return
+        if self.watchlist.is_watching(sym):
+            promoted = self.watchlist.check(pd)
+            if promoted and self._can_alert(sym):
+                promoted.broker = broker
+                self._mark_alerted(sym)
+                self.escalation.register(promoted)
+                self.alert_system.send_alert(promoted, escalation=0)
+                log_signal_to_csv(promoted)
+            return
+        sc = self.detector.score(pd)
+        if sc < self.config.get("watchlist_min_score", 0.40):
+            return
+        pattern = ("early_breakout_strong" if sc > 0.75 else
+                   "early_breakout"         if sc > 0.55 else "watchlist")
+        sig = BreakoutSignal(
+            symbol=sym, asset_type=pd.asset_type, current_price=pd.price,
+            predicted_move_pct=sc*100, confidence=sc,
+            volume_spike=self.detector.vol_spike(pd),
+            momentum_score=self.detector.momentum_val(pd),
+            pattern_detected=pattern, timestamp=datetime.now(),
+            broker=broker, phase=SignalPhase.WATCHLIST, entry_price=pd.price,
+        )
+        self.watchlist.add(sig)
 
     def _scan_cryptos(self):
-        logger.info("Scanning cryptos...")
+        broker = self.crypto_fetcher.exchange_name
         try:
             movers = self.crypto_fetcher.get_top_movers(
-                self.config.get("top_cryptos_count", 100)
-            )
-            logger.info(f"Crypto movers: {len(movers)}")
-
-            for crypto in movers:
-                if not self.crypto_fetcher.exchange:
-                    break
-                if crypto.symbol not in self.crypto_fetcher.exchange.symbols:
-                    continue
-
-                history = self.crypto_fetcher.get_historical_data(crypto.symbol)
-                for h in history:
+                self.config.get("top_cryptos_count", 100))
+            self.latest_crypto_movers = movers
+            logger.info(f"Crypto scan: {len(movers)} movers via {broker} | "
+                        f"watching={self.watchlist.size()}")
+            for pd in movers:
+                if not self.crypto_fetcher.exchange: break
+                if pd.symbol not in self.crypto_fetcher.exchange.symbols: continue
+                for h in self.crypto_fetcher.get_historical_data(pd.symbol):
                     self.detector.update_history(h)
-
-                signal = self.detector.detect_breakout(crypto)
-                if not signal:
-                    continue
-
-                if not self._passes_quality_filter(signal):
-                    continue
-
-                if not self.should_log_signal(signal):
-                    continue
-
-                meta = classify_signal(signal)
-                logger.warning(
-                    f"CRYPTO BREAKOUT: {signal.symbol} | "
-                    f"Direction: {meta['direction']} | "
-                    f"Stage: {meta['stage']} | "
-                    f"PoC: {meta['poc']:.0f}% | "
-                    f"Score: {signal.predicted_move_pct:.0f} | "
-                    f"Confidence: {signal.confidence*100:.0f}%"
-                )
-                self.alert_system.send_alert(signal)
-                log_signal_to_csv(signal)
-
+                self._process_symbol(pd, broker)
         except Exception as e:
             logger.error(f"Crypto scan error: {e}")
 
     def _scan_stocks(self):
-        logger.info("Scanning stocks...")
         try:
             movers = self.stock_fetcher.get_top_movers(
-                self.config.get("top_stocks_count", 100)
-            )
+                self.config.get("top_stocks_count", 100))
             self.latest_movers = movers
-
-            for stock in movers:
-                history = self.stock_fetcher.get_historical_data(stock.symbol)
-                for h in history:
+            logger.info(f"Stock scan: {len(movers)} movers | watching={self.watchlist.size()}")
+            for pd in movers:
+                for h in self.stock_fetcher.get_historical_data(pd.symbol):
                     self.detector.update_history(h)
-
-                signal = self.detector.detect_breakout(stock)
-                if not signal:
-                    continue
-
-                if not self._passes_quality_filter(signal):
-                    continue
-
-                meta = classify_signal(signal)
-
-                # Long-only filter for now (change when margin enabled)
-                if meta["direction"] != "LONG":
-                    continue
-
-                # Require strong continuation probability
-                if meta["poc"] < 60:
-                    continue
-
-                if not self.should_log_signal(signal):
-                    continue
-
-                logger.warning(
-                    f"STOCK BREAKOUT: {signal.symbol} | "
-                    f"Stage: {meta['stage']} | "
-                    f"PoC: {meta['poc']:.0f}% | "
-                    f"Score: {signal.predicted_move_pct:.0f} | "
-                    f"Confidence: {signal.confidence*100:.0f}%"
-                )
-                self.alert_system.send_alert(signal)
-                log_signal_to_csv(signal)
-
-                if self.trading.can_auto_trade():
-                    if self.trading.should_confirm_trade():
-                        logger.info(f"Trade confirmation required for {signal.symbol}")
-                    else:
-                        result = self.trading.execute_signal(signal)
-                        logger.info(f"Auto-trade result: {result}")
-
+                self._process_symbol(pd, "ALPACA")
         except Exception as e:
             logger.error(f"Stock scan error: {e}")
 
     def run_gui(self):
-        """Launch the Tkinter GUI."""
         self.gui = ScannerGUI(self)
         self.alert_system.gui = self.gui
-        # DO NOT auto-start here — let the GUI Start button control it
-        # so the gui.root reference exists before scanner fires first alert
         self.gui.start()
 
     def run_console(self):
-        """Run in headless console mode."""
         self.start()
-        print("\n" + "=" * 60)
+        print("\n" + "="*60)
         print("  RON'S MARKET BREAKOUT SCANNER")
         print("  Press Ctrl+C to stop")
-        print("=" * 60 + "\n")
+        print("="*60 + "\n")
         try:
-            while True:
-                time.sleep(1)
+            while True: time.sleep(1)
         except KeyboardInterrupt:
-            print("\nStopping scanner...")
-            self.stop()
-
+            print("\nStopping..."); self.stop()
 
 # =============================================================================
 # GUI
 # =============================================================================
 
 class ScannerGUI:
-    """Tkinter GUI for the breakout scanner."""
+    COLS   = ("Time","Broker","Symbol","Dir","Score","Conf%",
+               "Entry$","Now$","Move%","5m%","15m%","1h%","Status")
+    WIDTHS = {"Time":68,"Broker":72,"Symbol":90,"Dir":45,
+               "Score":50,"Conf%":52,"Entry$":78,"Now$":78,
+               "Move%":65,"5m%":55,"15m%":55,"1h%":55,"Status":72}
 
     def __init__(self, scanner: MarketScanner):
-        self.scanner    = scanner
-        self.root       = None
-        self.alert_text = None
-        self.running    = False
+        self.scanner        = scanner
+        self.root           = None
+        self.running        = False
+        self._stock_store:  Dict[str, dict] = {}
+        self._crypto_store: Dict[str, dict] = {}
+        self._sort_col      = "Move%"
+        self._sort_desc     = True
 
     def start(self):
         if not TKINTER_AVAILABLE:
-            logger.warning("Tkinter not available — running in console mode")
             self.scanner.run_console()
             return
-
+        if ALERT_SOUND_AVAILABLE:
+            _init_audio()
         self.root = tk.Tk()
         self.root.title("Ron's Market Breakout Scanner")
-        self.root.geometry("1200x800")
+        self.root.geometry("1460x920")
         self.root.configure(bg="#1a1a2e")
-
+        self._setup_style()
         self._setup_ui()
         self.running = True
         self._update_loop()
-
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
         self.root.mainloop()
 
-    def _setup_ui(self):
-        # Title
-        tk.Label(
-            self.root,
-            text="BREAKOUT SCANNER",
-            font=("Helvetica", 24, "bold"),
-            bg="#1a1a2e", fg="#00ff88",
-        ).pack(pady=10)
-
-        # Status
-        status_frame = tk.Frame(self.root, bg="#16213e")
-        status_frame.pack(fill="x", padx=20, pady=5)
-        self.status_label = tk.Label(
-            status_frame,
-            text="Status: Initializing...",
-            font=("Helvetica", 12),
-            bg="#16213e", fg="#ffffff",
-        )
-        self.status_label.pack(side="left", padx=10)
-
-        # Controls
-        btn_frame = tk.Frame(self.root, bg="#1a1a2e")
-        btn_frame.pack(fill="x", padx=20, pady=5)
-
-        self.start_btn = tk.Button(
-            btn_frame, text="Start Scanner",
-            command=self._start_scanner,
-            bg="#00ff88", fg="#000000",
-            font=("Helvetica", 12, "bold"), padx=20,
-        )
-        self.start_btn.pack(side="left", padx=5)
-
-        self.stop_btn = tk.Button(
-            btn_frame, text="Stop Scanner",
-            command=self._stop_scanner,
-            bg="#ff4444", fg="#ffffff",
-            font=("Helvetica", 12, "bold"), padx=20,
-            state="disabled",
-        )
-        self.stop_btn.pack(side="left", padx=5)
-
-        self.volume_var = tk.DoubleVar(value=0.3)
-        tk.Scale(
-            btn_frame,
-            from_=0, to=1, resolution=0.01,
-            orient="horizontal", label="Volume",
-            variable=self.volume_var,
-            bg="#1a1a2e", fg="#ffffff",
-        ).pack(side="left", padx=10)
-
-        self.auto_trade_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(
-            btn_frame, text="Auto-Trade",
-            variable=self.auto_trade_var,
-            command=self._toggle_auto_trade,
-            bg="#1a1a2e", fg="#ffffff",
-            selectcolor="#16213e",
-            font=("Helvetica", 11),
-        ).pack(side="left", padx=20)
-
-        # Alert area
-        alert_frame = tk.LabelFrame(
-            self.root, text="LIVE ALERTS",
-            font=("Helvetica", 14, "bold"),
-            bg="#16213e", fg="#ffaa00",
-            padx=10, pady=10,
-        )
-        alert_frame.pack(fill="both", expand=True, padx=20, pady=10)
-
-        self.alert_text = scrolledtext.ScrolledText(
-            alert_frame,
-            wrap=tk.WORD,
-            font=("Consolas", 11),
-            bg="#0f0f23", fg="#00ff88",
-            insertbackground="#ffffff",
-            state="disabled",
-        )
-        self.alert_text.pack(fill="both", expand=True)
-        self.alert_text.tag_config("breakout", foreground="#00ff00",
-                                   font=("Consolas", 11, "bold"))
-        self.alert_text.tag_config("info",     foreground="#aaaaaa")
-
-        # Top movers table
-        movers_frame = tk.LabelFrame(
-            self.root, text="Stock Top Movers",
-            font=("Helvetica", 14, "bold"),
-            bg="#16213e", fg="#00ccff",
-            padx=10, pady=10,
-        )
-        movers_frame.pack(fill="both", expand=True, padx=20, pady=10)
-
-        style = ttk.Style()
-        style.theme_use("clam")
-        style.configure("Dark.Treeview",
+    def _setup_style(self):
+        s = ttk.Style()
+        s.theme_use("clam")
+        s.configure("Dark.Treeview",
             background="#0f0f23", foreground="white",
             fieldbackground="#0f0f23", rowheight=24,
-        )
-        style.map("Dark.Treeview", background=[("selected", "#347083")])
+            font=("Consolas", 10))
+        s.configure("Dark.Treeview.Heading",
+            background="#16213e", foreground="#ffaa00",
+            font=("Helvetica", 10, "bold"))
+        s.map("Dark.Treeview",
+            background=[("selected","#347083")],
+            foreground=[("selected","#ffffff")])
+        s.layout("Dark.Treeview", s.layout("Treeview"))
 
-        self.movers_tree = ttk.Treeview(
-            movers_frame,
-            columns=("Symbol", "Price", "Change%"),
-            show="headings",
-            style="Dark.Treeview",
-        )
-        for col in ("Symbol", "Price", "Change%"):
-            self.movers_tree.heading(col, text=col)
-            self.movers_tree.column(col, width=150)
-        self.movers_tree.pack(fill="both", expand=True)
+    def _make_tree(self, parent, height=8) -> ttk.Treeview:
+        tree = ttk.Treeview(parent, columns=self.COLS,
+                            show="headings", style="Dark.Treeview", height=height)
+        for c in self.COLS:
+            tree.heading(c, text=c, command=lambda x=c: self._sort_all(x))
+            tree.column(c, width=self.WIDTHS.get(c,70), anchor="center")
+        tree.tag_configure("new",       background="#0d1a2e", foreground="#4fc3f7")
+        tree.tag_configure("esc1",      background="#2a1a00", foreground="#ffaa00")
+        tree.tag_configure("esc2",      background="#0d2e0d", foreground="#00ff44")
+        tree.tag_configure("esc3",      background="#2e0020", foreground="#ffffff")
+        tree.tag_configure("watchlist", background="#151520", foreground="#888888")
+        tree.tag_configure("fail",      background="#2e0d0d", foreground="#ff4444")
+        return tree
 
-    def add_alert(self, message: str, signal: BreakoutSignal):
-        """Add an alert message to the text widget."""
-        if not self.alert_text:
-            return
-        self.alert_text.config(state="normal")
-        self.alert_text.insert(tk.END, "\n" + message + "\n", "breakout")
-        self.alert_text.see(tk.END)
-        self.alert_text.config(state="disabled")
+    def _setup_ui(self):
+        tk.Label(self.root, text="BREAKOUT SCANNER",
+                 font=("Helvetica", 20, "bold"),
+                 bg="#1a1a2e", fg="#00ff88").pack(pady=6)
+
+        sf = tk.Frame(self.root, bg="#16213e")
+        sf.pack(fill="x", padx=20, pady=2)
+        self.status_label = tk.Label(sf, text="Status: Stopped",
+                                     font=("Helvetica", 11),
+                                     bg="#16213e", fg="#ffffff")
+        self.status_label.pack(side="left", padx=10)
+        self.watch_label = tk.Label(sf, text="Watchlist: 0",
+                                    font=("Helvetica", 10),
+                                    bg="#16213e", fg="#aaaaaa")
+        self.watch_label.pack(side="left", padx=20)
+        src = "Massive.com" if self.scanner.stock_fetcher.massive else "yfinance"
+        tk.Label(sf, text=f"Stock bars: {src}",
+                 font=("Helvetica", 9), bg="#16213e", fg="#666666").pack(side="right", padx=10)
+
+        bf = tk.Frame(self.root, bg="#1a1a2e")
+        bf.pack(fill="x", padx=20, pady=2)
+        self.start_btn = tk.Button(bf, text="▶ Start", command=self._start_scanner,
+                                   bg="#00ff88", fg="#000000",
+                                   font=("Helvetica", 11, "bold"), padx=15)
+        self.start_btn.pack(side="left", padx=4)
+        self.stop_btn = tk.Button(bf, text="■ Stop", command=self._stop_scanner,
+                                  bg="#ff4444", fg="#ffffff",
+                                  font=("Helvetica", 11, "bold"), padx=15,
+                                  state="disabled")
+        self.stop_btn.pack(side="left", padx=4)
+        self.volume_var = tk.DoubleVar(value=0.5)
+        tk.Scale(bf, from_=0, to=1, resolution=0.01, orient="horizontal",
+                 label="Volume", variable=self.volume_var,
+                 bg="#1a1a2e", fg="#ffffff", length=120).pack(side="left", padx=10)
+        self.auto_trade_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(bf, text="Auto-Trade", variable=self.auto_trade_var,
+                       command=self._toggle_auto_trade,
+                       bg="#1a1a2e", fg="#ffffff", selectcolor="#16213e",
+                       font=("Helvetica",10)).pack(side="left", padx=15)
+
+        lf = tk.Frame(self.root, bg="#1a1a2e")
+        lf.pack(fill="x", padx=20, pady=2)
+        for txt, fg, bg in [
+            ("● NEW ALERT",  "#4fc3f7","#0d1a2e"),
+            ("● MOVING >2%", "#ffaa00","#2a1a00"),
+            ("● HOT >5%",    "#00ff44","#0d2e0d"),
+            ("● ROCKET >10%","#ffffff","#2e0020"),
+            ("● WATCHLIST",  "#888888","#151520"),
+            ("● FAIL",       "#ff4444","#2e0d0d"),
+        ]:
+            tk.Label(lf, text=txt, fg=fg, bg=bg,
+                     font=("Helvetica",9,"bold"), padx=6, pady=2).pack(side="left", padx=3)
+
+        sf2 = tk.LabelFrame(self.root,
+                             text="  📈  STOCKS  [ALPACA]  —  click headers to sort",
+                             font=("Helvetica",11,"bold"),
+                             bg="#16213e", fg="#00ccff", padx=6, pady=6)
+        sf2.pack(fill="both", expand=True, padx=20, pady=(6,3))
+        self.stock_tree = self._make_tree(sf2, height=7)
+        vsb_s = ttk.Scrollbar(sf2, orient="vertical", command=self.stock_tree.yview)
+        self.stock_tree.configure(yscrollcommand=vsb_s.set)
+        self.stock_tree.pack(side="left", fill="both", expand=True)
+        vsb_s.pack(side="right", fill="y")
+
+        cx = self.scanner.crypto_fetcher.exchange_name
+        cf = tk.LabelFrame(self.root,
+                            text=f"  🔶  CRYPTO  [{cx}]  —  click headers to sort",
+                            font=("Helvetica",11,"bold"),
+                            bg="#16213e", fg="#ffaa00", padx=6, pady=6)
+        cf.pack(fill="both", expand=True, padx=20, pady=(3,3))
+        self.crypto_tree = self._make_tree(cf, height=7)
+        vsb_c = ttk.Scrollbar(cf, orient="vertical", command=self.crypto_tree.yview)
+        self.crypto_tree.configure(yscrollcommand=vsb_c.set)
+        self.crypto_tree.pack(side="left", fill="both", expand=True)
+        vsb_c.pack(side="right", fill="y")
+
+        mf = tk.LabelFrame(self.root, text="Stock Top Movers",
+                            font=("Helvetica",10,"bold"),
+                            bg="#16213e", fg="#aaaaaa", padx=6, pady=4)
+        mf.pack(fill="x", padx=20, pady=(3,6))
+        self.movers_tree = ttk.Treeview(mf,
+                                        columns=("Symbol","Price","Change%"),
+                                        show="headings", style="Dark.Treeview", height=3)
+        for c, w in [("Symbol",100),("Price",110),("Change%",100)]:
+            self.movers_tree.heading(c, text=c)
+            self.movers_tree.column(c, width=w, anchor="center")
+        self.movers_tree.pack(fill="x")
+
+    def add_alert(self, message: str, signal: BreakoutSignal, escalation: int = 0):
+        sym      = signal.symbol
+        store    = self._crypto_store if signal.asset_type == AssetType.CRYPTO \
+                   else self._stock_store
+        existing = store.get(sym, {})
+        mpct     = move_pct(signal.entry_price, signal.current_price)
+        store[sym] = {
+            "time":          signal.timestamp.strftime("%H:%M:%S"),
+            "broker":        signal.broker,
+            "symbol":        sym,
+            "direction":     "LONG" if signal.momentum_score >= -0.5 else "SHORT",
+            "score":         round(signal.predicted_move_pct, 1),
+            "confidence":    round(signal.confidence * 100, 0),
+            "entry_price":   existing.get("entry_price", signal.entry_price or signal.current_price),
+            "entry_time":    existing.get("entry_time",  signal.timestamp),
+            "current_price": signal.current_price,
+            "move_pct":      mpct,
+            "best_move":     max(mpct, existing.get("best_move", 0.0)),
+            "t5m":  existing.get("t5m",  ""),
+            "t15m": existing.get("t15m", ""),
+            "t1h":  existing.get("t1h",  ""),
+            "asset_type":    signal.asset_type,
+            "escalation":    escalation,
+            "phase":         signal.phase.value,
+        }
+        if not existing:
+            store[sym]["entry_price"] = signal.entry_price or signal.current_price
+            store[sym]["entry_time"]  = signal.timestamp
+        tree = self.crypto_tree if signal.asset_type == AssetType.CRYPTO \
+               else self.stock_tree
+        self._refresh_tree(tree, store)
+        self._beep(signal, escalation)
+
+    def _tag_for(self, r: dict) -> str:
+        esc   = r.get("escalation", 0)
+        phase = r.get("phase","")
+        mpct  = r.get("move_pct", 0.0)
+        if phase == "watchlist": return "watchlist"
+        if mpct < 0:             return "fail"
+        if esc >= 3:             return "esc3"
+        if esc >= 2:             return "esc2"
+        if esc >= 1:             return "esc1"
+        return "new"
+
+    def _status_for(self, r: dict) -> str:
+        esc  = r.get("escalation", 0)
+        mpct = r.get("move_pct", 0.0)
+        if r.get("phase") == "watchlist": return "watching"
+        if mpct < 0:   return "FAIL"
+        if esc >= 3:   return "ROCKET"
+        if esc >= 2:   return "HOT"
+        if esc >= 1:   return "MOVING"
+        return "ALERT"
+
+    def _refresh_tree(self, tree: ttk.Treeview, store: dict):
+        if not tree: return
+        key_map = {
+            "Time":"time","Broker":"broker","Symbol":"symbol","Dir":"direction",
+            "Score":"score","Conf%":"confidence","Entry$":"entry_price",
+            "Now$":"current_price","Move%":"move_pct",
+            "5m%":"t5m","15m%":"t15m","1h%":"t1h",
+        }
+        sk   = key_map.get(self._sort_col, "move_pct")
+        rows = list(store.values())
+        try:
+            rows.sort(
+                key=lambda r: float(str(r.get(sk,0)).replace("%","").replace("$","").replace("+","") or 0),
+                reverse=self._sort_desc)
+        except Exception:
+            rows.sort(key=lambda r: str(r.get(sk,"")), reverse=self._sort_desc)
+        for item in tree.get_children():
+            tree.delete(item)
+        for r in rows:
+            ep  = r.get("entry_price", 0) or 0
+            cp  = r.get("current_price", ep) or ep
+            mp  = r.get("move_pct", 0.0)
+            def _pct(val):
+                if not val or not ep or ep == 0: return ""
+                try:   return f"{((float(val)-ep)/ep*100):+.1f}%"
+                except: return ""
+            tag    = self._tag_for(r)
+            status = self._status_for(r)
+            tree.insert("", tk.END, values=(
+                r.get("time",""), r.get("broker",""), r.get("symbol",""),
+                r.get("direction",""),
+                f"{r.get('score',0):.0f}",
+                f"{r.get('confidence',0):.0f}%",
+                f"${ep:.4f}", f"${cp:.4f}",
+                f"{mp:+.2f}%",
+                _pct(r.get("t5m","")),
+                _pct(r.get("t15m","")),
+                _pct(r.get("t1h","")),
+                status,
+            ), tags=(tag,))
+
+    def _sort_all(self, col: str):
+        if self._sort_col == col:
+            self._sort_desc = not self._sort_desc
+        else:
+            self._sort_col  = col
+            self._sort_desc = True
+        self._refresh_tree(self.stock_tree,  self._stock_store)
+        self._refresh_tree(self.crypto_tree, self._crypto_store)
+
+    def _beep(self, signal: BreakoutSignal, escalation: int = 0):
+        if not WINSOUND_AVAILABLE: return
+        if not self.scanner.config.get("enable_sound_alert", True): return
+        try:
+            if self.volume_var.get() < 0.05: return
+            patterns = {
+                0: [(650, 220)],
+                1: [(900, 220),(900, 220)],
+                2: [(1100,200),(1100,200),(1100,200)],
+                3: [(1400,150),(1400,150),(1400,150),(1400,150)],
+            }
+            for freq, dur in patterns.get(escalation, [(650, 220)]):
+                winsound.Beep(freq, dur)
+                time.sleep(0.05)
+        except Exception:
+            pass
+
+    def _update_loop(self):
+        try:
+            self.watch_label.config(text=f"Watchlist: {self.scanner.watchlist.size()}")
+        except Exception:
+            pass
+        try:
+            for row in self.movers_tree.get_children():
+                self.movers_tree.delete(row)
+            for m in self.scanner.latest_movers[:12]:
+                self.movers_tree.insert("", tk.END, values=(
+                    m.symbol, f"${m.price:.4f}", f"{m.daily_change_pct:+.2f}%"
+                ))
+        except Exception:
+            pass
+        try:
+            now = datetime.now()
+            for store in [self._stock_store, self._crypto_store]:
+                for sym, r in list(store.items()):
+                    if r.get("phase") == "watchlist":
+                        continue
+                    try:
+                        et      = r.get("entry_time", now)
+                        elapsed = (now - et).total_seconds()
+                        if r.get("asset_type") == AssetType.CRYPTO:
+                            if not self.scanner.crypto_fetcher.exchange: continue
+                            price = self.scanner.crypto_fetcher.exchange.fetch_ticker(sym)["last"]
+                        else:
+                            h     = self.scanner.stock_fetcher.get_historical_data(sym)
+                            price = h[-1].price if h else None
+                        if not price: continue
+                        ep = r.get("entry_price", price)
+                        r["current_price"] = price
+                        r["move_pct"]      = move_pct(ep, price)
+                        r["best_move"]     = max(r["move_pct"], r.get("best_move",0.0))
+                        if elapsed >= 300  and not r.get("t5m"):  r["t5m"]  = price
+                        if elapsed >= 900  and not r.get("t15m"): r["t15m"] = price
+                        if elapsed >= 3600 and not r.get("t1h"):  r["t1h"]  = price
+                    except Exception:
+                        continue
+            self._refresh_tree(self.stock_tree,  self._stock_store)
+            self._refresh_tree(self.crypto_tree, self._crypto_store)
+        except Exception:
+            pass
+        if self.running:
+            self.root.after(30000, self._update_loop)
 
     def _start_scanner(self):
         if not self.scanner.running:
-            # Set GUI reference on alert system before starting
-            # so first signal can reach the text widget
             self.scanner.alert_system.gui = self
             self.scanner.start()
         self.start_btn.config(state="disabled")
         self.stop_btn.config(state="normal")
-        if self.status_label:
-            self.status_label.config(text="Status: Running")
+        self.status_label.config(text="Status: Running ●", fg="#00ff88")
 
     def _stop_scanner(self):
         self.scanner.stop()
         self.start_btn.config(state="normal")
         self.stop_btn.config(state="disabled")
-        if self.status_label:
-            self.status_label.config(text="Status: Stopped")
+        self.status_label.config(text="Status: Stopped", fg="#ffffff")
 
     def _toggle_auto_trade(self):
         self.scanner.config.set("enable_auto_trade", self.auto_trade_var.get())
-
-    def _update_loop(self):
-        """Refresh top movers table every 5 seconds."""
-        try:
-            movers = self.scanner.latest_movers[:20]
-            for row in self.movers_tree.get_children():
-                self.movers_tree.delete(row)
-            for m in movers:
-                chg = f"{m.daily_change_pct:+.2f}%"
-                self.movers_tree.insert("", tk.END,
-                    values=(m.symbol, f"${m.price:.2f}", chg))
-        except Exception:
-            pass
-
-        if self.running:
-            self.root.after(5000, self._update_loop)
 
     def _on_close(self):
         self.running = False
         self.scanner.stop()
         self.root.destroy()
-
 
 # =============================================================================
 # ENTRY POINT
@@ -1427,12 +1447,9 @@ class ScannerGUI:
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Ron's Market Breakout Scanner")
-    parser.add_argument("--console", action="store_true",
-                        help="Force console mode (no GUI)")
-    args = parser.parse_args()
-
+    parser.add_argument("--console", action="store_true", help="Force console mode")
+    args    = parser.parse_args()
     scanner = MarketScanner()
-
     if args.console or not TKINTER_AVAILABLE:
         scanner.run_console()
     else:
