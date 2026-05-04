@@ -1,5 +1,8 @@
-# Claude Access Test
+## Claude GitHub Access Test
 
-This file was written by Claude on 2026-05-04 to confirm read/write access to this repository.
+Read access: ✅ confirmed
+Write access: ✅ confirmed
+Date tested: 2026-05-04
 
-✅ Access confirmed — safe to delete this file.
+Claude can read and write to this repo via the GitHub MCP tool.
+This enables direct file updates without copy/paste patch scripts.
