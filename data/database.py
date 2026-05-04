@@ -4,6 +4,11 @@
   Manages all persistent storage: trades, capital, tax records,
   daily summaries, withdrawal history, strategy results,
   fund events, broker balance tracking, and Claude chat actions.
+
+  TIMESTAMP POLICY:
+  All timestamps stored in local machine time (Pacific Time).
+  This matches the log files and makes cross-referencing trivial.
+  Migration script: Scripts/migrate_timestamps_to_pt.py
 =============================================================
 """
 
@@ -17,6 +22,15 @@ from contextlib import contextmanager
 import config
 
 logger = logging.getLogger(__name__)
+
+
+def _now_local() -> datetime:
+    """
+    Return current local time (Pacific Time on Ron's machine).
+    Used for all DB timestamp writes so they match the log files.
+    Previously used datetime.utcnow() which was 7-8 hours ahead.
+    """
+    return datetime.now()
 
 
 class Database:
@@ -136,9 +150,6 @@ class Database:
                 );
 
                 -- Daily session tracking
-                -- starting_capital_today: stored ONCE at market open each day,
-                -- never recalculated on restart. This is the fix for the
-                -- P&L percentage dropping after reboots.
                 CREATE TABLE IF NOT EXISTS session_state (
                     id                      INTEGER PRIMARY KEY AUTOINCREMENT,
                     session_date            TEXT UNIQUE NOT NULL,
@@ -184,13 +195,12 @@ class Database:
                 );
             """)
 
-            # Safe migrations — add new columns to existing DBs
+            # Safe migrations
             migrations = [
                 "ALTER TABLE trades ADD COLUMN strategy_name   TEXT    DEFAULT 'original'",
                 "ALTER TABLE trades ADD COLUMN is_overnight    INTEGER DEFAULT 0",
                 "ALTER TABLE trades ADD COLUMN broker_order_id TEXT",
                 "ALTER TABLE trades ADD COLUMN tp_hit_count    INTEGER DEFAULT 0",
-                # Fix for P&L restart bug — store starting capital explicitly
                 "ALTER TABLE session_state ADD COLUMN starting_capital_today REAL DEFAULT 0",
             ]
             for sql in migrations:
@@ -211,7 +221,7 @@ class Database:
                     (timestamp, total_capital, available_cash,
                      invested_value, daily_pnl, total_pnl, note)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (datetime.utcnow().isoformat(), total, available,
+            """, (_now_local().isoformat(), total, available,
                   invested, daily_pnl, total_pnl, note))
 
     def record_capital_snapshot(self, total: float):
@@ -259,7 +269,7 @@ class Database:
                     pnl         = ?,
                     pnl_pct     = ?
                 WHERE trade_id = ?
-            """, (datetime.utcnow().isoformat(), exit_price, exit_reason,
+            """, (_now_local().isoformat(), exit_price, exit_reason,
                   pnl, pnl_pct, trade_id))
 
     def update_trade_order_ids(self, trade_id: str,
@@ -356,56 +366,38 @@ class Database:
             )
 
     def set_starting_capital_today(self, capital: float):
-        """
-        Store today's starting capital ONCE at the beginning of the trading day.
-        This value never changes during the day regardless of restarts.
-        Used by dashboard to calculate P&L% correctly after reboots.
-        """
         today = date.today().isoformat()
         with self._conn() as conn:
-            # Only set if not already set today (i.e. first run of the day)
             row = conn.execute(
                 "SELECT starting_capital_today FROM session_state WHERE session_date=?",
                 (today,)
             ).fetchone()
             if row and float(row["starting_capital_today"] or 0) > 0:
-                logger.debug(
-                    f"Starting capital already set for today: "
-                    f"${row['starting_capital_today']:,.2f} — skipping"
-                )
                 return
             conn.execute(
-                "UPDATE session_state SET starting_capital_today=? "
-                "WHERE session_date=?",
+                "UPDATE session_state SET starting_capital_today=? WHERE session_date=?",
                 (capital, today)
             )
             logger.info(f"Starting capital locked for today: ${capital:,.2f}")
 
     def get_starting_capital_today(self) -> float:
-        """
-        Return today's locked starting capital.
-        Returns 0.0 if not set yet (first run before market open).
-        """
         today = date.today().isoformat()
         with self._conn() as conn:
             row = conn.execute(
-                "SELECT starting_capital_today FROM session_state "
-                "WHERE session_date=?",
+                "SELECT starting_capital_today FROM session_state WHERE session_date=?",
                 (today,)
             ).fetchone()
-            if row:
-                return float(row["starting_capital_today"] or 0.0)
-            return 0.0
+            return float(row["starting_capital_today"] or 0.0) if row else 0.0
 
     def reset_session_state(self):
         today = date.today().isoformat()
         self.update_session(today,
-            trading_halted          = 0,
-            halt_reason             = None,
-            consecutive_losses      = 0,
-            pnl_today               = 0.0,
-            trades_today            = 0,
-            starting_capital_today  = 0.0   # Reset for next day
+            trading_halted         = 0,
+            halt_reason            = None,
+            consecutive_losses     = 0,
+            pnl_today              = 0.0,
+            trades_today           = 0,
+            starting_capital_today = 0.0
         )
 
     # --- DAILY SUMMARY -------------------------------------------------
@@ -428,6 +420,14 @@ class Database:
                 summary["largest_loss"], summary.get("trading_halted", 0),
                 summary.get("halt_reason"), summary.get("goal_met", 0)
             ))
+
+    def get_daily_summaries(self, days: int = 30) -> List[Dict]:
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM daily_summaries ORDER BY trade_date DESC LIMIT ?",
+                (days,)
+            ).fetchall()
+            return [dict(r) if row else None for row in rows]
 
     def get_daily_summaries(self, days: int = 30) -> List[Dict]:
         with self._conn() as conn:
@@ -502,7 +502,7 @@ class Database:
                 INSERT INTO withdrawals
                     (timestamp, amount, reason, capital_before, capital_after)
                 VALUES (?, ?, ?, ?, ?)
-            """, (datetime.utcnow().isoformat(), amount, reason,
+            """, (_now_local().isoformat(), amount, reason,
                   capital_before, capital_after))
         logger.info(f"Withdrawal recorded: ${amount:.2f}")
 
@@ -513,7 +513,7 @@ class Database:
             conn.execute("""
                 INSERT OR REPLACE INTO bot_state (key, value, updated)
                 VALUES (?, ?, ?)
-            """, (key, json.dumps(value), datetime.utcnow().isoformat()))
+            """, (key, json.dumps(value), _now_local().isoformat()))
 
     def get_state(self, key: str, default=None) -> Any:
         with self._conn() as conn:
@@ -559,7 +559,7 @@ class Database:
                     (timestamp, broker_name, event_type, amount, reason,
                      balance_before, balance_after)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
-            """, (datetime.utcnow().isoformat(), broker_name, event_type,
+            """, (_now_local().isoformat(), broker_name, event_type,
                   amount, reason, balance_before, balance_after))
         logger.info(f"Fund event: {event_type} ${amount:.2f} @ {broker_name}")
 
@@ -591,7 +591,7 @@ class Database:
                      action_detail, result)
                 VALUES (?, ?, ?, ?, ?, ?)
             """, (
-                datetime.utcnow().isoformat(), today,
+                _now_local().isoformat(), today,
                 user_message[:200] if user_message else "",
                 action_type, action_detail[:500] if action_detail else "",
                 result[:200] if result else ""
