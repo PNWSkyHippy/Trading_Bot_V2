@@ -98,6 +98,20 @@ try:
 except ImportError:
     PATTERNS_AVAILABLE = False
 
+# pygame-based audio — plays through actual sound card, not PC speaker
+try:
+    from alert_sound import init_audio as _init_audio, play_alert as _play_alert
+    ALERT_SOUND_AVAILABLE = True
+except ImportError:
+    ALERT_SOUND_AVAILABLE = False
+
+# geometric chart pattern detection
+try:
+    from chart_patterns import score_patterns as _score_patterns
+    PATTERNS_AVAILABLE = True
+except ImportError:
+    PATTERNS_AVAILABLE = False
+
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,

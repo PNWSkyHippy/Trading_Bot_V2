@@ -129,12 +129,17 @@ class SettlementTracker:
         return True, "Settled capital available", available
 
     def record_trade_closed(self, trade_id: str, symbol: str,
-                            position_value: float):
+                            position_value: float,
+                            asset_class: str = "stock"):
         """
         Record that a stock trade closed and its funds are now settling.
+        Crypto trades are EXCLUDED — they settle instantly.
         Call this immediately when a stock position closes.
         """
         if not CASH_ACCOUNT_MODE:
+            return
+        # Crypto settles instantly — never touch the settlement queue
+        if asset_class != "stock":
             return
 
         today = date.today()
@@ -159,7 +164,8 @@ class SettlementTracker:
     def process_settlements(self):
         """
         Mark funds as settled if their settlement date has passed.
-        Call this daily at market open or on each capital sync.
+        Runs 24/7 — crypto bot never sleeps so this must too.
+        Also prunes old settled rows (keeps queue clean).
         """
         if not CASH_ACCOUNT_MODE:
             return
@@ -167,7 +173,7 @@ class SettlementTracker:
         today = date.today().isoformat()
         conn = self._conn()
         try:
-            # Find unsettled records whose settle date has passed
+            # Mark anything due today or earlier as settled
             rows = conn.execute("""
                 SELECT id, symbol, amount, settles_date
                 FROM settlement_queue
@@ -186,6 +192,17 @@ class SettlementTracker:
             if rows:
                 conn.commit()
                 logger.info(f"Processed {len(rows)} settlements")
+
+            # Prune old settled rows older than 30 days (keep queue clean)
+            from datetime import timedelta
+            prune_before = (date.today() - timedelta(days=30)).isoformat()
+            pruned = conn.execute("""
+                DELETE FROM settlement_queue
+                WHERE settled = 1 AND settles_date < ?
+            """, (prune_before,))
+            if pruned.rowcount > 0:
+                conn.commit()
+                logger.debug(f"Pruned {pruned.rowcount} old settlement records")
         finally:
             conn.close()
 

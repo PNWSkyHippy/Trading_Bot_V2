@@ -206,7 +206,7 @@ def render_chart(symbol: str, asset_class: str, entry_price: float = None, stop_
                 ]
             )
         ),
-        yaxis      = dict(gridcolor="#2a3a5c", tickprefix="$"),
+        yaxis      = dict(gridcolor="#2a3a5c", tickprefix="$", fixedrange=False),
         height     = 320,
         title      = dict(text=f"{symbol} — {timeframe}", font=dict(color="#e0e0e0", size=14)),
         showlegend = False,
@@ -334,7 +334,7 @@ with chart_col1:
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=df_sum["trade_date"], y=df_sum["ending_capital"], mode="lines+markers", name="Capital", line=dict(color="#4fc3f7", width=2), fill="tozeroy", fillcolor="rgba(79,195,247,0.08)"))
         fig.add_hline(y=starting_cap, line_dash="dot", line_color="#546e7a", annotation_text="Today's Start")
-        fig.update_layout(paper_bgcolor="#1a1f35", plot_bgcolor="#1a1f35", font=dict(color="#e0e0e0"), margin=dict(l=20, r=20, t=20, b=20), xaxis=dict(gridcolor="#2a3a5c"), yaxis=dict(gridcolor="#2a3a5c", tickprefix="$"))
+        fig.update_layout(paper_bgcolor="#1a1f35", plot_bgcolor="#1a1f35", font=dict(color="#e0e0e0"), margin=dict(l=20, r=20, t=20, b=20), xaxis=dict(gridcolor="#2a3a5c"), yaxis=dict(gridcolor="#2a3a5c", tickprefix="$", fixedrange=False))
         st.plotly_chart(fig, width='stretch')
     else:
         st.info("No historical data yet.")
@@ -943,7 +943,7 @@ if run_bt:
                     s5.metric("Sortino Ratio", f"{r.sortino_ratio:.2f}")
                     s6.metric("Profit Factor", f"{r.profit_factor:.2f}")
                     _PAPER="#1e293b"; _GRID="#334155"; _PURPLE="#8b5cf6"; _GREEN="#10b981"; _RED="#ef4444"; _TEXT="#94a3b8"
-                    _layout = dict(paper_bgcolor=_PAPER, plot_bgcolor=_PAPER, font=dict(color=_TEXT, size=11), margin=dict(l=10, r=10, t=40, b=40), xaxis=dict(gridcolor=_GRID, showgrid=True, tickangle=-30, tickfont=dict(size=9)), yaxis=dict(gridcolor=_GRID, showgrid=True), hovermode="x unified")
+                    _layout = dict(paper_bgcolor=_PAPER, plot_bgcolor=_PAPER, font=dict(color=_TEXT, size=11), margin=dict(l=10, r=10, t=40, b=40), xaxis=dict(gridcolor=_GRID, showgrid=True, tickangle=-30, tickfont=dict(size=9)), yaxis=dict(gridcolor=_GRID, showgrid=True, fixedrange=False), hovermode="x unified")
                     fig_eq = go.Figure()
                     fig_eq.add_trace(go.Scatter(x=timestamps, y=equities, mode="lines", name="Portfolio Value", line=dict(color=_PURPLE, width=2), fill="tozeroy", fillcolor="rgba(139,92,246,0.12)", hovertemplate="<b>%{x}</b><br>$%{y:,.2f}<extra></extra>"))
                     fig_eq.add_hline(y=r.starting_capital, line_dash="dot", line_color="#475569", annotation_text=f"Start ${r.starting_capital:,.0f}", annotation_font_color=_TEXT)

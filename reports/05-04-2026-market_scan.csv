@@ -1,0 +1,11 @@
+AssetClass,Ticker,Price,Vol Change,RSI,% from 52W Hi,% vs 200SMA,Score,Signal,24h %,Funding %
+Stock,STX,738.54,1.43,86.0,-1.4,139.8,200.46,Within 1.4% of 52W high | 1.4x avg vol | 140% above 200MA,,
+Stock,EBAY,109.33,3.44,65.3,-1.84,21.5,74.1,Within 1.8% of 52W high | 3.4x avg vol | 22% above 200MA,,
+Stock,TSN,68.75,2.33,63.2,-0.09,19.3,44.89,Within 0.1% of 52W high | 2.3x avg vol | 19% above 200MA,,
+Stock,CBOE,338.91,1.45,70.6,-0.48,29.6,42.81,Within 0.5% of 52W high | 1.4x avg vol | 30% above 200MA,,
+Crypto,TON,1.46,,67.9,,,19.31,+7.6% 24h | RSI 68 (momentum zone) | shorts paying (contrarian long),7.64,-0.0055
+Crypto,TRX,0.340576,,67.0,,,17.05,+0.3% 24h | RSI 67 (momentum zone),0.33,0.0006
+Crypto,LINK,9.36,,59.5,,,9.73,+2.1% 24h | RSI 60 (momentum zone),2.1,0.0006
+Crypto,PI,0.180461,,57.9,,,8.15,+3.3% 24h | RSI 58 (momentum zone),3.34,
+Crypto,HTX,2e-06,,56.3,,,6.38,+1.2% 24h | RSI 56 (momentum zone),1.25,
+Crypto,MNT,0.637793,,55.3,,,5.39,+0.7% 24h | RSI 55 (momentum zone) | shorts paying (contrarian long),0.69,-0.0073

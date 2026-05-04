@@ -115,6 +115,62 @@ class KrakenExecutor:
             logger.debug(f"Kraken balance fetch error: {e}")
             return 0.0
 
+    def get_open_position(self, symbol: str) -> Optional[Dict]:
+        """
+        Check if a position actually exists on Kraken exchange.
+        Returns position dict with size and avg price, or None if no position.
+        In paper mode always returns None (positions are DB-only).
+        Used by position_monitor to detect broker-closed positions.
+        """
+        if self.paper:
+            return None   # paper mode has no real positions
+
+        try:
+            # Kraken uses base currency as the position key (e.g. BTC for BTC/USD)
+            base = symbol.split("/")[0]
+            balance = self.exchange.fetch_balance()
+            free  = float(balance.get(base, {}).get("free",  0) or 0)
+            used  = float(balance.get(base, {}).get("used",  0) or 0)
+            total = free + used
+            if total > 0.0001:   # position exists
+                return {"symbol": symbol, "size": total, "free": free, "used": used}
+            return None
+        except Exception as e:
+            logger.debug(f"get_open_position error for {symbol}: {e}")
+            return None
+
+    def get_recent_closed_order(self, symbol: str,
+                                 since_timestamp: float = None) -> Optional[Dict]:
+        """
+        Query Kraken for the most recent closed order for a symbol.
+        Used to find the actual fill price after an SL/TP fires at the exchange.
+        Returns dict with fill price and side, or None if not found.
+        """
+        if self.paper:
+            return None
+
+        try:
+            ccxt_symbol = symbol.replace("-", "/")
+            since_ms    = int(since_timestamp * 1000) if since_timestamp else None
+            orders      = self.exchange.fetch_closed_orders(
+                ccxt_symbol, since=since_ms, limit=5
+            )
+            if not orders:
+                return None
+            # Most recent closed order
+            orders.sort(key=lambda o: o.get("timestamp", 0), reverse=True)
+            o = orders[0]
+            return {
+                "fill_price": float(o.get("average") or o.get("price") or 0),
+                "filled_qty": float(o.get("filled") or 0),
+                "side":       o.get("side", ""),
+                "order_id":   o.get("id", ""),
+                "timestamp":  o.get("timestamp", 0),
+            }
+        except Exception as e:
+            logger.debug(f"get_recent_closed_order error for {symbol}: {e}")
+            return None
+
     def get_current_price(self, symbol: str) -> Optional[float]:
         try:
             ccxt_symbol = symbol.replace("-", "/")
@@ -123,6 +179,65 @@ class KrakenExecutor:
         except Exception as e:
             logger.debug(f"Kraken price lookup failed for {symbol}: {e}")
             return None
+
+    def place_stop_order(self, symbol: str, qty: float,
+                         side: str, stop_price: float) -> Optional[str]:
+        """
+        Place a stop-market order on Kraken.
+        side: 'buy' (to close a short) or 'sell' (to close a long)
+        Returns order_id string or None on failure.
+        Paper mode: returns a fake order ID for tracking.
+        """
+        ccxt_symbol = symbol.replace("-", "/")
+        if self.paper:
+            fake_id = f"PAPER-STOP-{symbol}-{int(stop_price*10000)}"
+            logger.info(
+                f"[PAPER] Stop order placed: {symbol} {side} {qty} "
+                f"@ ${stop_price:.4f} | id={fake_id}"
+            )
+            return fake_id
+        try:
+            order = self.exchange.create_order(
+                symbol    = ccxt_symbol,
+                type      = "stop-market",
+                side      = side,
+                amount    = qty,
+                params    = {"stopPrice": stop_price}
+            )
+            order_id = order["id"]
+            logger.info(
+                f"Stop order placed: {symbol} {side} {qty} "
+                f"@ ${stop_price:.4f} | id={order_id}"
+            )
+            return order_id
+        except Exception as e:
+            logger.error(f"Failed to place stop order for {symbol}: {e}")
+            return None
+
+    def cancel_order(self, symbol: str, order_id: str) -> bool:
+        """Cancel an open order by ID. Paper mode: always succeeds."""
+        if self.paper:
+            logger.info(f"[PAPER] Order cancelled: {order_id}")
+            return True
+        ccxt_symbol = symbol.replace("-", "/")
+        try:
+            self.exchange.cancel_order(order_id, ccxt_symbol)
+            logger.info(f"Order cancelled: {order_id} for {symbol}")
+            return True
+        except Exception as e:
+            logger.warning(f"Cancel order failed {order_id} for {symbol}: {e}")
+            return False
+
+    def update_stop_order(self, symbol: str, old_order_id: str,
+                          qty: float, side: str,
+                          new_stop_price: float) -> Optional[str]:
+        """
+        Move a stop order to a new price.
+        Cancel old order → place new one → return new order_id.
+        Returns new order_id or None on failure.
+        """
+        self.cancel_order(symbol, old_order_id)
+        return self.place_stop_order(symbol, qty, side, new_stop_price)
 
     def get_trading_pairs(self) -> list:
         try:
