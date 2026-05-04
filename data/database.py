@@ -262,6 +262,23 @@ class Database:
             """, (datetime.utcnow().isoformat(), exit_price, exit_reason,
                   pnl, pnl_pct, trade_id))
 
+    def update_trade_order_ids(self, trade_id: str,
+                               stop_order_id: str = None,
+                               tp_order_id:   str = None):
+        """Store broker order IDs for stop and TP orders."""
+        sets, vals = [], []
+        if stop_order_id is not None:
+            sets.append("stop_order_id = ?"); vals.append(stop_order_id)
+        if tp_order_id is not None:
+            sets.append("tp_order_id = ?");   vals.append(tp_order_id)
+        if not sets:
+            return
+        vals.append(trade_id)
+        with self._conn() as conn:
+            conn.execute(
+                f"UPDATE trades SET {', '.join(sets)} WHERE trade_id = ?", vals
+            )
+
     def update_trade_levels(self, trade_id: str,
                              stop_loss: float = None,
                              take_profit: float = None):

@@ -1,3 +1,6 @@
+location of claude desktop json config
+C:\Users\Linda\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude>
+
 Start-Process python -ArgumentList ".\BreakoutScanner.py"
  streamlit run dashboard.py  # Connect to dashboard
 #Run the bot

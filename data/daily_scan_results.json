@@ -1,14 +1,18 @@
 {
-  "generated": "2026-04-29T13:31:20.535179",
+  "generated": "2026-05-04T13:31:13.154222",
   "valid_until": "next_market_close",
   "stocks": [
-    "INTC",
-    "NXPI",
-    "GNRC",
-    "SBUX"
+    "STX",
+    "EBAY",
+    "TSN",
+    "CBOE"
   ],
   "crypto": [
+    "TON/USD",
     "TRX/USD",
-    "DOGE/USD"
+    "LINK/USD",
+    "PI/USD",
+    "HTX/USD",
+    "MNT/USD"
   ]
 }

@@ -340,6 +340,9 @@ class TradeExecutor:
         custom_tp  = signal.indicators.get("custom_take_profit_pct")
         custom_pos = signal.indicators.get("custom_position_pct")
 
+        # Pass broker name to risk_manager so it can check per-broker cash
+        broker_name_hint = self._get_broker_name(signal)
+        self._risk_manager._pending_broker = broker_name_hint
         approval = self._risk_manager.approve_trade(
             symbol                 = signal.symbol,
             entry_price            = signal.current_price,
@@ -349,6 +352,7 @@ class TradeExecutor:
             custom_take_profit_pct = custom_tp,
             custom_position_pct    = custom_pos
         )
+        self._risk_manager._pending_broker = None   # clear after use
         if not approval.approved:
             logger.info(f"Trade rejected for {signal.symbol}: {approval.reason}")
             return None
@@ -423,6 +427,36 @@ class TradeExecutor:
             f"SL: ${stop_loss:.4f} | TP: ${take_profit:.4f} | "
             f"Broker: {broker_name} | ID: {trade_id}"
         )
+
+        # ── Update broker available cash (deduct position value) ──────────
+        try:
+            from core.broker_manager import broker_manager
+            bal = broker_manager.get_broker_balance(broker_name)
+            new_invested  = bal.get("invested",  0.0) + approval.position_value
+            new_available = max(0.0, bal.get("available", 0.0) - approval.position_value)
+            broker_manager.update_broker_balance(
+                broker_name, bal.get("balance", 0.0),
+                new_invested, new_available
+            )
+        except Exception as _bm_err:
+            logger.debug(f"Broker balance update on open failed: {_bm_err}")
+
+        # ── Place real stop order on Kraken (live + paper) ────────────────
+        # In paper mode this stores a fake order ID for tracking logic parity.
+        # In live mode this places an actual stop-market order on Kraken.
+        if signal.asset_class == "crypto" and broker_name in ("kraken", "paper"):
+            stop_side = "buy" if signal.direction == "short" else "sell"
+            stop_order_id = self.kraken.place_stop_order(
+                signal.symbol, approval.quantity, stop_side, round(stop_loss, 6)
+            )
+            if stop_order_id:
+                self._db.update_trade_order_ids(trade_id, stop_order_id=stop_order_id)
+                logger.info(
+                    f"[{'PAPER' if config.KRAKEN_PAPER_MODE else 'LIVE'}] "
+                    f"Stop order placed for {signal.symbol} @ ${stop_loss:.4f} "
+                    f"| order_id={stop_order_id}"
+                )
+
         return trade_id
 
     def close_trade(self, trade: Dict, current_price: float,
@@ -505,7 +539,27 @@ class TradeExecutor:
         else:
             pnl = (entry_price - current_price) * qty
 
-        pnl_pct   = (pnl / trade["position_value"]) * 100 if trade["position_value"] else 0
+        # ── PnL% — calculate directly from price move, not position_value ─
+        # position_value in DB can drift; price-based calc is always correct.
+        # pnl_pct = % move from entry to exit, always positive for wins.
+        if entry_price and entry_price > 0:
+            raw_move_pct = ((current_price - entry_price) / entry_price) * 100
+            pnl_pct      = raw_move_pct if direction == "long" else -raw_move_pct
+        else:
+            pnl_pct = (pnl / trade["position_value"]) * 100 if trade["position_value"] else 0
+
+        # ── Sanity check: pnl_pct should never exceed 3x the configured TP ─
+        max_tp_pct = config.DEFAULT_TAKE_PROFIT_PCT * 3
+        if abs(pnl_pct) > max_tp_pct:
+            logger.warning(
+                f"[PNL SANITY] {symbol}: pnl_pct={pnl_pct:.2f}% exceeds 3x TP threshold "
+                f"({max_tp_pct:.1f}%). Capping and flagging for review. "
+                f"entry={entry_price} exit={current_price} qty={qty}"
+            )
+            pnl_pct = max_tp_pct if pnl_pct > 0 else -max_tp_pct
+            # Recalculate pnl dollar amount to match capped pct
+            pnl = (pnl_pct / 100) * trade["position_value"]
+
         trade_won = pnl > 0
 
         if asset_class == "stock" and settlement_tracker:
@@ -513,7 +567,8 @@ class TradeExecutor:
                 settlement_tracker.record_trade_closed(
                     trade_id       = trade["trade_id"],
                     symbol         = symbol,
-                    position_value = trade.get("position_value", 0)
+                    position_value = trade.get("position_value", 0),
+                    asset_class    = asset_class   # crypto excluded automatically
                 )
             except Exception as e:
                 logger.debug(f"Settlement record error: {e}")
@@ -533,7 +588,7 @@ class TradeExecutor:
             "status":     "closed"
         }
         self._db.record_tax_event(full_trade)
-        self._risk_manager.record_trade_result(pnl, trade_won)
+        self._risk_manager.record_trade_result(pnl, trade_won, symbol=symbol)
 
         strategy_name = trade.get("strategy_name", "original")
         if strategy_name not in ("original", "manual") and exit_reason != "manual_close":
@@ -566,6 +621,21 @@ class TradeExecutor:
                     f"{'+'if pnl>0 else ''}{pnl:.2f}"
                 )
             )
+
+        # ── Restore broker available cash (return position value + PnL) ────
+        try:
+            from core.broker_manager import broker_manager
+            close_broker = trade.get("broker", broker)
+            bal = broker_manager.get_broker_balance(close_broker)
+            returned      = trade.get("position_value", 0.0) + pnl
+            new_invested  = max(0.0, bal.get("invested",  0.0) - trade.get("position_value", 0.0))
+            new_available = bal.get("available", 0.0) + returned
+            new_balance   = bal.get("balance",  0.0) + pnl
+            broker_manager.update_broker_balance(
+                close_broker, new_balance, new_invested, new_available
+            )
+        except Exception as _bm_err:
+            logger.debug(f"Broker balance update on close failed: {_bm_err}")
 
         result = "WIN" if trade_won else "LOSS"
         try:

@@ -166,7 +166,7 @@ class PositionMonitor:
         self._db            = db_ref or db
         self._executor      = trade_executor
         self.running        = False
-        self.check_interval = 30
+        self.check_interval = 10   # reduced from 30s — faster SL detection
         self._thread        = None
 
     def _get_executor(self):
@@ -761,6 +761,45 @@ class PositionMonitor:
             self._attempt_close(trade, current_price, "eod_close")
             return
 
+        # ── 2b. BROKER RECONCILIATION (live mode only) ───────────────────
+        # Check if the position was already closed by the exchange (SL/TP order).
+        # This handles the case where Kraken fired an SL order automatically
+        # and we need to record the close in our DB without trying to close again.
+        if asset_class == "crypto" and not getattr(
+                __import__("config"), "KRAKEN_PAPER_MODE", True):
+            try:
+                kraken_ex = self._get_executor().kraken
+                pos = kraken_ex.get_open_position(symbol)
+                if pos is None:
+                    # Position gone from exchange — find the fill price
+                    import time as _t
+                    entry_ts = None
+                    try:
+                        entry_ts = __import__("pandas").to_datetime(
+                            trade.get("entry_time", "")
+                        ).timestamp()
+                    except Exception:
+                        pass
+
+                    closed_order = kraken_ex.get_recent_closed_order(
+                        symbol, since_timestamp=entry_ts
+                    )
+                    fill_price = (
+                        closed_order["fill_price"]
+                        if closed_order and closed_order["fill_price"] > 0
+                        else current_price
+                    )
+                    fill_source = "exchange order" if closed_order else "current price"
+                    logger.info(
+                        f"[BROKER RECONCILE] {symbol}: position no longer on Kraken — "
+                        f"recording close @ ${fill_price:.4f} (via {fill_source})"
+                    )
+                    self._db.set_state(f"momentum_ext_{trade_id}", 0)
+                    self._attempt_close(trade, fill_price, "broker_closed_sl_tp")
+                    return
+            except Exception as _rec_err:
+                logger.debug(f"Reconciliation check error for {symbol}: {_rec_err}")
+
         # ── 3. STOP-LOSS ──────────────────────────────────────────────────
         sl_exit = risk_manager.check_sl_exit(trade, current_price)
         if sl_exit:
@@ -822,28 +861,59 @@ class PositionMonitor:
                     ride = mom_score >= min_score
 
                 if ride:
-                    tp_pct = config.DEFAULT_TAKE_PROFIT_PCT / 100
+                    import config as _cfg
+                    tp_pct = _cfg.DEFAULT_TAKE_PROFIT_PCT / 100
                     new_tp = (
                         current_price * (1 + tp_pct)
                         if direction == "long"
                         else current_price * (1 - tp_pct)
                     )
                     new_tp = round(new_tp, 4)
-                    self._db.update_trade_levels(trade_id, take_profit=new_tp)
-                    self._db.set_state(f"momentum_ext_{trade_id}", ext_count + 1)
-                    with self._db._conn() as conn:
-                        conn.execute(
-                            "UPDATE trades SET tp_hit_count = ? WHERE trade_id = ?",
-                            (ext_count + 1, trade_id)
+
+                    if asset_class == "crypto" and not _cfg.KRAKEN_PAPER_MODE:
+                        # ── LIVE MODE: close + reopen ─────────────────────
+                        # Can't modify TP on a real exchange. Close the position
+                        # at current price (booking the TP profit), then immediately
+                        # re-enter with a fresh SL/TP if momentum still holds.
+                        logger.info(
+                            f"[LIVE TP RIDE] {symbol}: closing at TP ${current_price:.4f} "
+                            f"and re-entering for momentum extension "
+                            f"(ext {ext_count + 1}/{max_extensions})"
                         )
-                        conn.commit()
-                    # ── LOG TP EXTENSION ──────────────────────────────────
-                    logger.info(
-                        f"[TP EXTENDED] {symbol} {direction.upper()} | "
-                        f"TP raised {trade['take_profit']:.4f} → {new_tp:.4f} | "
-                        f"Extension {ext_count + 1}/{max_extensions} | "
-                        f"Momentum score: {mom_score:.2f} | P&L {pnl_pct:+.2f}%"
-                    )
+                        # Cancel existing stop order before closing
+                        old_stop_id = trade.get("stop_order_id", "")
+                        if old_stop_id:
+                            self._get_executor().kraken.cancel_order(symbol, old_stop_id)
+                        # Close the position (books the profit)
+                        self._attempt_close(trade, current_price, "take_profit_ride")
+                        # Re-enter immediately via scanner signal injection
+                        # The scanner will pick it up on next cycle if momentum holds.
+                        # We mark this so the cooldown knows it was a win-ride, not revenge.
+                        try:
+                            from core.risk_manager import risk_manager as _rm
+                            _rm._last_closed[symbol] = {
+                                "time": __import__("time").time() - 90,  # 90s ago = inside win cooldown
+                                "won":  True,
+                            }
+                        except Exception:
+                            pass
+                        return
+                    else:
+                        # ── PAPER MODE: extend TP in DB (no real orders) ──
+                        self._db.update_trade_levels(trade_id, take_profit=new_tp)
+                        self._db.set_state(f"momentum_ext_{trade_id}", ext_count + 1)
+                        with self._db._conn() as conn:
+                            conn.execute(
+                                "UPDATE trades SET tp_hit_count = ? WHERE trade_id = ?",
+                                (ext_count + 1, trade_id)
+                            )
+                            conn.commit()
+                        logger.info(
+                            f"[PAPER TP EXTENDED] {symbol} {direction.upper()} | "
+                            f"TP raised {trade['take_profit']:.4f} → {new_tp:.4f} | "
+                            f"Extension {ext_count + 1}/{max_extensions} | "
+                            f"Momentum score: {mom_score:.2f} | P&L {pnl_pct:+.2f}%"
+                        )
                 else:
                     logger.info(
                         f"[TAKE PROFIT] {symbol} @ ${current_price:.4f} | "
@@ -899,13 +969,38 @@ class PositionMonitor:
                 stop_loss   = updates.get("stop_loss"),
                 take_profit = updates.get("take_profit"),
             )
-            # Log trailing stop moves so closed trade history is clear
             if "stop_loss" in updates and updates["stop_loss"] != old_sl:
+                new_sl = updates["stop_loss"]
                 logger.info(
                     f"[TRAILING STOP] {symbol} {direction.upper()} | "
-                    f"SL ratcheted ${old_sl:.4f} → ${updates['stop_loss']:.4f} | "
+                    f"SL ratcheted ${old_sl:.4f} → ${new_sl:.4f} | "
                     f"Locked in {pnl_pct:+.2f}% gain"
                 )
+                # ── Live + Paper: cancel old stop order, place new one ────
+                # Paper mode: updates fake order ID for tracking parity
+                # Live mode:  cancels real Kraken stop, places new one
+                if asset_class == "crypto":
+                    try:
+                        kraken_ex      = self._get_executor().kraken
+                        old_stop_id    = trade.get("stop_order_id", "")
+                        stop_side      = "buy" if direction == "short" else "sell"
+                        new_stop_id    = kraken_ex.update_stop_order(
+                            symbol, old_stop_id, qty, stop_side, new_sl
+                        )
+                        if new_stop_id:
+                            self._db.update_trade_order_ids(
+                                trade_id, stop_order_id=new_stop_id
+                            )
+                            logger.info(
+                                f"[{'PAPER' if __import__('config').KRAKEN_PAPER_MODE else 'LIVE'}] "
+                                f"Stop order updated for {symbol} "
+                                f"${old_sl:.4f} → ${new_sl:.4f} | "
+                                f"new_id={new_stop_id}"
+                            )
+                    except Exception as _trail_err:
+                        logger.warning(
+                            f"Stop order update failed for {symbol}: {_trail_err}"
+                        )
             if "take_profit" in updates and updates["take_profit"] != old_tp:
                 logger.info(
                     f"[DYNAMIC TP] {symbol} {direction.upper()} | "

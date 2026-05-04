@@ -58,8 +58,12 @@ class RiskManager:
     """
 
     def __init__(self):
-        self._session_date = None
-        self._session      = None
+        self._session_date  = None
+        self._session       = None
+        # Symbol cooldown: tracks (timestamp, was_win) for each recently closed symbol.
+        # Loss cooldown  = 10 min  (revenge trade prevention)
+        # Win  cooldown  =  2 min  (allow momentum re-entry, just not instant)
+        self._last_closed:  dict = {}   # symbol -> {"time": float, "won": bool}
         self._refresh_session()
 
     def _refresh_session(self):
@@ -193,9 +197,34 @@ class RiskManager:
                         f"minimum {min_confidence:.2f}")
             )
 
+        # ── Capital: use broker available cash if known, else calculated total ──
+        # This prevents approving trades when the specific broker has no free cash.
+        # broker_name is passed via custom_position_pct hack — see note below.
+        # We check broker_manager first (real available cash), fall back to
+        # calculated total capital if broker tracking isn't available yet.
         capital = self._get_capital()
         if capital <= 0:
             return TradeApproval(approved=False, reason="No capital available")
+
+        # Check per-broker available cash if broker name is provided
+        broker_name = getattr(self, "_pending_broker", None)
+        if broker_name:
+            try:
+                from core.broker_manager import broker_manager
+                bal = broker_manager.get_broker_balance(broker_name)
+                broker_available = bal.get("available", 0.0)
+                if broker_available > 0:
+                    # Use the lesser of theoretical capital and actual broker cash
+                    # This catches cases where broker balance is lower than expected
+                    capital = min(capital, broker_available / (custom_position_pct or config.MAX_POSITION_PCT) * 100)
+                    if broker_available < 1.0:
+                        return TradeApproval(
+                            approved=False,
+                            reason=f"Insufficient cash on {broker_name}: "
+                                   f"${broker_available:.2f} available"
+                        )
+            except Exception as _cap_err:
+                pass   # broker_manager not ready yet — use calculated capital
 
         position_pct   = (custom_position_pct or config.MAX_POSITION_PCT) / 100
         position_value = capital * position_pct
@@ -228,6 +257,77 @@ class RiskManager:
         else:
             stop_loss   = entry_price * (1 + stop_loss_pct)
             take_profit = entry_price * (1 - take_profit_pct)
+
+        # ── Sanity check: enforce minimum SL/TP distance from entry ───────
+        # Floating point rounding can occasionally place SL within 1 tick
+        # of entry or on the wrong side. Enforce a minimum 0.1% distance.
+        MIN_DISTANCE = max(entry_price * 0.001, 0.0001)
+        if direction == "long":
+            if stop_loss >= entry_price - MIN_DISTANCE:
+                stop_loss = entry_price * (1 - max(stop_loss_pct, 0.001))
+                logger.warning(
+                    f"SL corrected for {symbol} LONG: was too close/wrong side "
+                    f"of entry ${entry_price:.4f} — reset to ${stop_loss:.4f}"
+                )
+            if take_profit <= entry_price + MIN_DISTANCE:
+                take_profit = entry_price * (1 + max(take_profit_pct, 0.005))
+                logger.warning(
+                    f"TP corrected for {symbol} LONG: was too close/wrong side "
+                    f"of entry ${entry_price:.4f} — reset to ${take_profit:.4f}"
+                )
+        else:  # short
+            if stop_loss <= entry_price + MIN_DISTANCE:
+                stop_loss = entry_price * (1 + max(stop_loss_pct, 0.001))
+                logger.warning(
+                    f"SL corrected for {symbol} SHORT: was too close/wrong side "
+                    f"of entry ${entry_price:.4f} — reset to ${stop_loss:.4f}"
+                )
+            if take_profit >= entry_price - MIN_DISTANCE:
+                take_profit = entry_price * (1 - max(take_profit_pct, 0.005))
+                logger.warning(
+                    f"TP corrected for {symbol} SHORT: was too close/wrong side "
+                    f"of entry ${entry_price:.4f} — reset to ${take_profit:.4f}"
+                )
+
+        # ── Symbol cooldown ────────────────────────────────────────────────
+        # Loss: 10-min cooldown (revenge trade prevention)
+        # Win:   2-min cooldown (allow momentum re-entry, block instant flip)
+        LOSS_COOLDOWN_SEC = 10 * 60
+        WIN_COOLDOWN_SEC  =  2 * 60
+        last = self._last_closed.get(symbol)
+        if last:
+            elapsed    = (datetime.now() - datetime.fromtimestamp(last["time"])).total_seconds()
+            cooldown   = WIN_COOLDOWN_SEC if last["won"] else LOSS_COOLDOWN_SEC
+            label      = "win" if last["won"] else "loss"
+            if elapsed < cooldown:
+                remaining = int((cooldown - elapsed) / 60)
+                return TradeApproval(
+                    approved=False,
+                    reason=(
+                        f"Symbol cooldown ({label}): {symbol} closed {int(elapsed)}s ago "
+                        f"— wait {remaining}min before re-entry"
+                    )
+                )
+
+        # ── Symbol cooldown ────────────────────────────────────────────────
+        # Loss: 10-min cooldown (revenge trade prevention)
+        # Win:   2-min cooldown (allow momentum re-entry, block instant flip)
+        LOSS_COOLDOWN_SEC = 10 * 60
+        WIN_COOLDOWN_SEC  =  2 * 60
+        last = self._last_closed.get(symbol)
+        if last:
+            elapsed    = (datetime.now() - datetime.fromtimestamp(last["time"])).total_seconds()
+            cooldown   = WIN_COOLDOWN_SEC if last["won"] else LOSS_COOLDOWN_SEC
+            label      = "win" if last["won"] else "loss"
+            if elapsed < cooldown:
+                remaining = int((cooldown - elapsed) / 60)
+                return TradeApproval(
+                    approved=False,
+                    reason=(
+                        f"Symbol cooldown ({label}): {symbol} closed {int(elapsed)}s ago "
+                        f"— wait {remaining}min before re-entry"
+                    )
+                )
 
         logger.info(
             f"APPROVED: {symbol} {direction.upper()} | "
@@ -299,8 +399,16 @@ class RiskManager:
     #  POST-TRADE RECORDING
     # ----------------------------------------------------------
 
-    def record_trade_result(self, pnl: float, trade_won: bool):
+    def record_trade_result(self, pnl: float, trade_won: bool,
+                            symbol: str = ""):
         """Update session state after a trade closes."""
+        # Record close time and outcome for symbol cooldown
+        if symbol:
+            import time as _time
+            self._last_closed[symbol] = {
+                "time": _time.time(),
+                "won":  trade_won,
+            }
         self._refresh_session()
         session_date = date.today().isoformat()
 
