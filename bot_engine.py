@@ -23,6 +23,7 @@ IMPORTANT — TIMEZONE NOTE:
       Daily scan:    13:30 PT = 16:30 ET (30 min after market close)
       ML retrain:    15:00 PT = 18:00 ET
       Weekly log:    00:00 PT Sunday (midnight, covers prev Sun-Sat)
+      Midnight reset:00:01 PT daily (resets session counters for new day)
 """
 
 import argparse
@@ -285,12 +286,16 @@ class BotEngine:
             getattr(schedule.every(), day).at("14:00").do(self._end_of_day)
 
         # Daily market scan: 13:30 PT = 16:30 ET (30 min after market close)
-        # Scans top stocks + crypto, saves CSV to reports/, injects into watchlists
         for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
             getattr(schedule.every(), day).at("13:30").do(self._run_daily_scan)
 
         schedule.every().day.at("15:00").do(self._retrain_ml)
         schedule.every().sunday.at("00:00").do(run_weekly_export)
+
+        # Midnight reset: runs 24/7 at 00:01 PT to reset daily session counters.
+        # This ensures trades_today, pnl_today, consecutive_losses all reset
+        # correctly at midnight regardless of whether the EOD report ran.
+        schedule.every().day.at("00:01").do(self._midnight_reset)
 
         self.logger.info("All scheduled jobs registered.")
         self.logger.info("  - Crypto scan:      every 5 min (24/7)")
@@ -301,7 +306,24 @@ class BotEngine:
         self.logger.info("  - EOD report:       17:00 ET (14:00 PT) daily")
         self.logger.info("  - Daily scan:       16:30 ET (13:30 PT) weekdays")
         self.logger.info("  - ML retrain:       18:00 ET (15:00 PT) daily")
+        self.logger.info("  - Midnight reset:   00:01 PT daily (session counters)")
         self.logger.info("  - Weekly trade log: Sunday 00:00 PT (covers prev Sun-Sat)")
+
+    def _midnight_reset(self):
+        """
+        Runs at 00:01 PT every day.
+        Resets session counters (trades_today, pnl_today, consecutive_losses)
+        so the dashboard shows today's numbers, not an accumulation since last restart.
+        Does NOT generate a report — that's _end_of_day's job at 14:00 PT.
+        """
+        try:
+            self.db.reset_session_state()
+            self.logger.info(
+                f"[MIDNIGHT RESET] Session counters reset for new day "
+                f"({datetime.now().strftime('%Y-%m-%d')})"
+            )
+        except Exception as e:
+            self.logger.error(f"Midnight reset error: {e}")
 
     def _run_stock_scan(self):
         import threading
@@ -319,8 +341,6 @@ class BotEngine:
         import threading
         t = threading.Thread(target=self._do_crypto_scan, daemon=True)
         t.start()
-        # Do NOT join here — let it run in background
-        # Each scan gets its own thread so a hung scan never blocks the next
 
     def _do_crypto_scan(self):
         try:
@@ -329,7 +349,6 @@ class BotEngine:
             self.logger.info("[SCAN] Crypto scan complete.")
         except Exception as e:
             self.logger.error(f"Crypto scan error: {e}", exc_info=True)
-
 
     def _run_daily_scan(self):
         """After-market daily scanner. Saves CSV report and injects picks into watchlists."""
