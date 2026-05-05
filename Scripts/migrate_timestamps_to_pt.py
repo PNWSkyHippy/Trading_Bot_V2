@@ -4,7 +4,8 @@ migrate_timestamps_to_pt.py
 One-time migration: shifts all existing UTC timestamps in the DB
 back by 7 hours (PDT) to match Pacific Time.
 
-Safe to run multiple times — detects if already migrated.
+Run ONCE before restarting the bot after the database.py timezone fix.
+Safe to run multiple times — checks if migration already applied.
 
 Usage:
     python Scripts/migrate_timestamps_to_pt.py
@@ -33,8 +34,8 @@ def shift_timestamp(ts_str: str, hours: int) -> str:
 
 
 def migrate():
+    # Use plain connect — no row_factory so rowid works normally
     conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
     cur  = conn.cursor()
 
     # Check if already migrated
@@ -44,11 +45,11 @@ def migrate():
     ).fetchone()
 
     if row:
-        ts = row["entry_time"]
+        ts = row[0]
         try:
             hr = datetime.fromisoformat(ts).hour
             if hr < 13:
-                print(f"Already in PT (hour={hr}) — skipping migration.")
+                print(f"Timestamps appear to already be in PT (hour={hr}) — skipping.")
                 print(f"Sample: {ts}")
                 conn.close()
                 return
@@ -56,34 +57,34 @@ def migrate():
         except Exception:
             pass
 
-    print(f"\nMigrating timestamps: UTC -> PT ({OFFSET_HRS:+d} hours)")
+    print(f"\nMigrating timestamps: UTC → PT ({OFFSET_HRS:+d} hours)")
     print(f"Database: {DB_PATH}\n")
 
     tables = [
-        ("trades",       "id", ["entry_time", "exit_time"]),
-        ("capital",      "id", ["timestamp"]),
-        ("withdrawals",  "id", ["timestamp"]),
-        ("bot_state",    "key", ["updated"]),
-        ("fund_events",  "id", ["timestamp"]),
-        ("chat_actions", "id", ["timestamp"]),
+        ("trades",       ["entry_time", "exit_time"]),
+        ("capital",      ["timestamp"]),
+        ("withdrawals",  ["timestamp"]),
+        ("bot_state",    ["updated"]),
+        ("fund_events",  ["timestamp"]),
+        ("chat_actions", ["timestamp"]),
     ]
 
     total_updated = 0
 
-    for table, pk, columns in tables:
+    for table, columns in tables:
         for col in columns:
             try:
-                # Explicitly select the primary key so we can update by it
+                # Explicitly select rowid so it's always available
                 rows = cur.execute(
-                    f"SELECT {pk}, {col} FROM {table} WHERE {col} IS NOT NULL"
+                    f"SELECT rowid, {col} FROM {table} WHERE {col} IS NOT NULL"
                 ).fetchall()
                 count = 0
-                for row in rows:
-                    new_ts = shift_timestamp(row[col], OFFSET_HRS)
-                    if new_ts != row[col]:
+                for rowid, ts_val in rows:
+                    new_ts = shift_timestamp(ts_val, OFFSET_HRS)
+                    if new_ts != ts_val:
                         cur.execute(
-                            f"UPDATE {table} SET {col}=? WHERE {pk}=?",
-                            (new_ts, row[pk])
+                            f"UPDATE {table} SET {col}=? WHERE rowid=?",
+                            (new_ts, rowid)
                         )
                         count += 1
                 if count:
@@ -92,12 +93,13 @@ def migrate():
                 else:
                     print(f"  {table}.{col}: no rows to update")
             except Exception as e:
-                print(f"  {table}.{col}: ERROR -- {e}")
+                print(f"  {table}.{col}: ERROR — {e}")
 
     conn.commit()
     conn.close()
 
     print(f"\nMigration complete: {total_updated} timestamps converted to PT.")
+    print("Going forward, database.py uses datetime.now() (local PT).")
     print("Restart the bot after running this script.")
 
 
