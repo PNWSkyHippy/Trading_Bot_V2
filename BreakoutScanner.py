@@ -879,6 +879,9 @@ class AlertSystem:
         self.email_last_sent: Dict[str, datetime] = {}
         self.gui              = None
         self.running          = False
+        import threading as _thr
+        self._digest_lock  = _thr.Lock()
+        self._last_digest  = datetime.now()
 
     def start(self):
         self.running      = True
@@ -895,7 +898,7 @@ class AlertSystem:
             self.alert_queue.put(Alert(signal, AlertType.VISUAL, message,
                                        datetime.now(), escalation))
         if self.config.get("enable_email_alert", False):
-            self._email_alert(signal, message)
+            self._email_alert(signal, message, escalation=escalation)
 
     def _format_message(self, signal: BreakoutSignal, escalation: int) -> str:
         meta  = classify_signal(signal)
@@ -913,27 +916,60 @@ class AlertSystem:
             f"Time: {signal.timestamp.strftime('%H:%M:%S')}\n"
         )
 
-    def _email_alert(self, signal: BreakoutSignal, message: str):
+    def _email_alert(self, signal: BreakoutSignal, message: str,
+                     escalation: int = 0):
+        """
+        Email rules:
+          ROCKET (escalation 3, >10% move) -> immediate email
+          All others (watchlist, new alert, moving, hot) -> NO email
+          Serious errors -> use send_error_email() directly
+        Per-symbol cooldown: 30 minutes on rockets.
+        """
+        if escalation < 3:
+            return   # only email on rockets and errors
+
         sym  = signal.symbol
         last = self.email_last_sent.get(sym)
-        if last and (datetime.now()-last).total_seconds() < 600: return
+        if last and (datetime.now()-last).total_seconds() < 1800:
+            return   # 30-min per-symbol cooldown
+
+        ef = self.config.get("email_from","")
+        et = self.config.get("email_to","")
+        pw = self.config.get("email_password","")
+        if not all([ef, et, pw]):
+            return
+
+        self.email_last_sent[sym] = datetime.now()
+        mpct = move_pct(signal.entry_price, signal.current_price)
+        self._send_email_now(
+            ef, et, pw,
+            subject=f"ROCKET {mpct:+.1f}%: [{signal.broker}] {sym}",
+            body=message
+        )
+
+    def send_error_email(self, subject: str, body: str):
+        """Send an immediate email for serious errors (exchange down, etc.)."""
+        ef = self.config.get("email_from","")
+        et = self.config.get("email_to","")
+        pw = self.config.get("email_password","")
+        if not all([ef, et, pw]):
+            return
+        self._send_email_now(ef, et, pw, subject=f"[SCANNER ERROR] {subject}", body=body)
+
+    def _send_email_now(self, ef: str, et: str, pw: str,
+                        subject: str, body: str):
         try:
-            ef = self.config.get("email_from",""); et = self.config.get("email_to","")
-            pw = self.config.get("email_password","")
-            if not all([ef, et, pw]): return
-            subj = f"BREAKOUT: [{signal.broker}] {sym}"
-            # MIME with UTF-8 so emojis in the body are handled correctly
             msg = MIMEMultipart()
             msg["From"]    = ef
             msg["To"]      = et
-            msg["Subject"] = subj
-            msg.attach(MIMEText(message, "plain", "utf-8"))
-            with smtplib.SMTP(self.config.get("email_smtp_server","smtp.gmail.com"),
-                              self.config.get("email_smtp_port",587)) as srv:
+            msg["Subject"] = subject
+            msg.attach(MIMEText(body, "plain", "utf-8"))
+            with smtplib.SMTP(self.config.get("email_smtp_server", "smtp.gmail.com"),
+                              self.config.get("email_smtp_port", 587)) as srv:
                 srv.starttls()
                 srv.login(ef, pw)
                 srv.sendmail(ef, et, msg.as_bytes())
-            self.email_last_sent[sym] = datetime.now()
+            logger.info(f"Email sent: {subject}")
         except Exception as e:
             logger.error(f"Email failed: {e}")
 
