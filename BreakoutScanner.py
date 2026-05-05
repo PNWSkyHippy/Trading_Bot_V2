@@ -55,6 +55,11 @@ except ImportError:
 
 try:
     import yfinance as yf
+    import logging as _logging
+    _logging.getLogger("yfinance").setLevel(_logging.CRITICAL)
+    _logging.getLogger("yfinance.base").setLevel(_logging.CRITICAL)
+    _logging.getLogger("yfinance.utils").setLevel(_logging.CRITICAL)
+    _logging.getLogger("peewee").setLevel(_logging.CRITICAL)
     YFINANCE_AVAILABLE = True
 except ImportError:
     YFINANCE_AVAILABLE = False
@@ -556,6 +561,8 @@ class StockDataFetcher:
             tickers = yf.download(self.FALLBACK, period="1d", interval="1m",
                                   progress=False, group_by="ticker")
             for sym in self.FALLBACK:
+                if sym.startswith("$") or sym.startswith("^"):
+                    continue
                 try:
                     df = tickers[sym].dropna()
                     if df.empty: continue
@@ -578,15 +585,27 @@ class StockDataFetcher:
                 return bars
         if not YFINANCE_AVAILABLE:
             return []
+        # Skip index/invalid symbols — yfinance can't fetch $-prefixed tickers
+        if symbol.startswith("$") or symbol.startswith("^"):
+            return []
         try:
             df = yf.download(symbol, period=period, interval=interval,
                              progress=False, auto_adjust=True).dropna()
-            return [
-                PriceData(symbol, float(r["Close"]), float(r["Open"]),
-                          float(r["High"]), float(r["Low"]), float(r["Volume"]),
-                          ts.to_pydatetime(), AssetType.STOCK)
-                for ts, r in df.iterrows()
-            ]
+            result = []
+            for ts, r in df.iterrows():
+                try:
+                    result.append(PriceData(
+                        symbol,
+                        float(r["Close"].iloc[0]) if hasattr(r["Close"], "iloc") else float(r["Close"]),
+                        float(r["Open"].iloc[0])  if hasattr(r["Open"],  "iloc") else float(r["Open"]),
+                        float(r["High"].iloc[0])  if hasattr(r["High"],  "iloc") else float(r["High"]),
+                        float(r["Low"].iloc[0])   if hasattr(r["Low"],   "iloc") else float(r["Low"]),
+                        float(r["Volume"].iloc[0]) if hasattr(r["Volume"],"iloc") else float(r["Volume"]),
+                        ts.to_pydatetime(), AssetType.STOCK
+                    ))
+                except Exception:
+                    continue
+            return result
         except Exception as e:
             logger.error(f"yfinance history error {symbol}: {e}")
             return []
@@ -602,6 +621,11 @@ class CryptoDataFetcher:
     def _init(self):
         if not CCXT_AVAILABLE:
             return
+        # Load ALL available exchanges, not just the first one that succeeds.
+        # self.exchange      = primary exchange (first to load) — kept for
+        #                      backward compatibility with price-fetch calls.
+        # self.exchanges     = dict of {name: exchange} for all loaded exchanges.
+        self.exchanges = {}
         for name, kwargs in [
             ("kraken",   {"apiKey": self.config.get("kraken_api_key"),
                           "secret": self.config.get("kraken_api_secret"),
@@ -613,36 +637,50 @@ class CryptoDataFetcher:
             try:
                 exc = getattr(ccxt, name)(kwargs)
                 exc.load_markets()
-                self.exchange      = exc
-                self.exchange_name = name.upper()
+                self.exchanges[name.upper()] = exc
+                if self.exchange is None:
+                    self.exchange      = exc
+                    self.exchange_name = name.upper()
                 logger.info(f"{name.capitalize()} exchange initialized")
-                return
             except Exception as e:
                 logger.warning(f"{name} init failed: {e}")
 
     def get_top_movers(self, count: int = 100) -> List[PriceData]:
+        """Scan ALL loaded exchanges. Each PriceData is tagged with its
+        source exchange via a custom attribute ._exchange_name so that
+        _scan_cryptos can set the correct broker on the signal."""
         cryptos = []
-        if not self.exchange:
-            return cryptos
-        try:
-            for sym, t in self.exchange.fetch_tickers().items():
-                if "/USD" not in sym and "/USDT" not in sym:
-                    continue
-                try:
-                    chg = t.get("percentage", 0) or 0
-                    if chg == 0: continue
-                    op  = t["open"] if t.get("open") else t["last"] / (1 + chg/100)
-                    cryptos.append(PriceData(
-                        sym, t["last"], op,
-                        t.get("high") or t["last"], t.get("low") or t["last"],
-                        t.get("quoteVolume") or t.get("baseVolume", 0),
-                        datetime.now(), AssetType.CRYPTO,
-                    ))
-                except Exception:
-                    continue
-            cryptos.sort(key=lambda x: abs(x.daily_change_pct), reverse=True)
-        except Exception as e:
-            logger.error(f"Crypto fetch error: {e}")
+        exchanges = getattr(self, "exchanges", {})
+        if not exchanges:
+            exchanges = {self.exchange_name: self.exchange} if self.exchange else {}
+        seen_symbols = set()   # de-duplicate across exchanges (first exchange wins)
+        for exch_name, exc in exchanges.items():
+            if not exc:
+                continue
+            try:
+                for sym, t in exc.fetch_tickers().items():
+                    if "/USD" not in sym and "/USDT" not in sym:
+                        continue
+                    if sym in seen_symbols:
+                        continue
+                    try:
+                        chg = t.get("percentage", 0) or 0
+                        if chg == 0: continue
+                        op  = t["open"] if t.get("open") else t["last"] / (1 + chg/100)
+                        pd_obj = PriceData(
+                            sym, t["last"], op,
+                            t.get("high") or t["last"], t.get("low") or t["last"],
+                            t.get("quoteVolume") or t.get("baseVolume", 0),
+                            datetime.now(), AssetType.CRYPTO,
+                        )
+                        pd_obj._exchange_name = exch_name   # tag with source
+                        cryptos.append(pd_obj)
+                        seen_symbols.add(sym)
+                    except Exception:
+                        continue
+            except Exception as e:
+                logger.error(f"Crypto fetch error ({exch_name}): {e}")
+        cryptos.sort(key=lambda x: abs(x.daily_change_pct), reverse=True)
         return cryptos[:count]
 
     def get_historical_data(self, symbol: str, timeframe: str = "5m",
@@ -1001,7 +1039,6 @@ class MarketScanner:
         self.latest_movers:        List[PriceData]     = []
         self.latest_crypto_movers: List[PriceData]     = []
         self._alerted_at:          Dict[str, datetime] = {}
-
     def start(self):
         self.running     = True
         self.alert_system.start()
@@ -1066,16 +1103,24 @@ class MarketScanner:
         self.watchlist.add(sig)
 
     def _scan_cryptos(self):
-        broker = self.crypto_fetcher.exchange_name
         try:
             movers = self.crypto_fetcher.get_top_movers(
                 self.config.get("top_cryptos_count", 100))
             self.latest_crypto_movers = movers
-            logger.info(f"Crypto scan: {len(movers)} movers via {broker} | "
+            exchanges = getattr(self.crypto_fetcher, "exchanges", {})
+            logger.info(f"Crypto scan: {len(movers)} movers via "
+                        f"{list(exchanges.keys()) or self.crypto_fetcher.exchange_name} | "
                         f"watching={self.watchlist.size()}")
             for pd in movers:
-                if not self.crypto_fetcher.exchange: break
-                if pd.symbol not in self.crypto_fetcher.exchange.symbols: continue
+                # Use the broker tag set by get_top_movers, fall back to primary
+                broker = getattr(pd, "_exchange_name",
+                                 self.crypto_fetcher.exchange_name)
+                # Find the correct exchange for this symbol
+                exc = exchanges.get(broker) or self.crypto_fetcher.exchange
+                if not exc:
+                    continue
+                if pd.symbol not in exc.symbols:
+                    continue
                 for h in self.crypto_fetcher.get_historical_data(pd.symbol):
                     self.detector.update_history(h)
                 self._process_symbol(pd, broker)
@@ -1089,7 +1134,13 @@ class MarketScanner:
             self.latest_movers = movers
             logger.info(f"Stock scan: {len(movers)} movers | watching={self.watchlist.size()}")
             for pd in movers:
-                for h in self.stock_fetcher.get_historical_data(pd.symbol):
+                sym = pd.symbol
+                # Skip warrants, rights, units, indexes — not tradeable breakouts
+                if (sym.startswith("$") or sym.startswith("^")
+                        or len(sym) > 5
+                        or any(c in sym for c in ["+", "=", "/"])):
+                    continue
+                for h in self.stock_fetcher.get_historical_data(sym):
                     self.detector.update_history(h)
                 self._process_symbol(pd, "ALPACA")
         except Exception as e:
@@ -1153,11 +1204,11 @@ class ScannerGUI:
         s.theme_use("clam")
         s.configure("Dark.Treeview",
             background="#0f0f23", foreground="white",
-            fieldbackground="#0f0f23", rowheight=24,
-            font=("Consolas", 10))
+            fieldbackground="#0f0f23", rowheight=36,
+            font=("Consolas", 13))
         s.configure("Dark.Treeview.Heading",
             background="#16213e", foreground="#ffaa00",
-            font=("Helvetica", 10, "bold"))
+            font=("Helvetica", 13, "bold"))
         s.map("Dark.Treeview",
             background=[("selected","#347083")],
             foreground=[("selected","#ffffff")])
@@ -1169,42 +1220,44 @@ class ScannerGUI:
         for c in self.COLS:
             tree.heading(c, text=c, command=lambda x=c: self._sort_all(x))
             tree.column(c, width=self.WIDTHS.get(c,70), anchor="center")
-        tree.tag_configure("new",       background="#0d1a2e", foreground="#4fc3f7")
-        tree.tag_configure("esc1",      background="#2a1a00", foreground="#ffaa00")
-        tree.tag_configure("esc2",      background="#0d2e0d", foreground="#00ff44")
-        tree.tag_configure("esc3",      background="#2e0020", foreground="#ffffff")
-        tree.tag_configure("watchlist", background="#151520", foreground="#888888")
-        tree.tag_configure("fail",      background="#2e0d0d", foreground="#ff4444")
+        _sym_font = ("Consolas", 14, "bold")
+        tree.tag_configure("new",       background="#0d1a2e", foreground="#4fc3f7", font=_sym_font)
+        tree.tag_configure("esc1",      background="#2a1a00", foreground="#ffaa00", font=_sym_font)
+        tree.tag_configure("esc2",      background="#0d2e0d", foreground="#00ff44", font=_sym_font)
+        tree.tag_configure("esc3",      background="#2e0020", foreground="#ffffff", font=_sym_font)
+        tree.tag_configure("watchlist", background="#151520", foreground="#888888", font=_sym_font)
+        tree.tag_configure("fail",      background="#2e0d0d", foreground="#ff4444", font=_sym_font)
         return tree
 
     def _setup_ui(self):
         tk.Label(self.root, text="BREAKOUT SCANNER",
-                 font=("Helvetica", 20, "bold"),
+                 font=("Helvetica", 22, "bold"),
                  bg="#1a1a2e", fg="#00ff88").pack(pady=6)
 
         sf = tk.Frame(self.root, bg="#16213e")
         sf.pack(fill="x", padx=20, pady=2)
         self.status_label = tk.Label(sf, text="Status: Stopped",
-                                     font=("Helvetica", 11),
+                                     font=("Helvetica", 13),
                                      bg="#16213e", fg="#ffffff")
         self.status_label.pack(side="left", padx=10)
         self.watch_label = tk.Label(sf, text="Watchlist: 0",
-                                    font=("Helvetica", 10),
+                                    font=("Helvetica", 13),
                                     bg="#16213e", fg="#aaaaaa")
         self.watch_label.pack(side="left", padx=20)
         src = "Massive.com" if self.scanner.stock_fetcher.massive else "yfinance"
         tk.Label(sf, text=f"Stock bars: {src}",
-                 font=("Helvetica", 9), bg="#16213e", fg="#666666").pack(side="right", padx=10)
+                 font=("Helvetica",12), bg="#16213e", fg="#666666").pack(side="right", padx=10)
 
         bf = tk.Frame(self.root, bg="#1a1a2e")
         bf.pack(fill="x", padx=20, pady=2)
         self.start_btn = tk.Button(bf, text="▶ Start", command=self._start_scanner,
                                    bg="#00ff88", fg="#000000",
-                                   font=("Helvetica", 11, "bold"), padx=15)
+                                   font=("Helvetica", 13, "bold"), padx=15)
         self.start_btn.pack(side="left", padx=4)
+
         self.stop_btn = tk.Button(bf, text="■ Stop", command=self._stop_scanner,
                                   bg="#ff4444", fg="#ffffff",
-                                  font=("Helvetica", 11, "bold"), padx=15,
+                                  font=("Helvetica", 13, "bold"), padx=15,
                                   state="disabled")
         self.stop_btn.pack(side="left", padx=4)
         self.volume_var = tk.DoubleVar(value=0.5)
@@ -1215,7 +1268,7 @@ class ScannerGUI:
         tk.Checkbutton(bf, text="Auto-Trade", variable=self.auto_trade_var,
                        command=self._toggle_auto_trade,
                        bg="#1a1a2e", fg="#ffffff", selectcolor="#16213e",
-                       font=("Helvetica",10)).pack(side="left", padx=15)
+                       font=("Helvetica",13)).pack(side="left", padx=15)
 
         lf = tk.Frame(self.root, bg="#1a1a2e")
         lf.pack(fill="x", padx=20, pady=2)
@@ -1228,11 +1281,11 @@ class ScannerGUI:
             ("● FAIL",       "#ff4444","#2e0d0d"),
         ]:
             tk.Label(lf, text=txt, fg=fg, bg=bg,
-                     font=("Helvetica",9,"bold"), padx=6, pady=2).pack(side="left", padx=3)
+                     font=("Helvetica",12,"bold"), padx=6, pady=2).pack(side="left", padx=3)
 
         sf2 = tk.LabelFrame(self.root,
                              text="  📈  STOCKS  [ALPACA]  —  click headers to sort",
-                             font=("Helvetica",11,"bold"),
+                             font=("Helvetica",13,"bold"),
                              bg="#16213e", fg="#00ccff", padx=6, pady=6)
         sf2.pack(fill="both", expand=True, padx=20, pady=(6,3))
         self.stock_tree = self._make_tree(sf2, height=7)
@@ -1244,7 +1297,7 @@ class ScannerGUI:
         cx = self.scanner.crypto_fetcher.exchange_name
         cf = tk.LabelFrame(self.root,
                             text=f"  🔶  CRYPTO  [{cx}]  —  click headers to sort",
-                            font=("Helvetica",11,"bold"),
+                            font=("Helvetica",13,"bold"),
                             bg="#16213e", fg="#ffaa00", padx=6, pady=6)
         cf.pack(fill="both", expand=True, padx=20, pady=(3,3))
         self.crypto_tree = self._make_tree(cf, height=7)
@@ -1347,8 +1400,9 @@ class ScannerGUI:
                 except: return ""
             tag    = self._tag_for(r)
             status = self._status_for(r)
+            sym_display = f" {r.get('symbol','')} "   # pad symbol for readability
             tree.insert("", tk.END, values=(
-                r.get("time",""), r.get("broker",""), r.get("symbol",""),
+                r.get("time",""), r.get("broker",""), sym_display,
                 r.get("direction",""),
                 f"{r.get('score',0):.0f}",
                 f"{r.get('confidence',0):.0f}%",
@@ -1387,6 +1441,12 @@ class ScannerGUI:
             pass
 
     def _update_loop(self):
+        """
+        GUI update loop — runs on main tkinter thread every 30s.
+        All network calls are offloaded to a background thread to
+        prevent GUI freezing on slow/timeout Kraken responses.
+        """
+        # ── Update watchlist count and movers (no network) ────────────────
         try:
             self.watch_label.config(text=f"Watchlist: {self.scanner.watchlist.size()}")
         except Exception:
@@ -1400,35 +1460,74 @@ class ScannerGUI:
                 ))
         except Exception:
             pass
-        try:
-            now = datetime.now()
-            for store in [self._stock_store, self._crypto_store]:
+
+        # ── Fetch prices in background thread, update GUI when done ──────
+        import threading as _threading
+
+        def _fetch_prices():
+            """Runs in background — fetches current prices, no GUI calls here."""
+            now     = datetime.now()
+            updates = {}   # sym -> updated row dict
+            for store_key, store in [("stock", self._stock_store),
+                                      ("crypto", self._crypto_store)]:
                 for sym, r in list(store.items()):
                     if r.get("phase") == "watchlist":
                         continue
                     try:
                         et      = r.get("entry_time", now)
                         elapsed = (now - et).total_seconds()
+                        price   = None
                         if r.get("asset_type") == AssetType.CRYPTO:
-                            if not self.scanner.crypto_fetcher.exchange: continue
-                            price = self.scanner.crypto_fetcher.exchange.fetch_ticker(sym)["last"]
+                            exc = getattr(self.scanner.crypto_fetcher, "exchange", None)
+                            if exc:
+                                try:
+                                    price = exc.fetch_ticker(sym)["last"]
+                                except Exception:
+                                    pass
                         else:
-                            h     = self.scanner.stock_fetcher.get_historical_data(sym)
-                            price = h[-1].price if h else None
-                        if not price: continue
-                        ep = r.get("entry_price", price)
-                        r["current_price"] = price
-                        r["move_pct"]      = move_pct(ep, price)
-                        r["best_move"]     = max(r["move_pct"], r.get("best_move",0.0))
-                        if elapsed >= 300  and not r.get("t5m"):  r["t5m"]  = price
-                        if elapsed >= 900  and not r.get("t15m"): r["t15m"] = price
-                        if elapsed >= 3600 and not r.get("t1h"):  r["t1h"]  = price
+                            try:
+                                h     = self.scanner.stock_fetcher.get_historical_data(sym)
+                                price = h[-1].price if h else None
+                            except Exception:
+                                pass
+                        if not price:
+                            continue
+                        ep       = r.get("entry_price", price)
+                        new_r    = dict(r)
+                        new_r["current_price"] = price
+                        new_r["move_pct"]      = move_pct(ep, price)
+                        new_r["best_move"]     = max(new_r["move_pct"],
+                                                      r.get("best_move", 0.0))
+                        if elapsed >= 300  and not r.get("t5m"):
+                            new_r["t5m"]  = price
+                        if elapsed >= 900  and not r.get("t15m"):
+                            new_r["t15m"] = price
+                        if elapsed >= 3600 and not r.get("t1h"):
+                            new_r["t1h"]  = price
+                        updates[(store_key, sym)] = new_r
                     except Exception:
                         continue
-            self._refresh_tree(self.stock_tree,  self._stock_store)
-            self._refresh_tree(self.crypto_tree, self._crypto_store)
-        except Exception:
-            pass
+
+            # ── Post results back to GUI thread safely ────────────────────
+            def _apply_updates():
+                try:
+                    for (store_key, sym), new_r in updates.items():
+                        store = (self._stock_store if store_key == "stock"
+                                 else self._crypto_store)
+                        if sym in store:
+                            store[sym] = new_r
+                    self._refresh_tree(self.stock_tree,  self._stock_store)
+                    self._refresh_tree(self.crypto_tree, self._crypto_store)
+                except Exception:
+                    pass
+            try:
+                self.root.after(0, _apply_updates)
+            except Exception:
+                pass
+
+        t = _threading.Thread(target=_fetch_prices, daemon=True)
+        t.start()
+
         if self.running:
             self.root.after(30000, self._update_loop)
 
