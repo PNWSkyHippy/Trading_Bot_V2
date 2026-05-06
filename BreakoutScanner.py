@@ -694,7 +694,7 @@ class CryptoDataFetcher:
                 for ts, o, h, l, c, v in self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
             ]
         except Exception as e:
-            logger.error(f"Crypto history error {symbol}: {e}")
+            logger.debug(f"Crypto history skip {symbol}: {e}")
             return []
 
 # =============================================================================
