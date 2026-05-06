@@ -156,20 +156,12 @@ class BotEngine:
         self.logger.info("All components initialized successfully.")
         self._log_strategy_status()
 
-        # Load yesterday's scan results first (if any) then reconcile positions
         self._load_scan_results_on_startup()
-        self._clear_stuck_flags_on_startup()   # auto-clear STUCK so bot retries closes
+        self._clear_stuck_flags_on_startup()
         self._reconcile_positions()
         self._register_scheduled_jobs()
 
     def _clear_stuck_flags_on_startup(self):
-        """
-        On every restart, automatically clear STUCK flags and close attempt
-        counters for all open trades. This gives the position monitor a fresh
-        chance to close trades that got stuck due to transient broker errors.
-        The IBKR fallback in _attempt_close will handle trades where TWS
-        was down — it will automatically retry via Alpaca.
-        """
         try:
             open_trades = self.db.get_open_trades()
             if not open_trades:
@@ -199,11 +191,6 @@ class BotEngine:
             self.logger.error(f"Startup STUCK clear error: {e}")
 
     def _load_scan_results_on_startup(self):
-        """
-        On every bot startup, read the temp scan file and inject yesterday's
-        (or today's) top scanner picks at the front of the watchlists.
-        This ensures picks survive reboots.
-        """
         try:
             inject_scan_results_into_config()
         except Exception as e:
@@ -276,7 +263,7 @@ class BotEngine:
         schedule.every(config.STOCK_SCAN_INTERVAL_SEC).seconds.do(self._run_stock_scan)
         schedule.every(30).seconds.do(self.position_monitor.check_positions)
         schedule.every(config.CAPITAL_SYNC_MIN).minutes.do(self._sync_capital)
-        schedule.every(1).minutes.do(self._flush_alert_digest)  # digest queue check
+        schedule.every(1).minutes.do(self._flush_alert_digest)
 
         for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
             getattr(schedule.every(), day).at("12:45").do(self._close_stocks_eod)
@@ -285,16 +272,11 @@ class BotEngine:
                     "saturday", "sunday"]:
             getattr(schedule.every(), day).at("14:00").do(self._end_of_day)
 
-        # Daily market scan: 13:30 PT = 16:30 ET (30 min after market close)
         for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
             getattr(schedule.every(), day).at("13:30").do(self._run_daily_scan)
 
         schedule.every().day.at("15:00").do(self._retrain_ml)
         schedule.every().sunday.at("00:00").do(run_weekly_export)
-
-        # Midnight reset: runs 24/7 at 00:01 PT to reset daily session counters.
-        # This ensures trades_today, pnl_today, consecutive_losses all reset
-        # correctly at midnight regardless of whether the EOD report ran.
         schedule.every().day.at("00:01").do(self._midnight_reset)
 
         self.logger.info("All scheduled jobs registered.")
@@ -310,12 +292,6 @@ class BotEngine:
         self.logger.info("  - Weekly trade log: Sunday 00:00 PT (covers prev Sun-Sat)")
 
     def _midnight_reset(self):
-        """
-        Runs at 00:01 PT every day.
-        Resets session counters (trades_today, pnl_today, consecutive_losses)
-        so the dashboard shows today's numbers, not an accumulation since last restart.
-        Does NOT generate a report — that's _end_of_day's job at 14:00 PT.
-        """
         try:
             self.db.reset_session_state()
             self.logger.info(
@@ -351,7 +327,6 @@ class BotEngine:
             self.logger.error(f"Crypto scan error: {e}", exc_info=True)
 
     def _run_daily_scan(self):
-        """After-market daily scanner. Saves CSV report and injects picks into watchlists."""
         try:
             self.logger.info("[DAILY SCAN] Running post-market daily scan...")
             run_daily_scan(top_n=10)
@@ -359,35 +334,83 @@ class BotEngine:
             self.logger.error(f"Daily scan error: {e}", exc_info=True)
 
     def _close_stocks_eod(self):
+        """
+        Close all open stock positions before market close.
+        Two-pass approach:
+          Pass 1: Close all stock trades in the DB via their recorded broker.
+          Pass 2: Sweep actual Alpaca positions and close anything still open
+                  that isn't in the DB (manually opened positions, ghosts, etc).
+        """
         try:
             self.logger.info(f"15:45 ET stock EOD close starting ({_et_now_str()})...")
             from data.database import db as _db
-            open_trades  = _db.get_open_trades()
-            stock_trades = [t for t in open_trades if t.get("asset_class") == "stock"]
-            if not stock_trades:
-                return
+            import alpaca_trade_api as tradeapi
 
             closed_count  = 0
             skipped_count = 0
+            failed_syms   = []
+
+            # ── Pass 1: Close DB-tracked stock trades ─────────────────────
+            open_trades  = _db.get_open_trades()
+            stock_trades = [t for t in open_trades if t.get("asset_class") == "stock"]
+
             for trade in stock_trades:
                 if trade.get("is_overnight"):
                     skipped_count += 1
                     continue
                 try:
-                    current_price = self.market_scanner.get_current_price(trade["symbol"], "stock")
+                    current_price = self.market_scanner.get_current_price(
+                        trade["symbol"], "stock"
+                    )
                     if not current_price:
                         current_price = trade["entry_price"]
                 except Exception:
                     current_price = trade["entry_price"]
 
-                success = self.trade_executor.close_trade(trade, current_price, "eod_close")
+                success = self.trade_executor.close_trade(
+                    trade, current_price, "eod_close"
+                )
                 if success:
                     closed_count += 1
                 else:
                     self.logger.error(f"EOD close FAILED for {trade['symbol']}")
+                    failed_syms.append(trade["symbol"])
+
+            # ── Pass 2: Sweep actual Alpaca positions ─────────────────────
+            # Close anything Alpaca shows as open that isn't in our DB.
+            # This catches manually opened positions and any DB misses.
+            try:
+                api = tradeapi.REST(
+                    config.ALPACA_API_KEY,
+                    config.ALPACA_SECRET_KEY,
+                    config.ALPACA_BASE_URL
+                )
+                alpaca_positions = api.list_positions()
+                db_symbols = {t["symbol"] for t in stock_trades}
+
+                for pos in alpaca_positions:
+                    sym = pos.symbol
+                    if sym in db_symbols:
+                        continue   # already handled in pass 1
+                    try:
+                        # Close via Alpaca market order
+                        api.close_position(sym)
+                        self.logger.info(
+                            f"[EOD ALPACA SWEEP] Closed {sym} "
+                            f"(not in DB — manual or ghost position)"
+                        )
+                        closed_count += 1
+                    except Exception as e:
+                        self.logger.error(
+                            f"[EOD ALPACA SWEEP] Failed to close {sym}: {e}"
+                        )
+            except Exception as e:
+                self.logger.warning(f"EOD Alpaca sweep error: {e}")
 
             self.logger.info(
-                f"Stock EOD close: {closed_count} closed, {skipped_count} overnight skipped"
+                f"Stock EOD close: {closed_count} closed, "
+                f"{skipped_count} overnight skipped"
+                + (f", {len(failed_syms)} failed: {failed_syms}" if failed_syms else "")
             )
         except Exception as e:
             self.logger.error(f"Stock EOD close error: {e}", exc_info=True)
@@ -417,7 +440,6 @@ class BotEngine:
             self.logger.error(f"Capital sync error: {e}", exc_info=True)
 
     def _flush_alert_digest(self):
-        """Check if digest queue is due and send if so. Runs every minute."""
         try:
             from reporting.alerts import alert_manager
             alert_manager.flush_digest_if_due()
