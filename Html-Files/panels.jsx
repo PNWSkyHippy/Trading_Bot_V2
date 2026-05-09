@@ -188,7 +188,33 @@ function OpenPositionsPanel() {
 // ============ Manual Trade Entry ============
 function ManualTradePanel() {
   const [form, setForm] = useS({ symbol: '', size: '2000.00', sl: '1.50', dir: 'long', broker: 'ibkr', tp: '3.00', asset: 'stock', overnight: false, label: 'manual' });
+  const [msg, setMsg] = useS('');
+  const [busy, setBusy] = useS(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const apiBase = () => {
+    const configured = (window.DASHBOARD_API_BASE || '').replace(/\/$/, '');
+    if (configured) return configured;
+    if (window.location.protocol === 'file:') return 'http://localhost:8125';
+    return '';
+  };
+  const openTrade = async () => {
+    setBusy(true);
+    setMsg('Submitting manual trade...');
+    try {
+      const res = await fetch(`${apiBase()}/api/trades/manual`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || data.error || `HTTP ${res.status}`);
+      setMsg(data.message || 'Manual trade opened.');
+    } catch (e) {
+      setMsg(`Manual trade failed: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
   return (
     <div style={{ padding: 16 }}>
       <div className="panel-sub" style={{ marginBottom: 14 }}>Enter a trade you spotted yourself — bot submits to broker and manages it with trailing stops.</div>
@@ -207,42 +233,107 @@ function ManualTradePanel() {
         <div className="field"><label style={{ visibility: 'hidden' }}>—</label><label className="checkbox" style={{ paddingTop: 8 }}><input type="checkbox" checked={form.overnight} onChange={e => set('overnight', e.target.checked)} /> Hold Overnight (Day Trade)</label></div>
         <div className="field"><label>Strategy Label</label><input className="input" value={form.label} onChange={e => set('label', e.target.value)} /></div>
       </div>
-      <button className="btn primary full" disabled={!form.symbol}><Icon name="send" size={13} /> Open Trade at Market Price</button>
+      <button className="btn primary full" disabled={!form.symbol || busy} onClick={openTrade}><Icon name="send" size={13} /> {busy ? 'Submitting...' : 'Open Trade at Market Price'}</button>
+      {msg && <div style={{ marginTop: 10, fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
     </div>
   );
 }
 
 // ============ Today's Trade Log ============
 function TradeLogPanel() {
+  const [trades, setTrades] = useS([]);
+  const [msg, setMsg] = useS('Loading closed trades...');
+  const [sort, setSort] = useS({ key: 'closed', dir: 'desc' });
+  const apiBase = () => {
+    const configured = (window.DASHBOARD_API_BASE || '').replace(/\/$/, '');
+    if (configured) return configured;
+    if (window.location.protocol === 'file:') return 'http://localhost:8125';
+    return '';
+  };
+  const loadTrades = async () => {
+    try {
+      const res = await fetch(`${apiBase()}/api/trade_log/today`);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.message || data.error || `HTTP ${res.status}`);
+      const rows = Array.isArray(data.trades) ? data.trades : [];
+      setTrades(rows);
+      setMsg(rows.length ? '' : 'No closed trades today.');
+    } catch (e) {
+      setMsg(`Trade log failed: ${e.message}`);
+    }
+  };
+  useE(() => {
+    loadTrades();
+    const t = setInterval(loadTrades, 15000);
+    return () => clearInterval(t);
+  }, []);
+  const parseClock = (v) => {
+    const m = String(v || '').match(/^(\d{2})\/(\d{2})\s+(\d{2}):(\d{2})$/);
+    if (!m) return 0;
+    return Number(`${m[1]}${m[2]}${m[3]}${m[4]}`);
+  };
+  const parseDuration = (v) => {
+    const text = String(v || '');
+    const h = Number((text.match(/(\d+)h/) || [0, 0])[1]);
+    const m = Number((text.match(/(\d+)m/) || [0, 0])[1]);
+    return h * 60 + m;
+  };
+  const sortValue = (row, key) => {
+    if (key === 'opened' || key === 'closed') return parseClock(row[key]);
+    if (key === 'duration') return parseDuration(row.duration);
+    if (['entry_price', 'exit_price', 'pnl', 'pnl_pct'].includes(key)) return Number(row[key] || 0);
+    return String(row[key] || '').toLowerCase();
+  };
+  const sortedTrades = useM(() => {
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    return [...trades].sort((a, b) => {
+      const av = sortValue(a, sort.key);
+      const bv = sortValue(b, sort.key);
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    });
+  }, [trades, sort]);
+  const toggleSort = (key) => setSort(s => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' }));
+  const SortHead = ({ k, children, num }) => (
+    <th className={num ? 'num' : ''}>
+      <button onClick={() => toggleSort(k)} style={{ all: 'unset', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <span>{children}</span>
+        {sort.key === k && <span style={{ color: 'var(--accent-bright)', fontSize: 10 }}>{sort.dir === 'asc' ? '▲' : '▼'}</span>}
+      </button>
+    </th>
+  );
+
   return (
     <div style={{ padding: 0 }}>
       <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div className="panel-sub" style={{ margin: 0 }}>{MOCK.TRADE_LOG.length} closed trades today · Newest first</div>
+        <div className="panel-sub" style={{ margin: 0 }}>{trades.length} closed trades today · Newest first</div>
         <div style={{ display: 'flex', gap: 4 }}>
-          <button className="btn ghost sm"><Icon name="download" size={12} />Export CSV</button>
+          <button className="btn ghost sm" onClick={loadTrades}><Icon name="refresh" size={12} />Refresh</button>
         </div>
       </div>
+      {msg && <div style={{ padding: '0 16px 10px', fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
       <div className="tbl-wrap">
         <table className="tbl">
           <thead><tr>
-            <th>Opened</th><th>Closed</th><th>Duration</th><th>Symbol</th><th>Dir</th><th>Strategy</th>
-            <th className="num">Entry</th><th className="num">Exit</th><th>Reason</th><th className="num">P&L $</th><th className="num">P&L %</th><th>Result</th>
+            <SortHead k="opened">Opened</SortHead><SortHead k="closed">Closed</SortHead><SortHead k="duration">Duration</SortHead><SortHead k="symbol">Symbol</SortHead><SortHead k="direction">Dir</SortHead><SortHead k="strategy">Strategy</SortHead>
+            <SortHead k="entry_price" num>Entry</SortHead><SortHead k="exit_price" num>Exit</SortHead><SortHead k="reason">Reason</SortHead><SortHead k="pnl" num>P&L $</SortHead><SortHead k="pnl_pct" num>P&L %</SortHead><SortHead k="result">Result</SortHead>
           </tr></thead>
           <tbody>
-            {MOCK.TRADE_LOG.map((t, i) => (
+            {sortedTrades.map((t, i) => (
               <tr key={i}>
                 <td className="muted">{t.opened}</td>
                 <td className="muted">{t.closed}</td>
-                <td className="muted">{t.dur}</td>
+                <td className="muted">{t.duration}</td>
                 <td><strong>{t.symbol}</strong></td>
-                <td><span className={cls('pill', t.dir.toLowerCase())}>{t.dir}</span></td>
+                <td><span className={cls('pill', String(t.direction).toLowerCase())}>{t.direction}</span></td>
                 <td className="muted">{t.strategy}</td>
-                <td className="num">{fmtN(t.entry)}</td>
-                <td className="num">{fmtN(t.exit)}</td>
+                <td className="num">{fmtN(t.entry_price)}</td>
+                <td className="num">{fmtN(t.exit_price)}</td>
                 <td className="muted">{t.reason}</td>
-                <td className={cls('num', t.pnlD > 0 && 'pos', t.pnlD < 0 && 'neg')}>{fmt$Sign(t.pnlD)}</td>
-                <td className={cls('num', t.pnlP > 0 && 'pos', t.pnlP < 0 && 'neg')}>{fmtP(t.pnlP)}</td>
-                <td><span className={cls('pill', t.result.toLowerCase())}>{t.result}</span></td>
+                <td className={cls('num', t.pnl > 0 && 'pos', t.pnl < 0 && 'neg')}>{fmt$Sign(t.pnl)}</td>
+                <td className={cls('num', t.pnl_pct > 0 && 'pos', t.pnl_pct < 0 && 'neg')}>{fmtP(t.pnl_pct)}</td>
+                <td><span className={cls('pill', String(t.result).toLowerCase())}>{t.result}</span></td>
               </tr>
             ))}
           </tbody>

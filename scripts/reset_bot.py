@@ -118,7 +118,7 @@ def reset_bot(confirm: bool = False):
                  invested_value, daily_pnl, total_pnl, note)
             VALUES (?, ?, ?, 0, 0, 0, ?)
         """, (
-            datetime.utcnow().isoformat(),
+            datetime.now().isoformat(),
             starting, starting,
             f"Reset to starting capital ${starting:,.2f}"
         ))

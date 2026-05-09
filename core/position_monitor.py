@@ -48,7 +48,7 @@
 import logging
 import time
 import threading
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional
 
 import numpy as np
@@ -141,17 +141,33 @@ def _approaching_eod() -> bool:
     return at_or_after and before_close
 
 
-def _get_position_age_seconds(trade: Dict) -> float:
-    """Return how many seconds a position has been open."""
+def _parse_entry_time_local(trade: Dict) -> Optional[datetime]:
+    """Parse trade entry time under the DB local-time policy."""
     try:
         entry_raw = trade.get("entry_time", "")
         if not entry_raw:
-            return 0.0
+            return None
         entry_dt = pd.to_datetime(entry_raw)
-        if entry_dt.tzinfo is None:
-            entry_dt = entry_dt.replace(tzinfo=timezone.utc)
-        now_utc = datetime.now(timezone.utc)
-        return (now_utc - entry_dt).total_seconds()
+        if hasattr(entry_dt, "to_pydatetime"):
+            entry_dt = entry_dt.to_pydatetime()
+
+        now_local = datetime.now()
+        if entry_dt.tzinfo is not None:
+            entry_dt = entry_dt.astimezone().replace(tzinfo=None)
+        elif entry_dt > now_local and (entry_dt - now_local).total_seconds() <= 8.5 * 3600:
+            entry_dt = entry_dt - timedelta(hours=7)
+        return entry_dt
+    except Exception:
+        return None
+
+
+def _get_position_age_seconds(trade: Dict) -> float:
+    """Return how many seconds a position has been open."""
+    try:
+        entry_dt = _parse_entry_time_local(trade)
+        if entry_dt is None:
+            return 0.0
+        return max(0.0, (datetime.now() - entry_dt).total_seconds())
     except Exception:
         return 0.0
 
@@ -775,9 +791,8 @@ class PositionMonitor:
                     import time as _t
                     entry_ts = None
                     try:
-                        entry_ts = __import__("pandas").to_datetime(
-                            trade.get("entry_time", "")
-                        ).timestamp()
+                        entry_dt = _parse_entry_time_local(trade)
+                        entry_ts = entry_dt.timestamp() if entry_dt else None
                     except Exception:
                         pass
 
