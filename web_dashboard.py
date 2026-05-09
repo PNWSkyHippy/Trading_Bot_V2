@@ -115,24 +115,27 @@ def start_bot_process():
     except Exception as exc:
         return False, f"Failed to start bot: {exc}"
 
-
 def stop_bot_process():
     try:
         if sys.platform == "win32":
-            result = subprocess.run(
-                ["taskkill", "/F", "/IM", "python.exe", "/FI", "WINDOWTITLE eq *bot_engine.py*"],
-                capture_output=True,
-                text=True,
-            )
+            pids = find_bot_pids_windows()
+            if not pids:
+                return False, "No bot_engine.py process found."
+            killed = 0
+            for pid in pids:
+                result = subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True, text=True)
+                if result.returncode == 0:
+                    killed += 1
+            if killed > 0:
+                return True, f"Bot stop requested for {killed} process(es)."
+            return False, "Matched bot process IDs but taskkill failed."
+        else:
+            result = subprocess.run(["pkill", "-f", "bot_engine.py"], check=False)
             if result.returncode == 0:
                 return True, "Bot stop requested."
-        else:
-            subprocess.run(["pkill", "-f", "bot_engine.py"], check=False)
-            return True, "Bot stop requested."
+            return False, "No bot_engine.py process found."
     except Exception as exc:
         return False, f"Failed to stop bot: {exc}"
-    return False, "Stop command was sent, but no bot process was matched."
-
 
 def get_open_positions():
     if db is not None:
