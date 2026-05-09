@@ -41,7 +41,7 @@ for t in open_trades:
 print(f"\nForce closing all {len(open_trades)} as paper simulation (pnl=0)...")
 print("These were paper trades with no real exchange positions.\n")
 
-now = datetime.utcnow().isoformat()
+now = datetime.now().isoformat()
 count = 0
 
 for t in open_trades:

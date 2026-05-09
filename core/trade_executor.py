@@ -397,7 +397,7 @@ class TradeExecutor:
             "symbol":          signal.symbol,
             "asset_class":     signal.asset_class,
             "direction":       signal.direction,
-            "entry_time":      datetime.utcnow().isoformat(),
+            "entry_time":      datetime.now().isoformat(),
             "entry_price":     round(entry_price, 6),
             "quantity":        approval.quantity,
             "strategy_name":   signal.indicators.get("strategy_name", "original"),
@@ -583,7 +583,7 @@ class TradeExecutor:
 
         full_trade = {
             **trade,
-            "exit_time":  datetime.utcnow().isoformat(),
+            "exit_time":  datetime.now().isoformat(),
             "exit_price": current_price,
             "status":     "closed"
         }

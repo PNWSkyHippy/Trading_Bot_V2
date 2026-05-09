@@ -1,53 +1,151 @@
 // Side-panel windows: Manage Positions, Inject Symbols, Quick Controls (Tax/Reports/Withdrawal)
 const { useState: uS, useEffect: uE, useRef: uR } = React;
 
+// ---------- Shared API helpers ----------
+const apiBase = () => {
+  const configured = (window.DASHBOARD_API_BASE || '').replace(/\/$/, '');
+  if (configured) return configured;
+  if (window.location.protocol === 'file:') return 'http://localhost:8125';
+  return '';
+};
+
+const apiCall = async (path, opts = {}) => {
+  const res = await fetch(`${apiBase()}${path}`, opts);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
+  return data;
+};
+
+const normalizePos = (p) => ({
+  id: p.trade_id || p.id,
+  dbId: p.id,
+  symbol: p.symbol || '?',
+  type: p.asset_class || p.type || 'LIVE',
+  assetClass: p.asset_class || 'crypto',
+  dir: (p.direction || p.side || p.dir || 'LONG').toString().toUpperCase(),
+  entry: Number(p.entry_price ?? p.entry ?? 0),
+  current: Number(p.current_price ?? p.current ?? p.entry_price ?? p.entry ?? 0),
+  sl: Number(p.stop_loss ?? p.sl ?? p.entry_price ?? p.entry ?? 0),
+  tp: Number(p.take_profit ?? p.tp ?? p.entry_price ?? p.entry ?? 0),
+  pnlD: Number(p.unrealized_pnl ?? p.pnlD ?? 0),
+  pnlP: Number(p.pnl_pct ?? p.pnlP ?? 0),
+  opened: p.entry_time || p.opened || '—',
+  toSL: Number(p.distance_to_sl ?? p.toSL ?? 0),
+  toTP: Number(p.distance_to_tp ?? p.toTP ?? 0),
+});
+
 // ===== Manage Positions =====
 function ManagePositionsPanel() {
-  const [positions, setPositions] = uS(MOCK.OPEN_POSITIONS);
+  const [positions, setPositions] = uS([]);
   const [chartSym, setChartSym] = uS(null);
   const [candleSize, setCandleSize] = uS('5 Min');
+  const [msg, setMsg] = uS('');
+  const [busy, setBusy] = uS(false);
 
-  const closeNow = (sym) => {
-    setPositions(prev => prev.filter(p => p.symbol !== sym));
+  const loadPositions = async () => {
+    try {
+      const data = await apiCall('/api/open_positions');
+      const rows = Array.isArray(data.positions) ? data.positions.map(normalizePos) : [];
+      setPositions(rows);
+      setMsg(`Loaded ${rows.length} live position(s)`);
+    } catch (e) {
+      setMsg(`Load failed: ${e.message}`);
+    }
+  };
+
+  uE(() => {
+    loadPositions();
+    const t = setInterval(loadPositions, 10000);
+    return () => clearInterval(t);
+  }, []);
+
+  const closeNow = async (p) => {
+    if (!p?.id) {
+      setMsg(`Cannot close ${p?.symbol || '?'}: missing position id`);
+      return;
+    }
+    setBusy(true);
+    try {
+      const data = await apiCall('/api/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'close_position', position_id: p.id }),
+      });
+      setMsg(data.message || `Closed ${p.symbol}`);
+      await loadPositions();
+    } catch (e) {
+      setMsg(`Close failed: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const closeAll = async () => {
+    setBusy(true);
+    try {
+      for (const p of positions) {
+        if (p.id != null) {
+          await apiCall('/api/control', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ action: 'close_position', position_id: p.id }),
+          });
+        }
+      }
+      setMsg('Close-all requested.');
+      await loadPositions();
+    } catch (e) {
+      setMsg(`Close-all failed: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <div style={{ padding: 14 }}>
       <div className="banner info" style={{ marginBottom: 12 }}>
         <Icon name="alert" size={14} />
-        <span>Stocks: cancels bracket orders first, then closes. Crypto: closes via exchange. <strong>STUCK</strong> = exceeded 3 failed close attempts; needs manual close.</span>
+        <span>Live backend mode: Close actions hit /api/control. Refresh pulls /api/open_positions.</span>
       </div>
+
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <button className="btn ghost sm"><Icon name="refresh" size={12} />Refresh</button>
-        <button className="btn danger sm"><Icon name="x" size={12} />Close All</button>
+        <button className="btn ghost sm" onClick={loadPositions} disabled={busy}><Icon name="refresh" size={12} />Refresh</button>
+        <button className="btn danger sm" onClick={closeAll} disabled={busy || positions.length === 0}><Icon name="x" size={12} />Close All</button>
         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-2)' }}>{positions.length} open</span>
       </div>
 
+      {msg && <div style={{ marginBottom: 10, fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
+
       {positions.map((p, i) => {
-        const slPct = Math.abs((p.current - p.sl) / p.entry * 100);
-        const tpPct = Math.abs((p.current - p.tp) / p.entry * 100);
-        const total = slPct + tpPct;
+        const slPct = Math.abs((p.current - p.sl) / (p.entry || 1) * 100);
+        const tpPct = Math.abs((p.current - p.tp) / (p.entry || 1) * 100);
+        const total = Math.max(0.0001, slPct + tpPct);
         const slBar = (slPct / total) * 100;
         const isChart = chartSym === p.symbol;
         return (
-          <div key={i} className="pos-card">
+          <div key={p.id ?? `${p.symbol}-${i}`} className="pos-card">
             <div className="row1">
               <span className="sym">{p.symbol}</span>
               <span className={cls('pill', p.dir.toLowerCase())} style={{ fontSize: 9.5 }}>{p.dir}</span>
-              <span className="meta">Entry {fmtN(p.entry)} · Cur {fmtN(p.current)} · SL {fmtN(p.sl)} · TP {fmtN(p.tp)} · {p.toSL.toFixed(2)}% to SL · {p.toTP.toFixed(2)}% to TP</span>
+              <span className="meta">ID {p.id ?? '—'} · Entry {fmtN(p.entry)} · Cur {fmtN(p.current)} · SL {fmtN(p.sl)} · TP {fmtN(p.tp)}</span>
               <span className={cls('pnl', p.pnlD >= 0 ? 'pos' : 'neg')} style={{ color: p.pnlD >= 0 ? 'var(--green)' : 'var(--red)' }}>
                 {fmt$Sign(p.pnlD)} ({fmtP(p.pnlP)})
               </span>
             </div>
+
             <div className="progress"><div style={{ width: slBar + '%', background: 'linear-gradient(90deg, var(--red), var(--yellow), var(--green))' }} /></div>
+
             <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
               <button className="btn ghost sm" onClick={() => setChartSym(isChart ? null : p.symbol)}>
                 <Icon name="candles" size={12} /> {isChart ? 'Hide chart' : 'View chart'}
               </button>
               <button className="btn ghost sm"><Icon name="edit" size={12} />Adjust SL/TP</button>
               <span className="spacer" />
-              <button className="btn danger sm" onClick={() => closeNow(p.symbol)}><Icon name="x" size={12} />Close Now</button>
+              <button className="btn danger sm" onClick={() => closeNow(p)} disabled={busy || p.id == null}>
+                <Icon name="x" size={12} />Close Now
+              </button>
             </div>
+
             {isChart && (
               <div style={{ marginTop: 12, padding: 12, background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
@@ -56,10 +154,10 @@ function ManagePositionsPanel() {
                     {['1 Min', '5 Min', '15 Min', '1 H', '4 H', '1 D'].map(c => <option key={c}>{c}</option>)}
                   </select>
                   <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
-                    {['1H', '6H', '12H', '1D', '3D', 'ALL'].map(p => <button key={p} className="btn ghost sm" style={{ padding: '3px 8px', fontSize: 10 }}>{p}</button>)}
+                    {['1H', '6H', '12H', '1D', '3D', 'ALL'].map(per => <button key={per} className="btn ghost sm" style={{ padding: '3px 8px', fontSize: 10 }}>{per}</button>)}
                   </div>
                 </div>
-                <MiniCandleChart symbol={p.symbol} dir={p.dir} entry={p.entry} sl={p.sl} tp={p.tp} />
+                <MiniCandleChart symbol={p.symbol} assetClass={p.assetClass} timeframe={candleSize} dir={p.dir} entry={p.entry} sl={p.sl} tp={p.tp} />
               </div>
             )}
           </div>
@@ -69,19 +167,38 @@ function ManagePositionsPanel() {
   );
 }
 
-function MiniCandleChart({ symbol, dir, entry, sl, tp }) {
-  // Generate mock candles
-  const candles = uS(() => {
-    const out = []; let p = entry * (dir === 'LONG' ? 0.99 : 1.01);
-    for (let i = 0; i < 80; i++) {
-      const o = p, c = p + (Math.random() - 0.5) * entry * 0.005;
-      const h = Math.max(o, c) + Math.random() * entry * 0.002;
-      const l = Math.min(o, c) - Math.random() * entry * 0.002;
-      out.push({ o, h, l, c });
-      p = c;
-    }
-    return out;
-  })[0];
+function MiniCandleChart({ symbol, assetClass, timeframe, dir, entry, sl, tp }) {
+  const [candles, setCandles] = uS([]);
+  const [status, setStatus] = uS('Loading chart...');
+
+  uE(() => {
+    let cancelled = false;
+    const load = async () => {
+      setStatus('Loading chart...');
+      try {
+        const qs = new URLSearchParams({ symbol, asset_class: assetClass || 'crypto', timeframe: timeframe || '5 Min', limit: '120' });
+        const data = await apiCall(`/api/candles?${qs.toString()}`);
+        const rows = Array.isArray(data.candles) ? data.candles.map(c => ({
+          o: Number(c.open),
+          h: Number(c.high),
+          l: Number(c.low),
+          c: Number(c.close),
+        })).filter(c => c.o && c.h && c.l && c.c) : [];
+        if (!cancelled) {
+          setCandles(rows);
+          setStatus(rows.length ? '' : 'No chart data available.');
+        }
+      } catch (e) {
+        if (!cancelled) setStatus(`Chart failed: ${e.message}`);
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [symbol, assetClass, timeframe]);
+
+  if (!candles.length) {
+    return <div style={{ height: 140, display: 'grid', placeItems: 'center', background: 'var(--bg-0)', borderRadius: 4, border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 11 }}>{status}</div>;
+  }
 
   const max = Math.max(...candles.map(c => c.h), entry, sl, tp) * 1.001;
   const min = Math.min(...candles.map(c => c.l), entry, sl, tp) * 0.999;
@@ -91,7 +208,6 @@ function MiniCandleChart({ symbol, dir, entry, sl, tp }) {
 
   return (
     <svg viewBox={`0 0 ${W} ${H + 4}`} style={{ width: '100%', height: 140, background: 'var(--bg-0)', borderRadius: 4, border: '1px solid var(--border)' }} preserveAspectRatio="none">
-      {/* Reference lines */}
       <line x1="0" x2={W} y1={yScale(sl)} y2={yScale(sl)} stroke="#f43f5e" strokeWidth="0.15" strokeDasharray="0.5,0.5" />
       <line x1="0" x2={W} y1={yScale(tp)} y2={yScale(tp)} stroke="#10b981" strokeWidth="0.15" strokeDasharray="0.5,0.5" />
       <line x1="0" x2={W} y1={yScale(entry)} y2={yScale(entry)} stroke="#60a5fa" strokeWidth="0.15" strokeDasharray="0.5,0.5" />
@@ -115,61 +231,93 @@ function MiniCandleChart({ symbol, dir, entry, sl, tp }) {
 
 // ===== Inject Symbols =====
 function InjectSymbolsPanel() {
-  const [stocks, setStocks] = uS(MOCK.INJECTED.stocks);
-  const [crypto, setCrypto] = uS(MOCK.INJECTED.crypto);
+  const [stocks, setStocks] = uS([]);
+  const [crypto, setCrypto] = uS([]);
   const [stockInput, setStockInput] = uS('AAPL\nMSFT\nNVDA');
   const [cryptoInput, setCryptoInput] = uS('BTC\nETH\nSOL');
+  const [msg, setMsg] = uS('');
+  const [busy, setBusy] = uS(false);
 
-  const inject = (kind) => {
+  const loadInjected = async () => {
+    try {
+      const data = await apiCall('/api/injected_symbols');
+      setStocks(Array.isArray(data.stocks) ? data.stocks : []);
+      setCrypto(Array.isArray(data.crypto) ? data.crypto : []);
+    } catch (e) {
+      setMsg(`Load failed: ${e.message}`);
+    }
+  };
+
+  uE(() => { loadInjected(); }, []);
+
+  const inject = async (kind) => {
     const raw = (kind === 'stock' ? stockInput : cryptoInput).split(/[\n,]/).map(s => s.trim()).filter(Boolean);
-    if (kind === 'stock') setStocks(prev => Array.from(new Set([...prev, ...raw])));
-    else setCrypto(prev => Array.from(new Set([...prev, ...raw.map(c => c.includes('/') ? c : c + '/USD')])));
+    setBusy(true);
+    try {
+      const data = await apiCall('/api/injected_symbols', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, symbols: raw }),
+      });
+      setStocks(Array.isArray(data.stocks) ? data.stocks : []);
+      setCrypto(Array.isArray(data.crypto) ? data.crypto : []);
+      setMsg(data.message || 'Injected symbols updated.');
+    } catch (e) {
+      setMsg(`Inject failed: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clearInjected = async () => {
+    setBusy(true);
+    try {
+      const data = await apiCall('/api/injected_symbols/clear', { method: 'POST' });
+      setStocks(Array.isArray(data.stocks) ? data.stocks : []);
+      setCrypto(Array.isArray(data.crypto) ? data.crypto : []);
+      setMsg(data.message || 'Injected symbols cleared.');
+    } catch (e) {
+      setMsg(`Clear failed: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
     <div style={{ padding: 16 }}>
       <div className="panel-sub" style={{ marginBottom: 14 }}>
-        Spotted something? Add it here — temporary for today only. Resets on next scan or reboot. To make permanent, edit the master watchlist files.
+        Spotted something? Add it here — temporary for today only. Resets on next scan or reboot.
       </div>
+      {msg && <div style={{ marginBottom: 10, fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
       <div className="grid-2" style={{ marginBottom: 16 }}>
         <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 14 }}>
           <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
             <Icon name="trending" size={13} />Stocks
           </h3>
           <div className="field" style={{ marginBottom: 10 }}>
-            <label>Tickers (one per line or comma-separated)</label>
+            <label>Tickers</label>
             <textarea className="input textarea" rows={4} value={stockInput} onChange={e => setStockInput(e.target.value)} />
           </div>
-          <button className="btn primary full" onClick={() => inject('stock')}><Icon name="plus" size={12} />Inject Stocks</button>
+          <button className="btn primary full" onClick={() => inject('stock')} disabled={busy}><Icon name="plus" size={12} />Inject Stocks</button>
         </div>
         <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 14 }}>
           <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--yellow)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
             <Icon name="coins" size={13} />Crypto
           </h3>
           <div className="field" style={{ marginBottom: 10 }}>
-            <label>Symbols (e.g. BTC or BTC/USD, one per line or comma-separated)</label>
+            <label>Symbols</label>
             <textarea className="input textarea" rows={4} value={cryptoInput} onChange={e => setCryptoInput(e.target.value)} />
           </div>
-          <button className="btn primary full" onClick={() => inject('crypto')}><Icon name="plus" size={12} />Inject Crypto</button>
+          <button className="btn primary full" onClick={() => inject('crypto')} disabled={busy}><Icon name="plus" size={12} />Inject Crypto</button>
         </div>
       </div>
-
-      <div style={{ marginBottom: 8, fontSize: 11, color: 'var(--text-1)', fontWeight: 600 }}>Currently active injected symbols:</div>
-      <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 10, marginBottom: 8 }}>
-        <div style={{ fontSize: 11, color: 'var(--blue)', marginBottom: 6, fontWeight: 600 }}>Stocks ({stocks.length})</div>
-        <div className="chip-list">
-          {stocks.length === 0 && <span style={{ color: 'var(--text-3)', fontSize: 11 }}>No injected stocks.</span>}
-          {stocks.map(s => <span key={s} className="chip stock">{s} <span className="x" onClick={() => setStocks(p => p.filter(x => x !== s))}>×</span></span>)}
+      {(stocks.length > 0 || crypto.length > 0) && (
+        <div style={{ marginBottom: 12, display: 'grid', gap: 8 }}>
+          {stocks.length > 0 && <div className="banner info"><Icon name="trending" size={13} /><span>Stocks ({stocks.length}): {stocks.join(', ')}</span></div>}
+          {crypto.length > 0 && <div className="banner info"><Icon name="coins" size={13} /><span>Crypto ({crypto.length}): {crypto.join(', ')}</span></div>}
         </div>
-      </div>
-      <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 10, marginBottom: 12 }}>
-        <div style={{ fontSize: 11, color: 'var(--yellow)', marginBottom: 6, fontWeight: 600 }}>Crypto ({crypto.length})</div>
-        <div className="chip-list">
-          {crypto.length === 0 && <span style={{ color: 'var(--text-3)', fontSize: 11 }}>No injected crypto.</span>}
-          {crypto.map(c => <span key={c} className="chip crypto">{c} <span className="x" onClick={() => setCrypto(p => p.filter(x => x !== c))}>×</span></span>)}
-        </div>
-      </div>
-      <button className="btn ghost full" onClick={() => { setStocks([]); setCrypto([]); }}><Icon name="trash" size={12} />Clear All Injected Symbols</button>
+      )}
+      <button className="btn ghost full" onClick={clearInjected} disabled={busy}><Icon name="trash" size={12} />Clear All Injected Symbols</button>
     </div>
   );
 }
@@ -183,6 +331,36 @@ function QuickControlsPanel() {
   const [wAmount, setWAmount] = uS('0.00');
   const [wReason, setWReason] = uS('Living expenses');
   const [mlTraining, setMlTraining] = uS(false);
+  const [busy, setBusy] = uS(false);
+  const [msg, setMsg] = uS('');
+
+  const refreshSnapshot = async () => {
+    try {
+      const snap = await apiCall('/api/snapshot');
+      setRunning(!!snap.bot_process_running);
+      if (snap.bot_status === 'PAUSED') setPaused(true);
+      if (snap.bot_status === 'ACTIVE') setPaused(false);
+    } catch {}
+  };
+
+  uE(() => { refreshSnapshot(); }, []);
+
+  const callControl = async (action, extras = {}) => {
+    setBusy(true);
+    try {
+      const data = await apiCall('/api/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action, ...extras })
+      });
+      setMsg(data.message || data.error || 'Done');
+      await refreshSnapshot();
+    } catch (e) {
+      setMsg(`Control failed: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const triggerML = () => {
     setMlTraining(true);
@@ -199,12 +377,17 @@ function QuickControlsPanel() {
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
           <span className="dot" style={{ width: 8, height: 8, borderRadius: '50%', background: running ? 'var(--green)' : 'var(--red)', boxShadow: running ? '0 0 8px var(--green)' : 'none' }}></span>
           <span style={{ fontSize: 12, fontWeight: 500 }}>{running ? 'Bot Running' : 'Bot Stopped'}</span>
-          <span className="tag" style={{ marginLeft: 'auto' }}>PID 11552</span>
+          <span className="tag" style={{ marginLeft: 'auto' }}>{busy ? 'Working…' : 'Live'}</span>
         </div>
         <div className="grid-2">
-          <button className="btn ghost"><Icon name="refresh" size={12} />Restart Bot</button>
-          <button className="btn danger" onClick={() => setRunning(false)}><Icon name="stop" size={12} />Stop Bot</button>
+          <button className="btn ghost" onClick={() => callControl('restart_bot')} disabled={busy}>
+            <Icon name="refresh" size={12} />Restart Bot
+          </button>
+          <button className="btn danger" onClick={() => callControl('stop_bot')} disabled={busy}>
+            <Icon name="stop" size={12} />Stop Bot
+          </button>
         </div>
+        {msg && <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
       </div>
 
       {/* Trading Control */}
@@ -212,10 +395,13 @@ function QuickControlsPanel() {
         <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
           <Icon name="activity" size={13} />Trading Control
         </h3>
-        <button className={cls('btn full', paused ? 'primary' : 'ghost')} onClick={() => setPaused(p => !p)}>
+        <button
+          className={cls('btn full', paused ? 'primary' : 'ghost')}
+          onClick={() => callControl(paused ? 'resume_trading' : 'pause_trading')}
+          disabled={busy}
+        >
           {paused ? <><Icon name="play" size={12} />Resume Trading</> : <><Icon name="pause" size={12} />Pause Trading</>}
         </button>
-        <div style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 8 }}>Pause stops new trades but keeps the bot running and monitoring open positions.</div>
       </div>
 
       {/* Risk Settings */}
@@ -237,30 +423,7 @@ function QuickControlsPanel() {
         <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
           <Icon name="layers" size={13} />ML Scorer
         </h3>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-          <span className="dot" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--blue)' }}></span>
-          <span style={{ fontSize: 12 }}>Learning · 30% weight</span>
-        </div>
-        <div className="progress" style={{ height: 4, background: 'var(--bg-3)', borderRadius: 2, overflow: 'hidden', marginBottom: 8 }}>
-          <div style={{ width: '30%', height: '100%', background: 'var(--accent)' }} />
-        </div>
-        <div style={{ fontSize: 10.5, color: 'var(--text-2)', marginBottom: 10 }}>112 trades to full ML weight (target 1000)</div>
         <button className="btn ghost full" onClick={triggerML} disabled={mlTraining}>{mlTraining ? <><Icon name="cpu" size={12} />Training…</> : <><Icon name="cpu" size={12} />Train ML Now</>}</button>
-      </div>
-
-      {/* Market Condition */}
-      <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 14, marginBottom: 12 }}>
-        <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Icon name="eye" size={13} />Market Condition
-        </h3>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <span className="tag" style={{ background: 'rgba(245, 158, 11, 0.1)', color: 'var(--yellow)', borderColor: 'rgba(245, 158, 11, 0.25)', border: '1px solid' }}>Unknown</span>
-          <span style={{ fontSize: 11, color: 'var(--text-2)' }}>ADX 0.0 · Scalar 50%</span>
-        </div>
-        <div style={{ fontSize: 10.5, color: 'var(--text-2)' }}>Insufficient data for condition analysis.</div>
-        <div className="banner warn" style={{ marginTop: 10, fontSize: 11 }}>
-          Conditions unfavorable — bot is pausing new entries.
-        </div>
       </div>
 
       {/* Tax & Reports */}
@@ -272,13 +435,6 @@ function QuickControlsPanel() {
         <div className="field" style={{ marginBottom: 10 }}>
           <label>Tax Year</label>
           <input className="input" type="number" value={taxYear} onChange={e => setTaxYear(+e.target.value)} />
-        </div>
-        <button className="btn ghost full" style={{ marginBottom: 12 }}><Icon name="download" size={12} />Export Form 8949 CSV</button>
-        <div style={{ background: 'var(--bg-3)', borderRadius: 'var(--radius-sm)', padding: 10, fontSize: 11 }}>
-          <div style={{ color: 'var(--text-2)', textTransform: 'uppercase', letterSpacing: '0.05em', fontSize: 10, marginBottom: 6 }}>YTD Tax Summary ({taxYear})</div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}><span>Total Gains/Losses</span><strong style={{ color: 'var(--green)', fontFamily: 'var(--mono)' }}>$736.17</strong></div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}><span>Short-Term</span><span style={{ fontFamily: 'var(--mono)' }}>$736.17</span></div>
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Long-Term</span><span style={{ fontFamily: 'var(--mono)' }}>$0.00</span></div>
         </div>
       </div>
 

@@ -31,6 +31,38 @@ from reporting.report_generator import ReportGenerator
 report_generator = ReportGenerator()
 dash_logger = logging.getLogger("dashboard")
 
+
+def parse_db_time(raw):
+    """Parse DB timestamps under the local-time policy, preserving old tz-tagged rows."""
+    if not raw:
+        return None
+    try:
+        parsed = pd.to_datetime(raw)
+        if getattr(parsed, "tzinfo", None) is not None:
+            parsed = parsed.tz_convert(None)
+        return parsed
+    except Exception:
+        return None
+
+
+def normalize_entry_exit(entry_dt, exit_dt):
+    """Older rows may have UTC entry_time and local exit_time in the same trade."""
+    if entry_dt is None or exit_dt is None or entry_dt <= exit_dt:
+        return entry_dt, exit_dt
+    hours_ahead = (entry_dt - exit_dt).total_seconds() / 3600
+    if 0 < hours_ahead <= 8.5:
+        adjusted = entry_dt - pd.Timedelta(hours=7)
+        if adjusted <= exit_dt:
+            return adjusted, exit_dt
+    return entry_dt, exit_dt
+
+
+def fmt_db_time(raw):
+    parsed = parse_db_time(raw)
+    if parsed is None:
+        return (raw[:16] if raw else "—"), pd.Timestamp.min
+    return parsed.strftime("%m/%d %H:%M PDT"), parsed
+
 # ----------------------------------------------------------
 #  PAGE CONFIG
 # ----------------------------------------------------------
@@ -361,13 +393,7 @@ if positions:
     pos_rows = []
     for p in positions:
         raw_time = p.get("entry_time", "") or ""
-        try:
-            entry_dt       = pd.to_datetime(raw_time)
-            entry_dt_local = entry_dt.tz_localize("UTC").tz_convert("America/Los_Angeles")
-            entry_str      = entry_dt_local.strftime("%m/%d %H:%M PDT")
-        except Exception:
-            entry_dt  = pd.Timestamp.min
-            entry_str = raw_time[:16] if raw_time else "—"
+        entry_str, entry_dt = fmt_db_time(raw_time)
         pnl_val  = p.get("unrealized_pnl", 0) or 0
         pnl_pct  = p.get("pnl_pct", 0) or 0
         dist_sl  = p.get("distance_to_sl", 0) or 0
@@ -622,7 +648,7 @@ with st.expander("➕ Open Manual Trade", expanded=False):
                     VALUES (?,?,?,?,?,?,?,?,?,?,?,0,0,1.0,?,?)
                 """, (
                     trade_id, sym_upper, m_asset, m_direction, "open",
-                    dt.utcnow().isoformat(),
+                    dt.now().isoformat(),
                     round(actual_fill_price, 6),
                     round(qty, 6),
                     round(m_size, 2),
@@ -736,25 +762,23 @@ if closed_today:
         pnl_pct = t.get("pnl_pct", 0) or 0
         raw_exit  = t.get("exit_time", "") or ""
         raw_entry = t.get("entry_time", "") or ""
+        exit_str, exit_dt = fmt_db_time(raw_exit)
+        entry_str, entry_dt = fmt_db_time(raw_entry)
+        entry_dt, exit_dt = normalize_entry_exit(entry_dt, exit_dt)
+        if entry_dt is not None and entry_dt != pd.Timestamp.min:
+            entry_str = entry_dt.strftime("%m/%d %H:%M PDT")
+        if exit_dt is not None and exit_dt != pd.Timestamp.min:
+            exit_str = exit_dt.strftime("%m/%d %H:%M PDT")
         try:
-            exit_dt       = pd.to_datetime(raw_exit)
-            exit_dt_local = exit_dt.tz_localize("UTC").tz_convert("America/Los_Angeles")
-            exit_str      = exit_dt_local.strftime("%m/%d %H:%M PDT")
-        except Exception:
-            exit_dt  = pd.Timestamp.min
-            exit_str = raw_exit[:16] if raw_exit else "—"
-        try:
-            entry_dt       = pd.to_datetime(raw_entry)
-            entry_dt_local = entry_dt.tz_localize("UTC").tz_convert("America/Los_Angeles")
-            entry_str      = entry_dt_local.strftime("%m/%d %H:%M PDT")
             # Calculate duration
             duration_mins  = int((exit_dt - entry_dt).total_seconds() / 60)
-            if duration_mins >= 60:
+            if duration_mins < 0:
+                duration_str = "—"
+            elif duration_mins >= 60:
                 duration_str = f"{duration_mins // 60}h {duration_mins % 60}m"
             else:
                 duration_str = f"{duration_mins}m"
         except Exception:
-            entry_str    = raw_entry[:16] if raw_entry else "—"
             duration_str = "—"
         log_rows.append({"_exit_dt": exit_dt, "Opened": entry_str, "Closed": exit_str, "Duration": duration_str, "Symbol": t["symbol"], "Dir": t["direction"].upper(), "Strategy": t.get("strategy_name", "original"), "Entry $": float(t.get("entry_price", 0) or 0), "Exit $": float(t.get("exit_price", 0) or 0), "Reason": t.get("exit_reason", "").replace("_", " ").title(), "P&L $": float(pnl), "P&L %": float(pnl_pct), "Result": "✅ Win" if pnl > 0 else "❌ Loss"})
     df_log = pd.DataFrame(log_rows).sort_values("_exit_dt", ascending=False).reset_index(drop=True).drop(columns=["_exit_dt"])

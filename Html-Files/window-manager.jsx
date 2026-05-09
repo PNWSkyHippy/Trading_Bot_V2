@@ -39,7 +39,9 @@ function WindowProvider({ children, defs }) {
     return obj;
   });
   const [focusedId, setFocusedId] = useState(null);
-  const zCounter = useRef(100);
+  const zCounter = useRef(
+    Math.max(100, ...Object.values(persisted).map(w => Number(w?.z) || 0))
+  );
 
   // Persist
   useEffect(() => {
