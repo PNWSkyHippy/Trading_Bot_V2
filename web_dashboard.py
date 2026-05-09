@@ -216,14 +216,19 @@ def build_snapshot():
         row = cur.fetchone()
         available_cash = float(row[0]) if row else 0.0
         conn.close()
-        return {
-            "bot_status": "UNKNOWN",
-            "open_positions": open_positions,
-            "available_cash": available_cash,
-            "bot_process_running": is_bot_running(),
-        }
+        return {"bot_status": "UNKNOWN", "open_positions": open_positions, "available_cash": available_cash, "bot_process_running": is_bot_running()}
     except Exception:
         return {"bot_status": "UNKNOWN", "open_positions": 0, "available_cash": 0.0, "bot_process_running": is_bot_running()}
+
+
+
+
+def load_entry_html(prefer_modular=True):
+    modular = HTML_ROOT / "Trading Dashboard.html"
+    stage3 = HTML_ROOT / "index.html"
+    if prefer_modular and modular.exists():
+        return modular.read_bytes(), "modular"
+    return stage3.read_bytes(), "stage3"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -241,7 +246,16 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/open_positions":
             return self._json(200, {"positions": get_open_positions()})
         if self.path == "/" or self.path == "/index.html":
-            page = (HTML_ROOT / "index.html").read_bytes()
+            page, mode = load_entry_html(prefer_modular=True)
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.send_header("X-Dashboard-Mode", mode)
+            self.send_header("Content-Length", str(len(page)))
+            self.end_headers()
+            self.wfile.write(page)
+            return
+        if self.path == "/stage3":
+            page, _ = load_entry_html(prefer_modular=False)
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(page)))
@@ -256,7 +270,7 @@ class Handler(BaseHTTPRequestHandler):
             if file_path.exists() and file_path.is_file():
                 content = file_path.read_bytes()
                 self.send_response(200)
-                if file_path.suffix in (".jsx", ".js"):
+                if file_path.suffix == ".jsx" or file_path.suffix == ".js":
                     mime = "text/javascript"
                 elif file_path.suffix == ".css":
                     mime = "text/css"
