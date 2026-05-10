@@ -212,7 +212,7 @@ class StrategyEngine:
                     direction              = trade_signal.direction,
                     score                  = trade_signal.score,
                     current_price          = price,
-                    indicators             = trade_signal.metadata or {},
+                    indicators             = {**(trade_signal.metadata or {}), "timeframe": tf_key},
                     reason                 = trade_signal.reason,
                     strategy_name          = strategy.strategy_name,
                     custom_stop_loss_pct   = trade_signal.stop_loss_pct,

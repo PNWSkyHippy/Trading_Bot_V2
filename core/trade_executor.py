@@ -380,15 +380,22 @@ class TradeExecutor:
         if entry_price == 0:
             entry_price = signal.current_price
 
-        sl_pct = (custom_sl  or config.DEFAULT_STOP_LOSS_PCT)   / 100
-        tp_pct = (custom_tp  or config.DEFAULT_TAKE_PROFIT_PCT) / 100
+        tp_pct = (custom_tp or config.DEFAULT_TAKE_PROFIT_PCT) / 100
 
         if signal.direction == "long":
-            stop_loss   = entry_price * (1 - sl_pct)
             take_profit = entry_price * (1 + tp_pct)
         else:
-            stop_loss   = entry_price * (1 + sl_pct)
             take_profit = entry_price * (1 - tp_pct)
+
+        # Prefer structural stop embedded by the scanner (two-bar model).
+        # Fall back to percent-based only when the scanner could not compute one.
+        structural_stop = signal.indicators.get("structural_stop_price")
+        if structural_stop is not None:
+            stop_loss = structural_stop
+        else:
+            sl_pct    = (custom_sl or config.DEFAULT_STOP_LOSS_PCT) / 100
+            stop_loss = (entry_price * (1 - sl_pct) if signal.direction == "long"
+                         else entry_price * (1 + sl_pct))
 
         broker_name = self._get_broker_name(signal)
 
@@ -401,6 +408,7 @@ class TradeExecutor:
             "entry_price":     round(entry_price, 6),
             "quantity":        approval.quantity,
             "strategy_name":   signal.indicators.get("strategy_name", "original"),
+            "entry_timeframe": signal.indicators.get("timeframe", "5Min"),
             "position_value":  approval.position_value,
             "stop_loss":       round(stop_loss, 6),
             "take_profit":     round(take_profit, 6),

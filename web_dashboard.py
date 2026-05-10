@@ -7,6 +7,7 @@ import os
 import sqlite3
 import subprocess
 import sys
+import threading
 from datetime import date, datetime, timedelta
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -17,6 +18,7 @@ HTML_ROOT = ROOT / "Html-Files"
 if not HTML_ROOT.exists():
     HTML_ROOT = ROOT / "HTML-Files"
 
+_config = None
 try:
     import config as _config
     _default_db_path = Path(_config.DB_PATH)
@@ -32,6 +34,9 @@ WEB_DASHBOARD_PORT = 8125
 
 risk_manager = None
 db = None
+monitor = None
+_close_lock = threading.Lock()
+_close_requests = {}
 
 try:
     from data.database import db as _db
@@ -44,6 +49,12 @@ try:
     risk_manager = _risk_manager
 except Exception:
     risk_manager = None
+
+try:
+    from core.position_monitor import monitor as _monitor
+    monitor = _monitor
+except Exception:
+    monitor = None
 
 
 def is_bot_running():
@@ -181,18 +192,83 @@ def stop_bot_process():
         return False, f"Failed to stop bot: {exc}"
 
 
-def get_open_positions():
+def sort_open_positions(rows, sort_by=None, sort_dir="desc"):
+    key_map = {
+        "opened": "entry_time",
+        "symbol": "symbol",
+        "type": "asset_class",
+        "dir": "direction",
+        "entry": "entry_price",
+        "current": "current_price",
+        "sl": "stop_loss",
+        "tp": "take_profit",
+        "pnlD": "unrealized_pnl",
+        "pnlP": "pnl_pct",
+        "toSL": "distance_to_sl",
+        "toTP": "distance_to_tp",
+    }
+    field = key_map.get(sort_by or "opened", "entry_time")
+    reverse = str(sort_dir or "desc").lower() != "asc"
+
+    def value(row):
+        raw = row.get(field)
+        if field in ("asset_class", "direction", "entry_time", "symbol"):
+            return str(raw or "").lower()
+        try:
+            return float(raw or 0)
+        except Exception:
+            return 0.0
+
+    return sorted(rows, key=value, reverse=reverse)
+
+
+def get_open_positions(sort_by=None, sort_dir="desc", enrich=True):
     """Return open positions using DB adapter when available, else SQLite fallback."""
+    if enrich and monitor is not None:
+        try:
+            rows = monitor.get_positions_summary() or []
+            positions = [
+                {
+                    "id": t.get("id"),
+                    "trade_id": t.get("trade_id"),
+                    "symbol": t.get("symbol") or t.get("ticker") or "?",
+                    "asset_class": t.get("asset_class") or "crypto",
+                    "side": t.get("direction") or t.get("side") or "long",
+                    "direction": t.get("direction") or t.get("side") or "long",
+                    "qty": float(t.get("quantity") or t.get("shares") or 0),
+                    "entry_price": float(t.get("entry_price") or 0),
+                    "current_price": float(t.get("current_price") or t.get("entry_price") or 0),
+                    "stop_loss": float(t.get("stop_loss") or t.get("entry_price") or 0),
+                    "take_profit": float(t.get("take_profit") or t.get("entry_price") or 0),
+                    "unrealized_pnl": float(t.get("unrealized_pnl") or 0),
+                    "pnl_pct": float(t.get("pnl_pct") or 0),
+                    "distance_to_sl": float(t.get("distance_to_sl") or 0),
+                    "distance_to_tp": float(t.get("distance_to_tp") or 0),
+                    "entry_time": t.get("entry_time") or "",
+                    "age_hours": float(t.get("age_hours") or 0),
+                    "is_stuck": bool(t.get("is_stuck")),
+                    "close_attempts": int(t.get("close_attempts") or 0),
+                    "tp_hit_count": int(t.get("tp_hit_count") or 0),
+                }
+                for t in rows
+            ]
+            return sort_open_positions(positions, sort_by, sort_dir)
+        except Exception:
+            pass
+
     if db is not None:
         try:
             rows = db.get_open_trades() or []
             positions = []
             for t in rows:
-                current_price = get_current_price(
-                    t.get("symbol") or t.get("ticker") or "?",
-                    t.get("asset_class") or "crypto",
-                ) or float(t.get("entry_price") or 0)
                 entry_price = float(t.get("entry_price") or 0)
+                if enrich:
+                    current_price = get_current_price(
+                        t.get("symbol") or t.get("ticker") or "?",
+                        t.get("asset_class") or "crypto",
+                    ) or entry_price
+                else:
+                    current_price = float(t.get("current_price") or entry_price or 0)
                 qty = float(t.get("quantity") or t.get("shares") or 0)
                 direction = (t.get("direction") or t.get("side") or "long").lower()
                 pnl = (current_price - entry_price) * qty
@@ -224,7 +300,7 @@ def get_open_positions():
                     "distance_to_tp": distance_to_tp,
                     "entry_time": t.get("entry_time") or "",
                 })
-            return positions
+            return sort_open_positions(positions, sort_by, sort_dir)
         except Exception:
             pass
 
@@ -241,7 +317,7 @@ def get_open_positions():
         )
         rows = cur.fetchall()
         conn.close()
-        return [
+        positions = [
             {
                 "id": r[0],
                 "symbol": r[1],
@@ -252,6 +328,7 @@ def get_open_positions():
             }
             for r in rows
         ]
+        return sort_open_positions(positions, sort_by, sort_dir)
     except Exception:
         return []
 
@@ -298,6 +375,32 @@ def close_position(position_id):
         return False, f"Close failed: {exc}"
 
 
+def request_close_position(position_id):
+    """Start a manual close in the background so the dashboard stays usable."""
+    key = str(position_id)
+    with _close_lock:
+        if key in _close_requests:
+            return True, f"Close already in progress for position {position_id}."
+        _close_requests[key] = datetime.now()
+
+    def worker():
+        try:
+            ok, msg = close_position(position_id)
+            status = "OK" if ok else "FAILED"
+            print(f"[manual close {status}] position={position_id}: {msg}", flush=True)
+        except Exception as exc:
+            print(f"[manual close ERROR] position={position_id}: {exc}", flush=True)
+        finally:
+            with _close_lock:
+                _close_requests.pop(key, None)
+
+    thread = threading.Timer(0.25, worker)
+    thread.name = f"manual-close-{key}"
+    thread.daemon = True
+    thread.start()
+    return True, f"Close requested for position {position_id}; broker close is running in the background."
+
+
 def get_current_price(symbol, asset_class):
     try:
         from scanners.market_scanner import scanner
@@ -309,6 +412,198 @@ def get_current_price(symbol, asset_class):
             return market_scanner.get_current_price(symbol, asset_class)
         except Exception:
             return None
+
+
+def get_manual_trade_config():
+    brokers = ["alpaca", "coinbase", "kraken", "paper"]
+    if getattr(_config, "IBKR_ENABLED", False):
+        brokers.insert(0, "ibkr")
+    return {
+        "brokers": brokers,
+        "default_broker": brokers[0],
+        "asset_classes": ["stock", "crypto"],
+        "directions": ["long", "short"],
+        "default_size": 2000.0,
+        "default_stop_loss_pct": 1.5,
+        "default_take_profit_pct": 3.0,
+        "default_strategy": "manual",
+    }
+
+
+BACKTEST_STRATEGIES = [
+    "original_scorer", "rsi_momentum", "bollinger_breakout", "ema_crossover",
+    "mean_reversion", "scalp_master", "swing_trader", "grid_bot",
+    "dca_accumulator", "vwap_momentum", "hammer_reversal", "orb_breakout",
+]
+
+
+def _parse_backtest_days(raw):
+    text = str(raw or "90").strip().lower()
+    if text in ("1y", "1yr", "1 year"):
+        return 365
+    if text in ("2y", "2yr", "2 years"):
+        return 730
+    digits = "".join(ch if ch.isdigit() else " " for ch in text).split()
+    return max(1, int(digits[0])) if digits else 90
+
+
+def _load_watchlist_file(path):
+    try:
+        p = ROOT / path
+        if not p.exists():
+            return []
+        return [
+            line.strip() for line in p.read_text().splitlines()
+            if line.strip() and not line.strip().startswith("#")
+        ]
+    except Exception:
+        return []
+
+
+def _backtest_result_payload(result):
+    trades = list(getattr(result, "trades", []) or [])
+    wins = [t for t in trades if getattr(t, "pnl", 0) > 0]
+    losses = [t for t in trades if getattr(t, "pnl", 0) <= 0]
+    avg_win = sum(float(getattr(t, "pnl", 0) or 0) for t in wins) / len(wins) if wins else 0
+    avg_loss = sum(float(getattr(t, "pnl", 0) or 0) for t in losses) / len(losses) if losses else 0
+    start_cap = float(getattr(result, "starting_capital", 0) or 0)
+    end_cap = float(getattr(result, "ending_capital", start_cap) or start_cap)
+    return {
+        "symbol": getattr(result, "symbol", ""),
+        "strategy": getattr(result, "strategy_name", ""),
+        "timeframe": getattr(result, "timeframe", ""),
+        "stop_mode": getattr(result, "stop_mode", "standard"),
+        "start_date": getattr(result, "start_date", ""),
+        "end_date": getattr(result, "end_date", ""),
+        "starting_capital": start_cap,
+        "ending_capital": end_cap,
+        "totalTrades": int(getattr(result, "total_trades", 0) or 0),
+        "winRate": float(getattr(result, "win_rate", 0) or 0),
+        "pnlD": round(end_cap - start_cap, 2),
+        "pnlP": float(getattr(result, "total_return_pct", 0) or 0),
+        "sharpe": float(getattr(result, "sharpe_ratio", 0) or 0),
+        "maxDD": float(getattr(result, "max_drawdown_pct", 0) or 0),
+        "profitFactor": float(getattr(result, "profit_factor", 0) or 0),
+        "avgWin": round(avg_win, 2),
+        "avgLoss": round(avg_loss, 2),
+    }
+
+
+def run_backtest_api(payload):
+    try:
+        from intelligence.backtester import Backtester
+        import config as cfg
+    except Exception as exc:
+        return False, f"Backtester unavailable: {exc}", {}
+
+    asset = str(payload.get("asset") or "Stocks")
+    symbol = str(payload.get("symbol") or "ALL").strip()
+    strategy = str(payload.get("strategy") or "ALL strategies").strip()
+    timeframe = str(payload.get("tf") or payload.get("timeframe") or "1h").strip()
+    days = _parse_backtest_days(payload.get("duration") or payload.get("days"))
+    capital = float(payload.get("cap") or payload.get("capital") or getattr(cfg, "STARTING_CAPITAL", 100000))
+    stop_mode = "two_bar" if str(payload.get("mode") or "").lower() in ("trailing", "two_bar") else "standard"
+    lookback = max(1, int(float(payload.get("lookback") or 2)))
+
+    asset_class = "crypto" if asset.lower().startswith("crypto") or "/" in symbol else "stock"
+    if asset_class == "crypto":
+        symbols = _load_watchlist_file("watchlists/crypto.txt") if symbol.upper() == "ALL" else [symbol]
+    else:
+        watchlist = [s for s in getattr(cfg, "STOCK_WATCHLIST", []) if "/" not in s and "-" not in s]
+        symbols = watchlist if symbol.upper() == "ALL" else [symbol.upper()]
+    strategies = BACKTEST_STRATEGIES if strategy == "ALL strategies" else [strategy]
+
+    if not symbols:
+        return False, "No symbols selected for backtest.", {}
+
+    bt = Backtester(starting_capital=capital)
+    results = []
+    skipped = 0
+    for strat in strategies:
+        for sym in symbols:
+            try:
+                if strat == "original_scorer":
+                    result = bt.run(
+                        sym, days, capital, timeframe, asset_class=asset_class,
+                        stop_mode=stop_mode, two_bar_lookback=lookback,
+                    )
+                else:
+                    result = bt.run_strategy(
+                        sym, strat, days, capital, timeframe, asset_class=asset_class,
+                        stop_mode=stop_mode, two_bar_lookback=lookback,
+                    )
+                if result and getattr(result, "total_trades", 0) > 0:
+                    results.append(_backtest_result_payload(result))
+                else:
+                    skipped += 1
+            except Exception:
+                skipped += 1
+
+    if not results:
+        return False, f"No results; {skipped} run(s) had insufficient data or no trades.", {
+            "skipped": skipped,
+            "requested_runs": len(symbols) * len(strategies),
+        }
+
+    total_trades = sum(r["totalTrades"] for r in results)
+    total_wins = sum(round(r["totalTrades"] * r["winRate"] / 100) for r in results)
+    summary = {
+        "totalTrades": total_trades,
+        "winRate": round((total_wins / total_trades * 100) if total_trades else 0, 1),
+        "pnlD": round(sum(r["pnlD"] for r in results), 2),
+        "pnlP": round(sum(r["pnlP"] for r in results) / len(results), 2),
+        "sharpe": round(sum(r["sharpe"] for r in results) / len(results), 2),
+        "maxDD": round(sum(r["maxDD"] for r in results) / len(results), 2),
+        "profitFactor": round(sum(r["profitFactor"] for r in results) / len(results), 2),
+        "avgWin": round(sum(r["avgWin"] for r in results) / len(results), 2),
+        "avgLoss": round(sum(r["avgLoss"] for r in results) / len(results), 2),
+    }
+    return True, f"Backtest complete: {len(results)} result(s), {skipped} skipped.", {
+        **summary,
+        "results": results,
+        "skipped": skipped,
+        "requested_runs": len(symbols) * len(strategies),
+    }
+
+
+def get_manual_trade_preview(params):
+    symbol = (params.get("symbol") or [""])[0].strip().upper()
+    asset_class = (params.get("asset") or params.get("asset_class") or ["stock"])[0].lower()
+    direction = (params.get("dir") or params.get("direction") or ["long"])[0].lower()
+    if not symbol:
+        return False, "Symbol is required.", {}
+    try:
+        position_size = float((params.get("size") or params.get("position_size") or ["0"])[0] or 0)
+        sl_pct = float((params.get("sl") or params.get("stop_loss_pct") or ["1.5"])[0] or 1.5)
+        tp_pct = float((params.get("tp") or params.get("take_profit_pct") or ["3.0"])[0] or 3.0)
+    except Exception:
+        return False, "Position size, stop loss, and take profit must be numeric.", {}
+    if asset_class not in ("stock", "crypto"):
+        return False, f"Unsupported asset class: {asset_class}", {}
+    if direction not in ("long", "short"):
+        return False, f"Unsupported direction: {direction}", {}
+    if position_size <= 0:
+        return False, "Position size must be greater than 0.", {}
+
+    entry = get_current_price(symbol, asset_class)
+    if not entry:
+        return False, f"Could not fetch live price for {symbol}.", {}
+    if direction == "long":
+        sl = entry * (1 - sl_pct / 100)
+        tp = entry * (1 + tp_pct / 100)
+    else:
+        sl = entry * (1 + sl_pct / 100)
+        tp = entry * (1 - tp_pct / 100)
+    return True, "Preview ready.", {
+        "symbol": symbol,
+        "asset_class": asset_class,
+        "direction": direction,
+        "entry_price": float(entry),
+        "stop_loss": float(sl),
+        "take_profit": float(tp),
+        "quantity": float(position_size / entry),
+        "position_size": position_size,
+    }
 
 
 def get_candles(symbol, asset_class, timeframe="5 Min", limit=100):
@@ -380,6 +675,10 @@ def get_injected_symbols():
     return {
         "stocks": _read_symbol_file(INJECTED_STOCKS_FILE),
         "crypto": _read_symbol_file(INJECTED_CRYPTO_FILE),
+        "files": {
+            "stocks": str(INJECTED_STOCKS_FILE),
+            "crypto": str(INJECTED_CRYPTO_FILE),
+        },
     }
 
 
@@ -488,6 +787,8 @@ def get_today_trade_log():
         pnl = float(trade.get("pnl") or 0)
         pnl_pct = float(trade.get("pnl_pct") or 0)
         rows.append({
+            "id": trade.get("id"),
+            "trade_id": trade.get("trade_id"),
             "opened": opened,
             "closed": closed,
             "duration": _format_duration(entry_dt, exit_dt),
@@ -507,6 +808,199 @@ def get_today_trade_log():
     for row in rows:
         row.pop("_sort", None)
     return rows
+
+
+def get_overview_data():
+    if db is None:
+        return {}
+
+    try:
+        status = risk_manager.get_daily_status() if risk_manager else None
+    except Exception:
+        status = None
+
+    cap = db.get_latest_capital() or {}
+    open_trades = db.get_open_trades() or []
+    closed_today = get_today_trade_log()
+    wins_today = sum(1 for trade in closed_today if float(trade.get("pnl") or 0) > 0)
+    losses_today = sum(1 for trade in closed_today if float(trade.get("pnl") or 0) <= 0)
+    closed_trade_count = len(closed_today)
+    win_rate = (wins_today / closed_trade_count * 100) if closed_trade_count else 0
+
+    daily_summaries = db.get_daily_summaries(370) or []
+    daily_perf = [
+        {
+            "date": s.get("trade_date"),
+            "trades": int(s.get("total_trades") or 0),
+            "wins": int(s.get("winning_trades") or 0),
+            "losses": int(s.get("losing_trades") or 0),
+            "win_rate": float(s.get("win_rate") or 0),
+            "pnl": float(s.get("daily_pnl") or 0),
+            "pnl_pct": float(s.get("daily_pnl_pct") or 0),
+            "capital": float(s.get("ending_capital") or 0),
+            "goal_met": bool(s.get("goal_met")),
+            "trading_halted": bool(s.get("trading_halted")),
+        }
+        for s in daily_summaries
+    ]
+
+    capital_history = [
+        {
+            "date": row["date"],
+            "capital": row["capital"],
+        }
+        for row in reversed([
+            {"date": s.get("trade_date"), "capital": float(s.get("ending_capital") or 0)}
+            for s in daily_summaries
+            if s.get("trade_date")
+        ])
+    ]
+    if cap:
+        today = date.today().isoformat()
+        current_capital = float(cap.get("total_capital") or 0)
+        if not capital_history or capital_history[-1]["date"] != today:
+            capital_history.append({"date": today, "capital": current_capital})
+
+    if status:
+        trading_active = bool(status.trading_active)
+        halt_reason = status.halt_reason or ""
+        daily_pnl = float(status.pnl_today or 0)
+        daily_pnl_pct = float(status.pnl_pct_today or 0)
+        consecutive_losses = int(status.consecutive_losses or 0)
+        status_trades_today = int(status.trades_today or 0)
+        capital = float(status.capital or cap.get("total_capital") or 0)
+        starting_capital_today = float(status.starting_capital_today or 0)
+    else:
+        session = db.get_session(date.today().isoformat()) or {}
+        trading_active = not bool(session.get("trading_halted", 0))
+        halt_reason = session.get("halt_reason") or ""
+        daily_pnl = float(session.get("pnl_today") or 0)
+        starting_capital_today = float(session.get("starting_capital_today") or 0)
+        daily_pnl_pct = (daily_pnl / starting_capital_today * 100) if starting_capital_today else 0
+        consecutive_losses = int(session.get("consecutive_losses") or 0)
+        status_trades_today = int(session.get("trades_today") or 0)
+        capital = float(cap.get("total_capital") or 0)
+
+    return {
+        "trading_active": trading_active,
+        "halt_reason": halt_reason,
+        "bot_process_running": is_bot_running(),
+        "capital": capital,
+        "available_cash": float(cap.get("available_cash") or 0),
+        "daily_pnl": daily_pnl,
+        "daily_pnl_pct": daily_pnl_pct,
+        "open_positions": len(open_trades),
+        "trades_today": status_trades_today,
+        "closed_trades_today": closed_trade_count,
+        "wins_today": wins_today,
+        "losses_today": losses_today,
+        "win_rate_today": win_rate,
+        "consecutive_losses": consecutive_losses,
+        "capital_history": capital_history,
+        "daily_performance": daily_perf,
+    }
+
+
+def get_quick_status(year=None):
+    year = int(year or date.today().year)
+    status = {}
+
+    try:
+        from intelligence.ml_scorer import ml_scorer
+        status["ml"] = ml_scorer.get_status()
+    except Exception:
+        status["ml"] = {"stage": "unknown", "progress_pct": 0, "message": "ML scorer initializing."}
+
+    try:
+        status["tax"] = db.get_tax_year_summary(year) if db is not None else {}
+    except Exception:
+        status["tax"] = {}
+
+    try:
+        from intelligence.condition_detector import condition_detector
+        from scanners.market_scanner import scanner
+        cond = condition_detector.get_spy_condition(scanner.stock_scanner)
+        status["market_condition"] = {
+            "condition": getattr(cond.condition, "value", str(cond.condition)),
+            "confidence": float(cond.confidence or 0),
+            "position_scalar": float(cond.position_scalar or 0),
+            "should_trade": bool(cond.should_trade),
+            "reason": cond.reason,
+            "adx": float(cond.adx or 0),
+            "atr_pct": float(cond.atr_pct or 0),
+            "bb_width": float(cond.bb_width or 0),
+        }
+    except Exception:
+        status["market_condition"] = {
+            "condition": "unknown",
+            "confidence": 0,
+            "position_scalar": 0,
+            "should_trade": True,
+            "reason": "Condition detector initializing.",
+            "adx": 0,
+            "atr_pct": 0,
+            "bb_width": 0,
+        }
+
+    status["year"] = year
+    return status
+
+
+def generate_daily_report():
+    try:
+        from reporting.report_generator import ReportGenerator
+
+        generator = ReportGenerator()
+        summary = generator.generate_daily_summary()
+        if db is not None:
+            db.save_daily_summary(summary)
+        return True, "Daily report generated and saved.", {"summary": summary}
+    except Exception as exc:
+        return False, f"Report generation failed: {exc}", {}
+
+
+def export_tax_csv(year):
+    try:
+        year = int(year or date.today().year)
+        exports = ROOT / "exports"
+        exports.mkdir(parents=True, exist_ok=True)
+        filepath = exports / f"tax_form_8949_{year}.csv"
+        db.export_8949_csv(year, str(filepath))
+        return True, f"Saved: {filepath}", {"path": str(filepath)}
+    except Exception as exc:
+        return False, f"Tax export failed: {exc}", {}
+
+
+def process_withdrawal(amount, reason):
+    try:
+        result = risk_manager.process_withdrawal(float(amount or 0), str(reason or "Living expenses"))
+        return bool(result.get("approved")), result.get("message", "Withdrawal processed."), result
+    except Exception as exc:
+        return False, f"Withdrawal failed: {exc}", {}
+
+
+def retrain_ml():
+    try:
+        from intelligence.ml_scorer import ml_scorer
+
+        success = bool(ml_scorer.retrain())
+        msg = "Retrain complete." if success else "Retrain skipped: not enough closed trades yet."
+        return True, msg, {"ml": ml_scorer.get_status()}
+    except Exception as exc:
+        return False, f"ML retrain failed: {exc}", {}
+
+
+def chat_with_bot(message):
+    text = str(message or "").strip()
+    if not text:
+        return False, "Message is required.", {}
+    try:
+        from intelligence.chat_interface import chat
+
+        reply = chat.chat(text)
+        return True, reply, {"reply": reply}
+    except Exception as exc:
+        return False, f"Chat failed: {exc}", {}
 
 
 def open_manual_trade(payload):
@@ -651,9 +1145,16 @@ def build_snapshot():
     if db is not None:
         cap = db.get_latest_capital() or {}
         open_trades = db.get_open_trades() or []
-        halted = bool(getattr(risk_manager, "trading_halted", False)) if risk_manager else False
+        try:
+            session = db.get_session(date.today().isoformat()) or {}
+        except Exception:
+            session = {}
+        halted = bool(session.get("trading_halted", 0))
+        halt_reason = session.get("halt_reason") or ""
         return {
             "bot_status": "PAUSED" if halted else "ACTIVE",
+            "trading_active": not halted,
+            "halt_reason": halt_reason,
             "open_positions": len(open_trades),
             "available_cash": float(cap.get("available_cash", 0.0) or 0.0),
             "bot_process_running": is_bot_running(),
@@ -725,7 +1226,15 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, build_snapshot())
 
         if path == "/api/open_positions":
-            return self._json(200, {"positions": get_open_positions(), "db_path": str(DB_PATH)})
+            params = parse_qs(parsed.query)
+            sort_by = (params.get("sort_by") or ["opened"])[0]
+            sort_dir = (params.get("sort_dir") or ["desc"])[0]
+            return self._json(200, {
+                "positions": get_open_positions(sort_by, sort_dir),
+                "sort_by": sort_by,
+                "sort_dir": sort_dir,
+                "db_path": str(DB_PATH),
+            })
 
         if path == "/api/candles":
             params = parse_qs(parsed.query)
@@ -742,6 +1251,21 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/trade_log/today":
             return self._json(200, {"trades": get_today_trade_log(), "db_path": str(DB_PATH)})
+
+        if path == "/api/overview":
+            return self._json(200, get_overview_data())
+
+        if path == "/api/quick_status":
+            params = parse_qs(parsed.query)
+            year = (params.get("year") or [date.today().year])[0]
+            return self._json(200, get_quick_status(year))
+
+        if path == "/api/manual_trade/config":
+            return self._json(200, get_manual_trade_config())
+
+        if path == "/api/manual_trade/preview":
+            ok, msg, details = get_manual_trade_preview(parse_qs(parsed.query))
+            return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
 
         if path == "/" or path == "/index.html":
             page, mode = load_entry_html(prefer_modular=True)
@@ -808,6 +1332,44 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/injected_symbols/clear":
             return self._json(200, {"ok": True, "message": "Injected symbols cleared.", **clear_injected_symbols()})
 
+        if path == "/api/report/daily":
+            ok, msg, details = generate_daily_report()
+            return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
+
+        if path == "/api/tax/export":
+            length = int(self.headers.get("Content-Length", "0"))
+            data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+            ok, msg, details = export_tax_csv(data.get("year"))
+            return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
+
+        if path == "/api/withdrawal":
+            length = int(self.headers.get("Content-Length", "0"))
+            data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+            ok, msg, details = process_withdrawal(data.get("amount"), data.get("reason"))
+            return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
+
+        if path == "/api/ml/retrain":
+            ok, msg, details = retrain_ml()
+            return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
+
+        if path == "/api/backtest":
+            length = int(self.headers.get("Content-Length", "0"))
+            try:
+                data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+            except json.JSONDecodeError as exc:
+                return self._json(400, {"ok": False, "message": f"Invalid JSON: {exc.msg}"})
+            ok, msg, details = run_backtest_api(data)
+            return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
+
+        if path == "/api/chat":
+            length = int(self.headers.get("Content-Length", "0"))
+            try:
+                data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+            except json.JSONDecodeError as exc:
+                return self._json(400, {"ok": False, "message": f"Invalid JSON: {exc.msg}"})
+            ok, msg, details = chat_with_bot(data.get("message"))
+            return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
+
         if path != "/api/control":
             return self._json(404, {"error": "not found"})
 
@@ -855,8 +1417,8 @@ class Handler(BaseHTTPRequestHandler):
             position_id = data.get("position_id")
             if position_id is None:
                 return self._json(400, {"ok": False, "message": "position_id is required"})
-            ok, msg = close_position(position_id)
-            return self._json(200 if ok else 400, {"ok": ok, "message": msg})
+            ok, msg = request_close_position(position_id)
+            return self._json(202 if ok else 400, {"ok": ok, "message": msg})
 
         return self._json(400, {"error": f"Unknown action: {action}"})
 

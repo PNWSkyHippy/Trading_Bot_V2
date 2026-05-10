@@ -37,6 +37,7 @@ import queue
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from pathlib import Path
 import threading
 import time
 from collections import deque
@@ -45,6 +46,8 @@ from datetime import datetime, timedelta
 from datetime import time as dt_time
 from enum import Enum
 from typing import Any, Dict, List, Optional
+
+BASE_DIR = Path(__file__).resolve().parent
 
 # ── Optional dependencies ─────────────────────────────────────────────────────
 try:
@@ -122,18 +125,98 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)s | %(message)s",
     handlers=[
-        logging.FileHandler("scanner.log"),
+        logging.FileHandler(BASE_DIR / "scanner.log"),
         logging.StreamHandler(),
     ],
 )
 logger = logging.getLogger(__name__)
 
-CSV_FILE            = "signals_log.csv"
+CSV_FILE            = BASE_DIR / "signals_log.csv"
 CSV_MAX_ROWS        = 500
 CSV_PRUNE_AGE       = 48        # hours
 ALERT_COOLDOWN_SECS = 1800      # 30 min per symbol
+WATCHLIST_DIR       = BASE_DIR / "watchlist"
+REPORTS_DIR         = BASE_DIR / "reports"
+TEMP_STOCKS_FILE    = WATCHLIST_DIR / "scanned_stocks.txt"
+TEMP_CRYPTO_FILE    = WATCHLIST_DIR / "scanned_crypto.txt"
 
 MASSIVE_BASE        = "https://api.massive.com"
+
+
+def _unique_keep_order(values: List[str]) -> List[str]:
+    seen = set()
+    result = []
+    for value in values:
+        value = str(value or "").strip().upper()
+        if not value or value.startswith("#") or value in seen:
+            continue
+        seen.add(value)
+        result.append(value)
+    return result
+
+
+def _read_symbol_file(path: Path) -> List[str]:
+    try:
+        if not path.exists():
+            return []
+        return _unique_keep_order(path.read_text().splitlines())
+    except Exception as e:
+        logger.warning(f"Could not read watchlist file {path}: {e}")
+        return []
+
+
+def _latest_scan_csv() -> Optional[Path]:
+    try:
+        files = list(REPORTS_DIR.glob("*market_scan.csv"))
+        if not files:
+            return None
+        return max(files, key=lambda p: p.stat().st_mtime)
+    except Exception as e:
+        logger.warning(f"Could not inspect scan reports: {e}")
+        return None
+
+
+def _read_scan_csv(asset_class: str) -> List[str]:
+    path = _latest_scan_csv()
+    if not path:
+        return []
+    try:
+        symbols = []
+        with path.open(newline="") as f:
+            for row in csv.DictReader(f):
+                row_asset = (row.get("AssetClass") or row.get("asset_class") or "").strip().lower()
+                ticker = (row.get("Ticker") or row.get("Symbol") or row.get("symbol") or "").strip().upper()
+                if not ticker:
+                    continue
+                if row_asset and row_asset != asset_class.lower():
+                    continue
+                if asset_class.lower() == "crypto" and "/" not in ticker:
+                    ticker = f"{ticker}/USD"
+                symbols.append(ticker)
+        loaded = _unique_keep_order(symbols)
+        if loaded:
+            logger.info(f"[WATCHLIST CSV] Loaded {len(loaded)} {asset_class} symbols from {path}")
+        return loaded
+    except Exception as e:
+        logger.warning(f"Could not read scan CSV {path}: {e}")
+        return []
+
+
+def load_injected_stock_symbols() -> List[str]:
+    symbols = _read_symbol_file(TEMP_STOCKS_FILE)
+    if not symbols:
+        symbols = _read_scan_csv("Stock")
+    return _unique_keep_order(symbols)
+
+
+def load_injected_crypto_symbols() -> List[str]:
+    symbols = _read_symbol_file(TEMP_CRYPTO_FILE)
+    if not symbols:
+        symbols = _read_scan_csv("Crypto")
+    return _unique_keep_order(
+        s if "/" in s else f"{s}/USD"
+        for s in symbols
+    )
 
 # =============================================================================
 # CONFIGURATION
@@ -277,9 +360,9 @@ CSV_FIELDS = ["Symbol","Broker","Phase","Score","Confidence","Date","Time",
               "momentum","move_pct","best_move_pct"]
 
 def _load_csv() -> List[dict]:
-    if not os.path.isfile(CSV_FILE):
+    if not CSV_FILE.is_file():
         return []
-    with open(CSV_FILE, "r", newline="") as f:
+    with CSV_FILE.open("r", newline="") as f:
         rows = list(csv.DictReader(f))
     for r in rows:
         for col in CSV_FIELDS:
@@ -288,7 +371,7 @@ def _load_csv() -> List[dict]:
     return rows
 
 def _save_csv(rows: List[dict]):
-    with open(CSV_FILE, "w", newline="") as f:
+    with CSV_FILE.open("w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=CSV_FIELDS, extrasaction="ignore")
         w.writeheader()
         w.writerows(rows)
@@ -401,7 +484,8 @@ def update_signal_tracking(scanner):
 
 class ConfigManager:
     def __init__(self, config_path: str = "scanner_config.json"):
-        self.config_path = config_path
+        path = Path(config_path)
+        self.config_path = path if path.is_absolute() else BASE_DIR / path
         self.config      = {}
         self.load()
 
@@ -433,10 +517,10 @@ class ConfigManager:
         now = datetime.now()
         if now.strftime("%Y-%m-%d") in self.config.get("exclude_dates", []):
             return False
-        if now.strftime("%A") not in self.config.get("run_days", []):
-            return False
         if asset_type == AssetType.CRYPTO and self.config.get("crypto_24_7", True):
             return True
+        if now.strftime("%A") not in self.config.get("run_days", []):
+            return False
         if asset_type == AssetType.STOCK:
             oh, om = map(int, self.config.get("stock_market_open",  "06:30").split(":"))
             ch, cm = map(int, self.config.get("stock_market_close", "13:00").split(":"))
@@ -536,12 +620,20 @@ class StockDataFetcher:
             except Exception as e:
                 logger.error(f"Alpaca init failed: {e}")
 
+    def _stock_universe(self) -> List[str]:
+        injected = load_injected_stock_symbols()
+        symbols = _unique_keep_order([*injected, *self.FALLBACK])
+        if injected:
+            logger.info(f"[WATCHLIST] Loaded {len(injected)} injected stock symbols: {injected}")
+        return symbols
+
     def get_top_movers(self, count: int = 100) -> List[PriceData]:
         stocks = []
         if self.api:
             try:
                 assets    = self.api.list_assets(status="active", asset_class="us_equity")
-                symbols   = [a.symbol for a in assets[:500]]
+                symbols   = _unique_keep_order([*load_injected_stock_symbols(),
+                                                 *[a.symbol for a in assets[:500]]])
                 snapshots = self.api.get_snapshots(symbols)
                 for sym, snap in snapshots.items():
                     if snap and snap.daily_bar:
@@ -553,14 +645,18 @@ class StockDataFetcher:
         if not stocks and YFINANCE_AVAILABLE:
             stocks = self._yfinance_movers()
         stocks.sort(key=lambda x: x.daily_change_pct, reverse=True)
-        return stocks[:count]
+        injected = set(load_injected_stock_symbols())
+        pinned = [s for s in stocks if s.symbol in injected]
+        others = [s for s in stocks if s.symbol not in injected]
+        return pinned + others[:count]
 
     def _yfinance_movers(self) -> List[PriceData]:
         stocks = []
         try:
-            tickers = yf.download(self.FALLBACK, period="1d", interval="1m",
+            symbols = self._stock_universe()
+            tickers = yf.download(symbols, period="1d", interval="1m",
                                   progress=False, group_by="ticker")
-            for sym in self.FALLBACK:
+            for sym in symbols:
                 if sym.startswith("$") or sym.startswith("^"):
                     continue
                 try:
@@ -680,8 +776,45 @@ class CryptoDataFetcher:
                         continue
             except Exception as e:
                 logger.error(f"Crypto fetch error ({exch_name}): {e}")
+        self._append_injected_crypto(cryptos, exchanges, seen_symbols)
         cryptos.sort(key=lambda x: abs(x.daily_change_pct), reverse=True)
-        return cryptos[:count]
+        injected = set(load_injected_crypto_symbols())
+        pinned = [c for c in cryptos if c.symbol in injected]
+        others = [c for c in cryptos if c.symbol not in injected]
+        return pinned + others[:count]
+
+    def _append_injected_crypto(self, cryptos: List[PriceData],
+                                exchanges: Dict[str, Any],
+                                seen_symbols: set):
+        injected = load_injected_crypto_symbols()
+        if not injected:
+            return
+        logger.info(f"[WATCHLIST] Loaded {len(injected)} injected crypto symbols: {injected}")
+        for symbol in injected:
+            if symbol in seen_symbols:
+                continue
+            for exch_name, exc in exchanges.items():
+                if not exc or symbol not in getattr(exc, "symbols", []):
+                    continue
+                try:
+                    ticker = exc.fetch_ticker(symbol)
+                    last = ticker.get("last") or ticker.get("close")
+                    if not last:
+                        continue
+                    chg = ticker.get("percentage", 0) or 0
+                    op = ticker.get("open") or (last / (1 + chg / 100) if chg else last)
+                    pd_obj = PriceData(
+                        symbol, last, op,
+                        ticker.get("high") or last, ticker.get("low") or last,
+                        ticker.get("quoteVolume") or ticker.get("baseVolume", 0),
+                        datetime.now(), AssetType.CRYPTO,
+                    )
+                    pd_obj._exchange_name = exch_name
+                    cryptos.append(pd_obj)
+                    seen_symbols.add(symbol)
+                    break
+                except Exception as e:
+                    logger.debug(f"Injected crypto fetch skip {symbol} on {exch_name}: {e}")
 
     def get_historical_data(self, symbol: str, timeframe: str = "5m",
                             limit: int = 100) -> List[PriceData]:
@@ -713,16 +846,28 @@ class BreakoutDetector:
         if s not in self.price_history:
             self.price_history[s]  = deque(maxlen=self.history_length)
             self.volume_history[s] = deque(maxlen=self.history_length)
-        self.price_history[s].append(pd.price)
-        self.volume_history[s].append(pd.volume)
+        price = self._num(pd.price, 0.0)
+        volume = self._num(pd.volume, 0.0)
+        if price <= 0:
+            return
+        self.price_history[s].append(price)
+        self.volume_history[s].append(volume)
+
+    def _num(self, value, default: float = 0.0) -> float:
+        try:
+            if value is None:
+                return default
+            return float(value)
+        except Exception:
+            return default
 
     def score(self, pd: PriceData) -> float:
         s = pd.symbol
         self.update_history(pd)
         if len(self.price_history[s]) < 25:
             return 0.0
-        prices  = list(self.price_history[s])
-        volumes = list(self.volume_history[s])
+        prices  = [self._num(x, 0.0) for x in self.price_history[s]]
+        volumes = [self._num(x, 0.0) for x in self.volume_history[s]]
         sc = 0.0
         if self._compressing(prices):          sc += 0.20
         if self._early_volume(volumes, prices): sc += 0.25
@@ -761,7 +906,7 @@ class BreakoutDetector:
     def _expanding(self, p):
         return (p[-1]-p[-3])/p[-3]*100 > 1.2
     def _early_volume(self, v, p):
-        if len(v) < 2: return False
+        if len(v) < 2 or len(p) < 5 or p[-5] == 0: return False
         avg = sum(v[:-1])/len(v[:-1])
         return (v[-1]/avg > 2.5 if avg>0 else False) and (p[-1]-p[-5])/p[-5]*100 < 2.0
     def _near_vwap(self, p, v):
@@ -791,6 +936,7 @@ class WatchlistManager:
     def add(self, signal: BreakoutSignal):
         sym = signal.symbol
         if sym in self._watched:
+            logger.info(f"[WATCHLIST] {signal.broker} {sym} @ ${signal.current_price:.4f} " f"early exit")
             return
         signal.entry_price = signal.current_price
         signal.scan_count  = 0
@@ -1066,9 +1212,10 @@ class MarketScanner:
         self.stock_fetcher   = StockDataFetcher(self.config)
         self.crypto_fetcher  = CryptoDataFetcher(self.config)
         self.detector        = BreakoutDetector(self.config)
-        logger.error(f"Made it to Marketscanner : before watch")
+        logger.info("Made it to MarketScanner: before watchlist init")
         self.watchlist       = WatchlistManager(self.config)
-        logger.error(f"Made it to Marketscanner : After watch")
+        logger.info("Made it to MarketScanner: after watchlist init")
+        self._log_injected_watchlists()
         self.escalation      = EscalationTracker(self.config)
         self.alert_system    = AlertSystem(self.config)
         self.trading         = TradingEngine(self.config)
@@ -1077,6 +1224,15 @@ class MarketScanner:
         self.latest_movers:        List[PriceData]     = []
         self.latest_crypto_movers: List[PriceData]     = []
         self._alerted_at:          Dict[str, datetime] = {}
+
+    def _log_injected_watchlists(self):
+        stocks = load_injected_stock_symbols()
+        crypto = load_injected_crypto_symbols()
+        logger.info(
+            f"[WATCHLIST LOAD] stocks={len(stocks)} {stocks} | "
+            f"crypto={len(crypto)} {crypto}"
+        )
+
     def start(self):
         self.running     = True
         self.alert_system.start()
@@ -1092,13 +1248,19 @@ class MarketScanner:
     def _scan_loop(self):
         while self.running:
             try:
-                if self.config.is_market_open(AssetType.STOCK):
+                stock_open = self.config.is_market_open(AssetType.STOCK)
+                crypto_open = self.config.is_market_open(AssetType.CRYPTO)
+                logger.info(
+                    f"[SCAN LOOP] stock_open={stock_open} crypto_open={crypto_open} "
+                    f"time={datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+                if stock_open:
                     self._scan_stocks()
-                if self.config.is_market_open(AssetType.CRYPTO):
+                if crypto_open:
                     self._scan_cryptos()
                 update_signal_tracking(self)
             except Exception as e:
-                logger.error(f"Scan loop error: {e}")
+                logger.error(f"Scan loop error: {e}", exc_info=True)
             time.sleep(self.config.get("scan_interval_seconds", 30))
 
     def _can_alert(self, symbol: str) -> bool:
@@ -1126,6 +1288,10 @@ class MarketScanner:
                 log_signal_to_csv(promoted)
             return
         sc = self.detector.score(pd)
+        logger.info(
+            f"[SIGNAL CHECK] {broker} {sym} score={sc:.3f} "
+            f"threshold={self.config.get('watchlist_min_score', 0.40):.3f}"
+        )
         if sc < self.config.get("watchlist_min_score", 0.40):
             return
         pattern = ("early_breakout_strong" if sc > 0.75 else
@@ -1142,6 +1308,7 @@ class MarketScanner:
 
     def _scan_cryptos(self):
         try:
+            logger.info("[CRYPTO SCAN] fetching movers")
             movers = self.crypto_fetcher.get_top_movers(
                 self.config.get("top_cryptos_count", 100))
             self.latest_crypto_movers = movers
@@ -1161,12 +1328,17 @@ class MarketScanner:
                     continue
                 for h in self.crypto_fetcher.get_historical_data(pd.symbol):
                     self.detector.update_history(h)
+                logger.info(
+                    f"[CRYPTO SCAN] processing {broker} {pd.symbol} "
+                    f"price={pd.price} change={pd.daily_change_pct:+.2f}%"
+                )
                 self._process_symbol(pd, broker)
         except Exception as e:
-            logger.error(f"Crypto scan error: {e}")
+            logger.error(f"Crypto scan error: {e}", exc_info=True)
 
     def _scan_stocks(self):
         try:
+            logger.info("[STOCK SCAN] fetching movers")
             movers = self.stock_fetcher.get_top_movers(
                 self.config.get("top_stocks_count", 100))
             self.latest_movers = movers
@@ -1180,9 +1352,13 @@ class MarketScanner:
                     continue
                 for h in self.stock_fetcher.get_historical_data(sym):
                     self.detector.update_history(h)
+                logger.info(
+                    f"[STOCK SCAN] processing ALPACA {sym} "
+                    f"price={pd.price} change={pd.daily_change_pct:+.2f}%"
+                )
                 self._process_symbol(pd, "ALPACA")
         except Exception as e:
-            logger.error(f"Stock scan error: {e}")
+            logger.error(f"Stock scan error: {e}", exc_info=True)
 
     def run_gui(self):
         self.gui = ScannerGUI(self)

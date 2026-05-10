@@ -69,9 +69,23 @@ const MOCK_INJECTED = {
   crypto: ['TON/USD', 'TRX/USD', 'LINK/USD', 'PI/USD', 'HTX/USD', 'MN13/USD'],
 };
 
-const STRATEGIES = ['ALL strategies', 'grid_bot', 'pivot_break', 'momentum', 'mean_reversion', 'trend_follow'];
-const TIMEFRAMES = ['1m', '5m', '15m', '1h', '4h', '1d'];
-const DURATIONS = ['7d', '30d', '60d', '90d (3mo)', '180d (6mo)', '1y'];
+const STRATEGIES = [
+  'ALL strategies',
+  'original_scorer',
+  'rsi_momentum',
+  'bollinger_breakout',
+  'ema_crossover',
+  'mean_reversion',
+  'scalp_master',
+  'swing_trader',
+  'grid_bot',
+  'dca_accumulator',
+  'vwap_momentum',
+  'hammer_reversal',
+  'orb_breakout',
+];
+const TIMEFRAMES = ['5m', '1h', '1d'];
+const DURATIONS = ['30d', '60d', '90d (3mo)', '180d (6mo)', '365d (1y)', '730d (2y)'];
 const ASSET_CLASSES = ['Stocks', 'Crypto', 'Both'];
 const BROKERS = ['ibkr', 'alpaca', 'coinbase', 'kraken', 'binance'];
 const DIRECTIONS = ['long', 'short'];

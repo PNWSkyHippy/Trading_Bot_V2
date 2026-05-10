@@ -39,17 +39,38 @@ function ManagePositionsPanel() {
   const [positions, setPositions] = uS([]);
   const [chartSym, setChartSym] = uS(null);
   const [candleSize, setCandleSize] = uS('5 Min');
+  const [chartRange, setChartRange] = uS('ALL');
   const [msg, setMsg] = uS('');
-  const [busy, setBusy] = uS(false);
+  const [refreshing, setRefreshing] = uS(false);
+  const [closingIds, setClosingIds] = uS({});
+  const [closingAll, setClosingAll] = uS(false);
+  const loadingRef = uR(false);
 
-  const loadPositions = async () => {
+  const markClosing = (id, active) => {
+    if (id == null) return;
+    const key = String(id);
+    setClosingIds(prev => {
+      const next = { ...prev };
+      if (active) next[key] = true;
+      else delete next[key];
+      return next;
+    });
+  };
+
+  const loadPositions = async ({ manual = false, quiet = false } = {}) => {
+    if (loadingRef.current) return;
+    loadingRef.current = true;
+    if (manual) setRefreshing(true);
     try {
       const data = await apiCall('/api/open_positions');
       const rows = Array.isArray(data.positions) ? data.positions.map(normalizePos) : [];
       setPositions(rows);
-      setMsg(`Loaded ${rows.length} live position(s)`);
+      if (!quiet) setMsg(`Loaded ${rows.length} live position(s)`);
     } catch (e) {
       setMsg(`Load failed: ${e.message}`);
+    } finally {
+      loadingRef.current = false;
+      if (manual) setRefreshing(false);
     }
   };
 
@@ -64,40 +85,47 @@ function ManagePositionsPanel() {
       setMsg(`Cannot close ${p?.symbol || '?'}: missing position id`);
       return;
     }
-    setBusy(true);
+    markClosing(p.id, true);
+    setMsg(`Close requested for ${p.symbol}; waiting for broker handoff.`);
     try {
       const data = await apiCall('/api/control', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'close_position', position_id: p.id }),
       });
-      setMsg(data.message || `Closed ${p.symbol}`);
-      await loadPositions();
+      setMsg(data.message || `Close queued for ${p.symbol}`);
+      setTimeout(() => loadPositions({ quiet: true }), 1500);
+      setTimeout(() => loadPositions({ quiet: true }), 8000);
     } catch (e) {
       setMsg(`Close failed: ${e.message}`);
     } finally {
-      setBusy(false);
+      setTimeout(() => markClosing(p.id, false), 1200);
     }
   };
 
   const closeAll = async () => {
-    setBusy(true);
+    const closable = positions.filter(p => p.id != null);
+    if (!closable.length) return;
+    setClosingAll(true);
+    closable.forEach(p => markClosing(p.id, true));
+    setMsg(`Close-all requested for ${closable.length} position(s).`);
     try {
-      for (const p of positions) {
-        if (p.id != null) {
-          await apiCall('/api/control', {
+      const results = await Promise.allSettled(
+        closable.map(p => apiCall('/api/control', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ action: 'close_position', position_id: p.id }),
-          });
-        }
-      }
-      setMsg('Close-all requested.');
-      await loadPositions();
+          }))
+      );
+      const failed = results.filter(r => r.status === 'rejected').length;
+      setMsg(failed ? `Close-all queued with ${failed} request failure(s).` : `Close-all queued for ${closable.length} position(s).`);
+      setTimeout(() => loadPositions({ quiet: true }), 1500);
+      setTimeout(() => loadPositions({ quiet: true }), 8000);
     } catch (e) {
       setMsg(`Close-all failed: ${e.message}`);
     } finally {
-      setBusy(false);
+      setClosingAll(false);
+      setTimeout(() => closable.forEach(p => markClosing(p.id, false)), 1200);
     }
   };
 
@@ -109,8 +137,8 @@ function ManagePositionsPanel() {
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <button className="btn ghost sm" onClick={loadPositions} disabled={busy}><Icon name="refresh" size={12} />Refresh</button>
-        <button className="btn danger sm" onClick={closeAll} disabled={busy || positions.length === 0}><Icon name="x" size={12} />Close All</button>
+        <button className="btn ghost sm" onClick={() => loadPositions({ manual: true })} disabled={refreshing}><Icon name="refresh" size={12} />{refreshing ? 'Refreshing...' : 'Refresh'}</button>
+        <button className="btn danger sm" onClick={closeAll} disabled={closingAll || positions.length === 0}><Icon name="x" size={12} />{closingAll ? 'Queueing...' : 'Close All'}</button>
         <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-2)' }}>{positions.length} open</span>
       </div>
 
@@ -122,6 +150,7 @@ function ManagePositionsPanel() {
         const total = Math.max(0.0001, slPct + tpPct);
         const slBar = (slPct / total) * 100;
         const isChart = chartSym === p.symbol;
+        const rowClosing = !!closingIds[String(p.id)];
         return (
           <div key={p.id ?? `${p.symbol}-${i}`} className="pos-card">
             <div className="row1">
@@ -141,8 +170,8 @@ function ManagePositionsPanel() {
               </button>
               <button className="btn ghost sm"><Icon name="edit" size={12} />Adjust SL/TP</button>
               <span className="spacer" />
-              <button className="btn danger sm" onClick={() => closeNow(p)} disabled={busy || p.id == null}>
-                <Icon name="x" size={12} />Close Now
+              <button className="btn danger sm" onClick={() => closeNow(p)} disabled={rowClosing || p.id == null}>
+                <Icon name="x" size={12} />{rowClosing ? 'Closing...' : 'Close Now'}
               </button>
             </div>
 
@@ -154,10 +183,12 @@ function ManagePositionsPanel() {
                     {['1 Min', '5 Min', '15 Min', '1 H', '4 H', '1 D'].map(c => <option key={c}>{c}</option>)}
                   </select>
                   <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
-                    {['1H', '6H', '12H', '1D', '3D', 'ALL'].map(per => <button key={per} className="btn ghost sm" style={{ padding: '3px 8px', fontSize: 10 }}>{per}</button>)}
+                    {['1H', '6H', '12H', '1D', '3D', 'ALL'].map(per => (
+                      <button key={per} className={cls('btn', 'sm', chartRange === per ? 'primary' : 'ghost')} style={{ padding: '3px 8px', fontSize: 10 }} onClick={() => setChartRange(per)}>{per}</button>
+                    ))}
                   </div>
                 </div>
-                <MiniCandleChart symbol={p.symbol} assetClass={p.assetClass} timeframe={candleSize} dir={p.dir} entry={p.entry} sl={p.sl} tp={p.tp} />
+                <MiniCandleChart symbol={p.symbol} assetClass={p.assetClass} timeframe={candleSize} rangeKey={chartRange} dir={p.dir} entry={p.entry} sl={p.sl} tp={p.tp} />
               </div>
             )}
           </div>
@@ -167,9 +198,13 @@ function ManagePositionsPanel() {
   );
 }
 
-function MiniCandleChart({ symbol, assetClass, timeframe, dir, entry, sl, tp }) {
+function MiniCandleChart({ symbol, assetClass, timeframe, rangeKey, dir, entry, sl, tp }) {
   const [candles, setCandles] = uS([]);
   const [status, setStatus] = uS('Loading chart...');
+  const [view, setView] = uS({ start: 0, end: 0 });
+  const [yView, setYView] = uS(null);
+  const svgRef = uR(null);
+  const dragRef = uR(null);
 
   uE(() => {
     let cancelled = false;
@@ -179,6 +214,7 @@ function MiniCandleChart({ symbol, assetClass, timeframe, dir, entry, sl, tp }) 
         const qs = new URLSearchParams({ symbol, asset_class: assetClass || 'crypto', timeframe: timeframe || '5 Min', limit: '120' });
         const data = await apiCall(`/api/candles?${qs.toString()}`);
         const rows = Array.isArray(data.candles) ? data.candles.map(c => ({
+          t: c.time,
           o: Number(c.open),
           h: Number(c.high),
           l: Number(c.low),
@@ -196,27 +232,107 @@ function MiniCandleChart({ symbol, assetClass, timeframe, dir, entry, sl, tp }) 
     return () => { cancelled = true; };
   }, [symbol, assetClass, timeframe]);
 
+  const timeframeMinutes = () => ({ '1 Min': 1, '5 Min': 5, '15 Min': 15, '1 H': 60, '4 H': 240, '1 D': 1440 }[timeframe] || 5);
+  const rangeCandles = () => {
+    if (!candles.length || rangeKey === 'ALL') return candles.length;
+    const mins = { '1H': 60, '6H': 360, '12H': 720, '1D': 1440, '3D': 4320 }[rangeKey] || 0;
+    return Math.max(8, Math.min(candles.length, Math.ceil(mins / timeframeMinutes())));
+  };
+
+  uE(() => {
+    const count = rangeCandles();
+    setView({ start: Math.max(0, candles.length - count), end: candles.length });
+    setYView(null);
+  }, [candles.length, rangeKey, timeframe]);
+
   if (!candles.length) {
     return <div style={{ height: 140, display: 'grid', placeItems: 'center', background: 'var(--bg-0)', borderRadius: 4, border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 11 }}>{status}</div>;
   }
 
-  const max = Math.max(...candles.map(c => c.h), entry, sl, tp) * 1.001;
-  const min = Math.min(...candles.map(c => c.l), entry, sl, tp) * 0.999;
+  const start = Math.max(0, Math.min(view.start || 0, candles.length - 1));
+  const end = Math.max(start + 1, Math.min(view.end || candles.length, candles.length));
+  const visible = candles.slice(start, end);
+  const autoMax = Math.max(...visible.map(c => c.h), entry, sl, tp) * 1.001;
+  const autoMin = Math.min(...visible.map(c => c.l), entry, sl, tp) * 0.999;
+  const max = yView ? yView.max : autoMax;
+  const min = yView ? yView.min : autoMin;
   const range = max - min;
   const W = 100, H = 30;
   const yScale = (v) => ((max - v) / range) * H;
+  const zoomX = (factor) => {
+    const size = end - start;
+    const nextSize = Math.max(8, Math.min(candles.length, Math.round(size * factor)));
+    const center = (start + end) / 2;
+    let nextStart = Math.round(center - nextSize / 2);
+    nextStart = Math.max(0, Math.min(nextStart, candles.length - nextSize));
+    setView({ start: nextStart, end: nextStart + nextSize });
+  };
+  const zoomY = (factor) => {
+    const mid = (max + min) / 2;
+    const half = Math.max(0.000001, (max - min) * factor / 2);
+    setYView({ min: mid - half, max: mid + half });
+  };
+  const resetView = () => {
+    const count = rangeCandles();
+    setView({ start: Math.max(0, candles.length - count), end: candles.length });
+    setYView(null);
+  };
+  const onDown = (e) => {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    dragRef.current = {
+      mode: e.clientX > rect.right - 44 ? 'y' : 'x',
+      x: e.clientX,
+      y: e.clientY,
+      start,
+      end,
+      min,
+      max,
+      width: rect.width,
+      height: rect.height,
+    };
+  };
+  const onMove = (e) => {
+    const d = dragRef.current;
+    if (!d) return;
+    if (d.mode === 'x') {
+      const span = d.end - d.start;
+      const delta = Math.round(-(e.clientX - d.x) / Math.max(1, d.width) * span);
+      let nextStart = Math.max(0, Math.min(d.start + delta, candles.length - span));
+      setView({ start: nextStart, end: nextStart + span });
+    } else {
+      const priceDelta = (e.clientY - d.y) / Math.max(1, d.height) * (d.max - d.min);
+      setYView({ min: d.min + priceDelta, max: d.max + priceDelta });
+    }
+  };
+  const onUp = () => { dragRef.current = null; };
 
   return (
-    <svg viewBox={`0 0 ${W} ${H + 4}`} style={{ width: '100%', height: 140, background: 'var(--bg-0)', borderRadius: 4, border: '1px solid var(--border)' }} preserveAspectRatio="none">
+    <div>
+      <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', marginBottom: 6 }}>
+        <button className="btn ghost sm" style={{ padding: '3px 8px', fontSize: 10 }} onClick={() => { zoomX(0.7); zoomY(0.7); }}>Zoom In</button>
+        <button className="btn ghost sm" style={{ padding: '3px 8px', fontSize: 10 }} onClick={() => { zoomX(1.35); zoomY(1.35); }}>Zoom Out</button>
+        <button className="btn ghost sm" style={{ padding: '3px 8px', fontSize: 10 }} onClick={resetView}>Reset</button>
+      </div>
+    <svg
+      ref={svgRef}
+      viewBox={`0 0 ${W} ${H + 4}`}
+      style={{ width: '100%', height: 170, background: 'var(--bg-0)', borderRadius: 4, border: '1px solid var(--border)', cursor: 'grab', touchAction: 'none' }}
+      preserveAspectRatio="none"
+      onMouseDown={onDown}
+      onMouseMove={onMove}
+      onMouseUp={onUp}
+      onMouseLeave={onUp}
+    >
       <line x1="0" x2={W} y1={yScale(sl)} y2={yScale(sl)} stroke="#f43f5e" strokeWidth="0.15" strokeDasharray="0.5,0.5" />
       <line x1="0" x2={W} y1={yScale(tp)} y2={yScale(tp)} stroke="#10b981" strokeWidth="0.15" strokeDasharray="0.5,0.5" />
       <line x1="0" x2={W} y1={yScale(entry)} y2={yScale(entry)} stroke="#60a5fa" strokeWidth="0.15" strokeDasharray="0.5,0.5" />
-      {candles.map((c, i) => {
-        const x = (i / candles.length) * W;
-        const wide = W / candles.length * 0.7;
+      {visible.map((c, i) => {
+        const x = (i / visible.length) * W;
+        const wide = W / visible.length * 0.7;
         const up = c.c >= c.o;
         return (
-          <g key={i}>
+          <g key={`${start + i}-${c.t || ''}`}>
             <line x1={x + wide / 2} x2={x + wide / 2} y1={yScale(c.h)} y2={yScale(c.l)} stroke={up ? '#10b981' : '#f43f5e'} strokeWidth="0.1" />
             <rect x={x} y={yScale(Math.max(c.o, c.c))} width={wide} height={Math.max(0.2, Math.abs(yScale(c.o) - yScale(c.c)))} fill={up ? '#10b981' : '#f43f5e'} />
           </g>
@@ -225,7 +341,12 @@ function MiniCandleChart({ symbol, assetClass, timeframe, dir, entry, sl, tp }) 
       <text x={W - 0.5} y={yScale(sl) - 0.3} fill="#f43f5e" fontSize="1.4" textAnchor="end" fontFamily="JetBrains Mono">SL</text>
       <text x={W - 0.5} y={yScale(tp) - 0.3} fill="#10b981" fontSize="1.4" textAnchor="end" fontFamily="JetBrains Mono">TP</text>
       <text x={W - 0.5} y={yScale(entry) - 0.3} fill="#60a5fa" fontSize="1.4" textAnchor="end" fontFamily="JetBrains Mono">Entry</text>
+      <rect x="86" y="0" width="14" height={H + 4} fill="rgba(255,255,255,0.01)" />
     </svg>
+      <div style={{ marginTop: 6, fontSize: 10.5, color: 'var(--text-2)' }}>
+        Drag chart left/right to pan time. Drag the right edge up/down to pan price.
+      </div>
+    </div>
   );
 }
 
@@ -234,7 +355,7 @@ function InjectSymbolsPanel() {
   const [stocks, setStocks] = uS([]);
   const [crypto, setCrypto] = uS([]);
   const [stockInput, setStockInput] = uS('AAPL\nMSFT\nNVDA');
-  const [cryptoInput, setCryptoInput] = uS('BTC\nETH\nSOL');
+  const [cryptoInput, setCryptoInput] = uS('BTC/USD\nETH/USD\nSOL/USD');
   const [msg, setMsg] = uS('');
   const [busy, setBusy] = uS(false);
 
@@ -305,8 +426,11 @@ function InjectSymbolsPanel() {
             <Icon name="coins" size={13} />Crypto
           </h3>
           <div className="field" style={{ marginBottom: 10 }}>
-            <label>Symbols</label>
+            <label>Pairs</label>
             <textarea className="input textarea" rows={4} value={cryptoInput} onChange={e => setCryptoInput(e.target.value)} />
+            <div style={{ fontSize: 10.5, color: 'var(--text-2)', marginTop: 6 }}>
+              Use pairs like BTC/USD. Bare symbols are saved as /USD automatically.
+            </div>
           </div>
           <button className="btn primary full" onClick={() => inject('crypto')} disabled={busy}><Icon name="plus" size={12} />Inject Crypto</button>
         </div>
@@ -331,19 +455,40 @@ function QuickControlsPanel() {
   const [wAmount, setWAmount] = uS('0.00');
   const [wReason, setWReason] = uS('Living expenses');
   const [mlTraining, setMlTraining] = uS(false);
+  const [quickStatus, setQuickStatus] = uS({ ml: {}, tax: {}, market_condition: {} });
   const [busy, setBusy] = uS(false);
   const [msg, setMsg] = uS('');
+
+  const loadQuickStatus = async () => {
+    try {
+      const data = await apiCall(`/api/quick_status?year=${taxYear}`);
+      setQuickStatus(data);
+    } catch {}
+  };
 
   const refreshSnapshot = async () => {
     try {
       const snap = await apiCall('/api/snapshot');
       setRunning(!!snap.bot_process_running);
-      if (snap.bot_status === 'PAUSED') setPaused(true);
-      if (snap.bot_status === 'ACTIVE') setPaused(false);
+      if (typeof snap.trading_active === 'boolean') {
+        setPaused(!snap.trading_active);
+      } else if (snap.bot_status === 'PAUSED') {
+        setPaused(true);
+      } else if (snap.bot_status === 'ACTIVE') {
+        setPaused(false);
+      }
     } catch {}
   };
 
-  uE(() => { refreshSnapshot(); }, []);
+  uE(() => {
+    refreshSnapshot();
+    loadQuickStatus();
+    const t = setInterval(refreshSnapshot, 5000);
+    const q = setInterval(loadQuickStatus, 30000);
+    return () => { clearInterval(t); clearInterval(q); };
+  }, []);
+
+  uE(() => { loadQuickStatus(); }, [taxYear]);
 
   const callControl = async (action, extras = {}) => {
     setBusy(true);
@@ -354,6 +499,8 @@ function QuickControlsPanel() {
         body: JSON.stringify({ action, ...extras })
       });
       setMsg(data.message || data.error || 'Done');
+      if (action === 'pause_trading') setPaused(true);
+      if (action === 'resume_trading') setPaused(false);
       await refreshSnapshot();
     } catch (e) {
       setMsg(`Control failed: ${e.message}`);
@@ -362,10 +509,37 @@ function QuickControlsPanel() {
     }
   };
 
-  const triggerML = () => {
-    setMlTraining(true);
-    setTimeout(() => setMlTraining(false), 2200);
+  const postAction = async (path, body = {}) => {
+    setBusy(true);
+    try {
+      const data = await apiCall(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      setMsg(data.message || 'Done');
+      await loadQuickStatus();
+      await refreshSnapshot();
+      return data;
+    } catch (e) {
+      setMsg(`Action failed: ${e.message}`);
+      return null;
+    } finally {
+      setBusy(false);
+    }
   };
+
+  const triggerML = async () => {
+    setMlTraining(true);
+    await postAction('/api/ml/retrain');
+    setMlTraining(false);
+  };
+
+  const ml = quickStatus.ml || {};
+  const tax = quickStatus.tax || {};
+  const mlStage = String(ml.stage || 'unknown').replace('_', ' ');
+  const mlProgress = Math.min(100, Math.max(0, Number(ml.progress_pct || 0)));
+  const mlActive = ml.stage === 'active';
 
   return (
     <div style={{ padding: 14 }}>
@@ -418,28 +592,21 @@ function QuickControlsPanel() {
         </div>
       </div>
 
-      {/* ML Scorer */}
-      <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 14, marginBottom: 12 }}>
-        <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Icon name="layers" size={13} />ML Scorer
-        </h3>
-        <button className="btn ghost full" onClick={triggerML} disabled={mlTraining}>{mlTraining ? <><Icon name="cpu" size={12} />Training…</> : <><Icon name="cpu" size={12} />Train ML Now</>}</button>
-      </div>
-
       {/* Tax & Reports */}
       <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 14, marginBottom: 12 }}>
         <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
           <Icon name="file" size={13} />Tax & Reports
         </h3>
-        <button className="btn ghost full" style={{ marginBottom: 10 }}><Icon name="file" size={12} />Generate Today's Report</button>
+        <button className="btn ghost full" style={{ marginBottom: 10 }} onClick={() => postAction('/api/report/daily')} disabled={busy}><Icon name="file" size={12} />Generate Today's Report</button>
         <div className="field" style={{ marginBottom: 10 }}>
           <label>Tax Year</label>
           <input className="input" type="number" value={taxYear} onChange={e => setTaxYear(+e.target.value)} />
         </div>
+        <button className="btn ghost full" onClick={() => postAction('/api/tax/export', { year: taxYear })} disabled={busy}><Icon name="download" size={12} />Export Form 8949 CSV</button>
       </div>
 
       {/* Withdrawal */}
-      <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 14 }}>
+      <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 14, marginBottom: 16 }}>
         <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
           <Icon name="wallet" size={13} />Withdrawal
         </h3>
@@ -451,7 +618,42 @@ function QuickControlsPanel() {
           <label>Reason</label>
           <input className="input" value={wReason} onChange={e => setWReason(e.target.value)} />
         </div>
-        <button className="btn primary full" disabled={parseFloat(wAmount) <= 0}><Icon name="arrow" size={12} />Process Withdrawal</button>
+        <button className="btn primary full" disabled={busy || parseFloat(wAmount) <= 0} onClick={() => postAction('/api/withdrawal', { amount: parseFloat(wAmount), reason: wReason })}><Icon name="arrow" size={12} />Process Withdrawal</button>
+      </div>
+
+      {/* YTD Tax Summary */}
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16, marginBottom: 18 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)', marginBottom: 18 }}>
+          YTD Tax Summary ({taxYear})
+        </h3>
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)', marginBottom: 6 }}>Total Gains/Losses</div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 30, lineHeight: 1, color: 'var(--text-1)' }}>{fmt$(Number(tax.total_gains || 0))}</div>
+        </div>
+        <div style={{ marginBottom: 18 }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)', marginBottom: 6 }}>Short-Term</div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 30, lineHeight: 1, color: 'var(--text-1)' }}>{fmt$(Number(tax.short_term_gains || 0))}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)', marginBottom: 6 }}>Long-Term</div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 30, lineHeight: 1, color: 'var(--text-1)' }}>{fmt$(Number(tax.long_term_gains || 0))}</div>
+        </div>
+      </div>
+
+      {/* ML Scorer */}
+      <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16 }}>
+        <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Icon name="layers" size={13} />ML Scorer
+        </h3>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, fontWeight: 700, marginBottom: 18 }}>
+          <span style={{ width: 14, height: 14, borderRadius: '50%', background: mlActive ? 'var(--green)' : 'var(--yellow)' }}></span>
+          <span>{mlActive ? 'Active' : mlStage}</span>
+        </div>
+        <div style={{ height: 8, background: 'var(--bg-0)', borderRadius: 4, overflow: 'hidden', marginBottom: 10 }}>
+          <div style={{ width: `${mlProgress}%`, height: '100%', background: 'var(--red)' }} />
+        </div>
+        <div style={{ fontSize: 11, lineHeight: 1.6, color: 'var(--text-2)', marginBottom: 16, fontWeight: 600 }}>{ml.message || 'ML scorer initializing.'}</div>
+        <button className="btn ghost full" onClick={triggerML} disabled={mlTraining || busy}>{mlTraining ? <><Icon name="cpu" size={12} />Training…</> : <><Icon name="cpu" size={12} />Retrain ML Now</>}</button>
       </div>
     </div>
   );

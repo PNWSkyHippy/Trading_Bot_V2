@@ -94,8 +94,9 @@ class Database:
                     broker          TEXT,
                     strategy_name   TEXT DEFAULT 'original',
                     is_overnight    INTEGER DEFAULT 0,
-                    broker_order_id TEXT,
-                    tp_hit_count    INTEGER DEFAULT 0
+                    broker_order_id  TEXT,
+                    tp_hit_count     INTEGER DEFAULT 0,
+                    entry_timeframe  TEXT DEFAULT '5Min'
                 );
 
                 -- Daily session summaries
@@ -197,10 +198,11 @@ class Database:
 
             # Safe migrations
             migrations = [
-                "ALTER TABLE trades ADD COLUMN strategy_name   TEXT    DEFAULT 'original'",
-                "ALTER TABLE trades ADD COLUMN is_overnight    INTEGER DEFAULT 0",
-                "ALTER TABLE trades ADD COLUMN broker_order_id TEXT",
-                "ALTER TABLE trades ADD COLUMN tp_hit_count    INTEGER DEFAULT 0",
+                "ALTER TABLE trades ADD COLUMN strategy_name    TEXT    DEFAULT 'original'",
+                "ALTER TABLE trades ADD COLUMN is_overnight     INTEGER DEFAULT 0",
+                "ALTER TABLE trades ADD COLUMN broker_order_id  TEXT",
+                "ALTER TABLE trades ADD COLUMN tp_hit_count     INTEGER DEFAULT 0",
+                "ALTER TABLE trades ADD COLUMN entry_timeframe  TEXT    DEFAULT '5Min'",
                 "ALTER TABLE session_state ADD COLUMN starting_capital_today REAL DEFAULT 0",
             ]
             for sql in migrations:
@@ -243,8 +245,8 @@ class Database:
                     (trade_id, symbol, asset_class, direction, status,
                      entry_time, entry_price, quantity, position_value,
                      stop_loss, take_profit, signal_score,
-                     indicators_json, broker, strategy_name)
-                VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     indicators_json, broker, strategy_name, entry_timeframe)
+                VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 trade["trade_id"], trade["symbol"], trade["asset_class"],
                 trade["direction"], trade["entry_time"], trade["entry_price"],
@@ -253,7 +255,8 @@ class Database:
                 trade.get("signal_score"),
                 json.dumps(trade.get("indicators", {})),
                 trade.get("broker", "alpaca"),
-                trade.get("strategy_name", "original")
+                trade.get("strategy_name", "original"),
+                trade.get("entry_timeframe", "5Min"),
             ))
         logger.info(f"Trade opened: {trade['symbol']} @ {trade['entry_price']}")
 
