@@ -663,13 +663,26 @@ class PositionMonitor:
     # ------------------------------------------------------------------
 
     def _get_bars(self, symbol: str, asset_class: str,
-                  limit: int = 25) -> Optional[pd.DataFrame]:
+                  limit: int = 25,
+                  timeframe: str = None) -> Optional[pd.DataFrame]:
+        """
+        Fetch closed bars for a symbol.
+
+        `timeframe` controls which candle size is fetched:
+          - Pass the trade's entry_timeframe for structural exit logic (trailing stop).
+          - Omit (or pass None) for monitoring overlay checks (early loss, pivot,
+            ADX stale, VWAP, momentum) — those default to 5Min/5m regardless of
+            entry timeframe, which is the intentional hybrid design documented in
+            TIMEFRAME_LIFECYCLE_SPEC.md.
+        """
         try:
             sc = self._get_scanner()
             if asset_class == "stock":
-                return sc.stock_scanner.get_bars(symbol, timeframe="5Min", limit=limit)
+                tf = timeframe or "5Min"
+                return sc.stock_scanner.get_bars(symbol, timeframe=tf, limit=limit)
             else:
-                return sc.crypto_scanner.get_ohlcv(symbol, timeframe="5m", limit=limit)
+                tf = timeframe or "5m"
+                return sc.crypto_scanner.get_ohlcv(symbol, timeframe=tf, limit=limit)
         except Exception as e:
             logger.debug(f"Bar fetch error for {symbol}: {e}")
             return None
@@ -733,12 +746,15 @@ class PositionMonitor:
           11. Stale position ADX/DI (3hr)
           12. Trailing stop update + logging
         """
-        symbol      = trade["symbol"]
-        asset_class = trade["asset_class"]
-        direction   = trade["direction"]
-        trade_id    = trade["trade_id"]
-        strategy    = trade.get("strategy_name", "")
-        is_overnight= bool(trade.get("is_overnight", False))
+        symbol           = trade["symbol"]
+        asset_class      = trade["asset_class"]
+        direction        = trade["direction"]
+        trade_id         = trade["trade_id"]
+        strategy         = trade.get("strategy_name", "")
+        is_overnight     = bool(trade.get("is_overnight", False))
+        entry_timeframe  = trade.get("entry_timeframe") or (
+            "5Min" if asset_class == "stock" else "5m"
+        )
 
         # ── 1. STUCK CHECK ───────────────────────────────────────────────
         if self._is_stuck(trade_id):
@@ -763,7 +779,7 @@ class PositionMonitor:
         age_hrs     = age_seconds / 3600
 
         logger.debug(
-            f"{symbol}: price=${current_price:.4f} | "
+            f"{symbol} [{entry_timeframe}]: price=${current_price:.4f} | "
             f"SL=${trade['stop_loss']:.4f} | TP=${trade['take_profit']:.4f} | "
             f"P&L: {pnl_pct:+.2f}% | Age: {age_hrs:.1f}hr"
         )
@@ -975,7 +991,12 @@ class PositionMonitor:
                 return
 
         # ── 12. TRAILING STOP UPDATE + LOGGING ───────────────────────────
-        updates = risk_manager.calculate_trailing_stop(trade, current_price)
+        # Fetch bars on the trade's originating timeframe so the two-bar
+        # structural stop trails on the same candle size that generated the entry.
+        # A 1h trade must trail on 1h bars — not 5m bars — or the stop advances
+        # on every minor 5m high/low instead of on structural 1h breaks.
+        _trail_bars = self._get_bars(symbol, asset_class, limit=25, timeframe=entry_timeframe)
+        updates = risk_manager.calculate_trailing_stop(trade, current_price, bars=_trail_bars)
         if updates:
             old_sl = trade.get("stop_loss", 0)
             old_tp = trade.get("take_profit", 0)

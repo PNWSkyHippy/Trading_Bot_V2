@@ -372,6 +372,29 @@ input, textarea, select { font-family: inherit; }
 .tbl .pill.short { background: var(--red-soft); color: var(--red); }
 .tbl .pill.win { background: var(--green-soft); color: var(--green); }
 .tbl .pill.loss { background: var(--red-soft); color: var(--red); }
+.tbl tbody td.result-cell {
+  background: var(--bg-1) !important;
+}
+.tbl tbody tr:hover td.result-cell {
+  background: var(--bg-1) !important;
+}
+.tbl .result-pill {
+  min-width: 0;
+  padding: 0;
+  text-align: center;
+  background: transparent !important;
+  border-radius: 0;
+  font-family: var(--mono);
+  letter-spacing: 0;
+}
+.tbl .result-pill.win {
+  background: transparent !important;
+  color: var(--green) !important;
+}
+.tbl .result-pill.loss {
+  background: transparent !important;
+  color: var(--red) !important;
+}
 
 /* ============ Form controls ============ */
 .field { display: flex; flex-direction: column; gap: 6px; }

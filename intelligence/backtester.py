@@ -91,6 +91,7 @@ class BacktestTrade:
     bars_held:      int
     strategy_name:  str = "default"
     stop_mode:      str = "standard"   # 'standard' or 'two_bar'
+    fees:           float = 0.0        # round-trip friction cost for this trade
 
 
 @dataclass
@@ -128,6 +129,9 @@ class BacktestResult:
     largest_loss:     float
     avg_bars_held:    float
     stop_mode:        str = "standard"   # 'standard' or 'two_bar'
+    fees_paid:        float = 0.0        # total round-trip friction deducted
+    commission_pct:   float = 0.0        # per-leg commission used
+    slippage_pct:     float = 0.0        # per-leg slippage used
     trades:           List[BacktestTrade]  = field(default_factory=list)
     equity_curve:     List[EquityPoint]    = field(default_factory=list)
 
@@ -439,15 +443,18 @@ class Backtester:
     # Trade helpers — standard stop mode
     # -----------------------------------------------------------------------
 
-    def _check_exit_standard(self, trade: Dict, price: float,
+    def _check_exit_standard(self, trade: Dict, row: pd.Series,
                               trailing_gap_pct: float,
                               take_profit_pct:  float) -> Optional[str]:
-        """Standard fixed % stop with trailing. Original behavior unchanged."""
-        d  = trade["direction"]
-        sl = trade["current_sl"]
-        tp = trade["current_tp"]
+        """Standard fixed % stop with trailing. Uses intrabar low/high for stop check."""
+        d     = trade["direction"]
+        sl    = trade["current_sl"]
+        tp    = trade["current_tp"]
+        low   = float(row["low"])
+        high  = float(row["high"])
+        price = float(row["close"])
         if d == "long":
-            if price <= sl:
+            if low <= sl:
                 return "stop_loss"
             if price >= tp:
                 return "take_profit"
@@ -455,7 +462,7 @@ class Backtester:
             if new_sl > sl:
                 trade["current_sl"] = new_sl
         else:
-            if price >= sl:
+            if high >= sl:
                 return "stop_loss"
             if price <= tp:
                 return "take_profit"
@@ -474,16 +481,18 @@ class Backtester:
         direction = trade["direction"]
         price     = float(df.iloc[bar_idx]["close"])
 
-        # Step 1: Advance trailing stop if triggered
+        # Step 1: Check if stop was hit intrabar using the PREVIOUS bar's stop.
+        # Must happen before update_stop — a single OHLCV bar cannot both advance
+        # the stop AND be stopped out by the advanced level (same-bar optimism bug).
+        if two_bar_engine.check_stop_hit(df, bar_idx, trade["current_sl"], direction):
+            return "stop_loss"
+
+        # Step 2: Advance trailing stop if triggered (bar survived the stop check)
         new_stop = two_bar_engine.update_stop(
             df, bar_idx, trade["current_sl"], direction
         )
         if new_stop != trade["current_sl"]:
             trade["current_sl"] = new_stop
-
-        # Step 2: Check if stop hit intrabar
-        if two_bar_engine.check_stop_hit(df, bar_idx, trade["current_sl"], direction):
-            return "stop_loss"
 
         # Step 3: Take profit check (uses close price)
         tp = trade["current_tp"]
@@ -502,9 +511,11 @@ class Backtester:
         d   = trade["direction"]
         qty = trade["quantity"]
 
-        # For 2-bar stop loss exits, use the actual stop price as fill
-        # (intrabar stop hit means fill at stop, not close)
-        if reason == "stop_loss" and stop_mode == STOP_TWO_BAR:
+        # Stop loss exits fill at the stop price for both stop modes.
+        # Both _check_exit_standard and _check_exit_two_bar now use intrabar
+        # low/high, so we know the stop was touched — fill at the stop level,
+        # not the close (which may be far from where the stop was hit).
+        if reason == "stop_loss":
             exit_price = trade["current_sl"]
         else:
             exit_price = price
@@ -546,15 +557,36 @@ class Backtester:
                   starting_capital: float,
                   timeframe: str,
                   stop_mode: str = STOP_STANDARD,
-                  two_bar_lookback: int = 2) -> BacktestResult:
-
+                  two_bar_lookback: int = 2,
+                  asset_class: str = "stock",
+                  commission_pct: float = None,
+                  slippage_pct:   float = None) -> BacktestResult:
+        """
+        commission_pct / slippage_pct: per-leg friction (%).
+        None → use config defaults for the asset class.
+        Pass 0.0 for both to reproduce friction-free (optimistic) results.
+        """
         cfg              = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
         annualise_factor = cfg["annualise"]
+
+        # Resolve friction defaults from config if not explicitly overridden
+        if commission_pct is None:
+            commission_pct = (config.BT_COMMISSION_CRYPTO_PCT
+                              if asset_class == "crypto"
+                              else config.BT_COMMISSION_STOCK_PCT)
+        if slippage_pct is None:
+            slippage_pct   = (config.BT_SLIPPAGE_CRYPTO_PCT
+                              if asset_class == "crypto"
+                              else config.BT_SLIPPAGE_STOCK_PCT)
+
+        # Total per-leg friction; round-trip = 2 × this value
+        friction_per_leg = (commission_pct + slippage_pct) / 100.0
 
         # Initialise the 2-bar stop engine if needed
         two_bar_engine = TwoBarStop(two_bar_lookback) if stop_mode == STOP_TWO_BAR else None
 
         capital            = starting_capital
+        total_fees_paid    = 0.0
         open_trades: List[Dict] = []
         closed_trades: List[BacktestTrade] = []
         equity_curve:  List[EquityPoint]  = []
@@ -598,13 +630,24 @@ class Backtester:
                     )
                 else:
                     exit_reason = self._check_exit_standard(
-                        trade, price, trailing_gap_pct, default_tp_pct
+                        trade, row, trailing_gap_pct, default_tp_pct
                     )
 
                 if exit_reason:
                     pnl, bt_trade = self._close_trade(
                         trade, price, exit_reason, i, df,
                         strategy_name, stop_mode
+                    )
+                    # Deduct round-trip friction (entry leg + exit leg).
+                    # Applied to position_value so cost scales with trade size.
+                    round_trip_cost = bt_trade.position_value * friction_per_leg * 2
+                    pnl            -= round_trip_cost
+                    total_fees_paid += round_trip_cost
+                    bt_trade.fees   = round(round_trip_cost, 4)
+                    bt_trade.pnl    = round(pnl, 4)
+                    bt_trade.pnl_pct = round(
+                        pnl / bt_trade.position_value * 100
+                        if bt_trade.position_value else 0, 2
                     )
                     closed_trades.append(bt_trade)
                     capital   += pnl

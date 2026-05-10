@@ -352,24 +352,51 @@ class RiskManager:
     # ----------------------------------------------------------
 
     def calculate_trailing_stop(self, trade: Dict,
-                                 current_price: float) -> Optional[Dict]:
+                                 current_price: float,
+                                 bars=None) -> Optional[Dict]:
+        """
+        Update trailing stop for an open trade.
+
+        When `bars` (a closed-bar DataFrame, at least lookback+1 rows) is provided,
+        uses the two-bar structural model: trail only triggers on a new N-bar high/low
+        on a closed bar. This matches the production stop model and the backtester.
+
+        Falls back to percent trailing when bars are unavailable — logged as WARNING
+        so the mismatch is visible in the monitoring logs.
+        """
         direction  = trade["direction"]
         current_sl = trade["stop_loss"]
-        trailing_gap = config.TRAILING_STOP_PCT / 100
-        updates = {}
+        updates    = {}
 
-        if direction == "long":
-            new_sl = current_price * (1 - trailing_gap)
-            if new_sl > current_sl:
+        if bars is not None and len(bars) >= 3:
+            from core.stop_engine import stop_engine
+            triggered, new_sl = stop_engine.check_for_trail_update(
+                bars, current_sl, direction
+            )
+            if triggered:
                 updates["stop_loss"] = round(new_sl, 4)
                 logger.info(
-                    f"Trailing stop raised for {trade['symbol']}: "
+                    f"[TWO-BAR TRAIL] {trade['symbol']}: "
                     f"${current_sl:.4f} -> ${new_sl:.4f}"
                 )
-        elif direction == "short":
-            new_sl = current_price * (1 + trailing_gap)
-            if new_sl < current_sl:
-                updates["stop_loss"] = round(new_sl, 4)
+        else:
+            trailing_gap = config.TRAILING_STOP_PCT / 100
+            if direction == "long":
+                new_sl = current_price * (1 - trailing_gap)
+                if new_sl > current_sl:
+                    updates["stop_loss"] = round(new_sl, 4)
+                    logger.warning(
+                        f"[PERCENT TRAIL fallback] {trade['symbol']}: "
+                        f"${current_sl:.4f} -> ${new_sl:.4f} — bars unavailable"
+                    )
+            elif direction == "short":
+                new_sl = current_price * (1 + trailing_gap)
+                if new_sl < current_sl:
+                    updates["stop_loss"] = round(new_sl, 4)
+                    logger.warning(
+                        f"[PERCENT TRAIL fallback] {trade['symbol']}: "
+                        f"${current_sl:.4f} -> ${new_sl:.4f} — bars unavailable"
+                    )
 
         return updates if updates else None
 

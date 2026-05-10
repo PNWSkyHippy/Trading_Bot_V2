@@ -11,7 +11,7 @@ import logging
 import time
 import numpy as np
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from dataclasses import dataclass
 
@@ -24,9 +24,74 @@ import ccxt
 
 import config
 from core.inverse_etf_mapper import map_signal, is_leveraged_etf
+from core.stop_engine import stop_engine as _stop_engine
 from strategies.strategy_engine import strategy_engine
 
 logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Candle Integrity — closed-bar contract (Phase 2)
+# ---------------------------------------------------------------------------
+
+# Maps timeframe strings (lower-cased) to their duration in seconds.
+# Covers both CCXT style ("5m", "1h") and Alpaca style ("5Min", "1Hour").
+_TF_SECONDS: Dict[str, int] = {
+    "1m":    60,    "1min":   60,    "1minute":  60,
+    "5m":    300,   "5min":   300,   "5minute":  300,
+    "15m":   900,   "15min":  900,
+    "30m":   1800,  "30min":  1800,
+    "1h":    3600,  "1hour":  3600,  "60m":      3600,  "60min":  3600,
+    "2h":    7200,  "2hour":  7200,
+    "4h":    14400, "4hour":  14400,
+    "1d":    86400, "1day":   86400, "daily":    86400,
+}
+
+
+def _tf_to_seconds(timeframe: str) -> int:
+    """Return the number of seconds in one bar for the given timeframe string."""
+    return _TF_SECONDS.get(timeframe.lower().replace(" ", ""), 300)
+
+
+def _strip_forming_bar(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
+    """
+    Remove the last bar from df if it is still forming (not yet closed).
+
+    A bar starting at T is closed when: now_utc >= T + timeframe_duration.
+    Both Kraken CCXT (ms-epoch naive UTC) and Alpaca (tz-aware UTC) are
+    handled by normalising the last index timestamp to naive UTC before
+    comparing against datetime.utcnow().
+
+    Returns df unchanged when the last bar is already closed.
+    Returns df[:-1] when the last bar is still forming, and logs the event.
+    """
+    if df is None or df.empty:
+        return df
+
+    tf_sec = _tf_to_seconds(timeframe)
+
+    try:
+        ts = pd.Timestamp(df.index[-1])
+        # Normalise to naive UTC
+        if ts.tzinfo is not None:
+            ts = ts.tz_convert("UTC").tz_localize(None)
+
+        bar_close = ts + pd.Timedelta(seconds=tf_sec)
+        now_utc   = pd.Timestamp(datetime.utcnow())
+
+        if now_utc < bar_close:
+            remaining = (bar_close - now_utc).total_seconds()
+            logger.debug(
+                f"[CANDLE STRIP] Forming bar removed — "
+                f"tf={timeframe} started={ts} closes_in={remaining:.0f}s"
+            )
+            return df.iloc[:-1]
+
+    except Exception as e:
+        # If we cannot determine bar state, keep df unchanged (conservative).
+        logger.debug(f"[CANDLE STRIP] Could not check bar freshness: {e}")
+
+    return df
 
 
 @dataclass
@@ -110,19 +175,26 @@ class StockScanner:
             config.ALPACA_BASE_URL
         )
         self.ta = TechnicalAnalysis()
+        # Candle integrity: tracks the last closed-bar timestamp evaluated
+        # per symbol+timeframe so we never re-run strategies against the same bar.
+        # Key: "SYMBOL_TF"  Value: str(bars.index[-1])
+        self._last_bar_evaluated: Dict[str, str] = {}
 
     def get_bars(self, symbol: str, timeframe: str = "5Min",
                  limit: int = 100) -> Optional[pd.DataFrame]:
         try:
+            # Request one extra bar so that after stripping the forming bar
+            # callers always receive at least `limit` fully closed bars.
             bars = self.api.get_bars(
                 symbol, timeframe,
-                limit=limit, adjustment="raw"
+                limit=limit + 1, adjustment="raw"
             ).df
             if bars.empty:
                 return None
             bars.columns = [c.lower() for c in bars.columns]
             bars = bars.rename(columns={"vwap": "vwap_raw"}) if "vwap" in bars.columns else bars
-            return bars
+            bars = _strip_forming_bar(bars, timeframe)
+            return bars if bars is not None and not bars.empty else None
         except Exception as e:
             logger.debug(f"Bars fetch failed for {symbol}: {e}")
             return None
@@ -169,7 +241,9 @@ class StockScanner:
                 if not (config.STOCK_MIN_PRICE <= price <= config.STOCK_MAX_PRICE):
                     continue
 
-                # Fetch bars once per unique timeframe — reused across strategies
+                # Fetch bars once per unique timeframe — reused across strategies.
+                # Skip a timeframe if its last closed bar timestamp is unchanged
+                # from the previous scan cycle (same bar, same signal, no point).
                 bar_cache: dict = {}
                 for tf in tf_groups:
                     limit = max(
@@ -178,6 +252,15 @@ class StockScanner:
                     )
                     bars = self.get_bars(symbol, tf, limit)
                     if bars is not None and len(bars) >= 20:
+                        last_bar_ts  = str(bars.index[-1])
+                        cache_key    = f"{symbol}_{tf}"
+                        if self._last_bar_evaluated.get(cache_key) == last_bar_ts:
+                            logger.debug(
+                                f"[CANDLE SKIP] {symbol} {tf}: "
+                                f"closed bar {last_bar_ts} already evaluated"
+                            )
+                            continue
+                        self._last_bar_evaluated[cache_key] = last_bar_ts
                         bar_cache[tf] = bars
 
                 if not bar_cache:
@@ -188,6 +271,17 @@ class StockScanner:
                     symbol, "stock", bar_cache, price
                 )
                 for ss in strategy_signals:
+                    # Embed structural initial stop so trade_executor can use it
+                    # instead of the generic percent-based stop calculation.
+                    tf_key = ss.indicators.get("timeframe", list(bar_cache.keys())[0] if bar_cache else None)
+                    _bars_for_stop = bar_cache.get(tf_key) if tf_key else None
+                    if _bars_for_stop is not None and len(_bars_for_stop) >= 3:
+                        try:
+                            ss.indicators["structural_stop_price"] = round(
+                                _stop_engine.initial_stop_from_tail(_bars_for_stop, ss.direction), 6
+                            )
+                        except Exception:
+                            pass
                     signals.append(Signal(
                         symbol        = ss.symbol,
                         asset_class   = ss.asset_class,
@@ -230,11 +324,17 @@ class CryptoScanner:
             "timeout":         10000,   # 10 second hard timeout — prevents scan hangs
         })
         self.ta = TechnicalAnalysis()
+        # Candle integrity: tracks the last closed-bar timestamp evaluated
+        # per symbol+timeframe so we never re-run strategies against the same bar.
+        # Key: "SYMBOL_TF"  Value: str(df.index[-1])
+        self._last_bar_evaluated: Dict[str, str] = {}
 
     def get_ohlcv(self, symbol: str, timeframe: str = "5m",
                   limit: int = 100) -> Optional[pd.DataFrame]:
         try:
-            ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+            # Request one extra bar so that after stripping the forming bar
+            # callers always receive at least `limit` fully closed bars.
+            ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit + 1)
             if not ohlcv:
                 return None
             df = pd.DataFrame(
@@ -242,7 +342,8 @@ class CryptoScanner:
             )
             df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
             df.set_index("timestamp", inplace=True)
-            return df
+            df = _strip_forming_bar(df, timeframe)
+            return df if df is not None and not df.empty else None
         except Exception as e:
             logger.debug(f"OHLCV fetch failed for {symbol}: {e}")
             return None
@@ -287,7 +388,9 @@ class CryptoScanner:
                 if not (config.CRYPTO_MIN_PRICE <= price <= config.CRYPTO_MAX_PRICE):
                     continue
 
-                # Fetch bars once per unique timeframe — reused across strategies
+                # Fetch bars once per unique timeframe — reused across strategies.
+                # Skip a timeframe if its last closed bar timestamp is unchanged
+                # from the previous scan cycle (same bar, same signal, no point).
                 bar_cache: dict = {}
                 for tf in tf_groups:
                     limit = max(
@@ -296,6 +399,15 @@ class CryptoScanner:
                     )
                     bars = self.get_ohlcv(symbol, tf, limit)
                     if bars is not None and len(bars) >= 20:
+                        last_bar_ts  = str(bars.index[-1])
+                        cache_key    = f"{symbol}_{tf}"
+                        if self._last_bar_evaluated.get(cache_key) == last_bar_ts:
+                            logger.debug(
+                                f"[CANDLE SKIP] {symbol} {tf}: "
+                                f"closed bar {last_bar_ts} already evaluated"
+                            )
+                            continue
+                        self._last_bar_evaluated[cache_key] = last_bar_ts
                         bar_cache[tf] = bars
 
                 if not bar_cache:
@@ -306,6 +418,17 @@ class CryptoScanner:
                     symbol, "crypto", bar_cache, price
                 )
                 for ss in strategy_signals:
+                    # Embed structural initial stop so trade_executor can use it
+                    # instead of the generic percent-based stop calculation.
+                    tf_key = ss.indicators.get("timeframe", list(bar_cache.keys())[0] if bar_cache else None)
+                    _bars_for_stop = bar_cache.get(tf_key) if tf_key else None
+                    if _bars_for_stop is not None and len(_bars_for_stop) >= 3:
+                        try:
+                            ss.indicators["structural_stop_price"] = round(
+                                _stop_engine.initial_stop_from_tail(_bars_for_stop, ss.direction), 6
+                            )
+                        except Exception:
+                            pass
                     signals.append(Signal(
                         symbol        = ss.symbol,
                         asset_class   = ss.asset_class,

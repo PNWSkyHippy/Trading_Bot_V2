@@ -69,6 +69,21 @@ DEFAULT_STOP_LOSS_PCT   = 1.5
 DEFAULT_TAKE_PROFIT_PCT = 3.0
 TRAILING_STOP_PCT       = 1.5
 
+# ---------------------------------------------------------------------------
+# Backtest friction assumptions
+# Applied as round-trip cost (commission + slippage) per closed trade.
+# Per-leg means entry AND exit each incur the cost (total = 2× per trade).
+#
+# Stocks  — Alpaca: zero commission; assume 1 bp half-spread for fills.
+# Crypto  — Kraken taker fee 0.26% (standard tier); 5 bp half-spread.
+#            Higher-volume traders pay less (0.10% at highest tier).
+# Set both to 0.0 to reproduce the old friction-free (optimistic) results.
+# ---------------------------------------------------------------------------
+BT_COMMISSION_STOCK_PCT  = 0.00   # Alpaca is commission-free
+BT_COMMISSION_CRYPTO_PCT = 0.26   # Kraken taker fee, standard tier
+BT_SLIPPAGE_STOCK_PCT    = 0.01   # stock NBBO half-spread estimate
+BT_SLIPPAGE_CRYPTO_PCT   = 0.05   # crypto bid-ask half-spread estimate
+
 # Momentum rider
 MOMENTUM_RIDER_ENABLED        = True
 MOMENTUM_RIDER_RSI_MIN        = 50

@@ -562,20 +562,6 @@ class ChatInterface:
         return context
 
     def chat(self, user_message: str) -> str:
-        import os
-        from dotenv import load_dotenv
-        load_dotenv(
-            os.path.join(
-                os.path.dirname(os.path.abspath(__file__)), '..', '.env'
-            )
-        )
-        api_key = config.ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY", "")
-        if not api_key:
-            return (
-                "Chat interface requires an Anthropic API key. "
-                "Add ANTHROPIC_API_KEY to your .env file."
-            )
-
         logger.info(f"[CLAUDE] User message: {user_message[:120]}")
         self._last_user_message = user_message
 
@@ -600,6 +586,20 @@ class ChatInterface:
                 {"role": "assistant", "content": reply}
             )
             return reply
+
+        import os
+        from dotenv import load_dotenv
+        load_dotenv(
+            os.path.join(
+                os.path.dirname(os.path.abspath(__file__)), '..', '.env'
+            )
+        )
+        api_key = config.ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY", "")
+        if not api_key:
+            return (
+                "Chat interface requires an Anthropic API key for free-form questions. "
+                "Local bot commands like watchlist queries, strategy toggles, and morning scan can still work."
+            )
 
         # --- Full Haiku call for everything else ---
         context       = self._build_context()
