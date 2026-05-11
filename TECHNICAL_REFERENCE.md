@@ -54,6 +54,13 @@ An autonomous day trading bot that:
 system clock (PT). Market hour gates use `ZoneInfo("America/New_York")` for authoritative
 ET checks.
 
+### HTML dashboard note
+
+The live browser dashboard is now documented separately in
+`WEB_DASHBOARD_TECHNICAL_REFERENCE.md`. Use that file for the current
+`web_dashboard.py` bridge, `Html-Files/` frontend flow, JSON endpoints, panel data
+flow, backtester wiring, cache/restart rules, and dashboard troubleshooting.
+
 ---
 
 ## 2. Directory Structure
@@ -62,7 +69,8 @@ ET checks.
 trading_bot_v2/
 │
 ├── bot_engine.py              <- MAIN ENTRY POINT — start here
-├── dashboard.py               <- Streamlit browser UI (separate process)
+├── web_dashboard.py           <- Web console UI (separate process, replaces dashboard.py)
+├── WEB_DASHBOARD_TECHNICAL_REFERENCE.md <- Current HTML dashboard architecture/API map
 ├── config.py                  <- ALL settings, API keys, tunable params
 ├── requirements.txt           <- pip dependencies
 ├── .env                       <- API keys (gitignored)
@@ -158,7 +166,7 @@ cd C:\Users\Linda\trading_bot_v2
 python bot_engine.py
 
 # Start the dashboard (separate terminal)
-streamlit run dashboard.py
+python web_dashboard.py
 
 # Start IB Gateway headlessly (CMD, not PowerShell)
 cmd /c "C:\IBC\StartGateway.bat"

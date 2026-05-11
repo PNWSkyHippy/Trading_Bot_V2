@@ -1,0 +1,307 @@
+BREAKOUT_TUNING_DEFAULTS.md
+# BREAKOUT TUNING DEFAULTS
+**Status:** Proposed starting defaults  
+**Purpose:** Provide sane, conservative defaults for breakout auto-trading so the scanner catches early momentum without chasing exhausted pump moves.
+
+---
+
+## 1. Core philosophy
+
+Breakout trades are highly time-sensitive.
+
+The system should:
+1. Detect breakouts early
+2. Validate breakout quality in the scanner
+3. Execute quickly in the receiver
+4. Avoid late-stage blowoff entries
+5. Treat "rocket" signals as dangerous unless extremely fresh
+
+This is not a mean-reversion system.
+This is not a "top movers after the fact" system.
+This is a **breakout continuation capture** system.
+
+---
+
+## 2. Signal tier policy
+
+The scanner already escalates:
+- `new`
+- `moving` (>= 2%)
+- `hot` (>= 5%)
+- `rocket` (>= 10%)
+
+### Recommended auto-trade policy
+
+| Tier | Alert | Auto-trade | Notes |
+|---|---:|---:|---|
+| `new` | optional | No | Too early / too noisy |
+| `moving` | Yes | **Yes** | Best default auto-entry tier |
+| `hot` | Yes | **Yes, stricter** | Strong candidate if still fresh and not overextended |
+| `rocket` | Yes | **No initially** | Usually late / blowoff risk unless immediate |
+
+### Initial recommendation
+- Auto-trade only `moving`
+- Optionally allow selected `hot`
+- `rocket` = alert/manual only until proven safe in paper testing
+
+---
+
+## 3. Freshness / TTL rules
+
+A valid breakout can become stale in 1-5 minutes.
+
+### Recommended TTL by tier
+
+| Tier | Max signal age for auto-trade |
+|---|---:|
+| `moving` | 60 sec |
+| `hot` | 90 sec |
+| `rocket` | 30 sec max, and preferably alert-only |
+
+### Receiver rule
+Reject stale signals immediately before any other expensive work.
+
+### Reason
+A breakout that was valid 3 minutes ago may already be exhausted.
+
+---
+
+## 4. Bars-since-breakout rule
+
+This matters more than total move percent.
+
+### Recommended defaults
+
+| bars_since_breakout | Action |
+|---:|---|
+| 0 | Best entry timing |
+| 1 | Still tradable |
+| 2 | Borderline; only if extension remains small |
+| 3+ | Reject for auto-trade |
+
+### Initial receiver rule
+- Auto-trade only if `bars_since_breakout <= 1`
+- Reject auto-trade if `bars_since_breakout >= 2`
+- Still allow UI alerting/logging for later review
+
+---
+
+## 5. Extension-from-breakout rule
+
+Do not chase price just because it is still green.
+
+The scanner should compute:
+
+### Long
+```python
+distance_from_breakout_pct = ((current_price - breakout_level) / breakout_level) * 100
+Short
+distance_from_breakout_pct = ((breakout_level - current_price) / breakout_level) * 100
+Recommended limits
+Stocks
+Tier	Max extension from breakout
+moving	1.0%
+hot	1.5%
+rocket	0.75% if ever auto-traded
+Crypto
+Tier	Max extension from breakout
+moving	1.5%
+hot	2.0%
+rocket	1.0% if ever auto-traded
+Initial conservative setting
+If extension is above these values, reject the auto-trade but keep the alert.
+
+6. Volume spike thresholds
+Volume is one of the most important breakout confirmation signals.
+
+Recommended scanner thresholds
+Tier	Minimum volume spike
+moving	1.5x
+hot	1.8x
+rocket	2.2x
+Notes
+Stocks: volume confirmation is critical
+Crypto: 24/7 flow can be noisier, but volume still matters
+If the scanner lacks a proper 20-bar average, do not auto-trade
+Receiver policy
+Receiver should not recompute this. It should trust scanner-supplied volume_spike.
+
+7. Wick rejection defaults
+A breakout candle that is mostly wick is often a fakeout.
+
+Default rule
+Reject if wick in breakout direction exceeds 2.0x candle body
+
+Stronger conservative rule
+For auto-trade, especially on hot / rocket, use:
+
+reject if wick > 1.5x body
+Interpretation
+Long breakout
+Large upper wick = buyers got slapped back
+Dangerous for continuation entry
+Short breakout
+Large lower wick = sellers got absorbed
+Dangerous for continuation short
+8. Gap / exhaustion filter
+The current move_pct > 15% is too blunt by itself. Keep it, but use extension and age as the real anti-chase tools.
+
+Recommended anti-exhaustion stack
+Reject auto-trade if any of these are true:
+
+bars_since_breakout >= 2
+extension-from-breakout too large
+breakout candle wick/body fails
+signal age too old
+volume spike fading below threshold
+move is already parabolic for the instrument
+Move caps by asset
+Asset	Soft warning	Hard reject
+Stocks	> 6% intraday	> 10% intraday
+Crypto	> 10%	> 15%
+These are not primary filters; they are exhaustion flags.
+
+9. RSI defaults
+RSI should be a confirmation, not the main entry engine.
+
+Recommended use
+Long
+Prefer RSI >= 52
+Strong confirmation: RSI >= 55
+Reject if RSI >= 82 (exhaustion)
+Short
+Prefer RSI <= 48
+Strong confirmation: RSI <= 45
+Reject if RSI <= 18 (capitulation / too stretched)
+Important
+Missing RSI should not hard reject unless the scanner is expected to always provide it. If scanner can reliably compute RSI, use it there and send the value.
+
+10. Trend alignment defaults
+Stocks
+Use 200 SMA or EMA50/EMA200 alignment.
+
+Long
+Price above SMA200 preferred
+Stronger: EMA20 > EMA50 > EMA200
+Short
+Price below SMA200 preferred
+Stronger: EMA20 < EMA50 < EMA200
+Crypto
+A 200 SMA on 5m may be too noisy for fast breakouts. For crypto prefer:
+
+price above EMA50 for longs
+price below EMA50 for shorts
+optional 1h trend alignment if scanner already has it
+Recommendation
+Trend alignment should be a scanner-side quality score, not a slow receiver recomputation.
+
+11. Market context defaults
+Stocks
+Block long breakouts if SPY is broadly dumping.
+
+Suggested rule
+Reject long auto-trades if:
+
+SPY / QQQ market context <= -1.5% on the day
+or market internals are clearly risk-off
+Crypto
+Block long breakouts if BTC is in a sharp breakdown.
+
+Suggested rule
+Reject long alt breakouts if:
+
+BTC 1h move <= -2.0%
+or BTC is below key short-term trend filter while alt is trying to break out
+Notes
+This should stay scanner-side when possible.
+
+12. Minimum payload fields for auto-trade
+These should be required for breakout auto-trading.
+
+symbol
+asset_class
+direction
+timeframe
+signal_timestamp
+signal_price
+current_price
+breakout_level
+bars_since_breakout
+distance_from_breakout_pct
+volume_spike
+confidence
+escalation
+structural_stop_price
+Optional but strongly preferred
+move_pct
+best_move_pct
+momentum_score
+rsi
+trend_reference   # sma200 / ema50 etc
+market_pct_change
+candle_open
+candle_high
+candle_low
+candle_close
+pattern
+Fail policy
+Missing required field -> reject
+Missing optional field -> allow, but log reduced confidence
+13. Receiver fast-gate defaults
+After the scanner sends a validated breakout, the receiver should only do fast execution gating.
+
+Receiver checks
+Payload fields present
+Signal age within TTL
+No open position already
+Not in cooldown
+Trading not halted
+Current price has not reversed too far
+Extension still acceptable
+Structural stop still valid
+Risk manager approves
+Execute
+Suggested reversal drift limits
+Asset	Tier	Max adverse drift from signal
+Stocks	moving/hot	0.35%
+Crypto	moving/hot	0.50%
+Rocket	any	0.25%
+If the price has materially reversed since the signal, reject.
+
+14. Structural stop sanity checks
+Breakout trades must not be entered if the stop is already broken or too far away.
+
+Receiver rule
+Reject if:
+
+Long
+structural_stop_price >= current_price
+Short
+structural_stop_price <= current_price
+Also reject if risk distance is too wide
+Stocks
+max stop distance: 2.5%
+Crypto
+max stop distance: 3.5%
+If a breakout requires a bigger stop than that, it is too late or too volatile.
+
+15. Position sizing defaults
+Breakouts should be smaller than calm trend-follow entries.
+
+Recommended initial sizing
+Asset	Tier	Position size
+Stocks	moving	0.75% - 1.00%
+Stocks	hot	0.50% - 0.75%
+Crypto	moving	0.50% - 0.75%
+Crypto	hot	0.25% - 0.50%
+Rocket	any	0% initially (alert-only)
+Rationale
+Fast breakouts can reverse violently. Surviving matters more than maximizing size.
+
+16. Asset blacklist / exclusion defaults
+Do not auto-trade breakout signals on:
+ultra-low liquidity microcaps
+obvious meme/pump coins
+symbols with concentrated wallet ownership
+symbols with frequent 10-20% one-minute candles
+assets already flagged high-vol

@@ -384,6 +384,241 @@ class ChatInterface:
             logger.error(f"Watchlist reload error: {e}")
             return f"Watchlist reload error: {e}"
 
+    def _handle_local_status_query(self, msg: str) -> Optional[str]:
+        """Answer deterministic bot/status questions without calling Haiku."""
+        msg_lower = msg.lower().strip()
+
+        if any(p in msg_lower for p in [
+            "chat help", "bot help", "local commands", "what can you answer",
+            "what commands", "help commands"
+        ]):
+            return (
+                "Local chat commands I can answer without Haiku/API:\n"
+                "- show strategies / strategy stats\n"
+                "- open positions / recent trades / daily performance\n"
+                "- capital summary / capital breakdown / risk status\n"
+                "- dashboard summary / bot status\n"
+                "- show watchlist / show injected symbols / reload watchlist\n"
+                "- enable or disable a strategy by name\n"
+                "- morning scan"
+            )
+
+        if any(p in msg_lower for p in [
+            "dashboard summary", "dashboard status", "overview summary",
+            "overview status", "status summary", "quick summary"
+        ]):
+            try:
+                status = risk_manager.get_daily_status()
+                cap = db.get_latest_capital() or {}
+                positions = monitor.get_positions_summary() or []
+                today = date.today().isoformat()
+                trades = db.get_trades_for_date(today) or []
+                closed = [t for t in trades if t.get("status") == "closed"]
+                wins = [t for t in closed if float(t.get("pnl") or 0) > 0]
+                pnl = sum(float(t.get("pnl") or 0) for t in closed)
+                wr = (len(wins) / len(closed) * 100) if closed else 0
+                lines = ["Dashboard Summary:"]
+                lines.append(f"- Trading: {'ACTIVE' if status.trading_active else 'HALTED'}")
+                if status.halt_reason:
+                    lines.append(f"- Halt reason: {status.halt_reason}")
+                lines.append(f"- Capital: ${float(cap.get('total_capital') or status.capital or 0):,.2f}")
+                lines.append(f"- Available cash: ${float(cap.get('available_cash') or 0):,.2f}")
+                lines.append(f"- Open positions: {len(positions)}")
+                lines.append(f"- Closed trades today: {len(closed)} | WR {wr:.1f}% | P&L ${pnl:+,.2f}")
+                lines.append(f"- Consecutive losses: {int(status.consecutive_losses or 0)}")
+                logger.info("[CLAUDE] PRE-PARSE dashboard_summary")
+                return "\n".join(lines)
+            except Exception as e:
+                return f"Could not get dashboard summary: {e}"
+
+        if any(p in msg_lower for p in [
+            "risk status", "risk summary", "trading status", "halt status",
+            "is trading halted", "is trading active"
+        ]):
+            try:
+                status = risk_manager.get_daily_status()
+                lines = ["Risk / Trading Status:"]
+                lines.append(f"- Trading: {'ACTIVE' if status.trading_active else 'HALTED'}")
+                if status.halt_reason:
+                    lines.append(f"- Halt reason: {status.halt_reason}")
+                lines.append(f"- Daily P&L: ${float(status.pnl_today or 0):+,.2f} ({float(status.pnl_pct_today or 0):+.2f}%)")
+                lines.append(f"- Trades today: {int(status.trades_today or 0)}")
+                lines.append(f"- Consecutive losses: {int(status.consecutive_losses or 0)}")
+                lines.append(f"- Max daily loss hit: {'YES' if getattr(status, 'max_daily_loss_hit', False) else 'NO'}")
+                logger.info("[CLAUDE] PRE-PARSE risk_status")
+                return "\n".join(lines)
+            except Exception as e:
+                return f"Could not get risk status: {e}"
+
+        if any(p in msg_lower for p in [
+            "show strategies", "list strategies", "what strategies",
+            "enabled strategies", "disabled strategies"
+        ]):
+            try:
+                from strategies.strategy_engine import strategy_engine
+                strategies = strategy_engine.list_strategies()
+                lines = ["Strategies:"]
+                for s in strategies:
+                    status = "ON" if s.get("enabled") else "OFF"
+                    flags = []
+                    if s.get("ml_exempt"):
+                        flags.append("ML exempt")
+                    if s.get("auto_disable_exempt"):
+                        flags.append("no auto-disable")
+                    suffix = f" ({', '.join(flags)})" if flags else ""
+                    lines.append(f"- {s['name']}: {status}{suffix}")
+                logger.info("[CLAUDE] PRE-PARSE list_strategies")
+                return "\n".join(lines)
+            except Exception as e:
+                return f"Could not list strategies: {e}"
+
+        if any(p in msg_lower for p in [
+            "strategy stats", "strategy performance", "strategy results"
+        ]):
+            try:
+                from strategies.strategy_engine import strategy_engine
+                stats = strategy_engine.get_all_stats()
+                stats = sorted(stats, key=lambda s: (s.get("total_trades", 0), s.get("total_pnl", 0)), reverse=True)
+                lines = ["Strategy Stats:"]
+                for s in stats:
+                    lines.append(
+                        f"- {s['strategy_name']}: {'ON' if s.get('enabled') else 'OFF'} | "
+                        f"{s.get('total_trades', 0)} trades | "
+                        f"WR {s.get('win_rate', 0):.1f}% | "
+                        f"P&L ${s.get('total_pnl', 0):+,.2f} | "
+                        f"PF {s.get('profit_factor', 0)}"
+                    )
+                logger.info("[CLAUDE] PRE-PARSE strategy_stats")
+                return "\n".join(lines)
+            except Exception as e:
+                return f"Could not get strategy stats: {e}"
+
+        if any(p in msg_lower for p in [
+            "open positions", "show positions", "current positions",
+            "active positions", "what positions"
+        ]):
+            try:
+                positions = monitor.get_positions_summary() or []
+                if not positions:
+                    return "No open positions."
+                lines = [f"Open Positions ({len(positions)}):"]
+                for p in positions[:25]:
+                    lines.append(
+                        f"- {p.get('symbol', '?')} {str(p.get('direction', '')).upper()} | "
+                        f"entry ${float(p.get('entry_price') or 0):.4f} | "
+                        f"now ${float(p.get('current_price') or p.get('entry_price') or 0):.4f} | "
+                        f"P&L ${float(p.get('unrealized_pnl') or 0):+,.2f} "
+                        f"({float(p.get('pnl_pct') or 0):+.2f}%)"
+                    )
+                if len(positions) > 25:
+                    lines.append(f"...and {len(positions) - 25} more.")
+                logger.info("[CLAUDE] PRE-PARSE open_positions")
+                return "\n".join(lines)
+            except Exception as e:
+                return f"Could not get open positions: {e}"
+
+        if any(p in msg_lower for p in [
+            "capital summary", "capital status", "account summary",
+            "cash summary", "portfolio summary", "bot status"
+        ]):
+            try:
+                status = risk_manager.get_daily_status()
+                cap = db.get_latest_capital() or {}
+                lines = ["Capital / Bot Status:"]
+                lines.append(f"- Trading: {'ACTIVE' if status.trading_active else 'HALTED'}")
+                if status.halt_reason:
+                    lines.append(f"- Halt reason: {status.halt_reason}")
+                lines.append(f"- Total capital: ${float(cap.get('total_capital') or status.capital or 0):,.2f}")
+                lines.append(f"- Available cash: ${float(cap.get('available_cash') or 0):,.2f}")
+                lines.append(f"- Daily P&L: ${float(status.pnl_today or 0):+,.2f} ({float(status.pnl_pct_today or 0):+.2f}%)")
+                lines.append(f"- Trades today: {int(status.trades_today or 0)}")
+                lines.append(f"- Consecutive losses: {int(status.consecutive_losses or 0)}")
+                logger.info("[CLAUDE] PRE-PARSE capital_summary")
+                return "\n".join(lines)
+            except Exception as e:
+                return f"Could not get capital summary: {e}"
+
+        if any(p in msg_lower for p in [
+            "capital breakdown", "broker breakdown", "broker balances",
+            "capital by broker", "funds breakdown"
+        ]):
+            try:
+                from core.broker_manager import broker_manager
+                breakdown = broker_manager.get_capital_breakdown()
+                lines = ["Capital Breakdown:"]
+                lines.append(f"- Total: ${float(breakdown.get('total_balance') or 0):,.2f}")
+                lines.append(f"- Invested: ${float(breakdown.get('total_invested') or 0):,.2f}")
+                lines.append(f"- Available: ${float(breakdown.get('total_available') or 0):,.2f}")
+                for b in breakdown.get("brokers", []):
+                    lines.append(
+                        f"- {str(b.get('name', '?')).upper()}: "
+                        f"${float(b.get('balance') or 0):,.2f} balance | "
+                        f"${float(b.get('available') or 0):,.2f} available"
+                    )
+                logger.info("[CLAUDE] PRE-PARSE capital_breakdown")
+                return "\n".join(lines)
+            except Exception as e:
+                return f"Could not get capital breakdown: {e}"
+
+        if any(p in msg_lower for p in [
+            "daily performance", "recent daily", "daily summary",
+            "today performance", "performance today"
+        ]):
+            try:
+                today = date.today().isoformat()
+                trades = db.get_trades_for_date(today) or []
+                closed = [t for t in trades if t.get("status") == "closed"]
+                wins = [t for t in closed if float(t.get("pnl") or 0) > 0]
+                losses = [t for t in closed if float(t.get("pnl") or 0) <= 0]
+                pnl = sum(float(t.get("pnl") or 0) for t in closed)
+                wr = (len(wins) / len(closed) * 100) if closed else 0
+                return (
+                    f"Daily Performance ({today}):\n"
+                    f"- Closed trades: {len(closed)}\n"
+                    f"- Wins/Losses: {len(wins)}W/{len(losses)}L\n"
+                    f"- Win rate: {wr:.1f}%\n"
+                    f"- Realized P&L: ${pnl:+,.2f}"
+                )
+            except Exception as e:
+                return f"Could not get daily performance: {e}"
+
+        if any(p in msg_lower for p in [
+            "recent trades", "trade log", "today trade log", "todays trade log",
+            "closed trades", "latest trades"
+        ]):
+            try:
+                def _fmt_time(value) -> str:
+                    text = str(value or "")
+                    if not text:
+                        return "?"
+                    try:
+                        return datetime.fromisoformat(text.replace("Z", "+00:00")).strftime("%H:%M")
+                    except Exception:
+                        match = re.search(r'(\d{1,2}:\d{2})(?::\d{2})?', text)
+                        return match.group(1) if match else "?"
+
+                today = date.today().isoformat()
+                trades = db.get_trades_for_date(today) or []
+                closed = [t for t in trades if t.get("status") == "closed"]
+                closed = sorted(closed, key=lambda t: str(t.get("exit_time") or t.get("entry_time") or ""), reverse=True)
+                if not closed:
+                    return f"No closed trades for {today}."
+                lines = [f"Recent Closed Trades ({min(len(closed), 10)} of {len(closed)} today):"]
+                for t in closed[:10]:
+                    symbol = t.get("symbol") or t.get("ticker") or "?"
+                    side = str(t.get("direction") or t.get("side") or "").upper()
+                    pnl = float(t.get("pnl") or 0)
+                    pct = float(t.get("pnl_pct") or 0)
+                    reason = t.get("exit_reason") or t.get("reason") or "closed"
+                    exit_time = _fmt_time(t.get("exit_time") or t.get("entry_time"))
+                    lines.append(f"- {exit_time} {symbol} {side} | ${pnl:+,.2f} ({pct:+.2f}%) | {reason}")
+                logger.info("[CLAUDE] PRE-PARSE recent_trades")
+                return "\n".join(lines)
+            except Exception as e:
+                return f"Could not get recent trades: {e}"
+
+        return None
+
     # ------------------------------------------------------------------
     #  PRE-PARSE LAYER
     #  Detects simple commands directly from user message.
@@ -407,6 +642,11 @@ class ChatInterface:
         watchlist_result = self._handle_watchlist_query(msg)
         if watchlist_result is not None:
             return [watchlist_result]
+
+        # --- deterministic status/strategy queries ---
+        local_status = self._handle_local_status_query(msg)
+        if local_status is not None:
+            return [local_status]
 
         # --- enable strategy ---
         for name in STRATEGY_NAMES:

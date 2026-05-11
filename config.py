@@ -368,3 +368,8 @@ SIGNAL_TUNING = {
 # Errors and trading halts always bypass the queue and send immediately.
 # Set to 0 to disable batching (reverts to one email per trade — old behavior).
 ALERT_DIGEST_HOURS = 1   # Change to 2 or 3 to reduce email further
+
+# ── Breakout Signal API ────────────────────────────────────────
+BOT_API_KEY           = "pyd9pocfRHu0JxiiOQWQzuns5qdiikpRy8v5Vd3G0h4"   # copy this to scanner_config.json bot_api_key
+BOT_API_PORT          = 8181
+BREAKOUT_MIN_ESCALATION = 2   # 0-3; only inject escalation >= this

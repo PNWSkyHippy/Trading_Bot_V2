@@ -211,6 +211,33 @@ class BaseStrategy(ABC):
         )
         self.logger.debug(message)
 
+    def check_custom_exit(
+        self,
+        symbol: str,
+        bars: pd.DataFrame,
+        direction: str,
+        entry_metadata: Optional[dict] = None
+    ) -> Optional[str]:
+        """
+        Strategy-specific exit logic hook — called by the backtester on every
+        bar while a position is open, AFTER the standard SL/TP checks pass.
+
+        Override this in subclasses that have exits beyond SL and TP
+        (e.g. EMA cross, BB midline reversion target, RSI threshold).
+
+        Returns an exit reason string if the trade should close on this bar,
+        or None to continue holding (standard SL/TP checks remain active).
+
+        Args:
+            symbol:         Ticker symbol, e.g. "BTC/USD" or "AAPL"
+            bars:           OHLCV DataFrame up to and including the current bar
+                            (oldest-first, same orientation as analyze())
+            direction:      "long" or "short"
+            entry_metadata: The signal.metadata dict captured at entry time.
+                            Use to recover mode flags (e.g. adaptive_exit_mode).
+        """
+        return None
+
     def verbose_log_skip(self, symbol: str, reason: str):
         """
         Log when a strategy skips analysis entirely (e.g. wrong market condition,

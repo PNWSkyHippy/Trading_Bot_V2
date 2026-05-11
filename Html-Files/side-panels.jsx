@@ -42,8 +42,10 @@ function ManagePositionsPanel() {
   const [chartRange, setChartRange] = uS('ALL');
   const [msg, setMsg] = uS('');
   const [refreshing, setRefreshing] = uS(false);
+  const [lastRefresh, setLastRefresh] = uS('');
   const [closingIds, setClosingIds] = uS({});
   const [closingAll, setClosingAll] = uS(false);
+  const [closeAllConfirm, setCloseAllConfirm] = uS(0);
   const loadingRef = uR(false);
 
   const markClosing = (id, active) => {
@@ -60,17 +62,21 @@ function ManagePositionsPanel() {
   const loadPositions = async ({ manual = false, quiet = false } = {}) => {
     if (loadingRef.current) return;
     loadingRef.current = true;
-    if (manual) setRefreshing(true);
+    if (manual) {
+      setRefreshing(true);
+      setTimeout(() => setRefreshing(false), 650);
+      setMsg('Refreshing live positions...');
+    }
     try {
       const data = await apiCall('/api/open_positions');
       const rows = Array.isArray(data.positions) ? data.positions.map(normalizePos) : [];
       setPositions(rows);
+      setLastRefresh(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
       if (!quiet) setMsg(`Loaded ${rows.length} live position(s)`);
     } catch (e) {
       setMsg(`Load failed: ${e.message}`);
     } finally {
       loadingRef.current = false;
-      if (manual) setRefreshing(false);
     }
   };
 
@@ -103,9 +109,31 @@ function ManagePositionsPanel() {
     }
   };
 
-  const closeAll = async () => {
+  const closablePositions = () => positions.filter(p => p.id != null);
+
+  const requestCloseAll = () => {
+    const closable = closablePositions();
+    if (!closable.length || closingAll) return;
+    setCloseAllConfirm(1);
+    setMsg(`Close-all confirmation required for ${closable.length} position(s).`);
+  };
+
+  const cancelCloseAll = () => {
+    setCloseAllConfirm(0);
+    setMsg('Close-all aborted. No positions were touched.');
+  };
+
+  const confirmCloseAll = async () => {
+    if (closeAllConfirm === 1) {
+      setCloseAllConfirm(2);
+      return;
+    }
     const closable = positions.filter(p => p.id != null);
-    if (!closable.length) return;
+    if (!closable.length || closingAll) {
+      setCloseAllConfirm(0);
+      return;
+    }
+    setCloseAllConfirm(0);
     setClosingAll(true);
     closable.forEach(p => markClosing(p.id, true));
     setMsg(`Close-all requested for ${closable.length} position(s).`);
@@ -137,12 +165,51 @@ function ManagePositionsPanel() {
       </div>
 
       <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-        <button className="btn ghost sm" onClick={() => loadPositions({ manual: true })} disabled={refreshing}><Icon name="refresh" size={12} />{refreshing ? 'Refreshing...' : 'Refresh'}</button>
-        <button className="btn danger sm" onClick={closeAll} disabled={closingAll || positions.length === 0}><Icon name="x" size={12} />{closingAll ? 'Queueing...' : 'Close All'}</button>
-        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-2)' }}>{positions.length} open</span>
+        <button className="btn ghost sm" onClick={() => loadPositions({ manual: true })}><Icon name="refresh" size={12} />{refreshing ? 'Refreshing...' : 'Refresh'}</button>
+        <button className="btn ghost sm" onClick={() => window.exportCsv?.('manage-positions.csv', [
+          { label: 'ID', value: 'id' },
+          { label: 'DB ID', value: 'dbId' },
+          { label: 'Symbol', value: 'symbol' },
+          { label: 'Asset Class', value: 'assetClass' },
+          { label: 'Type', value: 'type' },
+          { label: 'Dir', value: 'dir' },
+          { label: 'Entry', value: r => fmtN(r.entry) },
+          { label: 'Current', value: r => fmtN(r.current) },
+          { label: 'Stop Loss', value: r => fmtN(r.sl) },
+          { label: 'Take Profit', value: r => fmtN(r.tp) },
+          { label: 'Unrealized P&L', value: r => r.pnlD.toFixed(2) },
+          { label: 'P&L %', value: r => r.pnlP.toFixed(2) },
+          { label: 'Opened', value: 'opened' },
+          { label: 'To SL %', value: r => r.toSL.toFixed(2) },
+          { label: 'To TP %', value: r => r.toTP.toFixed(2) },
+        ], positions)}><Icon name="download" size={12} />CSV</button>
+        <button className="btn danger sm" onClick={requestCloseAll} disabled={closingAll || positions.length === 0}><Icon name="x" size={12} />{closingAll ? 'Queueing...' : 'Close All'}</button>
+        <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-2)' }}>{positions.length} open{lastRefresh ? ` · refreshed ${lastRefresh}` : ''}</span>
       </div>
 
       {msg && <div style={{ marginBottom: 10, fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
+
+      {closeAllConfirm > 0 && (
+        <div style={{ position: 'sticky', top: 8, zIndex: 20, marginBottom: 12, padding: 14, border: '1px solid rgba(244, 63, 94, 0.65)', borderRadius: 'var(--radius)', background: 'rgba(69, 10, 10, 0.96)', boxShadow: '0 12px 30px rgba(0,0,0,0.35)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10, color: '#fecaca', fontWeight: 800, fontSize: 13 }}>
+            <Icon name="alert" size={15} />
+            {closeAllConfirm === 1
+              ? `You're about to close ${closablePositions().length} trade(s)! Are you sure?`
+              : `Last chance: are you SURE you want to close ${closablePositions().length} trade(s)?`}
+          </div>
+          <div style={{ fontSize: 11, color: '#fecaca', marginBottom: 12 }}>
+            {closeAllConfirm === 1
+              ? 'This will submit close requests for every open position with an ID.'
+              : 'Clicking Yes now will hand close orders to the backend immediately.'}
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button className="btn ghost sm" onClick={cancelCloseAll}>No, abort</button>
+            <button className="btn danger sm" onClick={confirmCloseAll}>
+              {closeAllConfirm === 1 ? 'Yes, continue' : 'Yes, close all'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {positions.map((p, i) => {
         const slPct = Math.abs((p.current - p.sl) / (p.entry || 1) * 100);
@@ -659,4 +726,84 @@ function QuickControlsPanel() {
   );
 }
 
-window.SidePanels = { ManagePositionsPanel, InjectSymbolsPanel, QuickControlsPanel };
+// ===== PowerShell Workspace =====
+function TerminalPanel() {
+  const [busy, setBusy] = uS(false);
+  const [msg, setMsg] = uS('');
+  const [copied, setCopied] = uS('');
+  const commands = [
+    { label: 'Watch bot log', cmd: 'Get-Content .\\logs\\bot.log -Tail 80 -Wait' },
+    { label: 'Find errors', cmd: 'Select-String -Path .\\logs\\*.log -Pattern "ERROR|Traceback|Exception"' },
+    { label: 'Recent scanner log', cmd: 'Get-Content .\\scanner.log -Tail 120' },
+    { label: 'Compile dashboard bridge', cmd: 'python -m py_compile .\\web_dashboard.py' },
+    { label: 'Run dashboard bridge', cmd: 'python .\\web_dashboard.py' },
+    { label: 'Run bot engine', cmd: 'python .\\bot_engine.py' },
+  ];
+
+  const openShell = async () => {
+    setBusy(true);
+    setMsg('Opening PowerShell...');
+    try {
+      const data = await apiCall('/api/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'open_terminal' }),
+      });
+      setMsg(data.message || 'PowerShell opened.');
+    } catch (e) {
+      setMsg(`PowerShell failed: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copyCommand = async (cmd, label) => {
+    try {
+      await navigator.clipboard.writeText(cmd);
+      setCopied(label);
+      setTimeout(() => setCopied(''), 1400);
+    } catch {
+      setCopied('Copy failed');
+    }
+  };
+
+  return (
+    <div style={{ padding: 14 }}>
+      <div className="banner info" style={{ marginBottom: 12 }}>
+        <Icon name="terminal" size={14} />
+        <span>Opens a normal PowerShell in the trading bot folder. Your $PROFILE can handle the venv.</span>
+      </div>
+
+      <button className="btn primary full" onClick={openShell} disabled={busy} style={{ marginBottom: 12 }}>
+        <Icon name="terminal" size={13} />{busy ? 'Opening...' : 'Open PowerShell'}
+      </button>
+      {msg && <div style={{ marginBottom: 14, fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
+
+      <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 12, marginBottom: 12 }}>
+        <h3 style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Icon name="copy" size={13} />Command Shortcuts
+        </h3>
+        <div style={{ display: 'grid', gap: 8 }}>
+          {commands.map(item => (
+            <div key={item.label} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center', padding: 8, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-1)' }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 11, color: 'var(--text-1)', fontWeight: 700, marginBottom: 3 }}>{item.label}</div>
+                <code style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: 'var(--text-2)' }}>{item.cmd}</code>
+              </div>
+              <button className="btn ghost sm" onClick={() => copyCommand(item.cmd, item.label)} title={`Copy ${item.label}`}>
+                <Icon name="copy" size={12} />Copy
+              </button>
+            </div>
+          ))}
+        </div>
+        {copied && <div style={{ marginTop: 10, fontSize: 11, color: copied === 'Copy failed' ? 'var(--red)' : 'var(--green)' }}>{copied === 'Copy failed' ? copied : `${copied} copied`}</div>}
+      </div>
+
+      <div style={{ fontSize: 11, lineHeight: 1.6, color: 'var(--text-2)' }}>
+        This panel only launches a local shell and copies helper commands; commands still run inside PowerShell where you can see and stop them.
+      </div>
+    </div>
+  );
+}
+
+window.SidePanels = { ManagePositionsPanel, InjectSymbolsPanel, QuickControlsPanel, TerminalPanel };

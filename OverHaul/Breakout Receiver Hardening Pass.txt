@@ -1,0 +1,183 @@
+# Breakout Receiver Hardening Pass
+
+We want to KEEP and HARDEN the breakout ingestion path because breakout setups are a high-value signal source for this bot.
+
+## Context
+`core/breakout_receiver.py` receives inbound signals from an external BreakoutScanner and injects them directly to execution after a validation checklist.
+
+This path is important and should be treated as a first-class signal source, not removed.
+
+---
+
+## Immediate bug to fix
+In `_inject_signal()` we import `Signal` from `scanners.market_scanner`, but construct it incorrectly.
+
+Current `Signal` dataclass fields are:
+- symbol
+- asset_class
+- direction
+- score
+- current_price
+- indicators
+- reason
+
+Current breakout_receiver incorrectly:
+- passes unsupported field `broker=...`
+- omits required field `reason`
+
+This is causing injection failures and preventing all breakout signals from trading.
+
+---
+
+## Required tasks
+
+### 1) Fix Signal construction compatibility
+Edit `core/breakout_receiver.py` so `_inject_signal()`:
+- uses only valid `Signal(...)` constructor fields
+- removes top-level `broker=...`
+- adds required `reason=...`
+- preserves broker hint inside `indicators`, e.g. `"preferred_broker": ...`
+- preserves `"signal_source": "breakout_scanner"`
+
+Do NOT change `Signal` dataclass just to force a broker field into it unless absolutely necessary.
+
+---
+
+### 2) Inspect `core/trade_executor.py`
+Check whether `execute_signal()` already supports broker hints via metadata/indicators.
+
+If it does:
+- align breakout_receiver to the expected key name
+
+If it does NOT:
+- add minimal support for reading `signal.indicators.get("preferred_broker")`
+- only use it as a routing hint, not as a bypass of existing asset-class validation
+- do NOT redesign broker routing broadly in this patch
+
+Goal:
+- crypto breakout signals can still route to Kraken normally
+- stock breakout signals can still route through normal stock broker path
+- broker hint is honored if supported
+
+---
+
+### 3) Fix soft-check scoring bug
+Right now some soft checks return `passed=True` even when they are skipped because data is missing.
+
+This causes skipped checks to count as confirmations.
+
+Change soft-check behavior so that:
+- skipped checks are NEUTRAL, not PASS
+- they do not count toward `MIN_SOFT_CHECKS`
+- final logic should require at least `MIN_SOFT_CHECKS` actual soft passes
+
+Implementation can use:
+- an added field on `ChecklistResult` like `count_as_pass: bool`
+or
+- a `status` concept (`pass`, `fail`, `skip`)
+Pick the cleanest approach.
+
+Update:
+- `_check_rsi_confirms()`
+- `_check_trend_alignment()`
+- `_check_market_context()`
+
+So missing data does NOT auto-help the signal.
+
+---
+
+### 4) Add signal freshness check
+Add a new HARD check:
+
+`_check_signal_freshness(payload)`
+
+Behavior:
+- read `payload["timestamp"]`
+- reject if missing or unparsable? Prefer reject with clear reason
+- reject if older than a small threshold (e.g. 60 seconds; make constant near top of file)
+- log exact age in seconds
+
+Rationale:
+breakout signals are time-sensitive and should not be executed stale.
+
+Add this hard check into `_run_checklist()`.
+
+---
+
+### 5) Tighten hard-check fail-open behavior
+Review these checks and make them safer:
+
+#### `_check_price_still_moving()`
+Current behavior can pass when scanner is unavailable or on exception.
+For breakout execution this should NOT fail open.
+
+Change behavior:
+- if current price cannot be re-verified, reject the signal
+- if scanner is unavailable, reject the signal
+- keep detailed logging
+
+#### `_check_no_wick_rejection()`
+If candle OHLC is missing, do NOT count it as a valid pass.
+Either:
+- reject, or
+- mark as skip and move this out of hard checks
+
+Preferred: reject if breakout candle validation data is absent.
+
+---
+
+### 6) Improve liquidity check
+Current `_check_liquidity()` is too weak and does not truly measure liquidity.
+
+If payload contains better fields, use them if available:
+- dollar_volume
+- avg_dollar_volume
+- spread_pct
+- quote_volume
+
+If not available, implement the best fallback possible using available fields without inventing data.
+
+At minimum:
+- do not let a low-information `momentum_score` substitute for real liquidity
+- keep the logic conservative
+
+If no meaningful liquidity metric is available, return a clear failure reason so we know scanner payload needs improvement.
+
+---
+
+### 7) Add symmetric market-context logic
+In `_check_market_context()`:
+- keep long rejection when market is crashing hard
+- also add short rejection when market is strongly up, if equivalent threshold exists or can be mirrored cleanly
+
+If you decide not to add symmetry, explain why in comments.
+
+---
+
+### 8) Stop discipline
+Ensure breakout signals carry a usable stop.
+
+Priority:
+1. use `payload["structural_stop_price"]` if valid
+2. if absent, see whether local bars can be fetched and compute a structural stop
+3. if neither is possible, reject the signal rather than silently relying on a weak generic stop
+
+Do not broaden this into a full redesign; keep it focused and safe.
+
+---
+
+## Acceptance criteria
+- breakout_receiver no longer throws Signal constructor errors
+- breakout signals can successfully reach executor
+- `reason` is always present on Signal
+- broker hint is preserved in indicators and honored if executor supports it
+- skipped soft checks do NOT count as passes
+- stale breakout signals are rejected
+- price re-verification no longer fails open
+- wick validation no longer fails open
+- liquidity logic is more meaningful than current placeholder behavior
+- all edited files returned in full
+
+## Files likely involved
+- `core/breakout_receiver.py`
+- `core/trade_executor.py` (only if needed for broker hint handling)

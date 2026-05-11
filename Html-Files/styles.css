@@ -126,6 +126,14 @@ input, textarea, select { font-family: inherit; }
     radial-gradient(circle at 85% 80%, rgba(96, 165, 250, 0.03), transparent 55%);
   overflow: auto;
 }
+.workspace-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: var(--workspace-w, 100%);
+  height: var(--workspace-h, 100%);
+  pointer-events: none;
+}
 
 /* Taskbar */
 .taskbar {
@@ -533,6 +541,89 @@ input, textarea, select { font-family: inherit; }
   margin: 8px 0 6px;
 }
 .pos-card .progress > div { height: 100%; transition: width 0.3s; }
+
+/* Backtester */
+.bt-progress {
+  width: 100%;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 10px;
+  color: var(--text-2);
+}
+.bt-progress::before {
+  content: "";
+  display: block;
+  height: 5px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--bg-3);
+  border: 1px solid var(--border);
+}
+.bt-progress-bar {
+  position: relative;
+  height: 5px;
+  margin-top: -10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: transparent;
+}
+.bt-progress-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 42%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, var(--accent), var(--accent-bright), transparent);
+  animation: bt-progress-sweep 1.15s ease-in-out infinite;
+}
+@keyframes bt-progress-sweep {
+  from { transform: translateX(-110%); }
+  to { transform: translateX(240%); }
+}
+.bt-run-log {
+  width: 100%;
+  margin: 0 0 10px;
+  padding: 8px 9px;
+  height: 92px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-2);
+  color: var(--text-2);
+  font: 10px/1.45 var(--mono);
+}
+.bt-run-line {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bt-run-line span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-3);
+  flex: 0 0 auto;
+}
+.bt-run-line.active {
+  color: var(--text-1);
+}
+.bt-run-line.active span {
+  background: var(--accent-bright);
+  box-shadow: 0 0 10px rgba(45, 212, 191, 0.75);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.tbl tbody tr.bt-selected-row td {
+  background: rgba(20, 184, 166, 0.035);
+}
+.tbl tbody tr.bt-selected-row td:first-child {
+  box-shadow: inset 2px 0 0 var(--accent);
+}
 
 /* Chat */
 .chat-stream {

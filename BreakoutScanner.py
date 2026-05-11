@@ -46,6 +46,8 @@ from datetime import datetime, timedelta
 from datetime import time as dt_time
 from enum import Enum
 from typing import Any, Dict, List, Optional
+from breakout_sender import BreakoutSender
+
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -1026,6 +1028,8 @@ class AlertSystem:
         self.gui              = None
         self.running          = False
         import threading as _thr
+        # Bot injection sender
+        self.bot_sender = BreakoutSender(self.config)
         self._digest_lock  = _thr.Lock()
         self._last_digest  = datetime.now()
 
@@ -1045,6 +1049,10 @@ class AlertSystem:
                                        datetime.now(), escalation))
         if self.config.get("enable_email_alert", False):
             self._email_alert(signal, message, escalation=escalation)
+                # Inject to Trading Bot V2 if escalation threshold met
+        if hasattr(self, "bot_sender"):
+            self.bot_sender.send_signal(signal, escalation)
+
 
     def _format_message(self, signal: BreakoutSignal, escalation: int) -> str:
         meta  = classify_signal(signal)

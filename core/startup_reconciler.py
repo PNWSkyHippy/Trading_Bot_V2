@@ -16,7 +16,7 @@
   How it works:
   - Fetches all open trades from DB
   - For stocks: checks Alpaca for current position
-  - For crypto: checks current price vs SL/TP
+  - For crypto: checks current price vs SL/TP via Kraken price feed
   - If position not found at broker: marks it closed at last
     known price with reason 'reconciled_on_startup'
   - Logs every action clearly so you can see what happened
@@ -156,11 +156,14 @@ def _reconcile_crypto(trades: List[Dict]) -> int:
     closed = 0
     try:
         import ccxt
-        exchange = ccxt.coinbase({
-            "apiKey":          config.COINBASE_API_KEY,
-            "secret":          config.COINBASE_SECRET_KEY,
+        exchange = ccxt.kraken({
+            "apiKey":          config.KRAKEN_API_KEY,
+            "secret":          config.KRAKEN_SECRET_KEY,
             "enableRateLimit": True,
         })
+        logger.info(
+            f"[RECONCILE] Crypto: verifying {len(trades)} position(s) via Kraken price feed"
+        )
 
         for trade in trades:
             symbol    = trade["symbol"]

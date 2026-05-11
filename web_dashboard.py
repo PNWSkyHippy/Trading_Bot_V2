@@ -164,6 +164,41 @@ def start_bot_process():
         return False, f"Failed to start bot: {exc}"
 
 
+def open_project_terminal():
+    """Open an interactive PowerShell rooted in the trading bot workspace."""
+    try:
+        if sys.platform == "win32":
+            CREATE_NEW_CONSOLE = 0x00000010
+            root = str(ROOT.resolve()).replace("'", "''")
+            command = (
+                f"Set-Location -LiteralPath '{root}'; "
+                "$Host.UI.RawUI.WindowTitle = 'Trading Bot Workspace Shell'; "
+                "Write-Host 'Trading bot workspace shell ready.' -ForegroundColor Cyan; "
+                "Write-Host 'Root: ' -NoNewline -ForegroundColor DarkGray; "
+                "Write-Host (Get-Location).Path; "
+                "Write-Host 'Try: Get-Content .\\logs\\bot.log -Tail 80 -Wait' -ForegroundColor DarkGray"
+            )
+            subprocess.Popen(
+                [
+                    "powershell.exe",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-NoExit",
+                    "-Command",
+                    command,
+                ],
+                cwd=str(ROOT),
+                creationflags=CREATE_NEW_CONSOLE,
+            )
+            return True, "PowerShell opened in the trading bot workspace."
+
+        shell = os.environ.get("SHELL", "/bin/sh")
+        subprocess.Popen([shell], cwd=str(ROOT))
+        return True, "Shell opened in the trading bot workspace."
+    except Exception as exc:
+        return False, f"Failed to open PowerShell: {exc}"
+
+
 def stop_bot_process():
     """Stop bot_engine.py process(es)."""
     try:
@@ -431,9 +466,10 @@ def get_manual_trade_config():
 
 
 BACKTEST_STRATEGIES = [
-    "original_scorer", "rsi_momentum", "bollinger_breakout", "ema_crossover",
+    "adaptive_regime", "rsi_momentum", "bollinger_breakout", "ema_crossover",
     "mean_reversion", "scalp_master", "swing_trader", "grid_bot",
     "dca_accumulator", "vwap_momentum", "hammer_reversal", "orb_breakout",
+    "original_scorer",
 ]
 
 
@@ -460,6 +496,55 @@ def _load_watchlist_file(path):
         return []
 
 
+def _unique_symbols(symbols, crypto=False):
+    seen = set()
+    out = []
+    for raw in symbols or []:
+        symbol = str(raw or "").strip().upper()
+        if not symbol or symbol.startswith("#"):
+            continue
+        if crypto and "/" not in symbol:
+            symbol = f"{symbol}/USD"
+        if not crypto and ("/" in symbol or "-" in symbol):
+            continue
+        if symbol not in seen:
+            seen.add(symbol)
+            out.append(symbol)
+    return out
+
+
+def get_backtest_config():
+    try:
+        import config as cfg
+    except Exception:
+        cfg = None
+
+    stock_symbols = []
+    crypto_symbols = []
+    if cfg is not None:
+        stock_symbols.extend(getattr(cfg, "STOCK_WATCHLIST", []) or [])
+        crypto_symbols.extend(getattr(cfg, "CRYPTO_WATCHLIST", []) or [])
+
+    stock_symbols.extend(_load_watchlist_file("watchlists/stocks.txt"))
+    stock_symbols.extend(_load_watchlist_file("watchlist/scanned_stocks.txt"))
+    crypto_symbols.extend(_load_watchlist_file("watchlists/crypto.txt"))
+    crypto_symbols.extend(_load_watchlist_file("watchlist/scanned_crypto.txt"))
+
+    stocks = _unique_symbols(stock_symbols, crypto=False)
+    crypto = _unique_symbols(crypto_symbols, crypto=True)
+    return {
+        "asset_classes": ["Stocks", "Crypto"],
+        "strategies": ["ALL strategies", *BACKTEST_STRATEGIES],
+        "timeframes": ["5m", "1h", "1d"],
+        "durations": ["30d", "60d", "90d (3mo)", "180d (6mo)", "365d (1y)", "730d (2y)"],
+        "symbols": {
+            "Stocks": ["ALL", *stocks],
+            "Crypto": ["ALL", *crypto],
+        },
+        "counts": {"stocks": len(stocks), "crypto": len(crypto)},
+    }
+
+
 def _backtest_result_payload(result):
     trades = list(getattr(result, "trades", []) or [])
     wins = [t for t in trades if getattr(t, "pnl", 0) > 0]
@@ -468,24 +553,50 @@ def _backtest_result_payload(result):
     avg_loss = sum(float(getattr(t, "pnl", 0) or 0) for t in losses) / len(losses) if losses else 0
     start_cap = float(getattr(result, "starting_capital", 0) or 0)
     end_cap = float(getattr(result, "ending_capital", start_cap) or start_cap)
+    start_date = getattr(result, "start_date", "")
+    end_date = getattr(result, "end_date", "")
+    stop_mode = getattr(result, "stop_mode", "") or (getattr(trades[0], "stop_mode", "") if trades else "") or "standard"
+    win_rate = float(getattr(result, "win_rate", 0) or 0)
+    profit_factor = float(getattr(result, "profit_factor", 0) or 0)
+    max_drawdown = float(getattr(result, "max_drawdown_pct", 0) or 0)
+    verdict = "GO" if win_rate >= 50 and profit_factor >= 1.2 and max_drawdown > -25 else "TUNE"
+    equity_curve = list(getattr(result, "equity_curve", []) or [])
+    sample_step = max(1, len(equity_curve) // 500)
+    sampled_equity = [
+        {
+            "t": str(getattr(ep, "timestamp", ""))[:16],
+            "e": float(getattr(ep, "equity", 0) or 0),
+            "d": float(getattr(ep, "drawdown", 0) or 0),
+            "r": float(getattr(ep, "daily_ret", 0) or 0),
+        }
+        for ep in equity_curve[::sample_step]
+    ]
     return {
         "symbol": getattr(result, "symbol", ""),
         "strategy": getattr(result, "strategy_name", ""),
         "timeframe": getattr(result, "timeframe", ""),
-        "stop_mode": getattr(result, "stop_mode", "standard"),
-        "start_date": getattr(result, "start_date", ""),
-        "end_date": getattr(result, "end_date", ""),
+        "stop_mode": stop_mode,
+        "stop": "2-Bar" if str(stop_mode).lower() in ("two_bar", "trailing") else "Standard",
+        "start_date": start_date,
+        "end_date": end_date,
+        "period": f"{str(start_date)[:10]} -> {str(end_date)[:10]}",
         "starting_capital": start_cap,
         "ending_capital": end_cap,
+        "wins": len(wins),
+        "losses": len(losses),
+        "wl": f"{len(wins)}W/{len(losses)}L",
+        "verdict": verdict,
         "totalTrades": int(getattr(result, "total_trades", 0) or 0),
-        "winRate": float(getattr(result, "win_rate", 0) or 0),
+        "winRate": win_rate,
         "pnlD": round(end_cap - start_cap, 2),
         "pnlP": float(getattr(result, "total_return_pct", 0) or 0),
         "sharpe": float(getattr(result, "sharpe_ratio", 0) or 0),
-        "maxDD": float(getattr(result, "max_drawdown_pct", 0) or 0),
-        "profitFactor": float(getattr(result, "profit_factor", 0) or 0),
+        "sortino": float(getattr(result, "sortino_ratio", 0) or 0),
+        "maxDD": max_drawdown,
+        "profitFactor": profit_factor,
         "avgWin": round(avg_win, 2),
         "avgLoss": round(avg_loss, 2),
+        "equity_curve": sampled_equity,
     }
 
 
@@ -507,10 +618,15 @@ def run_backtest_api(payload):
 
     asset_class = "crypto" if asset.lower().startswith("crypto") or "/" in symbol else "stock"
     if asset_class == "crypto":
-        symbols = _load_watchlist_file("watchlists/crypto.txt") if symbol.upper() == "ALL" else [symbol]
+        if symbol.upper() == "ALL":
+            symbols = [s for s in get_backtest_config()["symbols"]["Crypto"] if s != "ALL"]
+        else:
+            symbols = _unique_symbols([symbol], crypto=True)
     else:
-        watchlist = [s for s in getattr(cfg, "STOCK_WATCHLIST", []) if "/" not in s and "-" not in s]
-        symbols = watchlist if symbol.upper() == "ALL" else [symbol.upper()]
+        if symbol.upper() == "ALL":
+            symbols = [s for s in get_backtest_config()["symbols"]["Stocks"] if s != "ALL"]
+        else:
+            symbols = _unique_symbols([symbol.upper()], crypto=False)
     strategies = BACKTEST_STRATEGIES if strategy == "ALL strategies" else [strategy]
 
     if not symbols:
@@ -1263,6 +1379,9 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/manual_trade/config":
             return self._json(200, get_manual_trade_config())
 
+        if path == "/api/backtest/config":
+            return self._json(200, get_backtest_config())
+
         if path == "/api/manual_trade/preview":
             ok, msg, details = get_manual_trade_preview(parse_qs(parsed.query))
             return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
@@ -1412,6 +1531,10 @@ class Handler(BaseHTTPRequestHandler):
 
         if action == "refresh_scan":
             return self._json(200, {"ok": True, "message": "Scan refresh request received."})
+
+        if action == "open_terminal":
+            ok, msg = open_project_terminal()
+            return self._json(200 if ok else 400, {"ok": ok, "message": msg})
 
         if action == "close_position":
             position_id = data.get("position_id")

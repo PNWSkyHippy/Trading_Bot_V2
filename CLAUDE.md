@@ -29,14 +29,14 @@ python bot_engine.py
 # Main bot engine (verbose signal debugging — log files grow fast)
 python bot_engine.py --verbose
 
-# Dashboard (separate terminal, port 8501)
-streamlit run dashboard.py
+# Dashboard (separate terminal — web console)
+python web_dashboard.py
 
 # Auto-start both (double-click or run from cmd)
 start_bot.bat
 ```
 
-Dashboard at http://localhost:8501. Close old browser tabs before restart to avoid React error 185.
+Dashboard at http://localhost:8125. Replaces the old Streamlit dashboard.py.
 
 ---
 
@@ -163,7 +163,7 @@ Current design: conservative fallback — any failure = SKIP, never default to A
 2. Momentum rider mode — reorder `check_exit_conditions()` / `calculate_trailing_stop()` in `position_monitor.py`
 3. DCA Accumulator: add NVDA to blacklist
 4. Fix dashboard capital display (DB value vs live Alpaca sync)
-5. `use_container_width` deprecation warnings in `dashboard.py`
+5. ~~`use_container_width` deprecation warnings in `dashboard.py`~~ — migrated to web_dashboard.py
 6. Coinbase non-base16 error (harmless but noisy)
 7. ES trading assistant Claude.ai Project for prop firm
 
