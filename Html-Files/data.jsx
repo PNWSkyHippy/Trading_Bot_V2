@@ -83,6 +83,7 @@ const STRATEGIES = [
   'vwap_momentum',
   'hammer_reversal',
   'orb_breakout',
+  'adaptive_regime',
 ];
 const TIMEFRAMES = ['5m', '1h', '1d'];
 const DURATIONS = ['30d', '60d', '90d (3mo)', '180d (6mo)', '365d (1y)', '730d (2y)'];

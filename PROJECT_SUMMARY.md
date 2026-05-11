@@ -75,7 +75,7 @@ $619 from funded trader status. Bot is in paper trading mode.
 | File | Purpose |
 |---|---|
 | bot_engine.py | Main entry point |
-| dashboard.py | Streamlit dashboard |
+| web_dashboard.py | Web console dashboard (replaces dashboard.py) |
 | config.py | All settings, loads encrypted keys |
 | strategies/strategy_engine.py | run_strategies_multi_tf() |
 | scanners/market_scanner.py | Fetches bars per TF, reuses across strategies |
@@ -111,7 +111,7 @@ python git_push.py "your message here"
 python bot_engine.py
 
 # Start dashboard (separate terminal)
-streamlit run dashboard.py
+python web_dashboard.py
 
 # Start BreakoutScanner GUI
 python BreakoutScanner.py

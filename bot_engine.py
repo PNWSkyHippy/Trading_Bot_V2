@@ -36,6 +36,8 @@ from datetime import datetime, timezone
 import schedule
 
 import config
+from api_server import start_api_server
+from core.breakout_receiver import breakout_receiver
 from core.risk_manager import RiskManager
 from core.trade_executor import TradeExecutor
 from core.position_monitor import PositionMonitor
@@ -154,6 +156,12 @@ class BotEngine:
         self.report_generator  = ReportGenerator()
 
         self.logger.info("All components initialized successfully.")
+        # Wire breakout receiver
+        breakout_receiver.set_executor(self.trade_executor)
+        breakout_receiver.set_scanner(self.market_scanner)
+        start_api_server(port=getattr(config, 'BOT_API_PORT', 8181))
+        self.logger.info("[API] Breakout receiver active on port "
+                         f"{getattr(config, 'BOT_API_PORT', 8181)}")
         self._log_strategy_status()
 
         self._load_scan_results_on_startup()

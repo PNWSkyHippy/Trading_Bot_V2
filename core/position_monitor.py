@@ -18,6 +18,7 @@
       Long  breaks below S1 → close (structure failed)
       Short breaks above R1 → close (structure failed)
   - VWAP cross exit for ORB trades
+  - Adaptive regime exit (EMA cross for trend; BB midline/RSI for mean rev)
   - EOD close for all stock positions
 
   Exit priority order:
@@ -25,6 +26,7 @@
     2.  EOD close (15:45 ET)
     3.  Stop-loss
     4.  ORB VWAP cross exit
+    4b. Adaptive regime exit (adaptive_regime strategy only)
     5.  Early loss identification (30 min check, -0.5% threshold)
     6.  Performance-contingent time stop (2hr check, needs 0.2%)
     7.  Performance-contingent time stop (5hr check, needs 1.0%)
@@ -348,10 +350,10 @@ class PositionMonitor:
         Kill trades that aren't performing within expected timeframes.
 
         Logic:
-          - After 20 min: if pnl < -0.3% AND still moving wrong → early exit
-          - After 1 hour: if pnl < 0.5% → going nowhere, free up capital
-          - After 3 hours: if pnl < 1.5% → too slow for a day trade
-          - After 3.5 hours: hard kill regardless of profit
+          - After 30 min: if pnl < -0.5% AND still moving wrong → early exit
+          - After 2 hours: if pnl < 0.2% → going nowhere, free up capital
+          - After 5 hours: if pnl < 1.0% → too slow for a day trade
+          - After 8 hours: hard kill regardless of profit
 
         Returns exit reason string or None if trade should continue.
         """
@@ -370,11 +372,11 @@ class PositionMonitor:
             )
             return None
 
-        # ── Hard time stop: 3.5 hours ─────────────────────────────────
+        # ── Hard time stop: 8 hours ───────────────────────────────────
         if age_seconds >= HARD_TIME_STOP_SEC:
             logger.info(
                 f"[HARD TIME STOP] {symbol}: open {age_seconds/3600:.1f}hrs — "
-                f"3.5hr max reached | P&L {pnl_pct:+.2f}% | closing"
+                f"8hr max reached | P&L {pnl_pct:+.2f}% | closing"
             )
             return "hard_time_stop"
 
@@ -399,7 +401,7 @@ class PositionMonitor:
         return None
 
     # ------------------------------------------------------------------
-    #  NEW: EARLY LOSS IDENTIFICATION (20 MIN CHECK)
+    #  NEW: EARLY LOSS IDENTIFICATION (30 MIN CHECK)
     # ------------------------------------------------------------------
 
     def _check_early_loss(
@@ -407,7 +409,7 @@ class PositionMonitor:
     ) -> Optional[str]:
         """
         Catch trades where the thesis was wrong from the start.
-        At 20 minutes: if trade is negative AND still moving against us → close.
+        At 30 minutes: if trade is negative AND still moving against us → close.
         This limits losses on trades that immediately went the wrong way
         rather than waiting for the full stop loss to be hit.
 
@@ -418,13 +420,13 @@ class PositionMonitor:
         direction = trade["direction"]
         trade_id  = trade["trade_id"]
 
-        # Only check in the 20-40 minute window (don't re-check after)
+        # Only check in the 30-60 minute window (don't re-check after)
         if age_seconds < EARLY_LOSS_CHECK_SEC:
             return None
-        if age_seconds > EARLY_LOSS_CHECK_SEC * 2:  # 40 minutes max window
+        if age_seconds > EARLY_LOSS_CHECK_SEC * 2:  # 60 minutes max window
             return None
 
-        # Already checked this trade at 20 min?
+        # Already checked this trade at 30 min?
         already_checked = int(
             self._db.get_state(f"early_loss_checked_{trade_id}", default=0)
         )
@@ -437,7 +439,7 @@ class PositionMonitor:
         if pnl_pct >= EARLY_LOSS_MIN_PCT:
             # Trade is flat or positive — no early exit needed
             logger.debug(
-                f"[EARLY CHECK] {symbol}: P&L {pnl_pct:+.2f}% at 20min — OK"
+                f"[EARLY CHECK] {symbol}: P&L {pnl_pct:+.2f}% at 30min — OK"
             )
             return None
 
@@ -445,7 +447,7 @@ class PositionMonitor:
         bars = self._get_bars(symbol, trade["asset_class"], limit=5)
         if bars is None or len(bars) < 3:
             logger.info(
-                f"[EARLY LOSS EXIT] {symbol}: P&L {pnl_pct:+.2f}% at 20min, "
+                f"[EARLY LOSS EXIT] {symbol}: P&L {pnl_pct:+.2f}% at 30min, "
                 f"no bar data to confirm — closing on loss threshold"
             )
             return "early_loss_no_data"
@@ -459,13 +461,13 @@ class PositionMonitor:
 
         if still_wrong:
             logger.info(
-                f"[EARLY LOSS EXIT] {symbol}: P&L {pnl_pct:+.2f}% at 20min "
+                f"[EARLY LOSS EXIT] {symbol}: P&L {pnl_pct:+.2f}% at 30min "
                 f"AND still moving wrong direction — thesis failed, closing"
             )
             return "early_loss"
         else:
             logger.info(
-                f"[EARLY CHECK] {symbol}: P&L {pnl_pct:+.2f}% at 20min but "
+                f"[EARLY CHECK] {symbol}: P&L {pnl_pct:+.2f}% at 30min but "
                 f"price stabilizing — holding, watching stop loss"
             )
             return None
@@ -624,6 +626,139 @@ class PositionMonitor:
                 )
                 return None
 
+    # ------------------------------------------------------------------
+    #  ADAPTIVE REGIME EXIT (strategy-specific)
+    # ------------------------------------------------------------------
+
+    def _check_adaptive_regime_exit(
+        self, trade: Dict, current_price: float
+    ) -> Optional[str]:
+        """
+        Strategy-specific exit logic for the adaptive_regime strategy.
+        Reads adaptive_exit_mode from indicators_json to apply the correct
+        exit model for the regime this trade was entered in.
+
+        Trend mode exit:
+          EMA20 crosses EMA100 in the adverse direction (trend has ended).
+          Long:  exit when EMA20 <= EMA100  (uptrend structure broken)
+          Short: exit when EMA20 >= EMA100  (downtrend structure broken)
+
+        Mean reversion mode exit (whichever fires first):
+          1. Price reaches BB midline (SMA20) — reversion target met
+          2. RSI crosses exit threshold: long RSI >= 55, short RSI <= 45
+
+        Returns an exit reason string, or None to continue holding.
+        """
+        import json
+
+        symbol          = trade["symbol"]
+        direction       = trade["direction"]
+        asset_class     = trade["asset_class"]
+        # Use the trade's entry timeframe (1Hour/1h for adaptive_regime);
+        # fall back to 1h so exit bars always match the entry bars.
+        entry_timeframe = trade.get("entry_timeframe") or (
+            "1Hour" if asset_class == "stock" else "1h"
+        )
+
+        # ── Parse adaptive_exit_mode from persisted indicators ────────────
+        try:
+            indicators_json = json.loads(trade.get("indicators_json") or "{}")
+        except (json.JSONDecodeError, TypeError):
+            indicators_json = {}
+
+        exit_mode = indicators_json.get("adaptive_exit_mode")
+        if exit_mode not in ("trend", "mean_rev"):
+            # Not an adaptive_regime trade or missing metadata — skip quietly
+            return None
+
+        # ── Fetch 1h bars (need 110+ for EMA100 warm-up; request 150) ─────
+        bars = self._get_bars(symbol, asset_class, limit=150, timeframe=entry_timeframe)
+        if bars is None or len(bars) < 30:
+            logger.debug(
+                f"[ADAPTIVE EXIT] {symbol}: insufficient bars "
+                f"(got {len(bars) if bars is not None else 0}, need 30+) — skip"
+            )
+            return None
+
+        try:
+            closes = bars["close"]
+
+            # EMA20 and EMA100 — used by both exit modes
+            ema20  = closes.ewm(span=20,  adjust=False).mean()
+            ema100 = closes.ewm(span=100, adjust=False).mean()
+            ema20_now  = float(ema20.iloc[-1])
+            ema100_now = float(ema100.iloc[-1])
+
+            # ── TREND EXIT: EMA cross in adverse direction ──────────────────
+            if exit_mode == "trend":
+                if direction == "long" and ema20_now <= ema100_now:
+                    logger.info(
+                        f"[ADAPTIVE EXIT - TREND] {symbol} LONG: "
+                        f"EMA20={ema20_now:.4f} crossed below "
+                        f"EMA100={ema100_now:.4f} — trend ended, closing"
+                    )
+                    return "adaptive_ema_cross_exit"
+
+                if direction == "short" and ema20_now >= ema100_now:
+                    logger.info(
+                        f"[ADAPTIVE EXIT - TREND] {symbol} SHORT: "
+                        f"EMA20={ema20_now:.4f} crossed above "
+                        f"EMA100={ema100_now:.4f} — trend ended, closing"
+                    )
+                    return "adaptive_ema_cross_exit"
+
+                return None
+
+            # ── MEAN REV EXIT 1: price reaches BB midline (SMA20) ──────────
+            bb_mid = float(closes.rolling(20).mean().iloc[-1])
+
+            if direction == "long" and current_price >= bb_mid:
+                logger.info(
+                    f"[ADAPTIVE EXIT - MEAN REV] {symbol} LONG: "
+                    f"price {current_price:.4f} >= BB midline {bb_mid:.4f} "
+                    f"— reversion target met, closing"
+                )
+                return "adaptive_bb_midline_exit"
+
+            if direction == "short" and current_price <= bb_mid:
+                logger.info(
+                    f"[ADAPTIVE EXIT - MEAN REV] {symbol} SHORT: "
+                    f"price {current_price:.4f} <= BB midline {bb_mid:.4f} "
+                    f"— reversion target met, closing"
+                )
+                return "adaptive_bb_midline_exit"
+
+            # ── MEAN REV EXIT 2: RSI threshold (secondary) ─────────────────
+            # Long exits when RSI >= 55 (momentum exhausted, no longer oversold)
+            # Short exits when RSI <= 45 (momentum exhausted, no longer overbought)
+            delta    = closes.diff()
+            gain     = delta.clip(lower=0)
+            loss     = -delta.clip(upper=0)
+            avg_gain = gain.ewm(com=13, adjust=False).mean()
+            avg_loss = loss.ewm(com=13, adjust=False).mean()
+            rs       = avg_gain / avg_loss.replace(0, float("nan"))
+            rsi_now  = float((100 - (100 / (1 + rs))).iloc[-1])
+
+            if direction == "long" and rsi_now >= 55:
+                logger.info(
+                    f"[ADAPTIVE EXIT - MEAN REV] {symbol} LONG: "
+                    f"RSI={rsi_now:.1f} >= 55 — momentum exhausted, closing"
+                )
+                return "adaptive_rsi_exit"
+
+            if direction == "short" and rsi_now <= 45:
+                logger.info(
+                    f"[ADAPTIVE EXIT - MEAN REV] {symbol} SHORT: "
+                    f"RSI={rsi_now:.1f} <= 45 — momentum exhausted, closing"
+                )
+                return "adaptive_rsi_exit"
+
+            return None
+
+        except Exception as e:
+            logger.debug(f"[ADAPTIVE EXIT] {symbol}: exit check error: {e}")
+            return None
+
     def _check_vwap_cross_exit(self, trade: Dict, current_price: float) -> bool:
         """VWAP cross exit for ORB trades."""
         try:
@@ -737,10 +872,10 @@ class PositionMonitor:
           2.  EOD close (15:45 ET)
           3.  Stop-loss
           4.  ORB VWAP cross exit
-          5.  Early loss identification (20 min)
-          6.  Performance-contingent time stop (1hr)
-          7.  Performance-contingent time stop (3hr)
-          8.  Hard time stop (3.5hr)
+          5.  Early loss identification (30 min)
+          6.  Performance-contingent time stop (2hr)
+          7.  Performance-contingent time stop (5hr)
+          8.  Hard time stop (8hr)
           9.  Take-profit + momentum rider
           10. Pivot point break
           11. Stale position ADX/DI (3hr)
@@ -849,7 +984,18 @@ class PositionMonitor:
                 self._attempt_close(trade, current_price, "vwap_cross")
                 return
 
-        # ── 5. EARLY LOSS IDENTIFICATION (20 min) ────────────────────────
+        # ── 4b. ADAPTIVE REGIME EXIT ─────────────────────────────────────
+        # Strategy-specific exit: EMA cross (trend) or BB midline / RSI (mean rev).
+        # Checked before early loss so the strategy's own exit model takes priority
+        # over generic time-based rules. Only fires for adaptive_regime trades.
+        if strategy == "adaptive_regime":
+            adaptive_exit = self._check_adaptive_regime_exit(trade, current_price)
+            if adaptive_exit:
+                self._db.set_state(f"momentum_ext_{trade_id}", 0)
+                self._attempt_close(trade, current_price, adaptive_exit)
+                return
+
+        # ── 5. EARLY LOSS IDENTIFICATION (30 min) ────────────────────────
         # Skip for ORB — it needs time to develop past the opening range
         if strategy != "orb_breakout":
             early_exit = self._check_early_loss(
@@ -976,8 +1122,8 @@ class PositionMonitor:
                 return
 
         # ── 11. STALE POSITION CHECK (3hr ADX/DI) ────────────────────────
-        # Note: by this point the performance time stop at 3hr has already
-        # fired if profit was below 1.5%. This catches winning positions
+        # Note: by this point the performance time stop at 5hr has already
+        # fired if profit was below 1.0%. This catches winning positions
         # that are starting to show trend exhaustion.
         if age_seconds >= STALE_THRESHOLD_SEC:
             stale_exit = self._check_stale_position(trade)

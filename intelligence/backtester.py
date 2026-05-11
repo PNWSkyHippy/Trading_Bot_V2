@@ -17,6 +17,12 @@
                   Ratchets up only, never down
                   Default N=2, configurable in dashboard
 
+  Strategy-specific exits:
+    Strategies that override BaseStrategy.check_custom_exit() get their
+    exit logic called on every bar (after SL/TP), matching live behaviour.
+    adaptive_regime uses this for EMA cross (trend) and BB midline/RSI
+    (mean rev) exits. All other strategies use standard SL/TP only.
+
   Run from command line (from trading_bot_v2 root):
     python intelligence/backtester.py --symbol AAPL --days 180 --tf 1h
     python intelligence/backtester.py --symbol AAPL --days 60  --tf 5m
@@ -431,6 +437,7 @@ class Backtester:
             "vwap_momentum":      ("strategies.vwap_momentum",       "VWAPMomentum"),
             "hammer_reversal":    ("strategies.hammer_reversal",     "HammerReversal"),
             "orb_breakout":       ("strategies.orb_breakout",        "ORBBreakout"),
+            "adaptive_regime":    ("strategies.adaptive_regime",     "AdaptiveRegime"),
         }
         if strategy_name not in strategy_map:
             return None
@@ -633,6 +640,19 @@ class Backtester:
                         trade, row, trailing_gap_pct, default_tp_pct
                     )
 
+                # ── Strategy-specific exit hook ───────────────────────────
+                # Fires AFTER standard SL/TP so the stop remains a hard gate.
+                # Only strategies that override check_custom_exit() are affected
+                # (all others return None from the BaseStrategy stub).
+                if exit_reason is None and strategy_obj is not None:
+                    window = df.iloc[max(0, i - 150): i + 1]
+                    exit_reason = strategy_obj.check_custom_exit(
+                        trade["symbol"],
+                        window,
+                        trade["direction"],
+                        trade.get("entry_metadata", {}),
+                    )
+
                 if exit_reason:
                     pnl, bt_trade = self._close_trade(
                         trade, price, exit_reason, i, df,
@@ -703,13 +723,15 @@ class Backtester:
             sl_pct           = default_sl_pct
             tp_pct           = default_tp_pct
 
+            signal_meta: dict = {}
             if strategy_obj is not None:
-                window = df.iloc[max(0, i - 120): i + 1].copy()
+                window = df.iloc[max(0, i - 150): i + 1].copy()
                 try:
                     signal = strategy_obj.analyze(symbol, window, "unknown")
                     if signal is not None:
                         signal_direction = signal.direction
                         signal_score     = signal.score
+                        signal_meta      = signal.metadata or {}
                         if signal.stop_loss_pct:
                             sl_pct = signal.stop_loss_pct / 100
                         if signal.take_profit_pct:
@@ -744,13 +766,26 @@ class Backtester:
                 else:
                     tp = price * (1 - tp_pct)
             else:
-                # Standard fixed % stop
-                if signal_direction == "long":
-                    sl = price * (1 - sl_pct)
-                    tp = price * (1 + tp_pct)
+                # Prefer structural_stop_price from signal metadata when present.
+                # Strategies like adaptive_regime embed an ATR-based absolute stop
+                # price instead of a percentage. Using it here means the simulation
+                # matches the live bot's behaviour exactly.
+                structural_stop = signal_meta.get("structural_stop_price")
+                if structural_stop and structural_stop > 0:
+                    if signal_direction == "long" and structural_stop < price:
+                        sl = structural_stop
+                    elif signal_direction == "short" and structural_stop > price:
+                        sl = structural_stop
+                    else:
+                        # structural_stop is on the wrong side — fall back to %
+                        sl = (price * (1 - sl_pct) if signal_direction == "long"
+                              else price * (1 + sl_pct))
                 else:
-                    sl = price * (1 + sl_pct)
-                    tp = price * (1 - tp_pct)
+                    sl = (price * (1 - sl_pct) if signal_direction == "long"
+                          else price * (1 + sl_pct))
+
+                tp = (price * (1 + tp_pct) if signal_direction == "long"
+                      else price * (1 - tp_pct))
 
             open_trades.append({
                 "symbol":         symbol,
@@ -765,6 +800,7 @@ class Backtester:
                 "signal_score":   signal_score,
                 "current_sl":     sl,
                 "current_tp":     tp,
+                "entry_metadata": signal_meta,   # strategy exit hook reads this
             })
 
         # --- Close any remaining open trades at end of data ---
@@ -774,6 +810,15 @@ class Backtester:
                 trade, final_price, "backtest_end",
                 len(df) - 1, df, strategy_name, stop_mode
             )
+            round_trip_cost  = bt_trade.position_value * friction_per_leg * 2
+            pnl             -= round_trip_cost
+            total_fees_paid += round_trip_cost
+            bt_trade.fees    = round(round_trip_cost, 4)
+            bt_trade.pnl     = round(pnl, 4)
+            bt_trade.pnl_pct = round(
+                pnl / bt_trade.position_value * 100
+                if bt_trade.position_value else 0, 2
+            )
             closed_trades.append(bt_trade)
             capital += pnl
 
@@ -781,7 +826,10 @@ class Backtester:
             symbol, df, closed_trades, equity_curve,
             starting_capital, capital,
             strategy_name, timeframe, annualise_factor,
-            stop_mode
+            stop_mode,
+            fees_paid      = round(total_fees_paid, 2),
+            commission_pct = commission_pct,
+            slippage_pct   = slippage_pct,
         )
 
     # -----------------------------------------------------------------------
@@ -793,7 +841,9 @@ class Backtester:
             timeframe: str = "1h",
             asset_class: str = "stock",
             stop_mode: str = STOP_STANDARD,
-            two_bar_lookback: int = 2) -> Optional[BacktestResult]:
+            two_bar_lookback: int = 2,
+            commission_pct: float = None,
+            slippage_pct:   float = None) -> Optional[BacktestResult]:
         capital = starting_capital or self.starting_capital
         if asset_class == "crypto":
             df = self.fetch_history_crypto(symbol, days, timeframe)
@@ -802,7 +852,10 @@ class Backtester:
         if df is None or len(df) < 30:
             return None
         return self._simulate(symbol, df, "default", None, capital, timeframe,
-                              stop_mode, two_bar_lookback)
+                              stop_mode, two_bar_lookback,
+                              asset_class=asset_class,
+                              commission_pct=commission_pct,
+                              slippage_pct=slippage_pct)
 
     def run_strategy(self, symbol: str, strategy_name: str,
                      days: int = 365,
@@ -810,7 +863,9 @@ class Backtester:
                      timeframe: str = "1h",
                      asset_class: str = "stock",
                      stop_mode: str = STOP_STANDARD,
-                     two_bar_lookback: int = 2) -> Optional[BacktestResult]:
+                     two_bar_lookback: int = 2,
+                     commission_pct: float = None,
+                     slippage_pct:   float = None) -> Optional[BacktestResult]:
         capital = starting_capital or self.starting_capital
         if asset_class == "crypto":
             df = self.fetch_history_crypto(symbol, days, timeframe)
@@ -828,7 +883,10 @@ class Backtester:
             return None
         return self._simulate(
             symbol, df, strategy_name, strategy_obj, capital, timeframe,
-            stop_mode, two_bar_lookback
+            stop_mode, two_bar_lookback,
+            asset_class=asset_class,
+            commission_pct=commission_pct,
+            slippage_pct=slippage_pct,
         )
 
     def run_all(self, symbols: List[str], strategy_name: str = None,
@@ -836,16 +894,22 @@ class Backtester:
                 timeframe: str = "1h",
                 asset_class: str = "stock",
                 stop_mode: str = STOP_STANDARD,
-                two_bar_lookback: int = 2) -> List[BacktestResult]:
+                two_bar_lookback: int = 2,
+                commission_pct: float = None,
+                slippage_pct:   float = None) -> List[BacktestResult]:
         results = []
         for sym in symbols:
             if strategy_name:
                 r = self.run_strategy(sym, strategy_name, days,
                                       starting_capital, timeframe, asset_class,
-                                      stop_mode, two_bar_lookback)
+                                      stop_mode, two_bar_lookback,
+                                      commission_pct=commission_pct,
+                                      slippage_pct=slippage_pct)
             else:
                 r = self.run(sym, days, starting_capital, timeframe, asset_class,
-                             stop_mode, two_bar_lookback)
+                             stop_mode, two_bar_lookback,
+                             commission_pct=commission_pct,
+                             slippage_pct=slippage_pct)
             if r:
                 results.append(r)
         return results
@@ -858,7 +922,10 @@ class Backtester:
                           start_cap, end_cap,
                           strategy_name, timeframe,
                           annualise_factor,
-                          stop_mode: str = STOP_STANDARD) -> BacktestResult:
+                          stop_mode: str = STOP_STANDARD,
+                          fees_paid: float = 0.0,
+                          commission_pct: float = 0.0,
+                          slippage_pct:   float = 0.0) -> BacktestResult:
         wins   = [t for t in trades if t.pnl > 0]
         losses = [t for t in trades if t.pnl <= 0]
         win_rate   = len(wins) / len(trades) * 100 if trades else 0.0
@@ -913,6 +980,9 @@ class Backtester:
             largest_loss     = round(min((t.pnl for t in losses), default=0), 2),
             avg_bars_held    = round(avg_bars, 1),
             stop_mode        = stop_mode,
+            fees_paid        = fees_paid,
+            commission_pct   = commission_pct,
+            slippage_pct     = slippage_pct,
             trades           = trades,
             equity_curve     = equity_curve,
         )
@@ -930,6 +1000,9 @@ class Backtester:
             if result.stop_mode == STOP_TWO_BAR
             else "Standard Fixed %"
         )
+        friction_per_leg  = result.commission_pct + result.slippage_pct
+        friction_rt       = friction_per_leg * 2
+        friction_free     = friction_rt == 0.0
         print(f"\n{sep}")
         print(f"  BACKTEST REPORT — {result.symbol}  [{result.strategy_name}  |  {result.timeframe}]")
         print(f"  Stop Mode: {stop_label}")
@@ -953,6 +1026,20 @@ class Backtester:
         print(f"  Largest Win     : ${result.largest_win:.2f}")
         print(f"  Largest Loss    : ${result.largest_loss:.2f}")
         print(f"  Avg Bars Held   : {result.avg_bars_held:.1f}")
+        print(thin)
+        if friction_free:
+            print(f"  FRICTION        : NONE — zero-commission, zero-slippage run")
+            print(f"                    Results are OPTIMISTIC. Use --no-fees to")
+            print(f"                    compare; omit flag for realistic estimate.")
+        else:
+            print(f"  FRICTION ASSUMPTIONS (applied each leg, round-trip = 2x):")
+            print(f"    Commission    : {result.commission_pct:.2f}% per leg")
+            print(f"    Slippage      : {result.slippage_pct:.2f}% per leg")
+            print(f"    Total per leg : {friction_per_leg:.2f}%  |  Round-trip: {friction_rt:.2f}%")
+            print(f"    Total fees    : ${result.fees_paid:,.2f}  over {result.total_trades} trades")
+            if result.total_trades > 0:
+                avg_fee = result.fees_paid / result.total_trades
+                print(f"    Avg per trade : ${avg_fee:.2f}")
         print(sep)
         approved = (result.win_rate >= 50 and result.profit_factor >= 1.2
                     and result.max_drawdown_pct > -25)
@@ -1057,6 +1144,13 @@ class Backtester:
             "sharpe_ratio":     result.sharpe_ratio,
             "sortino_ratio":    result.sortino_ratio,
             "calmar_ratio":     result.calmar_ratio,
+            "friction": {
+                "commission_pct_per_leg": result.commission_pct,
+                "slippage_pct_per_leg":   result.slippage_pct,
+                "round_trip_pct":         round((result.commission_pct + result.slippage_pct) * 2, 4),
+                "total_fees_paid":        result.fees_paid,
+                "friction_free":          result.fees_paid == 0.0,
+            },
             "equity_curve": [
                 {"t": ep.timestamp[:16], "e": ep.equity,
                  "d": ep.drawdown,       "r": ep.daily_ret}
@@ -1079,8 +1173,17 @@ class Backtester:
 def print_portfolio_summary(results: List[BacktestResult]):
     if not results:
         return
+    friction_free = all(r.commission_pct == 0 and r.slippage_pct == 0 for r in results)
     print(f"\n{'='*62}")
-    print(f"  PORTFOLIO SUMMARY — {len(results)} symbol(s)")
+    print(f"  ISOLATED SYMBOL RESULTS — {len(results)} symbol(s)")
+    print(f"  NOTE: Each symbol ran with full starting capital independently.")
+    print(f"        This is NOT a shared-capital portfolio simulation.")
+    print(f"        Averages below do not represent a real portfolio return.")
+    if friction_free:
+        print(f"  FRICTION: NONE — results are optimistic (no fees or slippage).")
+    else:
+        total_fees = sum(r.fees_paid for r in results)
+        print(f"  FRICTION: applied — total fees across all symbols: ${total_fees:,.2f}")
     print(f"  {'Symbol':<8} {'Return':>8} {'WinRate':>8} {'PF':>6} "
           f"{'MaxDD':>8} {'Sharpe':>7} {'Trades':>7} {'Stop':>10}")
     print(f"  {'-'*65}")
@@ -1101,6 +1204,7 @@ def print_portfolio_summary(results: List[BacktestResult]):
     print(f"  {'AVG':<8} {avgs['ret']:>+7.1f}% "
           f"{avgs['wr']:>7.1f}% {avgs['pf']:>6.2f} "
           f"{avgs['dd']:>7.1f}% {avgs['sh']:>7.2f}")
+    print(f"  (averages across isolated runs — not a blended portfolio metric)")
     print(f"{'='*62}\n")
 
 
@@ -1134,7 +1238,15 @@ if __name__ == "__main__":
                         help="Stop loss mode: standard (fixed %%) or two_bar (N-bar trailing)")
     parser.add_argument("--lookback", type=int, default=2,
                         help="Lookback bars N for two_bar stop (default 2, range 1-20)")
+    parser.add_argument("--asset-class", default="stock", choices=["stock", "crypto"],
+                        help="Asset class — affects default friction assumptions")
+    parser.add_argument("--no-fees", action="store_true",
+                        help="Run with zero commission and zero slippage (optimistic baseline)")
     args = parser.parse_args()
+
+    # Friction override: --no-fees forces both to 0.0
+    _commission = 0.0 if args.no_fees else None   # None = use config default
+    _slippage   = 0.0 if args.no_fees else None
 
     backtester = Backtester(starting_capital=args.capital)
 
@@ -1146,8 +1258,11 @@ if __name__ == "__main__":
             days             = args.days,
             starting_capital = args.capital,
             timeframe        = args.tf,
+            asset_class      = args.asset_class,
             stop_mode        = args.stop,
             two_bar_lookback = args.lookback,
+            commission_pct   = _commission,
+            slippage_pct     = _slippage,
         )
         for r in results:
             backtester.print_report(r)
@@ -1160,12 +1275,16 @@ if __name__ == "__main__":
         if args.strategy:
             result = backtester.run_strategy(
                 args.symbol, args.strategy, args.days, args.capital, args.tf,
-                stop_mode=args.stop, two_bar_lookback=args.lookback
+                asset_class=args.asset_class,
+                stop_mode=args.stop, two_bar_lookback=args.lookback,
+                commission_pct=_commission, slippage_pct=_slippage,
             )
         else:
             result = backtester.run(
                 args.symbol, args.days, args.capital, args.tf,
-                stop_mode=args.stop, two_bar_lookback=args.lookback
+                asset_class=args.asset_class,
+                stop_mode=args.stop, two_bar_lookback=args.lookback,
+                commission_pct=_commission, slippage_pct=_slippage,
             )
 
         if result:

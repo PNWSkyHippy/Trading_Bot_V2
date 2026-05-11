@@ -1,0 +1,534 @@
+# BREAKOUT PAYLOAD SCHEMA
+**Status:** Proposed contract  
+**Purpose:** Define the exact JSON payload expected between the external BreakoutScanner and `core/breakout_receiver.py`, including what is required for:
+1. UI alerting only
+2. server-side validation
+3. auto-trade eligibility
+
+This document exists to prevent "missing data" arguments based on assumptions instead of actual field usage.
+
+---
+
+## 1. System Flow
+
+```text
+BreakoutScanner
+   ↓ sends JSON payload
+API endpoint
+   ↓
+core/breakout_receiver.py
+   ↓ checklist validation
+   ↓ builds internal Signal object
+trade_executor.execute_signal()
+There are two different data contracts in play:
+
+A. External transport payload
+This is the JSON sent from BreakoutScanner to the server.
+
+B. Internal Signal object
+This is the Python object created inside breakout_receiver.py and sent into trade_executor.
+
+They are not the same thing.
+
+2. Important Compatibility Note — broker Bug
+The current receiver code does:
+
+from scanners.market_scanner import Signal
+
+signal = Signal(
+    symbol=...,
+    asset_class=...,
+    direction=...,
+    score=...,
+    current_price=...,
+    indicators=...,
+    broker=...,   # <-- PROBLEM if Signal dataclass has no broker field
+)
+But the Signal dataclass in scanners/market_scanner.py currently defines only:
+
+symbol
+asset_class
+direction
+score
+current_price
+indicators
+reason
+Therefore:
+broker is not a valid constructor argument unless the dataclass is extended
+if passed directly, it causes an injection-time exception
+this is not a checklist rejection
+Recommendation
+Until Signal is formally extended, pass broker information inside:
+
+signal.indicators["preferred_broker"] = "kraken"
+or
+
+signal.indicators["signal_source"] = "breakout_scanner"
+and let trade_executor decide routing from asset_class.
+
+3. Payload Classes
+We should distinguish 3 payload levels.
+
+Level 1 — Alert Payload
+Enough to show in UI, beep, colorize, and log. Not enough for auto-trading.
+
+Level 2 — Validation Payload
+Enough for breakout_receiver hard/soft checklist.
+
+Level 3 — Auto-Trade Payload
+Enough for rapid trade execution with proper stop handling and anti-chase checks.
+
+4. Required Fields by Level
+4.1 Level 1 — Alert Payload Required Fields
+These are the minimum fields for the scanner to send a useful alert to the server/UI.
+
+Field	Type	Required	Notes
+symbol	string	yes	"BTC/USD" or "AAPL"
+asset_class	string	yes	"crypto" or "stock"
+direction	string	yes	"long" or "short"
+current_price	number	yes	latest observed price
+move_pct	number	yes	current % move being tracked
+escalation	integer	yes	0,1,2,3
+confidence	number	yes	0.0–1.0
+timestamp	string	yes	ISO8601 UTC preferred
+If these are missing, the payload is not even a valid alert.
+
+4.2 Level 2 — Validation Payload Required Fields
+These are the minimum fields needed for the existing receiver checklist to behave meaningfully.
+
+Field	Type	Required	Why
+symbol	string	yes	all checks
+asset_class	string	yes	price lookup
+direction	string	yes	drift / RSI / trend checks
+entry_price	number	yes	price drift re-verification
+current_price	number	yes	execution price candidate
+move_pct	number	yes	gap trap check
+volume_spike	number	yes	hard volume check
+momentum_score	number	recommended	liquidity proxy
+timestamp	string	yes	freshness / TTL
+confidence	number	yes	score mapping
+escalation	integer	yes	tiering
+Important
+Under current code:
+
+missing volume_spike defaults to 0 and hard fails
+missing momentum_score defaults to 0 and may contribute to liquidity fail
+missing RSI does not fail
+missing SMA200 does not fail
+missing market context does not fail
+missing candle OHLC does not fail wick check
+4.3 Level 3 — Auto-Trade Payload Required Fields
+These should be mandatory for any signal that is allowed to auto-trade.
+
+Field	Type	Required	Why
+symbol	string	yes	identity
+asset_class	string	yes	routing
+direction	string	yes	long / short
+timeframe	string	yes	"5m" / "5Min" etc
+timestamp	string	yes	TTL / freshness
+entry_price	number	yes	original signal price
+current_price	number	yes	executable price
+breakout_level	number	yes	anti-chase extension logic
+bars_since_breakout	integer	yes	freshness of breakout structure
+distance_from_breakout_pct	number	yes	anti-chase filter
+move_pct	number	yes	exhaustion / escalation context
+volume_spike	number	yes	hard validation
+confidence	number	yes	scoring
+escalation	integer	yes	tier policy
+structural_stop_price	number	yes	stop placement sanity
+signal_source	string	yes	traceability, e.g. "breakout_scanner"
+Strongly recommended
+Field	Type	Why
+momentum_score	number	liquidity / quality proxy
+rsi	number	soft confirmation
+sma200 or ema50	number	trend alignment
+market_pct_change	number	market context
+pattern	string	logging / analysis
+candle_open	number	wick validation
+candle_high	number	wick validation
+candle_low	number	wick validation
+candle_close	number	wick validation
+5. Field Definitions
+5.1 Identity / Routing
+symbol
+Type: string
+Examples:
+"BTC/USD"
+"ETH/USD"
+"AAPL"
+Must match the symbol format expected by your broker/scanner stack.
+asset_class
+Type: string
+Allowed:
+"crypto"
+"stock"
+direction
+Type: string
+Allowed:
+"long"
+"short"
+signal_source
+Type: string
+Example:
+"breakout_scanner"
+5.2 Time / Freshness
+timestamp
+Type: string
+Format: ISO8601 UTC strongly preferred
+Example:
+"timestamp": "2026-05-11T20:14:32Z"
+bars_since_breakout
+Type: integer
+Meaning:
+0 = breakout occurred on current freshly closed bar
+1 = 1 bar old
+2+ = increasingly stale
+Recommended for auto-trading:
+allow only <= 1
+timeframe
+Type: string
+Examples:
+stocks: "5Min"
+crypto: "5m"
+5.3 Price Fields
+entry_price
+Type: number
+Meaning: price at the moment the scanner created the signal
+current_price
+Type: number
+Meaning: latest price at send time
+breakout_level
+Type: number
+Meaning:
+long: breakout resistance level just cleared
+short: breakout support level just broken
+distance_from_breakout_pct
+Type: number
+Meaning: how far price has already extended from breakout level
+Example long formula:
+((current_price - breakout_level) / breakout_level) * 100
+move_pct
+Type: number
+Meaning: total move that triggered escalation / tracking
+best_move_pct
+Type: number
+Optional
+Meaning: max move reached since scanner first started watching
+5.4 Stop / Risk Fields
+structural_stop_price
+Type: number
+Required for auto-trade
+Meaning: stop level computed by scanner/stop model
+Long validity
+structural_stop_price < current_price
+Short validity
+structural_stop_price > current_price
+If this is not true, the signal should be rejected before execution.
+
+5.5 Quality / Confirmation Fields
+volume_spike
+Type: number
+Meaning: current volume divided by 20-bar average volume
+Example:
+1.75 = 1.75x normal volume
+momentum_score
+Type: number
+Meaning: scanner’s own composite momentum score
+Could be 0–3, 0–5, or 0–1, but must be documented consistently
+confidence
+Type: number
+Range: 0.0 to 1.0
+rsi
+Type: number
+Optional in current receiver
+Missing RSI does not fail current soft check
+sma200
+Type: number
+Optional in current receiver
+Missing SMA200 does not fail current soft check
+market_pct_change
+Type: number
+Optional
+Example:
+stock market context: SPY day %
+crypto market context: BTC 1h or day %
+5.6 Candle Anatomy Fields
+Used by wick rejection logic.
+
+Field	Type
+candle_open	number
+candle_high	number
+candle_low	number
+candle_close	number
+If omitted, current code skips wick validation and passes that check.
+
+5.7 Classification / Metadata
+escalation
+Type: integer
+Suggested mapping:
+0 = new
+1 = moving
+2 = hot
+3 = rocket
+pattern
+Type: string
+Examples:
+"breakout"
+"range_break"
+"high_tight_flag"
+"opening_range_break"
+broker
+Type: string
+Optional in transport payload
+Example:
+"kraken"
+"ibkr"
+Warning: do not pass this directly into Signal(...) unless the dataclass is extended
+6. Current Receiver Logic — Missing Field Truth Table
+This section documents what actually happens in the current code.
+
+Field Missing	Current Result
+rsi	PASS soft check (RSI not provided — skipped)
+sma200	PASS soft check (SMA200 not provided — skipped)
+market_pct_change	PASS soft check (Market context not provided — skipped)
+candle_open/high/low/close	PASS hard check (Wick check skipped)
+volume_spike	FAIL hard check (defaults to 0)
+momentum_score	may contribute to liquidity FAIL
+entry_price	price drift check degrades / may pass weirdly
+current_price	injection price becomes unreliable
+broker	transport payload OK; internal Signal(...) may crash if passed directly
+7. Recommended Receiver Rejection Policy
+7.1 Hard Reject Missing Required Auto-Trade Fields
+If auto-trade is enabled, reject immediately if any are missing:
+
+symbol
+asset_class
+direction
+timestamp
+entry_price
+current_price
+timeframe
+breakout_level
+bars_since_breakout
+distance_from_breakout_pct
+volume_spike
+confidence
+structural_stop_price
+Return reason format
+Example:
+
+{
+  "accepted": false,
+  "reason": "Missing required fields: breakout_level, bars_since_breakout, structural_stop_price",
+  "trade_id": null
+}
+7.2 Alert-Only Degradation
+If the payload is insufficient for auto-trade but still useful for awareness:
+
+accept for logging/UI
+reject for execution
+mark:
+"execution_eligible": false
+This is better than pretending it was a failed trade setup.
+
+8. Example Valid Stock Payload
+{
+  "symbol": "AAPL",
+  "asset_class": "stock",
+  "direction": "long",
+  "timeframe": "5Min",
+  "timestamp": "2026-05-11T20:14:32Z",
+  "signal_source": "breakout_scanner",
+
+  "entry_price": 214.36,
+  "current_price": 214.52,
+  "breakout_level": 213.98,
+  "distance_from_breakout_pct": 0.25,
+  "move_pct": 2.4,
+  "best_move_pct": 2.7,
+
+  "bars_since_breakout": 0,
+  "escalation": 1,
+  "confidence": 0.74,
+
+  "volume_spike": 1.92,
+  "momentum_score": 1.65,
+  "rsi": 57.8,
+  "sma200": 209.44,
+  "market_pct_change": 0.8,
+
+  "candle_open": 213.90,
+  "candle_high": 214.61,
+  "candle_low": 213.88,
+  "candle_close": 214.52,
+
+  "pattern": "opening_range_break",
+  "structural_stop_price": 213.41,
+  "broker": "ibkr"
+}
+9. Example Valid Crypto Payload
+{
+  "symbol": "SOL/USD",
+  "asset_class": "crypto",
+  "direction": "long",
+  "timeframe": "5m",
+  "timestamp": "2026-05-11T20:16:02Z",
+  "signal_source": "breakout_scanner",
+
+  "entry_price": 168.24,
+  "current_price": 168.71,
+  "breakout_level": 167.95,
+  "distance_from_breakout_pct": 0.45,
+  "move_pct": 3.1,
+  "best_move_pct": 3.4,
+
+  "bars_since_breakout": 0,
+  "escalation": 1,
+  "confidence": 0.78,
+
+  "volume_spike": 2.14,
+  "momentum_score": 1.92,
+  "rsi": 59.3,
+  "market_pct_change": 1.4,
+
+  "candle_open": 167.88,
+  "candle_high": 168.86,
+  "candle_low": 167.80,
+  "candle_close": 168.71,
+
+  "pattern": "range_break",
+  "structural_stop_price": 166.94,
+  "broker": "kraken"
+}
+10. Example Invalid Payload — Auto-Trade Reject, Alert OK
+{
+  "symbol": "BTC/USD",
+  "asset_class": "crypto",
+  "direction": "long",
+  "current_price": 64250.0,
+  "move_pct": 5.4,
+  "escalation": 2,
+  "confidence": 0.81,
+  "timestamp": "2026-05-11T20:20:00Z"
+}
+Why invalid for auto-trade
+Missing:
+
+entry_price
+timeframe
+breakout_level
+bars_since_breakout
+distance_from_breakout_pct
+volume_spike
+structural_stop_price
+But still useful for alerting
+This should remain visible in UI/beeps.
+
+11. Suggested API Response Schema
+Server should return structured responses:
+
+{
+  "accepted": false,
+  "execution_eligible": false,
+  "reason": "Missing required fields: structural_stop_price, volume_spike",
+  "trade_id": null,
+  "checklist": {
+    "hard_passed": false,
+    "soft_passed": 2,
+    "failed_hard_check": "volume_spike missing/below threshold"
+  }
+}
+For successful execution:
+
+{
+  "accepted": true,
+  "execution_eligible": true,
+  "reason": "Signal executed",
+  "trade_id": "TRD-20260511-00123"
+}
+12. Logging Schema
+For each inbound payload, log:
+
+symbol
+asset_class
+direction
+timeframe
+timestamp
+signal_age_sec
+entry_price
+current_price
+breakout_level
+bars_since_breakout
+distance_from_breakout_pct
+move_pct
+volume_spike
+momentum_score
+confidence
+structural_stop_price
+execution_eligible
+accepted
+reject_reason
+This is mandatory for tuning. Without it, all future debugging becomes anecdotal.
+
+13. Best-Practice Separation of Responsibilities
+Scanner responsibilities
+The scanner should compute and send:
+
+breakout freshness
+breakout level
+extension from breakout
+volume spike
+structural stop
+optional RSI / trend / market context
+escalation tier
+Receiver responsibilities
+The receiver should:
+
+verify required fields
+enforce TTL
+enforce no duplicate position
+enforce cooldown / halted state
+verify price has not drifted too far
+enforce structural stop sanity
+hand off quickly to executor
+Important principle
+Do not make the receiver re-build the entire scanner thesis. That makes execution slow and brittle.
+
+14. Final Recommendation
+For auto-trading breakout signals, treat this as the minimum executable schema:
+
+{
+  "symbol": "string",
+  "asset_class": "stock|crypto",
+  "direction": "long|short",
+  "timeframe": "string",
+  "timestamp": "ISO8601",
+  "signal_source": "breakout_scanner",
+
+  "entry_price": 0.0,
+  "current_price": 0.0,
+  "breakout_level": 0.0,
+  "distance_from_breakout_pct": 0.0,
+  "bars_since_breakout": 0,
+
+  "move_pct": 0.0,
+  "volume_spike": 0.0,
+  "confidence": 0.0,
+  "escalation": 0,
+  "structural_stop_price": 0.0
+}
+Everything else can be additive.
+
+15. Non-Negotiable Fixes Before Trusting Breakout Auto-Trading
+Fix the broker / Signal(...) constructor mismatch
+Enforce required-field validation before checklist
+Separate:
+payload invalid
+checklist rejected
+injection exception
+Log all three separately
+Require structural_stop_price for auto-trade
+Add bars_since_breakout and breakout_level to scanner payload
+Add TTL rejection based on timestamp
+Without these, failures will continue to be misdiagnosed as "bad setups" when they are often just malformed payloads.
+

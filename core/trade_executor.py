@@ -238,8 +238,15 @@ class AlpacaExecutor:
             logger.error(f"Error in EOD close all: {e}")
 
 
-class CoinbaseExecutor:
-    """Executes crypto trades via Coinbase Advanced Trade."""
+class KrakenSpotExecutor:
+    """
+    Legacy direct-ccxt Kraken executor.
+    NOTE: The primary crypto execution path is KrakenExecutor (core/kraken_executor.py),
+    which handles paper mode, stop orders, and position tracking. This class was
+    previously named CoinbaseExecutor but always used Kraken internally. It is
+    retained for reference and potential fallback use; the main TradeExecutor
+    routes all crypto through self.kraken (KrakenExecutor), not this class.
+    """
 
     def __init__(self):
         self.exchange = ccxt.kraken({
@@ -308,7 +315,6 @@ class TradeExecutor:
         self._risk_manager = risk_manager_ref or risk_manager
 
         self.alpaca   = AlpacaExecutor()
-        self.coinbase = CoinbaseExecutor()
         self.kraken   = KrakenExecutor(
             api_key    = config.KRAKEN_API_KEY,
             api_secret = config.KRAKEN_SECRET_KEY,
@@ -387,9 +393,56 @@ class TradeExecutor:
         else:
             take_profit = entry_price * (1 - tp_pct)
 
-        # Prefer structural stop embedded by the scanner (two-bar model).
-        # Fall back to percent-based only when the scanner could not compute one.
+        # ── Structural stop: recompute at fill price (hard pre-live gate) ───
+        # The scanner embeds structural_stop_price from bars at signal time.
+        # An adverse fill (price moved between signal and execution) can place
+        # the stop above the fill price for longs (or below for shorts), causing
+        # an immediate stop-out on the next monitor cycle.
+        # Fix: re-run initial_stop_from_tail() on fresh bars after the fill is
+        # confirmed, then validate the result is on the correct side of fill price.
         structural_stop = signal.indicators.get("structural_stop_price")
+        if structural_stop is not None:
+            try:
+                from core.stop_engine import stop_engine as _se
+                from scanners.market_scanner import scanner as _sc
+                _tf = signal.indicators.get(
+                    "timeframe", "5Min" if signal.asset_class == "stock" else "5m"
+                )
+                if signal.asset_class == "stock":
+                    _fresh = _sc.stock_scanner.get_bars(
+                        signal.symbol, timeframe=_tf, limit=10
+                    )
+                else:
+                    _fresh = _sc.crypto_scanner.get_ohlcv(
+                        signal.symbol, timeframe=_tf, limit=10
+                    )
+                if _fresh is not None and len(_fresh) >= 3:
+                    _new_stop = _se.initial_stop_from_tail(_fresh, signal.direction)
+                    _valid = (
+                        (signal.direction == "long"  and _new_stop < entry_price) or
+                        (signal.direction == "short" and _new_stop > entry_price)
+                    )
+                    if _valid:
+                        logger.info(
+                            f"[STOP REFRESH] {signal.symbol}: structural stop "
+                            f"recomputed at fill — "
+                            f"${structural_stop:.6f} → ${_new_stop:.6f}"
+                        )
+                        structural_stop = _new_stop
+                    else:
+                        logger.warning(
+                            f"[STOP REFRESH] {signal.symbol}: fresh structural stop "
+                            f"${_new_stop:.6f} is on the wrong side of fill price "
+                            f"${entry_price:.6f} ({signal.direction}) — "
+                            f"falling back to percent-based stop"
+                        )
+                        structural_stop = None   # force percent fallback below
+            except Exception as _sr_err:
+                logger.warning(
+                    f"[STOP REFRESH] {signal.symbol}: could not recompute "
+                    f"structural stop at fill: {_sr_err}"
+                )
+
         if structural_stop is not None:
             stop_loss = structural_stop
         else:

@@ -24,6 +24,26 @@ const panelApi = async (path, opts = {}) => {
   if (!res.ok) throw new Error(data?.message || data?.error || `HTTP ${res.status}`);
   return data;
 };
+const csvCell = (v) => {
+  const text = v === null || v === undefined ? '' : String(v);
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+};
+const exportCsv = (filename, columns, rows) => {
+  const body = [
+    columns.map(c => csvCell(c.label)).join(','),
+    ...rows.map(row => columns.map(c => csvCell(typeof c.value === 'function' ? c.value(row) : row[c.value])).join(',')),
+  ].join('\r\n');
+  const blob = new Blob([body], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+};
+window.exportCsv = exportCsv;
 
 // ============ KPI Bar ============
 function KPIBar({ kpis }) {
@@ -99,7 +119,14 @@ function WinLossDonut({ wins, losses }) {
       data: { labels: ['Wins', 'Losses'], datasets: [{ data: [wins, losses], backgroundColor: ['#10b981', '#f43f5e'], borderColor: '#0b0d10', borderWidth: 3, hoverOffset: 6 }] },
       options: {
         responsive: true, maintainAspectRatio: false, cutout: '70%',
-        plugins: { legend: { position: 'bottom', labels: { color: '#b8bfca', font: { size: 11 }, boxWidth: 10, padding: 12 } }, tooltip: { backgroundColor: '#161a1f', borderColor: '#232830', borderWidth: 1, padding: 10 } }
+        plugins: {
+          legend: {
+            position: 'bottom',
+            onClick: null,
+            labels: { color: '#b8bfca', font: { size: 11 }, boxWidth: 10, padding: 12 }
+          },
+          tooltip: { backgroundColor: '#161a1f', borderColor: '#232830', borderWidth: 1, padding: 10 }
+        }
       }
     });
     return () => {
@@ -227,6 +254,8 @@ function OpenPositionsPanel() {
   const [positions, setPositions] = useS([]);
   const [msg, setMsg] = useS('Loading open positions...');
   const [loading, setLoading] = useS(false);
+  const [refreshing, setRefreshing] = useS(false);
+  const [lastRefresh, setLastRefresh] = useS('');
   const [sort, setSort] = useS({ key: 'opened', dir: 'desc' });
   const sortRef = useR({ key: 'opened', dir: 'desc' });
   const { open } = useWindows();
@@ -265,15 +294,22 @@ function OpenPositionsPanel() {
       return String(a.symbol || '').localeCompare(String(b.symbol || ''));
     });
   };
-  const loadPositions = async (requestedSort) => {
+  const loadPositions = async (requestedSort, opts = {}) => {
+    const manual = !!opts.manual;
     const nextSort = requestedSort?.key ? requestedSort : sortRef.current;
     setLoading(true);
+    if (manual) {
+      setRefreshing(true);
+      setTimeout(() => setRefreshing(false), 650);
+      setMsg('Refreshing open positions...');
+    }
     try {
       const params = new URLSearchParams({ sort_by: nextSort.key, sort_dir: nextSort.dir });
       const data = await panelApi(`/api/open_positions?${params.toString()}`);
       const rows = Array.isArray(data.positions) ? data.positions.map(mapPos) : [];
       setPositions(applySort(rows, sortRef.current || nextSort));
       setMsg(rows.length ? '' : 'No open positions.');
+      setLastRefresh(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     } catch (e) {
       setMsg(`Open positions failed: ${e.message}`);
     } finally {
@@ -334,7 +370,7 @@ function OpenPositionsPanel() {
         <div>
           <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>Open Positions</h3>
           <div className="panel-sub" style={{ margin: 0 }}>
-            {loading ? 'Loading live positions...' : `${positions.length} active`} · Sorted by {sort.key} {sort.dir} · sort v2
+            {loading ? 'Loading live positions...' : `${positions.length} active`} · Sorted by {sort.key} {sort.dir}{lastRefresh ? ` · refreshed ${lastRefresh}` : ''} · sort v2
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
@@ -342,7 +378,21 @@ function OpenPositionsPanel() {
           <SortButton k="symbol">Symbol</SortButton>
           <SortButton k="pnlD">Unreal P&L</SortButton>
           <button className="btn ghost sm" onClick={() => open('manage-positions')}><Icon name="sliders" size={12} />Manage Positions</button>
-          <button className="btn sm" onClick={() => loadPositions()}><Icon name="refresh" size={12} />Refresh</button>
+          <button className="btn ghost sm" onClick={() => exportCsv('open-positions.csv', [
+            { label: 'Opened', value: 'opened' },
+            { label: 'Symbol', value: 'symbol' },
+            { label: 'Type', value: 'type' },
+            { label: 'Dir', value: 'dir' },
+            { label: 'Entry', value: r => fmtN(r.entry) },
+            { label: 'Current', value: r => fmtN(r.current) },
+            { label: 'SL', value: r => fmtN(r.sl) },
+            { label: 'TP', value: r => fmtN(r.tp) },
+            { label: 'Unreal P&L', value: r => r.pnlD.toFixed(2) },
+            { label: 'P&L %', value: r => r.pnlP.toFixed(2) },
+            { label: 'To SL %', value: r => r.toSL.toFixed(2) },
+            { label: 'To TP %', value: r => r.toTP.toFixed(2) },
+          ], positions)}><Icon name="download" size={12} />CSV</button>
+          <button className="btn sm" onClick={() => loadPositions(null, { manual: true })}><Icon name="refresh" size={12} />{refreshing ? 'Refreshing...' : 'Refresh'}</button>
         </div>
       </div>
       {msg && <div style={{ padding: '0 16px 10px', fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
@@ -485,28 +535,41 @@ function ManualTradePanel() {
 function TradeLogPanel() {
   const [trades, setTrades] = useS([]);
   const [msg, setMsg] = useS('Loading closed trades...');
+  const [loading, setLoading] = useS(false);
+  const [refreshing, setRefreshing] = useS(false);
+  const [lastRefresh, setLastRefresh] = useS('');
   const [sort, setSort] = useS({ key: 'closed', dir: 'desc' });
+  const sortRef = useR({ key: 'closed', dir: 'desc' });
   const apiBase = () => {
     const configured = (window.DASHBOARD_API_BASE || '').replace(/\/$/, '');
     if (configured) return configured;
     if (window.location.protocol === 'file:') return 'http://localhost:8125';
     return '';
   };
-  const loadTrades = async () => {
+  const loadTrades = async ({ manual = false, quiet = false } = {}) => {
+    setLoading(true);
+    if (manual) {
+      setRefreshing(true);
+      setTimeout(() => setRefreshing(false), 650);
+      setMsg('Refreshing trade log...');
+    }
     try {
       const res = await fetch(`${apiBase()}/api/trade_log/today`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.message || data.error || `HTTP ${res.status}`);
       const rows = Array.isArray(data.trades) ? data.trades : [];
       setTrades(rows);
+      setLastRefresh(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
       setMsg(rows.length ? '' : 'No closed trades today.');
     } catch (e) {
       setMsg(`Trade log failed: ${e.message}`);
+    } finally {
+      setLoading(false);
     }
   };
   useE(() => {
     loadTrades();
-    const t = setInterval(loadTrades, 15000);
+    const t = setInterval(() => loadTrades({ quiet: true }), 15000);
     return () => clearInterval(t);
   }, []);
   const parseClock = (v) => {
@@ -537,22 +600,58 @@ function TradeLogPanel() {
       return 0;
     });
   }, [trades, sort]);
-  const toggleSort = (key) => setSort(s => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' }));
+  const toggleSort = (key) => {
+    const current = sortRef.current || sort;
+    const next = { key, dir: current.key === key && current.dir === 'asc' ? 'desc' : 'asc' };
+    sortRef.current = next;
+    setSort(next);
+  };
+  useE(() => {
+    const handler = (e) => {
+      const target = e.target.closest?.('[data-trade-sort]');
+      if (!target) return;
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSort(target.dataset.tradeSort);
+    };
+    document.addEventListener('pointerdown', handler, true);
+    return () => document.removeEventListener('pointerdown', handler, true);
+  }, []);
   const SortHead = ({ k, children, num }) => (
-    <th className={num ? 'num' : ''}>
-      <button onClick={() => toggleSort(k)} style={{ all: 'unset', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+    <th
+      data-trade-sort={k}
+      className={num ? 'num' : ''}
+      style={{ cursor: 'pointer', userSelect: 'none' }}
+    >
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, justifyContent: num ? 'flex-end' : 'flex-start', width: '100%' }}>
         <span>{children}</span>
         {sort.key === k && <span style={{ color: 'var(--accent-bright)', fontSize: 10 }}>{sort.dir === 'asc' ? '▲' : '▼'}</span>}
-      </button>
+      </span>
     </th>
   );
 
   return (
     <div style={{ padding: 0 }}>
       <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div className="panel-sub" style={{ margin: 0 }}>{trades.length} closed trades today · Newest first</div>
+        <div className="panel-sub" style={{ margin: 0 }}>
+          {loading ? 'Refreshing closed trades...' : `${trades.length} closed trades today`} · Sorted by {sort.key} {sort.dir}{lastRefresh ? ` · refreshed ${lastRefresh}` : ''}
+        </div>
         <div style={{ display: 'flex', gap: 4 }}>
-          <button className="btn ghost sm" onClick={loadTrades}><Icon name="refresh" size={12} />Refresh</button>
+          <button className="btn ghost sm" onClick={() => exportCsv('todays-trade-log.csv', [
+            { label: 'Opened', value: 'opened' },
+            { label: 'Closed', value: 'closed' },
+            { label: 'Duration', value: 'duration' },
+            { label: 'Symbol', value: 'symbol' },
+            { label: 'Dir', value: 'direction' },
+            { label: 'Strategy', value: 'strategy' },
+            { label: 'Entry', value: r => fmtN(r.entry_price) },
+            { label: 'Exit', value: r => fmtN(r.exit_price) },
+            { label: 'Reason', value: 'reason' },
+            { label: 'P&L $', value: r => Number(r.pnl || 0).toFixed(2) },
+            { label: 'P&L %', value: r => Number(r.pnl_pct || 0).toFixed(2) },
+            { label: 'Result', value: r => Number(r.pnl || 0) > 0 ? 'Win' : 'Loss' },
+          ], sortedTrades)}><Icon name="download" size={12} />CSV</button>
+          <button className="btn ghost sm" onClick={() => loadTrades({ manual: true })}><Icon name="refresh" size={12} />{refreshing ? 'Refreshing...' : 'Refresh'}</button>
         </div>
       </div>
       {msg && <div style={{ padding: '0 16px 10px', fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
@@ -595,21 +694,34 @@ function TradeLogPanel() {
 function DailyPerfPanel() {
   const [rows, setRows] = useS([]);
   const [msg, setMsg] = useS('Loading daily performance...');
+  const [loading, setLoading] = useS(false);
+  const [refreshing, setRefreshing] = useS(false);
+  const [lastRefresh, setLastRefresh] = useS('');
   const [range, setRange] = useS('30D');
   const [sort, setSort] = useS({ key: 'date', dir: 'desc' });
-  const loadDaily = async () => {
+  const sortRef = useR({ key: 'date', dir: 'desc' });
+  const loadDaily = async ({ manual = false } = {}) => {
+    setLoading(true);
+    if (manual) {
+      setRefreshing(true);
+      setTimeout(() => setRefreshing(false), 650);
+      setMsg('Refreshing daily performance...');
+    }
     try {
       const data = await panelApi('/api/overview');
       const perf = Array.isArray(data.daily_performance) ? data.daily_performance : [];
       setRows(perf);
+      setLastRefresh(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
       setMsg(perf.length ? '' : 'No daily summaries yet.');
     } catch (e) {
       setMsg(`Daily performance failed: ${e.message}`);
+    } finally {
+      setLoading(false);
     }
   };
   useE(() => {
     loadDaily();
-    const t = setInterval(loadDaily, 30000);
+    const t = setInterval(() => loadDaily(), 30000);
     return () => clearInterval(t);
   }, []);
   const ranges = {
@@ -646,13 +758,33 @@ function DailyPerfPanel() {
     acc.pnl += Number(d.pnl || 0);
     return acc;
   }, { trades: 0, wins: 0, losses: 0, pnl: 0 });
-  const toggleSort = (key) => setSort(s => ({ key, dir: s.key === key && s.dir === 'asc' ? 'desc' : 'asc' }));
+  const toggleSort = (key) => {
+    const current = sortRef.current || sort;
+    const next = { key, dir: current.key === key && current.dir === 'asc' ? 'desc' : 'asc' };
+    sortRef.current = next;
+    setSort(next);
+  };
+  useE(() => {
+    const handler = (e) => {
+      const target = e.target.closest?.('[data-daily-sort]');
+      if (!target) return;
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSort(target.dataset.dailySort);
+    };
+    document.addEventListener('pointerdown', handler, true);
+    return () => document.removeEventListener('pointerdown', handler, true);
+  }, []);
   const SortHead = ({ k, children, num }) => (
-    <th className={num ? 'num' : ''}>
-      <button onClick={() => toggleSort(k)} style={{ all: 'unset', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, justifyContent: num ? 'flex-end' : 'flex-start', width: '100%' }}>
+    <th
+      data-daily-sort={k}
+      className={num ? 'num' : ''}
+      style={{ cursor: 'pointer', userSelect: 'none' }}
+    >
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, justifyContent: num ? 'flex-end' : 'flex-start', width: '100%' }}>
         <span>{children}</span>
         {sort.key === k && <span style={{ color: 'var(--accent-bright)', fontSize: 10 }}>{sort.dir === 'asc' ? '▲' : '▼'}</span>}
-      </button>
+      </span>
     </th>
   );
 
@@ -660,7 +792,7 @@ function DailyPerfPanel() {
     <div style={{ padding: 0 }}>
       <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <div className="panel-sub" style={{ margin: 0 }}>
-          {visibleRows.length} of {rows.length} sessions · {totals.trades} trades · {totals.wins}W/{totals.losses}L · {fmt$Sign(totals.pnl)}
+          {loading ? 'Refreshing daily performance...' : `${visibleRows.length} of ${rows.length} sessions`} · Sorted by {sort.key} {sort.dir} · {totals.trades} trades · {totals.wins}W/{totals.losses}L · {fmt$Sign(totals.pnl)}{lastRefresh ? ` · refreshed ${lastRefresh}` : ''}
         </div>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {Object.keys(ranges).map(k => (
@@ -668,7 +800,17 @@ function DailyPerfPanel() {
               {k}
             </button>
           ))}
-          <button className="btn ghost sm" onClick={loadDaily}><Icon name="refresh" size={12} />Refresh</button>
+          <button className="btn ghost sm" onClick={() => exportCsv(`recent-daily-performance-${range}.csv`, [
+            { label: 'Date', value: 'date' },
+            { label: 'Trades', value: 'trades' },
+            { label: 'Wins', value: 'wins' },
+            { label: 'Losses', value: 'losses' },
+            { label: 'Win Rate', value: r => Number(r.win_rate || 0).toFixed(1) + '%' },
+            { label: 'P&L $', value: r => Number(r.pnl || 0).toFixed(2) },
+            { label: 'P&L %', value: r => Number(r.pnl_pct || 0).toFixed(2) },
+            { label: 'Capital', value: r => Number(r.capital || 0).toFixed(2) },
+          ], visibleRows)}><Icon name="download" size={12} />CSV</button>
+          <button className="btn ghost sm" onClick={() => loadDaily({ manual: true })}><Icon name="refresh" size={12} />{refreshing ? 'Refreshing...' : 'Refresh'}</button>
         </div>
       </div>
       {msg && <div style={{ padding: '0 16px 10px', fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
@@ -698,15 +840,120 @@ function DailyPerfPanel() {
 }
 
 // ============ Strategy Backtester ============
+function BacktestCharts({ row }) {
+  const equityRef = useR(null);
+  const drawdownRef = useR(null);
+  const returnsRef = useR(null);
+  const chartsRef = useR([]);
+  const curve = Array.isArray(row?.equity_curve) ? row.equity_curve : [];
+  const sig = `${row?.symbol || ''}|${row?.strategy || ''}|${curve.length}|${curve[0]?.t || ''}|${curve[curve.length - 1]?.t || ''}`;
+  useE(() => {
+    chartsRef.current.forEach(c => c?.destroy?.());
+    chartsRef.current = [];
+    if (!window.Chart || !curve.length || !equityRef.current || !drawdownRef.current || !returnsRef.current) return;
+    const labels = curve.map(p => p.t || '');
+    const axis = {
+      grid: { color: 'rgba(255,255,255,0.04)' },
+      ticks: { color: '#7d8593', font: { size: 10, family: 'JetBrains Mono' }, maxRotation: 0, autoSkipPadding: 28 },
+      border: { color: '#232830' },
+    };
+    const base = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { backgroundColor: '#161a1f', borderColor: '#232830', borderWidth: 1, titleColor: '#f3f5f8', bodyColor: '#b8bfca', padding: 10 },
+      },
+    };
+    chartsRef.current = [
+      new Chart(equityRef.current.getContext('2d'), {
+        type: 'line',
+        data: { labels, datasets: [{ data: curve.map(p => Number(p.e || 0)), borderColor: '#8b5cf6', backgroundColor: 'rgba(139, 92, 246, 0.16)', borderWidth: 2, pointRadius: 0, fill: true, tension: 0.15 }] },
+        options: { ...base, scales: { x: axis, y: { ...axis, ticks: { ...axis.ticks, callback: v => '$' + Number(v).toLocaleString('en-US', { maximumFractionDigits: 0 }) } } } },
+      }),
+      new Chart(drawdownRef.current.getContext('2d'), {
+        type: 'line',
+        data: { labels, datasets: [{ data: curve.map(p => Number(p.d || 0)), borderColor: '#f43f5e', backgroundColor: 'rgba(244, 63, 94, 0.16)', borderWidth: 2, pointRadius: 0, fill: true, tension: 0.12 }] },
+        options: { ...base, scales: { x: axis, y: { ...axis, ticks: { ...axis.ticks, callback: v => Number(v).toFixed(2) + '%' } } } },
+      }),
+      new Chart(returnsRef.current.getContext('2d'), {
+        type: 'bar',
+        data: { labels, datasets: [{ data: curve.map(p => Number(p.r || 0)), backgroundColor: curve.map(p => Number(p.r || 0) >= 0 ? 'rgba(16, 185, 129, 0.78)' : 'rgba(244, 63, 94, 0.78)'), borderWidth: 0 }] },
+        options: { ...base, scales: { x: axis, y: { ...axis, ticks: { ...axis.ticks, callback: v => Number(v).toFixed(2) + '%' } } } },
+      }),
+    ];
+    return () => {
+      chartsRef.current.forEach(c => c?.destroy?.());
+      chartsRef.current = [];
+    };
+  }, [sig]);
+  if (!curve.length) return <div className="empty" style={{ marginTop: 14 }}>No equity curve returned for the selected result.</div>;
+  return (
+    <div style={{ marginTop: 18 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+        <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', margin: 0 }}>Equity Charts — {row.symbol} / {row.strategy} / Stop: {row.stop}</h3>
+        <button className="btn ghost sm" onClick={() => exportCsv('backtest-equity-curve.csv', [
+          { label: 'Time', value: 't' },
+          { label: 'Equity', value: p => Number(p.e || 0).toFixed(2) },
+          { label: 'Drawdown %', value: p => Number(p.d || 0).toFixed(4) },
+          { label: 'Return Per Bar %', value: p => Number(p.r || 0).toFixed(4) },
+        ], curve)}><Icon name="download" size={12} />Curve CSV</button>
+      </div>
+      <div style={{ height: 150, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 8, marginBottom: 8 }}>
+        <canvas ref={equityRef}></canvas>
+      </div>
+      <div className="grid-2" style={{ gap: 8 }}>
+        <div style={{ height: 130, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 8 }}><canvas ref={drawdownRef}></canvas></div>
+        <div style={{ height: 130, background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', padding: 8 }}><canvas ref={returnsRef}></canvas></div>
+      </div>
+    </div>
+  );
+}
+
 function BacktesterPanel() {
   const [form, setForm] = useS({ asset: 'Stocks', strategy: 'ALL strategies', tf: '1h', cap: '100000.00', symbol: 'ALL', duration: '90d (3mo)', mode: 'standard', lookback: '2' });
   const [running, setRunning] = useS(false);
   const [result, setResult] = useS(null);
   const [msg, setMsg] = useS('');
+  const [btConfig, setBtConfig] = useS(null);
+  const [selectedRun, setSelectedRun] = useS(0);
+  const [runLog, setRunLog] = useS([]);
+  const [showRunLog, setShowRunLog] = useS(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const assetClasses = btConfig?.asset_classes || MOCK.ASSET_CLASSES.filter(a => a !== 'Both');
+  const strategies = btConfig?.strategies || MOCK.STRATEGIES;
+  const timeframes = btConfig?.timeframes || MOCK.TIMEFRAMES;
+  const durations = btConfig?.durations || MOCK.DURATIONS;
+  const symbolOptions = btConfig?.symbols?.[form.asset] || ['ALL', ...(form.asset === 'Crypto' ? ['BTC/USD', 'ETH/USD'] : ['AAPL', 'MSFT'])];
+  const detailRows = Array.isArray(result?.results) ? result.results : [];
+  const selectedDetail = detailRows[Math.min(selectedRun, Math.max(0, detailRows.length - 1))];
+  const stopLabel = form.mode === 'trailing' ? `${form.lookback}-bar trailing stop` : 'standard stop';
+  const backtestColumns = [
+    { label: 'Symbol', value: 'symbol' },
+    { label: 'Strategy', value: 'strategy' },
+    { label: 'Stop', value: 'stop' },
+    { label: 'Period', value: 'period' },
+    { label: 'Start $', value: r => Number(r.starting_capital || 0).toFixed(2) },
+    { label: 'End $', value: r => Number(r.ending_capital || 0).toFixed(2) },
+    { label: 'Return %', value: r => Number(r.pnlP || 0).toFixed(2) },
+    { label: 'Win Rate', value: r => Number(r.winRate || 0).toFixed(1) + '%' },
+    { label: 'Trades', value: 'totalTrades' },
+    { label: 'W/L', value: 'wl' },
+    { label: 'Profit Factor', value: r => Number(r.profitFactor || 0).toFixed(2) },
+    { label: 'Max Drawdown', value: r => Number(r.maxDD || 0).toFixed(2) + '%' },
+    { label: 'Sharpe', value: r => Number(r.sharpe || 0).toFixed(2) },
+    { label: 'Sortino', value: r => Number(r.sortino || 0).toFixed(2) },
+    { label: 'Verdict', value: 'verdict' },
+  ];
   const run = async () => {
     setRunning(true);
     setResult(null);
+    setShowRunLog(true);
+    setRunLog([
+      `Queued ${form.symbol} / ${form.strategy} / ${form.tf} / ${form.duration}`,
+      'Sending request to backtest engine...',
+    ]);
     setMsg('Running backtest...');
     try {
       const data = await panelApi('/api/backtest', {
@@ -715,25 +962,53 @@ function BacktesterPanel() {
         body: JSON.stringify(form),
       });
       setResult(data);
+      setSelectedRun(0);
+      setRunLog(lines => [...lines.slice(-4), data.message || 'Backtest complete.']);
       setMsg(data.message || 'Backtest complete.');
+      setTimeout(() => setShowRunLog(false), 1400);
     } catch (e) {
+      setRunLog(lines => [...lines.slice(-4), `Backtest failed: ${e.message}`]);
       setMsg(`Backtest failed: ${e.message}`);
+      setShowRunLog(true);
     } finally {
       setRunning(false);
     }
   };
+  useE(() => {
+    panelApi('/api/backtest/config')
+      .then(data => setBtConfig(data))
+      .catch(() => {});
+  }, []);
+  useE(() => {
+    if (!symbolOptions.includes(form.symbol)) set('symbol', 'ALL');
+  }, [form.asset, btConfig]);
+  useE(() => {
+    if (!running) return;
+    const beats = [
+      'Fetching historical candles...',
+      'Replaying strategy entries and exits...',
+      'Applying stop rules and fees...',
+      'Compiling portfolio statistics...',
+      'Waiting for backtest engine response...',
+    ];
+    let i = 0;
+    const t = setInterval(() => {
+      setRunLog(lines => [...lines.slice(-4), beats[i++ % beats.length]]);
+    }, 1800);
+    return () => clearInterval(t);
+  }, [running]);
   return (
     <div style={{ padding: 16 }}>
       <div className="panel-sub" style={{ marginBottom: 14 }}>Test any strategy on historical data. Compare Standard vs 2-Bar Trailing stop to find the best exit approach.</div>
       <div className="grid-4" style={{ marginBottom: 12 }}>
-        <div className="field"><label>Asset Class</label><select className="select input" value={form.asset} onChange={e => set('asset', e.target.value)}>{MOCK.ASSET_CLASSES.map(a => <option key={a}>{a}</option>)}</select></div>
-        <div className="field"><label>Strategy</label><select className="select input" value={form.strategy} onChange={e => set('strategy', e.target.value)}>{MOCK.STRATEGIES.map(a => <option key={a}>{a}</option>)}</select></div>
-        <div className="field"><label>Timeframe</label><select className="select input" value={form.tf} onChange={e => set('tf', e.target.value)}>{MOCK.TIMEFRAMES.map(a => <option key={a}>{a}</option>)}</select></div>
+        <div className="field"><label>Asset Class</label><select className="select input" value={form.asset} onChange={e => setForm(f => ({ ...f, asset: e.target.value, symbol: 'ALL' }))}>{assetClasses.map(a => <option key={a}>{a}</option>)}</select></div>
+        <div className="field"><label>Strategy</label><select className="select input" value={form.strategy} onChange={e => set('strategy', e.target.value)}>{strategies.map(a => <option key={a}>{a}</option>)}</select></div>
+        <div className="field"><label>Timeframe</label><select className="select input" value={form.tf} onChange={e => set('tf', e.target.value)}>{timeframes.map(a => <option key={a}>{a}</option>)}</select></div>
         <div className="field"><label>Starting Capital ($)</label><input className="input" value={form.cap} onChange={e => set('cap', e.target.value)} /></div>
       </div>
       <div className="grid-3" style={{ marginBottom: 12 }}>
-        <div className="field"><label>Symbol</label><select className="select input" value={form.symbol} onChange={e => set('symbol', e.target.value)}><option>ALL</option><option>AAPL</option><option>MSFT</option><option>BTC/USD</option><option>ETH/USD</option></select></div>
-        <div className="field"><label>Duration</label><select className="select input" value={form.duration} onChange={e => set('duration', e.target.value)}>{MOCK.DURATIONS.map(a => <option key={a}>{a}</option>)}</select></div>
+        <div className="field"><label>Symbol</label><select className="select input" value={form.symbol} onChange={e => set('symbol', e.target.value)}>{symbolOptions.map(a => <option key={a}>{a}</option>)}</select></div>
+        <div className="field"><label>Duration</label><select className="select input" value={form.duration} onChange={e => set('duration', e.target.value)}>{durations.map(a => <option key={a}>{a}</option>)}</select></div>
         <div className="field" style={{ justifyContent: 'flex-end' }}>
           <button className="btn primary full" onClick={run} disabled={running}>{running ? <><Icon name="cpu" size={13} /> Running…</> : <><Icon name="play" size={13} /> Run Backtest</>}</button>
         </div>
@@ -750,21 +1025,72 @@ function BacktesterPanel() {
         </div>
         <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-2)' }}>Fixed % stop from strategy config; bot behavior unchanged.</div>
       </div>
+      {(running || showRunLog) && (
+        <div className="bt-run-log" aria-label="Backtest status log">
+          {runLog.slice(-5).map((line, i, arr) => (
+            <div key={`${line}-${i}`} className={cls('bt-run-line', running && i === arr.length - 1 && 'active')}>
+              <span></span>{line}
+            </div>
+          ))}
+        </div>
+      )}
       {msg && <div style={{ marginBottom: 10, fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
 
       {result && (
         <div className="bt-result">
-          <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 12 }}>Backtest Results · {form.duration}</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+            <div>
+              <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Backtest Results · {form.duration}</h3>
+              <div className="panel-sub" style={{ margin: 0 }}>
+                {form.asset} {form.symbol}, {form.tf} candles, {stopLabel} · {detailRows.length} detailed run(s)
+              </div>
+            </div>
+            <button className="btn ghost sm" onClick={() => exportCsv('backtest-results.csv', backtestColumns, detailRows)}>
+              <Icon name="download" size={12} />CSV
+            </button>
+          </div>
           <div className="grid-4">
             <div className="bt-stat"><span className="label">Total Trades</span><span className="value">{result.totalTrades}</span></div>
-            <div className="bt-stat"><span className="label">Win Rate</span><span className="value pos">{result.winRate}%</span></div>
-            <div className="bt-stat"><span className="label">Total P&L</span><span className="value pos" style={{ color: 'var(--green)' }}>{fmt$Sign(result.pnlD)}</span></div>
-            <div className="bt-stat"><span className="label">Return</span><span className="value pos" style={{ color: 'var(--green)' }}>{fmtP(result.pnlP)}</span></div>
+            <div className="bt-stat"><span className="label">Win Rate</span><span className={cls('value', result.winRate >= 50 ? 'pos' : 'neg')}>{result.winRate}%</span></div>
+            <div className="bt-stat"><span className="label">Total P&L</span><span className={cls('value', result.pnlD >= 0 ? 'pos' : 'neg')}>{fmt$Sign(result.pnlD)}</span></div>
+            <div className="bt-stat"><span className="label">Return</span><span className={cls('value', result.pnlP >= 0 ? 'pos' : 'neg')}>{fmtP(result.pnlP)}</span></div>
             <div className="bt-stat"><span className="label">Sharpe Ratio</span><span className="value">{result.sharpe}</span></div>
             <div className="bt-stat"><span className="label">Max Drawdown</span><span className="value" style={{ color: 'var(--red)' }}>{fmtP(result.maxDD)}</span></div>
             <div className="bt-stat"><span className="label">Profit Factor</span><span className="value">{result.profitFactor}</span></div>
             <div className="bt-stat"><span className="label">Avg Win / Loss</span><span className="value" style={{ fontSize: 13 }}>{fmt$(result.avgWin)} / <span style={{ color: 'var(--red)' }}>{fmt$(result.avgLoss)}</span></span></div>
           </div>
+          <div style={{ marginTop: 18 }}>
+            <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Results Table</h3>
+            <div className="tbl-wrap">
+              <table className="tbl">
+                <thead><tr>
+                  <th>Symbol</th><th>Strategy</th><th>Stop</th><th>Period</th><th className="num">Start $</th><th className="num">End $</th><th className="num">Return %</th><th className="num">Win Rate</th><th className="num">Trades</th><th>W/L</th><th className="num">Profit Factor</th><th className="num">Max Drawdown</th><th className="num">Sharpe</th><th className="num">Sortino</th><th>Verdict</th>
+                </tr></thead>
+                <tbody>
+                  {detailRows.map((r, i) => (
+                    <tr key={`${r.symbol}-${r.strategy}-${r.stop}-${r.period}-${i}`} onClick={() => setSelectedRun(i)} className={cls(selectedRun === i && 'bt-selected-row')} style={{ cursor: 'pointer' }}>
+                      <td><strong>{r.symbol}</strong></td>
+                      <td className="muted">{r.strategy}</td>
+                      <td>{r.stop || 'Standard'}</td>
+                      <td className="muted">{r.period}</td>
+                      <td className="num">{fmt$(Number(r.starting_capital || 0))}</td>
+                      <td className="num">{fmt$(Number(r.ending_capital || 0))}</td>
+                      <td className={cls('num', r.pnlP > 0 && 'pos', r.pnlP < 0 && 'neg')}>{fmtP(Number(r.pnlP || 0))}</td>
+                      <td className="num">{Number(r.winRate || 0).toFixed(1)}%</td>
+                      <td className="num">{r.totalTrades}</td>
+                      <td>{r.wl || `${r.wins || 0}W/${r.losses || 0}L`}</td>
+                      <td className="num">{Number(r.profitFactor || 0).toFixed(2)}</td>
+                      <td className={cls('num', r.maxDD < 0 && 'neg')}>{fmtP(Number(r.maxDD || 0))}</td>
+                      <td className={cls('num', r.sharpe > 0 && 'pos', r.sharpe < 0 && 'neg')}>{Number(r.sharpe || 0).toFixed(2)}</td>
+                      <td className={cls('num', r.sortino > 0 && 'pos', r.sortino < 0 && 'neg')}>{Number(r.sortino || 0).toFixed(2)}</td>
+                      <td><span className={cls('pill', r.verdict === 'GO' ? 'win' : 'loss')}>{r.verdict === 'GO' ? 'GO' : 'TUNE'}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {selectedDetail && <BacktestCharts row={selectedDetail} />}
         </div>
       )}
       {!result && !running && <div className="empty">Configure parameters and click <strong>Run Backtest</strong> to see results.</div>}

@@ -70,10 +70,10 @@ Open `config.py` and review/adjust:
 python bot_engine.py
 
 # Terminal 2: Start the dashboard
-streamlit run dashboard.py
+python web_dashboard.py
 ```
 
-Dashboard opens at: `http://localhost:8501`
+Dashboard opens at the configured port (see web_dashboard.py).
 
 ---
 
@@ -136,7 +136,12 @@ ALPACA_BASE_URL = "https://paper-api.alpaca.markets"  # Change for live
 
 ## 💻 Dashboard
 
-Open `http://localhost:8501` after running `streamlit run dashboard.py`
+Open the dashboard URL after running `python web_dashboard.py`.
+
+The current live dashboard is the HTML dashboard served by `web_dashboard.py` on
+`http://localhost:8125`. It uses the files in `Html-Files/` for the browser UI
+and JSON endpoints in `web_dashboard.py` for bot/database/watchlist/backtester
+actions. For implementation details, see `WEB_DASHBOARD_TECHNICAL_REFERENCE.md`.
 
 **Sections:**
 - **Top metrics** — capital, daily P&L, open positions, win rate
@@ -211,7 +216,7 @@ Set `EMAIL_ADDRESS`, `EMAIL_PASSWORD`, `EMAIL_RECIPIENT` in `.env` to enable.
 | Haiku won't enable a strategy | Use `python dashboard_strategy_fix.py` |
 | Strategy not firing | Check `bot_state` table in DB Browser for `strategy_X_enabled` |
 | No trades executing | Check `logs/bot.log` for signal details |
-| Dashboard won't load | Ensure `streamlit run dashboard.py` is running |
+| Dashboard won't load | Ensure `python web_dashboard.py` is running |
 
 ---
 
@@ -221,6 +226,7 @@ Set `EMAIL_ADDRESS`, `EMAIL_PASSWORD`, `EMAIL_RECIPIENT` in `.env` to enable.
 |---|---|
 | `REFERENCE_DOCS.md` | Index of all reference documents |
 | `CHAT_COMMANDS.md` | All chat commands with examples |
+| `WEB_DASHBOARD_TECHNICAL_REFERENCE.md` | Live HTML dashboard architecture, API endpoints, panel data flow |
 | `PROJECT_SUMMARY.md` | Full architecture deep-dive |
 | `config.py` | All settings with comments |
 | `strategies/INTEGRATION_GUIDE.py` | How to add a new strategy |

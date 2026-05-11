@@ -86,7 +86,15 @@ function WindowProvider({ children, defs }) {
     setWindows(prev => ({ ...prev, [id]: { ...prev[id], ...geom } }));
   }, []);
 
-  const ctx = { windows, focus, open, close, toggleMin, toggleMax, updateGeometry, focusedId };
+  const canvasSize = useMemo(() => {
+    const margin = 220;
+    const openWindows = Object.values(windows).filter(w => w.open && !w.minimized && !w.maximized);
+    const maxRight = Math.max(window.innerWidth, ...openWindows.map(w => Number(w.x || 0) + Number(w.w || 0) + margin));
+    const maxBottom = Math.max(window.innerHeight, ...openWindows.map(w => Number(w.y || 0) + Number(w.h || 0) + margin));
+    return { width: maxRight, height: maxBottom };
+  }, [windows]);
+
+  const ctx = { windows, focus, open, close, toggleMin, toggleMax, updateGeometry, focusedId, canvasSize };
 
   return (
     <WindowContext.Provider value={ctx}>{children}</WindowContext.Provider>
@@ -105,11 +113,21 @@ function Window({ id, children }) {
     const onMove = (e) => {
       const d = drag.current; if (!d) return;
       const cur = wRef.current; if (!cur) return;
-      const dx = e.clientX - d.startX;
-      const dy = e.clientY - d.startY;
+      const workspace = document.querySelector('.workspace');
+      if (workspace) {
+        const rect = workspace.getBoundingClientRect();
+        if (e.clientX > rect.right - 90) workspace.scrollLeft += 24;
+        if (e.clientY > rect.bottom - 90) workspace.scrollTop += 24;
+        if (e.clientX < rect.left + 50) workspace.scrollLeft -= 24;
+        if (e.clientY < rect.top + 50) workspace.scrollTop -= 24;
+      }
+      const scrollDx = workspace ? workspace.scrollLeft - d.startScrollLeft : 0;
+      const scrollDy = workspace ? workspace.scrollTop - d.startScrollTop : 0;
+      const dx = e.clientX - d.startX + scrollDx;
+      const dy = e.clientY - d.startY + scrollDy;
       if (d.type === 'move') {
-        const newX = Math.max(-cur.w + 80, Math.min(window.innerWidth - 80, d.origX + dx));
-        const newY = Math.max(0, Math.min(window.innerHeight - 80 - 36, d.origY + dy));
+        const newX = Math.max(-cur.w + 80, d.origX + dx);
+        const newY = Math.max(0, d.origY + dy);
         updateGeometry(id, { x: newX, y: newY });
       } else if (d.type === 'resize') {
         let nx = d.origX, ny = d.origY, nw = d.origW, nh = d.origH;
@@ -141,20 +159,26 @@ function Window({ id, children }) {
     if (e.target.closest('.win-controls')) return;
     if (w.maximized) return;
     focus(id);
+    const workspace = document.querySelector('.workspace');
     drag.current = {
       type: 'move',
       startX: e.clientX, startY: e.clientY,
       origX: w.x, origY: w.y,
+      startScrollLeft: workspace?.scrollLeft || 0,
+      startScrollTop: workspace?.scrollTop || 0,
     };
   };
 
   const onResizeStart = (e, dir) => {
     e.stopPropagation();
     focus(id);
+    const workspace = document.querySelector('.workspace');
     drag.current = {
       type: 'resize', dir,
       startX: e.clientX, startY: e.clientY,
       origX: w.x, origY: w.y, origW: w.w, origH: w.h,
+      startScrollLeft: workspace?.scrollLeft || 0,
+      startScrollTop: workspace?.scrollTop || 0,
     };
   };
 

@@ -31,6 +31,7 @@ from strategies.dca_accumulator import DCAAccumulator
 from strategies.vwap_momentum import VWAPMomentum
 from strategies.hammer_reversal import HammerReversal
 from strategies.orb_breakout import ORBBreakout
+from strategies.adaptive_regime import AdaptiveRegime
 from data.database import db
 
 logger = logging.getLogger(__name__)
@@ -49,7 +50,7 @@ class StrategyEngine:
     def __init__(self, db_ref=None):
         self._db = db_ref or db
 
-        # All 11 strategies
+        # All 12 strategies
         self.strategies: List[BaseStrategy] = [
             RSIMomentum(),
             BollingerBreakout(),
@@ -62,12 +63,14 @@ class StrategyEngine:
             VWAPMomentum(),       # Strategy 9
             HammerReversal(),     # Strategy 10 — disabled, backtest first
             ORBBreakout(),        # Strategy 11 — disabled, backtest first
+            AdaptiveRegime(),     # Strategy 12 — dual-mode trend/mean-rev (1h bars)
         ]
 
         self._load_strategy_states()
 
         logger.info(
-            f"Strategy engine initialized with {len(self.strategies)} strategies:"
+            f"Strategy engine initialized with {len(self.strategies)} strategies "
+            f"(12 total — adaptive_regime is Strategy 12):"
         )
         for s in self.strategies:
             status  = "ENABLED"  if s.enabled           else "DISABLED"

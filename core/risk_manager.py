@@ -309,26 +309,6 @@ class RiskManager:
                     )
                 )
 
-        # ── Symbol cooldown ────────────────────────────────────────────────
-        # Loss: 10-min cooldown (revenge trade prevention)
-        # Win:   2-min cooldown (allow momentum re-entry, block instant flip)
-        LOSS_COOLDOWN_SEC = 10 * 60
-        WIN_COOLDOWN_SEC  =  2 * 60
-        last = self._last_closed.get(symbol)
-        if last:
-            elapsed    = (datetime.now() - datetime.fromtimestamp(last["time"])).total_seconds()
-            cooldown   = WIN_COOLDOWN_SEC if last["won"] else LOSS_COOLDOWN_SEC
-            label      = "win" if last["won"] else "loss"
-            if elapsed < cooldown:
-                remaining = int((cooldown - elapsed) / 60)
-                return TradeApproval(
-                    approved=False,
-                    reason=(
-                        f"Symbol cooldown ({label}): {symbol} closed {int(elapsed)}s ago "
-                        f"— wait {remaining}min before re-entry"
-                    )
-                )
-
         logger.info(
             f"APPROVED: {symbol} {direction.upper()} | "
             f"${position_value:.2f} ({position_pct*100:.0f}% capital) | "

@@ -1,5 +1,5 @@
 # Trading Bot Chat Command Reference
-Last updated: April 23, 2026
+Last updated: May 10, 2026
 
 Type any of these in the **dashboard chat box** (🤖 Chat with Your Bot section).
 Commands marked ⚡ are handled by the **pre-parse layer** — they execute instantly
@@ -27,8 +27,22 @@ without going through Haiku, so they always work reliably.
 |---|---|
 | `show my stats` | Full performance summary |
 | `how am I doing` | Same — P&L, win rate, open positions |
-| `capital breakdown` | Per-broker balance breakdown |
-| `strategy stats` | Win rate, P&L, profit factor per strategy |
+| `dashboard summary` ⚡ | Capital, cash, open positions, closed trades, win rate, halt state |
+| `dashboard status` ⚡ | Same as dashboard summary |
+| `quick summary` ⚡ | Same as dashboard summary |
+| `bot status` ⚡ | Trading state, capital, cash, daily P&L, trades, loss streak |
+| `capital summary` ⚡ | Same as bot status |
+| `capital breakdown` ⚡ | Per-broker balance breakdown |
+| `risk status` ⚡ | Trading active/halted, daily P&L, trades, loss streak |
+| `trading status` ⚡ | Same as risk status |
+| `open positions` ⚡ | Lists current open positions with entry, current price, P&L |
+| `show positions` ⚡ | Same as open positions |
+| `daily performance` ⚡ | Today's closed trades, win/loss count, win rate, realized P&L |
+| `recent trades` ⚡ | Last 10 closed trades today |
+| `trade log` ⚡ | Same as recent trades |
+| `strategy stats` ⚡ | Win rate, P&L, profit factor per strategy |
+| `local commands` ⚡ | Shows the commands that bypass Haiku/API |
+| `chat help` ⚡ | Same as local commands |
 
 ---
 
@@ -77,7 +91,13 @@ All enable/disable commands bypass Haiku and execute instantly.
 | `enable dca_accumulator` | Enables DCA Accumulator |
 | `disable dca_accumulator` | Disables DCA Accumulator |
 | `list strategies` | Shows all 11 with ON/OFF status |
+| `show strategies` | Same as list strategies |
+| `enabled strategies` | Same as list strategies |
+| `disabled strategies` | Same as list strategies |
 | `strategy stats` | Win rate and P&L per strategy |
+
+> ✅ Most reliable wording: `list strategies`. Short slang like `show strats`
+> or typos like `show starts` are not guaranteed to match the local parser.
 
 ### Strategy names (for reference)
 ```
@@ -94,7 +114,10 @@ hammer_reversal     orb_breakout
 | What you type | What happens |
 |---|---|
 | `list brokers` | Shows all registered brokers |
-| `capital breakdown` | Per-broker balance |
+| `capital breakdown` ⚡ | Per-broker balance |
+| `broker breakdown` ⚡ | Same as capital breakdown |
+| `broker balances` ⚡ | Same as capital breakdown |
+| `capital by broker` ⚡ | Same as capital breakdown |
 | `I deposited $500 into Kraken` | Records fund injection (informational only — you move money manually) |
 | `I withdrew $200 from Alpaca` | Records fund withdrawal (informational only) |
 | `enable kraken` | Enables Kraken broker |
@@ -128,8 +151,6 @@ hammer_reversal     orb_breakout
 
 These don't have fixed syntax — just ask naturally:
 
-- "What are my open positions?"
-- "How much did I make today?"
 - "Which strategy is performing best?"
 - "Am I on track for my daily goal?"
 - "What's my win rate this week?"
@@ -172,4 +193,7 @@ MONEY:     withdraw $X for <reason>
 TAXES:     export my taxes for 2025
 RISK:      set risk to 1.5%
 STATUS:    show my stats / how am I doing
+LOCAL:     local commands / dashboard summary / risk status
+TRADES:    recent trades / trade log / daily performance
+POSITIONS: open positions / show positions
 ```
