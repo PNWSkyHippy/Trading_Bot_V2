@@ -65,7 +65,6 @@ Whitelist: none — runs on the full watchlist. The five-condition entry
 import logging
 from typing import Optional
 
-import numpy as np
 import pandas as pd
 import pandas_ta as ta
 
@@ -191,6 +190,30 @@ class AdaptiveRegime(BaseStrategy):
         except Exception:
             return None, None, None
 
+    def _calc_macd_hist(self, close: pd.Series) -> Optional[float]:
+        """Return MACD histogram value (fast=12, slow=26, signal=9)."""
+        try:
+            macd_df  = ta.macd(close, fast=12, slow=26, signal=9)
+            if macd_df is None or macd_df.empty:
+                return None
+            hist_col = [c for c in macd_df.columns if "MACDh" in c]
+            if not hist_col:
+                return None
+            val = macd_df[hist_col[0]].iloc[-1]
+            return round(float(val), 6) if not pd.isna(val) else None
+        except Exception:
+            return None
+
+    def _calc_bb_pct(self, close: float, bb_lower: float, bb_upper: float) -> float:
+        """
+        Bollinger percent-b: position of close within the band (0 = lower, 1 = upper).
+        Clamped to [-0.5, 1.5] so extreme overshoots don't break downstream code.
+        """
+        span = bb_upper - bb_lower
+        if span <= 0:
+            return 0.5
+        return round(max(-0.5, min(1.5, (close - bb_lower) / span)), 4)
+
     # ─────────────────────────────────────────────────────────────────────────
     # MAIN ANALYSIS
     # ─────────────────────────────────────────────────────────────────────────
@@ -244,14 +267,18 @@ class AdaptiveRegime(BaseStrategy):
         trend_up   = ema_fast > ema_slow
         trend_down = ema_fast < ema_slow
 
-        # ── Volume check (volume >= 1.0x average = any meaningful volume) ────
-        vol_sma     = float(volume.iloc[-VOLUME_PERIOD:].mean())
-        current_vol = float(volume.iloc[-1])
-        volume_ok   = vol_sma <= 0 or current_vol >= vol_sma * 1.0
+        # ── Shared metrics — computed once, used in both modes and metadata ────
+        vol_sma      = float(volume.iloc[-VOLUME_PERIOD:].mean())
+        current_vol  = float(volume.iloc[-1])
+        volume_ratio = round(current_vol / vol_sma, 3) if vol_sma > 0 else 1.0
 
-        if not volume_ok:
-            self.verbose_log_skip(symbol, f"Volume flat: {current_vol:.0f} < {vol_sma:.0f}")
-            return None
+        # Compute MACD histogram once — included in metadata for Claude reviewer.
+        macd_hist = self._calc_macd_hist(close)
+
+        # NOTE: volume threshold is mode-specific (applied inside each block):
+        #   Trend mode    : >= 1.1× avg — confirming volume expands on breakout
+        #   Mean-rev mode : >= 0.5× avg — just exclude completely dead markets
+        #                   (high volume is NOT required for mean reversion)
 
         # ── ATR for dynamic stop sizing ──────────────────────────────────────
         atr = self._calc_atr(high, low, close)
@@ -273,6 +300,25 @@ class AdaptiveRegime(BaseStrategy):
             # [-2] = one closed bar before the current bar — correct breakout level
             don_high = float(high.rolling(BREAKOUT_PERIOD).max().iloc[-2])
             don_low  = float(low.rolling(BREAKOUT_PERIOD).min().iloc[-2])
+
+            # Volume gate: trend entries require expanding volume on the breakout.
+            # A ratio < 1.1 means volume is below or barely at the recent average —
+            # not enough participation to confirm a genuine breakout.
+            if volume_ratio < 1.1:
+                self.verbose_log_skip(
+                    symbol,
+                    f"Trend mode: volume_ratio={volume_ratio:.3f} < 1.1 — "
+                    f"no breakout volume confirmation"
+                )
+                return None
+
+            # BB %b — trend entry logic doesn't use it, but the reviewer and ML
+            # scorer both expect it in metadata to gauge where price sits in the band.
+            _bb_lo, _bb_mi, _bb_hi = self._calc_bb(close)
+            bb_pct = (
+                self._calc_bb_pct(current_close, _bb_lo, _bb_hi)
+                if _bb_lo is not None else None
+            )
 
             # ── TREND LONG ───────────────────────────────────────────────────
             if trend_up and current_close > don_high and rsi <= MAX_TREND_ENTRY_RSI:
@@ -301,7 +347,7 @@ class AdaptiveRegime(BaseStrategy):
                     reason          = (
                         f"Adaptive trend long: close {current_close:.4f} > "
                         f"Donchian {don_high:.4f} | ADX={adx:.1f} | "
-                        f"EMA{FAST_EMA}>{ema_slow:.2f} | RSI={rsi:.1f}"
+                        f"EMA{FAST_EMA}>EMA{SLOW_EMA} | RSI={rsi:.1f}"
                     ),
                     stop_loss_pct   = round(sl_pct, 3),
                     take_profit_pct = round(tp_pct, 3),
@@ -315,6 +361,10 @@ class AdaptiveRegime(BaseStrategy):
                         "atr":                   round(atr, 6),
                         "rsi":                   round(rsi, 2),
                         "regime":                "trend",
+                        "entry_timeframe":       "1h",
+                        "volume_ratio":          volume_ratio,
+                        "bb_pct":                bb_pct,
+                        "macd_hist":             macd_hist,
                     }
                 )
 
@@ -345,7 +395,7 @@ class AdaptiveRegime(BaseStrategy):
                     reason          = (
                         f"Adaptive trend short: close {current_close:.4f} < "
                         f"Donchian {don_low:.4f} | ADX={adx:.1f} | "
-                        f"EMA{FAST_EMA}<{ema_slow:.2f} | RSI={rsi:.1f}"
+                        f"EMA{FAST_EMA}<EMA{SLOW_EMA} | RSI={rsi:.1f}"
                     ),
                     stop_loss_pct   = round(sl_pct, 3),
                     take_profit_pct = round(tp_pct, 3),
@@ -359,6 +409,10 @@ class AdaptiveRegime(BaseStrategy):
                         "atr":                   round(atr, 6),
                         "rsi":                   round(rsi, 2),
                         "regime":                "trend",
+                        "entry_timeframe":       "1h",
+                        "volume_ratio":          volume_ratio,
+                        "bb_pct":                bb_pct,
+                        "macd_hist":             macd_hist,
                     }
                 )
 
@@ -370,6 +424,21 @@ class AdaptiveRegime(BaseStrategy):
             if bb_lower is None:
                 self.verbose_log_skip(symbol, "Bollinger Bands unavailable")
                 return None
+
+            # Volume gate: exclude completely dead/illiquid markets.
+            # Mean reversion does NOT require above-average volume — the signal
+            # is a price extreme, not a breakout — but a ratio below 0.5 suggests
+            # the symbol is dormant and the BB touch may be meaningless.
+            if volume_ratio < 0.5:
+                self.verbose_log_skip(
+                    symbol,
+                    f"Mean-rev mode: volume_ratio={volume_ratio:.3f} < 0.5 — "
+                    f"market too illiquid for mean reversion"
+                )
+                return None
+
+            # BB %b — position of close within the band (0 = lower, 1 = upper).
+            bb_pct = self._calc_bb_pct(current_close, bb_lower, bb_upper)
 
             # ── MEAN REV LONG ────────────────────────────────────────────────
             if (current_close > ema_slow and
@@ -416,6 +485,10 @@ class AdaptiveRegime(BaseStrategy):
                         "atr":                   round(atr, 6),
                         "rsi":                   round(rsi, 2),
                         "regime":                "mean_rev",
+                        "entry_timeframe":       "1h",
+                        "volume_ratio":          volume_ratio,
+                        "bb_pct":                bb_pct,
+                        "macd_hist":             macd_hist,
                     }
                 )
 
@@ -462,6 +535,10 @@ class AdaptiveRegime(BaseStrategy):
                         "atr":                   round(atr, 6),
                         "rsi":                   round(rsi, 2),
                         "regime":                "mean_rev",
+                        "entry_timeframe":       "1h",
+                        "volume_ratio":          volume_ratio,
+                        "bb_pct":                bb_pct,
+                        "macd_hist":             macd_hist,
                     }
                 )
 

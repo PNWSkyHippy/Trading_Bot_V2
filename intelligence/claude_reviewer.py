@@ -115,7 +115,15 @@ class ClaudeReviewer:
         self._api_key         = config.ANTHROPIC_API_KEY or os.getenv("ANTHROPIC_API_KEY", "")
         self._morning_context: Optional[MarketContext] = None
         self._briefing_time:  Optional[datetime]       = None
-        self.enabled          = bool(self._api_key)
+        # Check master enable flag — set CLAUDE_REVIEWER_ENABLED=False in config to
+        # disable all API calls without removing the API key from .env
+        reviewer_flag = getattr(config, "CLAUDE_REVIEWER_ENABLED", True)
+        self.enabled  = bool(self._api_key) and reviewer_flag
+        if not reviewer_flag:
+            logger.info(
+                "ClaudeReviewer: CLAUDE_REVIEWER_ENABLED=False in config — "
+                "reviewer disabled. All signals proceed to execution without review."
+            )
 
         if not self.enabled:
             logger.warning(
@@ -181,9 +189,13 @@ class ClaudeReviewer:
 
         # ── Gate 1: Reviewer must be enabled ─────────────────────────────
         if not self.enabled:
+            # Reviewer intentionally disabled — pass through to execution
             return SignalDecision(
-                decision=SKIP, reasoning="Reviewer disabled",
-                error=True, elapsed_ms=0
+                decision=APPROVE,
+                reasoning="Reviewer disabled — signal passes through",
+                confidence=50,
+                error=False,
+                elapsed_ms=0
             )
 
         # ── Gate 2: Morning context error — only blocks stocks ────────────

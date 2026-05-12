@@ -1,0 +1,12 @@
+AssetClass,Ticker,Price,Vol Change,RSI,% from 52W Hi,% vs 200SMA,Score,Signal,24h %,Funding %
+Stock,GLW,207.39,1.6,70.6,-0.73,99.9,160.04,Within 0.7% of 52W high | 1.6x avg vol | 100% above 200MA,,
+Stock,COHR,379.69,1.4,60.0,-1.34,104.4,145.96,Within 1.3% of 52W high | 1.4x avg vol | 104% above 200MA,,
+Stock,CSCO,98.72,1.63,71.4,-0.11,31.3,50.99,Within 0.1% of 52W high | 1.6x avg vol | 31% above 200MA,,
+Stock,CBOE,350.48,1.45,78.1,0.0,32.6,47.24,Within 0.0% of 52W high | 1.4x avg vol | 33% above 200MA,,
+Crypto,XRP,1.47,,73.3,,,23.43,+0.5% 24h | RSI 73 (momentum zone) | ⚠ crowded longs,0.51,0.0023
+Crypto,WBT,60.2,,73.1,,,23.18,+0.5% 24h | RSI 73 (momentum zone),0.55,
+Crypto,LEO,10.24,,66.8,,,17.07,+1.8% 24h | RSI 67 (momentum zone),1.78,
+Crypto,ICP,3.38,,59.4,,,9.47,+0.9% 24h | RSI 59 (momentum zone) | shorts paying (contrarian long),0.86,-0.0027
+Crypto,CC,0.163074,,58.8,,,9.17,+4.4% 24h | RSI 59 (momentum zone),4.37,
+Crypto,TAO,324.18,,59.0,,,9.04,+0.2% 24h | RSI 59 (momentum zone),0.23,-0.0005
+Crypto,TON,2.44,,56.3,,,6.53,+3.0% 24h | RSI 56 (momentum zone),2.97,-0.001

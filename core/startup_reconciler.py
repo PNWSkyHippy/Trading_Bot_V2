@@ -27,7 +27,7 @@
 
 import logging
 from datetime import datetime
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 import config
 from data.database import db
@@ -149,60 +149,160 @@ def _reconcile_stocks(trades: List[Dict]) -> int:
 
 def _reconcile_crypto(trades: List[Dict]) -> int:
     """
-    For crypto, check current price vs stop-loss and take-profit.
-    If price has passed either level, close the trade.
-    We can't check exchange positions easily so we use price logic.
+    Reconcile open crypto positions against Kraken.
+
+    Two-stage check per trade:
+
+    Stage 1 — position existence (live Kraken only):
+        Uses KrakenExecutor.get_open_position() to ask whether the base-currency
+        balance still shows a position on the exchange. If no balance remains the
+        position was closed by the exchange while the bot was offline (SL/TP hit,
+        or manual close), and we mark the trade closed in the DB.
+
+    Stage 2 — price vs SL/TP (paper trades and live fallback):
+        Fetches the current market price and compares it against the recorded
+        stop-loss and take-profit levels. If either was passed we close the trade.
+        This is the correct approach for paper trades (no real position exists)
+        and a reliable fallback when stage 1 is unavailable.
+
+    Only Kraken / paper-mode crypto trades are reconciled — any lingering DB
+    records with a non-Kraken broker tag are skipped.
     """
     closed = 0
+
+    # Only reconcile Kraken / paper-mode crypto trades
+    kraken_trades = [
+        t for t in trades
+        if t.get("broker", "kraken") in ("kraken", "paper", "")
+    ]
+    if not kraken_trades:
+        logger.info("[RECONCILE] Crypto: no Kraken/paper trades to reconcile.")
+        return 0
+
     try:
         import ccxt
+        from core.kraken_executor import KrakenExecutor
+
         exchange = ccxt.kraken({
             "apiKey":          config.KRAKEN_API_KEY,
             "secret":          config.KRAKEN_SECRET_KEY,
             "enableRateLimit": True,
         })
-        logger.info(
-            f"[RECONCILE] Crypto: verifying {len(trades)} position(s) via Kraken price feed"
+
+        # Live mode: create KrakenExecutor for real position checks
+        is_live = (getattr(config, "KRAKEN_ENABLED",    False) and
+                   not getattr(config, "KRAKEN_PAPER_MODE", True))
+        kraken_exec = (
+            KrakenExecutor(
+                api_key    = config.KRAKEN_API_KEY,
+                api_secret = config.KRAKEN_SECRET_KEY,
+                paper      = False,
+            )
+            if is_live else None
         )
 
-        for trade in trades:
+        logger.info(
+            f"[RECONCILE] Crypto: verifying {len(kraken_trades)} position(s) — "
+            f"{'live Kraken (position check + price check)' if is_live else 'paper (price check only)'}"
+        )
+
+        for trade in kraken_trades:
             symbol    = trade["symbol"]
             direction = trade["direction"]
             sl        = trade["stop_loss"]
             tp        = trade["take_profit"]
             entry     = trade["entry_price"]
+            broker    = trade.get("broker", "kraken")
 
-            # Get current price
+            # ── Stage 1: position existence check (live Kraken only) ─────────
+            if is_live and kraken_exec is not None and broker == "kraken":
+                position = kraken_exec.get_open_position(symbol)
+                if position is None:
+                    # Position gone at exchange — closed while bot was offline.
+                    # Try to recover the actual fill from recent closed orders.
+                    exit_price = entry   # safe fallback
+                    try:
+                        entry_ts    = _entry_timestamp(trade)
+                        closed_ord  = kraken_exec.get_recent_closed_order(
+                            symbol, since_timestamp=entry_ts
+                        )
+                        if closed_ord and closed_ord.get("fill_price", 0) > 0:
+                            exit_price = closed_ord["fill_price"]
+                            logger.info(
+                                f"[RECONCILE] {symbol}: recovered fill "
+                                f"${exit_price:.6f} from closed order "
+                                f"{closed_ord.get('order_id', '?')}"
+                            )
+                        else:
+                            # No closed order found — use current market price
+                            try:
+                                ticker     = exchange.fetch_ticker(
+                                    symbol.replace("-", "/")
+                                )
+                                exit_price = float(ticker["last"])
+                            except Exception:
+                                pass
+                    except Exception:
+                        pass
+
+                    qty     = trade["quantity"]
+                    pnl     = ((exit_price - entry) * qty if direction == "long"
+                               else (entry - exit_price) * qty)
+                    pnl_pct = (pnl / trade["position_value"] * 100
+                               if trade["position_value"] else 0)
+
+                    db.close_trade(
+                        trade_id    = trade["trade_id"],
+                        exit_price  = round(exit_price, 6),
+                        exit_reason = "reconciled_broker_closed",
+                        pnl         = round(pnl, 4),
+                        pnl_pct     = round(pnl_pct, 4),
+                    )
+                    logger.info(
+                        f"[RECONCILE] Crypto ghost trade closed (position gone at Kraken): "
+                        f"{symbol} | Entry: ${entry:.4f} | Exit: ${exit_price:.4f} "
+                        f"| PnL: ${pnl:+.2f} | trade_id: {trade['trade_id']}"
+                    )
+                    closed += 1
+                    continue   # skip stage 2 — we already closed it
+                else:
+                    logger.info(
+                        f"[RECONCILE] Crypto position confirmed at Kraken: {symbol} "
+                        f"| size={position['size']:.6f}"
+                    )
+
+            # ── Stage 2: price vs SL/TP ────────────────────────────────────
+            price = None
             try:
-                ticker     = exchange.fetch_ticker(symbol)
-                price      = float(ticker["last"])
+                ticker = exchange.fetch_ticker(symbol.replace("-", "/"))
+                price  = float(ticker["last"])
             except Exception:
-                # Try yfinance as fallback
                 try:
                     import yfinance as yf
                     yf_sym = symbol.replace("/", "-")
-                    t = yf.Ticker(yf_sym)
-                    hist = t.history(period="1d", interval="1m")
-                    price = float(hist["Close"].iloc[-1]) if not hist.empty else None
+                    t  = yf.Ticker(yf_sym)
+                    h  = t.history(period="1d", interval="1m")
+                    price = float(h["Close"].iloc[-1]) if not h.empty else None
                 except Exception:
                     price = None
 
             if price is None:
-                logger.warning(f"[RECONCILE] Could not get price for {symbol} — skipping")
+                logger.warning(
+                    f"[RECONCILE] Could not get price for {symbol} — skipping"
+                )
                 continue
 
-            # Check if SL or TP was hit
             exit_reason = None
             exit_price  = price
 
             if direction == "long":
                 if price <= sl:
                     exit_reason = "stop_loss"
-                    exit_price  = sl  # assume filled at SL
+                    exit_price  = sl
                 elif price >= tp:
                     exit_reason = "take_profit"
                     exit_price  = tp
-            else:  # short
+            else:
                 if price >= sl:
                     exit_reason = "stop_loss"
                     exit_price  = sl
@@ -211,18 +311,17 @@ def _reconcile_crypto(trades: List[Dict]) -> int:
                     exit_price  = tp
 
             if exit_reason:
-                qty = trade["quantity"]
-                pnl = (exit_price - entry) * qty if direction == "long" \
-                      else (entry - exit_price) * qty
-                pnl_pct = (pnl / trade["position_value"] * 100) \
-                          if trade["position_value"] else 0
-
+                qty     = trade["quantity"]
+                pnl     = ((exit_price - entry) * qty if direction == "long"
+                           else (entry - exit_price) * qty)
+                pnl_pct = (pnl / trade["position_value"] * 100
+                           if trade["position_value"] else 0)
                 db.close_trade(
                     trade_id    = trade["trade_id"],
                     exit_price  = round(exit_price, 6),
                     exit_reason = f"reconciled_{exit_reason}",
                     pnl         = round(pnl, 4),
-                    pnl_pct     = round(pnl_pct, 4)
+                    pnl_pct     = round(pnl_pct, 4),
                 )
                 logger.info(
                     f"[RECONCILE] Crypto trade closed ({exit_reason}): {symbol} "
@@ -240,3 +339,12 @@ def _reconcile_crypto(trades: List[Dict]) -> int:
         logger.error(f"[RECONCILE] Crypto reconciliation error: {e}")
 
     return closed
+
+
+def _entry_timestamp(trade: Dict) -> Optional[float]:
+    """Parse entry_time from a trade dict to a Unix timestamp (for Kraken order lookups)."""
+    try:
+        from datetime import datetime
+        return datetime.fromisoformat(trade["entry_time"]).timestamp()
+    except Exception:
+        return None

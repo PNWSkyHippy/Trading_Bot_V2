@@ -1,18 +1,19 @@
 {
-  "generated": "2026-05-04T13:31:13.154222",
+  "generated": "2026-05-11T13:31:52.279352",
   "valid_until": "next_market_close",
   "stocks": [
-    "STX",
-    "EBAY",
-    "TSN",
+    "GLW",
+    "COHR",
+    "CSCO",
     "CBOE"
   ],
   "crypto": [
-    "TON/USD",
-    "TRX/USD",
-    "LINK/USD",
-    "PI/USD",
-    "HTX/USD",
-    "MNT/USD"
+    "XRP/USD",
+    "WBT/USD",
+    "LEO/USD",
+    "ICP/USD",
+    "CC/USD",
+    "TAO/USD",
+    "TON/USD"
   ]
 }

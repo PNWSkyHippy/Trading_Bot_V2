@@ -88,8 +88,14 @@ def _strip_forming_bar(df: pd.DataFrame, timeframe: str) -> pd.DataFrame:
             return df.iloc[:-1]
 
     except Exception as e:
-        # If we cannot determine bar state, keep df unchanged (conservative).
-        logger.debug(f"[CANDLE STRIP] Could not check bar freshness: {e}")
+        # On timestamp parse failure, keep df unchanged (conservative choice).
+        # Dropping the last bar on failure risks missing the most recent CLOSED
+        # bar and silencing a valid signal.  A leaked forming bar is less
+        # dangerous for entry logic than a missed closed bar; for exits the
+        # same tradeoff applies — false intrabar EMA cross is transient and
+        # will self-correct on the next monitor cycle.  Any such events are
+        # visible in the debug log.
+        logger.debug(f"[CANDLE STRIP] Could not check bar freshness — keeping last bar: {e}")
 
     return df
 
@@ -241,10 +247,24 @@ class StockScanner:
                 if not (config.STOCK_MIN_PRICE <= price <= config.STOCK_MAX_PRICE):
                     continue
 
-                # Fetch bars once per unique timeframe — reused across strategies.
+                # ── Fetch bars once per unique timeframe ─────────────────────
                 # Skip a timeframe if its last closed bar timestamp is unchanged
-                # from the previous scan cycle (same bar, same signal, no point).
-                bar_cache: dict = {}
+                # from the previous scan cycle (same bar → same signal, no point).
+                #
+                # FIX: provisional_evals accumulates what we intend to record but
+                # does NOT write to _last_bar_evaluated until AFTER strategy_engine
+                # returns successfully.  Previously the timestamp was committed
+                # before execution, so a strategy crash or process kill could mark
+                # a bar "already evaluated" that was never actually processed.
+                #
+                # RESTART NOTE: _last_bar_evaluated is in-memory only.  After a
+                # restart the most recent closed bar will be re-evaluated once per
+                # symbol/timeframe.  The duplicate-signal risk is mitigated by the
+                # open-position gate in _process_signals (open_symbols check).
+                # Persisting to DB is a future improvement tracked in CLAUDE.md.
+                bar_cache: dict        = {}
+                provisional_evals: dict = {}   # commit to _last_bar_evaluated after success
+
                 for tf in tf_groups:
                     limit = max(
                         getattr(s, "candle_limit", 100)
@@ -252,15 +272,15 @@ class StockScanner:
                     )
                     bars = self.get_bars(symbol, tf, limit)
                     if bars is not None and len(bars) >= 20:
-                        last_bar_ts  = str(bars.index[-1])
-                        cache_key    = f"{symbol}_{tf}"
+                        last_bar_ts = str(bars.index[-1])
+                        cache_key   = f"{symbol}_{tf}"
                         if self._last_bar_evaluated.get(cache_key) == last_bar_ts:
                             logger.debug(
                                 f"[CANDLE SKIP] {symbol} {tf}: "
                                 f"closed bar {last_bar_ts} already evaluated"
                             )
                             continue
-                        self._last_bar_evaluated[cache_key] = last_bar_ts
+                        provisional_evals[cache_key] = last_bar_ts  # tentative
                         bar_cache[tf] = bars
 
                 if not bar_cache:
@@ -270,18 +290,39 @@ class StockScanner:
                 strategy_signals = strategy_engine.run_strategies_multi_tf(
                     symbol, "stock", bar_cache, price
                 )
+
+                # Commit evaluated timestamps only after successful strategy run
+                for cache_key, ts in provisional_evals.items():
+                    self._last_bar_evaluated[cache_key] = ts
+
                 for ss in strategy_signals:
-                    # Embed structural initial stop so trade_executor can use it
-                    # instead of the generic percent-based stop calculation.
-                    tf_key = ss.indicators.get("timeframe", list(bar_cache.keys())[0] if bar_cache else None)
+                    # ── Structural initial stop ───────────────────────────────
+                    # strategy_engine.run_strategies_multi_tf() always embeds
+                    # indicators["timeframe"] = strategy.stock_candle_timeframe,
+                    # so we can use it directly without any guessing.
+                    #
+                    # Safe fallback: if for any reason the key is absent or maps
+                    # to a timeframe not in bar_cache, skip the structural stop
+                    # rather than falling back to list(bar_cache.keys())[0], which
+                    # could embed a stop computed from the wrong bar resolution.
+                    tf_key = ss.indicators.get("timeframe")
+                    if tf_key and tf_key not in bar_cache:
+                        logger.warning(
+                            f"[STOP EMBED] {symbol}: strategy timeframe {tf_key!r} "
+                            f"not in bar_cache — no structural stop embedded"
+                        )
+                        tf_key = None
                     _bars_for_stop = bar_cache.get(tf_key) if tf_key else None
                     if _bars_for_stop is not None and len(_bars_for_stop) >= 3:
                         try:
                             ss.indicators["structural_stop_price"] = round(
-                                _stop_engine.initial_stop_from_tail(_bars_for_stop, ss.direction), 6
+                                _stop_engine.initial_stop_from_tail(
+                                    _bars_for_stop, ss.direction
+                                ), 6
                             )
                         except Exception:
                             pass
+
                     signals.append(Signal(
                         symbol        = ss.symbol,
                         asset_class   = ss.asset_class,
@@ -349,11 +390,23 @@ class CryptoScanner:
             return None
 
     def get_current_price(self, symbol: str) -> Optional[float]:
-        try:
-            ticker = self.exchange.fetch_ticker(symbol)
-            return float(ticker["last"])
-        except Exception:
-            return None
+        price, _ = self.get_current_price_with_broker(symbol)
+        return price
+
+    def get_current_price_with_broker(self, symbol: str):
+        named = getattr(self, "exchanges", {})
+        pairs = list(named.items())
+        if self.exchange and self.exchange not in named.values():
+            pairs = [(getattr(self, "exchange_name", "KRAKEN"), self.exchange)] + pairs
+        for name, exc in pairs:
+            try:
+                ticker = exc.fetch_ticker(symbol)
+                price  = ticker.get("last") or ticker.get("close")
+                if price and float(price) > 0:
+                    return float(price), name
+            except Exception:
+                continue
+        return None, None
 
     def scan(self) -> List[Signal]:
         """
@@ -388,10 +441,12 @@ class CryptoScanner:
                 if not (config.CRYPTO_MIN_PRICE <= price <= config.CRYPTO_MAX_PRICE):
                     continue
 
-                # Fetch bars once per unique timeframe — reused across strategies.
-                # Skip a timeframe if its last closed bar timestamp is unchanged
-                # from the previous scan cycle (same bar, same signal, no point).
-                bar_cache: dict = {}
+                # ── Fetch bars once per unique timeframe ─────────────────────
+                # See StockScanner.scan() for full explanation of the
+                # provisional_evals pattern (fix for premature timestamp commit).
+                bar_cache: dict        = {}
+                provisional_evals: dict = {}
+
                 for tf in tf_groups:
                     limit = max(
                         getattr(s, "candle_limit", 100)
@@ -399,15 +454,15 @@ class CryptoScanner:
                     )
                     bars = self.get_ohlcv(symbol, tf, limit)
                     if bars is not None and len(bars) >= 20:
-                        last_bar_ts  = str(bars.index[-1])
-                        cache_key    = f"{symbol}_{tf}"
+                        last_bar_ts = str(bars.index[-1])
+                        cache_key   = f"{symbol}_{tf}"
                         if self._last_bar_evaluated.get(cache_key) == last_bar_ts:
                             logger.debug(
                                 f"[CANDLE SKIP] {symbol} {tf}: "
                                 f"closed bar {last_bar_ts} already evaluated"
                             )
                             continue
-                        self._last_bar_evaluated[cache_key] = last_bar_ts
+                        provisional_evals[cache_key] = last_bar_ts
                         bar_cache[tf] = bars
 
                 if not bar_cache:
@@ -417,15 +472,30 @@ class CryptoScanner:
                 strategy_signals = strategy_engine.run_strategies_multi_tf(
                     symbol, "crypto", bar_cache, price
                 )
+
+                # Commit evaluated timestamps only after successful strategy run
+                for cache_key, ts in provisional_evals.items():
+                    self._last_bar_evaluated[cache_key] = ts
+
                 for ss in strategy_signals:
-                    # Embed structural initial stop so trade_executor can use it
-                    # instead of the generic percent-based stop calculation.
-                    tf_key = ss.indicators.get("timeframe", list(bar_cache.keys())[0] if bar_cache else None)
+                    # ── Structural initial stop ───────────────────────────────
+                    # strategy_engine always embeds indicators["timeframe"].
+                    # Use it directly; safe fallback skips stop embed rather
+                    # than guessing with list(bar_cache.keys())[0].
+                    tf_key = ss.indicators.get("timeframe")
+                    if tf_key and tf_key not in bar_cache:
+                        logger.warning(
+                            f"[STOP EMBED] {symbol}: strategy timeframe {tf_key!r} "
+                            f"not in bar_cache — no structural stop embedded"
+                        )
+                        tf_key = None
                     _bars_for_stop = bar_cache.get(tf_key) if tf_key else None
                     if _bars_for_stop is not None and len(_bars_for_stop) >= 3:
                         try:
                             ss.indicators["structural_stop_price"] = round(
-                                _stop_engine.initial_stop_from_tail(_bars_for_stop, ss.direction), 6
+                                _stop_engine.initial_stop_from_tail(
+                                    _bars_for_stop, ss.direction
+                                ), 6
                             )
                         except Exception:
                             pass

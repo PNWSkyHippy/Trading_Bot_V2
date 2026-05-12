@@ -1,165 +1,187 @@
 """
-orb_breakout.py — Strategy 11: Opening Range Breakout (ORB)
-Trading Bot v2
+At class definition
+From:
 
-Classic institutional day trading strategy. The first 15 minutes of
-the trading day (9:30-9:44 ET) establish the opening range. A breakout
-above or below that range with VWAP confirmation and volume conviction
-often leads to strong directional momentum for the rest of the session.
+class VWAPConfirmedORB(BaseStrategy):
+To:
 
-Why it works:
-  Large institutions execute big orders at the open creating price
-  imbalances. When price breaks the opening range, it triggers stop
-  losses, algorithmic signals, and momentum entries simultaneously
-  which accelerates the move.
+class ORBBreakout(BaseStrategy):
+In __init__
+From:
 
-Entry conditions (long):
-  1. Time >= 9:45 ET (opening range complete)
-  2. Price breaks above opening range high
-  3. Price above VWAP (confirms institutional buying)
-  4. Breakout bar volume >= 1.5x 20-bar average (conviction)
-  5. Opening range not too small (avoids false breakouts on quiet days)
-  6. Minimum signal score >= 0.70
+self.strategy_name = "vwap_confirmed_orb"
+To:
 
-Entry conditions (short): mirror of above.
+self.strategy_name = "orb_breakout"
+That’s the key.
 
-Take profit:
-  ATR-based (2x ATR) instead of fixed % so it adapts to the day's
-  actual volatility. On a big news day a 5% move is possible. On a
-  quiet day 1.5% might be the limit. ATR captures both correctly.
+vwap_confirmed_orb.py
+---------------------
+Standalone VWAP-confirmed Opening Range Breakout strategy.
 
-Stop loss:
-  Opposite side of the opening range. If long, stop = ORB low.
-  This is the natural invalidation point for the breakout thesis.
+Design intent:
+- Stock-first intraday ORB with VWAP confirmation
+- Crypto supported with a UTC-session opening range
+- Closed-bar only
+- Initial stop = opposite side of opening range
+- Take profit = fixed R multiple
+- VWAP cross exit handled by existing ORB monitor/backtester hook
+  (patch strategy-name checks if using a new strategy_name)
 
-Whitelist:
-  GO stocks only from 5m 30-day backtest (Apr 2026).
-  Excluded: NVDA, INTC, NIO, APLD, MARA (TUNE verdict)
+Stocks preset:
+- 5Min bars
+- first 6 bars = 30-minute opening range
 
-Timeframe: 5-minute bars (stock market hours, 9:30-16:00 ET)
-Stock only: ORB requires a defined market open which crypto lacks.
-
-Default: DISABLED — backtest first, enable via dashboard.
+Crypto preset:
+- 15m bars
+- first 4 bars = 1-hour opening range from UTC session open
 """
 
 import logging
-from datetime import datetime, timezone, time as dt_time
 from typing import Optional
 
 import pandas as pd
 import pandas_ta as ta
-import numpy as np
 
 import config
 from strategies.base_strategy import BaseStrategy, TradeSignal
 
 logger = logging.getLogger(__name__)
 
-# Opening range window: 9:30 - 9:44 ET (first 3 x 5m candles)
-ORB_START_HOUR   = 9
-ORB_START_MIN    = 30
-ORB_END_HOUR     = 9
-ORB_END_MIN      = 44
+# ── Core parameters ──────────────────────────────────────────────────────
+FAST_EMA    = 20
+SLOW_EMA    = 50
+ATR_PERIOD  = 14
+RSI_PERIOD  = 14
+VOL_PERIOD  = 20
 
-# Minimum opening range size as % of price.
-# If the range is smaller than this, skip the day — too tight = false breakouts.
-MIN_RANGE_PCT    = 0.003   # 0.3% minimum range
+STOCK_ORB_BARS   = 6   # 6 x 5m = first 30 min
+CRYPTO_ORB_BARS  = 4   # 4 x 15m = first 60 min
 
-# ATR multiplier for take profit
-ATR_TP_MULT      = 2.0
+STOCK_VOL_MULT   = 1.20
+CRYPTO_VOL_MULT  = 1.10
 
-# Minimum signal score — all 3 filters must pass AND score >= this
-MIN_SCORE        = 0.70
+STOCK_MIN_OR_ATR = 0.35
+CRYPTO_MIN_OR_ATR= 0.50
 
-# GO stocks only from 5m 30-day backtest (Apr 2026)
-# TUNE stocks excluded: NVDA, INTC, NIO, APLD, MARA
-ORB_WHITELIST = {
-    "META",  "TSLA",  "MSFT",  "AMD",   "MRVL",
-    "ALAB",  "PLTR",  "CRWV",  "IREN",  "CLS",
-    "AMZN",  "GOOGL", "AAPL",  "SPY",   "QQQ",
-}
+STOCK_R_MULT     = 2.0
+CRYPTO_R_MULT    = 2.5
 
+STOCK_MAX_CHASE_PCT  = 0.75
+CRYPTO_MAX_CHASE_PCT = 1.25
 
-def _calc_vwap(candles: pd.DataFrame) -> Optional[float]:
-    """Intraday VWAP anchored to available bars."""
-    try:
-        typical = (candles["high"] + candles["low"] + candles["close"]) / 3
-        cum_tpv = (typical * candles["volume"]).cumsum()
-        cum_vol = candles["volume"].cumsum()
-        vwap    = cum_tpv / cum_vol.replace(0, float("nan"))
-        val     = vwap.iloc[-1]
-        return float(val) if not pd.isna(val) else None
-    except Exception:
-        return None
+MAX_LONG_ENTRY_RSI   = 75
+MIN_SHORT_ENTRY_RSI  = 25
 
-
-def _calc_atr(candles: pd.DataFrame, period: int = 14) -> Optional[float]:
-    """ATR value for dynamic take profit sizing."""
-    try:
-        atr_series = ta.atr(
-            candles["high"], candles["low"], candles["close"], length=period
-        )
-        if atr_series is None or atr_series.empty:
-            return None
-        val = atr_series.iloc[-1]
-        return float(val) if not pd.isna(val) else None
-    except Exception:
-        return None
-
-
-def _get_orb_levels(
-    candles: pd.DataFrame
-) -> tuple[Optional[float], Optional[float]]:
-    """
-    Extract opening range high and low from the first 15 minutes.
-    Returns (orb_high, orb_low) or (None, None) if insufficient data.
-    """
-    try:
-        if hasattr(candles.index, 'hour'):
-            orb_mask = (
-                (candles.index.hour == ORB_START_HOUR) &
-                (candles.index.minute >= ORB_START_MIN)
-            ) | (
-                (candles.index.hour == ORB_END_HOUR) &
-                (candles.index.minute <= ORB_END_MIN)
-            )
-            orb_candles = candles[orb_mask]
-        else:
-            orb_candles = candles.iloc[:3]
-
-        if len(orb_candles) < 2:
-            orb_candles = candles.iloc[:3]
-
-        if len(orb_candles) < 2:
-            return None, None
-
-        orb_high = float(orb_candles["high"].max())
-        orb_low  = float(orb_candles["low"].min())
-        return orb_high, orb_low
-
-    except Exception as e:
-        logger.debug(f"ORB level calculation error: {e}")
-        return None, None
-
+MIN_BARS = max(SLOW_EMA, ATR_PERIOD, RSI_PERIOD, VOL_PERIOD) + 30
 
 class ORBBreakout(BaseStrategy):
-    """
-    Opening Range Breakout — Strategy 11.
-    5m bars, stock only, VWAP + volume filtered.
-    GO stocks only whitelist from 5m backtest.
-    """
-
     def __init__(self):
         super().__init__()
-        self.strategy_name   = "orb_breakout"
+        self.strategy_name = "orb_breakout"
         self.stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT
         self.take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT
-        self.enabled         = False   # Disabled by default — backtest first
+
+        self.stock_candle_timeframe  = "5Min"
+        self.crypto_candle_timeframe = "15m"
+        self.candle_limit            = 220
+
+        self.stock_enabled  = True
+        self.crypto_enabled = True
+        self.enabled        = True
 
         logger.info(
-            "[ORBBreakout] Strategy 11 initialized — DISABLED. "
-            "Enable via dashboard after reviewing backtest results."
+            f"[{self.strategy_name}] Initialized — stock 5Min ORB + crypto 15m ORB"
         )
+
+    # ── Helpers ──────────────────────────────────────────────────────────
+
+    def _asset_class(self, symbol: str) -> str:
+        return "crypto" if "/" in symbol else "stock"
+
+    def _normalise_index(self, candles: pd.DataFrame, asset_class: str) -> pd.DataFrame:
+        """
+        Normalize index for session calculations.
+        - Stocks: convert tz-aware bars to America/New_York, then strip tz
+        - Crypto: convert tz-aware bars to UTC, then strip tz
+        - Naive timestamps are left as-is
+        """
+        out = candles.copy()
+        idx = pd.DatetimeIndex(out.index)
+
+        try:
+            if idx.tz is not None:
+                if asset_class == "stock":
+                    from zoneinfo import ZoneInfo
+                    idx = idx.tz_convert(ZoneInfo("America/New_York")).tz_localize(None)
+                else:
+                    idx = idx.tz_convert("UTC").tz_localize(None)
+        except Exception:
+            pass
+
+        out.index = idx
+        return out.sort_index()
+
+    def _session_bars(self, candles: pd.DataFrame, asset_class: str) -> Optional[pd.DataFrame]:
+        df = self._normalise_index(candles, asset_class)
+        if df.empty:
+            return None
+
+        if asset_class == "stock":
+            # Cash session only
+            try:
+                df = df.between_time("09:30", "16:00")
+            except Exception:
+                pass
+
+        if df.empty:
+            return None
+
+        session_date = df.index[-1].date()
+        df = df[df.index.date == session_date]
+        return df if not df.empty else None
+
+    def _session_vwap(self, df: pd.DataFrame) -> pd.Series:
+        typical = (
+            df["high"].astype(float) +
+            df["low"].astype(float) +
+            df["close"].astype(float)
+        ) / 3.0
+        volume = df["volume"].astype(float)
+        cum_vol = volume.cumsum().replace(0, float("nan"))
+        return (typical * volume).cumsum() / cum_vol
+
+    def _calc_atr(self, high: pd.Series, low: pd.Series, close: pd.Series) -> Optional[float]:
+        try:
+            atr_s = ta.atr(high, low, close, length=ATR_PERIOD)
+            if atr_s is None or atr_s.empty:
+                return None
+            val = atr_s.iloc[-1]
+            return float(val) if not pd.isna(val) else None
+        except Exception:
+            return None
+
+    def _calc_rsi(self, close: pd.Series) -> Optional[float]:
+        try:
+            rsi_s = ta.rsi(close, length=RSI_PERIOD)
+            if rsi_s is None or rsi_s.empty:
+                return None
+            val = rsi_s.iloc[-1]
+            return float(val) if not pd.isna(val) else None
+        except Exception:
+            return None
+
+    def _calc_ema_pair(self, close: pd.Series):
+        try:
+            ema_fast_s = ta.ema(close, length=FAST_EMA)
+            ema_slow_s = ta.ema(close, length=SLOW_EMA)
+            if ema_fast_s is None or ema_slow_s is None:
+                return None, None
+            return float(ema_fast_s.iloc[-1]), float(ema_slow_s.iloc[-1])
+        except Exception:
+            return None, None
+
+    # ── Main analysis ────────────────────────────────────────────────────
 
     def analyze(
         self,
@@ -168,150 +190,215 @@ class ORBBreakout(BaseStrategy):
         market_condition: str = "unknown"
     ) -> Optional[TradeSignal]:
 
-        # ── Whitelist: GO stocks only ────────────────────────────────────
-        if symbol.upper() not in ORB_WHITELIST:
-            self.verbose_log_skip(symbol, "Not in ORB GO whitelist")
+        if not self._check_enough_candles(symbol, candles, MIN_BARS):
             return None
 
-        if not self._check_enough_candles(symbol, candles, 20):
-            return None
+        asset_class = self._asset_class(symbol)
+        close  = candles["close"].astype(float)
+        high   = candles["high"].astype(float)
+        low    = candles["low"].astype(float)
+        volume = candles["volume"].astype(float)
 
-        close  = candles["close"]
-        high   = candles["high"]
-        low    = candles["low"]
-        volume = candles["volume"]
         current_close = float(close.iloc[-1])
-        current_high  = float(high.iloc[-1])
-        current_low   = float(low.iloc[-1])
 
-        # ── Opening range ────────────────────────────────────────────────
-        orb_high, orb_low = _get_orb_levels(candles)
-        if orb_high is None or orb_low is None:
-            self.verbose_log_skip(symbol, "Could not establish opening range")
+        session = self._session_bars(candles, asset_class)
+        if session is None or session.empty:
+            self.verbose_log_skip(symbol, "No current session bars available")
             return None
 
-        orb_range = orb_high - orb_low
-        orb_range_pct = orb_range / orb_low if orb_low > 0 else 0
+        orb_bars      = STOCK_ORB_BARS if asset_class == "stock" else CRYPTO_ORB_BARS
+        vol_mult      = STOCK_VOL_MULT if asset_class == "stock" else CRYPTO_VOL_MULT
+        min_or_atr    = STOCK_MIN_OR_ATR if asset_class == "stock" else CRYPTO_MIN_OR_ATR
+        r_mult        = STOCK_R_MULT if asset_class == "stock" else CRYPTO_R_MULT
+        max_chase_pct = STOCK_MAX_CHASE_PCT if asset_class == "stock" else CRYPTO_MAX_CHASE_PCT
 
-        if orb_range_pct < MIN_RANGE_PCT:
+        if len(session) <= orb_bars:
             self.verbose_log_skip(
                 symbol,
-                f"Opening range too small: {orb_range_pct:.3%} < {MIN_RANGE_PCT:.3%}"
+                f"Opening range not complete yet ({len(session)}/{orb_bars} bars)"
             )
             return None
 
-        if len(candles) < 4:
-            self.verbose_log_skip(symbol, "Not enough candles past opening range")
+        opening = session.iloc[:orb_bars]
+        orb_high = float(opening["high"].max())
+        orb_low  = float(opening["low"].min())
+        or_width = orb_high - orb_low
+
+        atr = self._calc_atr(high, low, close)
+        if atr is None or atr <= 0:
+            self.verbose_log_skip(symbol, "ATR unavailable")
             return None
 
-        # ── VWAP filter ──────────────────────────────────────────────────
-        vwap_val = _calc_vwap(candles)
-        if vwap_val is None:
+        if or_width < atr * min_or_atr:
+            self.verbose_log_skip(
+                symbol,
+                f"Opening range too small ({or_width:.4f} < {min_or_atr:.2f} ATR)"
+            )
+            return None
+
+        ema_fast, ema_slow = self._calc_ema_pair(close)
+        if ema_fast is None or ema_slow is None:
+            self.verbose_log_skip(symbol, "EMA calculation failed")
+            return None
+
+        rsi = self._calc_rsi(close)
+        if rsi is None:
+            self.verbose_log_skip(symbol, "RSI unavailable")
+            return None
+
+        session_vwap_s = self._session_vwap(session)
+        if session_vwap_s is None or session_vwap_s.empty or pd.isna(session_vwap_s.iloc[-1]):
             self.verbose_log_skip(symbol, "VWAP unavailable")
             return None
-        price_above_vwap = current_close > vwap_val
 
-        # ── Volume conviction ────────────────────────────────────────────
-        avg_vol     = float(volume.iloc[-20:].mean())
-        current_vol = float(volume.iloc[-1])
-        vol_ratio   = current_vol / avg_vol if avg_vol > 0 else 0
-        volume_ok   = vol_ratio >= 1.5
+        vwap_now    = float(session_vwap_s.iloc[-1])
+        prev_close  = float(session["close"].iloc[-2])
+        current_vol = float(session["volume"].iloc[-1])
 
-        if not volume_ok:
-            logger.debug(f"[ORB] {symbol}: SKIP — volume {vol_ratio:.2f}x < 1.5x")
-            return None
+        vol_avg   = float(volume.iloc[-VOL_PERIOD:].mean()) if len(volume) >= VOL_PERIOD else float(volume.mean())
+        vol_ratio = (current_vol / vol_avg) if vol_avg > 0 else 1.0
 
-        # ── ATR dynamic take profit ──────────────────────────────────────
-        atr_val = _calc_atr(candles)
-        if atr_val is None or atr_val <= 0:
-            tp_pct = config.DEFAULT_TAKE_PROFIT_PCT
-        else:
-            tp_pct = (atr_val * ATR_TP_MULT / current_close) * 100
-            tp_pct = max(1.0, min(8.0, tp_pct))
+        long_chase_pct  = ((current_close - orb_high) / orb_high * 100) if orb_high > 0 else 0.0
+        short_chase_pct = ((orb_low - current_close) / orb_low * 100) if orb_low > 0 else 0.0
 
-        # ── LONG: breaks above ORB high + above VWAP + volume ────────────
-        if current_high > orb_high and price_above_vwap:
+        # ── LONG breakout ────────────────────────────────────────────────
+        long_breakout = (
+            current_close > orb_high and
+            prev_close <= orb_high and
+            current_close > vwap_now and
+            current_close > ema_fast and
+            ema_fast > ema_slow and
+            vol_ratio >= vol_mult and
+            rsi <= MAX_LONG_ENTRY_RSI and
+            long_chase_pct <= max_chase_pct
+        )
 
-            sl_pct = ((current_close - orb_low) / current_close) * 100
-            sl_pct = max(0.5, min(5.0, sl_pct))
-
-            score = min(1.0, MIN_SCORE + (vol_ratio - 1.5) * 0.05)
-
-            if score < MIN_SCORE:
+        if long_breakout:
+            stop_price = orb_low
+            if stop_price >= current_close:
+                self.verbose_log_skip(symbol, "Long stop invalid — OR low above entry")
                 return None
 
-            reason = (
-                f"ORB long: price {current_close:.4f} > ORB high {orb_high:.4f} "
-                f"| VWAP {vwap_val:.4f} ✓ "
-                f"| vol {vol_ratio:.2f}x "
-                f"| range {orb_range_pct:.2%} "
-                f"| ATR TP {tp_pct:.1f}%"
-            )
+            risk = current_close - stop_price
+            if risk <= 0:
+                self.verbose_log_skip(symbol, "Long risk <= 0")
+                return None
 
-            logger.info(f"[ORB] LONG signal: {symbol} | {reason}")
+            target_price = current_close + (risk * r_mult)
+            sl_pct = (risk / current_close) * 100
+            tp_pct = ((target_price - current_close) / current_close) * 100
+
+            score = 0.72
+            score += min(0.12, max(0.0, vol_ratio - vol_mult) * 0.12)
+            if or_width >= atr:
+                score += 0.06
+            score = min(1.0, score)
+
+            self.verbose_log_score(symbol, score, 0.65)
 
             return self._make_signal(
                 symbol          = symbol,
                 direction       = "long",
                 score           = round(score, 3),
-                reason          = reason,
-                stop_loss_pct   = round(sl_pct, 2),
-                take_profit_pct = round(tp_pct, 2),
+                reason          = (
+                    f"VWAP ORB long: close {current_close:.4f} > OR high {orb_high:.4f} | "
+                    f"VWAP={vwap_now:.4f} | EMA{FAST_EMA}>{SLOW_EMA} | "
+                    f"vol={vol_ratio:.2f}x | RSI={rsi:.1f}"
+                ),
+                stop_loss_pct   = round(sl_pct, 3),
+                take_profit_pct = round(tp_pct, 3),
                 metadata        = {
-                    "orb_high":       round(orb_high, 4),
-                    "orb_low":        round(orb_low, 4),
-                    "orb_range_pct":  round(orb_range_pct * 100, 3),
-                    "vwap":           round(vwap_val, 4),
-                    "volume_ratio":   round(vol_ratio, 2),
-                    "atr":            round(atr_val, 4) if atr_val else None,
-                    "atr_tp_pct":     round(tp_pct, 2),
-                    "entry_time_utc": datetime.now(timezone.utc).isoformat(),
+                    "strategy_name":         self.strategy_name,
+                    "entry_timeframe":       "5Min" if asset_class == "stock" else "15m",
+                    "entry_type":            "raw_orb_breakout",
+                    "structural_stop_price": round(stop_price, 6),
+                    "orb_high":              round(orb_high, 6),
+                    "orb_low":               round(orb_low, 6),
+                    "orb_width":             round(or_width, 6),
+                    "orb_width_atr":         round(or_width / atr, 4),
+                    "session_vwap":          round(vwap_now, 6),
+                    "ema_fast":              round(ema_fast, 6),
+                    "ema_slow":              round(ema_slow, 6),
+                    "atr":                   round(atr, 6),
+                    "rsi":                   round(rsi, 2),
+                    "volume_ratio":          round(vol_ratio, 3),
+                    "distance_from_breakout_pct": round(long_chase_pct, 3),
+                    "bars_since_breakout":   0,
+                    "pattern":               "vwap_confirmed_orb_long",
                 }
             )
 
-        # ── SHORT: breaks below ORB low + below VWAP + volume ───────────
-        if current_low < orb_low and not price_above_vwap:
+        # ── SHORT breakout ───────────────────────────────────────────────
+        short_breakout = (
+            current_close < orb_low and
+            prev_close >= orb_low and
+            current_close < vwap_now and
+            current_close < ema_fast and
+            ema_fast < ema_slow and
+            vol_ratio >= vol_mult and
+            rsi >= MIN_SHORT_ENTRY_RSI and
+            short_chase_pct <= max_chase_pct
+        )
 
-            sl_pct = ((orb_high - current_close) / current_close) * 100
-            sl_pct = max(0.5, min(5.0, sl_pct))
-
-            score = min(1.0, MIN_SCORE + (vol_ratio - 1.5) * 0.05)
-
-            if score < MIN_SCORE:
+        if short_breakout:
+            stop_price = orb_high
+            if stop_price <= current_close:
+                self.verbose_log_skip(symbol, "Short stop invalid — OR high below entry")
                 return None
 
-            reason = (
-                f"ORB short: price {current_close:.4f} < ORB low {orb_low:.4f} "
-                f"| VWAP {vwap_val:.4f} ✓ "
-                f"| vol {vol_ratio:.2f}x "
-                f"| range {orb_range_pct:.2%} "
-                f"| ATR TP {tp_pct:.1f}%"
-            )
+            risk = stop_price - current_close
+            if risk <= 0:
+                self.verbose_log_skip(symbol, "Short risk <= 0")
+                return None
 
-            logger.info(f"[ORB] SHORT signal: {symbol} | {reason}")
+            target_price = current_close - (risk * r_mult)
+            sl_pct = (risk / current_close) * 100
+            tp_pct = ((current_close - target_price) / current_close) * 100
+
+            score = 0.72
+            score += min(0.12, max(0.0, vol_ratio - vol_mult) * 0.12)
+            if or_width >= atr:
+                score += 0.06
+            score = min(1.0, score)
+
+            self.verbose_log_score(symbol, score, 0.65)
 
             return self._make_signal(
                 symbol          = symbol,
                 direction       = "short",
                 score           = round(score, 3),
-                reason          = reason,
-                stop_loss_pct   = round(sl_pct, 2),
-                take_profit_pct = round(tp_pct, 2),
+                reason          = (
+                    f"VWAP ORB short: close {current_close:.4f} < OR low {orb_low:.4f} | "
+                    f"VWAP={vwap_now:.4f} | EMA{FAST_EMA}<{SLOW_EMA} | "
+                    f"vol={vol_ratio:.2f}x | RSI={rsi:.1f}"
+                ),
+                stop_loss_pct   = round(sl_pct, 3),
+                take_profit_pct = round(tp_pct, 3),
                 metadata        = {
-                    "orb_high":       round(orb_high, 4),
-                    "orb_low":        round(orb_low, 4),
-                    "orb_range_pct":  round(orb_range_pct * 100, 3),
-                    "vwap":           round(vwap_val, 4),
-                    "volume_ratio":   round(vol_ratio, 2),
-                    "atr":            round(atr_val, 4) if atr_val else None,
-                    "atr_tp_pct":     round(tp_pct, 2),
-                    "entry_time_utc": datetime.now(timezone.utc).isoformat(),
+                    "strategy_name":         self.strategy_name,
+                    "entry_timeframe":       "5Min" if asset_class == "stock" else "15m",
+                    "entry_type":            "raw_orb_breakout",
+                    "structural_stop_price": round(stop_price, 6),
+                    "orb_high":              round(orb_high, 6),
+                    "orb_low":               round(orb_low, 6),
+                    "orb_width":             round(or_width, 6),
+                    "orb_width_atr":         round(or_width / atr, 4),
+                    "session_vwap":          round(vwap_now, 6),
+                    "ema_fast":              round(ema_fast, 6),
+                    "ema_slow":              round(ema_slow, 6),
+                    "atr":                   round(atr, 6),
+                    "rsi":                   round(rsi, 2),
+                    "volume_ratio":          round(vol_ratio, 3),
+                    "distance_from_breakout_pct": round(short_chase_pct, 3),
+                    "bars_since_breakout":   0,
+                    "pattern":               "vwap_confirmed_orb_short",
                 }
             )
 
         logger.debug(
-            f"[ORB] {symbol}: no signal — "
-            f"price={current_close:.4f} ORB={orb_low:.4f}-{orb_high:.4f} "
-            f"above_vwap={price_above_vwap}"
+            f"[{self.strategy_name}] {symbol}: no signal | "
+            f"close={current_close:.4f} OR=({orb_low:.4f}-{orb_high:.4f}) "
+            f"VWAP={vwap_now:.4f} EMAf={ema_fast:.4f} EMAs={ema_slow:.4f} "
+            f"vol={vol_ratio:.2f}x RSI={rsi:.1f}"
         )
         return None

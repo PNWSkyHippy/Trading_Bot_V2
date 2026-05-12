@@ -341,6 +341,7 @@ def get_open_positions(sort_by=None, sort_dir="desc", enrich=True):
 
     try:
         conn = sqlite3.connect(DB_PATH)
+ #       conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
         cur = conn.cursor()
         cur.execute(
             """
@@ -880,6 +881,7 @@ def get_today_trade_log():
     if not trades:
         try:
             conn = sqlite3.connect(DB_PATH)
+ #           conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
             conn.row_factory = sqlite3.Row
             trades = [dict(r) for r in conn.execute(
                 "SELECT * FROM trades WHERE date(entry_time)=? ORDER BY entry_time",
@@ -1280,6 +1282,7 @@ def build_snapshot():
 
     try:
         conn = sqlite3.connect(DB_PATH)
+ #       conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM trades WHERE status='open'")
         open_positions = int(cur.fetchone()[0])

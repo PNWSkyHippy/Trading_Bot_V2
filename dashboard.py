@@ -538,7 +538,16 @@ with st.expander("➕ Open Manual Trade", expanded=False):
         try:
             from scanners.market_scanner import scanner
             sym_upper  = m_symbol.strip().upper()
-            live_price = scanner.get_current_price(sym_upper, m_asset)
+            # Try all exchanges, show which one found the price
+            if m_asset == "crypto":
+                try:
+                    from scanners.market_scanner import scanner as _sc
+                    crypto_fetcher = _sc.crypto_scanner
+                    live_price, found_broker = crypto_fetcher.get_current_price_with_broker(sym_upper)
+                except Exception:
+                    live_price, found_broker = scanner.get_current_price(sym_upper, m_asset), None
+            else:
+                live_price, found_broker = scanner.get_current_price(sym_upper, m_asset), "ALPACA"
             if live_price:
                 m_entry = live_price
                 if m_direction == "long":
@@ -547,16 +556,17 @@ with st.expander("➕ Open Manual Trade", expanded=False):
                 else:
                     preview_sl = live_price * (1 + m_sl_pct / 100)
                     preview_tp = live_price * (1 - m_tp_pct / 100)
+                broker_label = f" (found on {found_broker})" if found_broker else ""
                 st.markdown(f"""
                 <div style="background:#1a2a1a;border:1px solid #2a5c2a;border-radius:8px;padding:10px 14px;font-size:13px;margin-top:8px;">
-                    📡 <b>Live Price:</b> <code>${live_price:.6f}</code><br>
+                    📡 <b>Live Price{broker_label}:</b> <code>${live_price:.6f}</code><br>
                     🔴 <b>Stop Loss:</b> <code>${preview_sl:.6f}</code> &nbsp;&nbsp;
                     🟢 <b>Take Profit:</b> <code>${preview_tp:.6f}</code><br>
                     💰 <b>Position:</b> <code>{m_size/live_price:.4f} units @ ${live_price:.6f}</code>
                 </div>
                 """, unsafe_allow_html=True)
             else:
-                st.warning(f"Could not fetch live price for {sym_upper}")
+                st.warning(f"Could not fetch live price for {sym_upper} on any exchange")
         except Exception as e:
             st.warning(f"Price lookup error: {e}")
 
