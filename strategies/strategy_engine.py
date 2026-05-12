@@ -249,16 +249,20 @@ class StrategyEngine:
         these are plumbing problems not strategy failures and would corrupt
         the win rate used for auto-disable decisions.
         """
-        # Exit reasons that are NOT strategy failures — never count against win rate
+        # Exit reasons that are NOT strategy failures — never count against win rate.
+        # These are infrastructure events, plumbing failures, or forced closes that
+        # have nothing to do with whether the strategy logic was correct.
         EXCLUDED_REASONS = {
             "force_close",
             "force_close_stuck_stock",
             "force_close_stuck_crypto",
             "manual_close",
-            "eod_close",           # EOD forced close is not a strategy signal
+            "eod_close",              # EOD forced close is not a strategy signal
             "stuck",
             "broker_fallback",
-            "reconcile_close",
+            "reconcile_close",        # legacy name — kept as guard
+            "broker_closed_sl_tp",    # position_monitor broker-reconcile path
+            "invalid_pair",           # data/routing error — not strategy outcome
         }
         if exit_reason.lower() in EXCLUDED_REASONS:
             logger.debug(

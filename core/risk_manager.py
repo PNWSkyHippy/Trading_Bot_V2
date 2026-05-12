@@ -182,7 +182,45 @@ class RiskManager:
                       signal_score: float, direction: str = "long",
                       custom_stop_loss_pct: float = None,
                       custom_take_profit_pct: float = None,
-                      custom_position_pct: float = None) -> TradeApproval:
+                      custom_position_pct: float = None,
+                      broker_name: str = None,
+                      structural_stop_price: float = None) -> TradeApproval:
+        """
+        Approve a trade signal and compute position sizing.
+
+        Parameters
+        ----------
+        broker_name : str, optional
+            Explicit broker name for per-broker available cash check.
+            Previously threaded through the mutable ``_pending_broker``
+            singleton attribute — now a proper argument to eliminate the
+            race condition when multiple threaded scans overlap.
+        structural_stop_price : float, optional
+            Absolute ATR/structure-based stop price from signal metadata.
+            When valid (on the correct side of entry), overrides the config
+            percentage stop for both SL placement and risk_amount sizing,
+            keeping approve_trade in parity with the backtester and the
+            fill-time stop logic in trade_executor.
+        """
+        # ── Guard: entry price ────────────────────────────────────────────
+        if entry_price <= 0:
+            return TradeApproval(
+                approved=False,
+                reason=f"Invalid entry price: {entry_price}"
+            )
+
+        # ── Guard: custom percentage parameters ──────────────────────────
+        for _name, _val in [
+            ("custom_stop_loss_pct",   custom_stop_loss_pct),
+            ("custom_take_profit_pct", custom_take_profit_pct),
+            ("custom_position_pct",    custom_position_pct),
+        ]:
+            if _val is not None and (_val <= 0 or _val > 100):
+                return TradeApproval(
+                    approved=False,
+                    reason=f"Invalid {_name}: {_val} (must be 0 < value ≤ 100)"
+                )
+
         allowed, reason = self.is_trading_allowed()
         if not allowed:
             return TradeApproval(approved=False, reason=reason)
@@ -197,65 +235,103 @@ class RiskManager:
                         f"minimum {min_confidence:.2f}")
             )
 
-        # ── Capital: use broker available cash if known, else calculated total ──
-        # This prevents approving trades when the specific broker has no free cash.
-        # broker_name is passed via custom_position_pct hack — see note below.
-        # We check broker_manager first (real available cash), fall back to
-        # calculated total capital if broker tracking isn't available yet.
+        # ── Capital ───────────────────────────────────────────────────────
         capital = self._get_capital()
         if capital <= 0:
             return TradeApproval(approved=False, reason="No capital available")
 
-        # Check per-broker available cash if broker name is provided
-        broker_name = getattr(self, "_pending_broker", None)
+        # ── Position sizing ───────────────────────────────────────────────
+        position_pct   = (custom_position_pct or config.MAX_POSITION_PCT) / 100
+        position_value = capital * position_pct
+
+        # ── Per-broker cash check ─────────────────────────────────────────
+        # broker_name is now an explicit parameter — no shared mutable state,
+        # no race condition between overlapping threaded signal evaluations.
         if broker_name:
             try:
                 from core.broker_manager import broker_manager
-                bal = broker_manager.get_broker_balance(broker_name)
+                bal              = broker_manager.get_broker_balance(broker_name)
                 broker_available = bal.get("available", 0.0)
-                if broker_available > 0:
-                    # Use the lesser of theoretical capital and actual broker cash
-                    # This catches cases where broker balance is lower than expected
-                    capital = min(capital, broker_available / (custom_position_pct or config.MAX_POSITION_PCT) * 100)
-                    if broker_available < 1.0:
-                        return TradeApproval(
-                            approved=False,
-                            reason=f"Insufficient cash on {broker_name}: "
-                                   f"${broker_available:.2f} available"
-                        )
-            except Exception as _cap_err:
-                pass   # broker_manager not ready yet — use calculated capital
+                # Reject immediately when the broker reports zero or near-zero
+                # cash. Do NOT silently fall back to theoretical capital — that
+                # masks a real funding problem and can over-commit the account.
+                if broker_available <= 0:
+                    return TradeApproval(
+                        approved=False,
+                        reason=(f"No available cash on {broker_name}: "
+                                f"${broker_available:.2f}")
+                    )
+                if broker_available < 1.0:
+                    return TradeApproval(
+                        approved=False,
+                        reason=(f"Insufficient cash on {broker_name}: "
+                                f"${broker_available:.2f} available")
+                    )
+                # Clamp position_value directly to broker cash.
+                # Cleaner and safer than reverse-engineering a fake total capital.
+                position_value = min(position_value, broker_available)
+            except Exception as _brok_err:
+                logger.debug(
+                    f"Broker balance check skipped ({broker_name}): {_brok_err} "
+                    f"— proceeding with theoretical capital"
+                )
 
-        position_pct   = (custom_position_pct or config.MAX_POSITION_PCT) / 100
-        position_value = capital * position_pct
-        quantity       = position_value / entry_price
-
+        # ── Stop / take-profit percentages ────────────────────────────────
         stop_loss_pct   = (custom_stop_loss_pct   or config.DEFAULT_STOP_LOSS_PCT)   / 100
         take_profit_pct = (custom_take_profit_pct or config.DEFAULT_TAKE_PROFIT_PCT) / 100
 
-        risk_amount = position_value * stop_loss_pct
+        # ── Structural stop: derive effective SL for risk sizing ──────────
+        # When an absolute ATR/structure-based stop is provided and valid,
+        # use it for both SL placement and risk_amount so that position
+        # scaling reflects the real dollars at risk (not the config %).
+        # This closes the live/backtest parity gap: the backtester already
+        # honours structural_stop_price; now approve_trade does too.
+        effective_sl     = None          # None → fall back to pct below
+        effective_sl_pct = stop_loss_pct
+        if structural_stop_price and structural_stop_price > 0:
+            if direction == "long" and structural_stop_price < entry_price:
+                effective_sl     = structural_stop_price
+                effective_sl_pct = (entry_price - structural_stop_price) / entry_price
+            elif direction == "short" and structural_stop_price > entry_price:
+                effective_sl     = structural_stop_price
+                effective_sl_pct = (structural_stop_price - entry_price) / entry_price
+            else:
+                logger.warning(
+                    f"[RISK] {symbol}: structural_stop_price "
+                    f"${structural_stop_price:.6f} is on the wrong side of "
+                    f"entry ${entry_price:.6f} ({direction}) — using config % stop"
+                )
 
+        risk_amount = position_value * effective_sl_pct
+
+        # ── Daily budget constraint ───────────────────────────────────────
         pnl_today             = self._session.get("pnl_today", 0.0)
         starting_cap          = self._get_or_lock_starting_capital()
         max_daily_loss        = starting_cap * (config.MAX_DAILY_LOSS_PCT / 100)
         remaining_loss_budget = max_daily_loss + pnl_today
         if risk_amount > remaining_loss_budget and remaining_loss_budget > 0:
-            position_value = remaining_loss_budget / stop_loss_pct
-            quantity       = position_value / entry_price
+            position_value = remaining_loss_budget / effective_sl_pct
             risk_amount    = remaining_loss_budget
             logger.warning(f"Position scaled down for {symbol}: daily budget constraint")
 
+        quantity = position_value / entry_price
         if quantity <= 0 or position_value < 1.0:
             return TradeApproval(
                 approved=False,
                 reason="Position too small after risk constraints"
             )
 
+        # ── Compute SL / TP prices ────────────────────────────────────────
+        if effective_sl is not None:
+            stop_loss = effective_sl
+        elif direction == "long":
+            stop_loss = entry_price * (1 - stop_loss_pct)
+        else:
+            stop_loss = entry_price * (1 + stop_loss_pct)
+
         if direction == "long":
-            stop_loss   = entry_price * (1 - stop_loss_pct)
             take_profit = entry_price * (1 + take_profit_pct)
         else:
-            stop_loss   = entry_price * (1 + stop_loss_pct)
             take_profit = entry_price * (1 - take_profit_pct)
 
         # ── Sanity check: enforce minimum SL/TP distance from entry ───────
@@ -289,16 +365,30 @@ class RiskManager:
                     f"of entry ${entry_price:.4f} — reset to ${take_profit:.4f}"
                 )
 
-        # ── Symbol cooldown ────────────────────────────────────────────────
+        # ── Symbol cooldown ───────────────────────────────────────────────
         # Loss: 10-min cooldown (revenge trade prevention)
         # Win:   2-min cooldown (allow momentum re-entry, block instant flip)
         LOSS_COOLDOWN_SEC = 10 * 60
         WIN_COOLDOWN_SEC  =  2 * 60
         last = self._last_closed.get(symbol)
+        if last is None:
+            # On restart, in-memory dict is empty. Check DB for a persisted
+            # cooldown that hasn't expired yet (set in record_trade_result).
+            try:
+                raw = db.get_state(f"cooldown_{symbol}")
+                if raw:
+                    ts_str, won_str = str(raw).split(",")
+                    self._last_closed[symbol] = {
+                        "time": float(ts_str),
+                        "won":  bool(int(won_str)),
+                    }
+                    last = self._last_closed[symbol]
+            except Exception:
+                pass
         if last:
-            elapsed    = (datetime.now() - datetime.fromtimestamp(last["time"])).total_seconds()
-            cooldown   = WIN_COOLDOWN_SEC if last["won"] else LOSS_COOLDOWN_SEC
-            label      = "win" if last["won"] else "loss"
+            elapsed  = (datetime.now() - datetime.fromtimestamp(last["time"])).total_seconds()
+            cooldown = WIN_COOLDOWN_SEC if last["won"] else LOSS_COOLDOWN_SEC
+            label    = "win" if last["won"] else "loss"
             if elapsed < cooldown:
                 remaining = int((cooldown - elapsed) / 60)
                 return TradeApproval(
@@ -409,13 +499,16 @@ class RiskManager:
     def record_trade_result(self, pnl: float, trade_won: bool,
                             symbol: str = ""):
         """Update session state after a trade closes."""
-        # Record close time and outcome for symbol cooldown
+        # Record close time and outcome for symbol cooldown.
+        # Persisted to DB so cooldowns survive bot restarts.
         if symbol:
             import time as _time
-            self._last_closed[symbol] = {
-                "time": _time.time(),
-                "won":  trade_won,
-            }
+            now = _time.time()
+            self._last_closed[symbol] = {"time": now, "won": trade_won}
+            try:
+                db.set_state(f"cooldown_{symbol}", f"{now},{int(trade_won)}")
+            except Exception:
+                pass
         self._refresh_session()
         session_date = date.today().isoformat()
 

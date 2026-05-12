@@ -1051,8 +1051,76 @@ class AlertSystem:
             self._email_alert(signal, message, escalation=escalation)
                 # Inject to Trading Bot V2 if escalation threshold met
         if hasattr(self, "bot_sender"):
-            self.bot_sender.send_signal(signal, escalation)
+            candle_data = self._build_candle_data(signal)
+            self.bot_sender.send_signal(signal, escalation, candle_data=candle_data)
 
+
+    def _build_candle_data(self, signal: BreakoutSignal) -> dict:
+        """
+        Build the candle_data dict for the bot receiver's soft checks.
+
+        Soft checks that need data:
+          1. RSI confirms  → needs 'rsi'
+          2. Market context → needs 'market_pct_change'
+          3. Trend alignment (SMA200) → needs 'sma200' — SKIPPED here because
+             we only have ~25 min of history (50 bars × 30s) which is far too
+             short for a 200-period SMA. The check will SKIP (neutral) rather
+             than FAIL, so we lose one potential soft pass but avoid noise.
+
+        Two valid soft passes (RSI + market context) satisfy MIN_SOFT_PASSES = 2.
+        """
+        data = {"close": signal.current_price}
+
+        # ── RSI(14) from price_history ─────────────────────────────────────
+        prices = list(signal.price_history)   # deque → list, oldest first
+        if len(prices) >= 15:
+            try:
+                gains, losses = [], []
+                for i in range(1, len(prices)):
+                    delta = prices[i] - prices[i - 1]
+                    gains.append(max(delta, 0.0))
+                    losses.append(max(-delta, 0.0))
+
+                period = 14
+                # Wilder's smoothed average (simple seed on first 14 deltas)
+                avg_gain = sum(gains[:period]) / period
+                avg_loss = sum(losses[:period]) / period
+                for i in range(period, len(gains)):
+                    avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+                    avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+
+                if avg_loss == 0:
+                    rsi = 100.0
+                else:
+                    rs  = avg_gain / avg_loss
+                    rsi = 100.0 - (100.0 / (1.0 + rs))
+
+                data["rsi"] = round(rsi, 2)
+            except Exception:
+                pass   # no RSI → soft check will SKIP (neutral)
+
+        # ── Market context: BTC/USD % change ──────────────────────────────
+        # Use BTC as a proxy for overall crypto market momentum.
+        # For stock symbols we skip — the receiver checks will SKIP (neutral).
+        btc_history = None
+        if hasattr(self, "price_history"):
+            btc_history = self.price_history.get("BTC/USD") or \
+                          self.price_history.get("BTC-USD") or \
+                          self.price_history.get("BTCUSDT")
+
+        if btc_history and len(btc_history) >= 2:
+            try:
+                btc_prices  = list(btc_history)
+                oldest_btc  = btc_prices[0]
+                latest_btc  = btc_prices[-1]
+                if oldest_btc > 0:
+                    data["market_pct_change"] = round(
+                        (latest_btc - oldest_btc) / oldest_btc * 100, 4
+                    )
+            except Exception:
+                pass   # no market context → soft check will SKIP (neutral)
+
+        return data
 
     def _format_message(self, signal: BreakoutSignal, escalation: int) -> str:
         meta  = classify_signal(signal)

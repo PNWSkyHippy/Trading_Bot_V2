@@ -58,6 +58,13 @@ class BaseStrategy(ABC):
             or bad training batch would suppress signals below threshold and
             cut off all trading in that asset class.
 
+      - self.reviewer_exempt (bool, default False)
+            When True, this strategy's signals skip the Claude reviewer gate.
+            Use for strategies that have been backtested and validated and
+            whose signals would reliably fail reviewer scoring due to unusual
+            metadata shape (e.g. strategies with ATR-based stops instead of
+            a standard stop_loss_pct).
+
       - self.auto_disable_exempt (bool, default False)
             When True, the strategy engine will never auto-disable this
             strategy based on win rate, regardless of how many trades it
@@ -76,6 +83,7 @@ class BaseStrategy(ABC):
 
         # Protection flags — override in subclass __init__ as needed
         self.ml_exempt          = False  # Skip ML score blending for this strategy
+        self.reviewer_exempt    = False  # Skip Claude reviewer gate for this strategy
         self.auto_disable_exempt= False  # Never auto-disable this strategy
 
         # ── Candle timeframe ─────────────────────────────────────────────
@@ -276,7 +284,47 @@ class BaseStrategy(ABC):
         take_profit_pct: Optional[float] = None,
         metadata: Optional[dict] = None
     ) -> TradeSignal:
-        """Convenience constructor for TradeSignal using this strategy's defaults."""
+        """
+        Convenience constructor for TradeSignal using this strategy's defaults.
+
+        Automatically injects the following fields into signal metadata so
+        downstream consumers (scanner, ML scorer, reviewer gate) receive them
+        without each strategy needing to wire them in manually:
+
+          strategy_name   — mirrors TradeSignal.strategy_name; convenient for
+                            dict-only consumers that never touch the dataclass
+          ml_exempt       — from self.ml_exempt; scanner skips ML blending when True
+          reviewer_exempt — from self.reviewer_exempt; scanner skips Claude
+                            reviewer gate when True
+          asset_class     — "crypto" if "/" in symbol, else "stock"
+                            (the framework uses "/" as the universal crypto separator)
+          entry_timeframe — self.crypto_candle_timeframe or self.stock_candle_timeframe
+                            matching the inferred asset class; strategy engine may
+                            overwrite this with the authoritative tf_key after the
+                            signal is returned, but having it here guarantees
+                            presence even in paths that bypass the engine stamp
+
+        Strategy-supplied metadata keys always take precedence over auto-injected
+        values, so explicit overrides in subclasses work as expected.
+        """
+        # Infer asset class and matching candle timeframe from symbol format.
+        # The framework uses "/" as the universal separator for crypto pairs
+        # (e.g. "BTC/USD", "ETH/USDT"); stock symbols never contain "/".
+        is_crypto      = "/" in symbol
+        asset_class    = "crypto" if is_crypto else "stock"
+        entry_tf       = (self.crypto_candle_timeframe if is_crypto
+                          else self.stock_candle_timeframe)
+
+        # Build base metadata; strategy-supplied keys overwrite on any overlap.
+        base_meta: dict = {
+            "strategy_name":   self.strategy_name,
+            "ml_exempt":       self.ml_exempt,
+            "reviewer_exempt": self.reviewer_exempt,
+            "asset_class":     asset_class,
+            "entry_timeframe": entry_tf,
+        }
+        base_meta.update(metadata or {})
+
         return TradeSignal(
             symbol          = symbol,
             direction       = direction,
@@ -285,5 +333,5 @@ class BaseStrategy(ABC):
             stop_loss_pct   = stop_loss_pct if stop_loss_pct is not None else self.stop_loss_pct,
             take_profit_pct = take_profit_pct if take_profit_pct is not None else self.take_profit_pct,
             reason          = reason,
-            metadata        = metadata or {}
+            metadata        = base_meta,
         )

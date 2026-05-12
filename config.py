@@ -31,6 +31,7 @@ IBKR_ENABLED        = True                              # Set True after TWS is 
 IBKR_PAPER_MODE     = True                              # True = paper (port 7497)
 
 ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY", "")
+CLAUDE_REVIEWER_ENABLED = False   # Set True to re-enable
 _fernet_key = keyring.get_password("trading_bot_v2", "fernet_key")
 BASE_KEY = _fernet_key.encode() if _fernet_key else None
 if ANTHROPIC_API_KEY and not BASE_KEY:

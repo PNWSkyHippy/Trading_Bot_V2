@@ -1,7 +1,7 @@
 """
 =============================================================
   POSITION MONITOR
-  Runs every 30 seconds. Watches all open positions for:
+  Runs every 10 seconds. Watches all open positions for:
   - Stop-loss triggers
   - Take-profit triggers
   - Trailing stop adjustments (with logging)
@@ -38,7 +38,9 @@
 
   Close attempt throttle:
     If a close attempt fails the trade stays open in DB and would
-    retry every 30s forever. We track close attempts in bot_state.
+    retry every 10s forever (monitor interval). Close attempts are
+    throttled by MIN_CLOSE_RETRY_SEC so the broker is not hammered.
+    We track close attempts in bot_state.
     After MAX_CLOSE_ATTEMPTS the trade is flagged STUCK and skipped
     until human intervenes. Dashboard shows STUCK trades.
 
@@ -73,15 +75,21 @@ ADX_STALE_THRESHOLD = 25.0
 # Prevents capital being locked in trades that never got going.
 # NOTE: grid_bot trades are EXEMPT from all time stops (see _check_performance_time_stop)
 # Grid strategies need time to oscillate — time stops kill them prematurely.
-PERF_CHECK_1HR_SEC     = 2 * 60 * 60    # 2 hours (was 1hr — too aggressive)
-PERF_CHECK_1HR_MIN_PCT = 0.2            # need at least 0.2% profit by 2hr (was 0.5%)
+PERF_CHECK_2HR_SEC     = 2 * 60 * 60    # 2 hours — free up capital if going nowhere
+PERF_CHECK_2HR_MIN_PCT = 0.2            # need at least 0.2% profit by 2hr
 
-PERF_CHECK_3HR_SEC     = 5 * 60 * 60    # 5 hours (was 3hr)
-PERF_CHECK_3HR_MIN_PCT = 1.0            # need at least 1.0% profit by 5hr (was 1.5%)
+PERF_CHECK_5HR_SEC     = 5 * 60 * 60    # 5 hours — too slow for a day trade
+PERF_CHECK_5HR_MIN_PCT = 1.0            # need at least 1.0% profit by 5hr
+
+# Legacy aliases — kept so any external references don't break during migration
+PERF_CHECK_1HR_SEC     = PERF_CHECK_2HR_SEC
+PERF_CHECK_1HR_MIN_PCT = PERF_CHECK_2HR_MIN_PCT
+PERF_CHECK_3HR_SEC     = PERF_CHECK_5HR_SEC
+PERF_CHECK_3HR_MIN_PCT = PERF_CHECK_5HR_MIN_PCT
 
 HARD_TIME_STOP_SEC     = 8 * 60 * 60    # 8 hours — hard kill (was 3.5hr)
 
-# Early loss check: if trade is negative AND worsening at 20 minutes, kill it.
+# Early loss check: if trade is negative AND worsening at 30 minutes, kill it.
 # Catches trades where thesis was wrong from the start.
 EARLY_LOSS_CHECK_SEC   = 30 * 60        # 30 minutes (was 20min — too tight)
 EARLY_LOSS_MIN_PCT     = -0.5           # if worse than -0.5% AND still falling (was -0.3%)
@@ -322,7 +330,11 @@ class PositionMonitor:
                     logger.info(
                         f"[IBKR FALLBACK] {symbol}: Alpaca fallback close succeeded"
                     )
-                    self._reset_close_attempts(trade_id)
+                    # executor.close_trade() failed earlier so the DB trade is still
+                    # open.  Record the close here to prevent a ghost trade; calling
+                    # _record_close_in_db() also resets close attempts and updates the
+                    # risk_manager session so daily P&L and loss counters stay correct.
+                    self._record_close_in_db(trade, current_price, "ibkr_fallback_close")
                     return True
                 else:
                     logger.warning(
@@ -338,6 +350,63 @@ class PositionMonitor:
             f"next retry in {MIN_CLOSE_RETRY_SEC}s"
         )
         return False
+
+    # ------------------------------------------------------------------
+    #  DB-ONLY CLOSE HELPER
+    # ------------------------------------------------------------------
+
+    def _record_close_in_db(self, trade: Dict, exit_price: float,
+                             exit_reason: str) -> None:
+        """
+        Record a trade close directly in the DB without submitting a broker order.
+
+        Use when the position is already confirmed closed on the exchange
+        (broker reconciliation) or when a broker fallback close succeeded outside
+        the normal executor flow (IBKR → Alpaca fallback).  Going through
+        executor.close_trade() in these cases would re-submit a close order to
+        a broker that no longer holds the position, which would fail and
+        loop into the STUCK retry logic.
+
+        Handles: DB close, risk_manager session update, tax event.
+        """
+        trade_id    = trade["trade_id"]
+        direction   = trade["direction"]
+        entry_price = trade["entry_price"]
+        qty         = trade["quantity"]
+        symbol      = trade["symbol"]
+
+        if direction == "long":
+            pnl     = (exit_price - entry_price) * qty
+            pnl_pct = ((exit_price / entry_price) - 1) * 100 if entry_price else 0.0
+        else:
+            pnl     = (entry_price - exit_price) * qty
+            pnl_pct = ((entry_price / exit_price) - 1) * 100 if exit_price else 0.0
+
+        pnl     = round(pnl, 4)
+        pnl_pct = round(pnl_pct, 4)
+
+        self._db.close_trade(
+            trade_id    = trade_id,
+            exit_price  = exit_price,
+            exit_reason = exit_reason,
+            pnl         = pnl,
+            pnl_pct     = pnl_pct,
+        )
+
+        try:
+            full_trade = {**trade, "exit_time": datetime.now().isoformat(),
+                          "exit_price": exit_price, "status": "closed"}
+            self._db.record_tax_event(full_trade)
+        except Exception:
+            pass
+
+        risk_manager.record_trade_result(pnl=pnl, trade_won=(pnl > 0), symbol=symbol)
+        self._reset_close_attempts(trade_id)
+
+        logger.info(
+            f"[DB CLOSE] {symbol}: recorded close @ ${exit_price:.4f} | "
+            f"reason={exit_reason} | pnl=${pnl:.2f} ({pnl_pct:+.2f}%)"
+        )
 
     # ------------------------------------------------------------------
     #  NEW: PERFORMANCE-CONTINGENT TIME STOPS
@@ -380,23 +449,23 @@ class PositionMonitor:
             )
             return "hard_time_stop"
 
-        # ── 3-hour performance check ──────────────────────────────────
-        if age_seconds >= PERF_CHECK_3HR_SEC:
-            if pnl_pct < PERF_CHECK_3HR_MIN_PCT:
+        # ── 5-hour performance check ──────────────────────────────────
+        if age_seconds >= PERF_CHECK_5HR_SEC:
+            if pnl_pct < PERF_CHECK_5HR_MIN_PCT:
                 logger.info(
-                    f"[PERF TIME STOP 3HR] {symbol}: open {age_seconds/3600:.1f}hrs | "
-                    f"P&L {pnl_pct:+.2f}% < {PERF_CHECK_3HR_MIN_PCT}% target — closing"
+                    f"[PERF TIME STOP 5HR] {symbol}: open {age_seconds/3600:.1f}hrs | "
+                    f"P&L {pnl_pct:+.2f}% < {PERF_CHECK_5HR_MIN_PCT}% target — closing"
                 )
-                return "perf_time_stop_3hr"
+                return "perf_time_stop_3hr"   # reason code unchanged for DB compatibility
 
-        # ── 1-hour performance check ──────────────────────────────────
-        if age_seconds >= PERF_CHECK_1HR_SEC:
-            if pnl_pct < PERF_CHECK_1HR_MIN_PCT:
+        # ── 2-hour performance check ──────────────────────────────────
+        if age_seconds >= PERF_CHECK_2HR_SEC:
+            if pnl_pct < PERF_CHECK_2HR_MIN_PCT:
                 logger.info(
-                    f"[PERF TIME STOP 1HR] {symbol}: open {age_seconds/3600:.1f}hrs | "
-                    f"P&L {pnl_pct:+.2f}% < {PERF_CHECK_1HR_MIN_PCT}% target — closing"
+                    f"[PERF TIME STOP 2HR] {symbol}: open {age_seconds/3600:.1f}hrs | "
+                    f"P&L {pnl_pct:+.2f}% < {PERF_CHECK_2HR_MIN_PCT}% target — closing"
                 )
-                return "perf_time_stop_1hr"
+                return "perf_time_stop_1hr"   # reason code unchanged for DB compatibility
 
         return None
 
@@ -509,7 +578,6 @@ class PositionMonitor:
         pp  = (h + l + c) / 3
         s1  = 2 * pp - h
         s2  = pp - (h - l)
-        r1  = 2 * pp + l   # corrected: 2*PP - Low
         r1  = 2 * pp - l
         r2  = pp + (h - l)
 
@@ -634,44 +702,41 @@ class PositionMonitor:
         self, trade: Dict, current_price: float
     ) -> Optional[str]:
         """
-        Strategy-specific exit logic for the adaptive_regime strategy.
-        Reads adaptive_exit_mode from indicators_json to apply the correct
-        exit model for the regime this trade was entered in.
+        Delegate to AdaptiveRegime.check_custom_exit() — the same code path
+        used by the backtester — so live and backtest apply identical exit logic.
 
-        Trend mode exit:
-          EMA20 crosses EMA100 in the adverse direction (trend has ended).
-          Long:  exit when EMA20 <= EMA100  (uptrend structure broken)
-          Short: exit when EMA20 >= EMA100  (downtrend structure broken)
+        Previously this method duplicated the EMA/BB/RSI exit rules inline.
+        The canonical implementation lives in strategies/adaptive_regime.py;
+        maintaining two copies causes live/backtest drift whenever one is
+        updated without the other. Now there is exactly one source of truth.
 
-        Mean reversion mode exit (whichever fires first):
-          1. Price reaches BB midline (SMA20) — reversion target met
-          2. RSI crosses exit threshold: long RSI >= 55, short RSI <= 45
-
-        Returns an exit reason string, or None to continue holding.
+        entry_timeframe and indicators_json (persisted at trade open time) are
+        both confirmed present in the trades table — see database.py lines 99
+        and 93 respectively.
         """
         import json
 
         symbol          = trade["symbol"]
-        direction       = trade["direction"]
         asset_class     = trade["asset_class"]
-        # Use the trade's entry timeframe (1Hour/1h for adaptive_regime);
-        # fall back to 1h so exit bars always match the entry bars.
+        direction       = trade["direction"]
         entry_timeframe = trade.get("entry_timeframe") or (
             "1Hour" if asset_class == "stock" else "1h"
         )
 
-        # ── Parse adaptive_exit_mode from persisted indicators ────────────
+        # ── Parse entry metadata — fast-path skip if adaptive_exit_mode absent
         try:
-            indicators_json = json.loads(trade.get("indicators_json") or "{}")
+            entry_metadata = json.loads(trade.get("indicators_json") or "{}")
         except (json.JSONDecodeError, TypeError):
-            indicators_json = {}
+            entry_metadata = {}
 
-        exit_mode = indicators_json.get("adaptive_exit_mode")
-        if exit_mode not in ("trend", "mean_rev"):
+        if not entry_metadata.get("adaptive_exit_mode"):
             # Not an adaptive_regime trade or missing metadata — skip quietly
             return None
 
-        # ── Fetch 1h bars (need 110+ for EMA100 warm-up; request 150) ─────
+        # ── Fetch closed bars on the entry timeframe ───────────────────────
+        # 150 bars needed for EMA100 warm-up.  _get_bars() enforces closed-only
+        # via _strip_forming_bar() so the decision is never based on an intrabar
+        # wick (same guarantee the backtester gets from yfinance history).
         bars = self._get_bars(symbol, asset_class, limit=150, timeframe=entry_timeframe)
         if bars is None or len(bars) < 30:
             logger.debug(
@@ -681,82 +746,12 @@ class PositionMonitor:
             return None
 
         try:
-            closes = bars["close"]
-
-            # EMA20 and EMA100 — used by both exit modes
-            ema20  = closes.ewm(span=20,  adjust=False).mean()
-            ema100 = closes.ewm(span=100, adjust=False).mean()
-            ema20_now  = float(ema20.iloc[-1])
-            ema100_now = float(ema100.iloc[-1])
-
-            # ── TREND EXIT: EMA cross in adverse direction ──────────────────
-            if exit_mode == "trend":
-                if direction == "long" and ema20_now <= ema100_now:
-                    logger.info(
-                        f"[ADAPTIVE EXIT - TREND] {symbol} LONG: "
-                        f"EMA20={ema20_now:.4f} crossed below "
-                        f"EMA100={ema100_now:.4f} — trend ended, closing"
-                    )
-                    return "adaptive_ema_cross_exit"
-
-                if direction == "short" and ema20_now >= ema100_now:
-                    logger.info(
-                        f"[ADAPTIVE EXIT - TREND] {symbol} SHORT: "
-                        f"EMA20={ema20_now:.4f} crossed above "
-                        f"EMA100={ema100_now:.4f} — trend ended, closing"
-                    )
-                    return "adaptive_ema_cross_exit"
-
-                return None
-
-            # ── MEAN REV EXIT 1: price reaches BB midline (SMA20) ──────────
-            bb_mid = float(closes.rolling(20).mean().iloc[-1])
-
-            if direction == "long" and current_price >= bb_mid:
-                logger.info(
-                    f"[ADAPTIVE EXIT - MEAN REV] {symbol} LONG: "
-                    f"price {current_price:.4f} >= BB midline {bb_mid:.4f} "
-                    f"— reversion target met, closing"
-                )
-                return "adaptive_bb_midline_exit"
-
-            if direction == "short" and current_price <= bb_mid:
-                logger.info(
-                    f"[ADAPTIVE EXIT - MEAN REV] {symbol} SHORT: "
-                    f"price {current_price:.4f} <= BB midline {bb_mid:.4f} "
-                    f"— reversion target met, closing"
-                )
-                return "adaptive_bb_midline_exit"
-
-            # ── MEAN REV EXIT 2: RSI threshold (secondary) ─────────────────
-            # Long exits when RSI >= 55 (momentum exhausted, no longer oversold)
-            # Short exits when RSI <= 45 (momentum exhausted, no longer overbought)
-            delta    = closes.diff()
-            gain     = delta.clip(lower=0)
-            loss     = -delta.clip(upper=0)
-            avg_gain = gain.ewm(com=13, adjust=False).mean()
-            avg_loss = loss.ewm(com=13, adjust=False).mean()
-            rs       = avg_gain / avg_loss.replace(0, float("nan"))
-            rsi_now  = float((100 - (100 / (1 + rs))).iloc[-1])
-
-            if direction == "long" and rsi_now >= 55:
-                logger.info(
-                    f"[ADAPTIVE EXIT - MEAN REV] {symbol} LONG: "
-                    f"RSI={rsi_now:.1f} >= 55 — momentum exhausted, closing"
-                )
-                return "adaptive_rsi_exit"
-
-            if direction == "short" and rsi_now <= 45:
-                logger.info(
-                    f"[ADAPTIVE EXIT - MEAN REV] {symbol} SHORT: "
-                    f"RSI={rsi_now:.1f} <= 45 — momentum exhausted, closing"
-                )
-                return "adaptive_rsi_exit"
-
-            return None
-
+            from strategies.adaptive_regime import AdaptiveRegime
+            return AdaptiveRegime().check_custom_exit(
+                symbol, bars, direction, entry_metadata
+            )
         except Exception as e:
-            logger.debug(f"[ADAPTIVE EXIT] {symbol}: exit check error: {e}")
+            logger.debug(f"[ADAPTIVE EXIT] {symbol}: check_custom_exit error: {e}")
             return None
 
     def _check_vwap_cross_exit(self, trade: Dict, current_price: float) -> bool:
@@ -801,10 +796,18 @@ class PositionMonitor:
                   limit: int = 25,
                   timeframe: str = None) -> Optional[pd.DataFrame]:
         """
-        Fetch closed bars for a symbol.
+        Fetch CLOSED bars for a symbol.
+
+        Closed-bar guarantee: both underlying scanner methods (StockScanner.get_bars
+        and CryptoScanner.get_ohlcv) call _strip_forming_bar() before returning.
+        That function drops the last row when now_utc < bar_open + timeframe_duration,
+        so all callers of _get_bars() receive only fully closed candles.  Exit logic
+        based on EMA crosses, BB midlines, ADX/DI, and two-bar trailing stops is
+        therefore never contaminated by a still-forming intrabar wick.
 
         `timeframe` controls which candle size is fetched:
-          - Pass the trade's entry_timeframe for structural exit logic (trailing stop).
+          - Pass the trade's entry_timeframe for structural exit logic (trailing stop,
+            adaptive regime exits).  A 1h-entry trade must trail on 1h bars.
           - Omit (or pass None) for monitoring overlay checks (early loss, pivot,
             ADX stale, VWAP, momentum) — those default to 5Min/5m regardless of
             entry timeframe, which is the intentional hybrid design documented in
@@ -961,7 +964,11 @@ class PositionMonitor:
                         f"recording close @ ${fill_price:.4f} (via {fill_source})"
                     )
                     self._db.set_state(f"momentum_ext_{trade_id}", 0)
-                    self._attempt_close(trade, fill_price, "broker_closed_sl_tp")
+                    # Use _record_close_in_db, NOT _attempt_close.
+                    # The position is already gone from Kraken — submitting another
+                    # close order via executor.close_trade() would fail and loop
+                    # into the STUCK retry.  Record directly in DB instead.
+                    self._record_close_in_db(trade, fill_price, "broker_closed_sl_tp")
                     return
             except Exception as _rec_err:
                 logger.debug(f"Reconciliation check error for {symbol}: {_rec_err}")

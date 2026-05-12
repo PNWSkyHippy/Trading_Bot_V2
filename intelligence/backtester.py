@@ -5,7 +5,7 @@
   real money.  Uses yfinance for free OHLCV history.
 
   Timeframe support:
-    5m   — up to 60 days   (best for Scalp Master, RSI)
+    5m   — up to 30 days   (best for Scalp Master, RSI)
     1h   — up to 730 days  (best for Swing, EMA, Bollinger)
     1d   — up to 3650 days (long-term trend view)
 
@@ -61,7 +61,8 @@ logger = logging.getLogger(__name__)
 # Timeframe configuration
 # ---------------------------------------------------------------------------
 TF_CONFIG = {
-    "5m":  {"interval": "5m",  "max_days": 30,   "bars_per_day": 78,  "annualise": 252 * 78},
+    "5m":  {"interval": "5m",  "max_days": 58,   "bars_per_day": 78,  "annualise": 252 * 78},
+    "15m": {"interval": "15m", "max_days": 59,   "bars_per_day": 96,  "annualise": 252 * 96}, 
     "1h":  {"interval": "1h",  "max_days": 729,  "bars_per_day": 7,   "annualise": 252 * 7},
     "1d":  {"interval": "1d",  "max_days": 3650, "bars_per_day": 1,   "annualise": 252},
 }
@@ -98,6 +99,12 @@ class BacktestTrade:
     strategy_name:  str = "default"
     stop_mode:      str = "standard"   # 'standard' or 'two_bar'
     fees:           float = 0.0        # round-trip friction cost for this trade
+    # ── adaptive_regime metadata (blank for all other strategies) ──────
+    entry_mode:  str   = ""    # "trend" | "mean_rev" | ""
+    regime:      str   = ""    # regime label from signal metadata
+    entry_rsi:   float = 0.0
+    entry_adx:   float = 0.0
+    entry_atr:   float = 0.0
 
 
 @dataclass
@@ -134,12 +141,15 @@ class BacktestResult:
     largest_win:      float
     largest_loss:     float
     avg_bars_held:    float
-    stop_mode:        str = "standard"   # 'standard' or 'two_bar'
-    fees_paid:        float = 0.0        # total round-trip friction deducted
-    commission_pct:   float = 0.0        # per-leg commission used
-    slippage_pct:     float = 0.0        # per-leg slippage used
-    trades:           List[BacktestTrade]  = field(default_factory=list)
-    equity_curve:     List[EquityPoint]    = field(default_factory=list)
+    stop_mode:         str   = "standard"  # 'standard' or 'two_bar'
+    two_bar_lookback:  int   = 2           # N used when stop_mode == 'two_bar'
+    fees_paid:         float = 0.0         # total round-trip friction deducted
+    commission_pct:    float = 0.0         # per-leg commission used
+    slippage_pct:      float = 0.0         # per-leg slippage used
+    initial_stop_mode: str   = "auto"      # "auto"|"percent"|"signal_structural"|"two_bar"
+    trail_mode:        str   = "auto"      # "auto"|"percent"|"two_bar"|"none"
+    trades:            List[BacktestTrade] = field(default_factory=list)
+    equity_curve:      List[EquityPoint]   = field(default_factory=list)
 
 
 # ===========================================================================
@@ -245,6 +255,126 @@ class TwoBarStop:
 
 
 # ===========================================================================
+# Backtester lifecycle-exit helpers
+# Mirror the exit stack in position_monitor so backtest and live diverge
+# as little as possible.  All functions are stateless and bar-index based.
+# ===========================================================================
+
+def _bt_eod_close(df: pd.DataFrame, bar_idx: int, asset_class: str) -> Optional[str]:
+    """
+    EOD close for stock positions.
+    Fires when bar timestamp >= 15:45 in whatever tz the index carries
+    (yfinance strips tz for US stocks, leaving naive ET timestamps).
+    Not applicable to crypto.
+    """
+    if asset_class != "stock":
+        return None
+    try:
+        ts = df.index[bar_idx]
+        if ts.hour > 15 or (ts.hour == 15 and ts.minute >= 45):
+            return "eod_close"
+    except Exception:
+        pass
+    return None
+
+
+def _bt_pivot_break(df: pd.DataFrame, bar_idx: int,
+                    trade: Dict, pivot_bars: int = 20) -> Optional[str]:
+    """
+    Pivot-point structure break exit — mirrors position_monitor._check_pivot_break().
+    Uses prior `pivot_bars` bars to compute classic floor-trader pivots.
+    Long: close breaks below S1 → structure failed.
+    Short: close breaks above R1 → structure failed.
+    """
+    if bar_idx < pivot_bars:
+        return None
+    try:
+        window = df.iloc[max(0, bar_idx - pivot_bars): bar_idx]
+        h  = float(window["high"].max())
+        l  = float(window["low"].min())
+        c  = float(window["close"].iloc[-1])
+        pp = (h + l + c) / 3
+        s1 = 2 * pp - h
+        r1 = 2 * pp - l
+        price = float(df.iloc[bar_idx]["close"])
+        if trade["direction"] == "long"  and price < s1:
+            return "pivot_break"
+        if trade["direction"] == "short" and price > r1:
+            return "pivot_break"
+    except Exception:
+        pass
+    return None
+
+
+def _bt_stale_adx(df: pd.DataFrame, bar_idx: int,
+                  trade: Dict) -> Optional[str]:
+    """
+    Stale-trend exit — mirrors position_monitor._check_stale_adx().
+    If ADX has fallen below 25 the trend has likely ended; adverse DI
+    cross triggers even sooner.
+    """
+    try:
+        import pandas_ta as _ta
+        window = df.iloc[max(0, bar_idx - 50): bar_idx + 1]
+        if len(window) < 20:
+            return None
+        adx_df = _ta.adx(
+            window["high"].astype(float),
+            window["low"].astype(float),
+            window["close"].astype(float),
+            length=14,
+        )
+        if adx_df is None or adx_df.empty:
+            return None
+        adx_col = [c for c in adx_df.columns if c.startswith("ADX_")]
+        dmp_col = [c for c in adx_df.columns if c.startswith("DMP_")]
+        dmn_col = [c for c in adx_df.columns if c.startswith("DMN_")]
+        if not (adx_col and dmp_col and dmn_col):
+            return None
+        adx_v = float(adx_df[adx_col[0]].iloc[-1])
+        dmp_v = float(adx_df[dmp_col[0]].iloc[-1])
+        dmn_v = float(adx_df[dmn_col[0]].iloc[-1])
+        if adx_v < 25.0:           # ADX_STALE_THRESHOLD
+            return "stale_adx"
+        if trade["direction"] == "long"  and dmn_v > dmp_v:
+            return "stale_di_cross"
+        if trade["direction"] == "short" and dmp_v > dmn_v:
+            return "stale_di_cross"
+    except Exception:
+        pass
+    return None
+
+
+def _bt_orb_vwap(df: pd.DataFrame, bar_idx: int, trade: Dict) -> Optional[str]:
+    """
+    ORB VWAP cross exit — mirrors position_monitor._check_orb_vwap_exit().
+    VWAP computed from the most recent ~78 bars (~one 5m session).
+    Long: close crosses below VWAP → exit.
+    Short: close crosses above VWAP → exit.
+    """
+    try:
+        window  = df.iloc[max(0, bar_idx - 78): bar_idx + 1]
+        if len(window) < 5:
+            return None
+        typ     = ((window["high"].astype(float) +
+                    window["low"].astype(float) +
+                    window["close"].astype(float)) / 3)
+        vol     = window["volume"].astype(float)
+        vol_sum = float(vol.sum())
+        if vol_sum <= 0:
+            return None
+        vwap    = float((typ * vol).sum() / vol_sum)
+        price   = float(df.iloc[bar_idx]["close"])
+        if trade["direction"] == "long"  and price < vwap:
+            return "vwap_cross"
+        if trade["direction"] == "short" and price > vwap:
+            return "vwap_cross"
+    except Exception:
+        pass
+    return None
+
+
+# ===========================================================================
 # Main Backtester
 # ===========================================================================
 
@@ -290,7 +420,7 @@ class Backtester:
         tf      = cfg["interval"]
         max_d   = cfg["max_days"]
         days    = min(days, max_d)
-        fetch_days = days + 5
+        fetch_days = min(days + 5, max_d)
         end   = datetime.now()
         start = end - timedelta(days=fetch_days)
         logger.info(f"Fetching {days}d of {tf} data for {symbol}...")
@@ -326,7 +456,7 @@ class Backtester:
         tf     = cfg["interval"]
         max_d  = cfg["max_days"]
         days   = min(days, max_d)
-        fetch_days = days + 5
+        fetch_days = min(days + 5, max_d) 
         end   = datetime.now()
         start = end - timedelta(days=fetch_days)
         logger.info(f"Fetching {days}d of {tf} crypto data for {yf_symbol} via yfinance...")
@@ -374,16 +504,24 @@ class Backtester:
         bb_period  = config.SIGNAL_TUNING.get("bb_breakout_period",   20)
         bb_std     = config.SIGNAL_TUNING.get("bb_breakout_std",      2.0)
         try:
-            rsi       = self.ta.rsi(close, rsi_period).iloc[-1]
-            macd_df   = self.ta.macd(close)
-            macd_hist = macd_df["hist"].iloc[-1]
-            macd_prev = macd_df["hist"].iloc[-2] if len(macd_df) > 1 else 0
-            ema_f     = self.ta.ema(close, ema_fast).iloc[-1]
-            ema_s     = self.ta.ema(close, ema_slow).iloc[-1]
-            ema_t     = self.ta.ema(close, ema_trend).iloc[-1]
-            bb        = self.ta.bollinger_bands(close, bb_period, bb_std)
-            bb_pct    = bb["pct_b"].iloc[-1]
-            vol_ratio = self.ta.volume_ratio(volume).iloc[-1]
+            rsi = float(self.ta.rsi(close, rsi_period).iloc[-1])
+
+            # macd() returns (macd_line, signal_line, histogram) — unpack the tuple
+            _, _, _macd_hist_s = self.ta.macd(close)
+            macd_hist = float(_macd_hist_s.iloc[-1])
+            macd_prev = float(_macd_hist_s.iloc[-2]) if len(_macd_hist_s) > 1 else 0.0
+
+            ema_f = float(self.ta.ema(close, ema_fast).iloc[-1])
+            ema_s = float(self.ta.ema(close, ema_slow).iloc[-1])
+            ema_t = float(self.ta.ema(close, ema_trend).iloc[-1])
+
+            # bollinger_bands() returns (upper, lower, pct_b) — unpack the tuple
+            _, _, _pct_b_s = self.ta.bollinger_bands(close, bb_period, bb_std)
+            bb_pct = float(_pct_b_s.iloc[-1])
+
+            # TechnicalAnalysis has no volume_ratio() — compute inline
+            _vol_sma  = float(volume.rolling(20).mean().iloc[-1])
+            vol_ratio = float(volume.iloc[-1]) / _vol_sma if _vol_sma > 0 else 1.0
         except Exception:
             return "none", 0.0, {}
         ls = ss = 0.0
@@ -453,26 +591,47 @@ class Backtester:
     def _check_exit_standard(self, trade: Dict, row: pd.Series,
                               trailing_gap_pct: float,
                               take_profit_pct:  float) -> Optional[str]:
-        """Standard fixed % stop with trailing. Uses intrabar low/high for stop check."""
+        """
+        Standard fixed % stop with symmetric trailing for both directions.
+
+        Stop checks use intrabar low/high so a wick that touches the stop
+        registers even when the bar closes beyond it.  TP also uses intrabar
+        high/low for the same reason (parity with live fill logic).
+
+        Same-bar conflict rule: when both SL and TP are hit on the same bar
+        the stop wins (conservative — avoids crediting the full TP gain when
+        the price also visited the stop level intrabar).
+        """
         d     = trade["direction"]
         sl    = trade["current_sl"]
         tp    = trade["current_tp"]
         low   = float(row["low"])
         high  = float(row["high"])
         price = float(row["close"])
+
         if d == "long":
-            if low <= sl:
+            sl_hit = low  <= sl
+            tp_hit = high >= tp
+            if sl_hit:                    # stop wins on same-bar conflict
                 return "stop_loss"
-            if price >= tp:
+            if tp_hit:
                 return "take_profit"
+            # Trail: advance stop only if it raises the floor
             new_sl = price * (1 - trailing_gap_pct)
             if new_sl > sl:
                 trade["current_sl"] = new_sl
         else:
-            if high >= sl:
+            sl_hit = high >= sl
+            tp_hit = low  <= tp
+            if sl_hit:                    # stop wins on same-bar conflict
                 return "stop_loss"
-            if price <= tp:
+            if tp_hit:
                 return "take_profit"
+            # Trail: advance stop only if it lowers the ceiling
+            new_sl = price * (1 + trailing_gap_pct)
+            if new_sl < sl:
+                trade["current_sl"] = new_sl
+
         return None
 
     def _check_exit_two_bar(self, trade: Dict, df: pd.DataFrame,
@@ -501,11 +660,16 @@ class Backtester:
         if new_stop != trade["current_sl"]:
             trade["current_sl"] = new_stop
 
-        # Step 3: Take profit check (uses close price)
-        tp = trade["current_tp"]
-        if direction == "long" and price >= tp:
+        # Step 3: Take profit — intrabar high/low for parity with stop check.
+        # Same-bar conflict is already resolved: if the stop was hit in step 1
+        # we already returned "stop_loss", so reaching here means the stop was
+        # NOT hit — we can safely credit the TP without double-counting.
+        tp   = trade["current_tp"]
+        low  = float(df.iloc[bar_idx]["low"])
+        high = float(df.iloc[bar_idx]["high"])
+        if direction == "long"  and high >= tp:
             return "take_profit"
-        if direction == "short" and price <= tp:
+        if direction == "short" and low  <= tp:
             return "take_profit"
 
         return None
@@ -552,6 +716,13 @@ class Backtester:
             strategy_name  = strategy_name,
             stop_mode      = stop_mode,
         )
+        # Populate adaptive_regime metadata fields if present
+        _meta = trade.get("entry_metadata", {})
+        bt_trade.entry_mode = str(_meta.get("adaptive_exit_mode", "") or "")
+        bt_trade.regime     = str(_meta.get("regime",             "") or "")
+        bt_trade.entry_rsi  = float(_meta.get("rsi", 0.0) or 0.0)
+        bt_trade.entry_adx  = float(_meta.get("adx", 0.0) or 0.0)
+        bt_trade.entry_atr  = float(_meta.get("atr", 0.0) or 0.0)
         return pnl, bt_trade
 
     # -----------------------------------------------------------------------
@@ -567,12 +738,18 @@ class Backtester:
                   two_bar_lookback: int = 2,
                   asset_class: str = "stock",
                   commission_pct: float = None,
-                  slippage_pct:   float = None) -> BacktestResult:
+                  slippage_pct:   float = None,
+                  initial_stop_mode: str = "auto",
+                  trail_mode:        str = "auto",
+                  entry_mode_filter: str = "all",
+                  entry_side_filter: str = "all") -> BacktestResult:
         """
         commission_pct / slippage_pct: per-leg friction (%).
         None → use config defaults for the asset class.
         Pass 0.0 for both to reproduce friction-free (optimistic) results.
         """
+ 
+
         cfg              = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
         annualise_factor = cfg["annualise"]
 
@@ -589,8 +766,32 @@ class Backtester:
         # Total per-leg friction; round-trip = 2 × this value
         friction_per_leg = (commission_pct + slippage_pct) / 100.0
 
-        # Initialise the 2-bar stop engine if needed
-        two_bar_engine = TwoBarStop(two_bar_lookback) if stop_mode == STOP_TWO_BAR else None
+        # ── Stop mode resolution ─────────────────────────────────────────────
+        # `initial_stop_mode` and `trail_mode` decouple initial stop selection
+        # from trailing behaviour.  "auto" preserves legacy stop_mode semantics.
+        #
+        #   initial_stop_mode:
+        #     "auto"               → two_bar if stop_mode==two_bar, else percent_or_structural
+        #     "percent"            → fixed % always (ignore structural_stop_price)
+        #     "signal_structural"  → ATR-structural from signal metadata, % fallback
+        #     "two_bar"            → N-bar structural initial stop
+        #     "percent_or_structural" → legacy: use structural if present, else %
+        #
+        #   trail_mode:
+        #     "auto"    → two_bar if stop_mode==two_bar, else percent
+        #     "percent" → trailing % ratchet
+        #     "two_bar" → N-bar trailing stop engine
+        #     "none"    → no trail (SL stays at initial level)
+        _initial = (
+            "two_bar" if stop_mode == STOP_TWO_BAR else "percent_or_structural"
+        ) if initial_stop_mode == "auto" else initial_stop_mode
+
+        _trail = (
+            "two_bar" if stop_mode == STOP_TWO_BAR else "percent"
+        ) if trail_mode == "auto" else trail_mode
+
+        _need_two_bar  = (_initial == "two_bar" or _trail == "two_bar")
+        two_bar_engine = TwoBarStop(two_bar_lookback) if _need_two_bar else None
 
         capital            = starting_capital
         total_fees_paid    = 0.0
@@ -615,11 +816,38 @@ class Backtester:
         last_date          = None
         peak_equity        = starting_capital
         min_bars           = min(120, max(20, len(df) // 4))
+       
+        # ── Lifecycle exit thresholds ─────────────────────────────────────────
+        # Map live position_monitor second-based constants to bar counts so the
+        # backtester fires the same exits at approximately the same elapsed time.
+        # Daily bars (bars_per_hour == 0) skip time stops — day-trade logic n/a.
+        _BPH = {"5m": 12, "15m": 4, "1h": 1, "1d": 0} 
+        bph = _BPH.get(timeframe, 1)
+        time_stops_on = bph > 0
+        EARLY_LOSS_BARS = max(1, round(0.5 * bph))   # 30 min
+        PERF_2HR_BARS   = max(1, round(2.0 * bph))   # 2 hr
+        PERF_5HR_BARS   = max(1, round(5.0 * bph))   # 5 hr
+        HARD_STOP_BARS  = max(1, round(8.0 * bph))   # 8 hr
+        STALE_ADX_BARS  = max(1, round(3.0 * bph))   # 3 hr (ADX staleness)
+
+        # Exact mirrors of position_monitor constant values
+        EARLY_LOSS_PCT   = -0.5   # EARLY_LOSS_MIN_PCT
+        PERF_2HR_PCT     =  0.2   # PERF_CHECK_2HR_MIN_PCT
+        PERF_5HR_PCT     =  1.0   # PERF_CHECK_5HR_MIN_PCT
+        # grid_bot and dca_accumulator are exempt from time stops in live —
+        # mirror that here so backtest results are comparable to live.
+        TIME_STOP_EXEMPT = frozenset({"grid_bot", "dca_accumulator"})
+
+        # ── Next-bar execution ────────────────────────────────────────────────
+        # Signal generated on bar i is executed at bar i+1 open.
+        # This eliminates the "signal and fill on the same close" lookahead bias.
+        pending_signal: Optional[Dict] = None
 
         for i in range(min_bars, len(df)):
             row          = df.iloc[i]
             current_date = str(df.index[i])[:10]
             price        = float(row["close"])
+            open_price   = float(row["open"])
 
             if current_date != last_date:
                 daily_pnl          = 0.0
@@ -627,31 +855,153 @@ class Backtester:
                 consecutive_losses = 0
                 last_date          = current_date
 
-            # --- Check exits on all open trades ---
+            # ── Step 0: Execute pending entry at this bar's OPEN ─────────────
+            # Signal was generated on the previous bar; entry is at this bar's
+            # open — realistic next-bar execution, no same-bar lookahead.
+            if (pending_signal is not None
+                    and not trading_halted
+                    and len(open_trades) < MAX_OPEN_POSITIONS):
+                _ps = pending_signal
+                pending_signal = None
+
+                entry_p    = open_price
+                already_in = any(t["symbol"] == symbol for t in open_trades)
+
+                if not already_in and entry_p > 0:
+                    pos_val  = capital * max_position_pct
+                    if pos_val >= 1.0:
+                        qty = pos_val / entry_p
+
+                        if _initial == "two_bar":
+                            _sl = two_bar_engine.initial_stop(df, i, _ps["direction"])
+                        else:
+                            # signal_structural always prefers the ATR-based stop;
+                            # percent_or_structural (legacy) also uses it when present;
+                            # percent ignores structural metadata entirely.
+                            _use_struct = _initial in ("signal_structural",
+                                                       "percent_or_structural")
+                            struct_sl   = (_ps["meta"].get("structural_stop_price")
+                                           if _use_struct else None)
+                            if struct_sl and struct_sl > 0:
+                                if _ps["direction"] == "long"  and struct_sl < entry_p:
+                                    _sl = struct_sl
+                                elif _ps["direction"] == "short" and struct_sl > entry_p:
+                                    _sl = struct_sl
+                                else:
+                                    _sl = (entry_p * (1 - _ps["sl_pct"])
+                                           if _ps["direction"] == "long"
+                                           else entry_p * (1 + _ps["sl_pct"]))
+                            else:
+                                _sl = (entry_p * (1 - _ps["sl_pct"])
+                                       if _ps["direction"] == "long"
+                                       else entry_p * (1 + _ps["sl_pct"]))
+                        _tp = (entry_p * (1 + _ps["tp_pct"])
+                               if _ps["direction"] == "long"
+                               else entry_p * (1 - _ps["tp_pct"]))
+
+                        open_trades.append({
+                            "symbol":         symbol,
+                            "direction":      _ps["direction"],
+                            "entry_idx":      i,
+                            "entry_date":     str(df.index[i]),   # execution bar
+                            "entry_price":    entry_p,
+                            "quantity":       qty,
+                            "position_value": pos_val,
+                            "stop_loss":      _sl,
+                            "take_profit":    _tp,
+                            "signal_score":   _ps["score"],
+                            "current_sl":     _sl,
+                            "current_tp":     _tp,
+                            "entry_metadata": _ps["meta"],
+                        })
+            else:
+                pending_signal = None   # discard: halted or max positions
+
+            # ── Step 1: Check exits on all open trades ────────────────────────
             still_open = []
             for trade in open_trades:
+                exit_reason = None
 
-                if stop_mode == STOP_TWO_BAR:
-                    exit_reason = self._check_exit_two_bar(
-                        trade, df, i, default_tp_pct, two_bar_engine
-                    )
-                else:
-                    exit_reason = self._check_exit_standard(
-                        trade, row, trailing_gap_pct, default_tp_pct
-                    )
+                # 1a. EOD close — stocks only, mirrors live exit-priority rank 2
+                if exit_reason is None:
+                    exit_reason = _bt_eod_close(df, i, asset_class)
 
-                # ── Strategy-specific exit hook ───────────────────────────
-                # Fires AFTER standard SL/TP so the stop remains a hard gate.
-                # Only strategies that override check_custom_exit() are affected
-                # (all others return None from the BaseStrategy stub).
+                # 1b. Standard SL / TP or two-bar trailing stop
+                if exit_reason is None:
+                    if _trail == "two_bar":
+                        exit_reason = self._check_exit_two_bar(
+                            trade, df, i, default_tp_pct, two_bar_engine
+                        )
+                    else:
+                        exit_reason = self._check_exit_standard(
+                            trade, row, trailing_gap_pct, default_tp_pct
+                        )
+
+                # 1c. Strategy-specific exit hook (adaptive_regime EMA/BB/RSI,
+                #     all other strategies return None from BaseStrategy stub).
                 if exit_reason is None and strategy_obj is not None:
-                    window = df.iloc[max(0, i - 150): i + 1]
+                    _win = df.iloc[max(0, i - 150): i + 1]
                     exit_reason = strategy_obj.check_custom_exit(
-                        trade["symbol"],
-                        window,
+                        trade["symbol"], _win,
                         trade["direction"],
                         trade.get("entry_metadata", {}),
                     )
+
+                # 1d. ORB VWAP cross exit (ORB strategy only)
+                if exit_reason is None and strategy_name == "orb_breakout":
+                    exit_reason = _bt_orb_vwap(df, i, trade)
+
+                # ── Lifecycle exits: compute shared values once ───────────────
+                _bars_held = i - trade["entry_idx"]
+                _ep        = trade["entry_price"]
+                if _ep and _ep > 0:
+                    _pnl_pct = (
+                        (price - _ep) / _ep * 100 if trade["direction"] == "long"
+                        else (_ep - price) / _ep * 100
+                    )
+                else:
+                    _pnl_pct = 0.0
+
+                _time_exempt = strategy_name in TIME_STOP_EXEMPT
+
+                # 1e. Early loss (30 min, -0.5%) — exempt strategies skip
+                if (exit_reason is None and time_stops_on
+                        and not _time_exempt
+                        and _bars_held >= EARLY_LOSS_BARS
+                        and _pnl_pct < EARLY_LOSS_PCT):
+                    exit_reason = "early_loss"
+
+                # 1f. Performance time stop 1 (2hr, < 0.2%)
+                if (exit_reason is None and time_stops_on
+                        and not _time_exempt
+                        and _bars_held >= PERF_2HR_BARS
+                        and _pnl_pct < PERF_2HR_PCT):
+                    exit_reason = "perf_time_stop_1hr"   # DB-compat reason code
+
+                # 1g. Performance time stop 2 (5hr, < 1.0%)
+                if (exit_reason is None and time_stops_on
+                        and not _time_exempt
+                        and _bars_held >= PERF_5HR_BARS
+                        and _pnl_pct < PERF_5HR_PCT):
+                    exit_reason = "perf_time_stop_3hr"   # DB-compat reason code
+
+                # 1h. Hard time stop (8hr — grid_bot / dca_accumulator EXEMPT)
+                if (exit_reason is None and time_stops_on
+                        and strategy_name not in TIME_STOP_EXEMPT
+                        and _bars_held >= HARD_STOP_BARS):
+                    exit_reason = "hard_time_stop"
+
+                # 1i. Pivot point break (structure failure)
+                if exit_reason is None:
+                    exit_reason = _bt_pivot_break(df, i, trade)
+
+                # 1j. Stale ADX/DI exit (fires after 3hr of holding)
+                # Skip on large datasets (>2000 bars) — pandas_ta ADX
+                # computed every bar is too slow for long 15m/1h runs.
+                if (exit_reason is None and time_stops_on
+                        and _bars_held >= STALE_ADX_BARS
+                        and len(df) < 2000):
+                    exit_reason = _bt_stale_adx(df, i, trade)
 
                 if exit_reason:
                     pnl, bt_trade = self._close_trade(
@@ -660,11 +1010,11 @@ class Backtester:
                     )
                     # Deduct round-trip friction (entry leg + exit leg).
                     # Applied to position_value so cost scales with trade size.
-                    round_trip_cost = bt_trade.position_value * friction_per_leg * 2
-                    pnl            -= round_trip_cost
+                    round_trip_cost  = bt_trade.position_value * friction_per_leg * 2
+                    pnl             -= round_trip_cost
                     total_fees_paid += round_trip_cost
-                    bt_trade.fees   = round(round_trip_cost, 4)
-                    bt_trade.pnl    = round(pnl, 4)
+                    bt_trade.fees    = round(round_trip_cost, 4)
+                    bt_trade.pnl     = round(pnl, 4)
                     bt_trade.pnl_pct = round(
                         pnl / bt_trade.position_value * 100
                         if bt_trade.position_value else 0, 2
@@ -684,7 +1034,7 @@ class Backtester:
                     still_open.append(trade)
             open_trades = still_open
 
-            # --- Mark-to-market equity ---
+            # ── Step 2: Mark-to-market equity ────────────────────────────────
             mtm_capital = capital
             for trade in open_trades:
                 d   = trade["direction"]
@@ -714,16 +1064,20 @@ class Backtester:
                 daily_ret  = round(bar_ret, 4),
             ))
 
+            # ── Step 3: Signal generation → queue for NEXT bar entry ─────────
             if trading_halted or len(open_trades) >= MAX_OPEN_POSITIONS:
                 continue
 
-            # --- Signal generation ---
+            # Don't queue if this is the last bar (no next bar to execute on)
+            if i >= len(df) - 1:
+                continue
+
             signal_direction = "none"
             signal_score     = 0.0
             sl_pct           = default_sl_pct
             tp_pct           = default_tp_pct
-
             signal_meta: dict = {}
+
             if strategy_obj is not None:
                 window = df.iloc[max(0, i - 150): i + 1].copy()
                 try:
@@ -744,64 +1098,32 @@ class Backtester:
             if signal_direction == "none":
                 continue
 
-            already_in = any(
-                t["symbol"] == symbol and t["direction"] == signal_direction
-                for t in open_trades
-            )
+            # Block re-entry in EITHER direction while a position is open.
+            # Same check fires again at execution time (trade may have closed).
+            already_in = any(t["symbol"] == symbol for t in open_trades)
             if already_in:
                 continue
 
-            position_value = capital * max_position_pct
-            if position_value < 1.0 or price <= 0:
+            # ── Mode filter (adaptive_regime --mode trend|mean_rev) ──────────
+            # Filters on the adaptive_exit_mode key in signal metadata.
+            # Non-adaptive strategies always pass (their metadata won't have the key).
+            if entry_mode_filter != "all":
+                _sig_mode = signal_meta.get("adaptive_exit_mode", "")
+                if _sig_mode != entry_mode_filter:
+                    continue
+
+            # ── Side filter (--side long|short) ──────────────────────────────
+            if entry_side_filter != "all" and signal_direction != entry_side_filter:
                 continue
-            quantity = position_value / price
 
-            # --- Calculate initial stop & take profit ---
-            if stop_mode == STOP_TWO_BAR:
-                # Initial stop from 2-bar engine (structure-based)
-                sl = two_bar_engine.initial_stop(df, i, signal_direction)
-                # Take profit: use fixed % from strategy
-                if signal_direction == "long":
-                    tp = price * (1 + tp_pct)
-                else:
-                    tp = price * (1 - tp_pct)
-            else:
-                # Prefer structural_stop_price from signal metadata when present.
-                # Strategies like adaptive_regime embed an ATR-based absolute stop
-                # price instead of a percentage. Using it here means the simulation
-                # matches the live bot's behaviour exactly.
-                structural_stop = signal_meta.get("structural_stop_price")
-                if structural_stop and structural_stop > 0:
-                    if signal_direction == "long" and structural_stop < price:
-                        sl = structural_stop
-                    elif signal_direction == "short" and structural_stop > price:
-                        sl = structural_stop
-                    else:
-                        # structural_stop is on the wrong side — fall back to %
-                        sl = (price * (1 - sl_pct) if signal_direction == "long"
-                              else price * (1 + sl_pct))
-                else:
-                    sl = (price * (1 - sl_pct) if signal_direction == "long"
-                          else price * (1 + sl_pct))
-
-                tp = (price * (1 + tp_pct) if signal_direction == "long"
-                      else price * (1 - tp_pct))
-
-            open_trades.append({
-                "symbol":         symbol,
-                "direction":      signal_direction,
-                "entry_idx":      i,
-                "entry_date":     str(df.index[i]),
-                "entry_price":    price,
-                "quantity":       quantity,
-                "position_value": position_value,
-                "stop_loss":      sl,
-                "take_profit":    tp,
-                "signal_score":   signal_score,
-                "current_sl":     sl,
-                "current_tp":     tp,
-                "entry_metadata": signal_meta,   # strategy exit hook reads this
-            })
+            # Queue signal — will execute at bar i+1 open
+            pending_signal = {
+                "direction": signal_direction,
+                "score":     signal_score,
+                "sl_pct":    sl_pct,
+                "tp_pct":    tp_pct,
+                "meta":      signal_meta,
+            }
 
         # --- Close any remaining open trades at end of data ---
         final_price = float(df.iloc[-1]["close"])
@@ -827,9 +1149,12 @@ class Backtester:
             starting_capital, capital,
             strategy_name, timeframe, annualise_factor,
             stop_mode,
-            fees_paid      = round(total_fees_paid, 2),
-            commission_pct = commission_pct,
-            slippage_pct   = slippage_pct,
+            two_bar_lookback   = two_bar_lookback,
+            fees_paid          = round(total_fees_paid, 2),
+            commission_pct     = commission_pct,
+            slippage_pct       = slippage_pct,
+            initial_stop_mode  = _initial,
+            trail_mode         = _trail,
         )
 
     # -----------------------------------------------------------------------
@@ -843,7 +1168,11 @@ class Backtester:
             stop_mode: str = STOP_STANDARD,
             two_bar_lookback: int = 2,
             commission_pct: float = None,
-            slippage_pct:   float = None) -> Optional[BacktestResult]:
+            slippage_pct:   float = None,
+            initial_stop_mode: str = "auto",
+            trail_mode:        str = "auto",
+            entry_mode_filter: str = "all",
+            entry_side_filter: str = "all") -> Optional[BacktestResult]:
         capital = starting_capital or self.starting_capital
         if asset_class == "crypto":
             df = self.fetch_history_crypto(symbol, days, timeframe)
@@ -855,7 +1184,11 @@ class Backtester:
                               stop_mode, two_bar_lookback,
                               asset_class=asset_class,
                               commission_pct=commission_pct,
-                              slippage_pct=slippage_pct)
+                              slippage_pct=slippage_pct,
+                              initial_stop_mode=initial_stop_mode,
+                              trail_mode=trail_mode,
+                              entry_mode_filter=entry_mode_filter,
+                              entry_side_filter=entry_side_filter)
 
     def run_strategy(self, symbol: str, strategy_name: str,
                      days: int = 365,
@@ -865,7 +1198,11 @@ class Backtester:
                      stop_mode: str = STOP_STANDARD,
                      two_bar_lookback: int = 2,
                      commission_pct: float = None,
-                     slippage_pct:   float = None) -> Optional[BacktestResult]:
+                     slippage_pct:   float = None,
+                     initial_stop_mode: str = "auto",
+                     trail_mode:        str = "auto",
+                     entry_mode_filter: str = "all",
+                     entry_side_filter: str = "all") -> Optional[BacktestResult]:
         capital = starting_capital or self.starting_capital
         if asset_class == "crypto":
             df = self.fetch_history_crypto(symbol, days, timeframe)
@@ -887,6 +1224,10 @@ class Backtester:
             asset_class=asset_class,
             commission_pct=commission_pct,
             slippage_pct=slippage_pct,
+            initial_stop_mode=initial_stop_mode,
+            trail_mode=trail_mode,
+            entry_mode_filter=entry_mode_filter,
+            entry_side_filter=entry_side_filter,
         )
 
     def run_all(self, symbols: List[str], strategy_name: str = None,
@@ -896,7 +1237,11 @@ class Backtester:
                 stop_mode: str = STOP_STANDARD,
                 two_bar_lookback: int = 2,
                 commission_pct: float = None,
-                slippage_pct:   float = None) -> List[BacktestResult]:
+                slippage_pct:   float = None,
+                initial_stop_mode: str = "auto",
+                trail_mode:        str = "auto",
+                entry_mode_filter: str = "all",
+                entry_side_filter: str = "all") -> List[BacktestResult]:
         results = []
         for sym in symbols:
             if strategy_name:
@@ -904,12 +1249,20 @@ class Backtester:
                                       starting_capital, timeframe, asset_class,
                                       stop_mode, two_bar_lookback,
                                       commission_pct=commission_pct,
-                                      slippage_pct=slippage_pct)
+                                      slippage_pct=slippage_pct,
+                                      initial_stop_mode=initial_stop_mode,
+                                      trail_mode=trail_mode,
+                                      entry_mode_filter=entry_mode_filter,
+                                      entry_side_filter=entry_side_filter)
             else:
                 r = self.run(sym, days, starting_capital, timeframe, asset_class,
                              stop_mode, two_bar_lookback,
                              commission_pct=commission_pct,
-                             slippage_pct=slippage_pct)
+                             slippage_pct=slippage_pct,
+                             initial_stop_mode=initial_stop_mode,
+                             trail_mode=trail_mode,
+                             entry_mode_filter=entry_mode_filter,
+                             entry_side_filter=entry_side_filter)
             if r:
                 results.append(r)
         return results
@@ -923,9 +1276,12 @@ class Backtester:
                           strategy_name, timeframe,
                           annualise_factor,
                           stop_mode: str = STOP_STANDARD,
+                          two_bar_lookback: int = 2,
                           fees_paid: float = 0.0,
                           commission_pct: float = 0.0,
-                          slippage_pct:   float = 0.0) -> BacktestResult:
+                          slippage_pct:   float = 0.0,
+                          initial_stop_mode: str = "auto",
+                          trail_mode:        str = "auto") -> BacktestResult:
         wins   = [t for t in trades if t.pnl > 0]
         losses = [t for t in trades if t.pnl <= 0]
         win_rate   = len(wins) / len(trades) * 100 if trades else 0.0
@@ -979,12 +1335,15 @@ class Backtester:
             largest_win      = round(max((t.pnl for t in wins),   default=0), 2),
             largest_loss     = round(min((t.pnl for t in losses), default=0), 2),
             avg_bars_held    = round(avg_bars, 1),
-            stop_mode        = stop_mode,
-            fees_paid        = fees_paid,
-            commission_pct   = commission_pct,
-            slippage_pct     = slippage_pct,
-            trades           = trades,
-            equity_curve     = equity_curve,
+            stop_mode          = stop_mode,
+            two_bar_lookback   = two_bar_lookback,
+            fees_paid          = fees_paid,
+            commission_pct     = commission_pct,
+            slippage_pct       = slippage_pct,
+            initial_stop_mode  = initial_stop_mode,
+            trail_mode         = trail_mode,
+            trades             = trades,
+            equity_curve       = equity_curve,
         )
 
     # -----------------------------------------------------------------------
@@ -995,11 +1354,30 @@ class Backtester:
         w = 62
         sep = "=" * w
         thin = "-" * w
-        stop_label = (
-            f"2-Bar Trailing (N={result.stop_mode.split('_')[-1]})"
-            if result.stop_mode == STOP_TWO_BAR
-            else "Standard Fixed %"
-        )
+        # Build stop label — show initial + trail separately when decoupled
+        _init_m  = getattr(result, "initial_stop_mode", "auto")
+        _trail_m = getattr(result, "trail_mode",        "auto")
+        _decoupled = (_init_m  not in ("auto", "percent_or_structural") or
+                      _trail_m not in ("auto",))
+        if _decoupled:
+            _init_str = {
+                "signal_structural":     "signal-ATR",
+                "two_bar":               f"2-bar(N={result.two_bar_lookback})",
+                "percent":               "fixed-%",
+                "percent_or_structural": "fixed-% / struct",
+                "auto":                  "auto",
+            }.get(_init_m, _init_m)
+            _trail_str = {
+                "two_bar": f"2-bar(N={result.two_bar_lookback})",
+                "percent": "% trail",
+                "none":    "no trail",
+                "auto":    "auto",
+            }.get(_trail_m, _trail_m)
+            stop_label = f"Initial: {_init_str}  |  Trail: {_trail_str}"
+        elif result.stop_mode == STOP_TWO_BAR:
+            stop_label = f"2-Bar Trailing (N={result.two_bar_lookback})"
+        else:
+            stop_label = "Standard Fixed %"
         friction_per_leg  = result.commission_pct + result.slippage_pct
         friction_rt       = friction_per_leg * 2
         friction_free     = friction_rt == 0.0
@@ -1045,6 +1423,17 @@ class Backtester:
                     and result.max_drawdown_pct > -25)
         status = "OK  STRATEGY APPROVED" if approved else "WARN  STRATEGY NEEDS TUNING"
         print(f"\n  {status}")
+
+        # ── Low-sample warning ────────────────────────────────────────────────
+        if result.total_trades < 10:
+            print(f"\n  !!  LOW SAMPLE -- only {result.total_trades} trade(s).  "
+                  f"Results are not statistically reliable.")
+
+        # ── Mode / side / exit-reason breakdown ──────────────────────────────
+        _has_mode = any(getattr(t, "entry_mode", "") for t in result.trades)
+        if _has_mode:
+            _print_mode_breakdown(result.trades, w)
+
         print(f"{sep}\n")
 
     def print_ascii_chart(self, result: BacktestResult, width: int = 60, height: int = 12):
@@ -1121,6 +1510,95 @@ class Backtester:
         plt.tight_layout(rect=[0, 0, 1, 0.96])
         plt.show()
 
+    def export_trades_csv(self, result: BacktestResult,
+                          path: str = None) -> str:
+        """Export every trade in result to CSV for manual analysis in Excel."""
+        import csv
+        if path is None:
+            path = (f"exports/backtest_{result.symbol}_{result.strategy_name}"
+                    f"_{result.timeframe}_{result.stop_mode}_trades.csv")
+        os.makedirs(os.path.dirname(path) if os.path.dirname(path) else ".", exist_ok=True)
+        _fields = [
+            "symbol", "strategy_name", "timeframe", "direction",
+            "entry_date", "exit_date", "bars_held",
+            "entry_price", "exit_price", "pnl", "pnl_pct", "fees",
+            "exit_reason", "signal_score",
+            "entry_mode", "regime", "entry_rsi", "entry_adx", "entry_atr",
+        ]
+        with open(path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=_fields)
+            writer.writeheader()
+            for t in result.trades:
+                writer.writerow({
+                    "symbol":        result.symbol,
+                    "strategy_name": t.strategy_name,
+                    "timeframe":     result.timeframe,
+                    "direction":     t.direction,
+                    "entry_date":    t.entry_date,
+                    "exit_date":     t.exit_date,
+                    "bars_held":     t.bars_held,
+                    "entry_price":   t.entry_price,
+                    "exit_price":    t.exit_price,
+                    "pnl":           t.pnl,
+                    "pnl_pct":       t.pnl_pct,
+                    "fees":          t.fees,
+                    "exit_reason":   t.exit_reason,
+                    "signal_score":  t.signal_score,
+                    "entry_mode":    getattr(t, "entry_mode", ""),
+                    "regime":        getattr(t, "regime",     ""),
+                    "entry_rsi":     getattr(t, "entry_rsi",  ""),
+                    "entry_adx":     getattr(t, "entry_adx",  ""),
+                    "entry_atr":     getattr(t, "entry_atr",  ""),
+                })
+        logger.info(f"Exported trades CSV -> {path}  ({len(result.trades)} trades)")
+        return path
+
+    def export_trades_csv_combined(self, results: List[BacktestResult],
+                                    path: str = None) -> str:
+        """Export all trades from multiple results into one combined CSV file."""
+        import csv
+        if path is None:
+            strategy = results[0].strategy_name if results else "unknown"
+            path = f"exports/backtest_all_{strategy}_trades.csv"
+        os.makedirs(os.path.dirname(path) if os.path.dirname(path) else ".", exist_ok=True)
+        _fields = [
+            "symbol", "strategy_name", "timeframe", "direction",
+            "entry_date", "exit_date", "bars_held",
+            "entry_price", "exit_price", "pnl", "pnl_pct", "fees",
+            "exit_reason", "signal_score",
+            "entry_mode", "regime", "entry_rsi", "entry_adx", "entry_atr",
+        ]
+        total = 0
+        with open(path, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=_fields)
+            writer.writeheader()
+            for result in results:
+                for t in result.trades:
+                    writer.writerow({
+                        "symbol":        result.symbol,
+                        "strategy_name": t.strategy_name,
+                        "timeframe":     result.timeframe,
+                        "direction":     t.direction,
+                        "entry_date":    t.entry_date,
+                        "exit_date":     t.exit_date,
+                        "bars_held":     t.bars_held,
+                        "entry_price":   t.entry_price,
+                        "exit_price":    t.exit_price,
+                        "pnl":           t.pnl,
+                        "pnl_pct":       t.pnl_pct,
+                        "fees":          t.fees,
+                        "exit_reason":   t.exit_reason,
+                        "signal_score":  t.signal_score,
+                        "entry_mode":    getattr(t, "entry_mode", ""),
+                        "regime":        getattr(t, "regime",     ""),
+                        "entry_rsi":     getattr(t, "entry_rsi",  ""),
+                        "entry_adx":     getattr(t, "entry_adx",  ""),
+                        "entry_atr":     getattr(t, "entry_atr",  ""),
+                    })
+                    total += 1
+        logger.info(f"Exported combined trades CSV -> {path}  ({total} trades, {len(results)} symbols)")
+        return path
+
     def export_json(self, result: BacktestResult, path: str = None) -> str:
         import json
         step = max(1, len(result.equity_curve) // 500)
@@ -1167,6 +1645,79 @@ class Backtester:
 
 
 # ===========================================================================
+# Analytics helpers — mode / side / exit-reason breakdown
+# ===========================================================================
+
+def _trade_stats(subset: List[BacktestTrade]) -> Dict:
+    """Compute standard stats for any sub-list of trades."""
+    if not subset:
+        return {"n": 0, "wins": 0, "wr": 0.0, "pf": 0.0,
+                "pnl": 0.0, "avg_pct": 0.0}
+    wins       = [t for t in subset if t.pnl > 0]
+    losses     = [t for t in subset if t.pnl <= 0]
+    gross_win  = sum(t.pnl for t in wins)
+    gross_loss = abs(sum(t.pnl for t in losses))
+    return {
+        "n":       len(subset),
+        "wins":    len(wins),
+        "wr":      len(wins) / len(subset) * 100,
+        "pf":      (gross_win / gross_loss if gross_loss
+                    else (999.0 if gross_win > 0 else 0.0)),
+        "pnl":     sum(t.pnl for t in subset),
+        "avg_pct": float(np.mean([t.pnl_pct for t in subset])),
+    }
+
+
+def _fmt_stat_row(label: str, s: Dict, low_sample_n: int = 5) -> str:
+    if s["n"] == 0:
+        return f"    {label}: no trades"
+    warn   = "  !! LOW SAMPLE" if s["n"] < low_sample_n else ""
+    pf_str = f"{s['pf']:.2f}" if s["pf"] < 999 else "inf"
+    return (f"    {label}: {s['n']:>4} trades | WR {s['wr']:>5.1f}% | "
+            f"PF {pf_str:>5} | PnL ${s['pnl']:>+9.2f} | "
+            f"Avg {s['avg_pct']:>+6.2f}%{warn}")
+
+
+def _print_mode_breakdown(trades: List[BacktestTrade], width: int = 62):
+    """
+    Print per-mode, per-side, and exit-reason analytics for a trade list.
+    Called by print_report() and print_portfolio_summary().
+    Only prints the mode section when any trade has entry_mode populated.
+    """
+    thin = "-" * width
+
+    # ── Mode breakdown ────────────────────────────────────────────────────
+    trend_trades    = [t for t in trades if getattr(t, "entry_mode", "") == "trend"]
+    mean_rev_trades = [t for t in trades if getattr(t, "entry_mode", "") == "mean_rev"]
+    has_mode        = bool(trend_trades or mean_rev_trades)
+
+    if has_mode:
+        print(f"  {thin}")
+        print(f"  MODE BREAKDOWN")
+        print(_fmt_stat_row("trend   ", _trade_stats(trend_trades),    low_sample_n=5))
+        print(_fmt_stat_row("mean_rev", _trade_stats(mean_rev_trades),  low_sample_n=5))
+
+    # ── Side breakdown ────────────────────────────────────────────────────
+    longs  = [t for t in trades if t.direction == "long"]
+    shorts = [t for t in trades if t.direction == "short"]
+    print(f"  {thin}")
+    print(f"  SIDE BREAKDOWN")
+    print(_fmt_stat_row("long ", _trade_stats(longs),  low_sample_n=3))
+    print(_fmt_stat_row("short", _trade_stats(shorts), low_sample_n=3))
+
+    # ── Exit reason breakdown ─────────────────────────────────────────────
+    exit_pnls: Dict[str, list] = {}
+    for t in trades:
+        exit_pnls.setdefault(t.exit_reason, []).append(t.pnl_pct)
+
+    print(f"  {thin}")
+    print(f"  EXIT REASON BREAKDOWN")
+    for reason, pcts in sorted(exit_pnls.items(), key=lambda x: -len(x[1])):
+        avg_pct = float(np.mean(pcts))
+        print(f"    {reason:<34}: {len(pcts):>4} | avg {avg_pct:>+6.2f}%")
+
+
+# ===========================================================================
 # Portfolio summary
 # ===========================================================================
 
@@ -1174,7 +1725,7 @@ def print_portfolio_summary(results: List[BacktestResult]):
     if not results:
         return
     friction_free = all(r.commission_pct == 0 and r.slippage_pct == 0 for r in results)
-    print(f"\n{'='*62}")
+    print(f"\n{'='*72}")
     print(f"  ISOLATED SYMBOL RESULTS — {len(results)} symbol(s)")
     print(f"  NOTE: Each symbol ran with full starting capital independently.")
     print(f"        This is NOT a shared-capital portfolio simulation.")
@@ -1185,27 +1736,59 @@ def print_portfolio_summary(results: List[BacktestResult]):
         total_fees = sum(r.fees_paid for r in results)
         print(f"  FRICTION: applied — total fees across all symbols: ${total_fees:,.2f}")
     print(f"  {'Symbol':<8} {'Return':>8} {'WinRate':>8} {'PF':>6} "
-          f"{'MaxDD':>8} {'Sharpe':>7} {'Trades':>7} {'Stop':>10}")
-    print(f"  {'-'*65}")
+          f"{'MaxDD':>8} {'Sharpe':>7} {'Trades':>9} {'Stop':>10}")
+    print(f"  {'-'*72}")
     for r in sorted(results, key=lambda x: x.total_return_pct, reverse=True):
-        stop_label = "2-Bar" if r.stop_mode == STOP_TWO_BAR else "Std%"
+        stop_label  = "2-Bar" if r.stop_mode == STOP_TWO_BAR else "Std%"
+        sample_warn = " !!LOW" if r.total_trades < 10 else ""
         print(f"  {r.symbol:<8} {r.total_return_pct:>+7.1f}% "
               f"{r.win_rate:>7.1f}% {r.profit_factor:>6.2f} "
               f"{r.max_drawdown_pct:>7.1f}% {r.sharpe_ratio:>7.2f} "
-              f"{r.total_trades:>7} {stop_label:>10}")
+              f"{r.total_trades:>5}{sample_warn:<4} {stop_label:>10}")
+
+    all_rets = [r.total_return_pct for r in results]
+    all_wrs  = [r.win_rate         for r in results]
+    all_dds  = [r.max_drawdown_pct for r in results]
+    all_shs  = [r.sharpe_ratio     for r in results]
+    # Exclude inf profit-factor outliers from averages and medians
+    pf_vals  = [r.profit_factor for r in results if r.profit_factor < 999]
+
     avgs = {
-        "ret": np.mean([r.total_return_pct for r in results]),
-        "wr":  np.mean([r.win_rate         for r in results]),
-        "pf":  np.mean([r.profit_factor    for r in results]),
-        "dd":  np.mean([r.max_drawdown_pct for r in results]),
-        "sh":  np.mean([r.sharpe_ratio     for r in results]),
+        "ret": float(np.mean(all_rets)),
+        "wr":  float(np.mean(all_wrs)),
+        "pf":  float(np.mean(pf_vals)) if pf_vals else 0.0,
+        "dd":  float(np.mean(all_dds)),
+        "sh":  float(np.mean(all_shs)),
     }
-    print(f"  {'-'*65}")
+    meds = {
+        "ret": float(np.median(all_rets)),
+        "wr":  float(np.median(all_wrs)),
+        "pf":  float(np.median(pf_vals)) if pf_vals else 0.0,
+        "dd":  float(np.median(all_dds)),
+        "sh":  float(np.median(all_shs)),
+    }
+    print(f"  {'-'*72}")
     print(f"  {'AVG':<8} {avgs['ret']:>+7.1f}% "
           f"{avgs['wr']:>7.1f}% {avgs['pf']:>6.2f} "
-          f"{avgs['dd']:>7.1f}% {avgs['sh']:>7.2f}")
-    print(f"  (averages across isolated runs — not a blended portfolio metric)")
-    print(f"{'='*62}\n")
+          f"{avgs['dd']:>7.1f}% {avgs['sh']:>7.2f}   (mean — excl. inf PF)")
+    print(f"  {'MED':<8} {meds['ret']:>+7.1f}% "
+          f"{meds['wr']:>7.1f}% {meds['pf']:>6.2f} "
+          f"{meds['dd']:>7.1f}% {meds['sh']:>7.2f}   (median — not skewed by outliers)")
+    print(f"  !!LOW = fewer than 10 trades -- results unreliable")
+    print(f"{'='*72}")
+
+    # ── Adaptive regime aggregate breakdown ───────────────────────────────
+    all_trades = [t for r in results for t in r.trades]
+    has_mode   = any(getattr(t, "entry_mode", "") for t in all_trades)
+    if has_mode:
+        strategy_name = results[0].strategy_name if results else "adaptive_regime"
+        total_trades  = len(all_trades)
+        print(f"\n{'='*72}")
+        print(f"  {strategy_name.upper()} — AGGREGATE BREAKDOWN")
+        print(f"  {total_trades} total trades across {len(results)} symbol(s)")
+        _print_mode_breakdown(all_trades, width=72)
+        print(f"{'='*72}")
+    print()
 
 
 # ===========================================================================
@@ -1224,24 +1807,43 @@ if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
     parser = argparse.ArgumentParser(description="Backtest trading strategy")
-    parser.add_argument("--symbol",   default="AAPL")
-    parser.add_argument("--days",     type=int, default=180)
-    parser.add_argument("--capital",  type=float, default=10_000.0)
-    parser.add_argument("--tf",       default="1h", choices=["5m", "1h", "1d"])
-    parser.add_argument("--strategy", default=None)
-    parser.add_argument("--all",      action="store_true")
-    parser.add_argument("--chart",    action="store_true")
-    parser.add_argument("--ascii",    action="store_true")
-    parser.add_argument("--export",   action="store_true")
-    parser.add_argument("--stop",     default="standard",
+    parser.add_argument("--symbol",    default="AAPL")
+    parser.add_argument("--days",      type=int, default=180)
+    parser.add_argument("--capital",   type=float, default=10_000.0)
+    parser.add_argument("--tf", default="1h", choices=["5m", "15m", "1h", "1d"])
+    parser.add_argument("--strategy",  default=None)
+    parser.add_argument("--all",       action="store_true")
+    parser.add_argument("--chart",     action="store_true")
+    parser.add_argument("--ascii",     action="store_true")
+    parser.add_argument("--export",    action="store_true")
+    parser.add_argument("--stop",      default="standard",
                         choices=["standard", "two_bar"],
                         help="Stop loss mode: standard (fixed %%) or two_bar (N-bar trailing)")
-    parser.add_argument("--lookback", type=int, default=2,
+    parser.add_argument("--lookback",  type=int, default=2,
                         help="Lookback bars N for two_bar stop (default 2, range 1-20)")
     parser.add_argument("--asset-class", default="stock", choices=["stock", "crypto"],
                         help="Asset class — affects default friction assumptions")
-    parser.add_argument("--no-fees", action="store_true",
+    parser.add_argument("--no-fees",   action="store_true",
                         help="Run with zero commission and zero slippage (optimistic baseline)")
+    # ── Analytics / filtering ────────────────────────────────────────────
+    parser.add_argument("--mode",      default="all",
+                        choices=["all", "trend", "mean_rev"],
+                        help="Filter entries by adaptive_regime mode (all = no filter)")
+    parser.add_argument("--side",      default="all",
+                        choices=["all", "long", "short"],
+                        help="Filter entries by direction")
+    parser.add_argument("--export-trades", action="store_true",
+                        help="Export per-trade CSV after each backtest run")
+    # ── Stop architecture ────────────────────────────────────────────────
+    parser.add_argument("--initial-stop", default="auto",
+                        choices=["auto", "percent", "signal_structural", "two_bar"],
+                        help=("Initial stop source: auto=use --stop default | "
+                              "signal_structural=ATR stop from signal metadata | "
+                              "two_bar=N-bar structural | percent=fixed %%"))
+    parser.add_argument("--trail-stop",   default="auto",
+                        choices=["auto", "percent", "two_bar", "none"],
+                        help=("Trail engine: auto=use --stop default | "
+                              "two_bar=N-bar trail | percent=%% ratchet | none=no trail"))
     args = parser.parse_args()
 
     # Friction override: --no-fees forces both to 0.0
@@ -1251,18 +1853,25 @@ if __name__ == "__main__":
     backtester = Backtester(starting_capital=args.capital)
 
     if args.all:
-        symbols = config.STOCK_WATCHLIST[:15]
+        if args.asset_class == "crypto":
+            symbols = config.CRYPTO_WATCHLIST[:15]
+        else:
+            symbols = config.STOCK_WATCHLIST[:15]
         results = backtester.run_all(
             symbols,
-            strategy_name    = args.strategy,
-            days             = args.days,
-            starting_capital = args.capital,
-            timeframe        = args.tf,
-            asset_class      = args.asset_class,
-            stop_mode        = args.stop,
-            two_bar_lookback = args.lookback,
-            commission_pct   = _commission,
-            slippage_pct     = _slippage,
+            strategy_name     = args.strategy,
+            days              = args.days,
+            starting_capital  = args.capital,
+            timeframe         = args.tf,
+            asset_class       = args.asset_class,
+            stop_mode         = args.stop,
+            two_bar_lookback  = args.lookback,
+            commission_pct    = _commission,
+            slippage_pct      = _slippage,
+            initial_stop_mode = args.initial_stop,
+            trail_mode        = args.trail_stop,
+            entry_mode_filter = args.mode,
+            entry_side_filter = args.side,
         )
         for r in results:
             backtester.print_report(r)
@@ -1270,21 +1879,37 @@ if __name__ == "__main__":
                 backtester.print_ascii_chart(r)
             if args.export:
                 backtester.export_json(r)
+            if args.export_trades:
+                backtester.export_trades_csv(r)
         print_portfolio_summary(results)
+        if args.export_trades and results:
+            backtester.export_trades_csv_combined(results)
     else:
         if args.strategy:
             result = backtester.run_strategy(
                 args.symbol, args.strategy, args.days, args.capital, args.tf,
-                asset_class=args.asset_class,
-                stop_mode=args.stop, two_bar_lookback=args.lookback,
-                commission_pct=_commission, slippage_pct=_slippage,
+                asset_class       = args.asset_class,
+                stop_mode         = args.stop,
+                two_bar_lookback  = args.lookback,
+                commission_pct    = _commission,
+                slippage_pct      = _slippage,
+                initial_stop_mode = args.initial_stop,
+                trail_mode        = args.trail_stop,
+                entry_mode_filter = args.mode,
+                entry_side_filter = args.side,
             )
         else:
             result = backtester.run(
                 args.symbol, args.days, args.capital, args.tf,
-                asset_class=args.asset_class,
-                stop_mode=args.stop, two_bar_lookback=args.lookback,
-                commission_pct=_commission, slippage_pct=_slippage,
+                asset_class       = args.asset_class,
+                stop_mode         = args.stop,
+                two_bar_lookback  = args.lookback,
+                commission_pct    = _commission,
+                slippage_pct      = _slippage,
+                initial_stop_mode = args.initial_stop,
+                trail_mode        = args.trail_stop,
+                entry_mode_filter = args.mode,
+                entry_side_filter = args.side,
             )
 
         if result:
@@ -1295,5 +1920,7 @@ if __name__ == "__main__":
                 backtester.show_charts(result)
             if args.export:
                 backtester.export_json(result)
+            if args.export_trades:
+                backtester.export_trades_csv(result)
         else:
             print("Backtest returned no results — check symbol and timeframe.")

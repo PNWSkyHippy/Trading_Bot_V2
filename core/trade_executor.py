@@ -346,9 +346,10 @@ class TradeExecutor:
         custom_tp  = signal.indicators.get("custom_take_profit_pct")
         custom_pos = signal.indicators.get("custom_position_pct")
 
-        # Pass broker name to risk_manager so it can check per-broker cash
-        broker_name_hint = self._get_broker_name(signal)
-        self._risk_manager._pending_broker = broker_name_hint
+        # Pass broker name and structural stop directly as explicit args —
+        # no shared mutable state, no race condition between threaded scans.
+        broker_name_hint      = self._get_broker_name(signal)
+        structural_stop_hint  = signal.indicators.get("structural_stop_price")
         approval = self._risk_manager.approve_trade(
             symbol                 = signal.symbol,
             entry_price            = signal.current_price,
@@ -356,9 +357,10 @@ class TradeExecutor:
             direction              = signal.direction,
             custom_stop_loss_pct   = custom_sl,
             custom_take_profit_pct = custom_tp,
-            custom_position_pct    = custom_pos
+            custom_position_pct    = custom_pos,
+            broker_name            = broker_name_hint,
+            structural_stop_price  = structural_stop_hint,
         )
-        self._risk_manager._pending_broker = None   # clear after use
         if not approval.approved:
             logger.info(f"Trade rejected for {signal.symbol}: {approval.reason}")
             return None
@@ -461,7 +463,10 @@ class TradeExecutor:
             "entry_price":     round(entry_price, 6),
             "quantity":        approval.quantity,
             "strategy_name":   signal.indicators.get("strategy_name", "original"),
-            "entry_timeframe": signal.indicators.get("timeframe", "5Min"),
+            "entry_timeframe": signal.indicators.get(
+                "timeframe",
+                "5Min" if signal.asset_class == "stock" else "5m"
+            ),
             "position_value":  approval.position_value,
             "stop_loss":       round(stop_loss, 6),
             "take_profit":     round(take_profit, 6),

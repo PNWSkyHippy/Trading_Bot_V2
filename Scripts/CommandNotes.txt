@@ -1,3 +1,5 @@
+Claude usage stats
+  npx ccusage session\daily\monthly --help
 location of claude desktop json config
 C:\Users\Linda\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude>
 
