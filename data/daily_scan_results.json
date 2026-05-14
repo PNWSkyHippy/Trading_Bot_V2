@@ -1,19 +1,13 @@
 {
-  "generated": "2026-05-11T13:31:52.279352",
+  "generated": "2026-05-13T13:31:41.083878",
   "valid_until": "next_market_close",
   "stocks": [
-    "GLW",
-    "COHR",
     "CSCO",
-    "CBOE"
+    "HPE",
+    "CVS"
   ],
   "crypto": [
-    "XRP/USD",
-    "WBT/USD",
-    "LEO/USD",
-    "ICP/USD",
-    "CC/USD",
-    "TAO/USD",
-    "TON/USD"
+    "TRX/USD",
+    "DOGE/USD"
   ]
 }

@@ -1043,7 +1043,7 @@ class AlertSystem:
         self.running = False
 
     def send_alert(self, signal: BreakoutSignal, escalation: int = 0):
-        message = self._format_message(signal, escalation)
+        message = self._format_alert_message(signal, escalation)
         if self.config.get("enable_visual_alert", True):
             self.alert_queue.put(Alert(signal, AlertType.VISUAL, message,
                                        datetime.now(), escalation))
@@ -1121,6 +1121,30 @@ class AlertSystem:
                 pass   # no market context → soft check will SKIP (neutral)
 
         return data
+
+
+    def _format_alert_message(self, signal: BreakoutSignal, escalation: int) -> str:
+        stage = "⚡ EARLY" if signal.confidence > 0.7 else "👀 WATCH"
+
+        return f"""
+    🚨 BREAKOUT SCAN 🚨
+
+    Symbol: {signal.symbol}
+    Type: {signal.asset_type.value.upper()}
+
+    Strength Score: {signal.confidence*100:.1f}%
+    Stage: {stage}
+
+    Pattern: {signal.pattern_detected}
+    Momentum: {signal.momentum_score:.2f}
+    Volume Spike: {signal.volume_spike:.2f}x
+
+    Price: ${signal.current_price:.4f}
+    Time: {signal.timestamp.strftime('%H:%M:%S')}
+
+    ➡️ Focus: Watching for breakout continuation
+"""
+
 
     def _format_message(self, signal: BreakoutSignal, escalation: int) -> str:
         meta  = classify_signal(signal)
