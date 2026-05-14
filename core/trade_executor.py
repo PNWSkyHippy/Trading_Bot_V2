@@ -452,7 +452,10 @@ class TradeExecutor:
             stop_loss = (entry_price * (1 - sl_pct) if signal.direction == "long"
                          else entry_price * (1 + sl_pct))
 
-        broker_name = self._get_broker_name(signal)
+        # Use the broker that actually filled the order (tagged in _submit).
+        # Fallback to _get_broker_name() only if the result has no tag
+        # (e.g. paper fill or legacy code path).
+        broker_name = broker_result.get("actual_broker") or self._get_broker_name(signal)
 
         trade_record = {
             "trade_id":        trade_id,
@@ -538,26 +541,10 @@ class TradeExecutor:
         if asset_class == "stock":
             if broker == "ibkr" and self._ibkr is not None:
                 success = self._ibkr.close_position(symbol)
-                # If IBKR close failed, check if position actually exists.
-                if not success:
-                    try:
-                        ibkr_positions = self._ibkr._ib.positions()
-                        has_pos = any(
-                            p.contract.symbol == symbol
-                            for p in ibkr_positions
-                        )
-                        if not has_pos:
-                            logger.info(
-                                f"[IBKR] {symbol}: no position found in Gateway "
-                                f"— treating as already closed (paper mode quirk)"
-                            )
-                            success = True
-                    except Exception:
-                        pass
-
-                # If IBKR still failed, ALWAYS try Alpaca too.
-                # The position may have been opened via Alpaca fallback even
-                # though DB records broker=ibkr. Both brokers must be checked.
+                # If IBKR close failed, ALWAYS try Alpaca too before giving up.
+                # Do NOT short-circuit with success=True just because IBKR
+                # doesn't list the position — it may have been opened via the
+                # Alpaca fallback path even though DB records broker=ibkr.
                 if not success:
                     logger.warning(
                         f"[IBKR CLOSE FAILED] {symbol}: trying Alpaca as well "
@@ -566,15 +553,23 @@ class TradeExecutor:
                     alpaca_success = self.alpaca.close_position(symbol)
                     if alpaca_success:
                         logger.info(f"[ALPACA FALLBACK CLOSE] {symbol}: closed via Alpaca")
+                        # Correct the DB broker field so future lookups are accurate
+                        trade_id = trade.get("trade_id")
+                        if trade_id:
+                            try:
+                                self._db.update_trade_broker(trade_id, "alpaca")
+                            except Exception:
+                                pass
                         success = True
                     else:
                         logger.warning(f"[ALPACA FALLBACK CLOSE] {symbol}: not found on Alpaca either")
-                        # Both brokers checked — position genuinely doesn't exist
-                        # Mark as success to clear from DB and stop retry loop
-                        success = True
-                        logger.info(
-                            f"[CLOSE GHOST] {symbol}: not found on IBKR or Alpaca "
-                            f"— marking closed in DB (ghost trade cleanup)"
+                        # Both brokers checked — do NOT mark success here.
+                        # IBKR may be temporarily down; leave trade open in DB
+                        # so EOD Pass 3 (IBKR sweep) can retry when it comes back.
+                        success = False
+                        logger.warning(
+                            f"[CLOSE SKIP] {symbol}: not found on IBKR or Alpaca "
+                            f"— leaving open in DB for EOD sweep retry"
                         )
             else:
                 success = self.alpaca.close_position(symbol)
@@ -586,6 +581,13 @@ class TradeExecutor:
                     ibkr_success = self._ibkr.close_position(symbol)
                     if ibkr_success:
                         logger.info(f"[IBKR FALLBACK CLOSE] {symbol}: closed via IBKR")
+                        # Correct the DB broker field
+                        trade_id = trade.get("trade_id")
+                        if trade_id:
+                            try:
+                                self._db.update_trade_broker(trade_id, "ibkr")
+                            except Exception:
+                                pass
                         success = True
         elif asset_class == "crypto":
             # Kraken is the default crypto executor — Coinbase API is deprecated.
@@ -727,7 +729,6 @@ class TradeExecutor:
 
     def _submit(self, signal, approval: TradeApproval) -> Optional[Dict]:
         side   = "buy" if signal.direction == "long" else "sell"
-        broker = signal.indicators.get("exchange", "").lower()
 
         if signal.asset_class == "stock":
             if self._ibkr is not None:
@@ -738,6 +739,7 @@ class TradeExecutor:
                         approval.stop_loss, approval.take_profit
                     )
                     if result is not None:
+                        result["actual_broker"] = "ibkr"   # record which broker filled
                         return result
                     logger.warning(
                         f"IBKR order failed for {signal.symbol} — "
@@ -748,10 +750,13 @@ class TradeExecutor:
                         f"IBKR unreachable (TWS not running?) — "
                         f"falling back to Alpaca for {signal.symbol}"
                     )
-            return self.alpaca.submit_order(
+            result = self.alpaca.submit_order(
                 signal.symbol, approval.quantity, side,
                 approval.stop_loss, approval.take_profit
             )
+            if result is not None:
+                result["actual_broker"] = "alpaca"         # record which broker filled
+            return result
 
         elif signal.asset_class == "crypto":
             # Kraken is the default crypto executor — Coinbase API is deprecated.

@@ -14,6 +14,11 @@ import pandas as pd
 from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 from dataclasses import dataclass
+try:
+    import requests as _requests
+    _REQUESTS_OK = True
+except ImportError:
+    _REQUESTS_OK = False
 
 # Suppress Alpaca's verbose retry warnings — they spam the log on rate limits.
 # We handle rate limiting via time.sleep() between symbols instead.
@@ -355,6 +360,47 @@ CRYPTO_BLACKLIST = {
 }
 
 
+# ---------------------------------------------------------------------------
+# CoinGecko — real-time aggregated price lookup (no API key required)
+# Maps base currency of a watchlist symbol to its CoinGecko coin ID.
+# ---------------------------------------------------------------------------
+_COINGECKO_IDS: Dict[str, str] = {
+    "BTC":   "bitcoin",       "ETH":   "ethereum",
+    "SOL":   "solana",        "ADA":   "cardano",
+    "MATIC": "matic-network", "DOT":   "polkadot",
+    "AVAX":  "avalanche-2",   "LINK":  "chainlink",
+    "LTC":   "litecoin",      "XRP":   "ripple",
+    "DOGE":  "dogecoin",      "TRX":   "tron",
+    "UNI":   "uniswap",       "ATOM":  "cosmos",
+    "XLM":   "stellar",       "ALGO":  "algorand",
+    "NEAR":  "near",          "FTM":   "fantom",
+    "SAND":  "the-sandbox",   "MANA":  "decentraland",
+    "SHIB":  "shiba-inu",     "PEPE":  "pepe",
+    "ARB":   "arbitrum",      "OP":    "optimism",
+}
+
+_COINGECKO_URL = "https://api.coingecko.com/api/v3/simple/price"
+
+
+def _coingecko_price(symbol: str) -> Optional[float]:
+    """Return current USD price from CoinGecko for a /USD watchlist symbol.
+    Returns None on any error so callers can fall back to ccxt."""
+    if not _REQUESTS_OK:
+        return None
+    try:
+        base  = symbol.split("/")[0].upper()
+        cg_id = _COINGECKO_IDS.get(base, base.lower())
+        resp  = _requests.get(
+            _COINGECKO_URL,
+            params={"ids": cg_id, "vs_currencies": "usd"},
+            timeout=5,
+        )
+        price = resp.json().get(cg_id, {}).get("usd")
+        return float(price) if price else None
+    except Exception:
+        return None
+
+
 class CryptoScanner:
 
     def __init__(self):
@@ -394,6 +440,13 @@ class CryptoScanner:
         return price
 
     def get_current_price_with_broker(self, symbol: str):
+        # CoinGecko first — aggregated real-time price, no API key, no geo-block.
+        # Eliminates stale last-trade prices on low-liquidity Kraken pairs.
+        cg = _coingecko_price(symbol)
+        if cg:
+            return cg, "COINGECKO"
+
+        # Fallback: ccxt exchange(s)
         named = getattr(self, "exchanges", {})
         pairs = list(named.items())
         if self.exchange and self.exchange not in named.values():

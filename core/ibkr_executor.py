@@ -355,6 +355,60 @@ class IBKRExecutor:
             return {"equity": 0, "cash": 0, "buying_power": 0,
                     "portfolio_value": 0, "settled_cash": 0}
 
+    def get_historical_bars(self, symbol: str, timeframe: str = '5m',
+                            limit: int = 300) -> list:
+        """
+        Return OHLCV bars from IBKR TWS as a list of dicts.
+        Used by the chart panel — does NOT affect trading state.
+        Returns [] if IBKR is unavailable.
+        """
+        if not self._ensure_connected():
+            return []
+        try:
+            from ib_insync import Stock
+            contract = Stock(symbol, 'SMART', 'USD')
+
+            _bar_size = {
+                '1m': '1 min',  '5m': '5 mins', '15m': '15 mins',
+                '30m': '30 mins','1h': '1 hour', '4h': '4 hours',
+                '1D': '1 day',   '1W': '1 week',
+            }.get(timeframe, '5 mins')
+
+            # Duration string: enough history to cover `limit` bars
+            _minutes = {
+                '1m': 1, '5m': 5, '15m': 15, '30m': 30,
+                '1h': 60, '4h': 240, '1D': 1440, '1W': 10080,
+            }.get(timeframe, 5)
+            total_min = _minutes * limit
+            if   total_min <= 1440:   dur = '2 D'
+            elif total_min <= 7200:   dur = '10 D'
+            elif total_min <= 43200:  dur = '3 M'
+            else:                     dur = '1 Y'
+
+            raw = self._ib.reqHistoricalData(
+                contract, endDateTime='', durationStr=dur,
+                barSizeSetting=_bar_size, whatToShow='TRADES',
+                useRTH=False, formatDate=2, keepUpToDate=False, timeout=30,
+            )
+            if not raw:
+                return []
+            bars = [
+                {
+                    'time':   int(b.date),
+                    'open':   float(b.open),
+                    'high':   float(b.high),
+                    'low':    float(b.low),
+                    'close':  float(b.close),
+                    'volume': float(b.volume) if b.volume >= 0 else 0,
+                }
+                for b in raw
+            ]
+            # trim to requested limit
+            return bars[-limit:]
+        except Exception as e:
+            logger.warning(f"IBKR historical bars failed for {symbol}: {e}")
+            return []
+
     def disconnect(self):
         """Graceful shutdown — called when bot stops."""
         try:

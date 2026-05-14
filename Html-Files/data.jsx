@@ -84,6 +84,9 @@ const STRATEGIES = [
   'hammer_reversal',
   'orb_breakout',
   'adaptive_regime',
+  'ecb_strategy',
+  'vdmr_strategy',
+  'rsi_dip_spike_v4',
 ];
 const TIMEFRAMES = ['5m', '1h', '1d'];
 const DURATIONS = ['30d', '60d', '90d (3mo)', '180d (6mo)', '365d (1y)', '730d (2y)'];

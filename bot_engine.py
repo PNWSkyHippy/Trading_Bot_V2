@@ -415,6 +415,37 @@ class BotEngine:
             except Exception as e:
                 self.logger.warning(f"EOD Alpaca sweep error: {e}")
 
+            # ── Pass 3: Sweep actual IBKR positions ───────────────────────
+            # Catches positions opened on IBKR that weren't in the DB,
+            # or that failed to close in Pass 1 because IBKR was briefly down.
+            try:
+                from core.trade_executor import executor as _exec
+                ibkr = getattr(_exec, "_ibkr", None)
+                if ibkr is not None and ibkr.is_available():
+                    ibkr_positions = ibkr._ib.positions()
+                    for pos in ibkr_positions:
+                        sym = pos.contract.symbol
+                        if sym in db_symbols:
+                            continue   # already handled in pass 1
+                        try:
+                            success = ibkr.close_position(sym)
+                            if success:
+                                self.logger.info(
+                                    f"[EOD IBKR SWEEP] Closed {sym} "
+                                    f"(not in DB — manual or ghost position)"
+                                )
+                                closed_count += 1
+                            else:
+                                self.logger.error(
+                                    f"[EOD IBKR SWEEP] Failed to close {sym}"
+                                )
+                        except Exception as e:
+                            self.logger.error(
+                                f"[EOD IBKR SWEEP] Error closing {sym}: {e}"
+                            )
+            except Exception as e:
+                self.logger.warning(f"EOD IBKR sweep error: {e}")
+
             self.logger.info(
                 f"Stock EOD close: {closed_count} closed, "
                 f"{skipped_count} overnight skipped"

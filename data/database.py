@@ -294,6 +294,14 @@ class Database:
                 f"UPDATE trades SET {', '.join(sets)} WHERE trade_id = ?", vals
             )
 
+    def update_trade_broker(self, trade_id: str, broker: str):
+        """Correct the broker field when a fallback broker actually filled/closed."""
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE trades SET broker = ? WHERE trade_id = ?",
+                (broker, trade_id)
+            )
+
     def update_trade_levels(self, trade_id: str,
                              stop_loss: float = None,
                              take_profit: float = None):

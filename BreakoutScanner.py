@@ -320,6 +320,9 @@ class BreakoutSignal:
     best_move_pct:      float       = 0.0
     price_history:      List[float] = field(default_factory=list)
     volume_history:     List[float] = field(default_factory=list)
+    # Scanner-owned analysis — set explicitly at signal creation time
+    direction:          str         = ""          # "long" | "short" — never silent-default
+    enrichment:         Dict[str, Any] = field(default_factory=dict)
 
 @dataclass
 class Alert:
@@ -709,6 +712,46 @@ class StockDataFetcher:
             return []
 
 
+# ---------------------------------------------------------------------------
+# CoinGecko — real-time aggregated price lookup (no API key required)
+# ---------------------------------------------------------------------------
+_COINGECKO_IDS: Dict[str, str] = {
+    "BTC":   "bitcoin",       "ETH":   "ethereum",
+    "SOL":   "solana",        "ADA":   "cardano",
+    "MATIC": "matic-network", "DOT":   "polkadot",
+    "AVAX":  "avalanche-2",   "LINK":  "chainlink",
+    "LTC":   "litecoin",      "XRP":   "ripple",
+    "DOGE":  "dogecoin",      "TRX":   "tron",
+    "UNI":   "uniswap",       "ATOM":  "cosmos",
+    "XLM":   "stellar",       "ALGO":  "algorand",
+    "NEAR":  "near",          "FTM":   "fantom",
+    "SAND":  "the-sandbox",   "MANA":  "decentraland",
+    "SHIB":  "shiba-inu",     "PEPE":  "pepe",
+    "ARB":   "arbitrum",      "OP":    "optimism",
+}
+
+_COINGECKO_PRICE_URL = "https://api.coingecko.com/api/v3/simple/price"
+
+
+def _coingecko_price(symbol: str) -> Optional[float]:
+    """Return current USD price from CoinGecko for a /USD watchlist symbol.
+    Returns None on any error so callers fall back to ccxt."""
+    if not REQUESTS_AVAILABLE:
+        return None
+    try:
+        base  = symbol.split("/")[0].upper()
+        cg_id = _COINGECKO_IDS.get(base, base.lower())
+        resp  = _requests.get(
+            _COINGECKO_PRICE_URL,
+            params={"ids": cg_id, "vs_currencies": "usd"},
+            timeout=5,
+        )
+        price = resp.json().get(cg_id, {}).get("usd")
+        return float(price) if price else None
+    except Exception:
+        return None
+
+
 class CryptoDataFetcher:
     def __init__(self, config: ConfigManager):
         self.config        = config
@@ -795,6 +838,21 @@ class CryptoDataFetcher:
         for symbol in injected:
             if symbol in seen_symbols:
                 continue
+
+            # Try CoinGecko first for an accurate aggregated price
+            cg_price = _coingecko_price(symbol)
+            if cg_price:
+                pd_obj = PriceData(
+                    symbol, cg_price, cg_price,
+                    cg_price, cg_price, 0,
+                    datetime.now(), AssetType.CRYPTO,
+                )
+                pd_obj._exchange_name = "COINGECKO"
+                cryptos.append(pd_obj)
+                seen_symbols.add(symbol)
+                continue
+
+            # Fallback: try ccxt exchanges
             for exch_name, exc in exchanges.items():
                 if not exc or symbol not in getattr(exc, "symbols", []):
                     continue
@@ -1057,70 +1115,22 @@ class AlertSystem:
 
     def _build_candle_data(self, signal: BreakoutSignal) -> dict:
         """
-        Build the candle_data dict for the bot receiver's soft checks.
+        Compatibility shim — returns scanner-built enrichment when present.
 
-        Soft checks that need data:
-          1. RSI confirms  → needs 'rsi'
-          2. Market context → needs 'market_pct_change'
-          3. Trend alignment (SMA200) → needs 'sma200' — SKIPPED here because
-             we only have ~25 min of history (50 bars × 30s) which is far too
-             short for a 200-period SMA. The check will SKIP (neutral) rather
-             than FAIL, so we lose one potential soft pass but avoid noise.
+        As of BREAKOUT 8A the scanner populates signal.enrichment at signal
+        creation time via MarketScanner._build_signal_enrichment().
+        This method now just forwards that dict so the sender gets the data
+        the scanner already computed.
 
-        Two valid soft passes (RSI + market context) satisfy MIN_SOFT_PASSES = 2.
+        Falls back to a minimal dict (close only) if enrichment is missing,
+        which will cause receiver soft checks to SKIP (neutral) rather than FAIL.
         """
-        data = {"close": signal.current_price}
+        if signal.enrichment:
+            return dict(signal.enrichment)
 
-        # ── RSI(14) from price_history ─────────────────────────────────────
-        prices = list(signal.price_history)   # deque → list, oldest first
-        if len(prices) >= 15:
-            try:
-                gains, losses = [], []
-                for i in range(1, len(prices)):
-                    delta = prices[i] - prices[i - 1]
-                    gains.append(max(delta, 0.0))
-                    losses.append(max(-delta, 0.0))
-
-                period = 14
-                # Wilder's smoothed average (simple seed on first 14 deltas)
-                avg_gain = sum(gains[:period]) / period
-                avg_loss = sum(losses[:period]) / period
-                for i in range(period, len(gains)):
-                    avg_gain = (avg_gain * (period - 1) + gains[i]) / period
-                    avg_loss = (avg_loss * (period - 1) + losses[i]) / period
-
-                if avg_loss == 0:
-                    rsi = 100.0
-                else:
-                    rs  = avg_gain / avg_loss
-                    rsi = 100.0 - (100.0 / (1.0 + rs))
-
-                data["rsi"] = round(rsi, 2)
-            except Exception:
-                pass   # no RSI → soft check will SKIP (neutral)
-
-        # ── Market context: BTC/USD % change ──────────────────────────────
-        # Use BTC as a proxy for overall crypto market momentum.
-        # For stock symbols we skip — the receiver checks will SKIP (neutral).
-        btc_history = None
-        if hasattr(self, "price_history"):
-            btc_history = self.price_history.get("BTC/USD") or \
-                          self.price_history.get("BTC-USD") or \
-                          self.price_history.get("BTCUSDT")
-
-        if btc_history and len(btc_history) >= 2:
-            try:
-                btc_prices  = list(btc_history)
-                oldest_btc  = btc_prices[0]
-                latest_btc  = btc_prices[-1]
-                if oldest_btc > 0:
-                    data["market_pct_change"] = round(
-                        (latest_btc - oldest_btc) / oldest_btc * 100, 4
-                    )
-            except Exception:
-                pass   # no market context → soft check will SKIP (neutral)
-
-        return data
+        # Legacy fallback — scanner enrichment not populated (should not happen
+        # for signals created after BREAKOUT 8A; kept for safety only)
+        return {"close": signal.current_price}
 
 
     def _format_alert_message(self, signal: BreakoutSignal, escalation: int) -> str:
@@ -1370,6 +1380,86 @@ class MarketScanner:
     def _mark_alerted(self, symbol: str):
         self._alerted_at[symbol] = datetime.now()
 
+    # -----------------------------------------------------------------------
+    # Scanner-owned signal enrichment (computed at signal creation time)
+    # -----------------------------------------------------------------------
+
+    def _build_signal_enrichment(self, pd: PriceData, sym: str) -> Dict[str, Any]:
+        """
+        Compute the full enrichment dict from scanner-side data.
+        Called once at signal creation in _process_symbol() — before the
+        signal reaches the sender or receiver.
+
+        Keys match what breakout_sender._build_payload() reads via cd.get(...):
+            open, high, low, close  — latest completed bar OHLC
+            volume                  — bar volume
+            rsi                     — Wilder RSI(14) from tick-price history
+            market_pct_change       — BTC proxy (crypto) or None (stocks)
+            pattern                 — chart pattern name if available
+            volume_spike            — ratio vs recent average
+            momentum_score          — signed momentum value
+        """
+        data: Dict[str, Any] = {}
+
+        # ── Candle OHLC from the current PriceData bar ─────────────────────
+        # PriceData.price == close of the most recent completed bar.
+        data["open"]   = pd.open_price if pd.open_price else pd.price
+        data["high"]   = pd.high       if pd.high       else pd.price
+        data["low"]    = pd.low        if pd.low        else pd.price
+        data["close"]  = pd.price
+        data["volume"] = pd.volume
+
+        # ── RSI(14) — Wilder's smoothed average from tick history ───────────
+        prices = list(self.detector.price_history.get(sym, []))
+        if len(prices) >= 15:
+            try:
+                period = 14
+                gains, losses = [], []
+                for i in range(1, len(prices)):
+                    delta = prices[i] - prices[i - 1]
+                    gains.append(max(delta, 0.0))
+                    losses.append(max(-delta, 0.0))
+                avg_gain = sum(gains[:period]) / period
+                avg_loss = sum(losses[:period]) / period
+                for i in range(period, len(gains)):
+                    avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+                    avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+                if avg_loss == 0:
+                    rsi = 100.0
+                else:
+                    rs  = avg_gain / avg_loss
+                    rsi = 100.0 - (100.0 / (1.0 + rs))
+                data["rsi"] = round(rsi, 2)
+            except Exception:
+                pass  # no RSI — receiver will skip that soft check
+
+        # ── Market context: BTC/USD proxy for crypto; None for stocks ───────
+        # For stock signals we skip — receiver soft check will be SKIP/neutral.
+        if "/" in sym or pd.asset_type == AssetType.CRYPTO:
+            for btc_key in ("BTC/USD", "BTC-USD", "BTCUSDT"):
+                btc_hist = self.detector.price_history.get(btc_key)
+                if btc_hist and len(btc_hist) >= 2:
+                    try:
+                        btc = list(btc_hist)
+                        if btc[0] > 0:
+                            data["market_pct_change"] = round(
+                                (btc[-1] - btc[0]) / btc[0] * 100, 4
+                            )
+                    except Exception:
+                        pass
+                    break
+
+        # ── Pattern from chart_patterns module (set on pd by detector.score) ─
+        pat = getattr(pd, "_pattern", None)
+        if pat:
+            data["pattern"] = pat
+
+        # ── Volume spike and momentum ────────────────────────────────────────
+        data["volume_spike"]   = self.detector.vol_spike(pd)
+        data["momentum_score"] = self.detector.momentum_val(pd)
+
+        return data
+
     def _process_symbol(self, pd: PriceData, broker: str):
         sym = pd.symbol
         result = self.escalation.check(pd)
@@ -1396,6 +1486,17 @@ class MarketScanner:
             return
         pattern = ("early_breakout_strong" if sc > 0.75 else
                    "early_breakout"         if sc > 0.55 else "watchlist")
+
+        # ── Explicit direction — priority: chart pattern > momentum sign ────
+        # Never leave direction empty; log if we fall back to momentum only.
+        pat_dir = getattr(pd, "_pattern_dir", None)
+        if pat_dir in ("long", "short"):
+            direction = pat_dir
+        elif self.detector.momentum_val(pd) < -0.5:
+            direction = "short"
+        else:
+            direction = "long"
+
         sig = BreakoutSignal(
             symbol=sym, asset_type=pd.asset_type, current_price=pd.price,
             predicted_move_pct=sc*100, confidence=sc,
@@ -1403,7 +1504,23 @@ class MarketScanner:
             momentum_score=self.detector.momentum_val(pd),
             pattern_detected=pattern, timestamp=datetime.now(),
             broker=broker, phase=SignalPhase.WATCHLIST, entry_price=pd.price,
+            direction=direction,
         )
+
+        # ── Populate history from detector so enrichment + AlertSystem both work
+        sig.price_history  = list(self.detector.price_history.get(sym, []))
+        sig.volume_history = list(self.detector.volume_history.get(sym, []))
+
+        # ── Scanner-owned enrichment dict ────────────────────────────────────
+        sig.enrichment = self._build_signal_enrichment(pd, sym)
+
+        logger.info(
+            f"[SCANNER] {broker} {sym} dir={direction} "
+            f"enrich=yes ohlc={'open' in sig.enrichment} "
+            f"rsi={'rsi' in sig.enrichment} "
+            f"market={'market_pct_change' in sig.enrichment}"
+        )
+
         self.watchlist.add(sig)
 
     def _scan_cryptos(self):

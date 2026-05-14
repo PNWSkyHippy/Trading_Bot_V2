@@ -84,14 +84,23 @@ class BreakoutSender:
 
         signal:      BreakoutSignal from BreakoutScanner
         escalation:  0-3
-        candle_data: optional dict {open, high, low, close, rsi, sma200, structural_stop}
-                     If not passed, sender will try to extract from signal.history.
+        candle_data: optional fallback dict — used only if signal.enrichment absent
         """
         if not self.should_send(signal, escalation):
             return
 
+        # Direction must be explicit — scanner owns this (BREAKOUT 8A).
+        # Never silently default to "long".
+        direction = getattr(signal, "direction", "") or ""
+        if not direction:
+            logger.warning(
+                f"[SENDER] {signal.symbol} missing direction — dropping send "
+                f"(scanner must set signal.direction explicitly)"
+            )
+            return
+
         self._last_sent[signal.symbol] = time.time()
-        payload = self._build_payload(signal, escalation, candle_data)
+        payload = self._build_payload(signal, escalation, direction, candle_data)
 
         t = threading.Thread(
             target=self._send_with_retry,
@@ -101,36 +110,59 @@ class BreakoutSender:
         )
         t.start()
 
-    def _build_payload(self, signal, escalation: int, candle_data: dict = None) -> dict:
+    def _build_payload(self, signal, escalation: int, direction: str,
+                       candle_data: dict = None) -> dict:
         """
-        Build the API payload. Tries to populate candle OHLC from:
-          1. candle_data dict (explicitly passed)
-          2. signal.history (last N bars stored on the signal object)
-          3. None (receiver will reject on wick check — scanner needs upgrading)
-        """
-        cd = candle_data or {}
+        Build the API payload.
 
-        direction   = getattr(signal, "direction", "long")
+        Data priority for candle / analytical fields:
+          1. signal.enrichment  — scanner-built at signal creation (BREAKOUT 8A)
+          2. candle_data arg    — explicit override (AlertSystem compatibility)
+          3. signal.history     — legacy fallback, logged when used
+          4. None               — field omitted; receiver will SKIP soft checks
+        """
+        # ── Resolve enrichment source ────────────────────────────────────────
+        enrichment = getattr(signal, "enrichment", {}) or {}
+        if enrichment:
+            cd = enrichment
+            src = "enrichment"
+        elif candle_data:
+            cd = candle_data
+            src = "candle_data"
+        else:
+            cd = {}
+            src = "none"
+            # Legacy: try to pull OHLC from signal.history if it exists
+            if hasattr(signal, "history") and signal.history:
+                try:
+                    last_bar = signal.history[-1]
+                    cd = {
+                        "open":  getattr(last_bar, "open_price", None),
+                        "high":  getattr(last_bar, "high",       None),
+                        "low":   getattr(last_bar, "low",        None),
+                        "close": getattr(last_bar, "price",      None),
+                    }
+                    src = "history_fallback"
+                    logger.debug(f"[SENDER] {signal.symbol} using legacy history fallback")
+                except Exception:
+                    pass
+
+        # ── Compact prep log ─────────────────────────────────────────────────
+        has_ohlc   = all(cd.get(k) is not None for k in ("open", "high", "low", "close"))
+        has_rsi    = cd.get("rsi") is not None
+        has_market = cd.get("market_pct_change") is not None
+        logger.info(
+            f"[SENDER] PREP {signal.symbol} {direction} esc={escalation} "
+            f"src={src} ohlc={'yes' if has_ohlc else 'no'} "
+            f"rsi={'yes' if has_rsi else 'no'} "
+            f"market={'yes' if has_market else 'no'}"
+        )
+
         asset_class = "crypto" if "/" in signal.symbol else "stock"
         broker      = getattr(signal, "broker", "KRAKEN").lower()
+        now_utc     = datetime.now(timezone.utc).isoformat()
 
-        # Try to extract candle OHLC from signal history if not provided
-        if not cd and hasattr(signal, "history") and signal.history:
-            try:
-                last_bar = signal.history[-1]
-                cd = {
-                    "open":  getattr(last_bar, "open_price", None),
-                    "high":  getattr(last_bar, "high",       None),
-                    "low":   getattr(last_bar, "low",        None),
-                    "close": getattr(last_bar, "price",      None),  # price = close in PriceData
-                }
-            except Exception:
-                pass
-
-        # UTC timestamp for TTL check in receiver
-        now_utc = datetime.now(timezone.utc).isoformat()
-
-        payload = {
+        return {
             # Identity
             "symbol":        signal.symbol,
             "broker":        broker,
@@ -151,24 +183,28 @@ class BreakoutSender:
             "escalation":    escalation,
 
             # Quality
-            "volume_spike":  getattr(signal, "volume_spike",  0.0),
-            "momentum_score":getattr(signal, "momentum_score",0.0),
-            "confidence":    getattr(signal, "confidence",    0.7),
+            "volume_spike":   getattr(signal, "volume_spike",   cd.get("volume_spike",  0.0)),
+            "momentum_score": getattr(signal, "momentum_score", cd.get("momentum_score", 0.0)),
+            "confidence":     getattr(signal, "confidence",     0.7),
 
-            # Candle anatomy (required by hardened wick check)
+            # Candle anatomy — from enrichment when available
             "candle_open":  cd.get("open"),
             "candle_high":  cd.get("high"),
             "candle_low":   cd.get("low"),
             "candle_close": cd.get("close"),
 
-            # Optional enrichment
+            # Analytical fields — from enrichment when available
             "rsi":                   cd.get("rsi"),
             "sma200":                cd.get("sma200"),
-            "structural_stop_price": cd.get("structural_stop"),
+            "structural_stop_price": cd.get("structural_stop") or cd.get("structural_stop_price"),
             "market_pct_change":     cd.get("market_pct_change"),
-            "pattern":               getattr(signal, "pattern_detected", None),
+            "pattern":               cd.get("pattern") or getattr(signal, "pattern_detected", None),
+
+            # Breakout metadata (populated by scanner when available)
+            "breakout_level":             getattr(signal, "breakout_level",             None),
+            "bars_since_breakout":        getattr(signal, "bars_since_breakout",        None),
+            "distance_from_breakout_pct": getattr(signal, "distance_from_breakout_pct", None),
         }
-        return payload
 
     def _send_with_retry(self, payload: dict):
         """Background thread: send with one retry on timeout."""
