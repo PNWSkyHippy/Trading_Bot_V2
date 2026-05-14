@@ -1,10 +1,15 @@
 {
-  "permissions": {
-    "allow": [
-      "WebFetch(domain:www.barchart.com)",
-      "WebFetch(domain:stockanalysis.com)",
-      "WebSearch",
-      "WebFetch(domain:coinmarketcap.com)"
-    ]
+  "autoUpdatesChannel": "latest",
+  "theme": "light",
+  "mcpServers": {
+    "trader-dev": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["C:\\Users\\Linda\\AppData\\Roaming\\npm\\node_modules\\trader-dev\\index.js"]    }
+      "env": {
+            "APCA_API_KEY_ID": "your_key_here",
+            "APCA_API_SECRET_KEY": "your_secret_here",
+            "APCA_API_BASE_URL": "https://alpaca.markets" 
+      }
   }
 }

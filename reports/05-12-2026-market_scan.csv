@@ -1,0 +1,4 @@
+AssetClass,Ticker,Price,Vol Change,RSI,% from 52W Hi,% vs 200SMA,Score,Signal,24h %,Funding %
+Stock,DVA,200.54,1.53,87.0,-1.01,49.3,75.37,Within 1.0% of 52W high | 1.5x avg vol | 49% above 200MA,,
+Stock,CSCO,99.29,1.52,72.0,-0.64,31.8,48.36,Within 0.6% of 52W high | 1.5x avg vol | 32% above 200MA,,
+Crypto,NEAR,1.61,,64.0,,,14.55,+4.3% 24h | RSI 64 (momentum zone) | shorts paying (contrarian long),4.26,-0.0038

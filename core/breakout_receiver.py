@@ -51,7 +51,7 @@ RSI_SHORT_MAX           = 50.0
 RSI_SHORT_EXHAUST       = 18.0
 MARKET_CRASH_THRESHOLD  = -2.0
 MARKET_RALLY_THRESHOLD  = +2.0
-MIN_SOFT_PASSES         = 2       # need this many actual soft PASSes (skips neutral)
+MIN_SOFT_PASSES         = 0       # need this many actual soft PASSes (skips neutral)
 
 REQUIRED_FIELDS = [
     "symbol", "asset_class", "direction",
