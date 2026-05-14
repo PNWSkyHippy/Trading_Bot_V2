@@ -126,11 +126,46 @@ class AdaptiveRegime(BaseStrategy):
         self.crypto_enabled = True
         self.enabled        = True   # active from day one — passes all 5 entry gates
 
+        self._reset_diagnostics()
+
         logger.info(
             f"[{self.strategy_name}] Initialized — dual-mode adaptive regime. "
             f"Trend threshold ADX>={ADX_TREND_THRESHOLD}, "
             f"Range threshold ADX<={ADX_RANGE_THRESHOLD}. 1h bars."
         )
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # DIAGNOSTICS  (lightweight counters — no effect on strategy behaviour)
+    # ─────────────────────────────────────────────────────────────────────────
+
+    def _reset_diagnostics(self):
+        """Zero all per-run counters.  Called by backtester before each symbol."""
+        self.diagnostics = {
+            # Regime bar distribution
+            "bars_analyzed":     0,
+            "trend_bars":        0,   # ADX >= 25
+            "range_bars":        0,   # ADX <= 18
+            "transition_bars":   0,   # 18 < ADX < 25 — no signal zone
+            # Trend-mode signal counts
+            "trend_long":        0,
+            "trend_short":       0,
+            # Trend-mode blocker counts (first blocker only — mutually exclusive order)
+            "trend_vol_fail":    0,   # volume_ratio < 1.1
+            "trend_ema_fail":    0,   # EMA alignment unclear (flat market)
+            "trend_don_fail":    0,   # price did not break Donchian channel
+            "trend_rsi_fail":    0,   # RSI exhausted / not confirmed
+            # Mean-rev signal counts
+            "mean_long":         0,
+            "mean_short":        0,
+            # Mean-rev blocker counts
+            "mean_vol_fail":     0,   # volume_ratio < 0.5
+            "mean_bb_fail":      0,   # price did not touch BB band
+            "mean_rsi_fail":     0,   # RSI not extreme enough
+        }
+
+    def get_diagnostics(self) -> dict:
+        """Return a copy of the current diagnostic counters."""
+        return dict(self.diagnostics)
 
     # ─────────────────────────────────────────────────────────────────────────
     # INDICATOR HELPERS
@@ -243,6 +278,16 @@ class AdaptiveRegime(BaseStrategy):
         strong_trend = adx >= ADX_TREND_THRESHOLD
         weak_trend   = adx <= ADX_RANGE_THRESHOLD
 
+        # ── Regime bar counter (diagnostics only) ───────────────────────────
+        _d = self.diagnostics
+        _d["bars_analyzed"] += 1
+        if strong_trend:
+            _d["trend_bars"] += 1
+        elif weak_trend:
+            _d["range_bars"] += 1
+        else:
+            _d["transition_bars"] += 1
+
         if not strong_trend and not weak_trend:
             self.verbose_log_skip(
                 symbol,
@@ -305,12 +350,29 @@ class AdaptiveRegime(BaseStrategy):
             # A ratio < 1.1 means volume is below or barely at the recent average —
             # not enough participation to confirm a genuine breakout.
             if volume_ratio < 1.1:
+                _d["trend_vol_fail"] += 1
                 self.verbose_log_skip(
                     symbol,
                     f"Trend mode: volume_ratio={volume_ratio:.3f} < 1.1 — "
                     f"no breakout volume confirmation"
                 )
                 return None
+
+            # ── Trend-mode blocker diagnostics (counted before signal checks) ─
+            # Parallel checks — do not alter control flow.
+            if not trend_up and not trend_down:
+                _d["trend_ema_fail"] += 1
+            else:
+                if trend_up:
+                    if current_close <= don_high:
+                        _d["trend_don_fail"] += 1
+                    elif rsi > MAX_TREND_ENTRY_RSI:
+                        _d["trend_rsi_fail"] += 1
+                if trend_down:
+                    if current_close >= don_low:
+                        _d["trend_don_fail"] += 1
+                    elif rsi < MIN_TREND_ENTRY_RSI_SHORT:
+                        _d["trend_rsi_fail"] += 1
 
             # BB %b — trend entry logic doesn't use it, but the reviewer and ML
             # scorer both expect it in metadata to gauge where price sits in the band.
@@ -322,6 +384,7 @@ class AdaptiveRegime(BaseStrategy):
 
             # ── TREND LONG ───────────────────────────────────────────────────
             if trend_up and current_close > don_high and rsi <= MAX_TREND_ENTRY_RSI:
+                _d["trend_long"] += 1
                 stop_price = current_close - (atr * STOP_ATR_MULT)
                 if stop_price >= current_close:
                     self.verbose_log_skip(symbol, "Trend long: ATR stop above entry")
@@ -370,6 +433,7 @@ class AdaptiveRegime(BaseStrategy):
 
             # ── TREND SHORT ──────────────────────────────────────────────────
             if trend_down and current_close < don_low and rsi >= MIN_TREND_ENTRY_RSI_SHORT:
+                _d["trend_short"] += 1
                 stop_price = current_close + (atr * STOP_ATR_MULT)
                 if stop_price <= current_close:
                     self.verbose_log_skip(symbol, "Trend short: ATR stop below entry")
@@ -430,6 +494,7 @@ class AdaptiveRegime(BaseStrategy):
             # is a price extreme, not a breakout — but a ratio below 0.5 suggests
             # the symbol is dormant and the BB touch may be meaningless.
             if volume_ratio < 0.5:
+                _d["mean_vol_fail"] += 1
                 self.verbose_log_skip(
                     symbol,
                     f"Mean-rev mode: volume_ratio={volume_ratio:.3f} < 0.5 — "
@@ -440,11 +505,24 @@ class AdaptiveRegime(BaseStrategy):
             # BB %b — position of close within the band (0 = lower, 1 = upper).
             bb_pct = self._calc_bb_pct(current_close, bb_lower, bb_upper)
 
+            # ── Mean-rev blocker diagnostics (counted before signal checks) ──
+            # Parallel checks — do not alter control flow.
+            if current_close > ema_slow:          # potential long side
+                if current_close > bb_lower:      # BB not touched
+                    _d["mean_bb_fail"] += 1
+                elif rsi > OVERSOLD_RSI:          # BB touched, RSI not extreme
+                    _d["mean_rsi_fail"] += 1
+            if current_close < ema_slow:          # potential short side
+                if current_close < bb_upper:      # BB not touched
+                    _d["mean_bb_fail"] += 1
+                elif rsi < OVERBOUGHT_RSI:        # BB touched, RSI not extreme
+                    _d["mean_rsi_fail"] += 1
+
             # ── MEAN REV LONG ────────────────────────────────────────────────
             if (current_close > ema_slow and
                     current_close <= bb_lower and
                     rsi <= OVERSOLD_RSI):
-
+                _d["mean_long"] += 1
                 stop_price = current_close - (atr * MEAN_STOP_ATR_MULT)
                 if stop_price >= current_close:
                     self.verbose_log_skip(symbol, "Mean rev long: ATR stop above entry")
@@ -496,7 +574,7 @@ class AdaptiveRegime(BaseStrategy):
             if (current_close < ema_slow and
                     current_close >= bb_upper and
                     rsi >= OVERBOUGHT_RSI):
-
+                _d["mean_short"] += 1
                 stop_price = current_close + (atr * MEAN_STOP_ATR_MULT)
                 if stop_price <= current_close:
                     self.verbose_log_skip(symbol, "Mean rev short: ATR stop below entry")

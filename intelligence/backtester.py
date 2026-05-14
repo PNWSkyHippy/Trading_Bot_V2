@@ -150,6 +150,7 @@ class BacktestResult:
     trail_mode:        str   = "auto"      # "auto"|"percent"|"two_bar"|"none"
     trades:            List[BacktestTrade] = field(default_factory=list)
     equity_curve:      List[EquityPoint]   = field(default_factory=list)
+    diagnostics:       dict                = field(default_factory=dict)  # adaptive_regime only
 
 
 # ===========================================================================
@@ -411,6 +412,118 @@ class Backtester:
             self.ta = None
 
     # -----------------------------------------------------------------------
+    # Data quality validation
+    # -----------------------------------------------------------------------
+
+    def _validate_ohlcv(self, df: pd.DataFrame, symbol: str,
+                        timeframe: str = "1h") -> Optional[pd.DataFrame]:
+        """
+        Validate and lightly clean an OHLCV dataframe before simulation.
+
+        Returns the (possibly cleaned) dataframe, or None if data is too
+        corrupted to trust.  Never invents or interpolates prices.
+
+        Checks performed
+        ----------------
+        1. Required columns present
+        2. Duplicate timestamps removed (keep last)
+        3. NaN / inf in OHLC -> reject if > 1 % of rows after minimal drop
+        4. Non-positive OHLC values -> reject
+        5. Candle integrity  (high >= max(o,c,l), low <= min(o,c,h))
+        6. Corruption heuristics
+           a. Single-bar close-to-close drop >= 90 %  (TON-style spike)
+           b. Collapse-and-reversion: close drops >= 80 % then recovers
+              >= 60 % of that drop within 5 bars
+           c. More than 2 % of bars are integrity violators
+        """
+        date_span = ""
+        try:
+            date_span = f" ({df.index[0].date()} - {df.index[-1].date()})"
+        except Exception:
+            pass
+
+        def _fail(reason: str) -> None:
+            logger.warning(
+                f"[DATA QUALITY FAIL] {symbol} | {timeframe}{date_span} | {reason}"
+            )
+
+        # 1. Required columns
+        required = {"open", "high", "low", "close", "volume"}
+        missing = required - set(df.columns)
+        if missing:
+            _fail(f"missing columns: {missing}")
+            return None
+
+        # 2. Drop duplicate index entries (keep last)
+        dupes = df.index.duplicated(keep="last")
+        if dupes.any():
+            logger.debug(f"  {symbol}: dropping {dupes.sum()} duplicate timestamps")
+            df = df[~dupes]
+
+        # 3. NaN / inf in OHLC
+        ohlc = df[["open", "high", "low", "close"]]
+        nan_rows = ohlc.isnull().any(axis=1) | np.isinf(ohlc.values).any(axis=1)
+        if nan_rows.any():
+            # Allow dropping up to 1 % of rows (isolated spikes / weekend stubs)
+            frac = nan_rows.sum() / len(df)
+            if frac > 0.01:
+                _fail(f"NaN/inf in OHLC on {nan_rows.sum()} rows ({frac:.1%})")
+                return None
+            df = df[~nan_rows]
+            logger.debug(f"  {symbol}: dropped {nan_rows.sum()} NaN/inf rows")
+
+        if len(df) < 30:
+            _fail(f"only {len(df)} clean rows after NaN drop — need >= 30")
+            return None
+
+        # 4. Non-positive prices
+        if (df[["open", "high", "low", "close"]] <= 0).any().any():
+            _fail("non-positive OHLC values detected")
+            return None
+
+        # 5. Candle integrity
+        bad_high = df["high"] < df[["open", "close", "low"]].max(axis=1)
+        bad_low  = df["low"]  > df[["open", "close", "high"]].min(axis=1)
+        bad_candle = bad_high | bad_low
+        bad_frac = bad_candle.sum() / len(df)
+        if bad_frac > 0.02:
+            _fail(
+                f"candle integrity violations on {bad_candle.sum()} rows "
+                f"({bad_frac:.1%}) — high < body or low > body"
+            )
+            return None
+
+        # 6. Corruption heuristics (intraday focus: 5m / 1h)
+        closes = df["close"].values
+
+        # 6a. Any single bar close-to-close drop >= 90 %
+        pct_changes = np.diff(closes) / closes[:-1]
+        worst_drop = pct_changes.min() if len(pct_changes) else 0.0
+        if worst_drop <= -0.90:
+            _fail(
+                f"single-bar close-to-close drop of {worst_drop:.1%} — "
+                "likely data corruption (spike / bad print)"
+            )
+            return None
+
+        # 6b. Collapse-and-reversion within 5 bars (TON/USD pattern)
+        #     Price drops >= 80 % in one bar, then recovers >= 60 % of
+        #     that drop within the next 5 bars.
+        for i in range(len(closes) - 5):
+            drop = (closes[i + 1] - closes[i]) / closes[i]
+            if drop <= -0.80:
+                drop_abs = closes[i] - closes[i + 1]
+                recovery = max(closes[i + 2 : i + 7]) - closes[i + 1]
+                if drop_abs > 0 and recovery / drop_abs >= 0.60:
+                    _fail(
+                        f"collapse-and-reversion pattern at bar {i} "
+                        f"(drop {drop:.1%}, recovered {recovery / drop_abs:.0%} within 5 bars)"
+                    )
+                    return None
+
+        return df
+
+    # -----------------------------------------------------------------------
     # Data fetching
     # -----------------------------------------------------------------------
 
@@ -444,6 +557,7 @@ class Backtester:
                 logger.error(f"Only {len(df)} bars for {symbol} — need >=30")
                 return None
             logger.info(f"  -> {len(df)} bars  ({df.index[0].date()} - {df.index[-1].date()})")
+            df = self._validate_ohlcv(df, symbol, timeframe)
             return df
         except Exception as e:
             logger.error(f"fetch_history failed for {symbol}: {e}")
@@ -480,6 +594,7 @@ class Backtester:
                 logger.error(f"Only {len(df)} bars for {yf_symbol} — need >=30")
                 return None
             logger.info(f"  -> {len(df)} bars  ({df.index[0].date()} - {df.index[-1].date()})")
+            df = self._validate_ohlcv(df, symbol, timeframe)
             return df
         except Exception as e:
             logger.error(f"fetch_history_crypto failed for {yf_symbol}: {e}")
@@ -576,6 +691,9 @@ class Backtester:
             "hammer_reversal":    ("strategies.hammer_reversal",     "HammerReversal"),
             "orb_breakout":       ("strategies.orb_breakout",        "ORBBreakout"),
             "adaptive_regime":    ("strategies.adaptive_regime",     "AdaptiveRegime"),
+            "ecb_strategy":       ("strategies.ecb_strategy",        "ECBStrategy"),
+            "vdmr_strategy":      ("strategies.vdmr_strategy",       "VDMRStrategy"),
+            "rsi_dip_spike_v4":   ("strategies.rsi_dip_spike_v4",   "RSIDipSpikeV4Strategy"),
         }
         if strategy_name not in strategy_map:
             return None
@@ -809,6 +927,9 @@ class Backtester:
         if strategy_obj is not None:
             default_sl_pct = strategy_obj.stop_loss_pct   / 100
             default_tp_pct = strategy_obj.take_profit_pct / 100
+            # Reset per-symbol diagnostics counters (adaptive_regime and any future strategy)
+            if hasattr(strategy_obj, "_reset_diagnostics"):
+                strategy_obj._reset_diagnostics()
 
         daily_pnl          = 0.0
         consecutive_losses = 0
@@ -1144,6 +1265,10 @@ class Backtester:
             closed_trades.append(bt_trade)
             capital += pnl
 
+        _diagnostics = {}
+        if strategy_obj is not None and hasattr(strategy_obj, "get_diagnostics"):
+            _diagnostics = strategy_obj.get_diagnostics()
+
         return self._compile_results(
             symbol, df, closed_trades, equity_curve,
             starting_capital, capital,
@@ -1155,6 +1280,7 @@ class Backtester:
             slippage_pct       = slippage_pct,
             initial_stop_mode  = _initial,
             trail_mode         = _trail,
+            diagnostics        = _diagnostics,
         )
 
     # -----------------------------------------------------------------------
@@ -1281,7 +1407,8 @@ class Backtester:
                           commission_pct: float = 0.0,
                           slippage_pct:   float = 0.0,
                           initial_stop_mode: str = "auto",
-                          trail_mode:        str = "auto") -> BacktestResult:
+                          trail_mode:        str = "auto",
+                          diagnostics:       dict = None) -> BacktestResult:
         wins   = [t for t in trades if t.pnl > 0]
         losses = [t for t in trades if t.pnl <= 0]
         win_rate   = len(wins) / len(trades) * 100 if trades else 0.0
@@ -1344,6 +1471,7 @@ class Backtester:
             trail_mode         = trail_mode,
             trades             = trades,
             equity_curve       = equity_curve,
+            diagnostics        = diagnostics or {},
         )
 
     # -----------------------------------------------------------------------
@@ -1433,6 +1561,11 @@ class Backtester:
         _has_mode = any(getattr(t, "entry_mode", "") for t in result.trades)
         if _has_mode:
             _print_mode_breakdown(result.trades, w)
+
+        # ── AdaptiveRegime diagnostics ────────────────────────────────────────
+        _diag = getattr(result, "diagnostics", {})
+        if _diag and result.strategy_name == "adaptive_regime":
+            _print_adaptive_diagnostics(_diag, w)
 
         print(f"{sep}\n")
 
@@ -1678,6 +1811,60 @@ def _fmt_stat_row(label: str, s: Dict, low_sample_n: int = 5) -> str:
             f"Avg {s['avg_pct']:>+6.2f}%{warn}")
 
 
+def _print_adaptive_diagnostics(d: dict, width: int = 62):
+    """
+    Print per-symbol AdaptiveRegime diagnostics after the main report block.
+    Answers: why didn't trend/mean_rev fire more often?
+    """
+    thin = "-" * width
+    bars  = max(d.get("bars_analyzed", 1), 1)
+    trend = d.get("trend_bars", 0)
+    rang  = d.get("range_bars", 0)
+    trans = d.get("transition_bars", 0)
+
+    print(f"  {thin}")
+    print(f"  ADAPTIVE REGIME DIAGNOSTICS")
+    print(f"  {thin}")
+
+    # Regime distribution
+    print(f"  Regime bars  : {bars} analyzed  |  "
+          f"trend={trend} ({trend/bars*100:.0f}%)  "
+          f"range={rang} ({rang/bars*100:.0f}%)  "
+          f"transit={trans} ({trans/bars*100:.0f}%)")
+
+    # Trend mode
+    t_sigs  = d.get("trend_long", 0) + d.get("trend_short", 0)
+    t_vol   = d.get("trend_vol_fail", 0)
+    t_ema   = d.get("trend_ema_fail", 0)
+    t_don   = d.get("trend_don_fail", 0)
+    t_rsi   = d.get("trend_rsi_fail", 0)
+    if trend > 0:
+        print(f"  {thin}")
+        print(f"  TREND MODE  ({trend} bars)  ->  {t_sigs} signal(s) "
+              f"[{d.get('trend_long',0)}L / {d.get('trend_short',0)}S]")
+        print(f"    Blockers : vol={t_vol}  ema_align={t_ema}  "
+              f"donchian={t_don}  rsi={t_rsi}")
+        top_t = max({"vol": t_vol, "ema": t_ema, "donchian": t_don, "rsi": t_rsi}.items(),
+                    key=lambda x: x[1])
+        if top_t[1] > 0:
+            print(f"    Top blocker: {top_t[0]} ({top_t[1]} bars)")
+
+    # Mean-rev mode
+    mr_sigs = d.get("mean_long", 0) + d.get("mean_short", 0)
+    mr_vol  = d.get("mean_vol_fail", 0)
+    mr_bb   = d.get("mean_bb_fail", 0)
+    mr_rsi  = d.get("mean_rsi_fail", 0)
+    if rang > 0:
+        print(f"  {thin}")
+        print(f"  MEAN-REV MODE  ({rang} bars)  ->  {mr_sigs} signal(s) "
+              f"[{d.get('mean_long',0)}L / {d.get('mean_short',0)}S]")
+        print(f"    Blockers : vol={mr_vol}  bb_touch={mr_bb}  rsi={mr_rsi}")
+        top_mr = max({"vol": mr_vol, "bb_touch": mr_bb, "rsi": mr_rsi}.items(),
+                     key=lambda x: x[1])
+        if top_mr[1] > 0:
+            print(f"    Top blocker: {top_mr[0]} ({top_mr[1]} bars)")
+
+
 def _print_mode_breakdown(trades: List[BacktestTrade], width: int = 62):
     """
     Print per-mode, per-side, and exit-reason analytics for a trade list.
@@ -1788,6 +1975,39 @@ def print_portfolio_summary(results: List[BacktestResult]):
         print(f"  {total_trades} total trades across {len(results)} symbol(s)")
         _print_mode_breakdown(all_trades, width=72)
         print(f"{'='*72}")
+
+        # ── Aggregate diagnostics footer ──────────────────────────────────
+        agg_diag_results = [r for r in results
+                            if getattr(r, "diagnostics", {})
+                            and r.strategy_name == "adaptive_regime"]
+        if agg_diag_results:
+            # Sum all counters across symbols
+            agg: Dict = {}
+            for r in agg_diag_results:
+                for k, v in r.diagnostics.items():
+                    agg[k] = agg.get(k, 0) + v
+            print(f"\n  AGGREGATE DIAGNOSTICS  ({len(agg_diag_results)} symbol(s))")
+            bars  = max(agg.get("bars_analyzed", 1), 1)
+            trend = agg.get("trend_bars", 0)
+            rang  = agg.get("range_bars", 0)
+            trans = agg.get("transition_bars", 0)
+            print(f"  Regime: trend={trend} ({trend/bars*100:.0f}%)  "
+                  f"range={rang} ({rang/bars*100:.0f}%)  "
+                  f"transit={trans} ({trans/bars*100:.0f}%)")
+            t_sigs = agg.get("trend_long", 0) + agg.get("trend_short", 0)
+            mr_sigs = agg.get("mean_long", 0) + agg.get("mean_short", 0)
+            print(f"  Signals: trend={t_sigs} "
+                  f"[{agg.get('trend_long',0)}L/{agg.get('trend_short',0)}S]  "
+                  f"mean_rev={mr_sigs} "
+                  f"[{agg.get('mean_long',0)}L/{agg.get('mean_short',0)}S]")
+            print(f"  Trend blockers  : vol={agg.get('trend_vol_fail',0)}  "
+                  f"ema={agg.get('trend_ema_fail',0)}  "
+                  f"don={agg.get('trend_don_fail',0)}  "
+                  f"rsi={agg.get('trend_rsi_fail',0)}")
+            print(f"  Mean-rev blockers: vol={agg.get('mean_vol_fail',0)}  "
+                  f"bb_touch={agg.get('mean_bb_fail',0)}  "
+                  f"rsi={agg.get('mean_rsi_fail',0)}")
+            print(f"{'='*72}")
     print()
 
 

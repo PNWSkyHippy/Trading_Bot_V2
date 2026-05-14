@@ -163,18 +163,12 @@ class BreakoutReceiver:
                 "reason": reason, "trade_id": None, "checklist": checklist_summary,
             }
 
-        if soft_passes < MIN_SOFT_PASSES:
-            reason = (
-                f"Only {soft_passes} soft PASS(es) (need {MIN_SOFT_PASSES}); "
-                f"{soft_skips} skipped (neutral)"
-            )
-            logger.info(f"[BREAKOUT RECV] CHECKLIST REJECTED {sym} — {reason}")
-            return {
-                "accepted": False, "execution_eligible": True,
-                "failure_class": "checklist_rejected",
-                "reason": reason, "trade_id": None, "checklist": checklist_summary,
-            }
-
+        # Soft checks are advisory only (MIN_SOFT_PASSES = 0).
+        # RSI / trend / market context are logged for visibility but never block execution.
+        logger.info(
+            f"[BREAKOUT RECV] CHECKLIST PASSED {sym} — "
+            f"soft: {soft_passes} pass / {soft_skips} skip (advisory only)"
+        )
         return self._inject_signal(payload, checklist_summary)
 
     def _run_checklist(

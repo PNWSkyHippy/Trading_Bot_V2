@@ -78,7 +78,17 @@ function WindowProvider({ children, defs }) {
   const toggleMax = useCallback((id) => {
     zCounter.current += 1;
     const z = zCounter.current;
-    setWindows(prev => ({ ...prev, [id]: { ...prev[id], maximized: !prev[id].maximized, minimized: false, z } }));
+    setWindows(prev => {
+      const wasMaximized = prev[id]?.maximized;
+      if (!wasMaximized) {
+        // About to maximize — snap workspace scroll to top-left so the window is fully visible
+        requestAnimationFrame(() => {
+          const workspace = document.querySelector('.workspace');
+          if (workspace) { workspace.scrollLeft = 0; workspace.scrollTop = 0; }
+        });
+      }
+      return { ...prev, [id]: { ...prev[id], maximized: !wasMaximized, minimized: false, z } };
+    });
     setFocusedId(id);
   }, []);
 
@@ -204,7 +214,7 @@ function Window({ id, children }) {
           <button className="close" onClick={() => close(id)} title="Close"><Icon name="x" size={12} /></button>
         </div>
       </div>
-      <div className="win-body">{children}</div>
+      <div className="win-body" onWheel={e => e.stopPropagation()}>{children}</div>
       {!w.maximized && (
         <>
           <div className="win-resize-edge n" onMouseDown={(e) => onResizeStart(e, 'n')} />

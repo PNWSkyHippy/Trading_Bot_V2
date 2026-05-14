@@ -32,6 +32,9 @@ from strategies.vwap_momentum import VWAPMomentum
 from strategies.hammer_reversal import HammerReversal
 from strategies.orb_breakout import ORBBreakout
 from strategies.adaptive_regime import AdaptiveRegime
+from strategies.ecb_strategy import ECBStrategy
+from strategies.vdmr_strategy import VDMRStrategy
+from strategies.rsi_dip_spike_v4 import RSIDipSpikeV4Strategy
 from data.database import db
 
 logger = logging.getLogger(__name__)
@@ -50,7 +53,7 @@ class StrategyEngine:
     def __init__(self, db_ref=None):
         self._db = db_ref or db
 
-        # All 12 strategies
+        # All 15 strategies
         self.strategies: List[BaseStrategy] = [
             RSIMomentum(),
             BollingerBreakout(),
@@ -60,17 +63,20 @@ class StrategyEngine:
             SwingTrader(),
             GridBot(),
             DCAAccumulator(),
-            VWAPMomentum(),       # Strategy 9
-            HammerReversal(),     # Strategy 10 — disabled, backtest first
-            ORBBreakout(),        # Strategy 11 — disabled, backtest first
-            AdaptiveRegime(),     # Strategy 12 — dual-mode trend/mean-rev (1h bars)
+            VWAPMomentum(),             # Strategy 9
+            HammerReversal(),           # Strategy 10 — disabled, backtest first
+            ORBBreakout(),              # Strategy 11 — disabled, backtest first
+            AdaptiveRegime(),           # Strategy 12 — dual-mode trend/mean-rev (1h bars)
+            ECBStrategy(),              # Strategy 13 — Entropy Collapse Breakout (CANDIDATE)
+            VDMRStrategy(),             # Strategy 14 — Velocity-Deceleration Mean Reversion (INCUBATE)
+            RSIDipSpikeV4Strategy(),    # Strategy 15 — RSI Dip & Spike v4c (INCUBATE/CANDIDATE)
         ]
 
         self._load_strategy_states()
 
         logger.info(
             f"Strategy engine initialized with {len(self.strategies)} strategies "
-            f"(12 total — adaptive_regime is Strategy 12):"
+            f"(15 total — rsi_dip_spike_v4 is Strategy 15):"
         )
         for s in self.strategies:
             status  = "ENABLED"  if s.enabled           else "DISABLED"

@@ -220,7 +220,7 @@ function TopOverview({ live }) {
         <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 14, height: 240 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Capital Growth ({rangeLabel})</h3>
-            <div style={{ display: 'flex', gap: 4 }}>
+            <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
               {Object.keys(capitalRanges).map(p => (
                 <button
                   key={p}
@@ -231,6 +231,17 @@ function TopOverview({ live }) {
                   {p}
                 </button>
               ))}
+              <button
+                className="btn ghost sm"
+                style={{ padding: '3px 8px', fontSize: 10.5 }}
+                title="Export capital history to CSV"
+                onClick={() => exportCsv(`capital-growth-${capitalRange}.csv`, [
+                  { label: 'Date', value: r => r.date },
+                  { label: 'Capital', value: r => Number(r.capital).toFixed(2) },
+                ], chartData.map(d => ({ date: d.date.toISOString().slice(0, 10), capital: d.capital })))}
+              >
+                <Icon name="download" size={10} />CSV
+              </button>
             </div>
           </div>
           <div style={{ height: 180 }}>
@@ -429,7 +440,7 @@ function OpenPositionsPanel() {
 
 // ============ Manual Trade Entry ============
 function ManualTradePanel() {
-  const [form, setForm] = useS({ symbol: '', size: '2000.00', sl: '1.50', dir: 'long', broker: '', tp: '3.00', asset: 'stock', overnight: false, label: 'manual' });
+  const [form, setForm] = useS({ symbol: '', size: '2000.00', sl: '1.50', dir: 'long', broker: 'alpaca', tp: '3.00', asset: 'stock', overnight: false, label: 'manual' });
   const [cfg, setCfg] = useS({ brokers: ['alpaca', 'coinbase', 'kraken', 'paper'], directions: ['long', 'short'], asset_classes: ['stock', 'crypto'], default_broker: 'alpaca' });
   const [preview, setPreview] = useS(null);
   const [previewMsg, setPreviewMsg] = useS('');
@@ -516,7 +527,13 @@ function ManualTradePanel() {
         <div style={{ background: preview ? 'rgba(34, 197, 94, 0.10)' : 'var(--bg-2)', border: `1px solid ${preview ? 'rgba(34, 197, 94, 0.28)' : 'var(--border)'}`, borderRadius: 'var(--radius)', padding: 12, marginBottom: 14, fontSize: 12, lineHeight: 1.7 }}>
           {preview ? (
             <>
-              <div><strong>Live Price:</strong> <span style={{ fontFamily: 'var(--mono)' }}>{fmt$(Number(preview.entry_price || 0), 6)}</span></div>
+              <div>
+                <strong>Live Price:</strong>{' '}
+                <span style={{ fontFamily: 'var(--mono)' }}>{fmt$(Number(preview.entry_price || 0), 6)}</span>
+                <span style={{ color: 'var(--text-2)', margin: '0 6px' }}>·</span>
+                <span style={{ color: 'var(--text-2)' }}>Broker: </span>
+                <strong style={{ fontFamily: 'var(--mono)' }}>{form.broker}</strong>
+              </div>
               <div><strong>Stop Loss:</strong> <span style={{ fontFamily: 'var(--mono)', color: 'var(--red)' }}>{fmt$(Number(preview.stop_loss || 0), 6)}</span> <span style={{ color: 'var(--text-2)' }}> / </span><strong>Take Profit:</strong> <span style={{ fontFamily: 'var(--mono)', color: 'var(--green)' }}>{fmt$(Number(preview.take_profit || 0), 6)}</span></div>
               <div><strong>Position:</strong> <span style={{ fontFamily: 'var(--mono)' }}>{Number(preview.quantity || 0).toFixed(4)} units @ {fmt$(Number(preview.entry_price || 0), 6)}</span></div>
             </>
@@ -1099,19 +1116,52 @@ function BacktesterPanel() {
 }
 
 // ============ Chat with Bot ============
+const CHAT_LOCAL_COMMANDS = {
+  'list commands': [
+    'Available bot commands:',
+    '  status               — capital, P&L, open positions',
+    '  positions            — list open positions with P&L',
+    '  performance          — win rate and P&L summary for today',
+    '  trades today         — count of closed trades today',
+    '  pause trading        — halt new trade entries',
+    '  resume trading       — re-enable trade entries',
+    '  restart bot          — restart the bot engine',
+    '  ml status            — ML scorer stage and progress',
+    '  list commands        — show this help (no AI call)',
+    '  list commands auto   — compact quick-reference (no AI call)',
+    '',
+    'Tip: plain English also works — the bot understands natural language.',
+  ].join('\n'),
+  'list commands auto': [
+    'Quick-reference (no AI):',
+    '  status · positions · performance · trades today',
+    '  pause trading · resume trading · restart bot',
+    '  ml status · list commands · list commands auto',
+  ].join('\n'),
+};
+
 function ChatPanel() {
   const [msgs, setMsgs] = useS([
-    { role: 'bot', text: "Hi — I'm your trading bot. Ask me about active positions, performance, strategies, or have me pause/resume trading. What would you like to know?" }
+    { role: 'bot', text: "Hi — I'm your trading bot. Ask me about active positions, performance, strategies, or have me pause/resume trading. What would you like to know?\n\nType  list commands  to see what I can do without calling AI." }
   ]);
   const [input, setInput] = useS('');
   const [thinking, setThinking] = useS(false);
   const endRef = useR(null);
-  useE(() => endRef.current?.scrollIntoView({ block: 'end' }), [msgs, thinking]);
+  useE(() => endRef.current?.scrollIntoView({ block: 'nearest' }), [msgs, thinking]);
   const send = async () => {
     if (!input.trim() || thinking) return;
     const q = input.trim();
+    setInput('');
+
+    // Local command handling — no API call needed
+    const localReply = CHAT_LOCAL_COMMANDS[q.toLowerCase()];
+    if (localReply) {
+      setMsgs(m => [...m, { role: 'user', text: q }, { role: 'bot', text: localReply }]);
+      return;
+    }
+
     setMsgs(m => [...m, { role: 'user', text: q }]);
-    setInput(''); setThinking(true);
+    setThinking(true);
     try {
       const data = await panelApi('/api/chat', {
         method: 'POST',
@@ -1123,6 +1173,12 @@ function ChatPanel() {
       setMsgs(m => [...m, { role: 'bot', text: `Chat failed: ${e.message}` }]);
     }
     setThinking(false);
+  };
+  const onChatKey = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();  // prevents workspace scroll-to-bottom on Enter
+      send();
+    }
   };
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -1137,12 +1193,310 @@ function ChatPanel() {
         <div ref={endRef} />
       </div>
       <div className="chat-input-row">
-        <input className="input" style={{ flex: 1 }} placeholder="Ask your bot anything…" value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => e.key === 'Enter' && send()} />
+        <input className="input" style={{ flex: 1 }} placeholder="Ask your bot anything… (type 'list commands' for help)" value={input} onChange={e => setInput(e.target.value)} onKeyDown={onChatKey} />
         <button className="btn primary" onClick={send} disabled={!input.trim() || thinking}><Icon name="send" size={13} /></button>
       </div>
     </div>
   );
 }
 
-window.Panels = { TopOverview, OpenPositionsPanel, ManualTradePanel, TradeLogPanel, DailyPerfPanel, BacktesterPanel, ChatPanel };
+// ============ Chart Panel ============
+function calcEMA(bars, period) {
+  if (!bars || bars.length < period) return [];
+  const k = 2 / (period + 1);
+  let ema = 0;
+  const result = [];
+  bars.forEach((b, i) => {
+    if (i < period) {
+      ema += b.close / period;
+      if (i === period - 1) result.push({ time: b.time, value: ema });
+    } else {
+      ema = b.close * k + ema * (1 - k);
+      result.push({ time: b.time, value: ema });
+    }
+  });
+  return result;
+}
+
+const STOCK_BROKERS  = [
+  { id: 'alpaca',   label: 'Alpaca'   },
+  { id: 'ibkr',     label: 'IBKR'     },
+  { id: 'yfinance', label: 'yFinance' },
+];
+const CRYPTO_BROKERS = [
+  { id: 'kraken',   label: 'Kraken'   },
+  { id: 'coinbase', label: 'Coinbase' },
+  { id: 'yfinance', label: 'yFinance' },
+];
+
+function ChartPanel({ defaultSymbol }) {
+  const [symbol, setSymbol]   = useS(defaultSymbol || 'BTC/USD');
+  const [tf, setTf]           = useS('5m');
+  const [broker, setBroker]   = useS('kraken');   // default for BTC/USD
+  const [bars, setBars]       = useS([]);
+  const [marks, setMarks]     = useS([]);
+  const [loading, setLoading] = useS(false);
+  const [err, setErr]         = useS(null);
+  const [searchVal, setSearch] = useS('');
+  const [dropOpen, setDrop]   = useS(false);
+  const [allSymbols, setAllSyms] = useS([]);
+  const [showEma9, setE9]     = useS(true);
+  const [showEma21, setE21]   = useS(true);
+  const [showEma50, setE50]   = useS(false);
+
+  const isCrypto = symbol.includes('/');
+
+  const containerRef = useR(null);
+  const chartRef     = useR(null);
+  const candleRef    = useR(null);
+  const volRef       = useR(null);
+  const e9Ref        = useR(null);
+  const e21Ref       = useR(null);
+  const e50Ref       = useR(null);
+
+  // Init Lightweight Charts once on mount
+  useE(() => {
+    if (!containerRef.current || !window.LightweightCharts) return;
+
+    // win-body uses overflow:auto + block layout, which prevents children
+    // from filling it with flex or height:100%.
+    // Temporarily promote it to a flex column so ChartPanel's flex:1 works.
+    const winBody = containerRef.current.closest('.win-body');
+    const prev = winBody ? { overflow: winBody.style.overflow, display: winBody.style.display, flexDirection: winBody.style.flexDirection } : null;
+    if (winBody) {
+      winBody.style.overflow     = 'hidden';
+      winBody.style.display      = 'flex';
+      winBody.style.flexDirection = 'column';
+    }
+
+    const LC = window.LightweightCharts;
+    const chart = LC.createChart(containerRef.current, {
+      autoSize: true,   // LC manages its own resize — no manual width/height needed
+      layout: { background: { type: 'solid', color: '#0d1117' }, textColor: '#8b949e', fontSize: 11 },
+      grid:   { vertLines: { color: '#1a2035' }, horzLines: { color: '#1a2035' } },
+      crosshair: { mode: LC.CrosshairMode.Normal },
+      rightPriceScale: { borderColor: '#2a3347' },
+      timeScale: { borderColor: '#2a3347', timeVisible: true, secondsVisible: false },
+    });
+    chartRef.current = chart;
+
+    // Candle series
+    candleRef.current = chart.addCandlestickSeries({
+      upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
+      wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+    });
+
+    // Volume in bottom 22% of the same pane
+    volRef.current = chart.addHistogramSeries({
+      priceFormat: { type: 'volume' }, priceScaleId: 'vol',
+    });
+    chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.78, bottom: 0 } });
+    chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.05, bottom: 0.22 } });
+
+    return () => {
+      if (winBody && prevOverflow !== null) winBody.style.overflow = prevOverflow;
+      chart.remove();
+      chartRef.current = null; candleRef.current = null; volRef.current = null;
+      e9Ref.current = null; e21Ref.current = null; e50Ref.current = null;
+    };
+  }, []);
+
+  // Fetch data when symbol, timeframe, or broker changes
+  useE(() => {
+    let cancelled = false;
+    setLoading(true); setErr(null);
+    panelApi(`/api/chart?symbol=${encodeURIComponent(symbol)}&timeframe=${tf}&limit=300&broker=${broker}`)
+      .then(d => {
+        if (cancelled) return;
+        const b = d.bars || [];
+        if (!b.length) setErr(`No data returned for ${symbol} (${broker})`);
+        setBars(b);
+        setMarks(d.markers || []);
+      })
+      .catch(e => { if (!cancelled) setErr(e.message); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [symbol, tf, broker]);
+
+  // Load symbol list once
+  useE(() => {
+    panelApi('/api/chart/symbols').then(d => setAllSyms(d.symbols || [])).catch(() => {});
+  }, []);
+
+  // Update chart whenever bars, markers, or EMA toggles change
+  useE(() => {
+    if (!chartRef.current || !candleRef.current || !bars.length) return;
+    const LC = window.LightweightCharts;
+
+    candleRef.current.setData(bars);
+
+    volRef.current?.setData(bars.map(b => ({
+      time: b.time, value: b.volume || 0,
+      color: b.close >= b.open ? '#26a69a55' : '#ef535055',
+    })));
+
+    // EMA helper — create/remove series as needed
+    const applyEma = (ref, period, color, enabled) => {
+      if (enabled) {
+        if (!ref.current) {
+          ref.current = chartRef.current.addLineSeries({
+            color, lineWidth: 1, priceLineVisible: false,
+            lastValueVisible: false, crosshairMarkerVisible: false,
+          });
+        }
+        ref.current.setData(calcEMA(bars, period));
+      } else if (ref.current) {
+        chartRef.current.removeSeries(ref.current);
+        ref.current = null;
+      }
+    };
+    applyEma(e9Ref,  9,  '#f59e0b', showEma9);
+    applyEma(e21Ref, 21, '#60a5fa', showEma21);
+    applyEma(e50Ref, 50, '#c084fc', showEma50);
+
+    // Entry / exit markers
+    const processed = marks
+      .filter(m => m.time)
+      .sort((a, b) => a.time - b.time)
+      .map(m => ({
+        time: m.time,
+        position: m.type === 'entry'
+          ? (m.direction === 'long' ? 'belowBar' : 'aboveBar')
+          : (m.direction === 'long' ? 'aboveBar' : 'belowBar'),
+        color: m.type === 'entry' ? '#26a69a' : (m.pnl >= 0 ? '#60a5fa' : '#ef5350'),
+        shape: m.type === 'entry'
+          ? (m.direction === 'long' ? 'arrowUp' : 'arrowDown')
+          : 'circle',
+        text: m.type === 'entry' ? 'E' : (m.pnl >= 0 ? `+${m.pnl.toFixed(0)}` : `${m.pnl.toFixed(0)}`),
+        size: 1,
+      }));
+    candleRef.current.setMarkers(processed);
+
+    chartRef.current.timeScale().fitContent();
+  }, [bars, marks, showEma9, showEma21, showEma50]);
+
+  // Symbol search filter
+  const filtered = useM(() => {
+    const q = searchVal.toLowerCase();
+    if (!q) return allSymbols.slice(0, 40);
+    return allSymbols.filter(s => s.symbol.toLowerCase().includes(q)).slice(0, 25);
+  }, [allSymbols, searchVal]);
+
+  const pickSymbol = (sym) => {
+    const newIsCrypto = sym.includes('/');
+    // Reset broker to sensible default when switching asset type
+    if (newIsCrypto !== isCrypto) setBroker(newIsCrypto ? 'kraken' : 'alpaca');
+    setSymbol(sym); setSearch(''); setDrop(false);
+  };
+
+  const TFS = ['1m','5m','15m','30m','1h','4h','1D'];
+  const emaToggles = [
+    ['EMA9',  showEma9,  setE9,  '#f59e0b'],
+    ['EMA21', showEma21, setE21, '#60a5fa'],
+    ['EMA50', showEma50, setE50, '#c084fc'],
+  ];
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'#0d1117', overflow:'hidden' }}>
+
+      {/* ── Toolbar ── */}
+      <div style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 8px',
+                    borderBottom:'1px solid #1a2035', flexShrink:0, flexWrap:'wrap', minHeight:38 }}>
+
+        {/* Symbol search */}
+        <div style={{ position:'relative' }}>
+          <input
+            className="input"
+            style={{ width:118, fontSize:12, padding:'3px 7px', fontFamily:'var(--mono)', fontWeight:600, letterSpacing:.5 }}
+            value={dropOpen ? searchVal : symbol}
+            placeholder="Symbol…"
+            onFocus={() => { setDrop(true); setSearch(''); }}
+            onBlur={() => setTimeout(() => setDrop(false), 160)}
+            onChange={e => setSearch(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && searchVal.trim()) pickSymbol(searchVal.trim().toUpperCase()); }}
+          />
+          {dropOpen && (
+            <div style={{ position:'absolute', top:'100%', left:0, zIndex:9999,
+                          background:'#161b27', border:'1px solid #2a3347', borderRadius:6,
+                          width:210, maxHeight:270, overflowY:'auto', boxShadow:'0 8px 28px #000c' }}>
+              {filtered.map(s => (
+                <div key={s.symbol}
+                  onMouseDown={() => pickSymbol(s.symbol)}
+                  style={{ padding:'5px 10px', cursor:'pointer', fontSize:12, display:'flex',
+                           justifyContent:'space-between', borderBottom:'1px solid #1a2035' }}>
+                  <span style={{ fontFamily:'var(--mono)', fontWeight:600 }}>{s.symbol}</span>
+                  <span style={{ fontSize:10, opacity:.45, textTransform:'uppercase' }}>{s.type}</span>
+                </div>
+              ))}
+              {!filtered.length && (
+                <div style={{ padding:'7px 10px', fontSize:11, opacity:.4 }}>
+                  Press Enter → {searchVal.toUpperCase()}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Timeframe buttons */}
+        <div style={{ display:'flex', gap:2 }}>
+          {TFS.map(t => (
+            <button key={t}
+              className={cls('btn', t === tf ? 'primary' : 'ghost', 'sm')}
+              style={{ padding:'2px 7px', fontSize:11, minWidth:32 }}
+              onClick={() => setTf(t)}
+            >{t}</button>
+          ))}
+        </div>
+
+        <div style={{ width:1, height:16, background:'#2a3347', margin:'0 2px' }} />
+
+        {/* Broker selector — shows relevant brokers for current asset type */}
+        <div style={{ display:'flex', gap:2 }}>
+          {(isCrypto ? CRYPTO_BROKERS : STOCK_BROKERS).map(b => (
+            <button key={b.id}
+              className={cls('btn', b.id === broker ? 'primary' : 'ghost', 'sm')}
+              style={{ padding:'2px 7px', fontSize:11 }}
+              onClick={() => setBroker(b.id)}
+              title={`Fetch chart data from ${b.label}`}
+            >{b.label}</button>
+          ))}
+        </div>
+
+        <div style={{ width:1, height:16, background:'#2a3347', margin:'0 2px' }} />
+
+        {/* EMA toggles */}
+        {emaToggles.map(([label, on, set, color]) => (
+          <button key={label}
+            className="btn ghost sm"
+            style={{ padding:'2px 7px', fontSize:11,
+                     color: on ? color : '#4b5563',
+                     borderColor: on ? color+'88' : undefined,
+                     opacity: on ? 1 : 0.55 }}
+            onClick={() => set(v => !v)}
+          >{label}</button>
+        ))}
+
+        <div style={{ flex:1 }} />
+
+        {loading && <span style={{ fontSize:10, opacity:.45 }}>Loading…</span>}
+        {err     && <span style={{ fontSize:10, color:'var(--red)', maxWidth:160, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{err}</span>}
+
+        <button className="btn ghost sm" style={{ padding:'2px 6px' }}
+          onClick={() => { setBars([]); setMarks([]); setLoading(true); setErr(null);
+            panelApi(`/api/chart?symbol=${encodeURIComponent(symbol)}&timeframe=${tf}&limit=300&broker=${broker}`)
+              .then(d => { setBars(d.bars||[]); setMarks(d.markers||[]); })
+              .catch(e => setErr(e.message))
+              .finally(() => setLoading(false)); }}
+          title="Refresh chart">
+          <Icon name="refresh" size={11} />
+        </button>
+      </div>
+
+      {/* ── Chart container ── */}
+      <div ref={containerRef} style={{ flex:1, minHeight:0 }} />
+    </div>
+  );
+}
+
+window.Panels = { TopOverview, OpenPositionsPanel, ManualTradePanel, TradeLogPanel, DailyPerfPanel, BacktesterPanel, ChatPanel, ChartPanel };
 window.fmt = { fmt$, fmt$Sign, fmtP, fmtN, cls };

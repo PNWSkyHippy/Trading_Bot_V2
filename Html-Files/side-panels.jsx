@@ -60,7 +60,7 @@ function ManagePositionsPanel() {
   };
 
   const loadPositions = async ({ manual = false, quiet = false } = {}) => {
-    if (loadingRef.current) return;
+    if (loadingRef.current && !manual) return;
     loadingRef.current = true;
     if (manual) {
       setRefreshing(true);

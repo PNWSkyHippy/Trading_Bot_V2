@@ -470,6 +470,7 @@ BACKTEST_STRATEGIES = [
     "adaptive_regime", "rsi_momentum", "bollinger_breakout", "ema_crossover",
     "mean_reversion", "scalp_master", "swing_trader", "grid_bot",
     "dca_accumulator", "vwap_momentum", "hammer_reversal", "orb_breakout",
+    "ecb_strategy", "vdmr_strategy", "rsi_dip_spike_v4",
     "original_scorer",
 ]
 
@@ -774,6 +775,206 @@ def get_candles(symbol, asset_class, timeframe="5 Min", limit=100):
         return []
 
 
+# ---------------------------------------------------------------------------
+# Chart panel data — OHLCV bars + bot trade markers
+# ---------------------------------------------------------------------------
+
+_CHART_TF_ALPACA = {
+    '1m': '1Min', '5m': '5Min', '15m': '15Min', '30m': '30Min',
+    '1h': '1Hour', '4h': '4Hour', '1D': '1Day', '1W': '1Week',
+}
+_CHART_TF_CCXT = {
+    '1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m',
+    '1h': '1h', '4h': '4h', '1D': '1d', '1W': '1w',
+}
+
+
+def _chart_bars_alpaca(symbol, timeframe, limit):
+    try:
+        import alpaca_trade_api as tradeapi
+        if not _config:
+            return []
+        api = tradeapi.REST(_config.ALPACA_API_KEY, _config.ALPACA_SECRET_KEY, _config.ALPACA_BASE_URL)
+        tf  = _CHART_TF_ALPACA.get(timeframe, '5Min')
+        raw = api.get_bars(symbol, tf, limit=limit, adjustment='raw').df
+        if raw.empty:
+            return []
+        # Flatten MultiIndex columns (newer alpaca-trade-api versions)
+        if hasattr(raw.columns, 'levels'):
+            raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
+        bars = []
+        for ts, r in raw.iterrows():
+            try:
+                bars.append({
+                    'time': int(ts.timestamp()),
+                    'open': float(r['open']), 'high': float(r['high']),
+                    'low':  float(r['low']),  'close': float(r['close']),
+                    'volume': float(r.get('volume', 0)),
+                })
+            except Exception:
+                continue
+        return bars
+    except Exception as e:
+        import logging; logging.getLogger(__name__).warning(f"[chart/alpaca] {symbol}: {e}")
+        return []
+
+
+def _chart_bars_ibkr(symbol, timeframe, limit):
+    try:
+        from core.ibkr_executor import IBKRExecutor
+        ibkr = IBKRExecutor()
+        return ibkr.get_historical_bars(symbol, timeframe, limit)
+    except Exception:
+        return []
+
+
+def _chart_bars_kraken(symbol, timeframe, limit):
+    try:
+        import ccxt
+        exc  = ccxt.kraken({'enableRateLimit': True, 'timeout': 10000})
+        tf   = _CHART_TF_CCXT.get(timeframe, '5m')
+        rows = exc.fetch_ohlcv(symbol, tf, limit=limit)
+        return [
+            {'time': int(ts // 1000), 'open': float(o), 'high': float(h),
+             'low': float(l), 'close': float(c), 'volume': float(v)}
+            for ts, o, h, l, c, v in rows
+        ]
+    except Exception:
+        return []
+
+
+def _chart_bars_coinbase(symbol, timeframe, limit):
+    try:
+        import ccxt
+        exc  = ccxt.coinbase({'enableRateLimit': True})
+        tf   = _CHART_TF_CCXT.get(timeframe, '5m')
+        rows = exc.fetch_ohlcv(symbol, tf, limit=limit)
+        return [
+            {'time': int(ts // 1000), 'open': float(o), 'high': float(h),
+             'low': float(l), 'close': float(c), 'volume': float(v)}
+            for ts, o, h, l, c, v in rows
+        ]
+    except Exception:
+        return []
+
+
+def _chart_bars_yfinance(symbol, timeframe, limit):
+    try:
+        import yfinance as yf
+        from datetime import timedelta
+        # yfinance uses BTC-USD format for crypto
+        yfSym = symbol.replace('/', '-')
+        _interval_map = {
+            '1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m',
+            '1h': '1h', '4h': '1h', '1D': '1d', '1W': '1wk',
+        }
+        interval = _interval_map.get(timeframe, '5m')
+        # Approximate period needed
+        mins_per_bar = {'1m':1,'5m':5,'15m':15,'30m':30,'1h':60,'4h':240,'1D':1440,'1W':10080}.get(timeframe,5)
+        total_days = max(2, (mins_per_bar * limit) // 1440 + 1)
+        period_str = f"{min(total_days, 729)}d" if interval not in ('1d','1wk') else f"{min(total_days*2, 1800)}d"
+        raw = yf.download(yfSym, period=period_str, interval=interval, progress=False, auto_adjust=True)
+        if raw.empty:
+            return []
+        bars = []
+        for ts, row in raw.iterrows():
+            try:
+                t = int(ts.timestamp())
+                bars.append({'time': t, 'open': float(row['Open']), 'high': float(row['High']),
+                             'low': float(row['Low']), 'close': float(row['Close']),
+                             'volume': float(row.get('Volume', 0))})
+            except Exception:
+                continue
+        return bars[-limit:]
+    except Exception:
+        return []
+
+
+def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
+    symbol = symbol.upper().strip()
+    is_crypto = '/' in symbol
+    try:
+        limit = max(50, min(int(limit), 1000))
+    except Exception:
+        limit = 300
+
+    # Default broker by asset type
+    if not broker:
+        broker = 'kraken' if is_crypto else 'alpaca'
+
+    _fetchers = {
+        'alpaca':   _chart_bars_alpaca,
+        'ibkr':     _chart_bars_ibkr,
+        'kraken':   _chart_bars_kraken,
+        'coinbase': _chart_bars_coinbase,
+        'yfinance': _chart_bars_yfinance,
+    }
+    fetch = _fetchers.get(broker, _chart_bars_alpaca if not is_crypto else _chart_bars_kraken)
+    bars = fetch(symbol, timeframe, limit)
+
+    # Fallback if chosen broker returns nothing
+    if not bars:
+        fallback = _chart_bars_kraken if is_crypto else _chart_bars_alpaca
+        bars = fallback(symbol, timeframe, limit)
+
+    # Sort ascending — required by Lightweight Charts
+    bars.sort(key=lambda b: b['time'])
+
+    # Trade markers for this symbol
+    markers = []
+    try:
+        if db:
+            trades = db.get_all_closed_trades(limit=500)
+            for t in trades:
+                if (t.get('symbol') or '').upper() != symbol:
+                    continue
+                entry_time = t.get('entry_time')
+                if entry_time:
+                    try:
+                        et = datetime.fromisoformat(entry_time)
+                        markers.append({
+                            'time': int(et.timestamp()), 'type': 'entry',
+                            'direction': t.get('direction', 'long'),
+                            'price': float(t.get('entry_price', 0)),
+                            'pnl': 0,
+                        })
+                    except Exception:
+                        pass
+                exit_time = t.get('exit_time')
+                exit_price = t.get('exit_price')
+                if exit_time and exit_price:
+                    try:
+                        xt = datetime.fromisoformat(exit_time)
+                        pnl = float(t.get('pnl', 0) or 0)
+                        markers.append({
+                            'time': int(xt.timestamp()), 'type': 'exit',
+                            'direction': t.get('direction', 'long'),
+                            'price': float(exit_price), 'pnl': pnl,
+                        })
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+
+    markers.sort(key=lambda m: m['time'])
+    return {'bars': bars, 'markers': markers, 'symbol': symbol, 'timeframe': timeframe}
+
+
+def get_chart_symbols():
+    stocks = list(getattr(_config, 'STOCK_WATCHLIST', []) or [])
+    crypto = list(getattr(_config, 'CRYPTO_WATCHLIST', []) or [])
+    try:
+        inj = get_injected_symbols()
+        stocks = list(dict.fromkeys(stocks + inj.get('stocks', [])))
+        crypto = list(dict.fromkeys(crypto + inj.get('crypto', [])))
+    except Exception:
+        pass
+    return (
+        [{'symbol': s, 'type': 'stock'} for s in stocks] +
+        [{'symbol': s, 'type': 'crypto'} for s in crypto]
+    )
+
+
 WATCHLIST_DIR = ROOT / "watchlist"
 INJECTED_STOCKS_FILE = WATCHLIST_DIR / "scanned_stocks.txt"
 INJECTED_CRYPTO_FILE = WATCHLIST_DIR / "scanned_crypto.txt"
@@ -1008,7 +1209,8 @@ def get_overview_data():
         "daily_pnl": daily_pnl,
         "daily_pnl_pct": daily_pnl_pct,
         "open_positions": len(open_trades),
-        "trades_today": status_trades_today,
+        "trades_today": closed_trade_count,        # matches Trade Log count
+        "session_trades_today": status_trades_today, # session counter (since last bot start)
         "closed_trades_today": closed_trade_count,
         "wins_today": wins_today,
         "losses_today": losses_today,
@@ -1354,6 +1556,17 @@ class Handler(BaseHTTPRequestHandler):
                 "sort_dir": sort_dir,
                 "db_path": str(DB_PATH),
             })
+
+        if path == "/api/chart":
+            params = parse_qs(parsed.query)
+            symbol    = (params.get("symbol")    or ["BTC/USD"])[0].strip()
+            timeframe = (params.get("timeframe") or ["5m"])[0].strip()
+            limit     = (params.get("limit")     or ["300"])[0].strip()
+            broker    = (params.get("broker")    or [""])[0].strip().lower() or None
+            return self._json(200, get_chart_data(symbol, timeframe, limit, broker))
+
+        if path == "/api/chart/symbols":
+            return self._json(200, {"symbols": get_chart_symbols()})
 
         if path == "/api/candles":
             params = parse_qs(parsed.query)

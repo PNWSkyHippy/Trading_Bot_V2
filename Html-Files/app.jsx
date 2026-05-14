@@ -1,7 +1,7 @@
 // Main App — assembles top bar, taskbar, dock, and all windows
 const { useState: $S, useEffect: $E, useRef: $R, useMemo: $M } = React;
 
-const { TopOverview, OpenPositionsPanel, ManualTradePanel, TradeLogPanel, DailyPerfPanel, BacktesterPanel, ChatPanel } = window.Panels;
+const { TopOverview, OpenPositionsPanel, ManualTradePanel, TradeLogPanel, DailyPerfPanel, BacktesterPanel, ChatPanel, ChartPanel } = window.Panels;
 const { ManagePositionsPanel, InjectSymbolsPanel, QuickControlsPanel, TerminalPanel } = window.SidePanels;
 
 // Window definitions
@@ -17,6 +17,7 @@ const WINDOW_DEFS = [
   { id: 'inject-symbols',   title: 'Inject Symbols Into Watchlist',icon: 'telescope',defaultPos: { x: 420, y: 100 },  defaultSize: { w: 740, h: 540 },  openByDefault: false },
   { id: 'terminal',         title: 'PowerShell Workspace',         icon: 'terminal',  defaultPos: { x: 180, y: 140 },  defaultSize: { w: 520, h: 560 },  openByDefault: false },
   { id: 'quick-controls',   title: 'Quick Controls',              icon: 'settings',  defaultPos: { x: 100, y: 50 },   defaultSize: { w: 360, h: 720 },  openByDefault: false },
+  { id: 'chart',            title: 'Chart',                       icon: 'activity',  defaultPos: { x: 300, y: 60 },   defaultSize: { w: 1000, h: 600 }, openByDefault: false },
 ];
 
 // =========== App Shell ===========
@@ -60,6 +61,7 @@ function Topbar({ dateStr, timeStr }) {
         <button onClick={() => open('trade-log')}>Trade Log</button>
         <button onClick={() => open('backtester')}>Backtester</button>
         <button onClick={() => open('terminal')}>Shell</button>
+        <button onClick={() => open('chart')}>Chart</button>
         <button onClick={() => open('chat')}>Chat</button>
       </div>
       <div className="spacer"></div>
@@ -74,8 +76,60 @@ function Topbar({ dateStr, timeStr }) {
 
 function Workspace() {
   const { canvasSize } = useWindows();
+  const wsRef = $R(null);
+  const panRef = $R(null);
+
+  // Shift+wheel → horizontal scroll; plain wheel → vertical scroll (panels handle their own)
+  $E(() => {
+    const el = wsRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      if (e.shiftKey) {
+        e.preventDefault();
+        el.scrollLeft += e.deltaY || e.deltaX;
+      }
+      // plain wheel: let workspace scroll vertically (default), panels stop propagation themselves
+    };
+    el.addEventListener('wheel', onWheel, { passive: false });
+    return () => el.removeEventListener('wheel', onWheel);
+  }, []);
+
+  // Middle-mouse-button or alt+drag on workspace background → pan canvas
+  $E(() => {
+    const el = wsRef.current;
+    if (!el) return;
+    const onPointerDown = (e) => {
+      // Only pan on workspace background (not on windows) with middle button or alt+left
+      const isBackground = e.target === el || e.target.classList.contains('workspace-canvas') || e.target.classList.contains('dock');
+      if (!isBackground) return;
+      if (e.button !== 1 && !(e.button === 0 && e.altKey)) return;
+      e.preventDefault();
+      panRef.current = { x: e.clientX, y: e.clientY, sl: el.scrollLeft, st: el.scrollTop };
+      el.style.cursor = 'grabbing';
+    };
+    const onPointerMove = (e) => {
+      const d = panRef.current;
+      if (!d) return;
+      el.scrollLeft = d.sl - (e.clientX - d.x);
+      el.scrollTop = d.st - (e.clientY - d.y);
+    };
+    const onPointerUp = () => {
+      panRef.current = null;
+      el.style.cursor = '';
+    };
+    el.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    return () => {
+      el.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+  }, []);
+
   return (
     <div
+      ref={wsRef}
       className="workspace"
       style={{
         '--workspace-w': `${Math.ceil(canvasSize?.width || window.innerWidth)}px`,
@@ -95,6 +149,7 @@ function Workspace() {
       <Window id="inject-symbols"><InjectSymbolsPanel /></Window>
       <Window id="terminal"><TerminalPanel /></Window>
       <Window id="quick-controls"><QuickControlsPanel /></Window>
+      <Window id="chart"><ChartPanel /></Window>
     </div>
   );
 }
@@ -112,6 +167,7 @@ function Dock() {
     { id: 'daily-perf', label: 'Daily Performance', icon: 'calendar' },
     { id: 'backtester', label: 'Backtester', icon: 'flask' },
     { id: 'chat', label: 'Chat', icon: 'chat' },
+    { id: 'chart',          label: 'Chart',           icon: 'activity' },
     { id: 'quick-controls', label: 'Quick Controls', icon: 'settings' },
   ];
   return (
