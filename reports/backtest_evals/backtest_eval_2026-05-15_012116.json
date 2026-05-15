@@ -1,0 +1,60 @@
+{
+  "total_score": 18,
+  "verdict": "Abandon",
+  "dimensions": [
+    {
+      "name": "Sample Size",
+      "score": 10,
+      "max_score": 20
+    },
+    {
+      "name": "Expectancy",
+      "score": 0,
+      "max_score": 20
+    },
+    {
+      "name": "Risk Management",
+      "score": 5,
+      "max_score": 20
+    },
+    {
+      "name": "Robustness",
+      "score": 3,
+      "max_score": 20
+    },
+    {
+      "name": "Execution Realism",
+      "score": 0,
+      "max_score": 20
+    }
+  ],
+  "red_flags": [
+    {
+      "id": "no_slippage_test",
+      "severity": "high",
+      "message": "Slippage/friction not tested — results may not survive real-world execution."
+    },
+    {
+      "id": "short_test_period",
+      "severity": "medium",
+      "message": "Only 1 years tested — may miss regime changes (minimum 5 recommended)."
+    },
+    {
+      "id": "negative_expectancy",
+      "severity": "high",
+      "message": "Negative expectancy (-0.351%) — strategy loses money on average."
+    }
+  ],
+  "profit_factor": 0.7191994247363375,
+  "expectancy": -0.35145000000000004,
+  "inputs": {
+    "total_trades": 55,
+    "win_rate": 25.5,
+    "avg_win_pct": 3.53,
+    "avg_loss_pct": 1.68,
+    "max_drawdown_pct": 36.1,
+    "years_tested": 1,
+    "num_parameters": 6,
+    "slippage_tested": false
+  }
+}

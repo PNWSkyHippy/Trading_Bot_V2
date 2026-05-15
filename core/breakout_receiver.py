@@ -41,10 +41,15 @@ logger = logging.getLogger(__name__)
 SIGNAL_TTL_SEC          = 60      # reject signals older than this
 VOLUME_SPIKE_MIN        = 1.5     # >= 1.5x 20-period average
 WICK_BODY_MAX_RATIO     = 2.0     # wick <= 2x body (fakeout filter)
-GAP_TRAP_MAX_PCT        = 15.0    # reject if total move > 15%
+GAP_TRAP_MAX_PCT        = 30.0    # reject if total move > 30%
+                                  # (was 15%; raised because crypto 15-25% moves are
+                                  #  legitimate breakouts and were being blocked en masse.
+                                  #  Truly manipulated/wash moves tend to be 50%+.)
 PRICE_DRIFT_MAX_PCT     = 0.5     # price must not have reversed > 0.5%
 STOP_MAX_DISTANCE_STOCK = 2.5     # max stop distance % for stocks
-STOP_MAX_DISTANCE_CRYPTO= 3.5     # max stop distance % for crypto
+STOP_MAX_DISTANCE_CRYPTO= 5.0     # max stop distance % for crypto
+                                  # (was 3.5%; raised to match two-bar structural trail
+                                  #  which can place stops 4-6% away on volatile movers)
 RSI_LONG_MIN            = 50.0
 RSI_LONG_EXHAUST        = 82.0
 RSI_SHORT_MAX           = 50.0
@@ -52,6 +57,10 @@ RSI_SHORT_EXHAUST       = 18.0
 MARKET_CRASH_THRESHOLD  = -2.0
 MARKET_RALLY_THRESHOLD  = +2.0
 MIN_SOFT_PASSES         = 0       # need this many actual soft PASSes (skips neutral)
+
+# Symbols permanently banned from breakout entries.
+# MLN/USD: 6 consecutive losses — thin liquidity, erratic breakouts, never recovered.
+BREAKOUT_SYMBOL_BLACKLIST = {"MLN/USD", "MLNUSD", "MLN/USDT", "MLNUSDT"}
 
 REQUIRED_FIELDS = [
     "symbol", "asset_class", "direction",
@@ -105,6 +114,11 @@ class BreakoutReceiver:
         esc           = payload.get("escalation", 0)
         ts_in         = payload.get("timestamp", "")
         signal_age_sec = self._signal_age(ts_in)
+
+        # Hard symbol blacklist — checked before everything else
+        if sym.upper() in BREAKOUT_SYMBOL_BLACKLIST:
+            logger.info(f"[BREAKOUT RECV] {sym} rejected — in permanent symbol blacklist (serial loser)")
+            return {"status": "rejected", "reason": f"{sym} in breakout symbol blacklist"}
 
         logger.info(
             f"[BREAKOUT RECV] {sym} {str(direction).upper()} "
@@ -177,12 +191,14 @@ class BreakoutReceiver:
         hard = [
             self._check_freshness(p, signal_age_sec),
             self._check_no_open_position(p),
+            self._check_daily_symbol_limit(p),   # cap MLN/USD-style serial losses
             self._check_not_in_cooldown(p),
             self._check_trading_not_halted(),
             self._check_price_still_moving(p),
             self._check_volume_elevated(p),
             self._check_no_wick_rejection(p),   # SKIP when OHLC missing (neutral)
             self._check_not_gap_trap(p),
+            self._check_momentum_phase(p),      # reject late/exhausted parabolic entries
             self._check_structural_stop(p),
         ]
         soft = [
@@ -203,9 +219,33 @@ class BreakoutReceiver:
 
     def _check_no_open_position(self, p: Dict) -> ChecklistResult:
         sym = p["symbol"]
-        if any(t["symbol"] == sym for t in db.get_open_trades()):
+        if any(t["symbol"] == sym for t in (db.get_open_trades() or [])):
             return ChecklistResult.fail(f"Already have open position on {sym}")
         return ChecklistResult.ok(f"No existing position on {sym}")
+
+    def _check_daily_symbol_limit(self, p: Dict) -> ChecklistResult:
+        """
+        Cap breakout_scanner trades per symbol per day at MAX_DAILY_PER_SYMBOL.
+        Prevents MLN/USD-style serial losses where the 10-min cooldown keeps
+        resetting and the same symbol gets traded 6+ times in one session.
+        """
+        MAX_DAILY_PER_SYMBOL = 2
+        sym = p["symbol"]
+        try:
+            today = __import__("datetime").date.today().isoformat()
+            count = len([
+                t for t in (db.get_trades_for_date(today) or [])
+                if t.get("symbol") == sym
+                and t.get("strategy_name") == "breakout_scanner"
+            ])
+            if count >= MAX_DAILY_PER_SYMBOL:
+                return ChecklistResult.fail(
+                    f"{sym} already traded {count}× today via breakout_scanner "
+                    f"(daily limit={MAX_DAILY_PER_SYMBOL})"
+                )
+        except Exception as e:
+            logger.debug(f"[DAILY LIMIT] Could not check daily trade count: {e}")
+        return ChecklistResult.ok(f"Daily symbol limit OK")
 
     def _check_not_in_cooldown(self, p: Dict) -> ChecklistResult:
         sym  = p["symbol"]
@@ -221,7 +261,7 @@ class BreakoutReceiver:
 
     def _check_trading_not_halted(self) -> ChecklistResult:
         today   = datetime.now().date().isoformat()
-        session = db.get_session(today)
+        session = db.get_session(today) or {}
         if session.get("trading_halted"):
             return ChecklistResult.fail(
                 f"Trading halted: {session.get('halt_reason', 'unknown')}"
@@ -234,28 +274,38 @@ class BreakoutReceiver:
     def _check_price_still_moving(self, p: Dict) -> ChecklistResult:
         sym       = p["symbol"]
         asset     = p.get("asset_class", "crypto")
-        sig_price = float(p.get("entry_price", 0))
+        # Use current_price as the reference (it's the price when the signal fired),
+        # falling back to entry_price so pre-BREAKOUT-8A payloads still work.
+        ref_price = float(p.get("current_price") or p.get("entry_price", 0))
         direction = p.get("direction", "long")
 
         if not self._scanner_ref:
             return ChecklistResult.fail(
                 "Price re-verify impossible — scanner not wired to receiver"
             )
-        if sig_price <= 0:
-            return ChecklistResult.fail("entry_price is zero or missing")
+        if ref_price <= 0:
+            return ChecklistResult.fail("current_price/entry_price is zero or missing")
 
         try:
             current = self._scanner_ref.get_current_price(sym, asset)
             if not current:
-                return ChecklistResult.fail(f"Could not fetch live price for {sym}")
-            drift_pct = ((current - sig_price) / sig_price) * 100
+                # Price unfetchable for this specific symbol (common for /USDC pairs
+                # that Kraken doesn't list as /USDC — not a scanner infrastructure
+                # failure, just an illiquid or USDC-quoted pair).  SKIP = neutral;
+                # the scanner-not-wired case above is the true infrastructure failure.
+                return ChecklistResult.skip(
+                    f"Could not fetch live price for {sym} — skipping price drift check"
+                )
+            drift_pct = ((current - ref_price) / ref_price) * 100
             if direction == "long" and drift_pct < -PRICE_DRIFT_MAX_PCT:
                 return ChecklistResult.fail(
-                    f"{sym} reversed {drift_pct:.2f}% (limit -{PRICE_DRIFT_MAX_PCT}%)"
+                    f"{sym} reversed {drift_pct:.2f}% from signal price "
+                    f"(limit -{PRICE_DRIFT_MAX_PCT}%)"
                 )
             if direction == "short" and drift_pct > PRICE_DRIFT_MAX_PCT:
                 return ChecklistResult.fail(
-                    f"{sym} reversed +{drift_pct:.2f}% (limit +{PRICE_DRIFT_MAX_PCT}%)"
+                    f"{sym} reversed +{drift_pct:.2f}% from signal price "
+                    f"(limit +{PRICE_DRIFT_MAX_PCT}%)"
                 )
             return ChecklistResult.ok(f"{sym} still moving (drift={drift_pct:+.2f}%)")
         except Exception as e:
@@ -263,6 +313,13 @@ class BreakoutReceiver:
 
     def _check_volume_elevated(self, p: Dict) -> ChecklistResult:
         vol = float(p.get("volume_spike", 0))
+        # vol == 1.0 exactly is the _vol_spike() default fallback when there is
+        # no volume history (e.g. CoinGecko-sourced ticks with volume=0).
+        # It is NOT a real measurement, so treat it as "no data" → SKIP, not FAIL.
+        if vol == 1.0:
+            return ChecklistResult.skip(
+                "Volume spike is 1.00x (default fallback — no volume history) — skipping"
+            )
         if vol < VOLUME_SPIKE_MIN:
             return ChecklistResult.fail(
                 f"Volume spike {vol:.2f}x below minimum {VOLUME_SPIKE_MIN}x"
@@ -310,6 +367,63 @@ class BreakoutReceiver:
                 f"Move {move:.1f}% > gap trap threshold {GAP_TRAP_MAX_PCT}%"
             )
         return ChecklistResult.ok(f"Move {move:.1f}% within range")
+
+    def _check_momentum_phase(self, p: Dict) -> ChecklistResult:
+        """
+        Reject entries that are LATE in a parabolic move.
+
+        The scanner fires after detecting a large price move. If we're already
+        many bars past the breakout level, or RSI is exhausted, we're buying
+        the top (long) or selling the bottom (short) — exactly the wrong side.
+
+        Thresholds derived from breakout scanner analysis:
+        - bars_since_breakout > 4: move is 4+ bars old, most momentum consumed
+        - distance_from_breakout_pct > 8%: price has moved 8%+ from the level;
+          a normal continuation trade targets 5-7% — that's already gone
+        - RSI exhaustion: >78 for longs (overbought), <22 for shorts (oversold)
+        """
+        direction   = p.get("direction", "long")
+        bars_since  = p.get("bars_since_breakout")
+        dist_pct    = p.get("distance_from_breakout_pct")
+        rsi         = p.get("rsi")
+
+        MAX_BARS_SINCE    = 4
+        MAX_DIST_FROM_LVL = 8.0   # %
+        RSI_EXHAUST_LONG  = 78
+        RSI_EXHAUST_SHORT = 22
+
+        if bars_since is not None:
+            bars_since = int(bars_since)
+            if bars_since > MAX_BARS_SINCE:
+                return ChecklistResult.fail(
+                    f"Move is {bars_since} bars old — too late to enter "
+                    f"(max {MAX_BARS_SINCE} bars from breakout level)"
+                )
+
+        if dist_pct is not None:
+            dist = abs(float(dist_pct))
+            if dist > MAX_DIST_FROM_LVL:
+                return ChecklistResult.fail(
+                    f"Price already {dist:.1f}% from breakout level — chasing "
+                    f"(max {MAX_DIST_FROM_LVL}% allowed)"
+                )
+
+        if rsi is not None:
+            rsi_f = float(rsi)
+            if direction == "long" and rsi_f >= RSI_EXHAUST_LONG:
+                return ChecklistResult.fail(
+                    f"RSI {rsi_f:.1f} overbought — parabolic up likely exhausted "
+                    f"(long rejected, threshold={RSI_EXHAUST_LONG})"
+                )
+            if direction == "short" and rsi_f <= RSI_EXHAUST_SHORT:
+                return ChecklistResult.fail(
+                    f"RSI {rsi_f:.1f} oversold — parabolic down likely exhausted "
+                    f"(short rejected, threshold={RSI_EXHAUST_SHORT})"
+                )
+
+        return ChecklistResult.ok(
+            f"Momentum phase OK: bars_since={bars_since} dist={dist_pct}% rsi={rsi}"
+        )
 
     def _check_structural_stop(self, p: Dict) -> ChecklistResult:
         stop      = p.get("structural_stop_price")
@@ -403,6 +517,26 @@ class BreakoutReceiver:
             esc         = p.get("escalation", 0)
             broker_hint = str(p.get("broker", "kraken")).lower()
 
+            # ── Move-proportional stop loss ───────────────────────────────
+            # Default 1.5% fixed stop bleeds on crypto: after a 5-10% move,
+            # normal pullbacks hit it. Use a stop proportional to the move
+            # so the trade has room to breathe.
+            # Formula: max(move_pct * 0.30, 2.0), capped at 4.5%.
+            # Only applied when no structural stop is already provided
+            # (structural stop is more precise and always preferred).
+            # Stocks keep the existing default — this only applies to crypto
+            # where the serial-loss pattern was observed.
+            move_pct_abs = abs(float(p.get("move_pct", 0)))
+            has_structural_stop = p.get("structural_stop_price") is not None
+            if asset_class == "crypto" and not has_structural_stop:
+                custom_stop = round(min(max(move_pct_abs * 0.30, 2.0), 4.5), 2)
+                logger.info(
+                    f"[BREAKOUT RECV] {sym} custom_stop_loss_pct={custom_stop}% "
+                    f"(move={move_pct_abs:.1f}%, no structural stop)"
+                )
+            else:
+                custom_stop = None  # use structural stop or executor default
+
             signal = Signal(
                 symbol        = sym,
                 asset_class   = asset_class,
@@ -430,6 +564,9 @@ class BreakoutReceiver:
                     "breakout_level":             p.get("breakout_level"),
                     "bars_since_breakout":        p.get("bars_since_breakout"),
                     "distance_from_breakout_pct": p.get("distance_from_breakout_pct"),
+                    # Move-proportional stop: wider than default 1.5% for crypto
+                    # when no structural stop exists. None = use structural/default.
+                    "custom_stop_loss_pct":       custom_stop,
                 },
             )
 

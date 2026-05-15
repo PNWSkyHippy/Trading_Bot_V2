@@ -78,6 +78,27 @@ class BreakoutSender:
             return False
         return True
 
+    def _resolve_direction(self, signal) -> Optional[str]:
+        """
+        Resolve direction with a safe fallback chain:
+          1. signal.direction (explicit, set by scanner at signal creation)
+          2. signal.momentum_score (inferred: negative = short, non-negative = long)
+          3. None  → caller drops the send
+        Logs at INFO when the fallback is used so it shows in scanner logs.
+        """
+        direction = getattr(signal, "direction", "") or ""
+        if direction:
+            return direction.lower()
+        ms = getattr(signal, "momentum_score", None)
+        if ms is not None:
+            inferred = "short" if float(ms) < 0 else "long"
+            logger.info(
+                f"[SENDER] {signal.symbol} direction inferred from momentum_score "
+                f"({float(ms):.3f}) -> {inferred}"
+            )
+            return inferred
+        return None
+
     def send_signal(self, signal, escalation: int, candle_data: dict = None):
         """
         Non-blocking send in background thread.
@@ -89,13 +110,11 @@ class BreakoutSender:
         if not self.should_send(signal, escalation):
             return
 
-        # Direction must be explicit — scanner owns this (BREAKOUT 8A).
-        # Never silently default to "long".
-        direction = getattr(signal, "direction", "") or ""
+        direction = self._resolve_direction(signal)
         if not direction:
             logger.warning(
-                f"[SENDER] {signal.symbol} missing direction — dropping send "
-                f"(scanner must set signal.direction explicitly)"
+                f"[SENDER] {signal.symbol} missing direction and no momentum_score "
+                f"fallback — dropping send (scanner must set signal.direction)"
             )
             return
 

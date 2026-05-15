@@ -172,10 +172,48 @@ class KrakenExecutor:
             return None
 
     def get_current_price(self, symbol: str) -> Optional[float]:
+        """
+        Return the current mid-price for *symbol* from Kraken.
+
+        Defence against stale / garbage ticker prices
+        ------------------------------------------------
+        Some tokens (especially newly listed ones) have a `last` trade price
+        that is days or weeks old and wildly different from the active market.
+        We cross-check `last` against the live bid/ask mid-price:
+
+        * If bid AND ask are present and sane (bid < ask, both > 0), use
+          mid-price as the reference.
+        * If `last` deviates from mid by more than 50 %, the ticker is stale
+          — return mid instead (it reflects the live order book).
+        * If bid/ask are missing (e.g. market closed or illiquid) fall back to
+          `last` as before, so normal operation is unaffected.
+        """
         try:
             ccxt_symbol = symbol.replace("-", "/")
             ticker = self.exchange.fetch_ticker(ccxt_symbol)
-            return float(ticker["last"])
+            last = float(ticker.get("last") or 0)
+            bid  = float(ticker.get("bid")  or 0)
+            ask  = float(ticker.get("ask")  or 0)
+
+            # ── prefer mid-price when the order book is live ─────────────────
+            if bid > 0 and ask > 0 and bid < ask:
+                mid = (bid + ask) / 2.0
+                if last > 0:
+                    deviation = abs(last - mid) / mid
+                    if deviation > 0.50:
+                        logger.warning(
+                            f"[TICKER SANITY] {symbol}: last=${last:.6f} deviates "
+                            f"{deviation*100:.1f}% from mid=${mid:.6f} — "
+                            f"using mid (stale last price suspected)"
+                        )
+                        return mid
+                return mid          # bid/ask available — mid is more reliable
+
+            # ── no live book — fall back to last ─────────────────────────────
+            if last > 0:
+                return last
+
+            return None
         except Exception as e:
             logger.debug(f"Kraken price lookup failed for {symbol}: {e}")
             return None

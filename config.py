@@ -2,25 +2,71 @@
 config.py — All settings, API keys, and tunable parameters
 Trading Bot v2
 """
-from cryptography.fernet import Fernet
+from cryptography.fernet import InvalidToken, Fernet
 import os
 from dotenv import load_dotenv
 import keyring
 load_dotenv()
 
 # =============================================================================
-# API KEYS (loaded from .env)
+# FERNET DECRYPT HELPER
+# =============================================================================
+# All sensitive API keys are stored as Fernet-encrypted tokens in .env /
+# scanner_config.json.  Use your key-encryptor frontend to produce tokens,
+# then paste the output into .env (or scanner_config.json for scanner keys).
+#
+# Fernet tokens always start with "gAAAAA".  Any value that does NOT start
+# with that prefix is treated as plaintext and returned unchanged — this lets
+# you migrate keys one at a time without breaking unencrypted ones.
+#
+# If an encrypted token is found but the Fernet key is missing from Windows
+# Credential Manager, a RuntimeError is raised at startup (fail fast).
 # =============================================================================
 
-ALPACA_API_KEY      = os.getenv("ALPACA_API_KEY", "")
-ALPACA_SECRET_KEY   = os.getenv("ALPACA_SECRET_KEY", "")
-ALPACA_BASE_URL     = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
+_fernet_raw = keyring.get_password("trading_bot_v2", "fernet_key")
+_BASE_KEY   = _fernet_raw.encode() if _fernet_raw else None
 
-COINBASE_API_KEY    = os.getenv("COINBASE_API_KEY", "")
-COINBASE_SECRET_KEY = os.getenv("COINBASE_SECRET_KEY", "")
+def _decrypt(val: str) -> str:
+    """
+    Decrypt a Fernet-encrypted API key loaded from .env.
 
-KRAKEN_API_KEY      = os.getenv("KRAKEN_API_KEY", "")
-KRAKEN_SECRET_KEY   = os.getenv("KRAKEN_SECRET_KEY", "")
+    - Empty string        → returned unchanged (key not configured).
+    - Plaintext value     → returned unchanged (migration-safe).
+    - Fernet token        → decrypted and returned.
+    - Encrypted but no Fernet key in Credential Manager → RuntimeError.
+    """
+    if not val:
+        return val
+    val = val.strip()
+    if not val.startswith("gAAAAA"):
+        return val                          # plaintext — not yet encrypted
+    if not _BASE_KEY:
+        raise RuntimeError(
+            "Encrypted API key found in .env but the Fernet key is not in "
+            "Windows Credential Manager.  "
+            "Run: python Scripts\\store_fernet_key.py"
+        )
+    try:
+        return Fernet(_BASE_KEY).decrypt(val.encode()).decode().strip()
+    except InvalidToken:
+        raise RuntimeError(
+            f"Failed to decrypt an API key — token is corrupt or was encrypted "
+            f"with a different Fernet key.  First 20 chars: {val[:20]}…"
+        )
+
+# =============================================================================
+# API KEYS  (each one passes through _decrypt — plaintext keys work unchanged)
+# =============================================================================
+
+ALPACA_API_KEY      = _decrypt(os.getenv("ALPACA_API_KEY",      ""))
+ALPACA_SECRET_KEY   = _decrypt(os.getenv("ALPACA_SECRET_KEY",   ""))
+ALPACA_BASE_URL     =          os.getenv("ALPACA_BASE_URL",     "https://paper-api.alpaca.markets")
+
+COINBASE_API_KEY    = _decrypt(os.getenv("COINBASE_API_KEY",    ""))
+COINBASE_SECRET_KEY = _decrypt(os.getenv("COINBASE_SECRET_KEY", ""))
+
+KRAKEN_API_KEY      = _decrypt(os.getenv("KRAKEN_API_KEY",      ""))
+KRAKEN_SECRET_KEY   = _decrypt(os.getenv("KRAKEN_SECRET_KEY",   ""))
 KRAKEN_ENABLED      = True
 
 # Interactive Brokers — add keys to .env when account is ready
@@ -30,26 +76,16 @@ IBKR_ACCOUNT        = os.getenv("IBKR_ACCOUNT", "")    # Account ID e.g. DU12345
 IBKR_ENABLED        = True                              # Set True after TWS is running
 IBKR_PAPER_MODE     = True                              # True = paper (port 7497)
 
-ANTHROPIC_API_KEY   = os.getenv("ANTHROPIC_API_KEY", "")
-CLAUDE_REVIEWER_ENABLED = False   # Set True to re-enable
-_fernet_key = keyring.get_password("trading_bot_v2", "fernet_key")
-BASE_KEY = _fernet_key.encode() if _fernet_key else None
-if ANTHROPIC_API_KEY and not BASE_KEY:
-    raise RuntimeError(
-        "Fernet key not found in Windows Credential Manager. "
-        "Run: python Scripts\\store_fernet_key.py"
-    )
-if ANTHROPIC_API_KEY:
-    cipher_suite = Fernet(BASE_KEY)
-    encrypted_val = ANTHROPIC_API_KEY.strip().encode()
-    decrypted_val = cipher_suite.decrypt(encrypted_val).decode()
-    ANTHROPIC_API_KEY = decrypted_val
-else:
-    pass
+ANTHROPIC_API_KEY   = _decrypt(os.getenv("ANTHROPIC_API_KEY",  ""))
+CLAUDE_REVIEWER_ENABLED = True   # Set True to re-enable
 
-EMAIL_SENDER        = os.getenv("EMAIL_SENDER", "")
-EMAIL_PASSWORD      = os.getenv("EMAIL_PASSWORD", "")
-EMAIL_RECIPIENT     = os.getenv("EMAIL_RECIPIENT", "")
+# Massive.com market data — used by BreakoutScanner AND ClaudeReviewer
+# Can also be set in scanner_config.json (reviewer falls back there if blank)
+MASSIVE_API_KEY     = _decrypt(os.getenv("MASSIVE_API_KEY",    ""))
+
+EMAIL_SENDER        =          os.getenv("EMAIL_SENDER",       "")
+EMAIL_PASSWORD      = _decrypt(os.getenv("EMAIL_PASSWORD",     ""))
+EMAIL_RECIPIENT     =          os.getenv("EMAIL_RECIPIENT",    "")
 
 # =============================================================================
 # CAPITAL & TRADING PARAMETERS

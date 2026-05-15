@@ -1,13 +1,11 @@
 {
-  "generated": "2026-05-13T13:31:41.083878",
+  "generated": "2026-05-14T13:35:53.664402",
   "valid_until": "next_market_close",
   "stocks": [
-    "CSCO",
+    "AMAT",
     "HPE",
-    "CVS"
+    "JBHT",
+    "PANW"
   ],
-  "crypto": [
-    "TRX/USD",
-    "DOGE/USD"
-  ]
+  "crypto": []
 }

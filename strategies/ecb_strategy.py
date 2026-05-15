@@ -349,8 +349,9 @@ def scan_watchlist(symbols: list[str], timeframe: str = "1h",
 # ─── Entry point ─────────────────────────────────────────────────────────────
 
 WATCHLIST = [
-    "BTC/USDT", "ETH/USDT", "BNB/USDT",
-    "XRP/USDT", "DOGE/USDT", "SOL/USDT",
+    "BTC/USD",  "ETH/USD",  "SOL/USD",  "ADA/USD",
+    "MATIC/USD","DOT/USD",  "AVAX/USD", "LINK/USD",
+    "LTC/USD",  "XRP/USD",
 ]
 
 if __name__ == "__main__":
@@ -381,6 +382,10 @@ except ImportError:
     TradeSignal  = None
 
 
+# SOL confirmed negative in backtest (PF=0.95, Sharpe=-0.10) — excluded.
+ECB_BLACKLIST = {"SOL/USD", "SOLUSDT", "SOL/USDT"}
+
+
 class ECBStrategy(BaseStrategy):
     """Entropy Collapse Breakout — low-entropy directional commitment signals (CANDIDATE)."""
 
@@ -398,6 +403,9 @@ class ECBStrategy(BaseStrategy):
 
     def analyze(self, symbol: str, candles: pd.DataFrame,
                 market_condition: str = "unknown") -> Optional[TradeSignal]:
+        if symbol.upper() in ECB_BLACKLIST:
+            self.verbose_log_skip(symbol, "In ECB blacklist (SOL: PF=0.95 negative backtest)")
+            return None
         if not self._check_enough_candles(symbol, candles, 220):
             return None
         try:

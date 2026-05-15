@@ -35,6 +35,7 @@ from strategies.adaptive_regime import AdaptiveRegime
 from strategies.ecb_strategy import ECBStrategy
 from strategies.vdmr_strategy import VDMRStrategy
 from strategies.rsi_dip_spike_v4 import RSIDipSpikeV4Strategy
+from strategies.bollinger_squeeze import BollingerSqueeze
 from data.database import db
 
 logger = logging.getLogger(__name__)
@@ -70,6 +71,10 @@ class StrategyEngine:
             ECBStrategy(),              # Strategy 13 — Entropy Collapse Breakout (CANDIDATE)
             VDMRStrategy(),             # Strategy 14 — Velocity-Deceleration Mean Reversion (INCUBATE)
             RSIDipSpikeV4Strategy(),    # Strategy 15 — RSI Dip & Spike v4c (INCUBATE/CANDIDATE)
+            BollingerSqueeze(),         # Strategy 16 — Bollinger Squeeze release (INCUBATE)
+                                        # Backtest May2025-May2026 1h crypto:
+                                        # ETH PF=1.32 +7.3% Sharpe=1.21 | BNB PF=1.15 +0.9%
+                                        # BTC PF=1.12 +0.2% | SOL longs disabled (bled)
         ]
 
         self._load_strategy_states()
@@ -269,6 +274,10 @@ class StrategyEngine:
             "reconcile_close",        # legacy name — kept as guard
             "broker_closed_sl_tp",    # position_monitor broker-reconcile path
             "invalid_pair",           # data/routing error — not strategy outcome
+            "reconciled_ghost",       # trade opened in DB but broker never held the
+                                      # position — infrastructure failure, not strategy
+                                      # outcome. Was being counted as a loss ($0 pnl)
+                                      # and dragging WR from 20.8% → 15.8% on bollinger.
         }
         if exit_reason.lower() in EXCLUDED_REASONS:
             logger.debug(

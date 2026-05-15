@@ -66,7 +66,14 @@ class BollingerBreakout(BaseStrategy):
         # re-enable with tighter filters and crypto-specific thresholds.
         self.crypto_enabled      = False
 
-        # Bollinger is the sole crypto strategy running 24/7.
+        # ── Diagnostic fix 2026-05-15 ────────────────────────────────────────
+        # Live data (101 real trades, ghosts excluded):
+        #   Longs:  25.0% WR  avgW=2.61%  avgL=1.67%  EV=-0.60%
+        #   Shorts: 11.8% WR — fighting a May 2026 uptrend, purely destructive
+        # SHORT SIGNALS DISABLED until a proper backtest shows edge on the short side.
+        # Re-enable: set self.shorts_enabled = True and re-run trader-dev backtest.
+        self.shorts_enabled      = False
+
         # ML blending on bad/small training batches suppresses scores and
         # triggers auto-disable, cutting off all crypto coverage.
         # Both protections stay on until a replacement crypto strategy exists.
@@ -213,6 +220,27 @@ class BollingerBreakout(BaseStrategy):
             return None
 
         # ----------------------------------------------------------------
+        # ADX FILTER — require at least some trend before trading breakouts.
+        # ADX < 20 = flat/choppy market where band breaks tend to snap back.
+        # ----------------------------------------------------------------
+        try:
+            adx_df = ta.adx(candles["high"], candles["low"], candles["close"], length=14)
+            if adx_df is not None and not adx_df.empty:
+                adx_col = [c for c in adx_df.columns if c.upper().startswith("ADX_")]
+                if adx_col:
+                    adx_val = float(adx_df[adx_col[0]].iloc[-1])
+                    if not pd.isna(adx_val):
+                        self.logger.info(f"[ADX] {symbol}: adx={adx_val:.1f}")
+                        if adx_val < 20:
+                            self.verbose_log_skip(
+                                symbol,
+                                f"ADX {adx_val:.1f} < 20 — range-bound, breakout likely false"
+                            )
+                            return None
+        except Exception as e:
+            self.logger.debug(f"[ADX] {symbol}: calculation skipped ({e})")
+
+        # ----------------------------------------------------------------
         # LONG SIGNAL: price breaks above upper band
         # ----------------------------------------------------------------
         breaks_upper = close > upper
@@ -249,12 +277,18 @@ class BollingerBreakout(BaseStrategy):
 
         # ----------------------------------------------------------------
         # SHORT SIGNAL: price breaks below lower band
+        # Disabled (self.shorts_enabled=False) — live data shows 11.8% WR on
+        # shorts vs 25% for longs. Re-enable after trader-dev backtest confirms edge.
         # ----------------------------------------------------------------
         breaks_lower = close < lower
         self.verbose_log(
             symbol, "Price breaks below lower Bollinger Band (short)",
             breaks_lower, close, f"<{lower:.4f}", "short"
         )
+        if not getattr(self, "shorts_enabled", True):
+            if breaks_lower:
+                self.verbose_log_skip(symbol, "Short signals disabled (shorts_enabled=False) — skipping")
+            return None
         if breaks_lower:
             if not obv_falling:
                 self.logger.info(f"[OBV] {symbol}: SHORT rejected — OBV not falling (falling={obv_falling})")

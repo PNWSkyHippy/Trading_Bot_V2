@@ -39,6 +39,7 @@ import logging
 import argparse
 import os
 import sys
+import threading
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -73,6 +74,28 @@ STOP_TWO_BAR  = "two_bar"    # N-bar trailing stop (Pine Script port)
 
 # Max simultaneous positions (mirrors live bot)
 MAX_OPEN_POSITIONS = 5
+
+# ---------------------------------------------------------------------------
+# Cancel flag — set by web_dashboard via request_cancel(); checked inside the
+# _simulate bar loop every CHECK_CANCEL_EVERY bars so a long run stops within
+# a few seconds rather than waiting for the whole symbol to finish.
+# ---------------------------------------------------------------------------
+
+class _BacktestCancelled(Exception):
+    """Private sentinel — raised only by our cancel checkpoints.
+    Intentionally NOT a subclass of OSError / InterruptedError so it cannot
+    interfere with Python's own signal handling or server socket machinery."""
+
+_cancel_event = threading.Event()
+CHECK_CANCEL_EVERY = 50   # bars between cancel checks (~50 × 1h bars ≈ 2 days)
+
+def request_cancel():
+    """Signal the running backtest to stop at the next cancel checkpoint."""
+    _cancel_event.set()
+
+def clear_cancel():
+    """Reset the cancel flag — call at the start of every new backtest run."""
+    _cancel_event.clear()
 
 
 # ===========================================================================
@@ -965,6 +988,11 @@ class Backtester:
         pending_signal: Optional[Dict] = None
 
         for i in range(min_bars, len(df)):
+            # Cancel checkpoint — checked every CHECK_CANCEL_EVERY bars so a
+            # cancel request lands within seconds rather than at end of symbol.
+            if i % CHECK_CANCEL_EVERY == 0 and _cancel_event.is_set():
+                raise _BacktestCancelled()
+
             row          = df.iloc[i]
             current_date = str(df.index[i])[:10]
             price        = float(row["close"])
@@ -1200,7 +1228,12 @@ class Backtester:
             signal_meta: dict = {}
 
             if strategy_obj is not None:
-                window = df.iloc[max(0, i - 150): i + 1].copy()
+                # Use the strategy's declared candle_limit as the lookback window
+                # (floor of 300 covers 200-bar SMA warmup used by quant strategies).
+                # Old strategies that don't declare candle_limit get 300 bars —
+                # larger than the previous 150 but harmless and more accurate.
+                _lookback = max(300, getattr(strategy_obj, "candle_limit", 300))
+                window = df.iloc[max(0, i - _lookback): i + 1].copy()
                 try:
                     signal = strategy_obj.analyze(symbol, window, "unknown")
                     if signal is not None:
@@ -1299,11 +1332,15 @@ class Backtester:
             trail_mode:        str = "auto",
             entry_mode_filter: str = "all",
             entry_side_filter: str = "all") -> Optional[BacktestResult]:
+        if _cancel_event.is_set():          # gate: skip before fetch starts
+            return None
         capital = starting_capital or self.starting_capital
         if asset_class == "crypto":
             df = self.fetch_history_crypto(symbol, days, timeframe)
         else:
             df = self.fetch_history(symbol, days, timeframe)
+        if _cancel_event.is_set():          # gate: skip simulate if cancelled during fetch
+            return None
         if df is None or len(df) < 30:
             return None
         return self._simulate(symbol, df, "default", None, capital, timeframe,
@@ -1329,11 +1366,15 @@ class Backtester:
                      trail_mode:        str = "auto",
                      entry_mode_filter: str = "all",
                      entry_side_filter: str = "all") -> Optional[BacktestResult]:
+        if _cancel_event.is_set():          # gate: skip before fetch starts
+            return None
         capital = starting_capital or self.starting_capital
         if asset_class == "crypto":
             df = self.fetch_history_crypto(symbol, days, timeframe)
         else:
             df = self.fetch_history(symbol, days, timeframe)
+        if _cancel_event.is_set():          # gate: skip simulate if cancelled during fetch
+            return None
         if df is None or len(df) < 30:
             return None
         try:

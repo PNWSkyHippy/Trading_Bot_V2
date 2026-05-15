@@ -362,8 +362,35 @@ class TradeExecutor:
             structural_stop_price  = structural_stop_hint,
         )
         if not approval.approved:
-            logger.info(f"Trade rejected for {signal.symbol}: {approval.reason}")
-            return None
+            # If IBKR was selected but has $0 cash (drained paper account or
+            # gateway down), automatically retry with Alpaca before giving up.
+            if (broker_name_hint == "ibkr"
+                    and "No available cash on ibkr" in (approval.reason or "")
+                    and signal.asset_class == "stock"):
+                logger.warning(
+                    f"IBKR has $0 cash for {signal.symbol} — retrying with Alpaca"
+                )
+                broker_name_hint = "alpaca"
+                approval = self._risk_manager.approve_trade(
+                    symbol                 = signal.symbol,
+                    entry_price            = signal.current_price,
+                    signal_score           = signal.score,
+                    direction              = signal.direction,
+                    custom_stop_loss_pct   = custom_sl,
+                    custom_take_profit_pct = custom_tp,
+                    custom_position_pct    = custom_pos,
+                    broker_name            = "alpaca",
+                    structural_stop_price  = structural_stop_hint,
+                )
+                if not approval.approved:
+                    logger.info(
+                        f"Trade rejected for {signal.symbol} (Alpaca fallback): "
+                        f"{approval.reason}"
+                    )
+                    return None
+            else:
+                logger.info(f"Trade rejected for {signal.symbol}: {approval.reason}")
+                return None
 
         if (signal.asset_class == "stock" and
                 self._ibkr is not None and
@@ -387,6 +414,16 @@ class TradeExecutor:
         entry_price = broker_result.get("filled_avg_price") or signal.current_price
         if entry_price == 0:
             entry_price = signal.current_price
+
+        # Recalculate quantity from actual fill price.
+        # approval.quantity was sized using signal.current_price which can be stale
+        # or from a bad feed (e.g. $0.05 instead of $42.79). Using the real fill
+        # price ensures quantity × fill_price == position_value and prevents
+        # phantom PNL on close (e.g. 39,952 qty × $1.14 = $45k on a $2k position).
+        if entry_price > 0 and approval.position_value > 0:
+            actual_quantity = round(approval.position_value / entry_price, 6)
+        else:
+            actual_quantity = approval.quantity
 
         tp_pct = (custom_tp or config.DEFAULT_TAKE_PROFIT_PCT) / 100
 
@@ -464,7 +501,7 @@ class TradeExecutor:
             "direction":       signal.direction,
             "entry_time":      datetime.now().isoformat(),
             "entry_price":     round(entry_price, 6),
-            "quantity":        approval.quantity,
+            "quantity":        actual_quantity,
             "strategy_name":   signal.indicators.get("strategy_name", "original"),
             "entry_timeframe": signal.indicators.get(
                 "timeframe",
@@ -492,7 +529,7 @@ class TradeExecutor:
 
         logger.info(
             f"[TRADE OPEN] {signal.symbol} {signal.direction.upper()} | "
-            f"Entry: ${entry_price:.4f} | Qty: {approval.quantity:.4f} | "
+            f"Entry: ${entry_price:.4f} | Qty: {actual_quantity:.4f} | "
             f"SL: ${stop_loss:.4f} | TP: ${take_profit:.4f} | "
             f"Broker: {broker_name} | ID: {trade_id}"
         )
@@ -516,7 +553,7 @@ class TradeExecutor:
         if signal.asset_class == "crypto" and broker_name in ("kraken", "paper"):
             stop_side = "buy" if signal.direction == "short" else "sell"
             stop_order_id = self.kraken.place_stop_order(
-                signal.symbol, approval.quantity, stop_side, round(stop_loss, 6)
+                signal.symbol, actual_quantity, stop_side, round(stop_loss, 6)
             )
             if stop_order_id:
                 self._db.update_trade_order_ids(trade_id, stop_order_id=stop_order_id)
@@ -616,17 +653,40 @@ class TradeExecutor:
         else:
             pnl_pct = (pnl / trade["position_value"]) * 100 if trade["position_value"] else 0
 
-        # ── Sanity check: pnl_pct should never exceed 3x the configured TP ─
-        max_tp_pct = config.DEFAULT_TAKE_PROFIT_PCT * 3
-        if abs(pnl_pct) > max_tp_pct:
+        # ── Sanity check: pnl_pct should never exceed 3x the trade's actual SL ─
+        # If it does, the price feed was corrupt (e.g. Kraken returning a stale
+        # listing price).  Cap pnl_pct AND back-calculate a sane exit_price so
+        # the DB doesn't record a nonsense price alongside capped P&L numbers.
+        #
+        # Cap is based on the trade's stored stop_loss price (not the config TP)
+        # so HV coins with wider stops get a proportionally wider cap while
+        # tight-stop coins (like grid_bot 0.8%) get a tighter cap.
+        # Floor: 3× config SL so we never cap a legitimate exit on a volatile bar.
+        sl_price = trade.get("stop_loss")
+        if sl_price and sl_price > 0 and entry_price and entry_price > 0:
+            actual_sl_pct = abs(entry_price - sl_price) / entry_price * 100
+            max_sane_pct  = max(actual_sl_pct * 3, config.DEFAULT_STOP_LOSS_PCT * 3)
+        else:
+            max_sane_pct  = config.DEFAULT_STOP_LOSS_PCT * 3
+        if abs(pnl_pct) > max_sane_pct:
             logger.warning(
-                f"[PNL SANITY] {symbol}: pnl_pct={pnl_pct:.2f}% exceeds 3x TP threshold "
-                f"({max_tp_pct:.1f}%). Capping and flagging for review. "
-                f"entry={entry_price} exit={current_price} qty={qty}"
+                f"[PNL SANITY] {symbol}: pnl_pct={pnl_pct:.2f}% exceeds 3x SL cap "
+                f"({max_sane_pct:.1f}%). Bad price feed suspected — "
+                f"entry={entry_price} bad_exit={current_price} qty={qty}"
             )
-            pnl_pct = max_tp_pct if pnl_pct > 0 else -max_tp_pct
+            pnl_pct = max_sane_pct if pnl_pct > 0 else -max_sane_pct
             # Recalculate pnl dollar amount to match capped pct
             pnl = (pnl_pct / 100) * trade["position_value"]
+            # Back-calculate a sane exit_price so DB isn't poisoned with the
+            # bad feed price — this implied price is consistent with capped pnl
+            if direction == "long":
+                current_price = entry_price * (1 + pnl_pct / 100)
+            else:
+                current_price = entry_price * (1 - pnl_pct / 100)
+            logger.warning(
+                f"[PNL SANITY] {symbol}: exit_price corrected to implied "
+                f"${current_price:.4f} (from capped {pnl_pct:+.2f}%)"
+            )
 
         trade_won = pnl > 0
 

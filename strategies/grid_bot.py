@@ -72,12 +72,22 @@ class GridBot(BaseStrategy):
         self.hv_stop_loss_pct   = 2.5   # Wider stop for high-vol coins
         self.hv_take_profit_pct = 5.0   # Larger target to compensate
 
+        # Symbols permanently blocked from grid_bot signals due to chronic bad
+        # price-feed data causing phantom large losses in paper simulation.
+        self.blacklist = {
+            "CAKE/USD",   # Repeated stale-price events causing stop bypass + capped -9% losses
+        }
+
     def analyze(
         self,
         symbol: str,
         candles: pd.DataFrame,
         market_condition: str = "unknown"
     ) -> Optional[TradeSignal]:
+
+        if symbol.upper() in self.blacklist:
+            self.verbose_log_skip(symbol, "In grid_bot blacklist (chronic bad price feed)")
+            return None
 
         tuning      = config.SIGNAL_TUNING
         adx_max     = tuning["grid_adx_max"]

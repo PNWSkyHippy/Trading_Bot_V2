@@ -129,6 +129,23 @@ def receive_breakout_signal(
 def get_open_positions(x_api_key: str = Header(None)):
     verify_api_key(x_api_key)
     trades = db.get_open_trades()
+    # Augment each position with per-trade state keys for dashboard indicators:
+    #   tp_ext_count  — how many times the momentum rider extended the take-profit
+    #   sl_raise_count — how many times the trailing stop was ratcheted up
+    for trade in trades:
+        tid = trade.get("trade_id", "")
+        if tid:
+            try:
+                # prefer bot_state momentum_ext (live count); fall back to trades.tp_hit_count
+                ext = int(db.get_state(f"momentum_ext_{tid}", default=0) or 0)
+                trade["tp_ext_count"]   = ext or int(trade.get("tp_hit_count") or 0)
+                trade["sl_raise_count"] = int(db.get_state(f"sl_raise_count_{tid}", default=0) or 0)
+            except Exception:
+                trade["tp_ext_count"]   = 0
+                trade["sl_raise_count"] = 0
+        else:
+            trade["tp_ext_count"]   = 0
+            trade["sl_raise_count"] = 0
     return {"positions": trades, "count": len(trades)}
 
 

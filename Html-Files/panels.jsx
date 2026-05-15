@@ -45,6 +45,58 @@ const exportCsv = (filename, columns, rows) => {
 };
 window.exportCsv = exportCsv;
 
+// ============ TblWrap — table container with mirrored top scrollbar ============
+// Renders a thin native scrollbar above the table so users don't have to scroll
+// to the bottom to pan wide tables.  Mouse-wheel vertical scroll is unaffected.
+function TblWrap({ children }) {
+  const topRef   = useR(null);
+  const bodyRef  = useR(null);
+  const dummyRef = useR(null);
+
+  useE(() => {
+    const top   = topRef.current;
+    const body  = bodyRef.current;
+    const dummy = dummyRef.current;
+    if (!top || !body || !dummy) return;
+
+    // Keep dummy width in sync with actual table scrollWidth
+    const syncWidth = () => { dummy.style.width = body.scrollWidth + 'px'; };
+
+    // Bidirectional scroll — the `!==` guard prevents infinite bounce
+    const onTop  = () => { if (body.scrollLeft !== top.scrollLeft)  body.scrollLeft  = top.scrollLeft; };
+    const onBody = () => { if (top.scrollLeft  !== body.scrollLeft) top.scrollLeft   = body.scrollLeft; };
+
+    top.addEventListener('scroll',  onTop,  { passive: true });
+    body.addEventListener('scroll', onBody, { passive: true });
+
+    const ro = new ResizeObserver(syncWidth);
+    ro.observe(body);   // fires on panel resize
+    syncWidth();        // initial size
+
+    return () => {
+      top.removeEventListener('scroll',  onTop);
+      body.removeEventListener('scroll', onBody);
+      ro.disconnect();
+    };
+  }, []);
+
+  return (
+    <div>
+      {/* Top scrollbar mirror — just tall enough for the native scroll handle */}
+      <div ref={topRef} style={{
+        overflowX: 'auto', overflowY: 'hidden',
+        height: 10, marginBottom: -1,
+      }}>
+        <div ref={dummyRef} style={{ height: 1 }} />
+      </div>
+      {/* Actual scrollable table area */}
+      <div ref={bodyRef} className="tbl-wrap">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 // ============ KPI Bar ============
 function KPIBar({ kpis }) {
   return (
@@ -286,6 +338,8 @@ function OpenPositionsPanel() {
     pnlP: Number(p.pnl_pct || 0),
     toSL: Number(p.distance_to_sl || 0),
     toTP: Number(p.distance_to_tp || 0),
+    slRaised: Number(p.sl_raise_count || 0),
+    tpExt:    Number(p.tp_ext_count   || 0),
   });
   const sortValue = (row, key) => {
     if (key === 'opened') {
@@ -407,7 +461,7 @@ function OpenPositionsPanel() {
         </div>
       </div>
       {msg && <div style={{ padding: '0 16px 10px', fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
-      <div className="tbl-wrap">
+      <TblWrap>
         <table className="tbl">
           <thead><tr>
             <SortHead k="opened">Opened</SortHead><SortHead k="symbol">Symbol</SortHead><SortHead k="type">Type</SortHead><SortHead k="dir">Dir</SortHead>
@@ -424,7 +478,9 @@ function OpenPositionsPanel() {
                 <td className="num">{fmtN(p.entry)}</td>
                 <td className="num">{fmtN(p.current)}</td>
                 <td className="num muted">{fmtN(p.sl)}</td>
-                <td className="num muted">{fmtN(p.tp)}</td>
+                <td className="num muted" title={p.tpExt > 0 ? `Take-profit extended ${p.tpExt}× by momentum rider` : undefined}>
+                  {fmtN(p.tp)}{p.tpExt > 0 && <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', background:'#e53935', color:'#fff', borderRadius:'50%', fontSize:9, fontWeight:700, width:14, height:14, marginLeft:4, lineHeight:1 }}>{p.tpExt}</span>}
+                </td>
                 <td className={cls('num', p.pnlD > 0 && 'pos', p.pnlD < 0 && 'neg')}>{fmt$Sign(p.pnlD)}</td>
                 <td className={cls('num', p.pnlP > 0 && 'pos', p.pnlP < 0 && 'neg')}>{fmtP(p.pnlP)}</td>
                 <td className="num muted">{p.toSL.toFixed(2)}%</td>
@@ -433,7 +489,7 @@ function OpenPositionsPanel() {
             ))}
           </tbody>
         </table>
-      </div>
+      </TblWrap>
     </div>
   );
 }
@@ -672,7 +728,7 @@ function TradeLogPanel() {
         </div>
       </div>
       {msg && <div style={{ padding: '0 16px 10px', fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
-      <div className="tbl-wrap">
+      <TblWrap>
         <table className="tbl">
           <thead><tr>
             <SortHead k="opened">Opened</SortHead><SortHead k="closed">Closed</SortHead><SortHead k="duration">Duration</SortHead><SortHead k="symbol">Symbol</SortHead><SortHead k="direction">Dir</SortHead><SortHead k="strategy">Strategy</SortHead>
@@ -692,7 +748,9 @@ function TradeLogPanel() {
                   <td><span className={cls('pill', String(t.direction).toLowerCase())}>{t.direction}</span></td>
                   <td className="muted">{t.strategy}</td>
                   <td className="num">{fmtN(t.entry_price)}</td>
-                  <td className="num">{fmtN(t.exit_price)}</td>
+                  <td className="num" title={t.tp_hit_count > 0 ? `Take-profit extended ${t.tp_hit_count}× by momentum rider` : undefined}>
+                    {fmtN(t.exit_price)}{t.tp_hit_count > 0 && <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', background:'#e53935', color:'#fff', borderRadius:'50%', fontSize:9, fontWeight:700, width:14, height:14, marginLeft:4, lineHeight:1 }}>{t.tp_hit_count}</span>}
+                  </td>
                   <td className="muted">{t.reason}</td>
                   <td className={cls('num', t.pnl > 0 && 'pos', t.pnl < 0 && 'neg')}>{fmt$Sign(t.pnl)}</td>
                   <td className={cls('num', t.pnl_pct > 0 && 'pos', t.pnl_pct < 0 && 'neg')}>{fmtP(t.pnl_pct)}</td>
@@ -702,7 +760,7 @@ function TradeLogPanel() {
             })}
           </tbody>
         </table>
-      </div>
+      </TblWrap>
     </div>
   );
 }
@@ -831,7 +889,7 @@ function DailyPerfPanel() {
         </div>
       </div>
       {msg && <div style={{ padding: '0 16px 10px', fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
-      <div className="tbl-wrap">
+      <TblWrap>
         <table className="tbl">
           <thead><tr>
             <SortHead k="date">Date</SortHead><SortHead k="trades" num>Trades</SortHead><SortHead k="wins" num>Wins</SortHead><SortHead k="losses" num>Losses</SortHead><SortHead k="win_rate" num>Win Rate</SortHead><SortHead k="pnl" num>P&L $</SortHead><SortHead k="pnl_pct" num>P&L %</SortHead><SortHead k="capital" num>Capital</SortHead>
@@ -851,7 +909,7 @@ function DailyPerfPanel() {
             ))}
           </tbody>
         </table>
-      </div>
+      </TblWrap>
     </div>
   );
 }
@@ -929,8 +987,9 @@ function BacktestCharts({ row }) {
 }
 
 function BacktesterPanel() {
-  const [form, setForm] = useS({ asset: 'Stocks', strategy: 'ALL strategies', tf: '1h', cap: '100000.00', symbol: 'ALL', duration: '90d (3mo)', mode: 'standard', lookback: '2' });
+  const [form, setForm] = useS({ asset: 'Stocks', strategy: 'ALL strategies', tf: '1h', cap: '100000.00', symbol: 'ALL', duration: '90d (3mo)', mode: 'standard', lookback: '2', side: 'all', entry_mode: 'all', initial_stop: 'auto', trail: 'auto', commission: '', slippage: '' });
   const [running, setRunning] = useS(false);
+  const [cancelling, setCancelling] = useS(false);
   const [result, setResult] = useS(null);
   const [msg, setMsg] = useS('');
   const [btConfig, setBtConfig] = useS(null);
@@ -963,12 +1022,24 @@ function BacktesterPanel() {
     { label: 'Sortino', value: r => Number(r.sortino || 0).toFixed(2) },
     { label: 'Verdict', value: 'verdict' },
   ];
+  const cancel = async () => {
+    setCancelling(true);
+    setRunLog(lines => [...lines.slice(-4), 'Cancelling — waiting for current run to finish…']);
+    try {
+      await panelApi('/api/backtest/cancel', { method: 'POST' });
+    } catch (_) {}
+  };
   const run = async () => {
     setRunning(true);
+    setCancelling(false);
     setResult(null);
     setShowRunLog(true);
+    const sideLabel  = form.side !== 'all'         ? ` · ${form.side}-only`             : '';
+    const modeLabel  = form.entry_mode !== 'all'   ? ` · mode:${form.entry_mode}`       : '';
+    const trailLabel = form.trail !== 'auto'        ? ` · trail:${form.trail}`           : '';
+    const stopLabel2 = form.initial_stop !== 'auto' ? ` · init-stop:${form.initial_stop}`: '';
     setRunLog([
-      `Queued ${form.symbol} / ${form.strategy} / ${form.tf} / ${form.duration}`,
+      `Queued ${form.symbol} / ${form.strategy} / ${form.tf} / ${form.duration}${sideLabel}${modeLabel}${trailLabel}${stopLabel2}`,
       'Sending request to backtest engine...',
     ]);
     setMsg('Running backtest...');
@@ -978,17 +1049,18 @@ function BacktesterPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
-      setResult(data);
+      setResult(data.cancelled ? null : data);
       setSelectedRun(0);
       setRunLog(lines => [...lines.slice(-4), data.message || 'Backtest complete.']);
       setMsg(data.message || 'Backtest complete.');
-      setTimeout(() => setShowRunLog(false), 1400);
+      setTimeout(() => setShowRunLog(false), data.cancelled ? 2500 : 1400);
     } catch (e) {
       setRunLog(lines => [...lines.slice(-4), `Backtest failed: ${e.message}`]);
       setMsg(`Backtest failed: ${e.message}`);
       setShowRunLog(true);
     } finally {
       setRunning(false);
+      setCancelling(false);
     }
   };
   useE(() => {
@@ -1026,8 +1098,9 @@ function BacktesterPanel() {
       <div className="grid-3" style={{ marginBottom: 12 }}>
         <div className="field"><label>Symbol</label><select className="select input" value={form.symbol} onChange={e => set('symbol', e.target.value)}>{symbolOptions.map(a => <option key={a}>{a}</option>)}</select></div>
         <div className="field"><label>Duration</label><select className="select input" value={form.duration} onChange={e => set('duration', e.target.value)}>{durations.map(a => <option key={a}>{a}</option>)}</select></div>
-        <div className="field" style={{ justifyContent: 'flex-end' }}>
-          <button className="btn primary full" onClick={run} disabled={running}>{running ? <><Icon name="cpu" size={13} /> Running…</> : <><Icon name="play" size={13} /> Run Backtest</>}</button>
+        <div className="field" style={{ justifyContent: 'flex-end', flexDirection: 'row', gap: 8 }}>
+          <button className="btn primary full" onClick={run} disabled={running} style={{ flex: 1 }}>{running ? <><Icon name="cpu" size={13} /> Running…</> : <><Icon name="play" size={13} /> Run Backtest</>}</button>
+          {running && <button className="btn danger" onClick={cancel} disabled={cancelling} style={{ whiteSpace: 'nowrap' }}>{cancelling ? 'Cancelling…' : <><Icon name="x" size={13} /> Cancel</>}</button>}
         </div>
       </div>
       <div style={{ display: 'flex', gap: 18, alignItems: 'center', marginBottom: 12, padding: '10px 12px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
@@ -1041,6 +1114,49 @@ function BacktesterPanel() {
           <input className="input" style={{ width: 60 }} value={form.lookback} onChange={e => set('lookback', e.target.value)} />
         </div>
         <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-2)' }}>Fixed % stop from strategy config; bot behavior unchanged.</div>
+      </div>
+      <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12, padding: '10px 12px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+        <span style={{ fontSize: 11, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>Entry Filters:</span>
+        <div className="radio-group">
+          <span style={{ fontSize: 11, color: 'var(--text-2)', marginRight: 4 }}>Side:</span>
+          <label><input type="radio" name="side" checked={form.side === 'all'}   onChange={() => set('side', 'all')}   /> Both</label>
+          <label><input type="radio" name="side" checked={form.side === 'long'}  onChange={() => set('side', 'long')}  /> Long only</label>
+          <label><input type="radio" name="side" checked={form.side === 'short'} onChange={() => set('side', 'short')} /> Short only</label>
+        </div>
+        <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <label style={{ whiteSpace: 'nowrap', fontSize: 11 }}>Mode (adaptive):</label>
+          <select className="select input" style={{ width: 120 }} value={form.entry_mode} onChange={e => set('entry_mode', e.target.value)}>
+            <option value="all">All</option>
+            <option value="trend">Trend only</option>
+            <option value="mean_rev">Mean Rev only</option>
+          </select>
+        </div>
+        <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <label style={{ whiteSpace: 'nowrap', fontSize: 11 }}>Initial Stop:</label>
+          <select className="select input" style={{ width: 130 }} value={form.initial_stop} onChange={e => set('initial_stop', e.target.value)}>
+            <option value="auto">Auto</option>
+            <option value="percent">Fixed %</option>
+            <option value="signal_structural">Structural (ATR)</option>
+            <option value="two_bar">N-Bar</option>
+          </select>
+        </div>
+        <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <label style={{ whiteSpace: 'nowrap', fontSize: 11 }}>Trail Mode:</label>
+          <select className="select input" style={{ width: 110 }} value={form.trail} onChange={e => set('trail', e.target.value)}>
+            <option value="auto">Auto</option>
+            <option value="percent">% Ratchet</option>
+            <option value="two_bar">N-Bar</option>
+            <option value="none">None</option>
+          </select>
+        </div>
+        <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <label style={{ whiteSpace: 'nowrap', fontSize: 11 }}>Commission %:</label>
+          <input className="input" style={{ width: 60 }} placeholder="default" value={form.commission} onChange={e => set('commission', e.target.value)} />
+        </div>
+        <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+          <label style={{ whiteSpace: 'nowrap', fontSize: 11 }}>Slippage %:</label>
+          <input className="input" style={{ width: 60 }} placeholder="default" value={form.slippage} onChange={e => set('slippage', e.target.value)} />
+        </div>
       </div>
       {(running || showRunLog) && (
         <div className="bt-run-log" aria-label="Backtest status log">
@@ -1078,7 +1194,7 @@ function BacktesterPanel() {
           </div>
           <div style={{ marginTop: 18 }}>
             <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>Results Table</h3>
-            <div className="tbl-wrap">
+            <TblWrap>
               <table className="tbl">
                 <thead><tr>
                   <th>Symbol</th><th>Strategy</th><th>Stop</th><th>Period</th><th className="num">Start $</th><th className="num">End $</th><th className="num">Return %</th><th className="num">Win Rate</th><th className="num">Trades</th><th>W/L</th><th className="num">Profit Factor</th><th className="num">Max Drawdown</th><th className="num">Sharpe</th><th className="num">Sortino</th><th>Verdict</th>
@@ -1105,7 +1221,7 @@ function BacktesterPanel() {
                   ))}
                 </tbody>
               </table>
-            </div>
+            </TblWrap>
           </div>
           {selectedDetail && <BacktestCharts row={selectedDetail} />}
         </div>
@@ -1253,32 +1369,64 @@ function ChartPanel({ defaultSymbol }) {
   const e9Ref        = useR(null);
   const e21Ref       = useR(null);
   const e50Ref       = useR(null);
+  const rObsRef      = useR(null);
 
-  // Init Lightweight Charts once on mount
+  // Init Lightweight Charts once on mount.
+  // The Window component returns null when closed, so ChartPanel always mounts
+  // with real pixel dimensions — no display:none timing issue.
+  // We skip autoSize (it ignores manual resize() calls) and manage size ourselves
+  // with an explicit ResizeObserver instead.
   useE(() => {
     if (!containerRef.current || !window.LightweightCharts) return;
 
-    // win-body uses overflow:auto + block layout, which prevents children
-    // from filling it with flex or height:100%.
-    // Temporarily promote it to a flex column so ChartPanel's flex:1 works.
-    const winBody = containerRef.current.closest('.win-body');
-    const prev = winBody ? { overflow: winBody.style.overflow, display: winBody.style.display, flexDirection: winBody.style.flexDirection } : null;
-    if (winBody) {
-      winBody.style.overflow     = 'hidden';
-      winBody.style.display      = 'flex';
-      winBody.style.flexDirection = 'column';
-    }
+    const LC        = window.LightweightCharts;
+    const container = containerRef.current;
 
-    const LC = window.LightweightCharts;
-    const chart = LC.createChart(containerRef.current, {
-      autoSize: true,   // LC manages its own resize — no manual width/height needed
+    // Read actual pixel dimensions — forced reflow gives correct values
+    // even if CSS hasn't fully settled yet.
+    const initW = container.offsetWidth  || 900;
+    const initH = container.offsetHeight || 500;
+
+    const chart = LC.createChart(container, {
+      width:  initW,
+      height: initH,
       layout: { background: { type: 'solid', color: '#0d1117' }, textColor: '#8b949e', fontSize: 11 },
       grid:   { vertLines: { color: '#1a2035' }, horzLines: { color: '#1a2035' } },
       crosshair: { mode: LC.CrosshairMode.Normal },
       rightPriceScale: { borderColor: '#2a3347' },
-      timeScale: { borderColor: '#2a3347', timeVisible: true, secondsVisible: false },
+      timeScale: {
+        borderColor: '#2a3347', timeVisible: true, secondsVisible: false,
+        // tickMarkFormatter controls the axis tick labels (timeFormatter only affects crosshair)
+        tickMarkFormatter: (ts, tickMarkType) => {
+          const d = new Date(ts * 1000);
+          const tz = { timeZone: 'America/Los_Angeles' };
+          // tickMarkType: 0=Year  1=Month  2=DayOfMonth  3=Time  4=TimeWithSeconds
+          if (tickMarkType === 0) return d.toLocaleDateString('en-US', { ...tz, year: 'numeric' });
+          if (tickMarkType === 1) return d.toLocaleDateString('en-US', { ...tz, month: 'short', year: 'numeric' });
+          if (tickMarkType === 2) return d.toLocaleDateString('en-US', { ...tz, month: 'numeric', day: 'numeric' });
+          return d.toLocaleTimeString('en-US', { ...tz, hour: 'numeric', minute: '2-digit', hour12: true });
+        },
+      },
+      localization: {
+        // Controls the crosshair time label
+        timeFormatter: ts => new Date(ts * 1000).toLocaleString('en-US', {
+          timeZone: 'America/Los_Angeles',
+          month: 'numeric', day: 'numeric',
+          hour: 'numeric', minute: '2-digit', hour12: true,
+        }),
+      },
     });
     chartRef.current = chart;
+
+    // ResizeObserver keeps chart in sync when user drags or maximizes the window
+    const ro = new ResizeObserver(entries => {
+      const { width, height } = entries[0].contentRect;
+      if (width > 0 && height > 0 && chartRef.current) {
+        chartRef.current.resize(width, height);
+      }
+    });
+    ro.observe(container);
+    rObsRef.current = ro;
 
     // Candle series
     candleRef.current = chart.addCandlestickSeries({
@@ -1294,7 +1442,8 @@ function ChartPanel({ defaultSymbol }) {
     chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.05, bottom: 0.22 } });
 
     return () => {
-      if (winBody && prevOverflow !== null) winBody.style.overflow = prevOverflow;
+      rObsRef.current?.disconnect();
+      rObsRef.current = null;
       chart.remove();
       chartRef.current = null; candleRef.current = null; volRef.current = null;
       e9Ref.current = null; e21Ref.current = null; e50Ref.current = null;
@@ -1304,6 +1453,8 @@ function ChartPanel({ defaultSymbol }) {
   // Fetch data when symbol, timeframe, or broker changes
   useE(() => {
     let cancelled = false;
+    // Clear stale bars immediately so old chart doesn't persist while loading
+    setBars([]); setMarks([]);
     setLoading(true); setErr(null);
     panelApi(`/api/chart?symbol=${encodeURIComponent(symbol)}&timeframe=${tf}&limit=300&broker=${broker}`)
       .then(d => {
@@ -1325,12 +1476,34 @@ function ChartPanel({ defaultSymbol }) {
 
   // Update chart whenever bars, markers, or EMA toggles change
   useE(() => {
-    if (!chartRef.current || !candleRef.current || !bars.length) return;
+    if (!chartRef.current || !candleRef.current) return;
     const LC = window.LightweightCharts;
 
-    candleRef.current.setData(bars);
+    // Always resize — even on empty bars (e.g. after asset-type switch that
+    // changes toolbar height). requestAnimationFrame ensures the DOM has
+    // fully reflowed (toolbar broker buttons may have swapped rows) before
+    // we measure the container, so the canvas fills the correct area.
+    const doResize = () => {
+      if (!containerRef.current || !chartRef.current) return;
+      const w = containerRef.current.offsetWidth;
+      const h = containerRef.current.offsetHeight;
+      if (w > 0 && h > 0) chartRef.current.resize(w, h);
+    };
+    requestAnimationFrame(doResize);
 
-    volRef.current?.setData(bars.map(b => ({
+    if (!bars.length) return;  // nothing to plot, but resize above still ran
+
+    // Deduplicate + sort on the client side as a safety net
+    // (LightweightCharts v4 aborts CandlestickSeries.setData on duplicate timestamps)
+    const seen = new Set();
+    const cleanBars = bars
+      .slice().sort((a, b) => a.time - b.time)
+      .filter(b => { if (seen.has(b.time)) return false; seen.add(b.time); return true; });
+
+    try { candleRef.current.setData(cleanBars); }
+    catch(e) { console.warn('ChartPanel candlestick setData failed:', e); }
+
+    volRef.current?.setData(cleanBars.map(b => ({
       time: b.time, value: b.volume || 0,
       color: b.close >= b.open ? '#26a69a55' : '#ef535055',
     })));
@@ -1344,7 +1517,7 @@ function ChartPanel({ defaultSymbol }) {
             lastValueVisible: false, crosshairMarkerVisible: false,
           });
         }
-        ref.current.setData(calcEMA(bars, period));
+        ref.current.setData(calcEMA(cleanBars, period));
       } else if (ref.current) {
         chartRef.current.removeSeries(ref.current);
         ref.current = null;
@@ -1480,7 +1653,6 @@ function ChartPanel({ defaultSymbol }) {
 
         {loading && <span style={{ fontSize:10, opacity:.45 }}>Loading…</span>}
         {err     && <span style={{ fontSize:10, color:'var(--red)', maxWidth:160, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{err}</span>}
-
         <button className="btn ghost sm" style={{ padding:'2px 6px' }}
           onClick={() => { setBars([]); setMarks([]); setLoading(true); setErr(null);
             panelApi(`/api/chart?symbol=${encodeURIComponent(symbol)}&timeframe=${tf}&limit=300&broker=${broker}`)

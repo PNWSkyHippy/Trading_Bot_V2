@@ -302,6 +302,19 @@ class Database:
                 (broker, trade_id)
             )
 
+    def increment_tp_hit_count(self, trade_id: str) -> int:
+        """Increment tp_hit_count for a trade and return the new value."""
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE trades SET tp_hit_count = tp_hit_count + 1 WHERE trade_id = ?",
+                (trade_id,)
+            )
+            row = conn.execute(
+                "SELECT tp_hit_count FROM trades WHERE trade_id = ?",
+                (trade_id,)
+            ).fetchone()
+            return int(row["tp_hit_count"]) if row else 0
+
     def update_trade_levels(self, trade_id: str,
                              stop_loss: float = None,
                              take_profit: float = None):
@@ -330,9 +343,12 @@ class Database:
             return [dict(r) for r in rows]
 
     def get_trades_for_date(self, trade_date: str) -> List[Dict]:
+        """Return closed trades whose exit_time falls on trade_date.
+        Using exit_time means trades that opened yesterday but closed today
+        appear in today's log — which is the correct behaviour for a trade log."""
         with self._conn() as conn:
             rows = conn.execute(
-                "SELECT * FROM trades WHERE date(entry_time)=? ORDER BY entry_time",
+                "SELECT * FROM trades WHERE status='closed' AND date(exit_time)=? ORDER BY exit_time",
                 (trade_date,)
             ).fetchall()
             return [dict(r) for r in rows]
