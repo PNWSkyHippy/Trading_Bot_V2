@@ -354,6 +354,10 @@ except ImportError:
     TradeSignal  = None
 
 
+# ETH: breakeven in backtest. DOGE: negative on v4. Both excluded.
+VDMR_BLACKLIST = {"ETH/USD", "ETHUSDT", "ETH/USDT", "DOGE/USD", "DOGEUSDT", "DOGE/USDT"}
+
+
 class VDMRStrategy(BaseStrategy):
     """Velocity-Deceleration Mean Reversion — Z-score exhaustion + chop filter (INCUBATE)."""
 
@@ -371,6 +375,9 @@ class VDMRStrategy(BaseStrategy):
 
     def analyze(self, symbol: str, candles: pd.DataFrame,
                 market_condition: str = "unknown") -> Optional[TradeSignal]:
+        if symbol.upper() in VDMR_BLACKLIST:
+            self.verbose_log_skip(symbol, "In VDMR blacklist (ETH: breakeven, DOGE: negative v4)")
+            return None
         if not self._check_enough_candles(symbol, candles, 220):
             return None
         try:

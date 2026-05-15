@@ -395,6 +395,12 @@ except ImportError:
     TradeSignal  = None
 
 
+# Symbols with confirmed negative edge in backtest (2024-01-01 → 2025-05-14).
+# XRP: -1.84% PF=0.95 — strategy bleeds on XRP, skip entirely.
+# ETH: -0.45% PF=1.09 — borderline, excluded to protect capital.
+RSI_DIP_SPIKE_BLACKLIST = {"XRP/USD", "XRPUSDT", "XRP/USDT", "ETH/USD", "ETHUSDT", "ETH/USDT"}
+
+
 class RSIDipSpikeV4Strategy(BaseStrategy):
     """RSI Dip & Spike v4c — RSI exhaustion + ADX>=25 + SMA trend filter (INCUBATE/CANDIDATE)."""
 
@@ -412,6 +418,9 @@ class RSIDipSpikeV4Strategy(BaseStrategy):
 
     def analyze(self, symbol: str, candles: pd.DataFrame,
                 market_condition: str = "unknown") -> Optional[TradeSignal]:
+        if symbol.upper() in RSI_DIP_SPIKE_BLACKLIST:
+            self.verbose_log_skip(symbol, "In RSI Dip/Spike blacklist (XRP: PF=0.95, ETH: borderline PF=1.09)")
+            return None
         if not self._check_enough_candles(symbol, candles, 220):
             return None
         try:

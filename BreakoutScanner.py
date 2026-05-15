@@ -108,20 +108,6 @@ try:
 except ImportError:
     PATTERNS_AVAILABLE = False
 
-# pygame-based audio — plays through actual sound card, not PC speaker
-try:
-    from alert_sound import init_audio as _init_audio, play_alert as _play_alert
-    ALERT_SOUND_AVAILABLE = True
-except ImportError:
-    ALERT_SOUND_AVAILABLE = False
-
-# geometric chart pattern detection
-try:
-    from chart_patterns import score_patterns as _score_patterns
-    PATTERNS_AVAILABLE = True
-except ImportError:
-    PATTERNS_AVAILABLE = False
-
 # ── Logging ───────────────────────────────────────────────────────────────────
 logging.basicConfig(
     level=logging.INFO,
@@ -143,6 +129,53 @@ TEMP_STOCKS_FILE    = WATCHLIST_DIR / "scanned_stocks.txt"
 TEMP_CRYPTO_FILE    = WATCHLIST_DIR / "scanned_crypto.txt"
 
 MASSIVE_BASE        = "https://api.massive.com"
+
+# ── Fernet decrypt helper (mirrors config.py — used for scanner_config.json keys) ──
+# Sensitive keys stored as Fernet tokens start with "gAAAAA".
+# Plaintext values (not yet migrated) are returned unchanged — migration-safe.
+try:
+    import keyring as _keyring
+    from cryptography.fernet import Fernet as _Fernet, InvalidToken as _InvalidToken
+    _scanner_fernet_raw = _keyring.get_password("trading_bot_v2", "fernet_key")
+    _SCANNER_BASE_KEY   = _scanner_fernet_raw.encode() if _scanner_fernet_raw else None
+except Exception:
+    _SCANNER_BASE_KEY   = None
+
+# Keys inside scanner_config.json that hold sensitive secrets
+_SCANNER_SENSITIVE_KEYS = {
+    "massive_api_key",
+    "alpaca_api_key", "alpaca_secret_key",
+    "kraken_api_key", "kraken_api_secret",
+    "coinbase_api_key", "coinbase_api_secret",
+    "bot_api_key",
+    "email_password",
+}
+
+def _decrypt_cfg(val: str) -> str:
+    """
+    Decrypt a Fernet-encrypted value read from scanner_config.json.
+    - Empty / plaintext → returned unchanged.
+    - Fernet token (starts "gAAAAA") → decrypted.
+    - Encrypted but no key in Credential Manager → RuntimeError.
+    """
+    if not val or not isinstance(val, str):
+        return val
+    val = val.strip()
+    if not val.startswith("gAAAAA"):
+        return val                               # plaintext — not yet encrypted
+    if not _SCANNER_BASE_KEY:
+        raise RuntimeError(
+            "Encrypted key found in scanner_config.json but the Fernet key is "
+            "not in Windows Credential Manager.  "
+            "Run: python Scripts\\store_fernet_key.py"
+        )
+    try:
+        return _Fernet(_SCANNER_BASE_KEY).decrypt(val.encode()).decode().strip()
+    except _InvalidToken:
+        raise RuntimeError(
+            f"Failed to decrypt a scanner_config.json key — token corrupt or "
+            f"wrong Fernet key.  First 20 chars: {val[:20]}…"
+        )
 
 
 def _unique_keep_order(values: List[str]) -> List[str]:
@@ -356,6 +389,15 @@ def move_pct(entry: float, current: float) -> float:
         return 0.0
     return ((current - entry) / entry) * 100.0
 
+def favorable_move_pct(direction: str, raw_move_pct: float) -> float:
+    """Normalize move_pct so positive always means good for the trade direction.
+    Longs:  price went up   → positive = winning.
+    Shorts: price went down → negative raw becomes positive favorable.
+    """
+    if str(direction).lower() == "short":
+        return -raw_move_pct
+    return raw_move_pct
+
 # =============================================================================
 # CSV  (self-cleaning)
 # =============================================================================
@@ -462,19 +504,32 @@ def update_signal_tracking(scanner):
             mpct = move_pct(ep, price)
             row["move_pct"] = round(mpct, 2)
 
+            # Direction-aware favorable move tracking
+            direction = ""
+            tracked = getattr(getattr(scanner, "escalation", None), "_tracked", {})
+            entry = tracked.get(sym)
+            if entry:
+                direction = getattr(entry.get("signal"), "direction", "") or ""
+            if not direction:
+                wl = getattr(scanner, "watchlist", None)
+                wl_sig = wl.get(sym) if (wl and hasattr(wl, "get")) else None
+                if wl_sig:
+                    direction = getattr(wl_sig, "direction", "") or ""
+            fav = favorable_move_pct(direction, mpct)
+
             try:
                 prev_best = float(row.get("best_move_pct") or 0)
-                if mpct > prev_best:
-                    row["best_move_pct"] = round(mpct, 2)
+                if fav > prev_best:
+                    row["best_move_pct"] = round(fav, 2)
                     updated = True
             except Exception:
                 pass
 
-            if   mpct >= 5.0:  row["momentum"] = "STRONG"
-            elif mpct >= 2.0:  row["momentum"] = "MOVING"
-            elif mpct >= 0.5:  row["momentum"] = "WEAK"
-            elif mpct <= -3.0: row["momentum"] = "FADING"
-            else:              row["momentum"] = "DEAD"
+            if   fav >= 5.0:  row["momentum"] = "STRONG"
+            elif fav >= 2.0:  row["momentum"] = "MOVING"
+            elif fav >= 0.5:  row["momentum"] = "WEAK"
+            elif fav <= -3.0: row["momentum"] = "FADING"
+            else:             row["momentum"] = "DEAD"
             updated = True
         except Exception:
             continue
@@ -500,6 +555,14 @@ class ConfigManager:
                 stored = json.load(f)
             merged = DEFAULT_CONFIG.copy()
             merged.update(stored)
+            # Decrypt any Fernet-encrypted sensitive keys in-place
+            for key in _SCANNER_SENSITIVE_KEYS:
+                if key in merged and merged[key]:
+                    try:
+                        merged[key] = _decrypt_cfg(str(merged[key]))
+                    except RuntimeError as e:
+                        logger.error(f"[CONFIG] Key decrypt failed for '{key}': {e}")
+                        merged[key] = ""   # blank it out — safer than crashing
             self.config = merged
             logger.info(f"Config loaded from {self.config_path}")
         else:
@@ -960,6 +1023,92 @@ class BreakoutDetector:
         p = self.price_history.get(pd.symbol)
         return self._momentum(list(p)) if p else 0.0
 
+    def _build_enrichment(self, pd: PriceData) -> Dict[str, Any]:
+        """Build the enrichment dict for a signal.
+        Mirrors the logic previously in MarketScanner._build_signal_enrichment().
+        """
+        data: Dict[str, Any] = {}
+        sym = pd.symbol
+        data["open"]   = pd.open_price if pd.open_price else pd.price
+        data["high"]   = pd.high       if pd.high       else pd.price
+        data["low"]    = pd.low        if pd.low        else pd.price
+        data["close"]  = pd.price
+        data["volume"] = pd.volume
+        # RSI(14) — Wilder's smoothed average from tick-price history
+        prices = list(self.price_history.get(sym, []))
+        if len(prices) >= 15:
+            try:
+                period = 14
+                gains, losses = [], []
+                for i in range(1, len(prices)):
+                    delta = prices[i] - prices[i - 1]
+                    gains.append(max(delta, 0.0))
+                    losses.append(max(-delta, 0.0))
+                avg_gain = sum(gains[:period]) / period
+                avg_loss = sum(losses[:period]) / period
+                for i in range(period, len(gains)):
+                    avg_gain = (avg_gain * (period - 1) + gains[i]) / period
+                    avg_loss = (avg_loss * (period - 1) + losses[i]) / period
+                rsi = 100.0 if avg_loss == 0 else 100.0 - (100.0 / (1.0 + avg_gain / avg_loss))
+                data["rsi"] = round(rsi, 2)
+            except Exception:
+                pass
+        # BTC/USD proxy for crypto signals
+        if "/" in sym or pd.asset_type == AssetType.CRYPTO:
+            for btc_key in ("BTC/USD", "BTC-USD", "BTCUSDT"):
+                btc_hist = self.price_history.get(btc_key)
+                if btc_hist and len(btc_hist) >= 2:
+                    try:
+                        btc = list(btc_hist)
+                        if btc[0] > 0:
+                            data["market_pct_change"] = round(
+                                (btc[-1] - btc[0]) / btc[0] * 100, 4
+                            )
+                    except Exception:
+                        pass
+                    break
+        pat = getattr(pd, "_pattern", None)
+        if pat:
+            data["pattern"] = pat
+        data["volume_spike"]   = self.vol_spike(pd)
+        data["momentum_score"] = self.momentum_val(pd)
+        return data
+
+    def detect_breakout(self, pd: PriceData) -> Optional[BreakoutSignal]:
+        """
+        Full detection pipeline.  Calls score(), then builds and returns a
+        fully-populated BreakoutSignal when a setup is detected.
+        Returns None when there is not enough history or no signal (score==0.0).
+        broker is intentionally left unset — MarketScanner._process_symbol()
+        sets it immediately after calling this method.
+        """
+        sc = self.score(pd)
+        if sc == 0.0:
+            return None
+        sym     = pd.symbol
+        pattern = ("early_breakout_strong" if sc > 0.75 else
+                   "early_breakout"         if sc > 0.55 else "watchlist")
+        pat_dir = getattr(pd, "_pattern_dir", None)
+        if pat_dir in ("long", "short"):
+            direction = pat_dir
+        elif self.momentum_val(pd) < -0.5:
+            direction = "short"
+        else:
+            direction = "long"
+        sig = BreakoutSignal(
+            symbol=sym, asset_type=pd.asset_type, current_price=pd.price,
+            predicted_move_pct=sc * 100, confidence=sc,
+            volume_spike=self.vol_spike(pd),
+            momentum_score=self.momentum_val(pd),
+            pattern_detected=pattern, timestamp=datetime.now(),
+            phase=SignalPhase.WATCHLIST, entry_price=pd.price,
+            direction=direction,
+        )
+        sig.price_history  = list(self.price_history.get(sym, []))
+        sig.volume_history = list(self.volume_history.get(sym, []))
+        sig.enrichment     = self._build_enrichment(pd)
+        return sig
+
     def _compressing(self, p):
         r = p[-20:]; avg = sum(r)/len(r)
         return (max(r)-min(r))/avg*100 < 2.0
@@ -1051,19 +1200,20 @@ class EscalationTracker:
         sym = pd.symbol
         if sym not in self._tracked:
             return None
-        entry = self._tracked[sym]
-        sig   = entry["signal"]
-        mpct  = move_pct(sig.entry_price, pd.price)
-        if mpct > sig.best_move_pct:
-            sig.best_move_pct = mpct
+        entry    = self._tracked[sym]
+        sig      = entry["signal"]
+        mpct     = move_pct(sig.entry_price, pd.price)
+        fav_move = favorable_move_pct(sig.direction, mpct)
+        if fav_move > sig.best_move_pct:
+            sig.best_move_pct = fav_move
         lvl     = entry["level"]
         t10     = self.config.get("escalate_10pct", 10.0)
         t5      = self.config.get("escalate_5pct",   5.0)
         t2      = self.config.get("escalate_2pct",   2.0)
         new_lvl = lvl
-        if   mpct >= t10 and lvl < 3: new_lvl = 3
-        elif mpct >= t5  and lvl < 2: new_lvl = 2
-        elif mpct >= t2  and lvl < 1: new_lvl = 1
+        if   fav_move >= t10 and lvl < 3: new_lvl = 3
+        elif fav_move >= t5  and lvl < 2: new_lvl = 2
+        elif fav_move >= t2  and lvl < 1: new_lvl = 1
         if new_lvl > lvl:
             entry["level"]    = new_lvl
             sig.current_price = pd.price
@@ -1078,8 +1228,9 @@ class EscalationTracker:
 # =============================================================================
 
 class AlertSystem:
-    def __init__(self, config: ConfigManager):
+    def __init__(self, config: ConfigManager, detector=None):
         self.config           = config
+        self.detector         = detector   # BreakoutDetector ref for BTC market context
         self.alert_queue      = queue.Queue()
         self.alert_history:   List[Alert] = []
         self.email_last_sent: Dict[str, datetime] = {}
@@ -1118,19 +1269,46 @@ class AlertSystem:
         Compatibility shim — returns scanner-built enrichment when present.
 
         As of BREAKOUT 8A the scanner populates signal.enrichment at signal
-        creation time via MarketScanner._build_signal_enrichment().
-        This method now just forwards that dict so the sender gets the data
-        the scanner already computed.
+        creation time via BreakoutDetector._build_enrichment().
+        This method forwards that dict so the sender gets the data the scanner
+        already computed.  If market_pct_change is missing and a detector is
+        wired in, it back-fills it from the BTC price history so the receiver's
+        market-context soft check has something to work with.
 
         Falls back to a minimal dict (close only) if enrichment is missing,
         which will cause receiver soft checks to SKIP (neutral) rather than FAIL.
         """
         if signal.enrichment:
-            return dict(signal.enrichment)
+            d = dict(signal.enrichment)
+            if d.get("market_pct_change") is None and self.detector:
+                mkt = self._btc_market_pct_change()
+                if mkt is not None:
+                    d["market_pct_change"] = mkt
+            return d
 
-        # Legacy fallback — scanner enrichment not populated (should not happen
-        # for signals created after BREAKOUT 8A; kept for safety only)
-        return {"close": signal.current_price}
+        # Legacy fallback — enrichment not populated (pre-BREAKOUT 8A signals)
+        d = {"close": signal.current_price}
+        if self.detector:
+            mkt = self._btc_market_pct_change()
+            if mkt is not None:
+                d["market_pct_change"] = mkt
+        return d
+
+    def _btc_market_pct_change(self) -> Optional[float]:
+        """Derive a market proxy from BTC/USDT price history in the detector."""
+        if not self.detector:
+            return None
+        for proxy in ("BTC/USDT", "BTC/USD", "BTC-USD"):
+            ph = self.detector.price_history.get(proxy)
+            if ph and len(ph) >= 2:
+                try:
+                    oldest = ph[0]
+                    newest = ph[-1]
+                    if oldest > 0:
+                        return ((newest - oldest) / oldest) * 100.0
+                except Exception:
+                    pass
+        return None
 
 
     def _format_alert_message(self, signal: BreakoutSignal, escalation: int) -> str:
@@ -1327,7 +1505,7 @@ class MarketScanner:
         logger.info("Made it to MarketScanner: after watchlist init")
         self._log_injected_watchlists()
         self.escalation      = EscalationTracker(self.config)
-        self.alert_system    = AlertSystem(self.config)
+        self.alert_system    = AlertSystem(self.config, detector=self.detector)
         self.trading         = TradingEngine(self.config)
         self.running         = False
         self.gui             = None
@@ -1477,50 +1655,22 @@ class MarketScanner:
                 self.alert_system.send_alert(promoted, escalation=0)
                 log_signal_to_csv(promoted)
             return
-        sc = self.detector.score(pd)
+        sig = self.detector.detect_breakout(pd)
         logger.info(
-            f"[SIGNAL CHECK] {broker} {sym} score={sc:.3f} "
+            f"[SIGNAL CHECK] {broker} {sym} score={sig.confidence if sig else 0.0:.3f} "
             f"threshold={self.config.get('watchlist_min_score', 0.40):.3f}"
         )
-        if sc < self.config.get("watchlist_min_score", 0.40):
+        if sig is None:
             return
-        pattern = ("early_breakout_strong" if sc > 0.75 else
-                   "early_breakout"         if sc > 0.55 else "watchlist")
-
-        # ── Explicit direction — priority: chart pattern > momentum sign ────
-        # Never leave direction empty; log if we fall back to momentum only.
-        pat_dir = getattr(pd, "_pattern_dir", None)
-        if pat_dir in ("long", "short"):
-            direction = pat_dir
-        elif self.detector.momentum_val(pd) < -0.5:
-            direction = "short"
-        else:
-            direction = "long"
-
-        sig = BreakoutSignal(
-            symbol=sym, asset_type=pd.asset_type, current_price=pd.price,
-            predicted_move_pct=sc*100, confidence=sc,
-            volume_spike=self.detector.vol_spike(pd),
-            momentum_score=self.detector.momentum_val(pd),
-            pattern_detected=pattern, timestamp=datetime.now(),
-            broker=broker, phase=SignalPhase.WATCHLIST, entry_price=pd.price,
-            direction=direction,
-        )
-
-        # ── Populate history from detector so enrichment + AlertSystem both work
-        sig.price_history  = list(self.detector.price_history.get(sym, []))
-        sig.volume_history = list(self.detector.volume_history.get(sym, []))
-
-        # ── Scanner-owned enrichment dict ────────────────────────────────────
-        sig.enrichment = self._build_signal_enrichment(pd, sym)
-
+        if sig.confidence < self.config.get("watchlist_min_score", 0.40):
+            return
+        sig.broker = broker
         logger.info(
-            f"[SCANNER] {broker} {sym} dir={direction} "
+            f"[SCANNER] {broker} {sym} dir={sig.direction} "
             f"enrich=yes ohlc={'open' in sig.enrichment} "
             f"rsi={'rsi' in sig.enrichment} "
             f"market={'market_pct_change' in sig.enrichment}"
         )
-
         self.watchlist.add(sig)
 
     def _scan_cryptos(self):
@@ -1786,8 +1936,9 @@ class ScannerGUI:
         esc   = r.get("escalation", 0)
         phase = r.get("phase","")
         mpct  = r.get("move_pct", 0.0)
+        fav   = favorable_move_pct(r.get("direction", "long"), mpct)
         if phase == "watchlist": return "watchlist"
-        if mpct < 0:             return "fail"
+        if fav < 0:              return "fail"
         if esc >= 3:             return "esc3"
         if esc >= 2:             return "esc2"
         if esc >= 1:             return "esc1"
@@ -1796,8 +1947,9 @@ class ScannerGUI:
     def _status_for(self, r: dict) -> str:
         esc  = r.get("escalation", 0)
         mpct = r.get("move_pct", 0.0)
+        fav  = favorable_move_pct(r.get("direction", "long"), mpct)
         if r.get("phase") == "watchlist": return "watching"
-        if mpct < 0:   return "FAIL"
+        if fav < 0:    return "FAIL"
         if esc >= 3:   return "ROCKET"
         if esc >= 2:   return "HOT"
         if esc >= 1:   return "MOVING"

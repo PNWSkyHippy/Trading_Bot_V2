@@ -466,6 +466,10 @@ def get_manual_trade_config():
     }
 
 
+# Cancel flag — set by POST /api/backtest/cancel, checked in the inner run loop.
+# Cleared at the start of every new run so stale signals don't bleed through.
+_bt_cancel = threading.Event()
+
 BACKTEST_STRATEGIES = [
     "adaptive_regime", "rsi_momentum", "bollinger_breakout", "ema_crossover",
     "mean_reversion", "scalp_master", "swing_trader", "grid_bot",
@@ -617,6 +621,14 @@ def run_backtest_api(payload):
     capital = float(payload.get("cap") or payload.get("capital") or getattr(cfg, "STARTING_CAPITAL", 100000))
     stop_mode = "two_bar" if str(payload.get("mode") or "").lower() in ("trailing", "two_bar") else "standard"
     lookback = max(1, int(float(payload.get("lookback") or 2)))
+    entry_side_filter = str(payload.get("side")         or "all").strip().lower()
+    entry_mode_filter = str(payload.get("entry_mode")   or "all").strip().lower()
+    initial_stop_mode = str(payload.get("initial_stop") or "auto").strip().lower()
+    trail_mode        = str(payload.get("trail")        or "auto").strip().lower()
+    _commission_raw   = payload.get("commission")
+    _slippage_raw     = payload.get("slippage")
+    commission_pct    = float(_commission_raw) if _commission_raw not in (None, "", "default") else None
+    slippage_pct      = float(_slippage_raw)   if _slippage_raw   not in (None, "", "default") else None
 
     asset_class = "crypto" if asset.lower().startswith("crypto") or "/" in symbol else "stock"
     if asset_class == "crypto":
@@ -634,33 +646,67 @@ def run_backtest_api(payload):
     if not symbols:
         return False, "No symbols selected for backtest.", {}
 
+    # Clear any stale cancel signals from a previous run
+    _bt_cancel.clear()
+    try:
+        from intelligence.backtester import clear_cancel
+        clear_cancel()
+    except Exception:
+        pass
+
     bt = Backtester(starting_capital=capital)
     results = []
     skipped = 0
     for strat in strategies:
+        if _bt_cancel.is_set():
+            break
         for sym in symbols:
+            if _bt_cancel.is_set():
+                break
             try:
                 if strat == "original_scorer":
                     result = bt.run(
                         sym, days, capital, timeframe, asset_class=asset_class,
                         stop_mode=stop_mode, two_bar_lookback=lookback,
+                        commission_pct=commission_pct, slippage_pct=slippage_pct,
+                        initial_stop_mode=initial_stop_mode, trail_mode=trail_mode,
+                        entry_mode_filter=entry_mode_filter,
+                        entry_side_filter=entry_side_filter,
                     )
                 else:
                     result = bt.run_strategy(
                         sym, strat, days, capital, timeframe, asset_class=asset_class,
                         stop_mode=stop_mode, two_bar_lookback=lookback,
+                        commission_pct=commission_pct, slippage_pct=slippage_pct,
+                        initial_stop_mode=initial_stop_mode, trail_mode=trail_mode,
+                        entry_mode_filter=entry_mode_filter,
+                        entry_side_filter=entry_side_filter,
                     )
                 if result and getattr(result, "total_trades", 0) > 0:
                     results.append(_backtest_result_payload(result))
                 else:
                     skipped += 1
-            except Exception:
+            except Exception as _exc:
+                if type(_exc).__name__ == "_BacktestCancelled":
+                    # Inner-loop cancel checkpoint fired — treat as cancelled
+                    _bt_cancel.set()
+                    break
                 skipped += 1
 
+    was_cancelled = _bt_cancel.is_set()
+    _bt_cancel.clear()
+
     if not results:
+        if was_cancelled:
+            return True, f"Cancelled — no runs completed.", {
+                "skipped": skipped,
+                "requested_runs": len(symbols) * len(strategies),
+                "cancelled": True,
+            }
         return False, f"No results; {skipped} run(s) had insufficient data or no trades.", {
             "skipped": skipped,
             "requested_runs": len(symbols) * len(strategies),
+            "cancelled": False,
         }
 
     total_trades = sum(r["totalTrades"] for r in results)
@@ -676,11 +722,17 @@ def run_backtest_api(payload):
         "avgWin": round(sum(r["avgWin"] for r in results) / len(results), 2),
         "avgLoss": round(sum(r["avgLoss"] for r in results) / len(results), 2),
     }
-    return True, f"Backtest complete: {len(results)} result(s), {skipped} skipped.", {
+    complete_msg = (
+        f"Cancelled — partial results: {len(results)} run(s) completed, {skipped} skipped."
+        if was_cancelled
+        else f"Backtest complete: {len(results)} result(s), {skipped} skipped."
+    )
+    return True, complete_msg, {
         **summary,
         "results": results,
         "skipped": skipped,
         "requested_runs": len(symbols) * len(strategies),
+        "cancelled": was_cancelled,
     }
 
 
@@ -820,12 +872,17 @@ def _chart_bars_alpaca(symbol, timeframe, limit):
 
 
 def _chart_bars_ibkr(symbol, timeframe, limit):
+    # Reuse the bot's live executor singleton — don't create a new connection
+    # per chart request (wastes clientIds and triggers event-loop errors).
     try:
-        from core.ibkr_executor import IBKRExecutor
-        ibkr = IBKRExecutor()
-        return ibkr.get_historical_bars(symbol, timeframe, limit)
+        from core.trade_executor import executor as _tex
+        ibkr = getattr(_tex, '_ibkr', None)
+        if ibkr and ibkr.is_available():
+            return ibkr.get_historical_bars(symbol, timeframe, limit)
     except Exception:
-        return []
+        pass
+    # Fallback: yfinance (no connection needed)
+    return _chart_bars_yfinance(symbol, timeframe, limit)
 
 
 def _chart_bars_kraken(symbol, timeframe, limit):
@@ -876,6 +933,10 @@ def _chart_bars_yfinance(symbol, timeframe, limit):
         raw = yf.download(yfSym, period=period_str, interval=interval, progress=False, auto_adjust=True)
         if raw.empty:
             return []
+        # yfinance 0.2.x returns MultiIndex columns for single symbols: ('Open','TSLA')
+        # Flatten so row['Open'] works instead of requiring row[('Open','TSLA')]
+        if hasattr(raw.columns, 'levels'):
+            raw.columns = [c[0] if isinstance(c, tuple) else c for c in raw.columns]
         bars = []
         for ts, row in raw.iterrows():
             try:
@@ -914,11 +975,26 @@ def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
 
     # Fallback if chosen broker returns nothing
     if not bars:
-        fallback = _chart_bars_kraken if is_crypto else _chart_bars_alpaca
+        if is_crypto:
+            fallback = _chart_bars_kraken
+        else:
+            # yfinance is the universal stock fallback — don't retry Alpaca on Alpaca failure
+            fallback = _chart_bars_yfinance
         bars = fallback(symbol, timeframe, limit)
 
     # Sort ascending — required by Lightweight Charts
     bars.sort(key=lambda b: b['time'])
+
+    # Deduplicate — Alpaca/yfinance can emit two bars at the same timestamp
+    # (e.g. DST boundary, or bar-boundary off-by-one).  LightweightCharts v4
+    # aborts setData on CandlestickSeries if any duplicate timestamp exists.
+    seen_t: set = set()
+    deduped = []
+    for b in bars:
+        if b['time'] not in seen_t:
+            seen_t.add(b['time'])
+            deduped.append(b)
+    bars = deduped
 
     # Trade markers for this symbol
     markers = []
@@ -1085,7 +1161,7 @@ def get_today_trade_log():
  #           conn = sqlite3.connect(f"file:{DB_PATH}?mode=ro", uri=True)
             conn.row_factory = sqlite3.Row
             trades = [dict(r) for r in conn.execute(
-                "SELECT * FROM trades WHERE date(entry_time)=? ORDER BY entry_time",
+                "SELECT * FROM trades WHERE status='closed' AND date(exit_time)=? ORDER BY exit_time",
                 (date.today().isoformat(),),
             ).fetchall()]
             conn.close()
@@ -1120,6 +1196,7 @@ def get_today_trade_log():
             "pnl": pnl,
             "pnl_pct": pnl_pct,
             "result": "Win" if pnl > 0 else "Loss",
+            "tp_hit_count": int(trade.get("tp_hit_count") or 0),
             "_sort": trade.get("exit_time") or "",
         })
 
@@ -1527,12 +1604,15 @@ class Handler(BaseHTTPRequestHandler):
 
     def _json(self, code, payload):
         body = json.dumps(payload).encode("utf-8")
-        self.send_response(code)
-        self.send_header("Content-Type", "application/json")
-        self._cors_headers()
-        self.send_header("Content-Length", str(len(body)))
-        self.end_headers()
-        self.wfile.write(body)
+        try:
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json")
+            self._cors_headers()
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            pass  # Client disconnected mid-response — harmless
 
     def do_OPTIONS(self):
         self.send_response(204)
@@ -1563,7 +1643,12 @@ class Handler(BaseHTTPRequestHandler):
             timeframe = (params.get("timeframe") or ["5m"])[0].strip()
             limit     = (params.get("limit")     or ["300"])[0].strip()
             broker    = (params.get("broker")    or [""])[0].strip().lower() or None
-            return self._json(200, get_chart_data(symbol, timeframe, limit, broker))
+            try:
+                return self._json(200, get_chart_data(symbol, timeframe, limit, broker))
+            except Exception as _ce:
+                import logging as _lg
+                _lg.getLogger(__name__).error(f"[/api/chart] {symbol} crashed: {_ce}", exc_info=True)
+                return self._json(200, {"bars": [], "markers": [], "symbol": symbol, "error": str(_ce)})
 
         if path == "/api/chart/symbols":
             return self._json(200, {"symbols": get_chart_symbols()})
@@ -1686,6 +1771,15 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/ml/retrain":
             ok, msg, details = retrain_ml()
             return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
+
+        if path == "/api/backtest/cancel":
+            _bt_cancel.set()
+            try:
+                from intelligence.backtester import request_cancel
+                request_cancel()
+            except Exception:
+                pass
+            return self._json(200, {"ok": True, "message": "Cancel signal sent."})
 
         if path == "/api/backtest":
             length = int(self.headers.get("Content-Length", "0"))

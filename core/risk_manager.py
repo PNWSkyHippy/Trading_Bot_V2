@@ -314,6 +314,21 @@ class RiskManager:
             risk_amount    = remaining_loss_budget
             logger.warning(f"Position scaled down for {symbol}: daily budget constraint")
 
+        # ── Position sanity cap ───────────────────────────────────────────
+        # If phantom profitable trades inflated the DB capital, position_value
+        # compounds upward each restart. Hard cap at 3× the expected maximum
+        # (MAX_POSITION_PCT of STARTING_CAPITAL) so a capital inflation bug
+        # can't silently produce $45k positions on a $100k paper account.
+        baseline_max = config.STARTING_CAPITAL * (config.MAX_POSITION_PCT / 100)
+        sanity_cap   = baseline_max * 3   # 3× allows real growth without infinite blowup
+        if position_value > sanity_cap:
+            logger.error(
+                f"[POSITION SANITY] {symbol}: position ${position_value:,.0f} is "
+                f"{position_value / baseline_max:.1f}× normal max (${baseline_max:,.0f}). "
+                f"Capital inflation bug likely — capping at ${baseline_max:,.0f}."
+            )
+            position_value = baseline_max
+
         quantity = position_value / entry_price
         if quantity <= 0 or position_value < 1.0:
             return TradeApproval(

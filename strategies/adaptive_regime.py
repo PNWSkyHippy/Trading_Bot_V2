@@ -2,39 +2,36 @@
 adaptive_regime.py — Strategy 12: Adaptive All-Weather Regime Strategy
 Trading Bot v2
 
-Port of AdaptiveAllWeatherStocksCrypto (backtrader) to our framework.
-Original: C:\\Users\\Linda\\trading_bot_v2_resources\\Project\\VwapConfirmedOpeningRangeBreakout.py
-
 Dual-mode strategy that classifies the current market regime via ADX and
 applies the appropriate entry model. A single scan cycle produces at most
 one signal per symbol — the regime gate decides which entry fires.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TREND MODE  (strong trend: ADX >= 25, EMA20 above/below EMA100)
+TREND MODE  (strong trend: ADX >= 22, EMA20 above/below EMA100)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Long entry:  ADX >= 25  AND  EMA20 > EMA100  AND
-               close > prior-bar 20-bar Donchian high  AND  RSI <= 68
-  Short entry: ADX >= 25  AND  EMA20 < EMA100  AND
-               close < prior-bar 20-bar Donchian low   AND  RSI >= 32
+  Long entry:  ADX >= 22  AND  EMA20 > EMA100  AND
+               close > prior-bar 12-bar Donchian high  AND  RSI <= 72
+  Short entry: ADX >= 22  AND  EMA20 < EMA100  AND
+               close < prior-bar 12-bar Donchian low   AND  RSI >= 28
 
   Stop:   entry_price ± ATR × 2.5  (wider — trend trades need room)
   Target: ATR × 3.0 from entry as backstop TP; primary exit is EMA cross
   Exit:   EMA20 crosses EMA100 in adverse direction (trend has ended)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-MEAN REVERSION MODE  (weak/ranging: ADX <= 18)
+MEAN REVERSION MODE  (weak/ranging: ADX <= 19)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Long entry:  ADX <= 18  AND  close > EMA100  AND
-               close <= lower BB  AND  RSI <= 30
-  Short entry: ADX <= 18  AND  close < EMA100  AND
-               close >= upper BB  AND  RSI >= 70
+  Long entry:  ADX <= 19  AND  close >= EMA100 - ATR×0.5  AND
+               close <= lower BB  AND  RSI <= 35
+  Short entry: ADX <= 19  AND  close <= EMA100 + ATR×0.5  AND
+               close >= upper BB  AND  RSI >= 65
 
   Stop:   entry_price ± ATR × 1.5  (tighter — reversion should be fast)
   Target: BB midline (primary); RSI 55 for longs / RSI 45 for shorts (secondary)
   Exit:   price reaches BB midline  OR  RSI crosses the exit threshold
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-TRANSITIONAL ZONE  (18 < ADX < 25)
+TRANSITIONAL ZONE  (19 < ADX < 22)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   No signal — regime is ambiguous. Skip the symbol this cycle.
 
@@ -73,7 +70,7 @@ from strategies.base_strategy import BaseStrategy, TradeSignal
 
 logger = logging.getLogger(__name__)
 
-# ── Parameters (matching backtrader original defaults) ───────────────────────
+# ── Parameters ───────────────────────────────────────────────────────────────
 FAST_EMA          = 20
 SLOW_EMA          = 100
 ADX_PERIOD        = 14
@@ -82,22 +79,23 @@ ATR_PERIOD        = 14
 BB_PERIOD         = 20
 BB_DEVFACTOR      = 2.0
 VOLUME_PERIOD     = 20
-BREAKOUT_PERIOD   = 20     # Donchian channel lookback (bars)
+BREAKOUT_PERIOD   = 12     # Donchian channel lookback (bars) — loosened from 20
 
-ADX_TREND_THRESHOLD = 25   # ADX >= this → strong trend → trend mode
-ADX_RANGE_THRESHOLD = 18   # ADX <= this → weak trend  → mean rev mode
-                            # 18 < ADX < 25 → transitional → no signal
+ADX_TREND_THRESHOLD = 22   # ADX >= this → strong trend → trend mode (loosened from 25)
+ADX_RANGE_THRESHOLD = 19   # ADX <= this → weak trend  → mean rev mode (loosened from 18)
+                            # 19 < ADX < 22 → transitional → no signal
 
 STOP_ATR_MULT       = 2.5  # Trend mode initial stop distance
 TRAIL_ATR_MULT      = 3.0  # Trend mode backstop TP (primary exit is EMA cross)
 MEAN_STOP_ATR_MULT  = 1.5  # Mean rev mode initial stop distance
 
-MAX_TREND_ENTRY_RSI       = 68   # Block exhausted long entries
-MIN_TREND_ENTRY_RSI_SHORT = 32   # Block capitulating short entries
-OVERSOLD_RSI              = 30   # Mean rev long entry
-OVERBOUGHT_RSI            = 70   # Mean rev short entry
+MAX_TREND_ENTRY_RSI       = 72   # Block exhausted long entries (loosened from 68)
+MIN_TREND_ENTRY_RSI_SHORT = 28   # Block capitulating short entries (loosened from 32)
+OVERSOLD_RSI              = 35   # Mean rev long entry (loosened from 30)
+OVERBOUGHT_RSI            = 65   # Mean rev short entry (loosened from 70)
 MEAN_EXIT_RSI_LONG        = 55   # RSI exit threshold for mean rev longs
 MEAN_EXIT_RSI_SHORT       = 45   # RSI exit threshold for mean rev shorts
+MEAN_EMA_ATR_BUFFER       = 0.5  # ATR multiplier for EMA100 bias buffer in mean-rev mode
 
 MIN_BARS = max(SLOW_EMA, ADX_PERIOD, RSI_PERIOD, ATR_PERIOD,
                BB_PERIOD, VOLUME_PERIOD, BREAKOUT_PERIOD + 1) + 10
@@ -122,16 +120,20 @@ class AdaptiveRegime(BaseStrategy):
         self.crypto_candle_timeframe = "1h"
         self.candle_limit            = 150   # EMA100 needs ~100 + buffer
 
-        self.stock_enabled  = True
-        self.crypto_enabled = True
-        self.enabled        = True   # active from day one — passes all 5 entry gates
+        self.stock_enabled  = False
+        self.crypto_enabled = False
+        self.enabled        = False  # DISABLED — pending backtest validation
+                                     # 23.1% WR on 13 trades, -$46. Re-enable after
+                                     # backtest-expert confirms edge. Use quant
+                                     # backtest-fix-retest loop before live exposure.
 
         self._reset_diagnostics()
 
         logger.info(
             f"[{self.strategy_name}] Initialized — dual-mode adaptive regime. "
             f"Trend threshold ADX>={ADX_TREND_THRESHOLD}, "
-            f"Range threshold ADX<={ADX_RANGE_THRESHOLD}. 1h bars."
+            f"Range threshold ADX<={ADX_RANGE_THRESHOLD}, "
+            f"Donchian={BREAKOUT_PERIOD}. 1h bars."
         )
 
     # ─────────────────────────────────────────────────────────────────────────
@@ -150,7 +152,7 @@ class AdaptiveRegime(BaseStrategy):
             "trend_long":        0,
             "trend_short":       0,
             # Trend-mode blocker counts (first blocker only — mutually exclusive order)
-            "trend_vol_fail":    0,   # volume_ratio < 1.1
+            "trend_vol_fail":    0,   # volume_ratio < 1.0
             "trend_ema_fail":    0,   # EMA alignment unclear (flat market)
             "trend_don_fail":    0,   # price did not break Donchian channel
             "trend_rsi_fail":    0,   # RSI exhausted / not confirmed
@@ -346,14 +348,14 @@ class AdaptiveRegime(BaseStrategy):
             don_high = float(high.rolling(BREAKOUT_PERIOD).max().iloc[-2])
             don_low  = float(low.rolling(BREAKOUT_PERIOD).min().iloc[-2])
 
-            # Volume gate: trend entries require expanding volume on the breakout.
-            # A ratio < 1.1 means volume is below or barely at the recent average —
+            # Volume gate: trend entries require at least average volume on the breakout.
+            # A ratio < 1.0 means volume is below the recent average —
             # not enough participation to confirm a genuine breakout.
-            if volume_ratio < 1.1:
+            if volume_ratio < 1.0:
                 _d["trend_vol_fail"] += 1
                 self.verbose_log_skip(
                     symbol,
-                    f"Trend mode: volume_ratio={volume_ratio:.3f} < 1.1 — "
+                    f"Trend mode: volume_ratio={volume_ratio:.3f} < 1.0 — "
                     f"no breakout volume confirmation"
                 )
                 return None
@@ -507,19 +509,22 @@ class AdaptiveRegime(BaseStrategy):
 
             # ── Mean-rev blocker diagnostics (counted before signal checks) ──
             # Parallel checks — do not alter control flow.
-            if current_close > ema_slow:          # potential long side
-                if current_close > bb_lower:      # BB not touched
+            # EMA bias uses ATR buffer (MEAN_EMA_ATR_BUFFER) — matches entry conditions.
+            _ema_long_ok  = current_close >= ema_slow - (atr * MEAN_EMA_ATR_BUFFER)
+            _ema_short_ok = current_close <= ema_slow + (atr * MEAN_EMA_ATR_BUFFER)
+            if _ema_long_ok:                          # potential long side
+                if current_close > bb_lower:          # BB not touched
                     _d["mean_bb_fail"] += 1
-                elif rsi > OVERSOLD_RSI:          # BB touched, RSI not extreme
+                elif rsi > OVERSOLD_RSI:              # BB touched, RSI not extreme
                     _d["mean_rsi_fail"] += 1
-            if current_close < ema_slow:          # potential short side
-                if current_close < bb_upper:      # BB not touched
+            if _ema_short_ok:                         # potential short side
+                if current_close < bb_upper:          # BB not touched
                     _d["mean_bb_fail"] += 1
-                elif rsi < OVERBOUGHT_RSI:        # BB touched, RSI not extreme
+                elif rsi < OVERBOUGHT_RSI:            # BB touched, RSI not extreme
                     _d["mean_rsi_fail"] += 1
 
             # ── MEAN REV LONG ────────────────────────────────────────────────
-            if (current_close > ema_slow and
+            if (current_close >= ema_slow - (atr * MEAN_EMA_ATR_BUFFER) and
                     current_close <= bb_lower and
                     rsi <= OVERSOLD_RSI):
                 _d["mean_long"] += 1
@@ -571,7 +576,7 @@ class AdaptiveRegime(BaseStrategy):
                 )
 
             # ── MEAN REV SHORT ───────────────────────────────────────────────
-            if (current_close < ema_slow and
+            if (current_close <= ema_slow + (atr * MEAN_EMA_ATR_BUFFER) and
                     current_close >= bb_upper and
                     rsi >= OVERBOUGHT_RSI):
                 _d["mean_short"] += 1

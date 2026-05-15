@@ -33,6 +33,7 @@
 =============================================================
 """
 
+import asyncio
 import logging
 import time
 from typing import Optional, Dict
@@ -64,6 +65,23 @@ class IBKRExecutor:
         # Establish connection immediately at startup
         self._establish_connection()
 
+    @staticmethod
+    def _ensure_event_loop():
+        """
+        ib_insync uses asyncio internally. The bot's scanner spawns many
+        background threads (Thread-N _do_stock_scan) that have no asyncio
+        event loop. Calling any ib method from those threads raises
+        'There is no current event loop in thread'.
+        Fix: create a fresh event loop for the calling thread if none exists.
+        Must be called at the top of every public method invoked from threads.
+        """
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_closed():
+                raise RuntimeError("loop is closed")
+        except RuntimeError:
+            asyncio.set_event_loop(asyncio.new_event_loop())
+
     def _establish_connection(self) -> bool:
         """
         Establish persistent connection to TWS.
@@ -72,6 +90,7 @@ class IBKRExecutor:
         TWS holds clientIds for ~30-60s after disconnect.
         Returns True if connected successfully.
         """
+        self._ensure_event_loop()
         from ib_insync import IB
 
         for client_id in CLIENT_ID_FALLBACKS:
@@ -172,6 +191,7 @@ class IBKRExecutor:
         Submit a bracket order to IBKR.
         Uses persistent connection — no connect/disconnect cycle.
         """
+        self._ensure_event_loop()
         if not self._ensure_connected():
             logger.error(f"IBKR submit_order: cannot connect for {symbol}")
             return None
@@ -247,6 +267,7 @@ class IBKRExecutor:
 
     def close_position(self, symbol: str) -> bool:
         """Close an open IBKR position via market order."""
+        self._ensure_event_loop()
         if not self._ensure_connected():
             logger.error(f"IBKR close_position: cannot connect for {symbol}")
             return False
@@ -299,6 +320,7 @@ class IBKRExecutor:
 
     def cancel_all_orders(self, symbol: str) -> int:
         """Cancel all open orders for a symbol."""
+        self._ensure_event_loop()
         if not self._ensure_connected():
             return 0
 
@@ -323,6 +345,7 @@ class IBKRExecutor:
 
     def get_account(self) -> Dict:
         """Fetch account summary from IBKR."""
+        self._ensure_event_loop()
         if not self._ensure_connected():
             return {"equity": 0, "cash": 0, "buying_power": 0,
                     "portfolio_value": 0, "settled_cash": 0}
@@ -362,6 +385,7 @@ class IBKRExecutor:
         Used by the chart panel — does NOT affect trading state.
         Returns [] if IBKR is unavailable.
         """
+        self._ensure_event_loop()
         if not self._ensure_connected():
             return []
         try:

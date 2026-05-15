@@ -1,0 +1,5 @@
+AssetClass,Ticker,Price,Vol Change,RSI,% from 52W Hi,% vs 200SMA,Score,Signal
+Stock,AMAT,440.56,1.91,57.0,-1.76,57.6,110.16,Within 1.8% of 52W high | 1.9x avg vol | 58% above 200MA
+Stock,HPE,34.13,2.15,76.3,-1.63,46.0,98.96,Within 1.6% of 52W high | 2.2x avg vol | 46% above 200MA
+Stock,JBHT,254.66,2.12,54.8,-0.97,36.1,76.63,Within 1.0% of 52W high | 2.1x avg vol | 36% above 200MA
+Stock,PANW,238.21,1.33,92.8,-0.39,28.5,37.96,Within 0.4% of 52W high | 1.3x avg vol | 29% above 200MA

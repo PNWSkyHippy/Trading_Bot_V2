@@ -402,6 +402,12 @@ class PositionMonitor:
 
         risk_manager.record_trade_result(pnl=pnl, trade_won=(pnl > 0), symbol=symbol)
         self._reset_close_attempts(trade_id)
+        # Clean up per-trade state keys so they don't accumulate in bot_state
+        for _key in (f"sl_raise_count_{trade_id}", f"early_loss_checked_{trade_id}"):
+            try:
+                self._db.set_state(_key, None)
+            except Exception:
+                pass
 
         logger.info(
             f"[DB CLOSE] {symbol}: recorded close @ ${exit_price:.4f} | "
@@ -907,6 +913,22 @@ class PositionMonitor:
             logger.warning(f"Could not get price for {symbol} — skipping check")
             return
 
+        # ── Price sanity gate ─────────────────────────────────────────────────
+        # Reject prices that are wildly wrong relative to the trade entry.
+        # A bad price feed (e.g. Kraken returning a stale listing price for a
+        # new token) can look like a -99% stop-loss and force-close a live trade.
+        # 80% is conservative: real stops/moves are at most a few percent.
+        _entry = trade.get("entry_price", 0)
+        if _entry > 0 and current_price > 0:
+            _deviation = abs(current_price - _entry) / _entry
+            if _deviation > 0.80:
+                logger.warning(
+                    f"[PRICE SANITY] {symbol}: live=${current_price:.6f} is "
+                    f"{_deviation*100:.1f}% from entry=${_entry:.4f} — "
+                    f"likely bad price feed, skipping this cycle"
+                )
+                return
+
         qty = trade["quantity"]
         if direction == "long":
             pnl_pct = (current_price - trade["entry_price"]) / trade["entry_price"] * 100
@@ -1086,12 +1108,7 @@ class PositionMonitor:
                         # ── PAPER MODE: extend TP in DB (no real orders) ──
                         self._db.update_trade_levels(trade_id, take_profit=new_tp)
                         self._db.set_state(f"momentum_ext_{trade_id}", ext_count + 1)
-                        with self._db._conn() as conn:
-                            conn.execute(
-                                "UPDATE trades SET tp_hit_count = ? WHERE trade_id = ?",
-                                (ext_count + 1, trade_id)
-                            )
-                            conn.commit()
+                        self._db.increment_tp_hit_count(trade_id)
                         logger.info(
                             f"[PAPER TP EXTENDED] {symbol} {direction.upper()} | "
                             f"TP raised {trade['take_profit']:.4f} → {new_tp:.4f} | "
@@ -1160,9 +1177,13 @@ class PositionMonitor:
             )
             if "stop_loss" in updates and updates["stop_loss"] != old_sl:
                 new_sl = updates["stop_loss"]
+                # Track how many times the stop has been ratcheted for dashboard indicator
+                _raise_key   = f"sl_raise_count_{trade_id}"
+                _raise_count = int(self._db.get_state(_raise_key, default=0) or 0) + 1
+                self._db.set_state(_raise_key, _raise_count)
                 logger.info(
                     f"[TRAILING STOP] {symbol} {direction.upper()} | "
-                    f"SL ratcheted ${old_sl:.4f} → ${new_sl:.4f} | "
+                    f"SL ratcheted #{_raise_count} ${old_sl:.4f} → ${new_sl:.4f} | "
                     f"Locked in {pnl_pct:+.2f}% gain"
                 )
                 # ── Live + Paper: cancel old stop order, place new one ────
