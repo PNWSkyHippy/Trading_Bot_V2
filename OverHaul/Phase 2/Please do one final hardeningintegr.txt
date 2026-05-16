@@ -1,0 +1,216 @@
+Please do one final hardening/integration pass on adaptive_regime.py.
+
+Goal:
+Do NOT redesign the core strategy.
+The dual-regime thesis is already defined:
+- trend mode via ADX + EMA alignment + Donchian breakout
+- mean-reversion mode via ADX range regime + Bollinger extreme + RSI extreme
+
+This pass is about:
+- framework parity
+- stop/exit correctness
+- avoiding test-harness distortion
+- making sure live and backtest behavior match
+
+Files to inspect/patch:
+1. strategies/adaptive_regime.py
+2. intelligence/backtester.py
+3. live position monitor / exit path if needed
+4. trade executor only if needed for structural stop / trail parity
+
+Critical issue to solve first
+=============================
+Adaptive Regime is a 1h strategy with explicit custom exits:
+- trend mode exits on adverse EMA cross
+- mean-rev exits on BB midline or RSI threshold
+
+If the framework still applies generic intraday lifecycle exits
+(~30m / 2h / 5h / 8h) before strategy exits, then results are distorted.
+
+Required change:
+- add a strategy-level flag such as:
+    self.time_stop_profile = "strategy_defined"
+  or
+    self.disable_generic_time_stops = True
+- backtester should skip generic early/perf/hard time stops for this strategy
+- live position monitor should do the same if it currently applies them globally
+
+Required checks and patches
+===========================
+
+1. Keep strategy_name as adaptive_regime
+----------------------------------------
+This is already correct.
+Do not rename it.
+
+2. Verify stop architecture parity
+----------------------------------
+The strategy documentation says:
+- initial stop = ATR-based structural stop
+- trailing = standard two-bar structural engine
+- exits = strategy-specific (EMA cross / BB midline / RSI)
+
+Need to verify this is actually true in both:
+- backtester
+- live execution / monitoring
+
+If not already implemented, add explicit strategy preferences such as:
+    self.preferred_initial_stop_mode = "signal_structural"
+    self.preferred_trail_mode = "two_bar"
+
+Then make backtester honor those when stop mode is auto/default.
+
+Do NOT let adaptive_regime silently fall back to:
+- percent initial stop
+- percent trail
+unless explicitly requested
+
+3. Verify custom exit parity live vs backtest
+---------------------------------------------
+Backtester currently has check_custom_exit().
+Need to confirm live position monitor uses the same exact logic and thresholds.
+
+Required parity:
+Trend mode:
+- long exit when EMA20 <= EMA100
+- short exit when EMA20 >= EMA100
+
+Mean-rev mode:
+- long exit when price >= BB midline OR RSI >= 55
+- short exit when price <= BB midline OR RSI <= 45
+
+If live path differs at all, patch it.
+
+4. Ensure entry metadata is sufficient for exits
+------------------------------------------------
+Entry metadata must persist enough information for downstream monitoring:
+- adaptive_exit_mode
+- regime
+- atr
+- rsi
+- adx
+- structural_stop_price
+- entry_timeframe
+
+If any required metadata is missing or not persisted to DB / indicators_json,
+patch that.
+
+5. Do not let generic lifecycle exits override strategy thesis
+--------------------------------------------------------------
+Adaptive trades are not intraday scalp trades.
+If generic early loss / perf / hard time stops are still hitting this strategy,
+disable them specifically for adaptive_regime.
+
+This applies to:
+- backtester
+- live monitor if global lifecycle rules exist there too
+
+6. Keep diagnostics, but verify they are accurate
+-------------------------------------------------
+The diagnostics counters are useful.
+Please verify:
+- counters reset cleanly per symbol/run
+- blocker counts do not double-count misleadingly
+- trend and mean-rev signal counts reflect actual final entries
+
+Do not remove diagnostics.
+
+7. Verify real metadata values only
+-----------------------------------
+Current adaptive_regime metadata looks mostly real already.
+Keep that standard.
+Do not add fake reviewer/ML placeholder values.
+
+8. Check warmup / candle_limit consistency
+------------------------------------------
+Current candle_limit ~150 and MIN_BARS ~110+.
+Need enough for:
+- EMA100
+- ADX
+- ATR
+- BB
+- Donchian
+
+Confirm:
+- warmup is sufficient
+- no signal fires before indicators are trustworthy
+
+9. Verify no hidden lookahead
+-----------------------------
+Specifically confirm:
+- Donchian breakout uses prior completed bar channel, not current bar future leak
+- BB / RSI / EMA all use closed-bar values only
+- backtester next-bar execution is preserved
+
+10. Validation matrix after patch
+---------------------------------
+Run adaptive_regime through realistic backtester on:
+
+Symbols:
+- BTC
+- ETH
+- SOL
+- BNB
+- DOGE
+- XRP
+- at least several stocks too if stock side is intended live
+
+Timeframes:
+- 1h primary
+- 2h secondary
+- maybe 4h sanity check
+
+Date splits:
+- 2023
+- 2024
+- 2025 YTD
+- combined
+
+Modes:
+- all entries
+- trend-only
+- mean_rev-only
+- long-only
+- short-only
+
+Report:
+- total trades
+- win rate
+- profit factor
+- avg trade
+- max drawdown
+- sharpe
+- trend-mode stats
+- mean-rev-mode stats
+- long/short stats
+- top blocker diagnostics
+
+11. Interpretation guidance
+---------------------------
+Do not judge the strategy only by total return.
+Need to answer:
+- Is trend mode actually better than mean_rev?
+- Is one side carrying the whole strategy?
+- Are generic lifecycle exits gone from results?
+- Is stop architecture behaving as intended?
+- Are results stable across symbols or only on one asset?
+- Is one regime mode worth keeping while the other should be disabled?
+
+12. Final recommendation should be practical
+--------------------------------------------
+Possible outcomes:
+- keep both modes
+- keep trend mode only
+- keep mean-rev mode only
+- crypto only
+- stock only
+- move to watchlist
+- reject for live use
+
+Deliverables wanted
+===================
+1. Patched adaptive_regime.py if needed
+2. Any minimal backtester/live framework patches needed for parity
+3. Short summary of what changed
+4. Fresh validation table
+5. Final verdict with practical deployment recommendation

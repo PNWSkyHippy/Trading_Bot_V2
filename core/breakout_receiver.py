@@ -1,33 +1,20 @@
 """
-core/breakout_receiver.py  (hardened v2.1)
+core/breakout_receiver.py  (hardened v2.2)
 =========================================
 Receives inbound breakout signals from BreakoutScanner and injects them
 into the trade executor after a fast validation checklist.
 
-Changes from v1:
-  - Fixed Signal(...) constructor crash: broker removed from top-level args,
-    placed inside indicators["preferred_broker"] instead
-  - Added reason= to Signal constructor (required field)
-  - Required-field validation BEFORE checklist (3 failure classes)
-  - Signal freshness / TTL check (hard gate)
-  - Soft checks now use NEUTRAL status — skipped checks do NOT count as passes
-  - Hard checks: SKIP = neutral (does not block), only FAIL blocks
-  - Price re-verify now REJECTS on scanner unavailable (no longer fail-open)
-  - Wick check: SKIP (neutral) when OHLC missing; FAIL when OHLC present but bad
-  - Symmetric market context (blocks shorts in rallying market too)
-  - Structural stop sanity check (stop must be on correct side of price)
-  - Structured logging for every inbound signal
-  - 3-class response: invalid_payload / checklist_rejected / injection_exception
-
-Failure classes:
-  1. invalid_payload        — missing required fields; signal not even evaluated
-  2. checklist_rejected     — fields present but failed validation gate
-  3. injection_exception    — all checks passed but executor threw an error
+v2.2 additions:
+  - Understands sender's source_broker / source_price / source_timestamp
+  - No longer relies solely on scanner.get_current_price(); falls back to
+    scanner fetchers directly
+  - Normalizes broker names and preserves both preferred_broker + source_broker
+  - Blacklist rejections now return the same structured response shape
 """
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from typing import Optional, Dict, Any, Tuple, List
 
 import config
@@ -38,29 +25,31 @@ from core.trade_executor import TradeExecutor
 logger = logging.getLogger(__name__)
 
 # ── Tuning constants ────────────────────────────────────────────────────────
-SIGNAL_TTL_SEC          = 60      # reject signals older than this
-VOLUME_SPIKE_MIN        = 1.5     # >= 1.5x 20-period average
-WICK_BODY_MAX_RATIO     = 2.0     # wick <= 2x body (fakeout filter)
-GAP_TRAP_MAX_PCT        = 30.0    # reject if total move > 30%
-                                  # (was 15%; raised because crypto 15-25% moves are
-                                  #  legitimate breakouts and were being blocked en masse.
-                                  #  Truly manipulated/wash moves tend to be 50%+.)
-PRICE_DRIFT_MAX_PCT     = 0.5     # price must not have reversed > 0.5%
-STOP_MAX_DISTANCE_STOCK = 2.5     # max stop distance % for stocks
-STOP_MAX_DISTANCE_CRYPTO= 5.0     # max stop distance % for crypto
-                                  # (was 3.5%; raised to match two-bar structural trail
-                                  #  which can place stops 4-6% away on volatile movers)
+SIGNAL_TTL_SEC          = 60
+VOLUME_SPIKE_MIN        = 1.5
+WICK_BODY_MAX_RATIO     = 2.0
+GAP_TRAP_MAX_PCT        = 30.0
+PRICE_DRIFT_MAX_PCT     = 0.5
+STOP_MAX_DISTANCE_STOCK = 2.5
+STOP_MAX_DISTANCE_CRYPTO= 5.0
 RSI_LONG_MIN            = 50.0
 RSI_LONG_EXHAUST        = 82.0
 RSI_SHORT_MAX           = 50.0
 RSI_SHORT_EXHAUST       = 18.0
 MARKET_CRASH_THRESHOLD  = -2.0
 MARKET_RALLY_THRESHOLD  = +2.0
-MIN_SOFT_PASSES         = 0       # need this many actual soft PASSes (skips neutral)
+MIN_SOFT_PASSES         = 0
 
-# Symbols permanently banned from breakout entries.
-# MLN/USD: 6 consecutive losses — thin liquidity, erratic breakouts, never recovered.
 BREAKOUT_SYMBOL_BLACKLIST = {"MLN/USD", "MLNUSD", "MLN/USDT", "MLNUSDT"}
+
+# Reject any symbol whose quote currency is not USD.
+# USDC, USDT, BUSD pairs can't be priced by Kraken's USD feed and get stuck
+# in the position monitor indefinitely, jamming the scan loop.
+_REJECTED_QUOTE_CURRENCIES = {"/USDC", "/USDT", "/BUSD", "/DAI", "/TUSD", "USDC", "USDT"}
+
+def _is_bad_quote_currency(symbol: str) -> bool:
+    s = symbol.upper()
+    return any(s.endswith(q) for q in _REJECTED_QUOTE_CURRENCIES)
 
 REQUIRED_FIELDS = [
     "symbol", "asset_class", "direction",
@@ -68,6 +57,18 @@ REQUIRED_FIELDS = [
     "move_pct", "volume_spike",
     "confidence", "escalation", "timestamp",
 ]
+
+EXECUTION_BROKERS = {"kraken", "coinbase", "alpaca", "ibkr"}
+BROKER_ALIASES = {
+    "krakenpro": "kraken",
+    "coinbasepro": "coinbase",
+    "coinbase_advanced": "coinbase",
+    "interactivebrokers": "ibkr",
+    "interactive_brokers": "ibkr",
+    "ib": "ibkr",
+    "ibkr": "ibkr",
+    "alpaca_markets": "alpaca",
+}
 
 
 class ChecklistResult:
@@ -108,48 +109,77 @@ class BreakoutReceiver:
     def set_scanner(self, scanner):
         self._scanner_ref = scanner
 
+    # ──────────────────────────────────────────────────────────────────────
+    # Public entry
+    # ──────────────────────────────────────────────────────────────────────
+
     def receive_signal(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        sym           = payload.get("symbol", "?")
-        direction     = payload.get("direction", "?")
-        esc           = payload.get("escalation", 0)
-        ts_in         = payload.get("timestamp", "")
+        sym            = payload.get("symbol", "?")
+        direction      = payload.get("direction", "?")
+        esc            = payload.get("escalation", 0)
+        ts_in          = payload.get("timestamp", "")
         signal_age_sec = self._signal_age(ts_in)
 
-        # Hard symbol blacklist — checked before everything else
+        broker_hint   = self._normalize_broker_name(payload.get("broker", ""))
+        source_broker = self._normalize_broker_name(
+            payload.get("source_broker", broker_hint or "")
+        )
+
         if sym.upper() in BREAKOUT_SYMBOL_BLACKLIST:
-            logger.info(f"[BREAKOUT RECV] {sym} rejected — in permanent symbol blacklist (serial loser)")
-            return {"status": "rejected", "reason": f"{sym} in breakout symbol blacklist"}
+            reason = f"{sym} in breakout symbol blacklist"
+            logger.info(f"[BREAKOUT RECV] {sym} rejected — {reason}")
+            return {
+                "accepted": False,
+                "execution_eligible": False,
+                "failure_class": "checklist_rejected",
+                "reason": reason,
+                "trade_id": None,
+                "checklist": {},
+            }
+
+        if _is_bad_quote_currency(sym):
+            reason = f"{sym} has non-USD quote currency — unpriceable by Kraken feed"
+            logger.warning(f"[BREAKOUT RECV] {sym} rejected — {reason}")
+            return {
+                "accepted": False,
+                "execution_eligible": False,
+                "failure_class": "bad_quote_currency",
+                "reason": reason,
+                "trade_id": None,
+                "checklist": {},
+            }
 
         logger.info(
             f"[BREAKOUT RECV] {sym} {str(direction).upper()} "
             f"esc={esc} move={payload.get('move_pct', 0):+.2f}% "
             f"age={signal_age_sec:.0f}s vol={payload.get('volume_spike', 0):.2f}x "
+            f"broker={broker_hint or 'none'} source_broker={source_broker or 'none'} "
             f"stop={payload.get('structural_stop_price', 'none')} "
             f"bars_since={payload.get('bars_since_breakout', '?')}"
         )
 
-        # Stage 1: Required field validation
         missing = [f for f in REQUIRED_FIELDS if payload.get(f) is None]
         if missing:
             reason = f"Missing required fields: {', '.join(missing)}"
             logger.warning(f"[BREAKOUT RECV] INVALID PAYLOAD {sym} — {reason}")
             return {
-                "accepted": False, "execution_eligible": False,
+                "accepted": False,
+                "execution_eligible": False,
                 "failure_class": "invalid_payload",
-                "reason": reason, "trade_id": None, "checklist": {},
+                "reason": reason,
+                "trade_id": None,
+                "checklist": {},
             }
 
-        # Stage 2: Checklist
         hard_results, soft_results = self._run_checklist(payload, signal_age_sec)
 
-        # Hard: PASS or SKIP = OK, only FAIL blocks
-        hard_passed  = all(
+        hard_passed = all(
             r.status in (ChecklistResult.PASS, ChecklistResult.SKIP)
             for r in hard_results
         )
-        hard_skips   = sum(1 for r in hard_results if r.status == ChecklistResult.SKIP)
-        soft_passes  = sum(1 for r in soft_results if r.status == ChecklistResult.PASS)
-        soft_skips   = sum(1 for r in soft_results if r.status == ChecklistResult.SKIP)
+        hard_skips  = sum(1 for r in hard_results if r.status == ChecklistResult.SKIP)
+        soft_passes = sum(1 for r in soft_results if r.status == ChecklistResult.PASS)
+        soft_skips  = sum(1 for r in soft_results if r.status == ChecklistResult.SKIP)
 
         for r in hard_results:
             lvl = logging.WARNING if r.status == ChecklistResult.FAIL else logging.INFO
@@ -172,18 +202,23 @@ class BreakoutReceiver:
             reason = f"Hard check failed: {failed.reason}"
             logger.info(f"[BREAKOUT RECV] CHECKLIST REJECTED {sym} — {reason}")
             return {
-                "accepted": False, "execution_eligible": True,
+                "accepted": False,
+                "execution_eligible": True,
                 "failure_class": "checklist_rejected",
-                "reason": reason, "trade_id": None, "checklist": checklist_summary,
+                "reason": reason,
+                "trade_id": None,
+                "checklist": checklist_summary,
             }
 
-        # Soft checks are advisory only (MIN_SOFT_PASSES = 0).
-        # RSI / trend / market context are logged for visibility but never block execution.
         logger.info(
             f"[BREAKOUT RECV] CHECKLIST PASSED {sym} — "
             f"soft: {soft_passes} pass / {soft_skips} skip (advisory only)"
         )
         return self._inject_signal(payload, checklist_summary)
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Checklist
+    # ──────────────────────────────────────────────────────────────────────
 
     def _run_checklist(
         self, p: Dict, signal_age_sec: float
@@ -191,14 +226,14 @@ class BreakoutReceiver:
         hard = [
             self._check_freshness(p, signal_age_sec),
             self._check_no_open_position(p),
-            self._check_daily_symbol_limit(p),   # cap MLN/USD-style serial losses
+            self._check_daily_symbol_limit(p),
             self._check_not_in_cooldown(p),
             self._check_trading_not_halted(),
             self._check_price_still_moving(p),
             self._check_volume_elevated(p),
-            self._check_no_wick_rejection(p),   # SKIP when OHLC missing (neutral)
+            self._check_no_wick_rejection(p),
             self._check_not_gap_trap(p),
-            self._check_momentum_phase(p),      # reject late/exhausted parabolic entries
+            self._check_momentum_phase(p),
             self._check_structural_stop(p),
         ]
         soft = [
@@ -224,15 +259,10 @@ class BreakoutReceiver:
         return ChecklistResult.ok(f"No existing position on {sym}")
 
     def _check_daily_symbol_limit(self, p: Dict) -> ChecklistResult:
-        """
-        Cap breakout_scanner trades per symbol per day at MAX_DAILY_PER_SYMBOL.
-        Prevents MLN/USD-style serial losses where the 10-min cooldown keeps
-        resetting and the same symbol gets traded 6+ times in one session.
-        """
         MAX_DAILY_PER_SYMBOL = 2
         sym = p["symbol"]
         try:
-            today = __import__("datetime").date.today().isoformat()
+            today = date.today().isoformat()
             count = len([
                 t for t in (db.get_trades_for_date(today) or [])
                 if t.get("symbol") == sym
@@ -245,7 +275,7 @@ class BreakoutReceiver:
                 )
         except Exception as e:
             logger.debug(f"[DAILY LIMIT] Could not check daily trade count: {e}")
-        return ChecklistResult.ok(f"Daily symbol limit OK")
+        return ChecklistResult.ok("Daily symbol limit OK")
 
     def _check_not_in_cooldown(self, p: Dict) -> ChecklistResult:
         sym  = p["symbol"]
@@ -274,8 +304,6 @@ class BreakoutReceiver:
     def _check_price_still_moving(self, p: Dict) -> ChecklistResult:
         sym       = p["symbol"]
         asset     = p.get("asset_class", "crypto")
-        # Use current_price as the reference (it's the price when the signal fired),
-        # falling back to entry_price so pre-BREAKOUT-8A payloads still work.
         ref_price = float(p.get("current_price") or p.get("entry_price", 0))
         direction = p.get("direction", "long")
 
@@ -287,16 +315,15 @@ class BreakoutReceiver:
             return ChecklistResult.fail("current_price/entry_price is zero or missing")
 
         try:
-            current = self._scanner_ref.get_current_price(sym, asset)
+            current = self._fetch_live_price_from_scanner(p)
+
             if not current:
-                # Price unfetchable for this specific symbol (common for /USDC pairs
-                # that Kraken doesn't list as /USDC — not a scanner infrastructure
-                # failure, just an illiquid or USDC-quoted pair).  SKIP = neutral;
-                # the scanner-not-wired case above is the true infrastructure failure.
                 return ChecklistResult.skip(
                     f"Could not fetch live price for {sym} — skipping price drift check"
                 )
+
             drift_pct = ((current - ref_price) / ref_price) * 100
+
             if direction == "long" and drift_pct < -PRICE_DRIFT_MAX_PCT:
                 return ChecklistResult.fail(
                     f"{sym} reversed {drift_pct:.2f}% from signal price "
@@ -307,15 +334,13 @@ class BreakoutReceiver:
                     f"{sym} reversed +{drift_pct:.2f}% from signal price "
                     f"(limit +{PRICE_DRIFT_MAX_PCT}%)"
                 )
+
             return ChecklistResult.ok(f"{sym} still moving (drift={drift_pct:+.2f}%)")
         except Exception as e:
             return ChecklistResult.fail(f"Price re-verify exception: {e}")
 
     def _check_volume_elevated(self, p: Dict) -> ChecklistResult:
         vol = float(p.get("volume_spike", 0))
-        # vol == 1.0 exactly is the _vol_spike() default fallback when there is
-        # no volume history (e.g. CoinGecko-sourced ticks with volume=0).
-        # It is NOT a real measurement, so treat it as "no data" → SKIP, not FAIL.
         if vol == 1.0:
             return ChecklistResult.skip(
                 "Volume spike is 1.00x (default fallback — no volume history) — skipping"
@@ -327,17 +352,16 @@ class BreakoutReceiver:
         return ChecklistResult.ok(f"Volume elevated {vol:.2f}x")
 
     def _check_no_wick_rejection(self, p: Dict) -> ChecklistResult:
-        """
-        SKIP (neutral) if OHLC not provided — scanner needs upgrade to send it.
-        FAIL if OHLC present and shows fakeout wick.
-        TODO: Change skip to fail once scanner reliably sends OHLC.
-        """
-        o, h, l, c = p.get("candle_open"), p.get("candle_high"), \
-                     p.get("candle_low"),  p.get("candle_close")
+        o, h, l, c = (
+            p.get("candle_open"),
+            p.get("candle_high"),
+            p.get("candle_low"),
+            p.get("candle_close"),
+        )
 
         if not all(v is not None for v in [o, h, l, c]):
             return ChecklistResult.skip(
-                "Wick check skipped — OHLC not in payload (scanner upgrade needed)"
+                "Wick check skipped — OHLC not in payload"
             )
 
         o, h, l, c = float(o), float(h), float(l), float(c)
@@ -369,26 +393,13 @@ class BreakoutReceiver:
         return ChecklistResult.ok(f"Move {move:.1f}% within range")
 
     def _check_momentum_phase(self, p: Dict) -> ChecklistResult:
-        """
-        Reject entries that are LATE in a parabolic move.
-
-        The scanner fires after detecting a large price move. If we're already
-        many bars past the breakout level, or RSI is exhausted, we're buying
-        the top (long) or selling the bottom (short) — exactly the wrong side.
-
-        Thresholds derived from breakout scanner analysis:
-        - bars_since_breakout > 4: move is 4+ bars old, most momentum consumed
-        - distance_from_breakout_pct > 8%: price has moved 8%+ from the level;
-          a normal continuation trade targets 5-7% — that's already gone
-        - RSI exhaustion: >78 for longs (overbought), <22 for shorts (oversold)
-        """
         direction   = p.get("direction", "long")
         bars_since  = p.get("bars_since_breakout")
         dist_pct    = p.get("distance_from_breakout_pct")
         rsi         = p.get("rsi")
 
         MAX_BARS_SINCE    = 4
-        MAX_DIST_FROM_LVL = 8.0   # %
+        MAX_DIST_FROM_LVL = 8.0
         RSI_EXHAUST_LONG  = 78
         RSI_EXHAUST_SHORT = 22
 
@@ -498,36 +509,41 @@ class BreakoutReceiver:
             return ChecklistResult.fail(f"Market up {mkt_chg:.1f}% — bad for shorts")
         return ChecklistResult.ok(f"Market context OK ({mkt_chg:+.1f}%)")
 
+    # ──────────────────────────────────────────────────────────────────────
+    # Injection
+    # ──────────────────────────────────────────────────────────────────────
+
     def _inject_signal(self, p: Dict, checklist: dict) -> Dict:
         if not self._executor:
             logger.error("[BREAKOUT RECV] Executor not set")
             return {
-                "accepted": False, "failure_class": "injection_exception",
-                "reason": "Executor not configured", "trade_id": None,
+                "accepted": False,
+                "failure_class": "injection_exception",
+                "reason": "Executor not configured",
+                "trade_id": None,
                 "checklist": checklist,
             }
 
         try:
             from scanners.market_scanner import Signal
 
-            asset_class = p.get("asset_class", "crypto")
-            direction   = p.get("direction", "long")
-            sym         = p["symbol"]
-            price       = float(p.get("current_price") or p.get("entry_price"))
-            esc         = p.get("escalation", 0)
-            broker_hint = str(p.get("broker", "kraken")).lower()
+            asset_class   = p.get("asset_class", "crypto")
+            direction     = p.get("direction", "long")
+            sym           = p["symbol"]
+            price         = float(p.get("current_price") or p.get("entry_price"))
+            esc           = p.get("escalation", 0)
 
-            # ── Move-proportional stop loss ───────────────────────────────
-            # Default 1.5% fixed stop bleeds on crypto: after a 5-10% move,
-            # normal pullbacks hit it. Use a stop proportional to the move
-            # so the trade has room to breathe.
-            # Formula: max(move_pct * 0.30, 2.0), capped at 4.5%.
-            # Only applied when no structural stop is already provided
-            # (structural stop is more precise and always preferred).
-            # Stocks keep the existing default — this only applies to crypto
-            # where the serial-loss pattern was observed.
+            broker_hint   = self._normalize_broker_name(p.get("broker", "kraken"))
+            source_broker = self._normalize_broker_name(
+                p.get("source_broker", broker_hint)
+            )
+
+            if broker_hint not in EXECUTION_BROKERS:
+                broker_hint = "kraken" if asset_class == "crypto" else "alpaca"
+
             move_pct_abs = abs(float(p.get("move_pct", 0)))
             has_structural_stop = p.get("structural_stop_price") is not None
+
             if asset_class == "crypto" and not has_structural_stop:
                 custom_stop = round(min(max(move_pct_abs * 0.30, 2.0), 4.5), 2)
                 logger.info(
@@ -535,7 +551,7 @@ class BreakoutReceiver:
                     f"(move={move_pct_abs:.1f}%, no structural stop)"
                 )
             else:
-                custom_stop = None  # use structural stop or executor default
+                custom_stop = None
 
             signal = Signal(
                 symbol        = sym,
@@ -553,6 +569,10 @@ class BreakoutReceiver:
                     "timeframe":                  "5m" if asset_class == "crypto" else "5Min",
                     "signal_source":              "breakout_scanner",
                     "preferred_broker":           broker_hint,
+                    "source_broker":              source_broker,
+                    "source_price":               p.get("source_price", p.get("current_price")),
+                    "source_timestamp":           p.get("source_timestamp", p.get("timestamp")),
+                    "sender_timestamp":           p.get("timestamp"),
                     "escalation":                 esc,
                     "move_pct":                   p.get("move_pct", 0),
                     "volume_spike":               p.get("volume_spike", 0),
@@ -564,8 +584,6 @@ class BreakoutReceiver:
                     "breakout_level":             p.get("breakout_level"),
                     "bars_since_breakout":        p.get("bars_since_breakout"),
                     "distance_from_breakout_pct": p.get("distance_from_breakout_pct"),
-                    # Move-proportional stop: wider than default 1.5% for crypto
-                    # when no structural stop exists. None = use structural/default.
                     "custom_stop_loss_pct":       custom_stop,
                 },
             )
@@ -573,7 +591,7 @@ class BreakoutReceiver:
             logger.info(
                 f"[BREAKOUT RECV] INJECTING {sym} {direction.upper()} "
                 f"@ ${price:.4f} | esc={esc} move={p.get('move_pct',0):+.2f}% "
-                f"preferred_broker={broker_hint}"
+                f"preferred_broker={broker_hint} source_broker={source_broker}"
             )
 
             trade_id = self._executor.execute_signal(signal)
@@ -581,18 +599,23 @@ class BreakoutReceiver:
             if trade_id:
                 logger.info(f"[BREAKOUT RECV] EXECUTED {sym} -> trade_id={trade_id}")
                 return {
-                    "accepted": True, "execution_eligible": True,
-                    "failure_class": None, "reason": "Signal executed",
-                    "trade_id": trade_id, "checklist": checklist,
+                    "accepted": True,
+                    "execution_eligible": True,
+                    "failure_class": None,
+                    "reason": "Signal executed",
+                    "trade_id": trade_id,
+                    "checklist": checklist,
                 }
-            else:
-                logger.warning(f"[BREAKOUT RECV] Executor rejected {sym}")
-                return {
-                    "accepted": False, "execution_eligible": True,
-                    "failure_class": "checklist_rejected",
-                    "reason": "Executor rejected (risk manager or broker)",
-                    "trade_id": None, "checklist": checklist,
-                }
+
+            logger.warning(f"[BREAKOUT RECV] Executor rejected {sym}")
+            return {
+                "accepted": False,
+                "execution_eligible": True,
+                "failure_class": "checklist_rejected",
+                "reason": "Executor rejected (risk manager or broker)",
+                "trade_id": None,
+                "checklist": checklist,
+            }
 
         except Exception as e:
             logger.error(
@@ -600,20 +623,122 @@ class BreakoutReceiver:
                 exc_info=True,
             )
             return {
-                "accepted": False, "execution_eligible": True,
+                "accepted": False,
+                "execution_eligible": True,
                 "failure_class": "injection_exception",
                 "reason": f"Injection exception: {e}",
-                "trade_id": None, "checklist": checklist,
+                "trade_id": None,
+                "checklist": checklist,
             }
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Scanner price fallback helpers
+    # ──────────────────────────────────────────────────────────────────────
+
+    def _normalize_broker_name(self, raw: str) -> str:
+        name = str(raw or "").strip().lower()
+        return BROKER_ALIASES.get(name, name)
+
+    def _fetch_live_price_from_scanner(self, p: Dict) -> Optional[float]:
+        """
+        Re-verify live price using whatever scanner hooks are actually available.
+
+        Order:
+          1. scanner.get_current_price(...) if defined
+          2. stock_fetcher.get_historical_data(...)[-1].price for stocks
+          3. crypto_fetcher specific exchange(s).fetch_ticker(symbol) for crypto
+        """
+        scanner = self._scanner_ref
+        if not scanner:
+            return None
+
+        sym          = p["symbol"]
+        asset_class  = p.get("asset_class", "crypto")
+        broker_hint  = self._normalize_broker_name(p.get("broker", ""))
+        source_broker= self._normalize_broker_name(p.get("source_broker", ""))
+
+        # 1) Direct scanner hook if present
+        get_price = getattr(scanner, "get_current_price", None)
+        if callable(get_price):
+            try:
+                px = get_price(sym, asset_class)
+                if px:
+                    return float(px)
+            except Exception:
+                pass
+
+        # 2) Stock fallback
+        if asset_class == "stock":
+            try:
+                sf = getattr(scanner, "stock_fetcher", None)
+                if sf and hasattr(sf, "get_historical_data"):
+                    bars = sf.get_historical_data(sym)
+                    if bars:
+                        last = getattr(bars[-1], "price", None)
+                        if last:
+                            return float(last)
+            except Exception:
+                pass
+            return None
+
+        # 3) Crypto fallback through scanner crypto fetcher / exchanges
+        try:
+            cf = getattr(scanner, "crypto_fetcher", None)
+            if not cf:
+                return None
+
+            exchanges = getattr(cf, "exchanges", {}) or {}
+            primary   = getattr(cf, "exchange", None)
+            primary_name = self._normalize_broker_name(getattr(cf, "exchange_name", ""))
+
+            candidate_names = []
+            for name in (source_broker, broker_hint, primary_name):
+                if name and name not in candidate_names:
+                    candidate_names.append(name)
+
+            # Named exchanges first
+            for name in candidate_names:
+                exc = exchanges.get(name.upper())
+                if not exc and primary and name == primary_name:
+                    exc = primary
+                if not exc:
+                    continue
+                try:
+                    symbols = getattr(exc, "symbols", []) or []
+                    if symbols and sym not in symbols:
+                        continue
+                    ticker = exc.fetch_ticker(sym)
+                    last = ticker.get("last") or ticker.get("close")
+                    if last:
+                        return float(last)
+                except Exception:
+                    continue
+
+            # Primary exchange blind fallback
+            if primary:
+                try:
+                    ticker = primary.fetch_ticker(sym)
+                    last = ticker.get("last") or ticker.get("close")
+                    if last:
+                        return float(last)
+                except Exception:
+                    pass
+
+        except Exception:
+            pass
+
+        return None
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Timestamp helper
+    # ──────────────────────────────────────────────────────────────────────
 
     @staticmethod
     def _signal_age(timestamp_str: str) -> float:
         if not timestamp_str:
             return -1.0
         try:
-            ts = datetime.fromisoformat(
-                str(timestamp_str).replace("Z", "+00:00")
-            )
+            ts = datetime.fromisoformat(str(timestamp_str).replace("Z", "+00:00"))
             now = datetime.now(timezone.utc) if ts.tzinfo else datetime.now()
             return (now - ts).total_seconds()
         except Exception:
