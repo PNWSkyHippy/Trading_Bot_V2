@@ -127,6 +127,10 @@ class AdaptiveRegime(BaseStrategy):
                                      # backtest-expert confirms edge. Use quant
                                      # backtest-fix-retest loop before live exposure.
 
+        self.time_stop_profile           = "strategy_defined"
+        self.preferred_initial_stop_mode = "signal_structural"
+        self.preferred_trail_mode        = "two_bar"
+
         self._reset_diagnostics()
 
         logger.info(
@@ -508,24 +512,21 @@ class AdaptiveRegime(BaseStrategy):
             bb_pct = self._calc_bb_pct(current_close, bb_lower, bb_upper)
 
             # ── Mean-rev blocker diagnostics (counted before signal checks) ──
-            # Parallel checks — do not alter control flow.
-            # EMA bias uses ATR buffer (MEAN_EMA_ATR_BUFFER) — matches entry conditions.
-            _ema_long_ok  = current_close >= ema_slow - (atr * MEAN_EMA_ATR_BUFFER)
-            _ema_short_ok = current_close <= ema_slow + (atr * MEAN_EMA_ATR_BUFFER)
-            if _ema_long_ok:                          # potential long side
-                if current_close > bb_lower:          # BB not touched
-                    _d["mean_bb_fail"] += 1
-                elif rsi > OVERSOLD_RSI:              # BB touched, RSI not extreme
-                    _d["mean_rsi_fail"] += 1
-            if _ema_short_ok:                         # potential short side
-                if current_close < bb_upper:          # BB not touched
-                    _d["mean_bb_fail"] += 1
-                elif rsi < OVERBOUGHT_RSI:            # BB touched, RSI not extreme
-                    _d["mean_rsi_fail"] += 1
+            # Iteration 1 change: EMA100 proximity gate removed — it created a
+            # geometric impossibility (BB_lower AND near-EMA100 simultaneously
+            # in a ranging market). BB band touch + RSI extreme is sufficient.
+            if current_close > bb_lower:          # potential long: BB not touched
+                _d["mean_bb_fail"] += 1
+            elif rsi > OVERSOLD_RSI:              # BB touched, RSI not extreme
+                _d["mean_rsi_fail"] += 1
+            if current_close < bb_upper:          # potential short: BB not touched
+                _d["mean_bb_fail"] += 1
+            elif rsi < OVERBOUGHT_RSI:            # BB touched, RSI not extreme
+                _d["mean_rsi_fail"] += 1
 
             # ── MEAN REV LONG ────────────────────────────────────────────────
-            if (current_close >= ema_slow - (atr * MEAN_EMA_ATR_BUFFER) and
-                    current_close <= bb_lower and
+            # EMA100 proximity gate removed (iter 1) — BB touch + RSI is sufficient.
+            if (current_close <= bb_lower and
                     rsi <= OVERSOLD_RSI):
                 _d["mean_long"] += 1
                 stop_price = current_close - (atr * MEAN_STOP_ATR_MULT)
@@ -576,8 +577,8 @@ class AdaptiveRegime(BaseStrategy):
                 )
 
             # ── MEAN REV SHORT ───────────────────────────────────────────────
-            if (current_close <= ema_slow + (atr * MEAN_EMA_ATR_BUFFER) and
-                    current_close >= bb_upper and
+            # EMA100 proximity gate removed (iter 1).
+            if (current_close >= bb_upper and
                     rsi >= OVERBOUGHT_RSI):
                 _d["mean_short"] += 1
                 stop_price = current_close + (atr * MEAN_STOP_ATR_MULT)

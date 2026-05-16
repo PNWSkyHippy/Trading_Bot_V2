@@ -56,9 +56,27 @@ BRIEFING_CACHE_MIN   = 120
 
 # ── Massive.com market snapshot ───────────────────────────────────────────────
 MASSIVE_BASE_URL    = "https://api.massive.com"
+MASSIVE_BASE        = MASSIVE_BASE_URL              # alias used by _massive_daily_change
 MASSIVE_TIMEOUT_SEC = (15, 30)   # (connect_timeout, read_timeout) — server is slow to accept
-MARKET_BASKET       = ["SPY", "QQQ", "IWM", "DIA"]
-SECTOR_ETFS         = ["XLK", "XLF", "XLE", "XLV", "XLI", "XLY", "XLP", "XLU"]
+
+BRIEFING_BROAD_TICKERS = ["SPY", "QQQ", "IWM", "DIA", "RSP"]
+
+BRIEFING_SECTOR_TICKERS = {
+    "Technology":             "XLK",
+    "Semiconductors":         "SMH",
+    "Financials":             "XLF",
+    "Energy":                 "XLE",
+    "Healthcare":             "XLV",
+    "Industrials":            "XLI",
+    "Consumer Discretionary": "XLY",
+    "Consumer Staples":       "XLP",
+    "Utilities":              "XLU",
+}
+
+BRIEFING_RISK_TICKERS = {
+    "HighYield":  "HYG",
+    "Treasuries": "TLT",
+}
 
 # ── Decision constants ────────────────────────────────────────────────────────
 APPROVE = "APPROVE"
@@ -296,75 +314,69 @@ class ClaudeReviewer:
 
     def _run_morning_briefing(self) -> MarketContext:
         """
-        Build a deterministic Massive.com market snapshot first, then feed it
-        to Claude.  Claude interprets the supplied facts — it does NOT invent
-        market data.  Returns conservative MarketContext on ANY failure.
+        Build a morning briefing from real market data, then let Claude
+        classify it conservatively into our MarketContext schema.
+        Claude interprets supplied facts — it does NOT invent market data.
         """
-        # ── Step 1: real market data ─────────────────────────────────────────
-        snapshot = self._build_market_snapshot()
-        self._market_snapshot = snapshot   # expose for get_status()
-
-        quality_note = (
-            "The snapshot data quality is GOOD — base your assessment on these numbers."
-            if snapshot["data_quality_ok"] else
-            "WARNING: Market data quality is POOR or incomplete — be CONSERVATIVE."
-        )
-
-        # ── Step 2: recent bot performance (real stats only) ─────────────────
-        bot_stats_block = ""
+        capital_rec = None
+        capital     = 0
         try:
-            summaries = db.get_daily_summaries(5) or []
-            if summaries:
-                lines = []
-                for s in summaries[-3:]:   # last 3 days
-                    lines.append(
-                        f"  {s.get('date','?')}: "
-                        f"P&L={s.get('pnl',0):+.2f}  "
-                        f"trades={s.get('trades',0)}  "
-                        f"win_rate={s.get('win_rate',0):.0f}%"
-                    )
-                bot_stats_block = "BOT RECENT PERFORMANCE (last 3 days):\n" + "\n".join(lines)
+            capital_rec = db.get_latest_capital()
+            capital     = capital_rec["total_capital"] if capital_rec else 0
         except Exception:
             pass
 
+        snapshot = self._build_market_snapshot()
+        self._market_snapshot = snapshot   # expose for get_status() / signal review
+
+        if not snapshot or not snapshot.get("broad"):
+            return self._safe_context("Market snapshot unavailable — no data returned")
+
+        snapshot_text = self._market_snapshot_text(snapshot)
+
         prompt = f"""You are a trading bot morning briefing system.
-Today is {datetime.now().strftime('%A, %B %d, %Y %H:%M')}.
 
-IMPORTANT RULES:
-- Do NOT invent market data, earnings, or events.
-- Use ONLY the snapshot below as your factual basis.
-- If snapshot data_quality_ok is false, default to conservative settings.
-- earnings_today and high_impact_events must remain [] (no real source wired yet).
+CRITICAL RULES:
+- Use ONLY the structured market data provided below.
+- Do NOT use outside knowledge, memory, or assumed live news.
+- Do NOT invent earnings, events, sectors, or headlines.
+- If earnings/event data is not explicitly provided, return empty arrays [].
+- If the snapshot is mixed or unclear, be conservative.
+- Your job is to classify the provided data, not to guess the world.
 
-{quality_note}
+TODAY:
+- date: {datetime.now().strftime('%A, %B %d, %Y')}
+- current_capital: {capital}
 
-MARKET SNAPSHOT (computed from Massive.com data):
-  SPY day change  : {snapshot.get('spy_day_change_pct', 'N/A')}%
-  QQQ day change  : {snapshot.get('qqq_day_change_pct', 'N/A')}%
-  IWM day change  : {snapshot.get('iwm_day_change_pct', 'N/A')}%
-  DIA day change  : {snapshot.get('dia_day_change_pct', 'N/A')}%
-  SPY 5d change   : {snapshot.get('spy_5d_change_pct', 'N/A')}%
-  QQQ 5d change   : {snapshot.get('qqq_5d_change_pct', 'N/A')}%
-  IWM 5d change   : {snapshot.get('iwm_5d_change_pct', 'N/A')}%
-  DIA 5d change   : {snapshot.get('dia_5d_change_pct', 'N/A')}%
-  Breadth up      : {snapshot.get('breadth_up_count', 'N/A')}/4
-  Breadth down    : {snapshot.get('breadth_down_count', 'N/A')}/4
-  Strongest sector: {snapshot.get('strongest_sector', 'N/A')}
-  Weakest sector  : {snapshot.get('weakest_sector', 'N/A')}
-  Sector changes  : {json.dumps(snapshot.get('sector_changes', {}))}
-  Regime guess    : {snapshot.get('market_regime_guess', 'unknown')}
-  Snapshot summary: {snapshot.get('snapshot_summary', '')}
+STRUCTURED MARKET DATA:
+{snapshot_text}
 
-{bot_stats_block}
+RETURN ONLY THIS JSON OBJECT:
+{{
+  "allow_trading": true,
+  "conviction_score": 70,
+  "market_sentiment": "BULLISH",
+  "breadth_health": "HEALTHY",
+  "top_risk_score": 30,
+  "hot_sectors": ["Technology"],
+  "cold_sectors": ["Utilities"],
+  "active_themes": ["AI"],
+  "high_impact_events": [],
+  "earnings_today": [],
+  "max_exposure_pct": 60,
+  "summary": "One short summary sentence based only on the provided data."
+}}
 
-Interpret the snapshot above and respond with ONLY this JSON (no markdown, no explanation):
-{{"allow_trading": true, "conviction_score": 70, "market_sentiment": "BULLISH", \
-"breadth_health": "HEALTHY", "top_risk_score": 30, "hot_sectors": ["Technology"], \
-"cold_sectors": ["Utilities"], "active_themes": ["momentum"], "high_impact_events": [], \
-"earnings_today": [], "max_exposure_pct": 60, "summary": "One sentence grounded in the snapshot."}}
+FIELD RULES:
+- market_sentiment must be one of: BULLISH, BEARISH, NEUTRAL, UNKNOWN
+- breadth_health must be one of: HEALTHY, MIXED, WEAK, UNKNOWN
+- conviction_score must be 0-100
+- top_risk_score must be 0-100
+- max_exposure_pct must be 0-100
+- high_impact_events MUST be [] unless explicit event data is provided
+- earnings_today MUST be [] unless explicit earnings data is provided
 
-Replace values with your assessment based solely on the snapshot. \
-Return ONLY the JSON object."""
+Return ONLY JSON. No markdown. No prose. No code fences."""
 
         try:
             response = self._call_claude(
@@ -373,37 +385,31 @@ Return ONLY the JSON object."""
                 max_tokens= MAX_TOKENS_BRIEFING
             )
             if response is None:
-                return self._safe_context("API call failed or timed out")
+                return self._safe_context("Claude briefing call failed or timed out")
 
             parsed = self._extract_json(response)
             if parsed is None:
-                return self._safe_context("Could not parse JSON from briefing response")
-
-            # If snapshot quality was bad, enforce conservative cap regardless of Claude answer
-            if not snapshot["data_quality_ok"]:
-                parsed["allow_trading"]   = False
-                parsed["conviction_score"] = min(int(parsed.get("conviction_score", 0)), 30)
-                parsed["max_exposure_pct"] = min(float(parsed.get("max_exposure_pct", 0)), 20.0)
+                return self._safe_context("Could not parse JSON from morning briefing response")
 
             return MarketContext(
-                timestamp         = datetime.now(),
-                allow_trading     = bool(parsed.get("allow_trading", False)),
-                conviction_score  = int(parsed.get("conviction_score", 0)),
-                market_sentiment  = str(parsed.get("market_sentiment", "UNKNOWN")),
-                breadth_health    = str(parsed.get("breadth_health", "UNKNOWN")),
-                top_risk_score    = int(parsed.get("top_risk_score", 100)),
-                hot_sectors       = list(parsed.get("hot_sectors", [])),
-                cold_sectors      = list(parsed.get("cold_sectors", [])),
-                active_themes     = list(parsed.get("active_themes", [])),
-                high_impact_events= [],   # no real source wired — always empty
-                earnings_today    = [],   # no real source wired — always empty
-                max_exposure_pct  = float(parsed.get("max_exposure_pct", 0)),
-                briefing_text     = str(parsed.get("summary", response[:200])),
-                error             = False,
+                timestamp          = datetime.now(),
+                allow_trading      = bool(parsed.get("allow_trading", False)),
+                conviction_score   = int(parsed.get("conviction_score", 0)),
+                market_sentiment   = str(parsed.get("market_sentiment", "UNKNOWN")).upper(),
+                breadth_health     = str(parsed.get("breadth_health", "UNKNOWN")).upper(),
+                top_risk_score     = int(parsed.get("top_risk_score", 100)),
+                hot_sectors        = list(parsed.get("hot_sectors", [])),
+                cold_sectors       = list(parsed.get("cold_sectors", [])),
+                active_themes      = list(parsed.get("active_themes", [])),
+                high_impact_events = list(parsed.get("high_impact_events", [])),
+                earnings_today     = [s.upper() for s in parsed.get("earnings_today", [])],
+                max_exposure_pct   = float(parsed.get("max_exposure_pct", 0)),
+                briefing_text      = str(parsed.get("summary", response[:200])),
+                error              = False,
             )
         except Exception as e:
             logger.error(f"Morning briefing exception: {e}", exc_info=True)
-            return self._safe_context(f"Exception: {e}")
+            return self._safe_context(f"Morning briefing exception: {e}")
 
     # =========================================================================
     #  MASSIVE.COM MARKET SNAPSHOT
@@ -536,6 +542,66 @@ Return ONLY the JSON object."""
             logger.warning(f"[Massive] fetch error {symbol}: {e}")
             return []
 
+    def _massive_daily_change(self, symbol: str) -> Optional[Dict]:
+        """
+        Fetch latest daily aggregate data for one symbol.
+        Tries Massive.com first (if session available), falls back to yfinance.
+        Returns {symbol, close, prev_close, change_pct, volume} or None.
+        """
+        # ── Try Massive first (if API key configured) ────────────────────────
+        if self._massive_session and self._massive_key:
+            try:
+                to_date   = datetime.now().strftime("%Y-%m-%d")
+                from_date = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")
+                url = (
+                    f"{MASSIVE_BASE}/v2/aggs/ticker/{symbol}"
+                    f"/range/1/day/{from_date}/{to_date}"
+                )
+                resp = self._massive_session.get(
+                    url,
+                    params={"adjusted": "true", "sort": "asc", "limit": 10},
+                    timeout=MASSIVE_TIMEOUT_SEC,
+                )
+                if resp.status_code == 200:
+                    results = (resp.json() or {}).get("results", [])
+                    if len(results) >= 2:
+                        last       = results[-1]
+                        prev       = results[-2]
+                        close      = float(last["c"])
+                        prev_close = float(prev["c"])
+                        volume     = float(last.get("v", 0) or 0)
+                        change_pct = ((close - prev_close) / prev_close * 100.0) if prev_close else 0.0
+                        return {
+                            "symbol":     symbol,
+                            "close":      round(close, 4),
+                            "prev_close": round(prev_close, 4),
+                            "change_pct": round(change_pct, 3),
+                            "volume":     volume,
+                        }
+                logger.debug(f"[Massive] {symbol} HTTP {resp.status_code} — falling back to yfinance")
+            except Exception as e:
+                logger.debug(f"[Massive] {symbol} error ({e}) — falling back to yfinance")
+
+        # ── Fallback: yfinance (free, no rate limit) ─────────────────────────
+        try:
+            bars = self._fetch_yfinance_day_bars(symbol, lookback_days=7)
+            if len(bars) >= 2:
+                close      = bars[-1]["close"]
+                prev_close = bars[-2]["close"]
+                volume     = bars[-1].get("volume", 0)
+                change_pct = ((close - prev_close) / prev_close * 100.0) if prev_close else 0.0
+                return {
+                    "symbol":     symbol,
+                    "close":      round(close, 4),
+                    "prev_close": round(prev_close, 4),
+                    "change_pct": round(change_pct, 3),
+                    "volume":     volume,
+                }
+        except Exception as e:
+            logger.debug(f"[yfinance] {symbol} error: {e}")
+
+        return None
+
     def _fetch_yfinance_day_bars(self, symbol: str, lookback_days: int = 7) -> List[Dict]:
         """
         Fetch daily bars via yfinance — used for sector ETFs so Massive quota
@@ -595,125 +661,133 @@ Return ONLY the JSON object."""
         except Exception:
             return None
 
-    def _build_market_snapshot(self) -> Dict:
+    def _build_market_snapshot(self) -> Optional[Dict]:
         """
-        Fetch daily bars for market basket + sector ETFs and compute a
-        deterministic snapshot dict.  No AI involved — pure arithmetic.
-        Falls back to conservative defaults if Massive is unavailable.
+        Build a structured US market snapshot using ETF daily change data.
+        Tries Massive.com first per symbol, falls back to yfinance.
+        This is what Claude reasons over — pure arithmetic, no AI.
+        Returns None if no broad data could be fetched.
         """
-        snap: Dict = {
-            "spy_day_change_pct":  None,
-            "qqq_day_change_pct":  None,
-            "iwm_day_change_pct":  None,
-            "dia_day_change_pct":  None,
-            "spy_5d_change_pct":   None,
-            "qqq_5d_change_pct":   None,
-            "iwm_5d_change_pct":   None,
-            "dia_5d_change_pct":   None,
-            "breadth_up_count":    0,
-            "breadth_down_count":  0,
-            "strongest_sector":    "N/A",
-            "weakest_sector":      "N/A",
-            "sector_changes":      {},
-            "market_regime_guess": "unknown",
-            "data_quality_ok":     False,
-            "snapshot_summary":    "No market data available.",
+        snapshot: Dict = {
+            "broad":   {},
+            "sectors": {},
+            "risk":    {},
+            "derived": {},
         }
 
-        # ── Fetch market basket via yfinance (free, no rate limit) ───────────
-        # Massive.com is reserved for future intraday use — daily bars come from
-        # yfinance which handles SPY/QQQ/IWM/DIA reliably with no quota issues.
-        basket_data: Dict[str, List[Dict]] = {}
-        for sym in MARKET_BASKET:
-            bars = self._fetch_yfinance_day_bars(sym, lookback_days=10)
-            if bars:
-                basket_data[sym] = bars
+        # ── Broad market ETFs ─────────────────────────────────────────────────
+        for sym in BRIEFING_BROAD_TICKERS:
+            row = self._massive_daily_change(sym)
+            if row:
+                snapshot["broad"][sym] = row
 
-        # ── Compute basket metrics ────────────────────────────────────────────
-        basket_day: Dict[str, Optional[float]] = {}
-        basket_5d:  Dict[str, Optional[float]] = {}
-        for sym in MARKET_BASKET:
-            bars = basket_data.get(sym, [])
-            basket_day[sym] = self._day_change_pct(bars)
-            basket_5d[sym]  = self._fiveday_change_pct(bars)
+        # ── Sector ETFs ───────────────────────────────────────────────────────
+        for sector_name, sym in BRIEFING_SECTOR_TICKERS.items():
+            row = self._massive_daily_change(sym)
+            if row:
+                snapshot["sectors"][sector_name] = row
 
-        snap["spy_day_change_pct"] = basket_day.get("SPY")
-        snap["qqq_day_change_pct"] = basket_day.get("QQQ")
-        snap["iwm_day_change_pct"] = basket_day.get("IWM")
-        snap["dia_day_change_pct"] = basket_day.get("DIA")
-        snap["spy_5d_change_pct"]  = basket_5d.get("SPY")
-        snap["qqq_5d_change_pct"]  = basket_5d.get("QQQ")
-        snap["iwm_5d_change_pct"]  = basket_5d.get("IWM")
-        snap["dia_5d_change_pct"]  = basket_5d.get("DIA")
+        # ── Risk / defensive proxies ──────────────────────────────────────────
+        for risk_name, sym in BRIEFING_RISK_TICKERS.items():
+            row = self._massive_daily_change(sym)
+            if row:
+                snapshot["risk"][risk_name] = row
 
-        basket_available = [sym for sym in MARKET_BASKET if basket_day[sym] is not None]
-        snap["breadth_up_count"]   = sum(
-            1 for sym in basket_available if (basket_day[sym] or 0) > 0
-        )
-        snap["breadth_down_count"] = sum(
-            1 for sym in basket_available if (basket_day[sym] or 0) < 0
-        )
+        # Fail cleanly if we couldn't get any broad data
+        if not snapshot["broad"]:
+            logger.warning("[SNAPSHOT] No broad market data available — snapshot empty")
+            return None
 
-        # ── Fetch sector ETFs via yfinance (free, no rate limit) ─────────────
-        # Massive quota is reserved for the 4 main basket indices above.
-        sector_changes: Dict[str, float] = {}
-        for sym in SECTOR_ETFS:
-            bars = self._fetch_yfinance_day_bars(sym, lookback_days=7)
-            chg = self._day_change_pct(bars) if bars else None
-            if chg is not None:
-                sector_changes[sym] = chg
-        snap["sector_changes"] = sector_changes
+        # ── Derived metrics (rule-based, no AI) ───────────────────────────────
+        broad_changes  = [v["change_pct"] for v in snapshot["broad"].values()]
+        sector_changes = {
+            name: row["change_pct"]
+            for name, row in snapshot["sectors"].items()
+        }
 
-        if sector_changes:
-            snap["strongest_sector"] = max(sector_changes, key=sector_changes.get)
-            snap["weakest_sector"]   = min(sector_changes, key=sector_changes.get)
+        broad_avg        = sum(broad_changes) / len(broad_changes) if broad_changes else 0.0
+        positive_sectors = sum(1 for v in sector_changes.values() if v > 0)
+        negative_sectors = sum(1 for v in sector_changes.values() if v < 0)
 
-        # ── Market regime guess (rule-based, no AI) ───────────────────────────
-        spy_chg = basket_day.get("SPY")
-        qqq_chg = basket_day.get("QQQ")
-        up      = snap["breadth_up_count"]
-        down    = snap["breadth_down_count"]
+        sorted_sectors = sorted(sector_changes.items(), key=lambda x: x[1], reverse=True)
+        hot_sectors    = [name for name, _ in sorted_sectors[:3]]
+        cold_sectors   = [name for name, _ in sorted_sectors[-3:]]
 
-        if spy_chg is not None and qqq_chg is not None:
-            if spy_chg > 0 and qqq_chg > 0 and up >= 3:
-                regime = "risk_on"
-            elif spy_chg < 0 and qqq_chg < 0 and down >= 3:
-                regime = "risk_off"
-            elif spy_chg < -1.0 and qqq_chg < -1.0:
-                regime = "bearish"
-            elif spy_chg > 1.0 and qqq_chg > 1.0:
-                regime = "bullish"
-            else:
-                regime = "mixed"
-        else:
-            regime = "unknown"
-        snap["market_regime_guess"] = regime
+        spy = snapshot["broad"].get("SPY", {}).get("change_pct")
+        rsp = snapshot["broad"].get("RSP", {}).get("change_pct")
+        breadth_proxy = round(rsp - spy, 3) if (rsp is not None and spy is not None) else None
 
-        # ── Data quality ─────────────────────────────────────────────────────
-        # OK if we got at least SPY and QQQ data
-        snap["data_quality_ok"] = (
-            basket_day.get("SPY") is not None and
-            basket_day.get("QQQ") is not None
-        )
+        hyg = snapshot["risk"].get("HighYield",  {}).get("change_pct")
+        tlt = snapshot["risk"].get("Treasuries", {}).get("change_pct")
 
-        # ── Human-readable fact summary (no AI) ──────────────────────────────
+        snapshot["derived"] = {
+            "broad_avg_pct":              round(broad_avg, 3),
+            "positive_sectors":           positive_sectors,
+            "negative_sectors":           negative_sectors,
+            "breadth_proxy_rsp_minus_spy": breadth_proxy,
+            "hot_sectors":                hot_sectors,
+            "cold_sectors":               cold_sectors,
+            "risk_on_proxy_hyg":          hyg,
+            "defensive_proxy_tlt":        tlt,
+        }
+
+        # ── Log summary ───────────────────────────────────────────────────────
+        qqq = snapshot["broad"].get("QQQ", {}).get("change_pct")
         parts = []
-        if spy_chg is not None:
-            parts.append(f"SPY {spy_chg:+.2f}%")
-        if qqq_chg is not None:
-            parts.append(f"QQQ {qqq_chg:+.2f}%")
-        parts.append(f"breadth {up}/{len(basket_available)} up")
-        parts.append(f"regime={regime}")
-        if snap["strongest_sector"] != "N/A":
-            sc = sector_changes.get(snap["strongest_sector"], 0)
-            parts.append(f"lead={snap['strongest_sector']}({sc:+.2f}%)")
-        if snap["weakest_sector"] != "N/A":
-            wc = sector_changes.get(snap["weakest_sector"], 0)
-            parts.append(f"lag={snap['weakest_sector']}({wc:+.2f}%)")
-        snap["snapshot_summary"] = " | ".join(parts) if parts else "No data."
+        if spy is not None:
+            parts.append(f"SPY {spy:+.2f}%")
+        if qqq is not None:
+            parts.append(f"QQQ {qqq:+.2f}%")
+        parts.append(f"{positive_sectors}/{len(sector_changes)} sectors green")
+        if hot_sectors:
+            parts.append(f"lead={hot_sectors[0]}")
+        if cold_sectors:
+            parts.append(f"lag={cold_sectors[-1]}")
+        logger.info(f"[SNAPSHOT] {' | '.join(parts) if parts else 'No data.'}")
 
-        logger.info(f"[SNAPSHOT] {snap['snapshot_summary']}")
-        return snap
+        return snapshot
+
+    def _market_snapshot_text(self, snapshot: Dict) -> str:
+        """
+        Compact human-readable block fed to Claude in the morning briefing.
+        Converts the structured snapshot dict into labelled lines.
+        """
+        lines = []
+
+        if snapshot.get("broad"):
+            lines.append("BROAD ETFs:")
+            for sym, row in snapshot["broad"].items():
+                lines.append(
+                    f"  - {sym}: close={row['close']}, change={row['change_pct']:+.2f}%"
+                )
+
+        if snapshot.get("sectors"):
+            lines.append("SECTOR ETFs:")
+            for name, row in snapshot["sectors"].items():
+                lines.append(
+                    f"  - {name} ({row['symbol']}): {row['change_pct']:+.2f}%"
+                )
+
+        if snapshot.get("risk"):
+            lines.append("RISK / DEFENSIVE PROXIES:")
+            for name, row in snapshot["risk"].items():
+                lines.append(
+                    f"  - {name} ({row['symbol']}): {row['change_pct']:+.2f}%"
+                )
+
+        d = snapshot.get("derived", {})
+        if d:
+            lines.append("DERIVED MARKET METRICS:")
+            lines.append(f"  - broad_avg_pct: {d.get('broad_avg_pct')}")
+            lines.append(f"  - positive_sectors: {d.get('positive_sectors')}")
+            lines.append(f"  - negative_sectors: {d.get('negative_sectors')}")
+            lines.append(f"  - breadth_proxy_rsp_minus_spy: {d.get('breadth_proxy_rsp_minus_spy')}")
+            lines.append(f"  - hot_sectors: {', '.join(d.get('hot_sectors', [])) or 'none'}")
+            lines.append(f"  - cold_sectors: {', '.join(d.get('cold_sectors', [])) or 'none'}")
+            lines.append(f"  - risk_on_proxy_hyg: {d.get('risk_on_proxy_hyg')}")
+            lines.append(f"  - defensive_proxy_tlt: {d.get('defensive_proxy_tlt')}")
+
+        return "\n".join(lines)
 
     # =========================================================================
     #  SIGNAL REVIEW
@@ -742,17 +816,24 @@ Return ONLY the JSON object."""
         # rather than just the interpreted morning-briefing sentiment string)
         snap = self._market_snapshot or {}
         snap_block = ""
-        if snap.get("data_quality_ok"):
+        if snap and snap.get("broad"):
+            broad   = snap["broad"]
+            derived = snap.get("derived", {})
+            def _fmt(d, key, default="N/A"):
+                v = d.get(key)
+                return f"{v:+.2f}" if isinstance(v, (int, float)) else str(default)
+            hot  = derived.get("hot_sectors",  [])
+            cold = derived.get("cold_sectors", [])
             snap_block = (
-                f"\nRAW MARKET FACTS (from Massive.com):\n"
-                f"  SPY {snap.get('spy_day_change_pct', 'N/A'):+}%  "
-                f"QQQ {snap.get('qqq_day_change_pct', 'N/A'):+}%  "
-                f"IWM {snap.get('iwm_day_change_pct', 'N/A'):+}%  "
-                f"DIA {snap.get('dia_day_change_pct', 'N/A'):+}%\n"
-                f"  Breadth: {snap.get('breadth_up_count', 'N/A')}/4 up  "
-                f"Regime: {snap.get('market_regime_guess', 'unknown')}  "
-                f"Lead sector: {snap.get('strongest_sector', 'N/A')}  "
-                f"Lag sector: {snap.get('weakest_sector', 'N/A')}"
+                f"\nRAW MARKET FACTS (from market snapshot):\n"
+                f"  SPY {_fmt(broad.get('SPY', {}), 'change_pct')}%  "
+                f"QQQ {_fmt(broad.get('QQQ', {}), 'change_pct')}%  "
+                f"IWM {_fmt(broad.get('IWM', {}), 'change_pct')}%  "
+                f"DIA {_fmt(broad.get('DIA', {}), 'change_pct')}%\n"
+                f"  Sectors: {derived.get('positive_sectors', 'N/A')} up / "
+                f"{derived.get('negative_sectors', 'N/A')} down  "
+                f"Hot: {', '.join(hot[:2]) or 'N/A'}  "
+                f"Cold: {', '.join(cold[-2:]) or 'N/A'}"
             )
 
         prompt = f"""You are reviewing a trading signal for an autonomous day trading bot.
@@ -928,20 +1009,28 @@ RULES:
     # =========================================================================
 
     def _extract_json(self, text: str) -> Optional[Dict]:
-        matches = re.findall(r'\{.*?\}', text, re.DOTALL)
+        """
+        Extract and parse JSON from Claude's response.
+        Prefer full-body parse first; fall back to first object match.
+        """
+        # Try full-body parse first (Claude often returns clean JSON with no prose)
+        try:
+            parsed = json.loads(text.strip())
+            if isinstance(parsed, dict):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+        # Fall back to extracting the first {...} block (handles markdown fences etc.)
+        matches = re.findall(r'\{.*\}', text, re.DOTALL)
         for match in matches:
             try:
                 parsed = json.loads(match)
-                if any(k in parsed for k in (
-                    "allow_trading", "decision", "conviction_score"
-                )):
+                if isinstance(parsed, dict):
                     return parsed
             except json.JSONDecodeError:
                 continue
-        try:
-            return json.loads(text.strip())
-        except json.JSONDecodeError:
-            pass
+
         logger.warning(f"No valid JSON found in Claude response: {text[:200]}")
         return None
 
@@ -1015,7 +1104,24 @@ RULES:
         )
 
     def get_status(self) -> Dict:
-        snap = self._market_snapshot or {}
+        snap    = self._market_snapshot or {}
+        broad   = snap.get("broad",   {})
+        derived = snap.get("derived", {})
+        hot     = derived.get("hot_sectors",  [])
+        cold    = derived.get("cold_sectors", [])
+
+        # Build a quick human-readable snapshot summary
+        spy_pct = broad.get("SPY", {}).get("change_pct")
+        qqq_pct = broad.get("QQQ", {}).get("change_pct")
+        pos_sec = derived.get("positive_sectors")
+        snap_summary = ""
+        if spy_pct is not None:
+            snap_summary += f"SPY {spy_pct:+.2f}%"
+        if qqq_pct is not None:
+            snap_summary += f"  QQQ {qqq_pct:+.2f}%"
+        if pos_sec is not None:
+            snap_summary += f"  {pos_sec}/{len(snap.get('sectors', {}))} sectors green"
+
         return {
             "enabled":          self.enabled,
             "has_briefing":     self._morning_context is not None,
@@ -1024,19 +1130,18 @@ RULES:
             "conviction":       self._morning_context.conviction_score if self._morning_context else 0,
             "sentiment":        self._morning_context.market_sentiment if self._morning_context else "UNKNOWN",
             "briefing_age_min": (
-                int((datetime.now() - self._briefing_time).seconds / 60)
+                int((datetime.now() - self._briefing_time).total_seconds() / 60)
                 if self._briefing_time else None
             ),
             # ── Market snapshot (visible in dashboard) ───────────────────────
-            "massive_key_set":      bool(self._massive_key),
-            "snapshot_quality_ok":  snap.get("data_quality_ok", False),
-            "snapshot_regime":      snap.get("market_regime_guess", "unknown"),
-            "snapshot_summary":     snap.get("snapshot_summary", ""),
-            "spy_day_pct":          snap.get("spy_day_change_pct"),
-            "qqq_day_pct":          snap.get("qqq_day_change_pct"),
-            "breadth_up":           snap.get("breadth_up_count"),
-            "strongest_sector":     snap.get("strongest_sector"),
-            "weakest_sector":       snap.get("weakest_sector"),
+            "massive_key_set":     bool(self._massive_key),
+            "snapshot_quality_ok": bool(broad),
+            "snapshot_summary":    snap_summary.strip(),
+            "spy_day_pct":         spy_pct,
+            "qqq_day_pct":         qqq_pct,
+            "breadth_up":          derived.get("positive_sectors"),
+            "strongest_sector":    hot[0]   if hot  else "N/A",
+            "weakest_sector":      cold[-1] if cold else "N/A",
         }
 
 

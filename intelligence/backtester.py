@@ -62,10 +62,13 @@ logger = logging.getLogger(__name__)
 # Timeframe configuration
 # ---------------------------------------------------------------------------
 TF_CONFIG = {
-    "5m":  {"interval": "5m",  "max_days": 58,   "bars_per_day": 78,  "annualise": 252 * 78},
-    "15m": {"interval": "15m", "max_days": 59,   "bars_per_day": 96,  "annualise": 252 * 96}, 
-    "1h":  {"interval": "1h",  "max_days": 729,  "bars_per_day": 7,   "annualise": 252 * 7},
-    "1d":  {"interval": "1d",  "max_days": 3650, "bars_per_day": 1,   "annualise": 252},
+    # annualise       = stock session (252 trading days)
+    # annualise_crypto= crypto 365-day calendar, 24h/day
+    # bars_per_day    = stock session bars (used for intraday time-stop mapping)
+    "5m":  {"interval": "5m",  "max_days": 58,   "bars_per_day": 78,  "annualise": 252 * 78,  "annualise_crypto": 365 * 288},
+    "15m": {"interval": "15m", "max_days": 59,   "bars_per_day": 96,  "annualise": 252 * 96,  "annualise_crypto": 365 * 96},
+    "1h":  {"interval": "1h",  "max_days": 729,  "bars_per_day": 7,   "annualise": 252 * 7,   "annualise_crypto": 365 * 24},
+    "1d":  {"interval": "1d",  "max_days": 3650, "bars_per_day": 1,   "annualise": 252,        "annualise_crypto": 365},
 }
 
 # Stop loss mode constants
@@ -552,30 +555,40 @@ class Backtester:
 
     def fetch_history(self, symbol: str, days: int = 365,
                       timeframe: str = "1h") -> Optional[pd.DataFrame]:
-        cfg     = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
-        tf      = cfg["interval"]
-        max_d   = cfg["max_days"]
-        days    = min(days, max_d)
-        fetch_days = min(days + 5, max_d)
-        end   = datetime.now()
-        start = end - timedelta(days=fetch_days)
-        logger.info(f"Fetching {days}d of {tf} data for {symbol}...")
+        cfg   = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
+        tf    = cfg["interval"]
+        max_d = cfg["max_days"]
+        days  = min(days, max_d)
+
+        # Intraday (5m / 15m / 1h): use period= so Yahoo returns exactly the
+        # requested window without date-boundary edge cases or +5-day padding.
+        # Daily (1d): use start/end because period= is capped at 1y but we
+        # support up to 10 years of daily data.
+        is_intraday = timeframe in ("5m", "15m", "1h")
+
+        if is_intraday:
+            logger.info(f"Fetching {days}d of {tf} data for {symbol} (period=)...")
+            fetch_kw = {"period": f"{days}d", "interval": tf, "auto_adjust": True}
+        else:
+            end   = datetime.now()
+            start = end - timedelta(days=days)
+            logger.info(f"Fetching {days}d of {tf} data for {symbol}...")
+            fetch_kw = {
+                "start":       start.strftime("%Y-%m-%d"),
+                "end":         end.strftime("%Y-%m-%d"),
+                "interval":    tf,
+                "auto_adjust": True,
+            }
+
         try:
             ticker = self.yf.Ticker(symbol)
-            df = ticker.history(
-                start       = start.strftime("%Y-%m-%d"),
-                end         = end.strftime("%Y-%m-%d"),
-                interval    = tf,
-                auto_adjust = True,
-            )
+            df = ticker.history(**fetch_kw)
             if df is None or df.empty:
                 logger.error(f"No data returned for {symbol}")
                 return None
             df.columns = [c.lower() for c in df.columns]
             if df.index.tz is not None:
                 df.index = df.index.tz_localize(None)
-            cutoff = end - timedelta(days=days)
-            df = df[df.index >= pd.Timestamp(cutoff)]
             if len(df) < 30:
                 logger.error(f"Only {len(df)} bars for {symbol} — need >=30")
                 return None
@@ -589,30 +602,38 @@ class Backtester:
     def fetch_history_crypto(self, symbol: str, days: int = 30,
                               timeframe: str = "1h") -> Optional[pd.DataFrame]:
         yf_symbol = symbol.replace("/", "-")
-        cfg    = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
-        tf     = cfg["interval"]
-        max_d  = cfg["max_days"]
-        days   = min(days, max_d)
-        fetch_days = min(days + 5, max_d) 
-        end   = datetime.now()
-        start = end - timedelta(days=fetch_days)
-        logger.info(f"Fetching {days}d of {tf} crypto data for {yf_symbol} via yfinance...")
+        cfg   = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
+        tf    = cfg["interval"]
+        max_d = cfg["max_days"]
+        days  = min(days, max_d)
+
+        # Same intraday / daily split as fetch_history — period= for intraday
+        # avoids the start/end boundary weirdness and +5-day over-fetch.
+        is_intraday = timeframe in ("5m", "15m", "1h")
+
+        if is_intraday:
+            logger.info(f"Fetching {days}d of {tf} crypto data for {yf_symbol} via yfinance (period=)...")
+            fetch_kw = {"period": f"{days}d", "interval": tf, "auto_adjust": True}
+        else:
+            end   = datetime.now()
+            start = end - timedelta(days=days)
+            logger.info(f"Fetching {days}d of {tf} crypto data for {yf_symbol} via yfinance...")
+            fetch_kw = {
+                "start":       start.strftime("%Y-%m-%d"),
+                "end":         end.strftime("%Y-%m-%d"),
+                "interval":    tf,
+                "auto_adjust": True,
+            }
+
         try:
             ticker = self.yf.Ticker(yf_symbol)
-            df = ticker.history(
-                start       = start.strftime("%Y-%m-%d"),
-                end         = end.strftime("%Y-%m-%d"),
-                interval    = tf,
-                auto_adjust = True,
-            )
+            df = ticker.history(**fetch_kw)
             if df is None or df.empty:
                 logger.error(f"No yfinance data returned for {yf_symbol}")
                 return None
             df.columns = [c.lower() for c in df.columns]
             if df.index.tz is not None:
                 df.index = df.index.tz_localize(None)
-            cutoff = end - timedelta(days=days)
-            df = df[df.index >= pd.Timestamp(cutoff)]
             if len(df) < 30:
                 logger.error(f"Only {len(df)} bars for {yf_symbol} — need >=30")
                 return None
@@ -891,8 +912,14 @@ class Backtester:
         """
  
 
-        cfg              = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
-        annualise_factor = cfg["annualise"]
+        cfg = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
+        # Crypto trades 365d × 24h — use crypto-specific factor so Sharpe/Sortino
+        # is correctly scaled. Stock sessions use 252 trading days.
+        annualise_factor = (
+            cfg.get("annualise_crypto", cfg["annualise"])
+            if asset_class == "crypto"
+            else cfg["annualise"]
+        )
 
         # Resolve friction defaults from config if not explicitly overridden
         if commission_pct is None:
@@ -980,7 +1007,9 @@ class Backtester:
         PERF_5HR_PCT     =  1.0   # PERF_CHECK_5HR_MIN_PCT
         # grid_bot and dca_accumulator are exempt from time stops in live —
         # mirror that here so backtest results are comparable to live.
-        TIME_STOP_EXEMPT = frozenset({"grid_bot", "dca_accumulator"})
+        # ecb_strategy uses strategy-defined 24-bar hold; generic 8h/30m/2h/5h
+        # stops fire before its thesis plays out and invalidate results.
+        TIME_STOP_EXEMPT = frozenset({"grid_bot", "dca_accumulator", "ecb_strategy", "rsi_dip_spike_v4", "adaptive_regime"})
 
         # ── Next-bar execution ────────────────────────────────────────────────
         # Signal generated on bar i is executed at bar i+1 open.
@@ -1089,11 +1118,15 @@ class Backtester:
                 # 1c. Strategy-specific exit hook (adaptive_regime EMA/BB/RSI,
                 #     all other strategies return None from BaseStrategy stub).
                 if exit_reason is None and strategy_obj is not None:
-                    _win = df.iloc[max(0, i - 150): i + 1]
+                    _win  = df.iloc[max(0, i - 150): i + 1]
+                    # Inject bars_held so strategy exits (e.g. ECB max_hold) can
+                    # use actual elapsed bars without extending the signature.
+                    _meta = dict(trade.get("entry_metadata", {}))
+                    _meta["_bars_held"] = i - trade["entry_idx"]
                     exit_reason = strategy_obj.check_custom_exit(
                         trade["symbol"], _win,
                         trade["direction"],
-                        trade.get("entry_metadata", {}),
+                        _meta,
                     )
 
                 # 1d. ORB VWAP cross exit (ORB strategy only)
@@ -1343,15 +1376,19 @@ class Backtester:
             return None
         if df is None or len(df) < 30:
             return None
-        return self._simulate(symbol, df, "default", None, capital, timeframe,
-                              stop_mode, two_bar_lookback,
-                              asset_class=asset_class,
-                              commission_pct=commission_pct,
-                              slippage_pct=slippage_pct,
-                              initial_stop_mode=initial_stop_mode,
-                              trail_mode=trail_mode,
-                              entry_mode_filter=entry_mode_filter,
-                              entry_side_filter=entry_side_filter)
+        try:
+            return self._simulate(symbol, df, "default", None, capital, timeframe,
+                                  stop_mode, two_bar_lookback,
+                                  asset_class=asset_class,
+                                  commission_pct=commission_pct,
+                                  slippage_pct=slippage_pct,
+                                  initial_stop_mode=initial_stop_mode,
+                                  trail_mode=trail_mode,
+                                  entry_mode_filter=entry_mode_filter,
+                                  entry_side_filter=entry_side_filter)
+        except _BacktestCancelled:
+            logger.info(f"[BACKTESTER] run() cancelled for {symbol}")
+            return None
 
     def run_strategy(self, symbol: str, strategy_name: str,
                      days: int = 365,
@@ -1385,17 +1422,21 @@ class Backtester:
         except Exception as e:
             logger.error(f"Failed to load strategy {strategy_name}: {e}")
             return None
-        return self._simulate(
-            symbol, df, strategy_name, strategy_obj, capital, timeframe,
-            stop_mode, two_bar_lookback,
-            asset_class=asset_class,
-            commission_pct=commission_pct,
-            slippage_pct=slippage_pct,
-            initial_stop_mode=initial_stop_mode,
-            trail_mode=trail_mode,
-            entry_mode_filter=entry_mode_filter,
-            entry_side_filter=entry_side_filter,
-        )
+        try:
+            return self._simulate(
+                symbol, df, strategy_name, strategy_obj, capital, timeframe,
+                stop_mode, two_bar_lookback,
+                asset_class=asset_class,
+                commission_pct=commission_pct,
+                slippage_pct=slippage_pct,
+                initial_stop_mode=initial_stop_mode,
+                trail_mode=trail_mode,
+                entry_mode_filter=entry_mode_filter,
+                entry_side_filter=entry_side_filter,
+            )
+        except _BacktestCancelled:
+            logger.info(f"[BACKTESTER] run_strategy() cancelled for {symbol}/{strategy_name}")
+            return None
 
     def run_all(self, symbols: List[str], strategy_name: str = None,
                 days: int = 365, starting_capital: float = None,
@@ -1409,29 +1450,37 @@ class Backtester:
                 trail_mode:        str = "auto",
                 entry_mode_filter: str = "all",
                 entry_side_filter: str = "all") -> List[BacktestResult]:
+        clear_cancel()   # fresh run: ensure any stale cancel flag is cleared
         results = []
         for sym in symbols:
-            if strategy_name:
-                r = self.run_strategy(sym, strategy_name, days,
-                                      starting_capital, timeframe, asset_class,
-                                      stop_mode, two_bar_lookback,
-                                      commission_pct=commission_pct,
-                                      slippage_pct=slippage_pct,
-                                      initial_stop_mode=initial_stop_mode,
-                                      trail_mode=trail_mode,
-                                      entry_mode_filter=entry_mode_filter,
-                                      entry_side_filter=entry_side_filter)
-            else:
-                r = self.run(sym, days, starting_capital, timeframe, asset_class,
-                             stop_mode, two_bar_lookback,
-                             commission_pct=commission_pct,
-                             slippage_pct=slippage_pct,
-                             initial_stop_mode=initial_stop_mode,
-                             trail_mode=trail_mode,
-                             entry_mode_filter=entry_mode_filter,
-                             entry_side_filter=entry_side_filter)
-            if r:
-                results.append(r)
+            if _cancel_event.is_set():
+                logger.info("[BACKTESTER] run_all() cancelled before starting next symbol")
+                break
+            try:
+                if strategy_name:
+                    r = self.run_strategy(sym, strategy_name, days,
+                                          starting_capital, timeframe, asset_class,
+                                          stop_mode, two_bar_lookback,
+                                          commission_pct=commission_pct,
+                                          slippage_pct=slippage_pct,
+                                          initial_stop_mode=initial_stop_mode,
+                                          trail_mode=trail_mode,
+                                          entry_mode_filter=entry_mode_filter,
+                                          entry_side_filter=entry_side_filter)
+                else:
+                    r = self.run(sym, days, starting_capital, timeframe, asset_class,
+                                 stop_mode, two_bar_lookback,
+                                 commission_pct=commission_pct,
+                                 slippage_pct=slippage_pct,
+                                 initial_stop_mode=initial_stop_mode,
+                                 trail_mode=trail_mode,
+                                 entry_mode_filter=entry_mode_filter,
+                                 entry_side_filter=entry_side_filter)
+                if r:
+                    results.append(r)
+            except _BacktestCancelled:
+                logger.info(f"[BACKTESTER] run_all() cancelled during {sym} — returning partial results")
+                break
         return results
 
     # -----------------------------------------------------------------------
@@ -1530,7 +1579,7 @@ class Backtester:
                       _trail_m not in ("auto",))
         if _decoupled:
             _init_str = {
-                "signal_structural":     "signal-ATR",
+                "signal_structural":     "ATR/structural",
                 "two_bar":               f"2-bar(N={result.two_bar_lookback})",
                 "percent":               "fixed-%",
                 "percent_or_structural": "fixed-% / struct",
@@ -1967,7 +2016,16 @@ def print_portfolio_summary(results: List[BacktestResult]):
           f"{'MaxDD':>8} {'Sharpe':>7} {'Trades':>9} {'Stop':>10}")
     print(f"  {'-'*72}")
     for r in sorted(results, key=lambda x: x.total_return_pct, reverse=True):
-        stop_label  = "2-Bar" if r.stop_mode == STOP_TWO_BAR else "Std%"
+        # Build an accurate stop label from actual stop mode fields,
+        # not just the legacy stop_mode flag (which doesn't capture structural stops).
+        if r.stop_mode == STOP_TWO_BAR:
+            stop_label = "2-Bar"
+        elif r.initial_stop_mode == "signal_structural":
+            stop_label = "ATR-struct"
+        elif r.trail_mode == "two_bar":
+            stop_label = "2-Bar-trail"
+        else:
+            stop_label = "Fixed%"
         sample_warn = " !!LOW" if r.total_trades < 10 else ""
         print(f"  {r.symbol:<8} {r.total_return_pct:>+7.1f}% "
               f"{r.win_rate:>7.1f}% {r.profit_factor:>6.2f} "
@@ -2111,6 +2169,7 @@ if __name__ == "__main__":
     _commission = 0.0 if args.no_fees else None   # None = use config default
     _slippage   = 0.0 if args.no_fees else None
 
+    clear_cancel()   # ensure no stale cancel flag from a previous interrupted run
     backtester = Backtester(starting_capital=args.capital)
 
     if args.all:

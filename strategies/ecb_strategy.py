@@ -50,7 +50,7 @@ Dependencies
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass
-from typing import Optional
+from typing import Dict, Optional
 
 
 # ─── Parameter dataclass ──────────────────────────────────────────────────────
@@ -59,7 +59,11 @@ from typing import Optional
 class ECBParams:
     # Entropy
     entropy_window:  int   = 20    # Rolling window for Shannon entropy
-    entropy_thresh:  float = 0.75  # Enter when entropy < this (low = directional)
+    entropy_thresh:  float = 0.75  # Enter when entropy collapses below this
+    entropy_reset:   float = 0.90  # Entropy must rise above this before re-entry
+
+    # Directional bias
+    bias_threshold:  float = 0.55  # Rolling up-ratio must exceed this for long bias
 
     # ATR
     atr_length:      int   = 14
@@ -114,8 +118,24 @@ def generate_signals(df: pd.DataFrame, params: ECBParams = ECBParams()) -> pd.Da
     # ── Shannon entropy of candle direction ───────────────────────────────────
     out["entropy"]     = rolling_entropy(out, p.entropy_window)
     is_up              = (c > out["open"]).astype(float)
-    out["bias_up"]     = is_up.rolling(p.entropy_window).mean() > 0.5
+
+    # Rolling up-ratio (raw proportion, used for bias and metadata reporting)
+    rolling_up_ratio        = is_up.rolling(p.entropy_window).mean()
+    out["rolling_up_ratio"] = rolling_up_ratio
+
+    # Directional bias using explicit threshold (not hardcoded 0.5)
+    out["bias_up"]   = rolling_up_ratio >= p.bias_threshold
+    out["bias_down"] = rolling_up_ratio <= (1.0 - p.bias_threshold)
+
     out["low_entropy"] = out["entropy"] < p.entropy_thresh
+
+    # Entropy collapse event: was >= threshold, now drops below it.
+    # This is an EVENT (crossover), not a persistent STATE — prevents
+    # repeated entries inside the same low-entropy regime.
+    entropy_prev            = out["entropy"].shift(1)
+    out["entropy_collapse"] = (
+        (entropy_prev >= p.entropy_thresh) & (out["entropy"] < p.entropy_thresh)
+    )
 
     # ── ATR ───────────────────────────────────────────────────────────────────
     hl   = out["high"] - out["low"]
@@ -132,19 +152,19 @@ def generate_signals(df: pd.DataFrame, params: ECBParams = ECBParams()) -> pd.Da
     out["bear_regime"] = c < out["macro_ma"]
 
     # ── Entry signals ─────────────────────────────────────────────────────────
-    # LONG: entropy collapsed with upward bias, price above 200 SMA, vol active
+    # LONG: entropy COLLAPSED (event) with upward bias, price above 200 SMA, vol active
     out["long_signal"] = (
-        out["low_entropy"] &
-        out["bias_up"]     &
-        out["bull_regime"] &
+        out["entropy_collapse"] &
+        out["bias_up"]          &
+        out["bull_regime"]      &
         out["vol_ok"]
     )
 
-    # SHORT: entropy collapsed with downward bias, price below 200 SMA, vol active
+    # SHORT: entropy COLLAPSED (event) with downward bias, price below 200 SMA, vol active
     out["short_signal"] = (
-        out["low_entropy"]    &
-        ~out["bias_up"]       &
-        out["bear_regime"]    &
+        out["entropy_collapse"] &
+        out["bias_down"]        &
+        out["bear_regime"]      &
         out["vol_ok"]
     )
 
@@ -176,7 +196,11 @@ def backtest(df: pd.DataFrame, params: ECBParams = ECBParams(),
              commission_pct: float = 0.05,
              position_size_pct: float = 10.0) -> tuple[list[Trade], pd.Series]:
     """
-    Event-driven backtest. Returns (trades, equity_curve).
+    RESEARCH-ONLY event-driven backtest. Returns (trades, equity_curve).
+
+    WARNING: SL/TP evaluated at bar close — intrabar stop touches not simulated.
+    This overstates profit on winning trades and understates stop-out frequency.
+    Use intelligence/backtester.py (bot backtester) for realistic evaluation.
 
     position_size_pct : % of equity allocated per trade (default 10%).
     commission_pct    : round-trip commission as % of trade value.
@@ -188,10 +212,20 @@ def backtest(df: pd.DataFrame, params: ECBParams = ECBParams(),
     trades: list[Trade] = []
 
     position: Optional[Trade] = None
-    bars_held = 0
+    bars_held  = 0
+    # Re-arm state: after an entry, wait for entropy to normalize above
+    # entropy_reset before allowing another entry in the same direction.
+    long_armed  = True
+    short_armed = True
 
     for i, (idx, row) in enumerate(sig.iterrows()):
-        c = row["close"]
+        c           = row["close"]
+        entropy_now = float(row.get("entropy", 1.0))
+
+        # Re-arm: once entropy has risen above reset threshold, allow new entries
+        if entropy_now > params.entropy_reset:
+            long_armed  = True
+            short_armed = True
 
         if position is not None:
             bars_held += 1
@@ -236,7 +270,7 @@ def backtest(df: pd.DataFrame, params: ECBParams = ECBParams(),
                 bars_held  = 0
 
         if position is None:
-            if row["long_signal"]:
+            if row["long_signal"] and long_armed:
                 position = Trade(
                     direction="long",
                     entry_bar=i,
@@ -244,8 +278,9 @@ def backtest(df: pd.DataFrame, params: ECBParams = ECBParams(),
                     sl_price=row["sl_long"],
                     tp_price=row["tp_long"],
                 )
-                bars_held = 0
-            elif row["short_signal"]:
+                bars_held   = 0
+                long_armed  = False  # disarm — wait for entropy reset before re-entry
+            elif row["short_signal"] and short_armed:
                 position = Trade(
                     direction="short",
                     entry_bar=i,
@@ -253,7 +288,8 @@ def backtest(df: pd.DataFrame, params: ECBParams = ECBParams(),
                     sl_price=row["sl_short"],
                     tp_price=row["tp_short"],
                 )
-                bars_held = 0
+                bars_held   = 0
+                short_armed = False  # disarm — wait for entropy reset before re-entry
 
         curve.append(equity)
 
@@ -314,21 +350,27 @@ def scan_current_signal(symbol: str = "BTC/USDT", timeframe: str = "1h",
     sig  = generate_signals(df, params)
     last = sig.iloc[-1]
     return {
-        "symbol":       symbol,
-        "timeframe":    timeframe,
-        "bar_time":     str(last.name),
-        "close":        round(last["close"], 6),
-        "entropy":      round(last["entropy"],  4),
-        "bias_up":      bool(last["bias_up"]),
-        "low_entropy":  bool(last["low_entropy"]),
-        "bull_regime":  bool(last["bull_regime"]),
-        "bear_regime":  bool(last["bear_regime"]),
-        "long_signal":  bool(last["long_signal"]),
-        "short_signal": bool(last["short_signal"]),
-        "sl_long":      round(last["sl_long"],  6),
-        "tp_long":      round(last["tp_long"],  6),
-        "sl_short":     round(last["sl_short"], 6),
-        "tp_short":     round(last["tp_short"], 6),
+        "symbol":            symbol,
+        "timeframe":         timeframe,
+        "bar_time":          str(last.name),
+        "close":             round(last["close"], 6),
+        "entropy":           round(last["entropy"],  4),
+        "entropy_collapse":  bool(last["entropy_collapse"]),
+        "bias_up":           bool(last["bias_up"]),
+        "bias_down":         bool(last["bias_down"]),
+        "rolling_up_ratio":  round(float(last["rolling_up_ratio"]), 4),
+        "low_entropy":       bool(last["low_entropy"]),
+        "bull_regime":       bool(last["bull_regime"]),
+        "bear_regime":       bool(last["bear_regime"]),
+        "macro_ma":          round(float(last["macro_ma"]), 6) if not pd.isna(last["macro_ma"]) else None,
+        "vol_ok":            bool(last["vol_ok"]),
+        "atr":               round(float(last["atr"]), 6),
+        "long_signal":       bool(last["long_signal"]),
+        "short_signal":      bool(last["short_signal"]),
+        "sl_long":           round(last["sl_long"],  6),
+        "tp_long":           round(last["tp_long"],  6),
+        "sl_short":          round(last["sl_short"], 6),
+        "tp_short":          round(last["tp_short"], 6),
     }
 
 
@@ -382,90 +424,177 @@ except ImportError:
     TradeSignal  = None
 
 
-# SOL confirmed negative in backtest (PF=0.95, Sharpe=-0.10) — excluded.
-ECB_BLACKLIST = {"SOL/USD", "SOLUSDT", "SOL/USDT"}
-
-
 class ECBStrategy(BaseStrategy):
     """Entropy Collapse Breakout — low-entropy directional commitment signals (CANDIDATE)."""
 
     def __init__(self):
         super().__init__()
-        self.strategy_name           = "ECBStrategy"
+        self.strategy_name           = "ecb_strategy"    # snake_case, framework-safe
         self.params                  = ECBParams()
-        self.stop_loss_pct           = 1.5      # fallback default
+        self.stop_loss_pct           = 1.5      # fallback default (ATR-based preferred)
         self.take_profit_pct         = 2.5
         self.crypto_enabled          = True
         self.stock_enabled           = False
         self.crypto_candle_timeframe = "1h"
-        self.candle_limit            = 300      # needs 200-bar SMA + warmup
         self.reviewer_exempt         = True     # ATR-based dynamic stops
+
+        # Strategy-defined hold: tell backtester to skip generic intraday time stops.
+        # ECB's thesis uses a 24-bar max hold — the 8h hard stop and 30m early-loss
+        # stop would prematurely kill trades and invalidate results.
+        self.time_stop_profile       = "strategy_defined"
+
+        # Warmup: need max(trend_ma, vol_filter, entropy_window) + 20 buffer
+        p = self.params
+        self.candle_limit = max(p.trend_ma_length, p.vol_filter_len, p.entropy_window) + 30
+
+        # Re-arm state: per-symbol flag tracking whether entropy has normalized
+        # since the last entry. Prevents repeated entries in the same low-entropy regime.
+        self._entropy_rearm: Dict[str, bool] = {}
 
     def analyze(self, symbol: str, candles: pd.DataFrame,
                 market_condition: str = "unknown") -> Optional[TradeSignal]:
-        if symbol.upper() in ECB_BLACKLIST:
-            self.verbose_log_skip(symbol, "In ECB blacklist (SOL: PF=0.95 negative backtest)")
-            return None
-        if not self._check_enough_candles(symbol, candles, 220):
+        p = self.params
+        MIN_BARS = max(p.trend_ma_length, p.vol_filter_len, p.entropy_window) + 20
+        if not self._check_enough_candles(symbol, candles, MIN_BARS):
             return None
         try:
-            sig  = generate_signals(candles, self.params)
+            sig  = generate_signals(candles, p)
             last = sig.iloc[-1]
 
             long_sig  = bool(last["long_signal"])
             short_sig = bool(last["short_signal"])
 
             if not (long_sig or short_sig):
+                # Even when no signal, update re-arm state:
+                # if entropy has normalized above reset, mark as re-armed
+                entropy_now = float(last.get("entropy", 1.0))
+                if entropy_now > p.entropy_reset:
+                    self._entropy_rearm[symbol] = True
                 return None
 
             direction = "long" if long_sig else "short"
-            close     = float(last["close"])
-            atr       = float(last["atr"])
-            entropy   = float(last["entropy"])
 
-            sl_pct = round(atr * self.params.sl_atr_mult / close * 100, 3)
-            tp_pct = round(atr * self.params.tp_atr_mult / close * 100, 3)
+            # Re-arm check: don't re-enter until entropy has risen above entropy_reset
+            if not self._entropy_rearm.get(symbol, True):
+                self.verbose_log_skip(
+                    symbol,
+                    f"ECB: waiting for entropy reset (must rise above {p.entropy_reset})"
+                )
+                return None
 
-            # Score: lower entropy = stronger directional commitment
-            score = round(max(0.55, min(0.92, 1.0 - entropy / self.params.entropy_thresh)), 3)
+            close   = float(last["close"])
+            atr     = float(last["atr"])
+            entropy = float(last["entropy"])
 
-            self.verbose_log(symbol, "entropy < thresh", True,
-                             entropy, self.params.entropy_thresh, direction)
-            self.verbose_log_score(symbol, score, 0.55)
+            sl_pct = round(atr * p.sl_atr_mult / close * 100, 3)
+            tp_pct = round(atr * p.tp_atr_mult / close * 100, 3)
 
-            # Compute volume ratio for ML scorer
-            vol_series = candles["volume"]
-            vol_ma     = vol_series.rolling(50).mean().iloc[-1]
-            vol_ratio  = round(float(vol_series.iloc[-1] / vol_ma), 3) if vol_ma > 0 else 1.0
+            # Structural stop as absolute price (preferred by receiver and executor)
+            structural_stop = (
+                close - atr * p.sl_atr_mult if direction == "long"
+                else close + atr * p.sl_atr_mult
+            )
+
+            # Score: lower entropy = stronger commitment; stronger bias = stronger signal
+            bias_ratio = float(last.get("rolling_up_ratio", 0.5))
+            bias_score = abs(bias_ratio - 0.5) * 2   # 0.0 at neutral, 1.0 at pure directional
+            score = round(
+                max(0.50, min(0.95,
+                    0.5 * (1.0 - entropy / p.entropy_thresh) +  # entropy component
+                    0.3 * bias_score +                            # bias component
+                    0.2 * float(last.get("vol_ok", False))        # vol filter bonus
+                )),
+                3
+            )
+
+            self.verbose_log(symbol, "entropy_collapse", True,
+                             entropy, p.entropy_thresh, direction)
+            self.verbose_log_score(symbol, score, 0.50)
+
+            # Disarm: require entropy normalization before re-entry
+            self._entropy_rearm[symbol] = False
+
+            macro_ma_val = float(last["macro_ma"]) if not pd.isna(last["macro_ma"]) else None
 
             return self._make_signal(
                 symbol          = symbol,
                 direction       = direction,
                 score           = score,
-                reason          = (f"ECB: entropy={entropy:.3f} < {self.params.entropy_thresh} "
-                                   f"| bias={'up' if last['bias_up'] else 'dn'} "
-                                   f"| {'bull' if last['bull_regime'] else 'bear'} regime"),
+                reason          = (
+                    f"ECB: entropy_collapse={entropy:.3f} < {p.entropy_thresh} "
+                    f"| bias_ratio={bias_ratio:.3f} "
+                    f"| {'bull' if last['bull_regime'] else 'bear'} regime"
+                ),
                 stop_loss_pct   = sl_pct,
                 take_profit_pct = tp_pct,
                 metadata={
-                    "entropy":      round(entropy, 4),
-                    "bias_up":      bool(last["bias_up"]),
-                    "bull_regime":  bool(last["bull_regime"]),
-                    "bear_regime":  bool(last["bear_regime"]),
-                    "vol_ok":       bool(last["vol_ok"]),
-                    "atr":          round(atr, 6),
-                    # ML scorer keys
-                    "rsi":          50.0,
-                    "macd_hist":    0.0,
-                    "macd":         0.0,
-                    "volume_ratio": vol_ratio,
-                    "bb_pct":       0.5,
-                    "ema_fast":     0.0,
-                    "ema_slow":     0.0,
-                    "ema_trend":    0.0,
-                    "adx":          25.0,
+                    # Core ECB signal data — all real computed values
+                    "strategy_name":          "ecb_strategy",
+                    "entry_timeframe":        self.crypto_candle_timeframe,
+                    "entropy":                round(entropy, 4),
+                    "entropy_thresh":         p.entropy_thresh,
+                    "entropy_reset":          p.entropy_reset,
+                    "bias_up_ratio":          round(bias_ratio, 4),
+                    "bias_up":                bool(last["bias_up"]),
+                    "bias_down":              bool(last["bias_down"]),
+                    "vol_ok":                 bool(last["vol_ok"]),
+                    "bull_regime":            bool(last["bull_regime"]),
+                    "bear_regime":            bool(last["bear_regime"]),
+                    "atr":                    round(atr, 6),
+                    "macro_ma":               round(macro_ma_val, 6) if macro_ma_val else None,
+                    "structural_stop_price":  round(structural_stop, 6),
                 },
             )
         except Exception as e:
             self.logger.error(f"ECBStrategy.analyze error on {symbol}: {e}", exc_info=True)
             return None
+
+    def check_custom_exit(
+        self,
+        symbol: str,
+        bars: pd.DataFrame,
+        direction: str,
+        entry_metadata: Optional[dict] = None,
+    ) -> Optional[str]:
+        """
+        ECB-specific exit logic.  Called by the backtester on every bar after entry.
+
+        Priority:
+          A. Regime flip  — price crosses macro MA against position
+          B. Entropy normalization — entropy rises above entropy_reset
+          C. Max bars hold — 24-bar time stop (strategy thesis)
+
+        bars_held is injected into entry_metadata as "_bars_held" by the backtester.
+        """
+        if bars is None or len(bars) < 2:
+            return None
+
+        meta = entry_metadata or {}
+        p    = self.params
+        last = bars.iloc[-1]
+
+        close = float(last["close"])
+
+        # A. Regime flip: price crosses macro MA against position
+        if len(bars) >= p.trend_ma_length:
+            macro_ma = bars["close"].rolling(p.trend_ma_length).mean().iloc[-1]
+            if not pd.isna(macro_ma):
+                if direction == "long" and close < float(macro_ma):
+                    return "ecb_regime_flip"
+                if direction == "short" and close > float(macro_ma):
+                    return "ecb_regime_flip"
+
+        # B. Entropy normalization: regime has ended, mean reversion in progress
+        try:
+            entropy_now = rolling_entropy(bars, p.entropy_window).iloc[-1]
+            if not pd.isna(entropy_now) and float(entropy_now) > p.entropy_reset:
+                return "ecb_entropy_reset"
+        except Exception:
+            pass
+
+        # C. Max bars hold (bars_held injected by backtester; not available in live)
+        bars_held = int(meta.get("_bars_held", 0))
+        if bars_held >= p.max_bars_hold:
+            return "ecb_max_hold"
+
+        return None

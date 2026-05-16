@@ -1,0 +1,4 @@
+AssetClass,Ticker,Price,Vol Change,RSI,% from 52W Hi,% vs 200SMA,Score,Signal
+Stock,CSCO,118.21,1.72,89.3,-0.96,55.5,95.45,Within 1.0% of 52W high | 1.7x avg vol | 56% above 200MA
+Stock,PANW,242.83,1.43,92.8,-1.21,30.8,44.2,Within 1.2% of 52W high | 1.4x avg vol | 31% above 200MA
+Stock,WMB,77.72,1.52,68.8,-0.66,21.1,32.05,Within 0.7% of 52W high | 1.5x avg vol | 21% above 200MA

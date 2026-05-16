@@ -151,6 +151,26 @@ _SCANNER_SENSITIVE_KEYS = {
     "email_password",
 }
 
+def _encrypt_cfg(val: str) -> str:
+    """
+    Encrypt a plaintext secret for writing back to scanner_config.json.
+    - Already-encrypted (starts "gAAAAA") → returned unchanged (no double-encrypt).
+    - No Fernet key in Credential Manager → returns val unchanged (safe degradation).
+    - Empty string → returned unchanged.
+    """
+    if not val or not isinstance(val, str):
+        return val
+    if val.startswith("gAAAAA"):
+        return val   # already encrypted — don't double-encrypt
+    if not _SCANNER_BASE_KEY:
+        return val   # no key available — preserve as-is rather than blank
+    try:
+        return _Fernet(_SCANNER_BASE_KEY).encrypt(val.encode()).decode()
+    except Exception as e:
+        logger.warning(f"[CONFIG] Failed to encrypt key: {e}")
+        return val   # encryption failed — return plaintext rather than lose the value
+
+
 def _decrypt_cfg(val: str) -> str:
     """
     Decrypt a Fernet-encrypted value read from scanner_config.json.
@@ -372,7 +392,7 @@ class Alert:
 
 def classify_signal(signal: BreakoutSignal) -> dict:
     score     = signal.confidence
-    direction = "LONG" if signal.momentum_score >= -0.5 else "SHORT"
+    direction = signal_direction(signal).upper()   # explicit direction wins; momentum fallback only
     if "strong" in signal.pattern_detected:
         stage = "CONFIRMED"
     elif "early" in signal.pattern_detected:
@@ -397,6 +417,30 @@ def favorable_move_pct(direction: str, raw_move_pct: float) -> float:
     if str(direction).lower() == "short":
         return -raw_move_pct
     return raw_move_pct
+
+
+def resolved_direction(direction: str = "", momentum_score: float = 0.0) -> str:
+    """
+    Resolve trade direction with explicit priority order:
+      1. explicit direction field ("long" / "short")
+      2. momentum_score fallback (only when direction is absent/invalid)
+    Never infer direction from momentum alone when the signal already carries one.
+    """
+    d = str(direction or "").strip().lower()
+    if d in ("long", "short"):
+        return d
+    try:
+        return "short" if float(momentum_score) < -0.5 else "long"
+    except Exception:
+        return "long"
+
+
+def signal_direction(signal) -> str:
+    """Convenience wrapper — reads direction from a BreakoutSignal."""
+    return resolved_direction(
+        getattr(signal, "direction", ""),
+        getattr(signal, "momentum_score", 0.0),
+    )
 
 # =============================================================================
 # CSV  (self-cleaning)
@@ -571,8 +615,15 @@ class ConfigManager:
             logger.info(f"Default config created at {self.config_path}")
 
     def save(self):
+        # Re-encrypt sensitive keys before writing so secrets are never stored plaintext.
+        # Keys that were originally encrypted and whose Fernet key is unavailable
+        # are preserved as-is (already ciphertext) rather than written as plaintext.
+        to_write = dict(self.config)
+        for key in _SCANNER_SENSITIVE_KEYS:
+            if key in to_write and to_write[key]:
+                to_write[key] = _encrypt_cfg(str(to_write[key]))
         with open(self.config_path, "w") as f:
-            json.dump(self.config, f, indent=2)
+            json.dump(to_write, f, indent=2)
 
     def get(self, key: str, default=None):
         return self.config.get(key, default)
@@ -940,18 +991,67 @@ class CryptoDataFetcher:
                     logger.debug(f"Injected crypto fetch skip {symbol} on {exch_name}: {e}")
 
     def get_historical_data(self, symbol: str, timeframe: str = "5m",
-                            limit: int = 100) -> List[PriceData]:
-        if not self.exchange:
+                            limit: int = 100,
+                            exchange=None) -> List[PriceData]:
+        """
+        Fetch OHLCV history for a crypto symbol.
+        `exchange` may be a CCXT exchange instance or name string.
+        Falls back to the primary exchange if the supplied one can't fetch the symbol.
+        Returns [] if no exchange can provide data.
+        """
+        # Resolve to a CCXT exchange instance
+        exc = None
+        if exchange is not None:
+            if isinstance(exchange, str):
+                # Accept exchange name — look it up among known instances
+                exc = self._resolve_exchange_by_name(exchange)
+            else:
+                exc = exchange   # already a CCXT instance
+        if exc is None:
+            exc = self.exchange   # primary exchange fallback
+
+        if exc is None:
             return []
+
+        # If primary was tried and symbol not listed, nothing to do
         try:
             return [
                 PriceData(symbol, c, o, h, l, v,
                           datetime.fromtimestamp(ts/1000), AssetType.CRYPTO)
-                for ts, o, h, l, c, v in self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+                for ts, o, h, l, c, v in exc.fetch_ohlcv(symbol, timeframe, limit=limit)
             ]
-        except Exception as e:
-            logger.debug(f"Crypto history skip {symbol}: {e}")
+        except Exception:
+            # Supplied exchange failed — try primary if different
+            if exc is not self.exchange and self.exchange:
+                try:
+                    return [
+                        PriceData(symbol, c, o, h, l, v,
+                                  datetime.fromtimestamp(ts/1000), AssetType.CRYPTO)
+                        for ts, o, h, l, c, v in self.exchange.fetch_ohlcv(
+                            symbol, timeframe, limit=limit)
+                    ]
+                except Exception as e:
+                    logger.debug(f"Crypto history skip {symbol} (both exchanges): {e}")
             return []
+
+    def _resolve_exchange_by_name(self, name: str):
+        """Return the CCXT exchange instance that matches `name`, or None."""
+        if not CCXT_AVAILABLE:
+            return None
+        name_upper = name.upper()
+        # Walk any known exchange instances stored on the fetcher
+        for attr in ("exchange", "exchanges"):
+            obj = getattr(self, attr, None)
+            if obj is None:
+                continue
+            if isinstance(obj, dict):
+                # Dict of {name: instance}
+                match = obj.get(name_upper) or obj.get(name.lower())
+                if match:
+                    return match
+            elif hasattr(obj, "id") and obj.id.upper() == name_upper:
+                return obj
+        return None
 
 # =============================================================================
 # BREAKOUT DETECTION ENGINE
@@ -1163,20 +1263,29 @@ class WatchlistManager:
         gate_pct  = self.config.get("momentum_gate_pct",  0.80)
         max_scans = self.config.get("momentum_gate_scans", 3)
         mpct      = move_pct(sig.entry_price, pd.price)
-        direction = "LONG" if sig.momentum_score >= -0.5 else "SHORT"
-        moved_right = (mpct >= gate_pct  if direction == "LONG"  else
-                       mpct <= -gate_pct if direction == "SHORT" else False)
+        direction = signal_direction(sig).upper()   # explicit direction wins; no momentum re-inference
+
+        moved_right = (
+            mpct >= gate_pct  if direction == "LONG"  else
+            mpct <= -gate_pct if direction == "SHORT" else False
+        )
         if moved_right:
             sig.phase         = SignalPhase.ALERTED
             sig.current_price = pd.price
-            sig.best_move_pct = mpct
+            sig.best_move_pct = favorable_move_pct(direction, mpct)  # positive = good for both sides
             del self._watched[sym]
-            logger.warning(f"[GATE PASSED] {sig.broker} {sym} moved {mpct:+.2f}%")
+            logger.warning(
+                f"[GATE PASSED] {sig.broker} {sym} raw_move={mpct:+.2f}% dir={direction}"
+            )
             return sig
         if sig.scan_count >= max_scans:
             logger.info(f"[WATCHLIST EXPIRED] {sym} — dropped after {max_scans} scans")
             del self._watched[sym]
         return None
+
+    def get(self, symbol: str) -> Optional[BreakoutSignal]:
+        """Return the watched signal for a symbol, or None."""
+        return self._watched.get(symbol)
 
     def is_watching(self, symbol: str) -> bool:
         return symbol in self._watched
@@ -1470,23 +1579,32 @@ class TradingEngine:
     def execute_signal(self, signal: BreakoutSignal) -> dict:
         if not self.can_auto_trade():   return {"status": "disabled"}
         if self.should_confirm_trade(): return {"status": "confirmation_required"}
-        amount = self.config.get("default_trade_amount_usd", 1000)
+        amount    = self.config.get("default_trade_amount_usd", 1000)
+        direction = signal_direction(signal)   # "long" or "short"
         if signal.asset_type == AssetType.STOCK:
             if not self.alpaca_api: return {"error": "no alpaca"}
+            side = "buy" if direction == "long" else "sell"
             try:
                 o = self.alpaca_api.submit_order(
                     symbol=signal.symbol, notional=amount,
-                    side="buy", type="market", time_in_force="day")
-                return {"success": True, "order_id": o.id}
+                    side=side, type="market", time_in_force="day")
+                return {"success": True, "order_id": o.id, "side": side}
             except Exception as e:
                 return {"error": str(e)}
         else:
             if not self.crypto_exchange: return {"error": "no exchange"}
+            if direction == "short":
+                # Most spot crypto exchanges don't support native short selling.
+                # Return a clear error rather than silently sending a buy.
+                supports_short = getattr(self.crypto_exchange, "has", {}).get("createShortOrder", False)
+                if not supports_short:
+                    return {"error": f"Broker does not support short orders for {signal.symbol}"}
+            side = "buy" if direction == "long" else "sell"
             try:
                 qty = amount / signal.current_price
                 o   = self.crypto_exchange.create_order(
-                    signal.symbol, "market", "buy", qty)
-                return {"success": True, "order_id": o.get("id")}
+                    signal.symbol, "market", side, qty)
+                return {"success": True, "order_id": o.get("id"), "side": side}
             except Exception as e:
                 return {"error": str(e)}
 
@@ -1564,79 +1682,11 @@ class MarketScanner:
 
     def _build_signal_enrichment(self, pd: PriceData, sym: str) -> Dict[str, Any]:
         """
-        Compute the full enrichment dict from scanner-side data.
-        Called once at signal creation in _process_symbol() — before the
-        signal reaches the sender or receiver.
-
-        Keys match what breakout_sender._build_payload() reads via cd.get(...):
-            open, high, low, close  — latest completed bar OHLC
-            volume                  — bar volume
-            rsi                     — Wilder RSI(14) from tick-price history
-            market_pct_change       — BTC proxy (crypto) or None (stocks)
-            pattern                 — chart pattern name if available
-            volume_spike            — ratio vs recent average
-            momentum_score          — signed momentum value
+        Thin wrapper — delegates to BreakoutDetector._build_enrichment() which
+        is the single authoritative implementation.  This method is kept for
+        any legacy call sites but no longer duplicates the logic.
         """
-        data: Dict[str, Any] = {}
-
-        # ── Candle OHLC from the current PriceData bar ─────────────────────
-        # PriceData.price == close of the most recent completed bar.
-        data["open"]   = pd.open_price if pd.open_price else pd.price
-        data["high"]   = pd.high       if pd.high       else pd.price
-        data["low"]    = pd.low        if pd.low        else pd.price
-        data["close"]  = pd.price
-        data["volume"] = pd.volume
-
-        # ── RSI(14) — Wilder's smoothed average from tick history ───────────
-        prices = list(self.detector.price_history.get(sym, []))
-        if len(prices) >= 15:
-            try:
-                period = 14
-                gains, losses = [], []
-                for i in range(1, len(prices)):
-                    delta = prices[i] - prices[i - 1]
-                    gains.append(max(delta, 0.0))
-                    losses.append(max(-delta, 0.0))
-                avg_gain = sum(gains[:period]) / period
-                avg_loss = sum(losses[:period]) / period
-                for i in range(period, len(gains)):
-                    avg_gain = (avg_gain * (period - 1) + gains[i]) / period
-                    avg_loss = (avg_loss * (period - 1) + losses[i]) / period
-                if avg_loss == 0:
-                    rsi = 100.0
-                else:
-                    rs  = avg_gain / avg_loss
-                    rsi = 100.0 - (100.0 / (1.0 + rs))
-                data["rsi"] = round(rsi, 2)
-            except Exception:
-                pass  # no RSI — receiver will skip that soft check
-
-        # ── Market context: BTC/USD proxy for crypto; None for stocks ───────
-        # For stock signals we skip — receiver soft check will be SKIP/neutral.
-        if "/" in sym or pd.asset_type == AssetType.CRYPTO:
-            for btc_key in ("BTC/USD", "BTC-USD", "BTCUSDT"):
-                btc_hist = self.detector.price_history.get(btc_key)
-                if btc_hist and len(btc_hist) >= 2:
-                    try:
-                        btc = list(btc_hist)
-                        if btc[0] > 0:
-                            data["market_pct_change"] = round(
-                                (btc[-1] - btc[0]) / btc[0] * 100, 4
-                            )
-                    except Exception:
-                        pass
-                    break
-
-        # ── Pattern from chart_patterns module (set on pd by detector.score) ─
-        pat = getattr(pd, "_pattern", None)
-        if pat:
-            data["pattern"] = pat
-
-        # ── Volume spike and momentum ────────────────────────────────────────
-        data["volume_spike"]   = self.detector.vol_spike(pd)
-        data["momentum_score"] = self.detector.momentum_val(pd)
-
-        return data
+        return self.detector._build_enrichment(pd)
 
     def _process_symbol(self, pd: PriceData, broker: str):
         sym = pd.symbol
@@ -1687,13 +1737,20 @@ class MarketScanner:
                 # Use the broker tag set by get_top_movers, fall back to primary
                 broker = getattr(pd, "_exchange_name",
                                  self.crypto_fetcher.exchange_name)
-                # Find the correct exchange for this symbol
-                exc = exchanges.get(broker) or self.crypto_fetcher.exchange
+                # Find the correct exchange for this symbol.
+                # CoinGecko is not a CCXT exchange — fall back to primary for history.
+                if broker.upper() == "COINGECKO":
+                    exc = self.crypto_fetcher.exchange   # primary exchange for history
+                else:
+                    exc = exchanges.get(broker) or self.crypto_fetcher.exchange
                 if not exc:
                     continue
-                if pd.symbol not in exc.symbols:
-                    continue
-                for h in self.crypto_fetcher.get_historical_data(pd.symbol):
+                # Check the resolved exchange has this symbol; skip if not
+                if pd.symbol not in getattr(exc, "symbols", {}):
+                    # For CoinGecko-sourced symbols, try anyway — some pairs differ in naming
+                    if broker.upper() != "COINGECKO":
+                        continue
+                for h in self.crypto_fetcher.get_historical_data(pd.symbol, exchange=exc):
                     self.detector.update_history(h)
                 logger.info(
                     f"[CRYPTO SCAN] processing {broker} {pd.symbol} "
@@ -1904,19 +1961,23 @@ class ScannerGUI:
         store    = self._crypto_store if signal.asset_type == AssetType.CRYPTO \
                    else self._stock_store
         existing = store.get(sym, {})
-        mpct     = move_pct(signal.entry_price, signal.current_price)
+        mpct    = move_pct(signal.entry_price, signal.current_price)
+        dir_txt = signal_direction(signal).upper()   # explicit direction; no momentum re-inference
         store[sym] = {
             "time":          signal.timestamp.strftime("%H:%M:%S"),
             "broker":        signal.broker,
             "symbol":        sym,
-            "direction":     "LONG" if signal.momentum_score >= -0.5 else "SHORT",
+            "direction":     dir_txt,
             "score":         round(signal.predicted_move_pct, 1),
             "confidence":    round(signal.confidence * 100, 0),
             "entry_price":   existing.get("entry_price", signal.entry_price or signal.current_price),
             "entry_time":    existing.get("entry_time",  signal.timestamp),
             "current_price": signal.current_price,
             "move_pct":      mpct,
-            "best_move":     max(mpct, existing.get("best_move", 0.0)),
+            "best_move":     max(
+                favorable_move_pct(dir_txt, mpct),   # positive = good for either direction
+                existing.get("best_move", 0.0)
+            ),
             "t5m":  existing.get("t5m",  ""),
             "t15m": existing.get("t15m", ""),
             "t1h":  existing.get("t1h",  ""),
@@ -1966,9 +2027,20 @@ class ScannerGUI:
         sk   = key_map.get(self._sort_col, "move_pct")
         rows = list(store.values())
         try:
-            rows.sort(
-                key=lambda r: float(str(r.get(sk,0)).replace("%","").replace("$","").replace("+","") or 0),
-                reverse=self._sort_desc)
+            if sk == "move_pct":
+                # Sort by favorable move so short winners (negative raw) sort correctly
+                rows.sort(
+                    key=lambda r: favorable_move_pct(
+                        r.get("direction", "long"),
+                        float(str(r.get("move_pct", 0)).replace("%","").replace("+","") or 0)
+                    ),
+                    reverse=self._sort_desc
+                )
+            else:
+                rows.sort(
+                    key=lambda r: float(str(r.get(sk,0)).replace("%","").replace("$","").replace("+","") or 0),
+                    reverse=self._sort_desc
+                )
         except Exception:
             rows.sort(key=lambda r: str(r.get(sk,"")), reverse=self._sort_desc)
         for item in tree.get_children():
@@ -2079,8 +2151,10 @@ class ScannerGUI:
                         new_r    = dict(r)
                         new_r["current_price"] = price
                         new_r["move_pct"]      = move_pct(ep, price)
-                        new_r["best_move"]     = max(new_r["move_pct"],
-                                                      r.get("best_move", 0.0))
+                        new_r["best_move"]     = max(
+                            favorable_move_pct(r.get("direction", "long"), new_r["move_pct"]),
+                            r.get("best_move", 0.0)
+                        )
                         if elapsed >= 300  and not r.get("t5m"):
                             new_r["t5m"]  = price
                         if elapsed >= 900  and not r.get("t15m"):

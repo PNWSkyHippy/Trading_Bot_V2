@@ -81,7 +81,7 @@ Dependencies
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass
-from typing import Optional
+from typing import Dict, Optional
 
 
 # ─── Parameters ───────────────────────────────────────────────────────────────
@@ -101,19 +101,40 @@ class RSIDipSpikeV4Params:
     tp_atr_mult:     float = 2.0
     max_bars_hold:   int   = 48
 
+    # A/B research toggle — default "penetration" matches all validated results.
+    # "reclaim": enter when RSI exits oversold/overbought (recovery confirmation).
+    # Only change default if OOS evidence clearly favours reclaim across symbols.
+    signal_mode:     str   = "penetration"  # "penetration" | "reclaim"
+
 
 # ─── Indicators ───────────────────────────────────────────────────────────────
 
 def _rsi(close: pd.Series, length: int) -> pd.Series:
-    """Wilder's RSI via EWM — matches Pine Script / TradingView."""
+    """
+    Wilder's RSI via EWM — matches Pine Script / TradingView.
+
+    Edge cases handled deterministically (no silent NaNs):
+      avg_loss == 0, avg_gain >  0  → RSI = 100  (pure up-move, fully overbought)
+      avg_loss == 0, avg_gain == 0  → RSI =  50  (flat price, neutral)
+      avg_gain == 0, avg_loss >  0  → RSI =   0  (pure down-move, fully oversold)
+    """
     delta    = close.diff()
     gain     = delta.clip(lower=0)
     loss     = (-delta).clip(lower=0)
     alpha    = 1.0 / length
     avg_gain = gain.ewm(alpha=alpha, adjust=False).mean()
     avg_loss = loss.ewm(alpha=alpha, adjust=False).mean()
-    rs = avg_gain / avg_loss.replace(0, np.nan)
-    return (100 - 100 / (1 + rs)).rename("rsi")
+
+    rs  = avg_gain / avg_loss.replace(0, np.nan)
+    rsi = 100 - 100 / (1 + rs)
+
+    # Fill NaN cells produced when avg_loss == 0
+    loss_zero = avg_loss <= 0
+    gain_zero = avg_gain <= 0
+    rsi = rsi.where(~(loss_zero &  gain_zero), other=50.0)   # flat → neutral
+    rsi = rsi.where(~(loss_zero & ~gain_zero), other=100.0)  # gains only → 100
+
+    return rsi.rename("rsi")
 
 
 def _atr(df: pd.DataFrame, length: int) -> pd.Series:
@@ -125,7 +146,14 @@ def _atr(df: pd.DataFrame, length: int) -> pd.Series:
 
 
 def _adx(df: pd.DataFrame, length: int) -> pd.Series:
-    """Wilder ADX — returns ADX line only."""
+    """
+    Wilder ADX — returns ADX line only.
+
+    Guards against:
+      - zero ATR (replaces with NaN before DI division)
+      - zero DI sum (replaces with NaN before DX computation)
+      - warmup NaNs filled with 0 so callers always get a numeric series
+    """
     high, low, close = df["high"], df["low"], df["close"]
     hl  = high - low
     hpc = (high - close.shift()).abs()
@@ -139,11 +167,12 @@ def _adx(df: pd.DataFrame, length: int) -> pd.Series:
         np.where((down_move > up_move) & (down_move > 0), down_move, 0.0), index=df.index)
     alpha    = 1.0 / length
     atr_w    = tr.ewm(alpha=alpha, adjust=False).mean()
-    plus_di  = 100 * plus_dm.ewm(alpha=alpha,  adjust=False).mean() / atr_w
-    minus_di = 100 * minus_dm.ewm(alpha=alpha, adjust=False).mean() / atr_w
-    di_sum   = plus_di + minus_di
-    dx       = 100 * (plus_di - minus_di).abs() / di_sum.replace(0, np.nan)
-    return dx.ewm(alpha=alpha, adjust=False).mean().rename("adx")
+    atr_safe = atr_w.replace(0, np.nan)          # guard: no division by zero ATR
+    plus_di  = 100 * plus_dm.ewm(alpha=alpha,  adjust=False).mean() / atr_safe
+    minus_di = 100 * minus_dm.ewm(alpha=alpha, adjust=False).mean() / atr_safe
+    di_sum   = (plus_di + minus_di).replace(0, np.nan)   # guard: no division by zero DI
+    dx       = 100 * (plus_di - minus_di).abs() / di_sum
+    return dx.ewm(alpha=alpha, adjust=False).mean().fillna(0.0).rename("adx")
 
 
 # ─── Signal generation ────────────────────────────────────────────────────────
@@ -171,11 +200,22 @@ def generate_signals(df: pd.DataFrame,
     out["adx_ok"]      = out["adx"] >= p.adx_min
 
     rsi_prev = out["rsi"].shift(1)
-    rsi_cross_down = (rsi_prev >= p.rsi_oversold)   & (out["rsi"] < p.rsi_oversold)
-    rsi_cross_up   = (rsi_prev <= p.rsi_overbought) & (out["rsi"] > p.rsi_overbought)
 
-    out["long_signal"]  = rsi_cross_down & out["bull_regime"] & out["adx_ok"]
-    out["short_signal"] = rsi_cross_up   & out["bear_regime"] & out["adx_ok"]
+    if p.signal_mode == "reclaim":
+        # RESEARCH MODE: enter when RSI exits the exhaustion zone (recovery confirmation).
+        # RSI was oversold (<35), now crosses back above 35 → long.
+        # RSI was overbought (>80), now crosses back below 80 → short.
+        # Not yet validated; only switch default if OOS evidence clearly shows improvement.
+        long_cross  = (rsi_prev < p.rsi_oversold)   & (out["rsi"] >= p.rsi_oversold)
+        short_cross = (rsi_prev > p.rsi_overbought)  & (out["rsi"] <= p.rsi_overbought)
+    else:
+        # DEFAULT "penetration": enter on RSI crossing into oversold/overbought.
+        # All validated results (SOL +8.3%, DOGE +4.2%, BNB +1.5%) use this mode.
+        long_cross  = (rsi_prev >= p.rsi_oversold)   & (out["rsi"] < p.rsi_oversold)
+        short_cross = (rsi_prev <= p.rsi_overbought) & (out["rsi"] > p.rsi_overbought)
+
+    out["long_signal"]  = long_cross  & out["bull_regime"] & out["adx_ok"]
+    out["short_signal"] = short_cross & out["bear_regime"] & out["adx_ok"]
 
     out["sl_long"]  = c - out["atr"] * p.sl_atr_mult
     out["sl_short"] = c + out["atr"] * p.sl_atr_mult
@@ -205,7 +245,13 @@ def backtest(df: pd.DataFrame,
              commission_pct: float = 0.05,
              position_size_pct: float = 10.0) -> tuple[list[Trade], pd.Series]:
     """
-    Event-driven backtest. Returns (trades, equity_curve).
+    RESEARCH-ONLY event-driven backtest. Returns (trades, equity_curve).
+
+    WARNING: SL/TP evaluated at bar close — intrabar stop touches not simulated.
+    Entries execute on the same bar close as the signal (no next-bar delay).
+    This overstates profit on winners and understates stop frequency.
+    Use intelligence/backtester.py for realistic evaluation.
+
     commission_pct    : per-side % (0.05 = 5 bps)
     position_size_pct : % of equity per trade
     """
@@ -334,11 +380,14 @@ def scan_current_signal(symbol: str = "SOL/USDT", timeframe: str = "1h",
         "timeframe":    timeframe,
         "bar_time":     str(last.name),
         "close":        round(last["close"], 4),
-        "rsi":          round(last["rsi"], 2),
-        "adx":          round(last["adx"], 2),
+        "rsi":          round(float(last["rsi"]), 2),
+        "adx":          round(float(last["adx"]), 2),
+        "atr":          round(float(last["atr"]), 6),
+        "macro_ma":     round(float(last["macro_ma"]), 4) if not pd.isna(last["macro_ma"]) else None,
         "bull_regime":  bool(last["bull_regime"]),
         "bear_regime":  bool(last["bear_regime"]),
         "adx_ok":       bool(last["adx_ok"]),
+        "signal_mode":  params.signal_mode,
         "long_signal":  bool(last["long_signal"]),
         "short_signal": bool(last["short_signal"]),
         "sl_long":      round(last["sl_long"],  4),
@@ -395,36 +444,37 @@ except ImportError:
     TradeSignal  = None
 
 
-# Symbols with confirmed negative edge in backtest (2024-01-01 → 2025-05-14).
-# XRP: -1.84% PF=0.95 — strategy bleeds on XRP, skip entirely.
-# ETH: -0.45% PF=1.09 — borderline, excluded to protect capital.
-RSI_DIP_SPIKE_BLACKLIST = {"XRP/USD", "XRPUSDT", "XRP/USDT", "ETH/USD", "ETHUSDT", "ETH/USDT"}
-
-
 class RSIDipSpikeV4Strategy(BaseStrategy):
     """RSI Dip & Spike v4c — RSI exhaustion + ADX>=25 + SMA trend filter (INCUBATE/CANDIDATE)."""
 
     def __init__(self):
         super().__init__()
-        self.strategy_name           = "RSIDipSpikeV4"
+        self.strategy_name           = "rsi_dip_spike_v4"   # snake_case, framework-safe
         self.params                  = RSIDipSpikeV4Params()
-        self.stop_loss_pct           = 2.5      # fallback default (matches 2.5×ATR typical)
+        self.stop_loss_pct           = 2.5      # fallback default (ATR-based preferred)
         self.take_profit_pct         = 2.0
         self.crypto_enabled          = True
         self.stock_enabled           = False
         self.crypto_candle_timeframe = "1h"
-        self.candle_limit            = 300
         self.reviewer_exempt         = True
+
+        # Strategy-defined hold: skip generic 30m/2h/5h/8h intraday time stops.
+        # RSI Dip & Spike uses RSI neutral exit + 48-bar time limit — the generic
+        # stops fire before the thesis plays out and distort backtest results.
+        self.time_stop_profile       = "strategy_defined"
+
+        # Warmup: need enough bars for SMA200, ADX, ATR, RSI
+        p = self.params
+        self.candle_limit = max(p.trend_ma_length, p.adx_length, p.atr_length) + 30
 
     def analyze(self, symbol: str, candles: pd.DataFrame,
                 market_condition: str = "unknown") -> Optional[TradeSignal]:
-        if symbol.upper() in RSI_DIP_SPIKE_BLACKLIST:
-            self.verbose_log_skip(symbol, "In RSI Dip/Spike blacklist (XRP: PF=0.95, ETH: borderline PF=1.09)")
-            return None
-        if not self._check_enough_candles(symbol, candles, 220):
+        p = self.params
+        MIN_BARS = max(p.trend_ma_length, p.adx_length, p.atr_length) + 20
+        if not self._check_enough_candles(symbol, candles, MIN_BARS):
             return None
         try:
-            sig  = generate_signals(candles, self.params)
+            sig  = generate_signals(candles, p)
             last = sig.iloc[-1]
 
             long_sig  = bool(last["long_signal"])
@@ -439,54 +489,107 @@ class RSIDipSpikeV4Strategy(BaseStrategy):
             rsi       = float(last["rsi"])
             adx       = float(last["adx"])
 
-            sl_pct = round(atr * self.params.sl_atr_mult / close * 100, 3)
-            tp_pct = round(atr * self.params.tp_atr_mult / close * 100, 3)
+            sl_pct = round(atr * p.sl_atr_mult / close * 100, 3)
+            tp_pct = round(atr * p.tp_atr_mult / close * 100, 3)
 
-            # Score: RSI depth below threshold + ADX strength above minimum
-            rsi_depth   = (self.params.rsi_oversold - rsi) / self.params.rsi_oversold if long_sig else \
-                          (rsi - self.params.rsi_overbought) / (100 - self.params.rsi_overbought)
-            adx_bonus   = min((adx - self.params.adx_min) / 30.0, 0.25)
-            score       = round(max(0.55, min(0.92, 0.60 + rsi_depth * 0.15 + adx_bonus)), 3)
+            # Structural stop as absolute price (preferred by receiver and executor)
+            structural_stop = (
+                close - atr * p.sl_atr_mult if direction == "long"
+                else close + atr * p.sl_atr_mult
+            )
 
-            self.verbose_log(symbol, "RSI dip/spike", True,
-                             rsi, self.params.rsi_oversold, direction)
-            self.verbose_log(symbol, "ADX >= min", adx >= self.params.adx_min,
-                             adx, self.params.adx_min, direction)
+            # Score: deeper RSI exhaustion + stronger ADX → stronger signal
+            if long_sig:
+                rsi_depth = max(0.0, (p.rsi_oversold - rsi) / p.rsi_oversold)
+            else:
+                rsi_depth = max(0.0, (rsi - p.rsi_overbought) / (100.0 - p.rsi_overbought))
+            adx_bonus = min((adx - p.adx_min) / 30.0, 0.25)
+            score     = round(max(0.55, min(0.92, 0.60 + rsi_depth * 0.15 + adx_bonus)), 3)
+
+            self.verbose_log(symbol, "RSI dip/spike", True, rsi, p.rsi_oversold, direction)
+            self.verbose_log(symbol, "ADX >= min", adx >= p.adx_min, adx, p.adx_min, direction)
             self.verbose_log_score(symbol, score, 0.55)
 
+            # Volume ratio — real computation, 20-bar rolling mean
             vol_series = candles["volume"]
-            vol_ma     = vol_series.rolling(20).mean().iloc[-1]
-            vol_ratio  = round(float(vol_series.iloc[-1] / vol_ma), 3) if vol_ma > 0 else 1.0
+            vol_ma_val = vol_series.rolling(20).mean().iloc[-1]
+            vol_ratio  = round(float(vol_series.iloc[-1] / vol_ma_val), 3) if vol_ma_val > 0 else None
 
-            macro_ma   = float(last["macro_ma"]) if not pd.isna(last["macro_ma"]) else close
+            macro_ma_val = float(last["macro_ma"]) if not pd.isna(last["macro_ma"]) else None
 
             return self._make_signal(
                 symbol          = symbol,
                 direction       = direction,
                 score           = score,
-                reason          = (f"RSIDipSpike v4c: RSI={rsi:.1f} "
-                                   f"({'dip' if long_sig else 'spike'}) "
-                                   f"ADX={adx:.1f} | "
-                                   f"{'bull' if last['bull_regime'] else 'bear'} regime"),
+                reason          = (
+                    f"RSIDipSpike v4c: RSI={rsi:.1f} "
+                    f"({'dip' if long_sig else 'spike'}) "
+                    f"ADX={adx:.1f} | "
+                    f"{'bull' if last['bull_regime'] else 'bear'} regime"
+                    + (f" [{p.signal_mode}]" if p.signal_mode != "penetration" else "")
+                ),
                 stop_loss_pct   = sl_pct,
                 take_profit_pct = tp_pct,
                 metadata={
-                    "rsi":          round(rsi, 2),
-                    "adx":          round(adx, 2),
-                    "bull_regime":  bool(last["bull_regime"]),
-                    "bear_regime":  bool(last["bear_regime"]),
-                    "adx_ok":       bool(last["adx_ok"]),
-                    "atr":          round(atr, 6),
-                    # ML scorer keys
-                    "macd_hist":    0.0,
-                    "macd":         0.0,
-                    "volume_ratio": vol_ratio,
-                    "bb_pct":       round(max(0.0, min(1.0, rsi / 100.0)), 3),
-                    "ema_fast":     close,
-                    "ema_slow":     macro_ma,
-                    "ema_trend":    macro_ma,
+                    # Core signal data — real computed values only
+                    "strategy_name":              "rsi_dip_spike_v4",
+                    "entry_timeframe":            self.crypto_candle_timeframe,
+                    "signal_mode":                p.signal_mode,
+                    "rsi":                        round(rsi, 2),
+                    "adx":                        round(adx, 2),
+                    "atr":                        round(atr, 6),
+                    "macro_ma":                   round(macro_ma_val, 6) if macro_ma_val else None,
+                    "bull_regime":                bool(last["bull_regime"]),
+                    "bear_regime":                bool(last["bear_regime"]),
+                    "adx_ok":                     bool(last["adx_ok"]),
+                    "volume_ratio":               vol_ratio,
+                    "structural_stop_price":      round(structural_stop, 6),
+                    # Stop architecture hints for executor/backtester
+                    "preferred_initial_stop_mode": "signal_structural",
+                    "preferred_trail_mode":        "none",
                 },
             )
         except Exception as e:
             self.logger.error(f"RSIDipSpikeV4Strategy.analyze error on {symbol}: {e}", exc_info=True)
             return None
+
+    def check_custom_exit(
+        self,
+        symbol: str,
+        bars: pd.DataFrame,
+        direction: str,
+        entry_metadata: Optional[dict] = None,
+    ) -> Optional[str]:
+        """
+        RSI Dip & Spike-specific exit logic. Called by the backtester on every bar.
+
+        Priority:
+          A. RSI neutral exit — RSI recovers to exit threshold
+          B. Max bars hold   — 48-bar time limit (strategy thesis)
+
+        bars_held is injected into entry_metadata as "_bars_held" by the backtester.
+        """
+        if bars is None or len(bars) < 2:
+            return None
+
+        meta = entry_metadata or {}
+        p    = self.params
+
+        # A. RSI neutral exit
+        try:
+            rsi_series = _rsi(bars["close"], p.rsi_length)
+            rsi_now    = float(rsi_series.iloc[-1])
+            if not pd.isna(rsi_now):
+                if direction == "long"  and rsi_now >= p.rsi_exit_long:
+                    return "rsi_neutral_exit"
+                if direction == "short" and rsi_now <= p.rsi_exit_short:
+                    return "rsi_neutral_exit"
+        except Exception:
+            pass
+
+        # B. Max bars hold
+        bars_held = int(meta.get("_bars_held", 0))
+        if bars_held >= p.max_bars_hold:
+            return "rsi_max_hold"
+
+        return None
