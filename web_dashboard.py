@@ -1664,6 +1664,9 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
 
+        if path == "/api/hello":
+            return self._json(200, {"message": "hello world"})
+
         if path == "/api/snapshot":
             return self._json(200, build_snapshot())
 
