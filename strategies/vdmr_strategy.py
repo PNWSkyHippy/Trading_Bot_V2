@@ -45,12 +45,12 @@ from typing import Optional
 class VDMRParams:
     # Z-score
     zscore_lookback: int   = 30    # Rolling window for mean / std
-    z_entry_thresh:  float = 2.0   # |Z| must exceed this to enter
+    z_entry_thresh:  float = 1.75   # was 2.0 |Z| must exceed this to enter
     z_exit_thresh:   float = 0.0   # Exit when Z returns to this level
 
     # Range Efficiency Ratio (chop filter)
     er_length:       int   = 14    # Look-back for efficiency ratio
-    er_max:          float = 0.40  # Only trade when ER < er_max (choppy)
+    er_max:          float = 0.60  # was 40 Only trade when ER < er_max (choppy)
 
     # ATR
     atr_length:      int   = 14

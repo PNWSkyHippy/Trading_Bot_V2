@@ -74,6 +74,7 @@ const STRATEGIES = [
   'original_scorer',
   'rsi_momentum',
   'bollinger_breakout',
+  'bollinger_squeeze',
   'ema_crossover',
   'mean_reversion',
   'scalp_master',

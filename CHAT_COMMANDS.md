@@ -79,17 +79,28 @@ All enable/disable commands bypass Haiku and execute instantly.
 | `enable vwap_momentum` | Enables VWAP Momentum |
 | `disable vwap_momentum` | Disables VWAP Momentum |
 | `enable rsi_momentum` | Enables RSI Momentum |
+  `enable vwap_confirmed_orb` | Enables VWAP Momentum |
+| `disable vwap_confirmed_orb` | Disables VWAP Momentum |
 | `disable rsi_momentum` | Disables RSI Momentum |
 | `enable ema_crossover` | Enables EMA Crossover |
 | `disable ema_crossover` | Disables EMA Crossover |
+| `enable bollinger_sqeeze` | Enables EMA Crossover |
+| `disable bollinger_squeeze` | Disables EMA Crossover |
 | `enable mean_reversion` | Enables Mean Reversion |
 | `disable mean_reversion` | Disables Mean Reversion |
 | `enable swing_trader` | Enables Swing Trader |
 | `disable swing_trader` | Disables Swing Trader |
-| `enable grid_bot` | Enables Grid Bot |
+| `enable vdmr_strategy` | Enables Swing Trader |
+| `disable vdmr_strategy` | Disables Swing Trader |
+| `enable rsi_dip_spike_v4` | Enables Swing Trader |
+| `disable rsi_dip_spike_v4` | Disables Swing Trader |
+| `enable ema_crossover` | Enables EMA Crossover |
+| `disable ema_crossover` | Disables EMA Crossover |
+| `enable adaptive_regime` | Enables EMA Crossover |
+| `disable adaptive_regime` | Disables EMA Crossover |
 | `disable grid_bot` | Disables Grid Bot |
-| `enable dca_accumulator` | Enables DCA Accumulator |
-| `disable dca_accumulator` | Disables DCA Accumulator |
+| `enable ecb_strategy` | Enables DCA Accumulator |
+| `disable ecb_strategy` | Disables DCA Accumulator |
 | `list strategies` | Shows all 11 with ON/OFF status |
 | `show strategies` | Same as list strategies |
 | `enabled strategies` | Same as list strategies |
@@ -104,7 +115,9 @@ All enable/disable commands bypass Haiku and execute instantly.
 rsi_momentum        bollinger_breakout    ema_crossover
 mean_reversion      scalp_master          swing_trader
 grid_bot            dca_accumulator       vwap_momentum
-hammer_reversal     orb_breakout
+hammer_reversal     orb_breakout          adaptive_regime
+rsi_dip_spike       adaptive_regime       ecb
+bollinger_sqeeze    vdmr                  vwap_confirmed_orb  
 ```
 
 ---

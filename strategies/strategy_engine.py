@@ -29,6 +29,7 @@ from strategies.swing_trader import SwingTrader
 from strategies.grid_bot import GridBot
 from strategies.dca_accumulator import DCAAccumulator
 from strategies.vwap_momentum import VWAPMomentum
+from strategies.vwap_confirmed_orb import VwapConfirmedOrb
 from strategies.hammer_reversal import HammerReversal
 from strategies.orb_breakout import ORBBreakout
 from strategies.adaptive_regime import AdaptiveRegime
@@ -54,7 +55,7 @@ class StrategyEngine:
     def __init__(self, db_ref=None):
         self._db = db_ref or db
 
-        # All 15 strategies
+        # All strategies
         self.strategies: List[BaseStrategy] = [
             RSIMomentum(),
             BollingerBreakout(),
@@ -65,13 +66,14 @@ class StrategyEngine:
             GridBot(),
             DCAAccumulator(),
             VWAPMomentum(),             # Strategy 9
-            HammerReversal(),           # Strategy 10 — disabled, backtest first
-            ORBBreakout(),              # Strategy 11 — disabled, backtest first
-            AdaptiveRegime(),           # Strategy 12 — dual-mode trend/mean-rev (1h bars)
-            ECBStrategy(),              # Strategy 13 — Entropy Collapse Breakout (CANDIDATE)
-            VDMRStrategy(),             # Strategy 14 — Velocity-Deceleration Mean Reversion (INCUBATE)
-            RSIDipSpikeV4Strategy(),    # Strategy 15 — RSI Dip & Spike v4c (INCUBATE/CANDIDATE)
-            BollingerSqueeze(),         # Strategy 16 — Bollinger Squeeze release (INCUBATE)
+            VwapConfirmedOrb(),         # Strategy 10 — VWAP-confirmed ORB
+            HammerReversal(),           # Strategy 11 — disabled, backtest first
+            ORBBreakout(),              # Strategy 12 — disabled, backtest first
+            AdaptiveRegime(),           # Strategy 13 — dual-mode trend/mean-rev (1h bars)
+            ECBStrategy(),              # Strategy 14 — Entropy Collapse Breakout (CANDIDATE)
+            VDMRStrategy(),             # Strategy 15 — Velocity-Deceleration Mean Reversion (INCUBATE)
+            RSIDipSpikeV4Strategy(),    # Strategy 16 — RSI Dip & Spike v4c (INCUBATE/CANDIDATE)
+            BollingerSqueeze(),         # Strategy 17 — Bollinger Squeeze release (INCUBATE)
                                         # Backtest May2025-May2026 1h crypto:
                                         # ETH PF=1.32 +7.3% Sharpe=1.21 | BNB PF=1.15 +0.9%
                                         # BTC PF=1.12 +0.2% | SOL longs disabled (bled)
@@ -81,7 +83,7 @@ class StrategyEngine:
 
         logger.info(
             f"Strategy engine initialized with {len(self.strategies)} strategies "
-            f"(15 total — rsi_dip_spike_v4 is Strategy 15):"
+            f"(vwap_confirmed_orb included):"
         )
         for s in self.strategies:
             status  = "ENABLED"  if s.enabled           else "DISABLED"

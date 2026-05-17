@@ -701,6 +701,56 @@ class PositionMonitor:
                 return None
 
     # ------------------------------------------------------------------
+    #  RSI DIP & SPIKE V4 EXIT (strategy-specific)
+    # ------------------------------------------------------------------
+
+    def _check_rsi_dip_spike_exit(
+        self, trade: Dict, current_price: float, age_seconds: float
+    ) -> Optional[str]:
+        """
+        Delegate to RSIDipSpikeV4Strategy.check_custom_exit() for live parity.
+
+        Provides two exits that only the strategy knows about:
+          - RSI neutral exit : RSI recovers past the exit threshold (55/45)
+          - 48-bar max-hold  : time limit enforced by the strategy thesis
+
+        Without this, the generic 8-hour hard stop fires first, producing
+        different exit-reason distributions live vs backtested.
+
+        _bars_held is derived from age_seconds using the 1h bar size (3600s).
+        """
+        import json
+
+        symbol      = trade["symbol"]
+        asset_class = trade.get("asset_class", "crypto")
+        direction   = trade["direction"]
+
+        try:
+            meta = json.loads(trade.get("indicators_json") or "{}")
+        except (json.JSONDecodeError, TypeError):
+            meta = {}
+
+        # Derive bars_held from wall-clock age — rsi_dip_spike_v4 is 1h only
+        meta["_bars_held"] = int(age_seconds / 3600)
+
+        bars = self._get_bars(symbol, asset_class, limit=60, timeframe="1h")
+        if bars is None or len(bars) < 15:
+            logger.debug(
+                f"[RSI DIP EXIT] {symbol}: insufficient bars "
+                f"(got {len(bars) if bars is not None else 0}, need 15+) — skip"
+            )
+            return None
+
+        try:
+            from strategies.rsi_dip_spike_v4 import RSIDipSpikeV4Strategy
+            return RSIDipSpikeV4Strategy().check_custom_exit(
+                symbol, bars, direction, meta
+            )
+        except Exception as e:
+            logger.debug(f"[RSI DIP EXIT] {symbol}: check_custom_exit error: {e}")
+            return None
+
+    # ------------------------------------------------------------------
     #  ADAPTIVE REGIME EXIT (strategy-specific)
     # ------------------------------------------------------------------
 
@@ -1022,6 +1072,17 @@ class PositionMonitor:
             if adaptive_exit:
                 self._db.set_state(f"momentum_ext_{trade_id}", 0)
                 self._attempt_close(trade, current_price, adaptive_exit)
+                return
+
+        # ── 4c. RSI DIP & SPIKE EXIT ─────────────────────────────────────
+        # Strategy-specific exit: RSI neutral exit + 48-bar max-hold.
+        # Takes priority over generic time stops — rsi_dip_spike_v4 is
+        # TIME_STOP_EXEMPT in the backtester; this block gives live parity.
+        if strategy == "rsi_dip_spike_v4":
+            rsi_dip_exit = self._check_rsi_dip_spike_exit(trade, current_price, age_seconds)
+            if rsi_dip_exit:
+                self._db.set_state(f"momentum_ext_{trade_id}", 0)
+                self._attempt_close(trade, current_price, rsi_dip_exit)
                 return
 
         # ── 5. EARLY LOSS IDENTIFICATION (30 min) ────────────────────────

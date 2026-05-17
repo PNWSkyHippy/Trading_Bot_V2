@@ -59,11 +59,11 @@ from typing import Dict, Optional
 class ECBParams:
     # Entropy
     entropy_window:  int   = 20    # Rolling window for Shannon entropy
-    entropy_thresh:  float = 0.75  # Enter when entropy collapses below this
+    entropy_thresh:  float = 0.85  # ws 75 Enter when entropy collapses below this
     entropy_reset:   float = 0.90  # Entropy must rise above this before re-entry
 
     # Directional bias
-    bias_threshold:  float = 0.55  # Rolling up-ratio must exceed this for long bias
+    bias_threshold:  float = 0.50  # was 55 Rolling up-ratio must exceed this for long bias
 
     # ATR
     atr_length:      int   = 14
@@ -145,6 +145,12 @@ def generate_signals(df: pd.DataFrame, params: ECBParams = ECBParams()) -> pd.Da
     out["atr"]    = tr.ewm(span=p.atr_length, adjust=False).mean()
     atr_ma        = out["atr"].rolling(p.vol_filter_len).mean()
     out["vol_ok"] = out["atr"] > atr_ma * p.vol_filter_pct
+
+    # ── Real volume participation (Patch 3) ───────────────────────────────────
+    # Separate from vol_ok (ATR-based regime). This measures actual traded
+    # volume vs rolling average — pure participation, no ATR coupling.
+    vol_ma             = out["volume"].rolling(p.vol_filter_len).mean()
+    out["volume_ratio"] = out["volume"] / vol_ma.replace(0, np.nan)
 
     # ── Macro trend regime ────────────────────────────────────────────────────
     out["macro_ma"]    = c.rolling(p.trend_ma_length).mean()
@@ -437,6 +443,7 @@ class ECBStrategy(BaseStrategy):
         self.stock_enabled           = False
         self.crypto_candle_timeframe = "1h"
         self.reviewer_exempt         = True     # ATR-based dynamic stops
+        self.ml_exempt               = True     # ML model dominated by grid_bot (1507 trades) — ECB has 1 historical trade, blending produces noise not signal
 
         # Strategy-defined hold: tell backtester to skip generic intraday time stops.
         # ECB's thesis uses a 24-bar max hold — the 8h hard stop and 30m early-loss
@@ -496,13 +503,20 @@ class ECBStrategy(BaseStrategy):
             )
 
             # Score: lower entropy = stronger commitment; stronger bias = stronger signal
-            bias_ratio = float(last.get("rolling_up_ratio", 0.5))
-            bias_score = abs(bias_ratio - 0.5) * 2   # 0.0 at neutral, 1.0 at pure directional
+            # Patch 5: improved spread — old formula bunched at 0.50 floor because
+            # entropy component was too small near the threshold.
+            bias_ratio    = float(last.get("rolling_up_ratio", 0.5))
+            bias_score    = abs(bias_ratio - 0.5) * 2          # 0.0 neutral → 1.0 pure directional
+            entropy_depth = max(0.0, 1.0 - entropy / p.entropy_thresh)  # 0 at threshold → 1 at 0
+            volume_ratio  = float(last.get("volume_ratio", 1.0))
+            vol_part      = min(1.0, volume_ratio / 2.0)        # normalise: 2× avg volume = full bonus
             score = round(
                 max(0.50, min(0.95,
-                    0.5 * (1.0 - entropy / p.entropy_thresh) +  # entropy component
-                    0.3 * bias_score +                            # bias component
-                    0.2 * float(last.get("vol_ok", False))        # vol filter bonus
+                    0.55 +
+                    0.30 * entropy_depth +                        # deeper collapse → higher score
+                    0.20 * bias_score +                           # clearer direction → higher score
+                    0.05 * float(last.get("vol_ok", False))       # ATR regime: small bonus only
+                    # volume_ratio logged in metadata but not in score to keep it clean
                 )),
                 3
             )
@@ -516,6 +530,10 @@ class ECBStrategy(BaseStrategy):
 
             macro_ma_val = float(last["macro_ma"]) if not pd.isna(last["macro_ma"]) else None
 
+            # Record the entry bar timestamp so check_custom_exit can derive
+            # bars_held in the live path (Patch 1 — live/backtest parity).
+            entry_bar_time = str(candles.index[-1]) if len(candles) > 0 else None
+
             return self._make_signal(
                 symbol          = symbol,
                 direction       = direction,
@@ -528,18 +546,28 @@ class ECBStrategy(BaseStrategy):
                 stop_loss_pct   = sl_pct,
                 take_profit_pct = tp_pct,
                 metadata={
-                    # Core ECB signal data — all real computed values
+                    # Core ECB signal data — all real computed values, no placeholders
                     "strategy_name":          "ecb_strategy",
                     "entry_timeframe":        self.crypto_candle_timeframe,
+                    # Patch 1: entry bar time for live max-hold parity
+                    "_entry_bar_time":        entry_bar_time,
+                    # Entropy
                     "entropy":                round(entropy, 4),
                     "entropy_thresh":         p.entropy_thresh,
                     "entropy_reset":          p.entropy_reset,
+                    # Bias
                     "bias_up_ratio":          round(bias_ratio, 4),
                     "bias_up":                bool(last["bias_up"]),
                     "bias_down":              bool(last["bias_down"]),
-                    "vol_ok":                 bool(last["vol_ok"]),
+                    # Patch 3/4: volatility (ATR-based) + real volume participation
+                    "vol_ok":                 bool(last["vol_ok"]),           # ATR regime (kept for compat)
+                    "volatility_ok":          bool(last["vol_ok"]),           # clearer alias (Patch 4)
+                    "volume_ratio":           round(float(last.get("volume_ratio", float("nan"))), 3)
+                                              if not pd.isna(last.get("volume_ratio", float("nan"))) else None,
+                    # Regime
                     "bull_regime":            bool(last["bull_regime"]),
                     "bear_regime":            bool(last["bear_regime"]),
+                    # ATR / stops
                     "atr":                    round(atr, 6),
                     "macro_ma":               round(macro_ma_val, 6) if macro_ma_val else None,
                     "structural_stop_price":  round(structural_stop, 6),
@@ -584,16 +612,32 @@ class ECBStrategy(BaseStrategy):
                 if direction == "short" and close > float(macro_ma):
                     return "ecb_regime_flip"
 
-        # B. Entropy normalization: regime has ended, mean reversion in progress
+        # B. Entropy normalization — Patch 2: require 2 consecutive bars above
+        # entropy_reset before exiting. One-bar spike = noise. Two bars = regime ended.
         try:
-            entropy_now = rolling_entropy(bars, p.entropy_window).iloc[-1]
-            if not pd.isna(entropy_now) and float(entropy_now) > p.entropy_reset:
-                return "ecb_entropy_reset"
+            entropy_series = rolling_entropy(bars, p.entropy_window)
+            if len(entropy_series) >= 2:
+                e_now  = float(entropy_series.iloc[-1])
+                e_prev = float(entropy_series.iloc[-2])
+                if (not pd.isna(e_now) and not pd.isna(e_prev)
+                        and e_now > p.entropy_reset and e_prev > p.entropy_reset):
+                    return "ecb_entropy_reset"
         except Exception:
             pass
 
-        # C. Max bars hold (bars_held injected by backtester; not available in live)
+        # C. Max bars hold — Patch 1: live/backtest parity.
+        # Primary path: backtester injects _bars_held directly.
+        # Fallback path: derive from _entry_bar_time stored in metadata at entry.
+        #   The live position monitor passes entry_metadata through, so _entry_bar_time
+        #   written by analyze() is available here in the live path.
         bars_held = int(meta.get("_bars_held", 0))
+        if bars_held == 0 and "_entry_bar_time" in meta:
+            try:
+                entry_ts  = pd.Timestamp(meta["_entry_bar_time"])
+                # Count bars whose index is strictly after the entry bar
+                bars_held = int((bars.index > entry_ts).sum())
+            except Exception:
+                pass
         if bars_held >= p.max_bars_hold:
             return "ecb_max_hold"
 

@@ -1,0 +1,58 @@
+Do a SMALL final patch pass for RSI Dip & Spike v4.
+
+Important:
+- Do NOT redesign the strategy.
+- Do NOT change entry logic, thesis, score model, or stop architecture.
+- Do NOT add new indicators.
+- Only fix parity / correctness issues.
+
+Files to inspect:
+- strategies/rsi_dip_spike_v4.py
+- intelligence/backtester.py
+- position_monitor.py (only if needed for live parity)
+
+Tasks:
+
+1) Fix max-hold exit parity
+Current strategy uses:
+    meta.get("_bars_held", 0)
+inside check_custom_exit().
+
+Patch backtester so before calling strategy_obj.check_custom_exit(...),
+it passes a COPY of entry_metadata with:
+    "_bars_held": i - trade["entry_idx"]
+
+Example intent:
+    _meta = dict(trade.get("entry_metadata", {}))
+    _meta["_bars_held"] = i - trade["entry_idx"]
+
+Then pass _meta into check_custom_exit().
+
+2) Verify live parity
+Confirm whether live trading path already supports strategy-specific
+check_custom_exit() for rsi_dip_spike_v4.
+- If yes, leave it.
+- If not, minimally patch live monitoring so RSI neutral exit and
+  48-bar max-hold can fire in live too.
+Do not redesign position monitoring.
+
+3) Minor cleanup in strategy metadata
+Change:
+    "macro_ma": round(macro_ma_val, 6) if macro_ma_val else None
+to:
+    "macro_ma": round(macro_ma_val, 6) if macro_ma_val is not None else None
+
+4) Validate signal_mode
+Normalize/validate signal_mode so invalid values do not silently create ambiguity.
+Allowed:
+- penetration
+- reclaim
+Fallback:
+- penetration
+
+5) Keep everything else unchanged.
+
+Return:
+- exact patched code
+- short summary of what changed
+- explicit statement whether live parity for RSI neutral exit and rsi_max_hold is now confirmed

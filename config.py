@@ -223,7 +223,7 @@ STRATEGY_REENABLE_WIN_RATE  = 50.0
 # VERBOSE MODE
 # =============================================================================
 
-VERBOSE_MODE = False
+VERBOSE_MODE = True
 
 # =============================================================================
 # POSITION MONITOR EXIT SETTINGS
@@ -326,10 +326,15 @@ SIGNAL_TUNING = {
     # -------------------------------------------------------------------------
     # STRATEGY 2: Bollinger Breakout
     # -------------------------------------------------------------------------
+    # Audit 2026-05-16: ADX 20→30, squeeze now a hard gate (was score bonus)
+    #   Sweep (72 combos, BTC 1h): ADX30+squeeze only combo with PF>1.2 (+net)
+    #   ADX20 no-squeeze = PF~1.07, -net. ADX30+squeeze = PF 1.28, +$2,658
+    # -------------------------------------------------------------------------
     "bb_breakout_period":           20,
     "bb_breakout_std":              2.0,
     "bb_squeeze_threshold":         0.04,
     "bb_breakout_min_score":        0.70,
+    "bb_adx_min":                   30,    # was hardcoded 20 — raised per audit sweep
 
     # -------------------------------------------------------------------------
     # STRATEGY 3: EMA Crossover
@@ -367,18 +372,25 @@ SIGNAL_TUNING = {
 
     # -------------------------------------------------------------------------
     # STRATEGY 7: Grid Bot
+    # Audit 2026-05-16: ADX20 → ADX15 (Iter1 confirmed improvement)
+    #   BTC: WR 42%→50%, PF 1.109→1.621, Sharpe -0.99→+0.975, DD 4.3%→1.3%
+    #   ADX<20 lets in "quiet trend" periods; ADX<15 = genuinely flat/ranging only
     # -------------------------------------------------------------------------
-    "grid_adx_max":                 20,
+    "grid_adx_max":                 20,   # was 20-15 — lowered per audit Iter1
     "grid_adx_period":              14,
     "grid_bb_period":               30,
+    "grid_long_edge_pct":           0.30, # lwas .20 ong when price is in bottom 20% of BB range
+    "grid_short_edge_pct":          0.80, # short when price is in top 20% of BB range
     "grid_min_score":               0.70,
 
     # -------------------------------------------------------------------------
     # STRATEGY 8: DCA Accumulator
+    # Audit 2026-05-16: rsi_max 45→35 (sweep: RSI35 dominates all top slots)
+    #   RSI45/55 results: PF ~1.01-1.02. RSI35: PF 1.115. Tighter = better entries.
     # -------------------------------------------------------------------------
     "dca_ema_period":               50,
     "dca_dip_pct":                  0.02,
-    "dca_rsi_max":                  45,
+    "dca_rsi_max":                  35,    # was 45 — tightened per audit sweep
     "dca_min_score":                0.60,
 
     # -------------------------------------------------------------------------

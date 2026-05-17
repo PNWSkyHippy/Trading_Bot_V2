@@ -95,6 +95,10 @@ class HammerReversal(BaseStrategy):
         # Enabled — SOL/USD only, all 5 filters active
         self.enabled          = True
 
+        # ML model is dominated by grid_bot (1507 trades); hammer_reversal has
+        # ~0 representation so ML blending collapses valid scores below threshold.
+        self.ml_exempt = True
+
         logger.info(
             f"[{self.strategy_name}] Initialized — ENABLED. "
             f"Whitelist: {sorted(HAMMER_WHITELIST)}. "

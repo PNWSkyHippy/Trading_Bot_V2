@@ -59,8 +59,7 @@ MIN_SHORT_ENTRY_RSI  = 25
 
 MIN_BARS = max(SLOW_EMA, ATR_PERIOD, RSI_PERIOD, VOL_PERIOD) + 30
 
-
-class VWAPConfirmedORB(BaseStrategy):
+class VwapConfirmedOrb(BaseStrategy):
     def __init__(self):
         super().__init__()
         self.strategy_name   = "vwap_confirmed_orb"
@@ -74,6 +73,10 @@ class VWAPConfirmedORB(BaseStrategy):
         self.stock_enabled  = True
         self.crypto_enabled = True
         self.enabled        = True
+
+        # ML model is dominated by grid_bot (1507 trades); vwap_confirmed_orb has
+        # ~0 representation so ML blending collapses valid scores below threshold.
+        self.ml_exempt = True
 
         logger.info(
             f"[{self.strategy_name}] Initialized — stock 5Min ORB + crypto 15m ORB"

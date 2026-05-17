@@ -542,14 +542,19 @@ Return ONLY JSON. No markdown. No prose. No code fences."""
             logger.warning(f"[Massive] fetch error {symbol}: {e}")
             return []
 
-    def _massive_daily_change(self, symbol: str) -> Optional[Dict]:
+    def _massive_daily_change(self, symbol: str, use_massive: bool = True) -> Optional[Dict]:
         """
         Fetch latest daily aggregate data for one symbol.
-        Tries Massive.com first (if session available), falls back to yfinance.
-        Returns {symbol, close, prev_close, change_pct, volume} or None.
+
+        use_massive=True  -> try Massive.com first, then fall back to yfinance
+        use_massive=False -> skip Massive entirely, use yfinance only
+
+        Returns:
+            {symbol, close, prev_close, change_pct, volume}
+            or None on total failure.
         """
-        # ── Try Massive first (if API key configured) ────────────────────────
-        if self._massive_session and self._massive_key:
+        # ── Try Massive first only when explicitly allowed ───────────────────
+        if use_massive and self._massive_session and self._massive_key:
             try:
                 to_date   = datetime.now().strftime("%Y-%m-%d")
                 from_date = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")
@@ -562,7 +567,13 @@ Return ONLY JSON. No markdown. No prose. No code fences."""
                     params={"adjusted": "true", "sort": "asc", "limit": 10},
                     timeout=MASSIVE_TIMEOUT_SEC,
                 )
-                if resp.status_code == 200:
+
+                if resp.status_code == 429:
+                    logger.warning(
+                        f"[Massive] {symbol} 429 in morning snapshot — "
+                        f"falling back to yfinance"
+                    )
+                elif resp.status_code == 200:
                     results = (resp.json() or {}).get("results", [])
                     if len(results) >= 2:
                         last       = results[-1]
@@ -578,11 +589,15 @@ Return ONLY JSON. No markdown. No prose. No code fences."""
                             "change_pct": round(change_pct, 3),
                             "volume":     volume,
                         }
-                logger.debug(f"[Massive] {symbol} HTTP {resp.status_code} — falling back to yfinance")
+                    logger.debug(f"[Massive] {symbol} returned <2 bars — falling back to yfinance")
+                else:
+                    logger.debug(
+                        f"[Massive] {symbol} HTTP {resp.status_code} — falling back to yfinance"
+                    )
             except Exception as e:
                 logger.debug(f"[Massive] {symbol} error ({e}) — falling back to yfinance")
 
-        # ── Fallback: yfinance (free, no rate limit) ─────────────────────────
+        # ── Fallback / direct path: yfinance ────────────────────────────────
         try:
             bars = self._fetch_yfinance_day_bars(symbol, lookback_days=7)
             if len(bars) >= 2:
@@ -664,9 +679,14 @@ Return ONLY JSON. No markdown. No prose. No code fences."""
     def _build_market_snapshot(self) -> Optional[Dict]:
         """
         Build a structured US market snapshot using ETF daily change data.
-        Tries Massive.com first per symbol, falls back to yfinance.
-        This is what Claude reasons over — pure arithmetic, no AI.
-        Returns None if no broad data could be fetched.
+
+        Source routing:
+          - Broad ETFs (SPY/QQQ/IWM/DIA/RSP): Massive preferred, yfinance fallback
+          - Sector ETFs: yfinance only
+          - Risk/defensive proxies: yfinance only
+
+        This keeps Massive usage low (5 calls vs 16) while preserving the key
+        broad-market read. Returns None if no broad data could be fetched.
         """
         snapshot: Dict = {
             "broad":   {},
@@ -675,21 +695,21 @@ Return ONLY JSON. No markdown. No prose. No code fences."""
             "derived": {},
         }
 
-        # ── Broad market ETFs ─────────────────────────────────────────────────
+        # ── Broad market ETFs: Massive preferred ─────────────────────────────
         for sym in BRIEFING_BROAD_TICKERS:
-            row = self._massive_daily_change(sym)
+            row = self._massive_daily_change(sym, use_massive=True)
             if row:
                 snapshot["broad"][sym] = row
 
-        # ── Sector ETFs ───────────────────────────────────────────────────────
+        # ── Sector ETFs: yfinance only (avoid burning Massive quota) ─────────
         for sector_name, sym in BRIEFING_SECTOR_TICKERS.items():
-            row = self._massive_daily_change(sym)
+            row = self._massive_daily_change(sym, use_massive=False)
             if row:
                 snapshot["sectors"][sector_name] = row
 
-        # ── Risk / defensive proxies ──────────────────────────────────────────
+        # ── Risk / defensive proxies: yfinance only ───────────────────────────
         for risk_name, sym in BRIEFING_RISK_TICKERS.items():
-            row = self._massive_daily_change(sym)
+            row = self._massive_daily_change(sym, use_massive=False)
             if row:
                 snapshot["risk"][risk_name] = row
 
@@ -1049,13 +1069,13 @@ RULES:
             status = "ERROR — conservative defaults applied" if context.error else "OK"
 
             lines = [
-                f"═══════════════════════════════════════════════════════",
-                f"  MORNING BRIEFING  —  {ts}",
+                f"=======================================================",
+                f"  MORNING BRIEFING  -  {ts}",
                 f"  Status: {status}",
-                f"═══════════════════════════════════════════════════════",
+                f"=======================================================",
                 f"",
                 f"TRADING GATE",
-                f"  Stock trading allowed : {'YES' if context.allow_trading else 'NO — blocked'}",
+                f"  Stock trading allowed : {'YES' if context.allow_trading else 'NO - blocked'}",
                 f"  Max exposure          : {context.max_exposure_pct:.0f}% of portfolio",
                 f"  Conviction score      : {context.conviction_score}/100",
                 f"",
@@ -1074,10 +1094,10 @@ RULES:
                 f"  Earnings today        : {', '.join(context.earnings_today) if context.earnings_today else 'none'}",
                 f"",
                 f"NARRATIVE SUMMARY",
-                f"───────────────────────────────────────────────────────",
+                f"-------------------------------------------------------",
                 context.briefing_text if context.briefing_text else "(no summary generated)",
                 f"",
-                f"═══════════════════════════════════════════════════════",
+                f"=======================================================",
             ]
 
             with open(path, 'w', encoding='utf-8') as f:

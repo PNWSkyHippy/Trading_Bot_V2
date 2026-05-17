@@ -53,9 +53,10 @@ CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
 # All valid strategy names — used by pre-parser
 STRATEGY_NAMES = [
-    "rsi_momentum", "bollinger_breakout", "ema_crossover", "mean_reversion",
-    "scalp_master", "swing_trader", "grid_bot", "dca_accumulator",
-    "vwap_momentum", "hammer_reversal", "orb_breakout",
+    "rsi_momentum", "bollinger_breakout", "ema_crossover", "mean_reversion", "adaptive_regime",
+    "scalp_master", "swing_trader", "grid_bot", "dca_accumulator", "ecb_strategy", "bollinger_squeeze",
+    "vwap_momentum", "hammer_reversal", "orb_breakout", "rsi_dip_spike_v4","vdmr_strategy",
+    "vwap_confirmed_orb",
 ]
 
 # Watchlist file paths
@@ -77,8 +78,9 @@ CRITICAL RULES:
 
 STRATEGY COMMANDS:
 Valid names: rsi_momentum, bollinger_breakout, ema_crossover, mean_reversion,
-scalp_master, swing_trader, grid_bot, dca_accumulator, vwap_momentum,
-hammer_reversal, orb_breakout
+scalp_master, swing_trader, grid_bot, dca_accumulator, vwap_momentum, bollinger_squeeze,
+hammer_reversal, orb_breakout, adaptive_regime, rsi_dip_spike_v4, vdmr_strategy, ecb_strategy,
+vwap_confirmed_orb
 
 When user says "enable X" or "disable X" — execute IMMEDIATELY, no questions.
 Do NOT say the strategy doesn't exist. Do NOT list strategies first. Just do it.
@@ -561,6 +563,29 @@ class ChatInterface:
                 return f"Could not get capital breakdown: {e}"
 
         if any(p in msg_lower for p in [
+            "morning briefing", "morning brief", "morning report",
+            "what did you find this morning", "what did you find today",
+            "market view", "market conditions today", "todays briefing",
+            "today's briefing", "what's the market", "whats the market",
+            "market sentiment", "market outlook", "how is the market",
+            "what did the briefing say", "briefing results", "briefing summary"
+        ]):
+            try:
+                briefing_path = Path(__file__).parent.parent / "logs" / "morning_briefing.txt"
+                if briefing_path.exists():
+                    content = briefing_path.read_text(encoding="utf-8").strip()
+                    logger.info("[CLAUDE] PRE-PARSE morning_briefing_read")
+                    return content
+                else:
+                    return (
+                        "No morning briefing found yet. "
+                        "The briefing runs automatically at market open. "
+                        "It will be available at logs/morning_briefing.txt once complete."
+                    )
+            except Exception as e:
+                return f"Could not read morning briefing: {e}"
+
+        if any(p in msg_lower for p in [
             "daily performance", "recent daily", "daily summary",
             "today performance", "performance today"
         ]):
@@ -798,6 +823,26 @@ class ChatInterface:
                 f"${t.get('pnl',0):+.2f}"
                 for t in recent
             ) + "\n"
+
+        # Append abbreviated morning briefing so Haiku knows the market regime
+        # for any question, not just explicit briefing queries.
+        try:
+            briefing_path = Path(__file__).parent.parent / "logs" / "morning_briefing.txt"
+            if briefing_path.exists():
+                lines = briefing_path.read_text(encoding="utf-8").splitlines()
+                # Extract the key one-liners — keep context tight
+                summary_lines = [
+                    l.strip() for l in lines
+                    if any(k in l for k in (
+                        "Stock trading allowed", "Conviction score",
+                        "Sentiment", "Breadth health", "Hot (favour",
+                        "Cold (avoid", "Earnings today", "MORNING BRIEFING"
+                    ))
+                ]
+                if summary_lines:
+                    context += "MORNING BRIEFING SNAPSHOT: " + " | ".join(summary_lines[:6]) + "\n"
+        except Exception:
+            pass
 
         return context
 
