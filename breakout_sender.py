@@ -73,6 +73,10 @@ class BreakoutSender:
             return False
         if escalation < self._min_esc:
             return False
+        if escalation > 0:
+            # EscalationTracker guarantees each level fires exactly once per symbol lifetime.
+            # The dedup window only risks blocking esc=3 when price moves fast after esc=2.
+            return True
         last = self._last_sent.get(signal.symbol, 0)
         if time.time() - last < self._dedup_sec:
             return False
@@ -181,6 +185,12 @@ class BreakoutSender:
         broker      = getattr(signal, "broker", "KRAKEN").lower()
         now_utc     = datetime.now(timezone.utc).isoformat()
 
+        sig_ts = getattr(signal, "timestamp", None)
+        source_ts = (
+            sig_ts.astimezone(timezone.utc).isoformat()
+            if sig_ts and hasattr(sig_ts, "astimezone") else None
+        )
+
         return {
             # Identity
             "symbol":        signal.symbol,
@@ -189,8 +199,9 @@ class BreakoutSender:
             "asset_class":   asset_class,
             "signal_source": "breakout_scanner",
 
-            # Time
-            "timestamp":     now_utc,
+            # Time — timestamp must remain send-time for receiver TTL; source_timestamp is audit only
+            "timestamp":        now_utc,
+            "source_timestamp": source_ts,
 
             # Price
             "entry_price":   signal.entry_price,

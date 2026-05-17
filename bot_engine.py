@@ -191,6 +191,22 @@ class BotEngine:
         # Wire breakout receiver
         breakout_receiver.set_executor(self.trade_executor)
         breakout_receiver.set_scanner(self.market_scanner)
+
+        # Wire re-entry path: market_scanner -> receiver, position_monitor -> callback
+        self.market_scanner.set_reentry_receiver(breakout_receiver)
+
+        def _on_breakout_win_closed(
+            symbol: str, won: bool, exit_price: float, direction: str
+        ) -> None:
+            if won:
+                try:
+                    self.market_scanner.schedule_reentry(symbol, exit_price, direction)
+                except Exception as e:
+                    self.logger.error(
+                        f"[REENTRY HOOK] schedule failed for {symbol}: {e}"
+                    )
+
+        self.position_monitor.set_breakout_win_callback(_on_breakout_win_closed)
         start_api_server(port=getattr(config, 'BOT_API_PORT', 8181))
         self.logger.info("[API] Breakout receiver active on port "
                          f"{getattr(config, 'BOT_API_PORT', 8181)}")

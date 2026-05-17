@@ -8,10 +8,11 @@
 """
 
 import logging
+import threading
 import time
 import numpy as np
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional
 from dataclasses import dataclass
 try:
@@ -566,11 +567,105 @@ class CryptoScanner:
         return signals
 
 
+WIN_REENTRY_DELAY_SEC = 125   # 120s risk_manager win cooldown + 5s buffer
+
+
 class MarketScanner:
 
     def __init__(self):
         self.stock_scanner  = StockScanner()
         self.crypto_scanner = CryptoScanner()
+        self._receiver_ref             = None
+        self._pending_reentry: set     = set()
+        self._pending_lock             = threading.Lock()
+
+    def set_reentry_receiver(self, receiver) -> None:
+        self._receiver_ref = receiver
+
+    def schedule_reentry(
+        self, symbol: str, exit_price: float, direction: str
+    ) -> None:
+        with self._pending_lock:
+            if symbol in self._pending_reentry:
+                logger.info(f"[REENTRY] {symbol}: already pending — skipped duplicate")
+                return
+            self._pending_reentry.add(symbol)
+        t = threading.Timer(
+            WIN_REENTRY_DELAY_SEC,
+            self._safe_reentry_scan,
+            args=[symbol, exit_price, direction],
+        )
+        t.daemon = True
+        t.start()
+        logger.info(
+            f"[REENTRY] {symbol} {direction} re-entry scan "
+            f"scheduled in {WIN_REENTRY_DELAY_SEC}s"
+        )
+
+    def _safe_reentry_scan(
+        self, symbol: str, exit_price: float, direction: str
+    ) -> None:
+        with self._pending_lock:
+            self._pending_reentry.discard(symbol)
+        try:
+            self._do_reentry_scan(symbol, exit_price, direction)
+        except Exception as e:
+            logger.error(f"[REENTRY] {symbol}: scan failed: {e}", exc_info=True)
+
+    def _do_reentry_scan(
+        self, symbol: str, exit_price: float, direction: str
+    ) -> None:
+        if not self._receiver_ref:
+            logger.warning("[REENTRY] No receiver wired — skipping")
+            return
+
+        asset_class   = "crypto" if "/" in symbol else "stock"
+        current_price = self.get_current_price(symbol, asset_class)
+
+        if not current_price:
+            logger.info(f"[REENTRY] {symbol}: could not fetch live price — aborting")
+            return
+
+        drift_pct = ((current_price - exit_price) / exit_price) * 100
+
+        if direction == "long"  and drift_pct < -0.3:
+            logger.info(f"[REENTRY] {symbol}: reversed {drift_pct:.2f}% since exit — skip")
+            return
+        if direction == "short" and drift_pct >  0.3:
+            logger.info(f"[REENTRY] {symbol}: reversed {drift_pct:+.2f}% since exit — skip")
+            return
+
+        payload = {
+            "symbol":                      symbol,
+            "asset_class":                 asset_class,
+            "direction":                   direction,
+            "entry_price":                 current_price,
+            "current_price":               current_price,
+            "move_pct":                    round(drift_pct, 4),
+            "volume_spike":                1.0,
+            "confidence":                  0.70,
+            "escalation":                  1,
+            "timestamp":                   datetime.now(timezone.utc).isoformat(),
+            "broker":                      "kraken" if asset_class == "crypto" else "alpaca",
+            "bars_since_breakout":         1,
+            "distance_from_breakout_pct":  abs(drift_pct),
+        }
+
+        logger.info(
+            f"[REENTRY] Injecting {symbol} {direction} @ ${current_price:.4f} "
+            f"(exited @ ${exit_price:.4f}, drift={drift_pct:+.2f}%)"
+        )
+
+        result   = self._receiver_ref.receive_signal(payload)
+        accepted = result.get("accepted", False)
+        logger.info(
+            f"[REENTRY] {symbol}: "
+            + (
+                f"ACCEPTED -> trade_id={result.get('trade_id')}"
+                if accepted
+                else f"REJECTED — {result.get('reason', '?')}"
+            )
+        )
 
     def _get_executor(self):
         from core.trade_executor import executor
