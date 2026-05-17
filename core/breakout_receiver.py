@@ -102,6 +102,7 @@ class BreakoutReceiver:
     def __init__(self):
         self._executor: Optional[TradeExecutor] = None
         self._scanner_ref = None
+        self._drift_state: Dict[str, Any] = {}
 
     def set_executor(self, executor: TradeExecutor):
         self._executor = executor
@@ -114,6 +115,7 @@ class BreakoutReceiver:
     # ──────────────────────────────────────────────────────────────────────
 
     def receive_signal(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        self._drift_state = {}   # wipe state from any previous call
         sym            = payload.get("symbol", "?")
         direction      = payload.get("direction", "?")
         esc            = payload.get("escalation", 0)
@@ -199,6 +201,19 @@ class BreakoutReceiver:
 
         if not hard_passed:
             failed = next(r for r in hard_results if r.status == ChecklistResult.FAIL)
+
+            drift = self._drift_state
+            self._drift_state = {}   # consume regardless of outcome
+            if drift:
+                flip_result = self._try_direction_flip(
+                    payload,
+                    drift["live_price"],
+                    drift["drift_pct"],
+                    signal_age_sec,
+                )
+                if flip_result is not None:
+                    return flip_result
+
             reason = f"Hard check failed: {failed.reason}"
             logger.info(f"[BREAKOUT RECV] CHECKLIST REJECTED {sym} — {reason}")
             return {
@@ -325,11 +340,13 @@ class BreakoutReceiver:
             drift_pct = ((current - ref_price) / ref_price) * 100
 
             if direction == "long" and drift_pct < -PRICE_DRIFT_MAX_PCT:
+                self._drift_state = {"live_price": current, "drift_pct": drift_pct}
                 return ChecklistResult.fail(
                     f"{sym} reversed {drift_pct:.2f}% from signal price "
                     f"(limit -{PRICE_DRIFT_MAX_PCT}%)"
                 )
             if direction == "short" and drift_pct > PRICE_DRIFT_MAX_PCT:
+                self._drift_state = {"live_price": current, "drift_pct": drift_pct}
                 return ChecklistResult.fail(
                     f"{sym} reversed +{drift_pct:.2f}% from signal price "
                     f"(limit +{PRICE_DRIFT_MAX_PCT}%)"
@@ -508,6 +525,126 @@ class BreakoutReceiver:
         if direction == "short" and mkt_chg > MARKET_RALLY_THRESHOLD:
             return ChecklistResult.fail(f"Market up {mkt_chg:.1f}% — bad for shorts")
         return ChecklistResult.ok(f"Market context OK ({mkt_chg:+.1f}%)")
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Direction flip
+    # ──────────────────────────────────────────────────────────────────────
+
+    def _try_direction_flip(
+        self,
+        payload: Dict[str, Any],
+        live_price: float,
+        drift_pct: float,
+        signal_age_sec: float,
+    ) -> Optional[Dict[str, Any]]:
+        sym      = payload.get("symbol", "?")
+        orig_dir = payload.get("direction", "long")
+        flipped  = "short" if orig_dir == "long" else "long"
+
+        # Evaluate 3 flip criteria (require 2/3)
+        criteria_met = 0
+
+        vol = float(payload.get("volume_spike", 0))
+        c1  = vol >= VOLUME_SPIKE_MIN
+        if c1:
+            criteria_met += 1
+
+        momentum = float(payload.get("momentum_score", 0))
+        c2 = (momentum < 0) if orig_dir == "long" else (momentum > 0)
+        if c2:
+            criteria_met += 1
+
+        candle_open = payload.get("candle_open")
+        if candle_open is not None:
+            co = float(candle_open)
+            c3 = (live_price < co) if orig_dir == "long" else (live_price > co)
+        else:
+            c3 = False
+        if c3:
+            criteria_met += 1
+
+        logger.info(
+            f"[BREAKOUT RECV] FLIP EVAL {sym}: {orig_dir.upper()}->{flipped.upper()} "
+            f"criteria={criteria_met}/3  "
+            f"vol={vol:.2f}x>={VOLUME_SPIKE_MIN}:{c1}  "
+            f"momentum={momentum:.3f} reversed:{c2}  "
+            f"candle_open={float(candle_open):.4f if candle_open is not None else 'N/A'}  "
+            f"live={live_price:.4f} body_confirms:{c3}"
+        )
+
+        if criteria_met < 2:
+            logger.info(
+                f"[BREAKOUT RECV] FLIP DENIED {sym}: only {criteria_met}/3 criteria met — "
+                f"rejecting as original {orig_dir.upper()}"
+            )
+            return None
+
+        # Build the flipped payload
+        p = dict(payload)
+        p["direction"]     = flipped
+        p["current_price"] = live_price
+        p["entry_price"]   = live_price
+        p["move_pct"]      = round(drift_pct, 4)
+
+        dist = payload.get("distance_from_breakout_pct")
+        if dist is not None:
+            p["distance_from_breakout_pct"] = -float(dist)
+
+        p["structural_stop_price"] = None  # old side's stop is now on the wrong side
+
+        logger.info(
+            f"[BREAKOUT RECV] DIRECTION FLIP {sym}: {orig_dir.upper()}->{flipped.upper()} "
+            f"(drift={drift_pct:+.2f}%, criteria_met={criteria_met}/3) "
+            f"entry={live_price:.4f} move_pct={p['move_pct']:+.4f}%"
+        )
+
+        hard_results, soft_results = self._run_checklist(p, signal_age_sec)
+
+        hard_passed = all(
+            r.status in (ChecklistResult.PASS, ChecklistResult.SKIP)
+            for r in hard_results
+        )
+        hard_skips  = sum(1 for r in hard_results if r.status == ChecklistResult.SKIP)
+        soft_passes = sum(1 for r in soft_results if r.status == ChecklistResult.PASS)
+        soft_skips  = sum(1 for r in soft_results if r.status == ChecklistResult.SKIP)
+
+        for r in hard_results:
+            lvl = logging.WARNING if r.status == ChecklistResult.FAIL else logging.INFO
+            logger.log(lvl, f"  [FLIP HARD] {r}")
+        for r in soft_results:
+            logger.info(f"  [FLIP SOFT] {r}")
+
+        checklist_summary = {
+            "hard_passed":       hard_passed,
+            "hard_skipped":      hard_skips,
+            "soft_passed":       soft_passes,
+            "soft_skipped":      soft_skips,
+            "failed_hard_check": next(
+                (r.reason for r in hard_results if r.status == ChecklistResult.FAIL), None
+            ),
+            "direction_flip": f"{orig_dir}->{flipped}",
+        }
+
+        if not hard_passed:
+            failed = next(r for r in hard_results if r.status == ChecklistResult.FAIL)
+            logger.info(
+                f"[BREAKOUT RECV] FLIP CHECKLIST REJECTED {sym} — {failed.reason}"
+            )
+            return {
+                "accepted":           False,
+                "execution_eligible": True,
+                "failure_class":      "flip_checklist_rejected",
+                "reason":             f"Direction flip failed checklist: {failed.reason}",
+                "trade_id":           None,
+                "checklist":          checklist_summary,
+            }
+
+        logger.info(
+            f"[BREAKOUT RECV] FLIP CHECKLIST PASSED {sym} — "
+            f"injecting {flipped.upper()} "
+            f"soft: {soft_passes} pass / {soft_skips} skip (advisory only)"
+        )
+        return self._inject_signal(p, checklist_summary)
 
     # ──────────────────────────────────────────────────────────────────────
     # Injection

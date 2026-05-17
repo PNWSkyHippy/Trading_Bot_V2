@@ -376,6 +376,9 @@ class BreakoutSignal:
     # Scanner-owned analysis — set explicitly at signal creation time
     direction:          str         = ""          # "long" | "short" — never silent-default
     enrichment:         Dict[str, Any] = field(default_factory=dict)
+    bars_since_breakout:         int   = 0
+    breakout_level:              float = 0.0
+    distance_from_breakout_pct:  float = 0.0
 
 @dataclass
 class Alert:
@@ -1062,7 +1065,7 @@ class BreakoutDetector:
         self.config         = config
         self.price_history  = {}
         self.volume_history = {}
-        self.history_length = 50
+        self.history_length = 200
 
     def update_history(self, pd: PriceData):
         s = pd.symbol
@@ -1153,6 +1156,20 @@ class BreakoutDetector:
                 data["rsi"] = round(rsi, 2)
             except Exception:
                 pass
+        # Structural stop — 0.3% buffer beyond the candle wick
+        direction = getattr(pd, "_pattern_dir", None)
+        if direction not in ("long", "short"):
+            p_list    = list(self.price_history.get(sym, []))
+            direction = "short" if self._momentum(p_list) < -0.5 else "long"
+        if direction == "long" and pd.low and pd.low > 0:
+            data["structural_stop_price"] = round(pd.low * 0.997, 6)
+        elif direction == "short" and pd.high and pd.high > 0:
+            data["structural_stop_price"] = round(pd.high * 1.003, 6)
+
+        # SMA(200) — only available after history_length raised to 200
+        if len(prices) >= 200:
+            data["sma200"] = round(sum(prices[-200:]) / 200, 6)
+
         # BTC/USD proxy for crypto signals
         if "/" in sym or pd.asset_type == AssetType.CRYPTO:
             for btc_key in ("BTC/USD", "BTC-USD", "BTCUSDT"):
@@ -1167,6 +1184,21 @@ class BreakoutDetector:
                     except Exception:
                         pass
                     break
+        else:
+            # SPY proxy for stock signals
+            for spy_key in ("SPY", "QQQ"):
+                spy_hist = self.price_history.get(spy_key)
+                if spy_hist and len(spy_hist) >= 2:
+                    try:
+                        spy = list(spy_hist)
+                        if spy[0] > 0:
+                            data["market_pct_change"] = round(
+                                (spy[-1] - spy[0]) / spy[0] * 100, 4
+                            )
+                    except Exception:
+                        pass
+                    break
+
         pat = getattr(pd, "_pattern", None)
         if pat:
             data["pattern"] = pat
@@ -1303,14 +1335,23 @@ class EscalationTracker:
         self._tracked: Dict[str, dict] = {}
 
     def register(self, signal: BreakoutSignal):
-        self._tracked[signal.symbol] = {"signal": signal, "level": 0}
+        signal.breakout_level = signal.entry_price
+        self._tracked[signal.symbol] = {"signal": signal, "level": 0, "bars_since": 0}
 
     def check(self, pd: PriceData) -> Optional[tuple]:
         sym = pd.symbol
         if sym not in self._tracked:
             return None
         entry    = self._tracked[sym]
+        entry["bars_since"] += 1
         sig      = entry["signal"]
+
+        # Recompute distance and bar count on each scan cycle
+        if sig.breakout_level > 0:
+            raw = (pd.price - sig.breakout_level) / sig.breakout_level * 100
+            sig.distance_from_breakout_pct = raw if sig.direction == "long" else -raw
+        sig.bars_since_breakout = entry["bars_since"]
+
         mpct     = move_pct(sig.entry_price, pd.price)
         fav_move = favorable_move_pct(sig.direction, mpct)
         if fav_move > sig.best_move_pct:
@@ -1693,6 +1734,9 @@ class MarketScanner:
         result = self.escalation.check(pd)
         if result:
             sig, level = result
+            # Refresh enrichment so receiver evaluates current-bar RSI/OHLC, not detection-moment data
+            sig.enrichment   = self.detector._build_enrichment(pd)
+            sig.volume_spike = self.detector.vol_spike(pd)
             logger.warning(f"[ESCALATE {level}] {broker} {sym} move={sig.best_move_pct:+.2f}%")
             self.alert_system.send_alert(sig, escalation=level)
             return
@@ -1763,6 +1807,13 @@ class MarketScanner:
     def _scan_stocks(self):
         try:
             logger.info("[STOCK SCAN] fetching movers")
+            # Seed SPY into price_history for market_pct_change proxy
+            try:
+                spy_bars = self.stock_fetcher.get_historical_data("SPY")
+                for bar in spy_bars:
+                    self.detector.update_history(bar)
+            except Exception as e:
+                logger.debug(f"[STOCK SCAN] SPY seed fetch failed: {e}")
             movers = self.stock_fetcher.get_top_movers(
                 self.config.get("top_stocks_count", 100))
             self.latest_movers = movers

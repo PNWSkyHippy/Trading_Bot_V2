@@ -49,11 +49,12 @@
 =============================================================
 """
 
+import json as _json
 import logging
 import time
 import threading
 from datetime import datetime, timedelta, timezone
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Callable
 
 import numpy as np
 import pandas as pd
@@ -110,6 +111,16 @@ MAX_CLOSE_ATTEMPTS = 8
 # Minimum seconds between close attempts — prevents hammering the broker API
 # on repeated failures and gives TWS/Alpaca time to recover from transient errors.
 MIN_CLOSE_RETRY_SEC = 60   # wait at least 60s between failed close attempts
+
+
+def _is_breakout_trade(trade: dict) -> bool:
+    if trade.get("strategy_name") == "breakout_scanner":
+        return True
+    try:
+        meta = _json.loads(trade.get("indicators_json") or "{}")
+        return meta.get("strategy_name") == "breakout_scanner"
+    except Exception:
+        return False
 
 
 def _stock_market_open() -> bool:
@@ -194,6 +205,12 @@ class PositionMonitor:
         self.running        = False
         self.check_interval = 10   # reduced from 30s — faster SL detection
         self._thread        = None
+        self._on_breakout_win_closed: Optional[Callable] = None
+
+    def set_breakout_win_callback(
+        self, cb: Callable[[str, bool, float, str], None]
+    ) -> None:
+        self._on_breakout_win_closed = cb
 
     def _get_executor(self):
         if self._executor:
@@ -284,6 +301,17 @@ class PositionMonitor:
 
         if success:
             self._reset_close_attempts(trade_id)
+            if self._on_breakout_win_closed and _is_breakout_trade(trade):
+                direction = trade.get("direction", "long")
+                entry     = trade.get("entry_price", 0)
+                won = (
+                    (direction == "long"  and current_price > entry) or
+                    (direction == "short" and current_price < entry)
+                )
+                try:
+                    self._on_breakout_win_closed(symbol, won, current_price, direction)
+                except Exception:
+                    pass
             return True
 
         # ── Check if symbol simply doesn't exist on the broker ────────────
@@ -402,6 +430,13 @@ class PositionMonitor:
 
         risk_manager.record_trade_result(pnl=pnl, trade_won=(pnl > 0), symbol=symbol)
         self._reset_close_attempts(trade_id)
+        if self._on_breakout_win_closed and _is_breakout_trade(trade):
+            try:
+                self._on_breakout_win_closed(
+                    symbol, pnl > 0, exit_price, trade.get("direction", "long")
+                )
+            except Exception:
+                pass
         # Clean up per-trade state keys so they don't accumulate in bot_state
         for _key in (f"sl_raise_count_{trade_id}", f"early_loss_checked_{trade_id}"):
             try:
