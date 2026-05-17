@@ -1,0 +1,269 @@
+Patch notes for intelligence/claude_reviewer.py
+Goal
+Stop hitting Massive rate limits during morning briefing.
+
+Problem
+_build_market_snapshot() currently calls _massive_daily_change() for:
+
+5 broad ETFs
+9 sector ETFs
+2 risk ETFs
+That is 16 Massive requests per briefing build.
+Even though _massive_daily_change() falls back to yfinance, it still tries Massive first for every symbol, which is what burns quota / triggers 429s.
+
+Required changes
+1) Make sector + risk snapshot data yfinance-only
+Do not try Massive first for:
+
+all entries in BRIEFING_SECTOR_TICKERS
+all entries in BRIEFING_RISK_TICKERS
+Keep Massive only for the broad market set:
+
+SPY
+QQQ
+IWM
+DIA
+RSP
+2) Add a use_massive switch to _massive_daily_change()
+Change signature from:
+
+def _massive_daily_change(self, symbol: str) -> Optional[Dict]:
+to:
+
+def _massive_daily_change(self, symbol: str, use_massive: bool = True) -> Optional[Dict]:
+Behavior:
+
+if use_massive=True: try Massive first, then fallback to yfinance
+if use_massive=False: skip Massive entirely and go straight to yfinance
+3) Update _build_market_snapshot() call sites
+Use:
+
+# broad ETFs -> Massive preferred
+row = self._massive_daily_change(sym, use_massive=True)
+Use:
+
+# sectors and risk -> yfinance only
+row = self._massive_daily_change(sym, use_massive=False)
+This preserves the existing row format and keeps patch size small.
+
+4) Add explicit 429 handling inside _massive_daily_change()
+Inside the Massive branch, if:
+
+resp.status_code == 429
+then:
+
+log warning
+skip retry / backoff for briefing path
+immediately fall through to yfinance fallback
+Suggested log:
+
+logger.warning(f"[Massive] {symbol} 429 in morning snapshot — falling back to yfinance")
+Do not block the whole briefing because one symbol hit rate limit.
+
+5) Do not change morning-briefing gating logic
+Leave these parts alone:
+
+get_morning_context()
+_run_morning_briefing()
+review_signal()
+Claude prompt format
+crypto bypass behavior
+caching behavior
+This patch is only about snapshot source routing.
+
+Expected result
+Morning briefing request count to Massive drops from 16 to 5.
+
+Resulting source mix:
+
+Massive: broad ETFs only
+yfinance: sectors + risk proxies
+This should materially reduce rate-limit failures while preserving the most important real-data inputs.
+
+Acceptance criteria
+Logging
+Startup / morning briefing should still show something like:
+
+[SNAPSHOT] SPY -1.20% | QQQ -1.51% | 1/9 sectors green | lead=Energy | lag=Semiconductors
+If Massive rate-limits one of the broad ETFs, log should show fallback, not briefing failure.
+
+Functional
+Morning briefing still completes
+snapshot["broad"] still required
+sector and risk rows still populate normally
+no change to returned MarketContext schema
+no change to signal review behavior
+Small implementation hint
+Fastest minimal patch is:
+
+keep _massive_daily_change() name
+add use_massive parameter
+guard the Massive block with:
+if use_massive and self._massive_session and self._massive_key:
+That avoids bigger refactors.
+
+1) Replace _massive_daily_change() with this
+def _massive_daily_change(self, symbol: str, use_massive: bool = True) -> Optional[Dict]:
+    """
+    Fetch latest daily aggregate data for one symbol.
+
+    use_massive=True  -> try Massive.com first, then fall back to yfinance
+    use_massive=False -> skip Massive entirely, use yfinance only
+
+    Returns:
+        {symbol, close, prev_close, change_pct, volume}
+        or None on total failure.
+    """
+    # ── Try Massive first only when explicitly allowed ──────────────────────
+    if use_massive and self._massive_session and self._massive_key:
+        try:
+            to_date   = datetime.now().strftime("%Y-%m-%d")
+            from_date = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d")
+            url = (
+                f"{MASSIVE_BASE}/v2/aggs/ticker/{symbol}"
+                f"/range/1/day/{from_date}/{to_date}"
+            )
+            resp = self._massive_session.get(
+                url,
+                params={"adjusted": "true", "sort": "asc", "limit": 10},
+                timeout=MASSIVE_TIMEOUT_SEC,
+            )
+
+            if resp.status_code == 429:
+                logger.warning(
+                    f"[Massive] {symbol} 429 in morning snapshot — "
+                    f"falling back to yfinance"
+                )
+            elif resp.status_code == 200:
+                results = (resp.json() or {}).get("results", [])
+                if len(results) >= 2:
+                    last       = results[-1]
+                    prev       = results[-2]
+                    close      = float(last["c"])
+                    prev_close = float(prev["c"])
+                    volume     = float(last.get("v", 0) or 0)
+                    change_pct = ((close - prev_close) / prev_close * 100.0) if prev_close else 0.0
+                    return {
+                        "symbol":     symbol,
+                        "close":      round(close, 4),
+                        "prev_close": round(prev_close, 4),
+                        "change_pct": round(change_pct, 3),
+                        "volume":     volume,
+                    }
+                logger.debug(f"[Massive] {symbol} returned <2 bars — falling back to yfinance")
+            else:
+                logger.debug(
+                    f"[Massive] {symbol} HTTP {resp.status_code} — falling back to yfinance"
+                )
+        except Exception as e:
+            logger.debug(f"[Massive] {symbol} error ({e}) — falling back to yfinance")
+
+    # ── Fallback / direct path: yfinance ────────────────────────────────────
+    try:
+        bars = self._fetch_yfinance_day_bars(symbol, lookback_days=7)
+        if len(bars) >= 2:
+            close      = bars[-1]["close"]
+            prev_close = bars[-2]["close"]
+            volume     = bars[-1].get("volume", 0)
+            change_pct = ((close - prev_close) / prev_close * 100.0) if prev_close else 0.0
+            return {
+                "symbol":     symbol,
+                "close":      round(close, 4),
+                "prev_close": round(prev_close, 4),
+                "change_pct": round(change_pct, 3),
+                "volume":     volume,
+            }
+    except Exception as e:
+        logger.debug(f"[yfinance] {symbol} error: {e}")
+
+    return None
+2) Replace _build_market_snapshot() with this
+def _build_market_snapshot(self) -> Optional[Dict]:
+    """
+    Build a structured US market snapshot using ETF daily change data.
+
+    Source routing:
+      - Broad ETFs (SPY/QQQ/IWM/DIA/RSP): Massive preferred, yfinance fallback
+      - Sector ETFs: yfinance only
+      - Risk/defensive proxies: yfinance only
+
+    This keeps Massive usage low while preserving the key broad-market read.
+    """
+    snapshot: Dict = {
+        "broad":   {},
+        "sectors": {},
+        "risk":    {},
+        "derived": {},
+    }
+
+    # ── Broad market ETFs: Massive preferred ────────────────────────────────
+    for sym in BRIEFING_BROAD_TICKERS:
+        row = self._massive_daily_change(sym, use_massive=True)
+        if row:
+            snapshot["broad"][sym] = row
+
+    # ── Sector ETFs: yfinance only (avoid burning Massive quota) ────────────
+    for sector_name, sym in BRIEFING_SECTOR_TICKERS.items():
+        row = self._massive_daily_change(sym, use_massive=False)
+        if row:
+            snapshot["sectors"][sector_name] = row
+
+    # ── Risk / defensive proxies: yfinance only ─────────────────────────────
+    for risk_name, sym in BRIEFING_RISK_TICKERS.items():
+        row = self._massive_daily_change(sym, use_massive=False)
+        if row:
+            snapshot["risk"][risk_name] = row
+
+    # Fail cleanly if we couldn't get any broad data
+    if not snapshot["broad"]:
+        logger.warning("[SNAPSHOT] No broad market data available — snapshot empty")
+        return None
+
+    # ── Derived metrics (rule-based, no AI) ─────────────────────────────────
+    broad_changes  = [v["change_pct"] for v in snapshot["broad"].values()]
+    sector_changes = {
+        name: row["change_pct"]
+        for name, row in snapshot["sectors"].items()
+    }
+
+    broad_avg        = sum(broad_changes) / len(broad_changes) if broad_changes else 0.0
+    positive_sectors = sum(1 for v in sector_changes.values() if v > 0)
+    negative_sectors = sum(1 for v in sector_changes.values() if v < 0)
+
+    sorted_sectors = sorted(sector_changes.items(), key=lambda x: x[1], reverse=True)
+    hot_sectors    = [name for name, _ in sorted_sectors[:3]]
+    cold_sectors   = [name for name, _ in sorted_sectors[-3:]]
+
+    spy = snapshot["broad"].get("SPY", {}).get("change_pct")
+    rsp = snapshot["broad"].get("RSP", {}).get("change_pct")
+    breadth_proxy = round(rsp - spy, 3) if (rsp is not None and spy is not None) else None
+
+    hyg = snapshot["risk"].get("HighYield",  {}).get("change_pct")
+    tlt = snapshot["risk"].get("Treasuries", {}).get("change_pct")
+
+    snapshot["derived"] = {
+        "broad_avg_pct":               round(broad_avg, 3),
+        "positive_sectors":            positive_sectors,
+        "negative_sectors":            negative_sectors,
+        "breadth_proxy_rsp_minus_spy": breadth_proxy,
+        "hot_sectors":                 hot_sectors,
+        "cold_sectors":                cold_sectors,
+        "risk_on_proxy_hyg":           hyg,
+        "defensive_proxy_tlt":         tlt,
+    }
+
+    # ── Log summary ──────────────────────────────────────────────────────────
+    qqq = snapshot["broad"].get("QQQ", {}).get("change_pct")
+    parts = []
+    if spy is not None:
+        parts.append(f"SPY {spy:+.2f}%")
+    if qqq is not None:
+        parts.append(f"QQQ {qqq:+.2f}%")
+    parts.append(f"{positive_sectors}/{len(sector_changes)} sectors green")
+    if hot_sectors:
+        parts.append(f"lead={hot_sectors[0]}")
+    if cold_sectors:
+        parts.append(f"lag={cold_sectors[-1]}")
+    logger.info(f"[SNAPSHOT] {' | '.join(parts) if parts else 'No data.'}")
+
+    return snapshot

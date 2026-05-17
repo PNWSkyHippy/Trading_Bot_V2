@@ -102,6 +102,38 @@ def setup_logging(verbose: bool) -> logging.Logger:
     root_logger.addHandler(file_handler)
     root_logger.addHandler(console_handler)
 
+    # Suppress noisy third-party HTTP/network loggers regardless of verbose mode.
+    # These dump full request headers, cookies, and raw OHLC payloads at DEBUG —
+    # completely swamping strategy verbose output. Our own code still logs freely.
+    _NOISY = (
+        "urllib3",
+        "urllib3.connectionpool",
+        "urllib3.util.retry",
+        "ccxt",
+        "ccxt.base",
+        "ccxt.base.exchange",
+        "ccxt.pro",
+        "asyncio",
+        "httpx",
+        "httpcore",
+        "httpcore.http11",
+        "httpcore.connection",
+        "websockets",
+        "websockets.client",
+        "websockets.protocol",
+        "aiohttp",
+        "aiohttp.client",
+        "requests",
+        "requests.packages.urllib3",
+        "yfinance",
+        "yfinance.base",
+        "yfinance.utils",
+        "peewee",
+        "PIL",
+    )
+    for _name in _NOISY:
+        logging.getLogger(_name).setLevel(logging.WARNING)
+
     return logging.getLogger("BotEngine")
 
 

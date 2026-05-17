@@ -469,13 +469,14 @@ def get_manual_trade_config():
 # Cancel flag — set by POST /api/backtest/cancel, checked in the inner run loop.
 # Cleared at the start of every new run so stale signals don't bleed through.
 _bt_cancel = threading.Event()
+_bt_running = threading.Event()
 
 BACKTEST_STRATEGIES = [
     "adaptive_regime", "rsi_momentum", "bollinger_breakout", "ema_crossover",
     "mean_reversion", "scalp_master", "swing_trader", "grid_bot",
     "dca_accumulator", "vwap_momentum", "hammer_reversal", "orb_breakout",
     "ecb_strategy", "vdmr_strategy", "rsi_dip_spike_v4",
-    "original_scorer",
+    "original_scorer", "vwap_confirmed_orb",
 ]
 
 
@@ -648,53 +649,58 @@ def run_backtest_api(payload):
 
     # Clear any stale cancel signals from a previous run
     _bt_cancel.clear()
+    _bt_running.set()
     try:
         from intelligence.backtester import clear_cancel
         clear_cancel()
     except Exception:
         pass
 
-    bt = Backtester(starting_capital=capital)
     results = []
     skipped = 0
-    for strat in strategies:
-        if _bt_cancel.is_set():
-            break
-        for sym in symbols:
+    was_cancelled = False
+    try:
+        bt = Backtester(starting_capital=capital)
+        for strat in strategies:
             if _bt_cancel.is_set():
                 break
-            try:
-                if strat == "original_scorer":
-                    result = bt.run(
-                        sym, days, capital, timeframe, asset_class=asset_class,
-                        stop_mode=stop_mode, two_bar_lookback=lookback,
-                        commission_pct=commission_pct, slippage_pct=slippage_pct,
-                        initial_stop_mode=initial_stop_mode, trail_mode=trail_mode,
-                        entry_mode_filter=entry_mode_filter,
-                        entry_side_filter=entry_side_filter,
-                    )
-                else:
-                    result = bt.run_strategy(
-                        sym, strat, days, capital, timeframe, asset_class=asset_class,
-                        stop_mode=stop_mode, two_bar_lookback=lookback,
-                        commission_pct=commission_pct, slippage_pct=slippage_pct,
-                        initial_stop_mode=initial_stop_mode, trail_mode=trail_mode,
-                        entry_mode_filter=entry_mode_filter,
-                        entry_side_filter=entry_side_filter,
-                    )
-                if result and getattr(result, "total_trades", 0) > 0:
-                    results.append(_backtest_result_payload(result))
-                else:
-                    skipped += 1
-            except Exception as _exc:
-                if type(_exc).__name__ == "_BacktestCancelled":
-                    # Inner-loop cancel checkpoint fired — treat as cancelled
-                    _bt_cancel.set()
+            for sym in symbols:
+                if _bt_cancel.is_set():
                     break
-                skipped += 1
+                try:
+                    if strat == "original_scorer":
+                        result = bt.run(
+                            sym, days, capital, timeframe, asset_class=asset_class,
+                            stop_mode=stop_mode, two_bar_lookback=lookback,
+                            commission_pct=commission_pct, slippage_pct=slippage_pct,
+                            initial_stop_mode=initial_stop_mode, trail_mode=trail_mode,
+                            entry_mode_filter=entry_mode_filter,
+                            entry_side_filter=entry_side_filter,
+                        )
+                    else:
+                        result = bt.run_strategy(
+                            sym, strat, days, capital, timeframe, asset_class=asset_class,
+                            stop_mode=stop_mode, two_bar_lookback=lookback,
+                            commission_pct=commission_pct, slippage_pct=slippage_pct,
+                            initial_stop_mode=initial_stop_mode, trail_mode=trail_mode,
+                            entry_mode_filter=entry_mode_filter,
+                            entry_side_filter=entry_side_filter,
+                        )
+                    if result and getattr(result, "total_trades", 0) > 0:
+                        results.append(_backtest_result_payload(result))
+                    else:
+                        skipped += 1
+                except Exception as _exc:
+                    if type(_exc).__name__ == "_BacktestCancelled":
+                        # Inner-loop cancel checkpoint fired — treat as cancelled
+                        _bt_cancel.set()
+                        break
+                    skipped += 1
 
-    was_cancelled = _bt_cancel.is_set()
-    _bt_cancel.clear()
+        was_cancelled = _bt_cancel.is_set()
+    finally:
+        _bt_running.clear()
+        _bt_cancel.clear()
 
     if not results:
         if was_cancelled:
@@ -887,23 +893,48 @@ def _chart_bars_ibkr(symbol, timeframe, limit):
 
 def _chart_bars_kraken(symbol, timeframe, limit):
     try:
-        import ccxt
-        exc  = ccxt.kraken({'enableRateLimit': True, 'timeout': 10000})
-        tf   = _CHART_TF_CCXT.get(timeframe, '5m')
-        rows = exc.fetch_ohlcv(symbol, tf, limit=limit)
+        import json as _json
+        import logging
+        from urllib.parse import urlencode
+        from urllib.request import Request, urlopen
+
+        interval = {
+            '1m': 1, '5m': 5, '15m': 15, '30m': 30,
+            '1h': 60, '4h': 240, '1D': 1440, '1W': 10080,
+        }.get(timeframe, 5)
+        pair = symbol.replace('/', '').replace('-', '').upper()
+        if pair.startswith('BTC'):
+            pair = pair.replace('BTC', 'XBT', 1)
+
+        url = 'https://api.kraken.com/0/public/OHLC?' + urlencode({
+            'pair': pair,
+            'interval': interval,
+        })
+        req = Request(url, headers={'User-Agent': 'trading-bot-dashboard/1.0'})
+        with urlopen(req, timeout=6) as resp:
+            payload = _json.loads(resp.read().decode('utf-8'))
+        if payload.get('error'):
+            logging.getLogger(__name__).warning(f"[chart/kraken] {symbol}: {payload['error']}")
+            return []
+        result = payload.get('result') or {}
+        data_key = next((k for k in result.keys() if k != 'last'), None)
+        rows = result.get(data_key) or []
+        rows = rows[-limit:]
         return [
-            {'time': int(ts // 1000), 'open': float(o), 'high': float(h),
-             'low': float(l), 'close': float(c), 'volume': float(v)}
-            for ts, o, h, l, c, v in rows
+            {'time': int(r[0]), 'open': float(r[1]), 'high': float(r[2]),
+             'low': float(r[3]), 'close': float(r[4]), 'volume': float(r[6])}
+            for r in rows
         ]
-    except Exception:
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"[chart/kraken] {symbol}: {e}")
         return []
 
 
 def _chart_bars_coinbase(symbol, timeframe, limit):
     try:
+        import logging
         import ccxt
-        exc  = ccxt.coinbase({'enableRateLimit': True})
+        exc  = ccxt.coinbase({'enableRateLimit': True, 'timeout': 5000})
         tf   = _CHART_TF_CCXT.get(timeframe, '5m')
         rows = exc.fetch_ohlcv(symbol, tf, limit=limit)
         return [
@@ -911,7 +942,8 @@ def _chart_bars_coinbase(symbol, timeframe, limit):
              'low': float(l), 'close': float(c), 'volume': float(v)}
             for ts, o, h, l, c, v in rows
         ]
-    except Exception:
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"[chart/coinbase] {symbol}: {e}")
         return []
 
 
@@ -930,7 +962,15 @@ def _chart_bars_yfinance(symbol, timeframe, limit):
         mins_per_bar = {'1m':1,'5m':5,'15m':15,'30m':30,'1h':60,'4h':240,'1D':1440,'1W':10080}.get(timeframe,5)
         total_days = max(2, (mins_per_bar * limit) // 1440 + 1)
         period_str = f"{min(total_days, 729)}d" if interval not in ('1d','1wk') else f"{min(total_days*2, 1800)}d"
-        raw = yf.download(yfSym, period=period_str, interval=interval, progress=False, auto_adjust=True)
+        raw = yf.download(
+            yfSym,
+            period=period_str,
+            interval=interval,
+            progress=False,
+            auto_adjust=True,
+            threads=False,
+            timeout=6,
+        )
         if raw.empty:
             return []
         # yfinance 0.2.x returns MultiIndex columns for single symbols: ('Open','TSLA')
@@ -976,11 +1016,12 @@ def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
     # Fallback if chosen broker returns nothing
     if not bars:
         if is_crypto:
-            fallback = _chart_bars_kraken
+            fallback = _chart_bars_yfinance if fetch is not _chart_bars_yfinance else None
         else:
             # yfinance is the universal stock fallback — don't retry Alpaca on Alpaca failure
-            fallback = _chart_bars_yfinance
-        bars = fallback(symbol, timeframe, limit)
+            fallback = _chart_bars_yfinance if fetch is not _chart_bars_yfinance else None
+        if fallback:
+            bars = fallback(symbol, timeframe, limit)
 
     # Sort ascending — required by Lightweight Charts
     bars.sort(key=lambda b: b['time'])
@@ -1773,13 +1814,15 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
 
         if path == "/api/backtest/cancel":
+            running = _bt_running.is_set()
             _bt_cancel.set()
             try:
                 from intelligence.backtester import request_cancel
                 request_cancel()
             except Exception:
                 pass
-            return self._json(200, {"ok": True, "message": "Cancel signal sent."})
+            msg = "Cancel signal sent — waiting for next backtest checkpoint." if running else "Cancel signal set; no active backtest was marked running."
+            return self._json(200, {"ok": True, "running": running, "message": msg})
 
         if path == "/api/backtest":
             length = int(self.headers.get("Content-Length", "0"))

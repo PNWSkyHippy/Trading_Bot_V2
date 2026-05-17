@@ -1024,10 +1024,20 @@ function BacktesterPanel() {
   ];
   const cancel = async () => {
     setCancelling(true);
-    setRunLog(lines => [...lines.slice(-4), 'Cancelling — waiting for current run to finish…']);
+    setRunLog(lines => [...lines.slice(-4), 'Sending cancel signal…']);
     try {
-      await panelApi('/api/backtest/cancel', { method: 'POST' });
-    } catch (_) {}
+      const ctrl = new AbortController();
+      const timer = setTimeout(() => ctrl.abort(), 5000);
+      const data = await panelApi('/api/backtest/cancel', { method: 'POST', signal: ctrl.signal });
+      clearTimeout(timer);
+      setRunLog(lines => [...lines.slice(-4), data.message || 'Cancel signal sent — waiting for checkpoint…']);
+      setMsg(data.message || 'Cancel signal sent — waiting for checkpoint…');
+    } catch (e) {
+      setRunLog(lines => [...lines.slice(-4), `Cancel request did not return: ${e.message}`]);
+      setMsg(`Cancel request did not return: ${e.message}`);
+    } finally {
+      setCancelling(false);
+    }
   };
   const run = async () => {
     setRunning(true);
@@ -1334,6 +1344,192 @@ function calcEMA(bars, period) {
   return result;
 }
 
+function calcSMA(bars, period) {
+  if (!bars || bars.length < period) return [];
+  const result = [];
+  let sum = 0;
+  bars.forEach((b, i) => {
+    sum += b.close;
+    if (i >= period) sum -= bars[i - period].close;
+    if (i >= period - 1) result.push({ time: b.time, value: sum / period });
+  });
+  return result;
+}
+
+function calcRSI(bars, period) {
+  if (!bars || bars.length <= period) return [];
+  let gain = 0, loss = 0;
+  for (let i = 1; i <= period; i++) {
+    const d = bars[i].close - bars[i - 1].close;
+    if (d >= 0) gain += d; else loss -= d;
+  }
+  gain /= period; loss /= period;
+  const result = [{ time: bars[period].time, value: loss === 0 ? 100 : 100 - (100 / (1 + gain / loss)) }];
+  for (let i = period + 1; i < bars.length; i++) {
+    const d = bars[i].close - bars[i - 1].close;
+    gain = (gain * (period - 1) + Math.max(d, 0)) / period;
+    loss = (loss * (period - 1) + Math.max(-d, 0)) / period;
+    result.push({ time: bars[i].time, value: loss === 0 ? 100 : 100 - (100 / (1 + gain / loss)) });
+  }
+  return result;
+}
+
+function calcBB(bars, period, mult = 2) {
+  if (!bars || bars.length < period) return { upper: [], mid: [], lower: [] };
+  const upper = [], mid = [], lower = [];
+  for (let i = period - 1; i < bars.length; i++) {
+    const slice = bars.slice(i - period + 1, i + 1).map(b => b.close);
+    const avg = slice.reduce((a, b) => a + b, 0) / period;
+    const variance = slice.reduce((a, b) => a + Math.pow(b - avg, 2), 0) / period;
+    const sd = Math.sqrt(variance);
+    mid.push({ time: bars[i].time, value: avg });
+    upper.push({ time: bars[i].time, value: avg + sd * mult });
+    lower.push({ time: bars[i].time, value: avg - sd * mult });
+  }
+  return { upper, mid, lower };
+}
+
+function calcMACD(bars, fast = 12, slow = 26, signal = 9, histUpColor = '#26a69a66', histDownColor = '#ef535066') {
+  const fastE = calcEMA(bars, fast);
+  const slowE = calcEMA(bars, slow);
+  const slowByTime = new Map(slowE.map(p => [p.time, p.value]));
+  const macd = fastE
+    .filter(p => slowByTime.has(p.time))
+    .map(p => ({ time: p.time, value: p.value - slowByTime.get(p.time) }));
+  const signalInput = macd.map(p => ({ time: p.time, close: p.value }));
+  const signalLine = calcEMA(signalInput, signal);
+  const sigByTime = new Map(signalLine.map(p => [p.time, p.value]));
+  const hist = macd
+    .filter(p => sigByTime.has(p.time))
+    .map(p => ({ time: p.time, value: p.value - sigByTime.get(p.time),
+                 color: p.value >= sigByTime.get(p.time) ? histUpColor : histDownColor }));
+  return { macd, signal: signalLine, hist };
+}
+
+function calcATR(bars, period = 14) {
+  if (!bars || bars.length <= period) return [];
+  const tr = [];
+  for (let i = 0; i < bars.length; i++) {
+    const prevClose = i > 0 ? bars[i - 1].close : bars[i].close;
+    tr.push(Math.max(
+      bars[i].high - bars[i].low,
+      Math.abs(bars[i].high - prevClose),
+      Math.abs(bars[i].low - prevClose)
+    ));
+  }
+  let atr = tr.slice(1, period + 1).reduce((a, b) => a + b, 0) / period;
+  const result = [{ time: bars[period].time, value: atr }];
+  for (let i = period + 1; i < bars.length; i++) {
+    atr = ((atr * (period - 1)) + tr[i]) / period;
+    result.push({ time: bars[i].time, value: atr });
+  }
+  return result;
+}
+
+function calcADX(bars, period = 14) {
+  if (!bars || bars.length <= period * 2) return [];
+  const plusDM = [0], minusDM = [0], tr = [0];
+  for (let i = 1; i < bars.length; i++) {
+    const up = bars[i].high - bars[i - 1].high;
+    const down = bars[i - 1].low - bars[i].low;
+    plusDM.push(up > down && up > 0 ? up : 0);
+    minusDM.push(down > up && down > 0 ? down : 0);
+    tr.push(Math.max(
+      bars[i].high - bars[i].low,
+      Math.abs(bars[i].high - bars[i - 1].close),
+      Math.abs(bars[i].low - bars[i - 1].close)
+    ));
+  }
+  let atr = tr.slice(1, period + 1).reduce((a, b) => a + b, 0);
+  let pDM = plusDM.slice(1, period + 1).reduce((a, b) => a + b, 0);
+  let mDM = minusDM.slice(1, period + 1).reduce((a, b) => a + b, 0);
+  const dx = [];
+  for (let i = period + 1; i < bars.length; i++) {
+    atr = atr - (atr / period) + tr[i];
+    pDM = pDM - (pDM / period) + plusDM[i];
+    mDM = mDM - (mDM / period) + minusDM[i];
+    const pDI = atr ? 100 * pDM / atr : 0;
+    const mDI = atr ? 100 * mDM / atr : 0;
+    const denom = pDI + mDI;
+    dx.push({ time: bars[i].time, value: denom ? 100 * Math.abs(pDI - mDI) / denom : 0 });
+  }
+  if (dx.length < period) return [];
+  let adx = dx.slice(0, period).reduce((a, b) => a + b.value, 0) / period;
+  const result = [{ time: dx[period - 1].time, value: adx }];
+  for (let i = period; i < dx.length; i++) {
+    adx = ((adx * (period - 1)) + dx[i].value) / period;
+    result.push({ time: dx[i].time, value: adx });
+  }
+  return result;
+}
+
+function chartSourceValue(bar, source = 'hlc3') {
+  if (source === 'open') return bar.open;
+  if (source === 'high') return bar.high;
+  if (source === 'low') return bar.low;
+  if (source === 'close') return bar.close;
+  if (source === 'hl2') return (bar.high + bar.low) / 2;
+  if (source === 'ohlc4') return (bar.open + bar.high + bar.low + bar.close) / 4;
+  return (bar.high + bar.low + bar.close) / 3;
+}
+
+function vwapAnchorKey(time, anchor = 'session') {
+  const d = new Date(time * 1000);
+  const y = d.getUTCFullYear();
+  const m = d.getUTCMonth();
+  if (anchor === 'decade') return `${Math.floor(y / 10) * 10}`;
+  if (anchor === 'year') return `${y}`;
+  if (anchor === 'quarter') return `${y}-Q${Math.floor(m / 3) + 1}`;
+  if (anchor === 'month') return `${y}-${m}`;
+  if (anchor === 'week') {
+    const day = d.getUTCDay() || 7;
+    const monday = new Date(Date.UTC(y, m, d.getUTCDate() - day + 1));
+    return monday.toISOString().slice(0, 10);
+  }
+  return d.toISOString().slice(0, 10);
+}
+
+function calcVWAP(bars, anchor = 'session', source = 'hlc3') {
+  if (!bars || !bars.length) return [];
+  let pv = 0, vol = 0;
+  let activeAnchor = null;
+  return bars.map(b => {
+    const anchorKey = vwapAnchorKey(b.time, anchor);
+    if (anchorKey !== activeAnchor) {
+      activeAnchor = anchorKey;
+      pv = 0;
+      vol = 0;
+    }
+    const typical = chartSourceValue(b, source);
+    const v = Number(b.volume || 0);
+    pv += typical * v;
+    vol += v;
+    return { time: b.time, value: vol ? pv / vol : typical };
+  });
+}
+
+function calcSuperTrend(bars, period = 10, mult = 3) {
+  const atr = calcATR(bars, period);
+  if (!atr.length) return { up: [], down: [] };
+  const atrByTime = new Map(atr.map(p => [p.time, p.value]));
+  const up = [], down = [];
+  let finalUpper = 0, finalLower = 0, trendUp = true;
+  for (let i = 0; i < bars.length; i++) {
+    const a = atrByTime.get(bars[i].time);
+    if (!a) continue;
+    const hl2 = (bars[i].high + bars[i].low) / 2;
+    const basicUpper = hl2 + mult * a;
+    const basicLower = hl2 - mult * a;
+    if (!finalUpper || basicUpper < finalUpper || bars[i - 1]?.close > finalUpper) finalUpper = basicUpper;
+    if (!finalLower || basicLower > finalLower || bars[i - 1]?.close < finalLower) finalLower = basicLower;
+    if (bars[i].close > finalUpper) trendUp = true;
+    else if (bars[i].close < finalLower) trendUp = false;
+    const point = { time: bars[i].time, value: trendUp ? finalLower : finalUpper };
+    if (trendUp) up.push(point); else down.push(point);
+  }
+  return { up, down };
+}
+
 const STOCK_BROKERS  = [
   { id: 'alpaca',   label: 'Alpaca'   },
   { id: 'ibkr',     label: 'IBKR'     },
@@ -1344,6 +1540,174 @@ const CRYPTO_BROKERS = [
   { id: 'coinbase', label: 'Coinbase' },
   { id: 'yfinance', label: 'yFinance' },
 ];
+
+const chartLimitForTf = (tf) => ({
+  '1m': 720,    // 12 hours
+  '5m': 900,    // a little over 3 days
+  '15m': 700,   // about 1 week
+  '30m': 700,   // about 2 weeks
+  '1h': 1000,   // about 6 weeks
+  '4h': 900,    // about 5 months
+  '1D': 420,    // about 14 months
+}[tf] || 300);
+
+const chartVisibleBarsForTf = (tf) => ({
+  '1m': 180,
+  '5m': 180,
+  '15m': 160,
+  '30m': 150,
+  '1h': 180,
+  '4h': 160,
+  '1D': 180,
+}[tf] || 160);
+
+const DEFAULT_CHART_INDICATORS = [
+  { id: 'ema9', type: 'EMA', period: 9, color: '#f59e0b', place: 'main', visible: true },
+  { id: 'ema21', type: 'EMA', period: 21, color: '#60a5fa', place: 'main', visible: true },
+  { id: 'rsi14', type: 'RSI', period: 14, overbought: 70, oversold: 30, color: '#a78bfa', place: 'lower1', visible: false },
+  { id: 'adx14', type: 'ADX', period: 14, threshold: 20, color: '#f97316', thresholdColor: '#8b949e66', place: 'lower1', visible: false },
+  { id: 'macd', type: 'MACD', period: 12, fast: 12, slow: 26, signal: 9, color: '#38bdf8', signalColor: '#f59e0b', histUpColor: '#26a69a66', histDownColor: '#ef535066', place: 'lower2', visible: false },
+  { id: 'atr14', type: 'ATR', period: 14, color: '#14b8a6', place: 'lower2', visible: false },
+  { id: 'vwap', type: 'VWAP', period: 1, anchor: 'session', source: 'hlc3', color: '#eab308', place: 'main', visible: false },
+  { id: 'supertrend', type: 'SuperTrend', period: 10, mult: 3, color: '#22c55e', downColor: '#ef5350', place: 'main', visible: false },
+];
+
+const IND_TYPES = ['EMA', 'SMA', 'RSI', 'MACD', 'BB', 'ADX', 'ATR', 'VWAP', 'SuperTrend'];
+const IND_PLACES = [
+  ['main', 'Main'],
+  ['lower1', 'Lower 1'],
+  ['lower2', 'Lower 2'],
+];
+const IND_TYPE_DEFAULTS = {
+  EMA:        { period: 50, color: '#22d3ee', place: 'main' },
+  SMA:        { period: 50, color: '#94a3b8', place: 'main' },
+  RSI:        { period: 14, overbought: 70, oversold: 30, color: '#a78bfa', place: 'lower1' },
+  MACD:       { period: 12, fast: 12, slow: 26, signal: 9, color: '#38bdf8', signalColor: '#f59e0b', histUpColor: '#26a69a66', histDownColor: '#ef535066', place: 'lower2' },
+  BB:         { period: 20, mult: 2, color: '#f472b6', midColor: '#8b949e88', place: 'main' },
+  ADX:        { period: 14, threshold: 20, color: '#f97316', thresholdColor: '#8b949e66', place: 'lower1' },
+  ATR:        { period: 14, color: '#14b8a6', place: 'lower2' },
+  VWAP:       { period: 1, anchor: 'session', source: 'hlc3', color: '#eab308', place: 'main' },
+  SuperTrend: { period: 10, mult: 3, color: '#22c55e', downColor: '#ef5350', place: 'main' },
+};
+const IND_PARAM_DEFS = {
+  EMA:        [{ key: 'period', label: 'Period', min: 1, max: 300, fallback: 50 }],
+  SMA:        [{ key: 'period', label: 'Period', min: 1, max: 300, fallback: 50 }],
+  RSI:        [
+    { key: 'period', label: 'Period', min: 1, max: 100, fallback: 14 },
+    { key: 'overbought', label: 'High', min: 1, max: 100, fallback: 70 },
+    { key: 'oversold', label: 'Low', min: 1, max: 100, fallback: 30 },
+  ],
+  MACD:       [
+    { key: 'fast', label: 'Fast', min: 2, max: 80, fallback: 12 },
+    { key: 'slow', label: 'Slow', min: 2, max: 120, fallback: 26 },
+    { key: 'signal', label: 'Signal', min: 1, max: 60, fallback: 9 },
+    { key: 'signalColor', label: 'Sig', type: 'color', fallback: '#f59e0b' },
+    { key: 'histUpColor', label: 'Hist+', type: 'color', fallback: '#26a69a66' },
+    { key: 'histDownColor', label: 'Hist-', type: 'color', fallback: '#ef535066' },
+  ],
+  BB:         [
+    { key: 'period', label: 'Period', min: 1, max: 300, fallback: 20 },
+    { key: 'mult', label: 'Std', min: 0.1, max: 10, step: 0.1, fallback: 2 },
+    { key: 'midColor', label: 'Mid', type: 'color', fallback: '#8b949e88' },
+  ],
+  ADX:        [
+    { key: 'period', label: 'Period', min: 1, max: 100, fallback: 14 },
+    { key: 'threshold', label: 'Level', min: 1, max: 100, fallback: 20 },
+    { key: 'thresholdColor', label: 'Level', type: 'color', fallback: '#8b949e66' },
+  ],
+  ATR:        [{ key: 'period', label: 'Period', min: 1, max: 100, fallback: 14 }],
+  VWAP:       [
+    { key: 'anchor', label: 'Anchor', type: 'select', fallback: 'session', options: [
+      ['session', 'Session'],
+      ['week', 'Week'],
+      ['month', 'Month'],
+      ['quarter', 'Quarter'],
+      ['year', 'Year'],
+      ['decade', 'Decade'],
+    ] },
+    { key: 'source', label: 'Source', type: 'select', fallback: 'hlc3', options: [
+      ['open', 'Open'],
+      ['high', 'High'],
+      ['low', 'Low'],
+      ['close', 'Close'],
+      ['hl2', 'HL2'],
+      ['hlc3', 'HLC3'],
+      ['ohlc4', 'OHLC4'],
+    ] },
+  ],
+  SuperTrend: [
+    { key: 'period', label: 'ATR', min: 1, max: 100, fallback: 10 },
+    { key: 'mult', label: 'Mult', min: 0.1, max: 10, step: 0.1, fallback: 3 },
+    { key: 'downColor', label: 'Down', type: 'color', fallback: '#ef5350' },
+  ],
+};
+const indicatorParamDefs = (type) => IND_PARAM_DEFS[type] || IND_PARAM_DEFS.EMA;
+const PRICE_OVERLAY_INDICATORS = new Set(['EMA', 'SMA', 'BB', 'VWAP', 'SuperTrend']);
+const LOWER_BAND_INDICATORS = new Set(['RSI', 'MACD', 'ADX', 'ATR']);
+const indicatorPlaceOptions = (type) => (
+  PRICE_OVERLAY_INDICATORS.has(type)
+    ? [['main', 'Main']]
+    : IND_PLACES.filter(([value]) => value !== 'main')
+);
+const effectiveIndicatorPlace = (ind) => (
+  PRICE_OVERLAY_INDICATORS.has(ind.type)
+    ? 'main'
+    : (ind.place === 'lower2' ? 'lower2' : 'lower1')
+);
+const cloneIndicator = (ind) => ({ ...ind });
+const cloneDefaultIndicators = () => DEFAULT_CHART_INDICATORS.map(cloneIndicator);
+const isDefaultIndicator = (id) => DEFAULT_CHART_INDICATORS.some(ind => ind.id === id);
+const makeCustomIndicatorId = (list) => {
+  const existing = new Set((list || []).map(ind => ind.id));
+  for (let i = 0; i < 1000; i += 1) {
+    const id = `ind_${Date.now().toString(36)}_${i}`;
+    if (!existing.has(id)) return id;
+  }
+  return `ind_${Math.random().toString(36).slice(2)}`;
+};
+
+const loadChartIndicators = () => {
+  try {
+    const saved = JSON.parse(localStorage.getItem('chart_indicators_v1') || 'null');
+    if (Array.isArray(saved) && saved.length) {
+      const savedIds = new Set(saved.map(ind => ind.id));
+      return [
+        ...saved.map(cloneIndicator),
+        ...DEFAULT_CHART_INDICATORS.filter(ind => !savedIds.has(ind.id)).map(cloneIndicator),
+      ];
+    }
+  } catch (_) {}
+  return cloneDefaultIndicators();
+};
+
+const DRAW_TOOLS = [
+  ['cursor', 'Cursor'],
+  ['trend', 'Trend'],
+  ['hline', 'H'],
+  ['vline', 'V'],
+  ['rect', 'Box'],
+  ['eraser', 'Erase'],
+];
+const drawingStoreKey = (symbol, tf) => `chart_drawings_v1:${symbol}:${tf}`;
+const makeDrawingId = () => `draw_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+const drawingDistance = (d, pt) => {
+  if (!d || !pt) return Infinity;
+  if (d.type === 'hline') return Math.abs(d.p1.price - pt.price);
+  if (d.type === 'vline') return Math.abs(d.p1.time - pt.time);
+  const p1 = d.p1 || {};
+  const p2 = d.p2 || p1;
+  const tMin = Math.min(p1.time, p2.time), tMax = Math.max(p1.time, p2.time);
+  const pMin = Math.min(p1.price, p2.price), pMax = Math.max(p1.price, p2.price);
+  if (d.type === 'rect') {
+    const inBox = pt.time >= tMin && pt.time <= tMax && pt.price >= pMin && pt.price <= pMax;
+    if (inBox) return 0;
+  }
+  const tSpan = Math.max(1, tMax - tMin);
+  const pSpan = Math.max(0.0000001, pMax - pMin);
+  const midT = (tMin + tMax) / 2;
+  const midP = (pMin + pMax) / 2;
+  return Math.abs((pt.time - midT) / tSpan) + Math.abs((pt.price - midP) / pSpan);
+};
 
 function ChartPanel({ defaultSymbol }) {
   const [symbol, setSymbol]   = useS(defaultSymbol || 'BTC/USD');
@@ -1356,20 +1720,31 @@ function ChartPanel({ defaultSymbol }) {
   const [searchVal, setSearch] = useS('');
   const [dropOpen, setDrop]   = useS(false);
   const [allSymbols, setAllSyms] = useS([]);
-  const [showEma9, setE9]     = useS(true);
-  const [showEma21, setE21]   = useS(true);
-  const [showEma50, setE50]   = useS(false);
+  const [indicators, setIndicators] = useS(loadChartIndicators);
+  const [showIndEditor, setShowIndEditor] = useS(false);
+  const [drawTool, setDrawTool] = useS('cursor');
+  const [drawings, setDrawings] = useS([]);
+  const [draftDrawing, setDraftDrawing] = useS(null);
+  const [drawingsHidden, setDrawingsHidden] = useS(false);
+  const [drawingsLocked, setDrawingsLocked] = useS(false);
 
   const isCrypto = symbol.includes('/');
 
   const containerRef = useR(null);
+  const drawingCanvasRef = useR(null);
+  const lower1ContainerRef = useR(null);
+  const lower2ContainerRef = useR(null);
   const chartRef     = useR(null);
+  const lower1ChartRef = useR(null);
+  const lower2ChartRef = useR(null);
   const candleRef    = useR(null);
   const volRef       = useR(null);
-  const e9Ref        = useR(null);
-  const e21Ref       = useR(null);
-  const e50Ref       = useR(null);
+  const indicatorSeriesRef = useR([]);
   const rObsRef      = useR(null);
+  const drawingsRef = useR([]);
+  const draftDrawingRef = useR(null);
+  const drawingsHiddenRef = useR(false);
+  const drawingKeyRef = useR('');
 
   // Init Lightweight Charts once on mount.
   // The Window component returns null when closed, so ChartPanel always mounts
@@ -1381,19 +1756,17 @@ function ChartPanel({ defaultSymbol }) {
 
     const LC        = window.LightweightCharts;
     const container = containerRef.current;
-
-    // Read actual pixel dimensions — forced reflow gives correct values
-    // even if CSS hasn't fully settled yet.
-    const initW = container.offsetWidth  || 900;
-    const initH = container.offsetHeight || 500;
-
-    const chart = LC.createChart(container, {
-      width:  initW,
-      height: initH,
+    const lower1Container = lower1ContainerRef.current;
+    const lower2Container = lower2ContainerRef.current;
+    const baseChartOptions = (el, showTime = true) => ({
+      width:  el.offsetWidth  || 900,
+      height: el.offsetHeight || (showTime ? 500 : 120),
       layout: { background: { type: 'solid', color: '#0d1117' }, textColor: '#8b949e', fontSize: 11 },
       grid:   { vertLines: { color: '#1a2035' }, horzLines: { color: '#1a2035' } },
       crosshair: { mode: LC.CrosshairMode.Normal },
-      rightPriceScale: { borderColor: '#2a3347' },
+      handleScale: { axisPressedMouseMove: { time: true, price: true }, mouseWheel: true, pinch: true },
+      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
+      rightPriceScale: { borderColor: '#2a3347', autoScale: true },
       timeScale: {
         borderColor: '#2a3347', timeVisible: true, secondsVisible: false,
         // tickMarkFormatter controls the axis tick labels (timeFormatter only affects crosshair)
@@ -1416,16 +1789,35 @@ function ChartPanel({ defaultSymbol }) {
         }),
       },
     });
+
+    const chart = LC.createChart(container, baseChartOptions(container, true));
     chartRef.current = chart;
+    if (lower1Container) {
+      lower1ChartRef.current = LC.createChart(lower1Container, baseChartOptions(lower1Container, false));
+    }
+    if (lower2Container) {
+      lower2ChartRef.current = LC.createChart(lower2Container, baseChartOptions(lower2Container, false));
+    }
+
+    chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+      if (!range) return;
+      try { lower1ChartRef.current?.timeScale().setVisibleLogicalRange(range); } catch (_) {}
+      try { lower2ChartRef.current?.timeScale().setVisibleLogicalRange(range); } catch (_) {}
+    });
 
     // ResizeObserver keeps chart in sync when user drags or maximizes the window
     const ro = new ResizeObserver(entries => {
-      const { width, height } = entries[0].contentRect;
-      if (width > 0 && height > 0 && chartRef.current) {
-        chartRef.current.resize(width, height);
-      }
+      entries.forEach(entry => {
+        const { width, height } = entry.contentRect;
+        if (width <= 0 || height <= 0) return;
+        if (entry.target === container && chartRef.current) chartRef.current.resize(width, height);
+        if (entry.target === lower1Container && lower1ChartRef.current) lower1ChartRef.current.resize(width, height);
+        if (entry.target === lower2Container && lower2ChartRef.current) lower2ChartRef.current.resize(width, height);
+      });
     });
     ro.observe(container);
+    if (lower1Container) ro.observe(lower1Container);
+    if (lower2Container) ro.observe(lower2Container);
     rObsRef.current = ro;
 
     // Candle series
@@ -1444,10 +1836,53 @@ function ChartPanel({ defaultSymbol }) {
     return () => {
       rObsRef.current?.disconnect();
       rObsRef.current = null;
+      indicatorSeriesRef.current.forEach(item => {
+        try { item.chart.removeSeries(item.series); } catch (_) {}
+      });
+      indicatorSeriesRef.current = [];
       chart.remove();
+      try { lower1ChartRef.current?.remove(); } catch (_) {}
+      try { lower2ChartRef.current?.remove(); } catch (_) {}
       chartRef.current = null; candleRef.current = null; volRef.current = null;
-      e9Ref.current = null; e21Ref.current = null; e50Ref.current = null;
+      lower1ChartRef.current = null; lower2ChartRef.current = null;
     };
+  }, []);
+
+  useE(() => {
+    try { localStorage.setItem('chart_indicators_v1', JSON.stringify(indicators)); } catch (_) {}
+  }, [indicators]);
+
+  useE(() => {
+    const key = drawingStoreKey(symbol, tf);
+    drawingKeyRef.current = key;
+    try {
+      const saved = JSON.parse(localStorage.getItem(key) || '[]');
+      setDrawings(Array.isArray(saved) ? saved : []);
+      setDraftDrawing(null);
+    } catch (_) {
+      setDrawings([]);
+      setDraftDrawing(null);
+    }
+  }, [symbol, tf]);
+
+  useE(() => {
+    drawingsRef.current = drawings;
+    const key = drawingStoreKey(symbol, tf);
+    if (drawingKeyRef.current !== key) return;
+    try { localStorage.setItem(key, JSON.stringify(drawings)); } catch (_) {}
+  }, [drawings, symbol, tf]);
+
+  useE(() => { draftDrawingRef.current = draftDrawing; }, [draftDrawing]);
+  useE(() => { drawingsHiddenRef.current = drawingsHidden; }, [drawingsHidden]);
+  useE(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape') {
+        setDraftDrawing(null);
+        setDrawTool('cursor');
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
   // Fetch data when symbol, timeframe, or broker changes
@@ -1456,7 +1891,8 @@ function ChartPanel({ defaultSymbol }) {
     // Clear stale bars immediately so old chart doesn't persist while loading
     setBars([]); setMarks([]);
     setLoading(true); setErr(null);
-    panelApi(`/api/chart?symbol=${encodeURIComponent(symbol)}&timeframe=${tf}&limit=300&broker=${broker}`)
+    const limit = chartLimitForTf(tf);
+    panelApi(`/api/chart?symbol=${encodeURIComponent(symbol)}&timeframe=${tf}&limit=${limit}&broker=${broker}`)
       .then(d => {
         if (cancelled) return;
         const b = d.bars || [];
@@ -1474,10 +1910,9 @@ function ChartPanel({ defaultSymbol }) {
     panelApi('/api/chart/symbols').then(d => setAllSyms(d.symbols || [])).catch(() => {});
   }, []);
 
-  // Update chart whenever bars, markers, or EMA toggles change
+  // Update chart whenever bars, markers, or indicator settings change
   useE(() => {
     if (!chartRef.current || !candleRef.current) return;
-    const LC = window.LightweightCharts;
 
     // Always resize — even on empty bars (e.g. after asset-type switch that
     // changes toolbar height). requestAnimationFrame ensures the DOM has
@@ -1488,6 +1923,12 @@ function ChartPanel({ defaultSymbol }) {
       const w = containerRef.current.offsetWidth;
       const h = containerRef.current.offsetHeight;
       if (w > 0 && h > 0) chartRef.current.resize(w, h);
+      const w1 = lower1ContainerRef.current?.offsetWidth || 0;
+      const h1 = lower1ContainerRef.current?.offsetHeight || 0;
+      if (w1 > 0 && h1 > 0) lower1ChartRef.current?.resize(w1, h1);
+      const w2 = lower2ContainerRef.current?.offsetWidth || 0;
+      const h2 = lower2ContainerRef.current?.offsetHeight || 0;
+      if (w2 > 0 && h2 > 0) lower2ChartRef.current?.resize(w2, h2);
     };
     requestAnimationFrame(doResize);
 
@@ -1508,24 +1949,107 @@ function ChartPanel({ defaultSymbol }) {
       color: b.close >= b.open ? '#26a69a55' : '#ef535055',
     })));
 
-    // EMA helper — create/remove series as needed
-    const applyEma = (ref, period, color, enabled) => {
-      if (enabled) {
-        if (!ref.current) {
-          ref.current = chartRef.current.addLineSeries({
-            color, lineWidth: 1, priceLineVisible: false,
-            lastValueVisible: false, crosshairMarkerVisible: false,
-          });
-        }
-        ref.current.setData(calcEMA(cleanBars, period));
-      } else if (ref.current) {
-        chartRef.current.removeSeries(ref.current);
-        ref.current = null;
-      }
+    indicatorSeriesRef.current.forEach(item => { try { item.chart.removeSeries(item.series); } catch (_) {} });
+    indicatorSeriesRef.current = [];
+
+    const panelForIndicator = (ind) => {
+      if (['RSI', 'ADX'].includes(ind.type)) return ind.place === 'lower2' ? 'lower2' : 'lower1';
+      if (['MACD', 'ATR'].includes(ind.type)) return ind.place === 'lower1' ? 'lower1' : 'lower2';
+      return 'main';
     };
-    applyEma(e9Ref,  9,  '#f59e0b', showEma9);
-    applyEma(e21Ref, 21, '#60a5fa', showEma21);
-    applyEma(e50Ref, 50, '#c084fc', showEma50);
+    const chartForPlace = (place) => {
+      if (place === 'lower1') return lower1ChartRef.current || chartRef.current;
+      if (place === 'lower2') return lower2ChartRef.current || chartRef.current;
+      return chartRef.current;
+    };
+    const scaleForPlace = (place) => {
+      if (place === 'main') return 'right';
+      return 'right';
+    };
+    const addLine = (data, color, place, width = 1) => {
+      if (!data.length) return;
+      const targetChart = chartForPlace(place);
+      if (!targetChart) return;
+      const priceScaleId = scaleForPlace(place);
+      const s = targetChart.addLineSeries({
+        color, lineWidth: width, priceScaleId,
+        priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+      });
+      s.setData(data);
+      indicatorSeriesRef.current.push({ chart: targetChart, series: s });
+    };
+    const addHist = (data, place) => {
+      if (!data.length) return;
+      const targetChart = chartForPlace(place);
+      if (!targetChart) return;
+      const s = targetChart.addHistogramSeries({
+        priceScaleId: scaleForPlace(place),
+        priceFormat: { type: 'price', precision: 4, minMove: 0.0001 },
+      });
+      s.setData(data);
+      indicatorSeriesRef.current.push({ chart: targetChart, series: s });
+    };
+
+    chartRef.current.priceScale('right').applyOptions({
+      autoScale: true,
+      scaleMargins: { top: 0.05, bottom: 0.22 },
+    });
+    [chartRef.current, lower1ChartRef.current, lower2ChartRef.current].forEach(ch => {
+      try {
+        ch?.applyOptions({
+          handleScale: { axisPressedMouseMove: { time: true, price: true }, mouseWheel: true, pinch: true },
+          handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
+        });
+        ch?.priceScale('right').applyOptions({ autoScale: true });
+      } catch (_) {}
+    });
+
+    indicators.filter(ind => ind.visible).forEach(ind => {
+      const period = Math.max(1, Number(ind.period) || 14);
+      const place = panelForIndicator(ind);
+      const color = ind.color || '#60a5fa';
+      if (ind.type === 'EMA') addLine(calcEMA(cleanBars, period), color, place);
+      if (ind.type === 'SMA') addLine(calcSMA(cleanBars, period), color, place);
+      if (ind.type === 'RSI') {
+        addLine(calcRSI(cleanBars, period), color, place);
+        addLine(cleanBars.map(b => ({ time: b.time, value: Number(ind.overbought) || 70 })), '#ef535055', place);
+        addLine(cleanBars.map(b => ({ time: b.time, value: Number(ind.oversold) || 30 })), '#26a69a55', place);
+      }
+      if (ind.type === 'BB') {
+        const bb = calcBB(cleanBars, period, Number(ind.mult) || 2);
+        addLine(bb.upper, color, 'main');
+        addLine(bb.mid, ind.midColor || '#8b949e88', 'main');
+        addLine(bb.lower, color, 'main');
+      }
+      if (ind.type === 'MACD') {
+        const m = calcMACD(
+          cleanBars,
+          Number(ind.fast) || 12,
+          Number(ind.slow) || 26,
+          Number(ind.signal) || 9,
+          ind.histUpColor || '#26a69a66',
+          ind.histDownColor || '#ef535066'
+        );
+        addHist(m.hist, place);
+        addLine(m.macd, color, place);
+        addLine(m.signal, ind.signalColor || '#f59e0b', place);
+      }
+      if (ind.type === 'ADX') {
+        addLine(calcADX(cleanBars, period), color, place);
+        addLine(cleanBars.map(b => ({ time: b.time, value: Number(ind.threshold) || 20 })), ind.thresholdColor || '#8b949e66', place);
+      }
+      if (ind.type === 'ATR') {
+        addLine(calcATR(cleanBars, period), color, place);
+      }
+      if (ind.type === 'VWAP') {
+        addLine(calcVWAP(cleanBars, ind.anchor || 'session', ind.source || 'hlc3'), color, 'main', 2);
+      }
+      if (ind.type === 'SuperTrend') {
+        const st = calcSuperTrend(cleanBars, period, Number(ind.mult) || 3);
+        addLine(st.up, color, 'main', 2);
+        addLine(st.down, ind.downColor || '#ef5350', 'main', 2);
+      }
+    });
 
     // Entry / exit markers
     const processed = marks
@@ -1545,8 +2069,12 @@ function ChartPanel({ defaultSymbol }) {
       }));
     candleRef.current.setMarkers(processed);
 
-    chartRef.current.timeScale().fitContent();
-  }, [bars, marks, showEma9, showEma21, showEma50]);
+    const visibleBars = Math.min(chartVisibleBarsForTf(tf), cleanBars.length);
+    chartRef.current.timeScale().setVisibleLogicalRange({
+      from: Math.max(0, cleanBars.length - visibleBars),
+      to: cleanBars.length + 5,
+    });
+  }, [bars, marks, tf, indicators]);
 
   // Symbol search filter
   const filtered = useM(() => {
@@ -1562,19 +2090,230 @@ function ChartPanel({ defaultSymbol }) {
     setSymbol(sym); setSearch(''); setDrop(false);
   };
 
+  const drawOverlay = useC(() => {
+    const canvas = drawingCanvasRef.current;
+    const chart = chartRef.current;
+    const series = candleRef.current;
+    const host = containerRef.current;
+    if (!canvas || !chart || !series || !host) return;
+    const rect = host.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const w = Math.max(1, Math.round(rect.width));
+    const h = Math.max(1, Math.round(rect.height));
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+    }
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    if (drawingsHiddenRef.current) return;
+
+    const toXY = (p) => {
+      if (!p) return null;
+      const x = chart.timeScale().timeToCoordinate(p.time);
+      const y = series.priceToCoordinate(p.price);
+      if (x === null || x === undefined || y === null || y === undefined) return null;
+      return { x, y };
+    };
+    const lineColor = '#f8fafc';
+    const fillColor = 'rgba(56, 189, 248, 0.10)';
+    const drawOne = (d, isDraft = false) => {
+      if (!d || !d.p1) return;
+      const color = isDraft ? '#38bdf8' : (d.color || lineColor);
+      ctx.save();
+      ctx.lineWidth = isDraft ? 1.5 : 1.25;
+      ctx.strokeStyle = color;
+      ctx.fillStyle = d.fill || fillColor;
+      ctx.setLineDash(isDraft ? [4, 4] : []);
+
+      if (d.type === 'hline') {
+        const y = series.priceToCoordinate(d.p1.price);
+        if (y !== null && y !== undefined) {
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        }
+      } else if (d.type === 'vline') {
+        const x = chart.timeScale().timeToCoordinate(d.p1.time);
+        if (x !== null && x !== undefined) {
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+        }
+      } else if (d.type === 'rect') {
+        const a = toXY(d.p1), b = toXY(d.p2 || d.p1);
+        if (a && b) {
+          const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
+          const rw = Math.abs(a.x - b.x), rh = Math.abs(a.y - b.y);
+          ctx.fillRect(x, y, rw, rh);
+          ctx.strokeRect(x, y, rw, rh);
+        }
+      } else {
+        const a = toXY(d.p1), b = toXY(d.p2 || d.p1);
+        if (a && b) {
+          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          ctx.beginPath(); ctx.arc(a.x, a.y, 3, 0, Math.PI * 2); ctx.fill();
+          ctx.beginPath(); ctx.arc(b.x, b.y, 3, 0, Math.PI * 2); ctx.fill();
+        }
+      }
+      ctx.restore();
+    };
+    drawingsRef.current.forEach(d => drawOne(d, false));
+    drawOne(draftDrawingRef.current, true);
+  }, []);
+
+  useE(() => {
+    drawOverlay();
+    const chart = chartRef.current;
+    const host = containerRef.current;
+    if (!chart) return;
+    const handler = () => requestAnimationFrame(drawOverlay);
+    let ro = null;
+    try { chart.timeScale().subscribeVisibleLogicalRangeChange(handler); } catch (_) {}
+    if (host) {
+      ro = new ResizeObserver(handler);
+      ro.observe(host);
+    }
+    return () => {
+      try { chart.timeScale().unsubscribeVisibleLogicalRangeChange(handler); } catch (_) {}
+      try { ro?.disconnect(); } catch (_) {}
+    };
+  }, [drawOverlay, drawings, draftDrawing, drawingsHidden, bars, tf, lower1Visible, lower2Visible]);
+
+  const chartPointFromEvent = (e) => {
+    const canvas = drawingCanvasRef.current;
+    const chart = chartRef.current;
+    const series = candleRef.current;
+    if (!canvas || !chart || !series) return null;
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const time = chart.timeScale().coordinateToTime(x);
+    const price = series.coordinateToPrice(y);
+    if (time === null || time === undefined || price === null || price === undefined) return null;
+    return { time: typeof time === 'number' ? time : time.timestamp, price: Number(price), x, y };
+  };
+
+  const onDrawPointerDown = (e) => {
+    if (drawTool === 'cursor' || drawingsLocked) return;
+    const pt = chartPointFromEvent(e);
+    if (!pt) return;
+    e.preventDefault();
+    e.currentTarget.setPointerCapture?.(e.pointerId);
+    if (drawTool === 'eraser') {
+      setDrawings(list => {
+        if (!list.length) return list;
+        let bestIdx = -1, bestDist = Infinity;
+        list.forEach((d, i) => {
+          const dist = drawingDistance(d, pt);
+          if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+        });
+        if (bestIdx < 0) return list;
+        return list.filter((_, i) => i !== bestIdx);
+      });
+      setDrawTool('cursor');
+      return;
+    }
+    const type = drawTool === 'hline' || drawTool === 'vline' ? drawTool : (drawTool === 'rect' ? 'rect' : 'trend');
+    const next = { id: makeDrawingId(), type, p1: { time: pt.time, price: pt.price }, p2: { time: pt.time, price: pt.price } };
+    setDraftDrawing(next);
+  };
+
+  const onDrawPointerMove = (e) => {
+    if (!draftDrawingRef.current || drawingsLocked) return;
+    const pt = chartPointFromEvent(e);
+    if (!pt) return;
+    e.preventDefault();
+    const d = draftDrawingRef.current;
+    const next = { ...d, p2: { time: pt.time, price: pt.price } };
+    if (d.type === 'hline') next.p2 = next.p1;
+    if (d.type === 'vline') next.p2 = next.p1;
+    setDraftDrawing(next);
+  };
+
+  const finishDraftDrawing = () => {
+    const d = draftDrawingRef.current;
+    if (!d) return;
+    setDraftDrawing(null);
+    setDrawings(list => [...list, d]);
+    setDrawTool('cursor');
+  };
+
+  const onDrawPointerUp = (e) => {
+    if (!draftDrawingRef.current) return;
+    e.preventDefault();
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
+    finishDraftDrawing();
+  };
+
+  const onDrawContextMenu = (e) => {
+    e.preventDefault();
+    setDraftDrawing(null);
+    setDrawTool('cursor');
+  };
+
+  useE(() => {
+    const onWindowPointerUp = () => finishDraftDrawing();
+    const onWindowBlur = () => setDraftDrawing(null);
+    window.addEventListener('pointerup', onWindowPointerUp);
+    window.addEventListener('blur', onWindowBlur);
+    return () => {
+      window.removeEventListener('pointerup', onWindowPointerUp);
+      window.removeEventListener('blur', onWindowBlur);
+    };
+  }, []);
+
+  const lower1Visible = indicators.some(ind =>
+    ind.visible && LOWER_BAND_INDICATORS.has(ind.type) && effectiveIndicatorPlace(ind) === 'lower1'
+  );
+  const lower2Visible = indicators.some(ind =>
+    ind.visible && LOWER_BAND_INDICATORS.has(ind.type) && effectiveIndicatorPlace(ind) === 'lower2'
+  );
+  const quickIndicators = DEFAULT_CHART_INDICATORS
+    .map(def => indicators.find(ind => ind.id === def.id))
+    .filter(Boolean)
+    .slice(0, 6);
+
   const TFS = ['1m','5m','15m','30m','1h','4h','1D'];
-  const emaToggles = [
-    ['EMA9',  showEma9,  setE9,  '#f59e0b'],
-    ['EMA21', showEma21, setE21, '#60a5fa'],
-    ['EMA50', showEma50, setE50, '#c084fc'],
-  ];
+  const updateIndicator = (id, patch) => {
+    setIndicators(list => list.map(ind => ind.id === id ? { ...ind, ...patch } : ind));
+  };
+  const addIndicator = () => {
+    setIndicators(list => {
+      const existing = new Set(list.map(ind => ind.id));
+      const missingDefault = DEFAULT_CHART_INDICATORS.find(ind => !existing.has(ind.id));
+      if (missingDefault) return [...list, { ...missingDefault, visible: true }];
+      const customDefaults = IND_TYPE_DEFAULTS.EMA;
+      return [
+        ...list,
+        {
+          id: makeCustomIndicatorId(list),
+          type: 'EMA',
+          ...customDefaults,
+          visible: true,
+        },
+      ];
+    });
+    setShowIndEditor(true);
+  };
+  const removeIndicator = (id) => {
+    setIndicators(list => list.map(ind => (
+      ind.id === id && isDefaultIndicator(id)
+        ? { ...ind, visible: false }
+        : ind
+    )).filter(ind => ind.id !== id || isDefaultIndicator(id)));
+  };
+  const resetIndicators = () => setIndicators(cloneDefaultIndicators());
+  const clearDrawings = () => { setDrawings([]); setDraftDrawing(null); };
+  const clearIndicators = () => setIndicators(cloneDefaultIndicators().map(ind => ({ ...ind, visible: false })));
+  const clearDrawingsAndIndicators = () => { clearDrawings(); clearIndicators(); };
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'#0d1117', overflow:'hidden' }}>
 
       {/* ── Toolbar ── */}
-      <div style={{ display:'flex', alignItems:'center', gap:5, padding:'5px 8px',
-                    borderBottom:'1px solid #1a2035', flexShrink:0, flexWrap:'wrap', minHeight:38 }}>
+      <div style={{ display:'flex', flexDirection:'column', gap:4, padding:'5px 8px',
+                    borderBottom:'1px solid #1a2035', flexShrink:0 }}>
+      <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap', minHeight:26 }}>
 
         {/* Symbol search */}
         <div style={{ position:'relative' }}>
@@ -1637,17 +2376,24 @@ function ChartPanel({ defaultSymbol }) {
 
         <div style={{ width:1, height:16, background:'#2a3347', margin:'0 2px' }} />
 
-        {/* EMA toggles */}
-        {emaToggles.map(([label, on, set, color]) => (
-          <button key={label}
+        {/* Indicator quick toggles */}
+        {quickIndicators.map(ind => (
+          <button key={ind.id}
             className="btn ghost sm"
             style={{ padding:'2px 7px', fontSize:11,
-                     color: on ? color : '#4b5563',
-                     borderColor: on ? color+'88' : undefined,
-                     opacity: on ? 1 : 0.55 }}
-            onClick={() => set(v => !v)}
-          >{label}</button>
+                     color: ind.visible ? ind.color : '#4b5563',
+                     borderColor: ind.visible ? ind.color+'88' : undefined,
+                     opacity: ind.visible ? 1 : 0.55 }}
+            onClick={() => updateIndicator(ind.id, { visible: !ind.visible })}
+            title={`${ind.type}${ind.period ? ` ${ind.period}` : ''} (${ind.place || 'main'})`}
+          >{ind.type}{ind.period || ''}</button>
         ))}
+
+        <button className="btn ghost sm" style={{ padding:'2px 7px', fontSize:11 }}
+          onClick={() => setShowIndEditor(v => !v)}
+          title={showIndEditor ? "Close indicator editor" : "Edit indicators"}>
+          {showIndEditor ? "Close Indicators" : "Indicators"}
+        </button>
 
         <div style={{ flex:1 }} />
 
@@ -1655,7 +2401,8 @@ function ChartPanel({ defaultSymbol }) {
         {err     && <span style={{ fontSize:10, color:'var(--red)', maxWidth:160, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{err}</span>}
         <button className="btn ghost sm" style={{ padding:'2px 6px' }}
           onClick={() => { setBars([]); setMarks([]); setLoading(true); setErr(null);
-            panelApi(`/api/chart?symbol=${encodeURIComponent(symbol)}&timeframe=${tf}&limit=300&broker=${broker}`)
+            const limit = chartLimitForTf(tf);
+            panelApi(`/api/chart?symbol=${encodeURIComponent(symbol)}&timeframe=${tf}&limit=${limit}&broker=${broker}`)
               .then(d => { setBars(d.bars||[]); setMarks(d.markers||[]); })
               .catch(e => setErr(e.message))
               .finally(() => setLoading(false)); }}
@@ -1664,8 +2411,166 @@ function ChartPanel({ defaultSymbol }) {
         </button>
       </div>
 
-      {/* ── Chart container ── */}
-      <div ref={containerRef} style={{ flex:1, minHeight:0 }} />
+      <div style={{ display:'flex', alignItems:'center', gap:5, flexWrap:'wrap', minHeight:24 }}>
+        <span style={{ fontSize:10, color:'#6b7280', textTransform:'uppercase', fontWeight:700, letterSpacing:0 }}>
+          Draw
+        </span>
+
+        {DRAW_TOOLS.map(([tool, label]) => (
+          <button key={tool}
+            className={cls('btn', drawTool === tool ? 'primary' : 'ghost', 'sm')}
+            style={{ padding:'2px 7px', fontSize:11, minWidth: tool === 'cursor' ? 52 : 30 }}
+            onClick={() => setDrawTool(tool)}
+            title={`Drawing tool: ${label}`}
+          >{label}</button>
+        ))}
+        <button className={cls('btn', drawingsLocked ? 'primary' : 'ghost', 'sm')}
+          style={{ padding:'2px 7px', fontSize:11 }}
+          onClick={() => setDrawingsLocked(v => !v)}
+          title={drawingsLocked ? "Unlock drawings" : "Lock drawings"}>
+          {drawingsLocked ? "Locked" : "Lock"}
+        </button>
+        <button className={cls('btn', drawingsHidden ? 'primary' : 'ghost', 'sm')}
+          style={{ padding:'2px 7px', fontSize:11 }}
+          onClick={() => setDrawingsHidden(v => !v)}
+          title={drawingsHidden ? "Show drawings" : "Hide drawings"}>
+          {drawingsHidden ? "Show" : "Hide"}
+        </button>
+        <button className="btn ghost sm" style={{ padding:'2px 7px', fontSize:11 }}
+          onClick={clearDrawings}
+          title="Remove drawings only">
+          Clear Draw
+        </button>
+        <button className="btn ghost sm" style={{ padding:'2px 7px', fontSize:11 }}
+          onClick={clearIndicators}
+          title="Remove indicators only">
+          Clear Ind
+        </button>
+        <button className="btn ghost sm" style={{ padding:'2px 7px', fontSize:11 }}
+          onClick={clearDrawingsAndIndicators}
+          title="Remove drawings and indicators">
+          Clear Both
+        </button>
+      </div>
+      </div>
+
+      {showIndEditor && (
+        <div style={{ display:'flex', flexDirection:'column', gap:6, padding:'7px 8px',
+                      borderBottom:'1px solid #1a2035', background:'#111827', flexShrink:0 }}>
+          {indicators.map(ind => (
+            <div key={ind.id} style={{ display:'grid',
+              gridTemplateColumns:'22px 82px 74px 74px minmax(280px, 1fr) 28px',
+              gap:5, alignItems:'center' }}>
+              <input type="checkbox" checked={!!ind.visible}
+                onChange={e => updateIndicator(ind.id, { visible: e.target.checked })} />
+              <select className="select input" value={ind.type}
+                onChange={e => {
+                  const nextType = e.target.value;
+                  const defaults = IND_TYPE_DEFAULTS[nextType] || {};
+                  updateIndicator(ind.id, {
+                    ...defaults,
+                    type: nextType,
+                    place: PRICE_OVERLAY_INDICATORS.has(nextType) ? 'main' : (defaults.place || 'lower1'),
+                  });
+                }}
+                style={{ height:24, fontSize:11, padding:'2px 5px' }}>
+                {IND_TYPES.map(t => <option key={t}>{t}</option>)}
+              </select>
+              <input className="input" type="color" value={ind.color || '#60a5fa'}
+                onChange={e => updateIndicator(ind.id, { color: e.target.value })}
+                style={{ height:24, padding:2 }} />
+              <select className="select input" value={effectiveIndicatorPlace(ind)}
+                onChange={e => updateIndicator(ind.id, { place: e.target.value })}
+                style={{ height:24, fontSize:11, padding:'2px 5px' }}>
+                {indicatorPlaceOptions(ind.type).map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+              </select>
+              <div style={{ display:'flex', gap:5, alignItems:'center', flexWrap:'wrap' }}>
+                {indicatorParamDefs(ind.type).map(def => (
+                  <label key={def.key} style={{ display:'flex', alignItems:'center', gap:3, fontSize:10, color:'#8b949e' }}>
+                    <span>{def.label}</span>
+                    {def.type === 'color' ? (
+                      <input className="input" type="color"
+                        value={ind[def.key] || def.fallback}
+                        onChange={e => updateIndicator(ind.id, { [def.key]: e.target.value })}
+                        style={{ width:34, height:24, padding:2 }} />
+                    ) : def.type === 'select' ? (
+                      <select className="select input"
+                        value={ind[def.key] || def.fallback}
+                        onChange={e => updateIndicator(ind.id, { [def.key]: e.target.value })}
+                        style={{ height:24, fontSize:11, padding:'2px 5px', minWidth:76 }}>
+                        {(def.options || []).map(([value, label]) => (
+                          <option key={value} value={value}>{label}</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input className="input" type="number"
+                        min={def.min} max={def.max} step={def.step || 1}
+                        value={ind[def.key] ?? def.fallback}
+                        onChange={e => updateIndicator(ind.id, { [def.key]: Number(e.target.value) || def.fallback })}
+                        style={{ width:52, height:24, fontSize:11, padding:'2px 5px' }} />
+                    )}
+                  </label>
+                ))}
+                {!indicatorParamDefs(ind.type).length && (
+                  <span style={{ fontSize:10, color:'#6b7280' }}>Session VWAP</span>
+                )}
+              </div>
+              <button className="btn ghost sm" style={{ height:24, padding:'2px 6px' }}
+                onClick={() => removeIndicator(ind.id)}
+                title={isDefaultIndicator(ind.id) ? "Hide built-in indicator" : "Remove custom indicator"}>
+                {isDefaultIndicator(ind.id) ? "−" : "×"}
+              </button>
+            </div>
+          ))}
+          <div style={{ display:'flex', gap:6 }}>
+            <button className="btn ghost sm" onClick={addIndicator}>Add Indicator</button>
+            <button className="btn ghost sm" onClick={resetIndicators}>Reset Defaults</button>
+            <button className="btn ghost sm" onClick={() => setShowIndEditor(false)}>Close</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Chart panes ── */}
+      <div style={{ flex:1, minHeight:220, position:'relative' }}>
+        <div ref={containerRef} style={{ position:'absolute', inset:0 }} />
+        <canvas
+          ref={drawingCanvasRef}
+          onPointerDown={onDrawPointerDown}
+          onPointerMove={onDrawPointerMove}
+          onPointerUp={onDrawPointerUp}
+          onPointerCancel={() => setDraftDrawing(null)}
+          onContextMenu={onDrawContextMenu}
+          style={{
+            position:'absolute',
+            inset:0,
+            zIndex:5,
+            pointerEvents: drawTool === 'cursor' || drawingsLocked || drawingsHidden ? 'none' : 'auto',
+            cursor: drawTool === 'eraser' ? 'not-allowed' : 'crosshair',
+            userSelect:'none',
+            touchAction:'none',
+          }}
+        />
+      </div>
+      <div
+        ref={lower1ContainerRef}
+        style={{
+          height: lower1Visible ? 122 : 0,
+          minHeight: lower1Visible ? 92 : 0,
+          overflow: 'hidden',
+          borderTop: lower1Visible ? '1px solid #1a2035' : '0',
+          flexShrink: 0,
+        }}
+      />
+      <div
+        ref={lower2ContainerRef}
+        style={{
+          height: lower2Visible ? 132 : 0,
+          minHeight: lower2Visible ? 98 : 0,
+          overflow: 'hidden',
+          borderTop: lower2Visible ? '1px solid #1a2035' : '0',
+          flexShrink: 0,
+        }}
+      />
     </div>
   );
 }

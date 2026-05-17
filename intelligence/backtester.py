@@ -90,7 +90,7 @@ class _BacktestCancelled(Exception):
     interfere with Python's own signal handling or server socket machinery."""
 
 _cancel_event = threading.Event()
-CHECK_CANCEL_EVERY = 50   # bars between cancel checks (~50 × 1h bars ≈ 2 days)
+CHECK_CANCEL_EVERY = 5    # bars between cancel checks; keep UI cancel responsive on 5m runs
 
 def request_cancel():
     """Signal the running backtest to stop at the next cancel checkpoint."""
@@ -725,6 +725,7 @@ class Backtester:
         strategy_map = {
             "rsi_momentum":       ("strategies.rsi_momentum",       "RSIMomentum"),
             "bollinger_breakout": ("strategies.bollinger_breakout",  "BollingerBreakout"),
+            "bollinger_squeeze": ("strategies.bollinger_squeeze",  "BollingerSqueeze"),                      
             "ema_crossover":      ("strategies.ema_crossover",       "EMACrossover"),
             "mean_reversion":     ("strategies.mean_reversion",      "MeanReversion"),
             "scalp_master":       ("strategies.scalp_master",        "ScalpMaster"),
@@ -732,6 +733,7 @@ class Backtester:
             "grid_bot":           ("strategies.grid_bot",            "GridBot"),
             "dca_accumulator":    ("strategies.dca_accumulator",     "DCAAccumulator"),
             "vwap_momentum":      ("strategies.vwap_momentum",       "VWAPMomentum"),
+            "vwap_confirmed_orb": ("strategies.vwap_confirmed_orb",  "VwapConfirmedOrb"),
             "hammer_reversal":    ("strategies.hammer_reversal",     "HammerReversal"),
             "orb_breakout":       ("strategies.orb_breakout",        "ORBBreakout"),
             "adaptive_regime":    ("strategies.adaptive_regime",     "AdaptiveRegime"),
@@ -1419,6 +1421,12 @@ class Backtester:
             if strategy_obj is None:
                 logger.error(f"Unknown strategy: {strategy_name}")
                 return None
+            if (
+                strategy_name == "grid_bot"
+                and asset_class == "crypto"
+                and entry_side_filter in ("all", "short")
+            ):
+                strategy_obj.backtest_allow_crypto_shorts = True
         except Exception as e:
             logger.error(f"Failed to load strategy {strategy_name}: {e}")
             return None

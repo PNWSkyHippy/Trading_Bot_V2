@@ -89,13 +89,13 @@ from typing import Dict, Optional
 @dataclass
 class RSIDipSpikeV4Params:
     rsi_length:      int   = 7
-    rsi_oversold:    float = 35.0
-    rsi_overbought:  float = 80.0
+    rsi_oversold:    float = 40.0 # was 35
+    rsi_overbought:  float = 75.0 # was 80
     rsi_exit_long:   float = 55.0   # Exit long when RSI recovers to here
     rsi_exit_short:  float = 45.0   # Exit short when RSI drops back here
     trend_ma_length: int   = 200
     adx_length:      int   = 14
-    adx_min:         float = 25.0
+    adx_min:         float = 30.0 # was 25
     atr_length:      int   = 14
     sl_atr_mult:     float = 2.5
     tp_atr_mult:     float = 2.0
@@ -457,6 +457,7 @@ class RSIDipSpikeV4Strategy(BaseStrategy):
         self.stock_enabled           = False
         self.crypto_candle_timeframe = "1h"
         self.reviewer_exempt         = True
+        self.ml_exempt               = True     # ML model dominated by grid_bot (1507 trades) — RSI dip has 2 historical trades, blending produces noise not signal
 
         # Strategy-defined hold: skip generic 30m/2h/5h/8h intraday time stops.
         # RSI Dip & Spike uses RSI neutral exit + 48-bar time limit — the generic
@@ -470,6 +471,17 @@ class RSIDipSpikeV4Strategy(BaseStrategy):
     def analyze(self, symbol: str, candles: pd.DataFrame,
                 market_condition: str = "unknown") -> Optional[TradeSignal]:
         p = self.params
+
+        # Validate signal_mode — guard against config drift or typos silently
+        # routing all signals through the else branch (which defaults to penetration).
+        # Normalise here so generate_signals() always receives a known value.
+        if p.signal_mode not in ("penetration", "reclaim"):
+            self.logger.warning(
+                f"[{self.strategy_name}] {symbol}: invalid signal_mode={p.signal_mode!r} "
+                f"— falling back to 'penetration'"
+            )
+            p.signal_mode = "penetration"
+
         MIN_BARS = max(p.trend_ma_length, p.adx_length, p.atr_length) + 20
         if not self._check_enough_candles(symbol, candles, MIN_BARS):
             return None
@@ -538,7 +550,7 @@ class RSIDipSpikeV4Strategy(BaseStrategy):
                     "rsi":                        round(rsi, 2),
                     "adx":                        round(adx, 2),
                     "atr":                        round(atr, 6),
-                    "macro_ma":                   round(macro_ma_val, 6) if macro_ma_val else None,
+                    "macro_ma":                   round(macro_ma_val, 6) if macro_ma_val is not None else None,
                     "bull_regime":                bool(last["bull_regime"]),
                     "bear_regime":                bool(last["bear_regime"]),
                     "adx_ok":                     bool(last["adx_ok"]),

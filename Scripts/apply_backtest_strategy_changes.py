@@ -23,20 +23,21 @@ now  = datetime.now(timezone.utc).isoformat()
 
 changes = [
     # Enable proven strategies
-    ("strategy_mean_reversion_enabled",    "true",  "ENABLE  mean_reversion  — 79.8% avg win rate, 16/16 GO on stocks"),
+    ("strategy_mean_reversion_enabled",    "false",  "ENABLE  mean_reversion  — 79.8% avg win rate, 16/16 GO on stocks"),
     ("strategy_grid_bot_enabled",          "true",  "ENABLE  grid_bot        — 130/137 GO stocks, 80+ GO crypto"),
-    ("strategy_dca_accumulator_enabled",   "true",  "ENABLE  dca_accumulator — all GO on blue chips"),
+    ("strategy_dca_accumulator_enabled",   "false",  "ENABLE  dca_accumulator — all GO on blue chips"),
     ("strategy_vwap_momentum_enabled",     "true",  "ENABLE  vwap_momentum   — pending 1hr test, keep for now"),
-    ("strategy_swing_trader_enabled",      "true",  "ENABLE  swing_trader    — pending 1hr/365 test, keep for now"),
-
+    ("strategy_swing_trader_enabled",      "false",  "ENABLE  swing_trader    — pending 1hr/365 test, keep for now"),
+    ("strategy_adaptive_regime_enabled",      "true",  "ENABLE  adaptive_regime    — pending 1hr/365 test, keep for now"),
+    ("strategy_sbollinger_sqeeze_enabled",      "true",  "ENABLE  sbollinger_sqeeze    — pending 1hr/365 test, keep for now"),
     # Disable consistently underperforming strategies
     ("strategy_rsi_momentum_enabled",      "false", "DISABLE rsi_momentum    — 3/85 GO, avg win rate 34%"),
-    ("strategy_bollinger_breakout_enabled","false", "DISABLE bollinger       — 4/137 GO, avg win rate 36%"),
+    ("strategy_bollinger_breakout_enabled","true", "DISABLE bollinger       — 4/137 GO, avg win rate 36%"),
     ("strategy_ema_crossover_enabled",     "false", "DISABLE ema_crossover   — 5/137 GO, avg win rate 33%"),
 
     # Keep disabled pending backtest
-    ("strategy_orb_breakout_enabled",      "false", "DISABLE orb_breakout    — pending full backtest"),
-    ("strategy_hammer_reversal_enabled",   "false", "DISABLE hammer_reversal — pending backtest"),
+    ("strategy_orb_breakout_enabled",      "true", "DISABLE orb_breakout    — pending full backtest"),
+    ("strategy_hammer_reversal_enabled",   "true", "DISABLE hammer_reversal — pending backtest"),
 ]
 
 print("Applying strategy changes based on backtest results:\n")
