@@ -3,6 +3,7 @@ logs/bot.log
 *.log
 data/trading_bot.db
 ai-trading-agent/
+Archon/
 .env
 *.db
 *.pkl
