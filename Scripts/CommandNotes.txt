@@ -1,3 +1,8 @@
+Run Archan web fontend
+1) C:\users\linda\.archon\bin\archon.exe serve
+2) C:\users\linda\trading_bot_v2\Archon\packages> bun run dev
+
+
 python -m py_compile <Path_to\file.py>   
 
 Claude usage stats
