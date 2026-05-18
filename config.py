@@ -376,10 +376,10 @@ SIGNAL_TUNING = {
     #   BTC: WR 42%→50%, PF 1.109→1.621, Sharpe -0.99→+0.975, DD 4.3%→1.3%
     #   ADX<20 lets in "quiet trend" periods; ADX<15 = genuinely flat/ranging only
     # -------------------------------------------------------------------------
-    "grid_adx_max":                 20,   # was 20-15 — lowered per audit Iter1
+    "grid_adx_max":                 15,   # was 20 — lowered per audit Iter1
     "grid_adx_period":              14,
     "grid_bb_period":               30,
-    "grid_long_edge_pct":           0.30, # lwas .20 ong when price is in bottom 20% of BB range
+    "grid_long_edge_pct":           0.20, # long when price is in bottom 20% of BB range
     "grid_short_edge_pct":          0.80, # short when price is in top 20% of BB range
     "grid_min_score":               0.70,
 

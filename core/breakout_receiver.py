@@ -568,7 +568,7 @@ class BreakoutReceiver:
             f"criteria={criteria_met}/3  "
             f"vol={vol:.2f}x>={VOLUME_SPIKE_MIN}:{c1}  "
             f"momentum={momentum:.3f} reversed:{c2}  "
-            f"candle_open={float(candle_open):.4f if candle_open is not None else 'N/A'}  "
+            f"candle_open={f'{float(candle_open):.4f}' if candle_open is not None else 'N/A'}  "
             f"live={live_price:.4f} body_confirms:{c3}"
         )
 
