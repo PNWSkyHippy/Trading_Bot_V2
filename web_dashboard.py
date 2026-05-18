@@ -1263,6 +1263,7 @@ def get_overview_data():
     losses_today = sum(1 for trade in closed_today if float(trade.get("pnl") or 0) <= 0)
     closed_trade_count = len(closed_today)
     win_rate = (wins_today / closed_trade_count * 100) if closed_trade_count else 0
+    closed_today_pnl = sum(float(trade.get("pnl") or 0) for trade in closed_today)
 
     daily_summaries = db.get_daily_summaries(370) or []
     daily_perf = [
@@ -1301,8 +1302,7 @@ def get_overview_data():
     if status:
         trading_active = bool(status.trading_active)
         halt_reason = status.halt_reason or ""
-        daily_pnl = float(status.pnl_today or 0)
-        daily_pnl_pct = float(status.pnl_pct_today or 0)
+        session_daily_pnl = float(status.pnl_today or 0)
         consecutive_losses = int(status.consecutive_losses or 0)
         status_trades_today = int(status.trades_today or 0)
         capital = float(status.capital or cap.get("total_capital") or 0)
@@ -1311,12 +1311,14 @@ def get_overview_data():
         session = db.get_session(date.today().isoformat()) or {}
         trading_active = not bool(session.get("trading_halted", 0))
         halt_reason = session.get("halt_reason") or ""
-        daily_pnl = float(session.get("pnl_today") or 0)
+        session_daily_pnl = float(session.get("pnl_today") or 0)
         starting_capital_today = float(session.get("starting_capital_today") or 0)
-        daily_pnl_pct = (daily_pnl / starting_capital_today * 100) if starting_capital_today else 0
         consecutive_losses = int(session.get("consecutive_losses") or 0)
         status_trades_today = int(session.get("trades_today") or 0)
         capital = float(cap.get("total_capital") or 0)
+
+    daily_pnl = closed_today_pnl
+    daily_pnl_pct = (daily_pnl / starting_capital_today * 100) if starting_capital_today else 0
 
     return {
         "trading_active": trading_active,
@@ -1326,6 +1328,7 @@ def get_overview_data():
         "available_cash": float(cap.get("available_cash") or 0),
         "daily_pnl": daily_pnl,
         "daily_pnl_pct": daily_pnl_pct,
+        "session_daily_pnl": session_daily_pnl,
         "open_positions": len(open_trades),
         "trades_today": closed_trade_count,        # matches Trade Log count
         "session_trades_today": status_trades_today, # session counter (since last bot start)

@@ -506,7 +506,10 @@ class BotEngine:
         try:
             self.logger.info("Running end-of-day routine...")
             self.report_generator.generate_and_send_daily_report()
-            self.db.reset_session_state()
+            self.logger.info(
+                "[EOD] Daily report complete. Session counters remain active "
+                "until midnight reset."
+            )
         except Exception as e:
             self.logger.error(f"End-of-day routine error: {e}", exc_info=True)
 
