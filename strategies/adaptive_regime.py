@@ -109,11 +109,11 @@ ATR_PERIOD        = 14
 VOLUME_PERIOD     = 20
 BREAKOUT_PERIOD   = 20    # Donchian channel lookback — tightened from 12
 
-ADX_TREND_THRESHOLD = 20  # was 25 ADX >= this → strong trend gate (raised from 22)
+ADX_TREND_THRESHOLD = 25  #  ADX >= this → strong trend gate (raised from 22)
 STOP_ATR_MULT       = 2.5 # Initial stop distance below entry
 TRAIL_ATR_MULT      = 3.0 # Backstop TP (primary exit is EMA cross)
-MAX_TREND_ENTRY_RSI = 72  # was 68 Block exhausted entries (tightened from 72)
-MIN_VOL_RATIO       = 1.4 # was 1.1 Minimum volume_ratio for breakout confirmation
+MAX_TREND_ENTRY_RSI = 68  #  Block exhausted entries (tightened from 72)
+MIN_VOL_RATIO       = 1.1 #  Minimum volume_ratio for breakout confirmation
 
 MIN_BARS = max(
     SLOW_EMA,

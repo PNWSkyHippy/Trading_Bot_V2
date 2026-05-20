@@ -11,12 +11,78 @@ detailed signal condition pass/fail data when --verbose mode is active.
 """
 
 import logging
+import os
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Optional, Iterable
 import pandas as pd
 
 import config
+
+_INJECTED_CACHE = {"time": 0.0, "symbols": set()}
+
+
+def _symbol_variants(symbol: str) -> set:
+    s = str(symbol or "").strip().upper()
+    if not s:
+        return set()
+    variants = {s, s.replace("-", "/")}
+    if "/" in s:
+        base, quote = s.split("/", 1)
+        variants.update({base, f"{base}-{quote}"})
+    elif "-" in s:
+        base, quote = s.split("-", 1)
+        variants.update({base, f"{base}/{quote}"})
+    else:
+        variants.update({f"{s}/USD", f"{s}/USDT", f"{s}-USD", f"{s}-USDT"})
+    return variants
+
+
+def _read_symbol_file(path: str) -> set:
+    try:
+        with open(path, "r") as f:
+            raw = [
+                line.strip()
+                for line in f
+                if line.strip() and not line.strip().startswith("#")
+            ]
+    except FileNotFoundError:
+        return set()
+    except Exception:
+        return set()
+
+    symbols = set()
+    for item in raw:
+        symbols.update(_symbol_variants(item))
+    return symbols
+
+
+def _injected_symbols() -> set:
+    now = time.time()
+    if now - _INJECTED_CACHE["time"] < 30:
+        return _INJECTED_CACHE["symbols"]
+
+    paths = [
+        getattr(config, "TEMP_STOCKS_FILE", "watchlist/scanned_stocks.txt"),
+        getattr(config, "TEMP_CRYPTO_FILE", "watchlist/scanned_crypto.txt"),
+        "watchlist/scanned_stocks.txt",
+        "watchlist/scanned_crypto.txt",
+    ]
+    symbols = set()
+    for path in dict.fromkeys(paths):
+        symbols.update(_read_symbol_file(path))
+
+    _INJECTED_CACHE["time"] = now
+    _INJECTED_CACHE["symbols"] = symbols
+    return symbols
+
+
+def _normalise_whitelist(whitelist: Iterable[str]) -> set:
+    symbols = set()
+    for item in whitelist:
+        symbols.update(_symbol_variants(item))
+    return symbols
 
 
 # =============================================================================
@@ -109,6 +175,31 @@ class BaseStrategy(ABC):
         # Both default True — runs on all asset classes
         self.stock_enabled  = True
         self.crypto_enabled = True
+
+    def _passes_symbol_whitelist(
+        self,
+        symbol: str,
+        whitelist: Iterable[str],
+        whitelist_name: str,
+    ) -> bool:
+        symbol_keys = _symbol_variants(symbol)
+        if symbol_keys & _normalise_whitelist(whitelist):
+            return True
+
+        if (
+            getattr(config, "BYPASS_STRATEGY_WHITELIST_FOR_INJECTED_SYMBOLS", True)
+            and symbol_keys & _injected_symbols()
+        ):
+            self.verbose_log(
+                symbol,
+                f"{whitelist_name} bypassed for injected/manual symbol",
+                True,
+                symbol,
+                "in scanned injection list",
+            )
+            return True
+
+        return False
 
     @property
     def name(self) -> str:

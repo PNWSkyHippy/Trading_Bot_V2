@@ -113,7 +113,9 @@ class VWAPMomentum(BaseStrategy):
     ) -> Optional[TradeSignal]:
 
         # ── Whitelist ────────────────────────────────────────────────────
-        if symbol.upper() not in VWAP_MOM_WHITELIST:
+        if not self._passes_symbol_whitelist(
+            symbol, VWAP_MOM_WHITELIST, "VWAP momentum whitelist"
+        ):
             self.verbose_log_skip(
                 symbol,
                 f"Not in VWAP momentum whitelist — skipping"

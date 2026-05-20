@@ -24,6 +24,10 @@ import time
 import logging
 from datetime import datetime
 from typing import Optional, Dict
+try:
+    from zoneinfo import ZoneInfo
+except ImportError:
+    from backports.zoneinfo import ZoneInfo
 
 import alpaca_trade_api as tradeapi
 import ccxt
@@ -39,6 +43,24 @@ from core.kraken_executor import KrakenExecutor
 from data.database import db
 
 logger = logging.getLogger(__name__)
+
+
+def _stock_entries_allowed_now() -> bool:
+    """Stocks may open during regular hours, but not after the EOD close window."""
+    now_et = datetime.now(ZoneInfo("America/New_York"))
+
+    if now_et.weekday() > 4:
+        return False
+
+    after_open = (
+        now_et.hour > 9 or
+        (now_et.hour == 9 and now_et.minute >= 30)
+    )
+    before_eod_close = (
+        now_et.hour < 15 or
+        (now_et.hour == 15 and now_et.minute < 45)
+    )
+    return after_open and before_eod_close
 
 
 class AlpacaExecutor:
@@ -342,9 +364,17 @@ class TradeExecutor:
             f"Attempting to execute signal: {signal.symbol} {signal.direction}"
         )
 
+        if signal.asset_class == "stock" and not _stock_entries_allowed_now():
+            logger.info(
+                f"Trade rejected for {signal.symbol}: stock entries closed "
+                f"after 15:45 ET EOD cutoff"
+            )
+            return None
+
         custom_sl  = signal.indicators.get("custom_stop_loss_pct")
         custom_tp  = signal.indicators.get("custom_take_profit_pct")
         custom_pos = signal.indicators.get("custom_position_pct")
+        bypass_win_cooldown = bool(signal.indicators.get("bypass_win_cooldown", False))
 
         # Pass broker name and structural stop directly as explicit args —
         # no shared mutable state, no race condition between threaded scans.
@@ -360,6 +390,7 @@ class TradeExecutor:
             custom_position_pct    = custom_pos,
             broker_name            = broker_name_hint,
             structural_stop_price  = structural_stop_hint,
+            bypass_win_cooldown    = bypass_win_cooldown,
         )
         if not approval.approved:
             # If IBKR was selected but has $0 cash (drained paper account or
@@ -381,6 +412,7 @@ class TradeExecutor:
                     custom_position_pct    = custom_pos,
                     broker_name            = "alpaca",
                     structural_stop_price  = structural_stop_hint,
+                    bypass_win_cooldown    = bypass_win_cooldown,
                 )
                 if not approval.approved:
                     logger.info(
@@ -406,7 +438,7 @@ class TradeExecutor:
                 return None
 
         trade_id     = str(uuid.uuid4())[:12]
-        broker_result= self._submit(signal, approval)
+        broker_result = self._submit(signal, approval, broker_name_hint)
         if not broker_result:
             logger.error(f"Order submission failed for {signal.symbol}")
             return None
@@ -787,11 +819,17 @@ class TradeExecutor:
         """Close all open stock positions — called at end of day."""
         self.alpaca.close_all_stock_positions()
 
-    def _submit(self, signal, approval: TradeApproval) -> Optional[Dict]:
+    def _submit(
+        self,
+        signal,
+        approval: TradeApproval,
+        broker_name_hint: Optional[str] = None,
+    ) -> Optional[Dict]:
         side   = "buy" if signal.direction == "long" else "sell"
 
         if signal.asset_class == "stock":
-            if self._ibkr is not None:
+            use_ibkr = broker_name_hint != "alpaca"
+            if use_ibkr and self._ibkr is not None:
                 if self._ibkr.is_available():
                     logger.info(f"Routing {signal.symbol} to IBKR (cash account)")
                     result = self._ibkr.submit_order(
@@ -810,6 +848,8 @@ class TradeExecutor:
                         f"IBKR unreachable (TWS not running?) — "
                         f"falling back to Alpaca for {signal.symbol}"
                     )
+            elif broker_name_hint == "alpaca":
+                logger.info(f"Routing {signal.symbol} to Alpaca (IBKR cash unavailable)")
             result = self.alpaca.submit_order(
                 signal.symbol, approval.quantity, side,
                 approval.stop_loss, approval.take_profit

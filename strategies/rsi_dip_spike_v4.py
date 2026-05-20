@@ -89,13 +89,13 @@ from typing import Dict, Optional
 @dataclass
 class RSIDipSpikeV4Params:
     rsi_length:      int   = 7
-    rsi_oversold:    float = 40.0 # was 35
-    rsi_overbought:  float = 75.0 # was 80
+    rsi_oversold:    float = 35.0 # 
+    rsi_overbought:  float = 80.0 # 
     rsi_exit_long:   float = 55.0   # Exit long when RSI recovers to here
     rsi_exit_short:  float = 45.0   # Exit short when RSI drops back here
     trend_ma_length: int   = 200
     adx_length:      int   = 14
-    adx_min:         float = 30.0 # was 25
+    adx_min:         float = 25.0 
     atr_length:      int   = 14
     sl_atr_mult:     float = 2.5
     tp_atr_mult:     float = 2.0

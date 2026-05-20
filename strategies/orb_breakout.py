@@ -300,7 +300,9 @@ class ORBBreakout(BaseStrategy):
 
         # ── Whitelist gate (stocks only) ─────────────────────────────────
         if asset_class == "stock" and USE_WHITELIST:
-            if symbol.upper() not in ORB_STOCK_WHITELIST:
+            if not self._passes_symbol_whitelist(
+                symbol, ORB_STOCK_WHITELIST, "ORB GO whitelist"
+            ):
                 self.verbose_log_skip(symbol, "Not in ORB GO whitelist")
                 return None
 

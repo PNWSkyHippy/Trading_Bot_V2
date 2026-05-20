@@ -184,7 +184,8 @@ class RiskManager:
                       custom_take_profit_pct: float = None,
                       custom_position_pct: float = None,
                       broker_name: str = None,
-                      structural_stop_price: float = None) -> TradeApproval:
+                      structural_stop_price: float = None,
+                      bypass_win_cooldown: bool = False) -> TradeApproval:
         """
         Approve a trade signal and compute position sizing.
 
@@ -405,14 +406,20 @@ class RiskManager:
             cooldown = WIN_COOLDOWN_SEC if last["won"] else LOSS_COOLDOWN_SEC
             label    = "win" if last["won"] else "loss"
             if elapsed < cooldown:
-                remaining = int((cooldown - elapsed) / 60)
-                return TradeApproval(
-                    approved=False,
-                    reason=(
-                        f"Symbol cooldown ({label}): {symbol} closed {int(elapsed)}s ago "
-                        f"— wait {remaining}min before re-entry"
+                if last["won"] and bypass_win_cooldown:
+                    logger.info(
+                        f"Symbol cooldown bypassed for winning breakout re-entry: "
+                        f"{symbol} closed {int(elapsed)}s ago"
                     )
-                )
+                else:
+                    remaining = int((cooldown - elapsed) / 60)
+                    return TradeApproval(
+                        approved=False,
+                        reason=(
+                            f"Symbol cooldown ({label}): {symbol} closed {int(elapsed)}s ago "
+                            f"— wait {remaining}min before re-entry"
+                        )
+                    )
 
         logger.info(
             f"APPROVED: {symbol} {direction.upper()} | "

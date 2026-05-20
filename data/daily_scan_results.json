@@ -1,10 +1,15 @@
 {
-  "generated": "2026-05-15T13:33:18.095581",
+  "generated": "2026-05-19T13:33:41.796592",
   "valid_until": "next_market_close",
   "stocks": [
-    "CSCO",
-    "PANW",
-    "WMB"
+    "D",
+    "KMI",
+    "ALL"
   ],
-  "crypto": []
+  "crypto": [
+    "NEAR/USD",
+    "XMR/USD",
+    "HYPE/USD",
+    "RAIN/USD"
+  ]
 }

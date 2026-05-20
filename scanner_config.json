@@ -3,6 +3,7 @@
   "stock_market_close": "13:00",
   "crypto_24_7": true,
   "scan_interval_seconds": 30,
+  "hot_symbol_scan_seconds": 5,
   "top_stocks_count": 100,
   "top_cryptos_count": 100,
   "enable_sound_alert": true,
@@ -59,6 +60,6 @@
   "price_acceleration_threshold": 0.5,
   "bot_api_url": "http://localhost:8181",
   "bot_api_key": "gAAAAABqBjVt11Zco-KwfebKkYgb-oAFICh1LLNTfFfwzvCWVWocCW9c3YcwOzBEhPutwgq8D0dTraFmC1LfjSY6M7ziVwfbEFu-EWEeFs_ZgKQ0JXthU9-nhUrIWmU97BY1pcoeryx7",
-  "bot_min_escalation": 2,
+  "bot_min_escalation": 1,
   "bot_enabled": true
 }

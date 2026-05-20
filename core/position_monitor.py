@@ -475,12 +475,12 @@ class PositionMonitor:
         # ── Grid bot exemption: time stops kill grid strategies ────────
         # Grid bot profits from oscillations that can take hours to complete.
         # Applying time stops to grid_bot directly contradicts its thesis.
-        if strategy in ("grid_bot", "dca_accumulator"):
-            logger.debug(
-                f"[TIME STOP EXEMPT] {symbol}: strategy={strategy} "
-                f"is exempt from performance time stops"
-            )
-            return None
+#        if strategy in ("grid_bot", "dca_accumulator"):
+#            logger.debug(
+#                f"[TIME STOP EXEMPT] {symbol}: strategy={strategy} "
+#                f"is exempt from performance time stops"
+#            )
+#            return None
 
         # ── Hard time stop: 8 hours ───────────────────────────────────
         if age_seconds >= HARD_TIME_STOP_SEC:
@@ -1202,12 +1202,38 @@ class PositionMonitor:
                         return
                     else:
                         # ── PAPER MODE: extend TP in DB (no real orders) ──
-                        self._db.update_trade_levels(trade_id, take_profit=new_tp)
+                        entry_price = float(trade.get("entry_price") or 0)
+                        old_sl = float(trade.get("stop_loss") or 0)
+                        lock_ratio = float(getattr(
+                            _cfg, "MOMENTUM_RIDER_LOCK_PROFIT_RATIO", 0.50
+                        ))
+                        min_lock = float(getattr(
+                            _cfg, "MOMENTUM_RIDER_MIN_LOCK_PCT", 0.25
+                        ))
+                        lock_pct = max(min_lock, pnl_pct * lock_ratio)
+                        new_sl = old_sl
+
+                        if entry_price > 0 and pnl_pct > 0:
+                            if direction == "long":
+                                candidate_sl = entry_price * (1 + lock_pct / 100)
+                                candidate_sl = min(candidate_sl, current_price * 0.995)
+                                new_sl = max(old_sl, candidate_sl) if old_sl else candidate_sl
+                            else:
+                                candidate_sl = entry_price * (1 - lock_pct / 100)
+                                candidate_sl = max(candidate_sl, current_price * 1.005)
+                                new_sl = min(old_sl, candidate_sl) if old_sl else candidate_sl
+                            new_sl = round(new_sl, 6)
+
+                        self._db.update_trade_levels(
+                            trade_id, stop_loss=new_sl, take_profit=new_tp
+                        )
                         self._db.set_state(f"momentum_ext_{trade_id}", ext_count + 1)
                         self._db.increment_tp_hit_count(trade_id)
                         logger.info(
                             f"[PAPER TP EXTENDED] {symbol} {direction.upper()} | "
                             f"TP raised {trade['take_profit']:.4f} → {new_tp:.4f} | "
+                            f"SL raised {old_sl:.4f} → {new_sl:.4f} | "
+                            f"locked ~{lock_pct:.2f}% | "
                             f"Extension {ext_count + 1}/{max_extensions} | "
                             f"Momentum score: {mom_score:.2f} | P&L {pnl_pct:+.2f}%"
                         )

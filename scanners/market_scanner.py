@@ -567,7 +567,7 @@ class CryptoScanner:
         return signals
 
 
-WIN_REENTRY_DELAY_SEC = 125   # 120s risk_manager win cooldown + 5s buffer
+WIN_REENTRY_DELAY_SEC = 5
 
 
 class MarketScanner:
@@ -647,6 +647,8 @@ class MarketScanner:
             "escalation":                  1,
             "timestamp":                   datetime.now(timezone.utc).isoformat(),
             "broker":                      "kraken" if asset_class == "crypto" else "alpaca",
+            "signal_source":               "breakout_scanner",
+            "bypass_win_cooldown":         True,
             "bars_since_breakout":         1,
             "distance_from_breakout_pct":  abs(drift_pct),
         }
@@ -689,6 +691,62 @@ class MarketScanner:
         if signals:
             self._process_signals(signals)
 
+    def _review_signal_advisory_async(
+        self,
+        signal: Signal,
+        trade_id: Optional[str] = None,
+        market_context=None,
+    ) -> None:
+        """Log Claude/Haiku review in the background without delaying execution."""
+        def _worker():
+            try:
+                from intelligence.claude_reviewer import claude_reviewer
+                context = market_context or claude_reviewer.get_morning_context()
+                decision = claude_reviewer.review_signal(signal, context)
+                signal.indicators["claude_review_decision"] = decision.decision
+                signal.indicators["claude_review_confidence"] = decision.confidence
+                signal.indicators["claude_review_reasoning"] = decision.reasoning
+                signal.indicators["claude_review_elapsed_ms"] = decision.elapsed_ms
+                if decision.warnings:
+                    signal.indicators["claude_review_warnings"] = list(decision.warnings)
+                try:
+                    from data.database import db
+                    db.record_ai_signal_review({
+                        "trade_id":            trade_id,
+                        "symbol":              signal.symbol,
+                        "asset_class":         signal.asset_class,
+                        "direction":           signal.direction,
+                        "strategy_name":       signal.indicators.get("strategy_name", "unknown"),
+                        "signal_score":        signal.score,
+                        "reviewer":            "claude",
+                        "mode":                "advisory",
+                        "decision":            decision.decision,
+                        "confidence":          decision.confidence,
+                        "reasoning":           decision.reasoning,
+                        "suggested_size_pct":  decision.suggested_size_pct,
+                        "warnings":            decision.warnings,
+                        "elapsed_ms":          decision.elapsed_ms,
+                    })
+                except Exception as db_err:
+                    logger.warning(
+                        f"Claude reviewer advisory DB log failed for "
+                        f"{signal.symbol}: {db_err}"
+                    )
+                logger.info(
+                    f"Claude reviewer advisory: {decision.decision} {signal.symbol} "
+                    f"(confidence={decision.confidence}) — {decision.reasoning}"
+                )
+            except Exception as e:
+                logger.warning(
+                    f"Claude reviewer advisory error for {signal.symbol}: {e} — continuing"
+                )
+
+        threading.Thread(
+            target=_worker,
+            name=f"claude-review-{signal.symbol}",
+            daemon=True,
+        ).start()
+
     def _process_signals(self, signals: List[Signal]):
         if not signals:
             return
@@ -707,17 +765,28 @@ class MarketScanner:
         # FALLBACK: if reviewer unavailable, market_context = None and signals
         # proceed through mechanical execution only (no Claude veto).
         market_context = None
+        reviewer_enabled = False
+        reviewer_mode = str(
+            getattr(config, "CLAUDE_REVIEWER_MODE", "advisory")
+        ).strip().lower()
+        reviewer_strict = reviewer_mode in ("strict", "veto", "hard_veto")
         try:
             from intelligence.claude_reviewer import claude_reviewer
-            if claude_reviewer.is_enabled():
+            reviewer_enabled = claude_reviewer.is_enabled()
+            if reviewer_enabled and reviewer_strict:
                 market_context = claude_reviewer.get_morning_context()
                 if not market_context.allow_trading and not is_crypto:
-                    # Stock trading blocked by morning briefing — return early
+                    if reviewer_strict:
+                        # Stock trading blocked by morning briefing — return early
+                        logger.info(
+                            f"Claude reviewer: stock trading blocked — "
+                            f"{market_context.briefing_text[:120]}"
+                        )
+                        return
                     logger.info(
-                        f"Claude reviewer: stock trading blocked — "
-                        f"{market_context.briefing_text[:120]}"
+                        f"Claude reviewer advisory: stock context says block — "
+                        f"{market_context.briefing_text[:120]} — continuing"
                     )
-                    return
                 elif not market_context.allow_trading and is_crypto:
                     # Crypto bypasses the allow_trading gate — log and continue
                     logger.debug(
@@ -817,41 +886,61 @@ class MarketScanner:
                 continue
 
             # ── Claude per-signal review ──────────────────────────────────
-            # Only runs if morning briefing succeeded (market_context is not None).
+            # Advisory mode runs in a background thread and builds its own
+            # context so trade execution is not delayed.
             # Skipped for reviewer_exempt strategies (e.g. Grid Bot) which use
             # non-standard indicators that Claude can't evaluate meaningfully.
-            # Any failure, timeout, or non-APPROVE = SKIP. Never default to approve.
+            # Default mode is advisory: log Claude's opinion, but do not veto.
+            # Set config.CLAUDE_REVIEWER_MODE="strict" to restore hard vetoes.
             reviewer_exempt = signal.indicators.get("reviewer_exempt", False)
 
-            if market_context is not None and not reviewer_exempt:
+            if market_context is not None and not reviewer_exempt and reviewer_strict:
                 try:
                     from intelligence.claude_reviewer import claude_reviewer
                     decision = claude_reviewer.review_signal(signal, market_context)
+                    signal.indicators["claude_review_decision"] = decision.decision
+                    signal.indicators["claude_review_confidence"] = decision.confidence
+                    signal.indicators["claude_review_reasoning"] = decision.reasoning
+                    signal.indicators["claude_review_elapsed_ms"] = decision.elapsed_ms
+                    if decision.warnings:
+                        signal.indicators["claude_review_warnings"] = list(decision.warnings)
+
                     if decision.decision != "APPROVE":
                         logger.info(
                             f"Claude reviewer: {decision.decision} {signal.symbol} — "
-                            f"{decision.reasoning}"
+                            f"{decision.reasoning} "
+                            f"({'vetoing' if reviewer_strict else 'advisory only, continuing'})"
                         )
-                        continue
-                    if decision.suggested_size_pct:
+                        if reviewer_strict:
+                            continue
+                    if (
+                        decision.suggested_size_pct
+                        and getattr(config, "CLAUDE_REVIEWER_APPLY_SIZE_ADVICE", False)
+                    ):
                         signal.indicators["condition_scalar"] = (
                             decision.suggested_size_pct / config.MAX_POSITION_PCT
                         )
                     logger.info(
-                        f"Claude reviewer: APPROVED {signal.symbol} "
+                        f"Claude reviewer: {decision.decision} {signal.symbol} "
                         f"(confidence={decision.confidence}) — {decision.reasoning}"
                     )
                 except Exception as e:
                     logger.warning(
                         f"Claude reviewer error for {signal.symbol}: {e} "
-                        f"— SKIPPING signal (conservative fallback)"
+                        f"— {'SKIPPING signal' if reviewer_strict else 'advisory only, continuing'}"
                     )
-                    continue
+                    signal.indicators["claude_review_decision"] = "ERROR"
+                    signal.indicators["claude_review_reasoning"] = str(e)
+                    if reviewer_strict:
+                        continue
 
             # ── Execute signal ────────────────────────────────────────────
             try:
-                executor.execute_signal(signal)
-                open_symbols.add(signal.symbol)
+                trade_id = executor.execute_signal(signal)
+                if trade_id:
+                    open_symbols.add(signal.symbol)
+                    if reviewer_enabled and not reviewer_exempt and not reviewer_strict:
+                        self._review_signal_advisory_async(signal, trade_id=trade_id)
             except Exception as e:
                 logger.error(f"Executor error for {signal.symbol}: {e}")
 

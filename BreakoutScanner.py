@@ -282,6 +282,7 @@ DEFAULT_CONFIG = {
     "stock_market_close": "13:00",
     "crypto_24_7":        True,
     "scan_interval_seconds": 30,
+    "hot_symbol_scan_seconds": 5,
     "top_stocks_count":  100,
     "top_cryptos_count": 100,
     "enable_sound_alert":  True,
@@ -317,6 +318,7 @@ DEFAULT_CONFIG = {
     "escalate_2pct":        2.0,
     "escalate_5pct":        5.0,
     "escalate_10pct":       10.0,
+    "bot_min_escalation":   1,
 }
 
 # =============================================================================
@@ -1159,7 +1161,7 @@ class BreakoutDetector:
                 pass
         # BTC/USD proxy for crypto signals
         if "/" in sym or pd.asset_type == AssetType.CRYPTO:
-            for btc_key in ("BTC/USD", "BTC-USD", "BTCUSDT"):
+            for btc_key in ("BTC/USD", "BTC/USDT", "BTC-USD", "BTCUSDT"):
                 btc_hist = self.price_history.get(btc_key)
                 if btc_hist and len(btc_hist) >= 2:
                     try:
@@ -1680,6 +1682,12 @@ class MarketScanner:
     def start(self):
         self.running     = True
         self.alert_system.start()
+        logger.info(
+            "[SCAN LOOP] cadence full=%ss hot=%ss bot_min_escalation=%s",
+            self.config.get("scan_interval_seconds", 30),
+            self.config.get("hot_symbol_scan_seconds", 5),
+            self.config.get("bot_min_escalation", 1),
+        )
         self.scan_thread = threading.Thread(target=self._scan_loop, daemon=True)
         self.scan_thread.start()
         logger.info("Market scanner started")
@@ -1705,7 +1713,13 @@ class MarketScanner:
                 update_signal_tracking(self)
             except Exception as e:
                 logger.error(f"Scan loop error: {e}", exc_info=True)
-            time.sleep(self.config.get("scan_interval_seconds", 30))
+            interval = max(1, int(self.config.get("scan_interval_seconds", 30)))
+            hot_interval = max(1, int(self.config.get("hot_symbol_scan_seconds", 5)))
+            next_full_scan = time.time() + interval
+            while self.running and time.time() < next_full_scan:
+                time.sleep(min(hot_interval, max(0.1, next_full_scan - time.time())))
+                if self.running:
+                    self._scan_hot_symbols()
 
     def _can_alert(self, symbol: str) -> bool:
         last = self._alerted_at.get(symbol)
@@ -1713,6 +1727,84 @@ class MarketScanner:
 
     def _mark_alerted(self, symbol: str):
         self._alerted_at[symbol] = datetime.now()
+
+    def _scan_hot_symbols(self):
+        """
+        Recheck only symbols already in the WATCHLIST or escalation tracker.
+        Full market scans stay on scan_interval_seconds; hot symbols get a
+        faster cadence so breakout handoff can happen near the start of a move.
+        """
+        hot: Dict[str, BreakoutSignal] = {}
+        hot.update(getattr(self.watchlist, "_watched", {}))
+        for sym, entry in getattr(self.escalation, "_tracked", {}).items():
+            sig = entry.get("signal") if isinstance(entry, dict) else None
+            if sig:
+                hot[sym] = sig
+        if not hot:
+            return
+
+        logger.debug(f"[HOT SCAN] checking {len(hot)} watched/tracked symbols")
+        for sym, sig in list(hot.items()):
+            try:
+                pd = self._fetch_hot_price_data(sym, sig)
+                if not pd:
+                    continue
+                broker = getattr(sig, "broker", "") or getattr(pd, "_exchange_name", "")
+                self._process_hot_symbol(pd, broker or self.crypto_fetcher.exchange_name)
+            except Exception as e:
+                logger.debug(f"[HOT SCAN] {sym} skipped: {e}")
+
+    def _fetch_hot_price_data(self, symbol: str, sig: BreakoutSignal) -> Optional[PriceData]:
+        if sig.asset_type == AssetType.STOCK:
+            bars = self.stock_fetcher.get_historical_data(symbol)
+            return bars[-1] if bars else None
+
+        broker = (getattr(sig, "broker", "") or "").upper()
+        exchanges = getattr(self.crypto_fetcher, "exchanges", {})
+        exc = exchanges.get(broker) or self.crypto_fetcher.exchange
+
+        if broker == "COINGECKO" or not exc:
+            price = _coingecko_price(symbol)
+            if not price:
+                return None
+            pd = PriceData(symbol, price, price, price, price, 0, datetime.now(), AssetType.CRYPTO)
+            pd._exchange_name = "COINGECKO"
+            return pd
+
+        ticker = exc.fetch_ticker(symbol)
+        last = ticker.get("last") or ticker.get("close")
+        if not last:
+            return None
+        chg = ticker.get("percentage", 0) or 0
+        op = ticker.get("open") or (last / (1 + chg / 100) if chg else last)
+        pd = PriceData(
+            symbol, float(last), float(op),
+            float(ticker.get("high") or last), float(ticker.get("low") or last),
+            float(ticker.get("quoteVolume") or ticker.get("baseVolume") or 0),
+            datetime.now(), AssetType.CRYPTO,
+        )
+        pd._exchange_name = broker or self.crypto_fetcher.exchange_name
+        return pd
+
+    def _process_hot_symbol(self, pd: PriceData, broker: str):
+        sym = pd.symbol
+        result = self.escalation.check(pd)
+        if result:
+            sig, level = result
+            sig.enrichment   = self.detector._build_enrichment(pd)
+            sig.volume_spike = self.detector.vol_spike(pd)
+            logger.warning(f"[HOT ESCALATE {level}] {broker} {sym} move={sig.best_move_pct:+.2f}%")
+            self.alert_system.send_alert(sig, escalation=level)
+            return
+
+        if self.watchlist.is_watching(sym):
+            promoted = self.watchlist.check(pd)
+            if promoted and self._can_alert(sym):
+                promoted.broker = broker
+                self._mark_alerted(sym)
+                self.escalation.register(promoted)
+                self.alert_system.send_alert(promoted, escalation=0)
+                log_signal_to_csv(promoted)
 
     # -----------------------------------------------------------------------
     # Scanner-owned signal enrichment (computed at signal creation time)
@@ -1775,6 +1867,27 @@ class MarketScanner:
             logger.info(f"Crypto scan: {len(movers)} movers via "
                         f"{list(exchanges.keys()) or self.crypto_fetcher.exchange_name} | "
                         f"watching={self.watchlist.size()}")
+            try:
+                btc_exchange = (
+                    exchanges.get("KRAKEN") or
+                    exchanges.get("COINBASE") or
+                    self.crypto_fetcher.exchange
+                )
+                if btc_exchange:
+                    for btc_symbol in ("BTC/USD", "BTC/USDT"):
+                        if btc_symbol in getattr(btc_exchange, "symbols", []):
+                            btc_bars = self.crypto_fetcher.get_historical_data(
+                                btc_symbol, exchange=btc_exchange
+                            )
+                            for h in btc_bars:
+                                self.detector.update_history(h)
+                            logger.debug(
+                                f"[CRYPTO SCAN] BTC seed {btc_symbol}: "
+                                f"{len(btc_bars)} bars"
+                            )
+                            break
+            except Exception as e:
+                logger.debug(f"[CRYPTO SCAN] BTC seed failed: {e}")
             for pd in movers:
                 # Use the broker tag set by get_top_movers, fall back to primary
                 broker = getattr(pd, "_exchange_name",

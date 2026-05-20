@@ -71,6 +71,7 @@ class BreakoutSignalPayload(BaseModel):
     asset_class:     str                # "crypto" | "stock"
     entry_price:     float
     current_price:   float
+    source_price:    Optional[float]    = None
     move_pct:        float
     best_move_pct:   Optional[float]    = None
     escalation:      int                = 0
@@ -87,6 +88,13 @@ class BreakoutSignalPayload(BaseModel):
     market_pct_change:     Optional[float] = None
     pattern:         Optional[str]      = None
     timestamp:       Optional[str]      = None
+    source_timestamp: Optional[str]     = None
+    signal_source:   Optional[str]      = None
+    source_broker:   Optional[str]      = None
+    bypass_win_cooldown: Optional[bool] = None
+    breakout_level:  Optional[float]    = None
+    bars_since_breakout: Optional[int]  = None
+    distance_from_breakout_pct: Optional[float] = None
 
 
 class ControlPayload(BaseModel):

@@ -128,7 +128,9 @@ class HammerReversal(BaseStrategy):
         SOL/USD only — whitelist check is first gate.
         """
         # ── Whitelist gate ────────────────────────────────────────────────
-        if symbol.upper() not in HAMMER_WHITELIST:
+        if not self._passes_symbol_whitelist(
+            symbol, HAMMER_WHITELIST, "Hammer whitelist"
+        ):
             self.verbose_log_skip(symbol, "Not in Hammer whitelist (SOL only)")
             return None
 

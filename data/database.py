@@ -101,6 +101,33 @@ class Database:
                     entry_timeframe  TEXT DEFAULT '5Min'
                 );
 
+                -- Advisory AI signal reviews.
+                -- These are written separately from trades.indicators_json because
+                -- advisory review runs after execution so it cannot delay entries.
+                CREATE TABLE IF NOT EXISTS ai_signal_reviews (
+                    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+                    timestamp           TEXT NOT NULL,
+                    trade_id            TEXT,
+                    symbol              TEXT NOT NULL,
+                    asset_class          TEXT,
+                    direction           TEXT,
+                    strategy_name        TEXT,
+                    signal_score         REAL,
+                    reviewer            TEXT DEFAULT 'claude',
+                    mode                TEXT DEFAULT 'advisory',
+                    decision            TEXT,
+                    confidence          INTEGER,
+                    reasoning           TEXT,
+                    suggested_size_pct   REAL,
+                    warnings_json        TEXT,
+                    elapsed_ms           INTEGER
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_ai_signal_reviews_trade_id
+                    ON ai_signal_reviews(trade_id);
+                CREATE INDEX IF NOT EXISTS idx_ai_signal_reviews_symbol_time
+                    ON ai_signal_reviews(symbol, timestamp);
+
                 -- Daily session summaries
                 CREATE TABLE IF NOT EXISTS daily_summaries (
                     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -301,6 +328,34 @@ class Database:
                 "UPDATE trades SET broker = ? WHERE trade_id = ?",
                 (broker, trade_id)
             )
+
+    def record_ai_signal_review(self, review: Dict[str, Any]):
+        """Persist an advisory/strict AI review for later trade-outcome analysis."""
+        with self._conn() as conn:
+            conn.execute("""
+                INSERT INTO ai_signal_reviews
+                    (timestamp, trade_id, symbol, asset_class, direction,
+                     strategy_name, signal_score, reviewer, mode, decision,
+                     confidence, reasoning, suggested_size_pct, warnings_json,
+                     elapsed_ms)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                review.get("timestamp") or _now_local().isoformat(),
+                review.get("trade_id"),
+                review["symbol"],
+                review.get("asset_class"),
+                review.get("direction"),
+                review.get("strategy_name"),
+                review.get("signal_score"),
+                review.get("reviewer", "claude"),
+                review.get("mode", "advisory"),
+                review.get("decision"),
+                review.get("confidence"),
+                review.get("reasoning"),
+                review.get("suggested_size_pct"),
+                json.dumps(review.get("warnings", [])),
+                review.get("elapsed_ms"),
+            ))
 
     def increment_tp_hit_count(self, trade_id: str) -> int:
         """Increment tp_hit_count for a trade and return the new value."""

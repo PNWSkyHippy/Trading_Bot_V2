@@ -143,7 +143,9 @@ class DCAAccumulator(BaseStrategy):
         min_score   = tuning["dca_min_score"]
 
         # Only trade blue-chip/major assets
-        in_whitelist = symbol in DCA_WHITELIST
+        in_whitelist = self._passes_symbol_whitelist(
+            symbol, DCA_WHITELIST, "DCA whitelist"
+        )
         self.verbose_log(
             symbol, "Symbol in DCA whitelist (blue-chip/major crypto only)",
             in_whitelist, symbol, "must be in whitelist"

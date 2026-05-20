@@ -1690,6 +1690,18 @@ const DRAW_TOOLS = [
 ];
 const drawingStoreKey = (symbol, tf) => `chart_drawings_v1:${symbol}:${tf}`;
 const makeDrawingId = () => `draw_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+const priceFormatForBars = (bars = []) => {
+  const prices = bars
+    .flatMap(b => [b.open, b.high, b.low, b.close])
+    .map(Number)
+    .filter(n => Number.isFinite(n) && n > 0);
+  if (!prices.length) return { type: 'price', precision: 2, minMove: 0.01 };
+  const mid = prices.reduce((a, b) => a + b, 0) / prices.length;
+  if (mid < 0.001) return { type: 'price', precision: 8, minMove: 0.00000001 };
+  if (mid < 0.01) return { type: 'price', precision: 6, minMove: 0.000001 };
+  if (mid < 1) return { type: 'price', precision: 4, minMove: 0.0001 };
+  return { type: 'price', precision: 2, minMove: 0.01 };
+};
 const drawingDistance = (d, pt) => {
   if (!d || !pt) return Infinity;
   if (d.type === 'hline') return Math.abs(d.p1.price - pt.price);
@@ -1715,6 +1727,7 @@ function ChartPanel({ defaultSymbol }) {
   const [broker, setBroker]   = useS('kraken');   // default for BTC/USD
   const [bars, setBars]       = useS([]);
   const [marks, setMarks]     = useS([]);
+  const [openPositions, setOpenPositions] = useS([]);
   const [loading, setLoading] = useS(false);
   const [err, setErr]         = useS(null);
   const [searchVal, setSearch] = useS('');
@@ -1740,11 +1753,15 @@ function ChartPanel({ defaultSymbol }) {
   const candleRef    = useR(null);
   const volRef       = useR(null);
   const indicatorSeriesRef = useR([]);
+  const livePriceLinesRef = useR([]);
   const rObsRef      = useR(null);
   const drawingsRef = useR([]);
   const draftDrawingRef = useR(null);
   const drawingsHiddenRef = useR(false);
   const drawingKeyRef = useR('');
+  const marksRef = useR([]);
+  const openPositionsRef = useR([]);
+  const cleanBarsRef = useR([]);
 
   // Init Lightweight Charts once on mount.
   // The Window component returns null when closed, so ChartPanel always mounts
@@ -1824,6 +1841,7 @@ function ChartPanel({ defaultSymbol }) {
     candleRef.current = chart.addCandlestickSeries({
       upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
       wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+      priceFormat: { type: 'price', precision: 4, minMove: 0.0001 },
     });
 
     // Volume in bottom 22% of the same pane
@@ -1840,6 +1858,10 @@ function ChartPanel({ defaultSymbol }) {
         try { item.chart.removeSeries(item.series); } catch (_) {}
       });
       indicatorSeriesRef.current = [];
+      livePriceLinesRef.current.forEach(line => {
+        try { candleRef.current?.removePriceLine(line); } catch (_) {}
+      });
+      livePriceLinesRef.current = [];
       chart.remove();
       try { lower1ChartRef.current?.remove(); } catch (_) {}
       try { lower2ChartRef.current?.remove(); } catch (_) {}
@@ -1874,6 +1896,8 @@ function ChartPanel({ defaultSymbol }) {
 
   useE(() => { draftDrawingRef.current = draftDrawing; }, [draftDrawing]);
   useE(() => { drawingsHiddenRef.current = drawingsHidden; }, [drawingsHidden]);
+  useE(() => { marksRef.current = marks; }, [marks]);
+  useE(() => { openPositionsRef.current = openPositions; }, [openPositions]);
   useE(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') {
@@ -1889,7 +1913,7 @@ function ChartPanel({ defaultSymbol }) {
   useE(() => {
     let cancelled = false;
     // Clear stale bars immediately so old chart doesn't persist while loading
-    setBars([]); setMarks([]);
+    setBars([]); setMarks([]); setOpenPositions([]);
     setLoading(true); setErr(null);
     const limit = chartLimitForTf(tf);
     panelApi(`/api/chart?symbol=${encodeURIComponent(symbol)}&timeframe=${tf}&limit=${limit}&broker=${broker}`)
@@ -1899,6 +1923,7 @@ function ChartPanel({ defaultSymbol }) {
         if (!b.length) setErr(`No data returned for ${symbol} (${broker})`);
         setBars(b);
         setMarks(d.markers || []);
+        setOpenPositions(d.open_positions || []);
       })
       .catch(e => { if (!cancelled) setErr(e.message); })
       .finally(() => { if (!cancelled) setLoading(false); });
@@ -1910,7 +1935,7 @@ function ChartPanel({ defaultSymbol }) {
     panelApi('/api/chart/symbols').then(d => setAllSyms(d.symbols || [])).catch(() => {});
   }, []);
 
-  // Update chart whenever bars, markers, or indicator settings change
+  // Update chart whenever bars, markers, live positions, or indicator settings change
   useE(() => {
     if (!chartRef.current || !candleRef.current) return;
 
@@ -1940,8 +1965,13 @@ function ChartPanel({ defaultSymbol }) {
     const cleanBars = bars
       .slice().sort((a, b) => a.time - b.time)
       .filter(b => { if (seen.has(b.time)) return false; seen.add(b.time); return true; });
+    cleanBarsRef.current = cleanBars;
+    const priceFormat = priceFormatForBars(cleanBars);
 
-    try { candleRef.current.setData(cleanBars); }
+    try {
+      candleRef.current.applyOptions({ priceFormat });
+      candleRef.current.setData(cleanBars);
+    }
     catch(e) { console.warn('ChartPanel candlestick setData failed:', e); }
 
     volRef.current?.setData(cleanBars.map(b => ({
@@ -1951,6 +1981,10 @@ function ChartPanel({ defaultSymbol }) {
 
     indicatorSeriesRef.current.forEach(item => { try { item.chart.removeSeries(item.series); } catch (_) {} });
     indicatorSeriesRef.current = [];
+    livePriceLinesRef.current.forEach(line => {
+      try { candleRef.current.removePriceLine(line); } catch (_) {}
+    });
+    livePriceLinesRef.current = [];
 
     const panelForIndicator = (ind) => {
       if (['RSI', 'ADX'].includes(ind.type)) return ind.place === 'lower2' ? 'lower2' : 'lower1';
@@ -1973,6 +2007,7 @@ function ChartPanel({ defaultSymbol }) {
       const priceScaleId = scaleForPlace(place);
       const s = targetChart.addLineSeries({
         color, lineWidth: width, priceScaleId,
+        priceFormat,
         priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
       });
       s.setData(data);
@@ -2051,20 +2086,61 @@ function ChartPanel({ defaultSymbol }) {
       }
     });
 
-    // Entry / exit markers
-    const processed = marks
+    const fmtLinePrice = (v) => {
+      const n = Number(v || 0);
+      if (!Number.isFinite(n) || n <= 0) return '';
+      if (n < 0.01) return n.toFixed(6);
+      if (n < 1) return n.toFixed(4);
+      return n.toFixed(2);
+    };
+    const addLiveLine = (price, color, title, style = 0) => {
+      const n = Number(price || 0);
+      if (!Number.isFinite(n) || n <= 0) return;
+      try {
+        const line = candleRef.current.createPriceLine({
+          price: n,
+          color,
+          lineWidth: 1,
+          lineStyle: style,
+          axisLabelVisible: true,
+          title,
+        });
+        livePriceLinesRef.current.push(line);
+      } catch (_) {}
+    };
+    openPositions.forEach((p, idx) => {
+      const suffix = openPositions.length > 1 ? ` ${idx + 1}` : '';
+      const dir = String(p.direction || '').toUpperCase();
+      addLiveLine(p.entry_price, '#38bdf8', `${dir} entry${suffix} ${fmtLinePrice(p.entry_price)}`, 2);
+      addLiveLine(p.stop_loss, '#ef5350', `SL${suffix} ${fmtLinePrice(p.stop_loss)}`, 1);
+      addLiveLine(p.take_profit, '#22c55e', `TP${suffix} ${fmtLinePrice(p.take_profit)}`, 1);
+    });
+
+    // Lightweight's built-in markers are candle-time annotations only; they do
+    // not honor the marker price.  Closed trade fills are drawn price-true on
+    // the overlay canvas below.
+    const liveMarkers = openPositions
+      .filter(p => p.entry_ts)
+      .map(p => ({
+        time: p.entry_ts,
+        type: 'live_entry',
+        direction: p.direction || 'long',
+        price: Number(p.entry_price || 0),
+        pnl: 0,
+      }));
+    const processed = liveMarkers
       .filter(m => m.time)
       .sort((a, b) => a.time - b.time)
       .map(m => ({
         time: m.time,
-        position: m.type === 'entry'
+        position: (m.type === 'entry' || m.type === 'live_entry')
           ? (m.direction === 'long' ? 'belowBar' : 'aboveBar')
           : (m.direction === 'long' ? 'aboveBar' : 'belowBar'),
-        color: m.type === 'entry' ? '#26a69a' : (m.pnl >= 0 ? '#60a5fa' : '#ef5350'),
-        shape: m.type === 'entry'
+        color: '#38bdf8',
+        shape: (m.type === 'entry' || m.type === 'live_entry')
           ? (m.direction === 'long' ? 'arrowUp' : 'arrowDown')
           : 'circle',
-        text: m.type === 'entry' ? 'E' : (m.pnl >= 0 ? `+${m.pnl.toFixed(0)}` : `${m.pnl.toFixed(0)}`),
+        text: 'LIVE',
         size: 1,
       }));
     candleRef.current.setMarkers(processed);
@@ -2074,7 +2150,7 @@ function ChartPanel({ defaultSymbol }) {
       from: Math.max(0, cleanBars.length - visibleBars),
       to: cleanBars.length + 5,
     });
-  }, [bars, marks, tf, indicators]);
+  }, [bars, marks, openPositions, tf, indicators]);
 
   // Symbol search filter
   const filtered = useM(() => {
@@ -2109,17 +2185,67 @@ function ChartPanel({ defaultSymbol }) {
     const ctx = canvas.getContext('2d');
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
-    if (drawingsHiddenRef.current) return;
 
     const toXY = (p) => {
       if (!p) return null;
-      const x = chart.timeScale().timeToCoordinate(p.time);
+      let x = chart.timeScale().timeToCoordinate(p.time);
+      if ((x === null || x === undefined) && cleanBarsRef.current.length) {
+        const t = Number(p.time);
+        let nearest = cleanBarsRef.current[0];
+        let best = Math.abs(Number(nearest.time) - t);
+        for (const b of cleanBarsRef.current) {
+          const dist = Math.abs(Number(b.time) - t);
+          if (dist < best) {
+            nearest = b;
+            best = dist;
+          }
+        }
+        x = chart.timeScale().timeToCoordinate(nearest.time);
+      }
       const y = series.priceToCoordinate(p.price);
       if (x === null || x === undefined || y === null || y === undefined) return null;
       return { x, y };
     };
     const lineColor = '#f8fafc';
     const fillColor = 'rgba(56, 189, 248, 0.10)';
+    const drawTradeFill = (m) => {
+      const price = Number(m?.price || 0);
+      if (!m?.time || !Number.isFinite(price) || price <= 0) return;
+      const pt = toXY({ time: m.time, price });
+      if (!pt) return;
+      const isEntry = m.type === 'entry' || m.type === 'live_entry';
+      const isWin = Number(m.pnl || 0) >= 0;
+      const color = isEntry ? '#26a69a' : (isWin ? '#60a5fa' : '#ef5350');
+      const label = isEntry ? 'E' : (isWin ? `+${Number(m.pnl || 0).toFixed(0)}` : `${Number(m.pnl || 0).toFixed(0)}`);
+
+      ctx.save();
+      ctx.fillStyle = color;
+      ctx.strokeStyle = '#0d1117';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, isEntry ? 4 : 5, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.font = '10px JetBrains Mono, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillStyle = color;
+      ctx.fillText(label, pt.x, pt.y - 7);
+      ctx.restore();
+    };
+
+    [...marksRef.current, ...openPositionsRef.current
+      .filter(p => p.entry_ts)
+      .map(p => ({
+        time: p.entry_ts,
+        type: 'live_entry',
+        price: Number(p.entry_price || 0),
+        pnl: 0,
+      }))
+    ].forEach(drawTradeFill);
+
+    if (drawingsHiddenRef.current) return;
+
     const drawOne = (d, isDraft = false) => {
       if (!d || !d.p1) return;
       const color = isDraft ? '#38bdf8' : (d.color || lineColor);
@@ -2177,7 +2303,7 @@ function ChartPanel({ defaultSymbol }) {
       try { chart.timeScale().unsubscribeVisibleLogicalRangeChange(handler); } catch (_) {}
       try { ro?.disconnect(); } catch (_) {}
     };
-  }, [drawOverlay, drawings, draftDrawing, drawingsHidden, bars, tf, lower1Visible, lower2Visible]);
+  }, [drawOverlay, drawings, draftDrawing, drawingsHidden, bars, marks, openPositions, tf, lower1Visible, lower2Visible]);
 
   const chartPointFromEvent = (e) => {
     const canvas = drawingCanvasRef.current;
