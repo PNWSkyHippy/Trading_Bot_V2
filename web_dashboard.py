@@ -3,6 +3,8 @@
 Run: python web_dashboard.py
 """
 import json
+import logging
+import os
 import sqlite3
 import subprocess
 import sys
@@ -13,8 +15,19 @@ ROOT = Path(__file__).parent
 HTML_ROOT = ROOT / "Html-Files"
 if not HTML_ROOT.exists():
     HTML_ROOT = ROOT / "HTML-Files"
-DB_PATH = ROOT / "trading_bot.db"
+_config = None
+try:
+    import config as _config
+
+    _default_db_path = Path(_config.DB_PATH)
+    if not _default_db_path.is_absolute():
+        _default_db_path = ROOT / _default_db_path
+except Exception:
+    _default_db_path = ROOT / "data" / "trading_bot.db"
+
+DB_PATH = Path(os.environ.get("WEB_DASHBOARD_DB_PATH", str(_default_db_path)))
 BOT_SCRIPT = ROOT / "bot_engine.py"
+logger = logging.getLogger(__name__)
 
 risk_manager = None
 db = None
@@ -22,21 +35,52 @@ try:
     from data.database import db as _db
     db = _db
 except Exception:
+    logger.warning("database module unavailable; snapshot fallback enabled", exc_info=True)
     db = None
 
 try:
     from core.risk_manager import risk_manager as _risk_manager
     risk_manager = _risk_manager
 except Exception:
+    logger.warning("risk_manager unavailable; control pause/resume may degrade", exc_info=True)
     risk_manager = None
 
 
 def is_bot_running():
     try:
+        if sys.platform == "win32":
+            return len(find_bot_pids_windows()) > 0
         out = subprocess.check_output(["ps", "-ef"], text=True)
         return "bot_engine.py" in out
     except Exception:
         return False
+
+
+def find_bot_pids_windows():
+    """Find bot_engine.py process IDs using psutil command-line matching."""
+    try:
+        import psutil
+
+        current_pid = os.getpid()
+        bot_name = BOT_SCRIPT.name.lower()
+        pids = []
+        for proc in psutil.process_iter(["pid", "name", "cmdline"]):
+            try:
+                info = proc.info
+                pid = int(info.get("pid") or 0)
+                if pid == current_pid:
+                    continue
+                name = (info.get("name") or "").lower()
+                if "python" not in name:
+                    continue
+                cmdline = [str(part) for part in (info.get("cmdline") or [])]
+                if any(Path(part).name.lower() == bot_name for part in cmdline):
+                    pids.append(pid)
+            except Exception:
+                continue
+        return pids
+    except Exception:
+        return []
 
 
 def start_bot_process():
@@ -53,28 +97,46 @@ def start_bot_process():
 def stop_bot_process():
     try:
         if sys.platform == "win32":
-            result = subprocess.run(["taskkill", "/F", "/IM", "python.exe", "/FI", "WINDOWTITLE eq *bot_engine.py*"], capture_output=True, text=True)
+            pids = find_bot_pids_windows()
+            if not pids:
+                return False, "No bot_engine.py process found."
+            killed = 0
+            for pid in pids:
+                result = subprocess.run(
+                    ["taskkill", "/F", "/PID", str(pid)],
+                    capture_output=True,
+                    text=True,
+                )
+                if result.returncode == 0:
+                    killed += 1
+            if killed > 0:
+                return True, f"Bot stop requested for {killed} process(es)."
+            return False, "Matched bot process IDs but taskkill failed."
+        else:
+            result = subprocess.run(["pkill", "-f", "bot_engine.py"], check=False)
             if result.returncode == 0:
                 return True, "Bot stop requested."
-        else:
-            subprocess.run(["pkill", "-f", "bot_engine.py"], check=False)
-            return True, "Bot stop requested."
+            return False, "No bot_engine.py process found."
     except Exception as exc:
         return False, f"Failed to stop bot: {exc}"
-    return False, "Stop command was sent, but no bot process was matched."
 
 
 def build_snapshot():
     if db is not None:
-        cap = db.get_latest_capital() or {}
-        open_trades = db.get_open_trades() or []
-        halted = bool(getattr(risk_manager, "trading_halted", False)) if risk_manager else False
-        return {
-            "bot_status": "PAUSED" if halted else "ACTIVE",
-            "open_positions": len(open_trades),
-            "available_cash": float(cap.get("available_cash", 0.0) or 0.0),
-            "bot_process_running": is_bot_running(),
-        }
+        try:
+            cap = db.get_latest_capital() or {}
+            open_trades = db.get_open_trades() or []
+            halted = bool(getattr(risk_manager, "trading_halted", False)) if risk_manager else False
+            return {
+                "bot_status": "PAUSED" if halted else "ACTIVE",
+                "open_positions": len(open_trades),
+                "available_cash": float(cap.get("available_cash", 0.0) or 0.0),
+                "bot_process_running": is_bot_running(),
+                "snapshot_source": "live_db_adapter",
+                "db_path": str(DB_PATH),
+            }
+        except Exception:
+            logger.error("snapshot_adapter_failed db=%s", DB_PATH, exc_info=True)
 
     try:
         conn = sqlite3.connect(DB_PATH)
@@ -85,9 +147,26 @@ def build_snapshot():
         row = cur.fetchone()
         available_cash = float(row[0]) if row else 0.0
         conn.close()
-        return {"bot_status": "UNKNOWN", "open_positions": open_positions, "available_cash": available_cash, "bot_process_running": is_bot_running()}
+        return {
+            "bot_status": "UNKNOWN",
+            "open_positions": open_positions,
+            "available_cash": available_cash,
+            "bot_process_running": is_bot_running(),
+            "snapshot_source": "sqlite_fallback",
+            "db_path": str(DB_PATH),
+        }
     except Exception:
-        return {"bot_status": "UNKNOWN", "open_positions": 0, "available_cash": 0.0, "bot_process_running": is_bot_running()}
+        logger.error("snapshot_query_failed db=%s", DB_PATH, exc_info=True)
+        return {
+            "bot_status": "UNKNOWN",
+            "open_positions": 0,
+            "available_cash": 0.0,
+            "bot_process_running": is_bot_running(),
+            "snapshot_source": "error_fallback",
+            "db_path": str(DB_PATH),
+            "degraded": True,
+            "error_code": "SNAPSHOT_DB_UNAVAILABLE",
+        }
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -114,9 +193,12 @@ class Handler(BaseHTTPRequestHandler):
             rel_path = self.path.lstrip("/")
             if rel_path.startswith("static/"):
                 rel_path = rel_path[len("static/"):]
-            file_path = HTML_ROOT / rel_path
-            if file_path.exists() and file_path.is_file():
-                content = file_path.read_bytes()
+            root = HTML_ROOT.resolve()
+            candidate = (root / rel_path).resolve()
+            if root not in candidate.parents and candidate != root:
+                return self._json(403, {"error": "forbidden"})
+            if candidate.exists() and candidate.is_file():
+                content = candidate.read_bytes()
                 self.send_response(200)
                 self.send_header("Content-Type", "text/javascript")
                 self.send_header("Content-Length", str(len(content)))
@@ -129,7 +211,12 @@ class Handler(BaseHTTPRequestHandler):
         if self.path != "/api/control":
             return self._json(404, {"error": "not found"})
         length = int(self.headers.get("Content-Length", "0"))
-        data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+        try:
+            data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+        except json.JSONDecodeError as exc:
+            return self._json(400, {"ok": False, "message": f"Invalid JSON: {exc.msg}"})
+        if not isinstance(data, dict):
+            return self._json(400, {"ok": False, "message": "Payload must be a JSON object."})
         action = data.get("action")
 
         if action == "pause_trading":
@@ -154,6 +241,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if action == "restart_bot":
             stop_bot_process()
+            if is_bot_running():
+                return self._json(400, {"ok": False, "message": "Bot still running after stop; restart aborted."})
             ok, msg = start_bot_process()
             return self._json(200 if ok else 400, {"ok": ok, "message": f"Restart requested. {msg}"})
 

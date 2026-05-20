@@ -2,7 +2,7 @@
 
 A fully autonomous AI-powered day trading bot with:
 - **11 trading strategies** (stocks + crypto)
-- **Streamlit dashboard** with live P&L, positions, backtester
+- **Hybrid dashboard migration** (HTML dashboard is primary; Streamlit is retained during Stage 3 parity work)
 - **Claude AI chat interface** (Haiku model) for natural language control
 - **Multi-broker support**: Alpaca (stocks), Coinbase, Kraken, IBKR
 - **IRS Form 8949** compatible tax records
@@ -70,10 +70,10 @@ Open `config.py` and review/adjust:
 python bot_engine.py
 
 # Terminal 2: Start the dashboard
-streamlit run dashboard.py
+python web_dashboard.py
 ```
 
-Dashboard opens at: `http://localhost:8501`
+Dashboard opens at: `http://localhost:8125`
 
 ---
 
@@ -136,7 +136,15 @@ ALPACA_BASE_URL = "https://paper-api.alpaca.markets"  # Change for live
 
 ## 💻 Dashboard
 
-Open `http://localhost:8501` after running `streamlit run dashboard.py`
+Open `http://localhost:8125` after running `python web_dashboard.py`.
+
+### Dashboard Migration Status
+
+The dashboard is in staged migration.
+
+- Current primary entrypoint: `python web_dashboard.py` (`http://localhost:8125`)
+- Stage-2 migrated coverage: snapshot metrics + control actions via `/api/snapshot` and `/api/control`
+- Remaining Streamlit-backed scope is being ported in Stage 3
 
 **Sections:**
 - **Top metrics** — capital, daily P&L, open positions, win rate
@@ -211,7 +219,7 @@ Set `EMAIL_ADDRESS`, `EMAIL_PASSWORD`, `EMAIL_RECIPIENT` in `.env` to enable.
 | Haiku won't enable a strategy | Use `python dashboard_strategy_fix.py` |
 | Strategy not firing | Check `bot_state` table in DB Browser for `strategy_X_enabled` |
 | No trades executing | Check `logs/bot.log` for signal details |
-| Dashboard won't load | Ensure `streamlit run dashboard.py` is running |
+| Dashboard won't load | Ensure `python web_dashboard.py` is running |
 
 ---
 
@@ -221,6 +229,7 @@ Set `EMAIL_ADDRESS`, `EMAIL_PASSWORD`, `EMAIL_RECIPIENT` in `.env` to enable.
 |---|---|
 | `REFERENCE_DOCS.md` | Index of all reference documents |
 | `CHAT_COMMANDS.md` | All chat commands with examples |
+| `WEB_DASHBOARD_TECHNICAL_REFERENCE.md` | Stage-2 HTML dashboard entrypoint and API contract |
 | `PROJECT_SUMMARY.md` | Full architecture deep-dive |
 | `config.py` | All settings with comments |
 | `strategies/INTEGRATION_GUIDE.py` | How to add a new strategy |

@@ -12,7 +12,7 @@ Migrated panels:
 - Bot status
 - Open positions count
 - Available cash
-- Control buttons: pause trading + scan refresh request
+- Control actions: pause_trading, resume_trading, start_bot, stop_bot, restart_bot, refresh_scan
 
 Validation checklist:
 - Snapshot values match `dashboard.py` and DB values.
