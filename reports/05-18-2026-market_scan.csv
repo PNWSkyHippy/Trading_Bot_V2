@@ -1,0 +1,2 @@
+AssetClass,Ticker,Price,Vol Change,RSI,% from 52W Hi,% vs 200SMA,Score,Signal
+Stock,CRWD,618.83,1.38,91.1,-0.36,34.2,47.26,Within 0.4% of 52W high | 1.4x avg vol | 34% above 200MA

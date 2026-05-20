@@ -1,0 +1,1477 @@
+his was tge logs from it if the chats corrupt
+
+🚀 Starting workflow: breakout-pipeline-plan
+
+Analyzes the BreakoutScanner.py → breakout_sender.py → core/breakout_receiver.py
+signal pipeline and writes a 4-part implementation plan:
+
+Sub-minute signal delivery (scanner detects → receiver gets within 60s)
+Complete enrichment payload (all fields receiver checks, fully populated)
+Direction flip logic (Long → Short when breakout reverses mid-flight)
+Re-entry after profitable close (scan → send → receive immediately on win)
+Output: $ARTIFACTS_DIR/breakout_pipeline_plan.md
+Run from: C:\users\linda\trading_bot_v2
+12:26:41 PM
+Reading all three files now.
+
+12:27:41 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+389ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+83ms
+Reading all three files now.
+
+12:27:41 PM
+
+Bash
+ls "C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bo...
+2.5s
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+56ms
+Let me read the receiver and scanner files before designing anything.
+
+12:27:41 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+365ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+70ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+61ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+328ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+42ms
+Now let me find the scanner's direction and momentum score logic.Reading all four files now.
+
+12:27:41 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+65ms
+
+Grep
+resolved_direction|signal_direction|momentum_score
+4.3s
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+119ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+383ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+340ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+387ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+377ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+64ms
+Now let me read the sender and receiver files.
+
+12:27:41 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+64ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+401ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+126ms
+Now let me check for any breakout_level, bars_since_breakout, sma200, or structural_stop in the scanner:
+
+12:27:41 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+356ms
+
+Grep
+breakout_level|bars_since|structural_stop|sma200|distance_fr...
+3.9s
+12:27:55 PM
+
+Grep
+send_alert|check\(pd\)|EscalationTracker
+9.0s
+BreakoutScanner.py is large. Reading the key sections now.
+
+12:27:55 PM
+
+Grep
+ALERT_COOLDOWN_SECS|class EscalationTracker|def check|class ...
+0ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+63ms
+12:28:11 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+58ms
+Let me check the BreakoutDetector's history deque size and update_history:
+
+12:29:11 PM
+
+Grep
+update_history|deque|price_history|volume_history|maxlen
+4.0s
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+132ms
+Now I have everything needed. Let me read the momentum_val implementation to confirm the sign convention before writing a single line.
+
+12:29:41 PM
+
+Grep
+def momentum_val|def vol_spike
+4.6s
+12:30:11 PM
+
+Grep
+def _momentum
+4.6s
+Good. _momentum() is a 5-bar average percentage change — negative = downtrend, positive = uptrend. Sign convention is clear. Now I have everything.
+
+Design
+Key constraints from the code
+Fact	Impact on design
+_check_price_still_moving() returns a ChecklistResult — can't return a payload	Flip logic must live in receive_signal(), not inside the check
+_run_checklist() is in the hard-check list — it runs before we know if drift failed	Need a side-channel to carry live_price from the check to the caller
+All hard/soft checks read direction from the payload dict	A shallow clone + p["direction"] = flipped automatically corrects every downstream check (wick, RSI, structural stop, trend, market context)
+_check_momentum_phase() uses abs(dist_pct)	Negating distance_from_breakout_pct is safe — the magnitude check still fires correctly
+structural_stop_price is side-specific	Must null it on flip; executor falls back to percent-based stop
+momentum_val returns avg of last 5 bar pct-changes; < -0.5 → short in scanner	We use < 0 for the flip criterion — more sensitive, appropriate since we're detecting an in-progress reversal, not a setup
+Architecture choice
+_check_price_still_moving() stores the live price in self._drift_state (a dict that is wiped at the top of every receive_signal() call). receive_signal() checks that dict after a hard failure and, if non-empty, calls _try_direction_flip(). The flip returns the full Dict[str, Any] response or None.
+
+Calling from inside _check_price_still_moving() would require it to run the checklist, build a payload, and call _inject_signal() — three responsibilities it doesn't own.
+
+Implementation
+1. __init__ — add _drift_state
+def __init__(self):
+    self._executor: Optional[TradeExecutor] = None
+    self._scanner_ref = None
+    # Ephemeral — set by _check_price_still_moving() when it detects adverse drift,
+    # consumed and cleared by receive_signal() within the same call.
+    self._drift_state: Dict[str, Any] = {}
+2. _check_price_still_moving() — stash state before returning fail
+Replace the two return ChecklistResult.fail(...) drift lines:
+
+def _check_price_still_moving(self, p: Dict) -> ChecklistResult:
+    sym       = p["symbol"]
+    asset     = p.get("asset_class", "crypto")
+    ref_price = float(p.get("current_price") or p.get("entry_price", 0))
+    direction = p.get("direction", "long")
+
+    if not self._scanner_ref:
+        return ChecklistResult.fail(
+            "Price re-verify impossible — scanner not wired to receiver"
+        )
+    if ref_price <= 0:
+        return ChecklistResult.fail("current_price/entry_price is zero or missing")
+
+    try:
+        current = self._fetch_live_price_from_scanner(p)
+
+        if not current:
+            return ChecklistResult.skip(
+                f"Could not fetch live price for {sym} — skipping price drift check"
+            )
+
+        drift_pct = ((current - ref_price) / ref_price) * 100
+
+        if direction == "long" and drift_pct < -PRICE_DRIFT_MAX_PCT:
+            # Stash for potential LONG→SHORT flip attempt in receive_signal()
+            self._drift_state = {"live_price": current, "drift_pct": drift_pct}
+            return ChecklistResult.fail(
+                f"{sym} reversed {drift_pct:.2f}% from signal price "
+                f"(limit -{PRICE_DRIFT_MAX_PCT}%)"
+            )
+        if direction == "short" and drift_pct > PRICE_DRIFT_MAX_PCT:
+            # Stash for potential SHORT→LONG flip attempt in receive_signal()
+            self._drift_state = {"live_price": current, "drift_pct": drift_pct}
+            return ChecklistResult.fail(
+                f"{sym} reversed +{drift_pct:.2f}% from signal price "
+                f"(limit +{PRICE_DRIFT_MAX_PCT}%)"
+            )
+
+        return ChecklistResult.ok(f"{sym} still moving (drift={drift_pct:+.2f}%)")
+    except Exception as e:
+        return ChecklistResult.fail(f"Price re-verify exception: {e}")
+3. receive_signal() — clear stale state, attempt flip on hard failure
+Two targeted edits to the existing method body:
+
+def receive_signal(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    sym            = payload.get("symbol", "?")
+    direction      = payload.get("direction", "?")
+    esc            = payload.get("escalation", 0)
+    ts_in          = payload.get("timestamp", "")
+    signal_age_sec = self._signal_age(ts_in)
+
+    # ── EDIT 1: clear any drift state left over from a previous call ──────
+    self._drift_state = {}
+    # ─────────────────────────────────────────────────────────────────────
+
+    broker_hint   = self._normalize_broker_name(payload.get("broker", ""))
+    source_broker = self._normalize_broker_name(
+        payload.get("source_broker", broker_hint or "")
+    )
+
+    # ... (blacklist / bad quote / missing fields checks unchanged) ...
+
+    hard_results, soft_results = self._run_checklist(payload, signal_age_sec)
+
+    hard_passed = all(
+        r.status in (ChecklistResult.PASS, ChecklistResult.SKIP)
+        for r in hard_results
+    )
+    hard_skips  = sum(1 for r in hard_results if r.status == ChecklistResult.SKIP)
+    soft_passes = sum(1 for r in soft_results if r.status == ChecklistResult.PASS)
+    soft_skips  = sum(1 for r in soft_results if r.status == ChecklistResult.SKIP)
+
+    for r in hard_results:
+        lvl = logging.WARNING if r.status == ChecklistResult.FAIL else logging.INFO
+        logger.log(lvl, f"  [HARD] {r}")
+    for r in soft_results:
+        logger.info(f"  [SOFT] {r}")
+
+    checklist_summary = {
+        "hard_passed":       hard_passed,
+        "hard_skipped":      hard_skips,
+        "soft_passed":       soft_passes,
+        "soft_skipped":      soft_skips,
+        "failed_hard_check": next(
+            (r.reason for r in hard_results if r.status == ChecklistResult.FAIL), None
+        ),
+    }
+
+    if not hard_passed:
+        failed = next(r for r in hard_results if r.status == ChecklistResult.FAIL)
+
+        # ── EDIT 2: attempt direction flip if drift state was populated ───
+        drift = self._drift_state
+        self._drift_state = {}          # consume — must clear regardless of outcome
+        if drift:
+            flip_result = self._try_direction_flip(
+                payload,
+                drift["live_price"],
+                drift["drift_pct"],
+                signal_age_sec,
+            )
+            if flip_result is not None:
+                return flip_result
+        # ─────────────────────────────────────────────────────────────────
+
+        reason = f"Hard check failed: {failed.reason}"
+        logger.info(f"[BREAKOUT RECV] CHECKLIST REJECTED {sym} — {reason}")
+        return {
+            "accepted": False,
+            "execution_eligible": True,
+            "failure_class": "checklist_rejected",
+            "reason": reason,
+            "trade_id": None,
+            "checklist": checklist_summary,
+        }
+
+    logger.info(
+        f"[BREAKOUT RECV] CHECKLIST PASSED {sym} — "
+        f"soft: {soft_passes} pass / {soft_skips} skip (advisory only)"
+    )
+    return self._inject_signal(payload, checklist_summary)
+4. _try_direction_flip() — the new method
+Place this between _check_price_still_moving() and _check_volume_elevated() in the file:
+
+def _try_direction_flip(
+    self,
+    payload: Dict[str, Any],
+    live_price: float,
+    drift_pct: float,
+    signal_age_sec: float,
+) -> Optional[Dict[str, Any]]:
+    """
+    Called when _check_price_still_moving() rejects due to adverse drift.
+
+    Evaluates 3 criteria for a direction reversal; requires 2/3 to proceed.
+    If criteria pass, clones the payload, mutates it for the flipped direction,
+    and re-runs the full checklist.  Returns the injection result dict on success,
+    or None to let the caller reject as normal.
+
+    Works symmetrically for LONG→SHORT and SHORT→LONG.
+    """
+    sym        = payload.get("symbol", "?")
+    orig_dir   = payload.get("direction", "long")
+    flipped    = "short" if orig_dir == "long" else "long"
+
+    # ── Evaluate 3 flip criteria ─────────────────────────────────────────
+    criteria_met = 0
+
+    # 1) Volume still elevated — confirms a real move, not a liquidity gap
+    vol = float(payload.get("volume_spike", 0))
+    c1  = vol >= VOLUME_SPIKE_MIN
+    if c1:
+        criteria_met += 1
+
+    # 2) Momentum has reversed sign
+    momentum = float(payload.get("momentum_score", 0))
+    c2 = (momentum < 0) if orig_dir == "long" else (momentum > 0)
+    if c2:
+        criteria_met += 1
+
+    # 3) Live price crossed candle_open — confirms bearish/bullish body forming
+    candle_open = payload.get("candle_open")
+    if candle_open is not None:
+        co = float(candle_open)
+        c3 = (live_price < co) if orig_dir == "long" else (live_price > co)
+    else:
+        c3 = False
+    if c3:
+        criteria_met += 1
+
+    logger.info(
+        f"[BREAKOUT RECV] FLIP EVAL {sym}: {orig_dir.upper()}→{flipped.upper()} "
+        f"criteria={criteria_met}/3  "
+        f"vol={vol:.2f}x≥{VOLUME_SPIKE_MIN}:{c1}  "
+        f"momentum={momentum:.3f} reversed:{c2}  "
+        f"candle_open={float(candle_open):.4f if candle_open is not None else 'N/A'}  "
+        f"live={live_price:.4f} body_confirms:{c3}"
+    )
+
+    if criteria_met < 2:
+        logger.info(
+            f"[BREAKOUT RECV] FLIP DENIED {sym}: only {criteria_met}/3 criteria met — "
+            f"rejecting as original {orig_dir.upper()}"
+        )
+        return None
+
+    # ── Build the flipped payload ────────────────────────────────────────
+    p = dict(payload)   # shallow clone — all values are scalars or None
+
+    p["direction"]     = flipped
+    p["current_price"] = live_price
+    p["entry_price"]   = live_price
+
+    # move_pct: drift_pct already carries the correct sign for the new direction
+    # (negative for LONG→SHORT, positive for SHORT→LONG)
+    p["move_pct"] = round(drift_pct, 4)
+
+    # distance_from_breakout_pct: negate to reflect the reversed relationship
+    # to the original breakout level (_check_momentum_phase uses abs() so the
+    # magnitude check is unaffected)
+    dist = payload.get("distance_from_breakout_pct")
+    if dist is not None:
+        p["distance_from_breakout_pct"] = -float(dist)
+
+    # structural_stop_price is strictly side-specific; the original side's stop
+    # is now on the wrong side of the entry — null it so the executor computes
+    # a fresh percent-based stop
+    p["structural_stop_price"] = None
+
+    logger.info(
+        f"[BREAKOUT RECV] DIRECTION FLIP {sym}: {orig_dir.upper()}→{flipped.upper()} "
+        f"(drift={drift_pct:+.2f}%, criteria_met={criteria_met}/3) "
+        f"entry={live_price:.4f} move_pct={p['move_pct']:+.4f}%"
+    )
+
+    # ── Re-run full checklist on the mutated payload ─────────────────────
+    hard_results, soft_results = self._run_checklist(p, signal_age_sec)
+
+    hard_passed = all(
+        r.status in (ChecklistResult.PASS, ChecklistResult.SKIP)
+        for r in hard_results
+    )
+    hard_skips  = sum(1 for r in hard_results if r.status == ChecklistResult.SKIP)
+    soft_passes = sum(1 for r in soft_results if r.status == ChecklistResult.PASS)
+    soft_skips  = sum(1 for r in soft_results if r.status == ChecklistResult.SKIP)
+
+    for r in hard_results:
+        lvl = logging.WARNING if r.status == ChecklistResult.FAIL else logging.INFO
+        logger.log(lvl, f"  [FLIP HARD] {r}")
+    for r in soft_results:
+        logger.info(f"  [FLIP SOFT] {r}")
+
+    checklist_summary = {
+        "hard_passed":       hard_passed,
+        "hard_skipped":      hard_skips,
+        "soft_passed":       soft_passes,
+        "soft_skipped":      soft_skips,
+        "failed_hard_check": next(
+            (r.reason for r in hard_results if r.status == ChecklistResult.FAIL), None
+        ),
+        "direction_flip": f"{orig_dir}→{flipped}",
+    }
+
+    if not hard_passed:
+        failed = next(r for r in hard_results if r.status == ChecklistResult.FAIL)
+        logger.info(
+            f"[BREAKOUT RECV] FLIP CHECKLIST REJECTED {sym} — {failed.reason}"
+        )
+        return {
+            "accepted":            False,
+            "execution_eligible":  True,
+            "failure_class":       "flip_checklist_rejected",
+            "reason":              f"Direction flip failed checklist: {failed.reason}",
+            "trade_id":            None,
+            "checklist":           checklist_summary,
+        }
+
+    logger.info(
+        f"[BREAKOUT RECV] FLIP CHECKLIST PASSED {sym} — "
+        f"injecting {flipped.upper()} "
+        f"soft: {soft_passes} pass / {soft_skips} skip (advisory only)"
+    )
+    return self._inject_signal(p, checklist_summary)
+Call-site summary
+receive_signal()
+│
+├─ self._drift_state = {}              ← EDIT 1: wipe at call start
+│
+├─ _run_checklist()
+│   └─ _check_price_still_moving()
+│       ├─ if drift < -0.5% (LONG):  self._drift_state = {live_price, drift_pct}; return FAIL
+│       └─ if drift > +0.5% (SHORT): self._drift_state = {live_price, drift_pct}; return FAIL
+│
+├─ if not hard_passed:
+│   ├─ drift = self._drift_state; self._drift_state = {}   ← EDIT 2: consume
+│   ├─ if drift:
+│   │   └─ _try_direction_flip(payload, live_price, drift_pct, age)
+│   │       ├─ eval 3 criteria (require ≥2)
+│   │       ├─ clone + mutate payload (direction, current_price, entry_price,
+│   │       │                          move_pct, distance_from_breakout_pct,
+│   │       │                          structural_stop_price=None)
+│   │       ├─ _run_checklist(mutated_payload)  ← full re-validation
+│   │       └─ if passed → _inject_signal(); return response dict
+│   │          if failed → return response dict with failure_class="flip_checklist_rejected"
+│   │          if criteria < 2 → return None → fall through to original rejection
+│   └─ original CHECKLIST REJECTED response
+│
+└─ _inject_signal()
+Answers to the explicit design questions
+Should flip also work SHORT→LONG?
+Yes. The implementation above is fully symmetric. When a SHORT arrives and drift_pct > +PRICE_DRIFT_MAX_PCT, the stash is set. In _try_direction_flip(), criterion 2 checks momentum > 0 and criterion 3 checks live_price > candle_open. No separate code path needed — the orig_dir == "long" ternaries handle both sides.
+
+Where to call it: inside _check_price_still_moving() or receive_signal()?
+receive_signal(). The price-check method's contract is Dict → ChecklistResult. Making it also fetch live price, build payloads, re-run checklists, and inject signals would be the wrong layer. The _drift_state side-channel keeps the check method clean while giving the caller everything it needs without a second network round-trip.
+
+What happens to structural_stop_price?
+Nulled unconditionally. A long stop is below entry; a short stop is above entry. The original stop is now on the wrong side of the trade and would immediately fail _check_structural_stop() anyway. Nulling it lets the executor fall back to its percent-based stop, which is what happens for crypto signals already.
+
+What happens to entry_price?
+Updated to live_price alongside current_price. The signal was originally stamped at a different price; using that stale level as the entry reference for a freshly-detected reverse move would give the executor a nonsensical entry anchor.
+
+12:30:57 PM
+I have everything needed. Here's the complete analysis.
+
+Complete Field Inventory
+history_length = 50 → SMA(200) is structurally impossible without changing that cap.
+
+Field	Receiver check	Hard/Soft/Required	Scanner source	Currently sent?	If missing
+symbol	_check_no_open_position, _check_daily_symbol_limit, _check_not_in_cooldown, _check_price_still_moving, _inject_signal	Required	signal.symbol	YES	FAIL — invalid_payload
+asset_class	_check_price_still_moving, _check_structural_stop, _inject_signal	Required	"crypto" if "/" in symbol else "stock" — hardcoded in sender	YES	FAIL — invalid_payload
+direction	_check_no_wick_rejection, _check_momentum_phase, _check_structural_stop, _check_rsi_confirms, _check_market_context, _inject_signal	Required	signal.direction (explicit) → momentum_score fallback	YES	FAIL — invalid_payload
+entry_price	_check_price_still_moving (price fallback), _check_structural_stop (price fallback), _inject_signal	Required	signal.entry_price	YES	FAIL — invalid_payload
+current_price	_check_price_still_moving, _check_structural_stop, _check_trend_alignment, _inject_signal	Required	signal.current_price	YES	FAIL — invalid_payload
+move_pct	_check_not_gap_trap, _inject_signal (reason string + indicators)	Required	signal.best_move_pct → sent as both move_pct and best_move_pct	YES	FAIL — invalid_payload
+volume_spike	_check_volume_elevated, _inject_signal	Required	signal.volume_spike → enrichment["volume_spike"] fallback	YES	FAIL — invalid_payload
+confidence	_inject_signal (score computation)	Required	signal.confidence	YES	FAIL — invalid_payload
+escalation	_inject_signal	Required	escalation arg	YES	FAIL — invalid_payload
+timestamp	_check_freshness, _inject_signal	Required	datetime.now(utc).isoformat() at send time	YES	FAIL — invalid_payload
+broker	receive_signal (log), _inject_signal, _fetch_live_price_from_scanner	Soft (no checklist gate)	signal.broker.lower()	YES	default "" → falls back to "kraken" or "alpaca"
+source_broker	receive_signal (log), _inject_signal, _fetch_live_price_from_scanner	Soft (inject-only)	NOT in payload	NO	defaults to broker_hint — price re-verify loses exchange hint
+candle_open	_check_no_wick_rejection (Hard)	Hard	enrichment["open"] ← pd.open_price	YES (post-8A)	SKIP whole wick check
+candle_high	_check_no_wick_rejection (Hard)	Hard	enrichment["high"] ← pd.high	YES (post-8A)	SKIP whole wick check
+candle_low	_check_no_wick_rejection (Hard)	Hard	enrichment["low"] ← pd.low	YES (post-8A)	SKIP whole wick check
+candle_close	_check_no_wick_rejection (Hard)	Hard	enrichment["close"] ← pd.price	YES (post-8A)	SKIP whole wick check
+bars_since_breakout	_check_momentum_phase (Hard), receive_signal (log), _inject_signal	Hard	Not on BreakoutSignal; not counted anywhere	NO	SKIP momentum-phase age sub-check
+distance_from_breakout_pct	_check_momentum_phase (Hard), _inject_signal	Hard	Not on BreakoutSignal; not computed anywhere	NO	SKIP momentum-phase distance sub-check
+rsi	_check_momentum_phase (Hard), _check_rsi_confirms (Soft), _inject_signal	Hard + Soft	enrichment["rsi"] — Wilder RSI(14) from price_history; requires ≥15 bars; score() already requires ≥25 so always present	YES	SKIP both RSI sub-checks
+structural_stop_price	_check_structural_stop (Hard), _inject_signal	Hard	Not in enrichment; not computed anywhere	NO	OK — falls through to percent-based stop; custom_stop_loss_pct computed for crypto; but structural validation entirely bypassed
+sma200	_check_trend_alignment (Soft), _inject_signal	Soft	Not in enrichment; not computed (history_length=50, SMA200 impossible)	NO	SKIP trend-alignment check
+market_pct_change	_check_market_context (Soft)	Soft	enrichment["market_pct_change"] — BTC proxy for crypto only; stocks have no market proxy	PARTIAL (crypto only)	SKIP for stocks
+momentum_score	_inject_signal (indicators dict)	Inject-only	signal.momentum_score	YES	default 0
+pattern	_inject_signal (indicators dict)	Inject-only	enrichment["pattern"] → signal.pattern_detected fallback	YES	default "breakout"
+breakout_level	_inject_signal (indicators dict)	Inject-only	Not on BreakoutSignal; getattr(signal, "breakout_level", None) → always None	NO	None stored in indicators
+source_price	_inject_signal (indicators dict)	Inject-only	Not in payload; falls back to current_price	NO	fallback to current_price
+source_timestamp	_inject_signal (indicators dict)	Inject-only	Not in payload; falls back to timestamp	NO	fallback to timestamp
+best_move_pct	Not read separately; move_pct covers it	N/A	signal.best_move_pct (duplicate key)	YES	N/A
+signal_source	Not read by receiver	N/A	"breakout_scanner" hardcoded	YES	N/A
+Per-Field Fix Specifications
+bars_since_breakout
+Problem: EscalationTracker._tracked stores {"signal": sig, "level": 0}. check() fires every scan cycle (≈30s) per tracked symbol but never increments a counter.
+
+Fix — three-line change to EscalationTracker:
+
+register() — add counter to entry dict:
+
+self._tracked[signal.symbol] = {"signal": signal, "level": 0, "bars_since": 0}
+check() — increment at top of the method body, before the escalation logic:
+
+entry["bars_since"] += 1
+check() — stamp it on the signal before the return:
+
+sig.bars_since_breakout = entry["bars_since"]
+return sig, new_lvl
+BreakoutSignal dataclass — add field:
+
+bars_since_breakout: int = 0
+The receiver's _check_momentum_phase hard-limits to MAX_BARS_SINCE = 4. With a 30s scan interval that's 2 minutes of leash before the entry is considered too late. That's tight but intentional — adjust the constant if needed.
+
+breakout_level and distance_from_breakout_pct
+Problem: Neither field exists on BreakoutSignal. The breakout level is the price at the resistance/support that was crossed — which is exactly signal.entry_price as set by WatchlistManager.add() (signal.entry_price = signal.current_price). That's the price at which the compression/setup was first detected before the gate move.
+
+Fix — BreakoutSignal dataclass:
+
+breakout_level:             float = 0.0
+distance_from_breakout_pct: float = 0.0
+Fix — EscalationTracker.register() — record the level at the moment the signal graduates from watchlist:
+
+def register(self, signal: BreakoutSignal):
+    signal.breakout_level = signal.entry_price  # price at initial detection
+    self._tracked[signal.symbol] = {"signal": signal, "level": 0, "bars_since": 0}
+Fix — EscalationTracker.check() — recompute distance on every cycle before the return:
+
+if sig.breakout_level > 0:
+    raw = (pd.price - sig.breakout_level) / sig.breakout_level * 100
+    sig.distance_from_breakout_pct = raw if sig.direction == "long" else -raw
+The receiver's MAX_DIST_FROM_LVL = 8.0 hard-blocks entry if distance exceeds 8% from the breakout level. This is the anti-chasing guard.
+
+structural_stop_price
+Problem: Not computed anywhere. _build_enrichment has pd.low and pd.high for the current bar and price_history (close-only, 50 bars). A proper multi-bar swing-low/high would need OHLC history separately. The current bar's pd.low/pd.high is the practical best approximation available.
+
+Fix — add to _build_enrichment(), after the OHLC lines:
+
+direction = getattr(pd, "_pattern_dir", None)
+if direction not in ("long", "short"):
+    p_list = list(self.price_history.get(pd.symbol, []))
+    direction = "short" if self._momentum(p_list) < -0.5 else "long"
+
+if direction == "long" and pd.low and pd.low > 0:
+    data["structural_stop_price"] = round(pd.low * 0.997, 6)
+elif direction == "short" and pd.high and pd.high > 0:
+    data["structural_stop_price"] = round(pd.high * 1.003, 6)
+The 0.3% buffer keeps the stop below the wick low/above the wick high without violating the receiver's STOP_MAX_DISTANCE_CRYPTO = 5.0 / STOP_MAX_DISTANCE_STOCK = 2.5 limits. Validate: for a crypto at $1.00 with pd.low = 0.98, stop = 0.97706, distance = 2.3% — within the 5% crypto limit.
+
+Once this is populated, the sender's existing line already handles it:
+
+"structural_stop_price": cd.get("structural_stop") or cd.get("structural_stop_price"),
+Candle OHLC (candle_open/high/low/close)
+Status: Working correctly for all post-8A signals. The mapping is complete:
+
+pd.open_price → enrichment["open"]  → payload["candle_open"]
+pd.high       → enrichment["high"]  → payload["candle_high"]
+pd.low        → enrichment["low"]   → payload["candle_low"]
+pd.price      → enrichment["close"] → payload["candle_close"]
+One edge: for escalation-level alerts (esc 1–3), enrichment is frozen at detection time. The OHLC will be from the bar that triggered detection, not from the bar at which the escalation fires. This is acceptable — the wick check's purpose is to validate the breakout candle, not the current candle.
+
+rsi
+Status: Working correctly — RSI(14) Wilder's method is computed in _build_enrichment from price_history. Since score() gates on len(prices) >= 25 before detect_breakout can return a signal, there will always be ≥25 prices available when _build_enrichment runs. The if len(prices) >= 15: guard will always pass. No fix needed.
+
+sma200
+Status: Structurally blocked. history_length = 50 — the deque cap makes SMA(200) impossible. The soft check _check_trend_alignment will always SKIP for all signals.
+
+To enable it you'd need to raise history_length to at least 200 in BreakoutDetector.__init__, then add to _build_enrichment:
+
+if len(prices) >= 200:
+    data["sma200"] = round(sum(prices[-200:]) / 200, 6)
+history_length = 50 was almost certainly chosen to keep memory/scan-cycle cost low. Bumping to 200 means 4× more history per symbol across potentially 200 symbols — decide whether the trade-off is worth one advisory soft check.
+
+market_pct_change
+Status: Partial — crypto only. _build_enrichment fetches BTC/USD price history as the market proxy for crypto. For stocks there is no equivalent.
+
+Fix for stocks — in _build_enrichment, after the existing BTC block, add a SPY proxy block:
+
+if pd.asset_type == AssetType.STOCK or "/" not in sym:
+    for spy_key in ("SPY", "QQQ"):
+        spy_hist = self.price_history.get(spy_key)
+        if spy_hist and len(spy_hist) >= 2:
+            try:
+                spy = list(spy_hist)
+                if spy[0] > 0:
+                    data["market_pct_change"] = round(
+                        (spy[-1] - spy[0]) / spy[0] * 100, 4
+                    )
+            except Exception:
+                pass
+            break
+This only works if SPY/QQQ appears in the stock scanner's get_top_movers() output or is explicitly seeded into price_history. The simplest reliable approach: always fetch SPY bars in _scan_stocks() and call self.detector.update_history() for each SPY bar before scanning other stocks. If SPY isn't in the movers list, add an explicit SPY seed fetch at the top of _scan_stocks().
+
+source_broker, source_price, source_timestamp
+Status: Not sent. These are inject-only fields that live in Signal.indicators. The receiver's fallback logic is correct (source_broker defaults to broker_hint, source_price defaults to current_price, source_timestamp defaults to timestamp). No checklist check uses them. They're metadata for downstream logging/routing.
+
+Fix (low priority): Add to _build_payload():
+
+"source_broker":    signal.broker.lower(),
+"source_price":     signal.current_price,
+"source_timestamp": signal.timestamp.isoformat() if hasattr(signal.timestamp, "isoformat") else str(signal.timestamp),
+12:31:03 PM
+Now I have everything I need. Here is the full analysis.
+
+Timing Analysis: BreakoutScanner → Receiver Pipeline
+What timestamp actually goes in the payload
+This is the pivotal fact everything else hinges on. In breakout_sender.py:182:
+
+now_utc = datetime.now(timezone.utc).isoformat()
+...
+"timestamp": now_utc,          # ← send moment, NOT detection moment
+_build_payload() is called synchronously inside send_signal(), before the background thread starts. So payload["timestamp"] = the moment the send begins, not signal.timestamp (which is set at detect_breakout():1203 to datetime.now()).
+
+The receiver computes age as (now_utc) − payload["timestamp"], which is localhost network latency (~1–50 ms). The 30-second watchlist delay is irrelevant to TTL. The TTL check cannot fail under normal load.
+
+Worst-case timeline (annotated)
+T=0s     detect_breakout() fires (BreakoutScanner.py:1203)
+         sig.timestamp = datetime.now()   ← display-only; never reaches receiver
+         sig.enrichment built from current bars (RSI, OHLC, market_pct_change)
+         _process_symbol() → watchlist.add(sig)
+         NO SEND. Phase = WATCHLIST.
+
+T=30s    scan_loop wakes (scan_interval_seconds=30)
+         _process_symbol() → watchlist.check(pd)
+         IF fav_move >= momentum_gate_pct(0.80%):
+           promoted.phase = ALERTED
+           escalation.register(promoted)
+           send_alert(promoted, escalation=0)
+             → should_send: esc=0 < _min_esc=2  ← BLOCKED by min_esc gate
+           Net: esc=0 send DROPPED. Bot never sees this signal.
+         IF NOT: scan_count++ → if scan_count >= 3 (T=90s), symbol EXPIRES from watchlist
+
+T=60s    scan wakes
+         escalation.check() → fav_move >= 2.0% → new_lvl=1
+         send_alert(sig, escalation=1)
+           → should_send: esc=1 < _min_esc=2  ← BLOCKED
+           Bot still never sees this.
+
+T=90s    scan wakes
+         escalation.check() → fav_move >= 5.0% → new_lvl=2
+         send_alert(sig, escalation=2)
+           → should_send: esc=2 >= _min_esc=2  ✓
+           → _last_sent.get(sym, 0) = 0  → time.time()-0 >> 30  ← NOT deduped ✓
+           → _last_sent[sym] = time.time()    ← T=90s
+           → payload["timestamp"] = datetime.now(timezone.utc)   ← T=90s
+           → background thread spawned, HTTP fires
+
+T=90.5s  receiver.receive_signal() called
+         signal_age_sec = (T=90.5s) − (T=90s) ≈ 0.5s  ← PASSES 60s TTL ✓
+         BUT: payload carries enrichment from T=0 (90s stale RSI/OHLC) ← BUG
+Worst case for TTL failure: essentially impossible under localhost HTTP with current code. The only theoretical failure path is OS thread scheduler starvation holding the background thread for >60s, which is not a real operating condition.
+
+The five actual bugs
+Bug 1 — _min_esc=2 silently drops esc=0 and esc=1
+should_send() (sender:74):
+
+if escalation < self._min_esc:   # _min_esc defaults to 2
+    return False
+The bot's first possible signal is a 5%+ move. Moderate breakouts (0.8–5%) are invisible. This is arguably intentional, but it means the receiver's bars_since_breakout check (max=4) will often reject what does arrive as "too late."
+
+Bug 2 — Dedup blocks esc=3 when it fires close to esc=2
+should_send() (sender:76–78):
+
+last = self._last_sent.get(signal.symbol, 0)
+if time.time() - last < self._dedup_sec:   # 30s
+    return False
+EscalationTracker.check() already prevents re-emitting the same level (the lvl < N guards are monotonic). So the dedup adds zero protection against duplicate same-level sends. But it does block esc=3 if the price rockets from 5% to 10% in under 30 seconds:
+
+T=90s  esc=2 sent. _last_sent[sym] = T=90s.
+T=105s price hits 10%, scan fires at T=120s.
+       time.time() - last = 30s  → 30 < 30 = False → PASSES (right on the edge)
+
+Same scenario with scan_interval=10s (faster escalation loop):
+T=90s  esc=2 sent.
+T=100s scan fires, price already at 10%.
+       time.time() - last = 10s < 30 → BLOCKED.  esc=3 never delivered.
+With the current 30s scan interval, scans always land ≥30s apart so esc=3 barely passes — but any timing jitter (scan takes 1-2s, time.sleep drift) can cause last_sent + 30 - epsilon and block it.
+
+Bug 3 — Escalation re-sends use T=0 enrichment
+In _process_symbol() (scanner:1693–1697):
+
+result = self.escalation.check(pd)
+if result:
+    sig, level = result          # sig.enrichment still from T=0
+    self.alert_system.send_alert(sig, escalation=level)
+EscalationTracker.check() (scanner:1328) updates sig.current_price but never touches sig.enrichment, sig.volume_spike, or the RSI/OHLC values. A 5% escalation send at T=90s carries candle data from T=0. The receiver's _check_no_wick_rejection and _check_rsi_confirms evaluate 90-second-old bars.
+
+Bug 4 — Dedup is checked before _last_sent is stamped, but only on PASS
+send_signal() (sender:110–121):
+
+if not self.should_send(signal, escalation):
+    return
+...
+self._last_sent[signal.symbol] = time.time()    # stamped AFTER should_send passes
+The first send for a new symbol correctly passes (0 last sent). But if two escalation events fire concurrently across threads (theoretically possible if scan loop and a fast escalation-only path both call _process_symbol), both could pass should_send before either stamps _last_sent. Under the current single-threaded scan loop this is harmless, but worth noting as a race if you ever add a faster escalation check thread.
+
+Bug 5 — _can_alert() cooldown is 30 minutes but only protects esc=0
+_can_alert() (scanner:1672–1674) checks ALERT_COOLDOWN_SECS=1800. This gate sits only on the watchlist→ALERTED promotion path (line 1701). Escalation re-sends (esc=1/2/3) entirely bypass it (line 1694–1698). The 30-minute cooldown effectively prevents re-detection of the same symbol but doesn't rate-limit escalation storms.
+
+Numbered fix list
+1. Timestamp: keep now_utc at send time (current behavior is correct)
+
+Do not change this. The design of stamping datetime.now(timezone.utc) in _build_payload is what makes TTL safe. If anyone ever suggests moving the timestamp assignment to detect_breakout(), reject it — that would guarantee TTL failures after the 30s watchlist delay.
+
+Optionally add a separate audit field:
+
+# in _build_payload(), before the return dict
+"source_timestamp": getattr(signal, "timestamp", None) and
+                    signal.timestamp.astimezone(timezone.utc).isoformat(),
+This gives the receiver an audit trail of detection time without breaking TTL.
+
+2. Bypass dedup for escalation re-sends
+
+EscalationTracker already guarantees each level fires exactly once per symbol lifetime. The dedup buys nothing for esc > 0 and can block esc=3 in fast-moving names.
+
+Change in breakout_sender.py:should_send():
+
+def should_send(self, signal, escalation: int) -> bool:
+    if not self.ready:
+        return False
+    if escalation < self._min_esc:
+        return False
+    if escalation > 0:
+        return True  # EscalationTracker already guarantees each level fires once
+    last = self._last_sent.get(signal.symbol, 0)
+    if time.time() - last < self._dedup_sec:
+        return False
+    return True
+Still stamp _last_sent for all sends (including esc > 0) so the audit log is complete and any esc=0 re-detection is still gated.
+
+3. Refresh enrichment before escalation sends
+
+In MarketScanner._process_symbol() (scanner.py:1691–1698), rebuild enrichment from the live pd before calling send_alert:
+
+result = self.escalation.check(pd)
+if result:
+    sig, level = result
+    # Refresh stale enrichment with current bar data
+    sig.enrichment   = self.detector._build_enrichment(pd)
+    sig.volume_spike = self.detector.vol_spike(pd)
+    logger.warning(f"[ESCALATE {level}] {broker} {sym} move={sig.best_move_pct:+.2f}%")
+    self.alert_system.send_alert(sig, escalation=level)
+    return
+This ensures the receiver's RSI check, wick check, and market-context check use bars from the actual escalation moment, not from detection 90+ seconds earlier.
+
+4. Do not add a faster escalation-only scan loop (yet)
+
+A separate 10s escalation-only thread would require careful locking around EscalationTracker._tracked (currently not thread-safe) and would not fix Bug 3. Fix 3 first. If faster escalation response is needed after that, the right place is reducing scan_interval_seconds for already-tracked symbols via a _fast_scan_symbols set, not a second thread.
+
+5. EscalationTracker.check() should not trigger a send on first promotion
+
+The current path is: watchlist.check() → send_alert(esc=0) → blocked by min_esc. The signal never enters the bot at esc=0. If you lower bot_min_escalation to 0 in scanner_config.json, esc=0 signals start flowing. That's a config knob, not a code change. Consider setting it to 0 in the default config since the receiver's own checklist (RSI, volume, drift, momentum phase) is the real gate — there's no need for a second coarse filter at the sender.
+
+Summary table
+Issue	Worst-case impact	Fix
+timestamp = now_utc at send time	None — TTL always passes	Keep as-is
+First send blocked by _min_esc=2	Bot misses 0–5% breakouts entirely	Lower bot_min_escalation to 0
+Dedup blocks esc=3 within 30s of esc=2	Rocket alerts silently dropped	Bypass dedup for esc > 0
+Stale enrichment on escalation sends	Receiver uses 90s-old RSI/OHLC	Rebuild sig.enrichment from pd in _process_symbol
+signal.timestamp never refreshed	Stale UI display time	Cosmetic only; no functional impact
+12:31:13 PM
+Now I have a complete picture. Let me write the design.
+
+Re-entry Loop Design
+What the code tells us
+Where a win is definitively recorded:
+
+_record_close_in_db() (position_monitor.py:358) — covers IBKR fallback + broker reconciliation paths. Calls risk_manager.record_trade_result() at line 403 with pnl > 0 known.
+Normal close path: _attempt_close() → executor.close_trade() (trade_executor.py, unread) → presumably also calls record_trade_result(). From position_monitor's perspective, success = True returns at line 283.
+The two independent cooldowns blocking re-entry:
+
+risk_manager._last_closed win cooldown = 120s — checked in breakout_receiver._check_not_in_cooldown()
+BreakoutScanner.MarketScanner._alerted_at cooldown = ALERT_COOLDOWN_SECS = 1800s (30 min) — checked in _can_alert(). This is the bigger blocker. The external scanner won't re-alert for 30 min even after the 120s risk_manager cooldown expires.
+Architecture constraint: BreakoutScanner.MarketScanner is a separate process; bot_engine has no reference to it. The re-entry cannot call back into it directly. Instead, the bot-internal scanners.market_scanner.MarketScanner (already wired via set_scanner()) must synthesize the signal itself and inject it directly into breakout_receiver.receive_signal().
+
+Why the receiver's checklist still works for synthetic signals:
+
+volume_spike=1.0 → _check_volume_elevated returns SKIP (not FAIL) by design
+Omitting OHLC → _check_no_wick_rejection returns SKIP
+timestamp=now() → _check_freshness always passes (0s old)
+bars_since_breakout=1 → _check_momentum_phase passes if price hasn't run >8% from level
+Component A — Trade close callback
+Two injection points, both in position_monitor.py only (no changes to risk_manager or trade_executor):
+
+# ── PositionMonitor.__init__() ──────────────────────────────────────────────
+self._on_breakout_win_closed: Optional[Callable] = None   # (symbol, won, price, dir) -> None
+
+def set_breakout_win_callback(self, cb: Callable[[str, bool, float, str], None]) -> None:
+    self._on_breakout_win_closed = cb
+Injection point 1 — _attempt_close() success branch (normal executor path):
+
+def _attempt_close(self, trade: Dict, current_price: float, reason: str) -> bool:
+    ...
+    success = self._get_executor().close_trade(trade, current_price, reason)
+
+    if success:
+        self._reset_close_attempts(trade_id)
+        # NEW ──────────────────────────────────────────────────────────────
+        if self._on_breakout_win_closed and _is_breakout_trade(trade):
+            direction = trade["direction"]
+            entry     = trade["entry_price"]
+            won       = (
+                (direction == "long"  and current_price > entry) or
+                (direction == "short" and current_price < entry)
+            )
+            try:
+                self._on_breakout_win_closed(symbol, won, current_price, direction)
+            except Exception:
+                pass
+        # ──────────────────────────────────────────────────────────────────
+        return True
+Injection point 2 — _record_close_in_db() (IBKR fallback + reconciliation paths):
+
+def _record_close_in_db(self, trade: Dict, exit_price: float, exit_reason: str) -> None:
+    ...
+    risk_manager.record_trade_result(pnl=pnl, trade_won=(pnl > 0), symbol=symbol)
+    # NEW ──────────────────────────────────────────────────────────────
+    if self._on_breakout_win_closed and _is_breakout_trade(trade):
+        try:
+            self._on_breakout_win_closed(symbol, pnl > 0, exit_price, trade["direction"])
+        except Exception:
+            pass
+    # ──────────────────────────────────────────────────────────────────
+Helper (file-level, no import cost):
+
+import json as _json
+
+def _is_breakout_trade(trade: Dict) -> bool:
+    # strategy_name lives in indicators_json; fall back to top-level column
+    if trade.get("strategy_name") == "breakout_scanner":
+        return True
+    try:
+        meta = _json.loads(trade.get("indicators_json") or "{}")
+        return meta.get("strategy_name") == "breakout_scanner"
+    except Exception:
+        return False
+Component B — MarketScanner.re_entry_scan()
+Added to scanners/market_scanner.py. Uses threading.Timer so it fires exactly 125s after the win (5s after the 120s cooldown clears), without blocking the scan loop or the position monitor.
+
+# ── New imports in market_scanner.py ────────────────────────────────────────
+import threading
+from datetime import datetime, timezone
+from typing import Optional, Callable
+
+WIN_REENTRY_DELAY_SEC = 125   # 120s cooldown + 5s buffer
+
+class MarketScanner:
+
+    def __init__(self, ...):
+        ...
+        self._receiver_ref            = None           # set via set_reentry_receiver()
+        self._pending_reentry: set    = set()          # guard against duplicate timers
+        self._pending_lock            = threading.Lock()
+
+    def set_reentry_receiver(self, receiver) -> None:
+        self._receiver_ref = receiver
+
+    # ── Public: called from the trade-close thread ───────────────────────────
+    def schedule_reentry(self, symbol: str, exit_price: float, direction: str) -> None:
+        """
+        Called by bot_engine's win callback from the position monitor thread.
+        Never touches scanner state — only creates a Timer.
+        """
+        with self._pending_lock:
+            if symbol in self._pending_reentry:
+                logger.info(f"[REENTRY] {symbol}: already pending — skipped duplicate")
+                return
+            self._pending_reentry.add(symbol)
+
+        t = threading.Timer(
+            WIN_REENTRY_DELAY_SEC,
+            self._safe_reentry_scan,
+            args=[symbol, exit_price, direction],
+        )
+        t.daemon = True
+        t.start()
+        logger.info(
+            f"[REENTRY] {symbol} {direction} re-entry scan "
+            f"scheduled in {WIN_REENTRY_DELAY_SEC}s"
+        )
+
+    # ── Internal: fires on Timer thread (daemon) ─────────────────────────────
+    def _safe_reentry_scan(self, symbol: str, exit_price: float, direction: str) -> None:
+        with self._pending_lock:
+            self._pending_reentry.discard(symbol)
+        try:
+            self._do_reentry_scan(symbol, exit_price, direction)
+        except Exception as e:
+            logger.error(f"[REENTRY] {symbol}: scan failed: {e}", exc_info=True)
+
+    def _do_reentry_scan(self, symbol: str, exit_price: float, direction: str) -> None:
+        """
+        Synthesizes a re-entry signal from live price and feeds it to the receiver.
+
+        The receiver's full checklist still runs:
+          - freshness:        always passes (timestamp = now)
+          - no open position: naturally enforced
+          - cooldown:         120s win cooldown has expired (we waited 125s)
+          - price moving:     verified here AND re-verified by receiver
+          - volume_spike=1.0: triggers SKIP path (not FAIL) by receiver design
+          - momentum phase:   bars_since_breakout=1 passes unless price chased >8%
+        """
+        if not self._receiver_ref:
+            logger.warning("[REENTRY] No receiver wired — skipping")
+            return
+
+        asset_class   = "crypto" if "/" in symbol else "stock"
+        current_price = self.get_current_price(symbol, asset_class)
+
+        if not current_price:
+            logger.info(f"[REENTRY] {symbol}: could not fetch live price — aborting")
+            return
+
+        # Price still moving in original direction? (0.3% tolerance for slippage/spread)
+        drift_pct = ((current_price - exit_price) / exit_price) * 100
+        if direction == "long"  and drift_pct < -0.3:
+            logger.info(f"[REENTRY] {symbol}: reversed {drift_pct:.2f}% since exit — skip")
+            return
+        if direction == "short" and drift_pct >  0.3:
+            logger.info(f"[REENTRY] {symbol}: reversed {drift_pct:+.2f}% since exit — skip")
+            return
+
+        payload = {
+            "symbol":                      symbol,
+            "asset_class":                 asset_class,
+            "direction":                   direction,
+            "entry_price":                 current_price,
+            "current_price":               current_price,
+            "move_pct":                    drift_pct,
+            "volume_spike":                1.0,       # receiver SKIPs 1.0 (no history)
+            "confidence":                  0.70,
+            "escalation":                  1,         # treat as continuation, not fresh esc=0
+            "timestamp":                   datetime.now(timezone.utc).isoformat(),
+            "broker":                      "kraken" if asset_class == "crypto" else "alpaca",
+            "bars_since_breakout":         1,
+            "distance_from_breakout_pct":  abs(drift_pct),
+            # Omit OHLC → _check_no_wick_rejection SKIPs (neutral)
+            # Omit rsi/sma200 → soft checks SKIP (advisory only)
+        }
+
+        logger.info(
+            f"[REENTRY] Injecting {symbol} {direction} @ ${current_price:.4f} "
+            f"(exited @ ${exit_price:.4f}, drift={drift_pct:+.2f}%)"
+        )
+
+        result = self._receiver_ref.receive_signal(payload)
+        accepted = result.get("accepted", False)
+        logger.info(
+            f"[REENTRY] {symbol}: {'ACCEPTED → trade_id=' + str(result.get('trade_id')) if accepted else 'REJECTED — ' + result.get('reason', '?')}"
+        )
+Component C — Wiring in bot_engine.py
+No new imports needed — both objects are already imported.
+
+# ── In BotEngine.__init__() or start(), after existing wiring ───────────────
+
+# Already present:
+breakout_receiver.set_executor(self.trade_executor)
+breakout_receiver.set_scanner(self.market_scanner)
+
+# NEW: wire re-entry path (no circular import — scanner receives ref at runtime)
+self.market_scanner.set_reentry_receiver(breakout_receiver)
+
+def _on_breakout_win_closed(symbol: str, won: bool,
+                             exit_price: float, direction: str) -> None:
+    if won:
+        try:
+            self.market_scanner.schedule_reentry(symbol, exit_price, direction)
+        except Exception as e:
+            logger.error(f"[REENTRY HOOK] schedule failed for {symbol}: {e}")
+
+from core.position_monitor import monitor as _monitor
+_monitor.set_breakout_win_callback(_on_breakout_win_closed)
+Why no circular import: market_scanner.py never imports breakout_receiver. The reference is injected at runtime via set_reentry_receiver(). The receiver's existing from scanners.market_scanner import Signal is a local import inside _inject_signal(), so there's no module-level cycle.
+
+Thread Safety Risk Table
+Shared resource	Accessed from	Risk	Verdict
+_pending_reentry set	position monitor thread (schedule), Timer thread (discard)	Read-write race	Mitigated — protected by _pending_lock
+_receiver_ref	Timer thread (read)	None — set once at startup, never mutated	Safe
+get_current_price()	Timer thread	Depends on fetcher's own locking	Assumed safe (already called from scan loop)
+receiver.receive_signal()	Timer thread	Reads risk_manager._last_closed (plain dict), writes to db	CPython GIL makes dict reads atomic; SQLite WAL handles concurrent writers
+risk_manager._last_closed	Position monitor writes, Timer reads	Stale read possible — Timer sees won=False pre-update	Benign: receiver's cooldown check will simply block re-entry, try again on next breakout
+Duplicate Timer for same symbol	Two concurrent wins on same symbol	Double re-entry attempt	Mitigated — _pending_lock + _pending_reentry set blocks the second
+One flag worth calling out explicitly: _check_not_in_cooldown() in the receiver reads risk_manager._last_closed as a plain dict with no lock. If the Timer fires at exactly 120.000s and the position monitor hasn't finished writing _last_closed yet, the re-entry could slip through with a stale won=None. The 5s buffer (WIN_REENTRY_DELAY_SEC = 125) makes this a non-issue in practice, but if you want to be rigorous, a threading.Lock on _last_closed is the clean fix.
+
+Suggested implementation order:
+
+Component A (position_monitor callback hook) — isolated, testable, no new logic
+Component B on MarketScanner — can be tested standalone by calling schedule_reentry() manually
+Component C wiring — one block in bot_engine.__init__, done
+12:32:51 PM
+Writing the plan document now.
+
+12:33:11 PM
+12:36:00 PM
+
+Write
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+54ms
+You're out of extra usage · resets 3pm (America/Los_Angeles)
+
+12:36:00 PM
+❌ DAG workflow 'breakout-pipeline-plan' completed with failures: 'synthesize-plan': Credit exhaustion detected — resume when credits reset
+
+12:36:00 PM
+
+
+3:51:30 PM
+All four parts are there and complete:
+
+Part 1 — Timing/TTL (keep timestamp = now_utc at send time; bypass dedup for esc > 0; refresh enrichment before escalation re-sends)
+Part 2 — Enrichment fields (bars_since_breakout, breakout_level, distance_from_breakout_pct, structural_stop_price, sma200, stock market_pct_change)
+Part 3 — Direction flip (_drift_state side-channel + _try_direction_flip() full implementation)
+Part 4 — Re-entry after profitable close (position monitor callback → schedule_reentry() → 125s timer → synthetic payload)
+The recommended implementation order is Part 2 → Part 1 → Part 3 → Part 4 since enrichment fields are prerequisites for the later parts. Ready to start implementing whenever you are.
+Starting with Part 2 (enrichment fixes) since everything else depends on it. Let me read the key files first.
+
+3:53:46 PM
+
+Bash
+ls "C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bo...
+1.8s
+3:54:16 PM
+
+Bash
+wc -l "C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading...
+273ms
+
+Grep
+class BreakoutSignal|class EscalationTracker|class BreakoutD...
+3.1s
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+382ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+68ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+398ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+54ms
+Now let me check how the stock fetcher works for SPY seeding and read the _scan_stocks area more carefully.
+
+3:54:46 PM
+
+Grep
+get_historical_data|stock_fetcher|StockFetcher
+3.0s
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+76ms
+Good. get_historical_data("SPY") works fine via StockDataFetcher. Now I have everything I need. Let me make all the Part 2 changes to BreakoutScanner.py.
+
+3:54:46 PM
+
+Edit
+111ms
+
+Edit
+100ms
+Now update _build_enrichment to add structural stop, SMA(200), and stock market context:
+
+3:54:46 PM
+3:55:16 PM
+
+Edit
+70ms
+Now update EscalationTracker.register() and check():
+
+3:55:16 PM
+
+Edit
+152ms
+Now seed SPY in _scan_stocks():
+
+3:55:16 PM
+
+Edit
+69ms
+Part 2 done. Now Part 1 — timing fixes in breakout_sender.py and escalation enrichment refresh in BreakoutScanner.py.
+
+3:55:46 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+114ms
+The sender already maps all the new fields via getattr. Now apply the two Part 1 changes — bypass dedup for esc > 0, and add source_timestamp:
+
+3:55:46 PM
+
+Edit
+67ms
+
+Edit
+72ms
+Now the escalation enrichment refresh in _process_symbol():
+
+3:55:46 PM
+3:56:16 PM
+
+Edit
+48ms
+Parts 1 and 2 done. Now Part 3 — direction flip logic in core/breakout_receiver.py.
+
+3:56:16 PM
+
+Bash
+wc -l "C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading...
+202ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+58ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+64ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+95ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+67ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+77ms
+3:56:46 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+67ms
+Now I have the full picture. Applying Part 3 changes. First, add _drift_state to __init__:
+
+3:56:46 PM
+
+Edit
+98ms
+Edit 1 — clear _drift_state at the top of receive_signal():
+
+3:56:46 PM
+
+Edit
+56ms
+Edit 2 — consume _drift_state and attempt flip on hard failure:
+
+3:56:46 PM
+3:57:16 PM
+
+Edit
+67ms
+Now stash drift state in _check_price_still_moving() before both fail returns:
+
+3:57:16 PM
+
+Edit
+53ms
+Now add the _try_direction_flip() method. I'll place it just before _check_volume_elevated:
+
+3:57:16 PM
+3:57:46 PM
+
+Edit
+49ms
+Parts 1, 2, and 3 complete. Now Part 4 — re-entry after profitable close. Let me read the relevant files.
+
+3:57:46 PM
+
+Bash
+wc -l "C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading...
+313ms
+
+Bash
+wc -l "C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading...
+269ms
+
+Grep
+def __init__|def _attempt_close|def _record_close_in_db|reco...
+3.5s
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+377ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+99ms
+3:58:16 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+71ms
+Now let me check the imports at the top of position_monitor.py:
+
+3:58:16 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+61ms
+Good. Now add the _is_breakout_trade helper and make the changes to position_monitor.py:
+
+3:58:16 PM
+
+Edit
+53ms
+
+Edit
+73ms
+Add _on_breakout_win_closed to __init__ and the setter:
+
+3:58:16 PM
+
+Edit
+72ms
+Now add the callback call in _attempt_close() on success:
+
+3:58:16 PM
+3:58:46 PM
+
+Edit
+67ms
+Now add the callback call in _record_close_in_db() after risk_manager.record_trade_result():
+
+3:58:46 PM
+
+Edit
+68ms
+Now add the re-entry logic to scanners/market_scanner.py. Let me read it first.
+
+3:58:46 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+88ms
+
+Grep
+class MarketScanner|def __init__|def get_current_price|scann...
+3.0s
+3:59:16 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+362ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+67ms
+Now I have everything I need. Add the re-entry fields to MarketScanner.__init__() and the three new methods, then add the singleton scanner at the end:
+
+3:59:16 PM
+
+Edit
+69ms
+
+Edit
+73ms
+Now wire everything together in bot_engine.py. Let me find the breakout receiver wiring:
+
+3:59:46 PM
+
+Grep
+breakout_receiver|set_executor|set_scanner|PositionMonitor|p...
+3.0s
+
+Edit
+4.2s
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+55ms
+
+Edit
+62ms
+All four parts are implemented. Let me do a quick sanity check to make sure there are no syntax issues:
+
+3:59:46 PM
+
+Bash
+cd "C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bo...
+218ms
+4:00:16 PM
+
+PowerShell
+Set-Location "C:\Users\Linda\.archon\workspaces\PNWSkyHippy\...
+1.8s
+
+PowerShell
+Set-Location "C:\Users\Linda\.archon\workspaces\PNWSkyHippy\...
+1.6s
+
+PowerShell
+$py = "C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading...
+1.3s
+
+PowerShell
+Get-Command python -ErrorAction SilentlyContinue | Select-Ob...
+1.3s
+
+PowerShell
+Get-ChildItem "C:\Users\Linda\.archon\workspaces\PNWSkyHippy...
+1.3s
+4:00:46 PM
+
+PowerShell
+Get-ChildItem "C:\Users\Linda\trading_bot_v2" -Filter "venv*...
+1.4s
+
+PowerShell
+Get-ChildItem "C:\Users\Linda" -Filter "python*.exe" -Recurs...
+5.5s
+
+PowerShell
+$py = "C:\Users\Linda\.platformio\python3\python.exe"; $base...
+3.1s
+
+PowerShell
+$py = "C:\Users\Linda\.platformio\python3\python.exe"; $f = ...
+1.8s
+All six files pass syntax checks. Here's a summary of every change made:
+
+Part 2 — Enrichment (BreakoutScanner.py)
+
+BreakoutSignal dataclass: added bars_since_breakout, breakout_level, distance_from_breakout_pct
+BreakoutDetector.__init__: history_length 50 → 200 (enables SMA200)
+BreakoutDetector._build_enrichment: added sma200, structural_stop_price (candle wick ±0.3% buffer), stock market_pct_change via SPY/QQQ
+EscalationTracker.register: stamps signal.breakout_level = signal.entry_price; initializes bars_since: 0
+EscalationTracker.check: increments bars_since, recomputes distance_from_breakout_pct each cycle, stamps both on the signal
+MarketScanner._scan_stocks: seeds SPY bars before scanning so market_pct_change is available for all stock signals
+Part 1 — Timing (breakout_sender.py + BreakoutScanner.py)
+
+BreakoutSender.should_send: escalation > 0 bypasses the 30s dedup window
+BreakoutSender._build_payload: added source_timestamp (detection moment, audit-only)
+MarketScanner._process_symbol: refreshes sig.enrichment and sig.volume_spike from current pd before every escalation re-send
+Part 3 — Direction flip (core/breakout_receiver.py)
+
+BreakoutReceiver.__init__: added self._drift_state
+receive_signal: clears _drift_state on entry; consumes it on hard failure to attempt a flip
+_check_price_still_moving: stashes {live_price, drift_pct} before both adverse-drift fail returns
+New method _try_direction_flip: evaluates 3 criteria (2/3 required), clones/mutates payload, re-runs full checklist, injects on pass
+Part 4 — Re-entry (core/position_monitor.py, scanners/market_scanner.py, bot_engine.py)
+
+position_monitor.py: _is_breakout_trade() helper; _on_breakout_win_closed callback slot; set_breakout_win_callback(); callback fires in both _attempt_close (normal path) and _record_close_in_db (IBKR fallback path)
+market_scanner.py: schedule_reentry() — creates 125s daemon Timer with dedup guard; _safe_reentry_scan() — exception-isolated Timer target; _do_reentry_scan() — fetches live price, verifies direction, builds synthetic payload, calls receiver.receive_signal()
+bot_engine.py: wires set_reentry_receiver() and installs _on_breakout_win_closed callback on the position monitor
+4:01:05 PM
+
+One thing to watch in the logs on first run:
+
+[STOCK SCAN] SPY seed: N bars — confirms the market context proxy is working
+[ESCALATE 2] ... move=+X% logs should now show ohlc=yes in the SENDER PREP line (stale OHLC fix working)
+[BREAKOUT RECV] logs will now show bars_since=1, stop=0.XXXXX instead of stop=none
+If a long reverses hard you'll see FLIP EVAL then either FLIP CHECKLIST PASSED or FLIP DENIED
+The changes are uncommitted in trading_bot_v2 — worth committing them once you've confirmed everything runs cleanly.
+
+error in bot engine
+
+:50:36 [WARNING]   [HARD] [FAIL] Stop too far: 29.04% > max 5.0%
+16:50:36 [INFO]   [SOFT] [FAIL] RSI 86.9 overbought
+16:50:36 [INFO]   [SOFT] [PASS] Trend aligned
+16:50:36 [INFO]   [SOFT] [SKIP] Market context not provided — neutral
+ERROR:    Exception in ASGI application
+Traceback (most recent call last):
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\uvicorn\protocols\http\h11_impl.py", line 415, in run_asgi
+    result = await app(  # type: ignore[func-returns-value]
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\uvicorn\middleware\proxy_headers.py", line 60, in __call__
+    return await self.app(scope, receive, send)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\fastapi\applications.py", line 1159, in __call__
+    await super().__call__(scope, receive, send)
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\starlette\applications.py", line 90, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\starlette\middleware\errors.py", line 186, in __call__
+    raise exc
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\starlette\middleware\errors.py", line 164, in __call__
+    await self.app(scope, receive, _send)
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\starlette\middleware\cors.py", line 88, in __call__
+    await self.app(scope, receive, send)
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\starlette\middleware\exceptions.py", line 63, in __call__
+    await wrap_app_handling_exceptions(self.app, conn)(scope, receive, send)
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\fastapi\middleware\asyncexitstack.py", line 18, in __call__
+    await self.app(scope, receive, send)
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\starlette\routing.py", line 660, in __call__
+    await self.middleware_stack(scope, receive, send)
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\starlette\routing.py", line 680, in app
+    await route.handle(scope, receive, send)
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\starlette\routing.py", line 276, in handle
+    await self.app(scope, receive, send)
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\fastapi\routing.py", line 134, in app
+    await wrap_app_handling_exceptions(app, request)(scope, receive, send)
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\starlette\_exception_handler.py", line 53, in wrapped_app
+    raise exc
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\starlette\_exception_handler.py", line 42, in wrapped_app
+    await app(scope, receive, sender)
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\fastapi\routing.py", line 120, in app
+    response = await f(request)
+               ^^^^^^^^^^^^^^^^
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\fastapi\routing.py", line 674, in app
+    raw_response = await run_endpoint_function(
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\fastapi\routing.py", line 330, in run_endpoint_function
+    return await run_in_threadpool(dependant.call, **values)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\starlette\concurrency.py", line 32, in run_in_threadpool
+    return await anyio.to_thread.run_sync(func)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\anyio\to_thread.py", line 63, in run_sync
+    return await get_async_backend().run_sync_in_worker_thread(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\anyio\_backends\_asyncio.py", line 2518, in run_sync_in_worker_thread
+    return await future
+           ^^^^^^^^^^^^
+  File "C:\users\linda\trading_bot_v2\venv312\Lib\site-packages\anyio\_backends\_asyncio.py", line 1002, in run
+    result = context.run(func, *args)
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\users\linda\trading_bot_v2\api_server.py", line 124, in receive_breakout_signal
+    result = breakout_receiver.receive_signal(payload.dict())
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\users\linda\trading_bot_v2\core\breakout_receiver.py", line 208, in receive_signal
+    flip_result = self._try_direction_flip(
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\users\linda\trading_bot_v2\core\breakout_receiver.py", line 571, in _try_direction_flip
+    f"candle_open={float(candle_open):.4f if candle_open is not None else 'N/A'}  "
+                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ValueError: Invalid format specifier '.4f if candle_open is not None else 'N/A'' for object of type 'float'
+
+
+4:51:25 PM
+F-string format spec bug — the conditional inside :.4f if ... else isn't valid Python syntax. Quick fix:
+

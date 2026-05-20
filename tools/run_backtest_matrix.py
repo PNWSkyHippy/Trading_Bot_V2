@@ -305,7 +305,10 @@ def write_top_csv(path: Path, rows: Sequence[dict]) -> None:
 
 def run_combo(bt: Backtester, combo: Combo, args, symbols: Sequence[str]):
     results = []
-    for symbol in symbols:
+    delay = max(0.0, float(getattr(args, "symbol_delay_sec", 0.0) or 0.0))
+    for idx, symbol in enumerate(symbols):
+        if idx and delay:
+            time.sleep(delay)
         if combo.strategy == "original_scorer":
             result = bt.run(
                 symbol,
@@ -350,6 +353,12 @@ def parse_args():
     parser.add_argument("--days", type=int, default=30)
     parser.add_argument("--capital", type=float, default=float(getattr(config, "STARTING_CAPITAL", 100000)))
     parser.add_argument("--max-combos", type=int, default=40, help="Hard cap on matrix combos. Default: 40")
+    parser.add_argument(
+        "--symbol-delay-sec",
+        type=float,
+        default=0.35,
+        help="Sleep between symbols inside each combo to avoid data-provider bursts. Default: 0.35",
+    )
     parser.add_argument("--full", action="store_true", help="Use the broader preset lists before max-combos cap.")
     parser.add_argument("--dry-run", action="store_true", help="Print planned combos and exit.")
     parser.add_argument("--out", default="", help="CSV output path.")

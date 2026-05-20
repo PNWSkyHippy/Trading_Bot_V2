@@ -403,7 +403,22 @@ def close_position(position_id):
 
         from core.trade_executor import executor
 
-        success = executor.close_trade(trade_record, float(current_price), "manual_close")
+        entry_price = float(trade_record.get("entry_price") or 0)
+        qty = float(trade_record.get("quantity") or 0)
+        direction = str(trade_record.get("direction") or "long").lower()
+        strategy_name = str(trade_record.get("strategy_name") or "original").lower()
+        current_price = float(current_price)
+        if direction == "short":
+            estimated_pnl = (entry_price - current_price) * qty
+        else:
+            estimated_pnl = (current_price - entry_price) * qty
+        exit_reason = (
+            "operator_profit_harvest"
+            if estimated_pnl > 0 and strategy_name not in ("original", "manual")
+            else "manual_close"
+        )
+
+        success = executor.close_trade(trade_record, current_price, exit_reason)
         if not success:
             return False, f"Executor returned failure for {symbol}."
         return True, f"Closed {symbol} @ ${float(current_price):.4f}."
@@ -1074,7 +1089,50 @@ def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
         pass
 
     markers.sort(key=lambda m: m['time'])
-    return {'bars': bars, 'markers': markers, 'symbol': symbol, 'timeframe': timeframe}
+
+    open_positions = []
+    try:
+        if db:
+            for t in db.get_open_trades() or []:
+                if (t.get('symbol') or '').upper() != symbol:
+                    continue
+                entry_time = t.get('entry_time')
+                entry_ts = None
+                if entry_time:
+                    try:
+                        entry_ts = int(datetime.fromisoformat(entry_time).timestamp())
+                    except Exception:
+                        entry_ts = None
+                direction = t.get('direction', 'long')
+                entry_price = float(t.get('entry_price') or 0)
+                stop_loss = float(t.get('stop_loss') or 0)
+                take_profit = float(t.get('take_profit') or 0)
+                current_price = get_current_price(
+                    t.get('symbol') or symbol,
+                    t.get('asset_class') or ('crypto' if '/' in symbol else 'stock')
+                ) or entry_price
+                open_positions.append({
+                    'trade_id': t.get('trade_id') or t.get('id'),
+                    'symbol': t.get('symbol') or symbol,
+                    'direction': direction,
+                    'entry_time': entry_time,
+                    'entry_ts': entry_ts,
+                    'entry_price': entry_price,
+                    'stop_loss': stop_loss,
+                    'take_profit': take_profit,
+                    'current_price': float(current_price or 0),
+                    'strategy_name': t.get('strategy_name') or '',
+                })
+    except Exception:
+        pass
+
+    return {
+        'bars': bars,
+        'markers': markers,
+        'open_positions': open_positions,
+        'symbol': symbol,
+        'timeframe': timeframe,
+    }
 
 
 def get_chart_symbols():

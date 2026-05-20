@@ -23,8 +23,9 @@
     applies to stocks. Crypto signals go straight to per-signal
     review regardless of time of day or briefing result.
 
-  Level 2 autonomy: Claude can VETO signals but cannot
-  INITIATE trades. Bot mechanical execution runs underneath.
+  Default autonomy: Claude annotates and scores signals as an advisory layer.
+  Set config.CLAUDE_REVIEWER_MODE="strict" in the scanner path to let Claude
+  veto signals again.
 =============================================================
 """
 
@@ -160,7 +161,7 @@ class ClaudeReviewer:
             if not self._api_key:
                 logger.warning(
                     "ClaudeReviewer: No API key found — reviewer disabled. "
-                    "All signals will be SKIPPED (conservative fallback). "
+                    "Signals proceed through mechanical execution only. "
                     "Add ANTHROPIC_API_KEY to .env to enable."
                 )
             # else: flag=False already logged above — no duplicate warning

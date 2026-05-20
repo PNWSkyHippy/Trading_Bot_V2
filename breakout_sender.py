@@ -195,6 +195,7 @@ class BreakoutSender:
             # Identity
             "symbol":        signal.symbol,
             "broker":        broker,
+            "source_broker": broker,
             "direction":     direction,
             "asset_class":   asset_class,
             "signal_source": "breakout_scanner",
@@ -206,6 +207,7 @@ class BreakoutSender:
             # Price
             "entry_price":   signal.entry_price,
             "current_price": signal.current_price,
+            "source_price":  signal.current_price,
 
             # Move context
             "move_pct":      signal.best_move_pct,

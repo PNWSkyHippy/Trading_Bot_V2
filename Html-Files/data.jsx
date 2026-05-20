@@ -82,6 +82,7 @@ const STRATEGIES = [
   'grid_bot',
   'dca_accumulator',
   'vwap_momentum',
+  "vwap_confirmed_orb",
   'hammer_reversal',
   'orb_breakout',
   'adaptive_regime',

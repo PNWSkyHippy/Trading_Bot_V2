@@ -77,7 +77,12 @@ IBKR_ENABLED        = True                              # Set True after TWS is 
 IBKR_PAPER_MODE     = True                              # True = paper (port 7497)
 
 ANTHROPIC_API_KEY   = _decrypt(os.getenv("ANTHROPIC_API_KEY",  ""))
-CLAUDE_REVIEWER_ENABLED = True   # Set True to re-enable
+CLAUDE_REVIEWER_ENABLED = True
+# Reviewer mode:
+#   advisory = log Claude/Haiku review decisions, but never block strategy signals
+#   strict   = non-APPROVE decisions veto signals like the old behavior
+CLAUDE_REVIEWER_MODE = "advisory"
+CLAUDE_REVIEWER_APPLY_SIZE_ADVICE = False
 
 # Massive.com market data — used by BreakoutScanner AND ClaudeReviewer
 # Can also be set in scanner_config.json (reviewer falls back there if blank)
@@ -127,6 +132,8 @@ MOMENTUM_RIDER_RSI_MIN        = 50
 MOMENTUM_RIDER_VOL_RATIO      = 1.3
 MOMENTUM_RIDER_MIN_SCORE      = 0.67
 MOMENTUM_RIDER_MAX_EXTENSIONS = 3
+MOMENTUM_RIDER_LOCK_PROFIT_RATIO = 0.50  # lock half of open profit when TP is extended
+MOMENTUM_RIDER_MIN_LOCK_PCT      = 0.25  # at least breakeven + 0.25% once riding
 
 # Risk circuit breakers
 MAX_DAILY_LOSS_PCT      = 15.0
@@ -195,6 +202,11 @@ _CRYPTO_FALLBACK = [
 
 STOCK_WATCHLIST  = _load_watchlist("watchlists/stocks.txt",  _STOCK_FALLBACK)
 CRYPTO_WATCHLIST = _load_watchlist("watchlists/crypto.txt",  _CRYPTO_FALLBACK)
+
+# Strategy whitelists are conservative backtest filters. Manual/scanner
+# injected symbols are deliberate overrides, so let them reach strategy logic
+# instead of being rejected at the first whitelist gate.
+BYPASS_STRATEGY_WHITELIST_FOR_INJECTED_SYMBOLS = True
 
 # =============================================================================
 # DATABASE
@@ -421,4 +433,4 @@ ALERT_DIGEST_HOURS = 1   # Change to 2 or 3 to reduce email further
 # ── Breakout Signal API ────────────────────────────────────────
 BOT_API_KEY           = "pyd9pocfRHu0JxiiOQWQzuns5qdiikpRy8v5Vd3G0h4"   # copy this to scanner_config.json bot_api_key
 BOT_API_PORT          = 8181
-BREAKOUT_MIN_ESCALATION = 2   # 0-3; only inject escalation >= this
+BREAKOUT_MIN_ESCALATION = 1   # 0-3; only inject escalation >= this

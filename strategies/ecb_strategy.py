@@ -59,11 +59,11 @@ from typing import Dict, Optional
 class ECBParams:
     # Entropy
     entropy_window:  int   = 20    # Rolling window for Shannon entropy
-    entropy_thresh:  float = 0.85  # ws 75 Enter when entropy collapses below this
+    entropy_thresh:  float = 0.75  # Enter when entropy collapses below this
     entropy_reset:   float = 0.90  # Entropy must rise above this before re-entry
 
     # Directional bias
-    bias_threshold:  float = 0.50  # was 55 Rolling up-ratio must exceed this for long bias
+    bias_threshold:  float = 0.55  # Rolling up-ratio must exceed this for long bias
 
     # ATR
     atr_length:      int   = 14

@@ -95,7 +95,9 @@ class MeanReversion(BaseStrategy):
         # ── Symbol whitelist check ───────────────────────────────────────
         # ETFs and smooth mega-caps consistently show negative PF on this
         # strategy. Volatile individual stocks show strong positive PF.
-        if symbol.upper() not in MEAN_REVERSION_WHITELIST:
+        if not self._passes_symbol_whitelist(
+            symbol, MEAN_REVERSION_WHITELIST, "Mean reversion whitelist"
+        ):
             self.verbose_log_skip(
                 symbol,
                 f"Not in mean reversion whitelist — skipping "

@@ -225,7 +225,9 @@ class ScalpMaster(BaseStrategy):
     ) -> Optional[TradeSignal]:
 
         # ── Whitelist check ──────────────────────────────────────────────
-        if symbol.upper() not in SCALP_WHITELIST:
+        if not self._passes_symbol_whitelist(
+            symbol, SCALP_WHITELIST, "Scalp whitelist"
+        ):
             self.verbose_log_skip(
                 symbol,
                 f"Not in scalp whitelist — skipping "

@@ -51,6 +51,13 @@ def _is_bad_quote_currency(symbol: str) -> bool:
     s = symbol.upper()
     return any(s.endswith(q) for q in _REJECTED_QUOTE_CURRENCIES)
 
+def _is_breakout_scanner_payload(p: Dict[str, Any]) -> bool:
+    return (
+        p.get("signal_source") == "breakout_scanner"
+        or p.get("strategy_name") == "breakout_scanner"
+        or p.get("source") == "breakout_scanner"
+    )
+
 REQUIRED_FIELDS = [
     "symbol", "asset_class", "direction",
     "entry_price", "current_price",
@@ -299,6 +306,12 @@ class BreakoutReceiver:
             elapsed  = time.time() - last.get("time", 0)
             cooldown = 120 if last.get("won") else 600
             if elapsed < cooldown:
+                esc = int(p.get("escalation") or 0)
+                if last.get("won") and p.get("bypass_win_cooldown"):
+                    p["bypass_win_cooldown"] = True
+                    return ChecklistResult.ok(
+                        f"{sym} won {int(elapsed)}s ago — breakout re-entry bypass"
+                    )
                 return ChecklistResult.fail(
                     f"{sym} in cooldown — {int((cooldown-elapsed)/60)}min remaining"
                 )
@@ -358,11 +371,18 @@ class BreakoutReceiver:
 
     def _check_volume_elevated(self, p: Dict) -> ChecklistResult:
         vol = float(p.get("volume_spike", 0))
-        if vol == 1.0:
+        if vol <= 0 or vol == 1.0:
             return ChecklistResult.skip(
-                "Volume spike is 1.00x (default fallback — no volume history) — skipping"
+                f"Volume spike is {vol:.2f}x (missing/default volume history) — skipping"
             )
         if vol < VOLUME_SPIKE_MIN:
+            esc = int(p.get("escalation") or 0)
+            move = abs(float(p.get("move_pct") or 0))
+            if _is_breakout_scanner_payload(p) and (esc >= 2 or move >= 5.0):
+                return ChecklistResult.skip(
+                    f"Volume spike {vol:.2f}x below {VOLUME_SPIKE_MIN}x, "
+                    f"but breakout is already escalated/moving — advisory only"
+                )
             return ChecklistResult.fail(
                 f"Volume spike {vol:.2f}x below minimum {VOLUME_SPIKE_MIN}x"
             )
@@ -438,12 +458,25 @@ class BreakoutReceiver:
 
         if rsi is not None:
             rsi_f = float(rsi)
+            esc = int(p.get("escalation") or 0)
+            move = abs(float(p.get("move_pct") or 0))
+            breakout_runaway = _is_breakout_scanner_payload(p) and (esc >= 2 or move >= 5.0)
             if direction == "long" and rsi_f >= RSI_EXHAUST_LONG:
+                if breakout_runaway:
+                    return ChecklistResult.skip(
+                        f"RSI {rsi_f:.1f} overbought, but escalated breakout can stay "
+                        "parabolic — advisory only"
+                    )
                 return ChecklistResult.fail(
                     f"RSI {rsi_f:.1f} overbought — parabolic up likely exhausted "
                     f"(long rejected, threshold={RSI_EXHAUST_LONG})"
                 )
             if direction == "short" and rsi_f <= RSI_EXHAUST_SHORT:
+                if breakout_runaway:
+                    return ChecklistResult.skip(
+                        f"RSI {rsi_f:.1f} oversold, but escalated breakdown can continue "
+                        "parabolic — advisory only"
+                    )
                 return ChecklistResult.fail(
                     f"RSI {rsi_f:.1f} oversold — parabolic down likely exhausted "
                     f"(short rejected, threshold={RSI_EXHAUST_SHORT})"
@@ -467,10 +500,22 @@ class BreakoutReceiver:
             return ChecklistResult.ok("Stop sanity skipped — no price")
 
         if direction == "long" and stop >= price:
+            if _is_breakout_scanner_payload(p):
+                p["structural_stop_price"] = None
+                return ChecklistResult.skip(
+                    f"Structural stop {stop:.4f} >= price {price:.4f}; "
+                    "falling back to breakout percent stop"
+                )
             return ChecklistResult.fail(
                 f"Stop {stop:.4f} >= price {price:.4f} — already broken for long"
             )
         if direction == "short" and stop <= price:
+            if _is_breakout_scanner_payload(p):
+                p["structural_stop_price"] = None
+                return ChecklistResult.skip(
+                    f"Structural stop {stop:.4f} <= price {price:.4f}; "
+                    "falling back to breakout percent stop"
+                )
             return ChecklistResult.fail(
                 f"Stop {stop:.4f} <= price {price:.4f} — already broken for short"
             )
@@ -478,6 +523,12 @@ class BreakoutReceiver:
         max_dist = STOP_MAX_DISTANCE_CRYPTO if asset == "crypto" else STOP_MAX_DISTANCE_STOCK
         dist_pct = abs(price - stop) / price * 100
         if dist_pct > max_dist:
+            if _is_breakout_scanner_payload(p):
+                p["structural_stop_price"] = None
+                return ChecklistResult.skip(
+                    f"Structural stop too far ({dist_pct:.2f}% > max {max_dist}%); "
+                    "falling back to breakout percent stop"
+                )
             return ChecklistResult.fail(
                 f"Stop too far: {dist_pct:.2f}% > max {max_dist}%"
             )
@@ -722,6 +773,7 @@ class BreakoutReceiver:
                     "bars_since_breakout":        p.get("bars_since_breakout"),
                     "distance_from_breakout_pct": p.get("distance_from_breakout_pct"),
                     "custom_stop_loss_pct":       custom_stop,
+                    "bypass_win_cooldown":        p.get("bypass_win_cooldown", False),
                 },
             )
 

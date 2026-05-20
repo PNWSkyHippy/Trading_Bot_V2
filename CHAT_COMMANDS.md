@@ -78,29 +78,30 @@ All enable/disable commands bypass Haiku and execute instantly.
 | `disable bollinger_breakout` | Disables Bollinger Breakout |
 | `enable vwap_momentum` | Enables VWAP Momentum |
 | `disable vwap_momentum` | Disables VWAP Momentum |
-| `enable rsi_momentum` | Enables RSI Momentum |
-  `enable vwap_confirmed_orb` | Enables VWAP Momentum |
-| `disable vwap_confirmed_orb` | Disables VWAP Momentum |
+  `enable vwap_confirmed_orb` | Enables VWAP Confirmed |
+| `disable vwap_confirmed_orb` | Disables VWAP Confirmed |
 | `disable rsi_momentum` | Disables RSI Momentum |
+| `enable rsi_momentum` | Enables RSI Momentum |
 | `enable ema_crossover` | Enables EMA Crossover |
 | `disable ema_crossover` | Disables EMA Crossover |
-| `enable bollinger_sqeeze` | Enables EMA Crossover |
-| `disable bollinger_squeeze` | Disables EMA Crossover |
+| `enable bollinger_squeeze` | Enables Bollinger Squeeze |
+| `disable bollinger_squeeze` | Disables Bollinger Squeeze |
 | `enable mean_reversion` | Enables Mean Reversion |
 | `disable mean_reversion` | Disables Mean Reversion |
 | `enable swing_trader` | Enables Swing Trader |
 | `disable swing_trader` | Disables Swing Trader |
-| `enable vdmr_strategy` | Enables Swing Trader |
-| `disable vdmr_strategy` | Disables Swing Trader |
-| `enable rsi_dip_spike_v4` | Enables Swing Trader |
-| `disable rsi_dip_spike_v4` | Disables Swing Trader |
+| `enable vdmr_strategy` | Enables VDMR |
+| `disable vdmr_strategy` | Disables VDMR |
+| `enable rsi_dip_spike_v4` | Enables RSI Dip Spike V4 |
+| `disable rsi_dip_spike_v4` | Disables RSI Dip Spike V4 |
 | `enable ema_crossover` | Enables EMA Crossover |
 | `disable ema_crossover` | Disables EMA Crossover |
-| `enable adaptive_regime` | Enables EMA Crossover |
-| `disable adaptive_regime` | Disables EMA Crossover |
+| `enable adaptive_regime` | Enables Adaptive Regime |
+| `disable adaptive_regime` | Disables Adaptive Regime |
 | `disable grid_bot` | Disables Grid Bot |
-| `enable ecb_strategy` | Enables DCA Accumulator |
-| `disable ecb_strategy` | Disables DCA Accumulator |
+| `ensable grid_bot` | Enables Grid Bot |
+| `enable ecb_strategy` | Enables ECB |
+| `disable ecb_strategy` | Disables ECB |
 | `list strategies` | Shows all 11 with ON/OFF status |
 | `show strategies` | Same as list strategies |
 | `enabled strategies` | Same as list strategies |
@@ -116,8 +117,8 @@ rsi_momentum        bollinger_breakout    ema_crossover
 mean_reversion      scalp_master          swing_trader
 grid_bot            dca_accumulator       vwap_momentum
 hammer_reversal     orb_breakout          adaptive_regime
-rsi_dip_spike       adaptive_regime       ecb
-bollinger_sqeeze    vdmr                  vwap_confirmed_orb  
+rsi_dip_spike_v4    ecb                   
+bollinger_squeeze   vdmr                  vwap_confirmed_orb  
 ```
 
 ---

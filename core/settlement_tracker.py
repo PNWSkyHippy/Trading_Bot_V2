@@ -1,12 +1,12 @@
 """
 =============================================================
-  T+2 SETTLEMENT TRACKER
+  T+1 SETTLEMENT TRACKER
   Implements cash account settlement rules to avoid PDT.
 
   How it works:
   - Stock trade opens  → funds reserved from settled pool
-  - Stock trade closes → funds enter T+2 settlement queue
-  - 2 business days later → funds return to settled pool
+  - Stock trade closes → funds enter T+1 settlement queue
+  - 1 business day later → funds return to settled pool
   - Before any stock trade → check settled pool has enough
 
   Crypto trades are completely unaffected — separate pool.
@@ -17,7 +17,7 @@
 
   Config:
     CASH_ACCOUNT_MODE = True   (in config.py)
-    SETTLEMENT_DAYS   = 2      (T+2 standard)
+    SETTLEMENT_DAYS   = 1      (T+1 standard since May 2024)
 =============================================================
 """
 
@@ -30,8 +30,9 @@ import config
 
 logger = logging.getLogger(__name__)
 
-# Number of business days for settlement
-SETTLEMENT_DAYS = getattr(config, "SETTLEMENT_DAYS", 2)
+# Number of business days for settlement.
+# U.S. stocks/ETFs moved from T+2 to T+1 on May 28, 2024.
+SETTLEMENT_DAYS = getattr(config, "SETTLEMENT_DAYS", 1)
 CASH_ACCOUNT_MODE = getattr(config, "CASH_ACCOUNT_MODE", True)
 
 
@@ -48,7 +49,7 @@ def _add_business_days(from_date: date, days: int) -> date:
 
 class SettlementTracker:
     """
-    Tracks T+2 settlement for stock trades in cash account mode.
+    Tracks T+1 settlement for stock trades in cash account mode.
     Uses its own SQLite table separate from main trade records.
     """
 
@@ -83,6 +84,11 @@ class SettlementTracker:
                     created_at          TEXT DEFAULT CURRENT_TIMESTAMP
                 )
             """)
+            conn.execute("""
+                CREATE UNIQUE INDEX IF NOT EXISTS
+                    idx_settlement_queue_trade_id
+                ON settlement_queue(trade_id)
+            """)
             conn.commit()
         finally:
             conn.close()
@@ -99,6 +105,7 @@ class SettlementTracker:
         if not CASH_ACCOUNT_MODE:
             return config.STARTING_CAPITAL  # No restriction in margin mode
 
+        self.process_settlements()
         total_stock_capital = self._get_total_stock_capital()
         settling = self._get_settling_amount()
         settled = max(0.0, total_stock_capital - settling)
@@ -142,11 +149,39 @@ class SettlementTracker:
         if asset_class != "stock":
             return
 
+        if not trade_id:
+            logger.warning(
+                f"Settlement skipped for {symbol}: missing trade_id"
+            )
+            return
+
+        position_value = float(position_value or 0.0)
+        if position_value <= 0:
+            logger.warning(
+                f"Settlement skipped for {symbol} {trade_id}: "
+                f"non-positive position_value=${position_value:,.2f}"
+            )
+            return
+
         today = date.today()
         settles = _add_business_days(today, SETTLEMENT_DAYS)
 
         conn = self._conn()
         try:
+            existing = conn.execute("""
+                SELECT id, settled, amount
+                FROM settlement_queue
+                WHERE trade_id = ?
+                LIMIT 1
+            """, (trade_id,)).fetchone()
+            if existing:
+                logger.info(
+                    f"Settlement already recorded for {symbol} {trade_id}: "
+                    f"${existing['amount']:,.2f} "
+                    f"({'settled' if existing['settled'] else 'pending'})"
+                )
+                return
+
             conn.execute("""
                 INSERT INTO settlement_queue
                     (trade_id, symbol, amount, closed_date, settles_date, settled)
@@ -173,6 +208,18 @@ class SettlementTracker:
         today = date.today().isoformat()
         conn = self._conn()
         try:
+            stale = conn.execute("""
+                UPDATE settlement_queue
+                SET settled = 1
+                WHERE settled = 0 AND amount <= 0
+            """)
+            if stale.rowcount > 0:
+                conn.commit()
+                logger.warning(
+                    f"Marked {stale.rowcount} invalid non-positive "
+                    f"settlement row(s) as settled"
+                )
+
             # Mark anything due today or earlier as settled
             rows = conn.execute("""
                 SELECT id, symbol, amount, settles_date
@@ -214,7 +261,7 @@ class SettlementTracker:
             unsettled = conn.execute("""
                 SELECT SUM(amount) as total, COUNT(*) as count
                 FROM settlement_queue
-                WHERE settled = 0
+                WHERE settled = 0 AND amount > 0
             """).fetchone()
 
             # Recently settled
@@ -229,7 +276,7 @@ class SettlementTracker:
             upcoming = conn.execute("""
                 SELECT symbol, amount, settles_date
                 FROM settlement_queue
-                WHERE settled = 0
+                WHERE settled = 0 AND amount > 0
                 ORDER BY settles_date ASC
                 LIMIT 10
             """).fetchall()
@@ -271,7 +318,7 @@ class SettlementTracker:
             row = conn.execute("""
                 SELECT COALESCE(SUM(amount), 0) as total
                 FROM settlement_queue
-                WHERE settled = 0
+                WHERE settled = 0 AND amount > 0
             """).fetchone()
             return row["total"] or 0.0
         finally:
