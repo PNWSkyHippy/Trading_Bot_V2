@@ -1,0 +1,13 @@
+AssetClass,Ticker,Price,Vol Change,RSI,% from 52W Hi,% vs 200SMA,Score,Signal,24h %,Funding %
+Stock,ARM,256.73,1.71,64.5,-1.04,76.6,131.17,Within 1.0% of 52W high | 1.7x avg vol | 77% above 200MA,,
+Stock,WELL,218.61,1.53,53.3,-1.38,15.5,23.82,Within 1.4% of 52W high | 1.5x avg vol | 16% above 200MA,,
+Crypto,MNT,0.655973,,75.0,,,26.16,+4.8% 24h | RSI 75 (momentum zone),4.77,-0.0009
+Crypto,CC,0.156402,,74.2,,,25.39,+5.0% 24h | RSI 74 (momentum zone),4.96,
+Crypto,HTX,2e-06,,74.7,,,25.21,+2.2% 24h | RSI 75 (momentum zone),2.23,
+Crypto,XMR,397.93,,74.8,,,25.19,+1.7% 24h | RSI 75 (momentum zone) | ⚠ crowded longs,1.65,0.0061
+Crypto,AVAX,9.28,,73.0,,,23.45,+1.8% 24h | RSI 73 (momentum zone),1.83,-0.0012
+Crypto,UNI,3.62,,71.4,,,22.43,+4.7% 24h | RSI 71 (momentum zone),4.68,0.0021
+Crypto,SHIB,6e-06,,71.3,,,21.61,+1.5% 24h | RSI 71 (momentum zone),1.53,0.0004
+Crypto,SUI,1.07,,70.3,,,20.53,+1.1% 24h | RSI 70 (momentum zone),1.08,-0.0002
+Crypto,ONDO,0.394721,,67.7,,,19.16,+8.5% 24h | RSI 68 (momentum zone),8.49,-0.0007
+Crypto,DOT,1.25,,68.3,,,18.69,+2.0% 24h | RSI 68 (momentum zone),2.03,-0.0004

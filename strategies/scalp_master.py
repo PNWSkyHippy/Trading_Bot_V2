@@ -217,6 +217,10 @@ class ScalpMaster(BaseStrategy):
         self.take_profit_pct = 1.0
         self.logger = logging.getLogger("ScalpMaster")
 
+        # ML model is dominated by grid_bot (1507 trades); scalp_master has
+        # minimal training representation so ML blending collapses valid scores.
+        self.ml_exempt = True
+
     def analyze(
         self,
         symbol: str,
@@ -380,6 +384,8 @@ class ScalpMaster(BaseStrategy):
             score = min(1.0, sym_min_conf + volume_ratio * 0.05)
             self.verbose_log_score(symbol, score, sym_min_conf)
             if score >= sym_min_conf:
+                adx_str  = f"{adx_val:.1f}" if adx_val is not None else "N/A"
+                vwap_str = "above" if price_above_vwap else "N/A"
                 return self._make_signal(
                     symbol          = symbol,
                     direction       = "long",
@@ -389,8 +395,8 @@ class ScalpMaster(BaseStrategy):
                     reason          = (
                         f"Scalp long: RSI {previous_rsi:.1f}→{current_rsi:.1f} "
                         f"vol={volume_ratio:.2f}x "
-                        f"ADX={adx_val:.1f if adx_val else 'N/A'} "
-                        f"VWAP={'above' if price_above_vwap else 'N/A'} "
+                        f"ADX={adx_str} "
+                        f"VWAP={vwap_str} "
                         f"SL={sym_sl}% TP={sym_tp}%"
                     )
                 )
@@ -430,6 +436,8 @@ class ScalpMaster(BaseStrategy):
             score = min(1.0, sym_min_conf + volume_ratio * 0.05)
             self.verbose_log_score(symbol, score, sym_min_conf)
             if score >= sym_min_conf:
+                adx_str  = f"{adx_val:.1f}" if adx_val is not None else "N/A"
+                vwap_str = "below" if price_above_vwap is False else "N/A"
                 return self._make_signal(
                     symbol          = symbol,
                     direction       = "short",
@@ -439,8 +447,8 @@ class ScalpMaster(BaseStrategy):
                     reason          = (
                         f"Scalp short: RSI {previous_rsi:.1f}→{current_rsi:.1f} "
                         f"vol={volume_ratio:.2f}x "
-                        f"ADX={adx_val:.1f if adx_val else 'N/A'} "
-                        f"VWAP={'below' if price_above_vwap is False else 'N/A'} "
+                        f"ADX={adx_str} "
+                        f"VWAP={vwap_str} "
                         f"SL={sym_sl}% TP={sym_tp}%"
                     )
                 )

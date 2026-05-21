@@ -522,7 +522,8 @@ with st.expander("➕ Open Manual Trade", expanded=False):
         m_direction = st.selectbox("Direction", ["long", "short"])
         m_asset     = st.selectbox("Asset Class", ["stock", "crypto"])
     with mc2:
-        m_size      = st.number_input("Position Size ($)", min_value=1.0, value=2000.0)
+        m_size      = st.number_input("Position Size ($)", min_value=1.0, value=2000.0,
+                                      help="Notional size. For leveraged Kraken shorts, margin required = size ÷ leverage.")
         _brokers = ["alpaca", "coinbase", "kraken", "paper"]
         if getattr(config, "IBKR_ENABLED", False):
             _brokers.insert(0, "ibkr")
@@ -532,6 +533,39 @@ with st.expander("➕ Open Manual Trade", expanded=False):
         m_sl_pct = st.number_input("Stop Loss %", min_value=0.1, value=1.5, step=0.1)
         m_tp_pct = st.number_input("Take Profit %", min_value=0.1, value=3.0, step=0.1)
         m_strat  = st.text_input("Strategy Label", value="manual")
+
+    # Leverage selector — only relevant for Kraken shorts
+    # Shows available levels pulled from exchange_capabilities cache;
+    # falls back to [1,2,3,5] if cache not warm yet.
+    m_leverage = 1
+    _kraken_max = getattr(config, "KRAKEN_MAX_LEVERAGE", 10)
+    _kraken_default = getattr(config, "KRAKEN_SHORT_LEVERAGE", 2)
+    if m_broker == "kraken" and m_direction == "short":
+        try:
+            from core.exchange_capabilities import exchange_capabilities as _ec
+            _pair_max = _ec.get_max_short_leverage(
+                (m_symbol.strip().upper() if m_symbol else "BTC/USD"), "kraken"
+            )
+        except Exception:
+            _pair_max = _kraken_max
+        _lev_choices = [v for v in [1, 2, 3, 4, 5] if v <= max(_pair_max, 1)]
+        if not _lev_choices:
+            _lev_choices = [1]
+        _default_idx = _lev_choices.index(_kraken_default) if _kraken_default in _lev_choices else 0
+        m_leverage = st.selectbox(
+            "Leverage (Kraken short)",
+            options=_lev_choices,
+            index=_default_idx,
+            help=(
+                f"Overrides config KRAKEN_SHORT_LEVERAGE ({_kraken_default}×) for this trade. "
+                f"Pair max: {_pair_max}×. "
+                f"Margin required = Position Size ÷ Leverage. "
+                f"Order notional = Position Size × (Leverage ÷ {_kraken_max})."
+            ),
+        )
+        # Visual warning if leverage > 2 chosen
+        if m_leverage > 2:
+            st.warning(f"⚠️ {m_leverage}× leverage selected — higher risk. Losses scale with leverage.")
 
     m_entry = None
     if m_symbol:
@@ -557,12 +591,28 @@ with st.expander("➕ Open Manual Trade", expanded=False):
                     preview_sl = live_price * (1 + m_sl_pct / 100)
                     preview_tp = live_price * (1 - m_tp_pct / 100)
                 broker_label = f" (found on {found_broker})" if found_broker else ""
+                # Leverage sizing preview for Kraken shorts
+                if m_broker == "kraken" and m_direction == "short" and m_leverage > 1:
+                    _scale        = m_leverage / _kraken_max
+                    _order_notional = m_size * _scale
+                    _margin_req     = _order_notional / m_leverage
+                    _order_qty      = _order_notional / live_price
+                    lev_line = (
+                        f"<br>📐 <b>Leverage:</b> <code>{m_leverage}×</code> &nbsp; "
+                        f"Scale: <code>{_scale:.2f}</code> &nbsp; "
+                        f"Order notional: <code>${_order_notional:.2f}</code> &nbsp; "
+                        f"Margin req: <code>${_margin_req:.2f}</code> &nbsp; "
+                        f"Qty: <code>{_order_qty:.6f}</code>"
+                    )
+                else:
+                    lev_line = ""
                 st.markdown(f"""
                 <div style="background:#1a2a1a;border:1px solid #2a5c2a;border-radius:8px;padding:10px 14px;font-size:13px;margin-top:8px;">
                     📡 <b>Live Price{broker_label}:</b> <code>${live_price:.6f}</code><br>
                     🔴 <b>Stop Loss:</b> <code>${preview_sl:.6f}</code> &nbsp;&nbsp;
                     🟢 <b>Take Profit:</b> <code>${preview_tp:.6f}</code><br>
                     💰 <b>Position:</b> <code>{m_size/live_price:.4f} units @ ${live_price:.6f}</code>
+                    {lev_line}
                 </div>
                 """, unsafe_allow_html=True)
             else:
@@ -640,13 +690,52 @@ with st.expander("➕ Open Manual Trade", expanded=False):
                     actual_fill_price = fill_price if fill_price and fill_price > 0 else m_entry
                     dash_logger.info(f"Manual stock trade: {sym_upper} {side} qty={submit_qty} | order_id={broker_order_id} | fill=${actual_fill_price:.4f}")
 
+                elif m_broker == "kraken" and m_asset == "crypto":
+                    from core.kraken_executor import KrakenExecutor
+                    import config as _cfg
+                    kraken_ex = KrakenExecutor(
+                        api_key    = _cfg.KRAKEN_API_KEY,
+                        api_secret = _cfg.KRAKEN_SECRET_KEY,
+                        paper      = getattr(_cfg, "KRAKEN_PAPER_MODE", True),
+                    )
+                    # Apply leverage scaling for short orders.
+                    # m_leverage is 1 for longs (no scaling); >1 for margin shorts.
+                    # scale = desired_lev / kraken_max_lev  (e.g. 2/10 = 0.20)
+                    _ref_max   = getattr(_cfg, "KRAKEN_MAX_LEVERAGE", 10)
+                    _lev_scale = (m_leverage / _ref_max) if m_leverage > 1 else 1.0
+                    submit_qty = round(qty * _lev_scale, 8)
+                    result = kraken_ex.submit_order(
+                        symbol      = sym_upper,
+                        qty         = submit_qty,
+                        side        = side,
+                        stop_loss   = round(sl, 6),
+                        take_profit = round(tp, 6),
+                        leverage    = m_leverage if m_leverage > 1 else 0,
+                    )
+                    if result is None:
+                        notify_error(f"Kraken rejected the order for {sym_upper}. Check bot log.")
+                        st.stop()
+                    broker_order_id   = result.get("broker_order_id")
+                    fill_price        = result.get("filled_avg_price", 0)
+                    actual_fill_price = fill_price if fill_price and fill_price > 0 else m_entry
+                    # For leveraged shorts, record position_value as the scaled notional
+                    qty = submit_qty   # keep qty consistent with what was actually submitted
+                    dash_logger.info(
+                        f"Manual Kraken {'[PAPER] ' if getattr(_cfg, 'KRAKEN_PAPER_MODE', True) else ''}"
+                        f"trade: {sym_upper} {side} lev={m_leverage}x qty={submit_qty:.6f} "
+                        f"| order_id={broker_order_id} | fill=${actual_fill_price:.6f}"
+                    )
+
                 if m_direction == "long":
                     sl  = actual_fill_price * (1 - m_sl_pct / 100)
                     tp  = actual_fill_price * (1 + m_tp_pct / 100)
                 else:
                     sl  = actual_fill_price * (1 + m_sl_pct / 100)
                     tp  = actual_fill_price * (1 - m_tp_pct / 100)
-                qty = m_size / actual_fill_price
+                # For leveraged Kraken shorts the qty was already scaled in the
+                # broker branch — don't overwrite it with the full notional qty.
+                if not (m_broker == "kraken" and m_leverage > 1):
+                    qty = m_size / actual_fill_price
 
                 conn = sqlite3.connect(config.DB_PATH)
                 conn.execute("""

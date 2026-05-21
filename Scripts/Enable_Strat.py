@@ -27,9 +27,5 @@ if plaintext.startswith("strategy_") and plaintext.endswith("_enabled"):
 else:
     key = f"strategy_{plaintext}_enabled"
 
-existing = db.get_state(key)
-if existing is None:
-    raise ValueError(f"Unknown strategy setting: {key}")
-
 db.set_state(key, True)
 print(f"Done {key} = true")

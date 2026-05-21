@@ -40,6 +40,7 @@ except Exception:
 from reporting.alerts import alert_manager
 from core.risk_manager import risk_manager, TradeApproval
 from core.kraken_executor import KrakenExecutor
+from core.exchange_capabilities import exchange_capabilities
 from data.database import db
 
 logger = logging.getLogger(__name__)
@@ -371,6 +372,20 @@ class TradeExecutor:
             )
             return None
 
+        # ── Short eligibility check ───────────────────────────────────────
+        # Before doing any expensive approval work, verify the broker actually
+        # allows shorting this symbol. Kraken only supports margin on certain
+        # pairs; Alpaca requires easy_to_borrow. Fails-open on API errors so
+        # a temporary outage does not block all shorts.
+        if signal.direction == "short":
+            _broker_for_cap = self._get_broker_name(signal)
+            if not exchange_capabilities.can_short(signal.symbol, _broker_for_cap):
+                logger.info(
+                    f"[SHORT BLOCKED] {signal.symbol} on {_broker_for_cap}: "
+                    f"not margin-eligible — short signal dropped"
+                )
+                return None
+
         custom_sl  = signal.indicators.get("custom_stop_loss_pct")
         custom_tp  = signal.indicators.get("custom_take_profit_pct")
         custom_pos = signal.indicators.get("custom_position_pct")
@@ -514,12 +529,41 @@ class TradeExecutor:
                     f"structural stop at fill: {_sr_err}"
                 )
 
+        # ── Stop-loss selection with minimum-distance guard ──────────────────
+        # Structural stop wins over percent-based stop UNLESS it would result in
+        # a tighter stop than the strategy's own declared stop_loss_pct.
+        # Scenario: DCA accumulator enters at a local bottom; the prior 2 bars
+        # are also at lows, so initial_stop_from_tail() places the stop almost
+        # at entry price (< 0.3%), overriding DCA's 2% fallback and causing an
+        # immediate stop-out on any noise.  The guard enforces the declared %
+        # as a hard floor — structural stops must be at least that far away.
+        strategy_sl_pct = (custom_sl or config.DEFAULT_STOP_LOSS_PCT) / 100
         if structural_stop is not None:
-            stop_loss = structural_stop
+            if signal.direction == "long":
+                min_stop = entry_price * (1 - strategy_sl_pct)
+                if structural_stop > min_stop:
+                    logger.info(
+                        f"[STOP GUARD] {signal.symbol}: structural ${structural_stop:.6f} "
+                        f"tighter than declared {strategy_sl_pct*100:.2f}% floor "
+                        f"(${min_stop:.6f}) — using percent floor"
+                    )
+                    stop_loss = min_stop
+                else:
+                    stop_loss = structural_stop
+            else:  # short
+                min_stop = entry_price * (1 + strategy_sl_pct)
+                if structural_stop < min_stop:
+                    logger.info(
+                        f"[STOP GUARD] {signal.symbol}: structural ${structural_stop:.6f} "
+                        f"tighter than declared {strategy_sl_pct*100:.2f}% floor "
+                        f"(${min_stop:.6f}) — using percent floor"
+                    )
+                    stop_loss = min_stop
+                else:
+                    stop_loss = structural_stop
         else:
-            sl_pct    = (custom_sl or config.DEFAULT_STOP_LOSS_PCT) / 100
-            stop_loss = (entry_price * (1 - sl_pct) if signal.direction == "long"
-                         else entry_price * (1 + sl_pct))
+            stop_loss = (entry_price * (1 - strategy_sl_pct) if signal.direction == "long"
+                         else entry_price * (1 + strategy_sl_pct))
 
         # Use the broker that actually filled the order (tagged in _submit).
         # Fallback to _get_broker_name() only if the result has no tag
@@ -862,9 +906,40 @@ class TradeExecutor:
             # Kraken is the default crypto executor — Coinbase API is deprecated.
             if not config.KRAKEN_ENABLED:
                 return self._paper_fill(signal, approval)
+
+            qty      = approval.quantity
+            leverage = 0   # 0 = spot (no margin params sent)
+
+            # ── Margin leverage for short orders ─────────────────────────────
+            # Kraken allows up to KRAKEN_MAX_LEVERAGE× on eligible pairs.
+            # We cap at KRAKEN_SHORT_LEVERAGE and scale the position down so
+            # our effective notional exposure = (desired/max) * normal_notional.
+            # Example at defaults (desired=2, max=10):
+            #   scale = 2/10 = 0.20  →  order qty = 20% of normal
+            #   At 2× leverage, margin required = qty/2 = 10% of normal capital
+            if signal.direction == "short":
+                desired_lev = getattr(config, "KRAKEN_SHORT_LEVERAGE", 2)
+                max_lev     = exchange_capabilities.get_max_short_leverage(
+                    signal.symbol, "kraken"
+                )
+                # Cap desired to whatever the pair actually supports
+                actual_lev  = min(desired_lev, max_lev) if max_lev > 1 else 0
+                if actual_lev > 1:
+                    ref_max = getattr(config, "KRAKEN_MAX_LEVERAGE", 10)
+                    scale   = actual_lev / ref_max
+                    qty     = round(approval.quantity * scale, 8)
+                    leverage = actual_lev
+                    logger.info(
+                        f"[LEVERAGE] {signal.symbol} short: "
+                        f"{actual_lev}×/{ref_max}× → scale {scale:.2f} "
+                        f"qty {approval.quantity:.6f}→{qty:.6f} "
+                        f"(margin≈${qty/actual_lev * signal.current_price:.2f})"
+                    )
+
             return self.kraken.submit_order(
-                signal.symbol, approval.quantity, side,
-                approval.stop_loss, approval.take_profit
+                signal.symbol, qty, side,
+                approval.stop_loss, approval.take_profit,
+                leverage=leverage
             )
 
     def _paper_fill(self, signal, approval: TradeApproval) -> Dict:

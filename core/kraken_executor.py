@@ -42,15 +42,30 @@ class KrakenExecutor:
             logger.info("Kraken executor initialized in LIVE mode.")
 
     def submit_order(self, symbol: str, qty: float, side: str,
-                     stop_loss: float, take_profit: float) -> Optional[Dict]:
+                     stop_loss: float, take_profit: float,
+                     leverage: int = 0) -> Optional[Dict]:
+        """
+        Submit a market order to Kraken.
+
+        leverage:
+          0 (default) — spot order, no margin params sent
+          N > 1       — margin order at N× leverage; ccxt sends leverage in params
+                        Required for short (sell) orders on Kraken; optional for
+                        leveraged longs.
+
+        qty is the notional amount in base currency AFTER any scaling the caller
+        has already applied (trade_executor scales qty down for margin trades so
+        that effective exposure = qty * leverage, not qty * max_leverage).
+        """
         ccxt_symbol = symbol.replace("-", "/")
+        lev_str     = f" {leverage}x" if leverage > 1 else ""
 
         if self.paper:
             # Paper mode: simulate fill at current market price
-            price = self.get_current_price(symbol) or 0.0
+            price    = self.get_current_price(symbol) or 0.0
             order_id = f"PAPER-{symbol}-{int(time.time())}"
             logger.info(
-                f"[PAPER] Kraken simulated fill: {symbol} {side} "
+                f"[PAPER] Kraken simulated fill: {symbol} {side}{lev_str} "
                 f"{qty} @ ${price:.4f}"
             )
             return {
@@ -62,11 +77,17 @@ class KrakenExecutor:
 
         # Live mode
         try:
-            order        = self.exchange.create_market_order(ccxt_symbol, side, qty)
+            params = {}
+            if leverage > 1:
+                params["leverage"] = leverage
+
+            order        = self.exchange.create_market_order(
+                ccxt_symbol, side, qty, params=params
+            )
             filled_price = float(order.get("average") or order.get("price") or 0)
             filled_qty   = float(order.get("filled") or qty)
             logger.info(
-                f"Kraken order filled: {symbol} {side} "
+                f"Kraken order filled: {symbol} {side}{lev_str} "
                 f"{filled_qty} @ ${filled_price:.4f}"
             )
             return {

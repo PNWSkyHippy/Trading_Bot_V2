@@ -22,6 +22,7 @@ Crypto preset:
 """
 
 import logging
+from datetime import date
 from typing import Optional
 
 import pandas as pd
@@ -45,8 +46,19 @@ CRYPTO_ORB_BARS  = 4   # 4 x 15m = first 60 min
 STOCK_VOL_MULT   = 1.20
 CRYPTO_VOL_MULT  = 1.10
 
-STOCK_MIN_OR_ATR = 0.35
-CRYPTO_MIN_OR_ATR= 0.50
+STOCK_MIN_OR_ATR  = 0.35
+CRYPTO_MIN_OR_ATR = 0.50
+STOCK_MAX_OR_ATR  = 2.00   # reject ORB wider than 2x ATR — stops too large
+CRYPTO_MAX_OR_ATR = 3.00   # crypto needs more room
+
+# Stop is pinned to orb_low/orb_high BUT capped so max loss is bounded
+# even if ORB slips through the max-width filter (e.g. ATR mis-priced)
+STOCK_MAX_STOP_PCT  = 1.50  # never risk more than 1.5% per stock ORB trade
+CRYPTO_MAX_STOP_PCT = 2.50
+
+# Price must clear ORB level by this % before we call it a real breakout
+STOCK_BREAKOUT_BUFFER_PCT  = 0.10  # 0.1% above orb_high for longs
+CRYPTO_BREAKOUT_BUFFER_PCT = 0.15
 
 STOCK_R_MULT     = 2.0
 CRYPTO_R_MULT    = 2.5
@@ -71,7 +83,7 @@ class VwapConfirmedOrb(BaseStrategy):
         self.candle_limit            = 220
 
         self.stock_enabled  = True
-        self.crypto_enabled = True
+        self.crypto_enabled = False   # VWAP has no reliable anchor on 24/7 crypto
         self.enabled        = True
 
         # ML model is dominated by grid_bot (1507 trades); vwap_confirmed_orb has
@@ -194,11 +206,26 @@ class VwapConfirmedOrb(BaseStrategy):
             self.verbose_log_skip(symbol, "No current session bars available")
             return None
 
-        orb_bars      = STOCK_ORB_BARS if asset_class == "stock" else CRYPTO_ORB_BARS
-        vol_mult      = STOCK_VOL_MULT if asset_class == "stock" else CRYPTO_VOL_MULT
-        min_or_atr    = STOCK_MIN_OR_ATR if asset_class == "stock" else CRYPTO_MIN_OR_ATR
-        r_mult        = STOCK_R_MULT if asset_class == "stock" else CRYPTO_R_MULT
-        max_chase_pct = STOCK_MAX_CHASE_PCT if asset_class == "stock" else CRYPTO_MAX_CHASE_PCT
+        orb_bars         = STOCK_ORB_BARS if asset_class == "stock" else CRYPTO_ORB_BARS
+        vol_mult         = STOCK_VOL_MULT if asset_class == "stock" else CRYPTO_VOL_MULT
+        min_or_atr       = STOCK_MIN_OR_ATR if asset_class == "stock" else CRYPTO_MIN_OR_ATR
+        max_or_atr       = STOCK_MAX_OR_ATR if asset_class == "stock" else CRYPTO_MAX_OR_ATR
+        r_mult           = STOCK_R_MULT if asset_class == "stock" else CRYPTO_R_MULT
+        max_chase_pct    = STOCK_MAX_CHASE_PCT if asset_class == "stock" else CRYPTO_MAX_CHASE_PCT
+        max_stop_pct     = STOCK_MAX_STOP_PCT if asset_class == "stock" else CRYPTO_MAX_STOP_PCT
+        bo_buffer_pct    = STOCK_BREAKOUT_BUFFER_PCT if asset_class == "stock" else CRYPTO_BREAKOUT_BUFFER_PCT
+
+        # ── Stale session guard ──────────────────────────────────────────────
+        # Pre-market: no today session bars exist yet, so _session_bars() returns
+        # yesterday's session. An ORB from yesterday is stale — skip entirely.
+        session_date = session.index[-1].date()
+        today = date.today()
+        if session_date < today:
+            self.verbose_log_skip(
+                symbol,
+                f"Session date {session_date} is not today ({today}) — stale ORB, skip"
+            )
+            return None
 
         if len(session) <= orb_bars:
             self.verbose_log_skip(
@@ -221,6 +248,14 @@ class VwapConfirmedOrb(BaseStrategy):
             self.verbose_log_skip(
                 symbol,
                 f"Opening range too small ({or_width:.4f} < {min_or_atr:.2f} ATR)"
+            )
+            return None
+
+        if or_width > atr * max_or_atr:
+            self.verbose_log_skip(
+                symbol,
+                f"Opening range too wide ({or_width:.4f} > {max_or_atr:.2f}x ATR={atr:.4f}) "
+                f"— stop would be {or_width / current_close * 100:.2f}% risk, skipping"
             )
             return None
 
@@ -250,9 +285,10 @@ class VwapConfirmedOrb(BaseStrategy):
         short_chase_pct = ((orb_low - current_close) / orb_low * 100) if orb_low > 0 else 0.0
 
         # ── LONG breakout ────────────────────────────────────────────────
+        long_bo_threshold = orb_high * (1 + bo_buffer_pct / 100)   # must clear by buffer %
         long_breakout = (
-            current_close > orb_high and
-            prev_close <= orb_high and
+            current_close >= long_bo_threshold and
+            prev_close < long_bo_threshold and
             current_close > vwap_now and
             current_close > ema_fast and
             ema_fast > ema_slow and
@@ -262,7 +298,10 @@ class VwapConfirmedOrb(BaseStrategy):
         )
 
         if long_breakout:
-            stop_price = orb_low
+            # Structural stop at orb_low, capped so risk never exceeds max_stop_pct
+            raw_stop    = orb_low
+            capped_stop = current_close * (1 - max_stop_pct / 100)
+            stop_price  = max(raw_stop, capped_stop)   # higher price = tighter for long
             if stop_price >= current_close:
                 self.verbose_log_skip(symbol, "Long stop invalid — OR low above entry")
                 return None
@@ -317,9 +356,10 @@ class VwapConfirmedOrb(BaseStrategy):
             )
 
         # ── SHORT breakout ───────────────────────────────────────────────
+        short_bo_threshold = orb_low * (1 - bo_buffer_pct / 100)   # must clear by buffer %
         short_breakout = (
-            current_close < orb_low and
-            prev_close >= orb_low and
+            current_close <= short_bo_threshold and
+            prev_close > short_bo_threshold and
             current_close < vwap_now and
             current_close < ema_fast and
             ema_fast < ema_slow and
@@ -329,7 +369,10 @@ class VwapConfirmedOrb(BaseStrategy):
         )
 
         if short_breakout:
-            stop_price = orb_high
+            # Structural stop at orb_high, capped so risk never exceeds max_stop_pct
+            raw_stop    = orb_high
+            capped_stop = current_close * (1 + max_stop_pct / 100)
+            stop_price  = min(raw_stop, capped_stop)   # lower price = tighter for short
             if stop_price <= current_close:
                 self.verbose_log_skip(symbol, "Short stop invalid — OR high below entry")
                 return None

@@ -103,6 +103,10 @@ class VWAPMomentum(BaseStrategy):
         self.candle_limit            = 200
         self.crypto_enabled          = False
 
+        # ML model is dominated by grid_bot (1507 trades); vwap_momentum has
+        # minimal training representation — ML blending collapses valid scores.
+        self.ml_exempt = True
+
         self.logger          = logging.getLogger("VWAPMomentum")
 
     def analyze(
