@@ -95,6 +95,13 @@ HARD_TIME_STOP_SEC     = 8 * 60 * 60    # 8 hours — hard kill (was 3.5hr)
 EARLY_LOSS_CHECK_SEC   = 30 * 60        # 30 minutes (was 20min — too tight)
 EARLY_LOSS_MIN_PCT     = -0.5           # if worse than -0.5% AND still falling (was -0.3%)
 
+# Breakout fast-fail: real breakouts move immediately. If flat or negative at
+# 10 minutes (2 bars on 5m), the setup failed — take the tiny loss and move on.
+# This keeps losses at $5-15 instead of riding to the full 2-4.5% stop.
+BREAKOUT_FAST_FAIL_SEC      = 10 * 60   # 10 minutes — 2 bars on 5m
+BREAKOUT_FAST_FAIL_MAX_SEC  = 20 * 60   # 20 minutes — window closes, early_loss takes over
+BREAKOUT_FAST_FAIL_MIN_PCT  = 0.10      # must be up at least 0.1% to NOT fast-fail
+
 # Pivot point break exit
 # Uses last N bars to calculate classic floor trader pivots (PP, S1, S2, R1, R2)
 PIVOT_BARS             = 20             # bars to use for pivot calculation
@@ -472,15 +479,22 @@ class PositionMonitor:
         trade_id  = trade["trade_id"]
         strategy  = trade.get("strategy_name", "")
 
-        # ── Grid bot exemption: time stops kill grid strategies ────────
-        # Grid bot profits from oscillations that can take hours to complete.
-        # Applying time stops to grid_bot directly contradicts its thesis.
-#        if strategy in ("grid_bot", "dca_accumulator"):
-#            logger.debug(
-#                f"[TIME STOP EXEMPT] {symbol}: strategy={strategy} "
-#                f"is exempt from performance time stops"
-#            )
-#            return None
+        # ── Strategy-defined time stop exemption ──────────────────────
+        # Strategies that manage their own exit timing declare this via
+        # time_stop_profile = "strategy_defined" on their class.
+        # The position monitor must not override their thesis with generic
+        # intraday time stops.
+        #
+        # ECB (ecb_strategy): 24-bar hold. 2hr stop fires at bar 2 — kills thesis.
+        # DCA accumulator: slow oscillation strategy; time stops inappropriate.
+        # Grid bot: profits from range oscillations across many hours.
+        TIME_STOP_EXEMPT = {"ecb_strategy", "grid_bot", "dca_accumulator"}
+        if strategy in TIME_STOP_EXEMPT:
+            logger.debug(
+                f"[TIME STOP EXEMPT] {symbol}: strategy={strategy} "
+                f"manages its own exit timing — skipping performance time stops"
+            )
+            return None
 
         # ── Hard time stop: 8 hours ───────────────────────────────────
         if age_seconds >= HARD_TIME_STOP_SEC:
@@ -581,6 +595,59 @@ class PositionMonitor:
                 f"price stabilizing — holding, watching stop loss"
             )
             return None
+
+    # ------------------------------------------------------------------
+    #  BREAKOUT FAST-FAIL (10-20 min window, breakout_scanner only)
+    # ------------------------------------------------------------------
+
+    def _check_breakout_fast_fail(
+        self, trade: Dict, current_price: float, pnl_pct: float, age_seconds: float
+    ) -> Optional[str]:
+        """
+        Breakout-specific fast-fail: real breakouts move immediately.
+        If price is flat or negative at 10 minutes the thesis failed — exit
+        with a tiny loss rather than riding to the full 2-4.5% stop.
+
+        Window: 10-20 minutes after entry (2-4 bars on 5m).
+        After 20 min the regular early_loss check takes over.
+
+        Only fires for breakout_scanner trades.
+        """
+        if not _is_breakout_trade(trade):
+            return None
+
+        # Only in the 10-20 minute window
+        if age_seconds < BREAKOUT_FAST_FAIL_SEC:
+            return None
+        if age_seconds > BREAKOUT_FAST_FAIL_MAX_SEC:
+            return None
+
+        trade_id = trade["trade_id"]
+        symbol   = trade["symbol"]
+
+        # Only fire once per trade
+        already_checked = int(
+            self._db.get_state(f"breakout_fast_fail_checked_{trade_id}", default=0)
+        )
+        if already_checked:
+            return None
+        self._db.set_state(f"breakout_fast_fail_checked_{trade_id}", 1)
+
+        # If up by threshold — thesis working, let it run
+        if pnl_pct >= BREAKOUT_FAST_FAIL_MIN_PCT:
+            logger.info(
+                f"[BREAKOUT FAST-FAIL] {symbol}: P&L {pnl_pct:+.2f}% at 10min "
+                f">= {BREAKOUT_FAST_FAIL_MIN_PCT}% — breakout confirmed, holding"
+            )
+            return None
+
+        # Flat or negative — thesis failed immediately, cut it clean
+        logger.info(
+            f"[BREAKOUT FAST-FAIL] {symbol}: P&L {pnl_pct:+.2f}% at 10min "
+            f"< {BREAKOUT_FAST_FAIL_MIN_PCT}% threshold — breakout failed, "
+            f"cutting before full stop | price=${current_price:.4f}"
+        )
+        return "breakout_fast_fail"
 
     # ------------------------------------------------------------------
     #  NEW: PIVOT POINT BREAK EXIT
@@ -1119,6 +1186,18 @@ class PositionMonitor:
                 self._db.set_state(f"momentum_ext_{trade_id}", 0)
                 self._attempt_close(trade, current_price, rsi_dip_exit)
                 return
+
+        # ── 4d. BREAKOUT FAST-FAIL (10-20 min) ──────────────────────────────
+        # Breakout trades must move immediately — if flat/negative at 10 min
+        # the setup failed. Cut clean for tiny loss rather than riding to
+        # the full 2-4.5% stop. Fires before early_loss (30 min) on purpose.
+        fast_fail_exit = self._check_breakout_fast_fail(
+            trade, current_price, pnl_pct, age_seconds
+        )
+        if fast_fail_exit:
+            self._db.set_state(f"momentum_ext_{trade_id}", 0)
+            self._attempt_close(trade, current_price, fast_fail_exit)
+            return
 
         # ── 5. EARLY LOSS IDENTIFICATION (30 min) ────────────────────────
         # Skip for ORB — it needs time to develop past the opening range

@@ -13,6 +13,7 @@ v2.2 additions:
 """
 
 import logging
+import threading
 import time
 from datetime import datetime, timezone, date
 from typing import Optional, Dict, Any, Tuple, List
@@ -110,6 +111,8 @@ class BreakoutReceiver:
         self._executor: Optional[TradeExecutor] = None
         self._scanner_ref = None
         self._drift_state: Dict[str, Any] = {}
+        self._pending_lock  = threading.Lock()
+        self._pending_symbols: set = set()  # symbols mid-processing (race guard)
 
     def set_executor(self, executor: TradeExecutor):
         self._executor = executor
@@ -128,6 +131,40 @@ class BreakoutReceiver:
         esc            = payload.get("escalation", 0)
         ts_in          = payload.get("timestamp", "")
         signal_age_sec = self._signal_age(ts_in)
+
+        # ── Duplicate-signal race guard ──────────────────────────────────────
+        # Prevents two signals for the same symbol arriving within the same
+        # second from both passing _check_no_open_position before the first
+        # trade is committed to the DB.
+        with self._pending_lock:
+            if sym in self._pending_symbols:
+                reason = f"Duplicate signal rejected — {sym} already being processed"
+                logger.warning(f"[BREAKOUT RECV] {reason}")
+                return {
+                    "accepted": False,
+                    "execution_eligible": False,
+                    "failure_class": "duplicate_signal",
+                    "reason": reason,
+                    "trade_id": None,
+                    "checklist": {},
+                }
+            self._pending_symbols.add(sym)
+        try:
+            return self._receive_signal_inner(payload, sym, direction, esc,
+                                              ts_in, signal_age_sec)
+        finally:
+            with self._pending_lock:
+                self._pending_symbols.discard(sym)
+
+    def _receive_signal_inner(
+        self,
+        payload: Dict[str, Any],
+        sym: str,
+        direction: str,
+        esc: int,
+        ts_in: str,
+        signal_age_sec: float,
+    ) -> Dict[str, Any]:
 
         broker_hint   = self._normalize_broker_name(payload.get("broker", ""))
         source_broker = self._normalize_broker_name(

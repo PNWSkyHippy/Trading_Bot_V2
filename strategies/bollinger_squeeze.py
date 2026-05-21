@@ -53,8 +53,10 @@ class BollingerSqueeze(BaseStrategy):
         self.strategy_name   = "bollinger_squeeze"
         # Optimized from 100-run trader-dev sweep: stop=2.5%, tp=7.0%
         # W/L ≈ 2.8 on all pairs → break-even WR = 26.7%
-        self.stop_loss_pct   = 0.025
-        self.take_profit_pct = 0.070
+        # NOTE: framework uses percentages (divided by 100 at execution).
+        # 2.5 here = 2.5% stop, NOT 0.025%.
+        self.stop_loss_pct   = 2.5
+        self.take_profit_pct = 7.0
         self.logger = logging.getLogger("BollingerSqueeze")
 
         self.crypto_enabled  = True   # primary purpose: 24/7 crypto coverage

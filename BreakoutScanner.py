@@ -306,7 +306,7 @@ DEFAULT_CONFIG = {
     "massive_api_key":   "",
     "default_trade_amount_usd": 1000,
     "max_position_size_usd":    5000,
-    "stop_loss_percent":        5,
+    "stop_loss_percent":        3,
     "take_profit_percent":      20,
     "run_days":      ["Monday","Tuesday","Wednesday","Thursday","Friday"],
     "exclude_dates": [],

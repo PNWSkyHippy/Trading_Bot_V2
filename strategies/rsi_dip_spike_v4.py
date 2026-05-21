@@ -68,6 +68,7 @@ Parameters (v4c defaults)
   trend_ma_length : 200
   adx_length      : 14
   adx_min         : 25
+  adx_max         : 60   (new — skip trades when trend is too strong for mean reversion)
   atr_length      : 14
   sl_atr_mult     : 2.5
   tp_atr_mult     : 2.0
@@ -95,7 +96,8 @@ class RSIDipSpikeV4Params:
     rsi_exit_short:  float = 45.0   # Exit short when RSI drops back here
     trend_ma_length: int   = 200
     adx_length:      int   = 14
-    adx_min:         float = 25.0 
+    adx_min:         float = 25.0   # Minimum ADX — needs directional momentum
+    adx_max:         float = 60.0   # Maximum ADX — avoid runaway trends (mean rev dies in strong trends)
     atr_length:      int   = 14
     sl_atr_mult:     float = 2.5
     tp_atr_mult:     float = 2.0
@@ -197,7 +199,7 @@ def generate_signals(df: pd.DataFrame,
 
     out["bull_regime"] = c > out["macro_ma"]
     out["bear_regime"] = c < out["macro_ma"]
-    out["adx_ok"]      = out["adx"] >= p.adx_min
+    out["adx_ok"]      = (out["adx"] >= p.adx_min) & (out["adx"] <= p.adx_max)
 
     rsi_prev = out["rsi"].shift(1)
 
@@ -454,7 +456,7 @@ class RSIDipSpikeV4Strategy(BaseStrategy):
         self.stop_loss_pct           = 2.5      # fallback default (ATR-based preferred)
         self.take_profit_pct         = 2.0
         self.crypto_enabled          = True
-        self.stock_enabled           = False
+        self.stock_enabled           = True    # 63% WR on stocks 5m backtest — enabled 2026-05-20
         self.crypto_candle_timeframe = "1h"
         self.reviewer_exempt         = True
         self.ml_exempt               = True     # ML model dominated by grid_bot (1507 trades) — RSI dip has 2 historical trades, blending produces noise not signal

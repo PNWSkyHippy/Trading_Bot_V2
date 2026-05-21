@@ -69,6 +69,21 @@ KRAKEN_API_KEY      = _decrypt(os.getenv("KRAKEN_API_KEY",      ""))
 KRAKEN_SECRET_KEY   = _decrypt(os.getenv("KRAKEN_SECRET_KEY",   ""))
 KRAKEN_ENABLED      = True
 
+# Leverage for Kraken margin (short) trades.
+# KRAKEN_SHORT_LEVERAGE = the leverage level we actually want to use (e.g. 2 = 2x).
+# KRAKEN_MAX_LEVERAGE   = the ceiling Kraken offers (used to scale position size).
+#
+# Position sizing math:
+#   scale_factor = KRAKEN_SHORT_LEVERAGE / KRAKEN_MAX_LEVERAGE   (= 0.20 at defaults)
+#   order_notional = normal_position_value * scale_factor
+#   margin_required = order_notional / KRAKEN_SHORT_LEVERAGE
+#
+# At defaults ($200 normal position):
+#   order notional = $200 * 0.20 = $40, leverage=2x, margin=$20
+#   This keeps effective exposure conservative — 20% of max-leveraged size.
+KRAKEN_SHORT_LEVERAGE = 2    # desired leverage level (1-5 typical; Kraken allows up to 10)
+KRAKEN_MAX_LEVERAGE   = 10   # Kraken's advertised max for most pairs
+
 # Interactive Brokers — add keys to .env when account is ready
 # IBKR uses TWS or IB Gateway running locally (no REST key — just account ID)
 # TWS paper port: 7497  |  TWS live port: 7496
@@ -81,8 +96,8 @@ CLAUDE_REVIEWER_ENABLED = True
 # Reviewer mode:
 #   advisory = log Claude/Haiku review decisions, but never block strategy signals
 #   strict   = non-APPROVE decisions veto signals like the old behavior
-CLAUDE_REVIEWER_MODE = "advisory"
-CLAUDE_REVIEWER_APPLY_SIZE_ADVICE = False
+CLAUDE_REVIEWER_MODE = "strict"
+CLAUDE_REVIEWER_APPLY_SIZE_ADVICE = True
 
 # Massive.com market data — used by BreakoutScanner AND ClaudeReviewer
 # Can also be set in scanner_config.json (reviewer falls back there if blank)
@@ -235,7 +250,7 @@ STRATEGY_REENABLE_WIN_RATE  = 50.0
 # VERBOSE MODE
 # =============================================================================
 
-VERBOSE_MODE = True
+VERBOSE_MODE = False
 
 # =============================================================================
 # POSITION MONITOR EXIT SETTINGS

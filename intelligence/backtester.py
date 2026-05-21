@@ -1011,8 +1011,7 @@ class Backtester:
         # mirror that here so backtest results are comparable to live.
         # ecb_strategy uses strategy-defined 24-bar hold; generic 8h/30m/2h/5h
         # stops fire before its thesis plays out and invalidate results.
-#        TIME_STOP_EXEMPT = frozenset({"grid_bot", "dca_accumulator", "ecb_strategy", "rsi_dip_spike_v4", "adaptive_regime"})
-        TIME_STOP_EXEMPT = ()
+        TIME_STOP_EXEMPT = frozenset({"grid_bot", "dca_accumulator", "ecb_strategy", "rsi_dip_spike_v4", "adaptive_regime"})
         # ── Next-bar execution ────────────────────────────────────────────────
         # Signal generated on bar i is executed at bar i+1 open.
         # This eliminates the "signal and fill on the same close" lookahead bias.

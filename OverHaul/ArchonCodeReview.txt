@@ -1,0 +1,1126 @@
+🚀 Starting workflow: breakout-pipeline-plan
+
+Analyzes the BreakoutScanner.py → breakout_sender.py → core/breakout_receiver.py
+signal pipeline and writes a 4-part implementation plan:
+
+Sub-minute signal delivery (scanner detects → receiver gets within 60s)
+Complete enrichment payload (all fields receiver checks, fully populated)
+Direction flip logic (Long → Short when breakout reverses mid-flight)
+Re-entry after profitable close (scan → send → receive immediately on win)
+Output: $ARTIFACTS_DIR/breakout_pipeline_plan.md
+Run from: C:\users\linda\trading_bot_v2
+12:26:41 PM
+Reading all three files now.
+
+12:27:41 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+389ms
+Input
+{
+  "file_path": "C:\\Users\\Linda\\.archon\\workspaces\\PNWSkyHippy\\Trading_Bot_V2\\worktrees\\archon\\thread-262fc655\\BreakoutScanner.py"
+}
+Output
+❌ Error: File content (27124 tokens) exceeds maximum allowed tokens (25000). Use offset and limit parameters to read specific portions of the file, or search for specific content instead of reading the whole file.
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+83ms
+Input
+{
+  "file_path": "C:\\Users\\Linda\\.archon\\workspaces\\PNWSkyHippy\\Trading_Bot_V2\\worktrees\\archon\\thread-262fc655\\BreakoutScanner.py",
+  "limit": 400
+}
+Output
+{"type":"text","file":{"filePath":"C:\\Users\\Linda\\.archon\\workspaces\\PNWSkyHippy\\Trading_Bot_V2\\worktrees\\archon\\thread-262fc655\\BreakoutScanner.py","content":"\"\"\"\nRon's Market Breakout Scanner\n==============================\nScans stocks and crypto for early breakout patterns.\n\nTWO-PHASE DETECTION:\n  Phase 1 — WATCHLIST: quiet setup spotted, symbol tracked silently.\n  Phase 2 — ALERT:     price actually starts moving in the right direction\n                        within the first two scan cycles → THEN alert fires.\n\nEscalating alerts:\n  Move >2%  → double beep\n  Move >5%  → triple high beep + row flashes orange\n  Move >10% → rapid triple beep + row flashes red/white\n\nCSV self-cleaning:\n  • Max 500 rows kept\n  • DEAD/FADING entries older than 48 h are pruned automatically\n  • Each symbol appears only once (latest entry wins)\n  • 30-minute per-symbol cooldown before re-alerting\n\nHistorical bar data:\n  Stocks  → Massive.com REST API (5-min OHLC, no Claude involvement at runtime)\n            Falls back to yfinance if massive_api_key is blank.\n  Crypto  → Kraken / Coinbase via CCXT (unchanged)\n\nRun:\n    python BreakoutScanner.py           # GUI (tkinter) or console fallback\n    python BreakoutScanner.py --console # Force console mode\n\"\"\"\n\nimport csv\nimport json\nimport logging\nimport os\nimport queue\nimport smtplib\nfrom email.mime.text import MIMEText\nfrom email.mime.multipart import MIMEMultipart\nfrom pathlib import Path\nimport threading\nimport time\nfrom collections import deque\nfrom dataclasses import dataclass, field\nfrom datetime import datetime, timedelta\nfrom datetime import time as dt_time\nfrom enum import Enum\nfrom typing import Any, Dict, List, Optional\nfrom breakout_sender import BreakoutSender\n\n\nBASE_DIR = Path(__file__).resolve().parent\n\n# ── Optional dependencies ─────────────────────────────────────────────────────\ntry:\n    import requests as _requests\n    REQUESTS_AVAILABLE = True\nexcept ImportError:\n    REQUESTS_AVAILABLE = False\n\ntry:\n    import yfinance as yf\n    import logging as _logging\n    _logging.getLogger(\"yfinance\").setLevel(_logging.CRITICAL)\n    _logging.getLogger(\"yfinance.base\").setLevel(_logging.CRITICAL)\n    _logging.getLogger(\"yfinance.utils\").setLevel(_logging.CRITICAL)\n    _logging.getLogger(\"peewee\").setLevel(_logging.CRITICAL)\n    YFINANCE_AVAILABLE = True\nexcept ImportError:\n    YFINANCE_AVAILABLE = False\n\ntry:\n    import alpaca_trade_api as tradeapi\n    ALPACA_AVAILABLE = True\nexcept ImportError:\n    ALPACA_AVAILABLE = False\n\ntry:\n    import ccxt\n    CCXT_AVAILABLE = True\nexcept ImportError:\n    CCXT_AVAILABLE = False\n\ntry:\n    import tkinter as tk\n    from tkinter import ttk\n    TKINTER_AVAILABLE = True\nexcept ImportError:\n    TKINTER_AVAILABLE = False\n\ntry:\n    import winsound\n    WINSOUND_AVAILABLE = True\nexcept ImportError:\n    WINSOUND_AVAILABLE = False\n\n# pygame-based audio — plays through actual sound card, not PC speaker\ntry:\n    from alert_sound import init_audio as _init_audio, play_alert as _play_alert\n    ALERT_SOUND_AVAILABLE = True\nexcept ImportError:\n    ALERT_SOUND_AVAILABLE = False\n\n# geometric chart pattern detection\ntry:\n    from chart_patterns import score_patterns as _score_patterns\n    PATTERNS_AVAILABLE = True\nexcept ImportError:\n    PATTERNS_AVAILABLE = False\n\n# ── Logging ───────────────────────────────────────────────────────────────────\nlogging.basicConfig(\n    level=logging.INFO,\n    format=\"%(asctime)s | %(levelname)s | %(message)s\",\n    handlers=[\n        logging.FileHandler(BASE_DIR / \"scanner.log\"),\n        logging.StreamHandler(),\n    ],\n)\nlogger = logging.getLogger(__name__)\n\nCSV_FILE            = BASE_DIR / \"signals_log.csv\"\nCSV_MAX_ROWS        = 500\nCSV_PRUNE_AGE       = 48        # hours\nALERT_COOLDOWN_SECS = 1800      # 30 min per symbol\nWATCHLIST_DIR       = BASE_DIR / \"watchlist\"\nREPORTS_DIR         = BASE_DIR / \"reports\"\nTEMP_STOCKS_FILE    = WATCHLIST_DIR / \"scanned_stocks.txt\"\nTEMP_CRYPTO_FILE    = WATCHLIST_DIR / \"scanned_crypto.txt\"\n\nMASSIVE_BASE        = \"https://api.massive.com\"\n\n# ── Fernet decrypt helper (mirrors config.py — used for scanner_config.json keys) ──\n# Sensitive keys stored as Fernet tokens start with \"gAAAAA\".\n# Plaintext values (not yet migrated) are returned unchanged — migration-safe.\ntry:\n    import keyring as _keyring\n    from cryptography.fernet import Fernet as _Fernet, InvalidToken as _InvalidToken\n    _scanner_fernet_raw = _keyring.get_password(\"trading_bot_v2\", \"fernet_key\")\n    _SCANNER_BASE_KEY   = _scanner_fernet_raw.encode() if _scanner_fernet_raw else None\nexcept Exception:\n    _SCANNER_BASE_KEY   = None\n\n# Keys inside scanner_config.json that hold sensitive secrets\n_SCANNER_SENSITIVE_KEYS = {\n    \"massive_api_key\",\n    \"alpaca_api_key\", \"alpaca_secret_key\",\n    \"kraken_api_key\", \"kraken_api_secret\",\n    \"coinbase_api_key\", \"coinbase_api_secret\",\n    \"bot_api_key\",\n    \"email_password\",\n}\n\ndef _encrypt_cfg(val: str) -> str:\n    \"\"\"\n    Encrypt a plaintext secret for writing back to scanner_config.json.\n    - Already-encrypted (starts \"gAAAAA\") → returned unchanged (no double-encrypt).\n    - No Fernet key in Credential Manager → returns val unchanged (safe degradation).\n    - Empty string → returned unchanged.\n    \"\"\"\n    if not val or not isinstance(val, str):\n        return val\n    if val.startswith(\"gAAAAA\"):\n        return val   # already encrypted — don't double-encrypt\n    if not _SCANNER_BASE_KEY:\n        return val   # no key available — preserve as-is rather than blank\n    try:\n        return _Fernet(_SCANNER_BASE_KEY).encrypt(val.encode()).decode()\n    except Exception as e:\n        logger.warning(f\"[CONFIG] Failed to encrypt key: {e}\")\n        return val   # encryption failed — return plaintext rather than lose the value\n\n\ndef _decrypt_cfg(val: str) -> str:\n    \"\"\"\n    Decrypt a Fernet-encrypted value read from scanner_config.json.\n    - Empty / plaintext → returned unchanged.\n    - Fernet token (starts \"gAAAAA\") → decrypted.\n    - Encrypted but no key in Credential Manager → RuntimeError.\n    \"\"\"\n    if not val or not isinstance(val, str):\n        return val\n    val = val.strip()\n    if not val.startswith(\"gAAAAA\"):\n        return val                               # plaintext — not yet encrypted\n    if not _SCANNER_BASE_KEY:\n        raise RuntimeError(\n            \"Encrypted key found in scanner_config.json but the Fernet key is \"\n            \"not in Windows Credential Manager.  \"\n            \"Run: python Scripts\\\\store_fernet_key.py\"\n        )\n    try:\n        return _Fernet(_SCANNER_BASE_KEY).decrypt(val.encode()).decode().strip()\n    except _InvalidToken:\n        raise RuntimeError(\n            f\"Failed to decrypt a scanner_config.json key — token corrupt or \"\n            f\"wrong Fernet key.  First 20 chars: {val[:20]}…\"\n        )\n\n\ndef _unique_keep_order(values: List[str]) -> List[str]:\n    seen = set()\n    result = []\n    for value in values:\n        value = str(value or \"\").strip().upper()\n        if not value or value.startswith(\"#\") or value in seen:\n            continue\n        seen.add(value)\n        result.append(value)\n    return result\n\n\ndef _read_symbol_file(path: Path) -> List[str]:\n    try:\n        if not path.exists():\n            return []\n        return _unique_keep_order(path.read_text().splitlines())\n    except Exception as e:\n        logger.warning(f\"Could not read watchlist file {path}: {e}\")\n        return []\n\n\ndef _latest_scan_csv() -> Optional[Path]:\n    try:\n        files = list(REPORTS_DIR.glob(\"*market_scan.csv\"))\n        if not files:\n            return None\n        return max(files, key=lambda p: p.stat().st_mtime)\n    except Exception as e:\n        logger.warning(f\"Could not inspect scan reports: {e}\")\n        return None\n\n\ndef _read_scan_csv(asset_class: str) -> List[str]:\n    path = _latest_scan_csv()\n    if not path:\n        return []\n    try:\n        symbols = []\n        with path.open(newline=\"\") as f:\n            for row in csv.DictReader(f):\n                row_asset = (row.get(\"AssetClass\") or row.get(\"asset_class\") or \"\").strip().lower()\n                ticker = (row.get(\"Ticker\") or row.get(\"Symbol\") or row.get(\"symbol\") or \"\").strip().upper()\n                if not ticker:\n                    continue\n                if row_asset and row_asset != asset_class.lower():\n                    continue\n                if asset_class.lower() == \"crypto\" and \"/\" not in ticker:\n                    ticker = f\"{ticker}/USD\"\n                symbols.append(ticker)\n        loaded = _unique_keep_order(symbols)\n        if loaded:\n            logger.info(f\"[WATCHLIST CSV] Loaded {len(loaded)} {asset_class} symbols from {path}\")\n        return loaded\n    except Exception as e:\n        logger.warning(f\"Could not read scan CSV {path}: {e}\")\n        return []\n\n\ndef load_injected_stock_symbols() -> List[str]:\n    symbols = _read_symbol_file(TEMP_STOCKS_FILE)\n    if not symbols:\n        symbols = _read_scan_csv(\"Stock\")\n    return _unique_keep_order(symbols)\n\n\ndef load_injected_crypto_symbols() -> List[str]:\n    symbols = _read_symbol_file(TEMP_CRYPTO_FILE)\n    if not symbols:\n        symbols = _read_scan_csv(\"Crypto\")\n    return _unique_keep_order(\n        s if \"/\" in s else f\"{s}/USD\"\n        for s in symbols\n    )\n\n# =============================================================================\n# CONFIGURATION\n# =============================================================================\n\nDEFAULT_CONFIG = {\n    \"stock_market_open\":  \"06:30\",\n    \"stock_market_close\": \"13:00\",\n    \"crypto_24_7\":        True,\n    \"scan_interval_seconds\": 30,\n...
+Reading all three files now.
+
+12:27:41 PM
+
+Bash
+ls "C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bo...
+2.5s
+Input
+{
+  "command": "ls \"C:\\Users\\Linda\\.archon\\workspaces\\PNWSkyHippy\\Trading_Bot_V2\\worktrees\\archon\\thread-262fc655\"",
+  "description": "List workspace directory contents"
+}
+Output
+{"stdout":"BreakoutScanner.py\nBreakoutScannerBACKUP.py\nCHAT_COMMANDS.md\nCLAUDE.md\nCoding Tasks TODO List.txt\nDesigns\nHtml-Files\nMIGRATION_PLAN.md\nOverHaul\nPROJECT_SUMMARY.md\nREADME.md\nREFERENCE_DOCS.md\nScripts\nStartBotEngine.bat\nStartBotEngine.ps1\nStartBreakoutScanner.ps1\nStartWebDashboard.bat\nStartWebDashboard.ps1\nStuckTradesInstructions.txt\nTECHNICAL_REFERENCE.md\nWEB_DASHBOARD_TECHNICAL_REFERENCE.md\n_. env.pgp\nalert_sound.py\napi_server.py\nbot_engine.py\nbreakout_filter.py\nbreakout_sender.py\nchart_patterns.py\ncheck_trades.py\nchimes.wav\nclaude_access_test.md\nclaude_reviewer.py\nconfig.py\ncore\ndashboard.py\ndata\ndatetime\ndocs\ngit_push.py\ngit_push_deletions.ps1\nintelligence\nmarket_scanner.py\nmarket_scanner2.py.docx\nreporting\nreports\nrequirements.txt\nscanner_config.json\nscanners\nsignal_engine.py\nsignals_log.csv\nsignals_log.csv.BAK\nstart_bot.bat\nstrategies\ntools\ntradingview\nwatchlist\nwatchlists\nweb_dashboard.py","stderr":"","interrupted":false,"isImage":false,"noOutputExpected":false}
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+56ms
+Let me read the receiver and scanner files before designing anything.
+
+12:27:41 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+365ms
+Input
+{
+  "file_path": "C:\\Users\\Linda\\.archon\\workspaces\\PNWSkyHippy\\Trading_Bot_V2\\worktrees\\archon\\thread-262fc655\\core\\breakout_receiver.py"
+}
+Output
+{"type":"text","file":{"filePath":"C:\\Users\\Linda\\.archon\\workspaces\\PNWSkyHippy\\Trading_Bot_V2\\worktrees\\archon\\thread-262fc655\\core\\breakout_receiver.py","content":"\"\"\"\ncore/breakout_receiver.py  (hardened v2.2)\n=========================================\nReceives inbound breakout signals from BreakoutScanner and injects them\ninto the trade executor after a fast validation checklist.\n\nv2.2 additions:\n  - Understands sender's source_broker / source_price / source_timestamp\n  - No longer relies solely on scanner.get_current_price(); falls back to\n    scanner fetchers directly\n  - Normalizes broker names and preserves both preferred_broker + source_broker\n  - Blacklist rejections now return the same structured response shape\n\"\"\"\n\nimport logging\nimport time\nfrom datetime import datetime, timezone, date\nfrom typing import Optional, Dict, Any, Tuple, List\n\nimport config\nfrom data.database import db\nfrom core.risk_manager import risk_manager\nfrom core.trade_executor import TradeExecutor\n\nlogger = logging.getLogger(__name__)\n\n# ── Tuning constants ────────────────────────────────────────────────────────\nSIGNAL_TTL_SEC          = 60\nVOLUME_SPIKE_MIN        = 1.5\nWICK_BODY_MAX_RATIO     = 2.0\nGAP_TRAP_MAX_PCT        = 30.0\nPRICE_DRIFT_MAX_PCT     = 0.5\nSTOP_MAX_DISTANCE_STOCK = 2.5\nSTOP_MAX_DISTANCE_CRYPTO= 5.0\nRSI_LONG_MIN            = 50.0\nRSI_LONG_EXHAUST        = 82.0\nRSI_SHORT_MAX           = 50.0\nRSI_SHORT_EXHAUST       = 18.0\nMARKET_CRASH_THRESHOLD  = -2.0\nMARKET_RALLY_THRESHOLD  = +2.0\nMIN_SOFT_PASSES         = 0\n\nBREAKOUT_SYMBOL_BLACKLIST = {\"MLN/USD\", \"MLNUSD\", \"MLN/USDT\", \"MLNUSDT\"}\n\n# Reject any symbol whose quote currency is not USD.\n# USDC, USDT, BUSD pairs can't be priced by Kraken's USD feed and get stuck\n# in the position monitor indefinitely, jamming the scan loop.\n_REJECTED_QUOTE_CURRENCIES = {\"/USDC\", \"/USDT\", \"/BUSD\", \"/DAI\", \"/TUSD\", \"USDC\", \"USDT\"}\n\ndef _is_bad_quote_currency(symbol: str) -> bool:\n    s = symbol.upper()\n    return any(s.endswith(q) for q in _REJECTED_QUOTE_CURRENCIES)\n\nREQUIRED_FIELDS = [\n    \"symbol\", \"asset_class\", \"direction\",\n    \"entry_price\", \"current_price\",\n    \"move_pct\", \"volume_spike\",\n    \"confidence\", \"escalation\", \"timestamp\",\n]\n\nEXECUTION_BROKERS = {\"kraken\", \"coinbase\", \"alpaca\", \"ibkr\"}\nBROKER_ALIASES = {\n    \"krakenpro\": \"kraken\",\n    \"coinbasepro\": \"coinbase\",\n    \"coinbase_advanced\": \"coinbase\",\n    \"interactivebrokers\": \"ibkr\",\n    \"interactive_brokers\": \"ibkr\",\n    \"ib\": \"ibkr\",\n    \"ibkr\": \"ibkr\",\n    \"alpaca_markets\": \"alpaca\",\n}\n\n\nclass ChecklistResult:\n    PASS = \"PASS\"\n    FAIL = \"FAIL\"\n    SKIP = \"SKIP\"\n\n    def __init__(self, status: str, reason: str):\n        self.status = status\n        self.passed = (status == self.PASS)\n        self.reason = reason\n\n    @classmethod\n    def ok(cls, reason: str) -> \"ChecklistResult\":\n        return cls(cls.PASS, reason)\n\n    @classmethod\n    def fail(cls, reason: str) -> \"ChecklistResult\":\n        return cls(cls.FAIL, reason)\n\n    @classmethod\n    def skip(cls, reason: str) -> \"ChecklistResult\":\n        return cls(cls.SKIP, reason)\n\n    def __repr__(self):\n        return f\"[{self.status}] {self.reason}\"\n\n\nclass BreakoutReceiver:\n\n    def __init__(self):\n        self._executor: Optional[TradeExecutor] = None\n        self._scanner_ref = None\n\n    def set_executor(self, executor: TradeExecutor):\n        self._executor = executor\n\n    def set_scanner(self, scanner):\n        self._scanner_ref = scanner\n\n    # ──────────────────────────────────────────────────────────────────────\n    # Public entry\n    # ──────────────────────────────────────────────────────────────────────\n\n    def receive_signal(self, payload: Dict[str, Any]) -> Dict[str, Any]:\n        sym            = payload.get(\"symbol\", \"?\")\n        direction      = payload.get(\"direction\", \"?\")\n        esc            = payload.get(\"escalation\", 0)\n        ts_in          = payload.get(\"timestamp\", \"\")\n        signal_age_sec = self._signal_age(ts_in)\n\n        broker_hint   = self._normalize_broker_name(payload.get(\"broker\", \"\"))\n        source_broker = self._normalize_broker_name(\n            payload.get(\"source_broker\", broker_hint or \"\")\n        )\n\n        if sym.upper() in BREAKOUT_SYMBOL_BLACKLIST:\n            reason = f\"{sym} in breakout symbol blacklist\"\n            logger.info(f\"[BREAKOUT RECV] {sym} rejected — {reason}\")\n            return {\n                \"accepted\": False,\n                \"execution_eligible\": False,\n                \"failure_class\": \"checklist_rejected\",\n                \"reason\": reason,\n                \"trade_id\": None,\n                \"checklist\": {},\n            }\n\n        if _is_bad_quote_currency(sym):\n            reason = f\"{sym} has non-USD quote currency — unpriceable by Kraken feed\"\n            logger.warning(f\"[BREAKOUT RECV] {sym} rejected — {reason}\")\n            return {\n                \"accepted\": False,\n                \"execution_eligible\": False,\n                \"failure_class\": \"bad_quote_currency\",\n                \"reason\": reason,\n                \"trade_id\": None,\n                \"checklist\": {},\n            }\n\n        logger.info(\n            f\"[BREAKOUT RECV] {sym} {str(direction).upper()} \"\n            f\"esc={esc} move={payload.get('move_pct', 0):+.2f}% \"\n            f\"age={signal_age_sec:.0f}s vol={payload.get('volume_spike', 0):.2f}x \"\n            f\"broker={broker_hint or 'none'} source_broker={source_broker or 'none'} \"\n            f\"stop={payload.get('structural_stop_price', 'none')} \"\n            f\"bars_since={payload.get('bars_since_breakout', '?')}\"\n        )\n\n        missing = [f for f in REQUIRED_FIELDS if payload.get(f) is None]\n        if missing:\n            reason = f\"Missing required fields: {', '.join(missing)}\"\n            logger.warning(f\"[BREAKOUT RECV] INVALID PAYLOAD {sym} — {reason}\")\n            return {\n                \"accepted\": False,\n                \"execution_eligible\": False,\n                \"failure_class\": \"invalid_payload\",\n                \"reason\": reason,\n                \"trade_id\": None,\n                \"checklist\": {},\n            }\n\n        hard_results, soft_results = self._run_checklist(payload, signal_age_sec)\n\n        hard_passed = all(\n            r.status in (ChecklistResult.PASS, ChecklistResult.SKIP)\n            for r in hard_results\n        )\n        hard_skips  = sum(1 for r in hard_results if r.status == ChecklistResult.SKIP)\n        soft_passes = sum(1 for r in soft_results if r.status == ChecklistResult.PASS)\n        soft_skips  = sum(1 for r in soft_results if r.status == ChecklistResult.SKIP)\n\n        for r in hard_results:\n            lvl = logging.WARNING if r.status == ChecklistResult.FAIL else logging.INFO\n            logger.log(lvl, f\"  [HARD] {r}\")\n        for r in soft_results:\n            logger.info(f\"  [SOFT] {r}\")\n\n        checklist_summary = {\n            \"hard_passed\":       hard_passed,\n            \"hard_skipped\":      hard_skips,\n            \"soft_passed\":       soft_passes,\n            \"soft_skipped\":      soft_skips,\n            \"failed_hard_check\": next(\n                (r.reason for r in hard_results if r.status == ChecklistResult.FAIL), None\n            ),\n        }\n\n        if not hard_passed:\n            failed = next(r for r in hard_results if r.status == ChecklistResult.FAIL)\n            reason = f\"Hard check failed: {failed.reason}\"\n            logger.info(f\"[BREAKOUT RECV] CHECKLIST REJECTED {sym} — {reason}\")\n            return {\n                \"accepted\": False,\n                \"execution_eligible\": True,\n                \"failure_class\": \"checklist_rejected\",\n                \"reason\": reason,\n                \"trade_id\": None,\n                \"checklist\": checklist_summary,\n            }\n\n        logger.info(\n            f\"[BREAKOUT RECV] CHECKLIST PASSED {sym} — \"\n            f\"soft: {soft_passes} pass / {soft_skips} skip (advisory only)\"\n        )\n        return self._inject_signal(payload, checklist_summary)\n\n    # ──────────────────────────────────────────────────────────────────────\n    # Checklist\n    # ──────────────────────────────────────────────────────────────────────\n\n    def _run_checklist(\n        self, p: Dict, signal_age_sec: float\n    ) -> Tuple[List[ChecklistResult], List[ChecklistResult]]:\n        hard = [\n            self._check_freshness(p, signal_age_sec),\n            self._check_no_open_position(p),\n            self._check_daily_symbol_limit(p),\n            self._check_not_in_cooldown(p),\n            self._check_trading_not_halted(),\n            self._check_price_still_moving(p),\n            self._check_volume_elevated(p),\n            self._check_no_wick_rejection(p),\n            self._check_not_gap_trap(p),\n            self._check_momentum_phase(p),\n            self._check_structural_stop(p),\n        ]\n        soft = [\n            self._check_rsi_confirms(p),\n            self._check_trend_alignment(p),\n            self._check_market_context(p),\n        ]\n        return hard, soft\n\n    def _check_freshness(self, p: Dict, age_sec: float) -> ChecklistResult:\n        if age_sec < 0:\n            return ChecklistResult.fail(\"Signal timestamp missing or unparsable\")\n        if age_sec > SIGNAL_TTL_SEC:\n            return ChecklistResult.fail(\n                f\"Signal stale — {age_sec:.0f}s old (TTL={SIGNAL_TTL_SEC}s)\"\n            )\n        return ChecklistResult.ok(f\"Signal fresh ({age_sec:.0f}s old)\")\n\n    def _check_no_open_position(self, p: Dict) -> ChecklistResult:\n        sym = p[\"symbol\"]\n        if any(t[\"symbol\"] == sym ...
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+70ms
+Input
+{
+  "file_path": "C:\\Users\\Linda\\.archon\\workspaces\\PNWSkyHippy\\Trading_Bot_V2\\worktrees\\archon\\thread-262fc655\\BreakoutScanner.py",
+  "limit": 100
+}
+Output
+{"type":"text","file":{"filePath":"C:\\Users\\Linda\\.archon\\workspaces\\PNWSkyHippy\\Trading_Bot_V2\\worktrees\\archon\\thread-262fc655\\BreakoutScanner.py","content":"\"\"\"\nRon's Market Breakout Scanner\n==============================\nScans stocks and crypto for early breakout patterns.\n\nTWO-PHASE DETECTION:\n  Phase 1 — WATCHLIST: quiet setup spotted, symbol tracked silently.\n  Phase 2 — ALERT:     price actually starts moving in the right direction\n                        within the first two scan cycles → THEN alert fires.\n\nEscalating alerts:\n  Move >2%  → double beep\n  Move >5%  → triple high beep + row flashes orange\n  Move >10% → rapid triple beep + row flashes red/white\n\nCSV self-cleaning:\n  • Max 500 rows kept\n  • DEAD/FADING entries older than 48 h are pruned automatically\n  • Each symbol appears only once (latest entry wins)\n  • 30-minute per-symbol cooldown before re-alerting\n\nHistorical bar data:\n  Stocks  → Massive.com REST API (5-min OHLC, no Claude involvement at runtime)\n            Falls back to yfinance if massive_api_key is blank.\n  Crypto  → Kraken / Coinbase via CCXT (unchanged)\n\nRun:\n    python BreakoutScanner.py           # GUI (tkinter) or console fallback\n    python BreakoutScanner.py --console # Force console mode\n\"\"\"\n\nimport csv\nimport json\nimport logging\nimport os\nimport queue\nimport smtplib\nfrom email.mime.text import MIMEText\nfrom email.mime.multipart import MIMEMultipart\nfrom pathlib import Path\nimport threading\nimport time\nfrom collections import deque\nfrom dataclasses import dataclass, field\nfrom datetime import datetime, timedelta\nfrom datetime import time as dt_time\nfrom enum import Enum\nfrom typing import Any, Dict, List, Optional\nfrom breakout_sender import BreakoutSender\n\n\nBASE_DIR = Path(__file__).resolve().parent\n\n# ── Optional dependencies ─────────────────────────────────────────────────────\ntry:\n    import requests as _requests\n    REQUESTS_AVAILABLE = True\nexcept ImportError:\n    REQUESTS_AVAILABLE = False\n\ntry:\n    import yfinance as yf\n    import logging as _logging\n    _logging.getLogger(\"yfinance\").setLevel(_logging.CRITICAL)\n    _logging.getLogger(\"yfinance.base\").setLevel(_logging.CRITICAL)\n    _logging.getLogger(\"yfinance.utils\").setLevel(_logging.CRITICAL)\n    _logging.getLogger(\"peewee\").setLevel(_logging.CRITICAL)\n    YFINANCE_AVAILABLE = True\nexcept ImportError:\n    YFINANCE_AVAILABLE = False\n\ntry:\n    import alpaca_trade_api as tradeapi\n    ALPACA_AVAILABLE = True\nexcept ImportError:\n    ALPACA_AVAILABLE = False\n\ntry:\n    import ccxt\n    CCXT_AVAILABLE = True\nexcept ImportError:\n    CCXT_AVAILABLE = False\n\ntry:\n    import tkinter as tk\n    from tkinter import ttk\n    TKINTER_AVAILABLE = True\nexcept ImportError:\n    TKINTER_AVAILABLE = False\n\ntry:\n    import winsound\n    WINSOUND_AVAILABLE = True\nexcept ImportError:\n    WINSOUND_AVAILABLE = False\n\n# pygame-based audio — plays through actual sound card, not PC speaker\ntry:\n    from alert_sound import init_audio as _init_audio, play_alert as _play_alert\n    ALERT_SOUND_AVAILABLE = True","numLines":100,"startLine":1,"totalLines":2227}}
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+61ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+328ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+42ms
+Now let me find the scanner's direction and momentum score logic.Reading all four files now.
+
+12:27:41 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+65ms
+Input
+{
+  "file_path": "C:\\Users\\Linda\\.archon\\workspaces\\PNWSkyHippy\\Trading_Bot_V2\\worktrees\\archon\\thread-262fc655\\BreakoutScanner.py",
+  "limit": 500
+}
+Output
+{"type":"text","file":{"filePath":"C:\\Users\\Linda\\.archon\\workspaces\\PNWSkyHippy\\Trading_Bot_V2\\worktrees\\archon\\thread-262fc655\\BreakoutScanner.py","content":"\"\"\"\nRon's Market Breakout Scanner\n==============================\nScans stocks and crypto for early breakout patterns.\n\nTWO-PHASE DETECTION:\n  Phase 1 — WATCHLIST: quiet setup spotted, symbol tracked silently.\n  Phase 2 — ALERT:     price actually starts moving in the right direction\n                        within the first two scan cycles → THEN alert fires.\n\nEscalating alerts:\n  Move >2%  → double beep\n  Move >5%  → triple high beep + row flashes orange\n  Move >10% → rapid triple beep + row flashes red/white\n\nCSV self-cleaning:\n  • Max 500 rows kept\n  • DEAD/FADING entries older than 48 h are pruned automatically\n  • Each symbol appears only once (latest entry wins)\n  • 30-minute per-symbol cooldown before re-alerting\n\nHistorical bar data:\n  Stocks  → Massive.com REST API (5-min OHLC, no Claude involvement at runtime)\n            Falls back to yfinance if massive_api_key is blank.\n  Crypto  → Kraken / Coinbase via CCXT (unchanged)\n\nRun:\n    python BreakoutScanner.py           # GUI (tkinter) or console fallback\n    python BreakoutScanner.py --console # Force console mode\n\"\"\"\n\nimport csv\nimport json\nimport logging\nimport os\nimport queue\nimport smtplib\nfrom email.mime.text import MIMEText\nfrom email.mime.multipart import MIMEMultipart\nfrom pathlib import Path\nimport threading\nimport time\nfrom collections import deque\nfrom dataclasses import dataclass, field\nfrom datetime import datetime, timedelta\nfrom datetime import time as dt_time\nfrom enum import Enum\nfrom typing import Any, Dict, List, Optional\nfrom breakout_sender import BreakoutSender\n\n\nBASE_DIR = Path(__file__).resolve().parent\n\n# ── Optional dependencies ─────────────────────────────────────────────────────\ntry:\n    import requests as _requests\n    REQUESTS_AVAILABLE = True\nexcept ImportError:\n    REQUESTS_AVAILABLE = False\n\ntry:\n    import yfinance as yf\n    import logging as _logging\n    _logging.getLogger(\"yfinance\").setLevel(_logging.CRITICAL)\n    _logging.getLogger(\"yfinance.base\").setLevel(_logging.CRITICAL)\n    _logging.getLogger(\"yfinance.utils\").setLevel(_logging.CRITICAL)\n    _logging.getLogger(\"peewee\").setLevel(_logging.CRITICAL)\n    YFINANCE_AVAILABLE = True\nexcept ImportError:\n    YFINANCE_AVAILABLE = False\n\ntry:\n    import alpaca_trade_api as tradeapi\n    ALPACA_AVAILABLE = True\nexcept ImportError:\n    ALPACA_AVAILABLE = False\n\ntry:\n    import ccxt\n    CCXT_AVAILABLE = True\nexcept ImportError:\n    CCXT_AVAILABLE = False\n\ntry:\n    import tkinter as tk\n    from tkinter import ttk\n    TKINTER_AVAILABLE = True\nexcept ImportError:\n    TKINTER_AVAILABLE = False\n\ntry:\n    import winsound\n    WINSOUND_AVAILABLE = True\nexcept ImportError:\n    WINSOUND_AVAILABLE = False\n\n# pygame-based audio — plays through actual sound card, not PC speaker\ntry:\n    from alert_sound import init_audio as _init_audio, play_alert as _play_alert\n    ALERT_SOUND_AVAILABLE = True\nexcept ImportError:\n    ALERT_SOUND_AVAILABLE = False\n\n# geometric chart pattern detection\ntry:\n    from chart_patterns import score_patterns as _score_patterns\n    PATTERNS_AVAILABLE = True\nexcept ImportError:\n    PATTERNS_AVAILABLE = False\n\n# ── Logging ───────────────────────────────────────────────────────────────────\nlogging.basicConfig(\n    level=logging.INFO,\n    format=\"%(asctime)s | %(levelname)s | %(message)s\",\n    handlers=[\n        logging.FileHandler(BASE_DIR / \"scanner.log\"),\n        logging.StreamHandler(),\n    ],\n)\nlogger = logging.getLogger(__name__)\n\nCSV_FILE            = BASE_DIR / \"signals_log.csv\"\nCSV_MAX_ROWS        = 500\nCSV_PRUNE_AGE       = 48        # hours\nALERT_COOLDOWN_SECS = 1800      # 30 min per symbol\nWATCHLIST_DIR       = BASE_DIR / \"watchlist\"\nREPORTS_DIR         = BASE_DIR / \"reports\"\nTEMP_STOCKS_FILE    = WATCHLIST_DIR / \"scanned_stocks.txt\"\nTEMP_CRYPTO_FILE    = WATCHLIST_DIR / \"scanned_crypto.txt\"\n\nMASSIVE_BASE        = \"https://api.massive.com\"\n\n# ── Fernet decrypt helper (mirrors config.py — used for scanner_config.json keys) ──\n# Sensitive keys stored as Fernet tokens start with \"gAAAAA\".\n# Plaintext values (not yet migrated) are returned unchanged — migration-safe.\ntry:\n    import keyring as _keyring\n    from cryptography.fernet import Fernet as _Fernet, InvalidToken as _InvalidToken\n    _scanner_fernet_raw = _keyring.get_password(\"trading_bot_v2\", \"fernet_key\")\n    _SCANNER_BASE_KEY   = _scanner_fernet_raw.encode() if _scanner_fernet_raw else None\nexcept Exception:\n    _SCANNER_BASE_KEY   = None\n\n# Keys inside scanner_config.json that hold sensitive secrets\n_SCANNER_SENSITIVE_KEYS = {\n    \"massive_api_key\",\n    \"alpaca_api_key\", \"alpaca_secret_key\",\n    \"kraken_api_key\", \"kraken_api_secret\",\n    \"coinbase_api_key\", \"coinbase_api_secret\",\n    \"bot_api_key\",\n    \"email_password\",\n}\n\ndef _encrypt_cfg(val: str) -> str:\n    \"\"\"\n    Encrypt a plaintext secret for writing back to scanner_config.json.\n    - Already-encrypted (starts \"gAAAAA\") → returned unchanged (no double-encrypt).\n    - No Fernet key in Credential Manager → returns val unchanged (safe degradation).\n    - Empty string → returned unchanged.\n    \"\"\"\n    if not val or not isinstance(val, str):\n        return val\n    if val.startswith(\"gAAAAA\"):\n        return val   # already encrypted — don't double-encrypt\n    if not _SCANNER_BASE_KEY:\n        return val   # no key available — preserve as-is rather than blank\n    try:\n        return _Fernet(_SCANNER_BASE_KEY).encrypt(val.encode()).decode()\n    except Exception as e:\n        logger.warning(f\"[CONFIG] Failed to encrypt key: {e}\")\n        return val   # encryption failed — return plaintext rather than lose the value\n\n\ndef _decrypt_cfg(val: str) -> str:\n    \"\"\"\n    Decrypt a Fernet-encrypted value read from scanner_config.json.\n    - Empty / plaintext → returned unchanged.\n    - Fernet token (starts \"gAAAAA\") → decrypted.\n    - Encrypted but no key in Credential Manager → RuntimeError.\n    \"\"\"\n    if not val or not isinstance(val, str):\n        return val\n    val = val.strip()\n    if not val.startswith(\"gAAAAA\"):\n        return val                               # plaintext — not yet encrypted\n    if not _SCANNER_BASE_KEY:\n        raise RuntimeError(\n            \"Encrypted key found in scanner_config.json but the Fernet key is \"\n            \"not in Windows Credential Manager.  \"\n            \"Run: python Scripts\\\\store_fernet_key.py\"\n        )\n    try:\n        return _Fernet(_SCANNER_BASE_KEY).decrypt(val.encode()).decode().strip()\n    except _InvalidToken:\n        raise RuntimeError(\n            f\"Failed to decrypt a scanner_config.json key — token corrupt or \"\n            f\"wrong Fernet key.  First 20 chars: {val[:20]}…\"\n        )\n\n\ndef _unique_keep_order(values: List[str]) -> List[str]:\n    seen = set()\n    result = []\n    for value in values:\n        value = str(value or \"\").strip().upper()\n        if not value or value.startswith(\"#\") or value in seen:\n            continue\n        seen.add(value)\n        result.append(value)\n    return result\n\n\ndef _read_symbol_file(path: Path) -> List[str]:\n    try:\n        if not path.exists():\n            return []\n        return _unique_keep_order(path.read_text().splitlines())\n    except Exception as e:\n        logger.warning(f\"Could not read watchlist file {path}: {e}\")\n        return []\n\n\ndef _latest_scan_csv() -> Optional[Path]:\n    try:\n        files = list(REPORTS_DIR.glob(\"*market_scan.csv\"))\n        if not files:\n            return None\n        return max(files, key=lambda p: p.stat().st_mtime)\n    except Exception as e:\n        logger.warning(f\"Could not inspect scan reports: {e}\")\n        return None\n\n\ndef _read_scan_csv(asset_class: str) -> List[str]:\n    path = _latest_scan_csv()\n    if not path:\n        return []\n    try:\n        symbols = []\n        with path.open(newline=\"\") as f:\n            for row in csv.DictReader(f):\n                row_asset = (row.get(\"AssetClass\") or row.get(\"asset_class\") or \"\").strip().lower()\n                ticker = (row.get(\"Ticker\") or row.get(\"Symbol\") or row.get(\"symbol\") or \"\").strip().upper()\n                if not ticker:\n                    continue\n                if row_asset and row_asset != asset_class.lower():\n                    continue\n                if asset_class.lower() == \"crypto\" and \"/\" not in ticker:\n                    ticker = f\"{ticker}/USD\"\n                symbols.append(ticker)\n        loaded = _unique_keep_order(symbols)\n        if loaded:\n            logger.info(f\"[WATCHLIST CSV] Loaded {len(loaded)} {asset_class} symbols from {path}\")\n        return loaded\n    except Exception as e:\n        logger.warning(f\"Could not read scan CSV {path}: {e}\")\n        return []\n\n\ndef load_injected_stock_symbols() -> List[str]:\n    symbols = _read_symbol_file(TEMP_STOCKS_FILE)\n    if not symbols:\n        symbols = _read_scan_csv(\"Stock\")\n    return _unique_keep_order(symbols)\n\n\ndef load_injected_crypto_symbols() -> List[str]:\n    symbols = _read_symbol_file(TEMP_CRYPTO_FILE)\n    if not symbols:\n        symbols = _read_scan_csv(\"Crypto\")\n    return _unique_keep_order(\n        s if \"/\" in s else f\"{s}/USD\"\n        for s in symbols\n    )\n\n# =============================================================================\n# CONFIGURATION\n# =============================================================================\n\nDEFAULT_CONFIG = {\n    \"stock_market_open\":  \"06:30\",\n    \"stock_market_close\": \"13:00\",\n    \"crypto_24_7\":        True,\n    \"scan_interval_seconds\": 30,\n...
+
+Grep
+resolved_direction|signal_direction|momentum_score
+4.3s
+Input
+{
+  "pattern": "resolved_direction|signal_direction|momentum_score",
+  "path": "C:\\Users\\Linda\\.archon\\workspaces\\PNWSkyHippy\\Trading_Bot_V2\\worktrees\\archon\\thread-262fc655\\BreakoutScanner.py",
+  "output_mode": "content",
+  "-n": true
+}
+Output
+{"mode":"content","numFiles":0,"filenames":[],"content":"366:    momentum_score:     float\n395:    direction = signal_direction(signal).upper()   # explicit direction wins; momentum fallback only\n422:def resolved_direction(direction: str = \"\", momentum_score: float = 0.0) -> str:\n426:      2. momentum_score fallback (only when direction is absent/invalid)\n433:        return \"short\" if float(momentum_score) < -0.5 else \"long\"\n438:def signal_direction(signal) -> str:\n440:    return resolved_direction(\n442:        getattr(signal, \"momentum_score\", 0.0),\n1174:        data[\"momentum_score\"] = self.momentum_val(pd)\n1202:            momentum_score=self.momentum_val(pd),\n1266:        direction = signal_direction(sig).upper()   # explicit direction wins; no momentum re-inference\n1436:    Momentum: {signal.momentum_score:.2f}\n1583:        direction = signal_direction(signal)   # \"long\" or \"short\"\n1965:        dir_txt = signal_direction(signal).upper()   # explicit direction; no momentum re-inference","numLines":14}
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+119ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+383ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+340ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+387ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+377ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+64ms
+Now let me read the sender and receiver files.
+
+12:27:41 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+64ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+401ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+126ms
+Now let me check for any breakout_level, bars_since_breakout, sma200, or structural_stop in the scanner:
+
+12:27:41 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+356ms
+Input
+{
+  "file_path": "C:\\Users\\Linda\\.archon\\workspaces\\PNWSkyHippy\\Trading_Bot_V2\\worktrees\\archon\\thread-262fc655\\core\\breakout_receiver.py"
+}
+Output
+{"type":"text","file":{"filePath":"C:\\Users\\Linda\\.archon\\workspaces\\PNWSkyHippy\\Trading_Bot_V2\\worktrees\\archon\\thread-262fc655\\core\\breakout_receiver.py","content":"\"\"\"\ncore/breakout_receiver.py  (hardened v2.2)\n=========================================\nReceives inbound breakout signals from BreakoutScanner and injects them\ninto the trade executor after a fast validation checklist.\n\nv2.2 additions:\n  - Understands sender's source_broker / source_price / source_timestamp\n  - No longer relies solely on scanner.get_current_price(); falls back to\n    scanner fetchers directly\n  - Normalizes broker names and preserves both preferred_broker + source_broker\n  - Blacklist rejections now return the same structured response shape\n\"\"\"\n\nimport logging\nimport time\nfrom datetime import datetime, timezone, date\nfrom typing import Optional, Dict, Any, Tuple, List\n\nimport config\nfrom data.database import db\nfrom core.risk_manager import risk_manager\nfrom core.trade_executor import TradeExecutor\n\nlogger = logging.getLogger(__name__)\n\n# ── Tuning constants ────────────────────────────────────────────────────────\nSIGNAL_TTL_SEC          = 60\nVOLUME_SPIKE_MIN        = 1.5\nWICK_BODY_MAX_RATIO     = 2.0\nGAP_TRAP_MAX_PCT        = 30.0\nPRICE_DRIFT_MAX_PCT     = 0.5\nSTOP_MAX_DISTANCE_STOCK = 2.5\nSTOP_MAX_DISTANCE_CRYPTO= 5.0\nRSI_LONG_MIN            = 50.0\nRSI_LONG_EXHAUST        = 82.0\nRSI_SHORT_MAX           = 50.0\nRSI_SHORT_EXHAUST       = 18.0\nMARKET_CRASH_THRESHOLD  = -2.0\nMARKET_RALLY_THRESHOLD  = +2.0\nMIN_SOFT_PASSES         = 0\n\nBREAKOUT_SYMBOL_BLACKLIST = {\"MLN/USD\", \"MLNUSD\", \"MLN/USDT\", \"MLNUSDT\"}\n\n# Reject any symbol whose quote currency is not USD.\n# USDC, USDT, BUSD pairs can't be priced by Kraken's USD feed and get stuck\n# in the position monitor indefinitely, jamming the scan loop.\n_REJECTED_QUOTE_CURRENCIES = {\"/USDC\", \"/USDT\", \"/BUSD\", \"/DAI\", \"/TUSD\", \"USDC\", \"USDT\"}\n\ndef _is_bad_quote_currency(symbol: str) -> bool:\n    s = symbol.upper()\n    return any(s.endswith(q) for q in _REJECTED_QUOTE_CURRENCIES)\n\nREQUIRED_FIELDS = [\n    \"symbol\", \"asset_class\", \"direction\",\n    \"entry_price\", \"current_price\",\n    \"move_pct\", \"volume_spike\",\n    \"confidence\", \"escalation\", \"timestamp\",\n]\n\nEXECUTION_BROKERS = {\"kraken\", \"coinbase\", \"alpaca\", \"ibkr\"}\nBROKER_ALIASES = {\n    \"krakenpro\": \"kraken\",\n    \"coinbasepro\": \"coinbase\",\n    \"coinbase_advanced\": \"coinbase\",\n    \"interactivebrokers\": \"ibkr\",\n    \"interactive_brokers\": \"ibkr\",\n    \"ib\": \"ibkr\",\n    \"ibkr\": \"ibkr\",\n    \"alpaca_markets\": \"alpaca\",\n}\n\n\nclass ChecklistResult:\n    PASS = \"PASS\"\n    FAIL = \"FAIL\"\n    SKIP = \"SKIP\"\n\n    def __init__(self, status: str, reason: str):\n        self.status = status\n        self.passed = (status == self.PASS)\n        self.reason = reason\n\n    @classmethod\n    def ok(cls, reason: str) -> \"ChecklistResult\":\n        return cls(cls.PASS, reason)\n\n    @classmethod\n    def fail(cls, reason: str) -> \"ChecklistResult\":\n        return cls(cls.FAIL, reason)\n\n    @classmethod\n    def skip(cls, reason: str) -> \"ChecklistResult\":\n        return cls(cls.SKIP, reason)\n\n    def __repr__(self):\n        return f\"[{self.status}] {self.reason}\"\n\n\nclass BreakoutReceiver:\n\n    def __init__(self):\n        self._executor: Optional[TradeExecutor] = None\n        self._scanner_ref = None\n\n    def set_executor(self, executor: TradeExecutor):\n        self._executor = executor\n\n    def set_scanner(self, scanner):\n        self._scanner_ref = scanner\n\n    # ──────────────────────────────────────────────────────────────────────\n    # Public entry\n    # ──────────────────────────────────────────────────────────────────────\n\n    def receive_signal(self, payload: Dict[str, Any]) -> Dict[str, Any]:\n        sym            = payload.get(\"symbol\", \"?\")\n        direction      = payload.get(\"direction\", \"?\")\n        esc            = payload.get(\"escalation\", 0)\n        ts_in          = payload.get(\"timestamp\", \"\")\n        signal_age_sec = self._signal_age(ts_in)\n\n        broker_hint   = self._normalize_broker_name(payload.get(\"broker\", \"\"))\n        source_broker = self._normalize_broker_name(\n            payload.get(\"source_broker\", broker_hint or \"\")\n        )\n\n        if sym.upper() in BREAKOUT_SYMBOL_BLACKLIST:\n            reason = f\"{sym} in breakout symbol blacklist\"\n            logger.info(f\"[BREAKOUT RECV] {sym} rejected — {reason}\")\n            return {\n                \"accepted\": False,\n                \"execution_eligible\": False,\n                \"failure_class\": \"checklist_rejected\",\n                \"reason\": reason,\n                \"trade_id\": None,\n                \"checklist\": {},\n            }\n\n        if _is_bad_quote_currency(sym):\n            reason = f\"{sym} has non-USD quote currency — unpriceable by Kraken feed\"\n            logger.warning(f\"[BREAKOUT RECV] {sym} rejected — {reason}\")\n            return {\n                \"accepted\": False,\n                \"execution_eligible\": False,\n                \"failure_class\": \"bad_quote_currency\",\n                \"reason\": reason,\n                \"trade_id\": None,\n                \"checklist\": {},\n            }\n\n        logger.info(\n            f\"[BREAKOUT RECV] {sym} {str(direction).upper()} \"\n            f\"esc={esc} move={payload.get('move_pct', 0):+.2f}% \"\n            f\"age={signal_age_sec:.0f}s vol={payload.get('volume_spike', 0):.2f}x \"\n            f\"broker={broker_hint or 'none'} source_broker={source_broker or 'none'} \"\n            f\"stop={payload.get('structural_stop_price', 'none')} \"\n            f\"bars_since={payload.get('bars_since_breakout', '?')}\"\n        )\n\n        missing = [f for f in REQUIRED_FIELDS if payload.get(f) is None]\n        if missing:\n            reason = f\"Missing required fields: {', '.join(missing)}\"\n            logger.warning(f\"[BREAKOUT RECV] INVALID PAYLOAD {sym} — {reason}\")\n            return {\n                \"accepted\": False,\n                \"execution_eligible\": False,\n                \"failure_class\": \"invalid_payload\",\n                \"reason\": reason,\n                \"trade_id\": None,\n                \"checklist\": {},\n            }\n\n        hard_results, soft_results = self._run_checklist(payload, signal_age_sec)\n\n        hard_passed = all(\n            r.status in (ChecklistResult.PASS, ChecklistResult.SKIP)\n            for r in hard_results\n        )\n        hard_skips  = sum(1 for r in hard_results if r.status == ChecklistResult.SKIP)\n        soft_passes = sum(1 for r in soft_results if r.status == ChecklistResult.PASS)\n        soft_skips  = sum(1 for r in soft_results if r.status == ChecklistResult.SKIP)\n\n        for r in hard_results:\n            lvl = logging.WARNING if r.status == ChecklistResult.FAIL else logging.INFO\n            logger.log(lvl, f\"  [HARD] {r}\")\n        for r in soft_results:\n            logger.info(f\"  [SOFT] {r}\")\n\n        checklist_summary = {\n            \"hard_passed\":       hard_passed,\n            \"hard_skipped\":      hard_skips,\n            \"soft_passed\":       soft_passes,\n            \"soft_skipped\":      soft_skips,\n            \"failed_hard_check\": next(\n                (r.reason for r in hard_results if r.status == ChecklistResult.FAIL), None\n            ),\n        }\n\n        if not hard_passed:\n            failed = next(r for r in hard_results if r.status == ChecklistResult.FAIL)\n            reason = f\"Hard check failed: {failed.reason}\"\n            logger.info(f\"[BREAKOUT RECV] CHECKLIST REJECTED {sym} — {reason}\")\n            return {\n                \"accepted\": False,\n                \"execution_eligible\": True,\n                \"failure_class\": \"checklist_rejected\",\n                \"reason\": reason,\n                \"trade_id\": None,\n                \"checklist\": checklist_summary,\n            }\n\n        logger.info(\n            f\"[BREAKOUT RECV] CHECKLIST PASSED {sym} — \"\n            f\"soft: {soft_passes} pass / {soft_skips} skip (advisory only)\"\n        )\n        return self._inject_signal(payload, checklist_summary)\n\n    # ──────────────────────────────────────────────────────────────────────\n    # Checklist\n    # ──────────────────────────────────────────────────────────────────────\n\n    def _run_checklist(\n        self, p: Dict, signal_age_sec: float\n    ) -> Tuple[List[ChecklistResult], List[ChecklistResult]]:\n        hard = [\n            self._check_freshness(p, signal_age_sec),\n            self._check_no_open_position(p),\n            self._check_daily_symbol_limit(p),\n            self._check_not_in_cooldown(p),\n            self._check_trading_not_halted(),\n            self._check_price_still_moving(p),\n            self._check_volume_elevated(p),\n            self._check_no_wick_rejection(p),\n            self._check_not_gap_trap(p),\n            self._check_momentum_phase(p),\n            self._check_structural_stop(p),\n        ]\n        soft = [\n            self._check_rsi_confirms(p),\n            self._check_trend_alignment(p),\n            self._check_market_context(p),\n        ]\n        return hard, soft\n\n    def _check_freshness(self, p: Dict, age_sec: float) -> ChecklistResult:\n        if age_sec < 0:\n            return ChecklistResult.fail(\"Signal timestamp missing or unparsable\")\n        if age_sec > SIGNAL_TTL_SEC:\n            return ChecklistResult.fail(\n                f\"Signal stale — {age_sec:.0f}s old (TTL={SIGNAL_TTL_SEC}s)\"\n            )\n        return ChecklistResult.ok(f\"Signal fresh ({age_sec:.0f}s old)\")\n\n    def _check_no_open_position(self, p: Dict) -> ChecklistResult:\n        sym = p[\"symbol\"]\n        if any(t[\"symbol\"] == sym ...
+
+Grep
+breakout_level|bars_since|structural_stop|sma200|distance_fr...
+3.9s
+Input
+{
+  "pattern": "breakout_level|bars_since|structural_stop|sma200|distance_from_breakout",
+  "path": "C:\\Users\\Linda\\.archon\\workspaces\\PNWSkyHippy\\Trading_Bot_V2\\worktrees\\archon\\thread-262fc655\\BreakoutScanner.py",
+  "output_mode": "content"
+}
+12:27:55 PM
+
+Grep
+send_alert|check\(pd\)|EscalationTracker
+9.0s
+Input
+{
+  "pattern": "send_alert|check\\(pd\\)|EscalationTracker",
+  "path": "C:\\Users\\Linda\\.archon\\workspaces\\PNWSkyHippy\\Trading_Bot_V2\\worktrees\\archon\\thread-262fc655\\BreakoutScanner.py",
+  "output_mode": "content"
+}
+Output
+{"mode":"content","numFiles":0,"filenames":[],"content":"","numLines":0}
+BreakoutScanner.py is large. Reading the key sections now.
+
+12:27:55 PM
+
+Grep
+ALERT_COOLDOWN_SECS|class EscalationTracker|def check|class ...
+0ms
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+63ms
+12:28:11 PM
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+58ms
+Let me check the BreakoutDetector's history deque size and update_history:
+
+12:29:11 PM
+
+Grep
+update_history|deque|price_history|volume_history|maxlen
+4.0s
+
+Read
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+132ms
+Now I have everything needed. Let me read the momentum_val implementation to confirm the sign convention before writing a single line.
+
+12:29:41 PM
+
+Grep
+def momentum_val|def vol_spike
+4.6s
+Input
+{
+  "pattern": "def momentum_val|def vol_spike",
+  "path": "C:\\Users\\Linda\\.archon\\workspaces\\PNWSkyHippy\\Trading_Bot_V2\\worktrees\\archon\\thread-262fc655\\BreakoutScanner.py",
+  "output_mode": "content",
+  "-n": true,
+  "-A": 15
+}
+Output
+{"mode":"content","numFiles":0,"filenames":[],"content":"1118:    def vol_spike(self, pd: PriceData) -> float:\n1119-        v = self.volume_history.get(pd.symbol)\n1120-        return self._vol_spike(list(v)) if v else 1.0\n1121-\n1122:    def momentum_val(self, pd: PriceData) -> float:\n1123-        p = self.price_history.get(pd.symbol)\n1124-        return self._momentum(list(p)) if p else 0.0\n1125-\n1126-    def _build_enrichment(self, pd: PriceData) -> Dict[str, Any]:\n1127-        \"\"\"Build the enrichment dict for a signal.\n1128-        Mirrors the logic previously in MarketScanner._build_signal_enrichment().\n1129-        \"\"\"\n1130-        data: Dict[str, Any] = {}\n1131-        sym = pd.symbol\n1132-        data[\"open\"]   = pd.open_price if pd.open_price else pd.price\n1133-        data[\"high\"]   = pd.high       if pd.high       else pd.price\n1134-        data[\"low\"]    = pd.low        if pd.low        else pd.price\n1135-        data[\"close\"]  = pd.price\n1136-        data[\"volume\"] = pd.volume\n1137-        # RSI(14) — Wilder's smoothed average from tick-price history","numLines":20}
+12:30:11 PM
+
+Grep
+def _momentum
+4.6s
+Input
+{
+  "pattern": "def _momentum",
+  "path": "C:\\Users\\Linda\\.archon\\workspaces\\PNWSkyHippy\\Trading_Bot_V2\\worktrees\\archon\\thread-262fc655\\BreakoutScanner.py",
+  "output_mode": "content",
+  "-n": true,
+  "-A": 15
+}
+Output
+{"mode":"content","numFiles":0,"filenames":[],"content":"1228:    def _momentum(self, p):\n1229-        ch = [(p[i]-p[i-1])/p[i-1]*100 for i in range(1,len(p))]\n1230-        return sum(ch[-5:])/5 if len(ch)>=5 else 0.0\n1231-    def _vol_spike(self, v):\n1232-        if len(v) < 2: return 1.0\n1233-        avg = sum(v[:-1])/len(v[:-1])\n1234-        return v[-1]/avg if avg>0 else 1.0\n1235-\n1236-# =============================================================================\n1237-# WATCHLIST MANAGER\n1238-# =============================================================================\n1239-\n1240-class WatchlistManager:\n1241-    def __init__(self, config: ConfigManager):\n1242-        self.config   = config\n1243-        self._watched: Dict[str, BreakoutSignal] = {}","numLines":16}
+Good. _momentum() is a 5-bar average percentage change — negative = downtrend, positive = uptrend. Sign convention is clear. Now I have everything.
+
+Design
+Key constraints from the code
+Fact	Impact on design
+_check_price_still_moving() returns a ChecklistResult — can't return a payload	Flip logic must live in receive_signal(), not inside the check
+_run_checklist() is in the hard-check list — it runs before we know if drift failed	Need a side-channel to carry live_price from the check to the caller
+All hard/soft checks read direction from the payload dict	A shallow clone + p["direction"] = flipped automatically corrects every downstream check (wick, RSI, structural stop, trend, market context)
+_check_momentum_phase() uses abs(dist_pct)	Negating distance_from_breakout_pct is safe — the magnitude check still fires correctly
+structural_stop_price is side-specific	Must null it on flip; executor falls back to percent-based stop
+momentum_val returns avg of last 5 bar pct-changes; < -0.5 → short in scanner	We use < 0 for the flip criterion — more sensitive, appropriate since we're detecting an in-progress reversal, not a setup
+Architecture choice
+_check_price_still_moving() stores the live price in self._drift_state (a dict that is wiped at the top of every receive_signal() call). receive_signal() checks that dict after a hard failure and, if non-empty, calls _try_direction_flip(). The flip returns the full Dict[str, Any] response or None.
+
+Calling from inside _check_price_still_moving() would require it to run the checklist, build a payload, and call _inject_signal() — three responsibilities it doesn't own.
+
+Implementation
+1. __init__ — add _drift_state
+def __init__(self):
+    self._executor: Optional[TradeExecutor] = None
+    self._scanner_ref = None
+    # Ephemeral — set by _check_price_still_moving() when it detects adverse drift,
+    # consumed and cleared by receive_signal() within the same call.
+    self._drift_state: Dict[str, Any] = {}
+2. _check_price_still_moving() — stash state before returning fail
+Replace the two return ChecklistResult.fail(...) drift lines:
+
+def _check_price_still_moving(self, p: Dict) -> ChecklistResult:
+    sym       = p["symbol"]
+    asset     = p.get("asset_class", "crypto")
+    ref_price = float(p.get("current_price") or p.get("entry_price", 0))
+    direction = p.get("direction", "long")
+
+    if not self._scanner_ref:
+        return ChecklistResult.fail(
+            "Price re-verify impossible — scanner not wired to receiver"
+        )
+    if ref_price <= 0:
+        return ChecklistResult.fail("current_price/entry_price is zero or missing")
+
+    try:
+        current = self._fetch_live_price_from_scanner(p)
+
+        if not current:
+            return ChecklistResult.skip(
+                f"Could not fetch live price for {sym} — skipping price drift check"
+            )
+
+        drift_pct = ((current - ref_price) / ref_price) * 100
+
+        if direction == "long" and drift_pct < -PRICE_DRIFT_MAX_PCT:
+            # Stash for potential LONG→SHORT flip attempt in receive_signal()
+            self._drift_state = {"live_price": current, "drift_pct": drift_pct}
+            return ChecklistResult.fail(
+                f"{sym} reversed {drift_pct:.2f}% from signal price "
+                f"(limit -{PRICE_DRIFT_MAX_PCT}%)"
+            )
+        if direction == "short" and drift_pct > PRICE_DRIFT_MAX_PCT:
+            # Stash for potential SHORT→LONG flip attempt in receive_signal()
+            self._drift_state = {"live_price": current, "drift_pct": drift_pct}
+            return ChecklistResult.fail(
+                f"{sym} reversed +{drift_pct:.2f}% from signal price "
+                f"(limit +{PRICE_DRIFT_MAX_PCT}%)"
+            )
+
+        return ChecklistResult.ok(f"{sym} still moving (drift={drift_pct:+.2f}%)")
+    except Exception as e:
+        return ChecklistResult.fail(f"Price re-verify exception: {e}")
+3. receive_signal() — clear stale state, attempt flip on hard failure
+Two targeted edits to the existing method body:
+
+def receive_signal(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    sym            = payload.get("symbol", "?")
+    direction      = payload.get("direction", "?")
+    esc            = payload.get("escalation", 0)
+    ts_in          = payload.get("timestamp", "")
+    signal_age_sec = self._signal_age(ts_in)
+
+    # ── EDIT 1: clear any drift state left over from a previous call ──────
+    self._drift_state = {}
+    # ─────────────────────────────────────────────────────────────────────
+
+    broker_hint   = self._normalize_broker_name(payload.get("broker", ""))
+    source_broker = self._normalize_broker_name(
+        payload.get("source_broker", broker_hint or "")
+    )
+
+    # ... (blacklist / bad quote / missing fields checks unchanged) ...
+
+    hard_results, soft_results = self._run_checklist(payload, signal_age_sec)
+
+    hard_passed = all(
+        r.status in (ChecklistResult.PASS, ChecklistResult.SKIP)
+        for r in hard_results
+    )
+    hard_skips  = sum(1 for r in hard_results if r.status == ChecklistResult.SKIP)
+    soft_passes = sum(1 for r in soft_results if r.status == ChecklistResult.PASS)
+    soft_skips  = sum(1 for r in soft_results if r.status == ChecklistResult.SKIP)
+
+    for r in hard_results:
+        lvl = logging.WARNING if r.status == ChecklistResult.FAIL else logging.INFO
+        logger.log(lvl, f"  [HARD] {r}")
+    for r in soft_results:
+        logger.info(f"  [SOFT] {r}")
+
+    checklist_summary = {
+        "hard_passed":       hard_passed,
+        "hard_skipped":      hard_skips,
+        "soft_passed":       soft_passes,
+        "soft_skipped":      soft_skips,
+        "failed_hard_check": next(
+            (r.reason for r in hard_results if r.status == ChecklistResult.FAIL), None
+        ),
+    }
+
+    if not hard_passed:
+        failed = next(r for r in hard_results if r.status == ChecklistResult.FAIL)
+
+        # ── EDIT 2: attempt direction flip if drift state was populated ───
+        drift = self._drift_state
+        self._drift_state = {}          # consume — must clear regardless of outcome
+        if drift:
+            flip_result = self._try_direction_flip(
+                payload,
+                drift["live_price"],
+                drift["drift_pct"],
+                signal_age_sec,
+            )
+            if flip_result is not None:
+                return flip_result
+        # ─────────────────────────────────────────────────────────────────
+
+        reason = f"Hard check failed: {failed.reason}"
+        logger.info(f"[BREAKOUT RECV] CHECKLIST REJECTED {sym} — {reason}")
+        return {
+            "accepted": False,
+            "execution_eligible": True,
+            "failure_class": "checklist_rejected",
+            "reason": reason,
+            "trade_id": None,
+            "checklist": checklist_summary,
+        }
+
+    logger.info(
+        f"[BREAKOUT RECV] CHECKLIST PASSED {sym} — "
+        f"soft: {soft_passes} pass / {soft_skips} skip (advisory only)"
+    )
+    return self._inject_signal(payload, checklist_summary)
+4. _try_direction_flip() — the new method
+Place this between _check_price_still_moving() and _check_volume_elevated() in the file:
+
+def _try_direction_flip(
+    self,
+    payload: Dict[str, Any],
+    live_price: float,
+    drift_pct: float,
+    signal_age_sec: float,
+) -> Optional[Dict[str, Any]]:
+    """
+    Called when _check_price_still_moving() rejects due to adverse drift.
+
+    Evaluates 3 criteria for a direction reversal; requires 2/3 to proceed.
+    If criteria pass, clones the payload, mutates it for the flipped direction,
+    and re-runs the full checklist.  Returns the injection result dict on success,
+    or None to let the caller reject as normal.
+
+    Works symmetrically for LONG→SHORT and SHORT→LONG.
+    """
+    sym        = payload.get("symbol", "?")
+    orig_dir   = payload.get("direction", "long")
+    flipped    = "short" if orig_dir == "long" else "long"
+
+    # ── Evaluate 3 flip criteria ─────────────────────────────────────────
+    criteria_met = 0
+
+    # 1) Volume still elevated — confirms a real move, not a liquidity gap
+    vol = float(payload.get("volume_spike", 0))
+    c1  = vol >= VOLUME_SPIKE_MIN
+    if c1:
+        criteria_met += 1
+
+    # 2) Momentum has reversed sign
+    momentum = float(payload.get("momentum_score", 0))
+    c2 = (momentum < 0) if orig_dir == "long" else (momentum > 0)
+    if c2:
+        criteria_met += 1
+
+    # 3) Live price crossed candle_open — confirms bearish/bullish body forming
+    candle_open = payload.get("candle_open")
+    if candle_open is not None:
+        co = float(candle_open)
+        c3 = (live_price < co) if orig_dir == "long" else (live_price > co)
+    else:
+        c3 = False
+    if c3:
+        criteria_met += 1
+
+    logger.info(
+        f"[BREAKOUT RECV] FLIP EVAL {sym}: {orig_dir.upper()}→{flipped.upper()} "
+        f"criteria={criteria_met}/3  "
+        f"vol={vol:.2f}x≥{VOLUME_SPIKE_MIN}:{c1}  "
+        f"momentum={momentum:.3f} reversed:{c2}  "
+        f"candle_open={float(candle_open):.4f if candle_open is not None else 'N/A'}  "
+        f"live={live_price:.4f} body_confirms:{c3}"
+    )
+
+    if criteria_met < 2:
+        logger.info(
+            f"[BREAKOUT RECV] FLIP DENIED {sym}: only {criteria_met}/3 criteria met — "
+            f"rejecting as original {orig_dir.upper()}"
+        )
+        return None
+
+    # ── Build the flipped payload ────────────────────────────────────────
+    p = dict(payload)   # shallow clone — all values are scalars or None
+
+    p["direction"]     = flipped
+    p["current_price"] = live_price
+    p["entry_price"]   = live_price
+
+    # move_pct: drift_pct already carries the correct sign for the new direction
+    # (negative for LONG→SHORT, positive for SHORT→LONG)
+    p["move_pct"] = round(drift_pct, 4)
+
+    # distance_from_breakout_pct: negate to reflect the reversed relationship
+    # to the original breakout level (_check_momentum_phase uses abs() so the
+    # magnitude check is unaffected)
+    dist = payload.get("distance_from_breakout_pct")
+    if dist is not None:
+        p["distance_from_breakout_pct"] = -float(dist)
+
+    # structural_stop_price is strictly side-specific; the original side's stop
+    # is now on the wrong side of the entry — null it so the executor computes
+    # a fresh percent-based stop
+    p["structural_stop_price"] = None
+
+    logger.info(
+        f"[BREAKOUT RECV] DIRECTION FLIP {sym}: {orig_dir.upper()}→{flipped.upper()} "
+        f"(drift={drift_pct:+.2f}%, criteria_met={criteria_met}/3) "
+        f"entry={live_price:.4f} move_pct={p['move_pct']:+.4f}%"
+    )
+
+    # ── Re-run full checklist on the mutated payload ─────────────────────
+    hard_results, soft_results = self._run_checklist(p, signal_age_sec)
+
+    hard_passed = all(
+        r.status in (ChecklistResult.PASS, ChecklistResult.SKIP)
+        for r in hard_results
+    )
+    hard_skips  = sum(1 for r in hard_results if r.status == ChecklistResult.SKIP)
+    soft_passes = sum(1 for r in soft_results if r.status == ChecklistResult.PASS)
+    soft_skips  = sum(1 for r in soft_results if r.status == ChecklistResult.SKIP)
+
+    for r in hard_results:
+        lvl = logging.WARNING if r.status == ChecklistResult.FAIL else logging.INFO
+        logger.log(lvl, f"  [FLIP HARD] {r}")
+    for r in soft_results:
+        logger.info(f"  [FLIP SOFT] {r}")
+
+    checklist_summary = {
+        "hard_passed":       hard_passed,
+        "hard_skipped":      hard_skips,
+        "soft_passed":       soft_passes,
+        "soft_skipped":      soft_skips,
+        "failed_hard_check": next(
+            (r.reason for r in hard_results if r.status == ChecklistResult.FAIL), None
+        ),
+        "direction_flip": f"{orig_dir}→{flipped}",
+    }
+
+    if not hard_passed:
+        failed = next(r for r in hard_results if r.status == ChecklistResult.FAIL)
+        logger.info(
+            f"[BREAKOUT RECV] FLIP CHECKLIST REJECTED {sym} — {failed.reason}"
+        )
+        return {
+            "accepted":            False,
+            "execution_eligible":  True,
+            "failure_class":       "flip_checklist_rejected",
+            "reason":              f"Direction flip failed checklist: {failed.reason}",
+            "trade_id":            None,
+            "checklist":           checklist_summary,
+        }
+
+    logger.info(
+        f"[BREAKOUT RECV] FLIP CHECKLIST PASSED {sym} — "
+        f"injecting {flipped.upper()} "
+        f"soft: {soft_passes} pass / {soft_skips} skip (advisory only)"
+    )
+    return self._inject_signal(p, checklist_summary)
+Call-site summary
+receive_signal()
+│
+├─ self._drift_state = {}              ← EDIT 1: wipe at call start
+│
+├─ _run_checklist()
+│   └─ _check_price_still_moving()
+│       ├─ if drift < -0.5% (LONG):  self._drift_state = {live_price, drift_pct}; return FAIL
+│       └─ if drift > +0.5% (SHORT): self._drift_state = {live_price, drift_pct}; return FAIL
+│
+├─ if not hard_passed:
+│   ├─ drift = self._drift_state; self._drift_state = {}   ← EDIT 2: consume
+│   ├─ if drift:
+│   │   └─ _try_direction_flip(payload, live_price, drift_pct, age)
+│   │       ├─ eval 3 criteria (require ≥2)
+│   │       ├─ clone + mutate payload (direction, current_price, entry_price,
+│   │       │                          move_pct, distance_from_breakout_pct,
+│   │       │                          structural_stop_price=None)
+│   │       ├─ _run_checklist(mutated_payload)  ← full re-validation
+│   │       └─ if passed → _inject_signal(); return response dict
+│   │          if failed → return response dict with failure_class="flip_checklist_rejected"
+│   │          if criteria < 2 → return None → fall through to original rejection
+│   └─ original CHECKLIST REJECTED response
+│
+└─ _inject_signal()
+Answers to the explicit design questions
+Should flip also work SHORT→LONG?
+Yes. The implementation above is fully symmetric. When a SHORT arrives and drift_pct > +PRICE_DRIFT_MAX_PCT, the stash is set. In _try_direction_flip(), criterion 2 checks momentum > 0 and criterion 3 checks live_price > candle_open. No separate code path needed — the orig_dir == "long" ternaries handle both sides.
+
+Where to call it: inside _check_price_still_moving() or receive_signal()?
+receive_signal(). The price-check method's contract is Dict → ChecklistResult. Making it also fetch live price, build payloads, re-run checklists, and inject signals would be the wrong layer. The _drift_state side-channel keeps the check method clean while giving the caller everything it needs without a second network round-trip.
+
+What happens to structural_stop_price?
+Nulled unconditionally. A long stop is below entry; a short stop is above entry. The original stop is now on the wrong side of the trade and would immediately fail _check_structural_stop() anyway. Nulling it lets the executor fall back to its percent-based stop, which is what happens for crypto signals already.
+
+What happens to entry_price?
+Updated to live_price alongside current_price. The signal was originally stamped at a different price; using that stale level as the entry reference for a freshly-detected reverse move would give the executor a nonsensical entry anchor.
+
+12:30:57 PM
+I have everything needed. Here's the complete analysis.
+
+Complete Field Inventory
+history_length = 50 → SMA(200) is structurally impossible without changing that cap.
+
+Field	Receiver check	Hard/Soft/Required	Scanner source	Currently sent?	If missing
+symbol	_check_no_open_position, _check_daily_symbol_limit, _check_not_in_cooldown, _check_price_still_moving, _inject_signal	Required	signal.symbol	YES	FAIL — invalid_payload
+asset_class	_check_price_still_moving, _check_structural_stop, _inject_signal	Required	"crypto" if "/" in symbol else "stock" — hardcoded in sender	YES	FAIL — invalid_payload
+direction	_check_no_wick_rejection, _check_momentum_phase, _check_structural_stop, _check_rsi_confirms, _check_market_context, _inject_signal	Required	signal.direction (explicit) → momentum_score fallback	YES	FAIL — invalid_payload
+entry_price	_check_price_still_moving (price fallback), _check_structural_stop (price fallback), _inject_signal	Required	signal.entry_price	YES	FAIL — invalid_payload
+current_price	_check_price_still_moving, _check_structural_stop, _check_trend_alignment, _inject_signal	Required	signal.current_price	YES	FAIL — invalid_payload
+move_pct	_check_not_gap_trap, _inject_signal (reason string + indicators)	Required	signal.best_move_pct → sent as both move_pct and best_move_pct	YES	FAIL — invalid_payload
+volume_spike	_check_volume_elevated, _inject_signal	Required	signal.volume_spike → enrichment["volume_spike"] fallback	YES	FAIL — invalid_payload
+confidence	_inject_signal (score computation)	Required	signal.confidence	YES	FAIL — invalid_payload
+escalation	_inject_signal	Required	escalation arg	YES	FAIL — invalid_payload
+timestamp	_check_freshness, _inject_signal	Required	datetime.now(utc).isoformat() at send time	YES	FAIL — invalid_payload
+broker	receive_signal (log), _inject_signal, _fetch_live_price_from_scanner	Soft (no checklist gate)	signal.broker.lower()	YES	default "" → falls back to "kraken" or "alpaca"
+source_broker	receive_signal (log), _inject_signal, _fetch_live_price_from_scanner	Soft (inject-only)	NOT in payload	NO	defaults to broker_hint — price re-verify loses exchange hint
+candle_open	_check_no_wick_rejection (Hard)	Hard	enrichment["open"] ← pd.open_price	YES (post-8A)	SKIP whole wick check
+candle_high	_check_no_wick_rejection (Hard)	Hard	enrichment["high"] ← pd.high	YES (post-8A)	SKIP whole wick check
+candle_low	_check_no_wick_rejection (Hard)	Hard	enrichment["low"] ← pd.low	YES (post-8A)	SKIP whole wick check
+candle_close	_check_no_wick_rejection (Hard)	Hard	enrichment["close"] ← pd.price	YES (post-8A)	SKIP whole wick check
+bars_since_breakout	_check_momentum_phase (Hard), receive_signal (log), _inject_signal	Hard	Not on BreakoutSignal; not counted anywhere	NO	SKIP momentum-phase age sub-check
+distance_from_breakout_pct	_check_momentum_phase (Hard), _inject_signal	Hard	Not on BreakoutSignal; not computed anywhere	NO	SKIP momentum-phase distance sub-check
+rsi	_check_momentum_phase (Hard), _check_rsi_confirms (Soft), _inject_signal	Hard + Soft	enrichment["rsi"] — Wilder RSI(14) from price_history; requires ≥15 bars; score() already requires ≥25 so always present	YES	SKIP both RSI sub-checks
+structural_stop_price	_check_structural_stop (Hard), _inject_signal	Hard	Not in enrichment; not computed anywhere	NO	OK — falls through to percent-based stop; custom_stop_loss_pct computed for crypto; but structural validation entirely bypassed
+sma200	_check_trend_alignment (Soft), _inject_signal	Soft	Not in enrichment; not computed (history_length=50, SMA200 impossible)	NO	SKIP trend-alignment check
+market_pct_change	_check_market_context (Soft)	Soft	enrichment["market_pct_change"] — BTC proxy for crypto only; stocks have no market proxy	PARTIAL (crypto only)	SKIP for stocks
+momentum_score	_inject_signal (indicators dict)	Inject-only	signal.momentum_score	YES	default 0
+pattern	_inject_signal (indicators dict)	Inject-only	enrichment["pattern"] → signal.pattern_detected fallback	YES	default "breakout"
+breakout_level	_inject_signal (indicators dict)	Inject-only	Not on BreakoutSignal; getattr(signal, "breakout_level", None) → always None	NO	None stored in indicators
+source_price	_inject_signal (indicators dict)	Inject-only	Not in payload; falls back to current_price	NO	fallback to current_price
+source_timestamp	_inject_signal (indicators dict)	Inject-only	Not in payload; falls back to timestamp	NO	fallback to timestamp
+best_move_pct	Not read separately; move_pct covers it	N/A	signal.best_move_pct (duplicate key)	YES	N/A
+signal_source	Not read by receiver	N/A	"breakout_scanner" hardcoded	YES	N/A
+Per-Field Fix Specifications
+bars_since_breakout
+Problem: EscalationTracker._tracked stores {"signal": sig, "level": 0}. check() fires every scan cycle (≈30s) per tracked symbol but never increments a counter.
+
+Fix — three-line change to EscalationTracker:
+
+register() — add counter to entry dict:
+
+self._tracked[signal.symbol] = {"signal": signal, "level": 0, "bars_since": 0}
+check() — increment at top of the method body, before the escalation logic:
+
+entry["bars_since"] += 1
+check() — stamp it on the signal before the return:
+
+sig.bars_since_breakout = entry["bars_since"]
+return sig, new_lvl
+BreakoutSignal dataclass — add field:
+
+bars_since_breakout: int = 0
+The receiver's _check_momentum_phase hard-limits to MAX_BARS_SINCE = 4. With a 30s scan interval that's 2 minutes of leash before the entry is considered too late. That's tight but intentional — adjust the constant if needed.
+
+breakout_level and distance_from_breakout_pct
+Problem: Neither field exists on BreakoutSignal. The breakout level is the price at the resistance/support that was crossed — which is exactly signal.entry_price as set by WatchlistManager.add() (signal.entry_price = signal.current_price). That's the price at which the compression/setup was first detected before the gate move.
+
+Fix — BreakoutSignal dataclass:
+
+breakout_level:             float = 0.0
+distance_from_breakout_pct: float = 0.0
+Fix — EscalationTracker.register() — record the level at the moment the signal graduates from watchlist:
+
+def register(self, signal: BreakoutSignal):
+    signal.breakout_level = signal.entry_price  # price at initial detection
+    self._tracked[signal.symbol] = {"signal": signal, "level": 0, "bars_since": 0}
+Fix — EscalationTracker.check() — recompute distance on every cycle before the return:
+
+if sig.breakout_level > 0:
+    raw = (pd.price - sig.breakout_level) / sig.breakout_level * 100
+    sig.distance_from_breakout_pct = raw if sig.direction == "long" else -raw
+The receiver's MAX_DIST_FROM_LVL = 8.0 hard-blocks entry if distance exceeds 8% from the breakout level. This is the anti-chasing guard.
+
+structural_stop_price
+Problem: Not computed anywhere. _build_enrichment has pd.low and pd.high for the current bar and price_history (close-only, 50 bars). A proper multi-bar swing-low/high would need OHLC history separately. The current bar's pd.low/pd.high is the practical best approximation available.
+
+Fix — add to _build_enrichment(), after the OHLC lines:
+
+direction = getattr(pd, "_pattern_dir", None)
+if direction not in ("long", "short"):
+    p_list = list(self.price_history.get(pd.symbol, []))
+    direction = "short" if self._momentum(p_list) < -0.5 else "long"
+
+if direction == "long" and pd.low and pd.low > 0:
+    data["structural_stop_price"] = round(pd.low * 0.997, 6)
+elif direction == "short" and pd.high and pd.high > 0:
+    data["structural_stop_price"] = round(pd.high * 1.003, 6)
+The 0.3% buffer keeps the stop below the wick low/above the wick high without violating the receiver's STOP_MAX_DISTANCE_CRYPTO = 5.0 / STOP_MAX_DISTANCE_STOCK = 2.5 limits. Validate: for a crypto at $1.00 with pd.low = 0.98, stop = 0.97706, distance = 2.3% — within the 5% crypto limit.
+
+Once this is populated, the sender's existing line already handles it:
+
+"structural_stop_price": cd.get("structural_stop") or cd.get("structural_stop_price"),
+Candle OHLC (candle_open/high/low/close)
+Status: Working correctly for all post-8A signals. The mapping is complete:
+
+pd.open_price → enrichment["open"]  → payload["candle_open"]
+pd.high       → enrichment["high"]  → payload["candle_high"]
+pd.low        → enrichment["low"]   → payload["candle_low"]
+pd.price      → enrichment["close"] → payload["candle_close"]
+One edge: for escalation-level alerts (esc 1–3), enrichment is frozen at detection time. The OHLC will be from the bar that triggered detection, not from the bar at which the escalation fires. This is acceptable — the wick check's purpose is to validate the breakout candle, not the current candle.
+
+rsi
+Status: Working correctly — RSI(14) Wilder's method is computed in _build_enrichment from price_history. Since score() gates on len(prices) >= 25 before detect_breakout can return a signal, there will always be ≥25 prices available when _build_enrichment runs. The if len(prices) >= 15: guard will always pass. No fix needed.
+
+sma200
+Status: Structurally blocked. history_length = 50 — the deque cap makes SMA(200) impossible. The soft check _check_trend_alignment will always SKIP for all signals.
+
+To enable it you'd need to raise history_length to at least 200 in BreakoutDetector.__init__, then add to _build_enrichment:
+
+if len(prices) >= 200:
+    data["sma200"] = round(sum(prices[-200:]) / 200, 6)
+history_length = 50 was almost certainly chosen to keep memory/scan-cycle cost low. Bumping to 200 means 4× more history per symbol across potentially 200 symbols — decide whether the trade-off is worth one advisory soft check.
+
+market_pct_change
+Status: Partial — crypto only. _build_enrichment fetches BTC/USD price history as the market proxy for crypto. For stocks there is no equivalent.
+
+Fix for stocks — in _build_enrichment, after the existing BTC block, add a SPY proxy block:
+
+if pd.asset_type == AssetType.STOCK or "/" not in sym:
+    for spy_key in ("SPY", "QQQ"):
+        spy_hist = self.price_history.get(spy_key)
+        if spy_hist and len(spy_hist) >= 2:
+            try:
+                spy = list(spy_hist)
+                if spy[0] > 0:
+                    data["market_pct_change"] = round(
+                        (spy[-1] - spy[0]) / spy[0] * 100, 4
+                    )
+            except Exception:
+                pass
+            break
+This only works if SPY/QQQ appears in the stock scanner's get_top_movers() output or is explicitly seeded into price_history. The simplest reliable approach: always fetch SPY bars in _scan_stocks() and call self.detector.update_history() for each SPY bar before scanning other stocks. If SPY isn't in the movers list, add an explicit SPY seed fetch at the top of _scan_stocks().
+
+source_broker, source_price, source_timestamp
+Status: Not sent. These are inject-only fields that live in Signal.indicators. The receiver's fallback logic is correct (source_broker defaults to broker_hint, source_price defaults to current_price, source_timestamp defaults to timestamp). No checklist check uses them. They're metadata for downstream logging/routing.
+
+Fix (low priority): Add to _build_payload():
+
+"source_broker":    signal.broker.lower(),
+"source_price":     signal.current_price,
+"source_timestamp": signal.timestamp.isoformat() if hasattr(signal.timestamp, "isoformat") else str(signal.timestamp),
+12:31:03 PM
+Now I have everything I need. Here is the full analysis.
+
+Timing Analysis: BreakoutScanner → Receiver Pipeline
+What timestamp actually goes in the payload
+This is the pivotal fact everything else hinges on. In breakout_sender.py:182:
+
+now_utc = datetime.now(timezone.utc).isoformat()
+...
+"timestamp": now_utc,          # ← send moment, NOT detection moment
+_build_payload() is called synchronously inside send_signal(), before the background thread starts. So payload["timestamp"] = the moment the send begins, not signal.timestamp (which is set at detect_breakout():1203 to datetime.now()).
+
+The receiver computes age as (now_utc) − payload["timestamp"], which is localhost network latency (~1–50 ms). The 30-second watchlist delay is irrelevant to TTL. The TTL check cannot fail under normal load.
+
+Worst-case timeline (annotated)
+T=0s     detect_breakout() fires (BreakoutScanner.py:1203)
+         sig.timestamp = datetime.now()   ← display-only; never reaches receiver
+         sig.enrichment built from current bars (RSI, OHLC, market_pct_change)
+         _process_symbol() → watchlist.add(sig)
+         NO SEND. Phase = WATCHLIST.
+
+T=30s    scan_loop wakes (scan_interval_seconds=30)
+         _process_symbol() → watchlist.check(pd)
+         IF fav_move >= momentum_gate_pct(0.80%):
+           promoted.phase = ALERTED
+           escalation.register(promoted)
+           send_alert(promoted, escalation=0)
+             → should_send: esc=0 < _min_esc=2  ← BLOCKED by min_esc gate
+           Net: esc=0 send DROPPED. Bot never sees this signal.
+         IF NOT: scan_count++ → if scan_count >= 3 (T=90s), symbol EXPIRES from watchlist
+
+T=60s    scan wakes
+         escalation.check() → fav_move >= 2.0% → new_lvl=1
+         send_alert(sig, escalation=1)
+           → should_send: esc=1 < _min_esc=2  ← BLOCKED
+           Bot still never sees this.
+
+T=90s    scan wakes
+         escalation.check() → fav_move >= 5.0% → new_lvl=2
+         send_alert(sig, escalation=2)
+           → should_send: esc=2 >= _min_esc=2  ✓
+           → _last_sent.get(sym, 0) = 0  → time.time()-0 >> 30  ← NOT deduped ✓
+           → _last_sent[sym] = time.time()    ← T=90s
+           → payload["timestamp"] = datetime.now(timezone.utc)   ← T=90s
+           → background thread spawned, HTTP fires
+
+T=90.5s  receiver.receive_signal() called
+         signal_age_sec = (T=90.5s) − (T=90s) ≈ 0.5s  ← PASSES 60s TTL ✓
+         BUT: payload carries enrichment from T=0 (90s stale RSI/OHLC) ← BUG
+Worst case for TTL failure: essentially impossible under localhost HTTP with current code. The only theoretical failure path is OS thread scheduler starvation holding the background thread for >60s, which is not a real operating condition.
+
+The five actual bugs
+Bug 1 — _min_esc=2 silently drops esc=0 and esc=1
+should_send() (sender:74):
+
+if escalation < self._min_esc:   # _min_esc defaults to 2
+    return False
+The bot's first possible signal is a 5%+ move. Moderate breakouts (0.8–5%) are invisible. This is arguably intentional, but it means the receiver's bars_since_breakout check (max=4) will often reject what does arrive as "too late."
+
+Bug 2 — Dedup blocks esc=3 when it fires close to esc=2
+should_send() (sender:76–78):
+
+last = self._last_sent.get(signal.symbol, 0)
+if time.time() - last < self._dedup_sec:   # 30s
+    return False
+EscalationTracker.check() already prevents re-emitting the same level (the lvl < N guards are monotonic). So the dedup adds zero protection against duplicate same-level sends. But it does block esc=3 if the price rockets from 5% to 10% in under 30 seconds:
+
+T=90s  esc=2 sent. _last_sent[sym] = T=90s.
+T=105s price hits 10%, scan fires at T=120s.
+       time.time() - last = 30s  → 30 < 30 = False → PASSES (right on the edge)
+
+Same scenario with scan_interval=10s (faster escalation loop):
+T=90s  esc=2 sent.
+T=100s scan fires, price already at 10%.
+       time.time() - last = 10s < 30 → BLOCKED.  esc=3 never delivered.
+With the current 30s scan interval, scans always land ≥30s apart so esc=3 barely passes — but any timing jitter (scan takes 1-2s, time.sleep drift) can cause last_sent + 30 - epsilon and block it.
+
+Bug 3 — Escalation re-sends use T=0 enrichment
+In _process_symbol() (scanner:1693–1697):
+
+result = self.escalation.check(pd)
+if result:
+    sig, level = result          # sig.enrichment still from T=0
+    self.alert_system.send_alert(sig, escalation=level)
+EscalationTracker.check() (scanner:1328) updates sig.current_price but never touches sig.enrichment, sig.volume_spike, or the RSI/OHLC values. A 5% escalation send at T=90s carries candle data from T=0. The receiver's _check_no_wick_rejection and _check_rsi_confirms evaluate 90-second-old bars.
+
+Bug 4 — Dedup is checked before _last_sent is stamped, but only on PASS
+send_signal() (sender:110–121):
+
+if not self.should_send(signal, escalation):
+    return
+...
+self._last_sent[signal.symbol] = time.time()    # stamped AFTER should_send passes
+The first send for a new symbol correctly passes (0 last sent). But if two escalation events fire concurrently across threads (theoretically possible if scan loop and a fast escalation-only path both call _process_symbol), both could pass should_send before either stamps _last_sent. Under the current single-threaded scan loop this is harmless, but worth noting as a race if you ever add a faster escalation check thread.
+
+Bug 5 — _can_alert() cooldown is 30 minutes but only protects esc=0
+_can_alert() (scanner:1672–1674) checks ALERT_COOLDOWN_SECS=1800. This gate sits only on the watchlist→ALERTED promotion path (line 1701). Escalation re-sends (esc=1/2/3) entirely bypass it (line 1694–1698). The 30-minute cooldown effectively prevents re-detection of the same symbol but doesn't rate-limit escalation storms.
+
+Numbered fix list
+1. Timestamp: keep now_utc at send time (current behavior is correct)
+
+Do not change this. The design of stamping datetime.now(timezone.utc) in _build_payload is what makes TTL safe. If anyone ever suggests moving the timestamp assignment to detect_breakout(), reject it — that would guarantee TTL failures after the 30s watchlist delay.
+
+Optionally add a separate audit field:
+
+# in _build_payload(), before the return dict
+"source_timestamp": getattr(signal, "timestamp", None) and
+                    signal.timestamp.astimezone(timezone.utc).isoformat(),
+This gives the receiver an audit trail of detection time without breaking TTL.
+
+2. Bypass dedup for escalation re-sends
+
+EscalationTracker already guarantees each level fires exactly once per symbol lifetime. The dedup buys nothing for esc > 0 and can block esc=3 in fast-moving names.
+
+Change in breakout_sender.py:should_send():
+
+def should_send(self, signal, escalation: int) -> bool:
+    if not self.ready:
+        return False
+    if escalation < self._min_esc:
+        return False
+    if escalation > 0:
+        return True  # EscalationTracker already guarantees each level fires once
+    last = self._last_sent.get(signal.symbol, 0)
+    if time.time() - last < self._dedup_sec:
+        return False
+    return True
+Still stamp _last_sent for all sends (including esc > 0) so the audit log is complete and any esc=0 re-detection is still gated.
+
+3. Refresh enrichment before escalation sends
+
+In MarketScanner._process_symbol() (scanner.py:1691–1698), rebuild enrichment from the live pd before calling send_alert:
+
+result = self.escalation.check(pd)
+if result:
+    sig, level = result
+    # Refresh stale enrichment with current bar data
+    sig.enrichment   = self.detector._build_enrichment(pd)
+    sig.volume_spike = self.detector.vol_spike(pd)
+    logger.warning(f"[ESCALATE {level}] {broker} {sym} move={sig.best_move_pct:+.2f}%")
+    self.alert_system.send_alert(sig, escalation=level)
+    return
+This ensures the receiver's RSI check, wick check, and market-context check use bars from the actual escalation moment, not from detection 90+ seconds earlier.
+
+4. Do not add a faster escalation-only scan loop (yet)
+
+A separate 10s escalation-only thread would require careful locking around EscalationTracker._tracked (currently not thread-safe) and would not fix Bug 3. Fix 3 first. If faster escalation response is needed after that, the right place is reducing scan_interval_seconds for already-tracked symbols via a _fast_scan_symbols set, not a second thread.
+
+5. EscalationTracker.check() should not trigger a send on first promotion
+
+The current path is: watchlist.check() → send_alert(esc=0) → blocked by min_esc. The signal never enters the bot at esc=0. If you lower bot_min_escalation to 0 in scanner_config.json, esc=0 signals start flowing. That's a config knob, not a code change. Consider setting it to 0 in the default config since the receiver's own checklist (RSI, volume, drift, momentum phase) is the real gate — there's no need for a second coarse filter at the sender.
+
+Summary table
+Issue	Worst-case impact	Fix
+timestamp = now_utc at send time	None — TTL always passes	Keep as-is
+First send blocked by _min_esc=2	Bot misses 0–5% breakouts entirely	Lower bot_min_escalation to 0
+Dedup blocks esc=3 within 30s of esc=2	Rocket alerts silently dropped	Bypass dedup for esc > 0
+Stale enrichment on escalation sends	Receiver uses 90s-old RSI/OHLC	Rebuild sig.enrichment from pd in _process_symbol
+signal.timestamp never refreshed	Stale UI display time	Cosmetic only; no functional impact
+12:31:13 PM
+Now I have a complete picture. Let me write the design.
+
+Re-entry Loop Design
+What the code tells us
+Where a win is definitively recorded:
+
+_record_close_in_db() (position_monitor.py:358) — covers IBKR fallback + broker reconciliation paths. Calls risk_manager.record_trade_result() at line 403 with pnl > 0 known.
+Normal close path: _attempt_close() → executor.close_trade() (trade_executor.py, unread) → presumably also calls record_trade_result(). From position_monitor's perspective, success = True returns at line 283.
+The two independent cooldowns blocking re-entry:
+
+risk_manager._last_closed win cooldown = 120s — checked in breakout_receiver._check_not_in_cooldown()
+BreakoutScanner.MarketScanner._alerted_at cooldown = ALERT_COOLDOWN_SECS = 1800s (30 min) — checked in _can_alert(). This is the bigger blocker. The external scanner won't re-alert for 30 min even after the 120s risk_manager cooldown expires.
+Architecture constraint: BreakoutScanner.MarketScanner is a separate process; bot_engine has no reference to it. The re-entry cannot call back into it directly. Instead, the bot-internal scanners.market_scanner.MarketScanner (already wired via set_scanner()) must synthesize the signal itself and inject it directly into breakout_receiver.receive_signal().
+
+Why the receiver's checklist still works for synthetic signals:
+
+volume_spike=1.0 → _check_volume_elevated returns SKIP (not FAIL) by design
+Omitting OHLC → _check_no_wick_rejection returns SKIP
+timestamp=now() → _check_freshness always passes (0s old)
+bars_since_breakout=1 → _check_momentum_phase passes if price hasn't run >8% from level
+Component A — Trade close callback
+Two injection points, both in position_monitor.py only (no changes to risk_manager or trade_executor):
+
+# ── PositionMonitor.__init__() ──────────────────────────────────────────────
+self._on_breakout_win_closed: Optional[Callable] = None   # (symbol, won, price, dir) -> None
+
+def set_breakout_win_callback(self, cb: Callable[[str, bool, float, str], None]) -> None:
+    self._on_breakout_win_closed = cb
+Injection point 1 — _attempt_close() success branch (normal executor path):
+
+def _attempt_close(self, trade: Dict, current_price: float, reason: str) -> bool:
+    ...
+    success = self._get_executor().close_trade(trade, current_price, reason)
+
+    if success:
+        self._reset_close_attempts(trade_id)
+        # NEW ──────────────────────────────────────────────────────────────
+        if self._on_breakout_win_closed and _is_breakout_trade(trade):
+            direction = trade["direction"]
+            entry     = trade["entry_price"]
+            won       = (
+                (direction == "long"  and current_price > entry) or
+                (direction == "short" and current_price < entry)
+            )
+            try:
+                self._on_breakout_win_closed(symbol, won, current_price, direction)
+            except Exception:
+                pass
+        # ──────────────────────────────────────────────────────────────────
+        return True
+Injection point 2 — _record_close_in_db() (IBKR fallback + reconciliation paths):
+
+def _record_close_in_db(self, trade: Dict, exit_price: float, exit_reason: str) -> None:
+    ...
+    risk_manager.record_trade_result(pnl=pnl, trade_won=(pnl > 0), symbol=symbol)
+    # NEW ──────────────────────────────────────────────────────────────
+    if self._on_breakout_win_closed and _is_breakout_trade(trade):
+        try:
+            self._on_breakout_win_closed(symbol, pnl > 0, exit_price, trade["direction"])
+        except Exception:
+            pass
+    # ──────────────────────────────────────────────────────────────────
+Helper (file-level, no import cost):
+
+import json as _json
+
+def _is_breakout_trade(trade: Dict) -> bool:
+    # strategy_name lives in indicators_json; fall back to top-level column
+    if trade.get("strategy_name") == "breakout_scanner":
+        return True
+    try:
+        meta = _json.loads(trade.get("indicators_json") or "{}")
+        return meta.get("strategy_name") == "breakout_scanner"
+    except Exception:
+        return False
+Component B — MarketScanner.re_entry_scan()
+Added to scanners/market_scanner.py. Uses threading.Timer so it fires exactly 125s after the win (5s after the 120s cooldown clears), without blocking the scan loop or the position monitor.
+
+# ── New imports in market_scanner.py ────────────────────────────────────────
+import threading
+from datetime import datetime, timezone
+from typing import Optional, Callable
+
+WIN_REENTRY_DELAY_SEC = 125   # 120s cooldown + 5s buffer
+
+class MarketScanner:
+
+    def __init__(self, ...):
+        ...
+        self._receiver_ref            = None           # set via set_reentry_receiver()
+        self._pending_reentry: set    = set()          # guard against duplicate timers
+        self._pending_lock            = threading.Lock()
+
+    def set_reentry_receiver(self, receiver) -> None:
+        self._receiver_ref = receiver
+
+    # ── Public: called from the trade-close thread ───────────────────────────
+    def schedule_reentry(self, symbol: str, exit_price: float, direction: str) -> None:
+        """
+        Called by bot_engine's win callback from the position monitor thread.
+        Never touches scanner state — only creates a Timer.
+        """
+        with self._pending_lock:
+            if symbol in self._pending_reentry:
+                logger.info(f"[REENTRY] {symbol}: already pending — skipped duplicate")
+                return
+            self._pending_reentry.add(symbol)
+
+        t = threading.Timer(
+            WIN_REENTRY_DELAY_SEC,
+            self._safe_reentry_scan,
+            args=[symbol, exit_price, direction],
+        )
+        t.daemon = True
+        t.start()
+        logger.info(
+            f"[REENTRY] {symbol} {direction} re-entry scan "
+            f"scheduled in {WIN_REENTRY_DELAY_SEC}s"
+        )
+
+    # ── Internal: fires on Timer thread (daemon) ─────────────────────────────
+    def _safe_reentry_scan(self, symbol: str, exit_price: float, direction: str) -> None:
+        with self._pending_lock:
+            self._pending_reentry.discard(symbol)
+        try:
+            self._do_reentry_scan(symbol, exit_price, direction)
+        except Exception as e:
+            logger.error(f"[REENTRY] {symbol}: scan failed: {e}", exc_info=True)
+
+    def _do_reentry_scan(self, symbol: str, exit_price: float, direction: str) -> None:
+        """
+        Synthesizes a re-entry signal from live price and feeds it to the receiver.
+
+        The receiver's full checklist still runs:
+          - freshness:        always passes (timestamp = now)
+          - no open position: naturally enforced
+          - cooldown:         120s win cooldown has expired (we waited 125s)
+          - price moving:     verified here AND re-verified by receiver
+          - volume_spike=1.0: triggers SKIP path (not FAIL) by receiver design
+          - momentum phase:   bars_since_breakout=1 passes unless price chased >8%
+        """
+        if not self._receiver_ref:
+            logger.warning("[REENTRY] No receiver wired — skipping")
+            return
+
+        asset_class   = "crypto" if "/" in symbol else "stock"
+        current_price = self.get_current_price(symbol, asset_class)
+
+        if not current_price:
+            logger.info(f"[REENTRY] {symbol}: could not fetch live price — aborting")
+            return
+
+        # Price still moving in original direction? (0.3% tolerance for slippage/spread)
+        drift_pct = ((current_price - exit_price) / exit_price) * 100
+        if direction == "long"  and drift_pct < -0.3:
+            logger.info(f"[REENTRY] {symbol}: reversed {drift_pct:.2f}% since exit — skip")
+            return
+        if direction == "short" and drift_pct >  0.3:
+            logger.info(f"[REENTRY] {symbol}: reversed {drift_pct:+.2f}% since exit — skip")
+            return
+
+        payload = {
+            "symbol":                      symbol,
+            "asset_class":                 asset_class,
+            "direction":                   direction,
+            "entry_price":                 current_price,
+            "current_price":               current_price,
+            "move_pct":                    drift_pct,
+            "volume_spike":                1.0,       # receiver SKIPs 1.0 (no history)
+            "confidence":                  0.70,
+            "escalation":                  1,         # treat as continuation, not fresh esc=0
+            "timestamp":                   datetime.now(timezone.utc).isoformat(),
+            "broker":                      "kraken" if asset_class == "crypto" else "alpaca",
+            "bars_since_breakout":         1,
+            "distance_from_breakout_pct":  abs(drift_pct),
+            # Omit OHLC → _check_no_wick_rejection SKIPs (neutral)
+            # Omit rsi/sma200 → soft checks SKIP (advisory only)
+        }
+
+        logger.info(
+            f"[REENTRY] Injecting {symbol} {direction} @ ${current_price:.4f} "
+            f"(exited @ ${exit_price:.4f}, drift={drift_pct:+.2f}%)"
+        )
+
+        result = self._receiver_ref.receive_signal(payload)
+        accepted = result.get("accepted", False)
+        logger.info(
+            f"[REENTRY] {symbol}: {'ACCEPTED → trade_id=' + str(result.get('trade_id')) if accepted else 'REJECTED — ' + result.get('reason', '?')}"
+        )
+Component C — Wiring in bot_engine.py
+No new imports needed — both objects are already imported.
+
+# ── In BotEngine.__init__() or start(), after existing wiring ───────────────
+
+# Already present:
+breakout_receiver.set_executor(self.trade_executor)
+breakout_receiver.set_scanner(self.market_scanner)
+
+# NEW: wire re-entry path (no circular import — scanner receives ref at runtime)
+self.market_scanner.set_reentry_receiver(breakout_receiver)
+
+def _on_breakout_win_closed(symbol: str, won: bool,
+                             exit_price: float, direction: str) -> None:
+    if won:
+        try:
+            self.market_scanner.schedule_reentry(symbol, exit_price, direction)
+        except Exception as e:
+            logger.error(f"[REENTRY HOOK] schedule failed for {symbol}: {e}")
+
+from core.position_monitor import monitor as _monitor
+_monitor.set_breakout_win_callback(_on_breakout_win_closed)
+Why no circular import: market_scanner.py never imports breakout_receiver. The reference is injected at runtime via set_reentry_receiver(). The receiver's existing from scanners.market_scanner import Signal is a local import inside _inject_signal(), so there's no module-level cycle.
+
+Thread Safety Risk Table
+Shared resource	Accessed from	Risk	Verdict
+_pending_reentry set	position monitor thread (schedule), Timer thread (discard)	Read-write race	Mitigated — protected by _pending_lock
+_receiver_ref	Timer thread (read)	None — set once at startup, never mutated	Safe
+get_current_price()	Timer thread	Depends on fetcher's own locking	Assumed safe (already called from scan loop)
+receiver.receive_signal()	Timer thread	Reads risk_manager._last_closed (plain dict), writes to db	CPython GIL makes dict reads atomic; SQLite WAL handles concurrent writers
+risk_manager._last_closed	Position monitor writes, Timer reads	Stale read possible — Timer sees won=False pre-update	Benign: receiver's cooldown check will simply block re-entry, try again on next breakout
+Duplicate Timer for same symbol	Two concurrent wins on same symbol	Double re-entry attempt	Mitigated — _pending_lock + _pending_reentry set blocks the second
+One flag worth calling out explicitly: _check_not_in_cooldown() in the receiver reads risk_manager._last_closed as a plain dict with no lock. If the Timer fires at exactly 120.000s and the position monitor hasn't finished writing _last_closed yet, the re-entry could slip through with a stale won=None. The 5s buffer (WIN_REENTRY_DELAY_SEC = 125) makes this a non-issue in practice, but if you want to be rigorous, a threading.Lock on _last_closed is the clean fix.
+
+Suggested implementation order:
+
+Component A (position_monitor callback hook) — isolated, testable, no new logic
+Component B on MarketScanner — can be tested standalone by calling schedule_reentry() manually
+Component C wiring — one block in bot_engine.__init__, done
+12:32:51 PM
+Writing the plan document now.
+
+12:33:11 PM
+12:36:00 PM
+
+Write
+C:\Users\Linda\.archon\workspaces\PNWSkyHippy\Trading_Bot_V2...
+54ms
+You're out of extra usage · resets 3pm (America/Los_Angeles)
+
+12:36:00 PM
+❌ DAG workflow 'breakout-pipeline-plan' completed with failures: 'synthesize-plan': Credit exhaustion detected — resume when credits reset
+
+12:36:00 PM

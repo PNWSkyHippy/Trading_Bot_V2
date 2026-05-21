@@ -42,6 +42,45 @@ Cross-symbol 1h (2024) summary
   XRPUSDT   +0.77%  PF 1.26  Sharpe 0.20
   SOLUSDT   −0.44%  PF 0.95  Sharpe −0.10
 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+AUDIT STATUS (2026-05-20) — quant-strategy-auditor-refiner
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+STATUS: WATCHLIST — structural exit bug fixed, monitoring
+
+LIVE PERFORMANCE (27 strategy exits, excl. manual_close):
+  Long:  3 trades,  0.0% WR, -$25.94 (too few to judge)
+  Short: 24 trades, 33.3% WR, -$142.51
+  Net:   -$168.45 total
+
+ROOT CAUSE — EXIT MECHANISM BUG:
+  ECB's own exits (ecb_max_hold, ecb_entropy_reset, ecb_regime_flip)
+  NEVER FIRED in live trading. All exits were position monitor mechanisms:
+    pivot_break_r1:    13 exits  -$56.94  ← #1 cause
+    perf_time_stop_1hr: 8 exits  -$39.79  ← ECB's 24-bar thesis murdered at 2hr
+    stop_loss:          2 exits  -$93.12  (BCH alone = -$79.36)
+    take_profit:        1 exit   +$26.75
+
+  CRITICAL BUG: time_stop_profile = "strategy_defined" was declared but
+  position_monitor never read it. The 2hr perf stop fired on ECB trades,
+  cutting the 24-bar thesis at bar 2 every time.
+
+APPLIED FIX (Iter1, 2026-05-20):
+  ✅ position_monitor._check_performance_time_stop(): added ecb_strategy
+     to TIME_STOP_EXEMPT set — 2hr/5hr/8hr stops now bypass ECB trades.
+     ecb_max_hold (24-bar) will now be the primary time exit as designed.
+
+NEXT STEPS:
+  1. Monitor live: ECB exits should now show ecb_max_hold / ecb_entropy_reset
+     / ecb_regime_flip. If perf_time_stop_1hr still fires → investigate further.
+  2. After 50+ post-fix trades: check if WR improves toward backtest 63.6%
+  3. BCH was the worst offender (-$79.36 stop_loss). If BCH repeatedly generates
+     ECB shorts that blow up → add it to blacklist.
+  4. Long side (3 trades, 0% WR) is too thin to judge. Monitor — if longs remain
+     near 0% after 20+ trades, check the bull_regime filter for false positives.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 Dependencies
 ------------
   pip install pandas numpy ccxt
@@ -464,6 +503,25 @@ class ECBStrategy(BaseStrategy):
         MIN_BARS = max(p.trend_ma_length, p.vol_filter_len, p.entropy_window) + 20
         if not self._check_enough_candles(symbol, candles, MIN_BARS):
             return None
+
+        # ── Timeframe guard: ECB requires 1h bars ────────────────────────────
+        # On 5m/15m bars, Shannon entropy collapses every few hours of noise,
+        # generating frequent low-quality entries (~8% WR observed in Apr 2026
+        # backtest).  The 200-bar macro trend is also only ~16h of 5m data —
+        # completely unstable as a regime filter.
+        # Detect bar interval from last two candles and skip if < 50 minutes.
+        if len(candles) >= 2:
+            try:
+                bar_secs = (candles.index[-1] - candles.index[-2]).total_seconds()
+                if bar_secs < 3000:   # 3000s = 50 min; 1h bars ≥ 3600s
+                    self.verbose_log_skip(
+                        symbol,
+                        f"ECB requires ≥1h bars; detected ~{int(bar_secs/60)}m bars — skip"
+                    )
+                    return None
+            except Exception:
+                pass  # non-datetime index — proceed without check
+
         try:
             sig  = generate_signals(candles, p)
             last = sig.iloc[-1]

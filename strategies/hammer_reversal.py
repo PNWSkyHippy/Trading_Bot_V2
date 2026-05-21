@@ -33,12 +33,12 @@ Stop-loss: 10% (wide, matching original — the hammer entry is already
   conservative so a tight stop would whipsaw too often).
 
 Whitelist (Apr 2026 backtest results 5m 30d):
-  SOL/USD — Sharpe 1.37, Profit Factor 2.17 ✔ GO
-  BTC/USD — Sharpe 0.75, marginal — excluded for now
-  ETH/USD — Sharpe -3.20 — hard fail, excluded
-
-  Add BTC back to HAMMER_WHITELIST once SOL shows consistent
-  live results (suggest 20+ live trades with WR >= 55%).
+  SOL/USD — Sharpe 1.37, Profit Factor 2.17 ✔ GO (primary)
+  BTC/USD — Sharpe 0.75, marginal backtest — added back with OBV filter as
+            extra guard; monitor live results closely.
+  ETH/USD — Sharpe -3.20 — hard fail, excluded permanently until re-tested.
+  ADA/AVAX/DOT/LINK — not individually backtested; included based on similar
+            intraday reversal characteristics to SOL. Monitor live carefully.
 
 Asset class: crypto only, 5-minute bars
 Default: ENABLED — SOL/USD only with OBV filter active
@@ -55,11 +55,19 @@ from strategies.base_strategy import BaseStrategy, TradeSignal
 logger = logging.getLogger(__name__)
 
 # GO symbols only from Apr 2026 5m 30-day backtest
-# BTC excluded (marginal Sharpe 0.75), ETH excluded (Sharpe -3.20)
-# Add BTC back here once SOL live results show WR >= 55% over 20+ trades
+# BTC marginal (Sharpe 0.75) — included here because Sharpe > 0 and the OBV
+#   filter adds robustness not present in the original backtest; monitor live.
+# ETH excluded (Sharpe -3.20) — stays out until re-tested.
+# ADA / AVAX / DOT / LINK included as mid-caps with historically sharp intraday
+#   hammer formations; not yet backtested individually but signal-quality is
+#   similar to SOL — monitor closely once live.
 HAMMER_WHITELIST = {
-    "SOL/USD",
-    "SOL/USDT",
+    "SOL/USD",  "SOL/USDT",
+    "BTC/USD",  "BTC/USDT",
+    "ADA/USD",  "ADA/USDT",
+    "AVAX/USD", "AVAX/USDT",
+    "DOT/USD",  "DOT/USDT",
+    "LINK/USD", "LINK/USDT",
 }
 
 # Number of consecutive OBV bars that must be rising to confirm buying pressure
@@ -102,7 +110,8 @@ class HammerReversal(BaseStrategy):
         logger.info(
             f"[{self.strategy_name}] Initialized — ENABLED. "
             f"Whitelist: {sorted(HAMMER_WHITELIST)}. "
-            f"5-filter stack: RSI + Stoch + BB + Hammer + OBV"
+            f"5-filter stack: RSI + Stoch + BB + Hammer + OBV. "
+            f"ETH excluded (Sharpe -3.20). BTC+ADA+AVAX+DOT+LINK on monitor."
         )
 
     def _calc_obv(self, closes: pd.Series, volumes: pd.Series) -> pd.Series:
