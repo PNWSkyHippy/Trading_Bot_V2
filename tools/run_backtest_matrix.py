@@ -15,15 +15,16 @@ from __future__ import annotations
 
 import argparse
 import csv
+import itertools
 import json
 import math
 import os
 import sys
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from pathlib import Path
-from typing import Iterable, List, Sequence
+from typing import Dict, Iterable, List, Sequence
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -76,6 +77,56 @@ FULL_STOP_PROFILES = [
     ("two_bar_3", "two_bar", "two_bar", "two_bar", 3),
 ]
 
+# ---------------------------------------------------------------------------
+# Param sweep definitions — one entry per strategy.
+# Each key maps to a list of values to try. The sweep generates every
+# combination (cartesian product) of all listed params for that strategy.
+# Add/remove values here to control sweep density vs runtime.
+# ---------------------------------------------------------------------------
+PARAM_SWEEP_DEFS: Dict[str, Dict[str, list]] = {
+    "mean_reversion": {
+        "mean_rev_zscore_entry": [1.5, 1.8, 2.0, 2.2, 2.5],
+        "mean_rev_period":       [10, 15, 20, 25, 30],
+        "mean_rev_min_score":    [0.55, 0.60, 0.65],
+    },
+    "dca_accumulator": {
+        "dca_dip_pct":    [0.01, 0.015, 0.02, 0.025],
+        "dca_rsi_max":    [30, 35, 40],
+        "dca_ema_period": [30, 50, 70],
+    },
+    # rsi_dip_spike_v4 — keys must match RSIDipSpikeV4Params field names exactly.
+    # The backtester tier-2 patch applies them directly to strategy_obj.params.
+    # Focus: entry threshold (rsi_oversold), trend filter (adx_min), and R:R
+    # ratio (tp_atr_mult vs sl_atr_mult). rsi_length=7 is well-validated; test
+    # 10 as an alternative. Avoid sweeping too many dims at once — 4×3×3 = 36.
+    "rsi_dip_spike_v4": {
+        "rsi_oversold":  [28, 30, 33, 36],     # deeper dip = fewer but cleaner signals
+        "adx_min":       [20, 25, 30],          # 25 is default; test looser/tighter
+        "tp_atr_mult":   [1.5, 2.0, 2.5],      # default 2.0; 2.5 = wider profit target
+    },
+    "swing_trader": {
+        "swing_adx_min":       [22, 25, 28, 30],
+        "swing_rsi_oversold":  [28, 30, 32, 35],
+        "swing_rsi_overbought":[65, 68, 70, 72],
+    },
+    "grid_bot": {
+        "grid_adx_max":    [12, 15, 18, 20],
+        "grid_bb_period":  [15, 20, 25],
+        "grid_bb_std":     [1.8, 2.0, 2.2],
+    },
+}
+
+
+def build_param_combos(strategy: str) -> List[Dict[str, float]]:
+    """Return list of param override dicts for every combination in the sweep def."""
+    defs = PARAM_SWEEP_DEFS.get(strategy)
+    if not defs:
+        return [{}]  # no sweep defined — single run with defaults
+    keys   = list(defs.keys())
+    values = list(defs.values())
+    return [dict(zip(keys, combo)) for combo in itertools.product(*values)]
+
+
 CSV_FIELDS = [
     "rank_hint",
     "strategy",
@@ -108,6 +159,7 @@ CSV_FIELDS = [
     "finished_at",
     "elapsed_sec",
     "symbols",
+    "param_overrides",
 ]
 
 
@@ -121,6 +173,7 @@ class Combo:
     initial_stop: str
     trail_stop: str
     lookback: int
+    param_overrides: tuple = ()   # tuple of (key, value) pairs — hashable, converts to dict for run
 
 
 def split_csv(value: str | None, default: Sequence[str]) -> List[str]:
@@ -183,22 +236,24 @@ def build_combos(args) -> List[Combo]:
     timeframes = split_csv(args.timeframes, default_tfs)
     sides = split_csv(args.sides, default_sides)
 
-    combos = [
-        Combo(
-            strategy=strategy,
-            timeframe=tf,
-            side=side,
-            stop_profile=label,
-            stop_mode=stop_mode,
-            initial_stop=initial_stop,
-            trail_stop=trail_stop,
-            lookback=lookback,
-        )
-        for strategy in strategies
-        for tf in timeframes
-        for side in sides
-        for label, stop_mode, initial_stop, trail_stop, lookback in stop_profiles
-    ]
+    combos = []
+    for strategy in strategies:
+        param_combos = build_param_combos(strategy) if getattr(args, "param_sweep", False) else [{}]
+        for tf in timeframes:
+            for side in sides:
+                for label, stop_mode, initial_stop, trail_stop, lookback in stop_profiles:
+                    for param_dict in param_combos:
+                        combos.append(Combo(
+                            strategy=strategy,
+                            timeframe=tf,
+                            side=side,
+                            stop_profile=label,
+                            stop_mode=stop_mode,
+                            initial_stop=initial_stop,
+                            trail_stop=trail_stop,
+                            lookback=lookback,
+                            param_overrides=tuple(sorted(param_dict.items())),
+                        ))
     return combos[: max(1, args.max_combos)]
 
 
@@ -275,6 +330,7 @@ def summarize_combo(results, combo: Combo, args, symbols: Sequence[str], started
         "finished_at": datetime.fromtimestamp(finished).isoformat(timespec="seconds"),
         "elapsed_sec": round(finished - started, 2),
         "symbols": " ".join(symbols),
+        "param_overrides": json.dumps(dict(combo.param_overrides)) if combo.param_overrides else "",
     }
 
 
@@ -306,8 +362,10 @@ def write_top_csv(path: Path, rows: Sequence[dict]) -> None:
 def run_combo(bt: Backtester, combo: Combo, args, symbols: Sequence[str]):
     results = []
     delay = max(0.0, float(getattr(args, "symbol_delay_sec", 0.0) or 0.0))
+    param_overrides = dict(combo.param_overrides) if combo.param_overrides else None
     for idx, symbol in enumerate(symbols):
-        if idx and delay:
+        # Only throttle when we're about to hit the network — skip if cached
+        if idx and delay and not bt.is_cached(symbol, args.days, combo.timeframe):
             time.sleep(delay)
         if combo.strategy == "original_scorer":
             result = bt.run(
@@ -335,6 +393,7 @@ def run_combo(bt: Backtester, combo: Combo, args, symbols: Sequence[str]):
                 initial_stop_mode=combo.initial_stop,
                 trail_mode=combo.trail_stop,
                 entry_side_filter=combo.side,
+                param_overrides=param_overrides,
             )
         if result and getattr(result, "total_trades", 0) > 0:
             results.append(result)
@@ -360,6 +419,8 @@ def parse_args():
         help="Sleep between symbols inside each combo to avoid data-provider bursts. Default: 0.35",
     )
     parser.add_argument("--full", action="store_true", help="Use the broader preset lists before max-combos cap.")
+    parser.add_argument("--param-sweep", action="store_true",
+                        help="Expand param combinations from PARAM_SWEEP_DEFS for the selected strategy.")
     parser.add_argument("--dry-run", action="store_true", help="Print planned combos and exit.")
     parser.add_argument("--out", default="", help="CSV output path.")
     return parser.parse_args()
@@ -397,9 +458,10 @@ def main() -> int:
     rows = []
     for idx, combo in enumerate(combos, 1):
         started = time.time()
+        param_str = f" params={dict(combo.param_overrides)}" if combo.param_overrides else ""
         print(
             f"[{idx}/{len(combos)}] {combo.strategy} {combo.timeframe} "
-            f"side={combo.side} stop={combo.stop_profile}",
+            f"side={combo.side} stop={combo.stop_profile}{param_str}",
             flush=True,
         )
         try:

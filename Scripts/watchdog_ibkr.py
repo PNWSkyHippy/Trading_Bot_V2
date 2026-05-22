@@ -89,37 +89,79 @@ def port_alive(host: str, port: int, timeout: float = SOCKET_TIMEOUT) -> bool:
 def find_ibkr_pids() -> list[int]:
     """
     Return PIDs of running IBKR processes.
-    Windows: tasklist; Linux: pgrep.
+    Windows: tasklist + wmic for javaw.exe + netstat port owner; Linux: pgrep.
     """
     pids = []
     try:
         if IS_WINDOWS:
             import subprocess
-            result = subprocess.run(
-                ["tasklist", "/FI", f"IMAGENAME eq {TWS_PROCESS_NAME}", "/FO", "CSV", "/NH"],
-                capture_output=True, text=True
-            )
-            for line in result.stdout.splitlines():
-                parts = line.strip('"').split('","')
-                if len(parts) >= 2:
-                    try:
-                        pids.append(int(parts[1]))
-                    except ValueError:
-                        pass
-            # Also check gateway
-            result2 = subprocess.run(
-                ["tasklist", "/FI", f"IMAGENAME eq {GATEWAY_PROCESS_NAME}", "/FO", "CSV", "/NH"],
-                capture_output=True, text=True
-            )
-            for line in result2.stdout.splitlines():
-                parts = line.strip('"').split('","')
-                if len(parts) >= 2:
-                    try:
-                        pid = int(parts[1])
-                        if pid not in pids:
-                            pids.append(pid)
-                    except ValueError:
-                        pass
+
+            def _tasklist_pids(image_name: str) -> list[int]:
+                r = subprocess.run(
+                    ["tasklist", "/FI", f"IMAGENAME eq {image_name}", "/FO", "CSV", "/NH"],
+                    capture_output=True, text=True
+                )
+                found = []
+                for line in r.stdout.splitlines():
+                    parts = line.strip('"').split('","')
+                    if len(parts) >= 2:
+                        try:
+                            found.append(int(parts[1]))
+                        except ValueError:
+                            pass
+                return found
+
+            # Check named executables (older TWS installs)
+            for name in (TWS_PROCESS_NAME, GATEWAY_PROCESS_NAME):
+                for pid in _tasklist_pids(name):
+                    if pid not in pids:
+                        pids.append(pid)
+
+            # IBC on Windows runs as javaw.exe — check command line for IBC/gateway keywords
+            try:
+                wmic_result = subprocess.run(
+                    ["wmic", "process", "where",
+                     "name='javaw.exe'",
+                     "get", "ProcessId,CommandLine", "/value"],
+                    capture_output=True, text=True, timeout=10
+                )
+                current_pid = None
+                keywords = ("ibgateway", "ibc", "tws", "trader workstation", "jts")
+                for line in wmic_result.stdout.splitlines():
+                    line = line.strip()
+                    if line.startswith("ProcessId="):
+                        try:
+                            current_pid = int(line.split("=", 1)[1].strip())
+                        except ValueError:
+                            current_pid = None
+                    elif line.startswith("CommandLine="):
+                        cmd = line.lower()
+                        if any(kw in cmd for kw in keywords):
+                            if current_pid and current_pid not in pids:
+                                pids.append(current_pid)
+            except Exception as e:
+                logger.warning(f"wmic javaw scan failed: {e}")
+
+            # Fallback: find whatever process owns the IBKR port via netstat
+            if not pids:
+                try:
+                    ns = subprocess.run(
+                        ["netstat", "-ano", "-p", "TCP"],
+                        capture_output=True, text=True, timeout=10
+                    )
+                    for line in ns.stdout.splitlines():
+                        if f":{PAPER_PORT}" in line or f":{LIVE_PORT}" in line:
+                            parts = line.split()
+                            if parts:
+                                try:
+                                    pid = int(parts[-1])
+                                    if pid not in pids:
+                                        pids.append(pid)
+                                        logger.info(f"Found port-owner PID via netstat: {pid}")
+                                except ValueError:
+                                    pass
+                except Exception as e:
+                    logger.warning(f"netstat port-owner scan failed: {e}")
         else:
             result = subprocess.run(
                 ["pgrep", "-f", "ibgateway|tws|Trader Workstation"],
@@ -140,25 +182,27 @@ def kill_ibkr(pids: list[int]) -> None:
     for pid in pids:
         try:
             if IS_WINDOWS:
-                os.kill(pid, signal.SIGTERM)
+                # SIGTERM is a no-op for Java on Windows; use taskkill /F directly
+                subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True)
+                logger.info(f"taskkill /F PID {pid}")
             else:
                 os.kill(pid, signal.SIGTERM)
-            logger.info(f"Sent SIGTERM to PID {pid}")
+                logger.info(f"Sent SIGTERM to PID {pid}")
         except ProcessLookupError:
             pass
         except Exception as e:
             logger.warning(f"Kill PID {pid} failed: {e}")
 
-    # Give it 15s to die gracefully after a dirty mid-day crash, then SIGKILL
-    time.sleep(15)
+    # Give processes 20s to fully release handles and ports before relaunch
+    time.sleep(20)
     for pid in pids:
         try:
             os.kill(pid, 0)   # check still alive
             if IS_WINDOWS:
-                subprocess.run(["taskkill", "/F", "/PID", str(pid)], capture_output=True)
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True)
             else:
                 os.kill(pid, signal.SIGKILL)
-            logger.info(f"Force-killed PID {pid}")
+            logger.info(f"Force-killed PID {pid} (still alive after grace period)")
         except ProcessLookupError:
             pass   # already dead, good
 
@@ -173,11 +217,12 @@ def launch_ibkr(exec_path: str) -> None:
         return
     try:
         if IS_WINDOWS:
-            # .bat files require cmd.exe /c; detach so watchdog keeps running
+            # CREATE_NEW_CONSOLE gives IBC Gateway its own visible window and
+            # proper desktop access — Java GUI apps fail silently with DETACHED_PROCESS
             subprocess.Popen(
                 ["cmd.exe", "/c", exec_path],
                 shell=False,
-                creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP,
+                creationflags=subprocess.CREATE_NEW_CONSOLE,
             )
         else:
             subprocess.Popen(["/bin/bash", exec_path], shell=False)

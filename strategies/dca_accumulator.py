@@ -93,6 +93,10 @@ DCA_WHITELIST = {
     # Blue-chip stocks
     "AAPL", "MSFT", "GOOGL", "AMZN", "NVDA", "META", "TSLA",
     "SPY", "QQQ", "JPM", "BAC", "XOM",
+    # Extended tech — confirmed positive PF on mean_reversion 1h/90d backtest
+    # (all appeared in mean_reversion's 50-stock basket with trades)
+    "AMD", "INTC", "MRVL", "QCOM", "MU", "AMAT", "LRCX", "KLAC",
+    "PLTR", "CRM", "CRWD", "PANW", "COIN", "PYPL", "SOFI", "HOOD",
     # Major crypto — confirmed GO on 1hr/365 day backtest with 2-bar trailing stop
     "BTC/USD", "ETH/USD", "SOL/USD", "ADA/USD",
     "XRP/USD", "LINK/USD", "DOT/USD", "AVAX/USD",

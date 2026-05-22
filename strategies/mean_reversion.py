@@ -164,26 +164,13 @@ class MeanReversion(BaseStrategy):
                 )
 
         # ----------------------------------------------------------------
-        # SHORT SIGNAL: price far above mean (positive z-score extreme)
+        # SHORT SIGNAL: disabled — backtests show PF 0.925 / -$912 loss
+        # on stocks at 1h across 50 symbols (90 days). Structural upward
+        # drift in equities means overbought z-score extremes continue
+        # higher instead of reverting. Re-enable only with crypto or
+        # bear-market regime filter.
         # ----------------------------------------------------------------
-        elif zscore >= zscore_entry:
-            strength = min(1.0, abs(zscore) / (zscore_entry * 2))
-            score    = min(1.0, min_score + strength * 0.3)
-            self.verbose_log(
-                symbol, "Z-score in overbought extreme (short signal)",
-                True, zscore, f">={zscore_entry}", "short"
-            )
-            self.verbose_log_score(symbol, score, min_score)
-
-            if score >= min_score:
-                return self._make_signal(
-                    symbol    = symbol,
-                    direction = "short",
-                    score     = score,
-                    reason    = (
-                        f"Mean reversion short: z-score={zscore:.3f} "
-                        f"(extreme high, {abs(zscore):.1f}σ from mean)"
-                    )
-                )
+        # elif zscore >= zscore_entry:
+        #     ...shorts here if ever re-enabled...
 
         return None

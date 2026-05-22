@@ -472,8 +472,8 @@ class BreakoutReceiver:
         dist_pct    = p.get("distance_from_breakout_pct")
         rsi         = p.get("rsi")
 
-        MAX_BARS_SINCE    = 4
-        MAX_DIST_FROM_LVL = 8.0
+        MAX_BARS_SINCE    = 3    # tightened from 4 — 4 bars = 20min on 5m, too late
+        MAX_DIST_FROM_LVL = 6.0  # tightened from 8% — 7.93% PEAQ trade was a chase
         RSI_EXHAUST_LONG  = 78
         RSI_EXHAUST_SHORT = 22
 

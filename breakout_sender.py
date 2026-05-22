@@ -68,11 +68,27 @@ class BreakoutSender:
     def ready(self) -> bool:
         return REQUESTS_AVAILABLE and bool(self._key) and self._enabled
 
+    # Maximum bars since breakout was first detected before we stop sending.
+    # On 5m candles: 6 bars = 30 minutes. Signals older than this are stale
+    # — the breakout has already played out and entering now is chasing the tail.
+    MAX_BREAKOUT_AGE_BARS = 6
+
     def should_send(self, signal, escalation: int) -> bool:
         if not self.ready:
             return False
         if escalation < self._min_esc:
             return False
+
+        # Stale breakout guard — drop signals where the breakout started too long ago.
+        # bars_since_breakout is incremented by EscalationTracker on every scan cycle.
+        bars_since = getattr(signal, "bars_since_breakout", 0)
+        if bars_since > self.MAX_BREAKOUT_AGE_BARS:
+            logger.info(
+                f"[SENDER] {signal.symbol} breakout is {bars_since} bars old "
+                f"(max {self.MAX_BREAKOUT_AGE_BARS}) — stale signal, dropping send"
+            )
+            return False
+
         if escalation > 0:
             # EscalationTracker guarantees each level fires exactly once per symbol lifetime.
             # The dedup window only risks blocking esc=3 when price moves fast after esc=2.
@@ -237,6 +253,32 @@ class BreakoutSender:
             "bars_since_breakout":        getattr(signal, "bars_since_breakout",        None),
             "distance_from_breakout_pct": getattr(signal, "distance_from_breakout_pct", None),
         }
+
+    def send_raw_payload(self, payload: dict) -> None:
+        """
+        Send a pre-built payload dict directly to the bot API.
+        Used by gap scanner and other event sources that build their own payloads.
+        Non-blocking -- fires in a background thread.
+        """
+        if not self.ready:
+            return
+        sym = payload.get("symbol", "?")
+        last = self._last_sent.get(sym, 0)
+        if time.time() - last < self._dedup_sec:
+            logger.debug(f"[SENDER] {sym} dedup suppressed raw send")
+            return
+        self._last_sent[sym] = time.time()
+        logger.info(
+            f"[SENDER] RAW SEND {sym} source={payload.get('signal_source','?')} "
+            f"dir={payload.get('direction','?')} conf={payload.get('confidence','?')}"
+        )
+        t = threading.Thread(
+            target=self._send_with_retry,
+            args=(payload,),
+            daemon=True,
+            name=f"sender-{sym}-raw",
+        )
+        t.start()
 
     def _send_with_retry(self, payload: dict):
         """Background thread: send with one retry on timeout."""

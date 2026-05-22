@@ -61,5 +61,6 @@
   "bot_api_url": "http://localhost:8181",
   "bot_api_key": "gAAAAABqBjVt11Zco-KwfebKkYgb-oAFICh1LLNTfFfwzvCWVWocCW9c3YcwOzBEhPutwgq8D0dTraFmC1LfjSY6M7ziVwfbEFu-EWEeFs_ZgKQ0JXthU9-nhUrIWmU97BY1pcoeryx7",
   "bot_min_escalation": 1,
-  "bot_enabled": true
+  "bot_enabled": true,
+  "alphavantage_api_key": "H5FQ680XF03RWYLQ"
 }

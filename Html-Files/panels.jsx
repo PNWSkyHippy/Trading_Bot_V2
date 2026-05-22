@@ -496,8 +496,8 @@ function OpenPositionsPanel() {
 
 // ============ Manual Trade Entry ============
 function ManualTradePanel() {
-  const [form, setForm] = useS({ symbol: '', size: '2000.00', sl: '1.50', dir: 'long', broker: 'alpaca', tp: '3.00', asset: 'stock', overnight: false, label: 'manual' });
-  const [cfg, setCfg] = useS({ brokers: ['alpaca', 'coinbase', 'kraken', 'paper'], directions: ['long', 'short'], asset_classes: ['stock', 'crypto'], default_broker: 'alpaca' });
+  const [form, setForm] = useS({ symbol: '', size: '2000.00', sl: '1.50', dir: 'long', broker: 'ibkr', tp: '3.00', asset: 'stock', overnight: false, label: 'manual' });
+  const [cfg, setCfg] = useS({ brokers: ['ibkr', 'alpaca', 'coinbase', 'kraken', 'paper'], directions: ['long', 'short'], asset_classes: ['stock', 'crypto'], default_broker: 'ibkr' });
   const [preview, setPreview] = useS(null);
   const [previewMsg, setPreviewMsg] = useS('');
   const [msg, setMsg] = useS('');
@@ -512,7 +512,7 @@ function ManualTradePanel() {
         setCfg({ ...data, brokers });
         setForm(f => ({ ...f, broker: f.broker && brokers.includes(f.broker) ? f.broker : (data.default_broker || brokers[0]) }));
       })
-      .catch(() => setForm(f => ({ ...f, broker: f.broker || 'alpaca' })));
+      .catch(() => setForm(f => ({ ...f, broker: f.broker || 'ibkr' })));
     return () => { live = false; };
   }, []);
   useE(() => {
@@ -1740,6 +1740,7 @@ function ChartPanel({ defaultSymbol }) {
   const [draftDrawing, setDraftDrawing] = useS(null);
   const [drawingsHidden, setDrawingsHidden] = useS(false);
   const [drawingsLocked, setDrawingsLocked] = useS(false);
+  const [chartType, setChartType] = useS('candles'); // 'candles' | 'heikin_ashi' | 'line'
 
   const isCrypto = symbol.includes('/');
 
@@ -1762,6 +1763,7 @@ function ChartPanel({ defaultSymbol }) {
   const marksRef = useR([]);
   const openPositionsRef = useR([]);
   const cleanBarsRef = useR([]);
+  const chartSeriesTypeRef = useR('candles'); // tracks what type candleRef.current actually is
 
   // Init Lightweight Charts once on mount.
   // The Window component returns null when closed, so ChartPanel always mounts
@@ -1909,6 +1911,22 @@ function ChartPanel({ defaultSymbol }) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // Heikin Ashi conversion
+  const toHeikinAshi = (bars) => {
+    const ha = [];
+    for (let i = 0; i < bars.length; i++) {
+      const b = bars[i];
+      const haClose = (b.open + b.high + b.low + b.close) / 4;
+      const haOpen  = i === 0
+        ? (b.open + b.close) / 2
+        : (ha[i - 1].open + ha[i - 1].close) / 2;
+      const haHigh  = Math.max(b.high, haOpen, haClose);
+      const haLow   = Math.min(b.low,  haOpen, haClose);
+      ha.push({ time: b.time, open: haOpen, high: haHigh, low: haLow, close: haClose, volume: b.volume });
+    }
+    return ha;
+  };
+
   // Fetch data when symbol, timeframe, or broker changes
   useE(() => {
     let cancelled = false;
@@ -1968,11 +1986,39 @@ function ChartPanel({ defaultSymbol }) {
     cleanBarsRef.current = cleanBars;
     const priceFormat = priceFormatForBars(cleanBars);
 
+    // Recreate main series if chart type changed (lightweight-charts series type is immutable)
+    if (chartSeriesTypeRef.current !== chartType && chartRef.current && candleRef.current) {
+      try { chartRef.current.removeSeries(candleRef.current); } catch (_) {}
+      if (chartType === 'line') {
+        candleRef.current = chartRef.current.addLineSeries({
+          color: '#26a69a', lineWidth: 2,
+          priceFormat: { type: 'price', precision: 4, minMove: 0.0001 },
+          lastValueVisible: true, priceLineVisible: true,
+        });
+      } else {
+        candleRef.current = chartRef.current.addCandlestickSeries({
+          upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
+          wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+          priceFormat: { type: 'price', precision: 4, minMove: 0.0001 },
+        });
+      }
+      chartSeriesTypeRef.current = chartType;
+      // Re-attach price scale margins after series recreation
+      try { chartRef.current.priceScale('right').applyOptions({ scaleMargins: { top: 0.05, bottom: 0.22 } }); } catch (_) {}
+    }
+
+    // Convert bars for display
+    const displayBars = chartType === 'heikin_ashi' ? toHeikinAshi(cleanBars) : cleanBars;
+
     try {
       candleRef.current.applyOptions({ priceFormat });
-      candleRef.current.setData(cleanBars);
+      if (chartType === 'line') {
+        candleRef.current.setData(displayBars.map(b => ({ time: b.time, value: b.close })));
+      } else {
+        candleRef.current.setData(displayBars);
+      }
     }
-    catch(e) { console.warn('ChartPanel candlestick setData failed:', e); }
+    catch(e) { console.warn('ChartPanel series setData failed:', e); }
 
     volRef.current?.setData(cleanBars.map(b => ({
       time: b.time, value: b.volume || 0,
@@ -2150,7 +2196,7 @@ function ChartPanel({ defaultSymbol }) {
       from: Math.max(0, cleanBars.length - visibleBars),
       to: cleanBars.length + 5,
     });
-  }, [bars, marks, openPositions, tf, indicators]);
+  }, [bars, marks, openPositions, tf, indicators, chartType]);
 
   // Symbol search filter
   const filtered = useM(() => {
@@ -2162,7 +2208,7 @@ function ChartPanel({ defaultSymbol }) {
   const pickSymbol = (sym) => {
     const newIsCrypto = sym.includes('/');
     // Reset broker to sensible default when switching asset type
-    if (newIsCrypto !== isCrypto) setBroker(newIsCrypto ? 'kraken' : 'alpaca');
+    if (newIsCrypto !== isCrypto) setBroker(newIsCrypto ? 'kraken' : 'ibkr');
     setSymbol(sym); setSearch(''); setDrop(false);
   };
 
@@ -2213,24 +2259,70 @@ function ChartPanel({ defaultSymbol }) {
       if (!m?.time || !Number.isFinite(price) || price <= 0) return;
       const pt = toXY({ time: m.time, price });
       if (!pt) return;
-      const isEntry = m.type === 'entry' || m.type === 'live_entry';
-      const isWin = Number(m.pnl || 0) >= 0;
-      const color = isEntry ? '#26a69a' : (isWin ? '#60a5fa' : '#ef5350');
-      const label = isEntry ? 'E' : (isWin ? `+${Number(m.pnl || 0).toFixed(0)}` : `${Number(m.pnl || 0).toFixed(0)}`);
+
+      const isEntry    = m.type === 'entry' || m.type === 'live_entry';
+      const isWin      = Number(m.pnl || 0) >= 0;
+      const isLong     = (m.direction || '').toLowerCase() !== 'short';
+
+      // Badge colours: entry=teal, win-exit=green, loss-exit=red
+      const bgColor    = isEntry ? '#0e7490' : (isWin ? '#15803d' : '#9f1239');
+      const borderCol  = isEntry ? '#22d3ee' : (isWin ? '#4ade80' : '#fb7185');
+      const textColor  = '#ffffff';
+
+      // Label: entry shows BUY/SELL, exit shows P&L
+      const pnl        = Number(m.pnl || 0);
+      const pnlStr     = pnl >= 0 ? `+$${pnl.toFixed(0)}` : `-$${Math.abs(pnl).toFixed(0)}`;
+      const label      = isEntry
+        ? (isLong ? '▲ BUY' : '▼ SELL')
+        : (isWin  ? `✓ ${pnlStr}` : `✗ ${pnlStr}`);
+
+      // Offset: entries go above price, exits below — separates same-bar rebuy+sell
+      const offsetY    = isEntry ? -22 : 10;
 
       ctx.save();
-      ctx.fillStyle = color;
-      ctx.strokeStyle = '#0d1117';
-      ctx.lineWidth = 2;
+      ctx.font = 'bold 10px JetBrains Mono, monospace';
+      const textW      = ctx.measureText(label).width;
+      const padX = 5, padY = 3;
+      const bw = textW + padX * 2;
+      const bh = 16;
+      const bx = pt.x - bw / 2;
+      const by = pt.y + offsetY - bh / 2;
+
+      // Shadow for depth against any candle colour
+      ctx.shadowColor   = 'rgba(0,0,0,0.7)';
+      ctx.shadowBlur    = 4;
+      ctx.shadowOffsetX = 1;
+      ctx.shadowOffsetY = 1;
+
+      // Filled badge
+      ctx.fillStyle    = bgColor;
       ctx.beginPath();
-      ctx.arc(pt.x, pt.y, isEntry ? 4 : 5, 0, Math.PI * 2);
+      ctx.roundRect(bx, by, bw, bh, 3);
       ctx.fill();
+
+      // Coloured border
+      ctx.shadowBlur   = 0;
+      ctx.strokeStyle  = borderCol;
+      ctx.lineWidth    = 1.5;
       ctx.stroke();
-      ctx.font = '10px JetBrains Mono, monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillStyle = color;
-      ctx.fillText(label, pt.x, pt.y - 7);
+
+      // Text
+      ctx.fillStyle    = textColor;
+      ctx.textAlign    = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.shadowBlur   = 0;
+      ctx.fillText(label, pt.x, by + bh / 2);
+
+      // Thin connector line from badge to price level
+      ctx.strokeStyle  = borderCol;
+      ctx.lineWidth    = 1;
+      ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      ctx.moveTo(pt.x, by + (isEntry ? bh : 0));
+      ctx.lineTo(pt.x, pt.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
       ctx.restore();
     };
 
@@ -2483,6 +2575,20 @@ function ChartPanel({ defaultSymbol }) {
               style={{ padding:'2px 7px', fontSize:11, minWidth:32 }}
               onClick={() => setTf(t)}
             >{t}</button>
+          ))}
+        </div>
+
+        <div style={{ width:1, height:16, background:'#2a3347', margin:'0 2px' }} />
+
+        {/* Chart type toggle */}
+        <div style={{ display:'flex', gap:2 }}>
+          {[['candles','Candles'],['heikin_ashi','HA'],['line','Line']].map(([ct, label]) => (
+            <button key={ct}
+              className={cls('btn', ct === chartType ? 'primary' : 'ghost', 'sm')}
+              style={{ padding:'2px 7px', fontSize:11 }}
+              onClick={() => setChartType(ct)}
+              title={ct === 'candles' ? 'Standard candlestick' : ct === 'heikin_ashi' ? 'Heikin Ashi candles (smoothed, good for trend reading)' : 'Line chart (close price)'}
+            >{label}</button>
           ))}
         </div>
 
