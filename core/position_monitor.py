@@ -597,6 +597,88 @@ class PositionMonitor:
             return None
 
     # ------------------------------------------------------------------
+    #  REVERSAL CANDLE EXIT  (breakout_scanner + vwap_confirmed_orb)
+    # ------------------------------------------------------------------
+
+    def _check_reversal_candles(
+        self, trade: Dict, age_seconds: float
+    ) -> Optional[str]:
+        """
+        If 2+ consecutive CLOSED candles move against the trade direction
+        within the first 30 minutes, the breakout has reversed — exit
+        immediately rather than riding to the stop loss.
+
+        Logic:
+          Long:  last 2 closed closes are BOTH lower than their open (bearish body)
+                 AND both lower than the candle before them → confirmed reversal
+          Short: last 2 closed closes are BOTH higher than their open (bullish body)
+                 AND both higher than the candle before them → confirmed reversal
+
+        Only fires for breakout_scanner and vwap_confirmed_orb trades.
+        Only within the first 30 minutes (after that, fast-fail / early-loss takes over).
+        Only fires once per trade.
+        """
+        strategy = trade.get("strategy_name", "")
+        if strategy not in ("breakout_scanner", "vwap_confirmed_orb"):
+            return None
+
+        # Only in first 30 minutes
+        if age_seconds > 30 * 60:
+            return None
+
+        # Need at least 2 closed bars after entry — wait at least 2 bars (10 min on 5m)
+        if age_seconds < 10 * 60:
+            return None
+
+        trade_id  = trade["trade_id"]
+        symbol    = trade["symbol"]
+        direction = trade["direction"]
+
+        # Only fire once per trade
+        already = int(self._db.get_state(f"reversal_check_{trade_id}", default=0))
+        if already:
+            return None
+
+        bars = self._get_bars(symbol, trade["asset_class"], limit=6)
+        if bars is None or len(bars) < 3:
+            return None
+
+        self._db.set_state(f"reversal_check_{trade_id}", 1)
+
+        # Last 2 fully closed candles (bars are closed-only from _get_bars)
+        c1 = bars.iloc[-2]   # older of the two
+        c2 = bars.iloc[-1]   # most recent closed
+
+        if direction == "long":
+            # Both candles bearish body AND c2 closed lower than c1
+            c1_bearish = float(c1["close"]) < float(c1["open"])
+            c2_bearish = float(c2["close"]) < float(c2["open"])
+            c2_lower   = float(c2["close"]) < float(c1["close"])
+            if c1_bearish and c2_bearish and c2_lower:
+                logger.info(
+                    f"[REVERSAL EXIT] {symbol}: 2 consecutive bearish candles after long entry "
+                    f"— c1 close={c1['close']:.4f} c2 close={c2['close']:.4f} — exiting"
+                )
+                return "reversal_candles"
+        else:  # short
+            c1_bullish = float(c1["close"]) > float(c1["open"])
+            c2_bullish = float(c2["close"]) > float(c2["open"])
+            c2_higher  = float(c2["close"]) > float(c1["close"])
+            if c1_bullish and c2_bullish and c2_higher:
+                logger.info(
+                    f"[REVERSAL EXIT] {symbol}: 2 consecutive bullish candles after short entry "
+                    f"— c1 close={c1['close']:.4f} c2 close={c2['close']:.4f} — exiting"
+                )
+                return "reversal_candles"
+
+        logger.debug(
+            f"[REVERSAL EXIT] {symbol}: no reversal pattern — holding "
+            f"(c1 {'bear' if float(c1['close']) < float(c1['open']) else 'bull'} "
+            f"c2 {'bear' if float(c2['close']) < float(c2['open']) else 'bull'})"
+        )
+        return None
+
+    # ------------------------------------------------------------------
     #  BREAKOUT FAST-FAIL (10-20 min window, breakout_scanner only)
     # ------------------------------------------------------------------
 
@@ -1187,7 +1269,16 @@ class PositionMonitor:
                 self._attempt_close(trade, current_price, rsi_dip_exit)
                 return
 
-        # ── 4d. BREAKOUT FAST-FAIL (10-20 min) ──────────────────────────────
+        # ── 4d. REVERSAL CANDLE EXIT (10-30 min, breakout + vwap_orb) ───────
+        # 2 consecutive candles closing against the trade = reversal confirmed.
+        # Fires before fast-fail — gets out even earlier on clean reversals.
+        reversal_exit = self._check_reversal_candles(trade, age_seconds)
+        if reversal_exit:
+            self._db.set_state(f"momentum_ext_{trade_id}", 0)
+            self._attempt_close(trade, current_price, reversal_exit)
+            return
+
+        # ── 4e. BREAKOUT FAST-FAIL (10-20 min) ──────────────────────────────
         # Breakout trades must move immediately — if flat/negative at 10 min
         # the setup failed. Cut clean for tiny loss rather than riding to
         # the full 2-4.5% stop. Fires before early_loss (30 min) on purpose.
@@ -1366,8 +1457,19 @@ class PositionMonitor:
         # structural stop trails on the same candle size that generated the entry.
         # A 1h trade must trail on 1h bars — not 5m bars — or the stop advances
         # on every minor 5m high/low instead of on structural 1h breaks.
-        _trail_bars = self._get_bars(symbol, asset_class, limit=25, timeframe=entry_timeframe)
-        updates = risk_manager.calculate_trailing_stop(trade, current_price, bars=_trail_bars)
+        #
+        # Strategy-preferred trail mode: strategies set preferred_trail_mode in
+        # their signal metadata at signal creation time. We honour it here so that
+        # mean-reversion strategies (rsi_dip_spike_v4: "none") don't get their
+        # stops trailed before RSI can recover to the exit threshold, while
+        # trend-follow strategies (adaptive_regime: "two_bar") get structural trails.
+        _trade_meta   = _json.loads(trade.get("indicators_json") or "{}")
+        _trail_pref   = _trade_meta.get("preferred_trail_mode", "two_bar").lower()
+        if _trail_pref == "none":
+            updates = None   # strategy manages its own exit — no trailing
+        else:
+            _trail_bars = self._get_bars(symbol, asset_class, limit=25, timeframe=entry_timeframe)
+            updates = risk_manager.calculate_trailing_stop(trade, current_price, bars=_trail_bars)
         if updates:
             old_sl = trade.get("stop_loss", 0)
             old_tp = trade.get("take_profit", 0)

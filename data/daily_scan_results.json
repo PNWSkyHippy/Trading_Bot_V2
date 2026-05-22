@@ -1,20 +1,17 @@
 {
-  "generated": "2026-05-20T13:32:42.957140",
+  "generated": "2026-05-21T13:33:43.867238",
   "valid_until": "next_market_close",
-  "stocks": [
-    "ARM",
-    "WELL"
-  ],
+  "stocks": [],
   "crypto": [
-    "MNT/USD",
+    "TRX/USD",
     "CC/USD",
-    "HTX/USD",
-    "XMR/USD",
-    "AVAX/USD",
-    "UNI/USD",
-    "SHIB/USD",
-    "SUI/USD",
+    "NEAR/USD",
+    "TAO/USD",
+    "HYPE/USD",
+    "RAIN/USD",
     "ONDO/USD",
-    "DOT/USD"
+    "WLFI/USD",
+    "SOL/USD",
+    "AVAX/USD"
   ]
 }

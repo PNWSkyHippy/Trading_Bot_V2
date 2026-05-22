@@ -37,6 +37,9 @@ from strategies.ecb_strategy import ECBStrategy
 from strategies.vdmr_strategy import VDMRStrategy
 from strategies.rsi_dip_spike_v4 import RSIDipSpikeV4Strategy
 from strategies.bollinger_squeeze import BollingerSqueeze
+from strategies.mr_02_vef_strategy import MR02VEFStrategy
+from strategies.mr_03_fbs_strategy import MR03FBSStrategy
+from strategies.mr_04_fvg_strategy import MR04FVGStrategy
 from data.database import db
 
 logger = logging.getLogger(__name__)
@@ -81,6 +84,9 @@ class StrategyEngine:
             VDMRStrategy(),             # Strategy 15 — Velocity-Deceleration Mean Reversion (INCUBATE)
             RSIDipSpikeV4Strategy(),    # Strategy 16 — RSI Dip & Spike v4c (INCUBATE/CANDIDATE)
             BollingerSqueeze(),         # Strategy 17 — Bollinger Squeeze release (INCUBATE)
+            MR02VEFStrategy(),          # Strategy 18 — Volatility Exhaustion Fade 1h (INCUBATE)
+            MR03FBSStrategy(),          # Strategy 19 — False Breakout Snap 1h (INCUBATE)
+            MR04FVGStrategy(),          # Strategy 20 — Fair Value Gap Fill 1h (INCUBATE)
                                         # Backtest May2025-May2026 1h crypto:
                                         # ETH PF=1.32 +7.3% Sharpe=1.21 | BNB PF=1.15 +0.9%
                                         # BTC PF=1.12 +0.2% | SOL longs disabled (bled)
@@ -113,6 +119,9 @@ class StrategyEngine:
                         f"loaded despite auto_disable_exempt "
                         f"(enabled={strategy.enabled})"
                     )
+            else:
+                # Seed the row so the DB browser always shows all strategies
+                self._db.set_state(key, bool(strategy.enabled))
 
     def _save_strategy_state(self, strategy: BaseStrategy):
         key   = f"strategy_{strategy.name}_enabled"

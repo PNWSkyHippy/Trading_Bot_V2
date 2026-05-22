@@ -53,6 +53,7 @@ from scanners.daily_market_scanner import (
     run_daily_scan,
     inject_scan_results_into_config,
 )
+from scanners.scanner_engine import ScannerEngine
 
 
 def parse_args():
@@ -195,6 +196,14 @@ class BotEngine:
         # Wire re-entry path: market_scanner -> receiver, position_monitor -> callback
         self.market_scanner.set_reentry_receiver(breakout_receiver)
 
+        # Wire and start event-driven scanners (gap, NR7, volume surge, funding)
+        self.scanner_engine = ScannerEngine()
+        self.scanner_engine.wire(
+            receiver       = breakout_receiver,
+            market_scanner = self.market_scanner,
+        )
+        self.scanner_engine.start()
+
         def _on_breakout_win_closed(
             symbol: str, won: bool, exit_price: float, direction: str
         ) -> None:
@@ -280,7 +289,8 @@ class BotEngine:
                 return
 
             open_trades   = self.db.get_open_trades()
-            stock_trades  = [t for t in open_trades if t.get("asset_class") == "stock"]
+            stock_trades  = [t for t in open_trades if t.get("asset_class") == "stock"
+                             and t.get("broker", "alpaca") in ("alpaca", "")]
 
             if not stock_trades:
                 return
@@ -356,6 +366,10 @@ class BotEngine:
             )
         except Exception as e:
             self.logger.error(f"Midnight reset error: {e}")
+        try:
+            self.scanner_engine.reset_daily_cooldowns()
+        except Exception as e:
+            self.logger.error(f"[MIDNIGHT RESET] Scanner cooldown reset error: {e}")
 
     def _run_stock_scan(self):
         import threading

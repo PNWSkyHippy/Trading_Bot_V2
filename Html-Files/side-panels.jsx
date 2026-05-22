@@ -628,6 +628,18 @@ function QuickControlsPanel() {
             <Icon name="stop" size={12} />Stop Bot
           </button>
         </div>
+        <div style={{ marginTop: 8, display:'flex', gap:6 }}>
+          <button className="btn full" onClick={() => callControl('open_db_panel')} disabled={busy}
+            style={{ background: '#0f3460', color: '#e0e0e0', border: '1px solid #2a4a7f', flex:1 }}>
+            🗄 DB Panel (desktop)
+          </button>
+          <a href="/db_browser.html" target="_blank"
+            style={{ background: '#0f3460', color: '#e0e0e0', border: '1px solid #2a4a7f',
+                     padding:'5px 10px', borderRadius:'var(--radius)', fontSize:11,
+                     textDecoration:'none', display:'flex', alignItems:'center' }}>
+            🌐 Web
+          </a>
+        </div>
         {msg && <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
       </div>
 
@@ -806,4 +818,359 @@ function TerminalPanel() {
   );
 }
 
-window.SidePanels = { ManagePositionsPanel, InjectSymbolsPanel, QuickControlsPanel, TerminalPanel };
+// ===== DB Browser Panel =====
+const QUICK_QUERIES_DB = [
+  { label: 'Open Today',       view: 'trades' },
+  { label: 'Closed Today',     view: 'trades' },
+  { label: 'All Open',         view: 'trades' },
+  { label: '☠ Ghost Trades',   view: 'trades' },
+  { label: 'Capital Today',    view: 'capital' },
+  { label: 'Settlement Queue', view: 'settlement_queue' },
+  { label: 'By Strategy',      view: 'trades' },
+  { label: 'Strategies',       view: '_strategies' },
+  { label: 'Daily P&L',        view: 'daily_summaries' },
+  { label: 'Yesterday Closed', view: 'trades' },
+  { label: 'This Week Trades', view: 'trades' },
+  { label: 'Strategy P&L',    view: 'trades' },
+  { label: '💰 Financials',   view: 'capital' },
+  { label: 'Signal Reviews',   view: 'ai_signal_reviews' },
+];
+
+function DBBrowserPanel() {
+  const [tables,      setTables]      = uS([]);
+  const [cols,        setCols]        = uS([]);
+  const [rows,        setRows]        = uS([]);
+  const [rowids,      setRowids]      = uS([]);
+  const [curTable,    setCurTable]    = uS(null);
+  const [curView,     setCurView]     = uS(null);
+  const [selIdx,      setSelIdx]      = uS(null);
+  const [sortCol,     setSortCol]     = uS(null);
+  const [sortAsc,     setSortAsc]     = uS(true);
+  const [gridTitle,   setGridTitle]   = uS('Select a table or click a query');
+  const [status,      setStatus]      = uS({ msg: 'Ready', type: '' });
+  const [editOpen,    setEditOpen]    = uS(false);
+  const [editFields,  setEditFields]  = uS({});
+  const [editMeta,    setEditMeta]    = uS({});
+  // search fields
+  const [fStrat,  setFStrat]  = uS('');
+  const [fStatus, setFStatus] = uS('any');
+  const [fTime,   setFTime]   = uS('any');
+  const [fSym,    setFSym]    = uS('');
+  const [fBroker, setFBroker] = uS('any');
+
+  const st = (msg, type='') => setStatus({ msg, type });
+
+  uE(() => { loadTables(); }, []);
+
+  async function loadTables() {
+    try {
+      const d = await apiCall('/api/db/tables');
+      setTables(d.tables || []);
+    } catch(e) { st(e.message, 'err'); }
+  }
+
+  function applyResult(data, title) {
+    if (data.error) { st(data.error, 'err'); return; }
+    const hasRowid = data.cols && data.cols[0] === 'rowid';
+    setRowids(hasRowid ? data.rows.map(r => r[0]) : data.rows.map(() => null));
+    setCols(hasRowid ? data.cols.slice(1) : data.cols);
+    setRows(hasRowid ? data.rows.map(r => r.slice(1)) : data.rows);
+    setSelIdx(null); setSortCol(null);
+    setGridTitle(title);
+    st(`${data.rows.length.toLocaleString()} rows · ${title}`);
+  }
+
+  async function browseTable(table) {
+    setCurTable(table); setCurView(null);
+    st(`Loading ${table}…`);
+    try {
+      const d = await apiCall(`/api/db/browse?table=${encodeURIComponent(table)}&limit=500`);
+      applyResult(d, table);
+      loadTables();
+    } catch(e) { st(e.message, 'err'); }
+  }
+
+  async function runQuick(label) {
+    const cleanLabel = label.replace('☠ ','');
+    setCurView(cleanLabel);
+    const tbl = QUICK_QUERIES_DB.find(q => q.label === label)?.view;
+    setCurTable(tbl?.startsWith('_') ? null : tbl);
+    st(`Running: ${cleanLabel}…`);
+    try {
+      const d = await apiCall(`/api/db/quick?q=${encodeURIComponent(cleanLabel)}`);
+      applyResult(d, cleanLabel);
+    } catch(e) { st(e.message, 'err'); }
+  }
+
+  async function runSearch() {
+    const STRAT_TABLES = ['trades','ai_signal_reviews','strategy_results'];
+    const wantsStrat   = fStrat.trim() !== '';
+    let table = curTable || 'trades';
+    if (wantsStrat && !STRAT_TABLES.includes(table)) table = 'trades';
+    st('Searching…');
+    try {
+      const d = await apiCall('/api/db/search', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table, strategy: fStrat, status: fStatus,
+                               time: fTime, symbol: fSym, broker: fBroker })
+      });
+      setCurTable(table); setCurView(null);
+      applyResult(d, `Search → ${table}`);
+    } catch(e) { st(e.message, 'err'); }
+  }
+
+  async function refresh() {
+    if (curView) { await runQuick(QUICK_QUERIES_DB.find(q => q.label.includes(curView))?.label || curView); }
+    else if (curTable) { await browseTable(curTable); }
+    await loadTables();
+  }
+
+  function selectRow(idx) { setSelIdx(idx); }
+
+  function sortBy(ci) {
+    const asc = sortCol === ci ? !sortAsc : true;
+    setSortCol(ci); setSortAsc(asc);
+    const paired = rows.map((r, i) => [r, rowids[i]]);
+    paired.sort((a, b) => {
+      const av = a[0][ci], bv = b[0][ci];
+      const an = parseFloat(av), bn = parseFloat(bv);
+      const c = (!isNaN(an) && !isNaN(bn)) ? an - bn : String(av||'').localeCompare(String(bv||''));
+      return asc ? c : -c;
+    });
+    setRows(paired.map(p => p[0]));
+    setRowids(paired.map(p => p[1]));
+    setSelIdx(null);
+  }
+
+  function openEdit() {
+    if (selIdx === null) { st('Select a row first', 'err'); return; }
+    if (!curTable || curTable.startsWith('_')) { st('Browse a real table first', 'err'); return; }
+    const row = rows[selIdx];
+    const fields = {};
+    cols.forEach((c, i) => { fields[c] = row[i] ?? ''; });
+    setEditFields(fields);
+    setEditMeta({ table: curTable, rowid: rowids[selIdx] });
+    setEditOpen(true);
+  }
+
+  async function saveEdit() {
+    const { table, rowid } = editMeta;
+    if (rowid === null) { st('Cannot determine row ID — browse from sidebar', 'err'); return; }
+    try {
+      for (const [col, value] of Object.entries(editFields)) {
+        await apiCall('/api/db/edit_row', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ table, rowid, col, value })
+        });
+      }
+      st(`Saved rowid=${rowid}`, 'ok');
+      setEditOpen(false);
+      refresh();
+    } catch(e) { st(e.message, 'err'); }
+  }
+
+  async function flushGhost() {
+    if (selIdx === null) { st('Select a row first', 'err'); return; }
+    const row = rows[selIdx];
+    const m = {}; cols.forEach((c, i) => m[c] = row[i]);
+    const { trade_id, symbol, hours_open, status: ts } = m;
+    if (!trade_id) { st('No trade_id in row', 'err'); return; }
+    if (ts === 'closed') { st(`${symbol} is already closed`, 'err'); return; }
+    if (!confirm(`Flush ghost trade?\n\n  ${symbol}  (${trade_id})\n  Hours open: ${hours_open||'?'}\n\nMarks CLOSED in DB. Ensure broker position is already gone.`)) return;
+    try {
+      const d = await apiCall('/api/db/flush_ghost', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ trade_id, entry_price: m.entry_price || 0 })
+      });
+      st(d.ok ? `Flushed: ${symbol}` : d.message, d.ok ? 'ok' : 'err');
+      if (d.ok) refresh();
+    } catch(e) { st(e.message, 'err'); }
+  }
+
+  async function toggleStrategy(enable) {
+    if (selIdx === null) { st('Select a strategy row first', 'err'); return; }
+    const row = rows[selIdx];
+    const m = {}; cols.forEach((c, i) => m[c] = row[i]);
+    const strategy = m.strategy || '';
+    const key = `strategy_${strategy}`;
+    if (!key.endsWith('_enabled')) { st('Select a row from the Strategies view', 'err'); return; }
+    const name = strategy.replace('_enabled', '');
+    if (!confirm(`${enable ? 'ENABLE' : 'DISABLE'} strategy '${name}'?`)) return;
+    try {
+      const d = await apiCall('/api/db/strategy_toggle', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key, enabled: enable })
+      });
+      st(d.ok ? d.message : d.message, d.ok ? 'ok' : 'err');
+      if (d.ok) runQuick('Strategies');
+    } catch(e) { st(e.message, 'err'); }
+  }
+
+  const isStrat  = curView === 'Strategies';
+  const isTrades = curTable === 'trades' ||
+    ['Open Today','Closed Today','All Open','Ghost Trades','By Strategy','Yesterday Closed'].includes(curView);
+
+  const S = { // styles
+    wrap:    { display:'flex', flexDirection:'column', height:'100%', background:'var(--bg-1)', overflow:'hidden' },
+    qbar:    { display:'flex', gap:4, flexWrap:'wrap', padding:'6px 8px', borderBottom:'1px solid var(--border)', flexShrink:0 },
+    qbtn:    { background:'var(--bg-3)', border:'1px solid var(--border)', color:'var(--text-1)', padding:'3px 9px', borderRadius:4, cursor:'pointer', fontSize:11, fontFamily:'inherit' },
+    qbtnG:   { background:'#1a3a2a', border:'1px solid #16a34a', color:'#4ade80', padding:'3px 9px', borderRadius:4, cursor:'pointer', fontSize:11 },
+    qbtnR:   { background:'#3a1a1a', border:'1px solid #dc2626', color:'#f87171', padding:'3px 9px', borderRadius:4, cursor:'pointer', fontSize:11 },
+    sbar:    { display:'flex', gap:6, flexWrap:'wrap', padding:'5px 8px', borderBottom:'1px solid var(--border)', flexShrink:0, alignItems:'center' },
+    lbl:     { color:'var(--text-2)', fontSize:10 },
+    inp:     { background:'var(--bg-2)', border:'1px solid var(--border)', color:'var(--text-1)', padding:'3px 7px', borderRadius:4, fontSize:11, fontFamily:'inherit', width:90 },
+    sel:     { background:'var(--bg-2)', border:'1px solid var(--border)', color:'var(--text-1)', padding:'3px 5px', borderRadius:4, fontSize:11, fontFamily:'inherit' },
+    sbtnG:   { background:'#16a34a', border:'none', color:'#fff', padding:'3px 10px', borderRadius:4, cursor:'pointer', fontSize:11, fontWeight:700 },
+    sbtnD:   { background:'var(--bg-3)', border:'1px solid var(--border)', color:'var(--text-1)', padding:'3px 8px', borderRadius:4, cursor:'pointer', fontSize:11 },
+    main:    { display:'flex', flex:1, overflow:'hidden' },
+    sidebar: { width:170, background:'var(--bg-2)', borderRight:'1px solid var(--border)', overflowY:'auto', flexShrink:0 },
+    tblItem: (active) => ({ padding:'5px 10px', cursor:'pointer', borderBottom:'1px solid var(--bg-1)', display:'flex', justifyContent:'space-between', background: active ? '#1e3a5f' : 'transparent', borderLeft: active ? '2px solid #2563eb' : '2px solid transparent' }),
+    grid:    { flex:1, display:'flex', flexDirection:'column', overflow:'hidden' },
+    gtitle:  { padding:'5px 10px', borderBottom:'1px solid var(--border)', flexShrink:0, display:'flex', alignItems:'center', gap:8 },
+    tcon:    { flex:1, overflow:'auto' },
+    th:      (sorted) => ({ background:'#1e2d40', color: sorted ? '#58a6ff' : 'var(--text-2)', padding:'5px 8px', textAlign:'left', fontSize:10, fontWeight:700, position:'sticky', top:0, cursor:'pointer', whiteSpace:'nowrap', borderBottom:'1px solid var(--border)' }),
+    td:      { padding:'4px 8px', fontSize:11, whiteSpace:'nowrap', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis' },
+    abar:    { display:'flex', gap:6, padding:'5px 8px', borderTop:'1px solid var(--border)', flexShrink:0, alignItems:'center' },
+    abtnE:   { background:'#2563eb', border:'none', color:'#fff', padding:'4px 10px', borderRadius:4, cursor:'pointer', fontSize:11 },
+    abtnF:   { background:'#dc2626', border:'none', color:'#fff', padding:'4px 10px', borderRadius:4, cursor:'pointer', fontSize:11 },
+    abtnEn:  { background:'#16a34a', border:'none', color:'#fff', padding:'4px 10px', borderRadius:4, cursor:'pointer', fontSize:11 },
+    abtnDis: { background:'#9f1239', border:'none', color:'#fff', padding:'4px 10px', borderRadius:4, cursor:'pointer', fontSize:11 },
+    stsbar:  (type) => ({ padding:'3px 10px', fontSize:10, borderTop:'1px solid var(--border)', color: type==='ok' ? '#4ade80' : type==='err' ? '#f87171' : 'var(--text-2)', flexShrink:0 }),
+  };
+
+  return (
+    <div style={S.wrap}>
+      {/* Quick buttons */}
+      <div style={S.qbar}>
+        {QUICK_QUERIES_DB.map(q => (
+          <button key={q.label} style={q.label.includes('Ghost') ? S.qbtnR : q.label==='Strategies' ? S.qbtnG : S.qbtn}
+            onClick={() => runQuick(q.label)}>{q.label}</button>
+        ))}
+      </div>
+
+      {/* Search bar */}
+      <div style={S.sbar}>
+        <span style={S.lbl}>Strategy</span>
+        <input style={{...S.inp,width:100}} value={fStrat} onChange={e=>setFStrat(e.target.value)} onKeyDown={e=>e.key==='Enter'&&runSearch()} placeholder="e.g. grid_bot" />
+        <span style={S.lbl}>Status</span>
+        <select style={S.sel} value={fStatus} onChange={e=>setFStatus(e.target.value)}>
+          {['any','open','closed','pending','cancelled'].map(v=><option key={v}>{v}</option>)}
+        </select>
+        <span style={S.lbl}>Time</span>
+        <select style={S.sel} value={fTime} onChange={e=>setFTime(e.target.value)}>
+          {['any','last 1h','last 4h','last 8h','today','yesterday','this week'].map(v=><option key={v}>{v}</option>)}
+        </select>
+        <span style={S.lbl}>Symbol</span>
+        <input style={{...S.inp,width:75}} value={fSym} onChange={e=>setFSym(e.target.value)} onKeyDown={e=>e.key==='Enter'&&runSearch()} placeholder="AAPL" />
+        <span style={S.lbl}>Broker</span>
+        <select style={S.sel} value={fBroker} onChange={e=>setFBroker(e.target.value)}>
+          {['any','alpaca','coinbase','kraken','ibkr'].map(v=><option key={v}>{v}</option>)}
+        </select>
+        <button style={S.sbtnG} onClick={runSearch}>Search</button>
+        <button style={S.sbtnD} onClick={refresh}>⟳</button>
+      </div>
+
+      {/* Main split */}
+      <div style={S.main}>
+        {/* Sidebar */}
+        <div style={S.sidebar}>
+          <div style={{padding:'6px 8px',fontSize:10,fontWeight:700,color:'var(--text-2)',textTransform:'uppercase',borderBottom:'1px solid var(--border)'}}>Tables</div>
+          {tables.map(t => (
+            <div key={t.name} style={S.tblItem(curTable===t.name && !curView)} onClick={()=>browseTable(t.name)}>
+              <span style={{fontSize:11,color:'var(--text-1)'}}>{t.name}</span>
+              <span style={{fontSize:10,color:'var(--text-2)'}}>{t.rows.toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Grid */}
+        <div style={S.grid}>
+          <div style={S.gtitle}>
+            <span style={{color:'#f0c040',fontSize:12,fontWeight:700}}>{gridTitle}</span>
+            <span style={{color:'var(--text-2)',fontSize:11}}>{rows.length.toLocaleString()} rows</span>
+            {rows.length > 0 && (
+              <button style={{...S.sbtnG,marginLeft:'auto',padding:'2px 8px',fontSize:10}} onClick={() => {
+                const filename = `db-${curTable||'export'}-${new Date().toISOString().slice(0,19).replace(/[T:]/g,'-')}.csv`;
+                window.exportCsv?.(filename, cols.map((c, i) => ({ label: c, value: (r) => r[i] })), rows);
+              }}>⬇ CSV</button>
+            )}
+          </div>
+          <div style={S.tcon}>
+            <table style={{width:'100%',borderCollapse:'collapse'}}>
+              <thead>
+                <tr>
+                  {cols.map((c,i) => (
+                    <th key={c} style={S.th(sortCol===i)} onClick={()=>sortBy(i)}>{c}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {rows.length === 0 && cols.length > 0 && (
+                  <tr><td colSpan={cols.length} style={{padding:'20px',textAlign:'center',color:'var(--text-2)',fontSize:12}}>No results — try different filters</td></tr>
+                )}
+                {rows.map((row, ri) => {
+                  const isSel = ri === selIdx;
+                  return (
+                    <tr key={ri}
+                      style={{background: isSel ? '#1e3a5f' : ri%2===0 ? 'var(--bg-1)' : 'var(--bg-2)', cursor:'pointer', outline: isSel ? '1px solid #2563eb' : 'none'}}
+                      onClick={()=>selectRow(ri)}
+                      onDoubleClick={openEdit}>
+                      {row.map((v,ci) => {
+                        const col = cols[ci]||'';
+                        const s = v===null?'':String(v);
+                        let color = 'var(--text-1)';
+                        if ((col==='pnl'||col==='daily_pnl'||col==='gain_loss') && s) color = parseFloat(s)>=0?'#4ade80':'#f87171';
+                        if (col==='enabled') color = s==='TRUE'?'#4ade80':'#f87171';
+                        return <td key={ci} style={{...S.td,color}} title={s}>{s}</td>;
+                      })}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Action bar */}
+      <div style={S.abar}>
+        <span style={S.lbl}>Actions:</span>
+        <button style={S.abtnE} onClick={openEdit}>✏ Edit Row</button>
+        {isTrades  && <button style={S.abtnF}   onClick={flushGhost}>☠ Flush Ghost</button>}
+        {isStrat   && <button style={S.abtnEn}  onClick={()=>toggleStrategy(true)}>✔ Enable</button>}
+        {isStrat   && <button style={S.abtnDis} onClick={()=>toggleStrategy(false)}>✖ Disable</button>}
+        <span style={{...S.lbl,marginLeft:6}}>{selIdx===null?'← select a row first':`row ${selIdx+1} selected`}</span>
+      </div>
+
+      {/* Status bar */}
+      <div style={S.stsbar(status.type)}>{status.msg}</div>
+
+      {/* Edit modal */}
+      {editOpen && (
+        <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,.7)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:999}} onClick={e=>{if(e.target===e.currentTarget)setEditOpen(false)}}>
+          <div style={{background:'var(--bg-2)',border:'1px solid var(--border)',borderRadius:8,width:600,maxHeight:'80%',display:'flex',flexDirection:'column'}}>
+            <div style={{padding:'10px 14px',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <span style={{fontWeight:700,fontSize:13}}>Edit — {editMeta.table}  rowid={editMeta.rowid}</span>
+              <button style={{background:'none',border:'none',color:'var(--text-2)',cursor:'pointer',fontSize:16}} onClick={()=>setEditOpen(false)}>✕</button>
+            </div>
+            <div style={{overflowY:'auto',padding:'10px 14px',flex:1}}>
+              {Object.entries(editFields).map(([col, val]) => (
+                <div key={col} style={{display:'flex',alignItems:'center',marginBottom:6,gap:8}}>
+                  <label style={{width:180,textAlign:'right',fontSize:11,color:'var(--text-2)',flexShrink:0}}>{col}</label>
+                  <input value={val===null?'':String(val)} onChange={e=>setEditFields(p=>({...p,[col]:e.target.value}))}
+                    style={{flex:1,background:'var(--bg-1)',border:'1px solid var(--border)',color:'var(--text-1)',padding:'4px 8px',borderRadius:4,fontSize:11,fontFamily:'inherit'}} />
+                </div>
+              ))}
+            </div>
+            <div style={{padding:'8px 14px',borderTop:'1px solid var(--border)',display:'flex',gap:8}}>
+              <button style={{background:'#16a34a',border:'none',color:'#fff',padding:'6px 16px',borderRadius:4,cursor:'pointer',fontWeight:700}} onClick={saveEdit}>Save</button>
+              <button style={{background:'var(--bg-3)',border:'none',color:'var(--text-1)',padding:'6px 14px',borderRadius:4,cursor:'pointer'}} onClick={()=>setEditOpen(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+window.SidePanels = { ManagePositionsPanel, InjectSymbolsPanel, QuickControlsPanel, TerminalPanel, DBBrowserPanel };

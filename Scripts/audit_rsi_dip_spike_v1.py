@@ -22,7 +22,7 @@ TF         = "1h"
 bt = Backtester(starting_capital=CAPITAL)
 
 # Core symbols from validated backtest results
-SYMBOLS = ["SOL-USD", "BTC-USD", "ETH-USD"]
+SYMBOLS = ["SOL-USD", "BTC-USD", "ETH-USD", "DOGE-USD", "BNB-USD"]
 
 def run(label, strat, sym):
     df = bt.fetch_history_crypto(sym, DAYS, TF)

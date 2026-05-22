@@ -2,7 +2,7 @@
 const { useState: $S, useEffect: $E, useRef: $R, useMemo: $M } = React;
 
 const { TopOverview, OpenPositionsPanel, ManualTradePanel, TradeLogPanel, DailyPerfPanel, BacktesterPanel, ChatPanel, ChartPanel } = window.Panels;
-const { ManagePositionsPanel, InjectSymbolsPanel, QuickControlsPanel, TerminalPanel } = window.SidePanels;
+const { ManagePositionsPanel, InjectSymbolsPanel, QuickControlsPanel, TerminalPanel, DBBrowserPanel } = window.SidePanels;
 
 // Window definitions
 const WINDOW_DEFS = [
@@ -18,6 +18,7 @@ const WINDOW_DEFS = [
   { id: 'terminal',         title: 'PowerShell Workspace',         icon: 'terminal',  defaultPos: { x: 180, y: 140 },  defaultSize: { w: 520, h: 560 },  openByDefault: false },
   { id: 'quick-controls',   title: 'Quick Controls',              icon: 'settings',  defaultPos: { x: 100, y: 50 },   defaultSize: { w: 360, h: 720 },  openByDefault: false },
   { id: 'chart',            title: 'Chart',                       icon: 'activity',  defaultPos: { x: 300, y: 60 },   defaultSize: { w: 1000, h: 600 }, openByDefault: false },
+  { id: 'db-browser',       title: 'Database Browser',            icon: 'log',       defaultPos: { x: 260, y: 80 },   defaultSize: { w: 1060, h: 660 }, openByDefault: false },
 ];
 
 // =========== App Shell ===========
@@ -63,6 +64,7 @@ function Topbar({ dateStr, timeStr }) {
         <button onClick={() => open('terminal')}>Shell</button>
         <button onClick={() => open('chart')}>Chart</button>
         <button onClick={() => open('chat')}>Chat</button>
+        <button onClick={() => open('db-browser')}>Database</button>
       </div>
       <div className="spacer"></div>
       <div className="status-pill">
@@ -150,6 +152,7 @@ function Workspace() {
       <Window id="terminal"><TerminalPanel /></Window>
       <Window id="quick-controls"><QuickControlsPanel /></Window>
       <Window id="chart"><ChartPanel /></Window>
+      <Window id="db-browser"><DBBrowserPanel /></Window>
     </div>
   );
 }
@@ -169,6 +172,7 @@ function Dock() {
     { id: 'chat', label: 'Chat', icon: 'chat' },
     { id: 'chart',          label: 'Chart',           icon: 'activity' },
     { id: 'quick-controls', label: 'Quick Controls', icon: 'settings' },
+    { id: 'db-browser',     label: 'Database Browser', icon: 'log' },
   ];
   return (
     <div className="dock">

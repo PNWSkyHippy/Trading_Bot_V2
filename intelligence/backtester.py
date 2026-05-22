@@ -417,6 +417,7 @@ class Backtester:
 
     def __init__(self, starting_capital: float = 10_000.0):
         self.starting_capital = starting_capital
+        self._candle_cache: dict = {}  # (symbol, days, timeframe) -> DataFrame
 
         try:
             import yfinance as yf
@@ -436,6 +437,10 @@ class Backtester:
         except Exception as e:
             logger.warning(f"TechnicalAnalysis not loaded — default scorer unavailable: {e}")
             self.ta = None
+
+    def is_cached(self, symbol: str, days: int, timeframe: str) -> bool:
+        """Return True if candles for this symbol are already in memory."""
+        return (symbol, days, timeframe) in self._candle_cache
 
     # -----------------------------------------------------------------------
     # Data quality validation
@@ -555,6 +560,9 @@ class Backtester:
 
     def fetch_history(self, symbol: str, days: int = 365,
                       timeframe: str = "1h") -> Optional[pd.DataFrame]:
+        _key = (symbol, days, timeframe)
+        if _key in self._candle_cache:
+            return self._candle_cache[_key]
         cfg   = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
         tf    = cfg["interval"]
         max_d = cfg["max_days"]
@@ -594,6 +602,7 @@ class Backtester:
                 return None
             logger.info(f"  -> {len(df)} bars  ({df.index[0].date()} - {df.index[-1].date()})")
             df = self._validate_ohlcv(df, symbol, timeframe)
+            self._candle_cache[_key] = df
             return df
         except Exception as e:
             logger.error(f"fetch_history failed for {symbol}: {e}")
@@ -601,6 +610,9 @@ class Backtester:
 
     def fetch_history_crypto(self, symbol: str, days: int = 30,
                               timeframe: str = "1h") -> Optional[pd.DataFrame]:
+        _key = (symbol, days, timeframe)
+        if _key in self._candle_cache:
+            return self._candle_cache[_key]
         yf_symbol = symbol.replace("/", "-")
         cfg   = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
         tf    = cfg["interval"]
@@ -639,6 +651,7 @@ class Backtester:
                 return None
             logger.info(f"  -> {len(df)} bars  ({df.index[0].date()} - {df.index[-1].date()})")
             df = self._validate_ohlcv(df, symbol, timeframe)
+            self._candle_cache[_key] = df
             return df
         except Exception as e:
             logger.error(f"fetch_history_crypto failed for {yf_symbol}: {e}")
@@ -1403,15 +1416,16 @@ class Backtester:
                      initial_stop_mode: str = "auto",
                      trail_mode:        str = "auto",
                      entry_mode_filter: str = "all",
-                     entry_side_filter: str = "all") -> Optional[BacktestResult]:
-        if _cancel_event.is_set():          # gate: skip before fetch starts
+                     entry_side_filter: str = "all",
+                     param_overrides: dict = None) -> Optional[BacktestResult]:
+        if _cancel_event.is_set():
             return None
         capital = starting_capital or self.starting_capital
         if asset_class == "crypto":
             df = self.fetch_history_crypto(symbol, days, timeframe)
         else:
             df = self.fetch_history(symbol, days, timeframe)
-        if _cancel_event.is_set():          # gate: skip simulate if cancelled during fetch
+        if _cancel_event.is_set():
             return None
         if df is None or len(df) < 30:
             return None
@@ -1429,6 +1443,39 @@ class Backtester:
         except Exception as e:
             logger.error(f"Failed to load strategy {strategy_name}: {e}")
             return None
+
+        # Temporarily patch config.SIGNAL_TUNING AND strategy_obj.params for
+        # param sweep runs, restoring original values after regardless of
+        # success or failure.
+        #
+        # Two-tier patching:
+        #   1. SIGNAL_TUNING — covers strategies that read config at analyze() time
+        #      (mean_reversion, grid_bot, dca_accumulator, etc.)
+        #   2. strategy_obj.params — covers strategies that use a dedicated params
+        #      dataclass set in __init__ and never re-read config (rsi_dip_spike_v4, etc.)
+        #      Any override key that matches a field name on the dataclass is applied
+        #      directly; the original value is stashed for restore.
+        _orig_tuning = {}
+        _orig_params = {}
+        if param_overrides:
+            import config as _cfg
+            for k, v in param_overrides.items():
+                # Tier 1: SIGNAL_TUNING
+                if k in _cfg.SIGNAL_TUNING:
+                    _orig_tuning[k] = _cfg.SIGNAL_TUNING[k]
+                _cfg.SIGNAL_TUNING[k] = v
+                # Tier 2: strategy_obj.params dataclass (if present and field exists)
+                params_obj = getattr(strategy_obj, "params", None)
+                if params_obj is not None and hasattr(params_obj, k):
+                    _orig_params[k] = getattr(params_obj, k)
+                    # Preserve type — cast to the field's current type to avoid
+                    # accidentally passing a float where an int is expected.
+                    orig_type = type(getattr(params_obj, k))
+                    try:
+                        setattr(params_obj, k, orig_type(v))
+                    except (TypeError, ValueError):
+                        setattr(params_obj, k, v)
+
         try:
             return self._simulate(
                 symbol, df, strategy_name, strategy_obj, capital, timeframe,
@@ -1444,6 +1491,15 @@ class Backtester:
         except _BacktestCancelled:
             logger.info(f"[BACKTESTER] run_strategy() cancelled for {symbol}/{strategy_name}")
             return None
+        finally:
+            if _orig_tuning:
+                import config as _cfg
+                _cfg.SIGNAL_TUNING.update(_orig_tuning)
+            if _orig_params:
+                params_obj = getattr(strategy_obj, "params", None)
+                if params_obj is not None:
+                    for k, v in _orig_params.items():
+                        setattr(params_obj, k, v)
 
     def run_all(self, symbols: List[str], strategy_name: str = None,
                 days: int = 365, starting_capital: float = None,

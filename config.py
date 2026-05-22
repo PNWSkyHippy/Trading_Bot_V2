@@ -373,10 +373,16 @@ SIGNAL_TUNING = {
 
     # -------------------------------------------------------------------------
     # STRATEGY 4: Mean Reversion
+    # Audit 2026-05-22: period 20→10, zscore 2.0→1.5, min_score 0.60→0.70
+    #   225-combo sweep (50 stocks, 90d): period=10 dominates universally.
+    #   zscore=1.5 + period=10 + two_bar_2 stop → PF 1.626, $8,260 total profit
+    #   (vs zscore=2.0 → PF 1.704, $3,163 — fewer trades, lower absolute return)
+    #   min_score was a dead filter at 0.55-0.65 (identical results across all values)
+    #   Raised to 0.70 to actually have filtering effect.
     # -------------------------------------------------------------------------
-    "mean_rev_zscore_entry":        2.0,
-    "mean_rev_period":              20,
-    "mean_rev_min_score":           0.60,
+    "mean_rev_zscore_entry":        1.5,   # was 2.0 — lowered per sweep (max total profit)
+    "mean_rev_period":              10,    # was 20 — biggest single improvement per sweep
+    "mean_rev_min_score":           0.70,  # was 0.60 — raised; was filtering nothing at 0.55-0.65
 
     # -------------------------------------------------------------------------
     # STRATEGY 5: Scalp Master
@@ -391,10 +397,10 @@ SIGNAL_TUNING = {
     # -------------------------------------------------------------------------
     # STRATEGY 6: Swing Trader
     # -------------------------------------------------------------------------
-    "swing_adx_min":                20,
+    "swing_adx_min":                28,    # was 20 — too permissive, 60% of bars qualify; 28+ = strong trend only
     "swing_adx_period":             14,
-    "swing_rsi_oversold":           40,
-    "swing_rsi_overbought":         60,
+    "swing_rsi_oversold":           32,    # was 40 — fired on every minor dip; 32 = genuine pullback in trend
+    "swing_rsi_overbought":         68,    # was 60 — fired constantly in uptrends; 68 = genuine extension
     "swing_min_score":              0.60,
 
     # -------------------------------------------------------------------------

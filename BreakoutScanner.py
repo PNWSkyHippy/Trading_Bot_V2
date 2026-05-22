@@ -42,11 +42,14 @@ import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from datetime import time as dt_time
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from breakout_sender import BreakoutSender
+from scanners.gap_watchlist import GapWatchlist, GapSetup
+from scanners.catalyst_checker import CatalystChecker
+from scanners.volume_surge_scanner import VolumeSurgeTracker
 
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -1671,6 +1674,17 @@ class MarketScanner:
         self.latest_crypto_movers: List[PriceData]     = []
         self._alerted_at:          Dict[str, datetime] = {}
 
+        # Gap watchlist queue + catalyst checker
+        self.gap_watchlist   = GapWatchlist()
+        self.catalyst_checker = CatalystChecker(
+            api_key=self.config.get("alphavantage_api_key", "")
+        )
+        self._gap_stock_session:  Optional[str] = None
+        self._gap_crypto_session: Optional[str] = None
+
+        # Volume surge tracker (intraday 5m bar detector)
+        self.vol_surge = VolumeSurgeTracker(cooldown_hours=4.0)
+
     def _log_injected_watchlists(self):
         stocks = load_injected_stock_symbols()
         crypto = load_injected_crypto_symbols()
@@ -1708,8 +1722,12 @@ class MarketScanner:
                 )
                 if stock_open:
                     self._scan_stocks()
+                # Gap detection runs slightly before open (9:25 ET) -- don't gate on stock_open
+                self._gap_detect_stocks()
                 if crypto_open:
                     self._scan_cryptos()
+                    self._gap_detect_crypto()
+                self.gap_watchlist.expire_stale(datetime.now(timezone.utc), datetime.now())
                 update_signal_tracking(self)
             except Exception as e:
                 logger.error(f"Scan loop error: {e}", exc_info=True)
@@ -1820,6 +1838,14 @@ class MarketScanner:
 
     def _process_symbol(self, pd: PriceData, broker: str):
         sym = pd.symbol
+        # Check gap watchlist first -- uses data already fetched, no extra cost
+        self._check_gap_pending(pd)
+
+        # Volume surge check -- accumulates per-tick volume, fires at 3x avg
+        asset_class = "stock" if broker == "alpaca" else "crypto"
+        vol_payload = self.vol_surge.update_from_pricedata(pd, asset_class)
+        if vol_payload and hasattr(self, "bot_sender"):
+            self.bot_sender.send_raw_payload(vol_payload)
         result = self.escalation.check(pd)
         if result:
             sig, level = result
@@ -1947,6 +1973,205 @@ class MarketScanner:
         except Exception as e:
             logger.error(f"Stock scan error: {e}", exc_info=True)
 
+    # ------------------------------------------------------------------
+    # Gap detection -- called from scan loop at market open windows
+    # ------------------------------------------------------------------
+
+    def _gap_detect_stocks(self) -> None:
+        """Register overnight stock gaps at 9:25-9:35 ET. Fires once per day."""
+        try:
+            import yfinance as yf
+        except ImportError:
+            return
+
+        from zoneinfo import ZoneInfo
+        now_et = datetime.now(ZoneInfo("America/New_York"))
+        in_window = (9, 25) <= (now_et.hour, now_et.minute) < (9, 35)
+        today = now_et.strftime("%Y-%m-%d")
+        if not in_window or self._gap_stock_session == today:
+            return
+        self._gap_stock_session = today
+
+        from scanners.gap_watchlist import GapSetup
+        symbols = []
+        try:
+            from Scripts.config_manager import config as cfg
+            symbols = getattr(cfg, "STOCK_WATCHLIST", [])
+        except Exception:
+            pass
+
+        logger.info("[GAP DETECT] Stock open window -- scanning %d symbols", len(symbols))
+
+        # First pass: find all qualifying gaps
+        candidates = []
+        for symbol in symbols:
+            if self.gap_watchlist.is_pending(symbol):
+                continue
+            try:
+                ticker = yf.Ticker(symbol)
+                hist   = ticker.history(period="5d", interval="1d", auto_adjust=True)
+                if hist is None or len(hist) < 2:
+                    continue
+                prev_close = float(hist["Close"].iloc[-2])
+                today_open = float(hist["Open"].iloc[-1])
+                if prev_close <= 0 or today_open <= 0:
+                    continue
+                gap_pct = (today_open - prev_close) / prev_close * 100.0
+                if abs(gap_pct) < 2.0:
+                    continue
+                avg_vol   = float(hist["Volume"].iloc[:-1].mean())
+                today_vol = float(hist["Volume"].iloc[-1])
+                vol_spike = today_vol / avg_vol if avg_vol > 0 else 1.0
+                gap_type  = self._classify_gap(abs(gap_pct), vol_spike)
+                if gap_type is None:
+                    continue
+                candidates.append({
+                    "symbol": symbol, "gap_pct": gap_pct,
+                    "prev_close": prev_close, "today_open": today_open,
+                    "vol_spike": vol_spike, "gap_type": gap_type,
+                })
+                time.sleep(0.2)
+            except Exception as e:
+                logger.debug("[GAP DETECT] %s error: %s", symbol, e)
+
+        if not candidates:
+            return
+
+        # Batch catalyst check -- one API call for all candidates
+        syms = [c["symbol"] for c in candidates]
+        logger.info("[GAP DETECT] Checking catalysts for %d candidates: %s", len(syms), syms)
+        catalyst_results = self.catalyst_checker.check_batch(syms)
+
+        # Second pass: register only those with a catalyst
+        for c in candidates:
+            symbol   = c["symbol"]
+            cat      = catalyst_results.get(symbol)
+            gap_pct  = c["gap_pct"]
+
+            if cat and not cat.tradeable:
+                logger.info("[GAP DETECT] %s skipped -- %s", symbol, cat.skip_reason)
+                continue
+
+            # Sentiment direction should loosely match gap direction
+            if cat and cat.has_catalyst:
+                if gap_pct > 0 and cat.sentiment_score < -0.3:
+                    logger.info("[GAP DETECT] %s skipped -- gap up but bearish sentiment (%.2f)",
+                                symbol, cat.sentiment_score)
+                    continue
+                if gap_pct < 0 and cat.sentiment_score > 0.3:
+                    logger.info("[GAP DETECT] %s skipped -- gap down but bullish sentiment (%.2f)",
+                                symbol, cat.sentiment_score)
+                    continue
+
+            direction = (
+                ("long" if gap_pct > 0 else "short") if c["gap_type"] == "gap_and_go"
+                else ("short" if gap_pct > 0 else "long")
+            )
+
+            catalyst_tag = cat.catalyst_type if cat else "unknown"
+            strength_tag = cat.strength if cat else "unknown"
+            logger.info("[GAP DETECT] %s ACCEPTED  gap=%.1f%%  catalyst=%s(%s)",
+                        symbol, gap_pct, catalyst_tag, strength_tag)
+
+            self.gap_watchlist.register(GapSetup(
+                symbol=symbol, asset_class="stock", gap_type=c["gap_type"],
+                direction=direction, gap_pct=gap_pct, prev_close=c["prev_close"],
+                gap_open=c["today_open"], vol_spike=c["vol_spike"],
+                registered_at=datetime.now(timezone.utc),
+            ))
+
+    def _gap_detect_crypto(self) -> None:
+        """Register overnight crypto gaps at 00:00-00:15 UTC. Fires once per day."""
+        try:
+            import yfinance as yf
+        except ImportError:
+            return
+
+        now_utc = datetime.now(timezone.utc)
+        in_window = (0, 0) <= (now_utc.hour, now_utc.minute) < (0, 15)
+        today = now_utc.strftime("%Y-%m-%d")
+        if not in_window or self._gap_crypto_session == today:
+            return
+        self._gap_crypto_session = today
+
+        from scanners.gap_watchlist import GapSetup
+        symbols = []
+        try:
+            from Scripts.config_manager import config as cfg
+            symbols = getattr(cfg, "CRYPTO_WATCHLIST", [])
+        except Exception:
+            pass
+
+        logger.info("[GAP DETECT] Crypto open window -- scanning %d symbols", len(symbols))
+        for symbol in symbols:
+            if self.gap_watchlist.is_pending(symbol):
+                continue
+            try:
+                yf_sym = symbol.replace("/", "-")
+                ticker = yf.Ticker(yf_sym)
+                hist   = ticker.history(period="5d", interval="1d", auto_adjust=True)
+                if hist is None or len(hist) < 2:
+                    continue
+                prev_close = float(hist["Close"].iloc[-2])
+                today_open = float(hist["Open"].iloc[-1])
+                if prev_close <= 0 or today_open <= 0:
+                    continue
+                gap_pct = (today_open - prev_close) / prev_close * 100.0
+                if abs(gap_pct) < 1.5:
+                    continue
+                avg_vol   = float(hist["Volume"].iloc[:-1].mean())
+                today_vol = float(hist["Volume"].iloc[-1])
+                vol_spike = today_vol / avg_vol if avg_vol > 0 else 1.0
+                gap_type  = self._classify_gap(abs(gap_pct), vol_spike)
+                if gap_type is None:
+                    continue
+                direction = (
+                    ("long" if gap_pct > 0 else "short") if gap_type == "gap_and_go"
+                    else ("short" if gap_pct > 0 else "long")
+                )
+                self.gap_watchlist.register(GapSetup(
+                    symbol=symbol, asset_class="crypto", gap_type=gap_type,
+                    direction=direction, gap_pct=gap_pct, prev_close=prev_close,
+                    gap_open=today_open, vol_spike=vol_spike,
+                    registered_at=datetime.now(timezone.utc),
+                ))
+                time.sleep(0.2)
+            except Exception as e:
+                logger.debug("[GAP DETECT] %s error: %s", symbol, e)
+
+    def _classify_gap(self, abs_gap_pct: float, vol_spike: float) -> Optional[str]:
+        if abs_gap_pct >= 3.0 and vol_spike >= 1.4:
+            return "gap_and_go"
+        if abs_gap_pct >= 2.0 and abs_gap_pct < 8.0 and vol_spike < 1.8:
+            return "gap_fill"
+        return None
+
+    def _check_gap_pending(self, pd) -> None:
+        """
+        Called from _process_symbol for any symbol in the gap watchlist.
+        Uses already-fetched PriceData -- no extra fetches needed.
+        """
+        symbol = pd.symbol
+        if not self.gap_watchlist.is_pending(symbol):
+            return
+
+        # Estimate avg volume from detector history
+        vol_hist = list(self.detector.volume_history.get(symbol, []))
+        avg_vol  = sum(vol_hist[:-1]) / max(len(vol_hist) - 1, 1) if len(vol_hist) > 1 else pd.volume
+
+        confirmed, payload = self.gap_watchlist.check(
+            symbol     = symbol,
+            live_price = pd.price,
+            open_price = pd.open_price,
+            high       = pd.high,
+            low        = pd.low,
+            volume     = pd.volume,
+            avg_volume = avg_vol,
+        )
+
+        if confirmed and payload:
+            self.bot_sender.send_raw_payload(payload)
+
     def run_gui(self):
         self.gui = ScannerGUI(self)
         self.alert_system.gui = self.gui
@@ -1980,6 +2205,7 @@ class ScannerGUI:
         self.running        = False
         self._stock_store:  Dict[str, dict] = {}
         self._crypto_store: Dict[str, dict] = {}
+        self._gap_store:    Dict[str, dict] = {}
         self._sort_col      = "Move%"
         self._sort_desc     = True
 
@@ -1991,7 +2217,8 @@ class ScannerGUI:
             _init_audio()
         self.root = tk.Tk()
         self.root.title("Ron's Market Breakout Scanner")
-        self.root.geometry("1460x920")
+        self.root.geometry("1460x1160")
+        self.root.state("zoomed")
         self.root.configure(bg="#1a1a2e")
         self._setup_style()
         self._setup_ui()
@@ -2062,6 +2289,11 @@ class ScannerGUI:
                                   font=("Helvetica", 13, "bold"), padx=15,
                                   state="disabled")
         self.stop_btn.pack(side="left", padx=4)
+
+        tk.Button(bf, text="🗄 DB Panel", command=self._open_db_panel,
+                  bg="#0f3460", fg="#e0e0e0",
+                  font=("Helvetica", 12, "bold"), padx=12
+                  ).pack(side="left", padx=8)
         self.volume_var = tk.DoubleVar(value=0.5)
         tk.Scale(bf, from_=0, to=1, resolution=0.01, orient="horizontal",
                  label="Volume", variable=self.volume_var,
@@ -2107,6 +2339,30 @@ class ScannerGUI:
         self.crypto_tree.configure(yscrollcommand=vsb_c.set)
         self.crypto_tree.pack(side="left", fill="both", expand=True)
         vsb_c.pack(side="right", fill="y")
+
+        # --- Gap Watchlist pane ---
+        GAP_COLS   = ("Symbol","Type","Dir","Gap%","Fill%","Open$","Now$","Age","Checks","Status")
+        GAP_WIDTHS = {"Symbol":90,"Type":65,"Dir":50,"Gap%":65,"Fill%":65,
+                      "Open$":85,"Now$":85,"Age":55,"Checks":60,"Status":85}
+        gf = tk.LabelFrame(self.root,
+                            text="  🎯  GAP WATCHLIST  —  pending intraday confirmation",
+                            font=("Helvetica",13,"bold"),
+                            bg="#16213e", fg="#ffff44", padx=6, pady=6)
+        gf.pack(fill="both", expand=False, padx=20, pady=(3,3))
+        self.gap_tree = ttk.Treeview(gf, columns=GAP_COLS,
+                                     show="headings", style="Dark.Treeview", height=5)
+        for c in GAP_COLS:
+            self.gap_tree.heading(c, text=c)
+            self.gap_tree.column(c, width=GAP_WIDTHS.get(c, 70), anchor="center")
+        _gf = ("Consolas", 13, "bold")
+        self.gap_tree.tag_configure("watching",   background="#1a1a00", foreground="#ffff44", font=_gf)
+        self.gap_tree.tag_configure("confirmed",  background="#002200", foreground="#00ff88", font=_gf)
+        self.gap_tree.tag_configure("expired",    background="#1a0d00", foreground="#ff8800", font=_gf)
+        self.gap_tree.tag_configure("failed",     background="#2e0d0d", foreground="#ff4444", font=_gf)
+        vsb_g = ttk.Scrollbar(gf, orient="vertical", command=self.gap_tree.yview)
+        self.gap_tree.configure(yscrollcommand=vsb_g.set)
+        self.gap_tree.pack(side="left", fill="both", expand=True)
+        vsb_g.pack(side="right", fill="y")
 
         mf = tk.LabelFrame(self.root, text="Stock Top Movers",
                             font=("Helvetica",10,"bold"),
@@ -2182,6 +2438,7 @@ class ScannerGUI:
 
     def _refresh_tree(self, tree: ttk.Treeview, store: dict):
         if not tree: return
+        STATUS_RANK = {"ROCKET": 4, "HOT": 3, "MOVING": 2, "ALERT": 1, "watching": 0, "FAIL": -1}
         key_map = {
             "Time":"time","Broker":"broker","Symbol":"symbol","Dir":"direction",
             "Score":"score","Conf%":"confidence","Entry$":"entry_price",
@@ -2191,7 +2448,12 @@ class ScannerGUI:
         sk   = key_map.get(self._sort_col, "move_pct")
         rows = list(store.values())
         try:
-            if sk == "move_pct":
+            if self._sort_col == "Status":
+                rows.sort(
+                    key=lambda r: STATUS_RANK.get(self._status_for(r), 0),
+                    reverse=self._sort_desc
+                )
+            elif sk == "move_pct":
                 # Sort by favorable move so short winners (negative raw) sort correctly
                 rows.sort(
                     key=lambda r: favorable_move_pct(
@@ -2233,6 +2495,45 @@ class ScannerGUI:
                 status,
             ), tags=(tag,))
 
+    def _refresh_gap_tree(self):
+        """Refresh the gap watchlist pane from scanner.gap_watchlist.summary()."""
+        if not hasattr(self, "gap_tree") or not self.gap_tree:
+            return
+        rows = self.scanner.gap_watchlist.summary()
+        # Update gap_store keyed by symbol
+        for r in rows:
+            self._gap_store[r["symbol"]] = r
+        # Remove entries no longer in queue
+        active = {r["symbol"] for r in rows}
+        for s in list(self._gap_store.keys()):
+            if s not in active:
+                del self._gap_store[s]
+
+        for item in self.gap_tree.get_children():
+            self.gap_tree.delete(item)
+
+        for r in sorted(self._gap_store.values(), key=lambda x: x.get("age_min", 0)):
+            status  = r.get("status", "WATCHING")
+            tag     = {"WATCHING": "watching", "CONFIRMED": "confirmed",
+                       "EXPIRED": "expired", "FAILED": "failed"}.get(status, "watching")
+            gap_pct = r.get("gap_pct", 0.0)
+            op      = r.get("gap_open", 0.0)
+            # Fill% only meaningful for gap_fill; show -- for gap_and_go
+            fill_str = f"{r.get('fill_pct', 0.0):.0f}%" if r.get("gap_type") == "FILL" else "--"
+            # Now$ not available in summary (no live price stored), show --
+            self.gap_tree.insert("", "end", values=(
+                r.get("symbol", ""),
+                r.get("gap_type", ""),
+                r.get("direction", ""),
+                f"{gap_pct:+.1f}%",
+                fill_str,
+                f"${op:.3f}",
+                "--",
+                f"{r.get('age_min', 0)}m",
+                r.get("attempts", 0),
+                status,
+            ), tags=(tag,))
+
     def _sort_all(self, col: str):
         if self._sort_col == col:
             self._sort_desc = not self._sort_desc
@@ -2268,6 +2569,12 @@ class ScannerGUI:
         # ── Update watchlist count and movers (no network) ────────────────
         try:
             self.watch_label.config(text=f"Watchlist: {self.scanner.watchlist.size()}")
+        except Exception:
+            pass
+
+        # ── Refresh gap watchlist pane ────────────────────────────────────
+        try:
+            self._refresh_gap_tree()
         except Exception:
             pass
         try:
@@ -2368,6 +2675,15 @@ class ScannerGUI:
 
     def _toggle_auto_trade(self):
         self.scanner.config.set("enable_auto_trade", self.auto_trade_var.get())
+
+    def _open_db_panel(self):
+        import subprocess, sys
+        subprocess.Popen(
+            [sys.executable, str(
+                __import__("pathlib").Path(__file__).parent / "db_panel.py"
+            )],
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+        )
 
     def _on_close(self):
         self.running = False

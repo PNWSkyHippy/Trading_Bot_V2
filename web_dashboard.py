@@ -1514,7 +1514,7 @@ def open_manual_trade(payload):
 
         asset_class = str(payload.get("asset") or payload.get("asset_class") or "stock").lower()
         direction = str(payload.get("dir") or payload.get("direction") or "long").lower()
-        broker = str(payload.get("broker") or "paper").lower()
+        broker = str(payload.get("broker") or "ibkr").lower()
         strategy_label = str(payload.get("label") or payload.get("strategy") or "manual")
         position_size = float(payload.get("size") or payload.get("position_size") or 0)
         sl_pct = float(payload.get("sl") or payload.get("stop_loss_pct") or 1.5)
@@ -1637,6 +1637,203 @@ def open_manual_trade(payload):
         ), {"trade_id": trade_id, "entry_price": actual_fill_price, "quantity": qty}
     except Exception as exc:
         return False, f"Trade entry error: {exc}", {}
+
+
+# =============================================================================
+# Database browser helpers
+# =============================================================================
+
+_DB_TABLE_SEARCH = {
+    "trades":           {"strategy":True,"status":True,"symbol":True,
+                         "broker":True,"time_col":"entry_time"},
+    "capital":          {"time_col":"timestamp"},
+    "daily_summaries":  {"time_col":"trade_date"},
+    "settlement_queue": {"time_col":"created_at"},
+    "ai_signal_reviews":{"strategy":True,"symbol":True,"time_col":"timestamp"},
+    "strategy_results": {"strategy":True,"time_col":"recorded_at"},
+    "tax_ledger":       {"symbol":True,"time_col":"close_date"},
+    "withdrawals":      {"time_col":"timestamp"},
+    "chat_actions":     {"time_col":"timestamp"},
+    "fund_events":      {"time_col":"timestamp"},
+    "bot_state":        {},
+    "session_state":    {},
+}
+
+def _db_conn():
+    c = sqlite3.connect(str(DB_PATH))
+    c.execute("PRAGMA journal_mode=WAL")
+    c.execute("PRAGMA busy_timeout=3000")
+    c.row_factory = sqlite3.Row
+    return c
+
+def db_tables():
+    rows = []
+    try:
+        with _db_conn() as c:
+            tables = c.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+            ).fetchall()
+            for t in tables:
+                name = t[0]
+                cnt  = c.execute(f"SELECT COUNT(*) FROM [{name}]").fetchone()[0]
+                rows.append({"name": name, "rows": cnt})
+    except Exception as e:
+        return {"error": str(e), "tables": []}
+    return {"tables": rows}
+
+def db_browse(table: str, limit: int = 500, offset: int = 0):
+    # Whitelist: only real table names
+    try:
+        with _db_conn() as c:
+            valid = {r[0] for r in c.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+    except Exception as e:
+        return {"error": str(e)}
+    if table not in valid:
+        return {"error": f"Unknown table: {table}"}
+    try:
+        with _db_conn() as c:
+            cur  = c.execute(
+                f"SELECT rowid, * FROM [{table}] ORDER BY rowid DESC LIMIT ? OFFSET ?",
+                (limit, offset)
+            )
+            cols = [d[0] for d in cur.description]
+            rows = [list(r) for r in cur.fetchall()]
+        return {"table": table, "cols": cols, "rows": rows,
+                "limit": limit, "offset": offset}
+    except Exception as e:
+        return {"error": str(e)}
+
+_QUICK_SQL = {
+    "Open Today":      """SELECT trade_id,symbol,direction,status,strategy_name,entry_time,entry_price,stop_loss,take_profit,position_value,broker FROM trades WHERE status='open' AND DATE(entry_time)=DATE('now','localtime') ORDER BY entry_time DESC""",
+    "Closed Today":    """SELECT trade_id,symbol,direction,status,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','localtime') ORDER BY exit_time DESC""",
+    "All Open":        """SELECT trade_id,symbol,direction,status,strategy_name,entry_time,entry_price,stop_loss,take_profit,position_value,broker FROM trades WHERE status='open' ORDER BY entry_time DESC""",
+    "Ghost Trades":    """SELECT trade_id,symbol,direction,status,strategy_name,entry_time,entry_price,position_value,broker,ROUND((julianday('now','localtime')-julianday(entry_time))*24,1) AS hours_open FROM trades WHERE status='open' AND entry_time<datetime('now','-8 hours','localtime') ORDER BY entry_time ASC""",
+    "Capital Today":   """SELECT timestamp,total_capital,available_cash,invested_value,daily_pnl,total_pnl,note FROM capital WHERE DATE(timestamp)=DATE('now','localtime') ORDER BY timestamp DESC""",
+    "Settlement Queue":"""SELECT * FROM settlement_queue ORDER BY rowid DESC LIMIT 300""",
+    "By Strategy":     """SELECT trade_id,symbol,direction,status,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,broker FROM trades ORDER BY entry_time DESC LIMIT 500""",
+    "Strategies":      """SELECT replace(key,'strategy_','') AS strategy, UPPER(value) AS enabled FROM bot_state WHERE key LIKE 'strategy_%_enabled' ORDER BY strategy""",
+    "Daily P&L":       """SELECT trade_date,daily_pnl,daily_pnl_pct,total_trades,winning_trades,losing_trades,win_rate,largest_win,largest_loss,starting_capital,ending_capital FROM daily_summaries ORDER BY trade_date DESC LIMIT 60""",
+    "Yesterday Closed":"""SELECT trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','-1 day','localtime') ORDER BY exit_time DESC""",
+    "Signal Reviews":  """SELECT timestamp,symbol,direction,strategy_name,signal_score,decision,confidence,reasoning FROM ai_signal_reviews ORDER BY timestamp DESC LIMIT 200""",
+    "This Week Trades":"""SELECT trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker FROM trades WHERE status='closed' AND DATE(exit_time)>=DATE('now','-7 days','localtime') ORDER BY exit_time DESC""",
+    "Strategy P&L":    """SELECT strategy_name,COUNT(*) AS trades,SUM(CASE WHEN pnl>0 THEN 1 ELSE 0 END) AS wins,SUM(CASE WHEN pnl<=0 THEN 1 ELSE 0 END) AS losses,ROUND(100.0*SUM(CASE WHEN pnl>0 THEN 1 ELSE 0 END)/COUNT(*),1) AS win_rate_pct,ROUND(SUM(pnl),2) AS total_pnl,ROUND(SUM(CASE WHEN pnl>0 THEN pnl ELSE 0 END),2) AS gross_wins,ROUND(ABS(SUM(CASE WHEN pnl<=0 THEN pnl ELSE 0 END)),2) AS gross_losses,ROUND(SUM(CASE WHEN pnl>0 THEN pnl ELSE 0 END)/NULLIF(ABS(SUM(CASE WHEN pnl<=0 THEN pnl ELSE 0 END)),0),3) AS profit_factor FROM trades WHERE status='closed' GROUP BY strategy_name ORDER BY total_pnl DESC""",
+    "💰 Financials":   """SELECT label,value,detail FROM (SELECT 'Total Capital' AS label,'$'||printf('%.2f',total_capital) AS value,'Cash: $'||printf('%.2f',available_cash)||'   Invested: $'||printf('%.2f',invested_value) AS detail FROM capital ORDER BY timestamp DESC LIMIT 1) UNION ALL SELECT label,value,detail FROM (SELECT 'Daily P&L (tracker)' AS label,(CASE WHEN daily_pnl>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',daily_pnl) AS value,'Cumulative: '||(CASE WHEN total_pnl>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',total_pnl) AS detail FROM capital ORDER BY timestamp DESC LIMIT 1) UNION ALL SELECT 'In Open Trades',('$'||printf('%.2f',COALESCE(SUM(position_value),0))),(CAST(COUNT(*) AS TEXT)||' open positions') FROM trades WHERE status='open' UNION ALL SELECT 'In Settlement',('$'||printf('%.2f',COALESCE(SUM(amount),0))),(CAST(COUNT(*) AS TEXT)||' unsettled items') FROM settlement_queue WHERE settled=0 UNION ALL SELECT 'Today Closed P&L',((CASE WHEN COALESCE(SUM(pnl),0)>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',COALESCE(SUM(pnl),0))),(CAST(COUNT(*) AS TEXT)||' trades  '||CAST(SUM(CASE WHEN pnl>0 THEN 1 ELSE 0 END) AS TEXT)||'W / '||CAST(SUM(CASE WHEN pnl<=0 THEN 1 ELSE 0 END) AS TEXT)||'L') FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','localtime') UNION ALL SELECT 'Yesterday P&L',((CASE WHEN COALESCE(SUM(pnl),0)>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',COALESCE(SUM(pnl),0))),(CAST(COUNT(*) AS TEXT)||' trades  '||CAST(SUM(CASE WHEN pnl>0 THEN 1 ELSE 0 END) AS TEXT)||'W / '||CAST(SUM(CASE WHEN pnl<=0 THEN 1 ELSE 0 END) AS TEXT)||'L') FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','-1 day','localtime') UNION ALL SELECT 'This Week P&L',((CASE WHEN COALESCE(SUM(pnl),0)>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',COALESCE(SUM(pnl),0))),(CAST(COUNT(*) AS TEXT)||' trades') FROM trades WHERE status='closed' AND DATE(exit_time)>=DATE('now','-7 days','localtime') UNION ALL SELECT 'This Month P&L',((CASE WHEN COALESCE(SUM(pnl),0)>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',COALESCE(SUM(pnl),0))),(CAST(COUNT(*) AS TEXT)||' trades') FROM trades WHERE status='closed' AND strftime('%Y-%m',exit_time)=strftime('%Y-%m','now','localtime')""",
+}
+
+def db_quick(label: str):
+    sql = _QUICK_SQL.get(label)
+    if not sql:
+        return {"error": f"Unknown quick query: {label}"}
+    try:
+        with _db_conn() as c:
+            cur  = c.execute(sql)
+            cols = [d[0] for d in cur.description]
+            rows = [list(r) for r in cur.fetchall()]
+        return {"label": label, "cols": cols, "rows": rows}
+    except Exception as e:
+        return {"error": str(e)}
+
+def db_search(data: dict):
+    table = data.get("table", "trades")
+    try:
+        with _db_conn() as c:
+            valid = {r[0] for r in c.execute(
+                "SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+    except Exception as e:
+        return {"error": str(e)}
+    if table not in valid:
+        return {"error": f"Unknown table: {table}"}
+
+    cfg    = _DB_TABLE_SEARCH.get(table, {})
+    where, params = [], []
+
+    if cfg.get("strategy") and data.get("strategy"):
+        where.append("strategy_name LIKE ?")
+        params.append(f"%{data['strategy']}%")
+    if cfg.get("status") and data.get("status","any") != "any":
+        where.append("status=?"); params.append(data["status"])
+    if cfg.get("symbol") and data.get("symbol"):
+        where.append("symbol LIKE ?"); params.append(f"%{data['symbol'].upper()}%")
+    if cfg.get("broker") and data.get("broker","any") != "any":
+        where.append("broker=?"); params.append(data["broker"])
+
+    tcol = cfg.get("time_col")
+    tf   = data.get("time","any")
+    if tcol and tf != "any":
+        if tf == "last 1h":
+            where.append(f"{tcol}>=datetime('now','localtime','-1 hour')")
+        elif tf == "last 4h":
+            where.append(f"{tcol}>=datetime('now','localtime','-4 hours')")
+        elif tf == "last 8h":
+            where.append(f"{tcol}>=datetime('now','localtime','-8 hours')")
+        elif tf == "today":
+            where.append(f"DATE({tcol})=DATE('now','localtime')")
+        elif tf == "yesterday":
+            where.append(f"DATE({tcol})=DATE('now','localtime','-1 day')")
+        elif tf == "this week":
+            where.append(f"{tcol}>=datetime('now','localtime','-7 days')")
+
+    clause = ("WHERE " + " AND ".join(where)) if where else ""
+    sql    = f"SELECT rowid, * FROM [{table}] {clause} ORDER BY rowid DESC LIMIT 2000"
+    try:
+        with _db_conn() as c:
+            cur  = c.execute(sql, params)
+            cols = [d[0] for d in cur.description]
+            rows = [list(r) for r in cur.fetchall()]
+        return {"table": table, "cols": cols, "rows": rows}
+    except Exception as e:
+        return {"error": str(e)}
+
+def db_edit_row(data: dict):
+    table   = data.get("table","")
+    rowid   = data.get("rowid")
+    col     = data.get("col","")
+    new_val = data.get("value","")
+    if not table or rowid is None or not col:
+        return False, "Missing table/rowid/col"
+    try:
+        with _db_conn() as c:
+            c.execute(f"UPDATE [{table}] SET [{col}]=? WHERE rowid=?",
+                      (new_val, rowid))
+            c.commit()
+        return True, f"Updated {table} rowid={rowid} {col}={new_val}"
+    except Exception as e:
+        return False, str(e)
+
+def db_flush_ghost(data: dict):
+    trade_id    = data.get("trade_id","")
+    entry_price = data.get("entry_price", 0)
+    if not trade_id:
+        return False, "Missing trade_id"
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        with _db_conn() as c:
+            c.execute("""UPDATE trades SET
+                           status='closed', exit_time=?, exit_price=?,
+                           exit_reason='manual_flush_ghost', pnl=0, pnl_pct=0
+                         WHERE trade_id=?""",
+                      (now_str, entry_price, trade_id))
+            c.commit()
+        return True, f"Flushed ghost trade {trade_id}"
+    except Exception as e:
+        return False, str(e)
+
+def db_strategy_toggle(data: dict):
+    key     = data.get("key","")
+    enabled = data.get("enabled", True)
+    if not key or not key.startswith("strategy_"):
+        return False, "Invalid strategy key"
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    val     = "true" if enabled else "false"
+    try:
+        with _db_conn() as c:
+            c.execute("UPDATE bot_state SET value=?, updated=? WHERE key=?",
+                      (val, now_str, key))
+            c.commit()
+        return True, f"{'Enabled' if enabled else 'Disabled'} {key}"
+    except Exception as e:
+        return False, str(e)
 
 
 def build_snapshot():
@@ -1779,6 +1976,22 @@ class Handler(BaseHTTPRequestHandler):
             year = (params.get("year") or [date.today().year])[0]
             return self._json(200, get_quick_status(year))
 
+        # ── Database browser API ──────────────────────────────────────────
+        if path == "/api/db/tables":
+            return self._json(200, db_tables())
+
+        if path == "/api/db/browse":
+            params = parse_qs(parsed.query)
+            table  = (params.get("table") or ["trades"])[0]
+            limit  = int((params.get("limit")  or ["500"])[0])
+            offset = int((params.get("offset") or ["0"])[0])
+            return self._json(200, db_browse(table, limit, offset))
+
+        if path == "/api/db/quick":
+            params = parse_qs(parsed.query)
+            label  = (params.get("q") or [""])[0]
+            return self._json(200, db_quick(label))
+
         if path == "/api/manual_trade/config":
             return self._json(200, get_manual_trade_config())
 
@@ -1903,6 +2116,23 @@ class Handler(BaseHTTPRequestHandler):
             ok, msg, details = chat_with_bot(data.get("message"))
             return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
 
+        # ── Database browser POST actions (must be before /api/control guard) ─
+        if path in ("/api/db/search", "/api/db/edit_row",
+                    "/api/db/flush_ghost", "/api/db/strategy_toggle"):
+            length = int(self.headers.get("Content-Length", "0"))
+            data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+            if path == "/api/db/search":
+                return self._json(200, db_search(data))
+            if path == "/api/db/edit_row":
+                ok, msg = db_edit_row(data)
+                return self._json(200 if ok else 400, {"ok": ok, "message": msg})
+            if path == "/api/db/flush_ghost":
+                ok, msg = db_flush_ghost(data)
+                return self._json(200 if ok else 400, {"ok": ok, "message": msg})
+            if path == "/api/db/strategy_toggle":
+                ok, msg = db_strategy_toggle(data)
+                return self._json(200 if ok else 400, {"ok": ok, "message": msg})
+
         if path != "/api/control":
             return self._json(404, {"error": "not found"})
 
@@ -1942,6 +2172,18 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(400, {"ok": False, "message": "Bot still running after stop; restart aborted."})
             ok, msg = start_bot_process()
             return self._json(200 if ok else 400, {"ok": ok, "message": f"Restart requested. {msg}"})
+
+        if action == "open_db_panel":
+            try:
+                subprocess.Popen(
+                    [str(BOT_PYTHON), str(ROOT / "db_panel.py")],
+                    cwd=str(ROOT),
+                    creationflags=subprocess.CREATE_NO_WINDOW
+                    if hasattr(subprocess, "CREATE_NO_WINDOW") else 0,
+                )
+                return self._json(200, {"ok": True, "message": "DB Panel launched."})
+            except Exception as e:
+                return self._json(500, {"ok": False, "message": str(e)})
 
         if action == "refresh_scan":
             return self._json(200, {"ok": True, "message": "Scan refresh request received."})

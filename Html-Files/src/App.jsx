@@ -67,6 +67,7 @@ function App() {
       <button className="btn ok" onClick={() => postControl('start_bot')}>Start Bot</button>
       <button className="btn warn" onClick={() => postControl('stop_bot')}>Stop Bot</button>
       <button className="btn warn" onClick={() => postControl('restart_bot')}>Restart Bot</button>
+      <button className="btn ok" onClick={() => postControl('open_db_panel')} style={{background:'#0f3460'}}>🗄 DB Panel</button>
       <div style={{marginTop:'8px'}}>{msg}</div>
     </div>
 
