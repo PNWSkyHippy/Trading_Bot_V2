@@ -220,14 +220,80 @@ class GapScanner(BaseEventScanner):
         if not _YF_OK:
             logger.warning("[GapScanner] yfinance not available -- stock gap register skipped")
             return
-        for symbol in self.stock_symbols:
+
+        # Dynamic: ask Alpaca who is actually moving today.
+        # Fall back to static watchlist only if Alpaca screener is unavailable.
+        symbols = self._get_alpaca_gap_symbols() or self.stock_symbols
+
+        if not symbols:
+            logger.warning("[GapScanner] No symbols to scan for gaps")
+            return
+
+        logger.info("[GapScanner] Scanning %d symbols for gaps", len(symbols))
+        for symbol in symbols:
             if self.is_on_cooldown(symbol) or symbol in self._watchlist:
                 continue
             try:
                 self._try_register_gap(symbol, "stock")
-                time.sleep(0.3)
+                time.sleep(0.15)
             except Exception as e:
                 logger.warning("[GapScanner] Error registering stock gap %s: %s", symbol, e)
+
+    # Minimum filters to exclude penny stocks and illiquid micro-caps
+    SCREENER_MIN_PRICE  = 5.0       # skip anything under $5
+    SCREENER_MIN_VOLUME = 500_000   # skip anything under 500K shares at open
+
+    def _get_alpaca_gap_symbols(self, top: int = 25) -> Optional[List[str]]:
+        """
+        Query Alpaca screener for today's top market movers (gainers + losers).
+
+        At 9:30 ET the percent_change on these is essentially the overnight gap.
+        Penny stocks and low-volume names are filtered out — they gap huge on
+        tiny volume and are untradeable.
+
+        Returns a flat symbol list, or None if the screener is unavailable.
+        """
+        try:
+            from alpaca.data import ScreenerClient, MarketMoversRequest, MarketType
+            from config import ALPACA_API_KEY, ALPACA_SECRET_KEY
+
+            if not ALPACA_API_KEY or not ALPACA_SECRET_KEY:
+                logger.debug("[GapScanner] Alpaca keys not configured -- skipping screener")
+                return None
+
+            client = ScreenerClient(
+                api_key    = ALPACA_API_KEY,
+                secret_key = ALPACA_SECRET_KEY,
+            )
+            req    = MarketMoversRequest(market_type=MarketType.STOCKS, top=top)
+            result = client.get_market_movers(req)
+
+            raw_gainers = result.gainers if hasattr(result, "gainers") and result.gainers else []
+            raw_losers  = result.losers  if hasattr(result, "losers")  and result.losers  else []
+            all_movers  = raw_gainers + raw_losers
+
+            # Filter: price >= $5, volume >= 500K
+            tradeable = [
+                m for m in all_movers
+                if getattr(m, "price",  0) >= self.SCREENER_MIN_PRICE
+                and getattr(m, "volume", 0) >= self.SCREENER_MIN_VOLUME
+            ]
+
+            skipped = len(all_movers) - len(tradeable)
+            logger.info(
+                "[GapScanner] Alpaca screener: %d movers, %d tradeable (filtered %d penny/illiquid)",
+                len(all_movers), len(tradeable), skipped,
+            )
+
+            if tradeable:
+                return [m.symbol for m in tradeable]
+
+            logger.warning("[GapScanner] Alpaca screener returned no tradeable movers -- falling back to watchlist")
+            return None
+
+        except Exception as e:
+            logger.warning("[GapScanner] Alpaca screener unavailable (%s) -- falling back to watchlist", e)
+            return None
 
     def _register_crypto_gaps(self) -> None:
         if not _YF_OK:

@@ -1,0 +1,67 @@
+========================================================================
+  STRATEGY MATRIX REPORT
+========================================================================
+  Strategy   : adaptive_regime
+  Period     : 1050 days
+  Timeframes : 1h
+  Directions : long
+  Crypto     : none
+  Stocks     : AAPL, MSFT, NVDA, AMD, TSLA, META, AMZN, GOOGL, JPM, SPY
+  Generated  : 2026-05-24T04:17:34
+
+========================================================================
+  OVERALL SUMMARY
+========================================================================
+  Total cells tested    : 7
+  Overall avg PF        : 8.862
+  Cells with edge (PF>=1.2) : 4  (57.1%)
+  Verdict               : STRONG EDGE -- profitable across many conditions
+
+  -- CONDITIONS RANKED BY AVERAGE PF (best first) --
+  Condition     Avg PF  Avg WR%  Symbols  Edge cnt   Edge%
+  ------------ ------- -------- -------- --------- -------
+  1h/long        8.862    55.0%        7         4     57% <-- best
+
+  -- SYMBOLS RANKED BY AVERAGE PF (best first) --
+  Symbol           Class     Avg PF  Avg WR%  Conditions  Edge cnt   Edge%
+  ---------------- -------- ------- -------- ----------- --------- -------
+  AMD              stock     23.230    66.7%           1         1    100%
+  TSLA             stock     14.100    50.0%           1         1    100%
+  JPM              stock      4.390    66.7%           1         1    100%
+  NVDA             stock      2.060    66.7%           1         1    100%
+  GOOGL            stock      0.530    25.0%           1         0      0%
+  AAPL             stock      0.000     0.0%           0         0      0%
+  MSFT             stock      0.000     0.0%           0         0      0%
+  META             stock      0.000     0.0%           1         0      0%
+  AMZN             stock      0.000     0.0%           1         0      0%
+  SPY              stock      0.000     0.0%           0         0      0%
+
+  -- TOP EDGE CELLS  (PF >= 1.2, >= 2 trades) --
+  #    Symbol           TF    Dir         PF    WR%  Trades        PnL
+  ---- ---------------- ----- ------- ------ ------ ------- ----------
+  1    AMD              1h    long    23.230  66.7%       3      13.47
+  2    TSLA             1h    long    14.100  50.0%       2      17.01
+  3    JPM              1h    long     4.390  66.7%       3       6.87
+  4    NVDA             1h    long     2.060  66.7%       3       5.49
+========================================================================
+  FULL MATRIX  (PF / WR%  per cell)
+========================================================================
+  Symbol               1h/l    
+  -----------------------------
+  -- STOCKS --
+  AAPL              0.00/   0% 
+  MSFT              0.00/   0% 
+  NVDA              2.06/  67% 
+  AMD              23.23/  67% 
+  TSLA             14.10/  50% 
+  META              0.00/   0% 
+  AMZN              0.00/   0% 
+  GOOGL             0.53/  25% 
+  JPM               4.39/  67% 
+  SPY               0.00/   0% 
+
+  l=long  s=short  b=both  |  format: PF/WR%
+
+========================================================================
+  END OF REPORT
+========================================================================

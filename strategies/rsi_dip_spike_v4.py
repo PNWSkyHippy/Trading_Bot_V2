@@ -567,6 +567,121 @@ class RSIDipSpikeV4Strategy(BaseStrategy):
             self.logger.error(f"RSIDipSpikeV4Strategy.analyze error on {symbol}: {e}", exc_info=True)
             return None
 
+    # ── Pre-computation fast-path (called by backtester._simulate) ────────────
+    # These three methods are the O(N) → O(1) optimisation for the bar loop.
+    # _precompute() is called ONCE on the full df before the loop starts.
+    # _analyze_from_precomputed() and _exit_from_precomputed() do O(1) lookups.
+
+    def _precompute(self, symbol: str, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Pre-compute all indicators on the FULL df before the bar loop.
+        Called once by backtester._simulate(); result stored as _all_sigs.
+        Eliminates O(N²) indicator recomputation across the bar loop.
+        """
+        return generate_signals(df, self.params)
+
+    def _analyze_from_precomputed(self, symbol: str, i: int,
+                                  sigs: pd.DataFrame,
+                                  df: pd.DataFrame) -> Optional['TradeSignal']:
+        """
+        O(1) signal lookup — replaces per-bar analyze() call inside _simulate.
+        Uses precomputed signals df instead of re-running generate_signals().
+        """
+        p   = self.params
+        row = sigs.iloc[i]
+
+        long_sig  = bool(row["long_signal"])
+        short_sig = bool(row["short_signal"])
+        if not (long_sig or short_sig):
+            return None
+
+        rsi = float(row["rsi"])
+        if pd.isna(rsi):
+            return None
+
+        direction = "long" if long_sig else "short"
+        close     = float(row["close"])
+        atr       = float(row["atr"])
+        adx       = float(row["adx"])
+
+        sl_pct = round(atr * p.sl_atr_mult / close * 100, 3)
+        tp_pct = round(atr * p.tp_atr_mult / close * 100, 3)
+        structural_stop = (
+            close - atr * p.sl_atr_mult if direction == "long"
+            else close + atr * p.sl_atr_mult
+        )
+
+        if long_sig:
+            rsi_depth = max(0.0, (p.rsi_oversold - rsi) / p.rsi_oversold)
+        else:
+            rsi_depth = max(0.0, (rsi - p.rsi_overbought) / (100.0 - p.rsi_overbought))
+        adx_bonus = min((adx - p.adx_min) / 30.0, 0.25)
+        score     = round(max(0.55, min(0.92, 0.60 + rsi_depth * 0.15 + adx_bonus)), 3)
+
+        macro_ma_raw = row["macro_ma"]
+        macro_ma_val = float(macro_ma_raw) if not pd.isna(macro_ma_raw) else None
+
+        # Volume ratio: 20-bar rolling mean — cheap O(1) using iloc
+        vol_series = df["volume"]
+        start_v    = max(0, i - 19)
+        vol_ma_val = vol_series.iloc[start_v:i].mean() if i > start_v else None
+        vol_ratio  = (round(float(vol_series.iloc[i] / vol_ma_val), 3)
+                      if vol_ma_val and vol_ma_val > 0 else None)
+
+        return self._make_signal(
+            symbol          = symbol,
+            direction       = direction,
+            score           = score,
+            reason          = (
+                f"RSIDipSpike v4c: RSI={rsi:.1f} "
+                f"({'dip' if long_sig else 'spike'}) "
+                f"ADX={adx:.1f} | "
+                f"{'bull' if row['bull_regime'] else 'bear'} regime"
+                + (f" [{p.signal_mode}]" if p.signal_mode != "penetration" else "")
+            ),
+            stop_loss_pct   = sl_pct,
+            take_profit_pct = tp_pct,
+            metadata={
+                "strategy_name":               "rsi_dip_spike_v4",
+                "entry_timeframe":             self.crypto_candle_timeframe,
+                "signal_mode":                 p.signal_mode,
+                "rsi":                         round(rsi, 2),
+                "adx":                         round(adx, 2),
+                "atr":                         round(atr, 6),
+                "macro_ma":                    round(macro_ma_val, 6) if macro_ma_val is not None else None,
+                "bull_regime":                 bool(row["bull_regime"]),
+                "bear_regime":                 bool(row["bear_regime"]),
+                "adx_ok":                      bool(row["adx_ok"]),
+                "volume_ratio":                vol_ratio,
+                "structural_stop_price":       round(structural_stop, 6),
+                "preferred_initial_stop_mode": "signal_structural",
+                "preferred_trail_mode":        "none",
+            },
+        )
+
+    def _exit_from_precomputed(self, i: int, sigs: pd.DataFrame,
+                               direction: str, meta: dict) -> Optional[str]:
+        """
+        O(1) exit check — replaces per-bar check_custom_exit() call inside _simulate.
+        Reads RSI directly from precomputed signals instead of recomputing it.
+        """
+        p = self.params
+        try:
+            rsi_now = float(sigs.iloc[i]["rsi"])
+            if not pd.isna(rsi_now):
+                if direction == "long"  and rsi_now >= p.rsi_exit_long:
+                    return "rsi_neutral_exit"
+                if direction == "short" and rsi_now <= p.rsi_exit_short:
+                    return "rsi_neutral_exit"
+        except Exception:
+            pass
+
+        bars_held = int(meta.get("_bars_held", 0))
+        if bars_held >= p.max_bars_hold:
+            return "rsi_max_hold"
+
+        return None
+
     def check_custom_exit(
         self,
         symbol: str,

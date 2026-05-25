@@ -1,0 +1,323 @@
+========================================================================
+  STRATEGY MATRIX REPORT
+========================================================================
+  Strategy   : adaptive_regime
+  Period     : 1050 days
+  Timeframes : 1h
+  Directions : long
+  Crypto     : none
+  Stocks     : NVDA, META, TSLA, MSFT, NFLX, AMD, INTC, MRVL, ALAB, QCOM, TXN, LRCX, KLAC, AMAT, MU, ON, MPWR, PLTR, CRM, SNOW, DDOG, NET, NOW, CRWD, ZS, OKTA, PANW, GTLB, PATH, AI, BBAI, SOUN, IONQ, SQ, COIN, HOOD, AFRM, SOFI, NU, PYPL, NIO, LI, XPEV, RIVN, LCID, CHPT, PLUG, FCEL, BE, MP, FSLR, ENPH, SEDG, MRNA, BNTX, GILD, REGN, VRTX, BIIB, RXRX, NVAX, PFE, OGN, ACHR, LUNR, RKLB, ASTS, SPCE, LMT, RTX, NOC, BA, CRWV, APLD, IREN, MARA, RIOT, CLSK, OKLO, SMR, NNE, MSTR, HIVE, BTDR, WULF, CIFR, CORZ, AAOI, CLS, CIEN, INFN, BABA, JD, PDD, BIDU, AMZN, SHOP, CVNA, JPM, BAC, GS, MS, BX, KKR, XOM, CVX, OXY, SLB, HAL, DVN, ISRG, DXCM, HIMS, TDOC, SIDU, ZIM, DAC, UPST, OPEN, SPWR, NKLA
+  Generated  : 2026-05-24T05:09:10
+
+========================================================================
+  OVERALL SUMMARY
+========================================================================
+  Total cells tested    : 111
+  Overall avg PF        : 5.042
+  Cells with edge (PF>=1.2) : 54  (48.6%)
+  Verdict               : SELECTIVE EDGE -- works in specific conditions only
+
+  -- CONDITIONS RANKED BY AVERAGE PF (best first) --
+  Condition     Avg PF  Avg WR%  Symbols  Edge cnt   Edge%
+  ------------ ------- -------- -------- --------- -------
+  1h/long        5.042    43.0%      111        54     49% <-- best
+
+  -- SYMBOLS RANKED BY AVERAGE PF (best first) --
+  Symbol           Class     Avg PF  Avg WR%  Conditions  Edge cnt   Edge%
+  ---------------- -------- ------- -------- ----------- --------- -------
+  SPWR             stock    157.120    66.7%           1         1    100%
+  MRNA             stock    147.270    83.3%           1         1    100%
+  AMD              stock     23.230    66.7%           1         1    100%
+  CHPT             stock     16.490    50.0%           1         1    100%
+  TSLA             stock     14.100    50.0%           1         1    100%
+  ZIM              stock     10.710    66.7%           1         1    100%
+  UPST             stock      6.500    60.0%           1         1    100%
+  LRCX             stock      6.460    66.7%           1         1    100%
+  CVNA             stock      6.340    80.0%           1         1    100%
+  RXRX             stock      5.850    75.0%           1         1    100%
+  LCID             stock      5.270    75.0%           1         1    100%
+  AAOI             stock      4.620    66.7%           1         1    100%
+  JPM              stock      4.390    66.7%           1         1    100%
+  IREN             stock      3.810    50.0%           1         1    100%
+  PLTR             stock      3.730    57.1%           1         1    100%
+  LI               stock      3.620    50.0%           1         1    100%
+  ACHR             stock      3.560    61.5%           1         1    100%
+  RIVN             stock      3.270    66.7%           1         1    100%
+  MPWR             stock      3.190    66.7%           1         1    100%
+  APLD             stock      3.030    27.3%           1         1    100%
+  SOUN             stock      3.010    42.9%           1         1    100%
+  MS               stock      2.900    50.0%           1         1    100%
+  CIFR             stock      2.840    71.4%           1         1    100%
+  CIEN             stock      2.730    50.0%           1         1    100%
+  GS               stock      2.670    61.5%           1         1    100%
+  OKTA             stock      2.570    50.0%           1         1    100%
+  TXN              stock      2.560    42.9%           1         1    100%
+  BBAI             stock      2.530    40.0%           1         1    100%
+  NIO              stock      2.370    57.1%           1         1    100%
+  AFRM             stock      2.340    33.3%           1         1    100%
+  BABA             stock      2.270    50.0%           1         1    100%
+  AMAT             stock      2.220    50.0%           1         1    100%
+  LUNR             stock      2.210    50.0%           1         1    100%
+  SOFI             stock      2.200    50.0%           1         1    100%
+  NVDA             stock      2.060    66.7%           1         1    100%
+  BAC              stock      1.980    45.5%           1         1    100%
+  BIDU             stock      1.670    25.0%           1         1    100%
+  REGN             stock      1.660    62.5%           1         1    100%
+  COIN             stock      1.610    40.0%           1         1    100%
+  RKLB             stock      1.580    40.0%           1         1    100%
+  OKLO             stock      1.560    50.0%           1         1    100%
+  MU               stock      1.540    28.6%           1         1    100%
+  AI               stock      1.520    57.1%           1         1    100%
+  DAC              stock      1.490    36.8%           1         1    100%
+  DVN              stock      1.460    40.0%           1         1    100%
+  GILD             stock      1.450    50.0%           1         1    100%
+  HIVE             stock      1.420    47.1%           1         1    100%
+  HIMS             stock      1.410    40.0%           1         1    100%
+  LMT              stock      1.340    37.5%           1         1    100%
+  RIOT             stock      1.290    60.0%           1         1    100%
+  CRWD             stock      1.280    50.0%           1         1    100%
+  RTX              stock      1.270    37.5%           1         1    100%
+  NOW              stock      1.240    30.8%           1         1    100%
+  CLS              stock      1.220    43.8%           1         1    100%
+  HOOD             stock      1.190    44.4%           1         0      0%
+  ZS               stock      1.170    35.7%           1         0      0%
+  SHOP             stock      1.150    44.4%           1         0      0%
+  SEDG             stock      1.130    40.0%           1         0      0%
+  CRM              stock      1.100    36.4%           1         0      0%
+  ISRG             stock      1.100    37.5%           1         0      0%
+  PLUG             stock      1.080    25.0%           1         0      0%
+  MRVL             stock      0.910    50.0%           1         0      0%
+  BX               stock      0.910    42.9%           1         0      0%
+  FSLR             stock      0.900    50.0%           1         0      0%
+  OGN              stock      0.900    40.0%           1         0      0%
+  OXY              stock      0.900    33.3%           1         0      0%
+  JD               stock      0.890    33.3%           1         0      0%
+  PYPL             stock      0.850    16.7%           1         0      0%
+  MP               stock      0.820    33.3%           1         0      0%
+  KLAC             stock      0.810    55.6%           1         0      0%
+  XPEV             stock      0.810    33.3%           1         0      0%
+  BE               stock      0.790    37.5%           1         0      0%
+  CVX              stock      0.770    30.0%           1         0      0%
+  KKR              stock      0.760    37.5%           1         0      0%
+  OPEN             stock      0.760    40.0%           1         0      0%
+  XOM              stock      0.750    22.2%           1         0      0%
+  PFE              stock      0.740    37.5%           1         0      0%
+  GTLB             stock      0.680    16.7%           1         0      0%
+  PATH             stock      0.680    20.0%           1         0      0%
+  NU               stock      0.650    36.4%           1         0      0%
+  BNTX             stock      0.640    40.0%           1         0      0%
+  SLB              stock      0.640    27.3%           1         0      0%
+  TDOC             stock      0.640    42.9%           1         0      0%
+  SPCE             stock      0.580    50.0%           1         0      0%
+  WULF             stock      0.570    27.8%           1         0      0%
+  VRTX             stock      0.550    40.0%           1         0      0%
+  NVAX             stock      0.530    40.0%           1         0      0%
+  ALAB             stock      0.520    28.6%           1         0      0%
+  NOC              stock      0.480    25.0%           1         0      0%
+  MARA             stock      0.460    57.1%           1         0      0%
+  PANW             stock      0.380    25.0%           1         0      0%
+  FCEL             stock      0.380    20.0%           1         0      0%
+  NET              stock      0.360    14.3%           1         0      0%
+  ASTS             stock      0.360    40.0%           1         0      0%
+  ENPH             stock      0.330    40.0%           1         0      0%
+  SNOW             stock      0.120    16.7%           1         0      0%
+  DXCM             stock      0.120    40.0%           1         0      0%
+  CLSK             stock      0.110    28.6%           1         0      0%
+  MSTR             stock      0.110    22.2%           1         0      0%
+  BTDR             stock      0.110    14.3%           1         0      0%
+  IONQ             stock      0.100    30.0%           1         0      0%
+  SIDU             stock      0.060    22.2%           1         0      0%
+  ON               stock      0.020    20.0%           1         0      0%
+  BA               stock      0.020    14.3%           1         0      0%
+  HAL              stock      0.020    16.7%           1         0      0%
+  META             stock      0.000     0.0%           1         0      0%
+  MSFT             stock      0.000     0.0%           0         0      0%
+  NFLX             stock      0.000     0.0%           1         0      0%
+  INTC             stock      0.000     0.0%           0         0      0%
+  QCOM             stock      0.000     0.0%           0         0      0%
+  DDOG             stock      0.000     0.0%           1         0      0%
+  SQ               stock      0.000     0.0%           0         0      0%
+  BIIB             stock      0.000     0.0%           1         0      0%
+  CRWV             stock      0.000     0.0%           0         0      0%
+  SMR              stock      0.000     0.0%           0         0      0%
+  NNE              stock      0.000     0.0%           0         0      0%
+  CORZ             stock      0.000     0.0%           0         0      0%
+  INFN             stock      0.000     0.0%           0         0      0%
+  PDD              stock      0.000     0.0%           1         0      0%
+  AMZN             stock      0.000     0.0%           1         0      0%
+  NKLA             stock      0.000     0.0%           0         0      0%
+
+  -- TOP EDGE CELLS  (PF >= 1.2, >= 2 trades) --
+  #    Symbol           TF    Dir         PF    WR%  Trades        PnL
+  ---- ---------------- ----- ------- ------ ------ ------- ----------
+  1    SPWR             1h    long    157.120  66.7%       3       6.24
+  2    MRNA             1h    long    147.270  83.3%       6      46.50
+  3    AMD              1h    long    23.230  66.7%       3      13.47
+  4    CHPT             1h    long    16.490  50.0%       6      44.90
+  5    TSLA             1h    long    14.100  50.0%       2      17.01
+  6    ZIM              1h    long    10.710  66.7%       6      47.58
+  7    UPST             1h    long     6.500  60.0%       5      13.38
+  8    LRCX             1h    long     6.460  66.7%       9      17.89
+  9    CVNA             1h    long     6.340  80.0%       5      13.76
+  10   RXRX             1h    long     5.850  75.0%       8      27.92
+  11   LCID             1h    long     5.270  75.0%       4      21.22
+  12   AAOI             1h    long     4.620  66.7%       6      25.72
+  13   JPM              1h    long     4.390  66.7%       3       6.87
+  14   IREN             1h    long     3.810  50.0%       6      29.81
+  15   PLTR             1h    long     3.730  57.1%      14      27.33
+  16   LI               1h    long     3.620  50.0%       2      12.40
+  17   ACHR             1h    long     3.560  61.5%      13      62.11
+  18   RIVN             1h    long     3.270  66.7%       9      14.86
+  19   MPWR             1h    long     3.190  66.7%       9      15.75
+  20   APLD             1h    long     3.030  27.3%      11      45.38
+  21   SOUN             1h    long     3.010  42.9%       7      18.21
+  22   MS               1h    long     2.900  50.0%       4       6.74
+  23   CIFR             1h    long     2.840  71.4%       7      15.43
+  24   CIEN             1h    long     2.730  50.0%       6      13.92
+  25   GS               1h    long     2.670  61.5%      13      23.53
+  26   OKTA             1h    long     2.570  50.0%       4       5.37
+  27   TXN              1h    long     2.560  42.9%       7      11.51
+  28   BBAI             1h    long     2.530  40.0%       5      24.83
+  29   NIO              1h    long     2.370  57.1%       7      17.02
+  30   AFRM             1h    long     2.340  33.3%       9      17.48
+========================================================================
+  FULL MATRIX  (PF / WR%  per cell)
+========================================================================
+  Symbol               1h/l    
+  -----------------------------
+  -- STOCKS --
+  NVDA              2.06/  67% 
+  META              0.00/   0% 
+  TSLA             14.10/  50% 
+  MSFT              0.00/   0% 
+  NFLX              0.00/   0% 
+  AMD              23.23/  67% 
+  INTC                (0t)     
+  MRVL              0.91/  50% 
+  ALAB              0.52/  29% 
+  QCOM              0.00/   0% 
+  TXN               2.56/  43% 
+  LRCX              6.46/  67% 
+  KLAC              0.81/  56% 
+  AMAT              2.22/  50% 
+  MU                1.54/  29% 
+  ON                0.02/  20% 
+  MPWR              3.19/  67% 
+  PLTR              3.73/  57% 
+  CRM               1.10/  36% 
+  SNOW              0.12/  17% 
+  DDOG              0.00/   0% 
+  NET               0.36/  14% 
+  NOW               1.24/  31% 
+  CRWD              1.28/  50% 
+  ZS                1.17/  36% 
+  OKTA              2.57/  50% 
+  PANW              0.38/  25% 
+  GTLB              0.68/  17% 
+  PATH              0.68/  20% 
+  AI                1.52/  57% 
+  BBAI              2.53/  40% 
+  SOUN              3.01/  43% 
+  IONQ              0.10/  30% 
+  SQ                   ERR     
+  COIN              1.61/  40% 
+  HOOD              1.19/  44% 
+  AFRM              2.34/  33% 
+  SOFI              2.20/  50% 
+  NU                0.65/  36% 
+  PYPL              0.85/  17% 
+  NIO               2.37/  57% 
+  LI                3.62/  50% 
+  XPEV              0.81/  33% 
+  RIVN              3.27/  67% 
+  LCID              5.27/  75% 
+  CHPT             16.49/  50% 
+  PLUG              1.08/  25% 
+  FCEL              0.38/  20% 
+  BE                0.79/  38% 
+  MP                0.82/  33% 
+  FSLR              0.90/  50% 
+  ENPH              0.33/  40% 
+  SEDG              1.13/  40% 
+  MRNA             147.27/  83%
+  BNTX              0.64/  40% 
+  GILD              1.45/  50% 
+  REGN              1.66/  62% 
+  VRTX              0.55/  40% 
+  BIIB              0.00/   0% 
+  RXRX              5.85/  75% 
+  NVAX              0.53/  40% 
+  PFE               0.74/  38% 
+  OGN               0.90/  40% 
+  ACHR              3.56/  62% 
+  LUNR              2.21/  50% 
+  RKLB              1.58/  40% 
+  ASTS              0.36/  40% 
+  SPCE              0.58/  50% 
+  LMT               1.34/  38% 
+  RTX               1.27/  38% 
+  NOC               0.48/  25% 
+  BA                0.02/  14% 
+  CRWV                (0t)     
+  APLD              3.03/  27% 
+  IREN              3.81/  50% 
+  MARA              0.46/  57% 
+  RIOT              1.29/  60% 
+  CLSK              0.11/  29% 
+  OKLO              1.56/  50% 
+  SMR                  ERR     
+  NNE                  ERR     
+  MSTR              0.11/  22% 
+  HIVE              1.42/  47% 
+  BTDR              0.11/  14% 
+  WULF              0.57/  28% 
+  CIFR              2.84/  71% 
+  CORZ                 ERR     
+  AAOI              4.62/  67% 
+  CLS               1.22/  44% 
+  CIEN              2.73/  50% 
+  INFN                 ERR     
+  BABA              2.27/  50% 
+  JD                0.89/  33% 
+  PDD               0.00/   0% 
+  BIDU              1.67/  25% 
+  AMZN              0.00/   0% 
+  SHOP              1.15/  44% 
+  CVNA              6.34/  80% 
+  JPM               4.39/  67% 
+  BAC               1.98/  46% 
+  GS                2.67/  62% 
+  MS                2.90/  50% 
+  BX                0.91/  43% 
+  KKR               0.76/  38% 
+  XOM               0.75/  22% 
+  CVX               0.77/  30% 
+  OXY               0.90/  33% 
+  SLB               0.64/  27% 
+  HAL               0.02/  17% 
+  DVN               1.46/  40% 
+  ISRG              1.10/  38% 
+  DXCM              0.12/  40% 
+  HIMS              1.41/  40% 
+  TDOC              0.64/  43% 
+  SIDU              0.06/  22% 
+  ZIM              10.71/  67% 
+  DAC               1.49/  37% 
+  UPST              6.50/  60% 
+  OPEN              0.76/  40% 
+  SPWR             157.12/  67%
+  NKLA                 ERR     
+
+  l=long  s=short  b=both  |  format: PF/WR%
+
+  -- CELLS WITH ERRORS --
+  SQ             1h    long     no_result
+  SMR            1h    long     no_result
+  NNE            1h    long     no_result
+  CORZ           1h    long     no_result
+  INFN           1h    long     no_result
+  NKLA           1h    long     no_result
+
+========================================================================
+  END OF REPORT
+========================================================================

@@ -47,7 +47,6 @@ SOUN
 IONQ
 
 # ── Fintech / Payments ────────────────────────────────────────────────────────
-SQ
 COIN
 HOOD
 AFRM
@@ -116,7 +115,7 @@ CORZ
 AAOI
 CLS
 CIEN
-INFN
+#INFN  -- delisted
 
 # ── Chinese ADRs ─────────────────────────────────────────────────────────────
 BABA
@@ -160,4 +159,4 @@ DAC
 UPST
 OPEN
 SPWR
-NKLA
+#NKLA  -- delisted

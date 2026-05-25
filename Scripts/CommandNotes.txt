@@ -1,3 +1,9 @@
+Windows Terminal
+Alt-Shift + , split window into panel right
+Alt Shift - , split window into panel down
+Alt Shift Arrow ,widen panel arrow direction
+Control Shift W , Close Current Panel
+
 Run Archan web fontend
 1) C:\users\linda\.archon\bin\archon.exe serve
 2) C:\users\linda\trading_bot_v2\Archon\packages> bun run dev

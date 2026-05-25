@@ -1,0 +1,6 @@
+symbol,asset_class,timeframe,direction,condition,trades,profit_factor,win_rate,net_pnl,sharpe,expectancy,error
+BTC/USD,crypto,1h,long,1h/long,0,0.0,0.0,0.0,0.0,0.0,
+AMD,stock,1h,long,1h/long,1,0.0,100.0,10.31,0.0,0.0,
+TSLA,stock,1h,long,1h/long,2,14.1,50.0,17.01,0.0,0.0,
+JPM,stock,1h,long,1h/long,1,0.0,100.0,4.13,0.0,0.0,
+NVDA,stock,1h,long,1h/long,2,0.0,100.0,10.66,0.0,0.0,

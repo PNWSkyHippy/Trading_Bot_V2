@@ -223,6 +223,31 @@ class Database:
                     action_detail   TEXT,
                     result          TEXT
                 );
+
+                -- Encrypted API key store
+                -- value_enc: Fernet-encrypted plaintext value (same key as passwords).
+                -- Falls back to config.py / .env if the row is missing.
+                CREATE TABLE IF NOT EXISTS api_keys (
+                    service     TEXT NOT NULL,
+                    key_name    TEXT NOT NULL,
+                    value_enc   TEXT NOT NULL,
+                    updated_at  TEXT NOT NULL,
+                    PRIMARY KEY (service, key_name)
+                );
+
+                -- Dashboard user accounts
+                -- hash_enc: Fernet-encrypted "sha256:<salt>:<hex>" string.
+                -- If the Fernet key is not yet set up, hash_enc stores the
+                -- sha256 hash in plaintext prefixed with "plain:" so the bot
+                -- can still start; it is re-encrypted on next successful login.
+                CREATE TABLE IF NOT EXISTS dashboard_users (
+                    username        TEXT PRIMARY KEY,
+                    hash_enc        TEXT NOT NULL,
+                    role            TEXT NOT NULL DEFAULT 'user',
+                    force_change    INTEGER NOT NULL DEFAULT 0,
+                    created_at      TEXT NOT NULL,
+                    updated_at      TEXT NOT NULL
+                );
             """)
 
             # Safe migrations

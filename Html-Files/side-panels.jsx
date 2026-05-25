@@ -438,14 +438,14 @@ function InjectSymbolsPanel() {
 
   uE(() => { loadInjected(); }, []);
 
-  const inject = async (kind) => {
+  const inject = async (kind, replace = false) => {
     const raw = (kind === 'stock' ? stockInput : cryptoInput).split(/[\n,]/).map(s => s.trim()).filter(Boolean);
     setBusy(true);
     try {
       const data = await apiCall('/api/injected_symbols', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ kind, symbols: raw }),
+        body: JSON.stringify({ kind, symbols: raw, replace }),
       });
       setStocks(Array.isArray(data.stocks) ? data.stocks : []);
       setCrypto(Array.isArray(data.crypto) ? data.crypto : []);
@@ -454,6 +454,16 @@ function InjectSymbolsPanel() {
       setMsg(`Inject failed: ${e.message}`);
     } finally {
       setBusy(false);
+    }
+  };
+
+  const loadFromDb = (kind) => {
+    if (kind === 'stock') {
+      setStockInput(stocks.join(', '));
+      setMsg(`Loaded ${stocks.length} stock(s) from database into editor.`);
+    } else {
+      setCryptoInput(crypto.join(', '));
+      setMsg(`Loaded ${crypto.length} crypto pair(s) from database into editor.`);
     }
   };
 
@@ -482,24 +492,58 @@ function InjectSymbolsPanel() {
           <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--blue)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
             <Icon name="trending" size={13} />Stocks
           </h3>
-          <div className="field" style={{ marginBottom: 10 }}>
-            <label>Tickers</label>
-            <textarea className="input textarea" rows={4} value={stockInput} onChange={e => setStockInput(e.target.value)} />
+          <div className="field" style={{ marginBottom: 6 }}>
+            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Tickers</span>
+              <button
+                className="btn ghost sm"
+                style={{ fontSize: 10, padding: '2px 7px', opacity: stocks.length ? 1 : 0.4 }}
+                onClick={() => loadFromDb('stock')}
+                disabled={busy || !stocks.length}
+                title="Fill editor with current database contents"
+              >↙ Load from DB ({stocks.length})</button>
+            </label>
+            <textarea className="input textarea" rows={4} value={stockInput} onChange={e => setStockInput(e.target.value)}
+              placeholder="AAPL, MSFT, NVDA&#10;One per line or comma-separated" />
           </div>
-          <button className="btn primary full" onClick={() => inject('stock')} disabled={busy}><Icon name="plus" size={12} />Inject Stocks</button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="btn primary" style={{ flex: 1 }} onClick={() => inject('stock', true)} disabled={busy} title="Replace database with exactly these symbols — removes anything not listed">
+              <Icon name="refresh" size={12} />Replace Stocks
+            </button>
+            <button className="btn ghost" style={{ flex: 1 }} onClick={() => inject('stock', false)} disabled={busy} title="Add these symbols to the database without removing existing ones">
+              <Icon name="plus" size={12} />Add Stocks
+            </button>
+          </div>
         </div>
         <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 14 }}>
           <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--yellow)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
             <Icon name="coins" size={13} />Crypto
           </h3>
-          <div className="field" style={{ marginBottom: 10 }}>
-            <label>Pairs</label>
-            <textarea className="input textarea" rows={4} value={cryptoInput} onChange={e => setCryptoInput(e.target.value)} />
+          <div className="field" style={{ marginBottom: 6 }}>
+            <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Pairs</span>
+              <button
+                className="btn ghost sm"
+                style={{ fontSize: 10, padding: '2px 7px', opacity: crypto.length ? 1 : 0.4 }}
+                onClick={() => loadFromDb('crypto')}
+                disabled={busy || !crypto.length}
+                title="Fill editor with current database contents"
+              >↙ Load from DB ({crypto.length})</button>
+            </label>
+            <textarea className="input textarea" rows={4} value={cryptoInput} onChange={e => setCryptoInput(e.target.value)}
+              placeholder="BTC/USD, ETH/USD&#10;One per line or comma-separated" />
             <div style={{ fontSize: 10.5, color: 'var(--text-2)', marginTop: 6 }}>
-              Use pairs like BTC/USD. Bare symbols are saved as /USD automatically.
+              Bare symbols auto-get /USD. Replace removes anything not in the list.
             </div>
           </div>
-          <button className="btn primary full" onClick={() => inject('crypto')} disabled={busy}><Icon name="plus" size={12} />Inject Crypto</button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="btn primary" style={{ flex: 1 }} onClick={() => inject('crypto', true)} disabled={busy} title="Replace database with exactly these pairs — removes anything not listed">
+              <Icon name="refresh" size={12} />Replace Crypto
+            </button>
+            <button className="btn ghost" style={{ flex: 1 }} onClick={() => inject('crypto', false)} disabled={busy} title="Add these pairs to the database without removing existing ones">
+              <Icon name="plus" size={12} />Add Crypto
+            </button>
+          </div>
         </div>
       </div>
       {(stocks.length > 0 || crypto.length > 0) && (

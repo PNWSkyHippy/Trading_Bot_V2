@@ -73,11 +73,31 @@ class BreakoutSender:
     # — the breakout has already played out and entering now is chasing the tail.
     MAX_BREAKOUT_AGE_BARS = 6
 
+    # Minimum average USD volume per candle to accept a signal.
+    # Filters out illiquid micro-caps where one seller can cliff-drop the price
+    # with no liquidity to absorb the move (e.g. KULA, SUNDOG).
+    # avg_volume (units) * price = USD volume per candle.
+    # At 500 USD/candle minimum: a $0.01 token needs 50,000 units/candle average.
+    MIN_USD_VOLUME_PER_CANDLE = 500.0
+
     def should_send(self, signal, escalation: int) -> bool:
         if not self.ready:
             return False
         if escalation < self._min_esc:
             return False
+
+        # Liquidity filter — reject illiquid tokens where price can cliff-drop
+        # with no warning due to an empty order book.
+        avg_vol = getattr(signal, "avg_volume", None)
+        price   = getattr(signal, "price",      None)
+        if avg_vol is not None and price and price > 0:
+            usd_vol = float(avg_vol) * float(price)
+            if usd_vol < self.MIN_USD_VOLUME_PER_CANDLE:
+                logger.info(
+                    f"[SENDER] REJECTED {signal.symbol} — insufficient liquidity "
+                    f"(avg {usd_vol:.1f} USD/candle < {self.MIN_USD_VOLUME_PER_CANDLE} min)"
+                )
+                return False
 
         # Stale breakout guard — drop signals where the breakout started too long ago.
         # bars_since_breakout is incremented by EscalationTracker on every scan cycle.

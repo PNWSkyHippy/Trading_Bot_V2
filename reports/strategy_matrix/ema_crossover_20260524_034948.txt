@@ -1,0 +1,54 @@
+========================================================================
+  STRATEGY MATRIX REPORT
+========================================================================
+  Strategy   : ema_crossover
+  Period     : 90 days
+  Timeframes : 1h
+  Directions : long, short
+  Crypto     : BTC/USD, ETH/USD
+  Stocks     : AAPL, MSFT
+  Generated  : 2026-05-24T03:49:48
+
+========================================================================
+  OVERALL SUMMARY
+========================================================================
+  Total cells tested    : 8
+  Overall avg PF        : 1.137
+  Cells with edge (PF>=1.2) : 1  (12.5%)
+  Verdict               : WEAK / NO EDGE -- few profitable conditions found
+
+  -- CONDITIONS RANKED BY AVERAGE PF (best first) --
+  Condition     Avg PF  Avg WR%  Symbols  Edge cnt   Edge%
+  ------------ ------- -------- -------- --------- -------
+  1h/long        2.110    40.1%        4         1     25% <-- best
+  1h/short       0.165    15.2%        4         0      0%
+
+  -- SYMBOLS RANKED BY AVERAGE PF (best first) --
+  Symbol           Class     Avg PF  Avg WR%  Conditions  Edge cnt   Edge%
+  ---------------- -------- ------- -------- ----------- --------- -------
+  AAPL             stock      3.360    45.9%           2         1     50%
+  MSFT             stock      0.560    32.1%           2         0      0%
+  ETH/USD          crypto     0.490    23.1%           2         0      0%
+  BTC/USD          crypto     0.140     9.4%           2         0      0%
+
+  -- TOP EDGE CELLS  (PF >= 1.2, >= 5 trades) --
+  #    Symbol           TF    Dir         PF    WR%  Trades        PnL
+  ---- ---------------- ----- ------- ------ ------ ------- ----------
+  1    AAPL             1h    long     6.410  66.7%       9       7.76
+========================================================================
+  FULL MATRIX  (PF / WR%  per cell)
+========================================================================
+  Symbol               1h/l         1h/s    
+  ------------------------------------------
+  -- CRYPTO --
+  BTC/USD           0.23/  10%   0.05/   8% 
+  ETH/USD           0.72/  33%   0.26/  13% 
+  -- STOCKS --
+  AAPL              6.41/  67%   0.31/  25% 
+  MSFT              1.08/  50%   0.04/  14% 
+
+  l=long  s=short  b=both  |  format: PF/WR%
+
+========================================================================
+  END OF REPORT
+========================================================================

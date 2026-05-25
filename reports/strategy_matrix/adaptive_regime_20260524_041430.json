@@ -1,0 +1,492 @@
+{
+  "meta": {
+    "strategy": "adaptive_regime",
+    "days": 365,
+    "param_overrides": {},
+    "crypto_symbols": [],
+    "stock_symbols": [
+      "AAPL",
+      "MSFT",
+      "NVDA",
+      "AMD",
+      "TSLA",
+      "META",
+      "AMZN",
+      "GOOGL",
+      "JPM",
+      "SPY"
+    ],
+    "timeframes": [
+      "1h"
+    ],
+    "directions": [
+      "long"
+    ],
+    "total_cells": 10,
+    "done_cells": 10,
+    "cancelled": false,
+    "started_at": "2026-05-24T04:13:19.302291",
+    "finished_at": "2026-05-24T04:14:30.192778",
+    "edge_threshold": 1.2,
+    "min_trades": 2
+  },
+  "summary": {
+    "overall_avg_pf": 14.1,
+    "overall_edge_rate": 25.0,
+    "overall_n_edge": 1,
+    "total_valid_cells": 4,
+    "best_conditions": [
+      {
+        "condition": "1h/long",
+        "avg_pf": 14.1,
+        "avg_wr": 75.0,
+        "n_symbols": 4,
+        "n_edge": 1,
+        "edge_rate": 25.0
+      }
+    ],
+    "worst_conditions": [
+      {
+        "condition": "1h/long",
+        "avg_pf": 14.1,
+        "avg_wr": 75.0,
+        "n_symbols": 4,
+        "n_edge": 1,
+        "edge_rate": 25.0
+      }
+    ],
+    "best_symbols": [
+      {
+        "symbol": "TSLA",
+        "avg_pf": 14.1,
+        "avg_wr": 50.0,
+        "n_conditions": 1,
+        "n_edge": 1,
+        "edge_rate": 100.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "AAPL",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 0,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "MSFT",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 0,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "NVDA",
+        "avg_pf": 0.0,
+        "avg_wr": 100.0,
+        "n_conditions": 1,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "AMD",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 0,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "META",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 0,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "AMZN",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 1,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "GOOGL",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 1,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "JPM",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 0,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "SPY",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 0,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      }
+    ],
+    "worst_symbols": [
+      {
+        "symbol": "TSLA",
+        "avg_pf": 14.1,
+        "avg_wr": 50.0,
+        "n_conditions": 1,
+        "n_edge": 1,
+        "edge_rate": 100.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "AAPL",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 0,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "MSFT",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 0,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "NVDA",
+        "avg_pf": 0.0,
+        "avg_wr": 100.0,
+        "n_conditions": 1,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "AMD",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 0,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "META",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 0,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "AMZN",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 1,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "GOOGL",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 1,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "JPM",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 0,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      },
+      {
+        "symbol": "SPY",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 0,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "stock"
+      }
+    ]
+  },
+  "condition_stats": {
+    "1h/long": {
+      "avg_pf": 14.1,
+      "avg_wr": 75.0,
+      "n_symbols": 4,
+      "n_edge": 1,
+      "edge_rate": 25.0
+    }
+  },
+  "symbol_stats": {
+    "AAPL": {
+      "avg_pf": 0.0,
+      "avg_wr": 0.0,
+      "n_conditions": 0,
+      "n_edge": 0,
+      "edge_rate": 0.0,
+      "asset_class": "stock"
+    },
+    "MSFT": {
+      "avg_pf": 0.0,
+      "avg_wr": 0.0,
+      "n_conditions": 0,
+      "n_edge": 0,
+      "edge_rate": 0.0,
+      "asset_class": "stock"
+    },
+    "NVDA": {
+      "avg_pf": 0.0,
+      "avg_wr": 100.0,
+      "n_conditions": 1,
+      "n_edge": 0,
+      "edge_rate": 0.0,
+      "asset_class": "stock"
+    },
+    "AMD": {
+      "avg_pf": 0.0,
+      "avg_wr": 0.0,
+      "n_conditions": 0,
+      "n_edge": 0,
+      "edge_rate": 0.0,
+      "asset_class": "stock"
+    },
+    "TSLA": {
+      "avg_pf": 14.1,
+      "avg_wr": 50.0,
+      "n_conditions": 1,
+      "n_edge": 1,
+      "edge_rate": 100.0,
+      "asset_class": "stock"
+    },
+    "META": {
+      "avg_pf": 0.0,
+      "avg_wr": 0.0,
+      "n_conditions": 0,
+      "n_edge": 0,
+      "edge_rate": 0.0,
+      "asset_class": "stock"
+    },
+    "AMZN": {
+      "avg_pf": 0.0,
+      "avg_wr": 0.0,
+      "n_conditions": 1,
+      "n_edge": 0,
+      "edge_rate": 0.0,
+      "asset_class": "stock"
+    },
+    "GOOGL": {
+      "avg_pf": 0.0,
+      "avg_wr": 0.0,
+      "n_conditions": 1,
+      "n_edge": 0,
+      "edge_rate": 0.0,
+      "asset_class": "stock"
+    },
+    "JPM": {
+      "avg_pf": 0.0,
+      "avg_wr": 0.0,
+      "n_conditions": 0,
+      "n_edge": 0,
+      "edge_rate": 0.0,
+      "asset_class": "stock"
+    },
+    "SPY": {
+      "avg_pf": 0.0,
+      "avg_wr": 0.0,
+      "n_conditions": 0,
+      "n_edge": 0,
+      "edge_rate": 0.0,
+      "asset_class": "stock"
+    }
+  },
+  "edge_cells": [
+    {
+      "symbol": "TSLA",
+      "asset_class": "stock",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 2,
+      "profit_factor": 14.1,
+      "win_rate": 50.0,
+      "net_pnl": 17.01,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    }
+  ],
+  "all_cells": [
+    {
+      "symbol": "AAPL",
+      "asset_class": "stock",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 1,
+      "profit_factor": 0.0,
+      "win_rate": 0.0,
+      "net_pnl": -1.43,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "MSFT",
+      "asset_class": "stock",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 1,
+      "profit_factor": 0.0,
+      "win_rate": 0.0,
+      "net_pnl": -0.77,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "NVDA",
+      "asset_class": "stock",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 2,
+      "profit_factor": 0.0,
+      "win_rate": 100.0,
+      "net_pnl": 10.66,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "AMD",
+      "asset_class": "stock",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 1,
+      "profit_factor": 0.0,
+      "win_rate": 100.0,
+      "net_pnl": 10.31,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "TSLA",
+      "asset_class": "stock",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 2,
+      "profit_factor": 14.1,
+      "win_rate": 50.0,
+      "net_pnl": 17.01,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "META",
+      "asset_class": "stock",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 1,
+      "profit_factor": 0.0,
+      "win_rate": 100.0,
+      "net_pnl": 0.15,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "AMZN",
+      "asset_class": "stock",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 2,
+      "profit_factor": 0.0,
+      "win_rate": 0.0,
+      "net_pnl": -5.73,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "GOOGL",
+      "asset_class": "stock",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 3,
+      "profit_factor": 0.0,
+      "win_rate": 0.0,
+      "net_pnl": -7.28,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "JPM",
+      "asset_class": "stock",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 1,
+      "profit_factor": 0.0,
+      "win_rate": 100.0,
+      "net_pnl": 4.13,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "SPY",
+      "asset_class": "stock",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 1,
+      "profit_factor": 0.0,
+      "win_rate": 0.0,
+      "net_pnl": -0.55,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    }
+  ]
+}

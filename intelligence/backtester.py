@@ -59,6 +59,16 @@ import config
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
+# Persistent candle store — checked before yfinance on every fetch
+# ---------------------------------------------------------------------------
+try:
+    from intelligence.candle_store import get_store as _get_candle_store
+    _candle_store = _get_candle_store()
+except Exception as _cs_err:
+    logger.warning(f"CandleStore unavailable: {_cs_err}")
+    _candle_store = None
+
+# ---------------------------------------------------------------------------
 # Timeframe configuration
 # ---------------------------------------------------------------------------
 TF_CONFIG = {
@@ -90,7 +100,7 @@ class _BacktestCancelled(Exception):
     interfere with Python's own signal handling or server socket machinery."""
 
 _cancel_event = threading.Event()
-CHECK_CANCEL_EVERY = 5    # bars between cancel checks; keep UI cancel responsive on 5m runs
+CHECK_CANCEL_EVERY = 50   # bars between cancel checks — higher = less sleep() syscall overhead
 
 def request_cancel():
     """Signal the running backtest to stop at the next cancel checkpoint."""
@@ -563,6 +573,16 @@ class Backtester:
         _key = (symbol, days, timeframe)
         if _key in self._candle_cache:
             return self._candle_cache[_key]
+        # ── Persistent candle store — try load() directly, no has_data() gatekeeping ──
+        if _candle_store is not None:
+            try:
+                df = _candle_store.load(symbol, timeframe, days)
+                if df is not None and len(df) >= 30:
+                    logger.info(f"CandleStore hit: {symbol}/{timeframe}/{days}d ({len(df):,} bars)")
+                    self._candle_cache[_key] = df
+                    return df
+            except Exception as _cs_e:
+                logger.warning(f"CandleStore load failed for {symbol}: {_cs_e}")
         cfg   = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
         tf    = cfg["interval"]
         max_d = cfg["max_days"]
@@ -603,6 +623,12 @@ class Backtester:
             logger.info(f"  -> {len(df)} bars  ({df.index[0].date()} - {df.index[-1].date()})")
             df = self._validate_ohlcv(df, symbol, timeframe)
             self._candle_cache[_key] = df
+            # Save to persistent store so future runs skip the network
+            if _candle_store is not None:
+                try:
+                    _candle_store.save(symbol, timeframe, df)
+                except Exception as _cs_e:
+                    logger.warning(f"CandleStore write failed: {_cs_e}")
             return df
         except Exception as e:
             logger.error(f"fetch_history failed for {symbol}: {e}")
@@ -613,6 +639,16 @@ class Backtester:
         _key = (symbol, days, timeframe)
         if _key in self._candle_cache:
             return self._candle_cache[_key]
+        # ── Persistent candle store — try load() directly, no has_data() gatekeeping ──
+        if _candle_store is not None:
+            try:
+                df = _candle_store.load(symbol, timeframe, days)
+                if df is not None and len(df) >= 30:
+                    logger.info(f"CandleStore hit: {symbol}/{timeframe}/{days}d ({len(df):,} bars)")
+                    self._candle_cache[_key] = df
+                    return df
+            except Exception as _cs_e:
+                logger.warning(f"CandleStore load failed for {symbol}: {_cs_e}")
         yf_symbol = symbol.replace("/", "-")
         cfg   = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
         tf    = cfg["interval"]
@@ -652,6 +688,12 @@ class Backtester:
             logger.info(f"  -> {len(df)} bars  ({df.index[0].date()} - {df.index[-1].date()})")
             df = self._validate_ohlcv(df, symbol, timeframe)
             self._candle_cache[_key] = df
+            # Save to persistent store so future runs skip the network
+            if _candle_store is not None:
+                try:
+                    _candle_store.save(symbol, timeframe, df)
+                except Exception as _cs_e:
+                    logger.warning(f"CandleStore write failed: {_cs_e}")
             return df
         except Exception as e:
             logger.error(f"fetch_history_crypto failed for {yf_symbol}: {e}")
@@ -753,6 +795,13 @@ class Backtester:
             "ecb_strategy":       ("strategies.ecb_strategy",        "ECBStrategy"),
             "vdmr_strategy":      ("strategies.vdmr_strategy",       "VDMRStrategy"),
             "rsi_dip_spike_v4":   ("strategies.rsi_dip_spike_v4",   "RSIDipSpikeV4Strategy"),
+            "mr_02_vef":          ("strategies.mr_02_vef_strategy",  "MR02VEFStrategy"),
+            "mr_03_fbs":          ("strategies.mr_03_fbs_strategy",  "MR03FBSStrategy"),
+            "mr_04_fvg":          ("strategies.mr_04_fvg_strategy",  "MR04FVGStrategy"),
+            "btc_v6_chandelier":      ("strategies.btc_v6_chandelier",      "BTCV6ChandelierStrategy"),
+            "rsi_dip_simple":         ("strategies.rsi_dip_simple",         "RSIDipSimpleStrategy"),
+            "pll_cycle":              ("strategies.pll_cycle",              "PLLCycleStrategy"),
+            "pll_cycle_martingale":   ("strategies.pll_cycle",              "PLLCycleMartingaleStrategy"),
         }
         if strategy_name not in strategy_map:
             return None
@@ -919,7 +968,8 @@ class Backtester:
                   initial_stop_mode: str = "auto",
                   trail_mode:        str = "auto",
                   entry_mode_filter: str = "all",
-                  entry_side_filter: str = "all") -> BacktestResult:
+                  entry_side_filter: str = "all",
+                  skip_equity_curve: bool = False) -> BacktestResult:
         """
         commission_pct / slippage_pct: per-leg friction (%).
         None → use config defaults for the asset class.
@@ -1030,11 +1080,28 @@ class Backtester:
         # This eliminates the "signal and fill on the same close" lookahead bias.
         pending_signal: Optional[Dict] = None
 
+        # ── Pre-computation optimisation ──────────────────────────────────────
+        # If the strategy exposes _precompute(symbol, df), call it ONCE on the
+        # full df before the bar loop.  Per-bar analyze() and check_custom_exit()
+        # calls are then replaced with O(1) index lookups instead of O(N)
+        # indicator re-computation, turning an O(N²) simulation into O(N).
+        _all_sigs = None
+        if strategy_obj is not None and hasattr(strategy_obj, '_precompute'):
+            try:
+                _all_sigs = strategy_obj._precompute(symbol, df)
+                logger.debug(f"_precompute OK: {symbol} {len(_all_sigs)} rows")
+            except Exception as _pc_err:
+                logger.debug(f"_precompute failed ({_pc_err}), falling back to per-bar analyze()")
+                _all_sigs = None
+
         for i in range(min_bars, len(df)):
-            # Cancel checkpoint — checked every CHECK_CANCEL_EVERY bars so a
-            # cancel request lands within seconds rather than at end of symbol.
-            if i % CHECK_CANCEL_EVERY == 0 and _cancel_event.is_set():
-                raise _BacktestCancelled()
+            # Cancel checkpoint + GIL yield — every CHECK_CANCEL_EVERY bars.
+            # The sleep(0) yields the GIL so the web server threads stay
+            # responsive while the optimizer hammers many backtests.
+            if i % CHECK_CANCEL_EVERY == 0:
+                if _cancel_event.is_set():
+                    raise _BacktestCancelled()
+                import time as _time; _time.sleep(0)  # yield GIL — sleep(0) releases instantly, no Windows timer overhead
 
             row          = df.iloc[i]
             current_date = str(df.index[i])[:10]
@@ -1132,16 +1199,23 @@ class Backtester:
                 # 1c. Strategy-specific exit hook (adaptive_regime EMA/BB/RSI,
                 #     all other strategies return None from BaseStrategy stub).
                 if exit_reason is None and strategy_obj is not None:
-                    _win  = df.iloc[max(0, i - 150): i + 1]
                     # Inject bars_held so strategy exits (e.g. ECB max_hold) can
                     # use actual elapsed bars without extending the signature.
                     _meta = dict(trade.get("entry_metadata", {}))
                     _meta["_bars_held"] = i - trade["entry_idx"]
-                    exit_reason = strategy_obj.check_custom_exit(
-                        trade["symbol"], _win,
-                        trade["direction"],
-                        _meta,
-                    )
+                    if _all_sigs is not None and hasattr(strategy_obj, '_exit_from_precomputed'):
+                        # Fast O(1) path: look up RSI/indicators from precomputed df
+                        exit_reason = strategy_obj._exit_from_precomputed(
+                            i, _all_sigs, trade["direction"], _meta,
+                        )
+                    else:
+                        # Slow O(N) path: recompute indicators on growing window
+                        _win  = df.iloc[max(0, i - 150): i + 1]
+                        exit_reason = strategy_obj.check_custom_exit(
+                            trade["symbol"], _win,
+                            trade["direction"],
+                            _meta,
+                        )
 
                 # 1d. ORB VWAP cross exit (ORB strategy only)
                 if exit_reason is None and strategy_name == "orb_breakout":
@@ -1243,22 +1317,23 @@ class Backtester:
                 mtm_capital += unrealised
 
             peak_equity  = max(peak_equity, mtm_capital)
-            drawdown_pct = (
-                (mtm_capital - peak_equity) / peak_equity * 100
-                if peak_equity > 0 else 0.0
-            )
-            prev_equity = equity_curve[-1].equity if equity_curve else starting_capital
-            bar_ret = (
-                (mtm_capital - prev_equity) / prev_equity * 100
-                if prev_equity > 0 else 0.0
-            )
-            equity_curve.append(EquityPoint(
-                bar_index  = i,
-                timestamp  = str(df.index[i]),
-                equity     = round(mtm_capital, 2),
-                drawdown   = round(drawdown_pct, 4),
-                daily_ret  = round(bar_ret, 4),
-            ))
+            if not skip_equity_curve:
+                drawdown_pct = (
+                    (mtm_capital - peak_equity) / peak_equity * 100
+                    if peak_equity > 0 else 0.0
+                )
+                prev_equity = equity_curve[-1].equity if equity_curve else starting_capital
+                bar_ret = (
+                    (mtm_capital - prev_equity) / prev_equity * 100
+                    if prev_equity > 0 else 0.0
+                )
+                equity_curve.append(EquityPoint(
+                    bar_index  = i,
+                    timestamp  = str(df.index[i]),
+                    equity     = round(mtm_capital, 2),
+                    drawdown   = round(drawdown_pct, 4),
+                    daily_ret  = round(bar_ret, 4),
+                ))
 
             # ── Step 3: Signal generation → queue for NEXT bar entry ─────────
             if trading_halted or len(open_trades) >= MAX_OPEN_POSITIONS:
@@ -1275,14 +1350,16 @@ class Backtester:
             signal_meta: dict = {}
 
             if strategy_obj is not None:
-                # Use the strategy's declared candle_limit as the lookback window
-                # (floor of 300 covers 200-bar SMA warmup used by quant strategies).
-                # Old strategies that don't declare candle_limit get 300 bars —
-                # larger than the previous 150 but harmless and more accurate.
-                _lookback = max(300, getattr(strategy_obj, "candle_limit", 300))
-                window = df.iloc[max(0, i - _lookback): i + 1].copy()
                 try:
-                    signal = strategy_obj.analyze(symbol, window, "unknown")
+                    if _all_sigs is not None and hasattr(strategy_obj, '_analyze_from_precomputed'):
+                        # Fast O(1) path: look up signal from precomputed signals df
+                        signal = strategy_obj._analyze_from_precomputed(symbol, i, _all_sigs, df)
+                    else:
+                        # Slow O(N) path: recompute all indicators on growing window
+                        # (floor of 300 covers 200-bar SMA warmup used by quant strategies).
+                        _lookback = max(300, getattr(strategy_obj, "candle_limit", 300))
+                        window = df.iloc[max(0, i - _lookback): i + 1]
+                        signal = strategy_obj.analyze(symbol, window, "unknown")
                     if signal is not None:
                         signal_direction = signal.direction
                         signal_score     = signal.score
@@ -1417,7 +1494,8 @@ class Backtester:
                      trail_mode:        str = "auto",
                      entry_mode_filter: str = "all",
                      entry_side_filter: str = "all",
-                     param_overrides: dict = None) -> Optional[BacktestResult]:
+                     param_overrides: dict = None,
+                     skip_equity_curve: bool = False) -> Optional[BacktestResult]:
         if _cancel_event.is_set():
             return None
         capital = starting_capital or self.starting_capital
@@ -1487,6 +1565,7 @@ class Backtester:
                 trail_mode=trail_mode,
                 entry_mode_filter=entry_mode_filter,
                 entry_side_filter=entry_side_filter,
+                skip_equity_curve=skip_equity_curve,
             )
         except _BacktestCancelled:
             logger.info(f"[BACKTESTER] run_strategy() cancelled for {symbol}/{strategy_name}")

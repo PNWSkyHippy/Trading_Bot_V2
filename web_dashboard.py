@@ -2,13 +2,16 @@
 
 Run: python web_dashboard.py
 """
+import hashlib
 import json
 import os
+import secrets
 import sqlite3
 import subprocess
 import sys
 import threading
-from datetime import date, datetime, timedelta
+import time
+from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
@@ -55,6 +58,495 @@ try:
     monitor = _monitor
 except Exception:
     monitor = None
+
+
+# ── Dashboard Auth ────────────────────────────────────────────────────────────
+# User store: data/dashboard_users.json
+# Schema: { username: { "hash": "sha256:salt:hex", "role": "admin"|"user",
+#                        "force_change": bool } }
+#
+# On first start the file is seeded with admin / admin (force_change=True).
+# Admin is redirected to /setup to change the password and create a personal
+# account before the dashboard becomes accessible.
+#
+# Recovery if locked out:
+#   • A one-time recovery token is printed to the console every server start.
+#     Visit /recover, paste the token, and reset the admin password.
+#   • CLI: python Scripts/set_dashboard_password.py
+#   • Nuclear: delete data/dashboard_users.json → re-seeds admin/admin on next start.
+
+_ADMIN_DEFAULT  = "admin"
+SESSION_TTL     = 86400           # 24 hours
+_sessions: dict[str, tuple[float, str]] = {}   # token → (expiry, username)
+_sessions_lock  = threading.Lock()
+_RECOVERY_TOKEN = secrets.token_hex(24)        # regenerated each start
+
+# Legacy JSON path — only used during one-time migration
+_USERS_FILE_LEGACY = ROOT / "data" / "dashboard_users.json"
+
+
+# ── Fernet helper (shared key with API key encryption) ────────────────────────
+
+def _get_fernet():
+    """Return a Fernet instance using the key from the OS credential store.
+    Returns None if the key hasn’t been set up yet (new install pre-setup)."""
+    try:
+        import keyring as _kr
+        from cryptography.fernet import Fernet as _F
+        raw = _kr.get_password("trading_bot_v2", "fernet_key")
+        return _F(raw.encode()) if raw else None
+    except Exception:
+        return None
+
+
+def _enc_hash(hash_str: str) -> str:
+    """Encrypt a password hash string for DB storage.
+    Falls back to plain: prefix if the Fernet key isn’t set up yet."""
+    f = _get_fernet()
+    if f:
+        return f.encrypt(hash_str.encode()).decode()
+    return "plain:" + hash_str
+
+
+def _dec_hash(stored: str) -> str:
+    """Decrypt a stored hash_enc value back to the raw sha256 hash string."""
+    if stored.startswith("plain:"):
+        return stored[6:]
+    f = _get_fernet()
+    if not f:
+        raise RuntimeError(
+            "Fernet key missing — run: python Scripts/setup_encryption.py"
+        )
+    from cryptography.fernet import Fernet as _F
+    return f.decrypt(stored.encode()).decode()
+
+
+# ── User store (DB-backed) ────────────────────────────────────────────────────
+
+def _db_path() -> str:
+    return str(DB_PATH)
+
+
+def _load_users() -> dict:
+    """Return {username: {hash, role, force_change}} from DB."""
+    try:
+        conn = sqlite3.connect(_db_path())
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT * FROM dashboard_users").fetchall()
+        conn.close()
+        result = {}
+        for r in rows:
+            try:
+                h = _dec_hash(r["hash_enc"])
+            except Exception:
+                h = ""   # decrypt failed — key mismatch, treat as locked
+            result[r["username"]] = {
+                "hash":         h,
+                "role":         r["role"],
+                "force_change": bool(r["force_change"]),
+            }
+        return result
+    except Exception:
+        return {}
+
+
+def _save_users(users: dict) -> None:
+    """Write the users dict back to DB, encrypting hashes."""
+    now = datetime.now(timezone.utc).isoformat()
+    try:
+        conn = sqlite3.connect(_db_path())
+        for username, rec in users.items():
+            raw_hash  = rec.get("hash", "")
+            enc       = _enc_hash(raw_hash) if raw_hash else ""
+            role      = rec.get("role", "user")
+            force     = 1 if rec.get("force_change") else 0
+            conn.execute("""
+                INSERT INTO dashboard_users (username, hash_enc, role, force_change, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(username) DO UPDATE SET
+                    hash_enc     = excluded.hash_enc,
+                    role         = excluded.role,
+                    force_change = excluded.force_change,
+                    updated_at   = excluded.updated_at
+            """, (username, enc, role, force, now, now))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        import logging as _lg
+        _lg.getLogger("dashboard.auth").error(f"[AUTH] _save_users error: {e}")
+
+
+def _delete_user_db(username: str) -> None:
+    try:
+        conn = sqlite3.connect(_db_path())
+        conn.execute("DELETE FROM dashboard_users WHERE username=?", (username,))
+        conn.commit()
+        conn.close()
+    except Exception:
+        pass
+
+
+def _ensure_admin_seeded() -> None:
+    """Seed admin/admin (force_change=True) if no users exist in DB yet.
+    Also migrates the legacy JSON file if present."""
+    try:
+        # One-time migration from dashboard_users.json → DB
+        if _USERS_FILE_LEGACY.exists():
+            try:
+                old = json.loads(_USERS_FILE_LEGACY.read_text(encoding="utf-8"))
+                users_to_migrate = {}
+                for u, v in old.items():
+                    if isinstance(v, str):
+                        users_to_migrate[u] = {"hash": v, "role": "admin" if u == "admin" else "user", "force_change": False}
+                    else:
+                        users_to_migrate[u] = v
+                if users_to_migrate:
+                    _save_users(users_to_migrate)
+                    import logging as _lg
+                    _lg.getLogger("dashboard.auth").info(
+                        f"[AUTH] Migrated {len(users_to_migrate)} user(s) from JSON to DB")
+                _USERS_FILE_LEGACY.rename(_USERS_FILE_LEGACY.with_suffix(".json.migrated"))
+            except Exception as me:
+                import logging as _lg
+                _lg.getLogger("dashboard.auth").warning(f"[AUTH] JSON migration failed: {me}")
+
+        conn = sqlite3.connect(_db_path())
+        count = conn.execute("SELECT COUNT(*) FROM dashboard_users").fetchone()[0]
+        conn.close()
+        if count == 0:
+            _save_users({_ADMIN_DEFAULT: {
+                "hash":         _hash_password(_ADMIN_DEFAULT),
+                "role":         "admin",
+                "force_change": True,
+            }})
+    except Exception as e:
+        import logging as _lg
+        _lg.getLogger("dashboard.auth").error(f"[AUTH] _ensure_admin_seeded error: {e}")
+
+
+def _needs_setup() -> bool:
+    """True when the only account is admin with force_change=True (fresh install)."""
+    users = _load_users()
+    if len(users) != 1:
+        return False
+    rec = users.get(_ADMIN_DEFAULT, {})
+    return bool(rec.get("force_change"))
+
+
+def _hash_password(password: str) -> str:
+    salt   = secrets.token_hex(16)
+    digest = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
+    return f"sha256:{salt}:{digest}"
+
+
+def _verify_password(password: str, stored: str) -> bool:
+    try:
+        _, salt, expected = stored.split(":", 2)
+        actual = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
+        return secrets.compare_digest(actual, expected)
+    except Exception:
+        return False
+
+
+def _auth_check(username: str, password: str) -> bool:
+    users = _load_users()
+    rec   = users.get(username)
+    return bool(rec and _verify_password(password, rec.get("hash", "")))
+
+
+def _is_admin(username: str) -> bool:
+    users = _load_users()
+    return users.get(username, {}).get("role") == "admin"
+
+
+def _user_force_change(username: str) -> bool:
+    users = _load_users()
+    return bool(users.get(username, {}).get("force_change"))
+
+
+# ── Session management ────────────────────────────────────────────────────────
+
+def _new_session(username: str) -> str:
+    token = secrets.token_hex(32)
+    with _sessions_lock:
+        _sessions[token] = (time.time() + SESSION_TTL, username)
+    return token
+
+
+def _valid_session(token: str) -> bool:
+    if not token:
+        return False
+    with _sessions_lock:
+        rec = _sessions.get(token)
+        if not rec:
+            return False
+        if time.time() > rec[0]:
+            del _sessions[token]
+            return False
+        return True
+
+
+def _session_user(token: str) -> str:
+    with _sessions_lock:
+        rec = _sessions.get(token)
+        return rec[1] if rec else ""
+
+
+def _revoke_session(token: str) -> None:
+    with _sessions_lock:
+        _sessions.pop(token, None)
+
+
+# ── Auth HTML pages (all inline — zero external dependencies) ─────────────────
+
+def _auth_page(title: str, heading: str, sub: str, form_html: str,
+               error_msg: str = "Something went wrong.", extra_js: str = "") -> bytes:
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trading Bot &mdash; {title}</title>
+<style>
+  *{{box-sizing:border-box;margin:0;padding:0}}
+  body{{background:#0f172a;display:flex;align-items:center;justify-content:center;
+       min-height:100vh;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}}
+  .card{{background:#1e293b;border:1px solid #334155;border-radius:12px;
+        padding:40px 36px;width:400px;box-shadow:0 20px 60px rgba(0,0,0,.5)}}
+  h1{{color:#f1f5f9;font-size:1.3rem;font-weight:600;margin-bottom:6px}}
+  p.sub{{color:#64748b;font-size:.85rem;margin-bottom:28px}}
+  label{{display:block;color:#94a3b8;font-size:.78rem;font-weight:500;
+        margin-bottom:5px;letter-spacing:.04em;text-transform:uppercase}}
+  input{{width:100%;background:#0f172a;border:1px solid #334155;border-radius:6px;
+        color:#f1f5f9;font-size:.95rem;padding:10px 12px;outline:none;transition:border-color .15s}}
+  input:focus{{border-color:#6366f1}}
+  .field{{margin-bottom:16px}}
+  button{{width:100%;background:#6366f1;border:none;border-radius:6px;color:#fff;
+         cursor:pointer;font-size:.95rem;font-weight:600;padding:11px;margin-top:4px;
+         transition:background .15s}}
+  button:hover{{background:#4f46e5}}
+  .err{{background:#450a0a;border:1px solid #7f1d1d;border-radius:6px;
+       color:#fca5a5;font-size:.83rem;padding:10px 12px;margin-bottom:16px;display:none}}
+  .err.show{{display:block}}
+  .notice{{background:#1c3048;border:1px solid #1e40af;border-radius:6px;
+           color:#93c5fd;font-size:.82rem;padding:10px 12px;margin-bottom:16px;line-height:1.5}}
+  hr{{border:none;border-top:1px solid #334155;margin:20px 0}}
+  .sec{{color:#94a3b8;font-size:.78rem;font-weight:600;text-transform:uppercase;
+        letter-spacing:.06em;margin-bottom:14px}}
+</style>
+</head>
+<body><div class="card">
+  <h1>{heading}</h1><p class="sub">{sub}</p>
+  <div class="err" id="err">{error_msg}</div>
+  {form_html}
+</div><script>{extra_js}</script></body></html>"""
+    return html.encode("utf-8")
+
+
+# Login page
+_LOGIN_PAGE = lambda: _auth_page("Login", "Trading Bot Dashboard", "Sign in to continue", """
+<form id="form">
+  <div class="field"><label>Username</label>
+    <input type="text" id="u" autocomplete="username" autofocus></div>
+  <div class="field"><label>Password</label>
+    <input type="password" id="p" autocomplete="current-password"></div>
+  <button type="submit">Sign in</button>
+</form>""", error_msg="Invalid username or password.", extra_js="""
+document.getElementById("form").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const r=await fetch("/api/auth/login",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({username:document.getElementById("u").value,
+                         password:document.getElementById("p").value})});
+  if(r.ok){location.href=new URLSearchParams(location.search).get("next")||"/";}
+  else{document.getElementById("err").classList.add("show");}
+});""")
+
+# First-run setup: change admin password + create personal account
+_SETUP_PAGE = lambda: _auth_page("Setup", "First-Time Setup",
+  "The default admin/admin credentials are active. Change the admin password and create your personal account to continue.", """
+<div class="notice">&#x26A0;&#xFE0F; <strong>Default credentials are in use.</strong><br>
+Complete this form before the dashboard becomes accessible.</div>
+<p class="sec">&#x1F512; Change Admin Password</p>
+<form id="form">
+  <div class="field"><label>New Admin Password (min 8 chars)</label>
+    <input type="password" id="ap" autocomplete="new-password" autofocus></div>
+  <div class="field"><label>Confirm Admin Password</label>
+    <input type="password" id="ap2" autocomplete="new-password"></div>
+  <hr>
+  <p class="sec">&#x1F464; Create Your Personal Account</p>
+  <div class="field"><label>Your Username</label>
+    <input type="text" id="u" autocomplete="username"></div>
+  <div class="field"><label>Your Password (min 8 chars)</label>
+    <input type="password" id="p" autocomplete="new-password"></div>
+  <div class="field"><label>Confirm Your Password</label>
+    <input type="password" id="p2" autocomplete="new-password"></div>
+  <button type="submit">Save &amp; Enter Dashboard</button>
+</form>""", extra_js="""
+document.getElementById("form").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const ap=document.getElementById("ap").value,ap2=document.getElementById("ap2").value,
+        u=document.getElementById("u").value.trim(),
+        p=document.getElementById("p").value,p2=document.getElementById("p2").value;
+  const err=document.getElementById("err");err.classList.remove("show");
+  if(ap.length<8){err.textContent="Admin password must be at least 8 characters.";err.classList.add("show");return;}
+  if(ap!==ap2){err.textContent="Admin passwords do not match.";err.classList.add("show");return;}
+  if(!u){err.textContent="Your username cannot be empty.";err.classList.add("show");return;}
+  if(u.toLowerCase()==="admin"){err.textContent="Choose a username other than ‘admin’.";err.classList.add("show");return;}
+  if(p.length<8){err.textContent="Your password must be at least 8 characters.";err.classList.add("show");return;}
+  if(p!==p2){err.textContent="Your passwords do not match.";err.classList.add("show");return;}
+  const r=await fetch("/api/auth/setup",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({admin_password:ap,username:u,password:p})});
+  const d=await r.json();
+  if(r.ok){location.href="/";}
+  else{err.textContent=d.message||"Setup failed.";err.classList.add("show");}
+});""")
+
+# Recovery page (console token required)
+_RECOVER_PAGE = lambda: _auth_page("Recovery", "Account Recovery",
+  "Paste the recovery token from your server console to reset the admin password.", """
+<div class="notice">&#x1F511; Find the recovery token in the server console output<br>
+(printed each time the dashboard starts).</div>
+<form id="form">
+  <div class="field"><label>Recovery Token</label>
+    <input type="text" id="tok" autocomplete="off" spellcheck="false"></div>
+  <div class="field"><label>New Admin Password (min 8 chars)</label>
+    <input type="password" id="p" autocomplete="new-password"></div>
+  <div class="field"><label>Confirm Password</label>
+    <input type="password" id="p2" autocomplete="new-password"></div>
+  <button type="submit">Reset Admin Password</button>
+</form>""", extra_js="""
+document.getElementById("form").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const p=document.getElementById("p").value,p2=document.getElementById("p2").value;
+  const err=document.getElementById("err");err.classList.remove("show");
+  if(p.length<8){err.textContent="Password must be at least 8 characters.";err.classList.add("show");return;}
+  if(p!==p2){err.textContent="Passwords do not match.";err.classList.add("show");return;}
+  const r=await fetch("/api/auth/recover",{method:"POST",headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({token:document.getElementById("tok").value.trim(),password:p})});
+  const d=await r.json();
+  if(r.ok){location.href="/login";}
+  else{err.textContent=d.message||"Recovery failed.";err.classList.add("show");}
+});""")
+
+
+def _api_keys_page() -> bytes:
+    html = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Trading Bot — API Keys</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:#0f172a;color:#f1f5f9;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:32px 24px}
+  h1{font-size:1.25rem;font-weight:600;margin-bottom:4px}
+  p.sub{color:#64748b;font-size:.85rem;margin-bottom:24px}
+  .card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:24px;margin-bottom:24px}
+  h2{font-size:.85rem;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.05em;margin-bottom:16px}
+  table{width:100%;border-collapse:collapse;font-size:.88rem}
+  th{text-align:left;color:#64748b;font-weight:500;padding:6px 10px;border-bottom:1px solid #334155;font-size:.78rem;text-transform:uppercase;letter-spacing:.04em}
+  td{padding:9px 10px;border-bottom:1px solid #1a2740;vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  tr:hover td{background:#1a2740}
+  .svc{color:#818cf8;font-weight:600}
+  .kn{color:#94a3b8}
+  .val{font-family:ui-monospace,monospace;font-size:.82rem;color:#34d399;word-break:break-all;max-width:340px}
+  .val.hidden{color:#334155;letter-spacing:.12em;user-select:none}
+  .ts{color:#475569;font-size:.75rem;white-space:nowrap}
+  .btn{border:none;border-radius:5px;cursor:pointer;font-size:.78rem;font-weight:600;padding:5px 11px;transition:background .15s;white-space:nowrap}
+  .eye{background:#172033;color:#93c5fd}.eye:hover{background:#1e3a5f}
+  .edit{background:#172a1e;color:#6ee7b7}.edit:hover{background:#065f46}
+  .del{background:#2d0a0a;color:#fca5a5}.del:hover{background:#7f1d1d}
+  .add-btn{background:#6366f1;color:#fff;padding:9px 18px;font-size:.88rem;border-radius:7px;border:none;cursor:pointer;font-weight:600;margin-top:16px;transition:background .15s}
+  .add-btn:hover{background:#4f46e5}
+  .save-btn{background:#059669;color:#fff}.save-btn:hover{background:#047857}
+  .cancel-btn{background:#334155;color:#94a3b8}.cancel-btn:hover{background:#475569}
+  .actions{display:flex;gap:6px}
+  .add-form{display:none;margin-top:20px;padding-top:20px;border-top:1px solid #334155}
+  .add-form.open{display:block}
+  .frow{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .frow input{flex:1;min-width:150px;background:#0f172a;border:1px solid #334155;border-radius:6px;color:#f1f5f9;font-size:.88rem;padding:8px 11px;outline:none}
+  .frow input:focus{border-color:#6366f1}
+  .notice{background:#1c2f4a;border:1px solid #1e40af;border-radius:6px;color:#93c5fd;font-size:.82rem;padding:10px 14px;margin-bottom:20px;line-height:1.6}
+  .back{color:#6366f1;font-size:.85rem;text-decoration:none;display:inline-flex;align-items:center;gap:4px;margin-bottom:22px}
+  .back:hover{color:#818cf8}
+  .empty{color:#475569;font-size:.85rem;padding:8px 0}
+  .toast{position:fixed;bottom:24px;right:24px;background:#059669;color:#fff;padding:10px 18px;border-radius:8px;font-size:.88rem;font-weight:500;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.show{opacity:1}
+  .toast.err{background:#7f1d1d}
+</style>
+</head>
+<body>
+<a class="back" href="/">← Back to Dashboard</a>
+<h1>\U0001f511 API Key Manager</h1>
+<p class="sub">Keys stored encrypted in the database — admin eyes only.</p>
+<div class="notice">
+  Values are decrypted for display here. Changes take effect on the next bot restart
+  (config.py reloads at import time).<br>
+  <strong>Fallback chain:</strong> DB (encrypted) → .env → empty string.
+</div>
+<div class="card">
+  <h2>Stored Keys</h2>
+  <div id="tbl"></div>
+  <button class="add-btn" onclick="openAdd()">+ Add / Update Key</button>
+  <div class="add-form" id="add-form">
+    <div class="frow">
+      <input type="text"     id="f-svc" placeholder="Service  (e.g. kraken)" autocomplete="off">
+      <input type="text"     id="f-key" placeholder="Key name (e.g. api_key)" autocomplete="off">
+    </div>
+    <div class="frow">
+      <input type="password" id="f-val" placeholder="Value — will be Fernet-encrypted on save" autocomplete="new-password">
+    </div>
+    <div class="actions">
+      <button class="btn save-btn"   onclick="saveKey()">Save Encrypted</button>
+      <button class="btn cancel-btn" onclick="closeAdd()">Cancel</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+let _keys=[],_shown={};
+async function load(){
+  const r=await fetch('/api/admin/api_keys');
+  if(!r.ok){document.getElementById('tbl').innerHTML='<p class="empty">Error loading keys.</p>';return;}
+  const d=await r.json();_keys=d.keys||[];render();
+}
+function render(){
+  const w=document.getElementById('tbl');
+  if(!_keys.length){w.innerHTML='<p class="empty">No keys in DB yet.</p>';return;}
+  const rows=_keys.map((k,i)=>{
+    const shown=_shown[i];
+    const val=shown?`<span class="val">${esc(k.value)}</span>`:`<span class="val hidden">••••••••••••</span>`;
+    return `<tr><td><span class="svc">${esc(k.service)}</span></td><td><span class="kn">${esc(k.key_name)}</span></td><td>${val}</td><td><span class="ts">${esc(k.updated_at)}</span></td><td><div class="actions"><button class="btn eye" onclick="toggleVal(${i})">${shown?'Hide':'Show'}</button><button class="btn edit" onclick="prefill('${esc(k.service)}','${esc(k.key_name)}')">Edit</button><button class="btn del" onclick="delKey('${esc(k.service)}','${esc(k.key_name)}')">Delete</button></div></td></tr>`;
+  }).join('');
+  w.innerHTML=`<table><thead><tr><th>Service</th><th>Key Name</th><th>Value</th><th>Updated</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function toggleVal(i){_shown[i]=!_shown[i];render();}
+function toast(msg,err=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast'+(err?' err':'');requestAnimationFrame(()=>{t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2800);});}
+function openAdd(){document.getElementById('add-form').classList.add('open');document.getElementById('f-svc').focus();}
+function closeAdd(){document.getElementById('add-form').classList.remove('open');}
+function prefill(svc,kn){document.getElementById('f-svc').value=svc;document.getElementById('f-key').value=kn;document.getElementById('f-val').value='';openAdd();document.getElementById('f-val').focus();}
+async function saveKey(){
+  const svc=document.getElementById('f-svc').value.trim().toLowerCase();
+  const kn=document.getElementById('f-key').value.trim().toLowerCase();
+  const val=document.getElementById('f-val').value;
+  if(!svc||!kn||!val){toast('All three fields required.',true);return;}
+  const r=await fetch('/api/admin/api_keys/set',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service:svc,key_name:kn,value:val})});
+  const d=await r.json();
+  if(r.ok){closeAdd();document.getElementById('f-svc').value='';document.getElementById('f-key').value='';document.getElementById('f-val').value='';_shown={};toast('✓ '+svc+'/'+kn+' saved');load();}
+  else toast(d.message||'Save failed.',true);
+}
+async function delKey(svc,kn){
+  if(!confirm('Delete '+svc+'/'+kn+'?\\n\\nBot will fall back to .env on next restart.')) return;
+  const r=await fetch('/api/admin/api_keys/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({service:svc,key_name:kn})});
+  const d=await r.json();
+  if(r.ok){_shown={};toast('✓ '+svc+'/'+kn+' deleted');load();}
+  else toast(d.message||'Delete failed.',true);
+}
+load();
+</script>
+</body>
+</html>"""
+    return html.encode("utf-8")
 
 
 def is_bot_running():
@@ -298,10 +790,19 @@ def get_open_positions(sort_by=None, sort_dir="desc", enrich=True):
             for t in rows:
                 entry_price = float(t.get("entry_price") or 0)
                 if enrich:
-                    current_price = get_current_price(
+                    raw_price = get_current_price(
                         t.get("symbol") or t.get("ticker") or "?",
                         t.get("asset_class") or "crypto",
-                    ) or entry_price
+                    )
+                    # Price sanity gate: reject prices that deviate >80% from entry.
+                    # Bad price feeds (e.g. Kraken returning a stale $0.05 for a
+                    # $55 token) produce phantom -$1900 P&L that flips wildly.
+                    # Mirror the same gate used in position_monitor._process_position.
+                    if raw_price and entry_price > 0:
+                        _dev = abs(raw_price - entry_price) / entry_price
+                        current_price = raw_price if _dev <= 0.80 else entry_price
+                    else:
+                        current_price = raw_price or entry_price
                 else:
                     current_price = float(t.get("current_price") or entry_price or 0)
                 qty = float(t.get("quantity") or t.get("shares") or 0)
@@ -329,8 +830,8 @@ def get_open_positions(sort_by=None, sort_dir="desc", enrich=True):
                     "current_price": current_price,
                     "stop_loss": stop_loss,
                     "take_profit": take_profit,
-                    "unrealized_pnl": pnl,
-                    "pnl_pct": pnl_pct,
+                    "unrealized_pnl": round(pnl, 4),
+                    "pnl_pct": round(pnl_pct, 4),
                     "distance_to_sl": distance_to_sl,
                     "distance_to_tp": distance_to_tp,
                     "entry_time": t.get("entry_time") or "",
@@ -491,7 +992,8 @@ BACKTEST_STRATEGIES = [
     "mean_reversion", "scalp_master", "swing_trader", "grid_bot",
     "dca_accumulator", "vwap_momentum", "hammer_reversal", "orb_breakout",
     "ecb_strategy", "vdmr_strategy", "rsi_dip_spike_v4",
-    "original_scorer", "vwap_confirmed_orb",
+    "original_scorer", "vwap_confirmed_orb", "bollinger_squeeze",
+    "mr_02_vef", "mr_03_fbs", "mr_04_fvg",
 ]
 
 
@@ -533,6 +1035,89 @@ def _unique_symbols(symbols, crypto=False):
             seen.add(symbol)
             out.append(symbol)
     return out
+
+
+def get_strategy_optimizer_params(strategy_name: str) -> list:
+    """
+    Introspect a strategy's params dataclass and return a list of optimizer-ready
+    param descriptors: {name, default, min, max, step, is_int}.
+
+    Skips string/bool fields (not optimizable numerically).
+    Generates sensible default ranges from the dataclass default values.
+    """
+    STRATEGY_MAP = {
+        "rsi_momentum":       ("strategies.rsi_momentum",       "RSIMomentum"),
+        "bollinger_breakout": ("strategies.bollinger_breakout",  "BollingerBreakout"),
+        "bollinger_squeeze":  ("strategies.bollinger_squeeze",   "BollingerSqueeze"),
+        "ema_crossover":      ("strategies.ema_crossover",       "EMACrossover"),
+        "mean_reversion":     ("strategies.mean_reversion",      "MeanReversion"),
+        "scalp_master":       ("strategies.scalp_master",        "ScalpMaster"),
+        "swing_trader":       ("strategies.swing_trader",        "SwingTrader"),
+        "grid_bot":           ("strategies.grid_bot",            "GridBot"),
+        "dca_accumulator":    ("strategies.dca_accumulator",     "DCAAccumulator"),
+        "vwap_momentum":      ("strategies.vwap_momentum",       "VWAPMomentum"),
+        "vwap_confirmed_orb": ("strategies.vwap_confirmed_orb",  "VwapConfirmedOrb"),
+        "hammer_reversal":    ("strategies.hammer_reversal",     "HammerReversal"),
+        "orb_breakout":       ("strategies.orb_breakout",        "ORBBreakout"),
+        "adaptive_regime":    ("strategies.adaptive_regime",     "AdaptiveRegime"),
+        "ecb_strategy":       ("strategies.ecb_strategy",        "ECBStrategy"),
+        "vdmr_strategy":      ("strategies.vdmr_strategy",       "VDMRStrategy"),
+        "rsi_dip_spike_v4":   ("strategies.rsi_dip_spike_v4",   "RSIDipSpikeV4Strategy"),
+        "mr_02_vef":          ("strategies.mr_02_vef_strategy",  "MR02VEFStrategy"),
+        "mr_03_fbs":          ("strategies.mr_03_fbs_strategy",  "MR03FBSStrategy"),
+        "mr_04_fvg":          ("strategies.mr_04_fvg_strategy",  "MR04FVGStrategy"),
+    }
+    if strategy_name not in STRATEGY_MAP:
+        return []
+    try:
+        import importlib, dataclasses, math
+        module_path, class_name = STRATEGY_MAP[strategy_name]
+        mod = importlib.import_module(module_path)
+        cls = getattr(mod, class_name)
+        obj = cls()
+        params = getattr(obj, 'params', None)
+        if params is None or not dataclasses.is_dataclass(params):
+            return []
+
+        result = []
+        for f in dataclasses.fields(params):
+            val = getattr(params, f.name)
+            if isinstance(val, bool) or isinstance(val, str):
+                continue  # not numerically optimizable
+            is_int = isinstance(val, int)
+            is_float = isinstance(val, float)
+            if not (is_int or is_float):
+                continue
+
+            if is_int:
+                # For period/length-type params, range around default
+                if val <= 0:
+                    continue
+                step  = max(1, val // 10)
+                lo    = max(1, val // 2)
+                hi    = val * 3
+            else:
+                # Float — pick step as ~10% of value, round nicely
+                if val <= 0:
+                    lo, hi, step = 0.5, 5.0, 0.5
+                else:
+                    magnitude = 10 ** math.floor(math.log10(val))
+                    step = round(magnitude * 0.5, 4)
+                    lo   = round(max(0.1, val * 0.4), 4)
+                    hi   = round(val * 2.5, 4)
+
+            result.append({
+                "name":    f.name,
+                "default": val,
+                "min":     lo,
+                "max":     hi,
+                "step":    step,
+                "is_int":  is_int,
+            })
+        return result
+    except Exception as e:
+        logger.warning(f"get_strategy_optimizer_params({strategy_name}): {e}")
+        return []
 
 
 def get_backtest_config():
@@ -620,6 +1205,201 @@ def _backtest_result_payload(result):
         "avgLoss": round(avg_loss, 2),
         "equity_curve": sampled_equity,
     }
+
+
+# ---------------------------------------------------------------------------
+# Optimizer subprocess state
+# ---------------------------------------------------------------------------
+_optimizer_progress = {
+    "running":    False,
+    "iteration":  0,
+    "total":      0,
+    "best_score": None,
+    "strategy":   "",
+    "method":     "",
+    "cancelled":  False,
+    "results":    None,
+    "error":      None,
+}
+_opt_cancel  = threading.Event()
+_opt_running = threading.Event()
+_opt_proc    = None          # current subprocess.Popen handle
+_opt_prog_file = None        # path to progress JSON file
+
+def _opt_monitor(proc, progress_path: str):
+    """
+    Background thread: polls progress_path every 0.5s and merges into
+    _optimizer_progress, then cleans up when the subprocess exits.
+    """
+    global _opt_proc, _optimizer_progress
+    import time as _t, json as _j
+
+    while proc.poll() is None:
+        _t.sleep(0.5)
+        try:
+            with open(progress_path) as _f:
+                data = _j.load(_f)
+            # Merge into shared dict (preserve keys the worker doesn't write)
+            for k in ('running','iteration','total','best_score','cancelled','error','results'):
+                if k in data:
+                    _optimizer_progress[k] = data[k]
+        except Exception:
+            pass
+
+    # Process exited — do one final read
+    try:
+        with open(progress_path) as _f:
+            data = _j.load(_f)
+        for k in ('running','iteration','total','best_score','cancelled','error','results'):
+            if k in data:
+                _optimizer_progress[k] = data[k]
+        if data.get('results') is None and not data.get('error'):
+            import logging as _lg
+            _lg.getLogger("dashboard.opt_monitor").warning(
+                f"Final progress has no results and no error — worker may have been killed. "
+                f"phase={data.get('phase')} iter={data.get('iteration')}/{data.get('total')}"
+            )
+    except Exception as _fe:
+        import logging as _lg
+        _lg.getLogger("dashboard.opt_monitor").error(
+            f"Final progress read FAILED ({_fe}) — results lost, zombie state likely"
+        )
+
+    _optimizer_progress["running"] = False
+    _opt_running.clear()
+    _opt_proc = None
+    try:
+        os.unlink(progress_path)
+    except Exception:
+        pass
+
+def run_optimize_api(payload):
+    """
+    Launch the optimizer in a subprocess (opt_worker.py) so the heavy
+    simulation loop runs in its own Python interpreter with its own GIL,
+    keeping the web server fully responsive during optimization.
+    """
+    global _opt_proc, _opt_prog_file
+
+    import tempfile, json as _j, subprocess as _sp
+
+    strategy   = str(payload.get("strategy") or "").strip()
+    if not strategy:
+        _optimizer_progress.update({"error": "strategy is required", "results": [], "running": False})
+        _opt_running.clear(); return
+
+    asset       = str(payload.get("asset") or "Crypto").lower()
+    asset_class = "crypto" if asset.startswith("crypto") else "stock"
+    timeframe   = str(payload.get("timeframe") or payload.get("tf") or "1h").strip()
+    days        = int(payload.get("days") or 365)
+    metric      = str(payload.get("metric")     or "profit_factor").strip()
+    minimize    = bool(payload.get("minimize",  False))
+    method      = str(payload.get("method")     or "annealing").strip()
+    iterations  = int(payload.get("iterations") or 40)
+
+    # Resolve symbols
+    raw_syms = payload.get("symbols")
+    if not raw_syms or raw_syms == "ALL":
+        cfg_syms = get_backtest_config()["symbols"]
+        key = "Crypto" if asset_class == "crypto" else "Stocks"
+        import config as _cfg_mod
+        symbols = [s for s in cfg_syms.get(key, []) if s != "ALL"][:20]
+    elif isinstance(raw_syms, list):
+        symbols = [s.strip().upper() for s in raw_syms if s.strip()]
+    else:
+        symbols = [s.strip().upper() for s in str(raw_syms).split(",") if s.strip()]
+    if not symbols:
+        _optimizer_progress.update({"error": "No symbols resolved", "results": [], "running": False})
+        _opt_running.clear(); return
+
+    raw_params = payload.get("params") or []
+    if not raw_params:
+        _optimizer_progress.update({"error": "params list is required", "results": [], "running": False})
+        _opt_running.clear(); return
+
+    # Write config file for worker
+    cfg_data = {
+        "strategy":    strategy,
+        "symbols":     symbols,
+        "params":      raw_params,
+        "method":      method,
+        "iterations":  iterations,
+        "days":        days,
+        "timeframe":   timeframe,
+        "asset_class": asset_class,
+        "metric":      metric,
+        "minimize":    minimize,
+    }
+    try:
+        cfg_fd, cfg_path = tempfile.mkstemp(suffix='.json', prefix='opt_cfg_')
+        with os.fdopen(cfg_fd, 'w') as f:
+            _j.dump(cfg_data, f)
+
+        _fd, prog_path = tempfile.mkstemp(suffix='.json', prefix='opt_prog_')
+        os.close(_fd)
+        _opt_prog_file = prog_path
+        # Seed the progress file so the monitor has something to read immediately
+        import json as _jj
+        with open(prog_path, 'w') as _pf:
+            _jj.dump({"running": False, "iteration": 0, "total": iterations,
+                      "best_score": None, "cancelled": False, "error": None,
+                      "results": None, "phase": "starting"}, _pf)
+    except Exception as e:
+        _optimizer_progress.update({"error": f"Temp file failed: {e}", "results": [], "running": False})
+        _opt_running.clear(); return
+
+    # Initial progress state
+    _optimizer_progress.update({
+        "running":    False,
+        "iteration":  0,
+        "total":      iterations,
+        "best_score": None,
+        "strategy":   strategy,
+        "method":     method,
+        "cancelled":  False,
+        "error":      None,
+        "results":    None,
+    })
+
+    # Find the python executable (same venv as web_dashboard)
+    python_exe = sys.executable
+    worker_script = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 'intelligence', 'opt_worker.py')
+
+    try:
+        proc = _sp.Popen(
+            [python_exe, '-u', worker_script, cfg_path, prog_path],
+            cwd=os.path.dirname(os.path.abspath(__file__)),
+            stdout=_sp.PIPE, stderr=_sp.STDOUT,
+        )
+        _opt_proc = proc
+        _opt_running.set()   # mark optimizer as active — cleared by monitor when done
+        # Relay subprocess output directly to terminal
+        def _relay_output(p):
+            for line in iter(p.stdout.readline, b''):
+                text = line.decode('utf-8', errors='replace').rstrip()
+                if text:
+                    print(f'[worker] {text}', flush=True)
+            p.stdout.close()
+        threading.Thread(target=_relay_output, args=(proc,), daemon=True).start()
+    except Exception as e:
+        _optimizer_progress.update({"error": f"Subprocess launch failed: {e}", "results": [], "running": False})
+        _opt_running.clear()
+        try: os.unlink(cfg_path)
+        except: pass
+        return
+
+    # Monitor thread — reads progress file and relays to _optimizer_progress
+    mon = threading.Thread(target=_opt_monitor, args=(proc, prog_path), daemon=True)
+    mon.start()
+
+    # Clean up config file after worker exits (monitor thread handles this)
+    def _del_cfg():
+        proc.wait()   # block until subprocess exits
+        import time as _t; _t.sleep(2)
+        try: os.unlink(cfg_path)
+        except: pass
+    threading.Thread(target=_del_cfg, daemon=True).start()
 
 
 def run_backtest_api(payload):
@@ -892,14 +1672,15 @@ def _chart_bars_alpaca(symbol, timeframe, limit):
         return []
 
 
-def _chart_bars_ibkr(symbol, timeframe, limit):
+def _chart_bars_ibkr(symbol, timeframe, limit, sec_type='STK', exchange='SMART'):
     # Reuse the bot's live executor singleton — don't create a new connection
     # per chart request (wastes clientIds and triggers event-loop errors).
     try:
         from core.trade_executor import executor as _tex
         ibkr = getattr(_tex, '_ibkr', None)
         if ibkr and ibkr.is_available():
-            return ibkr.get_historical_bars(symbol, timeframe, limit)
+            return ibkr.get_historical_bars(symbol, timeframe, limit,
+                                            sec_type=sec_type, exchange=exchange)
     except Exception:
         pass
     # Fallback: yfinance (no connection needed)
@@ -1009,10 +1790,29 @@ def _chart_bars_yfinance(symbol, timeframe, limit):
 def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
     symbol = symbol.upper().strip()
     is_crypto = '/' in symbol
+    is_futures = symbol in FUTURES_SYMBOLS
     try:
         limit = max(50, min(int(limit), 1000))
     except Exception:
         limit = 300
+
+    # Futures: IBKR (real-time CME data) → yfinance continuous contract fallback
+    if is_futures:
+        meta = FUTURES_META[symbol]
+        exchange = meta[0]
+        bars = _chart_bars_ibkr(symbol, timeframe, limit, sec_type='FUT', exchange=exchange)
+        if not bars:
+            # yfinance continuous contract format: ES=F, NQ=F, GC=F etc.
+            bars = _chart_bars_yfinance(symbol + '=F', timeframe, limit)
+        # Sort, dedup, return early — skip stock/crypto broker logic below
+        bars.sort(key=lambda b: b['time'])
+        seen_t: set = set()
+        deduped = []
+        for b in bars:
+            if b['time'] not in seen_t:
+                seen_t.add(b['time'])
+                deduped.append(b)
+        return deduped[-limit:]
 
     # Default broker by asset type
     if not broker:
@@ -1135,6 +1935,76 @@ def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
     }
 
 
+# ── Futures symbol registry ──────────────────────────────────────────────────
+# Maps CME/NYMEX/CBOT/COMEX symbol → (exchange, description, category)
+# Exchange strings match IBKR's ContFuture routing.
+# yfinance continuous contract ticker = symbol + '=F'
+FUTURES_META = {
+    # CME Equity Indices
+    'ES':  ('CME',   'E-mini S&P 500',           'Equity'),
+    'MES': ('CME',   'Micro E-mini S&P 500',      'Equity'),
+    'NQ':  ('CME',   'E-mini NASDAQ 100',         'Equity'),
+    'MNQ': ('CME',   'Micro E-mini NASDAQ 100',   'Equity'),
+    'RTY': ('CME',   'E-mini Russell 2000',       'Equity'),
+    'M2K': ('CME',   'Micro E-mini Russell 2000', 'Equity'),
+    'NKD': ('CME',   'Nikkei 225',                'Equity'),
+    'MBT': ('CME',   'Micro E-mini Bitcoin',      'Equity'),
+    'MET': ('CME',   'Micro E-mini Ether',        'Equity'),
+    # CBOT Equity
+    'YM':  ('CBOT',  'Mini-DOW',                  'Equity'),
+    'MYM': ('CBOT',  'Micro Mini-DOW',            'Equity'),
+    # NYMEX Energy
+    'CL':  ('NYMEX', 'Crude Oil',                 'Energy'),
+    'MCL': ('NYMEX', 'Micro Crude Oil',           'Energy'),
+    'QM':  ('NYMEX', 'E-mini Crude Oil',          'Energy'),
+    'NG':  ('NYMEX', 'Natural Gas',               'Energy'),
+    'MNG': ('NYMEX', 'Micro Henry Hub Nat Gas',   'Energy'),
+    'QG':  ('NYMEX', 'E-mini Natural Gas',        'Energy'),
+    'RB':  ('NYMEX', 'RBOB Gasoline',             'Energy'),
+    'HO':  ('NYMEX', 'Heating Oil',               'Energy'),
+    # NYMEX Metals
+    'PL':  ('NYMEX', 'Platinum',                  'Metals'),
+    # COMEX Metals
+    'GC':  ('COMEX', 'Gold',                      'Metals'),
+    'MGC': ('COMEX', 'Micro Gold',                'Metals'),
+    'SI':  ('COMEX', 'Silver',                    'Metals'),
+    'SIL': ('COMEX', 'Micro Silver',              'Metals'),
+    'HG':  ('COMEX', 'Copper',                    'Metals'),
+    'MHG': ('COMEX', 'Micro Copper',              'Metals'),
+    # CME FX
+    '6A':  ('CME',   'Australian Dollar',         'FX'),
+    'M6A': ('CME',   'Micro AUD/USD',             'FX'),
+    '6B':  ('CME',   'British Pound',             'FX'),
+    'M6B': ('CME',   'Micro GBP/USD',             'FX'),
+    '6C':  ('CME',   'Canadian Dollar',           'FX'),
+    '6E':  ('CME',   'Euro FX',                   'FX'),
+    'M6E': ('CME',   'Micro EUR/USD',             'FX'),
+    '6J':  ('CME',   'Japanese Yen',              'FX'),
+    '6S':  ('CME',   'Swiss Franc',               'FX'),
+    'E7':  ('CME',   'E-mini Euro FX',            'FX'),
+    '6M':  ('CME',   'Mexican Peso',              'FX'),
+    '6N':  ('CME',   'New Zealand Dollar',        'FX'),
+    # CBOT Financial / Interest Rates
+    'ZT':  ('CBOT',  '2-Year Note',               'Rates'),
+    'ZF':  ('CBOT',  '5-Year Note',               'Rates'),
+    'ZN':  ('CBOT',  '10-Year Note',              'Rates'),
+    'ZB':  ('CBOT',  '30-Year Bond',              'Rates'),
+    'UB':  ('CBOT',  'Ultra-Bond',                'Rates'),
+    'TN':  ('CBOT',  'Ultra-Note',                'Rates'),
+    # CBOT Agricultural
+    'ZC':  ('CBOT',  'Corn',                      'Agriculture'),
+    'ZW':  ('CBOT',  'Wheat',                     'Agriculture'),
+    'ZS':  ('CBOT',  'Soybean',                   'Agriculture'),
+    'ZM':  ('CBOT',  'Soybean Meal',              'Agriculture'),
+    'ZL':  ('CBOT',  'Soybean Oil',               'Agriculture'),
+    # CME Agricultural (Livestock)
+    'HE':  ('CME',   'Lean Hogs',                 'Agriculture'),
+    'LE':  ('CME',   'Live Cattle',               'Agriculture'),
+}
+
+FUTURES_SYMBOLS = set(FUTURES_META.keys())
+
+
 def get_chart_symbols():
     stocks = list(getattr(_config, 'STOCK_WATCHLIST', []) or [])
     crypto = list(getattr(_config, 'CRYPTO_WATCHLIST', []) or [])
@@ -1144,9 +2014,14 @@ def get_chart_symbols():
         crypto = list(dict.fromkeys(crypto + inj.get('crypto', [])))
     except Exception:
         pass
+    futures = [
+        {'symbol': sym, 'type': 'futures', 'name': meta[1], 'category': meta[2]}
+        for sym, meta in FUTURES_META.items()
+    ]
     return (
         [{'symbol': s, 'type': 'stock'} for s in stocks] +
-        [{'symbol': s, 'type': 'crypto'} for s in crypto]
+        [{'symbol': s, 'type': 'crypto'} for s in crypto] +
+        futures
     )
 
 
@@ -1175,7 +2050,7 @@ def get_injected_symbols():
     }
 
 
-def inject_symbols(kind, raw_symbols):
+def inject_symbols(kind, raw_symbols, replace=False):
     if isinstance(raw_symbols, str):
         symbols = raw_symbols.replace(",", "\n").splitlines()
     else:
@@ -1198,10 +2073,17 @@ def inject_symbols(kind, raw_symbols):
 
     path = INJECTED_CRYPTO_FILE if kind == "crypto" else INJECTED_STOCKS_FILE
     WATCHLIST_DIR.mkdir(parents=True, exist_ok=True)
-    existing = [s for s in _read_symbol_file(path) if s not in cleaned]
-    path.write_text("\n".join(cleaned + existing))
-    label = "crypto pair" if kind == "crypto" else "stock"
-    return True, f"Injected {len(cleaned)} {label}(s): {', '.join(cleaned)}", get_injected_symbols()
+    if replace:
+        # Replace mode: file becomes exactly the submitted list — anything else is removed
+        path.write_text("\n".join(cleaned))
+        label = "crypto pair" if kind == "crypto" else "stock"
+        return True, f"Replaced with {len(cleaned)} {label}(s): {', '.join(cleaned)}", get_injected_symbols()
+    else:
+        # Append mode: merge new symbols in front, keep existing ones not in the new list
+        existing = [s for s in _read_symbol_file(path) if s not in cleaned]
+        path.write_text("\n".join(cleaned + existing))
+        label = "crypto pair" if kind == "crypto" else "stock"
+        return True, f"Added {len(cleaned)} {label}(s): {', '.join(cleaned)}", get_injected_symbols()
 
 
 def clear_injected_symbols():
@@ -1901,6 +2783,33 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
 
+    # ── Auth helpers ──────────────────────────────────────────────────────────
+
+    def _session_token(self) -> str:
+        for part in self.headers.get("Cookie", "").split(";"):
+            part = part.strip()
+            if part.startswith("session="):
+                return part[8:]
+        return ""
+
+    def _authed(self) -> bool:
+        return _valid_session(self._session_token())
+
+    def _current_user(self) -> str:
+        return _session_user(self._session_token())
+
+    def _redirect(self, target: str):
+        self.send_response(302)
+        self.send_header("Location", target)
+        self.end_headers()
+
+    def _serve_html(self, content: bytes):
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(content)))
+        self.end_headers()
+        self.wfile.write(content)
+
     def _json(self, code, payload):
         body = json.dumps(payload).encode("utf-8")
         try:
@@ -1921,6 +2830,70 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
         path = parsed.path
+
+        # ── Auth gate ─────────────────────────────────────────────────────────
+        _static = path.startswith("/static/") or path.endswith((".css", ".js", ".ico", ".png"))
+
+        if path == "/login":
+            return self._serve_html(_LOGIN_PAGE())
+        if path == "/setup":
+            return self._serve_html(_SETUP_PAGE())
+        if path == "/recover":
+            return self._serve_html(_RECOVER_PAGE())
+
+        if path == "/api/auth/logout":
+            _revoke_session(self._session_token())
+            self.send_response(302)
+            self.send_header("Set-Cookie", "session=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0")
+            self.send_header("Location", "/login")
+            self.end_headers()
+            return
+
+        if path == "/api/auth/users" and self._authed() and _is_admin(self._current_user()):
+            users = _load_users()
+            return self._json(200, {"users": [
+                {"username": u, "role": v.get("role", "user"), "force_change": v.get("force_change", False)}
+                for u, v in users.items()
+            ]})
+
+        if path == "/api-keys":
+            if not self._authed():
+                return self._redirect(f"/login?next=/api-keys")
+            if not _is_admin(self._current_user()):
+                return self._json(403, {"error": "Admin only"})
+            return self._serve_html(_api_keys_page())
+
+        if path == "/api/admin/api_keys" and self._authed() and _is_admin(self._current_user()):
+            try:
+                conn = sqlite3.connect(str(DB_PATH))
+                conn.row_factory = sqlite3.Row
+                rows = conn.execute(
+                    "SELECT service, key_name, value_enc, updated_at FROM api_keys ORDER BY service, key_name"
+                ).fetchall()
+                conn.close()
+                keys = []
+                for r in rows:
+                    try:
+                        val = _dec_hash(r["value_enc"]) if r["value_enc"] else ""
+                    except Exception:
+                        val = "⚠ decrypt failed"
+                    keys.append({
+                        "service":    r["service"],
+                        "key_name":   r["key_name"],
+                        "value":      val,
+                        "updated_at": r["updated_at"][:19],
+                    })
+                return self._json(200, {"keys": keys})
+            except Exception as e:
+                return self._json(500, {"error": str(e)})
+
+        # Redirect to setup if default credentials still active
+        if _needs_setup() and path not in ("/setup",) and not _static:
+            return self._redirect("/setup")
+
+        if not self._authed() and not _static:
+            return self._redirect(f"/login?next={self.path}")
+        # ── End auth gate ─────────────────────────────────────────────────────
 
         if path == "/api/snapshot":
             return self._json(200, build_snapshot())
@@ -1998,6 +2971,38 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/backtest/config":
             return self._json(200, get_backtest_config())
 
+        if path == "/api/optimize/params":
+            from urllib.parse import parse_qs as _pqs
+            _qs = _pqs(parsed.query)
+            strat = (_qs.get("strategy", [""])[0] or "").strip()
+            if not strat:
+                return self._json(400, {"ok": False, "error": "strategy required"})
+            p = get_strategy_optimizer_params(strat)
+            return self._json(200, {"ok": True, "strategy": strat, "params": p})
+
+        if path == "/api/optimize/progress":
+            _is_done = (not _optimizer_progress["running"]
+                        and _optimizer_progress["results"] is not None)
+            # Zombie state: not running, no results, no error, no active process
+            # (happens when worker was killed mid-run).  Treat as done so the UI
+            # stops polling and lets the user start a new run.
+            _is_zombie = (not _optimizer_progress["running"]
+                          and not _opt_running.is_set()
+                          and _optimizer_progress["results"] is None
+                          and not _optimizer_progress.get("error"))
+            return self._json(200, {**_optimizer_progress,
+                                    "cancel_pending": _opt_cancel.is_set(),
+                                    "done": _is_done or _is_zombie,
+                                    "zombie": _is_zombie})
+
+        if path == "/api/candle_store":
+            try:
+                from intelligence.candle_store import get_store as _get_cs
+                rows = _get_cs().list_available()
+                return self._json(200, {"ok": True, "entries": rows})
+            except Exception as _e:
+                return self._json(200, {"ok": False, "error": str(_e), "entries": []})
+
         if path == "/api/manual_trade/preview":
             ok, msg, details = get_manual_trade_preview(parse_qs(parsed.query))
             return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
@@ -2052,16 +3057,289 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
 
+        length = int(self.headers.get("Content-Length", "0"))
+        body_raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+        data = json.loads(body_raw or "{}")
+
+        # ── Auth endpoints (no session required) ──────────────────────────────
+        if path == "/api/auth/setup":
+            # Only allowed while default admin/admin is still active
+            if not _needs_setup():
+                return self._json(403, {"ok": False, "message": "Setup already complete."})
+            admin_pass = data.get("admin_password", "")
+            username   = data.get("username", "").strip()
+            password   = data.get("password", "")
+            if len(admin_pass) < 8:
+                return self._json(400, {"ok": False, "message": "Admin password must be at least 8 characters."})
+            if not username or username.lower() == _ADMIN_DEFAULT:
+                return self._json(400, {"ok": False, "message": "Choose a username other than 'admin'."})
+            if len(password) < 8:
+                return self._json(400, {"ok": False, "message": "Your password must be at least 8 characters."})
+            users = _load_users()
+            users[_ADMIN_DEFAULT] = {"hash": _hash_password(admin_pass), "role": "admin", "force_change": False}
+            users[username]       = {"hash": _hash_password(password),   "role": "admin", "force_change": False}
+            _save_users(users)
+            token = _new_session(username)
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Set-Cookie",
+                f"session={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age={SESSION_TTL}")
+            body = json.dumps({"ok": True}).encode()
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            import logging as _lg
+            _lg.getLogger("dashboard.auth").info(
+                f"[AUTH] Setup complete. Admin password changed. User created: {username!r}")
+            return
+
+        if path == "/api/auth/login":
+            username = data.get("username", "").strip()
+            password = data.get("password", "")
+            if _needs_setup():
+                return self._json(403, {"ok": False, "message": "Complete first-time setup first."})
+            if _auth_check(username, password):
+                token = _new_session(username)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Set-Cookie",
+                    f"session={token}; Path=/; HttpOnly; SameSite=Strict; Max-Age={SESSION_TTL}")
+                body = json.dumps({"ok": True}).encode()
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+            else:
+                self._json(401, {"ok": False, "message": "Invalid credentials"})
+            return
+
+        if path == "/api/auth/recover":
+            tok_in   = data.get("token", "").strip()
+            password = data.get("password", "")
+            if not secrets.compare_digest(tok_in, _RECOVERY_TOKEN):
+                return self._json(401, {"ok": False, "message": "Invalid or expired recovery token."})
+            if len(password) < 8:
+                return self._json(400, {"ok": False, "message": "Password must be at least 8 characters."})
+            users = _load_users()
+            if not users:
+                users = {}
+            users[_ADMIN_DEFAULT] = {"hash": _hash_password(password), "role": "admin", "force_change": False}
+            _save_users(users)
+            import logging as _lg
+            _lg.getLogger("dashboard.auth").warning("[AUTH] Admin password reset via recovery token.")
+            return self._json(200, {"ok": True})
+
+        if path == "/api/auth/change_password":
+            if not self._authed():
+                return self._json(401, {"error": "Unauthorized"})
+            username = data.get("username", "").strip() or self._current_user()
+            old_pass = data.get("old_password", "")
+            new_pass = data.get("new_password", "")
+            if not _auth_check(username, old_pass):
+                return self._json(401, {"ok": False, "message": "Current password incorrect."})
+            if len(new_pass) < 8:
+                return self._json(400, {"ok": False, "message": "New password must be at least 8 characters."})
+            users = _load_users()
+            users[username]["hash"]         = _hash_password(new_pass)
+            users[username]["force_change"] = False
+            _save_users(users)
+            return self._json(200, {"ok": True})
+
+        # ── Admin: reset any user's password ──────────────────────────────────
+        if path == "/api/auth/admin/reset_password":
+            if not self._authed():
+                return self._json(401, {"error": "Unauthorized"})
+            if not _is_admin(self._current_user()):
+                return self._json(403, {"error": "Admin only"})
+            target   = data.get("username", "").strip()
+            new_pass = data.get("new_password", "")
+            users    = _load_users()
+            if target not in users:
+                return self._json(404, {"ok": False, "message": f"User '{target}' not found."})
+            if len(new_pass) < 8:
+                return self._json(400, {"ok": False, "message": "New password must be at least 8 characters."})
+            users[target]["hash"]         = _hash_password(new_pass)
+            users[target]["force_change"] = True   # force them to change on next login
+            _save_users(users)
+            import logging as _lg
+            _lg.getLogger("dashboard.auth").info(
+                f"[AUTH] Admin {self._current_user()!r} reset password for {target!r}")
+            return self._json(200, {"ok": True})
+
+        # ── Admin: add user ────────────────────────────────────────────────────
+        if path == "/api/auth/admin/add_user":
+            if not self._authed():
+                return self._json(401, {"error": "Unauthorized"})
+            if not _is_admin(self._current_user()):
+                return self._json(403, {"error": "Admin only"})
+            username = data.get("username", "").strip()
+            password = data.get("password", "")
+            role     = data.get("role", "user")
+            if not username:
+                return self._json(400, {"ok": False, "message": "Username cannot be empty."})
+            if len(password) < 8:
+                return self._json(400, {"ok": False, "message": "Password must be at least 8 characters."})
+            users = _load_users()
+            if username in users:
+                return self._json(409, {"ok": False, "message": f"User '{username}' already exists."})
+            users[username] = {"hash": _hash_password(password), "role": role, "force_change": True}
+            _save_users(users)
+            return self._json(200, {"ok": True})
+
+        # ── Admin: delete user ─────────────────────────────────────────────────
+        if path == "/api/auth/admin/delete_user":
+            if not self._authed():
+                return self._json(401, {"error": "Unauthorized"})
+            if not _is_admin(self._current_user()):
+                return self._json(403, {"error": "Admin only"})
+            username = data.get("username", "").strip()
+            if username == _ADMIN_DEFAULT:
+                return self._json(400, {"ok": False, "message": "Cannot delete the admin account."})
+            if username == self._current_user():
+                return self._json(400, {"ok": False, "message": "Cannot delete your own account."})
+            users = _load_users()
+            if username not in users:
+                return self._json(404, {"ok": False, "message": f"User '{username}' not found."})
+            del users[username]
+            _save_users(users)
+            return self._json(200, {"ok": True})
+
+        # ── Admin: set / update an API key ────────────────────────────────────
+        if path == "/api/admin/api_keys/set":
+            if not self._authed() or not _is_admin(self._current_user()):
+                return self._json(403, {"error": "Admin only"})
+            service  = data.get("service",  "").strip().lower()
+            key_name = data.get("key_name", "").strip().lower()
+            value    = data.get("value",    "").strip()
+            if not service or not key_name:
+                return self._json(400, {"ok": False, "message": "service and key_name are required"})
+            if not value:
+                return self._json(400, {"ok": False, "message": "value cannot be empty"})
+            try:
+                f   = _get_fernet()
+                enc = f.encrypt(value.encode()).decode() if f else "plain:" + value
+                now = datetime.now(timezone.utc).isoformat()
+                conn = sqlite3.connect(str(DB_PATH))
+                conn.execute("""
+                    INSERT INTO api_keys (service, key_name, value_enc, updated_at)
+                    VALUES (?, ?, ?, ?)
+                    ON CONFLICT(service, key_name) DO UPDATE SET
+                        value_enc=excluded.value_enc, updated_at=excluded.updated_at
+                """, (service, key_name, enc, now))
+                conn.commit(); conn.close()
+                import logging as _lg
+                _lg.getLogger("dashboard.auth").info(
+                    f"[API_KEYS] {self._current_user()!r} set {service}/{key_name}")
+                return self._json(200, {"ok": True})
+            except Exception as e:
+                return self._json(500, {"ok": False, "message": str(e)})
+
+        # ── Admin: delete an API key ───────────────────────────────────────────
+        if path == "/api/admin/api_keys/delete":
+            if not self._authed() or not _is_admin(self._current_user()):
+                return self._json(403, {"error": "Admin only"})
+            service  = data.get("service",  "").strip().lower()
+            key_name = data.get("key_name", "").strip().lower()
+            if not service or not key_name:
+                return self._json(400, {"ok": False, "message": "service and key_name are required"})
+            conn = sqlite3.connect(str(DB_PATH))
+            cur  = conn.execute("DELETE FROM api_keys WHERE service=? AND key_name=?", (service, key_name))
+            conn.commit(); conn.close()
+            if cur.rowcount:
+                return self._json(200, {"ok": True, "message": f"{service}/{key_name} deleted — will fall back to .env"})
+            return self._json(404, {"ok": False, "message": "Key not found in DB"})
+
+        # ── Candle Store routes ───────────────────────────────────────────────────
+        if path == "/api/candle_store/fetch":
+            # Fetch candles from yfinance and save to persistent store.
+            # Payload: {symbols: ["BTC/USD", ...], timeframe: "1h", days: 365, asset_class: "crypto"}
+            symbols     = data.get("symbols") or []
+            timeframe   = data.get("timeframe", "1h")
+            days        = int(data.get("days", 365))
+            asset_class = data.get("asset_class", "crypto")
+            if not symbols:
+                return self._json(400, {"ok": False, "error": "No symbols provided"})
+
+            def _do_fetch():
+                from intelligence.backtester import Backtester
+                from intelligence.candle_store import get_store as _gcs
+                bt    = Backtester()
+                store = _gcs()
+                results = []
+                for sym in symbols:
+                    try:
+                        if asset_class == "crypto":
+                            df = bt.fetch_history_crypto(sym, days=days, timeframe=timeframe)
+                        else:
+                            df = bt.fetch_history(sym, days=days, timeframe=timeframe)
+                        if df is not None and not df.empty:
+                            n = store.save(sym, timeframe, df)
+                            results.append({"symbol": sym, "ok": True, "bars": n})
+                        else:
+                            results.append({"symbol": sym, "ok": False, "error": "No data returned"})
+                    except Exception as _fe:
+                        results.append({"symbol": sym, "ok": False, "error": str(_fe)})
+                return results
+
+            try:
+                fetch_results = _do_fetch()
+                return self._json(200, {"ok": True, "results": fetch_results})
+            except Exception as _e:
+                return self._json(500, {"ok": False, "error": str(_e)})
+
+        if path == "/api/candle_store/delete":
+            # Delete cached data for one symbol/timeframe.
+            # Payload: {symbol: "BTC/USD", timeframe: "1h"}
+            symbol    = data.get("symbol", "")
+            timeframe = data.get("timeframe", "1h")
+            if not symbol:
+                return self._json(400, {"ok": False, "error": "No symbol provided"})
+            try:
+                from intelligence.candle_store import get_store as _gcs
+                n = _gcs().delete(symbol, timeframe)
+                return self._json(200, {"ok": True, "deleted_bars": n,
+                                        "message": f"Cleared {symbol}/{timeframe} ({n:,} bars)"})
+            except Exception as _e:
+                return self._json(500, {"ok": False, "error": str(_e)})
+
+        # ── Optimizer routes (no separate auth needed — dashboard access implies auth) ──
+        if path == "/api/optimize/cancel":
+            was_running = _opt_running.is_set()
+            _opt_cancel.set()
+            # Kill the subprocess if one is running
+            if _opt_proc is not None:
+                try:
+                    _opt_proc.terminate()
+                except Exception:
+                    pass
+            return self._json(200, {"ok": True, "was_running": was_running,
+                                    "message": "Cancel signal sent to optimizer"})
+
+        if path == "/api/optimize":
+            _opt_cancel.clear()   # reset cancel flag so new run starts clean
+            if _opt_running.is_set():
+                return self._json(200, {"ok": False, "error": "Optimizer already running — cancel first", "results": []})
+            _optimizer_progress.update({"running": False, "iteration": 0, "total": 0,
+                                        "best_score": None, "cancelled": False,
+                                        "results": None, "error": None})
+            t = threading.Thread(target=run_optimize_api, args=(data,), daemon=True)
+            t.start()
+            return self._json(200, {"ok": True, "status": "started"})
+
+        # ── Auth gate for all other POSTs ─────────────────────────────────────
+        if not self._authed():
+            return self._json(401, {"error": "Unauthorized"})
+        # ── End auth gate ─────────────────────────────────────────────────────
+
         if path == "/api/trades/manual":
-            length = int(self.headers.get("Content-Length", "0"))
-            data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
             ok, msg, details = open_manual_trade(data)
             return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
 
         if path == "/api/injected_symbols":
-            length = int(self.headers.get("Content-Length", "0"))
-            data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
-            ok, msg, symbols = inject_symbols(str(data.get("kind") or "").lower(), data.get("symbols"))
+            ok, msg, symbols = inject_symbols(
+                str(data.get("kind") or "").lower(),
+                data.get("symbols"),
+                replace=bool(data.get("replace", False)),
+            )
             return self._json(200 if ok else 400, {"ok": ok, "message": msg, **symbols})
 
         if path == "/api/injected_symbols/clear":
@@ -2072,14 +3350,10 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
 
         if path == "/api/tax/export":
-            length = int(self.headers.get("Content-Length", "0"))
-            data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
             ok, msg, details = export_tax_csv(data.get("year"))
             return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
 
         if path == "/api/withdrawal":
-            length = int(self.headers.get("Content-Length", "0"))
-            data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
             ok, msg, details = process_withdrawal(data.get("amount"), data.get("reason"))
             return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
 
@@ -2099,28 +3373,16 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True, "running": running, "message": msg})
 
         if path == "/api/backtest":
-            length = int(self.headers.get("Content-Length", "0"))
-            try:
-                data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
-            except json.JSONDecodeError as exc:
-                return self._json(400, {"ok": False, "message": f"Invalid JSON: {exc.msg}"})
             ok, msg, details = run_backtest_api(data)
             return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
 
         if path == "/api/chat":
-            length = int(self.headers.get("Content-Length", "0"))
-            try:
-                data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
-            except json.JSONDecodeError as exc:
-                return self._json(400, {"ok": False, "message": f"Invalid JSON: {exc.msg}"})
             ok, msg, details = chat_with_bot(data.get("message"))
             return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
 
-        # ── Database browser POST actions (must be before /api/control guard) ─
+        # ── Database browser POST actions ─────────────────────────────────────
         if path in ("/api/db/search", "/api/db/edit_row",
                     "/api/db/flush_ghost", "/api/db/strategy_toggle"):
-            length = int(self.headers.get("Content-Length", "0"))
-            data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
             if path == "/api/db/search":
                 return self._json(200, db_search(data))
             if path == "/api/db/edit_row":
@@ -2136,8 +3398,6 @@ class Handler(BaseHTTPRequestHandler):
         if path != "/api/control":
             return self._json(404, {"error": "not found"})
 
-        length = int(self.headers.get("Content-Length", "0"))
-        data = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
         action = data.get("action")
 
         if action == "pause_trading":
@@ -2203,8 +3463,24 @@ class Handler(BaseHTTPRequestHandler):
 
 
 if __name__ == "__main__":
-    print(f"Starting HTML dashboard on http://localhost:{WEB_DASHBOARD_PORT}", flush=True)
-    print(f"Using DB path: {DB_PATH}", flush=True)
+    # Seed default admin/admin on very first start
+    _ensure_admin_seeded()
+
+    print(f"Starting dashboard on http://localhost:{WEB_DASHBOARD_PORT}", flush=True)
+    print(f"DB: {DB_PATH}", flush=True)
+    print("=" * 60, flush=True)
+
+    if _needs_setup():
+        print("  FIRST-TIME SETUP REQUIRED", flush=True)
+        print(f"  Default credentials:  admin / admin", flush=True)
+        print(f"  Visit http://localhost:{WEB_DASHBOARD_PORT}/setup to get started.", flush=True)
+    else:
+        users = _load_users()
+        print(f"  Auth enabled — accounts: {list(users.keys())}", flush=True)
+
+    print(f"  Recovery token : {_RECOVERY_TOKEN}", flush=True)
+    print(f"  Locked out?    : http://localhost:{WEB_DASHBOARD_PORT}/recover", flush=True)
+    print("=" * 60, flush=True)
+
     server = ThreadingHTTPServer(("0.0.0.0", WEB_DASHBOARD_PORT), Handler)
-    print(f"Serving HTML dashboard at http://localhost:{WEB_DASHBOARD_PORT}", flush=True)
     server.serve_forever()

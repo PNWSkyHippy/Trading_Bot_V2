@@ -379,18 +379,26 @@ class IBKRExecutor:
                     "portfolio_value": 0, "settled_cash": 0}
 
     def get_historical_bars(self, symbol: str, timeframe: str = '5m',
-                            limit: int = 300) -> list:
+                            limit: int = 300, sec_type: str = 'STK',
+                            exchange: str = 'SMART') -> list:
         """
         Return OHLCV bars from IBKR TWS as a list of dicts.
         Used by the chart panel — does NOT affect trading state.
         Returns [] if IBKR is unavailable.
+
+        sec_type: 'STK' for stocks (default), 'FUT' for futures continuous contracts.
+        exchange: IBKR exchange string — 'SMART' for stocks, CME/NYMEX/COMEX/CBOT for futures.
         """
         self._ensure_event_loop()
         if not self._ensure_connected():
             return []
         try:
-            from ib_insync import Stock
-            contract = Stock(symbol, 'SMART', 'USD')
+            from ib_insync import Stock, ContFuture
+            if sec_type == 'FUT':
+                # ContFuture = continuous front-month contract — best for charting
+                contract = ContFuture(symbol, exchange, 'USD')
+            else:
+                contract = Stock(symbol, 'SMART', 'USD')
 
             _bar_size = {
                 '1m': '1 min',  '5m': '5 mins', '15m': '15 mins',

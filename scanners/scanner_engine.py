@@ -58,17 +58,14 @@ class ScannerEngine:
         scanners = []
 
         # ── Gap Scanner ───────────────────────────────────────────────────
-        # NOTE: Gap detection and watchdog monitoring has moved to BreakoutScanner
-        # (scanners/gap_watchlist.py + BreakoutScanner._gap_detect_* methods).
-        # The scanner owns gap flow because it already fetches price data all day,
-        # avoiding duplicate yfinance calls and providing the GUI gap pane.
-        # GapScanner in bot_engine is disabled to prevent double-firing.
-        #
-        # gap = GapScanner(
-        #     stock_symbols  = list(config.STOCK_WATCHLIST),
-        #     crypto_symbols = list(config.CRYPTO_WATCHLIST),
-        # )
-        # scanners.append(gap)
+        # Re-enabled: the planned migration to BreakoutScanner was never completed.
+        # GapWatchlist exists but is not wired anywhere -- standalone GapScanner
+        # is the only active gap detection path.
+        gap = GapScanner(
+            stock_symbols  = list(config.STOCK_WATCHLIST),
+            crypto_symbols = list(config.CRYPTO_WATCHLIST),
+        )
+        scanners.append(gap)
 
         # ── NR7 Scanner ───────────────────────────────────────────────────
         nr7 = NR7Scanner(

@@ -1241,6 +1241,743 @@ function BacktesterPanel() {
   );
 }
 
+// ============ Optimizer Panel ============
+const OPT_METHODS  = ['annealing', 'random', 'all_random', 'sequential'];
+const OPT_METRICS  = ['profit_factor', 'win_rate', 'net_pnl', 'sharpe', 'expectancy', 'consistency_score'];
+const OPT_METRIC_LABELS = {
+  profit_factor: 'Profit Factor', win_rate: 'Win Rate %', net_pnl: 'Net P&L $',
+  sharpe: 'Sharpe Ratio', expectancy: 'Expectancy', consistency_score: 'Consistency Score',
+};
+const OPT_METHOD_LABELS = {
+  annealing: 'Annealing', random: 'Random', all_random: 'All Random', sequential: 'Sequential',
+};
+const OPT_METHOD_DESC = {
+  annealing:   'Starts broad, narrows around best regions. Best general-purpose choice.',
+  random:      'Random samples across the full space. Fast broad scan.',
+  all_random:  'Random with deduplication — every combo tested is unique.',
+  sequential:  'One param at a time, coordinate descent. Methodical but slower.',
+};
+
+function OptimizerPanel() {
+  const [form, setForm] = useS({
+    strategy: 'rsi_dip_spike_v4', asset: 'Crypto', tf: '1h', days: '365',
+    metric: 'profit_factor', minimize: false, method: 'annealing', iterations: '40',
+  });
+  const [paramRows, setParamRows] = useS([
+    { enabled: true,  name: 'rsi_period',   min: '10', max: '30', step: '2',   is_int: true  },
+    { enabled: true,  name: 'rsi_oversold', min: '20', max: '40', step: '5',   is_int: true  },
+    { enabled: false, name: 'stop_pct',     min: '0.5', max: '3', step: '0.5', is_int: false },
+  ]);
+  const [symbols, setSymbols] = useS('BTC/USD, ETH/USD, SOL/USD, BNB/USD, XRP/USD');
+  const [running, setRunning] = useS(false);
+  const [results, setResults] = useS(null);
+  const [msg, setMsg] = useS('');
+  const [runLog, setRunLog] = useS([]);
+  const [showLog, setShowLog] = useS(false);
+  const [selectedRow, setSelectedRow] = useS(0);
+  const [btConfig, setBtConfig] = useS(null);
+  const [csEntries, setCsEntries] = useS([]);
+  const [csFetching, setCsFetching] = useS(false);
+  const [csMsg, setCsMsg] = useS('');
+  const [csOpen, setCsOpen] = useS(false);
+  const [csSelected, setCsSelected] = useS(new Set());
+  const [csPendingDelete, setCsPendingDelete] = useS(null); // {entries, symNames} waiting for confirm
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const strategies = btConfig?.strategies?.filter(s => s !== 'ALL strategies') || MOCK.STRATEGIES.filter(s => s !== 'ALL strategies');
+
+  const loadCsEntries = () => {
+    panelApi('/api/candle_store').then(d => setCsEntries(d.entries || [])).catch(() => {});
+  };
+
+  useE(() => {
+    panelApi('/api/backtest/config').then(d => setBtConfig(d)).catch(() => {});
+    loadCsEntries();
+  }, []);
+
+  const downloadCsData = async () => {
+    const symList = symbols.split(',').map(s => s.trim()).filter(Boolean);
+    if (!symList.length) { setCsMsg('No symbols entered.'); return; }
+    setCsFetching(true); setCsMsg(`Downloading ${symList.length} symbol(s) — this may take a minute…`);
+    try {
+      const r = await panelApi('/api/candle_store/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbols: symList, timeframe: form.tf, days: parseInt(form.days), asset_class: form.asset.toLowerCase() }),
+      });
+      const ok  = r.results?.filter(x => x.ok).length  || 0;
+      const bad = r.results?.filter(x => !x.ok).length || 0;
+      const details = r.results?.map(x => x.ok ? `${x.symbol} (${x.bars?.toLocaleString()} bars)` : `${x.symbol} ❌`).join(', ');
+      setCsMsg(`Downloaded ${ok} symbols${bad ? `, ${bad} failed` : ''}. ${details}`);
+      loadCsEntries();
+    } catch (e) {
+      setCsMsg(`Download failed: ${e.message}`);
+    } finally { setCsFetching(false); }
+  };
+
+  const deleteCsEntry = async (symbol, timeframe) => {
+    try {
+      await panelApi('/api/candle_store/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol, timeframe }),
+      });
+      loadCsEntries();
+    } catch (e) { setCsMsg(`Delete failed: ${e.message}`); }
+  };
+
+  const csKey = (e) => `${e.symbol}||${e.timeframe}`;
+
+  const toggleCsRow = (e) => {
+    const k = csKey(e);
+    setCsSelected(prev => {
+      const next = new Set(prev);
+      next.has(k) ? next.delete(k) : next.add(k);
+      return next;
+    });
+  };
+
+  const toggleCsSymbol = (sym) => {
+    const keys = csEntries.filter(e => e.symbol === sym).map(csKey);
+    const allSelected = keys.every(k => csSelected.has(k));
+    setCsSelected(prev => {
+      const next = new Set(prev);
+      keys.forEach(k => allSelected ? next.delete(k) : next.add(k));
+      return next;
+    });
+  };
+
+  const selectAllCs = () => setCsSelected(new Set(csEntries.map(csKey)));
+  const clearCsSelection = () => setCsSelected(new Set());
+
+  const deleteSelected = async () => {
+    const toDelete = csEntries.filter(e => csSelected.has(csKey(e)));
+    if (!toDelete.length) { setCsMsg('Nothing selected.'); return; }
+    const symNames = [...new Set(toDelete.map(e => e.symbol))];
+    if (symNames.length >= 10 && !confirm(`Delete ${symNames.length} symbols (${toDelete.length} entries)?\n\n${symNames.join(', ')}`)) return;
+    setCsMsg(`Deleting ${toDelete.length} entries…`);
+    for (const e of toDelete) {
+      try {
+        await panelApi('/api/candle_store/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symbol: e.symbol, timeframe: e.timeframe }),
+        });
+      } catch (_) {}
+    }
+    setCsSelected(new Set());
+    loadCsEntries();
+    setCsMsg(`Deleted ${toDelete.length} entries.`);
+  };
+
+  const loadSymbolsFromDb = () => {
+    const unique = [...new Set(csEntries.map(e => e.symbol))];
+    if (!unique.length) { setCsMsg('Data Library is empty — nothing to load.'); return; }
+    setSymbols(unique.join(', '));
+    setCsMsg(`Loaded ${unique.length} symbol(s) from Data Library into input.`);
+  };
+
+  const purgeUnlisted = async () => {
+    const keep = new Set(symbols.split(',').map(s => s.trim().toUpperCase()).filter(Boolean));
+    const toDelete = csEntries.filter(e => !keep.has(e.symbol.toUpperCase()));
+    if (!toDelete.length) { setCsMsg('Nothing to purge — all cached symbols are in the list.'); return; }
+    if (!confirm(`Delete ${toDelete.length} cached entry/entries NOT in your symbol list?\n\n${[...new Set(toDelete.map(e => e.symbol))].join(', ')}`)) return;
+    setCsMsg(`Purging ${toDelete.length} entries…`);
+    for (const e of toDelete) {
+      try {
+        await panelApi('/api/candle_store/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symbol: e.symbol, timeframe: e.timeframe }),
+        });
+      } catch (_) {}
+    }
+    loadCsEntries();
+    setCsMsg(`Purged ${toDelete.length} unlisted entries.`);
+  };
+
+  const syncLibrary = async () => {
+    const symList = symbols.split(',').map(s => s.trim()).filter(Boolean);
+    if (!symList.length) { setCsMsg('No symbols in input — nothing to sync.'); return; }
+    const keep = new Set(symList.map(s => s.toUpperCase()));
+    const toDelete = csEntries.filter(e => !keep.has(e.symbol.toUpperCase()));
+    const dropSyms = [...new Set(toDelete.map(e => e.symbol))];
+    if (dropSyms.length >= 5) {
+      if (!confirm(`Sync will remove ${dropSyms.length} symbols (${toDelete.length} entries) and re-download ${symList.length}.\n\nDropping: ${dropSyms.join(', ')}\n\nContinue?`)) return;
+    }
+    setCsFetching(true);
+    // Step 1: purge
+    if (toDelete.length) {
+      setCsMsg(`Purging ${toDelete.length} unlisted entries…`);
+      for (const e of toDelete) {
+        try {
+          await panelApi('/api/candle_store/delete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ symbol: e.symbol, timeframe: e.timeframe }),
+          });
+        } catch (_) {}
+      }
+    }
+    // Step 2: re-download
+    setCsMsg(`Downloading fresh data for ${symList.length} symbol(s)…`);
+    try {
+      const r = await panelApi('/api/candle_store/fetch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbols: symList, timeframe: form.tf, days: parseInt(form.days), asset_class: form.asset.toLowerCase() }),
+      });
+      const ok  = r.results?.filter(x => x.ok).length  || 0;
+      const bad = r.results?.filter(x => !x.ok).length || 0;
+      setCsMsg(`Sync complete — purged ${dropSyms.length} symbols, downloaded ${ok}${bad ? `, ${bad} failed` : ''}.`);
+    } catch (e) {
+      setCsMsg(`Download step failed: ${e.message}`);
+    } finally {
+      setCsFetching(false);
+      loadCsEntries();
+    }
+  };
+
+  const addParam = () => setParamRows(r => [...r, { enabled: true, name: '', min: '', max: '', step: '', is_int: false }]);
+  const removeParam = (i) => setParamRows(r => r.filter((_, idx) => idx !== i));
+  const setParam = (i, k, v) => setParamRows(r => r.map((row, idx) => idx === i ? { ...row, [k]: v } : row));
+
+  const totalCombosEst = () => {
+    try {
+      let n = 1;
+      for (const p of paramRows) {
+        const min = parseFloat(p.min), max = parseFloat(p.max), step = parseFloat(p.step);
+        if (isNaN(min) || isNaN(max) || isNaN(step) || step <= 0) continue;
+        n *= Math.round((max - min) / step) + 1;
+      }
+      return n;
+    } catch { return '?'; }
+  };
+
+  const cancel = async () => {
+    try {
+      await panelApi('/api/optimize/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+      setRunLog(l => [...l.slice(-5), 'Cancel signal sent — waiting for current backtest to finish...']);
+      setMsg('Cancelling...');
+    } catch (e) {
+      setMsg(`Cancel failed: ${e.message}`);
+    }
+  };
+
+  const run = async () => {
+    setRunning(true); setResults(null); setShowLog(true); setMsg('');
+    const symList = symbols.split(',').map(s => s.trim()).filter(Boolean);
+    const params = paramRows.filter(p => {
+      if (!p.enabled || !p.name.trim()) return false;
+      const mn = parseFloat(p.min), mx = parseFloat(p.max), st = parseFloat(p.step);
+      return !isNaN(mn) && !isNaN(mx) && !isNaN(st) && st > 0 && mx >= mn;
+    }).map(p => ({
+      name: p.name.trim(), min: parseFloat(p.min), max: parseFloat(p.max),
+      step: parseFloat(p.step), is_int: p.is_int,
+    }));
+    if (params.length === 0) { setMsg('No valid enabled params — check the parameter table.'); setRunning(false); return; }
+    setRunLog([
+      `Optimizing ${form.strategy} · ${form.method} · ${form.iterations} iters`,
+      `Symbols: ${symList.join(', ')}`,
+      `Params: ${params.map(p => `${p.name}[${p.min}→${p.max} ±${p.step}]`).join(', ')}`,
+      'Sending to optimizer engine...',
+    ]);
+    try {
+      const start = await panelApi('/api/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          strategy: form.strategy, asset: form.asset, tf: form.tf,
+          days: parseInt(form.days), metric: form.metric, minimize: form.minimize,
+          method: form.method, iterations: parseInt(form.iterations),
+          symbols: symList, params,
+        }),
+      });
+      if (!start.ok) {
+        const errMsg = start.error || 'Failed to start optimizer';
+        setRunLog(l => [...l.slice(-5), `❌ ${errMsg}`]);
+        setMsg(`Error: ${errMsg}`); setShowLog(true);
+        return;
+      }
+      // Job started — poll progress until done
+      let lastIter = -1;
+      let staleTicks = 0;  // count consecutive ticks with no change
+      await new Promise((resolve) => {
+        const poll = setInterval(async () => {
+          try {
+            const prog = await panelApi('/api/optimize/progress');
+            if (prog.error) {
+              clearInterval(poll);
+              setRunLog(l => [...l.slice(-5), `❌ ${prog.error}`]);
+              setMsg(`Error: ${prog.error}`); setShowLog(true);
+              resolve(); return;
+            }
+            // Zombie / cancelled-with-no-results state — server marks done:true
+            if (prog.done && !prog.results) {
+              clearInterval(poll);
+              const reason = prog.cancelled ? 'Run was cancelled — no results.' : 'Worker stopped unexpectedly. Click Run to try again.';
+              setRunLog(l => [...l.slice(-5), `⚠️ ${reason}`]);
+              setMsg(reason);
+              resolve(); return;
+            }
+            // Show progress tick whenever iteration advances
+            const iter  = prog.iteration ?? 0;
+            const total = prog.total ?? 0;
+            const best  = prog.best_score != null ? Number(prog.best_score).toFixed(4) : '—';
+            if (prog.running && iter !== lastIter) {
+              lastIter = iter;
+              staleTicks = 0;
+              const pct = total > 0 ? Math.round((iter / total) * 100) : 0;
+              setRunLog(l => [...l.slice(-5), `Iteration ${iter}/${total} (${pct}%) · best score ${best}`]);
+            } else if (prog.running && iter === 0 && lastIter === -1) {
+              // Worker started but first combo not done yet — show heartbeat
+              setRunLog(l => {
+                const last = l[l.length - 1] || '';
+                const dots = last.startsWith('Running first combo') ? last.replace(/…+$/, '') + '…' : 'Running first combo…';
+                return [...l.slice(-5, -1), dots];
+              });
+            } else if (!prog.running && !prog.done && iter === 0 && lastIter === -1) {
+              setRunLog(l => [...l.slice(-5), 'Starting worker process…']);
+              staleTicks++;
+              // If stuck at "starting" for >30s, treat as failed launch
+              if (staleTicks > 15) {
+                clearInterval(poll);
+                setRunLog(l => [...l.slice(-5), '❌ Worker failed to start. Check server logs.']);
+                setMsg('Worker failed to start.'); resolve(); return;
+              }
+            }
+            if (prog.done && prog.results) {
+              clearInterval(poll);
+              const data = prog.results;
+              setResults(data);
+              setSelectedRow(0);
+              const tag = data.cancelled ? `Cancelled after ${data.tested} combos.` : `Done — ${data.tested} combos tested.`;
+              setRunLog(l => [...l.slice(-5), `${tag} Best: PF=${data.results?.[0]?.avg_profit_factor?.toFixed(2) || '—'} WR=${data.results?.[0]?.avg_win_rate?.toFixed(1) || '—'}%`]);
+              setMsg(data.cancelled ? `Cancelled — ${data.results?.length || 0} partial results shown.` : `Optimization complete — ${data.results?.length || 0} results ranked.`);
+              setTimeout(() => setShowLog(false), 3000);
+              resolve();
+            }
+          } catch { /* keep polling */ }
+        }, 2000);
+      });
+    } catch (e) {
+      setRunLog(l => [...l.slice(-5), `Optimizer failed: ${e.message}`]);
+      setMsg(`Error: ${e.message}`); setShowLog(true);
+    } finally { setRunning(false); }
+  };
+
+  useE(() => {
+    // Progress updates are now handled inside run() via the polling Promise.
+    // This effect only shows a heartbeat while prefetch is pending (running=true, iteration=0).
+  }, [running]);
+
+  // Auto-load params whenever the selected strategy changes
+  useE(() => {
+    if (!form.strategy) return;
+    panelApi(`/api/optimize/params?strategy=${encodeURIComponent(form.strategy)}`)
+      .then(data => {
+        if (data.ok && data.params?.length) {
+          setParamRows(data.params.map(p => ({
+            enabled: true,
+            name:    p.name,
+            min:     String(p.min),
+            max:     String(p.max),
+            step:    String(p.step),
+            is_int:  p.is_int,
+          })));
+        }
+      })
+      .catch(() => {});
+  }, [form.strategy]);
+
+  const topResults = results?.results || [];
+  const selResult = topResults[selectedRow] || null;
+  const paramNames = selResult ? Object.keys(selResult.params) : (topResults[0] ? Object.keys(topResults[0].params) : []);
+
+  const optColumns = [
+    { label: 'Rank',        value: (_, i) => i + 1 },
+    ...paramNames.map(n => ({ label: n, value: r => r.params[n] })),
+    { label: 'Score',       value: r => r.score?.toFixed(3) },
+    { label: 'PF',          value: r => r.avg_profit_factor?.toFixed(2) },
+    { label: 'WR %',        value: r => r.avg_win_rate?.toFixed(1) },
+    { label: 'Avg PnL',     value: r => r.avg_net_pnl?.toFixed(2) },
+    { label: 'Consistent',  value: r => (r.consistency * 100).toFixed(0) + '%' },
+    { label: 'Syms',        value: r => `${r.symbols_profitable}/${r.symbols_tested}` },
+  ];
+
+  return (
+    <div style={{ padding: 16 }}>
+      <div className="panel-sub" style={{ marginBottom: 14 }}>
+        Sweep strategy parameters across multiple symbols simultaneously.
+        Finds robust parameter sets — not just ones that look good on one chart.
+      </div>
+
+      {/* Row 1: strategy / asset / tf / days */}
+      <div className="grid-4" style={{ marginBottom: 12 }}>
+        <div className="field"><label>Strategy</label>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <select className="select input" style={{ flex: 1 }} value={form.strategy} onChange={e => set('strategy', e.target.value)}>
+              {strategies.map(s => <option key={s}>{s}</option>)}
+            </select>
+            <button className="btn ghost sm" title="Load parameters for this strategy" onClick={async () => {
+              try {
+                const data = await panelApi(`/api/optimize/params?strategy=${encodeURIComponent(form.strategy)}`);
+                if (!data.ok || !data.params?.length) { alert('No params found for this strategy.'); return; }
+                setParamRows(data.params.map(p => ({
+                  enabled: true,
+                  name:    p.name,
+                  min:     String(p.min),
+                  max:     String(p.max),
+                  step:    String(p.step),
+                  is_int:  p.is_int,
+                })));
+              } catch(e) { alert('Failed to load params: ' + e.message); }
+            }}>⚡ Load</button>
+          </div>
+        </div>
+        <div className="field"><label>Asset Class</label>
+          <select className="select input" value={form.asset} onChange={e => set('asset', e.target.value)}>
+            {['Crypto', 'Stocks'].map(a => <option key={a}>{a}</option>)}
+          </select>
+        </div>
+        <div className="field"><label>Timeframe</label>
+          <select className="select input" value={form.tf} onChange={e => set('tf', e.target.value)}>
+            {['5m', '15m', '1h', '1d'].map(t => <option key={t}>{t}</option>)}
+          </select>
+          <span style={{ fontSize: 11, color: 'var(--text-2)', marginTop: 3 }}>
+            {({'5m':'max 58 days · ~288 bars/day','15m':'max 59 days · ~96 bars/day','1h':'max 729 days · ~24 bars/day','1d':'max 3650 days · 1 bar/day'})[form.tf]}
+          </span>
+        </div>
+        <div className="field"><label>History (days)</label>
+          <input className="input" value={form.days} onChange={e => set('days', e.target.value)} />
+          <span style={{ fontSize: 11, color: form.days > ({'5m':58,'15m':59,'1h':729,'1d':3650})[form.tf] ? 'var(--red)' : 'var(--text-2)', marginTop: 3 }}>
+            {form.days > ({'5m':58,'15m':59,'1h':729,'1d':3650})[form.tf] ? `⚠ exceeds ${({'5m':58,'15m':59,'1h':729,'1d':3650})[form.tf]}d limit` : `${Math.round(form.days * ({'5m':288,'15m':96,'1h':24,'1d':1})[form.tf]).toLocaleString()} bars total`}
+          </span>
+        </div>
+      </div>
+
+      {/* Row 2: metric / iterations / minimize */}
+      <div style={{ display: 'flex', gap: 14, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12, padding: '10px 12px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+        <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <label style={{ whiteSpace: 'nowrap' }}>Optimise for:</label>
+          <select className="select input" style={{ width: 160 }} value={form.metric} onChange={e => set('metric', e.target.value)}>
+            {OPT_METRICS.map(m => <option key={m} value={m}>{OPT_METRIC_LABELS[m]}</option>)}
+          </select>
+        </div>
+        <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <label style={{ whiteSpace: 'nowrap' }}>Direction:</label>
+          <div className="radio-group">
+            <label><input type="radio" checked={!form.minimize} onChange={() => set('minimize', false)} /> Maximise</label>
+            <label><input type="radio" checked={form.minimize}  onChange={() => set('minimize', true)}  /> Minimise</label>
+          </div>
+        </div>
+        <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <label style={{ whiteSpace: 'nowrap' }}>Iterations:</label>
+          <input className="input" style={{ width: 70 }} value={form.iterations} onChange={e => set('iterations', e.target.value)} />
+        </div>
+        <div style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-2)' }}>
+          Grid size: ~{totalCombosEst().toLocaleString()} combos · testing {form.iterations} iterations
+        </div>
+      </div>
+
+      {/* Row 3: search method */}
+      <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: 12, padding: '10px 12px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+        <span style={{ fontSize: 11, color: 'var(--text-2)', whiteSpace: 'nowrap', paddingTop: 2 }}>Search Method:</span>
+        <div className="radio-group" style={{ flexWrap: 'wrap', gap: 10 }}>
+          {OPT_METHODS.map(m => (
+            <label key={m} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <span><input type="radio" name="opt-method" checked={form.method === m} onChange={() => set('method', m)} /> {OPT_METHOD_LABELS[m]}</span>
+              {form.method === m && <span style={{ fontSize: 10, color: 'var(--accent)', paddingLeft: 18 }}>{OPT_METHOD_DESC[m]}</span>}
+            </label>
+          ))}
+        </div>
+      </div>
+
+      {/* Row 4: symbols */}
+      <div className="field" style={{ marginBottom: 12 }}>
+        <label style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>Symbols (comma separated)</span>
+          <button
+            className="btn ghost sm"
+            style={{ fontSize: 10, padding: '2px 8px', opacity: csEntries.length ? 1 : 0.4 }}
+            onClick={loadSymbolsFromDb}
+            disabled={!csEntries.length}
+            title="Fill input with all symbols currently in the Data Library"
+          >↙ Load from DB ({[...new Set(csEntries.map(e => e.symbol))].length})</button>
+        </label>
+        <input className="input" value={symbols} onChange={e => setSymbols(e.target.value)}
+          placeholder="BTC/USD, ETH/USD, SOL/USD, BNB/USD, XRP/USD" />
+      </div>
+
+      {/* Data Library */}
+      <div style={{ marginBottom: 12, border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 12px', background: 'var(--bg-2)', cursor: 'pointer' }} onClick={() => setCsOpen(o => !o)}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icon name="database" size={13} />
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              Data Library
+            </span>
+            {csEntries.length > 0 && (
+              <span style={{ fontSize: 10, color: 'var(--text-2)', background: 'var(--bg-3)', borderRadius: 8, padding: '1px 6px' }}>
+                {csEntries.length} cached
+              </span>
+            )}
+            {csEntries.some(e => e.stale) && (
+              <span style={{ fontSize: 10, color: 'var(--warn)', background: 'var(--warn-bg,rgba(255,190,0,.12))', borderRadius: 8, padding: '1px 6px' }}>
+                {csEntries.filter(e => e.stale).length} stale
+              </span>
+            )}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button className="btn ghost sm" disabled={csFetching || !csEntries.length} onClick={e => { e.stopPropagation(); purgeUnlisted(); }} style={{ fontSize: 11 }} title="Delete cached entries whose symbol is NOT in the symbols input above">
+              <Icon name="trash" size={11} /> Purge Unlisted
+            </button>
+            <button className="btn primary sm" disabled={csFetching} onClick={e => { e.stopPropagation(); syncLibrary(); }} style={{ fontSize: 11 }} title="Purge unlisted symbols then re-download fresh data for everything in the input">
+              {csFetching ? <><Icon name="cpu" size={11} /> Syncing…</> : <><Icon name="refresh" size={11} /> Sync to Input</>}
+            </button>
+            <button className="btn ghost sm" disabled={csFetching} onClick={e => { e.stopPropagation(); downloadCsData(); }} style={{ fontSize: 11 }}>
+              {csFetching ? <><Icon name="cpu" size={11} /> Downloading…</> : <><Icon name="download" size={11} /> Download Data</>}
+            </button>
+            <Icon name={csOpen ? 'chevron-up' : 'chevron-down'} size={12} />
+          </div>
+        </div>
+        {csOpen && (
+          <div style={{ padding: '10px 12px', borderTop: '1px solid var(--border)' }}>
+            {csMsg && (
+              <div style={{ fontSize: 11, color: 'var(--text-2)', marginBottom: 8, lineHeight: 1.5 }}>{csMsg}</div>
+            )}
+            {csEntries.length === 0 ? (
+              <div style={{ fontSize: 12, color: 'var(--text-3)', textAlign: 'center', padding: '12px 0' }}>
+                No data cached yet. Click Download Data to pre-fetch your symbols.
+              </div>
+            ) : (
+              <>
+                {/* Selection toolbar */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                  <button className="btn ghost sm" style={{ fontSize: 10 }} onClick={selectAllCs}>Select All</button>
+                  <button className="btn ghost sm" style={{ fontSize: 10 }} onClick={clearCsSelection} disabled={!csSelected.size}>Clear</button>
+                  {csSelected.size > 0 && (
+                    <button className="btn sm" style={{ fontSize: 10, background: 'var(--red,#e94560)', color: '#fff', border: 'none' }} onClick={deleteSelected}>
+                      <Icon name="trash" size={10} /> Delete {csSelected.size} selected
+                    </button>
+                  )}
+                  {csSelected.size > 0 && (
+                    <span style={{ fontSize: 10, color: 'var(--text-2)', marginLeft: 4 }}>
+                      ({[...new Set(csEntries.filter(e => csSelected.has(csKey(e))).map(e => e.symbol))].length} symbols)
+                    </span>
+                  )}
+                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                      <th style={{ padding: '4px 8px', width: 24 }}>
+                        <input type="checkbox"
+                          checked={csEntries.length > 0 && csSelected.size === csEntries.length}
+                          onChange={e => e.target.checked ? selectAllCs() : clearCsSelection()}
+                          style={{ cursor: 'pointer' }} />
+                      </th>
+                      {['Symbol', 'TF', 'Bars', 'From', 'To', 'Age', ''].map(h => (
+                        <th key={h} style={{ padding: '4px 8px', textAlign: 'left', fontSize: 10, color: 'var(--text-2)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {csEntries.map((e, i) => {
+                      const k = csKey(e);
+                      const checked = csSelected.has(k);
+                      return (
+                        <tr key={k} style={{ borderBottom: i < csEntries.length - 1 ? '1px solid var(--border)' : 'none', background: checked ? 'var(--bg-3,rgba(255,255,255,0.04))' : undefined }}>
+                          <td style={{ padding: '4px 8px' }}>
+                            <input type="checkbox" checked={checked} onChange={() => toggleCsRow(e)} style={{ cursor: 'pointer' }} />
+                          </td>
+                          <td style={{ padding: '4px 8px', fontWeight: 500, cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleCsSymbol(e.symbol)} title="Click to select/deselect all rows for this symbol">
+                            {e.symbol}
+                          </td>
+                          <td style={{ padding: '4px 8px', color: 'var(--text-2)' }}>{e.timeframe}</td>
+                          <td style={{ padding: '4px 8px', color: 'var(--text-2)' }}>{(e.bar_count || 0).toLocaleString()}</td>
+                          <td style={{ padding: '4px 8px', color: 'var(--text-2)', fontSize: 10 }}>{e.first_date || '—'}</td>
+                          <td style={{ padding: '4px 8px', color: 'var(--text-2)', fontSize: 10 }}>{e.last_date  || '—'}</td>
+                          <td style={{ padding: '4px 8px' }}>
+                            <span style={{ fontSize: 10, color: e.stale ? 'var(--warn)' : 'var(--green)', fontWeight: 600 }}>
+                              {e.age_hours < 1 ? '<1h' : e.age_hours < 24 ? `${e.age_hours}h` : `${Math.round(e.age_hours/24)}d`}
+                              {e.stale ? ' ⚠' : ' ✓'}
+                            </span>
+                          </td>
+                          <td style={{ padding: '4px 8px' }}>
+                            <button className="btn ghost sm" onClick={() => deleteCsEntry(e.symbol, e.timeframe)} style={{ padding: '2px 6px', fontSize: 10 }}>
+                              <Icon name="x" size={10} />
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </>
+            )}
+            <div style={{ marginTop: 8, fontSize: 10, color: 'var(--text-3)' }}>
+              Data is reused automatically if &lt;48h old. Download again to refresh stale entries. Click a symbol name to select all its timeframes at once.
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Row 5: parameter ranges */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+          <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Parameter Ranges</span>
+          <button className="btn ghost sm" onClick={addParam}><Icon name="plus" size={11} /> Add Param</button>
+        </div>
+        <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                {['On', 'Param Name', 'Min', 'Max', 'Step', 'Int?', ''].map(h => (
+                  <th key={h} style={{ padding: '6px 10px', textAlign: 'left', fontSize: 10, color: 'var(--text-2)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {paramRows.map((row, i) => (
+                <tr key={i} style={{ borderBottom: '1px solid var(--border)', opacity: row.enabled ? 1 : 0.4 }}>
+                  <td style={{ padding: '4px 6px', textAlign: 'center' }}><input type="checkbox" checked={!!row.enabled} onChange={e => setParam(i, 'enabled', e.target.checked)} /></td>
+                  <td style={{ padding: '4px 6px' }}><input className="input" style={{ width: '100%', fontSize: 12 }} placeholder="e.g. rsi_period" value={row.name} onChange={e => setParam(i, 'name', e.target.value)} /></td>
+                  <td style={{ padding: '4px 6px' }}><input className="input" style={{ width: 70, fontSize: 12 }} placeholder="10" value={row.min} onChange={e => setParam(i, 'min', e.target.value)} /></td>
+                  <td style={{ padding: '4px 6px' }}><input className="input" style={{ width: 70, fontSize: 12 }} placeholder="30" value={row.max} onChange={e => setParam(i, 'max', e.target.value)} /></td>
+                  <td style={{ padding: '4px 6px' }}><input className="input" style={{ width: 70, fontSize: 12 }} placeholder="2" value={row.step} onChange={e => setParam(i, 'step', e.target.value)} /></td>
+                  <td style={{ padding: '4px 6px', textAlign: 'center' }}><input type="checkbox" checked={!!row.is_int} onChange={e => setParam(i, 'is_int', e.target.checked)} /></td>
+                  <td style={{ padding: '4px 6px' }}><button className="btn ghost sm" onClick={() => removeParam(i)} style={{ padding: '2px 6px' }}><Icon name="x" size={11} /></button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Run / Cancel buttons */}
+      <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+        <button className="btn primary" onClick={run} disabled={running} style={{ flex: 1 }}>
+          {running ? <><Icon name="cpu" size={13} /> Optimizing…</> : <><Icon name="zap" size={13} /> Run Optimizer</>}
+        </button>
+        {running && (
+          <button className="btn danger" onClick={cancel} style={{ whiteSpace: 'nowrap' }}>
+            <Icon name="x" size={13} /> Cancel
+          </button>
+        )}
+        {results && !running && (
+          <button className="btn ghost sm" onClick={() => exportCsv('optimizer-results.csv', optColumns.map(c => ({ label: c.label, value: (r, i) => typeof c.value === 'function' ? c.value(r, i) : r[c.value] })), topResults)}>
+            <Icon name="download" size={12} /> CSV
+          </button>
+        )}
+      </div>
+
+      {/* Run log */}
+      {(running || showLog) && (
+        <div className="bt-run-log" style={{ marginBottom: 12 }}>
+          {runLog.slice(-5).map((line, i, arr) => (
+            <div key={`${line}-${i}`} className={cls('bt-run-line', running && i === arr.length - 1 && 'active')}>
+              <span></span>{line}
+            </div>
+          ))}
+        </div>
+      )}
+      {msg && <div style={{ marginBottom: 10, fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
+
+      {/* Results */}
+      {topResults.length > 0 && (
+        <div className="bt-result">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+            <div>
+              <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>
+                Optimizer Results · {results.strategy} · {results.method}
+              </h3>
+              <div className="panel-sub" style={{ margin: 0 }}>
+                {results.tested} combos tested · optimised for <strong>{OPT_METRIC_LABELS[results.metric]}</strong> across {results.symbols?.length} symbols
+              </div>
+            </div>
+          </div>
+
+          {/* Summary stats for best result */}
+          {selResult && (
+            <div className="grid-4" style={{ marginBottom: 14 }}>
+              <div className="bt-stat"><span className="label">Score</span><span className="value pos">{selResult.score?.toFixed(3)}</span></div>
+              <div className="bt-stat"><span className="label">Avg Profit Factor</span><span className={cls('value', selResult.avg_profit_factor >= 1.5 ? 'pos' : selResult.avg_profit_factor < 1 ? 'neg' : '')}>{selResult.avg_profit_factor?.toFixed(2)}</span></div>
+              <div className="bt-stat"><span className="label">Avg Win Rate</span><span className={cls('value', selResult.avg_win_rate >= 50 ? 'pos' : 'neg')}>{selResult.avg_win_rate?.toFixed(1)}%</span></div>
+              <div className="bt-stat"><span className="label">Avg Net P&L</span><span className={cls('value', selResult.avg_net_pnl >= 0 ? 'pos' : 'neg')}>{fmt$Sign(selResult.avg_net_pnl)}</span></div>
+              <div className="bt-stat"><span className="label">Consistency</span><span className="value">{(selResult.consistency * 100).toFixed(0)}%</span></div>
+              <div className="bt-stat"><span className="label">Profitable Symbols</span><span className="value">{selResult.symbols_profitable} / {selResult.symbols_tested}</span></div>
+              {Object.entries(selResult.params).map(([k, v]) => (
+                <div key={k} className="bt-stat"><span className="label">{k}</span><span className="value" style={{ color: 'var(--accent)' }}>{v}</span></div>
+              ))}
+            </div>
+          )}
+
+          {/* Leaderboard table */}
+          <TblWrap>
+            <table className="tbl">
+              <thead><tr>
+                <th className="num">#</th>
+                {paramNames.map(n => <th key={n}>{n}</th>)}
+                <th className="num">Score</th>
+                <th className="num">PF</th>
+                <th className="num">WR %</th>
+                <th className="num">Avg PnL</th>
+                <th className="num">Consistent</th>
+                <th className="num">Syms</th>
+              </tr></thead>
+              <tbody>
+                {topResults.map((r, i) => (
+                  <tr key={i} className={cls(selectedRow === i && 'bt-selected-row')} onClick={() => setSelectedRow(i)} style={{ cursor: 'pointer' }}>
+                    <td className="num muted">{i + 1}</td>
+                    {paramNames.map(n => <td key={n} style={{ color: 'var(--accent)', fontFamily: 'var(--font-mono)', fontSize: 12 }}>{r.params[n]}</td>)}
+                    <td className="num pos">{r.score?.toFixed(3)}</td>
+                    <td className={cls('num', r.avg_profit_factor >= 1.5 ? 'pos' : r.avg_profit_factor < 1 ? 'neg' : '')}>{r.avg_profit_factor?.toFixed(2)}</td>
+                    <td className={cls('num', r.avg_win_rate >= 50 ? 'pos' : 'neg')}>{r.avg_win_rate?.toFixed(1)}%</td>
+                    <td className={cls('num', r.avg_net_pnl >= 0 ? 'pos' : 'neg')}>{fmt$Sign(r.avg_net_pnl)}</td>
+                    <td className="num">{(r.consistency * 100).toFixed(0)}%</td>
+                    <td className="num">{r.symbols_profitable}/{r.symbols_tested}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </TblWrap>
+
+          {/* Per-symbol detail for selected row */}
+          {selResult?.per_symbol?.length > 0 && (
+            <div style={{ marginTop: 14 }}>
+              <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8 }}>
+                Per-Symbol Breakdown · Rank #{selectedRow + 1}
+              </h3>
+              <TblWrap>
+                <table className="tbl">
+                  <thead><tr>
+                    <th>Symbol</th><th className="num">Trades</th>
+                    <th className="num">Win Rate</th><th className="num">Profit Factor</th><th className="num">Net PnL</th>
+                  </tr></thead>
+                  <tbody>
+                    {selResult.per_symbol.map(s => (
+                      <tr key={s.symbol}>
+                        <td><strong>{s.symbol}</strong></td>
+                        <td className="num">{s.trades}</td>
+                        <td className={cls('num', s.win_rate >= 50 ? 'pos' : 'neg')}>{s.win_rate?.toFixed(1)}%</td>
+                        <td className={cls('num', s.profit_factor >= 1 ? 'pos' : 'neg')}>{s.profit_factor?.toFixed(2)}</td>
+                        <td className={cls('num', s.net_pnl >= 0 ? 'pos' : 'neg')}>{fmt$Sign(s.net_pnl)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </TblWrap>
+            </div>
+          )}
+        </div>
+      )}
+      {!results && !running && (
+        <div className="empty">Define parameter ranges and click <strong>Run Optimizer</strong>. Results ranked by consistency across all symbols.</div>
+      )}
+    </div>
+  );
+}
+
 // ============ Chat with Bot ============
 const CHAT_LOCAL_COMMANDS = {
   'list commands': [
@@ -1510,9 +2247,11 @@ function calcVWAP(bars, anchor = 'session', source = 'hlc3') {
 
 function calcSuperTrend(bars, period = 10, mult = 3) {
   const atr = calcATR(bars, period);
-  if (!atr.length) return { up: [], down: [] };
+  if (!atr.length) return { segments: [], crossovers: [] };
   const atrByTime = new Map(atr.map(p => [p.time, p.value]));
-  const up = [], down = [];
+
+  // Pass 1 — compute raw ST value + direction for every bar
+  const raw = [];
   let finalUpper = 0, finalLower = 0, trendUp = true;
   for (let i = 0; i < bars.length; i++) {
     const a = atrByTime.get(bars[i].time);
@@ -1524,10 +2263,34 @@ function calcSuperTrend(bars, period = 10, mult = 3) {
     if (!finalLower || basicLower > finalLower || bars[i - 1]?.close < finalLower) finalLower = basicLower;
     if (bars[i].close > finalUpper) trendUp = true;
     else if (bars[i].close < finalLower) trendUp = false;
-    const point = { time: bars[i].time, value: trendUp ? finalLower : finalUpper };
-    if (trendUp) up.push(point); else down.push(point);
+    raw.push({ time: bars[i].time, value: trendUp ? finalLower : finalUpper, isUp: trendUp });
   }
-  return { up, down };
+
+  // Pass 2 — split into contiguous same-colour segments.
+  // Each segment gets the crossover point appended so segments touch
+  // at direction-change bars → no visual gap between green and red.
+  const segments = [];
+  const crossovers = [];
+  let segPts = [];
+  let segUp = raw[0]?.isUp;
+
+  for (let i = 0; i < raw.length; i++) {
+    const d = raw[i];
+    if (d.isUp !== segUp && segPts.length) {
+      // Close previous segment at the crossover point
+      segPts.push({ time: d.time, value: d.value });
+      segments.push({ isUp: segUp, points: segPts });
+      crossovers.push({ time: d.time, value: d.value, direction: d.isUp ? 'up' : 'down' });
+      // Start new segment from the same crossover point
+      segPts = [{ time: d.time, value: d.value }];
+      segUp = d.isUp;
+    } else {
+      segPts.push({ time: d.time, value: d.value });
+    }
+  }
+  if (segPts.length) segments.push({ isUp: segUp, points: segPts });
+
+  return { segments, crossovers };
 }
 
 const STOCK_BROKERS  = [
@@ -1569,15 +2332,18 @@ const DEFAULT_CHART_INDICATORS = [
   { id: 'macd', type: 'MACD', period: 12, fast: 12, slow: 26, signal: 9, color: '#38bdf8', signalColor: '#f59e0b', histUpColor: '#26a69a66', histDownColor: '#ef535066', place: 'lower2', visible: false },
   { id: 'atr14', type: 'ATR', period: 14, color: '#14b8a6', place: 'lower2', visible: false },
   { id: 'vwap', type: 'VWAP', period: 1, anchor: 'session', source: 'hlc3', color: '#eab308', place: 'main', visible: false },
-  { id: 'supertrend', type: 'SuperTrend', period: 10, mult: 3, color: '#22c55e', downColor: '#ef5350', place: 'main', visible: false },
+  { id: 'supertrend', type: 'SuperTrend', period: 10, mult: 3, color: '#22c55e', downColor: '#ef5350', place: 'lower1', visible: false },
 ];
 
 const IND_TYPES = ['EMA', 'SMA', 'RSI', 'MACD', 'BB', 'ADX', 'ATR', 'VWAP', 'SuperTrend'];
 const IND_PLACES = [
-  ['main', 'Main'],
+  ['main',   'Main'],
   ['lower1', 'Lower 1'],
   ['lower2', 'Lower 2'],
+  ['lower3', 'Lower 3'],
+  ['lower4', 'Lower 4'],
 ];
+const LOWER_IDS = ['lower1', 'lower2', 'lower3', 'lower4'];
 const IND_TYPE_DEFAULTS = {
   EMA:        { period: 50, color: '#22d3ee', place: 'main' },
   SMA:        { period: 50, color: '#94a3b8', place: 'main' },
@@ -1587,7 +2353,7 @@ const IND_TYPE_DEFAULTS = {
   ADX:        { period: 14, threshold: 20, color: '#f97316', thresholdColor: '#8b949e66', place: 'lower1' },
   ATR:        { period: 14, color: '#14b8a6', place: 'lower2' },
   VWAP:       { period: 1, anchor: 'session', source: 'hlc3', color: '#eab308', place: 'main' },
-  SuperTrend: { period: 10, mult: 3, color: '#22c55e', downColor: '#ef5350', place: 'main' },
+  SuperTrend: { period: 10, mult: 3, color: '#22c55e', downColor: '#ef5350', place: 'lower1' },
 };
 const IND_PARAM_DEFS = {
   EMA:        [{ key: 'period', label: 'Period', min: 1, max: 300, fallback: 50 }],
@@ -1644,16 +2410,8 @@ const IND_PARAM_DEFS = {
 const indicatorParamDefs = (type) => IND_PARAM_DEFS[type] || IND_PARAM_DEFS.EMA;
 const PRICE_OVERLAY_INDICATORS = new Set(['EMA', 'SMA', 'BB', 'VWAP', 'SuperTrend']);
 const LOWER_BAND_INDICATORS = new Set(['RSI', 'MACD', 'ADX', 'ATR']);
-const indicatorPlaceOptions = (type) => (
-  PRICE_OVERLAY_INDICATORS.has(type)
-    ? [['main', 'Main']]
-    : IND_PLACES.filter(([value]) => value !== 'main')
-);
-const effectiveIndicatorPlace = (ind) => (
-  PRICE_OVERLAY_INDICATORS.has(ind.type)
-    ? 'main'
-    : (ind.place === 'lower2' ? 'lower2' : 'lower1')
-);
+const indicatorPlaceOptions = (_type) => IND_PLACES;   // all indicators can go anywhere
+const effectiveIndicatorPlace = (ind) => ind.place || 'main';
 const cloneIndicator = (ind) => ({ ...ind });
 const cloneDefaultIndicators = () => DEFAULT_CHART_INDICATORS.map(cloneIndicator);
 const isDefaultIndicator = (id) => DEFAULT_CHART_INDICATORS.some(ind => ind.id === id);
@@ -1746,11 +2504,15 @@ function ChartPanel({ defaultSymbol }) {
 
   const containerRef = useR(null);
   const drawingCanvasRef = useR(null);
-  const lower1ContainerRef = useR(null);
-  const lower2ContainerRef = useR(null);
-  const chartRef     = useR(null);
-  const lower1ChartRef = useR(null);
-  const lower2ChartRef = useR(null);
+  const lowerContainerRefs = useR([null, null, null, null]);
+  const chartRef      = useR(null);
+  const lowerChartRefs = useR([null, null, null, null]);
+  const [lowerHeights, setLowerHeights] = useS([120, 120, 120, 120]);
+  const [chartInitKey, setChartInitKey] = useS(0);  // bumped when a lazy lower chart is created
+  const resizeDragRef = useR(null);
+  const lowerScaleMargins = useR([[0.05,0.05],[0.05,0.05],[0.05,0.05],[0.05,0.05]]);
+  const panBtnRefs = useR([]);
+  const crosshairUnsubRef = useR(null);
   const candleRef    = useR(null);
   const volRef       = useR(null);
   const indicatorSeriesRef = useR([]);
@@ -1775,8 +2537,6 @@ function ChartPanel({ defaultSymbol }) {
 
     const LC        = window.LightweightCharts;
     const container = containerRef.current;
-    const lower1Container = lower1ContainerRef.current;
-    const lower2Container = lower2ContainerRef.current;
     const baseChartOptions = (el, showTime = true) => ({
       width:  el.offsetWidth  || 900,
       height: el.offsetHeight || (showTime ? 500 : 120),
@@ -1811,17 +2571,17 @@ function ChartPanel({ defaultSymbol }) {
 
     const chart = LC.createChart(container, baseChartOptions(container, true));
     chartRef.current = chart;
-    if (lower1Container) {
-      lower1ChartRef.current = LC.createChart(lower1Container, baseChartOptions(lower1Container, false));
-    }
-    if (lower2Container) {
-      lower2ChartRef.current = LC.createChart(lower2Container, baseChartOptions(lower2Container, false));
-    }
+    // Lower panel charts are created lazily when they first become visible
+    // (creating them here inside zero-height containers causes Lightweight Charts
+    //  to initialize with no dimensions and never render correctly)
 
-    chart.timeScale().subscribeVisibleLogicalRangeChange(range => {
+    // Use absolute time range (not logical bar index) so lower-panel charts
+    // with different warmup lengths stay horizontally aligned with the main chart.
+    chart.timeScale().subscribeVisibleTimeRangeChange(range => {
       if (!range) return;
-      try { lower1ChartRef.current?.timeScale().setVisibleLogicalRange(range); } catch (_) {}
-      try { lower2ChartRef.current?.timeScale().setVisibleLogicalRange(range); } catch (_) {}
+      lowerChartRefs.current.forEach(ch => {
+        try { ch?.timeScale().setVisibleRange(range); } catch (_) {}
+      });
     });
 
     // ResizeObserver keeps chart in sync when user drags or maximizes the window
@@ -1830,13 +2590,13 @@ function ChartPanel({ defaultSymbol }) {
         const { width, height } = entry.contentRect;
         if (width <= 0 || height <= 0) return;
         if (entry.target === container && chartRef.current) chartRef.current.resize(width, height);
-        if (entry.target === lower1Container && lower1ChartRef.current) lower1ChartRef.current.resize(width, height);
-        if (entry.target === lower2Container && lower2ChartRef.current) lower2ChartRef.current.resize(width, height);
+        lowerContainerRefs.current.forEach((c, i) => {
+          if (entry.target === c && lowerChartRefs.current[i]) lowerChartRefs.current[i].resize(width, height);
+        });
       });
     });
     ro.observe(container);
-    if (lower1Container) ro.observe(lower1Container);
-    if (lower2Container) ro.observe(lower2Container);
+    lowerContainerRefs.current.forEach(c => { if (c) ro.observe(c); });
     rObsRef.current = ro;
 
     // Candle series
@@ -1865,10 +2625,9 @@ function ChartPanel({ defaultSymbol }) {
       });
       livePriceLinesRef.current = [];
       chart.remove();
-      try { lower1ChartRef.current?.remove(); } catch (_) {}
-      try { lower2ChartRef.current?.remove(); } catch (_) {}
+      lowerChartRefs.current.forEach(ch => { try { ch?.remove(); } catch (_) {} });
+      lowerChartRefs.current = [null, null, null, null];
       chartRef.current = null; candleRef.current = null; volRef.current = null;
-      lower1ChartRef.current = null; lower2ChartRef.current = null;
     };
   }, []);
 
@@ -1966,12 +2725,10 @@ function ChartPanel({ defaultSymbol }) {
       const w = containerRef.current.offsetWidth;
       const h = containerRef.current.offsetHeight;
       if (w > 0 && h > 0) chartRef.current.resize(w, h);
-      const w1 = lower1ContainerRef.current?.offsetWidth || 0;
-      const h1 = lower1ContainerRef.current?.offsetHeight || 0;
-      if (w1 > 0 && h1 > 0) lower1ChartRef.current?.resize(w1, h1);
-      const w2 = lower2ContainerRef.current?.offsetWidth || 0;
-      const h2 = lower2ContainerRef.current?.offsetHeight || 0;
-      if (w2 > 0 && h2 > 0) lower2ChartRef.current?.resize(w2, h2);
+      lowerContainerRefs.current.forEach((c, i) => {
+        const lw = c?.offsetWidth || 0, lh = c?.offsetHeight || 0;
+        if (lw > 0 && lh > 0) lowerChartRefs.current[i]?.resize(lw, lh);
+      });
     };
     requestAnimationFrame(doResize);
 
@@ -2032,25 +2789,21 @@ function ChartPanel({ defaultSymbol }) {
     });
     livePriceLinesRef.current = [];
 
-    const panelForIndicator = (ind) => {
-      if (['RSI', 'ADX'].includes(ind.type)) return ind.place === 'lower2' ? 'lower2' : 'lower1';
-      if (['MACD', 'ATR'].includes(ind.type)) return ind.place === 'lower1' ? 'lower1' : 'lower2';
-      return 'main';
-    };
+    const panelForIndicator = (ind) => ind.place || 'main';
     const chartForPlace = (place) => {
-      if (place === 'lower1') return lower1ChartRef.current || chartRef.current;
-      if (place === 'lower2') return lower2ChartRef.current || chartRef.current;
+      const idx = LOWER_IDS.indexOf(place);
+      if (idx >= 0) return lowerChartRefs.current[idx] || chartRef.current;
       return chartRef.current;
     };
-    const scaleForPlace = (place) => {
-      if (place === 'main') return 'right';
-      return 'right';
-    };
-    const addLine = (data, color, place, width = 1) => {
+    // Every indicator gets its own price scale (scaleId = ind.id) so different-magnitude
+    // series never crush each other — even on the main panel alongside candlesticks.
+    // The candlestick series itself is hardcoded to 'right' and never passes through here.
+    const scaleForPlace = (_place, scaleId) => scaleId || 'right';
+    const addLine = (data, color, place, width = 1, scaleId) => {
       if (!data.length) return;
       const targetChart = chartForPlace(place);
       if (!targetChart) return;
-      const priceScaleId = scaleForPlace(place);
+      const priceScaleId = scaleForPlace(place, scaleId);
       const s = targetChart.addLineSeries({
         color, lineWidth: width, priceScaleId,
         priceFormat,
@@ -2059,12 +2812,12 @@ function ChartPanel({ defaultSymbol }) {
       s.setData(data);
       indicatorSeriesRef.current.push({ chart: targetChart, series: s });
     };
-    const addHist = (data, place) => {
+    const addHist = (data, place, scaleId) => {
       if (!data.length) return;
       const targetChart = chartForPlace(place);
       if (!targetChart) return;
       const s = targetChart.addHistogramSeries({
-        priceScaleId: scaleForPlace(place),
+        priceScaleId: scaleForPlace(place, scaleId),
         priceFormat: { type: 'price', precision: 4, minMove: 0.0001 },
       });
       s.setData(data);
@@ -2075,32 +2828,50 @@ function ChartPanel({ defaultSymbol }) {
       autoScale: true,
       scaleMargins: { top: 0.05, bottom: 0.22 },
     });
-    [chartRef.current, lower1ChartRef.current, lower2ChartRef.current].forEach(ch => {
+    [chartRef.current, ...lowerChartRefs.current].forEach((ch, idx) => {
       try {
         ch?.applyOptions({
           handleScale: { axisPressedMouseMove: { time: true, price: true }, mouseWheel: true, pinch: true },
           handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
         });
-        ch?.priceScale('right').applyOptions({ autoScale: true });
+        // Only apply autoScale/visibility on main chart — lower charts keep whatever
+        // scale the user has manually dragged to (resetting autoScale every render
+        // would undo any drag the user did on the price axis)
+        if (idx === 0) {
+          ch?.priceScale('right').applyOptions({ autoScale: true, visible: true, borderVisible: true, borderColor: '#2a3347' });
+        } else {
+          ch?.priceScale('right').applyOptions({ visible: true, borderVisible: true, borderColor: '#2a3347' });
+          ch?.applyOptions({ timeScale: { visible: false } });
+        }
       } catch (_) {}
     });
+
+    const stCrossovers = [];   // crossover markers collected from any SuperTrend indicator
 
     indicators.filter(ind => ind.visible).forEach(ind => {
       const period = Math.max(1, Number(ind.period) || 14);
       const place = panelForIndicator(ind);
       const color = ind.color || '#60a5fa';
-      if (ind.type === 'EMA') addLine(calcEMA(cleanBars, period), color, place);
-      if (ind.type === 'SMA') addLine(calcSMA(cleanBars, period), color, place);
+      // Overlay indicators on the main panel share the candle price scale ('right')
+      // so they pan/zoom together with price. Oscillators on the MAIN panel get
+      // their own isolated scale so magnitudes don't crush the candlestick price.
+      // Lower-panel charts are isolated LWC instances — there is only ONE indicator
+      // series there, so using the standard 'right' scale is safe and gives the user
+      // a fully interactive (draggable, scrollable) axis without needing a workaround.
+      const OVERLAY_TYPES = new Set(['EMA', 'SMA', 'VWAP', 'BB', 'SuperTrend']);
+      const sid = (place === 'main' && !OVERLAY_TYPES.has(ind.type)) ? ind.id : 'right';
+      if (ind.type === 'EMA') addLine(calcEMA(cleanBars, period), color, place, 1, sid);
+      if (ind.type === 'SMA') addLine(calcSMA(cleanBars, period), color, place, 1, sid);
       if (ind.type === 'RSI') {
-        addLine(calcRSI(cleanBars, period), color, place);
-        addLine(cleanBars.map(b => ({ time: b.time, value: Number(ind.overbought) || 70 })), '#ef535055', place);
-        addLine(cleanBars.map(b => ({ time: b.time, value: Number(ind.oversold) || 30 })), '#26a69a55', place);
+        addLine(calcRSI(cleanBars, period), color, place, 1, sid);
+        addLine(cleanBars.map(b => ({ time: b.time, value: Number(ind.overbought) || 70 })), '#ef535055', place, 1, sid);
+        addLine(cleanBars.map(b => ({ time: b.time, value: Number(ind.oversold) || 30 })), '#26a69a55', place, 1, sid);
       }
       if (ind.type === 'BB') {
         const bb = calcBB(cleanBars, period, Number(ind.mult) || 2);
-        addLine(bb.upper, color, 'main');
-        addLine(bb.mid, ind.midColor || '#8b949e88', 'main');
-        addLine(bb.lower, color, 'main');
+        addLine(bb.upper, color, place, 1, sid);
+        addLine(bb.mid, ind.midColor || '#8b949e88', place, 1, sid);
+        addLine(bb.lower, color, place, 1, sid);
       }
       if (ind.type === 'MACD') {
         const m = calcMACD(
@@ -2111,24 +2882,28 @@ function ChartPanel({ defaultSymbol }) {
           ind.histUpColor || '#26a69a66',
           ind.histDownColor || '#ef535066'
         );
-        addHist(m.hist, place);
-        addLine(m.macd, color, place);
-        addLine(m.signal, ind.signalColor || '#f59e0b', place);
+        addHist(m.hist, place, sid);
+        addLine(m.macd, color, place, 1, sid);
+        addLine(m.signal, ind.signalColor || '#f59e0b', place, 1, sid);
       }
       if (ind.type === 'ADX') {
-        addLine(calcADX(cleanBars, period), color, place);
-        addLine(cleanBars.map(b => ({ time: b.time, value: Number(ind.threshold) || 20 })), ind.thresholdColor || '#8b949e66', place);
+        addLine(calcADX(cleanBars, period), color, place, 1, sid);
+        addLine(cleanBars.map(b => ({ time: b.time, value: Number(ind.threshold) || 20 })), ind.thresholdColor || '#8b949e66', place, 1, sid);
       }
       if (ind.type === 'ATR') {
-        addLine(calcATR(cleanBars, period), color, place);
+        addLine(calcATR(cleanBars, period), color, place, 1, sid);
       }
       if (ind.type === 'VWAP') {
-        addLine(calcVWAP(cleanBars, ind.anchor || 'session', ind.source || 'hlc3'), color, 'main', 2);
+        addLine(calcVWAP(cleanBars, ind.anchor || 'session', ind.source || 'hlc3'), color, place, 2, sid);
       }
       if (ind.type === 'SuperTrend') {
+        const upColor   = color || '#22c55e';
+        const downColor = ind.downColor || '#ef5350';
         const st = calcSuperTrend(cleanBars, period, Number(ind.mult) || 3);
-        addLine(st.up, color, 'main', 2);
-        addLine(st.down, ind.downColor || '#ef5350', 'main', 2);
+        // Each segment is a contiguous same-colour run — renders per-bar historical colours
+        st.segments.forEach(seg => addLine(seg.points, seg.isUp ? upColor : downColor, place, 2, sid));
+        // Collect crossover markers to be added after the indicators loop
+        st.crossovers.forEach(co => stCrossovers.push({ ...co, upColor, downColor }));
       }
     });
 
@@ -2174,29 +2949,146 @@ function ChartPanel({ defaultSymbol }) {
         price: Number(p.entry_price || 0),
         pnl: 0,
       }));
-    const processed = liveMarkers
+    // SuperTrend crossover markers — follow ST to whichever panel it lives on
+    // White markers so they pop against the green/red line regardless of panel
+    const stMarkers = stCrossovers.map(co => ({
+      time: co.time,
+      position: co.direction === 'up' ? 'belowBar' : 'aboveBar',
+      color: '#ffffff',
+      shape: 'circle',
+      text: co.direction === 'up' ? '▲' : '▼',
+      size: 0.8,
+    }));
+
+    // Live entry markers always go on the main candle series
+    const liveProcessed = liveMarkers
       .filter(m => m.time)
       .sort((a, b) => a.time - b.time)
       .map(m => ({
         time: m.time,
-        position: (m.type === 'entry' || m.type === 'live_entry')
-          ? (m.direction === 'long' ? 'belowBar' : 'aboveBar')
-          : (m.direction === 'long' ? 'aboveBar' : 'belowBar'),
+        position: m.direction === 'long' ? 'belowBar' : 'aboveBar',
         color: '#38bdf8',
-        shape: (m.type === 'entry' || m.type === 'live_entry')
-          ? (m.direction === 'long' ? 'arrowUp' : 'arrowDown')
-          : 'circle',
+        shape: m.direction === 'long' ? 'arrowUp' : 'arrowDown',
         text: 'LIVE',
         size: 1,
       }));
-    candleRef.current.setMarkers(processed);
+
+    // Determine which chart hosts SuperTrend
+    const stInd = indicators.find(i => i.type === 'SuperTrend' && i.visible);
+    const stPlace = stInd?.place || 'main';
+    const stChart = chartForPlace(stPlace);
+
+    if (!stMarkers.length || stChart === chartRef.current) {
+      // ST on main or no ST — merge everything on candle series
+      const merged = [...stMarkers, ...liveProcessed].sort((a, b) => a.time - b.time);
+      candleRef.current.setMarkers(merged);
+    } else {
+      // ST on a lower panel — live markers on main, ST markers on lower series
+      candleRef.current.setMarkers(liveProcessed);
+      const lowerSeries = indicatorSeriesRef.current.find(s => s.chart === stChart);
+      if (lowerSeries) lowerSeries.series.setMarkers(stMarkers.sort((a, b) => a.time - b.time));
+    }
 
     const visibleBars = Math.min(chartVisibleBarsForTf(tf), cleanBars.length);
-    chartRef.current.timeScale().setVisibleLogicalRange({
-      from: Math.max(0, cleanBars.length - visibleBars),
-      to: cleanBars.length + 5,
+    const startIdx  = Math.max(0, cleanBars.length - visibleBars);
+    // Use absolute timestamps so lower-panel charts with warmup offsets
+    // (e.g. ATR skips first 14 bars) align to exactly the same wall-clock
+    // time window as the main chart — logical bar indices differ per series.
+    const timeRange = {
+      from: cleanBars[startIdx].time,
+      to:   cleanBars[cleanBars.length - 1].time,
+    };
+    chartRef.current.timeScale().setVisibleRange(timeRange);
+    // Sync lower panels to the same absolute time range immediately
+    lowerChartRefs.current.forEach(ch => {
+      try { ch?.timeScale().setVisibleRange(timeRange); } catch (_) {}
     });
-  }, [bars, marks, openPositions, tf, indicators, chartType]);
+
+  }, [bars, marks, openPositions, tf, indicators, chartType, chartInitKey]);
+
+  // Crosshair sync — separate effect so it only re-subscribes when a new lower
+  // chart is created (chartInitKey bumps), not on every bar/indicator update.
+  // Handlers read indicatorSeriesRef.current at event-fire time so they always
+  // see the latest series even after the drawing effect repopulates them.
+  useE(() => {
+    if (!chartRef.current) return;
+    if (crosshairUnsubRef.current) { try { crosshairUnsubRef.current(); } catch(_){} crosshairUnsubRef.current = null; }
+
+    const allCharts = [chartRef.current, ...lowerChartRefs.current].filter(Boolean);
+    if (allCharts.length < 2) return;
+
+    // Read from refs at call time so indicators added/removed after this effect
+    // runs are automatically reflected without needing a re-subscription.
+    const seriesForChart = ch => {
+      if (ch === chartRef.current) return candleRef.current;
+      const found = indicatorSeriesRef.current.find(x => x.chart === ch);
+      return found?.series ?? null;
+    };
+
+    // All series belonging to a chart — needed for multi-segment indicators
+    // like SuperTrend that create several short line-series per colour run.
+    const allSeriesForChart = ch => {
+      if (ch === chartRef.current) return candleRef.current ? [candleRef.current] : [];
+      return indicatorSeriesRef.current.filter(x => x.chart === ch).map(x => x.series);
+    };
+
+    // Return the DOM container for a given chart instance (used for midpoint price).
+    const containerForChart = ch => {
+      if (ch === chartRef.current) return containerRef.current;
+      const idx = lowerChartRefs.current.indexOf(ch);
+      return idx >= 0 ? lowerContainerRefs.current[idx] : null;
+    };
+
+    // setCrosshairPosition requires a price within the series' visible range.
+    // Using price=0 breaks charts where values are far from 0 (e.g. SuperTrend
+    // at $185). Multi-segment indicators (SuperTrend) create many short series;
+    // any single segment may not cover the full chart, so coordinateToPrice can
+    // return null for most Y values on that series.
+    // Fix: try ALL series on the chart at several Y fractions until one returns
+    // a finite price — that guarantees a valid value regardless of indicator type.
+    const midPriceForChart = ch => {
+      try {
+        const c = containerForChart(ch);
+        if (!c || c.clientHeight === 0) return 0;
+        const h = c.clientHeight;
+        for (const s of allSeriesForChart(ch)) {
+          for (const frac of [0.5, 0.3, 0.7, 0.15, 0.85]) {
+            try {
+              const p = s.coordinateToPrice(h * frac);
+              if (p !== null && isFinite(p)) return p;
+            } catch(_) {}
+          }
+        }
+        return 0;
+      } catch(_) { return 0; }
+    };
+
+    let syncing = false; // prevent feedback loops within one move event
+    const handlers = allCharts.map(srcChart => {
+      const h = param => {
+        if (syncing) return;
+        syncing = true;
+        allCharts.forEach(tgt => {
+          if (tgt === srcChart) return;
+          try {
+            const s = seriesForChart(tgt);
+            if (!s) { tgt.clearCrosshairPosition(); return; }
+            if (param.time) {
+              tgt.setCrosshairPosition(midPriceForChart(tgt), param.time, s);
+            } else {
+              tgt.clearCrosshairPosition();
+            }
+          } catch(_){}
+        });
+        syncing = false;
+      };
+      srcChart.subscribeCrosshairMove(h);
+      return { chart: srcChart, handler: h };
+    });
+    crosshairUnsubRef.current = () => {
+      handlers.forEach(({ chart, handler: h }) => { try { chart.unsubscribeCrosshairMove(h); } catch(_){} });
+    };
+  }, [chartInitKey]);
 
   // Symbol search filter
   const filtered = useM(() => {
@@ -2395,7 +3287,74 @@ function ChartPanel({ defaultSymbol }) {
       try { chart.timeScale().unsubscribeVisibleLogicalRangeChange(handler); } catch (_) {}
       try { ro?.disconnect(); } catch (_) {}
     };
-  }, [drawOverlay, drawings, draftDrawing, drawingsHidden, bars, marks, openPositions, tf, lower1Visible, lower2Visible]);
+  }, [drawOverlay, drawings, draftDrawing, drawingsHidden, bars, marks, openPositions, tf]);
+
+  // Which lower panels have at least one visible indicator assigned to them.
+  // Declared here (before the lazy-init useEffect) so Babel's var-hoisting
+  // doesn't leave it undefined when lowerVisibleKey is computed.
+  const lowerVisible = LOWER_IDS.map(pid =>
+    indicators.some(ind => ind.visible && effectiveIndicatorPlace(ind) === pid)
+  );
+
+  // Lazily create lower panel charts when they first become visible, then resize.
+  // Creating them at init inside zero-height containers causes Lightweight Charts
+  // to never render — so we wait until the container has real dimensions.
+  const lowerVisibleKey = lowerVisible.join(',');
+  const lowerHeightKey  = lowerHeights.join(',');
+  useE(() => {
+    const LC = window.LightweightCharts;
+    if (!LC || !chartRef.current) return;
+    let newChartCreated = false;
+
+    lowerVisible.forEach((vis, i) => {
+      if (!vis) return;
+      const c = lowerContainerRefs.current[i];
+      if (!c) return;
+
+      // Lazy-create chart the first time this panel becomes visible
+      if (!lowerChartRefs.current[i]) {
+        try {
+          const w = c.offsetWidth  || 900;
+          const h = c.offsetHeight || lowerHeights[i] || 120;
+          const ch = LC.createChart(c, {
+            width: w, height: h,
+            layout: { background: { type: 'solid', color: '#0d1117' }, textColor: '#8b949e', fontSize: 11 },
+            grid:   { vertLines: { color: '#1a2035' }, horzLines: { color: '#1a2035' } },
+            crosshair: { mode: LC.CrosshairMode.Normal },
+            handleScale: { axisPressedMouseMove: { time: true, price: true }, mouseWheel: true, pinch: true },
+            handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
+            rightPriceScale: { visible: true, borderColor: '#2a3347', autoScale: true, borderVisible: true },
+            timeScale: { borderColor: '#2a3347', timeVisible: true, secondsVisible: false, visible: false },
+          });
+          lowerChartRefs.current[i] = ch;
+          // Sync scroll/zoom with main chart using absolute time so warmup
+          // offsets don't shift the horizontal alignment of this panel.
+          chartRef.current.timeScale().subscribeVisibleTimeRangeChange(range => {
+            if (range) try { ch.timeScale().setVisibleRange(range); } catch (_) {}
+          });
+          // Add to ResizeObserver
+          rObsRef.current?.observe(c);
+          newChartCreated = true;
+        } catch (_) {}
+      }
+
+      // Resize to current container dimensions
+      const ch = lowerChartRefs.current[i];
+      if (ch) {
+        const w = c.offsetWidth  || 900;
+        const h = c.offsetHeight || lowerHeights[i] || 120;
+        if (w > 0 && h > 0) try { ch.resize(w, h); } catch (_) {}
+        try {
+          const range = chartRef.current?.timeScale().getVisibleRange();
+          if (range) ch.timeScale().setVisibleRange(range);
+        } catch (_) {}
+      }
+    });
+
+    // If a new chart was created, bump chartInitKey so the data useEffect
+    // re-runs and populates the new chart with indicator series
+    if (newChartCreated) setChartInitKey(k => k + 1);
+  }, [lowerVisibleKey, lowerHeightKey]);
 
   const chartPointFromEvent = (e) => {
     const canvas = drawingCanvasRef.current;
@@ -2480,12 +3439,6 @@ function ChartPanel({ defaultSymbol }) {
     };
   }, []);
 
-  const lower1Visible = indicators.some(ind =>
-    ind.visible && LOWER_BAND_INDICATORS.has(ind.type) && effectiveIndicatorPlace(ind) === 'lower1'
-  );
-  const lower2Visible = indicators.some(ind =>
-    ind.visible && LOWER_BAND_INDICATORS.has(ind.type) && effectiveIndicatorPlace(ind) === 'lower2'
-  );
   const quickIndicators = DEFAULT_CHART_INDICATORS
     .map(def => indicators.find(ind => ind.id === def.id))
     .filter(Boolean)
@@ -2783,29 +3736,53 @@ function ChartPanel({ defaultSymbol }) {
           }}
         />
       </div>
-      <div
-        ref={lower1ContainerRef}
-        style={{
-          height: lower1Visible ? 122 : 0,
-          minHeight: lower1Visible ? 92 : 0,
-          overflow: 'hidden',
-          borderTop: lower1Visible ? '1px solid #1a2035' : '0',
-          flexShrink: 0,
-        }}
-      />
-      <div
-        ref={lower2ContainerRef}
-        style={{
-          height: lower2Visible ? 132 : 0,
-          minHeight: lower2Visible ? 98 : 0,
-          overflow: 'hidden',
-          borderTop: lower2Visible ? '1px solid #1a2035' : '0',
-          flexShrink: 0,
-        }}
-      />
+      {LOWER_IDS.map((pid, i) => (
+        <React.Fragment key={pid}>
+          {/* Drag handle — only visible when panel has content */}
+          {lowerVisible[i] && (
+            <div
+              style={{ height: 6, cursor: 'ns-resize', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', userSelect: 'none' }}
+              onPointerDown={e => {
+                e.preventDefault();
+                const startY = e.clientY;
+                const startH = lowerHeights[i];
+                resizeDragRef.current = true;
+                const onMove = ev => {
+                  const delta = ev.clientY - startY;
+                  setLowerHeights(prev => {
+                    const next = [...prev];
+                    next[i] = Math.max(60, Math.min(400, startH + delta));
+                    return next;
+                  });
+                };
+                const onUp = () => {
+                  resizeDragRef.current = false;
+                  window.removeEventListener('pointermove', onMove);
+                  window.removeEventListener('pointerup', onUp);
+                };
+                window.addEventListener('pointermove', onMove);
+                window.addEventListener('pointerup', onUp);
+              }}
+            >
+              <div style={{ width: '30%', height: 2, background: '#2a3347', borderRadius: 1 }} />
+            </div>
+          )}
+          {/* Always render container so ref is available for chart init on mount */}
+          <div
+            ref={el => { lowerContainerRefs.current[i] = el; }}
+            style={{
+              height: lowerVisible[i] ? lowerHeights[i] : 0,
+              minHeight: 0,
+              overflow: 'hidden',
+              flexShrink: 0,
+              borderTop: lowerVisible[i] ? '1px solid #1a2035' : 'none',
+            }}
+          />
+        </React.Fragment>
+      ))}
     </div>
   );
 }
 
-window.Panels = { TopOverview, OpenPositionsPanel, ManualTradePanel, TradeLogPanel, DailyPerfPanel, BacktesterPanel, ChatPanel, ChartPanel };
+window.Panels = { TopOverview, OpenPositionsPanel, ManualTradePanel, TradeLogPanel, DailyPerfPanel, BacktesterPanel, OptimizerPanel, ChatPanel, ChartPanel };
 window.fmt = { fmt$, fmt$Sign, fmtP, fmtN, cls };

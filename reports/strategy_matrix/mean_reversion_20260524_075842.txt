@@ -1,0 +1,103 @@
+========================================================================
+  STRATEGY MATRIX REPORT
+========================================================================
+  Strategy   : mean_reversion
+  Period     : 365 days
+  Timeframes : 1h, 1d
+  Directions : long, short, both
+  Crypto     : BTC/USD, ETH/USD, SOL/USD, ADA/USD, AVAX/USD, DOT/USD, LINK/USD, DOGE/USD, BNB/USD, XRP/USD
+  Stocks     : AAPL, MSFT, NVDA, AMD, TSLA, META, AMZN, GOOGL, JPM, SPY
+  Generated  : 2026-05-24T07:58:42
+
+========================================================================
+  OVERALL SUMMARY
+========================================================================
+  Total cells tested    : 36
+  Overall avg PF        : 1.168
+  Cells with edge (PF>=1.2) : 14  (38.9%)
+  Verdict               : SELECTIVE EDGE -- works in specific conditions only
+
+  -- CONDITIONS RANKED BY AVERAGE PF (best first) --
+  Condition     Avg PF  Avg WR%  Symbols  Edge cnt   Edge%
+  ------------ ------- -------- -------- --------- -------
+  1d/long        1.207    29.6%        9         3     33% <-- best
+  1d/both        1.207    29.6%        9         3     33%
+  1h/long        1.129    40.1%        9         4     44%
+  1h/both        1.129    40.1%        9         4     44%
+  1h/short       0.000     0.0%        0         0      0%
+  1d/short       0.000     0.0%        0         0      0%
+
+  -- SYMBOLS RANKED BY AVERAGE PF (best first) --
+  Symbol           Class     Avg PF  Avg WR%  Conditions  Edge cnt   Edge%
+  ---------------- -------- ------- -------- ----------- --------- -------
+  TSLA             stock      2.245    49.1%           4         4    100%
+  AMD              stock      1.545    34.4%           4         2     50%
+  JPM              stock      1.415    43.6%           4         4    100%
+  NVDA             stock      1.340    38.2%           4         4    100%
+  AMZN             stock      0.995    35.2%           4         0      0%
+  MSFT             stock      0.990    38.5%           4         0      0%
+  META             stock      0.820    27.0%           4         0      0%
+  AVAX/USD         crypto     0.665    25.5%           4         0      0%
+  SOL/USD          crypto     0.495    22.1%           4         0      0%
+  BTC/USD          crypto     0.000     0.0%           0         0      0%
+  ETH/USD          crypto     0.000     0.0%           0         0      0%
+  ADA/USD          crypto     0.000     0.0%           0         0      0%
+  DOT/USD          crypto     0.000     0.0%           0         0      0%
+  LINK/USD         crypto     0.000     0.0%           0         0      0%
+  DOGE/USD         crypto     0.000     0.0%           0         0      0%
+  BNB/USD          crypto     0.000     0.0%           0         0      0%
+  XRP/USD          crypto     0.000     0.0%           0         0      0%
+  AAPL             stock      0.000     0.0%           0         0      0%
+  GOOGL            stock      0.000     0.0%           0         0      0%
+  SPY              stock      0.000     0.0%           0         0      0%
+
+  -- TOP EDGE CELLS  (PF >= 1.2, >= 2 trades) --
+  #    Symbol           TF    Dir         PF    WR%  Trades        PnL
+  ---- ---------------- ----- ------- ------ ------ ------- ----------
+  1    TSLA             1d    long     3.020  58.8%      17      34.71
+  2    TSLA             1d    both     3.020  58.8%      17      34.71
+  3    AMD              1h    long     1.940  42.0%     112     116.35
+  4    AMD              1h    both     1.940  42.0%     112     116.35
+  5    TSLA             1h    long     1.470  39.5%     114      53.66
+  6    TSLA             1h    both     1.470  39.5%     114      53.66
+  7    NVDA             1h    long     1.420  48.6%     107      38.06
+  8    NVDA             1h    both     1.420  48.6%     107      38.06
+  9    JPM              1d    long     1.420  36.8%      19      11.20
+  10   JPM              1d    both     1.420  36.8%      19      11.20
+  11   JPM              1h    long     1.410  50.5%      93      20.56
+  12   JPM              1h    both     1.410  50.5%      93      20.56
+  13   NVDA             1d    long     1.260  27.8%      18       8.97
+  14   NVDA             1d    both     1.260  27.8%      18       8.97
+========================================================================
+  FULL MATRIX  (PF / WR%  per cell)
+========================================================================
+  Symbol               1h/l         1h/s         1h/b         1d/l         1d/s         1d/b    
+  ----------------------------------------------------------------------------------------------
+  -- CRYPTO --
+  BTC/USD             (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  ETH/USD             (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  SOL/USD           0.42/  24%     (0t)       0.42/  24%   0.57/  21%     (0t)       0.57/  21% 
+  ADA/USD             (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  AVAX/USD          0.38/  22%     (0t)       0.38/  22%   0.95/  29%     (0t)       0.95/  29% 
+  DOT/USD             (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  LINK/USD            (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  DOGE/USD            (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  BNB/USD             (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  XRP/USD             (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  -- STOCKS --
+  AAPL                (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  MSFT              1.07/  48%     (0t)       1.07/  48%   0.91/  29%     (0t)       0.91/  29% 
+  NVDA              1.42/  49%     (0t)       1.42/  49%   1.26/  28%     (0t)       1.26/  28% 
+  AMD               1.94/  42%     (0t)       1.94/  42%   1.15/  27%     (0t)       1.15/  27% 
+  TSLA              1.47/  40%     (0t)       1.47/  40%   3.02/  59%     (0t)       3.02/  59% 
+  META              1.09/  42%     (0t)       1.09/  42%   0.55/  12%     (0t)       0.55/  12% 
+  AMZN              0.96/  44%     (0t)       0.96/  44%   1.03/  26%     (0t)       1.03/  26% 
+  GOOGL               (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  JPM               1.41/  50%     (0t)       1.41/  50%   1.42/  37%     (0t)       1.42/  37% 
+  SPY                 (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+
+  l=long  s=short  b=both  |  format: PF/WR%
+
+========================================================================
+  END OF REPORT
+========================================================================
