@@ -1,0 +1,92 @@
+========================================================================
+  STRATEGY MATRIX REPORT
+========================================================================
+  Strategy   : vdmr_strategy
+  Period     : 365 days
+  Timeframes : 1h, 1d
+  Directions : long, short, both
+  Crypto     : BTC/USD, ETH/USD, SOL/USD, ADA/USD, AVAX/USD, DOT/USD, LINK/USD, DOGE/USD, BNB/USD, XRP/USD
+  Stocks     : AAPL, MSFT, NVDA, AMD, TSLA, META, AMZN, GOOGL, JPM, SPY
+  Generated  : 2026-05-24T12:31:22
+
+========================================================================
+  OVERALL SUMMARY
+========================================================================
+  Total cells tested    : 41
+  Overall avg PF        : 0.662
+  Cells with edge (PF>=1.2) : 3  (7.3%)
+  Verdict               : WEAK / NO EDGE -- few profitable conditions found
+
+  -- CONDITIONS RANKED BY AVERAGE PF (best first) --
+  Condition     Avg PF  Avg WR%  Symbols  Edge cnt   Edge%
+  ------------ ------- -------- -------- --------- -------
+  1d/short       0.950    50.0%        1         0      0% <-- best
+  1d/both        0.950    50.0%        1         0      0%
+  1h/both        0.802    32.1%       15         1      7%
+  1h/short       0.562    29.0%       11         1      9%
+  1h/long        0.498    40.1%       13         1      8%
+  1d/long        0.000     0.0%        0         0      0%
+
+  -- SYMBOLS RANKED BY AVERAGE PF (best first) --
+  Symbol           Class     Avg PF  Avg WR%  Conditions  Edge cnt   Edge%
+  ---------------- -------- ------- -------- ----------- --------- -------
+  MSFT             stock      4.870    50.0%           1         1    100%
+  META             stock      1.080    70.0%           3         0      0%
+  JPM              stock      1.057    44.9%           3         1     33%
+  XRP/USD          crypto     1.013    44.5%           3         1     33%
+  AVAX/USD         crypto     0.817    34.4%           3         0      0%
+  LINK/USD         crypto     0.762    40.6%           5         0      0%
+  NVDA             stock      0.550    50.0%           2         0      0%
+  GOOGL            stock      0.470    33.3%           2         0      0%
+  AMD              stock      0.425    29.1%           2         0      0%
+  DOT/USD          crypto     0.293    24.3%           3         0      0%
+  ADA/USD          crypto     0.280    38.6%           3         0      0%
+  BTC/USD          crypto     0.167    16.7%           3         0      0%
+  SOL/USD          crypto     0.123    17.2%           3         0      0%
+  BNB/USD          crypto     0.015     6.4%           3         0      0%
+  ETH/USD          crypto     0.000     0.0%           0         0      0%
+  DOGE/USD         crypto     0.000     0.0%           0         0      0%
+  AAPL             stock      0.000     0.0%           0         0      0%
+  TSLA             stock      0.000     0.0%           0         0      0%
+  AMZN             stock      0.000     0.0%           2         0      0%
+  SPY              stock      0.000     0.0%           0         0      0%
+
+  -- TOP EDGE CELLS  (PF >= 1.2, >= 2 trades) --
+  #    Symbol           TF    Dir         PF    WR%  Trades        PnL
+  ---- ---------------- ----- ------- ------ ------ ------- ----------
+  1    MSFT             1h    both     4.870  50.0%       2       2.50
+  2    JPM              1h    long     1.950  66.7%       3       1.30
+  3    XRP/USD          1h    short    1.900  63.6%      11       6.92
+========================================================================
+  FULL MATRIX  (PF / WR%  per cell)
+========================================================================
+  Symbol               1h/l         1h/s         1h/b         1d/l         1d/s         1d/b    
+  ----------------------------------------------------------------------------------------------
+  -- CRYPTO --
+  BTC/USD           0.18/  17%   0.16/  17%   0.16/  17%     (0t)         (0t)         (0t)     
+  ETH/USD             (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  SOL/USD           0.02/  17%   0.21/  18%   0.14/  17%     (0t)         (0t)         (0t)     
+  ADA/USD           0.34/  50%   0.24/  30%   0.26/  36%     (0t)         (0t)         (0t)     
+  AVAX/USD          0.62/  30%   1.02/  38%   0.81/  35%     (0t)       0.00/   0%   0.00/   0% 
+  DOT/USD           0.13/  25%   0.41/  24%   0.34/  24%     (0t)         (0t)         (0t)     
+  LINK/USD          0.00/   0%   0.76/  38%   0.39/  25%     (0t)       0.95/  50%   0.95/  50% 
+  DOGE/USD            (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  BNB/USD           0.00/   0%   0.02/   8%   0.01/   4%     (0t)         (0t)         (0t)     
+  XRP/USD           0.17/  20%   1.90/  64%   0.97/  50%     (0t)         (0t)         (0t)     
+  -- STOCKS --
+  AAPL                (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  MSFT              0.00/   0%   0.00/ 100%   4.87/  50%     (0t)         (0t)         (0t)     
+  NVDA              0.55/  50%     (0t)       0.55/  50%     (0t)         (0t)         (0t)     
+  AMD               0.55/  33%   0.00/   0%   0.30/  25%     (0t)         (0t)         (0t)     
+  TSLA                (0t)       0.00/ 100%   0.00/ 100%     (0t)         (0t)         (0t)     
+  META              0.00/ 100%   0.00/   0%   1.08/  40%     (0t)         (0t)         (0t)     
+  AMZN                (0t)       0.00/   0%   0.00/   0%     (0t)         (0t)         (0t)     
+  GOOGL             0.47/  33%     (0t)       0.47/  33%     (0t)         (0t)         (0t)     
+  JPM               1.95/  67%   0.34/  25%   0.88/  43%     (0t)         (0t)         (0t)     
+  SPY               0.00/   0%     (0t)       0.00/   0%     (0t)         (0t)         (0t)     
+
+  l=long  s=short  b=both  |  format: PF/WR%
+
+========================================================================
+  END OF REPORT
+========================================================================

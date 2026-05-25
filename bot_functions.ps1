@@ -160,7 +160,7 @@ function tail-bot {
 function tail-trades {
     Set-Location C:\users\linda\trading_bot_v2
     Get-Content .\logs\bot.log -Wait -Tail 120 |
-        Select-String -Pattern "TRADE OPEN|TRADE CLOSED|APPROVED|REJECTED|BREAKOUT RECV|ERROR|WARNING"
+        Select-String -Pattern "TRADE OPEN|TRADE CLOSED|APPROVED|REJECTED|BREAKOUT RECV|PAPER TP EXTENDED|PIVOT EXIT|STALE EXIT|FAST-FAIL|TIME STOP|ERROR|WARNING"
 }
 
 function scanner_logs { Select-String -Path logs\bot.log -Pattern "TRADE OPEN" | Select-Object -Last 10 }

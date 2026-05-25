@@ -1,0 +1,11 @@
+symbol,asset_class,timeframe,direction,condition,trades,profit_factor,win_rate,net_pnl,sharpe,expectancy,error
+AAPL,stock,1h,long,1h/long,1,0.0,0.0,-1.43,0.0,0.0,
+MSFT,stock,1h,long,1h/long,1,0.0,0.0,-1.81,0.0,0.0,
+NVDA,stock,1h,long,1h/long,3,2.06,66.7,5.49,0.0,0.0,
+AMD,stock,1h,long,1h/long,3,23.23,66.7,13.47,0.0,0.0,
+TSLA,stock,1h,long,1h/long,2,14.1,50.0,17.01,0.0,0.0,
+META,stock,1h,long,1h/long,3,0.0,0.0,-10.12,0.0,0.0,
+AMZN,stock,1h,long,1h/long,3,0.0,0.0,-6.16,0.0,0.0,
+GOOGL,stock,1h,long,1h/long,4,0.53,25.0,-4.83,0.0,0.0,
+JPM,stock,1h,long,1h/long,3,4.39,66.7,6.87,0.0,0.0,
+SPY,stock,1h,long,1h/long,1,0.0,0.0,-1.56,0.0,0.0,

@@ -1,0 +1,105 @@
+========================================================================
+  STRATEGY MATRIX REPORT
+========================================================================
+  Strategy   : bollinger_breakout
+  Period     : 365 days
+  Timeframes : 1h, 1d
+  Directions : long, short, both
+  Crypto     : BTC/USD, ETH/USD, SOL/USD, ADA/USD, AVAX/USD, DOT/USD, LINK/USD, POL/USD, BNB/USD, XRP/USD
+  Stocks     : AAPL, MSFT, NVDA, AMD, TSLA, META, AMZN, GOOGL, JPM, SPY
+  Generated  : 2026-05-24T06:07:32
+
+========================================================================
+  OVERALL SUMMARY
+========================================================================
+  Total cells tested    : 38
+  Overall avg PF        : 0.983
+  Cells with edge (PF>=1.2) : 8  (21.1%)
+  Verdict               : SELECTIVE EDGE -- works in specific conditions only
+
+  -- CONDITIONS RANKED BY AVERAGE PF (best first) --
+  Condition     Avg PF  Avg WR%  Symbols  Edge cnt   Edge%
+  ------------ ------- -------- -------- --------- -------
+  1h/long        0.983    33.1%       19         4     21% <-- best
+  1h/both        0.983    33.1%       19         4     21%
+  1h/short       0.000     0.0%        0         0      0%
+  1d/long        0.000     0.0%        0         0      0%
+  1d/short       0.000     0.0%        0         0      0%
+  1d/both        0.000     0.0%        0         0      0%
+
+  -- SYMBOLS RANKED BY AVERAGE PF (best first) --
+  Symbol           Class     Avg PF  Avg WR%  Conditions  Edge cnt   Edge%
+  ---------------- -------- ------- -------- ----------- --------- -------
+  TSLA             stock      5.060    50.0%           2         2    100%
+  AMD              stock      2.890    50.0%           2         2    100%
+  MSFT             stock      2.880    50.0%           2         2    100%
+  GOOGL            stock      1.830    62.5%           2         2    100%
+  META             stock      1.050    40.0%           2         0      0%
+  ADA/USD          crypto     0.850    27.3%           2         0      0%
+  SPY              stock      0.650    54.5%           2         0      0%
+  ETH/USD          crypto     0.570    17.4%           2         0      0%
+  XRP/USD          crypto     0.560    31.0%           2         0      0%
+  LINK/USD         crypto     0.540    29.4%           2         0      0%
+  AAPL             stock      0.360    60.0%           2         0      0%
+  BTC/USD          crypto     0.270    21.3%           2         0      0%
+  BNB/USD          crypto     0.270    12.5%           2         0      0%
+  DOT/USD          crypto     0.230    10.5%           2         0      0%
+  AVAX/USD         crypto     0.210    13.3%           2         0      0%
+  AMZN             stock      0.180    22.2%           2         0      0%
+  NVDA             stock      0.150    50.0%           2         0      0%
+  SOL/USD          crypto     0.120    10.0%           2         0      0%
+  JPM              stock      0.010    16.7%           2         0      0%
+  POL/USD          crypto     0.000     0.0%           0         0      0%
+
+  -- TOP EDGE CELLS  (PF >= 1.2, >= 2 trades) --
+  #    Symbol           TF    Dir         PF    WR%  Trades        PnL
+  ---- ---------------- ----- ------- ------ ------ ------- ----------
+  1    TSLA             1h    long     5.060  50.0%       2       2.60
+  2    TSLA             1h    both     5.060  50.0%       2       2.60
+  3    AMD              1h    long     2.890  50.0%       2       5.75
+  4    AMD              1h    both     2.890  50.0%       2       5.75
+  5    MSFT             1h    long     2.880  50.0%       6       1.12
+  6    MSFT             1h    both     2.880  50.0%       6       1.12
+  7    GOOGL            1h    long     1.830  62.5%      16       8.04
+  8    GOOGL            1h    both     1.830  62.5%      16       8.04
+========================================================================
+  FULL MATRIX  (PF / WR%  per cell)
+========================================================================
+  Symbol               1h/l         1h/s         1h/b         1d/l         1d/s         1d/b    
+  ----------------------------------------------------------------------------------------------
+  -- CRYPTO --
+  BTC/USD           0.27/  21%     (0t)       0.27/  21%     (0t)         (0t)         (0t)     
+  ETH/USD           0.57/  17%     (0t)       0.57/  17%     (0t)         (0t)         (0t)     
+  SOL/USD           0.12/  10%     (0t)       0.12/  10%     (0t)         (0t)         (0t)     
+  ADA/USD           0.85/  27%     (0t)       0.85/  27%     (0t)         (0t)         (0t)     
+  AVAX/USD          0.21/  13%     (0t)       0.21/  13%     (0t)         (0t)         (0t)     
+  DOT/USD           0.23/  10%     (0t)       0.23/  10%     (0t)         (0t)         (0t)     
+  LINK/USD          0.54/  29%     (0t)       0.54/  29%     (0t)         (0t)         (0t)     
+  POL/USD              ERR          ERR          ERR          ERR          ERR          ERR     
+  BNB/USD           0.27/  12%     (0t)       0.27/  12%     (0t)         (0t)         (0t)     
+  XRP/USD           0.56/  31%     (0t)       0.56/  31%     (0t)         (0t)         (0t)     
+  -- STOCKS --
+  AAPL              0.36/  60%     (0t)       0.36/  60%     (0t)         (0t)         (0t)     
+  MSFT              2.88/  50%     (0t)       2.88/  50%     (0t)         (0t)         (0t)     
+  NVDA              0.15/  50%     (0t)       0.15/  50%     (0t)         (0t)         (0t)     
+  AMD               2.89/  50%     (0t)       2.89/  50%     (0t)         (0t)         (0t)     
+  TSLA              5.06/  50%     (0t)       5.06/  50%     (0t)         (0t)         (0t)     
+  META              1.05/  40%     (0t)       1.05/  40%     (0t)         (0t)         (0t)     
+  AMZN              0.18/  22%     (0t)       0.18/  22%     (0t)         (0t)         (0t)     
+  GOOGL             1.83/  62%     (0t)       1.83/  62%     (0t)         (0t)         (0t)     
+  JPM               0.01/  17%     (0t)       0.01/  17%     (0t)         (0t)         (0t)     
+  SPY               0.65/  54%     (0t)       0.65/  54%     (0t)         (0t)         (0t)     
+
+  l=long  s=short  b=both  |  format: PF/WR%
+
+  -- CELLS WITH ERRORS --
+  POL/USD        1h    long     no_result
+  POL/USD        1h    short    no_result
+  POL/USD        1h    both     no_result
+  POL/USD        1d    long     no_result
+  POL/USD        1d    short    no_result
+  POL/USD        1d    both     no_result
+
+========================================================================
+  END OF REPORT
+========================================================================

@@ -23,15 +23,15 @@ ADA/USD
 AVAX/USD
 DOT/USD
 NEAR/USD
-SUI/USD
+#SUI/USD
 TRX/USD
 ATOM/USD
 ALGO/USD
-APT/USD
+#APT/USD    -- delisted / no yfinance data
 INJ/USD
 SEI/USD
 EGLD/USD
-FTM/USD
+#FTM/USD    -- rebranded to S, no yfinance data
 ONE/USD
 HBAR/USD
 VET/USD
@@ -40,21 +40,21 @@ XTZ/USD
 FLOW/USD
 
 # ── Layer 2 / Scaling ────────────────────────────────────────────────────────
-MATIC/USD
+# MATIC/USD -- rebranded to POL Sept 2024, yfinance has no data for either ticker
 ARB/USD
 OP/USD
-IMX/USD
+#IMX/USD    -- no yfinance data
 STRK/USD
 MANTA/USD
-BLAST/USD
+#BLAST/USD  -- no yfinance data
 
 # ── DeFi ─────────────────────────────────────────────────────────────────────
 AAVE/USD
-UNI/USD
+#UNI/USD   -- no yfinance data
 LINK/USD
 MKR/USD
 CRV/USD
-COMP/USD
+#COMP/USD  -- no yfinance data
 SNX/USD
 BAL/USD
 SUSHI/USD
@@ -66,10 +66,10 @@ JUP/USD
 CAKE/USD
 
 # ── AI / Data / Oracle ───────────────────────────────────────────────────────
-TAO/USD
+#TAO/USD   -- no yfinance data
 WLD/USD
-RNDR/USD
-GRT/USD
+#RNDR/USD  -- rebranded to RENDER (see RENDER/USD below)
+#GRT/USD   -- no yfinance data
 OCEAN/USD
 AGIX/USD
 NMR/USD
@@ -82,7 +82,7 @@ MANA/USD
 ENJ/USD
 GALA/USD
 ILV/USD
-GMT/USD
+#GMT/USD   -- no yfinance data
 GODS/USD
 
 # ── Exchange Tokens ──────────────────────────────────────────────────────────
@@ -105,23 +105,23 @@ XMR/USD
 DASH/USD
 
 # ── High Momentum / Narrative ────────────────────────────────────────────────
-HYPE/USD
-WLFI/USD
+#HYPE/USD    -- no yfinance data
+#WLFI/USD   -- no yfinance data
 DOGE/USD
 WIF/USD
 BONK/USD
-POPCAT/USD
-MEW/USD
+#POPCAT/USD -- no yfinance data
+#MEW/USD    -- no yfinance data
 TRUMP/USD
 MELANIA/USD
 
 # ── Meme (high volatility — high reward/risk) ────────────────────────────────
-RAVE/USD
+#RAVE/USD  -- no yfinance data
 FLOKI/USD
-PEPE/USD
+#PEPE/USD  -- no yfinance data (sub-penny)
 
 # ── Cross-chain / Interop ────────────────────────────────────────────────────
-DOT/USD
+#DOT/USD   -- already listed in Layer 1 above
 RUNE/USD
 ZRX/USD
 REN/USD
@@ -142,10 +142,10 @@ W/USD
 TNSR/USD
 ETHFI/USD
 REZ/USD
-BB/USD
+#BB/USD    -- no yfinance data
 NOT/USD
-IO/USD
-ZK/USD
+#IO/USD    -- no yfinance data
+#ZK/USD    -- no yfinance data
 LISTA/USD
-ZRO/USD
+#ZRO/USD   -- no yfinance data
 RENDER/USD

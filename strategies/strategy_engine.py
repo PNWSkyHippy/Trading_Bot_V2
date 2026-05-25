@@ -40,6 +40,9 @@ from strategies.bollinger_squeeze import BollingerSqueeze
 from strategies.mr_02_vef_strategy import MR02VEFStrategy
 from strategies.mr_03_fbs_strategy import MR03FBSStrategy
 from strategies.mr_04_fvg_strategy import MR04FVGStrategy
+from strategies.btc_v6_chandelier import BTCV6ChandelierStrategy
+from strategies.rsi_dip_simple import RSIDipSimpleStrategy
+from strategies.pll_cycle import PLLCycleStrategy
 from data.database import db
 
 logger = logging.getLogger(__name__)
@@ -90,6 +93,10 @@ class StrategyEngine:
                                         # Backtest May2025-May2026 1h crypto:
                                         # ETH PF=1.32 +7.3% Sharpe=1.21 | BNB PF=1.15 +0.9%
                                         # BTC PF=1.12 +0.2% | SOL longs disabled (bled)
+            BTCV6ChandelierStrategy(),  # Strategy 21 — BTC V6 Chandelier (INCUBATE) — RSI+EMA+ADX, chandelier trailing stop
+            RSIDipSimpleStrategy(),     # Strategy 22 — RSI Dip Simple (INCUBATE) — naked RSI(7) cross, no filters
+            PLLCycleStrategy(use_martingale=False),  # Strategy 23 — PLL Cycle base (INCUBATE) — PLL cycle detector long/short
+            PLLCycleStrategy(use_martingale=True),   # Strategy 24 — PLL Cycle + Martingale (INCUBATE) — F41d variant
         ]
 
         self._load_strategy_states()

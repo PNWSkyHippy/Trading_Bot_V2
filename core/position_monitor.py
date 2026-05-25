@@ -488,7 +488,12 @@ class PositionMonitor:
         # ECB (ecb_strategy): 24-bar hold. 2hr stop fires at bar 2 — kills thesis.
         # DCA accumulator: slow oscillation strategy; time stops inappropriate.
         # Grid bot: profits from range oscillations across many hours.
-        TIME_STOP_EXEMPT = {"ecb_strategy", "grid_bot", "dca_accumulator"}
+        # MR mean-reversion 1h strategies: 24/36/48-bar holds are intentional;
+        # the 8hr generic stop would cut trades before the thesis plays out.
+        TIME_STOP_EXEMPT = {
+            "ecb_strategy", "grid_bot", "dca_accumulator",
+            "mr_02_vef", "mr_03_fbs", "mr_04_fvg",
+        }
         if strategy in TIME_STOP_EXEMPT:
             logger.debug(
                 f"[TIME STOP EXEMPT] {symbol}: strategy={strategy} "
@@ -1052,18 +1057,59 @@ class PositionMonitor:
             ADX stale, VWAP, momentum) — those default to 5Min/5m regardless of
             entry timeframe, which is the intentional hybrid design documented in
             TIMEFRAME_LIFECYCLE_SPEC.md.
+
+        THREADING NOTE: the scanner's ccxt exchange object is NOT thread-safe.
+        The position monitor runs in its own daemon thread while the scanner loop
+        runs in the main thread.  Concurrent fetch_ohlcv calls on the same ccxt
+        object cause rate-limiter lock deadlocks that silently hang this thread
+        (observed: monitor goes silent at 13:27, all SLs stop firing).
+        Fix: use a private ccxt exchange instance that belongs only to the monitor
+        thread, with an aggressive timeout so a stale connection can't hang forever.
         """
         try:
-            sc = self._get_scanner()
             if asset_class == "stock":
                 tf = timeframe or "5Min"
+                sc = self._get_scanner()
                 return sc.stock_scanner.get_bars(symbol, timeframe=tf, limit=limit)
             else:
                 tf = timeframe or "5m"
-                return sc.crypto_scanner.get_ohlcv(symbol, timeframe=tf, limit=limit)
+                # Use monitor's own private ccxt instance — never shares with scanner thread
+                ex = self._get_monitor_exchange()
+                ohlcv = ex.fetch_ohlcv(symbol, tf, limit=limit + 1)
+                if not ohlcv:
+                    return None
+                df = pd.DataFrame(
+                    ohlcv,
+                    columns=["timestamp", "open", "high", "low", "close", "volume"]
+                )
+                df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+                df.set_index("timestamp", inplace=True)
+                # Drop the still-forming bar (last row) — same logic as CryptoScanner
+                if len(df) > 1:
+                    df = df.iloc[:-1]
+                return df
         except Exception as e:
             logger.debug(f"Bar fetch error for {symbol}: {e}")
             return None
+
+    def _get_monitor_exchange(self):
+        """
+        Returns a dedicated ccxt Kraken exchange for this monitor thread.
+        Lazily created on first call — NOT shared with the scanner.
+
+        Short timeout (8s) so a hung TCP connection times out within one
+        monitor cycle (10s interval) rather than blocking forever.
+        """
+        if not hasattr(self, "_monitor_exchange") or self._monitor_exchange is None:
+            import ccxt as _ccxt
+            self._monitor_exchange = _ccxt.kraken({
+                "apiKey":          config.KRAKEN_API_KEY,
+                "secret":          config.KRAKEN_SECRET_KEY,
+                "enableRateLimit": True,
+                "timeout":         8000,   # 8s — dies inside one 10s monitor cycle
+            })
+            logger.info("[MONITOR] Private ccxt exchange created for monitor thread")
+        return self._monitor_exchange
 
     def _score_momentum(self, symbol: str, asset_class: str) -> float:
         try:

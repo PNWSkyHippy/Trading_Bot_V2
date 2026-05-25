@@ -214,9 +214,35 @@ class FundingScanner(BaseEventScanner):
             elif rate <= FUNDING_LONG_THRESHOLD:
                 self._fire(sym, rate, "long")
 
+    @staticmethod
+    def _to_kraken_symbol(bybit_sym: str) -> Optional[str]:
+        """
+        Convert Bybit perp format (BTCUSDT) → Kraken spot format (BTC/USD).
+        Returns None if the symbol can't be mapped (e.g. non-USDT pairs).
+        """
+        if bybit_sym.endswith("USDT"):
+            base = bybit_sym[:-4]           # strip USDT
+            # Kraken renames a handful of bases
+            _renames = {"BTC": "XBT", "DOGE": "XDG", "MATIC": "MATIC"}
+            base = _renames.get(base, base)
+            return f"{base}/USD"
+        if bybit_sym.endswith("USD"):
+            base = bybit_sym[:-3]
+            return f"{base}/USD"
+        return None
+
     def _fire(self, symbol: str, rate: float, direction: str) -> None:
         if self.is_on_cooldown(symbol):
             return
+
+        # Convert Bybit USDT symbol → Kraken USD symbol before routing.
+        # Without this conversion every signal hits the "non-USD quote currency"
+        # rejection wall in the breakout receiver, spamming the log and wasting cycles.
+        kraken_symbol = self._to_kraken_symbol(symbol)
+        if kraken_symbol is None:
+            logger.debug("[FUNDING] %s — cannot map to Kraken USD symbol, skipping", symbol)
+            return
+        symbol = kraken_symbol   # use the converted symbol from here on
 
         rate_pct = rate * 100
         score    = min(0.90, SCORE_BASE + abs(rate_pct) * 2.0)

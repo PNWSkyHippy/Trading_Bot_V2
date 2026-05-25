@@ -1,0 +1,243 @@
+{
+  "meta": {
+    "strategy": "ema_crossover",
+    "symbols": [
+      "BTC/USD"
+    ],
+    "timeframe": "1h",
+    "days": 30,
+    "asset_class": "crypto",
+    "direction": "both",
+    "method": "zoom",
+    "iterations": 60,
+    "metric": "profit_factor",
+    "params": [
+      {
+        "name": "stop_loss_pct",
+        "min": 1.0,
+        "max": 75.0,
+        "step": 1.0,
+        "is_int": true
+      }
+    ],
+    "started_at": "2026-05-24T04:02:37.296646",
+    "zoom_coarse_winner": {
+      "stop_loss_pct": 1
+    },
+    "finished_at": "2026-05-24T04:02:55.891101",
+    "cancelled": false,
+    "total_tested": 10
+  },
+  "results": [
+    {
+      "params": {
+        "stop_loss_pct": 1
+      },
+      "score": 0.005,
+      "avg_profit_factor": 0.01,
+      "avg_win_rate": 8.7,
+      "avg_net_pnl": -32.56,
+      "consistency": 0.0,
+      "symbols_tested": 1,
+      "symbols_profitable": 0,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 23,
+          "win_rate": 8.7,
+          "profit_factor": 0.01,
+          "net_pnl": -32.56
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2
+      },
+      "score": 0.005,
+      "avg_profit_factor": 0.01,
+      "avg_win_rate": 8.7,
+      "avg_net_pnl": -32.56,
+      "consistency": 0.0,
+      "symbols_tested": 1,
+      "symbols_profitable": 0,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 23,
+          "win_rate": 8.7,
+          "profit_factor": 0.01,
+          "net_pnl": -32.56
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3
+      },
+      "score": 0.005,
+      "avg_profit_factor": 0.01,
+      "avg_win_rate": 8.7,
+      "avg_net_pnl": -32.56,
+      "consistency": 0.0,
+      "symbols_tested": 1,
+      "symbols_profitable": 0,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 23,
+          "win_rate": 8.7,
+          "profit_factor": 0.01,
+          "net_pnl": -32.56
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4
+      },
+      "score": 0.005,
+      "avg_profit_factor": 0.01,
+      "avg_win_rate": 8.7,
+      "avg_net_pnl": -32.56,
+      "consistency": 0.0,
+      "symbols_tested": 1,
+      "symbols_profitable": 0,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 23,
+          "win_rate": 8.7,
+          "profit_factor": 0.01,
+          "net_pnl": -32.56
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 13
+      },
+      "score": 0.005,
+      "avg_profit_factor": 0.01,
+      "avg_win_rate": 8.7,
+      "avg_net_pnl": -32.56,
+      "consistency": 0.0,
+      "symbols_tested": 1,
+      "symbols_profitable": 0,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 23,
+          "win_rate": 8.7,
+          "profit_factor": 0.01,
+          "net_pnl": -32.56
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 25
+      },
+      "score": 0.005,
+      "avg_profit_factor": 0.01,
+      "avg_win_rate": 8.7,
+      "avg_net_pnl": -32.56,
+      "consistency": 0.0,
+      "symbols_tested": 1,
+      "symbols_profitable": 0,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 23,
+          "win_rate": 8.7,
+          "profit_factor": 0.01,
+          "net_pnl": -32.56
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 37
+      },
+      "score": 0.005,
+      "avg_profit_factor": 0.01,
+      "avg_win_rate": 8.7,
+      "avg_net_pnl": -32.56,
+      "consistency": 0.0,
+      "symbols_tested": 1,
+      "symbols_profitable": 0,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 23,
+          "win_rate": 8.7,
+          "profit_factor": 0.01,
+          "net_pnl": -32.56
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 49
+      },
+      "score": 0.005,
+      "avg_profit_factor": 0.01,
+      "avg_win_rate": 8.7,
+      "avg_net_pnl": -32.56,
+      "consistency": 0.0,
+      "symbols_tested": 1,
+      "symbols_profitable": 0,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 23,
+          "win_rate": 8.7,
+          "profit_factor": 0.01,
+          "net_pnl": -32.56
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 61
+      },
+      "score": 0.005,
+      "avg_profit_factor": 0.01,
+      "avg_win_rate": 8.7,
+      "avg_net_pnl": -32.56,
+      "consistency": 0.0,
+      "symbols_tested": 1,
+      "symbols_profitable": 0,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 23,
+          "win_rate": 8.7,
+          "profit_factor": 0.01,
+          "net_pnl": -32.56
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 73
+      },
+      "score": 0.005,
+      "avg_profit_factor": 0.01,
+      "avg_win_rate": 8.7,
+      "avg_net_pnl": -32.56,
+      "consistency": 0.0,
+      "symbols_tested": 1,
+      "symbols_profitable": 0,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 23,
+          "win_rate": 8.7,
+          "profit_factor": 0.01,
+          "net_pnl": -32.56
+        }
+      ]
+    }
+  ]
+}

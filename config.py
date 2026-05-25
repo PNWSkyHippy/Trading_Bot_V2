@@ -55,18 +55,57 @@ def _decrypt(val: str) -> str:
         )
 
 # =============================================================================
-# API KEYS  (each one passes through _decrypt — plaintext keys work unchanged)
+# DB-BACKED API KEY LOOKUP
+# =============================================================================
+# Priority:  DB (encrypted)  →  .env / config fallback
+#
+# To add or update a key:
+#   python Scripts/set_api_key.py              (interactive)
+#   python Scripts/set_api_key.py --list       (show stored services/names)
+#
+# Keys stored in DB as Fernet-encrypted tokens (same key as dashboard auth).
+# Missing rows silently fall back to the .env / hardcoded default below.
 # =============================================================================
 
-ALPACA_API_KEY      = _decrypt(os.getenv("ALPACA_API_KEY",      ""))
-ALPACA_SECRET_KEY   = _decrypt(os.getenv("ALPACA_SECRET_KEY",   ""))
-ALPACA_BASE_URL     =          os.getenv("ALPACA_BASE_URL",     "https://paper-api.alpaca.markets")
+def _db_key(service: str, key_name: str, fallback: str = "") -> str:
+    """Load a key from the DB api_keys table, decrypt it, fall back to env."""
+    try:
+        import sqlite3 as _sq
+        from pathlib import Path as _P
+        _db_path = _P(__file__).parent / "data" / "trading_bot.db"
+        if not _db_path.exists():
+            return fallback
+        _conn = _sq.connect(str(_db_path))
+        _row  = _conn.execute(
+            "SELECT value_enc FROM api_keys WHERE service=? AND key_name=?",
+            (service, key_name)
+        ).fetchone()
+        _conn.close()
+        if _row and _row[0]:
+            return _decrypt(_row[0])   # Fernet token → plaintext
+    except Exception:
+        pass
+    return fallback
 
-COINBASE_API_KEY    = _decrypt(os.getenv("COINBASE_API_KEY",    ""))
-COINBASE_SECRET_KEY = _decrypt(os.getenv("COINBASE_SECRET_KEY", ""))
 
-KRAKEN_API_KEY      = _decrypt(os.getenv("KRAKEN_API_KEY",      ""))
-KRAKEN_SECRET_KEY   = _decrypt(os.getenv("KRAKEN_SECRET_KEY",   ""))
+# =============================================================================
+# API KEYS  — DB first, .env fallback (both go through _decrypt)
+# =============================================================================
+
+ALPACA_API_KEY      = _db_key("alpaca",    "api_key",    _decrypt(os.getenv("ALPACA_API_KEY",      "")))
+ALPACA_SECRET_KEY   = _db_key("alpaca",    "secret_key", _decrypt(os.getenv("ALPACA_SECRET_KEY",   "")))
+ALPACA_BASE_URL     = _db_key("alpaca",    "base_url",            os.getenv("ALPACA_BASE_URL",     "https://paper-api.alpaca.markets"))
+
+COINBASE_API_KEY    = _db_key("coinbase",  "api_key",    _decrypt(os.getenv("COINBASE_API_KEY",    "")))
+COINBASE_SECRET_KEY = _db_key("coinbase",  "secret_key", _decrypt(os.getenv("COINBASE_SECRET_KEY", "")))
+
+KRAKEN_API_KEY      = _db_key("kraken",    "api_key",    _decrypt(os.getenv("KRAKEN_API_KEY",      "")))
+KRAKEN_SECRET_KEY   = _db_key("kraken",    "secret_key", _decrypt(os.getenv("KRAKEN_SECRET_KEY",   "")))
+
+ANTHROPIC_API_KEY   = _db_key("anthropic", "api_key",    _decrypt(os.getenv("ANTHROPIC_API_KEY",  "")))
+
+COINDESK_API_KEY    = _db_key("coindesk",  "api_key",    _decrypt(os.getenv("COINDESK_API_KEY", "gAAAAABqE0y3UHrVHis66FBSmi3Lv8jIv6xodP02_6aOL7pDcUX_4eMa7ViRVhRz3jcw188fDzS8vIUB6zH_oFcjdLwyAhPj5KyxviSJWtITJsTU2kR5RcPHd7hS8mjVC6EkeTthL9EpjM-vXzcMw20UIOX7xHkVA8BP6S8IWSCty02KGt5kU5k=")))
+
 KRAKEN_ENABLED      = True
 
 # Leverage for Kraken margin (short) trades.
@@ -87,25 +126,19 @@ KRAKEN_MAX_LEVERAGE   = 10   # Kraken's advertised max for most pairs
 # Interactive Brokers — add keys to .env when account is ready
 # IBKR uses TWS or IB Gateway running locally (no REST key — just account ID)
 # TWS paper port: 7497  |  TWS live port: 7496
-IBKR_ACCOUNT        = os.getenv("IBKR_ACCOUNT", "")    # Account ID e.g. DU1234567
-IBKR_ENABLED        = True                              # Set True after TWS is running
-IBKR_PAPER_MODE     = True                              # True = paper (port 7497)
+IBKR_ACCOUNT        = _db_key("ibkr",       "account",             os.getenv("IBKR_ACCOUNT", ""))
+IBKR_ENABLED        = True
+IBKR_PAPER_MODE     = True
 
-ANTHROPIC_API_KEY   = _decrypt(os.getenv("ANTHROPIC_API_KEY",  ""))
 CLAUDE_REVIEWER_ENABLED = True
-# Reviewer mode:
-#   advisory = log Claude/Haiku review decisions, but never block strategy signals
-#   strict   = non-APPROVE decisions veto signals like the old behavior
 CLAUDE_REVIEWER_MODE = "strict"
 CLAUDE_REVIEWER_APPLY_SIZE_ADVICE = True
 
-# Massive.com market data — used by BreakoutScanner AND ClaudeReviewer
-# Can also be set in scanner_config.json (reviewer falls back there if blank)
-MASSIVE_API_KEY     = _decrypt(os.getenv("MASSIVE_API_KEY",    ""))
+MASSIVE_API_KEY     = _db_key("massive",   "api_key",    _decrypt(os.getenv("MASSIVE_API_KEY",    "")))
 
-EMAIL_SENDER        =          os.getenv("EMAIL_SENDER",       "")
-EMAIL_PASSWORD      = _decrypt(os.getenv("EMAIL_PASSWORD",     ""))
-EMAIL_RECIPIENT     =          os.getenv("EMAIL_RECIPIENT",    "")
+EMAIL_SENDER        = _db_key("email",     "sender",              os.getenv("EMAIL_SENDER",       ""))
+EMAIL_PASSWORD      = _db_key("email",     "password",   _decrypt(os.getenv("EMAIL_PASSWORD",     "")))
+EMAIL_RECIPIENT     = _db_key("email",     "recipient",           os.getenv("EMAIL_RECIPIENT",    ""))
 
 # =============================================================================
 # CAPITAL & TRADING PARAMETERS
@@ -452,6 +485,6 @@ SIGNAL_TUNING = {
 ALERT_DIGEST_HOURS = 1   # Change to 2 or 3 to reduce email further
 
 # ── Breakout Signal API ────────────────────────────────────────
-BOT_API_KEY           = "pyd9pocfRHu0JxiiOQWQzuns5qdiikpRy8v5Vd3G0h4"   # copy this to scanner_config.json bot_api_key
+BOT_API_KEY           = _db_key("trading_bot", "bot_api_key", "pyd9pocfRHu0JxiiOQWQzuns5qdiikpRy8v5Vd3G0h4")
 BOT_API_PORT          = 8181
 BREAKOUT_MIN_ESCALATION = 1   # 0-3; only inject escalation >= this

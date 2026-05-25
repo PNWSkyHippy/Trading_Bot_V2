@@ -134,7 +134,37 @@ def reset_bot(confirm: bool = False):
         """, (today,))
         print(f"  [OK] session state seeded for {today}")
 
+        # Reset stale broker balance snapshots in bot_state
+        for broker_key in ("broker_balance_kraken", "broker_balance_ibkr"):
+            import json
+            try:
+                broker = broker_key.replace("broker_balance_", "")
+                val = json.dumps({
+                    "broker": broker,
+                    "balance": starting if broker == "kraken" else 0.0,
+                    "invested": 0.0,
+                    "available": starting if broker == "kraken" else 0.0,
+                    "last_updated": datetime.now().isoformat(),
+                })
+                conn.execute(
+                    "INSERT OR REPLACE INTO bot_state (key, value) VALUES (?, ?)",
+                    (broker_key, val)
+                )
+                print(f"  [OK] {broker_key} reset")
+            except Exception as e:
+                print(f"  [WARN] Could not reset {broker_key}: {e}")
+
         conn.commit()
+
+        # Delete ML model files so scorer retrains on fresh data
+        for pkl in ("data/ml_model.pkl", "data/ml_scaler.pkl"):
+            full = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), pkl)
+            if os.path.exists(full):
+                os.remove(full)
+                print(f"  [OK] deleted {pkl}")
+            else:
+                print(f"  [--] {pkl} not found (already clean)")
+
         print()
         print(f"  {'='*51}")
         print(f"  RESET COMPLETE")

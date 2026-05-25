@@ -207,6 +207,45 @@ def kill_ibkr(pids: list[int]) -> None:
             pass   # already dead, good
 
 
+def _kill_by_name() -> None:
+    """
+    Kill any running IBKR/IBC processes by image name rather than PID.
+
+    This is the fallback for when find_ibkr_pids() misses processes — e.g.
+    when wmic is slow, the process name varies, or IBC spawned extra child
+    windows.  Running this unconditionally before every launch ensures we
+    never stack multiple IBC copies even if PID detection is unreliable.
+
+    Targets javaw.exe (IBC/TWS on Windows) with /T so child windows are
+    included.  Safe: on a trading PC javaw.exe is virtually always IBC/TWS.
+    On Linux kills any java process matching ibgateway/tws in its cmdline.
+    """
+    try:
+        if IS_WINDOWS:
+            result = subprocess.run(
+                ["taskkill", "/F", "/T", "/IM", "javaw.exe"],
+                capture_output=True, text=True
+            )
+            if "SUCCESS" in result.stdout or "javaw.exe" in result.stdout:
+                logger.info(f"[NAME KILL] javaw.exe terminated: {result.stdout.strip()}")
+            else:
+                logger.debug(f"[NAME KILL] No javaw.exe processes found (already clean)")
+            # Also try ibgateway.exe for older installs
+            subprocess.run(
+                ["taskkill", "/F", "/IM", "ibgateway.exe"],
+                capture_output=True
+            )
+        else:
+            subprocess.run(
+                ["pkill", "-f", "ibgateway|Trader Workstation"],
+                capture_output=True
+            )
+            logger.info("[NAME KILL] pkill ibgateway/TWS sent")
+        time.sleep(5)   # give killed processes time to release the port
+    except Exception as e:
+        logger.warning(f"[NAME KILL] fallback kill error: {e}")
+
+
 def launch_ibkr(exec_path: str) -> None:
     """Launch TWS or IB Gateway."""
     if not Path(exec_path).exists():
@@ -284,7 +323,13 @@ def run(port: int, dry_run: bool = False, exec_path: str = TWS_EXEC) -> None:
                         logger.info(f"Found IBKR PIDs: {pids}")
                         kill_ibkr(pids)
                     else:
-                        logger.info("No IBKR process found — skipping kill step")
+                        logger.info("No IBKR PIDs found via detection — running name-based kill fallback")
+
+                    # ── Name-based fallback kill ──────────────────────────────
+                    # PID detection can miss IBC's javaw.exe if wmic is slow or
+                    # the process name doesn't match exactly.  Always attempt a
+                    # name-based kill before launching so we never stack copies.
+                    _kill_by_name()
 
                     time.sleep(10)   # let old session fully clear before relaunch
                     launch_ibkr(exec_path)

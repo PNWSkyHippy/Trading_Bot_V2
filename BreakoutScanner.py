@@ -152,6 +152,22 @@ _SCANNER_SENSITIVE_KEYS = {
     "coinbase_api_key", "coinbase_api_secret",
     "bot_api_key",
     "email_password",
+    "alphavantage_api_key",
+}
+
+# Maps scanner_config.json key names → (service, key_name) in the bot DB.
+# When a key is blank after JSON/Fernet decryption the DB is tried as a fallback.
+_SCANNER_DB_MAP: Dict[str, tuple] = {
+    "alpaca_api_key":       ("alpaca",        "api_key"),
+    "alpaca_secret_key":    ("alpaca",        "secret_key"),
+    "kraken_api_key":       ("kraken",        "api_key"),
+    "kraken_api_secret":    ("kraken",        "secret_key"),
+    "coinbase_api_key":     ("coinbase",      "api_key"),
+    "coinbase_api_secret":  ("coinbase",      "secret_key"),
+    "massive_api_key":      ("massive",       "api_key"),
+    "email_password":       ("email",         "password"),
+    "alphavantage_api_key": ("alphavantage",  "api_key"),
+    "bot_api_key":          ("trading_bot",   "bot_api_key"),
 }
 
 def _encrypt_cfg(val: str) -> str:
@@ -199,6 +215,45 @@ def _decrypt_cfg(val: str) -> str:
             f"Failed to decrypt a scanner_config.json key — token corrupt or "
             f"wrong Fernet key.  First 20 chars: {val[:20]}…"
         )
+
+
+def _db_fallback(scanner_key: str) -> str:
+    """
+    Look up a blank scanner key in the trading bot's encrypted api_keys DB table.
+    Uses the same Fernet key as the rest of the bot — no extra setup required.
+    Returns empty string if the DB is unavailable or the key is not stored.
+    """
+    mapping = _SCANNER_DB_MAP.get(scanner_key)
+    if not mapping:
+        return ""
+    service, key_name = mapping
+    try:
+        import sqlite3 as _sq
+        db_path = BASE_DIR / "data" / "trading_bot.db"
+        if not db_path.exists():
+            return ""
+        conn = _sq.connect(str(db_path))
+        row  = conn.execute(
+            "SELECT value_enc FROM api_keys WHERE service=? AND key_name=?",
+            (service, key_name)
+        ).fetchone()
+        conn.close()
+        if not row or not row[0]:
+            return ""
+        enc = row[0]
+        # Decrypt: plain: prefix (pre-Fernet installs) or Fernet token
+        if enc.startswith("plain:"):
+            return enc[6:]
+        if not _SCANNER_BASE_KEY:
+            logger.warning(
+                f"[CONFIG] DB has '{service}/{key_name}' but Fernet key not in keyring — "
+                "run Scripts/setup_encryption.py"
+            )
+            return ""
+        return _Fernet(_SCANNER_BASE_KEY).decrypt(enc.encode()).decode().strip()
+    except Exception as e:
+        logger.debug(f"[CONFIG] DB fallback failed for '{scanner_key}': {e}")
+        return ""
 
 
 def _unique_keep_order(values: List[str]) -> List[str]:
@@ -608,7 +663,8 @@ class ConfigManager:
                 stored = json.load(f)
             merged = DEFAULT_CONFIG.copy()
             merged.update(stored)
-            # Decrypt any Fernet-encrypted sensitive keys in-place
+            # Decrypt any Fernet-encrypted sensitive keys in-place,
+            # then fall back to the bot DB for any that are still blank.
             for key in _SCANNER_SENSITIVE_KEYS:
                 if key in merged and merged[key]:
                     try:
@@ -616,6 +672,12 @@ class ConfigManager:
                     except RuntimeError as e:
                         logger.error(f"[CONFIG] Key decrypt failed for '{key}': {e}")
                         merged[key] = ""   # blank it out — safer than crashing
+                # If still blank after decryption attempt, try the bot DB
+                if not merged.get(key):
+                    db_val = _db_fallback(key)
+                    if db_val:
+                        merged[key] = db_val
+                        logger.info(f"[CONFIG] '{key}' loaded from bot DB (scanner_config blank).")
             self.config = merged
             logger.info(f"Config loaded from {self.config_path}")
         else:

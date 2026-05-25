@@ -1,7 +1,7 @@
 // Main App — assembles top bar, taskbar, dock, and all windows
 const { useState: $S, useEffect: $E, useRef: $R, useMemo: $M } = React;
 
-const { TopOverview, OpenPositionsPanel, ManualTradePanel, TradeLogPanel, DailyPerfPanel, BacktesterPanel, ChatPanel, ChartPanel } = window.Panels;
+const { TopOverview, OpenPositionsPanel, ManualTradePanel, TradeLogPanel, DailyPerfPanel, BacktesterPanel, OptimizerPanel, ChatPanel, ChartPanel } = window.Panels;
 const { ManagePositionsPanel, InjectSymbolsPanel, QuickControlsPanel, TerminalPanel, DBBrowserPanel } = window.SidePanels;
 
 // Window definitions
@@ -12,6 +12,7 @@ const WINDOW_DEFS = [
   { id: 'trade-log',        title: "Today's Trade Log",           icon: 'log',       defaultPos: { x: 1210, y: 440 }, defaultSize: { w: 560, h: 360 },  openByDefault: true },
   { id: 'daily-perf',       title: 'Recent Daily Performance',    icon: 'calendar',  defaultPos: { x: 20, y: 710 },   defaultSize: { w: 820, h: 290 },  openByDefault: true },
   { id: 'backtester',       title: 'Strategy Backtester',         icon: 'flask',     defaultPos: { x: 850, y: 810 },  defaultSize: { w: 680, h: 420 },  openByDefault: true },
+  { id: 'optimizer',        title: 'Parameter Optimizer',         icon: 'zap',       defaultPos: { x: 870, y: 830 },  defaultSize: { w: 860, h: 600 },  openByDefault: false },
   { id: 'chat',             title: 'Chat with Bot',               icon: 'chat',      defaultPos: { x: 20, y: 1010 },  defaultSize: { w: 800, h: 300 },  openByDefault: true },
   { id: 'manage-positions', title: 'Manage Positions',            icon: 'sliders',   defaultPos: { x: 360, y: 80 },   defaultSize: { w: 760, h: 540 },  openByDefault: false },
   { id: 'inject-symbols',   title: 'Inject Symbols Into Watchlist',icon: 'telescope',defaultPos: { x: 420, y: 100 },  defaultSize: { w: 740, h: 540 },  openByDefault: false },
@@ -146,6 +147,7 @@ function Workspace() {
       <Window id="trade-log"><TradeLogPanel /></Window>
       <Window id="daily-perf"><DailyPerfPanel /></Window>
       <Window id="backtester"><BacktesterPanel /></Window>
+      <Window id="optimizer"><OptimizerPanel /></Window>
       <Window id="chat"><ChatPanel /></Window>
       <Window id="manage-positions"><ManagePositionsPanel /></Window>
       <Window id="inject-symbols"><InjectSymbolsPanel /></Window>
@@ -159,6 +161,12 @@ function Workspace() {
 
 function Dock() {
   const { windows, open, focus } = useWindows();
+  const resetLayout = () => {
+    if (confirm('Reset all windows to default positions?')) {
+      localStorage.removeItem('tbot.windows.v2');
+      location.reload();
+    }
+  };
   const items = [
     { id: 'overview', label: 'Overview', icon: 'activity' },
     { id: 'open-positions', label: 'Positions', icon: 'pin' },
@@ -169,6 +177,7 @@ function Dock() {
     { id: 'trade-log', label: 'Trade Log', icon: 'log' },
     { id: 'daily-perf', label: 'Daily Performance', icon: 'calendar' },
     { id: 'backtester', label: 'Backtester', icon: 'flask' },
+    { id: 'optimizer',  label: 'Optimizer',  icon: 'zap' },
     { id: 'chat', label: 'Chat', icon: 'chat' },
     { id: 'chart',          label: 'Chart',           icon: 'activity' },
     { id: 'quick-controls', label: 'Quick Controls', icon: 'settings' },
@@ -186,6 +195,10 @@ function Dock() {
           </button>
         );
       })}
+      <button className="dock-btn" onClick={resetLayout} title="Reset Layout" style={{ marginLeft: 'auto', opacity: 0.5 }}>
+        <Icon name="refresh" size={18} />
+        <span className="tip">Reset Layout</span>
+      </button>
     </div>
   );
 }

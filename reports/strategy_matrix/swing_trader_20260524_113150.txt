@@ -1,0 +1,88 @@
+========================================================================
+  STRATEGY MATRIX REPORT
+========================================================================
+  Strategy   : swing_trader
+  Period     : 365 days
+  Timeframes : 1h, 1d
+  Directions : long, short, both
+  Crypto     : BTC/USD, ETH/USD, SOL/USD, ADA/USD, AVAX/USD, DOT/USD, LINK/USD, DOGE/USD, BNB/USD, XRP/USD
+  Stocks     : AAPL, MSFT, NVDA, AMD, TSLA, META, AMZN, GOOGL, JPM, SPY
+  Generated  : 2026-05-24T11:31:50
+
+========================================================================
+  OVERALL SUMMARY
+========================================================================
+  Total cells tested    : 0
+  Overall avg PF        : 0.000
+  Cells with edge (PF>=1.2) : 0  (0.0%)
+  Verdict               : WEAK / NO EDGE -- few profitable conditions found
+
+  -- CONDITIONS RANKED BY AVERAGE PF (best first) --
+  Condition     Avg PF  Avg WR%  Symbols  Edge cnt   Edge%
+  ------------ ------- -------- -------- --------- -------
+  1h/long        0.000     0.0%        0         0      0% <-- best
+  1h/short       0.000     0.0%        0         0      0%
+  1h/both        0.000     0.0%        0         0      0%
+  1d/long        0.000     0.0%        0         0      0%
+  1d/short       0.000     0.0%        0         0      0%
+  1d/both        0.000     0.0%        0         0      0%
+
+  -- SYMBOLS RANKED BY AVERAGE PF (best first) --
+  Symbol           Class     Avg PF  Avg WR%  Conditions  Edge cnt   Edge%
+  ---------------- -------- ------- -------- ----------- --------- -------
+  BTC/USD          crypto     0.000     0.0%           0         0      0%
+  ETH/USD          crypto     0.000     0.0%           0         0      0%
+  SOL/USD          crypto     0.000     0.0%           0         0      0%
+  ADA/USD          crypto     0.000     0.0%           0         0      0%
+  AVAX/USD         crypto     0.000     0.0%           0         0      0%
+  DOT/USD          crypto     0.000     0.0%           0         0      0%
+  LINK/USD         crypto     0.000     0.0%           0         0      0%
+  DOGE/USD         crypto     0.000     0.0%           0         0      0%
+  BNB/USD          crypto     0.000     0.0%           0         0      0%
+  XRP/USD          crypto     0.000     0.0%           0         0      0%
+  AAPL             stock      0.000     0.0%           0         0      0%
+  MSFT             stock      0.000     0.0%           0         0      0%
+  NVDA             stock      0.000     0.0%           0         0      0%
+  AMD              stock      0.000     0.0%           0         0      0%
+  TSLA             stock      0.000     0.0%           0         0      0%
+  META             stock      0.000     0.0%           0         0      0%
+  AMZN             stock      0.000     0.0%           0         0      0%
+  GOOGL            stock      0.000     0.0%           0         0      0%
+  JPM              stock      0.000     0.0%           0         0      0%
+  SPY              stock      0.000     0.0%           0         0      0%
+
+  -- TOP EDGE CELLS  (PF >= 1.2, >= 2 trades) --
+  No cells met the edge threshold.
+========================================================================
+  FULL MATRIX  (PF / WR%  per cell)
+========================================================================
+  Symbol               1h/l         1h/s         1h/b         1d/l         1d/s         1d/b    
+  ----------------------------------------------------------------------------------------------
+  -- CRYPTO --
+  BTC/USD             (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  ETH/USD             (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  SOL/USD             (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  ADA/USD             (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  AVAX/USD            (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  DOT/USD             (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  LINK/USD            (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  DOGE/USD            (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  BNB/USD             (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  XRP/USD             (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  -- STOCKS --
+  AAPL                (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  MSFT                (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  NVDA                (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  AMD                 (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  TSLA                (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  META                (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  AMZN                (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  GOOGL               (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  JPM                 (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  SPY                 (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+
+  l=long  s=short  b=both  |  format: PF/WR%
+
+========================================================================
+  END OF REPORT
+========================================================================
