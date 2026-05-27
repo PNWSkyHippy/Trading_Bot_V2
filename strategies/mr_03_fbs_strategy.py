@@ -41,6 +41,10 @@ class MR03Params:
     tp_mult:    float = 1.5    # emergency TP guard — time stop is primary exit
     sl_mult:    float = 2.0
     max_bars:   int   = 36     # time stop — sweep plateau at 36 bars
+    # long_only defaults to True: v4 long-only (PF 1.39, +6.83%) dominates
+    # v5 both-dirs (PF 1.07, +0.73%) per documented backtest — see class header.
+    # Set to False to enable shorts (below SMA200) for research/comparison only.
+    long_only:  bool  = True
 
 
 # ─── Indicators ───────────────────────────────────────────────────────────────
@@ -92,7 +96,12 @@ def generate_signals(df: pd.DataFrame, params: MR03Params = MR03Params()) -> pd.
     bear_bias = out["close"] < out["ma200"]
 
     out["long_signal"]  = snap_back_up & bull_bias
-    out["short_signal"] = snap_back_dn & bear_bias
+    # Short signals available but long-only historically outperforms — see class header.
+    # Disabled by default via params.long_only=True (v4 PF 1.39 vs v5 both-dirs PF 1.07).
+    if params.long_only:
+        out["short_signal"] = pd.Series(False, index=out.index)
+    else:
+        out["short_signal"] = snap_back_dn & bear_bias
 
     out["sl_long"]  = out["close"] - p.sl_mult * out["atr"]
     out["sl_short"] = out["close"] + p.sl_mult * out["atr"]
@@ -168,6 +177,11 @@ class MR03FBSStrategy(BaseStrategy):
 
             ma200 = float(last["ma200"]) if not pd.isna(last["ma200"]) else None
 
+            # Volume ratio — 20-bar rolling mean
+            vol_series = candles["volume"]
+            vol_ma_val = vol_series.rolling(20).mean().iloc[-1]
+            vol_ratio  = round(float(vol_series.iloc[-1] / vol_ma_val), 3) if vol_ma_val > 0 else None
+
             self.verbose_log(symbol, "BB snap-back", True, round(close, 4),
                              f"inside BB({'above lower' if long_sig else 'below upper'})", direction)
             self.verbose_log_score(symbol, score, 0.58)
@@ -180,16 +194,19 @@ class MR03FBSStrategy(BaseStrategy):
                     f"MR-03 FBS: snapped {'above lower' if long_sig else 'below upper'} BB "
                     f"(mult={p.bb_mult}) | "
                     f"{'above' if long_sig else 'below'} SMA200"
+                    + (" [long-only mode]" if p.long_only else " [both-dirs mode]")
                 ),
                 stop_loss_pct   = sl_pct,
                 take_profit_pct = tp_pct,
                 metadata={
                     "strategy_name":              "mr_03_fbs",
                     "entry_timeframe":            "1h",
+                    "long_only_mode":             p.long_only,
                     "atr":                        round(atr, 6),
                     "bb_upper":                   round(bb_upper, 4),
                     "bb_lower":                   round(bb_lower, 4),
                     "ma200":                      round(ma200, 4) if ma200 else None,
+                    "volume_ratio":               vol_ratio,
                     "structural_stop_price":      round(sl_price, 6),
                     "preferred_initial_stop_mode": "signal_structural",
                     "preferred_trail_mode":        "none",

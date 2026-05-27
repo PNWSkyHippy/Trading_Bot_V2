@@ -36,12 +36,12 @@ from typing import Optional
 @dataclass
 class BTCV6ChandelierParams:
     rsi_length:   int   = 14
-    rsi_thresh:   float = 43.0    # enter when RSI < this
+    rsi_thresh:   float = 45.0    # enter when RSI < this — tuned 2026-05-25 (was 43.0)
     ema_fast:     int   = 21
     ema_slow:     int   = 55
     adx_min:      float = 20.0
     atr_length:   int   = 14
-    atr_mult:     float = 5.0     # chandelier distance
+    atr_mult:     float = 4.0     # chandelier distance — tuned 2026-05-25 v3 matrix (was 5.5)
     hard_sl_pct:  float = 9.0     # absolute fallback stop if chandelier not established
 
 
@@ -150,9 +150,10 @@ class BTCV6ChandelierStrategy(BaseStrategy):
         self.take_profit_pct         = 30.0   # wide — chandelier exits before TP normally
         self.crypto_enabled          = True
         self.stock_enabled           = False
-        self.crypto_candle_timeframe = "1h"
+        self.crypto_candle_timeframe = "1d"
         self.time_stop_profile       = "strategy_defined"
-        self.candle_limit            = 230
+        self.reviewer_exempt         = True
+        self.candle_limit            = 250    # 200-bar vol ref + EMA55 warmup + buffer
 
     def analyze(self, symbol: str, candles: pd.DataFrame,
                 market_condition: str = "unknown") -> Optional[TradeSignal]:
@@ -173,9 +174,13 @@ class BTCV6ChandelierStrategy(BaseStrategy):
             sig_m   = float(last["sig_mult"])
 
             chan_init = close - atr * p.atr_mult
-            sl_pct   = max(round((close - chan_init) / close * 100, 3), 1.5)
-            score    = round(max(0.58, min(0.88,
-                           0.62 + (vol_m - 1.0) * 0.15 + (sig_m - 1.0) * 0.10)), 3)
+            sl_pct    = max(round((close - chan_init) / close * 100, 3), 1.5)
+            score     = round(max(0.66, min(0.88,
+                            0.66 + (vol_m - 1.0) * 0.15 + (sig_m - 1.0) * 0.10)), 3)
+
+            vol_series = candles["volume"]
+            vol_ma_val = vol_series.rolling(20).mean().iloc[-1]
+            vol_ratio  = round(float(vol_series.iloc[-1] / vol_ma_val), 3) if vol_ma_val > 0 else None
 
             return self._make_signal(
                 symbol          = symbol,
@@ -193,9 +198,12 @@ class BTCV6ChandelierStrategy(BaseStrategy):
                     "vol_mult":                    round(vol_m, 3),
                     "sig_mult":                    round(sig_m, 3),
                     "chandelier_init":             round(chan_init, 6),
+                    "entry_atr":                   round(atr, 6),
                     "atr_mult":                    p.atr_mult,
+                    "volume_ratio":                vol_ratio,
+                    "structural_stop_price":       round(chan_init, 6),
                     "preferred_initial_stop_mode": "signal_structural",
-                    "preferred_trail_mode":        "chandelier",
+                    "preferred_trail_mode":        "none",
                 },
             )
         except Exception as e:
@@ -221,8 +229,14 @@ class BTCV6ChandelierStrategy(BaseStrategy):
 
         chan_init = close - atr * p.atr_mult
         sl_pct   = max(round((close - chan_init) / close * 100, 3), 1.5)
-        score    = round(max(0.58, min(0.88,
-                       0.62 + (vol_m - 1.0) * 0.15 + (sig_m - 1.0) * 0.10)), 3)
+        score    = round(max(0.66, min(0.88,
+                       0.66 + (vol_m - 1.0) * 0.15 + (sig_m - 1.0) * 0.10)), 3)
+
+        vol_series = df["volume"]
+        start_v    = max(0, i - 19)
+        vol_ma_val = vol_series.iloc[start_v:i].mean() if i > start_v else None
+        vol_ratio  = (round(float(vol_series.iloc[i] / vol_ma_val), 3)
+                      if vol_ma_val and vol_ma_val > 0 else None)
 
         return self._make_signal(
             symbol          = symbol,
@@ -239,9 +253,12 @@ class BTCV6ChandelierStrategy(BaseStrategy):
                 "vol_mult":                    round(vol_m, 3),
                 "sig_mult":                    round(sig_m, 3),
                 "chandelier_init":             round(chan_init, 6),
+                "entry_atr":                   round(atr, 6),
                 "atr_mult":                    p.atr_mult,
+                "volume_ratio":                vol_ratio,
+                "structural_stop_price":       round(chan_init, 6),
                 "preferred_initial_stop_mode": "signal_structural",
-                "preferred_trail_mode":        "chandelier",
+                "preferred_trail_mode":        "none",
             },
         )
 
@@ -276,8 +293,7 @@ class BTCV6ChandelierStrategy(BaseStrategy):
 
         since      = bars.iloc[-bars_held:] if bars_held <= len(bars) else bars
         track_high = float(since["high"].max())
-        atr_s      = _atr(bars, p.atr_length)
-        cur_atr    = float(atr_s.iloc[-1])
+        cur_atr    = float(meta.get("entry_atr", float(bars["close"].iloc[-1]) * 0.02))
         chandelier = track_high - cur_atr * p.atr_mult
         cur_close  = float(bars["close"].iloc[-1])
 

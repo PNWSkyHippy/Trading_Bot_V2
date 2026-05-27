@@ -79,6 +79,7 @@ class RAREStrategy(BaseStrategy):
         self.reviewer_exempt         = True
         self.ml_exempt               = True
         self.time_stop_profile       = "strategy_defined"
+        self.enabled                 = False  # WATCHLIST — needs backtest validation before live
 
         p = self.params
         self.candle_limit = max(p.zscore_window, p.autocorr_window) + p.adx_period + 30
@@ -110,12 +111,10 @@ class RAREStrategy(BaseStrategy):
             ret = c.pct_change()
 
             # ── Lag-1 autocorrelation ─────────────────────────────────────────
-            def rolling_autocorr(series: pd.Series, window: int) -> pd.Series:
-                result = series.rolling(window).apply(
-                    lambda x: pd.Series(x).autocorr(lag=1) if len(x) >= p.min_obs else np.nan,
-                    raw=False
-                )
-                return result
+            def rolling_autocorr(series: pd.Series, window: int, lag: int = 1) -> pd.Series:
+                # Vectorized rolling corr — O(N), not O(N²) like the lambda approach.
+                lagged = series.shift(lag)
+                return series.rolling(window).corr(lagged)
 
             autocorr = rolling_autocorr(ret, p.autocorr_window)
 
@@ -175,6 +174,10 @@ class RAREStrategy(BaseStrategy):
 
             self.verbose_log_score(symbol, score, 0.50)
 
+            vol_series = candles["volume"]
+            vol_ma     = vol_series.rolling(20).mean().iloc[-1]
+            vol_ratio  = round(float(vol_series.iloc[-1] / vol_ma), 3) if vol_ma > 0 else None
+
             return self._make_signal(
                 symbol          = symbol,
                 direction       = direction,
@@ -186,15 +189,17 @@ class RAREStrategy(BaseStrategy):
                 stop_loss_pct   = sl_pct,
                 take_profit_pct = tp_pct,
                 metadata={
-                    "strategy_name":         "rare_strategy",
-                    "entry_timeframe":        self.crypto_candle_timeframe,
-                    "_entry_bar_time":        str(candles.index[-1]),
-                    "autocorr":               round(ac_, 4),
-                    "zscore":                 round(z_, 3),
-                    "z_exit_thresh":          p.z_exit,
-                    "atr":                    round(atr_, 6),
-                    "structural_stop_price":  round(structural_stop, 6),
-                    "preferred_trail_mode":   "none",
+                    "strategy_name":               "rare_strategy",
+                    "entry_timeframe":              self.crypto_candle_timeframe,
+                    "_entry_bar_time":              str(candles.index[-1]),
+                    "autocorr":                     round(ac_, 4),
+                    "zscore":                       round(z_, 3),
+                    "z_exit_thresh":                p.z_exit,
+                    "atr":                          round(atr_, 6),
+                    "volume_ratio":                 vol_ratio,
+                    "structural_stop_price":        round(structural_stop, 6),
+                    "preferred_initial_stop_mode":  "signal_structural",
+                    "preferred_trail_mode":         "none",
                 },
             )
 

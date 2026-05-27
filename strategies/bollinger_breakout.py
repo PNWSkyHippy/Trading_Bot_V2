@@ -77,7 +77,6 @@ NEXT STEPS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
-import logging
 from typing import Optional
 
 import pandas as pd
@@ -108,7 +107,10 @@ class BollingerBreakout(BaseStrategy):
         self.strategy_name   = "bollinger_breakout"
         self.stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT
         self.take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT
-        self.logger = logging.getLogger("BollingerBreakout")
+        self.stock_enabled   = True
+        self.candle_limit    = 60   # EMA50 + ADX14 + BB20 + buffer
+        self.reviewer_exempt = True
+        self.time_stop_profile = "strategy_defined"
 
         # Crypto disabled: Apr 2026 live data showed 773 crypto trades at -$860.
         # Stocks at the same period: 123 trades, +$1,064.
@@ -291,6 +293,7 @@ class BollingerBreakout(BaseStrategy):
         # produces net-positive results. Threshold now in config.bb_adx_min.
         # ----------------------------------------------------------------
         adx_min = tuning.get("bb_adx_min", 30)
+        adx_val = None
         try:
             adx_df = ta.adx(candles["high"], candles["low"], candles["close"], length=14)
             if adx_df is not None and not adx_df.empty:
@@ -333,14 +336,34 @@ class BollingerBreakout(BaseStrategy):
             self.verbose_log_score(symbol, score, min_score)
 
             if score >= min_score:
+                vol_series = candles["volume"]
+                vol_ma     = vol_series.rolling(20).mean().iloc[-1]
+                vol_ratio  = round(float(vol_series.iloc[-1] / vol_ma), 3) if vol_ma > 0 else None
                 return self._make_signal(
-                    symbol    = symbol,
-                    direction = "long",
-                    score     = score,
-                    reason    = (
+                    symbol          = symbol,
+                    direction       = "long",
+                    score           = score,
+                    reason          = (
                         f"BB upper breakout: close={close:.4f} > upper={upper:.4f} "
                         f"{'(squeeze!)' if squeeze else ''}"
-                    )
+                    ),
+                    stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT,
+                    take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT,
+                    metadata        = {
+                        "strategy_name":               "bollinger_breakout",
+                        "bb_upper":                    round(float(upper), 4),
+                        "bb_lower":                    round(float(lower), 4),
+                        "bb_mid":                      round(float(mid), 4),
+                        "band_width":                  round(float(band_width), 4),
+                        "squeeze":                     bool(squeeze),
+                        "adx":                         round(adx_val, 2) if adx_val is not None else None,
+                        "rsi":                         round(float(rsi_now), 2),
+                        "obv_rising":                  bool(obv_rising),
+                        "ema50":                       round(float(ema50_val), 4),
+                        "volume_ratio":                vol_ratio,
+                        "preferred_initial_stop_mode": "percent",
+                        "preferred_trail_mode":        "percent",
+                    },
                 )
 
         # ----------------------------------------------------------------
@@ -353,7 +376,7 @@ class BollingerBreakout(BaseStrategy):
             symbol, "Price breaks below lower Bollinger Band (short)",
             breaks_lower, close, f"<{lower:.4f}", "short"
         )
-        if not getattr(self, "shorts_enabled", True):
+        if not getattr(self, "shorts_enabled", False):
             if breaks_lower:
                 self.verbose_log_skip(symbol, "Short signals disabled (shorts_enabled=False) — skipping")
             return None
@@ -373,14 +396,34 @@ class BollingerBreakout(BaseStrategy):
             self.verbose_log_score(symbol, score, min_score)
 
             if score >= min_score:
+                vol_series = candles["volume"]
+                vol_ma     = vol_series.rolling(20).mean().iloc[-1]
+                vol_ratio  = round(float(vol_series.iloc[-1] / vol_ma), 3) if vol_ma > 0 else None
                 return self._make_signal(
-                    symbol    = symbol,
-                    direction = "short",
-                    score     = score,
-                    reason    = (
+                    symbol          = symbol,
+                    direction       = "short",
+                    score           = score,
+                    reason          = (
                         f"BB lower breakout: close={close:.4f} < lower={lower:.4f} "
                         f"{'(squeeze!)' if squeeze else ''}"
-                    )
+                    ),
+                    stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT,
+                    take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT,
+                    metadata        = {
+                        "strategy_name":               "bollinger_breakout",
+                        "bb_upper":                    round(float(upper), 4),
+                        "bb_lower":                    round(float(lower), 4),
+                        "bb_mid":                      round(float(mid), 4),
+                        "band_width":                  round(float(band_width), 4),
+                        "squeeze":                     bool(squeeze),
+                        "adx":                         round(adx_val, 2) if adx_val is not None else None,
+                        "rsi":                         round(float(rsi_now), 2),
+                        "obv_falling":                 bool(obv_falling),
+                        "ema50":                       round(float(ema50_val), 4),
+                        "volume_ratio":                vol_ratio,
+                        "preferred_initial_stop_mode": "percent",
+                        "preferred_trail_mode":        "percent",
+                    },
                 )
 
         # No signal

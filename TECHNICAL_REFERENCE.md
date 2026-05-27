@@ -95,21 +95,36 @@ trading_bot_v2/
 │   ├── market_scanner.py      <- Primary: fetches bars per-timeframe, routes to strategies
 │   └── daily_market_scanner.py <- Post-market EOD scan, generates watchlist picks
 │
-├── strategies/                <- 11 independent trading strategies
+├── strategies/                <- 27 independent trading strategies
 │   ├── __init__.py
 │   ├── base_strategy.py       <- Abstract base; declares candle_timeframe per strategy
 │   ├── strategy_engine.py     <- Orchestrator: run_strategies_multi_tf(), tracks perf
-│   ├── rsi_momentum.py        <- Strategy 1  [DISABLED — backtest confirmed underperforming]
+│   ├── rsi_momentum.py        <- Strategy 1  [DISABLED — backtest underperforming]
 │   ├── bollinger_breakout.py  <- Strategy 2  [ENABLED, stocks only, auto_disable_exempt]
-│   ├── ema_crossover.py       <- Strategy 3  [DISABLED — backtest confirmed underperforming]
+│   ├── ema_crossover.py       <- Strategy 3  [DISABLED — backtest underperforming]
 │   ├── mean_reversion.py      <- Strategy 4  [ENABLED, stocks only, auto_disable_exempt]
 │   ├── scalp_master.py        <- Strategy 5  [ENABLED]
 │   ├── swing_trader.py        <- Strategy 6  [ENABLED, 1hr bars]
 │   ├── grid_bot.py            <- Strategy 7  [ENABLED, BEST PERFORMER, auto_disable_exempt, ml_exempt]
 │   ├── dca_accumulator.py     <- Strategy 8  [ENABLED, 1hr bars]
 │   ├── vwap_momentum.py       <- Strategy 9  [ENABLED, stocks only, 1hr bars]
-│   ├── hammer_reversal.py     <- Strategy 10 [ENABLED — monitor live performance]
-│   └── orb_breakout.py        <- Strategy 11 [DISABLED — pending backtest]
+│   ├── vwap_confirmed_orb.py  <- Strategy 10 [ENABLED, stocks 1h, VWAP-confirmed ORB]
+│   ├── hammer_reversal.py     <- Strategy 11 [ENABLED — monitor live performance]
+│   ├── orb_breakout.py        <- Strategy 12 [ENABLED, v3 sweep tuned: SL=1.5 TP=3.2]
+│   ├── adaptive_regime.py     <- Strategy 13 [ENABLED, dual-mode trend/mean-rev, v3 tuned: SL=1.5 TP=3.2]
+│   ├── ecb_strategy.py        <- Strategy 14 [CANDIDATE, crypto — Entropy Collapse Breakout]
+│   ├── vdmr_strategy.py       <- Strategy 15 [INCUBATE, crypto — Velocity-Deceleration MR]
+│   ├── rsi_dip_spike_v4.py    <- Strategy 16 [INCUBATE, crypto 1h — RSI Dip & Spike v4c, SMA+ADX]
+│   ├── bollinger_squeeze.py   <- Strategy 17 [INCUBATE, crypto, ml_exempt, v3 tuned: SL=2.8 TP=8.5]
+│   ├── mr_02_vef_strategy.py  <- Strategy 18 [INCUBATE — Volatility Exhaustion Fade 1h]
+│   ├── mr_03_fbs_strategy.py  <- Strategy 19 [INCUBATE — False Breakout Snap 1h]
+│   ├── mr_04_fvg_strategy.py  <- Strategy 20 [INCUBATE — Fair Value Gap Fill 1h]
+│   ├── btc_v6_chandelier.py   <- Strategy 21 [INCUBATE, crypto 1h, chandelier trailing stop, v3 tuned]
+│   ├── rsi_dip_simple.py      <- Strategy 22 [INCUBATE, crypto 1h, naked RSI(7), v3 tuned]
+│   ├── pll_cycle.py           <- Strategy 23+24 [23=base INCUBATE | 24=martingale PERMANENTLY DISABLED ($1k live loss)]
+│   ├── kds_mean_reversion.py  <- Strategy 25 [INCUBATE, 1d crypto/stock — KDS mean reversion]
+│   ├── ema_ribbon_breakout.py <- Strategy 26 [INCUBATE, 1d — EMA ribbon breakout, strong short edge]
+│   └── rcr_mean_reversion.py  <- Strategy 27 [INCUBATE, 1d crypto/stock — RCR mean reversion]
 │
 ├── intelligence/              <- AI and ML components
 │   ├── ml_scorer.py           <- ML signal enhancer (warm-up → learning → active)

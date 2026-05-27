@@ -1,17 +1,13 @@
 {
-  "generated": "2026-05-21T13:33:43.867238",
+  "generated": "2026-05-26T13:34:45.858157",
   "valid_until": "next_market_close",
-  "stocks": [],
+  "stocks": [
+    "ON",
+    "DELL",
+    "F"
+  ],
   "crypto": [
-    "TRX/USD",
-    "CC/USD",
-    "NEAR/USD",
-    "TAO/USD",
-    "HYPE/USD",
-    "RAIN/USD",
-    "ONDO/USD",
-    "WLFI/USD",
-    "SOL/USD",
-    "AVAX/USD"
+    "FIGR_HELOC/USD",
+    "OKB/USD"
   ]
 }

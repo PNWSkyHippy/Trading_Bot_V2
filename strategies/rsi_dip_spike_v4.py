@@ -458,6 +458,7 @@ class RSIDipSpikeV4Strategy(BaseStrategy):
         self.crypto_enabled          = True
         self.stock_enabled           = True    # 63% WR on stocks 5m backtest — enabled 2026-05-20
         self.crypto_candle_timeframe = "1h"
+        self.stock_candle_timeframe  = "5Min"  # 5m for equities — crypto stays on 1h
         self.reviewer_exempt         = True
         self.ml_exempt               = True     # ML model dominated by grid_bot (1507 trades) — RSI dip has 2 historical trades, blending produces noise not signal
 
@@ -547,7 +548,9 @@ class RSIDipSpikeV4Strategy(BaseStrategy):
                 metadata={
                     # Core signal data — real computed values only
                     "strategy_name":              "rsi_dip_spike_v4",
-                    "entry_timeframe":            self.crypto_candle_timeframe,
+                    "entry_timeframe":            (self.stock_candle_timeframe
+                                                   if "/" not in symbol
+                                                   else self.crypto_candle_timeframe),
                     "signal_mode":                p.signal_mode,
                     "rsi":                        round(rsi, 2),
                     "adx":                        round(adx, 2),
@@ -643,7 +646,9 @@ class RSIDipSpikeV4Strategy(BaseStrategy):
             take_profit_pct = tp_pct,
             metadata={
                 "strategy_name":               "rsi_dip_spike_v4",
-                "entry_timeframe":             self.crypto_candle_timeframe,
+                "entry_timeframe":             (self.stock_candle_timeframe
+                                                if "/" not in symbol
+                                                else self.crypto_candle_timeframe),
                 "signal_mode":                 p.signal_mode,
                 "rsi":                         round(rsi, 2),
                 "adx":                         round(adx, 2),

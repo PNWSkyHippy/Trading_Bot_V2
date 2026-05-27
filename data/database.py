@@ -90,6 +90,7 @@ class Database:
                     take_profit     REAL,
                     pnl             REAL DEFAULT 0,
                     pnl_pct         REAL DEFAULT 0,
+                    fees_paid       REAL DEFAULT 0,
                     exit_reason     TEXT,
                     signal_score    REAL,
                     indicators_json TEXT,
@@ -156,6 +157,7 @@ class Database:
                     close_date      TEXT NOT NULL,
                     proceeds        REAL NOT NULL,
                     cost_basis      REAL NOT NULL,
+                    fees_paid       REAL NOT NULL DEFAULT 0,
                     gain_loss       REAL NOT NULL,
                     hold_days       INTEGER NOT NULL,
                     term            TEXT NOT NULL,
@@ -249,6 +251,15 @@ class Database:
                     updated_at      TEXT NOT NULL
                 );
             """)
+            # Column migrations for existing databases (ALTER TABLE ignores if already present)
+            for sql in [
+                "ALTER TABLE trades    ADD COLUMN fees_paid REAL DEFAULT 0",
+                "ALTER TABLE tax_ledger ADD COLUMN fees_paid REAL NOT NULL DEFAULT 0",
+            ]:
+                try:
+                    conn.execute(sql)
+                except Exception:
+                    pass  # column already exists
 
             # Safe migrations
             migrations = [
@@ -315,7 +326,8 @@ class Database:
         logger.info(f"Trade opened: {trade['symbol']} @ {trade['entry_price']}")
 
     def close_trade(self, trade_id: str, exit_price: float,
-                    exit_reason: str, pnl: float, pnl_pct: float):
+                    exit_reason: str, pnl: float, pnl_pct: float,
+                    fees_paid: float = 0.0):
         with self._conn() as conn:
             conn.execute("""
                 UPDATE trades SET
@@ -324,10 +336,11 @@ class Database:
                     exit_price  = ?,
                     exit_reason = ?,
                     pnl         = ?,
-                    pnl_pct     = ?
+                    pnl_pct     = ?,
+                    fees_paid   = ?
                 WHERE trade_id = ?
             """, (_now_local().isoformat(), exit_price, exit_reason,
-                  pnl, pnl_pct, trade_id))
+                  pnl, pnl_pct, fees_paid, trade_id))
 
     def update_trade_order_ids(self, trade_id: str,
                                stop_order_id: str = None,
@@ -556,19 +569,23 @@ class Database:
         hold_days = (close_dt - open_dt).days
         proceeds  = trade["exit_price"] * trade["quantity"]
         cost_basis= trade["entry_price"] * trade["quantity"]
-        gain_loss = proceeds - cost_basis
+        fees_paid = float(trade.get("fees_paid") or 0.0)
+        # gain_loss net of fees — correct for tax purposes (fees reduce taxable gain)
+        gain_loss = proceeds - cost_basis - fees_paid
         term      = "long" if hold_days >= 365 else "short"
         tax_year  = close_dt.year
         with self._conn() as conn:
             conn.execute("""
                 INSERT OR REPLACE INTO tax_ledger
                     (trade_id, symbol, open_date, close_date, proceeds,
-                     cost_basis, gain_loss, hold_days, term, tax_year)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     cost_basis, fees_paid, gain_loss, hold_days, term, tax_year)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 trade["trade_id"], trade["symbol"],
                 open_dt.date().isoformat(), close_dt.date().isoformat(),
-                proceeds, cost_basis, gain_loss, hold_days, term, tax_year
+                round(proceeds, 4), round(cost_basis, 4),
+                round(fees_paid, 4), round(gain_loss, 4),
+                hold_days, term, tax_year
             ))
 
     def get_tax_year_summary(self, year: int) -> Dict:

@@ -1,0 +1,6159 @@
+{
+  "meta": {
+    "strategy": "bollinger_squeeze",
+    "symbols": [
+      "TSLA",
+      "AMD",
+      "NVDA"
+    ],
+    "timeframe": "1h",
+    "days": 365,
+    "asset_class": "stock",
+    "direction": "both",
+    "method": "matrix",
+    "iterations": 60,
+    "metric": "profit_factor",
+    "params": [
+      {
+        "name": "stop_loss_pct",
+        "min": 2.8,
+        "max": 4.2,
+        "step": 0.15,
+        "is_int": false
+      },
+      {
+        "name": "take_profit_pct",
+        "min": 8.5,
+        "max": 12.5,
+        "step": 0.25,
+        "is_int": false
+      }
+    ],
+    "started_at": "2026-05-25T10:17:12.128625",
+    "finished_at": "2026-05-25T10:37:18.490012",
+    "cancelled": false,
+    "total_tested": 170
+  },
+  "results": [
+    {
+      "params": {
+        "stop_loss_pct": 2.8,
+        "take_profit_pct": 8.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.8,
+        "take_profit_pct": 8.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.8,
+        "take_profit_pct": 9.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.8,
+        "take_profit_pct": 9.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.8,
+        "take_profit_pct": 9.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.8,
+        "take_profit_pct": 9.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.8,
+        "take_profit_pct": 10.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.8,
+        "take_profit_pct": 10.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.8,
+        "take_profit_pct": 10.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.8,
+        "take_profit_pct": 10.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.8,
+        "take_profit_pct": 11.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.8,
+        "take_profit_pct": 11.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.8,
+        "take_profit_pct": 11.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.8,
+        "take_profit_pct": 11.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.8,
+        "take_profit_pct": 12.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.8,
+        "take_profit_pct": 12.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.8,
+        "take_profit_pct": 12.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.95,
+        "take_profit_pct": 8.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.95,
+        "take_profit_pct": 8.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.95,
+        "take_profit_pct": 9.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.95,
+        "take_profit_pct": 9.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.95,
+        "take_profit_pct": 9.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.95,
+        "take_profit_pct": 9.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.95,
+        "take_profit_pct": 10.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.95,
+        "take_profit_pct": 10.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.95,
+        "take_profit_pct": 10.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.95,
+        "take_profit_pct": 10.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.95,
+        "take_profit_pct": 11.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.95,
+        "take_profit_pct": 11.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.95,
+        "take_profit_pct": 11.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.95,
+        "take_profit_pct": 11.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.95,
+        "take_profit_pct": 12.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.95,
+        "take_profit_pct": 12.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.95,
+        "take_profit_pct": 12.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 8.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 8.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 9.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 9.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 9.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 9.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 10.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 10.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 10.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 10.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 11.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 11.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 11.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 11.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 12.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 12.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 12.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.25,
+        "take_profit_pct": 8.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.25,
+        "take_profit_pct": 8.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.25,
+        "take_profit_pct": 9.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.25,
+        "take_profit_pct": 9.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.25,
+        "take_profit_pct": 9.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.25,
+        "take_profit_pct": 9.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.25,
+        "take_profit_pct": 10.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.25,
+        "take_profit_pct": 10.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.25,
+        "take_profit_pct": 10.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.25,
+        "take_profit_pct": 10.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.25,
+        "take_profit_pct": 11.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.25,
+        "take_profit_pct": 11.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.25,
+        "take_profit_pct": 11.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.25,
+        "take_profit_pct": 11.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.25,
+        "take_profit_pct": 12.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.25,
+        "take_profit_pct": 12.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.25,
+        "take_profit_pct": 12.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.4,
+        "take_profit_pct": 8.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.4,
+        "take_profit_pct": 8.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.4,
+        "take_profit_pct": 9.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.4,
+        "take_profit_pct": 9.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.4,
+        "take_profit_pct": 9.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.4,
+        "take_profit_pct": 9.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.4,
+        "take_profit_pct": 10.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.4,
+        "take_profit_pct": 10.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.4,
+        "take_profit_pct": 10.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.4,
+        "take_profit_pct": 10.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.4,
+        "take_profit_pct": 11.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.4,
+        "take_profit_pct": 11.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.4,
+        "take_profit_pct": 11.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.4,
+        "take_profit_pct": 11.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.4,
+        "take_profit_pct": 12.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.4,
+        "take_profit_pct": 12.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.4,
+        "take_profit_pct": 12.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.55,
+        "take_profit_pct": 8.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.55,
+        "take_profit_pct": 8.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.55,
+        "take_profit_pct": 9.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.55,
+        "take_profit_pct": 9.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.55,
+        "take_profit_pct": 9.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.55,
+        "take_profit_pct": 9.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.55,
+        "take_profit_pct": 10.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.55,
+        "take_profit_pct": 10.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.55,
+        "take_profit_pct": 10.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.55,
+        "take_profit_pct": 10.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.55,
+        "take_profit_pct": 11.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.55,
+        "take_profit_pct": 11.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.55,
+        "take_profit_pct": 11.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.55,
+        "take_profit_pct": 11.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.55,
+        "take_profit_pct": 12.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.55,
+        "take_profit_pct": 12.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.55,
+        "take_profit_pct": 12.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.7,
+        "take_profit_pct": 8.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.7,
+        "take_profit_pct": 8.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.7,
+        "take_profit_pct": 9.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.7,
+        "take_profit_pct": 9.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.7,
+        "take_profit_pct": 9.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.7,
+        "take_profit_pct": 9.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.7,
+        "take_profit_pct": 10.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.7,
+        "take_profit_pct": 10.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.7,
+        "take_profit_pct": 10.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.7,
+        "take_profit_pct": 10.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.7,
+        "take_profit_pct": 11.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.7,
+        "take_profit_pct": 11.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.7,
+        "take_profit_pct": 11.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.7,
+        "take_profit_pct": 11.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.7,
+        "take_profit_pct": 12.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.7,
+        "take_profit_pct": 12.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.7,
+        "take_profit_pct": 12.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.85,
+        "take_profit_pct": 8.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.85,
+        "take_profit_pct": 8.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.85,
+        "take_profit_pct": 9.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.85,
+        "take_profit_pct": 9.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.85,
+        "take_profit_pct": 9.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.85,
+        "take_profit_pct": 9.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.85,
+        "take_profit_pct": 10.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.85,
+        "take_profit_pct": 10.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.85,
+        "take_profit_pct": 10.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.85,
+        "take_profit_pct": 10.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.85,
+        "take_profit_pct": 11.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.85,
+        "take_profit_pct": 11.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.85,
+        "take_profit_pct": 11.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.85,
+        "take_profit_pct": 11.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.85,
+        "take_profit_pct": 12.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.85,
+        "take_profit_pct": 12.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.85,
+        "take_profit_pct": 12.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 8.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 8.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 9.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 9.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 9.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 9.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 10.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 10.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 10.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 10.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 11.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 11.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 11.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 11.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 12.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 12.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 12.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.15,
+        "take_profit_pct": 8.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.15,
+        "take_profit_pct": 8.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.15,
+        "take_profit_pct": 9.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.15,
+        "take_profit_pct": 9.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.15,
+        "take_profit_pct": 9.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.15,
+        "take_profit_pct": 9.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.15,
+        "take_profit_pct": 10.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.15,
+        "take_profit_pct": 10.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.15,
+        "take_profit_pct": 10.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.15,
+        "take_profit_pct": 10.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.15,
+        "take_profit_pct": 11.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.15,
+        "take_profit_pct": 11.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.15,
+        "take_profit_pct": 11.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.15,
+        "take_profit_pct": 11.75
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.15,
+        "take_profit_pct": 12.0
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.15,
+        "take_profit_pct": 12.25
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.15,
+        "take_profit_pct": 12.5
+      },
+      "score": 3.59,
+      "avg_profit_factor": 3.59,
+      "avg_win_rate": 55.6,
+      "avg_net_pnl": 4.2,
+      "consistency": 1.0,
+      "symbols_tested": 3,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 3.06,
+          "net_pnl": 9.57
+        },
+        {
+          "symbol": "AMD",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.73,
+          "net_pnl": 2.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 2.98,
+          "net_pnl": 0.24
+        }
+      ]
+    }
+  ]
+}

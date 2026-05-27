@@ -915,7 +915,8 @@ function DBBrowserPanel() {
 
   function applyResult(data, title) {
     if (data.error) { st(data.error, 'err'); return; }
-    const hasRowid = data.cols && data.cols[0] === 'rowid';
+    if (!data.rows || !data.cols) { st('No data returned', 'err'); return; }
+    const hasRowid = data.cols[0] === 'rowid';
     setRowids(hasRowid ? data.rows.map(r => r[0]) : data.rows.map(() => null));
     setCols(hasRowid ? data.cols.slice(1) : data.cols);
     setRows(hasRowid ? data.rows.map(r => r.slice(1)) : data.rows);

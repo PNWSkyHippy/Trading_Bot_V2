@@ -95,6 +95,7 @@ class FELSStrategy(BaseStrategy):
         self.reviewer_exempt         = True
         self.ml_exempt               = True
         self.time_stop_profile       = "strategy_defined"
+        self.enabled                 = False  # WATCHLIST — needs backtest validation before live
 
         p = self.params
         self.candle_limit = p.lookback + p.atr_length + 50
@@ -191,6 +192,10 @@ class FELSStrategy(BaseStrategy):
 
             self.verbose_log_score(symbol, score, 0.50)
 
+            vol_series = candles["volume"]
+            vol_ma     = vol_series.rolling(20).mean().iloc[-1]
+            vol_ratio  = round(float(vol_series.iloc[-1] / vol_ma), 3) if vol_ma > 0 else None
+
             return self._make_signal(
                 symbol          = symbol,
                 direction       = direction,
@@ -202,14 +207,16 @@ class FELSStrategy(BaseStrategy):
                 stop_loss_pct   = sl_pct,
                 take_profit_pct = tp_pct,
                 metadata={
-                    "strategy_name":         "fels_strategy",
-                    "entry_timeframe":        self.crypto_candle_timeframe,
-                    "_entry_bar_time":        str(candles.index[-1]),
-                    "wick_atr_size":          round(wick_size, 3),
-                    "adx":                    round(adx_, 2),
-                    "atr":                    round(atr_, 6),
-                    "structural_stop_price":  round(stop_price, 6),
-                    "preferred_trail_mode":   "none",
+                    "strategy_name":               "fels_strategy",
+                    "entry_timeframe":              self.crypto_candle_timeframe,
+                    "_entry_bar_time":              str(candles.index[-1]),
+                    "wick_atr_size":                round(wick_size, 3),
+                    "adx":                          round(adx_, 2),
+                    "atr":                          round(atr_, 6),
+                    "volume_ratio":                 vol_ratio,
+                    "structural_stop_price":        round(stop_price, 6),
+                    "preferred_initial_stop_mode":  "signal_structural",
+                    "preferred_trail_mode":         "none",
                 },
             )
 

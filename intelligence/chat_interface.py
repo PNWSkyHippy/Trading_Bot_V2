@@ -53,10 +53,16 @@ CLAUDE_MODEL = "claude-haiku-4-5-20251001"
 
 # All valid strategy names — used by pre-parser
 STRATEGY_NAMES = [
+    # Strategies 1-11 (original)
     "rsi_momentum", "bollinger_breakout", "ema_crossover", "mean_reversion", "adaptive_regime",
-    "scalp_master", "swing_trader", "grid_bot", "dca_accumulator", "ecb_strategy", "bollinger_squeeze",
-    "vwap_momentum", "hammer_reversal", "orb_breakout", "rsi_dip_spike_v4","vdmr_strategy",
-    "vwap_confirmed_orb",
+    "scalp_master", "swing_trader", "grid_bot", "dca_accumulator", "vwap_momentum", "hammer_reversal",
+    "orb_breakout",
+    # Strategies 12-21
+    "ecb_strategy", "vdmr_strategy", "rsi_dip_spike_v4", "vwap_confirmed_orb",
+    "bollinger_squeeze", "mr_02_vef", "mr_03_fbs", "mr_04_fvg",
+    # Strategies 22-27 (incubate / new)
+    "btc_v6_chandelier", "rsi_dip_simple", "pll_cycle", "pll_cycle_martingale",
+    "kds_mean_reversion", "ema_ribbon_breakout", "rcr_mean_reversion",
 ]
 
 # Watchlist file paths
@@ -77,10 +83,12 @@ CRITICAL RULES:
 - halt_trading and withdraw require explicit confirmation.
 
 STRATEGY COMMANDS:
-Valid names: rsi_momentum, bollinger_breakout, ema_crossover, mean_reversion,
-scalp_master, swing_trader, grid_bot, dca_accumulator, vwap_momentum, bollinger_squeeze,
-hammer_reversal, orb_breakout, adaptive_regime, rsi_dip_spike_v4, vdmr_strategy, ecb_strategy,
-vwap_confirmed_orb
+Valid names: rsi_momentum, bollinger_breakout, ema_crossover, mean_reversion, adaptive_regime,
+scalp_master, swing_trader, grid_bot, dca_accumulator, vwap_momentum, hammer_reversal, orb_breakout,
+ecb_strategy, vdmr_strategy, rsi_dip_spike_v4, vwap_confirmed_orb, bollinger_squeeze,
+mr_02_vef, mr_03_fbs, mr_04_fvg,
+btc_v6_chandelier, rsi_dip_simple, pll_cycle, pll_cycle_martingale (PERMANENTLY DISABLED — NEVER enable, blew $1000 live),
+kds_mean_reversion, ema_ribbon_breakout, rcr_mean_reversion
 
 When user says "enable X" or "disable X" — execute IMMEDIATELY, no questions.
 Do NOT say the strategy doesn't exist. Do NOT list strategies first. Just do it.

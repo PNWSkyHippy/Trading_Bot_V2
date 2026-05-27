@@ -1,0 +1,503 @@
+========================================================================
+  STRATEGY MATRIX REPORT
+========================================================================
+  Strategy   : btc_v6_chandelier
+  Period     : 365 days
+  Timeframes : 1h, 1d
+  Directions : long, short, both
+  Crypto     : BTC/USD, ETH/USD, SOL/USD, BNB/USD, XRP/USD, LTC/USD, BCH/USD, ADA/USD, AVAX/USD, DOT/USD, NEAR/USD, TRX/USD, ATOM/USD, ALGO/USD, INJ/USD, SEI/USD, EGLD/USD, ONE/USD, HBAR/USD, VET/USD, EOS/USD, XTZ/USD, FLOW/USD, ARB/USD, OP/USD, STRK/USD, MANTA/USD, AAVE/USD, LINK/USD, MKR/USD, CRV/USD, SNX/USD, BAL/USD, SUSHI/USD, YFI/USD, LDO/USD, RPL/USD, PENDLE/USD, JUP/USD, CAKE/USD, WLD/USD, OCEAN/USD, AGIX/USD, NMR/USD, RLC/USD, AXS/USD, SAND/USD, MANA/USD, ENJ/USD, GALA/USD, ILV/USD, GODS/USD, OKB/USD, KCS/USD, GT/USD, HT/USD, FIL/USD, AR/USD, HNT/USD, THETA/USD, HOT/USD, SC/USD, ZEC/USD, XMR/USD, DASH/USD, DOGE/USD, WIF/USD, BONK/USD, TRUMP/USD, MELANIA/USD, FLOKI/USD, RUNE/USD, ZRX/USD, REN/USD, ANKR/USD, TIA/USD, DYM/USD, PYTH/USD, JTO/USD, BOME/USD, W/USD, TNSR/USD, ETHFI/USD, REZ/USD, NOT/USD, LISTA/USD, RENDER/USD
+  Stocks     : NVDA, META, TSLA, MSFT, NFLX, AMD, INTC, MRVL, ALAB, QCOM, TXN, LRCX, KLAC, AMAT, MU, ON, MPWR, PLTR, CRM, SNOW, DDOG, NET, NOW, CRWD, ZS, OKTA, PANW, GTLB, PATH, AI, BBAI, SOUN, IONQ, COIN, HOOD, AFRM, SOFI, NU, PYPL, NIO, LI, XPEV, RIVN, LCID, CHPT, PLUG, FCEL, BE, MP, FSLR, ENPH, SEDG, MRNA, BNTX, GILD, REGN, VRTX, BIIB, RXRX, NVAX, PFE, OGN, ACHR, LUNR, RKLB, ASTS, SPCE, LMT, RTX, NOC, BA, CRWV, APLD, IREN, MARA, RIOT, CLSK, OKLO, SMR, NNE, MSTR, HIVE, BTDR, WULF, CIFR, CORZ, AAOI, CLS, CIEN, BABA, JD, PDD, BIDU, AMZN, SHOP, CVNA, JPM, BAC, GS, MS, BX, KKR, XOM, CVX, OXY, SLB, HAL, DVN, ISRG, DXCM, HIMS, TDOC, SIDU, ZIM, DAC, UPST, OPEN, SPWR
+  Generated  : 2026-05-24T19:59:17
+
+========================================================================
+  OVERALL SUMMARY
+========================================================================
+  Total cells tested    : 658
+  Overall avg PF        : 1.495
+  Cells with edge (PF>=1.2) : 222  (33.7%)
+  Verdict               : SELECTIVE EDGE -- works in specific conditions only
+
+  -- CONDITIONS RANKED BY AVERAGE PF (best first) --
+  Condition     Avg PF  Avg WR%  Symbols  Edge cnt   Edge%
+  ------------ ------- -------- -------- --------- -------
+  1d/long        2.581    56.4%      127        52     41% <-- best
+  1d/both        2.581    56.4%      127        52     41%
+  1h/long        0.968    33.2%      202        59     29%
+  1h/both        0.968    33.2%      202        59     29%
+  1h/short       0.000     0.0%        0         0      0%
+  1d/short       0.000     0.0%        0         0      0%
+
+  -- SYMBOLS RANKED BY AVERAGE PF (best first) --
+  Symbol           Class     Avg PF  Avg WR%  Conditions  Edge cnt   Edge%
+  ---------------- -------- ------- -------- ----------- --------- -------
+  FIL/USD          crypto    14.035    34.0%           4         2     50%
+  SPWR             stock     11.815    53.4%           4         4    100%
+  KLAC             stock      7.930    43.3%           4         2     50%
+  PLUG             stock      7.455    65.0%           4         4    100%
+  HT/USD           crypto     7.175    50.8%           4         2     50%
+  BABA             stock      5.805    48.8%           4         4    100%
+  MARA             stock      4.920    52.4%           2         2    100%
+  PLTR             stock      4.810    45.9%           4         2     50%
+  GS               stock      4.545    55.5%           4         2     50%
+  OPEN             stock      4.090    50.0%           2         2    100%
+  NVDA             stock      4.025    54.5%           4         2     50%
+  CLSK             stock      3.490    46.5%           4         2     50%
+  WULF             stock      3.440    61.5%           4         4    100%
+  QCOM             stock      3.235    51.7%           4         4    100%
+  LUNR             stock      3.060    50.7%           4         4    100%
+  TRUMP/USD        crypto     2.785    27.9%           4         2     50%
+  COIN             stock      2.740    61.5%           2         2    100%
+  AGIX/USD         crypto     2.550    17.9%           2         2    100%
+  BE               stock      2.440    78.2%           4         2     50%
+  MSFT             stock      2.435    48.1%           4         2     50%
+  CLS              stock      2.420    51.0%           2         2    100%
+  MKR/USD          crypto     2.315    47.4%           4         2     50%
+  AXS/USD          crypto     2.265    50.4%           4         2     50%
+  OKTA             stock      2.240    38.5%           2         2    100%
+  MRVL             stock      2.200    44.2%           2         2    100%
+  LRCX             stock      2.195    48.2%           4         4    100%
+  SMR              stock      2.150    44.4%           2         2    100%
+  AMZN             stock      2.140    43.5%           4         2     50%
+  MPWR             stock      2.115    49.0%           4         2     50%
+  MRNA             stock      2.100    51.6%           4         4    100%
+  APLD             stock      2.085    55.9%           4         4    100%
+  OP/USD           crypto     2.070    33.4%           4         2     50%
+  AMAT             stock      2.040    46.3%           2         2    100%
+  BIIB             stock      2.010    44.4%           4         2     50%
+  NNE              stock      2.000    77.2%           4         2     50%
+  SLB              stock      1.930    58.0%           4         2     50%
+  NMR/USD          crypto     1.855    29.6%           4         2     50%
+  RTX              stock      1.835    46.5%           4         2     50%
+  CRM              stock      1.825    47.4%           4         2     50%
+  BIDU             stock      1.800    58.9%           4         4    100%
+  NOC              stock      1.710    38.4%           4         2     50%
+  CVX              stock      1.700    48.1%           4         4    100%
+  TSLA             stock      1.695    48.6%           4         4    100%
+  LCID             stock      1.680    33.3%           2         2    100%
+  OKLO             stock      1.640    65.5%           4         2     50%
+  DXCM             stock      1.635    41.6%           4         2     50%
+  MSTR             stock      1.610    36.4%           2         2    100%
+  SEDG             stock      1.590    42.1%           4         2     50%
+  JPM              stock      1.585    41.2%           4         2     50%
+  BAL/USD          crypto     1.570    22.7%           2         2    100%
+  DVN              stock      1.550    69.5%           4         2     50%
+  AAOI             stock      1.500    42.0%           4         4    100%
+  BBAI             stock      1.495    32.6%           4         2     50%
+  HOOD             stock      1.490    69.8%           4         2     50%
+  GILD             stock      1.490    51.9%           4         2     50%
+  RIOT             stock      1.485    59.6%           4         4    100%
+  ALAB             stock      1.460    38.9%           4         4    100%
+  FSLR             stock      1.460    74.0%           4         2     50%
+  CRWV             stock      1.450    48.6%           2         2    100%
+  NIO              stock      1.440    38.6%           2         2    100%
+  DAC              stock      1.440    53.0%           4         4    100%
+  AMD              stock      1.420    68.9%           4         2     50%
+  FCEL             stock      1.360    44.4%           2         2    100%
+  LMT              stock      1.350    56.5%           4         2     50%
+  MP               stock      1.325    37.4%           4         4    100%
+  TXN              stock      1.295    46.0%           4         2     50%
+  LDO/USD          crypto     1.245    36.0%           4         2     50%
+  SHOP             stock      1.240    47.5%           4         2     50%
+  CHPT             stock      1.230    43.5%           2         2    100%
+  MS               stock      1.230    45.8%           2         2    100%
+  BTDR             stock      1.220    59.5%           4         2     50%
+  AFRM             stock      1.210    34.3%           4         2     50%
+  IREN             stock      1.210    56.7%           4         2     50%
+  NVAX             stock      1.200    39.0%           4         2     50%
+  ON               stock      1.190    40.6%           4         2     50%
+  ACHR             stock      1.190    38.1%           2         0      0%
+  CIEN             stock      1.190    48.4%           2         0      0%
+  SOL/USD          crypto     1.180    45.7%           4         2     50%
+  NEAR/USD         crypto     1.170    34.8%           4         2     50%
+  SNOW             stock      1.150    44.4%           4         0      0%
+  MU               stock      1.130    69.0%           4         0      0%
+  XMR/USD          crypto     1.120    38.8%           4         2     50%
+  PYTH/USD         crypto     1.120    39.1%           4         2     50%
+  CRWD             stock      1.100    36.7%           2         0      0%
+  HAL              stock      1.090    71.1%           4         0      0%
+  TDOC             stock      1.090    41.5%           2         0      0%
+  WIF/USD          crypto     1.065    35.5%           4         2     50%
+  BAC              stock      1.060    38.8%           4         2     50%
+  ZEC/USD          crypto     1.050    42.1%           4         2     50%
+  XOM              stock      1.040    54.8%           4         2     50%
+  ZIM              stock      1.040    38.2%           2         0      0%
+  RXRX             stock      1.035    37.1%           4         2     50%
+  VRTX             stock      1.030    40.0%           2         0      0%
+  ETH/USD          crypto     1.025    40.4%           4         2     50%
+  RIVN             stock      1.020    38.5%           4         0      0%
+  CIFR             stock      1.020    59.7%           4         0      0%
+  DDOG             stock      1.010    37.8%           4         0      0%
+  OXY              stock      1.010    73.2%           4         0      0%
+  META             stock      1.000    59.0%           4         2     50%
+  PFE              stock      0.950    33.3%           2         0      0%
+  ZS               stock      0.945    50.0%           4         2     50%
+  OCEAN/USD        crypto     0.935    24.3%           4         2     50%
+  SIDU             stock      0.935    43.5%           4         0      0%
+  RKLB             stock      0.920    33.7%           4         2     50%
+  HIMS             stock      0.920    47.2%           2         0      0%
+  TRX/USD          crypto     0.890    20.6%           4         2     50%
+  SOFI             stock      0.890    37.0%           2         0      0%
+  XPEV             stock      0.890    40.5%           2         0      0%
+  JD               stock      0.870    48.8%           2         0      0%
+  PENDLE/USD       crypto     0.865    50.4%           4         2     50%
+  ILV/USD          crypto     0.845    32.6%           4         2     50%
+  NU               stock      0.840    70.3%           4         0      0%
+  INTC             stock      0.830    69.8%           4         0      0%
+  CORZ             stock      0.830    46.0%           4         0      0%
+  LI               stock      0.810    30.6%           2         0      0%
+  SOUN             stock      0.795    36.4%           4         2     50%
+  PANW             stock      0.785    37.5%           4         0      0%
+  STRK/USD         crypto     0.770    18.2%           2         0      0%
+  REGN             stock      0.770    42.9%           2         0      0%
+  ASTS             stock      0.750    39.1%           4         0      0%
+  KKR              stock      0.750    32.1%           2         0      0%
+  ISRG             stock      0.750    28.0%           4         0      0%
+  ENPH             stock      0.740    43.8%           2         0      0%
+  PATH             stock      0.720    40.0%           2         0      0%
+  HIVE             stock      0.720    43.3%           4         2     50%
+  OGN              stock      0.685    34.5%           4         0      0%
+  NOW              stock      0.680    30.4%           2         0      0%
+  ENJ/USD          crypto     0.650    31.1%           4         0      0%
+  BA               stock      0.640    37.5%           4         0      0%
+  FLOW/USD         crypto     0.590    17.5%           2         0      0%
+  DASH/USD         crypto     0.590    28.9%           4         0      0%
+  AI               stock      0.580    38.9%           2         0      0%
+  BX               stock      0.565    31.0%           4         0      0%
+  FLOKI/USD        crypto     0.560    46.6%           4         0      0%
+  IONQ             stock      0.555    36.1%           4         0      0%
+  UPST             stock      0.550    38.1%           2         0      0%
+  BNTX             stock      0.540    37.1%           2         0      0%
+  SPCE             stock      0.540    69.0%           4         0      0%
+  PDD              stock      0.540    45.1%           4         0      0%
+  TNSR/USD         crypto     0.530    30.5%           2         0      0%
+  SNX/USD          crypto     0.515    39.1%           4         0      0%
+  MANA/USD         crypto     0.515    35.4%           4         0      0%
+  RPL/USD          crypto     0.500    19.4%           4         0      0%
+  REZ/USD          crypto     0.500    26.8%           4         0      0%
+  LISTA/USD        crypto     0.500    25.7%           2         0      0%
+  RUNE/USD         crypto     0.495    23.0%           4         0      0%
+  RENDER/USD       crypto     0.490    27.6%           4         0      0%
+  NET              stock      0.490    23.8%           2         0      0%
+  CAKE/USD         crypto     0.475    35.0%           4         0      0%
+  W/USD            crypto     0.460    24.6%           4         0      0%
+  MANTA/USD        crypto     0.450    27.2%           2         0      0%
+  BONK/USD         crypto     0.450    28.9%           2         0      0%
+  HNT/USD          crypto     0.440    26.0%           2         0      0%
+  GODS/USD         crypto     0.430    28.6%           2         0      0%
+  GTLB             stock      0.430    34.6%           2         0      0%
+  REN/USD          crypto     0.420    22.2%           2         0      0%
+  JTO/USD          crypto     0.420    25.4%           2         0      0%
+  ALGO/USD         crypto     0.410    22.3%           2         0      0%
+  INJ/USD          crypto     0.410    24.8%           2         0      0%
+  WLD/USD          crypto     0.410    23.6%           2         0      0%
+  TIA/USD          crypto     0.390    22.6%           2         0      0%
+  DYM/USD          crypto     0.380    25.5%           2         0      0%
+  NOT/USD          crypto     0.380    24.8%           2         0      0%
+  ZRX/USD          crypto     0.370    30.6%           4         0      0%
+  OKB/USD          crypto     0.360    29.1%           4         0      0%
+  THETA/USD        crypto     0.360    61.9%           4         0      0%
+  AVAX/USD         crypto     0.350    59.5%           4         0      0%
+  HBAR/USD         crypto     0.350    61.5%           4         0      0%
+  AR/USD           crypto     0.340    25.0%           2         0      0%
+  ANKR/USD         crypto     0.340    24.4%           2         0      0%
+  PYPL             stock      0.340    25.8%           2         0      0%
+  CVNA             stock      0.325    42.4%           4         0      0%
+  RLC/USD          crypto     0.300    31.8%           4         0      0%
+  DOGE/USD         crypto     0.300    34.2%           4         0      0%
+  EGLD/USD         crypto     0.290    21.5%           2         0      0%
+  SAND/USD         crypto     0.290    24.8%           2         0      0%
+  YFI/USD          crypto     0.280    18.9%           2         0      0%
+  BCH/USD          crypto     0.270    15.7%           2         0      0%
+  CRV/USD          crypto     0.270    33.6%           4         0      0%
+  ATOM/USD         crypto     0.260    19.7%           2         0      0%
+  NFLX             stock      0.260    24.3%           4         0      0%
+  BOME/USD         crypto     0.250    19.3%           2         0      0%
+  BNB/USD          crypto     0.230    21.3%           2         0      0%
+  VET/USD          crypto     0.230    19.1%           2         0      0%
+  EOS/USD          crypto     0.230    44.8%           4         0      0%
+  SUSHI/USD        crypto     0.230    58.4%           4         0      0%
+  XTZ/USD          crypto     0.215    19.2%           4         0      0%
+  LTC/USD          crypto     0.210    14.0%           4         0      0%
+  ONE/USD          crypto     0.210    14.4%           4         0      0%
+  LINK/USD         crypto     0.210    21.1%           2         0      0%
+  GALA/USD         crypto     0.210    21.4%           2         0      0%
+  SEI/USD          crypto     0.200    19.7%           2         0      0%
+  XRP/USD          crypto     0.180    14.3%           2         0      0%
+  SC/USD           crypto     0.180    17.2%           2         0      0%
+  BTC/USD          crypto     0.175    22.1%           4         0      0%
+  KCS/USD          crypto     0.170    19.6%           4         0      0%
+  ETHFI/USD        crypto     0.165    22.5%           4         0      0%
+  ADA/USD          crypto     0.150    11.9%           2         0      0%
+  GT/USD           crypto     0.150    16.3%           4         0      0%
+  MELANIA/USD      crypto     0.140     5.5%           2         0      0%
+  DOT/USD          crypto     0.130    12.3%           2         0      0%
+  AAVE/USD         crypto     0.130    13.2%           2         0      0%
+  ARB/USD          crypto     0.000     0.0%           0         0      0%
+  JUP/USD          crypto     0.000     0.0%           0         0      0%
+  HOT/USD          crypto     0.000     0.0%           0         0      0%
+
+  -- TOP EDGE CELLS  (PF >= 1.2, >= 2 trades) --
+  #    Symbol           TF    Dir         PF    WR%  Trades        PnL
+  ---- ---------------- ----- ------- ------ ------ ------- ----------
+  1    FIL/USD          1d    long    27.850  50.0%       2       9.86
+  2    FIL/USD          1d    both    27.850  50.0%       2       9.86
+  3    SPWR             1d    long    21.850  66.7%       3      38.49
+  4    SPWR             1d    both    21.850  66.7%       3      38.49
+  5    KLAC             1d    long    14.750  50.0%       2      18.48
+  6    KLAC             1d    both    14.750  50.0%       2      18.48
+  7    HT/USD           1d    long    13.660  75.0%       4     219.68
+  8    HT/USD           1d    both    13.660  75.0%       4     219.68
+  9    PLUG             1d    long    12.700  80.0%       5      35.58
+  10   PLUG             1d    both    12.700  80.0%       5      35.58
+  11   BABA             1d    long     9.540  50.0%       2       7.43
+  12   BABA             1d    both     9.540  50.0%       2       7.43
+  13   PLTR             1d    long     8.460  50.0%       2      10.58
+  14   PLTR             1d    both     8.460  50.0%       2      10.58
+  15   GS               1d    long     8.300  66.7%       3      12.39
+  16   GS               1d    both     8.300  66.7%       3      12.39
+  17   NVDA             1d    long     7.200  66.7%       3      14.57
+  18   NVDA             1d    both     7.200  66.7%       3      14.57
+  19   CLSK             1h    long     6.740  68.0%      25     129.18
+  20   CLSK             1h    both     6.740  68.0%      25     129.18
+  21   TRUMP/USD        1d    long     5.260  50.0%       2      25.68
+  22   TRUMP/USD        1d    both     5.260  50.0%       2      25.68
+  23   WULF             1d    long     5.220  66.7%       6      37.42
+  24   WULF             1d    both     5.220  66.7%       6      37.42
+  25   MARA             1h    long     4.920  52.4%      21      68.41
+  26   MARA             1h    both     4.920  52.4%      21      68.41
+  27   QCOM             1d    long     4.890  66.7%       3       5.23
+  28   QCOM             1d    both     4.890  66.7%       3       5.23
+  29   LUNR             1d    long     4.280  50.0%       4      44.12
+  30   LUNR             1d    both     4.280  50.0%       4      44.12
+========================================================================
+  FULL MATRIX  (PF / WR%  per cell)
+========================================================================
+  Symbol               1h/l         1h/s         1h/b         1d/l         1d/s         1d/b    
+  ----------------------------------------------------------------------------------------------
+  -- CRYPTO --
+  BTC/USD           0.15/  11%     (0t)       0.15/  11%   0.20/  33%     (0t)       0.20/  33% 
+  ETH/USD           0.16/  14%     (0t)       0.16/  14%   1.89/  67%     (0t)       1.89/  67% 
+  SOL/USD           0.25/  16%     (0t)       0.25/  16%   2.11/  75%     (0t)       2.11/  75% 
+  BNB/USD           0.23/  21%     (0t)       0.23/  21%   0.00/ 100%     (0t)       0.00/ 100% 
+  XRP/USD           0.18/  14%     (0t)       0.18/  14%   0.00/ 100%     (0t)       0.00/ 100% 
+  LTC/USD           0.21/  14%     (0t)       0.21/  14%   0.00/   0%     (0t)       0.00/   0% 
+  BCH/USD           0.27/  16%     (0t)       0.27/  16%   0.00/ 100%     (0t)       0.00/ 100% 
+  ADA/USD           0.15/  12%     (0t)       0.15/  12%   0.00/ 100%     (0t)       0.00/ 100% 
+  AVAX/USD          0.35/  19%     (0t)       0.35/  19%   0.00/ 100%     (0t)       0.00/ 100% 
+  DOT/USD           0.13/  12%     (0t)       0.13/  12%   0.00/ 100%     (0t)       0.00/ 100% 
+  NEAR/USD          0.32/  20%     (0t)       0.32/  20%   2.02/  50%     (0t)       2.02/  50% 
+  TRX/USD           0.09/   8%     (0t)       0.09/   8%   1.69/  33%     (0t)       1.69/  33% 
+  ATOM/USD          0.26/  20%     (0t)       0.26/  20%     (0t)         (0t)         (0t)     
+  ALGO/USD          0.41/  22%     (0t)       0.41/  22%   0.00/   0%     (0t)       0.00/   0% 
+  INJ/USD           0.41/  25%     (0t)       0.41/  25%     (0t)         (0t)         (0t)     
+  SEI/USD           0.20/  20%     (0t)       0.20/  20%   0.00/ 100%     (0t)       0.00/ 100% 
+  EGLD/USD          0.29/  22%     (0t)       0.29/  22%   0.00/   0%     (0t)       0.00/   0% 
+  ONE/USD           0.39/  12%     (0t)       0.39/  12%   0.03/  17%     (0t)       0.03/  17% 
+  HBAR/USD          0.35/  23%     (0t)       0.35/  23%   0.00/ 100%     (0t)       0.00/ 100% 
+  VET/USD           0.23/  19%     (0t)       0.23/  19%     (0t)         (0t)         (0t)     
+  EOS/USD           0.34/  23%     (0t)       0.34/  23%   0.12/  67%     (0t)       0.12/  67% 
+  XTZ/USD           0.32/  18%     (0t)       0.32/  18%   0.11/  20%     (0t)       0.11/  20% 
+  FLOW/USD          0.59/  18%     (0t)       0.59/  18%   0.00/   0%     (0t)       0.00/   0% 
+  ARB/USD             (0t)         (0t)         (0t)         (0t)         (0t)         (0t)     
+  OP/USD            0.32/  17%     (0t)       0.32/  17%   3.82/  50%     (0t)       3.82/  50% 
+  STRK/USD          0.77/  18%     (0t)       0.77/  18%      ERR          ERR          ERR     
+  MANTA/USD         0.45/  27%     (0t)       0.45/  27%     (0t)         (0t)         (0t)     
+  AAVE/USD          0.13/  13%     (0t)       0.13/  13%     (0t)         (0t)         (0t)     
+  LINK/USD          0.21/  21%     (0t)       0.21/  21%   0.00/   0%     (0t)       0.00/   0% 
+  MKR/USD           0.99/  28%     (0t)       0.99/  28%   3.64/  67%     (0t)       3.64/  67% 
+  CRV/USD           0.31/  17%     (0t)       0.31/  17%   0.23/  50%     (0t)       0.23/  50% 
+  SNX/USD           0.43/  18%     (0t)       0.43/  18%   0.60/  60%     (0t)       0.60/  60% 
+  BAL/USD           1.57/  23%     (0t)       1.57/  23%     (0t)         (0t)         (0t)     
+  SUSHI/USD         0.23/  17%     (0t)       0.23/  17%   0.00/ 100%     (0t)       0.00/ 100% 
+  YFI/USD           0.28/  19%     (0t)       0.28/  19%     (0t)         (0t)         (0t)     
+  LDO/USD           0.21/  22%     (0t)       0.21/  22%   2.28/  50%     (0t)       2.28/  50% 
+  RPL/USD           0.50/  19%     (0t)       0.50/  19%   0.00/   0%     (0t)       0.00/   0% 
+  PENDLE/USD        0.37/  26%     (0t)       0.37/  26%   1.36/  75%     (0t)       1.36/  75% 
+  JUP/USD              ERR          ERR          ERR          ERR          ERR          ERR     
+  CAKE/USD          0.32/  20%     (0t)       0.32/  20%   0.63/  50%     (0t)       0.63/  50% 
+  WLD/USD           0.41/  24%     (0t)       0.41/  24%     (0t)         (0t)         (0t)     
+  OCEAN/USD         0.21/  15%     (0t)       0.21/  15%   1.66/  33%     (0t)       1.66/  33% 
+  AGIX/USD          2.55/  18%     (0t)       2.55/  18%     (0t)         (0t)         (0t)     
+  NMR/USD           0.26/  19%     (0t)       0.26/  19%   3.45/  40%     (0t)       3.45/  40% 
+  RLC/USD           0.35/  24%     (0t)       0.35/  24%   0.25/  40%     (0t)       0.25/  40% 
+  AXS/USD           0.29/  21%     (0t)       0.29/  21%   4.24/  80%     (0t)       4.24/  80% 
+  SAND/USD          0.29/  25%     (0t)       0.29/  25%     (0t)         (0t)         (0t)     
+  MANA/USD          0.30/  21%     (0t)       0.30/  21%   0.73/  50%     (0t)       0.73/  50% 
+  ENJ/USD           0.39/  29%     (0t)       0.39/  29%   0.91/  33%     (0t)       0.91/  33% 
+  GALA/USD          0.21/  21%     (0t)       0.21/  21%     (0t)         (0t)         (0t)     
+  ILV/USD           0.18/  15%     (0t)       0.18/  15%   1.51/  50%     (0t)       1.51/  50% 
+  GODS/USD          0.43/  29%     (0t)       0.43/  29%   0.00/ 100%     (0t)       0.00/ 100% 
+  OKB/USD           0.56/  30%     (0t)       0.56/  30%   0.16/  29%     (0t)       0.16/  29% 
+  KCS/USD           0.17/  20%     (0t)       0.17/  20%   0.00/   0%     (0t)       0.00/   0% 
+  GT/USD            0.15/  16%     (0t)       0.15/  16%   0.00/   0%     (0t)       0.00/   0% 
+  HT/USD            0.69/  27%     (0t)       0.69/  27%  13.66/  75%     (0t)      13.66/  75% 
+  FIL/USD           0.22/  18%     (0t)       0.22/  18%  27.85/  50%     (0t)      27.85/  50% 
+  AR/USD            0.34/  25%     (0t)       0.34/  25%     (0t)         (0t)         (0t)     
+  HNT/USD           0.44/  26%     (0t)       0.44/  26%     (0t)         (0t)         (0t)     
+  THETA/USD         0.36/  24%     (0t)       0.36/  24%   0.00/ 100%     (0t)       0.00/ 100% 
+  HOT/USD              ERR          ERR          ERR         (0t)         (0t)         (0t)     
+  SC/USD            0.18/  17%     (0t)       0.18/  17%     (0t)         (0t)         (0t)     
+  ZEC/USD           0.79/  24%     (0t)       0.79/  24%   1.31/  60%     (0t)       1.31/  60% 
+  XMR/USD           0.36/  28%     (0t)       0.36/  28%   1.88/  50%     (0t)       1.88/  50% 
+  DASH/USD          0.39/  24%     (0t)       0.39/  24%   0.79/  33%     (0t)       0.79/  33% 
+  DOGE/USD          0.23/  18%     (0t)       0.23/  18%   0.37/  50%     (0t)       0.37/  50% 
+  WIF/USD           0.28/  21%     (0t)       0.28/  21%   1.85/  50%     (0t)       1.85/  50% 
+  BONK/USD          0.45/  29%     (0t)       0.45/  29%   0.00/   0%     (0t)       0.00/   0% 
+  TRUMP/USD         0.31/   6%     (0t)       0.31/   6%   5.26/  50%     (0t)       5.26/  50% 
+  MELANIA/USD       0.14/   6%     (0t)       0.14/   6%   0.00/   0%     (0t)       0.00/   0% 
+  FLOKI/USD         0.37/  26%     (0t)       0.37/  26%   0.75/  67%     (0t)       0.75/  67% 
+  RUNE/USD          0.28/  21%     (0t)       0.28/  21%   0.71/  25%     (0t)       0.71/  25% 
+  ZRX/USD           0.34/  21%     (0t)       0.34/  21%   0.40/  40%     (0t)       0.40/  40% 
+  REN/USD           0.42/  22%     (0t)       0.42/  22%     (0t)         (0t)         (0t)     
+  ANKR/USD          0.34/  24%     (0t)       0.34/  24%   0.00/   0%     (0t)       0.00/   0% 
+  TIA/USD           0.39/  23%     (0t)       0.39/  23%     (0t)         (0t)         (0t)     
+  DYM/USD           0.38/  26%     (0t)       0.38/  26%     (0t)         (0t)         (0t)     
+  PYTH/USD          0.54/  28%     (0t)       0.54/  28%   1.70/  50%     (0t)       1.70/  50% 
+  JTO/USD           0.42/  25%     (0t)       0.42/  25%     (0t)         (0t)         (0t)     
+  BOME/USD          0.25/  19%     (0t)       0.25/  19%     (0t)         (0t)         (0t)     
+  W/USD             0.47/  24%     (0t)       0.47/  24%   0.45/  25%     (0t)       0.45/  25% 
+  TNSR/USD          0.53/  30%     (0t)       0.53/  30%   0.00/   0%     (0t)       0.00/   0% 
+  ETHFI/USD         0.30/  20%     (0t)       0.30/  20%   0.03/  25%     (0t)       0.03/  25% 
+  REZ/USD           0.50/  27%     (0t)       0.50/  27%   0.00/   0%     (0t)       0.00/   0% 
+  NOT/USD           0.38/  25%     (0t)       0.38/  25%     (0t)         (0t)         (0t)     
+  LISTA/USD         0.50/  26%     (0t)       0.50/  26%   0.00/ 100%     (0t)       0.00/ 100% 
+  RENDER/USD        0.49/  28%     (0t)       0.49/  28%   0.00/   0%     (0t)       0.00/   0% 
+  -- STOCKS --
+  NVDA              0.85/  42%     (0t)       0.85/  42%   7.20/  67%     (0t)       7.20/  67% 
+  META              1.23/  51%     (0t)       1.23/  51%   0.77/  67%     (0t)       0.77/  67% 
+  TSLA              1.44/  47%     (0t)       1.44/  47%   1.95/  50%     (0t)       1.95/  50% 
+  MSFT              1.00/  46%     (0t)       1.00/  46%   3.87/  50%     (0t)       3.87/  50% 
+  NFLX              0.35/  29%     (0t)       0.35/  29%   0.17/  20%     (0t)       0.17/  20% 
+  AMD               1.42/  38%     (0t)       1.42/  38%   0.00/ 100%     (0t)       0.00/ 100% 
+  INTC              0.83/  40%     (0t)       0.83/  40%   0.00/ 100%     (0t)       0.00/ 100% 
+  MRVL              2.20/  44%     (0t)       2.20/  44%   0.00/ 100%     (0t)       0.00/ 100% 
+  ALAB              1.49/  44%     (0t)       1.49/  44%   1.43/  33%     (0t)       1.43/  33% 
+  QCOM              1.58/  37%     (0t)       1.58/  37%   4.89/  67%     (0t)       4.89/  67% 
+  TXN               1.90/  42%     (0t)       1.90/  42%   0.69/  50%     (0t)       0.69/  50% 
+  LRCX              1.96/  36%     (0t)       1.96/  36%   2.43/  60%     (0t)       2.43/  60% 
+  KLAC              1.11/  37%     (0t)       1.11/  37%  14.75/  50%     (0t)      14.75/  50% 
+  AMAT              2.04/  46%     (0t)       2.04/  46%   0.00/ 100%     (0t)       0.00/ 100% 
+  MU                1.13/  38%     (0t)       1.13/  38%   0.00/ 100%     (0t)       0.00/ 100% 
+  ON                1.56/  41%     (0t)       1.56/  41%   0.82/  40%     (0t)       0.82/  40% 
+  MPWR              1.14/  36%     (0t)       1.14/  36%   3.09/  62%     (0t)       3.09/  62% 
+  PLTR              1.16/  42%     (0t)       1.16/  42%   8.46/  50%     (0t)       8.46/  50% 
+  CRM               3.64/  62%     (0t)       3.64/  62%   0.01/  33%     (0t)       0.01/  33% 
+  SNOW              1.15/  44%     (0t)       1.15/  44%   0.00/   0%     (0t)       0.00/   0% 
+  DDOG              1.01/  38%     (0t)       1.01/  38%   0.00/   0%     (0t)       0.00/   0% 
+  NET               0.49/  24%     (0t)       0.49/  24%   0.00/ 100%     (0t)       0.00/ 100% 
+  NOW               0.68/  30%     (0t)       0.68/  30%     (0t)         (0t)         (0t)     
+  CRWD              1.10/  37%     (0t)       1.10/  37%     (0t)         (0t)         (0t)     
+  ZS                1.55/  50%     (0t)       1.55/  50%   0.34/  50%     (0t)       0.34/  50% 
+  OKTA              2.24/  38%     (0t)       2.24/  38%     (0t)         (0t)         (0t)     
+  PANW              0.61/  25%     (0t)       0.61/  25%   0.96/  50%     (0t)       0.96/  50% 
+  GTLB              0.43/  35%     (0t)       0.43/  35%     (0t)         (0t)         (0t)     
+  PATH              0.72/  40%     (0t)       0.72/  40%   0.00/ 100%     (0t)       0.00/ 100% 
+  AI                0.58/  39%     (0t)       0.58/  39%     (0t)         (0t)         (0t)     
+  BBAI              0.80/  32%     (0t)       0.80/  32%   2.19/  33%     (0t)       2.19/  33% 
+  SOUN              1.48/  39%     (0t)       1.48/  39%   0.11/  33%     (0t)       0.11/  33% 
+  IONQ              0.98/  39%     (0t)       0.98/  39%   0.13/  33%     (0t)       0.13/  33% 
+  COIN              2.74/  62%     (0t)       2.74/  62%     (0t)         (0t)         (0t)     
+  HOOD              1.49/  40%     (0t)       1.49/  40%   0.00/ 100%     (0t)       0.00/ 100% 
+  AFRM              2.38/  49%     (0t)       2.38/  49%   0.04/  20%     (0t)       0.04/  20% 
+  SOFI              0.89/  37%     (0t)       0.89/  37%   0.00/ 100%     (0t)       0.00/ 100% 
+  NU                0.84/  41%     (0t)       0.84/  41%   0.00/ 100%     (0t)       0.00/ 100% 
+  PYPL              0.34/  26%     (0t)       0.34/  26%   0.00/   0%     (0t)       0.00/   0% 
+  NIO               1.44/  39%     (0t)       1.44/  39%   0.00/   0%     (0t)       0.00/   0% 
+  LI                0.81/  31%     (0t)       0.81/  31%     (0t)         (0t)         (0t)     
+  XPEV              0.89/  40%     (0t)       0.89/  40%   0.00/   0%     (0t)       0.00/   0% 
+  RIVN              1.02/  38%     (0t)       1.02/  38%   0.00/   0%     (0t)       0.00/   0% 
+  LCID              1.68/  33%     (0t)       1.68/  33%     (0t)         (0t)         (0t)     
+  CHPT              1.23/  44%     (0t)       1.23/  44%     (0t)         (0t)         (0t)     
+  PLUG              2.21/  50%     (0t)       2.21/  50%  12.70/  80%     (0t)      12.70/  80% 
+  FCEL              1.36/  44%     (0t)       1.36/  44%   0.00/ 100%     (0t)       0.00/ 100% 
+  BE                2.44/  56%     (0t)       2.44/  56%   0.00/ 100%     (0t)       0.00/ 100% 
+  MP                1.41/  37%     (0t)       1.41/  37%   1.24/  38%     (0t)       1.24/  38% 
+  FSLR              1.46/  48%     (0t)       1.46/  48%   0.00/ 100%     (0t)       0.00/ 100% 
+  ENPH              0.74/  44%     (0t)       0.74/  44%     (0t)         (0t)         (0t)     
+  SEDG              1.59/  42%     (0t)       1.59/  42%   0.00/   0%     (0t)       0.00/   0% 
+  MRNA              1.89/  37%     (0t)       1.89/  37%   2.31/  67%     (0t)       2.31/  67% 
+  BNTX              0.54/  37%     (0t)       0.54/  37%     (0t)         (0t)         (0t)     
+  GILD              1.94/  54%     (0t)       1.94/  54%   1.04/  50%     (0t)       1.04/  50% 
+  REGN              0.77/  43%     (0t)       0.77/  43%   0.00/ 100%     (0t)       0.00/ 100% 
+  VRTX              1.03/  40%     (0t)       1.03/  40%     (0t)         (0t)         (0t)     
+  BIIB              0.68/  39%     (0t)       0.68/  39%   3.34/  50%     (0t)       3.34/  50% 
+  RXRX              1.84/  41%     (0t)       1.84/  41%   0.23/  33%     (0t)       0.23/  33% 
+  NVAX              2.18/  45%     (0t)       2.18/  45%   0.22/  33%     (0t)       0.22/  33% 
+  PFE               0.95/  33%     (0t)       0.95/  33%     (0t)         (0t)         (0t)     
+  OGN               0.45/  36%     (0t)       0.45/  36%   0.92/  33%     (0t)       0.92/  33% 
+  ACHR              1.19/  38%     (0t)       1.19/  38%     (0t)         (0t)         (0t)     
+  LUNR              1.84/  51%     (0t)       1.84/  51%   4.28/  50%     (0t)       4.28/  50% 
+  RKLB              1.43/  34%     (0t)       1.43/  34%   0.41/  33%     (0t)       0.41/  33% 
+  ASTS              1.02/  35%     (0t)       1.02/  35%   0.48/  43%     (0t)       0.48/  43% 
+  SPCE              0.54/  38%     (0t)       0.54/  38%   0.00/ 100%     (0t)       0.00/ 100% 
+  LMT               1.86/  53%     (0t)       1.86/  53%   0.84/  60%     (0t)       0.84/  60% 
+  RTX               1.01/  43%     (0t)       1.01/  43%   2.66/  50%     (0t)       2.66/  50% 
+  NOC               3.37/  62%     (0t)       3.37/  62%   0.05/  14%     (0t)       0.05/  14% 
+  BA                0.89/  38%     (0t)       0.89/  38%   0.39/  38%     (0t)       0.39/  38% 
+  CRWV              1.45/  49%     (0t)       1.45/  49%     (0t)         (0t)         (0t)     
+  APLD              1.87/  62%     (0t)       1.87/  62%   2.30/  50%     (0t)       2.30/  50% 
+  IREN              1.27/  47%     (0t)       1.27/  47%   1.15/  67%     (0t)       1.15/  67% 
+  MARA              4.92/  52%     (0t)       4.92/  52%   0.00/   0%     (0t)       0.00/   0% 
+  RIOT              1.40/  39%     (0t)       1.40/  39%   1.57/  80%     (0t)       1.57/  80% 
+  CLSK              6.74/  68%     (0t)       6.74/  68%   0.24/  25%     (0t)       0.24/  25% 
+  OKLO              1.64/  31%     (0t)       1.64/  31%   0.00/ 100%     (0t)       0.00/ 100% 
+  SMR               2.15/  44%     (0t)       2.15/  44%   0.00/ 100%     (0t)       0.00/ 100% 
+  NNE               2.00/  54%     (0t)       2.00/  54%   0.00/ 100%     (0t)       0.00/ 100% 
+  MSTR              1.61/  36%     (0t)       1.61/  36%     (0t)         (0t)         (0t)     
+  HIVE              1.29/  53%     (0t)       1.29/  53%   0.15/  33%     (0t)       0.15/  33% 
+  BTDR              2.30/  52%     (0t)       2.30/  52%   0.14/  67%     (0t)       0.14/  67% 
+  WULF              1.66/  56%     (0t)       1.66/  56%   5.22/  67%     (0t)       5.22/  67% 
+  CIFR              1.18/  44%     (0t)       1.18/  44%   0.86/  75%     (0t)       0.86/  75% 
+  CORZ              0.99/  32%     (0t)       0.99/  32%   0.67/  60%     (0t)       0.67/  60% 
+  AAOI              1.35/  34%     (0t)       1.35/  34%   1.65/  50%     (0t)       1.65/  50% 
+  CLS               2.42/  51%     (0t)       2.42/  51%     (0t)         (0t)         (0t)     
+  CIEN              1.19/  48%     (0t)       1.19/  48%     (0t)         (0t)         (0t)     
+  BABA              2.07/  48%     (0t)       2.07/  48%   9.54/  50%     (0t)       9.54/  50% 
+  JD                0.87/  49%     (0t)       0.87/  49%     (0t)         (0t)         (0t)     
+  PDD               0.54/  45%     (0t)       0.54/  45%   0.00/   0%     (0t)       0.00/   0% 
+  BIDU              1.54/  51%     (0t)       1.54/  51%   2.06/  67%     (0t)       2.06/  67% 
+  AMZN              0.90/  37%     (0t)       0.90/  37%   3.38/  50%     (0t)       3.38/  50% 
+  SHOP              0.86/  45%     (0t)       0.86/  45%   1.62/  50%     (0t)       1.62/  50% 
+  CVNA              0.34/  35%     (0t)       0.34/  35%   0.31/  50%     (0t)       0.31/  50% 
+  JPM               0.68/  32%     (0t)       0.68/  32%   2.49/  50%     (0t)       2.49/  50% 
+  BAC               0.70/  40%     (0t)       0.70/  40%   1.42/  38%     (0t)       1.42/  38% 
+  GS                0.79/  44%     (0t)       0.79/  44%   8.30/  67%     (0t)       8.30/  67% 
+  MS                1.23/  46%     (0t)       1.23/  46%     (0t)         (0t)         (0t)     
+  BX                0.70/  37%     (0t)       0.70/  37%   0.43/  25%     (0t)       0.43/  25% 
+  KKR               0.75/  32%     (0t)       0.75/  32%     (0t)         (0t)         (0t)     
+  XOM               0.74/  34%     (0t)       0.74/  34%   1.34/  75%     (0t)       1.34/  75% 
+  CVX               1.31/  46%     (0t)       1.31/  46%   2.09/  50%     (0t)       2.09/  50% 
+  OXY               1.01/  46%     (0t)       1.01/  46%   0.00/ 100%     (0t)       0.00/ 100% 
+  SLB               1.14/  41%     (0t)       1.14/  41%   2.72/  75%     (0t)       2.72/  75% 
+  HAL               1.09/  42%     (0t)       1.09/  42%   0.00/ 100%     (0t)       0.00/ 100% 
+  DVN               1.55/  39%     (0t)       1.55/  39%   0.00/ 100%     (0t)       0.00/ 100% 
+  ISRG              0.75/  28%     (0t)       0.75/  28%   0.00/   0%     (0t)       0.00/   0% 
+  DXCM              0.25/  33%     (0t)       0.25/  33%   3.02/  50%     (0t)       3.02/  50% 
+  HIMS              0.92/  47%     (0t)       0.92/  47%   0.00/   0%     (0t)       0.00/   0% 
+  TDOC              1.09/  42%     (0t)       1.09/  42%   0.00/   0%     (0t)       0.00/   0% 
+  SIDU              0.87/  47%     (0t)       0.87/  47%   1.00/  40%     (0t)       1.00/  40% 
+  ZIM               1.04/  38%     (0t)       1.04/  38%   0.00/ 100%     (0t)       0.00/ 100% 
+  DAC               1.56/  56%     (0t)       1.56/  56%   1.32/  50%     (0t)       1.32/  50% 
+  UPST              0.55/  38%     (0t)       0.55/  38%   0.00/ 100%     (0t)       0.00/ 100% 
+  OPEN              4.09/  50%     (0t)       4.09/  50%     (0t)         (0t)         (0t)     
+  SPWR              1.78/  40%     (0t)       1.78/  40%  21.85/  67%     (0t)      21.85/  67% 
+
+  l=long  s=short  b=both  |  format: PF/WR%
+
+  -- CELLS WITH ERRORS --
+  STRK/USD       1d    long     no_result
+  STRK/USD       1d    short    no_result
+  STRK/USD       1d    both     no_result
+  JUP/USD        1h    long     no_result
+  JUP/USD        1h    short    no_result
+  JUP/USD        1h    both     no_result
+  JUP/USD        1d    long     no_result
+  JUP/USD        1d    short    no_result
+  JUP/USD        1d    both     no_result
+  HOT/USD        1h    long     no_result
+  HOT/USD        1h    short    no_result
+  HOT/USD        1h    both     no_result
+
+========================================================================
+  END OF REPORT
+========================================================================

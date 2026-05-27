@@ -1,0 +1,4113 @@
+{
+  "meta": {
+    "strategy": "btc_v6_chandelier",
+    "symbols": [
+      "CLSK",
+      "MARA",
+      "CRM",
+      "NOC",
+      "OPEN",
+      "TSLA",
+      "NVDA"
+    ],
+    "timeframe": "1h",
+    "days": 365,
+    "asset_class": "stock",
+    "direction": "long",
+    "method": "matrix",
+    "iterations": 60,
+    "metric": "profit_factor",
+    "params": [
+      {
+        "name": "atr_mult",
+        "min": 5.5,
+        "max": 8.0,
+        "step": 0.25,
+        "is_int": false
+      },
+      {
+        "name": "rsi_thresh",
+        "min": 30.0,
+        "max": 42.5,
+        "step": 2.5,
+        "is_int": false
+      }
+    ],
+    "started_at": "2026-05-25T10:37:19.061178",
+    "finished_at": "2026-05-25T10:39:25.784982",
+    "cancelled": false,
+    "total_tested": 66
+  },
+  "results": [
+    {
+      "params": {
+        "atr_mult": 5.5,
+        "rsi_thresh": 32.5
+      },
+      "score": 19.804898,
+      "avg_profit_factor": 23.106,
+      "avg_win_rate": 66.0,
+      "avg_net_pnl": 5.01,
+      "consistency": 0.714,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 81.89,
+          "net_pnl": 16.74
+        },
+        {
+          "symbol": "MARA",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 1.63
+        },
+        {
+          "symbol": "CRM",
+          "trades": 7,
+          "win_rate": 71.4,
+          "profit_factor": 3.07,
+          "net_pnl": 6.21
+        },
+        {
+          "symbol": "NOC",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 73.19,
+          "net_pnl": 12.73
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 0.94,
+          "net_pnl": -0.7
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 2.31,
+          "net_pnl": 8.95
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 11,
+          "win_rate": 27.3,
+          "profit_factor": 0.34,
+          "net_pnl": -10.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.75,
+        "rsi_thresh": 32.5
+      },
+      "score": 19.804898,
+      "avg_profit_factor": 23.106,
+      "avg_win_rate": 66.0,
+      "avg_net_pnl": 5.01,
+      "consistency": 0.714,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 81.89,
+          "net_pnl": 16.74
+        },
+        {
+          "symbol": "MARA",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 1.63
+        },
+        {
+          "symbol": "CRM",
+          "trades": 7,
+          "win_rate": 71.4,
+          "profit_factor": 3.07,
+          "net_pnl": 6.21
+        },
+        {
+          "symbol": "NOC",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 73.19,
+          "net_pnl": 12.73
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 0.94,
+          "net_pnl": -0.7
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 2.31,
+          "net_pnl": 8.95
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 11,
+          "win_rate": 27.3,
+          "profit_factor": 0.34,
+          "net_pnl": -10.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.0,
+        "rsi_thresh": 32.5
+      },
+      "score": 19.804898,
+      "avg_profit_factor": 23.106,
+      "avg_win_rate": 66.0,
+      "avg_net_pnl": 5.01,
+      "consistency": 0.714,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 81.89,
+          "net_pnl": 16.74
+        },
+        {
+          "symbol": "MARA",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 1.63
+        },
+        {
+          "symbol": "CRM",
+          "trades": 7,
+          "win_rate": 71.4,
+          "profit_factor": 3.07,
+          "net_pnl": 6.21
+        },
+        {
+          "symbol": "NOC",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 73.19,
+          "net_pnl": 12.73
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 0.94,
+          "net_pnl": -0.7
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 2.31,
+          "net_pnl": 8.95
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 11,
+          "win_rate": 27.3,
+          "profit_factor": 0.34,
+          "net_pnl": -10.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.25,
+        "rsi_thresh": 32.5
+      },
+      "score": 19.804898,
+      "avg_profit_factor": 23.106,
+      "avg_win_rate": 66.0,
+      "avg_net_pnl": 5.01,
+      "consistency": 0.714,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 81.89,
+          "net_pnl": 16.74
+        },
+        {
+          "symbol": "MARA",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 1.63
+        },
+        {
+          "symbol": "CRM",
+          "trades": 7,
+          "win_rate": 71.4,
+          "profit_factor": 3.07,
+          "net_pnl": 6.21
+        },
+        {
+          "symbol": "NOC",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 73.19,
+          "net_pnl": 12.73
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 0.94,
+          "net_pnl": -0.7
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 2.31,
+          "net_pnl": 8.95
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 11,
+          "win_rate": 27.3,
+          "profit_factor": 0.34,
+          "net_pnl": -10.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.5,
+        "rsi_thresh": 32.5
+      },
+      "score": 19.804898,
+      "avg_profit_factor": 23.106,
+      "avg_win_rate": 66.0,
+      "avg_net_pnl": 5.01,
+      "consistency": 0.714,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 81.89,
+          "net_pnl": 16.74
+        },
+        {
+          "symbol": "MARA",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 1.63
+        },
+        {
+          "symbol": "CRM",
+          "trades": 7,
+          "win_rate": 71.4,
+          "profit_factor": 3.07,
+          "net_pnl": 6.21
+        },
+        {
+          "symbol": "NOC",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 73.19,
+          "net_pnl": 12.73
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 0.94,
+          "net_pnl": -0.7
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 2.31,
+          "net_pnl": 8.95
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 11,
+          "win_rate": 27.3,
+          "profit_factor": 0.34,
+          "net_pnl": -10.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.75,
+        "rsi_thresh": 32.5
+      },
+      "score": 19.804898,
+      "avg_profit_factor": 23.106,
+      "avg_win_rate": 66.0,
+      "avg_net_pnl": 5.01,
+      "consistency": 0.714,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 81.89,
+          "net_pnl": 16.74
+        },
+        {
+          "symbol": "MARA",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 1.63
+        },
+        {
+          "symbol": "CRM",
+          "trades": 7,
+          "win_rate": 71.4,
+          "profit_factor": 3.07,
+          "net_pnl": 6.21
+        },
+        {
+          "symbol": "NOC",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 73.19,
+          "net_pnl": 12.73
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 0.94,
+          "net_pnl": -0.7
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 2.31,
+          "net_pnl": 8.95
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 11,
+          "win_rate": 27.3,
+          "profit_factor": 0.34,
+          "net_pnl": -10.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.0,
+        "rsi_thresh": 32.5
+      },
+      "score": 19.804898,
+      "avg_profit_factor": 23.106,
+      "avg_win_rate": 66.0,
+      "avg_net_pnl": 5.01,
+      "consistency": 0.714,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 81.89,
+          "net_pnl": 16.74
+        },
+        {
+          "symbol": "MARA",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 1.63
+        },
+        {
+          "symbol": "CRM",
+          "trades": 7,
+          "win_rate": 71.4,
+          "profit_factor": 3.07,
+          "net_pnl": 6.21
+        },
+        {
+          "symbol": "NOC",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 73.19,
+          "net_pnl": 12.73
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 0.94,
+          "net_pnl": -0.7
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 2.31,
+          "net_pnl": 8.95
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 11,
+          "win_rate": 27.3,
+          "profit_factor": 0.34,
+          "net_pnl": -10.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.25,
+        "rsi_thresh": 32.5
+      },
+      "score": 19.804898,
+      "avg_profit_factor": 23.106,
+      "avg_win_rate": 66.0,
+      "avg_net_pnl": 5.01,
+      "consistency": 0.714,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 81.89,
+          "net_pnl": 16.74
+        },
+        {
+          "symbol": "MARA",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 1.63
+        },
+        {
+          "symbol": "CRM",
+          "trades": 7,
+          "win_rate": 71.4,
+          "profit_factor": 3.07,
+          "net_pnl": 6.21
+        },
+        {
+          "symbol": "NOC",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 73.19,
+          "net_pnl": 12.73
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 0.94,
+          "net_pnl": -0.7
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 2.31,
+          "net_pnl": 8.95
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 11,
+          "win_rate": 27.3,
+          "profit_factor": 0.34,
+          "net_pnl": -10.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.5,
+        "rsi_thresh": 32.5
+      },
+      "score": 19.804898,
+      "avg_profit_factor": 23.106,
+      "avg_win_rate": 66.0,
+      "avg_net_pnl": 5.01,
+      "consistency": 0.714,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 81.89,
+          "net_pnl": 16.74
+        },
+        {
+          "symbol": "MARA",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 1.63
+        },
+        {
+          "symbol": "CRM",
+          "trades": 7,
+          "win_rate": 71.4,
+          "profit_factor": 3.07,
+          "net_pnl": 6.21
+        },
+        {
+          "symbol": "NOC",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 73.19,
+          "net_pnl": 12.73
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 0.94,
+          "net_pnl": -0.7
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 2.31,
+          "net_pnl": 8.95
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 11,
+          "win_rate": 27.3,
+          "profit_factor": 0.34,
+          "net_pnl": -10.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.75,
+        "rsi_thresh": 32.5
+      },
+      "score": 19.804898,
+      "avg_profit_factor": 23.106,
+      "avg_win_rate": 66.0,
+      "avg_net_pnl": 5.01,
+      "consistency": 0.714,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 81.89,
+          "net_pnl": 16.74
+        },
+        {
+          "symbol": "MARA",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 1.63
+        },
+        {
+          "symbol": "CRM",
+          "trades": 7,
+          "win_rate": 71.4,
+          "profit_factor": 3.07,
+          "net_pnl": 6.21
+        },
+        {
+          "symbol": "NOC",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 73.19,
+          "net_pnl": 12.73
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 0.94,
+          "net_pnl": -0.7
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 2.31,
+          "net_pnl": 8.95
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 11,
+          "win_rate": 27.3,
+          "profit_factor": 0.34,
+          "net_pnl": -10.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 8.0,
+        "rsi_thresh": 32.5
+      },
+      "score": 19.804898,
+      "avg_profit_factor": 23.106,
+      "avg_win_rate": 66.0,
+      "avg_net_pnl": 5.01,
+      "consistency": 0.714,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 81.89,
+          "net_pnl": 16.74
+        },
+        {
+          "symbol": "MARA",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 1.63
+        },
+        {
+          "symbol": "CRM",
+          "trades": 7,
+          "win_rate": 71.4,
+          "profit_factor": 3.07,
+          "net_pnl": 6.21
+        },
+        {
+          "symbol": "NOC",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 73.19,
+          "net_pnl": 12.73
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 0.94,
+          "net_pnl": -0.7
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 2.31,
+          "net_pnl": 8.95
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 11,
+          "win_rate": 27.3,
+          "profit_factor": 0.34,
+          "net_pnl": -10.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.5,
+        "rsi_thresh": 35.0
+      },
+      "score": 14.366327,
+      "avg_profit_factor": 15.471,
+      "avg_win_rate": 56.8,
+      "avg_net_pnl": 8.29,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 3.11,
+          "net_pnl": 12.75
+        },
+        {
+          "symbol": "MARA",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 11.46,
+          "net_pnl": 12.89
+        },
+        {
+          "symbol": "CRM",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 2.46,
+          "net_pnl": 8.35
+        },
+        {
+          "symbol": "NOC",
+          "trades": 7,
+          "win_rate": 85.7,
+          "profit_factor": 87.06,
+          "net_pnl": 15.18
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.74,
+          "net_pnl": 8.89
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 2.2,
+          "net_pnl": 15.89
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 16,
+          "win_rate": 25.0,
+          "profit_factor": 0.27,
+          "net_pnl": -15.93
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.75,
+        "rsi_thresh": 35.0
+      },
+      "score": 14.366327,
+      "avg_profit_factor": 15.471,
+      "avg_win_rate": 56.8,
+      "avg_net_pnl": 8.29,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 3.11,
+          "net_pnl": 12.75
+        },
+        {
+          "symbol": "MARA",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 11.46,
+          "net_pnl": 12.89
+        },
+        {
+          "symbol": "CRM",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 2.46,
+          "net_pnl": 8.35
+        },
+        {
+          "symbol": "NOC",
+          "trades": 7,
+          "win_rate": 85.7,
+          "profit_factor": 87.06,
+          "net_pnl": 15.18
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.74,
+          "net_pnl": 8.89
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 2.2,
+          "net_pnl": 15.89
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 16,
+          "win_rate": 25.0,
+          "profit_factor": 0.27,
+          "net_pnl": -15.93
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.0,
+        "rsi_thresh": 35.0
+      },
+      "score": 14.366327,
+      "avg_profit_factor": 15.471,
+      "avg_win_rate": 56.8,
+      "avg_net_pnl": 8.29,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 3.11,
+          "net_pnl": 12.75
+        },
+        {
+          "symbol": "MARA",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 11.46,
+          "net_pnl": 12.89
+        },
+        {
+          "symbol": "CRM",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 2.46,
+          "net_pnl": 8.35
+        },
+        {
+          "symbol": "NOC",
+          "trades": 7,
+          "win_rate": 85.7,
+          "profit_factor": 87.06,
+          "net_pnl": 15.18
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.74,
+          "net_pnl": 8.89
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 2.2,
+          "net_pnl": 15.89
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 16,
+          "win_rate": 25.0,
+          "profit_factor": 0.27,
+          "net_pnl": -15.93
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.25,
+        "rsi_thresh": 35.0
+      },
+      "score": 14.366327,
+      "avg_profit_factor": 15.471,
+      "avg_win_rate": 56.8,
+      "avg_net_pnl": 8.29,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 3.11,
+          "net_pnl": 12.75
+        },
+        {
+          "symbol": "MARA",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 11.46,
+          "net_pnl": 12.89
+        },
+        {
+          "symbol": "CRM",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 2.46,
+          "net_pnl": 8.35
+        },
+        {
+          "symbol": "NOC",
+          "trades": 7,
+          "win_rate": 85.7,
+          "profit_factor": 87.06,
+          "net_pnl": 15.18
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.74,
+          "net_pnl": 8.89
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 2.2,
+          "net_pnl": 15.89
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 16,
+          "win_rate": 25.0,
+          "profit_factor": 0.27,
+          "net_pnl": -15.93
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.5,
+        "rsi_thresh": 35.0
+      },
+      "score": 14.366327,
+      "avg_profit_factor": 15.471,
+      "avg_win_rate": 56.8,
+      "avg_net_pnl": 8.29,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 3.11,
+          "net_pnl": 12.75
+        },
+        {
+          "symbol": "MARA",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 11.46,
+          "net_pnl": 12.89
+        },
+        {
+          "symbol": "CRM",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 2.46,
+          "net_pnl": 8.35
+        },
+        {
+          "symbol": "NOC",
+          "trades": 7,
+          "win_rate": 85.7,
+          "profit_factor": 87.06,
+          "net_pnl": 15.18
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.74,
+          "net_pnl": 8.89
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 2.2,
+          "net_pnl": 15.89
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 16,
+          "win_rate": 25.0,
+          "profit_factor": 0.27,
+          "net_pnl": -15.93
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.75,
+        "rsi_thresh": 35.0
+      },
+      "score": 14.366327,
+      "avg_profit_factor": 15.471,
+      "avg_win_rate": 56.8,
+      "avg_net_pnl": 8.29,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 3.11,
+          "net_pnl": 12.75
+        },
+        {
+          "symbol": "MARA",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 11.46,
+          "net_pnl": 12.89
+        },
+        {
+          "symbol": "CRM",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 2.46,
+          "net_pnl": 8.35
+        },
+        {
+          "symbol": "NOC",
+          "trades": 7,
+          "win_rate": 85.7,
+          "profit_factor": 87.06,
+          "net_pnl": 15.18
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.74,
+          "net_pnl": 8.89
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 2.2,
+          "net_pnl": 15.89
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 16,
+          "win_rate": 25.0,
+          "profit_factor": 0.27,
+          "net_pnl": -15.93
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.0,
+        "rsi_thresh": 35.0
+      },
+      "score": 14.366327,
+      "avg_profit_factor": 15.471,
+      "avg_win_rate": 56.8,
+      "avg_net_pnl": 8.29,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 3.11,
+          "net_pnl": 12.75
+        },
+        {
+          "symbol": "MARA",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 11.46,
+          "net_pnl": 12.89
+        },
+        {
+          "symbol": "CRM",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 2.46,
+          "net_pnl": 8.35
+        },
+        {
+          "symbol": "NOC",
+          "trades": 7,
+          "win_rate": 85.7,
+          "profit_factor": 87.06,
+          "net_pnl": 15.18
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.74,
+          "net_pnl": 8.89
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 2.2,
+          "net_pnl": 15.89
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 16,
+          "win_rate": 25.0,
+          "profit_factor": 0.27,
+          "net_pnl": -15.93
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.25,
+        "rsi_thresh": 35.0
+      },
+      "score": 14.366327,
+      "avg_profit_factor": 15.471,
+      "avg_win_rate": 56.8,
+      "avg_net_pnl": 8.29,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 3.11,
+          "net_pnl": 12.75
+        },
+        {
+          "symbol": "MARA",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 11.46,
+          "net_pnl": 12.89
+        },
+        {
+          "symbol": "CRM",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 2.46,
+          "net_pnl": 8.35
+        },
+        {
+          "symbol": "NOC",
+          "trades": 7,
+          "win_rate": 85.7,
+          "profit_factor": 87.06,
+          "net_pnl": 15.18
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.74,
+          "net_pnl": 8.89
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 2.2,
+          "net_pnl": 15.89
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 16,
+          "win_rate": 25.0,
+          "profit_factor": 0.27,
+          "net_pnl": -15.93
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.5,
+        "rsi_thresh": 35.0
+      },
+      "score": 14.366327,
+      "avg_profit_factor": 15.471,
+      "avg_win_rate": 56.8,
+      "avg_net_pnl": 8.29,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 3.11,
+          "net_pnl": 12.75
+        },
+        {
+          "symbol": "MARA",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 11.46,
+          "net_pnl": 12.89
+        },
+        {
+          "symbol": "CRM",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 2.46,
+          "net_pnl": 8.35
+        },
+        {
+          "symbol": "NOC",
+          "trades": 7,
+          "win_rate": 85.7,
+          "profit_factor": 87.06,
+          "net_pnl": 15.18
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.74,
+          "net_pnl": 8.89
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 2.2,
+          "net_pnl": 15.89
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 16,
+          "win_rate": 25.0,
+          "profit_factor": 0.27,
+          "net_pnl": -15.93
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.75,
+        "rsi_thresh": 35.0
+      },
+      "score": 14.366327,
+      "avg_profit_factor": 15.471,
+      "avg_win_rate": 56.8,
+      "avg_net_pnl": 8.29,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 3.11,
+          "net_pnl": 12.75
+        },
+        {
+          "symbol": "MARA",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 11.46,
+          "net_pnl": 12.89
+        },
+        {
+          "symbol": "CRM",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 2.46,
+          "net_pnl": 8.35
+        },
+        {
+          "symbol": "NOC",
+          "trades": 7,
+          "win_rate": 85.7,
+          "profit_factor": 87.06,
+          "net_pnl": 15.18
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.74,
+          "net_pnl": 8.89
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 2.2,
+          "net_pnl": 15.89
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 16,
+          "win_rate": 25.0,
+          "profit_factor": 0.27,
+          "net_pnl": -15.93
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 8.0,
+        "rsi_thresh": 35.0
+      },
+      "score": 14.366327,
+      "avg_profit_factor": 15.471,
+      "avg_win_rate": 56.8,
+      "avg_net_pnl": 8.29,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 3.11,
+          "net_pnl": 12.75
+        },
+        {
+          "symbol": "MARA",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 11.46,
+          "net_pnl": 12.89
+        },
+        {
+          "symbol": "CRM",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 2.46,
+          "net_pnl": 8.35
+        },
+        {
+          "symbol": "NOC",
+          "trades": 7,
+          "win_rate": 85.7,
+          "profit_factor": 87.06,
+          "net_pnl": 15.18
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.74,
+          "net_pnl": 8.89
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 2.2,
+          "net_pnl": 15.89
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 16,
+          "win_rate": 25.0,
+          "profit_factor": 0.27,
+          "net_pnl": -15.93
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.5,
+        "rsi_thresh": 37.5
+      },
+      "score": 8.335918,
+      "avg_profit_factor": 8.977,
+      "avg_win_rate": 59.8,
+      "avg_net_pnl": 18.95,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.6,
+          "net_pnl": 15.7
+        },
+        {
+          "symbol": "MARA",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 45.24,
+          "net_pnl": 56.86
+        },
+        {
+          "symbol": "CRM",
+          "trades": 16,
+          "win_rate": 62.5,
+          "profit_factor": 4.33,
+          "net_pnl": 25.17
+        },
+        {
+          "symbol": "NOC",
+          "trades": 9,
+          "win_rate": 66.7,
+          "profit_factor": 4.57,
+          "net_pnl": 13.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.08,
+          "net_pnl": 12.42
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 16,
+          "win_rate": 56.2,
+          "profit_factor": 2.61,
+          "net_pnl": 25.31
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 22,
+          "win_rate": 31.8,
+          "profit_factor": 0.41,
+          "net_pnl": -16.18
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.75,
+        "rsi_thresh": 37.5
+      },
+      "score": 8.335918,
+      "avg_profit_factor": 8.977,
+      "avg_win_rate": 59.8,
+      "avg_net_pnl": 18.95,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.6,
+          "net_pnl": 15.7
+        },
+        {
+          "symbol": "MARA",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 45.24,
+          "net_pnl": 56.86
+        },
+        {
+          "symbol": "CRM",
+          "trades": 16,
+          "win_rate": 62.5,
+          "profit_factor": 4.33,
+          "net_pnl": 25.17
+        },
+        {
+          "symbol": "NOC",
+          "trades": 9,
+          "win_rate": 66.7,
+          "profit_factor": 4.57,
+          "net_pnl": 13.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.08,
+          "net_pnl": 12.42
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 16,
+          "win_rate": 56.2,
+          "profit_factor": 2.61,
+          "net_pnl": 25.31
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 22,
+          "win_rate": 31.8,
+          "profit_factor": 0.41,
+          "net_pnl": -16.18
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.0,
+        "rsi_thresh": 37.5
+      },
+      "score": 8.335918,
+      "avg_profit_factor": 8.977,
+      "avg_win_rate": 59.8,
+      "avg_net_pnl": 18.95,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.6,
+          "net_pnl": 15.7
+        },
+        {
+          "symbol": "MARA",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 45.24,
+          "net_pnl": 56.86
+        },
+        {
+          "symbol": "CRM",
+          "trades": 16,
+          "win_rate": 62.5,
+          "profit_factor": 4.33,
+          "net_pnl": 25.17
+        },
+        {
+          "symbol": "NOC",
+          "trades": 9,
+          "win_rate": 66.7,
+          "profit_factor": 4.57,
+          "net_pnl": 13.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.08,
+          "net_pnl": 12.42
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 16,
+          "win_rate": 56.2,
+          "profit_factor": 2.61,
+          "net_pnl": 25.31
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 22,
+          "win_rate": 31.8,
+          "profit_factor": 0.41,
+          "net_pnl": -16.18
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.25,
+        "rsi_thresh": 37.5
+      },
+      "score": 8.335918,
+      "avg_profit_factor": 8.977,
+      "avg_win_rate": 59.8,
+      "avg_net_pnl": 18.95,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.6,
+          "net_pnl": 15.7
+        },
+        {
+          "symbol": "MARA",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 45.24,
+          "net_pnl": 56.86
+        },
+        {
+          "symbol": "CRM",
+          "trades": 16,
+          "win_rate": 62.5,
+          "profit_factor": 4.33,
+          "net_pnl": 25.17
+        },
+        {
+          "symbol": "NOC",
+          "trades": 9,
+          "win_rate": 66.7,
+          "profit_factor": 4.57,
+          "net_pnl": 13.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.08,
+          "net_pnl": 12.42
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 16,
+          "win_rate": 56.2,
+          "profit_factor": 2.61,
+          "net_pnl": 25.31
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 22,
+          "win_rate": 31.8,
+          "profit_factor": 0.41,
+          "net_pnl": -16.18
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.5,
+        "rsi_thresh": 37.5
+      },
+      "score": 8.335918,
+      "avg_profit_factor": 8.977,
+      "avg_win_rate": 59.8,
+      "avg_net_pnl": 18.95,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.6,
+          "net_pnl": 15.7
+        },
+        {
+          "symbol": "MARA",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 45.24,
+          "net_pnl": 56.86
+        },
+        {
+          "symbol": "CRM",
+          "trades": 16,
+          "win_rate": 62.5,
+          "profit_factor": 4.33,
+          "net_pnl": 25.17
+        },
+        {
+          "symbol": "NOC",
+          "trades": 9,
+          "win_rate": 66.7,
+          "profit_factor": 4.57,
+          "net_pnl": 13.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.08,
+          "net_pnl": 12.42
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 16,
+          "win_rate": 56.2,
+          "profit_factor": 2.61,
+          "net_pnl": 25.31
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 22,
+          "win_rate": 31.8,
+          "profit_factor": 0.41,
+          "net_pnl": -16.18
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.75,
+        "rsi_thresh": 37.5
+      },
+      "score": 8.335918,
+      "avg_profit_factor": 8.977,
+      "avg_win_rate": 59.8,
+      "avg_net_pnl": 18.95,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.6,
+          "net_pnl": 15.7
+        },
+        {
+          "symbol": "MARA",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 45.24,
+          "net_pnl": 56.86
+        },
+        {
+          "symbol": "CRM",
+          "trades": 16,
+          "win_rate": 62.5,
+          "profit_factor": 4.33,
+          "net_pnl": 25.17
+        },
+        {
+          "symbol": "NOC",
+          "trades": 9,
+          "win_rate": 66.7,
+          "profit_factor": 4.57,
+          "net_pnl": 13.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.08,
+          "net_pnl": 12.42
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 16,
+          "win_rate": 56.2,
+          "profit_factor": 2.61,
+          "net_pnl": 25.31
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 22,
+          "win_rate": 31.8,
+          "profit_factor": 0.41,
+          "net_pnl": -16.18
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.0,
+        "rsi_thresh": 37.5
+      },
+      "score": 8.335918,
+      "avg_profit_factor": 8.977,
+      "avg_win_rate": 59.8,
+      "avg_net_pnl": 18.95,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.6,
+          "net_pnl": 15.7
+        },
+        {
+          "symbol": "MARA",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 45.24,
+          "net_pnl": 56.86
+        },
+        {
+          "symbol": "CRM",
+          "trades": 16,
+          "win_rate": 62.5,
+          "profit_factor": 4.33,
+          "net_pnl": 25.17
+        },
+        {
+          "symbol": "NOC",
+          "trades": 9,
+          "win_rate": 66.7,
+          "profit_factor": 4.57,
+          "net_pnl": 13.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.08,
+          "net_pnl": 12.42
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 16,
+          "win_rate": 56.2,
+          "profit_factor": 2.61,
+          "net_pnl": 25.31
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 22,
+          "win_rate": 31.8,
+          "profit_factor": 0.41,
+          "net_pnl": -16.18
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.25,
+        "rsi_thresh": 37.5
+      },
+      "score": 8.335918,
+      "avg_profit_factor": 8.977,
+      "avg_win_rate": 59.8,
+      "avg_net_pnl": 18.95,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.6,
+          "net_pnl": 15.7
+        },
+        {
+          "symbol": "MARA",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 45.24,
+          "net_pnl": 56.86
+        },
+        {
+          "symbol": "CRM",
+          "trades": 16,
+          "win_rate": 62.5,
+          "profit_factor": 4.33,
+          "net_pnl": 25.17
+        },
+        {
+          "symbol": "NOC",
+          "trades": 9,
+          "win_rate": 66.7,
+          "profit_factor": 4.57,
+          "net_pnl": 13.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.08,
+          "net_pnl": 12.42
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 16,
+          "win_rate": 56.2,
+          "profit_factor": 2.61,
+          "net_pnl": 25.31
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 22,
+          "win_rate": 31.8,
+          "profit_factor": 0.41,
+          "net_pnl": -16.18
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.5,
+        "rsi_thresh": 37.5
+      },
+      "score": 8.335918,
+      "avg_profit_factor": 8.977,
+      "avg_win_rate": 59.8,
+      "avg_net_pnl": 18.95,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.6,
+          "net_pnl": 15.7
+        },
+        {
+          "symbol": "MARA",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 45.24,
+          "net_pnl": 56.86
+        },
+        {
+          "symbol": "CRM",
+          "trades": 16,
+          "win_rate": 62.5,
+          "profit_factor": 4.33,
+          "net_pnl": 25.17
+        },
+        {
+          "symbol": "NOC",
+          "trades": 9,
+          "win_rate": 66.7,
+          "profit_factor": 4.57,
+          "net_pnl": 13.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.08,
+          "net_pnl": 12.42
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 16,
+          "win_rate": 56.2,
+          "profit_factor": 2.61,
+          "net_pnl": 25.31
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 22,
+          "win_rate": 31.8,
+          "profit_factor": 0.41,
+          "net_pnl": -16.18
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.75,
+        "rsi_thresh": 37.5
+      },
+      "score": 8.335918,
+      "avg_profit_factor": 8.977,
+      "avg_win_rate": 59.8,
+      "avg_net_pnl": 18.95,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.6,
+          "net_pnl": 15.7
+        },
+        {
+          "symbol": "MARA",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 45.24,
+          "net_pnl": 56.86
+        },
+        {
+          "symbol": "CRM",
+          "trades": 16,
+          "win_rate": 62.5,
+          "profit_factor": 4.33,
+          "net_pnl": 25.17
+        },
+        {
+          "symbol": "NOC",
+          "trades": 9,
+          "win_rate": 66.7,
+          "profit_factor": 4.57,
+          "net_pnl": 13.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.08,
+          "net_pnl": 12.42
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 16,
+          "win_rate": 56.2,
+          "profit_factor": 2.61,
+          "net_pnl": 25.31
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 22,
+          "win_rate": 31.8,
+          "profit_factor": 0.41,
+          "net_pnl": -16.18
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 8.0,
+        "rsi_thresh": 37.5
+      },
+      "score": 8.335918,
+      "avg_profit_factor": 8.977,
+      "avg_win_rate": 59.8,
+      "avg_net_pnl": 18.95,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.6,
+          "net_pnl": 15.7
+        },
+        {
+          "symbol": "MARA",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 45.24,
+          "net_pnl": 56.86
+        },
+        {
+          "symbol": "CRM",
+          "trades": 16,
+          "win_rate": 62.5,
+          "profit_factor": 4.33,
+          "net_pnl": 25.17
+        },
+        {
+          "symbol": "NOC",
+          "trades": 9,
+          "win_rate": 66.7,
+          "profit_factor": 4.57,
+          "net_pnl": 13.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.08,
+          "net_pnl": 12.42
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 16,
+          "win_rate": 56.2,
+          "profit_factor": 2.61,
+          "net_pnl": 25.31
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 22,
+          "win_rate": 31.8,
+          "profit_factor": 0.41,
+          "net_pnl": -16.18
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.5,
+        "rsi_thresh": 40.0
+      },
+      "score": 3.610816,
+      "avg_profit_factor": 3.889,
+      "avg_win_rate": 55.1,
+      "avg_net_pnl": 40.16,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 5.47,
+          "net_pnl": 45.61
+        },
+        {
+          "symbol": "MARA",
+          "trades": 13,
+          "win_rate": 53.8,
+          "profit_factor": 5.37,
+          "net_pnl": 42.72
+        },
+        {
+          "symbol": "CRM",
+          "trades": 19,
+          "win_rate": 68.4,
+          "profit_factor": 4.42,
+          "net_pnl": 25.8
+        },
+        {
+          "symbol": "NOC",
+          "trades": 24,
+          "win_rate": 58.3,
+          "profit_factor": 2.53,
+          "net_pnl": 20.5
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 7.56,
+          "net_pnl": 152.04
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 24,
+          "win_rate": 50.0,
+          "profit_factor": 1.18,
+          "net_pnl": 5.12
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 32,
+          "win_rate": 37.5,
+          "profit_factor": 0.69,
+          "net_pnl": -10.67
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.75,
+        "rsi_thresh": 40.0
+      },
+      "score": 3.610816,
+      "avg_profit_factor": 3.889,
+      "avg_win_rate": 55.1,
+      "avg_net_pnl": 40.16,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 5.47,
+          "net_pnl": 45.61
+        },
+        {
+          "symbol": "MARA",
+          "trades": 13,
+          "win_rate": 53.8,
+          "profit_factor": 5.37,
+          "net_pnl": 42.72
+        },
+        {
+          "symbol": "CRM",
+          "trades": 19,
+          "win_rate": 68.4,
+          "profit_factor": 4.42,
+          "net_pnl": 25.8
+        },
+        {
+          "symbol": "NOC",
+          "trades": 24,
+          "win_rate": 58.3,
+          "profit_factor": 2.53,
+          "net_pnl": 20.5
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 7.56,
+          "net_pnl": 152.04
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 24,
+          "win_rate": 50.0,
+          "profit_factor": 1.18,
+          "net_pnl": 5.12
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 32,
+          "win_rate": 37.5,
+          "profit_factor": 0.69,
+          "net_pnl": -10.67
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.0,
+        "rsi_thresh": 40.0
+      },
+      "score": 3.610816,
+      "avg_profit_factor": 3.889,
+      "avg_win_rate": 55.1,
+      "avg_net_pnl": 40.16,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 5.47,
+          "net_pnl": 45.61
+        },
+        {
+          "symbol": "MARA",
+          "trades": 13,
+          "win_rate": 53.8,
+          "profit_factor": 5.37,
+          "net_pnl": 42.72
+        },
+        {
+          "symbol": "CRM",
+          "trades": 19,
+          "win_rate": 68.4,
+          "profit_factor": 4.42,
+          "net_pnl": 25.8
+        },
+        {
+          "symbol": "NOC",
+          "trades": 24,
+          "win_rate": 58.3,
+          "profit_factor": 2.53,
+          "net_pnl": 20.5
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 7.56,
+          "net_pnl": 152.04
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 24,
+          "win_rate": 50.0,
+          "profit_factor": 1.18,
+          "net_pnl": 5.12
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 32,
+          "win_rate": 37.5,
+          "profit_factor": 0.69,
+          "net_pnl": -10.67
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.25,
+        "rsi_thresh": 40.0
+      },
+      "score": 3.610816,
+      "avg_profit_factor": 3.889,
+      "avg_win_rate": 55.1,
+      "avg_net_pnl": 40.16,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 5.47,
+          "net_pnl": 45.61
+        },
+        {
+          "symbol": "MARA",
+          "trades": 13,
+          "win_rate": 53.8,
+          "profit_factor": 5.37,
+          "net_pnl": 42.72
+        },
+        {
+          "symbol": "CRM",
+          "trades": 19,
+          "win_rate": 68.4,
+          "profit_factor": 4.42,
+          "net_pnl": 25.8
+        },
+        {
+          "symbol": "NOC",
+          "trades": 24,
+          "win_rate": 58.3,
+          "profit_factor": 2.53,
+          "net_pnl": 20.5
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 7.56,
+          "net_pnl": 152.04
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 24,
+          "win_rate": 50.0,
+          "profit_factor": 1.18,
+          "net_pnl": 5.12
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 32,
+          "win_rate": 37.5,
+          "profit_factor": 0.69,
+          "net_pnl": -10.67
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.5,
+        "rsi_thresh": 40.0
+      },
+      "score": 3.610816,
+      "avg_profit_factor": 3.889,
+      "avg_win_rate": 55.1,
+      "avg_net_pnl": 40.16,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 5.47,
+          "net_pnl": 45.61
+        },
+        {
+          "symbol": "MARA",
+          "trades": 13,
+          "win_rate": 53.8,
+          "profit_factor": 5.37,
+          "net_pnl": 42.72
+        },
+        {
+          "symbol": "CRM",
+          "trades": 19,
+          "win_rate": 68.4,
+          "profit_factor": 4.42,
+          "net_pnl": 25.8
+        },
+        {
+          "symbol": "NOC",
+          "trades": 24,
+          "win_rate": 58.3,
+          "profit_factor": 2.53,
+          "net_pnl": 20.5
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 7.56,
+          "net_pnl": 152.04
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 24,
+          "win_rate": 50.0,
+          "profit_factor": 1.18,
+          "net_pnl": 5.12
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 32,
+          "win_rate": 37.5,
+          "profit_factor": 0.69,
+          "net_pnl": -10.67
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.75,
+        "rsi_thresh": 40.0
+      },
+      "score": 3.610816,
+      "avg_profit_factor": 3.889,
+      "avg_win_rate": 55.1,
+      "avg_net_pnl": 40.16,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 5.47,
+          "net_pnl": 45.61
+        },
+        {
+          "symbol": "MARA",
+          "trades": 13,
+          "win_rate": 53.8,
+          "profit_factor": 5.37,
+          "net_pnl": 42.72
+        },
+        {
+          "symbol": "CRM",
+          "trades": 19,
+          "win_rate": 68.4,
+          "profit_factor": 4.42,
+          "net_pnl": 25.8
+        },
+        {
+          "symbol": "NOC",
+          "trades": 24,
+          "win_rate": 58.3,
+          "profit_factor": 2.53,
+          "net_pnl": 20.5
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 7.56,
+          "net_pnl": 152.04
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 24,
+          "win_rate": 50.0,
+          "profit_factor": 1.18,
+          "net_pnl": 5.12
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 32,
+          "win_rate": 37.5,
+          "profit_factor": 0.69,
+          "net_pnl": -10.67
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.0,
+        "rsi_thresh": 40.0
+      },
+      "score": 3.610816,
+      "avg_profit_factor": 3.889,
+      "avg_win_rate": 55.1,
+      "avg_net_pnl": 40.16,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 5.47,
+          "net_pnl": 45.61
+        },
+        {
+          "symbol": "MARA",
+          "trades": 13,
+          "win_rate": 53.8,
+          "profit_factor": 5.37,
+          "net_pnl": 42.72
+        },
+        {
+          "symbol": "CRM",
+          "trades": 19,
+          "win_rate": 68.4,
+          "profit_factor": 4.42,
+          "net_pnl": 25.8
+        },
+        {
+          "symbol": "NOC",
+          "trades": 24,
+          "win_rate": 58.3,
+          "profit_factor": 2.53,
+          "net_pnl": 20.5
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 7.56,
+          "net_pnl": 152.04
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 24,
+          "win_rate": 50.0,
+          "profit_factor": 1.18,
+          "net_pnl": 5.12
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 32,
+          "win_rate": 37.5,
+          "profit_factor": 0.69,
+          "net_pnl": -10.67
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.25,
+        "rsi_thresh": 40.0
+      },
+      "score": 3.610816,
+      "avg_profit_factor": 3.889,
+      "avg_win_rate": 55.1,
+      "avg_net_pnl": 40.16,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 5.47,
+          "net_pnl": 45.61
+        },
+        {
+          "symbol": "MARA",
+          "trades": 13,
+          "win_rate": 53.8,
+          "profit_factor": 5.37,
+          "net_pnl": 42.72
+        },
+        {
+          "symbol": "CRM",
+          "trades": 19,
+          "win_rate": 68.4,
+          "profit_factor": 4.42,
+          "net_pnl": 25.8
+        },
+        {
+          "symbol": "NOC",
+          "trades": 24,
+          "win_rate": 58.3,
+          "profit_factor": 2.53,
+          "net_pnl": 20.5
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 7.56,
+          "net_pnl": 152.04
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 24,
+          "win_rate": 50.0,
+          "profit_factor": 1.18,
+          "net_pnl": 5.12
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 32,
+          "win_rate": 37.5,
+          "profit_factor": 0.69,
+          "net_pnl": -10.67
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.5,
+        "rsi_thresh": 40.0
+      },
+      "score": 3.610816,
+      "avg_profit_factor": 3.889,
+      "avg_win_rate": 55.1,
+      "avg_net_pnl": 40.16,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 5.47,
+          "net_pnl": 45.61
+        },
+        {
+          "symbol": "MARA",
+          "trades": 13,
+          "win_rate": 53.8,
+          "profit_factor": 5.37,
+          "net_pnl": 42.72
+        },
+        {
+          "symbol": "CRM",
+          "trades": 19,
+          "win_rate": 68.4,
+          "profit_factor": 4.42,
+          "net_pnl": 25.8
+        },
+        {
+          "symbol": "NOC",
+          "trades": 24,
+          "win_rate": 58.3,
+          "profit_factor": 2.53,
+          "net_pnl": 20.5
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 7.56,
+          "net_pnl": 152.04
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 24,
+          "win_rate": 50.0,
+          "profit_factor": 1.18,
+          "net_pnl": 5.12
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 32,
+          "win_rate": 37.5,
+          "profit_factor": 0.69,
+          "net_pnl": -10.67
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.75,
+        "rsi_thresh": 40.0
+      },
+      "score": 3.610816,
+      "avg_profit_factor": 3.889,
+      "avg_win_rate": 55.1,
+      "avg_net_pnl": 40.16,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 5.47,
+          "net_pnl": 45.61
+        },
+        {
+          "symbol": "MARA",
+          "trades": 13,
+          "win_rate": 53.8,
+          "profit_factor": 5.37,
+          "net_pnl": 42.72
+        },
+        {
+          "symbol": "CRM",
+          "trades": 19,
+          "win_rate": 68.4,
+          "profit_factor": 4.42,
+          "net_pnl": 25.8
+        },
+        {
+          "symbol": "NOC",
+          "trades": 24,
+          "win_rate": 58.3,
+          "profit_factor": 2.53,
+          "net_pnl": 20.5
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 7.56,
+          "net_pnl": 152.04
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 24,
+          "win_rate": 50.0,
+          "profit_factor": 1.18,
+          "net_pnl": 5.12
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 32,
+          "win_rate": 37.5,
+          "profit_factor": 0.69,
+          "net_pnl": -10.67
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 8.0,
+        "rsi_thresh": 40.0
+      },
+      "score": 3.610816,
+      "avg_profit_factor": 3.889,
+      "avg_win_rate": 55.1,
+      "avg_net_pnl": 40.16,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 5.47,
+          "net_pnl": 45.61
+        },
+        {
+          "symbol": "MARA",
+          "trades": 13,
+          "win_rate": 53.8,
+          "profit_factor": 5.37,
+          "net_pnl": 42.72
+        },
+        {
+          "symbol": "CRM",
+          "trades": 19,
+          "win_rate": 68.4,
+          "profit_factor": 4.42,
+          "net_pnl": 25.8
+        },
+        {
+          "symbol": "NOC",
+          "trades": 24,
+          "win_rate": 58.3,
+          "profit_factor": 2.53,
+          "net_pnl": 20.5
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 7.56,
+          "net_pnl": 152.04
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 24,
+          "win_rate": 50.0,
+          "profit_factor": 1.18,
+          "net_pnl": 5.12
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 32,
+          "win_rate": 37.5,
+          "profit_factor": 0.69,
+          "net_pnl": -10.67
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.5,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.052347,
+      "avg_profit_factor": 3.287,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 50.7,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 4.69,
+          "net_pnl": 82.71
+        },
+        {
+          "symbol": "MARA",
+          "trades": 20,
+          "win_rate": 55.0,
+          "profit_factor": 5.36,
+          "net_pnl": 69.84
+        },
+        {
+          "symbol": "CRM",
+          "trades": 24,
+          "win_rate": 62.5,
+          "profit_factor": 4.13,
+          "net_pnl": 30.67
+        },
+        {
+          "symbol": "NOC",
+          "trades": 28,
+          "win_rate": 57.1,
+          "profit_factor": 2.71,
+          "net_pnl": 21.76
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 3.72,
+          "net_pnl": 138.81
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 34,
+          "win_rate": 47.1,
+          "profit_factor": 1.55,
+          "net_pnl": 18.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 44,
+          "win_rate": 40.9,
+          "profit_factor": 0.85,
+          "net_pnl": -7.69
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.75,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.052347,
+      "avg_profit_factor": 3.287,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 50.7,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 4.69,
+          "net_pnl": 82.71
+        },
+        {
+          "symbol": "MARA",
+          "trades": 20,
+          "win_rate": 55.0,
+          "profit_factor": 5.36,
+          "net_pnl": 69.84
+        },
+        {
+          "symbol": "CRM",
+          "trades": 24,
+          "win_rate": 62.5,
+          "profit_factor": 4.13,
+          "net_pnl": 30.67
+        },
+        {
+          "symbol": "NOC",
+          "trades": 28,
+          "win_rate": 57.1,
+          "profit_factor": 2.71,
+          "net_pnl": 21.76
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 3.72,
+          "net_pnl": 138.81
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 34,
+          "win_rate": 47.1,
+          "profit_factor": 1.55,
+          "net_pnl": 18.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 44,
+          "win_rate": 40.9,
+          "profit_factor": 0.85,
+          "net_pnl": -7.69
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.0,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.052347,
+      "avg_profit_factor": 3.287,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 50.7,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 4.69,
+          "net_pnl": 82.71
+        },
+        {
+          "symbol": "MARA",
+          "trades": 20,
+          "win_rate": 55.0,
+          "profit_factor": 5.36,
+          "net_pnl": 69.84
+        },
+        {
+          "symbol": "CRM",
+          "trades": 24,
+          "win_rate": 62.5,
+          "profit_factor": 4.13,
+          "net_pnl": 30.67
+        },
+        {
+          "symbol": "NOC",
+          "trades": 28,
+          "win_rate": 57.1,
+          "profit_factor": 2.71,
+          "net_pnl": 21.76
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 3.72,
+          "net_pnl": 138.81
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 34,
+          "win_rate": 47.1,
+          "profit_factor": 1.55,
+          "net_pnl": 18.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 44,
+          "win_rate": 40.9,
+          "profit_factor": 0.85,
+          "net_pnl": -7.69
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.25,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.052347,
+      "avg_profit_factor": 3.287,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 50.7,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 4.69,
+          "net_pnl": 82.71
+        },
+        {
+          "symbol": "MARA",
+          "trades": 20,
+          "win_rate": 55.0,
+          "profit_factor": 5.36,
+          "net_pnl": 69.84
+        },
+        {
+          "symbol": "CRM",
+          "trades": 24,
+          "win_rate": 62.5,
+          "profit_factor": 4.13,
+          "net_pnl": 30.67
+        },
+        {
+          "symbol": "NOC",
+          "trades": 28,
+          "win_rate": 57.1,
+          "profit_factor": 2.71,
+          "net_pnl": 21.76
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 3.72,
+          "net_pnl": 138.81
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 34,
+          "win_rate": 47.1,
+          "profit_factor": 1.55,
+          "net_pnl": 18.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 44,
+          "win_rate": 40.9,
+          "profit_factor": 0.85,
+          "net_pnl": -7.69
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.5,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.052347,
+      "avg_profit_factor": 3.287,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 50.7,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 4.69,
+          "net_pnl": 82.71
+        },
+        {
+          "symbol": "MARA",
+          "trades": 20,
+          "win_rate": 55.0,
+          "profit_factor": 5.36,
+          "net_pnl": 69.84
+        },
+        {
+          "symbol": "CRM",
+          "trades": 24,
+          "win_rate": 62.5,
+          "profit_factor": 4.13,
+          "net_pnl": 30.67
+        },
+        {
+          "symbol": "NOC",
+          "trades": 28,
+          "win_rate": 57.1,
+          "profit_factor": 2.71,
+          "net_pnl": 21.76
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 3.72,
+          "net_pnl": 138.81
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 34,
+          "win_rate": 47.1,
+          "profit_factor": 1.55,
+          "net_pnl": 18.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 44,
+          "win_rate": 40.9,
+          "profit_factor": 0.85,
+          "net_pnl": -7.69
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.75,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.052347,
+      "avg_profit_factor": 3.287,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 50.7,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 4.69,
+          "net_pnl": 82.71
+        },
+        {
+          "symbol": "MARA",
+          "trades": 20,
+          "win_rate": 55.0,
+          "profit_factor": 5.36,
+          "net_pnl": 69.84
+        },
+        {
+          "symbol": "CRM",
+          "trades": 24,
+          "win_rate": 62.5,
+          "profit_factor": 4.13,
+          "net_pnl": 30.67
+        },
+        {
+          "symbol": "NOC",
+          "trades": 28,
+          "win_rate": 57.1,
+          "profit_factor": 2.71,
+          "net_pnl": 21.76
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 3.72,
+          "net_pnl": 138.81
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 34,
+          "win_rate": 47.1,
+          "profit_factor": 1.55,
+          "net_pnl": 18.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 44,
+          "win_rate": 40.9,
+          "profit_factor": 0.85,
+          "net_pnl": -7.69
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.0,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.052347,
+      "avg_profit_factor": 3.287,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 50.7,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 4.69,
+          "net_pnl": 82.71
+        },
+        {
+          "symbol": "MARA",
+          "trades": 20,
+          "win_rate": 55.0,
+          "profit_factor": 5.36,
+          "net_pnl": 69.84
+        },
+        {
+          "symbol": "CRM",
+          "trades": 24,
+          "win_rate": 62.5,
+          "profit_factor": 4.13,
+          "net_pnl": 30.67
+        },
+        {
+          "symbol": "NOC",
+          "trades": 28,
+          "win_rate": 57.1,
+          "profit_factor": 2.71,
+          "net_pnl": 21.76
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 3.72,
+          "net_pnl": 138.81
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 34,
+          "win_rate": 47.1,
+          "profit_factor": 1.55,
+          "net_pnl": 18.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 44,
+          "win_rate": 40.9,
+          "profit_factor": 0.85,
+          "net_pnl": -7.69
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.25,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.052347,
+      "avg_profit_factor": 3.287,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 50.7,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 4.69,
+          "net_pnl": 82.71
+        },
+        {
+          "symbol": "MARA",
+          "trades": 20,
+          "win_rate": 55.0,
+          "profit_factor": 5.36,
+          "net_pnl": 69.84
+        },
+        {
+          "symbol": "CRM",
+          "trades": 24,
+          "win_rate": 62.5,
+          "profit_factor": 4.13,
+          "net_pnl": 30.67
+        },
+        {
+          "symbol": "NOC",
+          "trades": 28,
+          "win_rate": 57.1,
+          "profit_factor": 2.71,
+          "net_pnl": 21.76
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 3.72,
+          "net_pnl": 138.81
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 34,
+          "win_rate": 47.1,
+          "profit_factor": 1.55,
+          "net_pnl": 18.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 44,
+          "win_rate": 40.9,
+          "profit_factor": 0.85,
+          "net_pnl": -7.69
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.5,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.052347,
+      "avg_profit_factor": 3.287,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 50.7,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 4.69,
+          "net_pnl": 82.71
+        },
+        {
+          "symbol": "MARA",
+          "trades": 20,
+          "win_rate": 55.0,
+          "profit_factor": 5.36,
+          "net_pnl": 69.84
+        },
+        {
+          "symbol": "CRM",
+          "trades": 24,
+          "win_rate": 62.5,
+          "profit_factor": 4.13,
+          "net_pnl": 30.67
+        },
+        {
+          "symbol": "NOC",
+          "trades": 28,
+          "win_rate": 57.1,
+          "profit_factor": 2.71,
+          "net_pnl": 21.76
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 3.72,
+          "net_pnl": 138.81
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 34,
+          "win_rate": 47.1,
+          "profit_factor": 1.55,
+          "net_pnl": 18.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 44,
+          "win_rate": 40.9,
+          "profit_factor": 0.85,
+          "net_pnl": -7.69
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.75,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.052347,
+      "avg_profit_factor": 3.287,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 50.7,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 4.69,
+          "net_pnl": 82.71
+        },
+        {
+          "symbol": "MARA",
+          "trades": 20,
+          "win_rate": 55.0,
+          "profit_factor": 5.36,
+          "net_pnl": 69.84
+        },
+        {
+          "symbol": "CRM",
+          "trades": 24,
+          "win_rate": 62.5,
+          "profit_factor": 4.13,
+          "net_pnl": 30.67
+        },
+        {
+          "symbol": "NOC",
+          "trades": 28,
+          "win_rate": 57.1,
+          "profit_factor": 2.71,
+          "net_pnl": 21.76
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 3.72,
+          "net_pnl": 138.81
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 34,
+          "win_rate": 47.1,
+          "profit_factor": 1.55,
+          "net_pnl": 18.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 44,
+          "win_rate": 40.9,
+          "profit_factor": 0.85,
+          "net_pnl": -7.69
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 8.0,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.052347,
+      "avg_profit_factor": 3.287,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 50.7,
+      "consistency": 0.857,
+      "symbols_tested": 7,
+      "symbols_profitable": 6,
+      "per_symbol": [
+        {
+          "symbol": "CLSK",
+          "trades": 19,
+          "win_rate": 57.9,
+          "profit_factor": 4.69,
+          "net_pnl": 82.71
+        },
+        {
+          "symbol": "MARA",
+          "trades": 20,
+          "win_rate": 55.0,
+          "profit_factor": 5.36,
+          "net_pnl": 69.84
+        },
+        {
+          "symbol": "CRM",
+          "trades": 24,
+          "win_rate": 62.5,
+          "profit_factor": 4.13,
+          "net_pnl": 30.67
+        },
+        {
+          "symbol": "NOC",
+          "trades": 28,
+          "win_rate": 57.1,
+          "profit_factor": 2.71,
+          "net_pnl": 21.76
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 3.72,
+          "net_pnl": 138.81
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 34,
+          "win_rate": 47.1,
+          "profit_factor": 1.55,
+          "net_pnl": 18.79
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 44,
+          "win_rate": 40.9,
+          "profit_factor": 0.85,
+          "net_pnl": -7.69
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.5,
+        "rsi_thresh": 30.0
+      },
+      "score": 1.802,
+      "avg_profit_factor": 1.802,
+      "avg_win_rate": 69.0,
+      "avg_net_pnl": 5.6,
+      "consistency": 1.0,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CRM",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 2.57,
+          "net_pnl": 4.72
+        },
+        {
+          "symbol": "NOC",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 1.1,
+          "net_pnl": 0.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.24
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 3.48,
+          "net_pnl": 11.19
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.86,
+          "net_pnl": 2.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.75,
+        "rsi_thresh": 30.0
+      },
+      "score": 1.802,
+      "avg_profit_factor": 1.802,
+      "avg_win_rate": 69.0,
+      "avg_net_pnl": 5.6,
+      "consistency": 1.0,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CRM",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 2.57,
+          "net_pnl": 4.72
+        },
+        {
+          "symbol": "NOC",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 1.1,
+          "net_pnl": 0.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.24
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 3.48,
+          "net_pnl": 11.19
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.86,
+          "net_pnl": 2.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.0,
+        "rsi_thresh": 30.0
+      },
+      "score": 1.802,
+      "avg_profit_factor": 1.802,
+      "avg_win_rate": 69.0,
+      "avg_net_pnl": 5.6,
+      "consistency": 1.0,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CRM",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 2.57,
+          "net_pnl": 4.72
+        },
+        {
+          "symbol": "NOC",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 1.1,
+          "net_pnl": 0.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.24
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 3.48,
+          "net_pnl": 11.19
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.86,
+          "net_pnl": 2.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.25,
+        "rsi_thresh": 30.0
+      },
+      "score": 1.802,
+      "avg_profit_factor": 1.802,
+      "avg_win_rate": 69.0,
+      "avg_net_pnl": 5.6,
+      "consistency": 1.0,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CRM",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 2.57,
+          "net_pnl": 4.72
+        },
+        {
+          "symbol": "NOC",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 1.1,
+          "net_pnl": 0.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.24
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 3.48,
+          "net_pnl": 11.19
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.86,
+          "net_pnl": 2.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.5,
+        "rsi_thresh": 30.0
+      },
+      "score": 1.802,
+      "avg_profit_factor": 1.802,
+      "avg_win_rate": 69.0,
+      "avg_net_pnl": 5.6,
+      "consistency": 1.0,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CRM",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 2.57,
+          "net_pnl": 4.72
+        },
+        {
+          "symbol": "NOC",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 1.1,
+          "net_pnl": 0.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.24
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 3.48,
+          "net_pnl": 11.19
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.86,
+          "net_pnl": 2.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.75,
+        "rsi_thresh": 30.0
+      },
+      "score": 1.802,
+      "avg_profit_factor": 1.802,
+      "avg_win_rate": 69.0,
+      "avg_net_pnl": 5.6,
+      "consistency": 1.0,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CRM",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 2.57,
+          "net_pnl": 4.72
+        },
+        {
+          "symbol": "NOC",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 1.1,
+          "net_pnl": 0.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.24
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 3.48,
+          "net_pnl": 11.19
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.86,
+          "net_pnl": 2.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.0,
+        "rsi_thresh": 30.0
+      },
+      "score": 1.802,
+      "avg_profit_factor": 1.802,
+      "avg_win_rate": 69.0,
+      "avg_net_pnl": 5.6,
+      "consistency": 1.0,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CRM",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 2.57,
+          "net_pnl": 4.72
+        },
+        {
+          "symbol": "NOC",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 1.1,
+          "net_pnl": 0.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.24
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 3.48,
+          "net_pnl": 11.19
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.86,
+          "net_pnl": 2.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.25,
+        "rsi_thresh": 30.0
+      },
+      "score": 1.802,
+      "avg_profit_factor": 1.802,
+      "avg_win_rate": 69.0,
+      "avg_net_pnl": 5.6,
+      "consistency": 1.0,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CRM",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 2.57,
+          "net_pnl": 4.72
+        },
+        {
+          "symbol": "NOC",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 1.1,
+          "net_pnl": 0.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.24
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 3.48,
+          "net_pnl": 11.19
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.86,
+          "net_pnl": 2.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.5,
+        "rsi_thresh": 30.0
+      },
+      "score": 1.802,
+      "avg_profit_factor": 1.802,
+      "avg_win_rate": 69.0,
+      "avg_net_pnl": 5.6,
+      "consistency": 1.0,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CRM",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 2.57,
+          "net_pnl": 4.72
+        },
+        {
+          "symbol": "NOC",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 1.1,
+          "net_pnl": 0.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.24
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 3.48,
+          "net_pnl": 11.19
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.86,
+          "net_pnl": 2.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.75,
+        "rsi_thresh": 30.0
+      },
+      "score": 1.802,
+      "avg_profit_factor": 1.802,
+      "avg_win_rate": 69.0,
+      "avg_net_pnl": 5.6,
+      "consistency": 1.0,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CRM",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 2.57,
+          "net_pnl": 4.72
+        },
+        {
+          "symbol": "NOC",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 1.1,
+          "net_pnl": 0.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.24
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 3.48,
+          "net_pnl": 11.19
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.86,
+          "net_pnl": 2.47
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 8.0,
+        "rsi_thresh": 30.0
+      },
+      "score": 1.802,
+      "avg_profit_factor": 1.802,
+      "avg_win_rate": 69.0,
+      "avg_net_pnl": 5.6,
+      "consistency": 1.0,
+      "symbols_tested": 7,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "CRM",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 2.57,
+          "net_pnl": 4.72
+        },
+        {
+          "symbol": "NOC",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 1.1,
+          "net_pnl": 0.39
+        },
+        {
+          "symbol": "OPEN",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.24
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 3.48,
+          "net_pnl": 11.19
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.86,
+          "net_pnl": 2.47
+        }
+      ]
+    }
+  ]
+}

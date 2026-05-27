@@ -1,0 +1,2741 @@
+{
+  "meta": {
+    "strategy": "rsi_dip_simple",
+    "symbols": [
+      "BTC/USD",
+      "ETH/USD",
+      "SOL/USD",
+      "BONK/USD",
+      "TRUMP/USD"
+    ],
+    "timeframe": "1d",
+    "days": 730,
+    "asset_class": "crypto",
+    "direction": "long",
+    "method": "annealing",
+    "iterations": 60,
+    "metric": "profit_factor",
+    "params": [
+      {
+        "name": "rsi_oversold",
+        "min": 22.0,
+        "max": 45.0,
+        "step": 2.0,
+        "is_int": false
+      },
+      {
+        "name": "rsi_exit",
+        "min": 65.0,
+        "max": 90.0,
+        "step": 2.5,
+        "is_int": false
+      }
+    ],
+    "started_at": "2026-05-25T07:35:01.015237",
+    "finished_at": "2026-05-25T07:35:23.868750",
+    "cancelled": false,
+    "total_tested": 54
+  },
+  "results": [
+    {
+      "params": {
+        "rsi_oversold": 26.0,
+        "rsi_exit": 82.5
+      },
+      "score": 3.542,
+      "avg_profit_factor": 3.542,
+      "avg_win_rate": 56.7,
+      "avg_net_pnl": 26.8,
+      "consistency": 1.0,
+      "symbols_tested": 5,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 1.07,
+          "net_pnl": 2.16
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 12,
+          "win_rate": 50.0,
+          "profit_factor": 1.56,
+          "net_pnl": 21.85
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.13,
+          "net_pnl": 5.76
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 12.85,
+          "net_pnl": 101.2
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 1.1,
+          "net_pnl": 3.03
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 26.0,
+        "rsi_exit": 90.0
+      },
+      "score": 3.542,
+      "avg_profit_factor": 3.542,
+      "avg_win_rate": 56.7,
+      "avg_net_pnl": 26.8,
+      "consistency": 1.0,
+      "symbols_tested": 5,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 1.07,
+          "net_pnl": 2.16
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 12,
+          "win_rate": 50.0,
+          "profit_factor": 1.56,
+          "net_pnl": 21.85
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.13,
+          "net_pnl": 5.76
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 12.85,
+          "net_pnl": 101.2
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 1.1,
+          "net_pnl": 3.03
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 26.0,
+        "rsi_exit": 87.5
+      },
+      "score": 3.542,
+      "avg_profit_factor": 3.542,
+      "avg_win_rate": 56.7,
+      "avg_net_pnl": 26.8,
+      "consistency": 1.0,
+      "symbols_tested": 5,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 1.07,
+          "net_pnl": 2.16
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 12,
+          "win_rate": 50.0,
+          "profit_factor": 1.56,
+          "net_pnl": 21.85
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.13,
+          "net_pnl": 5.76
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 12.85,
+          "net_pnl": 101.2
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 1.1,
+          "net_pnl": 3.03
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 26.0,
+        "rsi_exit": 80.0
+      },
+      "score": 3.542,
+      "avg_profit_factor": 3.542,
+      "avg_win_rate": 56.7,
+      "avg_net_pnl": 26.8,
+      "consistency": 1.0,
+      "symbols_tested": 5,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 1.07,
+          "net_pnl": 2.16
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 12,
+          "win_rate": 50.0,
+          "profit_factor": 1.56,
+          "net_pnl": 21.85
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.13,
+          "net_pnl": 5.76
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 12.85,
+          "net_pnl": 101.2
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 1.1,
+          "net_pnl": 3.03
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 26.0,
+        "rsi_exit": 77.5
+      },
+      "score": 3.542,
+      "avg_profit_factor": 3.542,
+      "avg_win_rate": 56.7,
+      "avg_net_pnl": 26.8,
+      "consistency": 1.0,
+      "symbols_tested": 5,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 1.07,
+          "net_pnl": 2.16
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 12,
+          "win_rate": 50.0,
+          "profit_factor": 1.56,
+          "net_pnl": 21.85
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.13,
+          "net_pnl": 5.76
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 12.85,
+          "net_pnl": 101.2
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 1.1,
+          "net_pnl": 3.03
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 26.0,
+        "rsi_exit": 75.0
+      },
+      "score": 3.542,
+      "avg_profit_factor": 3.542,
+      "avg_win_rate": 56.7,
+      "avg_net_pnl": 26.8,
+      "consistency": 1.0,
+      "symbols_tested": 5,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 1.07,
+          "net_pnl": 2.16
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 12,
+          "win_rate": 50.0,
+          "profit_factor": 1.56,
+          "net_pnl": 21.85
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.13,
+          "net_pnl": 5.76
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 12.85,
+          "net_pnl": 101.2
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 1.1,
+          "net_pnl": 3.03
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 26.0,
+        "rsi_exit": 72.5
+      },
+      "score": 3.542,
+      "avg_profit_factor": 3.542,
+      "avg_win_rate": 56.7,
+      "avg_net_pnl": 26.8,
+      "consistency": 1.0,
+      "symbols_tested": 5,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 1.07,
+          "net_pnl": 2.16
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 12,
+          "win_rate": 50.0,
+          "profit_factor": 1.56,
+          "net_pnl": 21.85
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.13,
+          "net_pnl": 5.76
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 12.85,
+          "net_pnl": 101.2
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 1.1,
+          "net_pnl": 3.03
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 26.0,
+        "rsi_exit": 70.0
+      },
+      "score": 3.542,
+      "avg_profit_factor": 3.542,
+      "avg_win_rate": 56.7,
+      "avg_net_pnl": 26.8,
+      "consistency": 1.0,
+      "symbols_tested": 5,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 1.07,
+          "net_pnl": 2.16
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 12,
+          "win_rate": 50.0,
+          "profit_factor": 1.56,
+          "net_pnl": 21.85
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.13,
+          "net_pnl": 5.76
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 12.85,
+          "net_pnl": 101.2
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 1.1,
+          "net_pnl": 3.03
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 26.0,
+        "rsi_exit": 67.5
+      },
+      "score": 3.542,
+      "avg_profit_factor": 3.542,
+      "avg_win_rate": 56.7,
+      "avg_net_pnl": 26.8,
+      "consistency": 1.0,
+      "symbols_tested": 5,
+      "symbols_profitable": 5,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 1.07,
+          "net_pnl": 2.16
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 12,
+          "win_rate": 50.0,
+          "profit_factor": 1.56,
+          "net_pnl": 21.85
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.13,
+          "net_pnl": 5.76
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 12.85,
+          "net_pnl": 101.2
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 1.1,
+          "net_pnl": 3.03
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 24.0,
+        "rsi_exit": 75.0
+      },
+      "score": 3.1612,
+      "avg_profit_factor": 4.516,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 11.24,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 7,
+          "win_rate": 28.6,
+          "profit_factor": 0.05,
+          "net_pnl": -36.37
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.38,
+          "net_pnl": -28.65
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.4,
+          "net_pnl": 19.51
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 19.85,
+          "net_pnl": 104.23
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.9,
+          "net_pnl": -2.5
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 24.0,
+        "rsi_exit": 72.5
+      },
+      "score": 3.1612,
+      "avg_profit_factor": 4.516,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 11.24,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 7,
+          "win_rate": 28.6,
+          "profit_factor": 0.05,
+          "net_pnl": -36.37
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.38,
+          "net_pnl": -28.65
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.4,
+          "net_pnl": 19.51
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 19.85,
+          "net_pnl": 104.23
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.9,
+          "net_pnl": -2.5
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 24.0,
+        "rsi_exit": 67.5
+      },
+      "score": 3.1612,
+      "avg_profit_factor": 4.516,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 11.24,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 7,
+          "win_rate": 28.6,
+          "profit_factor": 0.05,
+          "net_pnl": -36.37
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.38,
+          "net_pnl": -28.65
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.4,
+          "net_pnl": 19.51
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 19.85,
+          "net_pnl": 104.23
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.9,
+          "net_pnl": -2.5
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 24.0,
+        "rsi_exit": 70.0
+      },
+      "score": 3.1612,
+      "avg_profit_factor": 4.516,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 11.24,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 7,
+          "win_rate": 28.6,
+          "profit_factor": 0.05,
+          "net_pnl": -36.37
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.38,
+          "net_pnl": -28.65
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.4,
+          "net_pnl": 19.51
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 19.85,
+          "net_pnl": 104.23
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.9,
+          "net_pnl": -2.5
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 24.0,
+        "rsi_exit": 90.0
+      },
+      "score": 3.1612,
+      "avg_profit_factor": 4.516,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 11.24,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 7,
+          "win_rate": 28.6,
+          "profit_factor": 0.05,
+          "net_pnl": -36.37
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.38,
+          "net_pnl": -28.65
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.4,
+          "net_pnl": 19.51
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 19.85,
+          "net_pnl": 104.23
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.9,
+          "net_pnl": -2.5
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 24.0,
+        "rsi_exit": 87.5
+      },
+      "score": 3.1612,
+      "avg_profit_factor": 4.516,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 11.24,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 7,
+          "win_rate": 28.6,
+          "profit_factor": 0.05,
+          "net_pnl": -36.37
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.38,
+          "net_pnl": -28.65
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.4,
+          "net_pnl": 19.51
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 19.85,
+          "net_pnl": 104.23
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.9,
+          "net_pnl": -2.5
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 24.0,
+        "rsi_exit": 85.0
+      },
+      "score": 3.1612,
+      "avg_profit_factor": 4.516,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 11.24,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 7,
+          "win_rate": 28.6,
+          "profit_factor": 0.05,
+          "net_pnl": -36.37
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.38,
+          "net_pnl": -28.65
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.4,
+          "net_pnl": 19.51
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 19.85,
+          "net_pnl": 104.23
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.9,
+          "net_pnl": -2.5
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 24.0,
+        "rsi_exit": 82.5
+      },
+      "score": 3.1612,
+      "avg_profit_factor": 4.516,
+      "avg_win_rate": 52.7,
+      "avg_net_pnl": 11.24,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 7,
+          "win_rate": 28.6,
+          "profit_factor": 0.05,
+          "net_pnl": -36.37
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.38,
+          "net_pnl": -28.65
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.4,
+          "net_pnl": 19.51
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 19.85,
+          "net_pnl": 104.23
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.9,
+          "net_pnl": -2.5
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 22.0,
+        "rsi_exit": 75.0
+      },
+      "score": 2.1504,
+      "avg_profit_factor": 3.072,
+      "avg_win_rate": 47.3,
+      "avg_net_pnl": 4.25,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -31.22
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 0.9,
+          "net_pnl": -3.44
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 1.19,
+          "net_pnl": 8.37
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 12.98,
+          "net_pnl": 66.02
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 0.29,
+          "net_pnl": -18.49
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 22.0,
+        "rsi_exit": 87.5
+      },
+      "score": 2.1504,
+      "avg_profit_factor": 3.072,
+      "avg_win_rate": 47.3,
+      "avg_net_pnl": 4.25,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -31.22
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 0.9,
+          "net_pnl": -3.44
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 1.19,
+          "net_pnl": 8.37
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 12.98,
+          "net_pnl": 66.02
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 0.29,
+          "net_pnl": -18.49
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 22.0,
+        "rsi_exit": 77.5
+      },
+      "score": 2.1504,
+      "avg_profit_factor": 3.072,
+      "avg_win_rate": 47.3,
+      "avg_net_pnl": 4.25,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -31.22
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 0.9,
+          "net_pnl": -3.44
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 1.19,
+          "net_pnl": 8.37
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 12.98,
+          "net_pnl": 66.02
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 0.29,
+          "net_pnl": -18.49
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 22.0,
+        "rsi_exit": 90.0
+      },
+      "score": 2.1504,
+      "avg_profit_factor": 3.072,
+      "avg_win_rate": 47.3,
+      "avg_net_pnl": 4.25,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -31.22
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 0.9,
+          "net_pnl": -3.44
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 1.19,
+          "net_pnl": 8.37
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 12.98,
+          "net_pnl": 66.02
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 0.29,
+          "net_pnl": -18.49
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 22.0,
+        "rsi_exit": 80.0
+      },
+      "score": 2.1504,
+      "avg_profit_factor": 3.072,
+      "avg_win_rate": 47.3,
+      "avg_net_pnl": 4.25,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -31.22
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 0.9,
+          "net_pnl": -3.44
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 1.19,
+          "net_pnl": 8.37
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 12.98,
+          "net_pnl": 66.02
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 0.29,
+          "net_pnl": -18.49
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 22.0,
+        "rsi_exit": 85.0
+      },
+      "score": 2.1504,
+      "avg_profit_factor": 3.072,
+      "avg_win_rate": 47.3,
+      "avg_net_pnl": 4.25,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -31.22
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 0.9,
+          "net_pnl": -3.44
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 1.19,
+          "net_pnl": 8.37
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 12.98,
+          "net_pnl": 66.02
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 0.29,
+          "net_pnl": -18.49
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 22.0,
+        "rsi_exit": 70.0
+      },
+      "score": 2.1504,
+      "avg_profit_factor": 3.072,
+      "avg_win_rate": 47.3,
+      "avg_net_pnl": 4.25,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -31.22
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 0.9,
+          "net_pnl": -3.44
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 1.19,
+          "net_pnl": 8.37
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 12.98,
+          "net_pnl": 66.02
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 0.29,
+          "net_pnl": -18.49
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 22.0,
+        "rsi_exit": 82.5
+      },
+      "score": 2.1504,
+      "avg_profit_factor": 3.072,
+      "avg_win_rate": 47.3,
+      "avg_net_pnl": 4.25,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -31.22
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 0.9,
+          "net_pnl": -3.44
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 1.19,
+          "net_pnl": 8.37
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 12.98,
+          "net_pnl": 66.02
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 0.29,
+          "net_pnl": -18.49
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 36.0,
+        "rsi_exit": 87.5
+      },
+      "score": 2.034,
+      "avg_profit_factor": 2.26,
+      "avg_win_rate": 48.1,
+      "avg_net_pnl": 35.2,
+      "consistency": 0.8,
+      "symbols_tested": 5,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 21,
+          "win_rate": 47.6,
+          "profit_factor": 1.01,
+          "net_pnl": 0.43
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 17,
+          "win_rate": 47.1,
+          "profit_factor": 1.42,
+          "net_pnl": 26.18
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 20,
+          "win_rate": 35.0,
+          "profit_factor": 0.81,
+          "net_pnl": -17.32
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 20,
+          "win_rate": 55.0,
+          "profit_factor": 4.64,
+          "net_pnl": 119.11
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 3.42,
+          "net_pnl": 47.58
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 36.0,
+        "rsi_exit": 70.0
+      },
+      "score": 2.0286,
+      "avg_profit_factor": 2.254,
+      "avg_win_rate": 48.1,
+      "avg_net_pnl": 35.06,
+      "consistency": 0.8,
+      "symbols_tested": 5,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 21,
+          "win_rate": 47.6,
+          "profit_factor": 1.01,
+          "net_pnl": 0.43
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 17,
+          "win_rate": 47.1,
+          "profit_factor": 1.42,
+          "net_pnl": 26.18
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 20,
+          "win_rate": 35.0,
+          "profit_factor": 0.81,
+          "net_pnl": -17.32
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 20,
+          "win_rate": 55.0,
+          "profit_factor": 4.64,
+          "net_pnl": 119.11
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 3.39,
+          "net_pnl": 46.88
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 28.0,
+        "rsi_exit": 77.5
+      },
+      "score": 1.5408,
+      "avg_profit_factor": 1.926,
+      "avg_win_rate": 51.4,
+      "avg_net_pnl": 4.12,
+      "consistency": 0.6,
+      "symbols_tested": 5,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 11,
+          "win_rate": 72.7,
+          "profit_factor": 4.51,
+          "net_pnl": 30.8
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 15,
+          "win_rate": 46.7,
+          "profit_factor": 0.91,
+          "net_pnl": -7.75
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 12,
+          "win_rate": 50.0,
+          "profit_factor": 0.36,
+          "net_pnl": -45.3
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 37.5,
+          "profit_factor": 2.45,
+          "net_pnl": 30.87
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 1.4,
+          "net_pnl": 12.0
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 28.0,
+        "rsi_exit": 87.5
+      },
+      "score": 1.5408,
+      "avg_profit_factor": 1.926,
+      "avg_win_rate": 51.4,
+      "avg_net_pnl": 4.12,
+      "consistency": 0.6,
+      "symbols_tested": 5,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 11,
+          "win_rate": 72.7,
+          "profit_factor": 4.51,
+          "net_pnl": 30.8
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 15,
+          "win_rate": 46.7,
+          "profit_factor": 0.91,
+          "net_pnl": -7.75
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 12,
+          "win_rate": 50.0,
+          "profit_factor": 0.36,
+          "net_pnl": -45.3
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 8,
+          "win_rate": 37.5,
+          "profit_factor": 2.45,
+          "net_pnl": 30.87
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 1.4,
+          "net_pnl": 12.0
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 30.0,
+        "rsi_exit": 80.0
+      },
+      "score": 1.504,
+      "avg_profit_factor": 1.88,
+      "avg_win_rate": 47.8,
+      "avg_net_pnl": 12.79,
+      "consistency": 0.6,
+      "symbols_tested": 5,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 14,
+          "win_rate": 57.1,
+          "profit_factor": 3.13,
+          "net_pnl": 25.27
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 15,
+          "win_rate": 40.0,
+          "profit_factor": 0.79,
+          "net_pnl": -20.74
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 1.03,
+          "net_pnl": 1.58
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 3.49,
+          "net_pnl": 59.03
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 0.96,
+          "net_pnl": -1.19
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 30.0,
+        "rsi_exit": 90.0
+      },
+      "score": 1.504,
+      "avg_profit_factor": 1.88,
+      "avg_win_rate": 47.8,
+      "avg_net_pnl": 12.79,
+      "consistency": 0.6,
+      "symbols_tested": 5,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 14,
+          "win_rate": 57.1,
+          "profit_factor": 3.13,
+          "net_pnl": 25.27
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 15,
+          "win_rate": 40.0,
+          "profit_factor": 0.79,
+          "net_pnl": -20.74
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 1.03,
+          "net_pnl": 1.58
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 3.49,
+          "net_pnl": 59.03
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 0.96,
+          "net_pnl": -1.19
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 30.0,
+        "rsi_exit": 87.5
+      },
+      "score": 1.504,
+      "avg_profit_factor": 1.88,
+      "avg_win_rate": 47.8,
+      "avg_net_pnl": 12.79,
+      "consistency": 0.6,
+      "symbols_tested": 5,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 14,
+          "win_rate": 57.1,
+          "profit_factor": 3.13,
+          "net_pnl": 25.27
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 15,
+          "win_rate": 40.0,
+          "profit_factor": 0.79,
+          "net_pnl": -20.74
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 1.03,
+          "net_pnl": 1.58
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 3.49,
+          "net_pnl": 59.03
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 0.96,
+          "net_pnl": -1.19
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 32.0,
+        "rsi_exit": 82.5
+      },
+      "score": 1.3904,
+      "avg_profit_factor": 1.738,
+      "avg_win_rate": 51.7,
+      "avg_net_pnl": 12.27,
+      "consistency": 0.6,
+      "symbols_tested": 5,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 19,
+          "win_rate": 63.2,
+          "profit_factor": 2.36,
+          "net_pnl": 33.62
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 0.62,
+          "net_pnl": -39.38
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 15,
+          "win_rate": 53.3,
+          "profit_factor": 0.88,
+          "net_pnl": -7.99
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 13,
+          "win_rate": 46.2,
+          "profit_factor": 2.83,
+          "net_pnl": 60.56
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 2.0,
+          "net_pnl": 14.53
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 32.0,
+        "rsi_exit": 87.5
+      },
+      "score": 1.3904,
+      "avg_profit_factor": 1.738,
+      "avg_win_rate": 51.7,
+      "avg_net_pnl": 12.27,
+      "consistency": 0.6,
+      "symbols_tested": 5,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 19,
+          "win_rate": 63.2,
+          "profit_factor": 2.36,
+          "net_pnl": 33.62
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 0.62,
+          "net_pnl": -39.38
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 15,
+          "win_rate": 53.3,
+          "profit_factor": 0.88,
+          "net_pnl": -7.99
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 13,
+          "win_rate": 46.2,
+          "profit_factor": 2.83,
+          "net_pnl": 60.56
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 2.0,
+          "net_pnl": 14.53
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 32.0,
+        "rsi_exit": 90.0
+      },
+      "score": 1.3904,
+      "avg_profit_factor": 1.738,
+      "avg_win_rate": 51.7,
+      "avg_net_pnl": 12.27,
+      "consistency": 0.6,
+      "symbols_tested": 5,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 19,
+          "win_rate": 63.2,
+          "profit_factor": 2.36,
+          "net_pnl": 33.62
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 0.62,
+          "net_pnl": -39.38
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 15,
+          "win_rate": 53.3,
+          "profit_factor": 0.88,
+          "net_pnl": -7.99
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 13,
+          "win_rate": 46.2,
+          "profit_factor": 2.83,
+          "net_pnl": 60.56
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 2.0,
+          "net_pnl": 14.53
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 32.0,
+        "rsi_exit": 80.0
+      },
+      "score": 1.3904,
+      "avg_profit_factor": 1.738,
+      "avg_win_rate": 51.7,
+      "avg_net_pnl": 12.27,
+      "consistency": 0.6,
+      "symbols_tested": 5,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 19,
+          "win_rate": 63.2,
+          "profit_factor": 2.36,
+          "net_pnl": 33.62
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 0.62,
+          "net_pnl": -39.38
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 15,
+          "win_rate": 53.3,
+          "profit_factor": 0.88,
+          "net_pnl": -7.99
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 13,
+          "win_rate": 46.2,
+          "profit_factor": 2.83,
+          "net_pnl": 60.56
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 2.0,
+          "net_pnl": 14.53
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 34.0,
+        "rsi_exit": 77.5
+      },
+      "score": 1.372,
+      "avg_profit_factor": 1.96,
+      "avg_win_rate": 46.2,
+      "avg_net_pnl": 15.79,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 21,
+          "win_rate": 42.9,
+          "profit_factor": 0.8,
+          "net_pnl": -13.2
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 13,
+          "win_rate": 30.8,
+          "profit_factor": 0.68,
+          "net_pnl": -27.45
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 19,
+          "win_rate": 42.1,
+          "profit_factor": 0.82,
+          "net_pnl": -15.24
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 19,
+          "win_rate": 52.6,
+          "profit_factor": 3.58,
+          "net_pnl": 92.34
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 3.92,
+          "net_pnl": 42.5
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 34.0,
+        "rsi_exit": 87.5
+      },
+      "score": 1.372,
+      "avg_profit_factor": 1.96,
+      "avg_win_rate": 46.2,
+      "avg_net_pnl": 15.79,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 21,
+          "win_rate": 42.9,
+          "profit_factor": 0.8,
+          "net_pnl": -13.2
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 13,
+          "win_rate": 30.8,
+          "profit_factor": 0.68,
+          "net_pnl": -27.45
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 19,
+          "win_rate": 42.1,
+          "profit_factor": 0.82,
+          "net_pnl": -15.24
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 19,
+          "win_rate": 52.6,
+          "profit_factor": 3.58,
+          "net_pnl": 92.34
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 3.92,
+          "net_pnl": 42.5
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 34.0,
+        "rsi_exit": 70.0
+      },
+      "score": 1.372,
+      "avg_profit_factor": 1.96,
+      "avg_win_rate": 46.2,
+      "avg_net_pnl": 15.79,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 21,
+          "win_rate": 42.9,
+          "profit_factor": 0.8,
+          "net_pnl": -13.2
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 13,
+          "win_rate": 30.8,
+          "profit_factor": 0.68,
+          "net_pnl": -27.45
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 19,
+          "win_rate": 42.1,
+          "profit_factor": 0.82,
+          "net_pnl": -15.24
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 19,
+          "win_rate": 52.6,
+          "profit_factor": 3.58,
+          "net_pnl": 92.34
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 3.92,
+          "net_pnl": 42.5
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 34.0,
+        "rsi_exit": 75.0
+      },
+      "score": 1.372,
+      "avg_profit_factor": 1.96,
+      "avg_win_rate": 46.2,
+      "avg_net_pnl": 15.79,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 21,
+          "win_rate": 42.9,
+          "profit_factor": 0.8,
+          "net_pnl": -13.2
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 13,
+          "win_rate": 30.8,
+          "profit_factor": 0.68,
+          "net_pnl": -27.45
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 19,
+          "win_rate": 42.1,
+          "profit_factor": 0.82,
+          "net_pnl": -15.24
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 19,
+          "win_rate": 52.6,
+          "profit_factor": 3.58,
+          "net_pnl": 92.34
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 3.92,
+          "net_pnl": 42.5
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 34.0,
+        "rsi_exit": 72.5
+      },
+      "score": 1.372,
+      "avg_profit_factor": 1.96,
+      "avg_win_rate": 46.2,
+      "avg_net_pnl": 15.79,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 21,
+          "win_rate": 42.9,
+          "profit_factor": 0.8,
+          "net_pnl": -13.2
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 13,
+          "win_rate": 30.8,
+          "profit_factor": 0.68,
+          "net_pnl": -27.45
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 19,
+          "win_rate": 42.1,
+          "profit_factor": 0.82,
+          "net_pnl": -15.24
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 19,
+          "win_rate": 52.6,
+          "profit_factor": 3.58,
+          "net_pnl": 92.34
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 3.92,
+          "net_pnl": 42.5
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 38.0,
+        "rsi_exit": 77.5
+      },
+      "score": 0.9392,
+      "avg_profit_factor": 1.174,
+      "avg_win_rate": 40.0,
+      "avg_net_pnl": 3.13,
+      "consistency": 0.6,
+      "symbols_tested": 5,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 21,
+          "win_rate": 47.6,
+          "profit_factor": 1.03,
+          "net_pnl": 1.89
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 18,
+          "win_rate": 33.3,
+          "profit_factor": 0.74,
+          "net_pnl": -21.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 22,
+          "win_rate": 36.4,
+          "profit_factor": 0.83,
+          "net_pnl": -17.83
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 20,
+          "win_rate": 45.0,
+          "profit_factor": 1.37,
+          "net_pnl": 34.11
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 8,
+          "win_rate": 37.5,
+          "profit_factor": 1.9,
+          "net_pnl": 19.26
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 38.0,
+        "rsi_exit": 75.0
+      },
+      "score": 0.9392,
+      "avg_profit_factor": 1.174,
+      "avg_win_rate": 40.0,
+      "avg_net_pnl": 3.13,
+      "consistency": 0.6,
+      "symbols_tested": 5,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 21,
+          "win_rate": 47.6,
+          "profit_factor": 1.03,
+          "net_pnl": 1.89
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 18,
+          "win_rate": 33.3,
+          "profit_factor": 0.74,
+          "net_pnl": -21.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 22,
+          "win_rate": 36.4,
+          "profit_factor": 0.83,
+          "net_pnl": -17.83
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 20,
+          "win_rate": 45.0,
+          "profit_factor": 1.37,
+          "net_pnl": 34.11
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 8,
+          "win_rate": 37.5,
+          "profit_factor": 1.9,
+          "net_pnl": 19.26
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 38.0,
+        "rsi_exit": 72.5
+      },
+      "score": 0.9392,
+      "avg_profit_factor": 1.174,
+      "avg_win_rate": 40.0,
+      "avg_net_pnl": 3.13,
+      "consistency": 0.6,
+      "symbols_tested": 5,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 21,
+          "win_rate": 47.6,
+          "profit_factor": 1.03,
+          "net_pnl": 1.89
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 18,
+          "win_rate": 33.3,
+          "profit_factor": 0.74,
+          "net_pnl": -21.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 22,
+          "win_rate": 36.4,
+          "profit_factor": 0.83,
+          "net_pnl": -17.83
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 20,
+          "win_rate": 45.0,
+          "profit_factor": 1.37,
+          "net_pnl": 34.11
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 8,
+          "win_rate": 37.5,
+          "profit_factor": 1.9,
+          "net_pnl": 19.26
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 38.0,
+        "rsi_exit": 70.0
+      },
+      "score": 0.9392,
+      "avg_profit_factor": 1.174,
+      "avg_win_rate": 40.0,
+      "avg_net_pnl": 3.13,
+      "consistency": 0.6,
+      "symbols_tested": 5,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 21,
+          "win_rate": 47.6,
+          "profit_factor": 1.03,
+          "net_pnl": 1.89
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 18,
+          "win_rate": 33.3,
+          "profit_factor": 0.74,
+          "net_pnl": -21.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 22,
+          "win_rate": 36.4,
+          "profit_factor": 0.83,
+          "net_pnl": -17.83
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 20,
+          "win_rate": 45.0,
+          "profit_factor": 1.37,
+          "net_pnl": 34.11
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 8,
+          "win_rate": 37.5,
+          "profit_factor": 1.9,
+          "net_pnl": 19.26
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 38.0,
+        "rsi_exit": 65.0
+      },
+      "score": 0.9392,
+      "avg_profit_factor": 1.174,
+      "avg_win_rate": 40.0,
+      "avg_net_pnl": 3.13,
+      "consistency": 0.6,
+      "symbols_tested": 5,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 21,
+          "win_rate": 47.6,
+          "profit_factor": 1.03,
+          "net_pnl": 1.89
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 18,
+          "win_rate": 33.3,
+          "profit_factor": 0.74,
+          "net_pnl": -21.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 22,
+          "win_rate": 36.4,
+          "profit_factor": 0.83,
+          "net_pnl": -17.83
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 20,
+          "win_rate": 45.0,
+          "profit_factor": 1.37,
+          "net_pnl": 34.11
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 8,
+          "win_rate": 37.5,
+          "profit_factor": 1.9,
+          "net_pnl": 19.26
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 44.0,
+        "rsi_exit": 75.0
+      },
+      "score": 0.7266,
+      "avg_profit_factor": 1.038,
+      "avg_win_rate": 39.0,
+      "avg_net_pnl": -13.69,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 22,
+          "win_rate": 40.9,
+          "profit_factor": 0.98,
+          "net_pnl": -1.18
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 21,
+          "win_rate": 47.6,
+          "profit_factor": 1.02,
+          "net_pnl": 1.57
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 22,
+          "win_rate": 31.8,
+          "profit_factor": 0.47,
+          "net_pnl": -72.77
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 17,
+          "win_rate": 29.4,
+          "profit_factor": 0.69,
+          "net_pnl": -29.89
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 11,
+          "win_rate": 45.5,
+          "profit_factor": 2.03,
+          "net_pnl": 33.8
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 40.0,
+        "rsi_exit": 90.0
+      },
+      "score": 0.7238,
+      "avg_profit_factor": 1.034,
+      "avg_win_rate": 40.9,
+      "avg_net_pnl": 0.35,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 20,
+          "win_rate": 45.0,
+          "profit_factor": 0.91,
+          "net_pnl": -5.29
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 18,
+          "win_rate": 38.9,
+          "profit_factor": 0.9,
+          "net_pnl": -7.13
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 22,
+          "win_rate": 36.4,
+          "profit_factor": 0.64,
+          "net_pnl": -45.16
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 21,
+          "win_rate": 47.6,
+          "profit_factor": 1.59,
+          "net_pnl": 55.16
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 11,
+          "win_rate": 36.4,
+          "profit_factor": 1.13,
+          "net_pnl": 4.18
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 44.0,
+        "rsi_exit": 72.5
+      },
+      "score": 0.7182,
+      "avg_profit_factor": 1.026,
+      "avg_win_rate": 39.0,
+      "avg_net_pnl": -14.46,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 22,
+          "win_rate": 40.9,
+          "profit_factor": 0.92,
+          "net_pnl": -4.99
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 21,
+          "win_rate": 47.6,
+          "profit_factor": 1.02,
+          "net_pnl": 1.57
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 22,
+          "win_rate": 31.8,
+          "profit_factor": 0.47,
+          "net_pnl": -72.77
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 17,
+          "win_rate": 29.4,
+          "profit_factor": 0.69,
+          "net_pnl": -29.89
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 11,
+          "win_rate": 45.5,
+          "profit_factor": 2.03,
+          "net_pnl": 33.8
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 44.0,
+        "rsi_exit": 67.5
+      },
+      "score": 0.7126,
+      "avg_profit_factor": 1.018,
+      "avg_win_rate": 39.0,
+      "avg_net_pnl": -15.04,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 22,
+          "win_rate": 40.9,
+          "profit_factor": 0.88,
+          "net_pnl": -7.92
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 21,
+          "win_rate": 47.6,
+          "profit_factor": 1.02,
+          "net_pnl": 1.57
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 22,
+          "win_rate": 31.8,
+          "profit_factor": 0.47,
+          "net_pnl": -72.77
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 17,
+          "win_rate": 29.4,
+          "profit_factor": 0.69,
+          "net_pnl": -29.89
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 11,
+          "win_rate": 45.5,
+          "profit_factor": 2.03,
+          "net_pnl": 33.8
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 42.0,
+        "rsi_exit": 75.0
+      },
+      "score": 0.6874,
+      "avg_profit_factor": 0.982,
+      "avg_win_rate": 39.7,
+      "avg_net_pnl": -12.43,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 24,
+          "win_rate": 41.7,
+          "profit_factor": 0.86,
+          "net_pnl": -11.76
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 20,
+          "win_rate": 45.0,
+          "profit_factor": 1.17,
+          "net_pnl": 13.18
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 23,
+          "win_rate": 34.8,
+          "profit_factor": 0.58,
+          "net_pnl": -64.78
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 19,
+          "win_rate": 36.8,
+          "profit_factor": 0.91,
+          "net_pnl": -9.0
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 10,
+          "win_rate": 40.0,
+          "profit_factor": 1.39,
+          "net_pnl": 10.2
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 42.0,
+        "rsi_exit": 77.5
+      },
+      "score": 0.6846,
+      "avg_profit_factor": 0.978,
+      "avg_win_rate": 39.7,
+      "avg_net_pnl": -13.06,
+      "consistency": 0.4,
+      "symbols_tested": 5,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 24,
+          "win_rate": 41.7,
+          "profit_factor": 0.86,
+          "net_pnl": -11.76
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 20,
+          "win_rate": 45.0,
+          "profit_factor": 1.17,
+          "net_pnl": 13.18
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 23,
+          "win_rate": 34.8,
+          "profit_factor": 0.56,
+          "net_pnl": -67.94
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 19,
+          "win_rate": 36.8,
+          "profit_factor": 0.91,
+          "net_pnl": -9.0
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 10,
+          "win_rate": 40.0,
+          "profit_factor": 1.39,
+          "net_pnl": 10.2
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 44.0,
+        "rsi_exit": 82.5
+      },
+      "score": 0.6156,
+      "avg_profit_factor": 1.026,
+      "avg_win_rate": 39.0,
+      "avg_net_pnl": -14.96,
+      "consistency": 0.2,
+      "symbols_tested": 5,
+      "symbols_profitable": 1,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 22,
+          "win_rate": 40.9,
+          "profit_factor": 0.98,
+          "net_pnl": -1.18
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 21,
+          "win_rate": 47.6,
+          "profit_factor": 0.98,
+          "net_pnl": -1.61
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 22,
+          "win_rate": 31.8,
+          "profit_factor": 0.45,
+          "net_pnl": -75.92
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 17,
+          "win_rate": 29.4,
+          "profit_factor": 0.69,
+          "net_pnl": -29.89
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 11,
+          "win_rate": 45.5,
+          "profit_factor": 2.03,
+          "net_pnl": 33.8
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 44.0,
+        "rsi_exit": 80.0
+      },
+      "score": 0.6156,
+      "avg_profit_factor": 1.026,
+      "avg_win_rate": 39.0,
+      "avg_net_pnl": -14.96,
+      "consistency": 0.2,
+      "symbols_tested": 5,
+      "symbols_profitable": 1,
+      "per_symbol": [
+        {
+          "symbol": "BTC/USD",
+          "trades": 22,
+          "win_rate": 40.9,
+          "profit_factor": 0.98,
+          "net_pnl": -1.18
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 21,
+          "win_rate": 47.6,
+          "profit_factor": 0.98,
+          "net_pnl": -1.61
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 22,
+          "win_rate": 31.8,
+          "profit_factor": 0.45,
+          "net_pnl": -75.92
+        },
+        {
+          "symbol": "BONK/USD",
+          "trades": 17,
+          "win_rate": 29.4,
+          "profit_factor": 0.69,
+          "net_pnl": -29.89
+        },
+        {
+          "symbol": "TRUMP/USD",
+          "trades": 11,
+          "win_rate": 45.5,
+          "profit_factor": 2.03,
+          "net_pnl": 33.8
+        }
+      ]
+    }
+  ]
+}

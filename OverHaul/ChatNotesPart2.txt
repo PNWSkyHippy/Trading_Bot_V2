@@ -1,0 +1,72 @@
+1st is real late too
+
+Yeah both entries are late — the big move happened on that massive candle way to the left, both BUYs are chasing into exhausted price action well after the real breakout. By the time the scanner fired the move was already 80% done.
+
+The scanner is detecting the breakout too late — probably triggering on confirmation candles after the initial thrust rather than catching the breakout as it happens. Combined with the cooldown/re-entry issue you're essentially getting two late entries on one move instead of one good early entry.
+
+Worth looking at what escalation level is triggering entries — if it's waiting for esc=2 or esc=3 confirmation before sending to the bot that would explain the lag.
+
+also totally misse the huge profitable short
+
+Ouch — that's a clean downtrend all the way down and it went LONG at the very bottom into a dead cat bounce. Missed the entire short move and then bought the knife.
+
+Three problems on this one:
+
+Wrong direction — clear downtrend, should be SHORT not LONG
+Late again — entered at exhaustion after the whole move played out
+Missed the obvious trade — that short from the top would have been the real money
+The breakout scanner is clearly not configured for shorts or the short signals are being filtered out somewhere. Is short trading enabled on the breakout receiver side, or is it only passing LONG signals through to the bot?
+
+i wasnt around to see if gap scanner wrked thismornign either but sounds like both scanners may need a tune unless some other code change has effecte it
+
+Yeah worth reviewing both systematically. A few things could have caused a regression:
+
+Possible causes from recent changes:
+
+The DB key migration — if breakout scanner is pulling keys from DB now instead of scanner_config.json, could there be a timing issue where it starts before keys are loaded
+The _db_fallback() code path being hit for the first time in live conditions
+Any config.py changes affecting market_scanner/scanner_engine
+What to check:
+
+Breakout scanner logs — did it load keys from DB correctly at startup, any errors
+Did the gap scanner actually fire this morning — any signals in the logs
+Whether short signals from funding scanner are being passed through or dropped
+Want to pull the scanner logs from this morning and see what actually happened? That'll tell us if it's a code regression from our changes or the scanners were already behaving this way before.
+
+02681:2026-05-23 00:56:13,030 | INFO | Alpaca API initialized
+302682-2026-05-23 00:56:13,549 | INFO | [CONFIG] 'alphavantage_api_key' loaded from bot DB (scanner_config blank).
+302683-2026-05-23 00:56:13,552 | INFO | [CONFIG] 'alpaca_secret_key' loaded from bot DB (scanner_config blank).
+302684-2026-05-23 00:56:13,555 | INFO | [CONFIG] 'massive_api_key' loaded from bot DB (scanner_config blank).
+302685-2026-05-23 00:56:13,557 | INFO | [CONFIG] 'coinbase_api_secret' loaded from bot DB (scanner_config blank).
+302686-2026-05-23 00:56:13,559 | INFO | [CONFIG] 'coinbase_api_key' loaded from bot DB (scanner_config blank).
+--
+302689-2026-05-23 00:56:13,564 | INFO | [CONFIG] 'alpaca_api_key' loaded from bot DB (scanner_config blank).
+302690-2026-05-23 00:56:13,571 | INFO | [CONFIG] 'email_password' loaded from bot DB (scanner_config blank).
+302691-2026-05-23 00:56:13,573 | INFO | [CONFIG] 'kraken_api_key' loaded from bot DB (scanner_config blank).
+302692-2026-05-23 00:56:13,573 | INFO | Config loaded from C:\Users\Linda\trading_bot_v2\scanner_config.json
+302693-2026-05-23 00:56:13,574 | INFO | Massive.com stock bar fetcher active
+302694:2026-05-23 00:56:13,574 | INFO | Alpaca API initialized
+302695-2026-05-23 00:56:15,080 | INFO | Kraken exchange initialized
+302696-2026-05-23 00:56:15,415 | INFO | Kraken exchange initialized
+302697-2026-05-23 00:56:16,262 | WARNING | coinbase init failed: index out of range
+302698-2026-05-23 00:56:16,264 | INFO | Made it to MarketScanner: before watchlist init
+302699-2026-05-23 00:56:16,264 | INFO | Made it to MarketScanner: after watchlist init
+PS C:\Users\Linda\trading_bot_v2>
+
+DB fallback worked perfectly — all keys loaded from DB cleanly. Coinbase has a minor init issue (index out of range) but that's pre-existing, not from our changes.
+
+The scanner issues are unrelated to the key migration. The late entries and missed short are a pre-existing tuning problem. Good to confirm our changes didn't break anything though.
+
+seems happy
+
+Yep — keys loading clean, Kraken up, Alpaca up, Massive active. The scanner tuning is a separate project for another day. Good to have that confirmed not our fault at least! 😄
+
+doesnt look like we use scaner_error.log anymore its empty
+
+Ran
+Find all references to scanner_error.log
+Only referenced in StartBreakoutScanner.ps1 as a stderr redirect — not used by any Python code. Since the scanner logs everything through the Python logger now it's just an empty artifact. Safe to ignore or delete if it's cluttering things up.
+
+errors corection
+
+Yep scanner_errors.log not scanner_error.log — just the PS1 launch script redirecting stderr there as a catch-all. Since the Python logger handles everything it stays empty. Not worth worrying about.

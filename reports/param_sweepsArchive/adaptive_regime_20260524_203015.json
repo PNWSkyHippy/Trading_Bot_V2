@@ -1,0 +1,4296 @@
+{
+  "meta": {
+    "strategy": "adaptive_regime",
+    "symbols": [
+      "CHPT",
+      "TSLA",
+      "ZIM",
+      "LRCX",
+      "CVNA",
+      "PLTR",
+      "ACHR",
+      "RIVN",
+      "NVDA",
+      "JPM"
+    ],
+    "timeframe": "1h",
+    "days": 365,
+    "asset_class": "stock",
+    "direction": "long",
+    "method": "annealing",
+    "iterations": 60,
+    "metric": "profit_factor",
+    "params": [
+      {
+        "name": "stop_loss_pct",
+        "min": 0.6,
+        "max": 3.75,
+        "step": 0.5,
+        "is_int": false
+      },
+      {
+        "name": "take_profit_pct",
+        "min": 1.2,
+        "max": 7.5,
+        "step": 0.5,
+        "is_int": false
+      }
+    ],
+    "started_at": "2026-05-24T19:51:33.628781",
+    "finished_at": "2026-05-24T20:30:15.947827",
+    "cancelled": false,
+    "total_tested": 50
+  },
+  "results": [
+    {
+      "params": {
+        "stop_loss_pct": 2.1,
+        "take_profit_pct": 4.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 1.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.1,
+        "take_profit_pct": 1.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.6,
+        "take_profit_pct": 1.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.6,
+        "take_profit_pct": 1.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.6,
+        "take_profit_pct": 6.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.1,
+        "take_profit_pct": 7.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 7.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 6.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.6,
+        "take_profit_pct": 5.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.6,
+        "take_profit_pct": 6.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.6,
+        "take_profit_pct": 7.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 6.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.6,
+        "take_profit_pct": 4.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.6,
+        "take_profit_pct": 4.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 1.6,
+        "take_profit_pct": 3.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 0.6,
+        "take_profit_pct": 4.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 5.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 3.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.6,
+        "take_profit_pct": 5.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.1,
+        "take_profit_pct": 3.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.1,
+        "take_profit_pct": 4.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 2.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.6,
+        "take_profit_pct": 1.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.6,
+        "take_profit_pct": 2.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 1.6,
+        "take_profit_pct": 6.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 1.6,
+        "take_profit_pct": 7.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 1.6,
+        "take_profit_pct": 6.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 0.6,
+        "take_profit_pct": 7.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 1.1,
+        "take_profit_pct": 7.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 1.1,
+        "take_profit_pct": 6.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 0.6,
+        "take_profit_pct": 6.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.1,
+        "take_profit_pct": 2.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.1,
+        "take_profit_pct": 2.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.6,
+        "take_profit_pct": 4.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 1.1,
+        "take_profit_pct": 4.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 1.1,
+        "take_profit_pct": 4.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 0.6,
+        "take_profit_pct": 4.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 0.6,
+        "take_profit_pct": 5.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 0.6,
+        "take_profit_pct": 5.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.6,
+        "take_profit_pct": 4.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 4.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.1,
+        "take_profit_pct": 4.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.6,
+        "take_profit_pct": 5.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.1,
+        "take_profit_pct": 5.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 0.6,
+        "take_profit_pct": 3.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.6,
+        "take_profit_pct": 3.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.6,
+        "take_profit_pct": 3.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.6,
+        "take_profit_pct": 2.7
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 0.6,
+        "take_profit_pct": 2.2
+      },
+      "score": 6.1848,
+      "avg_profit_factor": 6.872,
+      "avg_win_rate": 61.7,
+      "avg_net_pnl": 10.12,
+      "consistency": 0.8,
+      "symbols_tested": 10,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "CHPT",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 29.32,
+          "net_pnl": 35.77
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 14.1,
+          "net_pnl": 17.01
+        },
+        {
+          "symbol": "ZIM",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 0.65
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 9.75
+        },
+        {
+          "symbol": "CVNA",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 0.19,
+          "net_pnl": -2.09
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 21.51,
+          "net_pnl": 14.92
+        },
+        {
+          "symbol": "ACHR",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 2.34,
+          "net_pnl": 10.68
+        },
+        {
+          "symbol": "RIVN",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -0.23
+        },
+        {
+          "symbol": "NVDA",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 10.66
+        },
+        {
+          "symbol": "JPM",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 4.13
+        }
+      ]
+    }
+  ]
+}

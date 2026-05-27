@@ -131,6 +131,14 @@ logger = logging.getLogger(__name__)
 # ── Whitelist toggle ──────────────────────────────────────────────────────────
 # True  = only GO stocks from backtest are scanned (lower signal count, higher quality)
 # False = all watchlist stocks are scanned (more signals, higher noise)
+# ETH excluded after 5-iteration audit — no ORB edge found across all param settings
+# 00:00 UTC ORB stalls at 2R and mean-reverts; negative expectancy at 3R target
+# Missing "ETH/USD" (Kraken) added alongside existing exchange formats
+ETH_ORB_EXCLUDED = {
+    "ETHUSDT", "ETH-USDT", "ETHBUSD",
+    "ETH/USDT", "ETH/USD",
+}
+
 USE_WHITELIST = True
 
 # GO stocks from 5m 30-day backtest (Apr 2026).
@@ -182,8 +190,8 @@ class ORBBreakout(BaseStrategy):
     def __init__(self):
         super().__init__()
         self.strategy_name = "orb_breakout"
-        self.stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT
-        self.take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT
+        self.stop_loss_pct   = 1.5   # fallback only — overridden per-signal by structural ORB stop
+        self.take_profit_pct = 3.2   # fallback only — overridden per-signal by structural ORB risk × R_MULT
 
         self.stock_candle_timeframe  = "5Min"
         self.crypto_candle_timeframe = "15m"
@@ -192,6 +200,7 @@ class ORBBreakout(BaseStrategy):
         self.stock_enabled  = True
         self.crypto_enabled = True
         self.enabled        = True    # ENABLED 2026-05-16 — paper trading to gather stats
+        self.reviewer_exempt = True
 
         # ML model is dominated by grid_bot (1507 trades); orb_breakout has
         # ~0 representation so ML blending collapses valid scores below threshold.
@@ -310,8 +319,7 @@ class ORBBreakout(BaseStrategy):
         # ETH excluded after 5-iteration audit (Iter5): ORB breakouts at
         # 00:00 UTC stall at 2R and mean-revert; negative expectancy across
         # all parameter settings tested (PF peaked at 0.932, Sharpe -0.53).
-        _ETH_EXCLUDED = {"ETHUSDT", "ETH-USDT", "ETHBUSD", "ETH/USDT"}
-        if asset_class == "crypto" and symbol.upper() in _ETH_EXCLUDED:
+        if asset_class == "crypto" and symbol.upper() in ETH_ORB_EXCLUDED:
             self.verbose_log_skip(symbol, "ETH excluded — ORB audit: no edge found (5 iters)")
             return None
 
@@ -470,6 +478,8 @@ class ORBBreakout(BaseStrategy):
                     "volume_ratio":               round(vol_ratio, 3),
                     "distance_from_breakout_pct": round(long_chase_pct, 3),
                     "entry_time_utc":             datetime.now(timezone.utc).isoformat(),
+                    "preferred_initial_stop_mode": "signal_structural",
+                    "preferred_trail_mode":        "none",
                 }
             )
 
@@ -546,6 +556,8 @@ class ORBBreakout(BaseStrategy):
                     "volume_ratio":               round(vol_ratio, 3),
                     "distance_from_breakout_pct": round(short_chase_pct, 3),
                     "entry_time_utc":             datetime.now(timezone.utc).isoformat(),
+                    "preferred_initial_stop_mode": "signal_structural",
+                    "preferred_trail_mode":        "none",
                 }
             )
 

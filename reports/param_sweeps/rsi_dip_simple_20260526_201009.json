@@ -1,0 +1,2325 @@
+{
+  "meta": {
+    "strategy": "rsi_dip_simple",
+    "symbols": [
+      "NVDA",
+      "META",
+      "TSLA",
+      "MSFT",
+      "NFLX",
+      "AMD",
+      "INTC",
+      "MRVL",
+      "ALAB",
+      "QCOM",
+      "TXN",
+      "LRCX",
+      "KLAC",
+      "AMAT",
+      "MU",
+      "ON",
+      "MPWR",
+      "PLTR",
+      "CRM",
+      "SNOW",
+      "DDOG",
+      "NET",
+      "NOW",
+      "CRWD",
+      "ZS"
+    ],
+    "timeframe": "1h",
+    "days": 180,
+    "asset_class": "stock",
+    "direction": "both",
+    "method": "zoom",
+    "iterations": 60,
+    "metric": "profit_factor",
+    "params": [
+      {
+        "name": "rsi_oversold",
+        "min": 15.0,
+        "max": 38.0,
+        "step": 1.0,
+        "is_int": false
+      }
+    ],
+    "started_at": "2026-05-26T20:07:35.115622",
+    "zoom_coarse_winner": {
+      "rsi_oversold": 15.0
+    },
+    "finished_at": "2026-05-26T20:10:09.018636",
+    "cancelled": false,
+    "total_tested": 12
+  },
+  "results": [
+    {
+      "params": {
+        "rsi_oversold": 16.0
+      },
+      "score": 1.809904,
+      "avg_profit_factor": 2.207,
+      "avg_win_rate": 50.2,
+      "avg_net_pnl": 1.87,
+      "consistency": 0.64,
+      "symbols_tested": 25,
+      "symbols_profitable": 16,
+      "per_symbol": [
+        {
+          "symbol": "NVDA",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 2.49,
+          "net_pnl": 8.49
+        },
+        {
+          "symbol": "META",
+          "trades": 11,
+          "win_rate": 45.5,
+          "profit_factor": 0.94,
+          "net_pnl": -1.16
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 13,
+          "win_rate": 53.8,
+          "profit_factor": 2.32,
+          "net_pnl": 11.09
+        },
+        {
+          "symbol": "MSFT",
+          "trades": 11,
+          "win_rate": 36.4,
+          "profit_factor": 0.82,
+          "net_pnl": -1.05
+        },
+        {
+          "symbol": "NFLX",
+          "trades": 10,
+          "win_rate": 50.0,
+          "profit_factor": 1.51,
+          "net_pnl": 3.36
+        },
+        {
+          "symbol": "AMD",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 1.23,
+          "net_pnl": 1.81
+        },
+        {
+          "symbol": "INTC",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.1,
+          "net_pnl": 1.02
+        },
+        {
+          "symbol": "MRVL",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 0.59,
+          "net_pnl": -3.18
+        },
+        {
+          "symbol": "ALAB",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.0,
+          "net_pnl": 0.03
+        },
+        {
+          "symbol": "QCOM",
+          "trades": 8,
+          "win_rate": 75.0,
+          "profit_factor": 4.53,
+          "net_pnl": 16.26
+        },
+        {
+          "symbol": "TXN",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 10.49,
+          "net_pnl": 5.81
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 2.69,
+          "net_pnl": 20.06
+        },
+        {
+          "symbol": "KLAC",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 3.66,
+          "net_pnl": 21.34
+        },
+        {
+          "symbol": "AMAT",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 8.22,
+          "net_pnl": 13.18
+        },
+        {
+          "symbol": "MU",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 0.16,
+          "net_pnl": -13.86
+        },
+        {
+          "symbol": "ON",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.26,
+          "net_pnl": 2.53
+        },
+        {
+          "symbol": "MPWR",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 6.31,
+          "net_pnl": 20.22
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 1.11,
+          "net_pnl": 1.62
+        },
+        {
+          "symbol": "CRM",
+          "trades": 12,
+          "win_rate": 25.0,
+          "profit_factor": 0.17,
+          "net_pnl": -20.12
+        },
+        {
+          "symbol": "SNOW",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.29,
+          "net_pnl": -13.75
+        },
+        {
+          "symbol": "DDOG",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 1.03,
+          "net_pnl": 0.28
+        },
+        {
+          "symbol": "NET",
+          "trades": 10,
+          "win_rate": 30.0,
+          "profit_factor": 0.54,
+          "net_pnl": -10.03
+        },
+        {
+          "symbol": "NOW",
+          "trades": 12,
+          "win_rate": 16.7,
+          "profit_factor": 0.89,
+          "net_pnl": -2.22
+        },
+        {
+          "symbol": "CRWD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 1.69,
+          "net_pnl": 6.83
+        },
+        {
+          "symbol": "ZS",
+          "trades": 8,
+          "win_rate": 25.0,
+          "profit_factor": 0.14,
+          "net_pnl": -21.78
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 15.0
+      },
+      "score": 1.412368,
+      "avg_profit_factor": 1.722,
+      "avg_win_rate": 48.1,
+      "avg_net_pnl": 1.1,
+      "consistency": 0.64,
+      "symbols_tested": 25,
+      "symbols_profitable": 16,
+      "per_symbol": [
+        {
+          "symbol": "NVDA",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 2.13,
+          "net_pnl": 7.85
+        },
+        {
+          "symbol": "META",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 1.1,
+          "net_pnl": 1.34
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 11,
+          "win_rate": 45.5,
+          "profit_factor": 1.51,
+          "net_pnl": 4.26
+        },
+        {
+          "symbol": "MSFT",
+          "trades": 9,
+          "win_rate": 44.4,
+          "profit_factor": 1.39,
+          "net_pnl": 1.9
+        },
+        {
+          "symbol": "NFLX",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 2.11,
+          "net_pnl": 4.38
+        },
+        {
+          "symbol": "AMD",
+          "trades": 1,
+          "win_rate": 0.0,
+          "profit_factor": 0.0,
+          "net_pnl": -7.0
+        },
+        {
+          "symbol": "INTC",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 0.7,
+          "net_pnl": -0.36
+        },
+        {
+          "symbol": "MRVL",
+          "trades": 3,
+          "win_rate": 33.3,
+          "profit_factor": 0.53,
+          "net_pnl": -2.84
+        },
+        {
+          "symbol": "ALAB",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.0,
+          "net_pnl": 0.03
+        },
+        {
+          "symbol": "QCOM",
+          "trades": 7,
+          "win_rate": 71.4,
+          "profit_factor": 4.41,
+          "net_pnl": 14.33
+        },
+        {
+          "symbol": "TXN",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 10.56,
+          "net_pnl": 5.86
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 1.58,
+          "net_pnl": 6.49
+        },
+        {
+          "symbol": "KLAC",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 3.42,
+          "net_pnl": 20.78
+        },
+        {
+          "symbol": "AMAT",
+          "trades": 5,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 15.26
+        },
+        {
+          "symbol": "MU",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 0.97,
+          "net_pnl": -0.32
+        },
+        {
+          "symbol": "ON",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.44,
+          "net_pnl": 3.7
+        },
+        {
+          "symbol": "MPWR",
+          "trades": 3,
+          "win_rate": 66.7,
+          "profit_factor": 4.45,
+          "net_pnl": 13.16
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 10,
+          "win_rate": 30.0,
+          "profit_factor": 0.5,
+          "net_pnl": -6.52
+        },
+        {
+          "symbol": "CRM",
+          "trades": 13,
+          "win_rate": 23.1,
+          "profit_factor": 0.14,
+          "net_pnl": -25.56
+        },
+        {
+          "symbol": "SNOW",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.3,
+          "net_pnl": -13.21
+        },
+        {
+          "symbol": "DDOG",
+          "trades": 7,
+          "win_rate": 71.4,
+          "profit_factor": 1.31,
+          "net_pnl": 2.38
+        },
+        {
+          "symbol": "NET",
+          "trades": 8,
+          "win_rate": 25.0,
+          "profit_factor": 0.23,
+          "net_pnl": -16.11
+        },
+        {
+          "symbol": "NOW",
+          "trades": 13,
+          "win_rate": 23.1,
+          "profit_factor": 1.34,
+          "net_pnl": 5.43
+        },
+        {
+          "symbol": "CRWD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 1.69,
+          "net_pnl": 6.83
+        },
+        {
+          "symbol": "ZS",
+          "trades": 7,
+          "win_rate": 28.6,
+          "profit_factor": 0.25,
+          "net_pnl": -14.6
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 37.999998
+      },
+      "score": 1.307888,
+      "avg_profit_factor": 1.521,
+      "avg_win_rate": 49.0,
+      "avg_net_pnl": 20.0,
+      "consistency": 0.72,
+      "symbols_tested": 25,
+      "symbols_profitable": 18,
+      "per_symbol": [
+        {
+          "symbol": "NVDA",
+          "trades": 37,
+          "win_rate": 62.2,
+          "profit_factor": 1.86,
+          "net_pnl": 29.44
+        },
+        {
+          "symbol": "META",
+          "trades": 39,
+          "win_rate": 43.6,
+          "profit_factor": 0.73,
+          "net_pnl": -12.17
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 43,
+          "win_rate": 48.8,
+          "profit_factor": 1.11,
+          "net_pnl": 5.86
+        },
+        {
+          "symbol": "MSFT",
+          "trades": 42,
+          "win_rate": 47.6,
+          "profit_factor": 1.0,
+          "net_pnl": -0.05
+        },
+        {
+          "symbol": "NFLX",
+          "trades": 41,
+          "win_rate": 51.2,
+          "profit_factor": 1.3,
+          "net_pnl": 8.33
+        },
+        {
+          "symbol": "AMD",
+          "trades": 31,
+          "win_rate": 58.1,
+          "profit_factor": 1.42,
+          "net_pnl": 14.95
+        },
+        {
+          "symbol": "INTC",
+          "trades": 33,
+          "win_rate": 54.5,
+          "profit_factor": 2.53,
+          "net_pnl": 64.24
+        },
+        {
+          "symbol": "MRVL",
+          "trades": 39,
+          "win_rate": 35.9,
+          "profit_factor": 0.54,
+          "net_pnl": -40.79
+        },
+        {
+          "symbol": "ALAB",
+          "trades": 39,
+          "win_rate": 51.3,
+          "profit_factor": 2.45,
+          "net_pnl": 90.31
+        },
+        {
+          "symbol": "QCOM",
+          "trades": 47,
+          "win_rate": 42.6,
+          "profit_factor": 0.64,
+          "net_pnl": -20.16
+        },
+        {
+          "symbol": "TXN",
+          "trades": 30,
+          "win_rate": 60.0,
+          "profit_factor": 3.08,
+          "net_pnl": 43.37
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 31,
+          "win_rate": 45.2,
+          "profit_factor": 1.1,
+          "net_pnl": 4.25
+        },
+        {
+          "symbol": "KLAC",
+          "trades": 27,
+          "win_rate": 51.9,
+          "profit_factor": 1.58,
+          "net_pnl": 24.86
+        },
+        {
+          "symbol": "AMAT",
+          "trades": 30,
+          "win_rate": 43.3,
+          "profit_factor": 1.08,
+          "net_pnl": 3.52
+        },
+        {
+          "symbol": "MU",
+          "trades": 30,
+          "win_rate": 50.0,
+          "profit_factor": 2.19,
+          "net_pnl": 55.34
+        },
+        {
+          "symbol": "ON",
+          "trades": 32,
+          "win_rate": 50.0,
+          "profit_factor": 1.59,
+          "net_pnl": 21.18
+        },
+        {
+          "symbol": "MPWR",
+          "trades": 27,
+          "win_rate": 48.1,
+          "profit_factor": 1.34,
+          "net_pnl": 10.3
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 41,
+          "win_rate": 43.9,
+          "profit_factor": 1.45,
+          "net_pnl": 24.78
+        },
+        {
+          "symbol": "CRM",
+          "trades": 43,
+          "win_rate": 44.2,
+          "profit_factor": 0.97,
+          "net_pnl": -1.29
+        },
+        {
+          "symbol": "SNOW",
+          "trades": 39,
+          "win_rate": 43.6,
+          "profit_factor": 1.89,
+          "net_pnl": 37.98
+        },
+        {
+          "symbol": "DDOG",
+          "trades": 37,
+          "win_rate": 56.8,
+          "profit_factor": 3.15,
+          "net_pnl": 92.94
+        },
+        {
+          "symbol": "NET",
+          "trades": 28,
+          "win_rate": 46.4,
+          "profit_factor": 0.72,
+          "net_pnl": -14.5
+        },
+        {
+          "symbol": "NOW",
+          "trades": 37,
+          "win_rate": 48.6,
+          "profit_factor": 0.7,
+          "net_pnl": -13.41
+        },
+        {
+          "symbol": "CRWD",
+          "trades": 36,
+          "win_rate": 50.0,
+          "profit_factor": 1.25,
+          "net_pnl": 10.65
+        },
+        {
+          "symbol": "ZS",
+          "trades": 49,
+          "win_rate": 46.9,
+          "profit_factor": 2.35,
+          "net_pnl": 60.14
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 34.166665
+      },
+      "score": 1.15416,
+      "avg_profit_factor": 1.374,
+      "avg_win_rate": 46.7,
+      "avg_net_pnl": 13.81,
+      "consistency": 0.68,
+      "symbols_tested": 25,
+      "symbols_profitable": 17,
+      "per_symbol": [
+        {
+          "symbol": "NVDA",
+          "trades": 31,
+          "win_rate": 51.6,
+          "profit_factor": 1.61,
+          "net_pnl": 19.55
+        },
+        {
+          "symbol": "META",
+          "trades": 39,
+          "win_rate": 43.6,
+          "profit_factor": 0.83,
+          "net_pnl": -6.34
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 37,
+          "win_rate": 45.9,
+          "profit_factor": 1.32,
+          "net_pnl": 12.58
+        },
+        {
+          "symbol": "MSFT",
+          "trades": 37,
+          "win_rate": 40.5,
+          "profit_factor": 0.9,
+          "net_pnl": -3.0
+        },
+        {
+          "symbol": "NFLX",
+          "trades": 33,
+          "win_rate": 51.5,
+          "profit_factor": 1.14,
+          "net_pnl": 3.27
+        },
+        {
+          "symbol": "AMD",
+          "trades": 32,
+          "win_rate": 53.1,
+          "profit_factor": 1.33,
+          "net_pnl": 13.6
+        },
+        {
+          "symbol": "INTC",
+          "trades": 26,
+          "win_rate": 53.8,
+          "profit_factor": 1.97,
+          "net_pnl": 31.28
+        },
+        {
+          "symbol": "MRVL",
+          "trades": 38,
+          "win_rate": 52.6,
+          "profit_factor": 2.46,
+          "net_pnl": 56.36
+        },
+        {
+          "symbol": "ALAB",
+          "trades": 39,
+          "win_rate": 53.8,
+          "profit_factor": 2.2,
+          "net_pnl": 69.7
+        },
+        {
+          "symbol": "QCOM",
+          "trades": 40,
+          "win_rate": 40.0,
+          "profit_factor": 0.82,
+          "net_pnl": -7.19
+        },
+        {
+          "symbol": "TXN",
+          "trades": 28,
+          "win_rate": 53.6,
+          "profit_factor": 2.99,
+          "net_pnl": 41.46
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 32,
+          "win_rate": 56.2,
+          "profit_factor": 1.64,
+          "net_pnl": 25.89
+        },
+        {
+          "symbol": "KLAC",
+          "trades": 25,
+          "win_rate": 44.0,
+          "profit_factor": 0.66,
+          "net_pnl": -16.29
+        },
+        {
+          "symbol": "AMAT",
+          "trades": 27,
+          "win_rate": 44.4,
+          "profit_factor": 1.17,
+          "net_pnl": 6.4
+        },
+        {
+          "symbol": "MU",
+          "trades": 28,
+          "win_rate": 46.4,
+          "profit_factor": 1.58,
+          "net_pnl": 29.05
+        },
+        {
+          "symbol": "ON",
+          "trades": 23,
+          "win_rate": 34.8,
+          "profit_factor": 1.0,
+          "net_pnl": 0.04
+        },
+        {
+          "symbol": "MPWR",
+          "trades": 27,
+          "win_rate": 55.6,
+          "profit_factor": 1.15,
+          "net_pnl": 5.51
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 1.04,
+          "net_pnl": 1.93
+        },
+        {
+          "symbol": "CRM",
+          "trades": 35,
+          "win_rate": 40.0,
+          "profit_factor": 0.87,
+          "net_pnl": -4.68
+        },
+        {
+          "symbol": "SNOW",
+          "trades": 28,
+          "win_rate": 35.7,
+          "profit_factor": 1.08,
+          "net_pnl": 2.99
+        },
+        {
+          "symbol": "DDOG",
+          "trades": 36,
+          "win_rate": 55.6,
+          "profit_factor": 3.18,
+          "net_pnl": 91.84
+        },
+        {
+          "symbol": "NET",
+          "trades": 28,
+          "win_rate": 39.3,
+          "profit_factor": 0.64,
+          "net_pnl": -19.56
+        },
+        {
+          "symbol": "NOW",
+          "trades": 33,
+          "win_rate": 30.3,
+          "profit_factor": 0.44,
+          "net_pnl": -25.72
+        },
+        {
+          "symbol": "CRWD",
+          "trades": 34,
+          "win_rate": 47.1,
+          "profit_factor": 0.91,
+          "net_pnl": -3.93
+        },
+        {
+          "symbol": "ZS",
+          "trades": 45,
+          "win_rate": 48.9,
+          "profit_factor": 1.42,
+          "net_pnl": 20.53
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 17.0
+      },
+      "score": 1.153376,
+      "avg_profit_factor": 1.518,
+      "avg_win_rate": 45.6,
+      "avg_net_pnl": 1.12,
+      "consistency": 0.52,
+      "symbols_tested": 25,
+      "symbols_profitable": 13,
+      "per_symbol": [
+        {
+          "symbol": "NVDA",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 2.22,
+          "net_pnl": 8.83
+        },
+        {
+          "symbol": "META",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 0.84,
+          "net_pnl": -3.21
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 16,
+          "win_rate": 37.5,
+          "profit_factor": 1.14,
+          "net_pnl": 2.48
+        },
+        {
+          "symbol": "MSFT",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 0.94,
+          "net_pnl": -0.36
+        },
+        {
+          "symbol": "NFLX",
+          "trades": 10,
+          "win_rate": 40.0,
+          "profit_factor": 0.53,
+          "net_pnl": -4.3
+        },
+        {
+          "symbol": "AMD",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 3.4,
+          "net_pnl": 22.55
+        },
+        {
+          "symbol": "INTC",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 2.54,
+          "net_pnl": 14.23
+        },
+        {
+          "symbol": "MRVL",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 0.86,
+          "net_pnl": -1.11
+        },
+        {
+          "symbol": "ALAB",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 1.63,
+          "net_pnl": 7.25
+        },
+        {
+          "symbol": "QCOM",
+          "trades": 10,
+          "win_rate": 70.0,
+          "profit_factor": 6.48,
+          "net_pnl": 19.8
+        },
+        {
+          "symbol": "TXN",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 2.01,
+          "net_pnl": 2.99
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 9,
+          "win_rate": 44.4,
+          "profit_factor": 2.17,
+          "net_pnl": 16.14
+        },
+        {
+          "symbol": "KLAC",
+          "trades": 7,
+          "win_rate": 28.6,
+          "profit_factor": 1.05,
+          "net_pnl": 1.16
+        },
+        {
+          "symbol": "AMAT",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 2.73,
+          "net_pnl": 12.03
+        },
+        {
+          "symbol": "MU",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 0.17,
+          "net_pnl": -12.28
+        },
+        {
+          "symbol": "ON",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.62,
+          "net_pnl": -4.81
+        },
+        {
+          "symbol": "MPWR",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 2.85,
+          "net_pnl": 13.77
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 12,
+          "win_rate": 25.0,
+          "profit_factor": 0.99,
+          "net_pnl": -0.22
+        },
+        {
+          "symbol": "CRM",
+          "trades": 14,
+          "win_rate": 28.6,
+          "profit_factor": 0.15,
+          "net_pnl": -22.87
+        },
+        {
+          "symbol": "SNOW",
+          "trades": 9,
+          "win_rate": 44.4,
+          "profit_factor": 0.34,
+          "net_pnl": -15.35
+        },
+        {
+          "symbol": "DDOG",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.36,
+          "net_pnl": 4.37
+        },
+        {
+          "symbol": "NET",
+          "trades": 10,
+          "win_rate": 30.0,
+          "profit_factor": 0.54,
+          "net_pnl": -10.03
+        },
+        {
+          "symbol": "NOW",
+          "trades": 16,
+          "win_rate": 25.0,
+          "profit_factor": 0.84,
+          "net_pnl": -3.67
+        },
+        {
+          "symbol": "CRWD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 1.41,
+          "net_pnl": 4.88
+        },
+        {
+          "symbol": "ZS",
+          "trades": 9,
+          "win_rate": 22.2,
+          "profit_factor": 0.13,
+          "net_pnl": -24.23
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 18.0
+      },
+      "score": 1.1232,
+      "avg_profit_factor": 1.404,
+      "avg_win_rate": 46.1,
+      "avg_net_pnl": 1.9,
+      "consistency": 0.6,
+      "symbols_tested": 25,
+      "symbols_profitable": 15,
+      "per_symbol": [
+        {
+          "symbol": "NVDA",
+          "trades": 10,
+          "win_rate": 50.0,
+          "profit_factor": 1.45,
+          "net_pnl": 5.01
+        },
+        {
+          "symbol": "META",
+          "trades": 13,
+          "win_rate": 46.2,
+          "profit_factor": 0.77,
+          "net_pnl": -4.65
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 17,
+          "win_rate": 52.9,
+          "profit_factor": 1.87,
+          "net_pnl": 12.14
+        },
+        {
+          "symbol": "MSFT",
+          "trades": 15,
+          "win_rate": 33.3,
+          "profit_factor": 0.59,
+          "net_pnl": -3.59
+        },
+        {
+          "symbol": "NFLX",
+          "trades": 11,
+          "win_rate": 36.4,
+          "profit_factor": 0.64,
+          "net_pnl": -3.46
+        },
+        {
+          "symbol": "AMD",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 2.91,
+          "net_pnl": 18.95
+        },
+        {
+          "symbol": "INTC",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 2.1,
+          "net_pnl": 10.12
+        },
+        {
+          "symbol": "MRVL",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.01,
+          "net_pnl": 0.13
+        },
+        {
+          "symbol": "ALAB",
+          "trades": 8,
+          "win_rate": 62.5,
+          "profit_factor": 2.46,
+          "net_pnl": 16.77
+        },
+        {
+          "symbol": "QCOM",
+          "trades": 13,
+          "win_rate": 69.2,
+          "profit_factor": 5.26,
+          "net_pnl": 31.26
+        },
+        {
+          "symbol": "TXN",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.53,
+          "net_pnl": -4.12
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 10,
+          "win_rate": 40.0,
+          "profit_factor": 1.23,
+          "net_pnl": 4.17
+        },
+        {
+          "symbol": "KLAC",
+          "trades": 10,
+          "win_rate": 50.0,
+          "profit_factor": 2.78,
+          "net_pnl": 23.83
+        },
+        {
+          "symbol": "AMAT",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 1.23,
+          "net_pnl": 3.31
+        },
+        {
+          "symbol": "MU",
+          "trades": 7,
+          "win_rate": 28.6,
+          "profit_factor": 0.15,
+          "net_pnl": -14.03
+        },
+        {
+          "symbol": "ON",
+          "trades": 9,
+          "win_rate": 44.4,
+          "profit_factor": 1.27,
+          "net_pnl": 4.09
+        },
+        {
+          "symbol": "MPWR",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 2.63,
+          "net_pnl": 16.32
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 1.05,
+          "net_pnl": 0.7
+        },
+        {
+          "symbol": "CRM",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.24,
+          "net_pnl": -22.66
+        },
+        {
+          "symbol": "SNOW",
+          "trades": 9,
+          "win_rate": 33.3,
+          "profit_factor": 0.11,
+          "net_pnl": -22.79
+        },
+        {
+          "symbol": "DDOG",
+          "trades": 12,
+          "win_rate": 66.7,
+          "profit_factor": 1.78,
+          "net_pnl": 9.43
+        },
+        {
+          "symbol": "NET",
+          "trades": 11,
+          "win_rate": 36.4,
+          "profit_factor": 0.81,
+          "net_pnl": -4.28
+        },
+        {
+          "symbol": "NOW",
+          "trades": 21,
+          "win_rate": 28.6,
+          "profit_factor": 0.73,
+          "net_pnl": -9.81
+        },
+        {
+          "symbol": "CRWD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 1.25,
+          "net_pnl": 3.3
+        },
+        {
+          "symbol": "ZS",
+          "trades": 10,
+          "win_rate": 30.0,
+          "profit_factor": 0.25,
+          "net_pnl": -22.58
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 30.333332
+      },
+      "score": 1.06112,
+      "avg_profit_factor": 1.326,
+      "avg_win_rate": 45.3,
+      "avg_net_pnl": 11.3,
+      "consistency": 0.6,
+      "symbols_tested": 25,
+      "symbols_profitable": 15,
+      "per_symbol": [
+        {
+          "symbol": "NVDA",
+          "trades": 23,
+          "win_rate": 34.8,
+          "profit_factor": 0.53,
+          "net_pnl": -14.73
+        },
+        {
+          "symbol": "META",
+          "trades": 39,
+          "win_rate": 46.2,
+          "profit_factor": 0.88,
+          "net_pnl": -4.29
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 32,
+          "win_rate": 40.6,
+          "profit_factor": 1.23,
+          "net_pnl": 8.01
+        },
+        {
+          "symbol": "MSFT",
+          "trades": 30,
+          "win_rate": 36.7,
+          "profit_factor": 0.6,
+          "net_pnl": -9.45
+        },
+        {
+          "symbol": "NFLX",
+          "trades": 30,
+          "win_rate": 43.3,
+          "profit_factor": 0.68,
+          "net_pnl": -8.33
+        },
+        {
+          "symbol": "AMD",
+          "trades": 31,
+          "win_rate": 45.2,
+          "profit_factor": 1.23,
+          "net_pnl": 10.83
+        },
+        {
+          "symbol": "INTC",
+          "trades": 23,
+          "win_rate": 43.5,
+          "profit_factor": 1.59,
+          "net_pnl": 19.3
+        },
+        {
+          "symbol": "MRVL",
+          "trades": 30,
+          "win_rate": 43.3,
+          "profit_factor": 1.7,
+          "net_pnl": 25.13
+        },
+        {
+          "symbol": "ALAB",
+          "trades": 32,
+          "win_rate": 62.5,
+          "profit_factor": 3.47,
+          "net_pnl": 87.0
+        },
+        {
+          "symbol": "QCOM",
+          "trades": 33,
+          "win_rate": 45.5,
+          "profit_factor": 1.09,
+          "net_pnl": 2.51
+        },
+        {
+          "symbol": "TXN",
+          "trades": 20,
+          "win_rate": 45.0,
+          "profit_factor": 1.78,
+          "net_pnl": 16.96
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 27,
+          "win_rate": 55.6,
+          "profit_factor": 1.23,
+          "net_pnl": 10.35
+        },
+        {
+          "symbol": "KLAC",
+          "trades": 24,
+          "win_rate": 45.8,
+          "profit_factor": 0.89,
+          "net_pnl": -3.92
+        },
+        {
+          "symbol": "AMAT",
+          "trades": 27,
+          "win_rate": 48.1,
+          "profit_factor": 1.1,
+          "net_pnl": 3.91
+        },
+        {
+          "symbol": "MU",
+          "trades": 24,
+          "win_rate": 58.3,
+          "profit_factor": 2.54,
+          "net_pnl": 49.85
+        },
+        {
+          "symbol": "ON",
+          "trades": 21,
+          "win_rate": 28.6,
+          "profit_factor": 0.73,
+          "net_pnl": -9.34
+        },
+        {
+          "symbol": "MPWR",
+          "trades": 29,
+          "win_rate": 55.2,
+          "profit_factor": 1.29,
+          "net_pnl": 10.56
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 26,
+          "win_rate": 50.0,
+          "profit_factor": 0.98,
+          "net_pnl": -0.93
+        },
+        {
+          "symbol": "CRM",
+          "trades": 32,
+          "win_rate": 40.6,
+          "profit_factor": 0.87,
+          "net_pnl": -4.41
+        },
+        {
+          "symbol": "SNOW",
+          "trades": 24,
+          "win_rate": 41.7,
+          "profit_factor": 1.24,
+          "net_pnl": 8.94
+        },
+        {
+          "symbol": "DDOG",
+          "trades": 27,
+          "win_rate": 48.1,
+          "profit_factor": 2.99,
+          "net_pnl": 70.07
+        },
+        {
+          "symbol": "NET",
+          "trades": 22,
+          "win_rate": 40.9,
+          "profit_factor": 0.87,
+          "net_pnl": -5.97
+        },
+        {
+          "symbol": "NOW",
+          "trades": 33,
+          "win_rate": 36.4,
+          "profit_factor": 0.88,
+          "net_pnl": -5.5
+        },
+        {
+          "symbol": "CRWD",
+          "trades": 28,
+          "win_rate": 46.4,
+          "profit_factor": 1.36,
+          "net_pnl": 12.27
+        },
+        {
+          "symbol": "ZS",
+          "trades": 30,
+          "win_rate": 50.0,
+          "profit_factor": 1.41,
+          "net_pnl": 13.71
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 20.0
+      },
+      "score": 1.044,
+      "avg_profit_factor": 1.45,
+      "avg_win_rate": 45.0,
+      "avg_net_pnl": 1.23,
+      "consistency": 0.44,
+      "symbols_tested": 25,
+      "symbols_profitable": 11,
+      "per_symbol": [
+        {
+          "symbol": "NVDA",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 0.35,
+          "net_pnl": -9.7
+        },
+        {
+          "symbol": "META",
+          "trades": 20,
+          "win_rate": 50.0,
+          "profit_factor": 0.87,
+          "net_pnl": -3.26
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 21,
+          "win_rate": 61.9,
+          "profit_factor": 2.19,
+          "net_pnl": 24.97
+        },
+        {
+          "symbol": "MSFT",
+          "trades": 18,
+          "win_rate": 44.4,
+          "profit_factor": 1.34,
+          "net_pnl": 2.82
+        },
+        {
+          "symbol": "NFLX",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 0.39,
+          "net_pnl": -9.89
+        },
+        {
+          "symbol": "AMD",
+          "trades": 11,
+          "win_rate": 63.6,
+          "profit_factor": 2.58,
+          "net_pnl": 22.53
+        },
+        {
+          "symbol": "INTC",
+          "trades": 8,
+          "win_rate": 37.5,
+          "profit_factor": 1.29,
+          "net_pnl": 3.54
+        },
+        {
+          "symbol": "MRVL",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.96,
+          "net_pnl": -0.55
+        },
+        {
+          "symbol": "ALAB",
+          "trades": 11,
+          "win_rate": 72.7,
+          "profit_factor": 3.89,
+          "net_pnl": 42.44
+        },
+        {
+          "symbol": "QCOM",
+          "trades": 14,
+          "win_rate": 78.6,
+          "profit_factor": 9.44,
+          "net_pnl": 36.5
+        },
+        {
+          "symbol": "TXN",
+          "trades": 8,
+          "win_rate": 25.0,
+          "profit_factor": 0.15,
+          "net_pnl": -8.02
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 1.28,
+          "net_pnl": 6.46
+        },
+        {
+          "symbol": "KLAC",
+          "trades": 12,
+          "win_rate": 50.0,
+          "profit_factor": 1.24,
+          "net_pnl": 3.98
+        },
+        {
+          "symbol": "AMAT",
+          "trades": 11,
+          "win_rate": 45.5,
+          "profit_factor": 0.65,
+          "net_pnl": -6.88
+        },
+        {
+          "symbol": "MU",
+          "trades": 10,
+          "win_rate": 30.0,
+          "profit_factor": 0.28,
+          "net_pnl": -21.4
+        },
+        {
+          "symbol": "ON",
+          "trades": 12,
+          "win_rate": 25.0,
+          "profit_factor": 0.45,
+          "net_pnl": -16.71
+        },
+        {
+          "symbol": "MPWR",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 2.08,
+          "net_pnl": 14.26
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 15,
+          "win_rate": 46.7,
+          "profit_factor": 0.93,
+          "net_pnl": -1.45
+        },
+        {
+          "symbol": "CRM",
+          "trades": 16,
+          "win_rate": 18.8,
+          "profit_factor": 0.4,
+          "net_pnl": -17.95
+        },
+        {
+          "symbol": "SNOW",
+          "trades": 19,
+          "win_rate": 47.4,
+          "profit_factor": 1.32,
+          "net_pnl": 9.93
+        },
+        {
+          "symbol": "DDOG",
+          "trades": 13,
+          "win_rate": 46.2,
+          "profit_factor": 0.65,
+          "net_pnl": -7.47
+        },
+        {
+          "symbol": "NET",
+          "trades": 16,
+          "win_rate": 43.8,
+          "profit_factor": 0.86,
+          "net_pnl": -3.76
+        },
+        {
+          "symbol": "NOW",
+          "trades": 21,
+          "win_rate": 19.0,
+          "profit_factor": 0.31,
+          "net_pnl": -25.37
+        },
+        {
+          "symbol": "CRWD",
+          "trades": 11,
+          "win_rate": 63.6,
+          "profit_factor": 1.81,
+          "net_pnl": 9.52
+        },
+        {
+          "symbol": "ZS",
+          "trades": 12,
+          "win_rate": 50.0,
+          "profit_factor": 0.54,
+          "net_pnl": -13.91
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 18.833333
+      },
+      "score": 0.99604,
+      "avg_profit_factor": 1.346,
+      "avg_win_rate": 45.8,
+      "avg_net_pnl": 1.13,
+      "consistency": 0.48,
+      "symbols_tested": 25,
+      "symbols_profitable": 12,
+      "per_symbol": [
+        {
+          "symbol": "NVDA",
+          "trades": 10,
+          "win_rate": 50.0,
+          "profit_factor": 1.45,
+          "net_pnl": 5.01
+        },
+        {
+          "symbol": "META",
+          "trades": 16,
+          "win_rate": 56.2,
+          "profit_factor": 0.9,
+          "net_pnl": -2.04
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 20,
+          "win_rate": 60.0,
+          "profit_factor": 3.08,
+          "net_pnl": 29.09
+        },
+        {
+          "symbol": "MSFT",
+          "trades": 17,
+          "win_rate": 29.4,
+          "profit_factor": 0.52,
+          "net_pnl": -5.7
+        },
+        {
+          "symbol": "NFLX",
+          "trades": 11,
+          "win_rate": 27.3,
+          "profit_factor": 0.24,
+          "net_pnl": -12.93
+        },
+        {
+          "symbol": "AMD",
+          "trades": 10,
+          "win_rate": 70.0,
+          "profit_factor": 2.71,
+          "net_pnl": 20.06
+        },
+        {
+          "symbol": "INTC",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 1.6,
+          "net_pnl": 6.5
+        },
+        {
+          "symbol": "MRVL",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.01,
+          "net_pnl": 0.13
+        },
+        {
+          "symbol": "ALAB",
+          "trades": 9,
+          "win_rate": 66.7,
+          "profit_factor": 2.04,
+          "net_pnl": 19.38
+        },
+        {
+          "symbol": "QCOM",
+          "trades": 14,
+          "win_rate": 71.4,
+          "profit_factor": 5.37,
+          "net_pnl": 32.04
+        },
+        {
+          "symbol": "TXN",
+          "trades": 8,
+          "win_rate": 37.5,
+          "profit_factor": 0.2,
+          "net_pnl": -7.57
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 0.97,
+          "net_pnl": -0.69
+        },
+        {
+          "symbol": "KLAC",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 3.05,
+          "net_pnl": 27.35
+        },
+        {
+          "symbol": "AMAT",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 0.93,
+          "net_pnl": -0.94
+        },
+        {
+          "symbol": "MU",
+          "trades": 10,
+          "win_rate": 30.0,
+          "profit_factor": 0.44,
+          "net_pnl": -10.97
+        },
+        {
+          "symbol": "ON",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 0.6,
+          "net_pnl": -10.81
+        },
+        {
+          "symbol": "MPWR",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 2.36,
+          "net_pnl": 13.59
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.24,
+          "net_pnl": 3.49
+        },
+        {
+          "symbol": "CRM",
+          "trades": 16,
+          "win_rate": 18.8,
+          "profit_factor": 0.11,
+          "net_pnl": -27.82
+        },
+        {
+          "symbol": "SNOW",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 0.8,
+          "net_pnl": -5.19
+        },
+        {
+          "symbol": "DDOG",
+          "trades": 13,
+          "win_rate": 53.8,
+          "profit_factor": 1.1,
+          "net_pnl": 1.75
+        },
+        {
+          "symbol": "NET",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 0.78,
+          "net_pnl": -5.33
+        },
+        {
+          "symbol": "NOW",
+          "trades": 20,
+          "win_rate": 25.0,
+          "profit_factor": 0.36,
+          "net_pnl": -23.0
+        },
+        {
+          "symbol": "CRWD",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 1.56,
+          "net_pnl": 7.49
+        },
+        {
+          "symbol": "ZS",
+          "trades": 10,
+          "win_rate": 30.0,
+          "profit_factor": 0.23,
+          "net_pnl": -24.63
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 26.499999
+      },
+      "score": 0.994032,
+      "avg_profit_factor": 1.274,
+      "avg_win_rate": 42.9,
+      "avg_net_pnl": 5.84,
+      "consistency": 0.56,
+      "symbols_tested": 25,
+      "symbols_profitable": 14,
+      "per_symbol": [
+        {
+          "symbol": "NVDA",
+          "trades": 19,
+          "win_rate": 36.8,
+          "profit_factor": 0.55,
+          "net_pnl": -13.01
+        },
+        {
+          "symbol": "META",
+          "trades": 30,
+          "win_rate": 43.3,
+          "profit_factor": 0.62,
+          "net_pnl": -12.97
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 31,
+          "win_rate": 45.2,
+          "profit_factor": 1.53,
+          "net_pnl": 17.04
+        },
+        {
+          "symbol": "MSFT",
+          "trades": 26,
+          "win_rate": 26.9,
+          "profit_factor": 0.38,
+          "net_pnl": -15.85
+        },
+        {
+          "symbol": "NFLX",
+          "trades": 25,
+          "win_rate": 48.0,
+          "profit_factor": 1.21,
+          "net_pnl": 3.84
+        },
+        {
+          "symbol": "AMD",
+          "trades": 21,
+          "win_rate": 52.4,
+          "profit_factor": 1.42,
+          "net_pnl": 14.65
+        },
+        {
+          "symbol": "INTC",
+          "trades": 18,
+          "win_rate": 27.8,
+          "profit_factor": 0.56,
+          "net_pnl": -14.15
+        },
+        {
+          "symbol": "MRVL",
+          "trades": 23,
+          "win_rate": 39.1,
+          "profit_factor": 1.49,
+          "net_pnl": 15.06
+        },
+        {
+          "symbol": "ALAB",
+          "trades": 22,
+          "win_rate": 72.7,
+          "profit_factor": 4.88,
+          "net_pnl": 74.64
+        },
+        {
+          "symbol": "QCOM",
+          "trades": 27,
+          "win_rate": 55.6,
+          "profit_factor": 2.78,
+          "net_pnl": 31.13
+        },
+        {
+          "symbol": "TXN",
+          "trades": 21,
+          "win_rate": 33.3,
+          "profit_factor": 0.45,
+          "net_pnl": -12.5
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 22,
+          "win_rate": 54.5,
+          "profit_factor": 1.3,
+          "net_pnl": 10.45
+        },
+        {
+          "symbol": "KLAC",
+          "trades": 18,
+          "win_rate": 44.4,
+          "profit_factor": 0.89,
+          "net_pnl": -3.27
+        },
+        {
+          "symbol": "AMAT",
+          "trades": 20,
+          "win_rate": 45.0,
+          "profit_factor": 0.59,
+          "net_pnl": -15.83
+        },
+        {
+          "symbol": "MU",
+          "trades": 20,
+          "win_rate": 50.0,
+          "profit_factor": 1.81,
+          "net_pnl": 30.04
+        },
+        {
+          "symbol": "ON",
+          "trades": 15,
+          "win_rate": 20.0,
+          "profit_factor": 0.28,
+          "net_pnl": -20.28
+        },
+        {
+          "symbol": "MPWR",
+          "trades": 22,
+          "win_rate": 45.5,
+          "profit_factor": 1.23,
+          "net_pnl": 7.1
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 24,
+          "win_rate": 41.7,
+          "profit_factor": 1.1,
+          "net_pnl": 4.38
+        },
+        {
+          "symbol": "CRM",
+          "trades": 26,
+          "win_rate": 30.8,
+          "profit_factor": 0.62,
+          "net_pnl": -14.65
+        },
+        {
+          "symbol": "SNOW",
+          "trades": 23,
+          "win_rate": 43.5,
+          "profit_factor": 1.26,
+          "net_pnl": 10.95
+        },
+        {
+          "symbol": "DDOG",
+          "trades": 20,
+          "win_rate": 50.0,
+          "profit_factor": 3.16,
+          "net_pnl": 69.98
+        },
+        {
+          "symbol": "NET",
+          "trades": 17,
+          "win_rate": 41.2,
+          "profit_factor": 1.04,
+          "net_pnl": 1.29
+        },
+        {
+          "symbol": "NOW",
+          "trades": 27,
+          "win_rate": 29.6,
+          "profit_factor": 0.41,
+          "net_pnl": -22.65
+        },
+        {
+          "symbol": "CRWD",
+          "trades": 19,
+          "win_rate": 47.4,
+          "profit_factor": 1.62,
+          "net_pnl": 10.71
+        },
+        {
+          "symbol": "ZS",
+          "trades": 25,
+          "win_rate": 48.0,
+          "profit_factor": 0.68,
+          "net_pnl": -9.98
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 19.0
+      },
+      "score": 0.955584,
+      "avg_profit_factor": 1.327,
+      "avg_win_rate": 46.2,
+      "avg_net_pnl": 1.25,
+      "consistency": 0.44,
+      "symbols_tested": 25,
+      "symbols_profitable": 11,
+      "per_symbol": [
+        {
+          "symbol": "NVDA",
+          "trades": 11,
+          "win_rate": 36.4,
+          "profit_factor": 0.88,
+          "net_pnl": -1.74
+        },
+        {
+          "symbol": "META",
+          "trades": 16,
+          "win_rate": 50.0,
+          "profit_factor": 0.82,
+          "net_pnl": -4.04
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 21,
+          "win_rate": 61.9,
+          "profit_factor": 2.66,
+          "net_pnl": 29.43
+        },
+        {
+          "symbol": "MSFT",
+          "trades": 17,
+          "win_rate": 35.3,
+          "profit_factor": 0.81,
+          "net_pnl": -2.02
+        },
+        {
+          "symbol": "NFLX",
+          "trades": 11,
+          "win_rate": 27.3,
+          "profit_factor": 0.24,
+          "net_pnl": -12.93
+        },
+        {
+          "symbol": "AMD",
+          "trades": 10,
+          "win_rate": 70.0,
+          "profit_factor": 2.71,
+          "net_pnl": 20.06
+        },
+        {
+          "symbol": "INTC",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 1.6,
+          "net_pnl": 6.5
+        },
+        {
+          "symbol": "MRVL",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.01,
+          "net_pnl": 0.13
+        },
+        {
+          "symbol": "ALAB",
+          "trades": 9,
+          "win_rate": 66.7,
+          "profit_factor": 2.04,
+          "net_pnl": 19.38
+        },
+        {
+          "symbol": "QCOM",
+          "trades": 14,
+          "win_rate": 71.4,
+          "profit_factor": 5.37,
+          "net_pnl": 32.04
+        },
+        {
+          "symbol": "TXN",
+          "trades": 8,
+          "win_rate": 37.5,
+          "profit_factor": 0.2,
+          "net_pnl": -7.48
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 0.68,
+          "net_pnl": -7.57
+        },
+        {
+          "symbol": "KLAC",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 3.05,
+          "net_pnl": 27.35
+        },
+        {
+          "symbol": "AMAT",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 0.93,
+          "net_pnl": -0.94
+        },
+        {
+          "symbol": "MU",
+          "trades": 10,
+          "win_rate": 30.0,
+          "profit_factor": 0.42,
+          "net_pnl": -12.31
+        },
+        {
+          "symbol": "ON",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 0.58,
+          "net_pnl": -11.54
+        },
+        {
+          "symbol": "MPWR",
+          "trades": 10,
+          "win_rate": 60.0,
+          "profit_factor": 2.36,
+          "net_pnl": 13.59
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.27,
+          "net_pnl": 3.85
+        },
+        {
+          "symbol": "CRM",
+          "trades": 18,
+          "win_rate": 27.8,
+          "profit_factor": 0.45,
+          "net_pnl": -17.06
+        },
+        {
+          "symbol": "SNOW",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 1.09,
+          "net_pnl": 2.32
+        },
+        {
+          "symbol": "DDOG",
+          "trades": 12,
+          "win_rate": 50.0,
+          "profit_factor": 0.8,
+          "net_pnl": -3.65
+        },
+        {
+          "symbol": "NET",
+          "trades": 12,
+          "win_rate": 41.7,
+          "profit_factor": 0.84,
+          "net_pnl": -3.72
+        },
+        {
+          "symbol": "NOW",
+          "trades": 20,
+          "win_rate": 25.0,
+          "profit_factor": 0.36,
+          "net_pnl": -23.0
+        },
+        {
+          "symbol": "CRWD",
+          "trades": 9,
+          "win_rate": 55.6,
+          "profit_factor": 1.78,
+          "net_pnl": 9.2
+        },
+        {
+          "symbol": "ZS",
+          "trades": 10,
+          "win_rate": 30.0,
+          "profit_factor": 0.23,
+          "net_pnl": -24.63
+        }
+      ]
+    },
+    {
+      "params": {
+        "rsi_oversold": 22.666666
+      },
+      "score": 0.718608,
+      "avg_profit_factor": 1.089,
+      "avg_win_rate": 43.3,
+      "avg_net_pnl": -1.33,
+      "consistency": 0.32,
+      "symbols_tested": 25,
+      "symbols_profitable": 8,
+      "per_symbol": [
+        {
+          "symbol": "NVDA",
+          "trades": 16,
+          "win_rate": 37.5,
+          "profit_factor": 0.82,
+          "net_pnl": -3.39
+        },
+        {
+          "symbol": "META",
+          "trades": 21,
+          "win_rate": 47.6,
+          "profit_factor": 0.73,
+          "net_pnl": -7.81
+        },
+        {
+          "symbol": "TSLA",
+          "trades": 25,
+          "win_rate": 48.0,
+          "profit_factor": 1.57,
+          "net_pnl": 15.85
+        },
+        {
+          "symbol": "MSFT",
+          "trades": 19,
+          "win_rate": 36.8,
+          "profit_factor": 0.64,
+          "net_pnl": -5.59
+        },
+        {
+          "symbol": "NFLX",
+          "trades": 18,
+          "win_rate": 50.0,
+          "profit_factor": 0.61,
+          "net_pnl": -7.05
+        },
+        {
+          "symbol": "AMD",
+          "trades": 13,
+          "win_rate": 61.5,
+          "profit_factor": 1.91,
+          "net_pnl": 16.99
+        },
+        {
+          "symbol": "INTC",
+          "trades": 11,
+          "win_rate": 36.4,
+          "profit_factor": 0.88,
+          "net_pnl": -1.85
+        },
+        {
+          "symbol": "MRVL",
+          "trades": 12,
+          "win_rate": 58.3,
+          "profit_factor": 0.98,
+          "net_pnl": -0.49
+        },
+        {
+          "symbol": "ALAB",
+          "trades": 15,
+          "win_rate": 66.7,
+          "profit_factor": 4.69,
+          "net_pnl": 55.75
+        },
+        {
+          "symbol": "QCOM",
+          "trades": 20,
+          "win_rate": 60.0,
+          "profit_factor": 2.65,
+          "net_pnl": 25.36
+        },
+        {
+          "symbol": "TXN",
+          "trades": 14,
+          "win_rate": 28.6,
+          "profit_factor": 0.42,
+          "net_pnl": -9.69
+        },
+        {
+          "symbol": "LRCX",
+          "trades": 16,
+          "win_rate": 56.2,
+          "profit_factor": 1.78,
+          "net_pnl": 19.43
+        },
+        {
+          "symbol": "KLAC",
+          "trades": 16,
+          "win_rate": 50.0,
+          "profit_factor": 1.48,
+          "net_pnl": 9.06
+        },
+        {
+          "symbol": "AMAT",
+          "trades": 14,
+          "win_rate": 42.9,
+          "profit_factor": 0.59,
+          "net_pnl": -9.99
+        },
+        {
+          "symbol": "MU",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 0.42,
+          "net_pnl": -22.19
+        },
+        {
+          "symbol": "ON",
+          "trades": 15,
+          "win_rate": 40.0,
+          "profit_factor": 0.73,
+          "net_pnl": -6.47
+        },
+        {
+          "symbol": "MPWR",
+          "trades": 16,
+          "win_rate": 37.5,
+          "profit_factor": 1.36,
+          "net_pnl": 8.21
+        },
+        {
+          "symbol": "PLTR",
+          "trades": 21,
+          "win_rate": 33.3,
+          "profit_factor": 0.65,
+          "net_pnl": -12.71
+        },
+        {
+          "symbol": "CRM",
+          "trades": 18,
+          "win_rate": 27.8,
+          "profit_factor": 0.52,
+          "net_pnl": -13.64
+        },
+        {
+          "symbol": "SNOW",
+          "trades": 23,
+          "win_rate": 34.8,
+          "profit_factor": 0.95,
+          "net_pnl": -2.47
+        },
+        {
+          "symbol": "DDOG",
+          "trades": 18,
+          "win_rate": 44.4,
+          "profit_factor": 0.51,
+          "net_pnl": -16.89
+        },
+        {
+          "symbol": "NET",
+          "trades": 16,
+          "win_rate": 31.2,
+          "profit_factor": 0.47,
+          "net_pnl": -19.0
+        },
+        {
+          "symbol": "NOW",
+          "trades": 24,
+          "win_rate": 20.8,
+          "profit_factor": 0.27,
+          "net_pnl": -31.06
+        },
+        {
+          "symbol": "CRWD",
+          "trades": 13,
+          "win_rate": 46.2,
+          "profit_factor": 1.05,
+          "net_pnl": 0.73
+        },
+        {
+          "symbol": "ZS",
+          "trades": 15,
+          "win_rate": 46.7,
+          "profit_factor": 0.54,
+          "net_pnl": -14.4
+        }
+      ]
+    }
+  ]
+}

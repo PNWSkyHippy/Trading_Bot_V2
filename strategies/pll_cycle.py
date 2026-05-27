@@ -258,10 +258,14 @@ class PLLCycleStrategy(BaseStrategy):
         self.stock_enabled           = False   # designed for crypto 1h cycles
         self.crypto_candle_timeframe = "1h"
         self.time_stop_profile       = "strategy_defined"
-        # Need at least detrend_len + 100 bars for warmup
-        self.candle_limit            = p.detrend_len + 150
+        self.reviewer_exempt         = True
+        # detrend_len + 200 leaves comfortable headroom above the 300-bar warmup
+        self.candle_limit            = p.detrend_len + 200
 
-        # Martingale state (live trading — resets on bot restart)
+        # Martingale state (live trading — resets on bot restart).
+        # Loss-streak tracking requires a notify_order() hook which does not
+        # exist in this framework yet.  Initialise to 0; _mart_score_boost()
+        # returns 0 until wired.
         self._loss_streak: int = 0
 
     def _vol_score_boost(self, vol_mult: float) -> float:
@@ -302,6 +306,12 @@ class PLLCycleStrategy(BaseStrategy):
                 + self._mart_score_boost()
             )), 3)
 
+            # volume_ratio: current bar vs 20-bar average
+            vol_series = candles["volume"]
+            vol_ma_20  = vol_series.rolling(20).mean().iloc[-1]
+            vol_ratio  = (round(float(vol_series.iloc[-1] / vol_ma_20), 3)
+                          if vol_ma_20 and vol_ma_20 > 0 else None)
+
             return self._make_signal(
                 symbol          = symbol,
                 direction       = direction,
@@ -318,6 +328,7 @@ class PLLCycleStrategy(BaseStrategy):
                     "sin_phase":                   round(sin_p, 4),
                     "lock_quality":                round(lock_q, 4),
                     "vol_mult":                    round(vol_m, 3),
+                    "volume_ratio":                vol_ratio,
                     "loss_streak":                 self._loss_streak,
                     "use_martingale":              p.use_martingale,
                     "preferred_initial_stop_mode": "fixed_pct",
@@ -329,10 +340,16 @@ class PLLCycleStrategy(BaseStrategy):
             return None
 
     def _precompute(self, symbol: str, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Run PLL once on the full DataFrame — O(N).
+        The backtester uses this result for all per-bar entry/exit lookups,
+        turning the simulation from O(N²) into O(N).
+        """
         return generate_signals(df, self.params)
 
     def _analyze_from_precomputed(self, symbol: str, i: int,
                                   sigs: pd.DataFrame, df: pd.DataFrame) -> Optional[TradeSignal]:
+        """Fast O(1) entry signal lookup from precomputed signals df."""
         p   = self.params
         row = sigs.iloc[i]
 
@@ -346,17 +363,28 @@ class PLLCycleStrategy(BaseStrategy):
         vol_m     = float(row["vol_mult"]) if not pd.isna(row["vol_mult"]) else 1.0
         sin_p     = float(row["sin_phase"])
 
+        # Include _mart_score_boost() so martingale path scores correctly
         score = round(max(0.55, min(0.88,
             0.65
             + (lock_q - p.lock_thresh) * 0.08
             + self._vol_score_boost(vol_m)
+            + self._mart_score_boost()
         )), 3)
+
+        # volume_ratio from df
+        vol_series = df["volume"].iloc[:i + 1]
+        vol_ma_20  = vol_series.rolling(20).mean().iloc[-1]
+        vol_ratio  = (round(float(vol_series.iloc[-1] / vol_ma_20), 3)
+                      if vol_ma_20 and vol_ma_20 > 0 else None)
 
         return self._make_signal(
             symbol          = symbol,
             direction       = direction,
             score           = score,
-            reason          = f"PLL: sin={sin_p:.3f} lockQ={lock_q:.2f}",
+            reason          = (
+                f"PLL: sin={sin_p:.3f} lockQ={lock_q:.2f} volM={vol_m:.2f}"
+                + (" [martingale]" if p.use_martingale else "")
+            ),
             stop_loss_pct   = p.sl_pct,
             take_profit_pct = p.tp_pct,
             metadata={
@@ -364,6 +392,8 @@ class PLLCycleStrategy(BaseStrategy):
                 "sin_phase":                   round(sin_p, 4),
                 "lock_quality":                round(lock_q, 4),
                 "vol_mult":                    round(vol_m, 3),
+                "volume_ratio":                vol_ratio,
+                "loss_streak":                 self._loss_streak,
                 "use_martingale":              p.use_martingale,
                 "preferred_initial_stop_mode": "fixed_pct",
                 "preferred_trail_mode":        "none",
@@ -372,17 +402,51 @@ class PLLCycleStrategy(BaseStrategy):
 
     def _exit_from_precomputed(self, i: int, sigs: pd.DataFrame,
                                direction: str, meta: dict) -> Optional[str]:
-        """PLL uses fixed SL/TP only — no custom exit logic needed."""
+        """
+        Half-cycle time stop via the fast precomputed path.
+        If the trade has been open for center_period // 2 bars without
+        resolving, the cycle thesis has failed — exit.
+        """
+        bars_held = int(meta.get("_bars_held", 0))
+        half_cycle = self.params.center_period // 2
+        if bars_held >= half_cycle:
+            return "pll_half_cycle_stop"
         return None
 
     def check_custom_exit(self, symbol: str, bars: pd.DataFrame,
                           direction: str, entry_metadata: Optional[dict] = None) -> Optional[str]:
-        """PLL uses fixed SL/TP only."""
+        """
+        Half-cycle time stop for the live (slow) path.
+        Mirrors _exit_from_precomputed so live and backtest behaviour match.
+        """
+        bars_held  = int((entry_metadata or {}).get("_bars_held", 0))
+        half_cycle = self.params.center_period // 2
+        if bars_held >= half_cycle:
+            return "pll_half_cycle_stop"
         return None
 
 
 
 class PLLCycleMartingaleStrategy(PLLCycleStrategy):
-    """Thin wrapper so the backtester can instantiate martingale variant with no args."""
+    """
+    PLL Cycle — martingale (F41d) variant.
+
+    DISABLED pending loss-streak tracking infrastructure.
+    The martingale position sizing requires a notify_order() or
+    on_trade_closed() callback to increment/decrement _loss_streak.
+    That hook does not exist in this framework yet.
+
+    Until it does, this variant runs identically to PLLCycleStrategy
+    (use_martingale=True flag is set but _mart_score_boost() returns 0,
+    and position sizing is still flat).  It is kept registered so it
+    can be backtested for comparison, but should NOT be deployed live
+    at elevated size.
+    """
     def __init__(self):
         super().__init__(use_martingale=True)
+        import logging as _log
+        _log.getLogger(__name__).warning(
+            "[PLLCycleMartingale] Martingale size-scaling DISABLED — "
+            "_loss_streak never updates (no notify_order hook). "
+            "Running as flat-size PLL until wired."
+        )

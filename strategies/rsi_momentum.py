@@ -9,7 +9,7 @@ Short: RSI was above overbought threshold, now crossing back below it.
 Thresholds are configurable in config.SIGNAL_TUNING.
 """
 
-import logging
+import math
 from typing import Optional
 
 import pandas as pd
@@ -24,10 +24,14 @@ class RSIMomentum(BaseStrategy):
     def __init__(self):
         super().__init__()
         self.strategy_name   = "rsi_momentum"
-        self.stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT     # 1.0%
-        self.take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT   # 3.0%
-        self.logger = logging.getLogger("RSIMomentum")
-        self.enabled = False 
+        self.stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT
+        self.take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT
+        self.stock_enabled   = True
+        self.crypto_enabled  = True
+        self.candle_limit    = 30   # RSI warmup + buffer
+        self.reviewer_exempt = True
+        self.time_stop_profile = "strategy_defined"
+        self.enabled = False   # no validated backtest results — enable only after testing
     def analyze(
         self,
         symbol: str,
@@ -87,15 +91,29 @@ class RSIMomentum(BaseStrategy):
                 self.verbose_log_score(symbol, score, min_score)
 
                 if score >= min_score:
+                    vol_series = candles["volume"]
+                    vol_ma     = vol_series.rolling(20).mean().iloc[-1]
+                    vol_ratio  = round(float(vol_series.iloc[-1] / vol_ma), 3) if vol_ma > 0 else None
                     return self._make_signal(
-                        symbol    = symbol,
-                        direction = "long",
-                        score     = score,
-                        reason    = (
+                        symbol          = symbol,
+                        direction       = "long",
+                        score           = score,
+                        reason          = (
                             f"RSI crossback from oversold: "
                             f"prev={previous_rsi:.1f} → curr={current_rsi:.1f} "
                             f"(threshold={oversold})"
-                        )
+                        ),
+                        stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT,
+                        take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT,
+                        metadata        = {
+                            "strategy_name":               "rsi_momentum",
+                            "rsi":                         round(float(current_rsi), 2),
+                            "rsi_prev":                    round(float(previous_rsi), 2),
+                            "rsi_depth":                   round(depth, 4),
+                            "volume_ratio":                vol_ratio,
+                            "preferred_initial_stop_mode": "percent",
+                            "preferred_trail_mode":        "percent",
+                        },
                     )
 
         # ----------------------------------------------------------------
@@ -120,15 +138,29 @@ class RSIMomentum(BaseStrategy):
                 self.verbose_log_score(symbol, score, min_score)
 
                 if score >= min_score:
+                    vol_series = candles["volume"]
+                    vol_ma     = vol_series.rolling(20).mean().iloc[-1]
+                    vol_ratio  = round(float(vol_series.iloc[-1] / vol_ma), 3) if vol_ma > 0 else None
                     return self._make_signal(
-                        symbol    = symbol,
-                        direction = "short",
-                        score     = score,
-                        reason    = (
+                        symbol          = symbol,
+                        direction       = "short",
+                        score           = score,
+                        reason          = (
                             f"RSI crossback from overbought: "
                             f"prev={previous_rsi:.1f} → curr={current_rsi:.1f} "
                             f"(threshold={overbought})"
-                        )
+                        ),
+                        stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT,
+                        take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT,
+                        metadata        = {
+                            "strategy_name":               "rsi_momentum",
+                            "rsi":                         round(float(current_rsi), 2),
+                            "rsi_prev":                    round(float(previous_rsi), 2),
+                            "rsi_height":                  round(height, 4),
+                            "volume_ratio":                vol_ratio,
+                            "preferred_initial_stop_mode": "percent",
+                            "preferred_trail_mode":        "percent",
+                        },
                     )
 
         # No signal — log the current RSI so we can see how far off we are
@@ -137,4 +169,25 @@ class RSIMomentum(BaseStrategy):
             False, current_rsi,
             f"need <{oversold} or >{overbought}"
         )
+        return None
+
+    def check_custom_exit(self, symbol: str, bars: pd.DataFrame,
+                          direction: str, entry_metadata: Optional[dict] = None) -> Optional[str]:
+        if bars is None or len(bars) < 2:
+            return None
+        try:
+            tuning   = config.SIGNAL_TUNING
+            period   = tuning["rsi_momentum_period"]
+            rsi_s    = ta.rsi(bars["close"], length=period)
+            if rsi_s is None or rsi_s.empty:
+                return None
+            rsi_now  = float(rsi_s.iloc[-1])
+            if math.isnan(rsi_now):
+                return None
+            if direction == "long"  and rsi_now >= tuning["rsi_momentum_overbought"]:
+                return "rsi_overbought_exit"
+            if direction == "short" and rsi_now <= tuning["rsi_momentum_oversold"]:
+                return "rsi_oversold_exit"
+        except Exception:
+            pass
         return None

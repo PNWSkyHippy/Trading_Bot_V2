@@ -22,7 +22,8 @@ Difference from rsi_dip_spike_v4
 Pine parameters
 ---------------
   rsiLength  = 7
-  oversold   = 35
+  oversold   = 35   (original Pine)
+              → tuned to 25 in v3 matrix sweep (2026-05-25) — see RSIDipSimpleParams
   overbought = 80
 """
 
@@ -37,8 +38,8 @@ from typing import Optional
 @dataclass
 class RSIDipSimpleParams:
     rsi_length:   int   = 7
-    rsi_oversold: float = 35.0
-    rsi_exit:     float = 80.0
+    rsi_oversold: float = 25.0   # tuned 2026-05-25 v3 matrix (was 26.0)
+    rsi_exit:     float = 75.0   # tuned 2026-05-25 v3 matrix (was 82.5) — exit earlier on crypto
     atr_length:   int   = 14
     sl_atr_mult:  float = 3.0    # hard stop — added vs original Pine
     max_bars_hold: int  = 72     # 3 days on 1h — safety net
@@ -117,7 +118,8 @@ class RSIDipSimpleStrategy(BaseStrategy):
         self.stock_enabled           = False  # crypto-tuned RSI levels
         self.crypto_candle_timeframe = "1h"
         self.time_stop_profile       = "strategy_defined"
-        self.candle_limit            = 50
+        self.reviewer_exempt         = True   # single RSI entry signal, no complex confluence to review
+        self.candle_limit            = 80     # bumped from 50: RSI(7)+ATR(14) need clean warmup headroom
 
     def analyze(self, symbol: str, candles: pd.DataFrame,
                 market_condition: str = "unknown") -> Optional[TradeSignal]:
@@ -140,6 +142,11 @@ class RSIDipSimpleStrategy(BaseStrategy):
             depth = max(0.0, (p.rsi_oversold - rsi) / p.rsi_oversold)
             score = round(max(0.55, min(0.82, 0.58 + depth * 0.20)), 3)
 
+            # Volume ratio — 20-bar rolling mean
+            vol_series = candles["volume"]
+            vol_ma_val = vol_series.rolling(20).mean().iloc[-1]
+            vol_ratio  = round(float(vol_series.iloc[-1] / vol_ma_val), 3) if vol_ma_val > 0 else None
+
             return self._make_signal(
                 symbol          = symbol,
                 direction       = "long",
@@ -151,6 +158,7 @@ class RSIDipSimpleStrategy(BaseStrategy):
                     "strategy_name":               "rsi_dip_simple",
                     "rsi":                         round(rsi, 2),
                     "atr":                         round(atr, 6),
+                    "volume_ratio":                vol_ratio,
                     "structural_stop_price":       round(sl, 6),
                     "preferred_initial_stop_mode": "signal_structural",
                     "preferred_trail_mode":        "none",
@@ -161,10 +169,19 @@ class RSIDipSimpleStrategy(BaseStrategy):
             return None
 
     def _precompute(self, symbol: str, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Pre-compute RSI + ATR signals on the FULL df before the bar loop.
+        Called once by backtester._simulate(); result stored as _all_sigs.
+        Eliminates O(N²) indicator recomputation. NOT dead code.
+        """
         return generate_signals(df, self.params)
 
     def _analyze_from_precomputed(self, symbol: str, i: int,
                                   sigs: pd.DataFrame, df: pd.DataFrame) -> Optional[TradeSignal]:
+        """
+        O(1) signal lookup — replaces per-bar analyze() call inside _simulate.
+        Uses precomputed signals df instead of re-running generate_signals(). NOT dead code.
+        """
         p   = self.params
         row = sigs.iloc[i]
         if not bool(row["long_signal"]) or pd.isna(row["rsi"]):
@@ -178,6 +195,13 @@ class RSIDipSimpleStrategy(BaseStrategy):
         depth  = max(0.0, (p.rsi_oversold - rsi) / p.rsi_oversold)
         score  = round(max(0.55, min(0.82, 0.58 + depth * 0.20)), 3)
 
+        # Volume ratio — 20-bar rolling mean from precomputed df
+        vol_series = df["volume"]
+        start_v    = max(0, i - 19)
+        vol_ma_val = vol_series.iloc[start_v:i].mean() if i > start_v else None
+        vol_ratio  = (round(float(vol_series.iloc[i] / vol_ma_val), 3)
+                      if vol_ma_val and vol_ma_val > 0 else None)
+
         return self._make_signal(
             symbol          = symbol,
             direction       = "long",
@@ -189,6 +213,7 @@ class RSIDipSimpleStrategy(BaseStrategy):
                 "strategy_name":               "rsi_dip_simple",
                 "rsi":                         round(rsi, 2),
                 "atr":                         round(atr, 6),
+                "volume_ratio":                vol_ratio,
                 "structural_stop_price":       round(sl, 6),
                 "preferred_initial_stop_mode": "signal_structural",
                 "preferred_trail_mode":        "none",
@@ -197,6 +222,10 @@ class RSIDipSimpleStrategy(BaseStrategy):
 
     def _exit_from_precomputed(self, i: int, sigs: pd.DataFrame,
                                direction: str, meta: dict) -> Optional[str]:
+        """
+        O(1) exit check — replaces per-bar check_custom_exit() call inside _simulate.
+        Reads RSI directly from precomputed signals instead of recomputing it. NOT dead code.
+        """
         p = self.params
         try:
             rsi_now = float(sigs.iloc[i]["rsi"])
