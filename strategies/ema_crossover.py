@@ -11,7 +11,6 @@ Short: Fast EMA crosses below slow EMA, and price is below trend EMA
 Periods configurable in config.SIGNAL_TUNING.
 """
 
-import logging
 from typing import Optional
 
 import pandas as pd
@@ -28,8 +27,12 @@ class EMACrossover(BaseStrategy):
         self.strategy_name   = "ema_crossover"
         self.stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT
         self.take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT
-        self.logger = logging.getLogger("EMACrossover")
-        self.enabled = False 
+        self.stock_enabled   = True
+        self.crypto_enabled  = True
+        self.candle_limit    = 70   # trend_period(50) + buffer
+        self.reviewer_exempt = True
+        self.time_stop_profile = "strategy_defined"
+        self.enabled = False   # no validated backtest results — enable only after testing
     def analyze(
         self,
         symbol: str,
@@ -102,14 +105,32 @@ class EMACrossover(BaseStrategy):
             self.verbose_log_score(symbol, score, min_score)
 
             if score >= min_score:
+                vol_series = candles["volume"]
+                vol_ma     = vol_series.rolling(20).mean().iloc[-1]
+                vol_ratio  = round(float(vol_series.iloc[-1] / vol_ma), 3) if vol_ma > 0 else None
+                stop_price = float(close.iloc[-1]) * (1 - config.DEFAULT_STOP_LOSS_PCT / 100)
                 return self._make_signal(
-                    symbol    = symbol,
-                    direction = "long",
-                    score     = score,
-                    reason    = (
+                    symbol          = symbol,
+                    direction       = "long",
+                    score           = score,
+                    reason          = (
                         f"Golden cross: fast={fast_now:.4f} > slow={slow_now:.4f} "
                         f"{'(above trend)' if above_trend else '(below trend)'}"
-                    )
+                    ),
+                    stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT,
+                    take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT,
+                    metadata        = {
+                        "strategy_name":               "ema_crossover",
+                        "ema_fast":                    round(float(fast_now), 4),
+                        "ema_slow":                    round(float(slow_now), 4),
+                        "ema_trend":                   round(float(trend_now), 4),
+                        "price_above_trend":           bool(above_trend),
+                        "separation_pct":              round(separation * 100, 4),
+                        "volume_ratio":                vol_ratio,
+                        "structural_stop_price":       round(stop_price, 6),
+                        "preferred_initial_stop_mode": "percent",
+                        "preferred_trail_mode":        "percent",
+                    },
                 )
 
         # ----------------------------------------------------------------
@@ -139,14 +160,32 @@ class EMACrossover(BaseStrategy):
             self.verbose_log_score(symbol, score, min_score)
 
             if score >= min_score:
+                vol_series = candles["volume"]
+                vol_ma     = vol_series.rolling(20).mean().iloc[-1]
+                vol_ratio  = round(float(vol_series.iloc[-1] / vol_ma), 3) if vol_ma > 0 else None
+                stop_price = float(close.iloc[-1]) * (1 + config.DEFAULT_STOP_LOSS_PCT / 100)
                 return self._make_signal(
-                    symbol    = symbol,
-                    direction = "short",
-                    score     = score,
-                    reason    = (
+                    symbol          = symbol,
+                    direction       = "short",
+                    score           = score,
+                    reason          = (
                         f"Death cross: fast={fast_now:.4f} < slow={slow_now:.4f} "
                         f"{'(below trend)' if below_trend else '(above trend)'}"
-                    )
+                    ),
+                    stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT,
+                    take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT,
+                    metadata        = {
+                        "strategy_name":               "ema_crossover",
+                        "ema_fast":                    round(float(fast_now), 4),
+                        "ema_slow":                    round(float(slow_now), 4),
+                        "ema_trend":                   round(float(trend_now), 4),
+                        "price_below_trend":           bool(below_trend),
+                        "separation_pct":              round(separation * 100, 4),
+                        "volume_ratio":                vol_ratio,
+                        "structural_stop_price":       round(stop_price, 6),
+                        "preferred_initial_stop_mode": "percent",
+                        "preferred_trail_mode":        "percent",
+                    },
                 )
 
         # No crossover this candle

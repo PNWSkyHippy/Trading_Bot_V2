@@ -74,6 +74,13 @@ DEFAULT_SYMBOLS = [
 
 BYBIT_TICKERS_URL   = "https://api.bybit.com/v5/market/tickers"
 KRAKEN_TICKERS_URL  = "https://futures.kraken.com/derivatives/api/v3/tickers"
+COINBASE_SPOT_URL   = "https://api.coinbase.com/v2/prices/{pair}/spot"
+
+# Kraken uses different base names for some assets vs Coinbase
+_COINBASE_BASE_MAP = {
+    "XBT": "BTC",
+    "XDG": "DOGE",
+}
 
 
 class FundingScanner(BaseEventScanner):
@@ -214,6 +221,63 @@ class FundingScanner(BaseEventScanner):
             elif rate <= FUNDING_LONG_THRESHOLD:
                 self._fire(sym, rate, "long")
 
+    def _fetch_spot_price(self, kraken_symbol: str) -> Optional[float]:
+        """
+        Fetch live spot price with three-source fallback chain:
+          1. ccxt Kraken spot  — most reliable, already used elsewhere in the bot
+          2. Coinbase v2 REST  — unauthenticated, sometimes rate-limited or unavailable
+          3. ccxt Binance      — final fallback for symbols not on Kraken spot
+
+        Coinbase v2 was the sole source previously but proved unreliable:
+        BNB, AAVE and others are not listed there, and the API occasionally
+        returns non-200 or malformed JSON causing all signals to arrive with
+        entry_price=0 and get rejected by the breakout receiver.
+        """
+        base = kraken_symbol.split("/")[0]
+        base_std = _COINBASE_BASE_MAP.get(base, base)   # XBT → BTC, etc.
+
+        # ── 1. ccxt Kraken spot ──────────────────────────────────────────────
+        try:
+            import ccxt
+            exchange = ccxt.kraken({"enableRateLimit": True})
+            ticker = exchange.fetch_ticker(f"{base_std}/USD")
+            price  = ticker.get("last") or ticker.get("close")
+            if price and float(price) > 0:
+                logger.debug("[FUNDING] Price %s via Kraken spot: %.6f", kraken_symbol, price)
+                return float(price)
+        except Exception as e:
+            logger.debug("[FUNDING] Kraken spot price failed for %s: %s", kraken_symbol, e)
+
+        # ── 2. Coinbase v2 REST ──────────────────────────────────────────────
+        try:
+            url  = COINBASE_SPOT_URL.format(pair=f"{base_std}-USD")
+            resp = self._session.get(url, timeout=5)
+            resp.raise_for_status()
+            data = resp.json()
+            amount_str = data.get("data", {}).get("amount")
+            if amount_str:
+                price = float(amount_str)
+                if price > 0:
+                    logger.debug("[FUNDING] Price %s via Coinbase v2: %.6f", kraken_symbol, price)
+                    return price
+        except Exception as e:
+            logger.debug("[FUNDING] Coinbase v2 price failed for %s: %s", kraken_symbol, e)
+
+        # ── 3. ccxt Binance ─────────────────────────────────────────────────
+        try:
+            import ccxt
+            exchange = ccxt.binance({"enableRateLimit": True})
+            ticker = exchange.fetch_ticker(f"{base_std}/USDT")
+            price  = ticker.get("last") or ticker.get("close")
+            if price and float(price) > 0:
+                logger.debug("[FUNDING] Price %s via Binance: %.6f", kraken_symbol, price)
+                return float(price)
+        except Exception as e:
+            logger.debug("[FUNDING] Binance price failed for %s: %s", kraken_symbol, e)
+
+        logger.warning("[FUNDING] All price sources failed for %s — signal skipped", kraken_symbol)
+        return None
+
     @staticmethod
     def _to_kraken_symbol(bybit_sym: str) -> Optional[str]:
         """
@@ -247,6 +311,11 @@ class FundingScanner(BaseEventScanner):
         rate_pct = rate * 100
         score    = min(0.90, SCORE_BASE + abs(rate_pct) * 2.0)
 
+        live_price = self._fetch_spot_price(symbol)
+        if live_price is None:
+            logger.warning("[FUNDING] %s — could not fetch live price, skipping signal", symbol)
+            return
+
         logger.info(
             "[FUNDING] %s  %s  rate=%.4f%%  score=%.2f",
             symbol, direction.upper(), rate_pct, score,
@@ -263,8 +332,8 @@ class FundingScanner(BaseEventScanner):
             "symbol":                symbol,
             "asset_class":           "crypto",
             "direction":             direction,
-            "entry_price":           0.0,          # live price not available at scan time
-            "current_price":         0.0,
+            "entry_price":           live_price,
+            "current_price":         live_price,
             "move_pct":              abs(rate_pct),
             "volume_spike":          1.0,
             "confidence":            round(score, 3),
@@ -275,7 +344,7 @@ class FundingScanner(BaseEventScanner):
             "broker":                "coinbase",
             "stop_loss_pct":         SL_PCT,
             "take_profit_pct":       TP_PCT,
-            "structural_stop_price": 0.0,
+            "structural_stop_price": None,
             "preferred_trail_mode":  "none",
             "reason":                reason,
             "bars_since_breakout":   0,

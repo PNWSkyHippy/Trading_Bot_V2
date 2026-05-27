@@ -2305,23 +2305,33 @@ const CRYPTO_BROKERS = [
 ];
 
 const chartLimitForTf = (tf) => ({
-  '1m': 720,    // 12 hours
-  '5m': 900,    // a little over 3 days
+  // ── Sub-minute (future feed — framework entries only) ──
+  // '1s': 900,   // 15 minutes  — reserved, not yet exposed in UI
+  // '15s': 600,  // 2.5 hours   — reserved, not yet exposed in UI
+  // '30s': 600,  // 5 hours     — reserved, not yet exposed in UI
+  // ── Live timeframes ──
+  '1m':  720,   // 12 hours
+  '2m':  800,   // ~1.1 days
+  '3m':  800,   // ~1.7 days
+  '5m':  900,   // a little over 3 days
   '15m': 700,   // about 1 week
   '30m': 700,   // about 2 weeks
-  '1h': 1000,   // about 6 weeks
-  '4h': 900,    // about 5 months
-  '1D': 420,    // about 14 months
+  '1h':  1000,  // about 6 weeks
+  '4h':  900,   // about 5 months
+  '1D':  420,   // about 14 months
 }[tf] || 300);
 
 const chartVisibleBarsForTf = (tf) => ({
-  '1m': 180,
-  '5m': 180,
+  // '1s': 120, '15s': 120, '30s': 120,  // future sub-minute feeds
+  '1m':  180,
+  '2m':  180,
+  '3m':  160,
+  '5m':  180,
   '15m': 160,
   '30m': 150,
-  '1h': 180,
-  '4h': 160,
-  '1D': 180,
+  '1h':  180,
+  '4h':  160,
+  '1D':  180,
 }[tf] || 160);
 
 const DEFAULT_CHART_INDICATORS = [
@@ -2500,6 +2510,12 @@ function ChartPanel({ defaultSymbol }) {
   const [drawingsLocked, setDrawingsLocked] = useS(false);
   const [chartType, setChartType] = useS('candles'); // 'candles' | 'heikin_ashi' | 'line'
 
+  // ── Chronos AI ────────────────────────────────────────────────────────────
+  const [chronosActive,  setChronosActive]  = useS(false);
+  const [chronosLoading, setChronosLoading] = useS(false);
+  const [chronosPred,    setChronosPred]    = useS(null);
+  // { direction: 'up'|'down'|'flat', confidence: 0.72, model: 'chronos-t5-base' }
+
   const isCrypto = symbol.includes('/');
 
   const containerRef = useR(null);
@@ -2526,6 +2542,9 @@ function ChartPanel({ defaultSymbol }) {
   const openPositionsRef = useR([]);
   const cleanBarsRef = useR([]);
   const chartSeriesTypeRef = useR('candles'); // tracks what type candleRef.current actually is
+  const isLiveUpdateRef = useR(false); // true when bars changed via live poll (not full reload)
+  const savedRangeRef = useR(null);   // visible time range saved before setData() so we can restore it
+  const lastSymbolRef = useR(null);   // tracks prev symbol to detect symbol switches vs TF/indicator changes
 
   // Init Lightweight Charts once on mount.
   // The Window component returns null when closed, so ChartPanel always mounts
@@ -2579,6 +2598,9 @@ function ChartPanel({ defaultSymbol }) {
     // with different warmup lengths stay horizontally aligned with the main chart.
     chart.timeScale().subscribeVisibleTimeRangeChange(range => {
       if (!range) return;
+      // Continuously remember user's scroll/zoom position so we can restore it
+      // after setData() resets the view (TF change, indicator toggle, etc.)
+      savedRangeRef.current = range;
       lowerChartRefs.current.forEach(ch => {
         try { ch?.timeScale().setVisibleRange(range); } catch (_) {}
       });
@@ -2670,6 +2692,30 @@ function ChartPanel({ defaultSymbol }) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // ── Tradovate feed lifecycle ──────────────────────────────────────────────
+  // Stop the feed immediately when switching away from a futures symbol,
+  // instead of waiting for the 5-minute server-side inactivity timer.
+  useE(() => {
+    if (!allSymbols.length) return;   // symbol list not loaded yet — skip
+    const isNowFutures = allSymbols.some(s => s.symbol === symbol && s.type === 'futures');
+    if (!isNowFutures) {
+      // Switched to non-futures (crypto / stock) — tell the server to stop the feed
+      panelApi('/api/tradovate_stop', { method: 'POST' }).catch(() => {});
+    }
+  }, [symbol, allSymbols]);
+
+  // Stop the feed when the tab/window is closed — sendBeacon is guaranteed to
+  // fire even on page unload (unlike fetch which gets cancelled).
+  useE(() => {
+    const onUnload = () => {
+      try {
+        navigator.sendBeacon('/api/tradovate_stop', new Blob(['{}'], { type: 'application/json' }));
+      } catch (_) {}
+    };
+    window.addEventListener('beforeunload', onUnload);
+    return () => window.removeEventListener('beforeunload', onUnload);
+  }, []);
+
   // Heikin Ashi conversion
   const toHeikinAshi = (bars) => {
     const ha = [];
@@ -2707,6 +2753,35 @@ function ChartPanel({ defaultSymbol }) {
     return () => { cancelled = true; };
   }, [symbol, tf, broker]);
 
+  // Poll for live candle updates — 20s tick keeps the current candle alive on any TF.
+  // The poll ONLY updates bars state; the chart effect handles the actual series.update()
+  // so it has reliable access to the live DOM range without async ref-timing issues.
+  useE(() => {
+    const fetchLatest = () => {
+      panelApi(`/api/chart?symbol=${encodeURIComponent(symbol)}&timeframe=${tf}&limit=3&broker=${broker}`)
+        .then(d => {
+          const newBars = d.bars || [];
+          const latest = newBars[newBars.length - 1];
+          if (!latest) return;
+          setBars(prev => {
+            if (!prev.length) return prev;
+            const last = prev[prev.length - 1];
+            const same = last.time === latest.time &&
+              last.close === latest.close &&
+              last.high  === latest.high  &&
+              last.low   === latest.low;
+            if (same) return prev;                                    // no change → no re-render
+            isLiveUpdateRef.current = true;                           // chart effect: skip full redraw
+            if (latest.time > last.time) return [...prev, latest];   // new bar appended
+            return [...prev.slice(0, -1), latest];                   // current bar updated
+          });
+        })
+        .catch(() => {});
+    };
+    const t = setInterval(fetchLatest, 20000);
+    return () => clearInterval(t);
+  }, [symbol, tf, broker]);
+
   // Load symbol list once
   useE(() => {
     panelApi('/api/chart/symbols').then(d => setAllSyms(d.symbols || [])).catch(() => {});
@@ -2715,6 +2790,39 @@ function ChartPanel({ defaultSymbol }) {
   // Update chart whenever bars, markers, live positions, or indicator settings change
   useE(() => {
     if (!chartRef.current || !candleRef.current) return;
+
+    // Live poll updated bars state — push the change directly to the series
+    // with update() instead of setData() so zoom/scroll/indicators are preserved.
+    if (isLiveUpdateRef.current) {
+      isLiveUpdateRef.current = false;
+      if (bars.length && candleRef.current) {
+        const lastBar = bars[bars.length - 1];
+        // One candle width in seconds — used to decide if user is "at right edge"
+        const tfSec = { '1m':60,'2m':120,'3m':180,'5m':300,'15m':900,'30m':1800,'1h':3600,'4h':14400,'1D':86400 }[tf] || 300;
+        // Read the LIVE range directly from the chart (not from the ref, which
+        // may lag by one event cycle). This is synchronous and always current.
+        let rangeNow = null;
+        try { rangeNow = chartRef.current.timeScale().getVisibleRange(); } catch (_) {}
+        // "At right edge" = visible right timestamp is within one candle of the latest bar
+        const atRight = !rangeNow || rangeNow.to >= (lastBar.time - tfSec);
+        try {
+          if (chartType === 'line') {
+            candleRef.current.update({ time: lastBar.time, value: lastBar.close });
+          } else {
+            candleRef.current.update(lastBar);
+          }
+          volRef.current?.update({
+            time: lastBar.time, value: lastBar.volume || 0,
+            color: lastBar.close >= lastBar.open ? '#26a69a55' : '#ef535055',
+          });
+        } catch (_) {}
+        // If user was scrolled into history, undo the auto-scroll update() triggered
+        if (!atRight && rangeNow) {
+          try { chartRef.current.timeScale().setVisibleRange(rangeNow); } catch (_) {}
+        }
+      }
+      return; // skip full setData() + indicator rebuild — Chronos re-fires via its own deps
+    }
 
     // Always resize — even on empty bars (e.g. after asset-type switch that
     // changes toolbar height). requestAnimationFrame ensures the DOM has
@@ -2766,6 +2874,17 @@ function ChartPanel({ defaultSymbol }) {
 
     // Convert bars for display
     const displayBars = chartType === 'heikin_ashi' ? toHeikinAshi(cleanBars) : cleanBars;
+
+    // Snapshot the user's scroll/zoom position into a LOCAL variable BEFORE calling
+    // setData(). setData() fires subscribeVisibleTimeRangeChange synchronously,
+    // which would overwrite savedRangeRef.current with the post-reset range before
+    // we can read it back. The local snapshot is immune to that race.
+    // On a symbol switch we clear the snapshot so the chart opens at recent candles.
+    const symbolChanged = lastSymbolRef.current !== symbol;
+    lastSymbolRef.current = symbol;
+    // savedRangeRef is kept up-to-date by the subscribeVisibleTimeRangeChange listener;
+    // we just take a snapshot here — we do NOT write back to the ref.
+    const rangeSnapshot = symbolChanged ? null : (savedRangeRef.current || null);
 
     try {
       candleRef.current.applyOptions({ priceFormat });
@@ -2994,14 +3113,27 @@ function ChartPanel({ defaultSymbol }) {
     // Use absolute timestamps so lower-panel charts with warmup offsets
     // (e.g. ATR skips first 14 bars) align to exactly the same wall-clock
     // time window as the main chart — logical bar indices differ per series.
-    const timeRange = {
+    const defaultRange = {
       from: cleanBars[startIdx].time,
       to:   cleanBars[cleanBars.length - 1].time,
     };
-    chartRef.current.timeScale().setVisibleRange(timeRange);
+    // Restore the user's scroll/zoom position from the local snapshot (immune to
+    // any mid-setData subscription callbacks that mutate savedRangeRef).
+    // Fall back to the default window if: symbol changed, no snapshot, or the
+    // snapshot range is entirely outside the new dataset.
+    const rangeToApply = (() => {
+      if (!rangeSnapshot) return defaultRange;
+      const first = cleanBars[0].time;
+      const last  = cleanBars[cleanBars.length - 1].time;
+      if (rangeSnapshot.to < first || rangeSnapshot.from > last) return defaultRange;
+      return rangeSnapshot;
+    })();
+    try { chartRef.current.timeScale().setVisibleRange(rangeToApply); } catch (_) {
+      try { chartRef.current.timeScale().setVisibleRange(defaultRange); } catch (_) {}
+    }
     // Sync lower panels to the same absolute time range immediately
     lowerChartRefs.current.forEach(ch => {
-      try { ch?.timeScale().setVisibleRange(timeRange); } catch (_) {}
+      try { ch?.timeScale().setVisibleRange(rangeToApply); } catch (_) {}
     });
 
   }, [bars, marks, openPositions, tf, indicators, chartType, chartInitKey]);
@@ -3092,15 +3224,30 @@ function ChartPanel({ defaultSymbol }) {
 
   // Symbol search filter
   const filtered = useM(() => {
-    const q = searchVal.toLowerCase();
-    if (!q) return allSymbols.slice(0, 40);
-    return allSymbols.filter(s => s.symbol.toLowerCase().includes(q)).slice(0, 25);
+    const q = searchVal.toLowerCase().trim();
+    if (!q) {
+      // Default: futures first (most useful in chart context), then stocks, then crypto
+      const futures = allSymbols.filter(s => s.type === 'futures');
+      const stocks  = allSymbols.filter(s => s.type === 'stock');
+      const crypto  = allSymbols.filter(s => s.type === 'crypto');
+      return [...futures, ...stocks, ...crypto].slice(0, 50);
+    }
+    return allSymbols
+      .filter(s =>
+        s.symbol.toLowerCase().includes(q) ||
+        (s.name || '').toLowerCase().includes(q) ||
+        (s.category || '').toLowerCase().includes(q)
+      )
+      .slice(0, 30);
   }, [allSymbols, searchVal]);
 
   const pickSymbol = (sym) => {
     const newIsCrypto = sym.includes('/');
+    const isFutures = allSymbols.some(s => s.symbol === sym && s.type === 'futures');
     // Reset broker to sensible default when switching asset type
-    if (newIsCrypto !== isCrypto) setBroker(newIsCrypto ? 'kraken' : 'ibkr');
+    if (newIsCrypto !== isCrypto || isFutures) {
+      setBroker(newIsCrypto ? 'kraken' : isFutures ? 'yfinance' : 'alpaca');
+    }
     setSymbol(sym); setSearch(''); setDrop(false);
   };
 
@@ -3439,12 +3586,49 @@ function ChartPanel({ defaultSymbol }) {
     };
   }, []);
 
+  // ── Chronos: fetch prediction whenever active + bars change ──────────────
+  useE(() => {
+    if (!chronosActive || bars.length < 16) {
+      if (!chronosActive) setChronosPred(null);
+      return;
+    }
+    setChronosLoading(true);
+    // Send last 64 bars (or all if fewer) as JSON to the Chronos sidecar
+    const payload = bars.slice(-64).map(b => ({
+      time: b.time, open: b.open, high: b.high, low: b.low, close: b.close,
+    }));
+    panelApi('/api/chronos_predict', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol, timeframe: tf, bars: payload }),
+    })
+      .then(d => setChronosPred(d))
+      .catch(() => setChronosPred({ direction: 'error', confidence: 0 }))
+      .finally(() => setChronosLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chronosActive, bars.length, bars[bars.length - 1]?.close, bars[bars.length - 1]?.time]);  // re-run on new candle or candle close update
+
+  const chronosLabel = (() => {
+    if (!chronosActive)  return null;
+    if (chronosLoading)  return { text: 'Chronos…', color: '#6b7280' };
+    if (!chronosPred)    return null;
+    if (chronosPred.direction === 'error') return { text: 'Chronos: err', color: '#ef5350' };
+    const pct   = Math.round((chronosPred.confidence || 0) * 100);
+    const up    = chronosPred.direction === 'up';
+    const flat  = chronosPred.direction === 'flat';
+    const arrow = flat ? '≈' : up ? '▲' : '▼';
+    const color = flat ? '#f59e0b' : up ? '#26a69a' : '#ef5350';
+    const dir   = flat ? 'FLAT' : up ? 'UP' : 'DOWN';
+    return { text: `${arrow} ${dir} ${pct}%`, color };
+  })();
+
   const quickIndicators = DEFAULT_CHART_INDICATORS
     .map(def => indicators.find(ind => ind.id === def.id))
     .filter(Boolean)
     .slice(0, 6);
 
-  const TFS = ['1m','5m','15m','30m','1h','4h','1D'];
+  // Sub-minute TFs reserved for future data feeds — add '30s','15s','1s' here when feed supports them
+  const TFS = ['1m','2m','3m','5m','15m','30m','1h','4h','1D'];
   const updateIndicator = (id, patch) => {
     setIndicators(list => list.map(ind => ind.id === id ? { ...ind, ...patch } : ind));
   };
@@ -3501,14 +3685,28 @@ function ChartPanel({ defaultSymbol }) {
           {dropOpen && (
             <div style={{ position:'absolute', top:'100%', left:0, zIndex:9999,
                           background:'#161b27', border:'1px solid #2a3347', borderRadius:6,
-                          width:210, maxHeight:270, overflowY:'auto', boxShadow:'0 8px 28px #000c' }}>
+                          width:240, maxHeight:320, overflowY:'auto', boxShadow:'0 8px 28px #000c' }}>
               {filtered.map(s => (
                 <div key={s.symbol}
                   onMouseDown={() => pickSymbol(s.symbol)}
                   style={{ padding:'5px 10px', cursor:'pointer', fontSize:12, display:'flex',
-                           justifyContent:'space-between', borderBottom:'1px solid #1a2035' }}>
-                  <span style={{ fontFamily:'var(--mono)', fontWeight:600 }}>{s.symbol}</span>
-                  <span style={{ fontSize:10, opacity:.45, textTransform:'uppercase' }}>{s.type}</span>
+                           justifyContent:'space-between', alignItems:'center',
+                           borderBottom:'1px solid #1a2035' }}>
+                  <div style={{ display:'flex', flexDirection:'column', gap:1 }}>
+                    <span style={{ fontFamily:'var(--mono)', fontWeight:600 }}>{s.symbol}</span>
+                    {s.name && (
+                      <span style={{ fontSize:9, opacity:.4, maxWidth:130, overflow:'hidden',
+                                     textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                        {s.name}
+                      </span>
+                    )}
+                  </div>
+                  <span style={{ fontSize:9, opacity:.5, textTransform:'uppercase',
+                                 color: s.type === 'futures' ? '#f59e0b'
+                                      : s.type === 'crypto' ? '#60a5fa' : '#6b7280',
+                                 fontWeight:700, marginLeft:4 }}>
+                    {s.category || s.type}
+                  </span>
                 </div>
               ))}
               {!filtered.length && (
@@ -3579,6 +3777,34 @@ function ChartPanel({ defaultSymbol }) {
           title={showIndEditor ? "Close indicator editor" : "Edit indicators"}>
           {showIndEditor ? "Close Indicators" : "Indicators"}
         </button>
+
+        <div style={{ width:1, height:16, background:'#2a3347', margin:'0 2px' }} />
+
+        {/* Chronos AI toggle + prediction display */}
+        <button
+          className={cls('btn', chronosActive ? 'primary' : 'ghost', 'sm')}
+          style={{ padding:'2px 8px', fontSize:11,
+                   color: chronosActive ? '#a78bfa' : undefined,
+                   borderColor: chronosActive ? '#a78bfa88' : undefined }}
+          onClick={() => setChronosActive(v => !v)}
+          title={chronosActive
+            ? 'Chronos AI active — click to disable'
+            : 'Chronos AI: predict next candle direction (requires Chronos sidecar)'}
+        >⟁ Chronos</button>
+
+        {chronosLabel && (
+          <span style={{
+            fontSize: 12, fontWeight: 700, letterSpacing: .5,
+            color: chronosLabel.color,
+            background: chronosLabel.color + '18',
+            border: `1px solid ${chronosLabel.color}44`,
+            borderRadius: 4, padding: '1px 7px',
+            fontFamily: 'var(--mono)',
+            transition: 'color .3s',
+          }}>
+            {chronosLabel.text}
+          </span>
+        )}
 
         <div style={{ flex:1 }} />
 

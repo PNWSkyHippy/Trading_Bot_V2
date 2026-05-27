@@ -20,7 +20,6 @@ Confirmed REMOVE (negative PF): SPY(0.58), QQQ(0.82), AAPL(0.95),
                                  GOOGL(0.92), AVGO(0.90), NET(0.88), NOW(0.90)
 """
 
-import logging
 from typing import Optional
 
 import pandas as pd
@@ -83,7 +82,10 @@ class MeanReversion(BaseStrategy):
         self.crypto_enabled  = False
         self.stock_enabled   = True
 
-        self.logger = logging.getLogger("MeanReversion")
+        self.stock_candle_timeframe = "1Hour"
+        self.candle_limit           = 55
+        self.reviewer_exempt        = True
+        self.time_stop_profile      = "strategy_defined"
 
     def analyze(
         self,
@@ -153,14 +155,30 @@ class MeanReversion(BaseStrategy):
             self.verbose_log_score(symbol, score, min_score)
 
             if score >= min_score:
+                vol_series  = candles["volume"]
+                vol_ma      = vol_series.rolling(20).mean().iloc[-1]
+                vol_ratio   = round(float(vol_series.iloc[-1] / vol_ma), 3) if vol_ma > 0 else None
+                stop_price  = float(current_price) * (1 - config.DEFAULT_STOP_LOSS_PCT / 100)
                 return self._make_signal(
-                    symbol    = symbol,
-                    direction = "long",
-                    score     = score,
-                    reason    = (
+                    symbol          = symbol,
+                    direction       = "long",
+                    score           = score,
+                    stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT,
+                    take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT,
+                    reason          = (
                         f"Mean reversion long: z-score={zscore:.3f} "
                         f"(extreme low, {abs(zscore):.1f}σ from mean)"
-                    )
+                    ),
+                    metadata        = {
+                        "strategy_name":               "mean_reversion",
+                        "zscore":                      round(float(zscore), 3),
+                        "z_mean":                      round(float(mean), 4),
+                        "z_std":                       round(float(std), 4),
+                        "volume_ratio":                vol_ratio,
+                        "structural_stop_price":       round(stop_price, 4),
+                        "preferred_initial_stop_mode": "percent",
+                        "preferred_trail_mode":        "percent",
+                    },
                 )
 
         # ----------------------------------------------------------------

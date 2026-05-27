@@ -43,6 +43,12 @@ from strategies.mr_04_fvg_strategy import MR04FVGStrategy
 from strategies.btc_v6_chandelier import BTCV6ChandelierStrategy
 from strategies.rsi_dip_simple import RSIDipSimpleStrategy
 from strategies.pll_cycle import PLLCycleStrategy
+from strategies.kds_mean_reversion import KDSMeanReversionStrategy
+from strategies.ema_ribbon_breakout import EMARibbonBreakoutStrategy
+from strategies.rcr_mean_reversion import RCRMeanReversionStrategy
+from strategies.cbae_strategy import CBAEStrategy
+from strategies.rare_strategy import RAREStrategy
+from strategies.fels_strategy import FELSStrategy
 from data.database import db
 
 logger = logging.getLogger(__name__)
@@ -97,6 +103,12 @@ class StrategyEngine:
             RSIDipSimpleStrategy(),     # Strategy 22 — RSI Dip Simple (INCUBATE) — naked RSI(7) cross, no filters
             PLLCycleStrategy(use_martingale=False),  # Strategy 23 — PLL Cycle base (INCUBATE) — PLL cycle detector long/short
             PLLCycleStrategy(use_martingale=True),   # Strategy 24 — PLL Cycle + Martingale (INCUBATE) — F41d variant
+            KDSMeanReversionStrategy(),              # Strategy 25 — KDS Mean Reversion (INCUBATE) — 1d crypto/stock, selective edge
+            EMARibbonBreakoutStrategy(),             # Strategy 26 — EMA Ribbon Breakout (INCUBATE) — 1d daily only, short edge strong
+            RCRMeanReversionStrategy(),              # Strategy 27 — RCR Mean Reversion (INCUBATE) — 1d crypto/stock, AGIX/BONK edge
+            CBAEStrategy(),                          # Strategy 28 — Candle Body Asymmetry Exhaustion (WATCHLIST)
+            RAREStrategy(),                          # Strategy 29 — Regime Autocorrelation Reversal Entry (WATCHLIST)
+            FELSStrategy(),                          # Strategy 30 — Failed Extension Liquidity Sweep (WATCHLIST)
         ]
 
         self._load_strategy_states()

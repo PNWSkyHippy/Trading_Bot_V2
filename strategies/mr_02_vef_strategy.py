@@ -37,14 +37,19 @@ from typing import Optional
 
 @dataclass
 class MR02Params:
-    atr_len:      int   = 14
-    atr_ma_len:   int   = 20
-    atr_spike:    float = 1.5   # spike candle = ATR > atrMA * this multiplier
-    body_ratio:   float = 0.5   # spike bar must have body >= 50% of range
-    ma_len:       int   = 200   # SMA200 trend filter
-    sl_mult:      float = 2.0   # stop loss ATR multiplier
-    tp_mult:      float = 2.0   # take profit ATR multiplier
-    max_bars:     int   = 24    # time stop (primary exit)
+    atr_len:          int   = 14
+    atr_ma_len:       int   = 20
+    atr_spike:        float = 1.5   # spike candle = ATR > atrMA * this multiplier
+    body_ratio:       float = 0.5   # spike bar must have body >= 50% of range
+    ma_len:           int   = 200   # SMA200 trend filter
+    sl_mult:          float = 2.0   # stop loss ATR multiplier
+    tp_mult:          float = 2.0   # take profit ATR multiplier
+    max_bars:         int   = 24    # time stop (primary exit)
+    # Regime filter: normalised ATR (ATR/close) must be in a tradable range.
+    # Too low = dead market, no reversion fuel.
+    # Too high = crisis/cascade, reversals fail.
+    regime_atr_min:   float = 0.003   # 0.3% of price  — below this: skip
+    regime_atr_max:   float = 0.030   # 3.0% of price  — above this: skip
 
 
 # ─── Indicators ───────────────────────────────────────────────────────────────
@@ -94,8 +99,16 @@ def generate_signals(df: pd.DataFrame, params: MR02Params = MR02Params()) -> pd.
     bull_bias = out["close"] > out["ma200"]
     bear_bias = out["close"] < out["ma200"]
 
-    out["long_signal"]  = failed_bear & bull_bias
-    out["short_signal"] = failed_bull & bear_bias
+    # Regime filter: normalised ATR must be in [regime_atr_min, regime_atr_max]
+    # Kills dead-market noise entries and cascade-selloff knife-catches.
+    norm_atr     = out["atr_ma"] / out["close"].replace(0, np.nan)
+    regime_ok    = (norm_atr >= p.regime_atr_min) & (norm_atr <= p.regime_atr_max)
+
+    out["long_signal"]  = failed_bear & bull_bias & regime_ok
+    out["short_signal"] = failed_bull & bear_bias & regime_ok
+
+    # Spike bar ATR ratio — used for score (spike bar = shift(1), not current)
+    out["atr_spike_ratio"] = out["atr"].shift(1) / out["atr_ma"].shift(1).replace(0, np.nan)
 
     # Stop / TP levels
     out["sl_long"]  = out["low"].shift(1)  - p.sl_mult * out["atr"]
@@ -131,6 +144,7 @@ class MR02VEFStrategy(BaseStrategy):
         self.reviewer_exempt         = True
         self.ml_exempt               = True
         self.time_stop_profile       = "strategy_defined"
+        self.enabled                 = True
 
     def analyze(self, symbol: str, candles: pd.DataFrame,
                 market_condition: str = "unknown") -> Optional[TradeSignal]:
@@ -159,15 +173,28 @@ class MR02VEFStrategy(BaseStrategy):
             sl_pct = round(abs(close - sl_price) / close * 100, 3)
             tp_pct = round(abs(tp_price - close)  / close * 100, 3)
 
-            # Score: stronger spike relative to MA = stronger signal
-            atr_ma = float(last["atr_ma"]) if not pd.isna(last["atr_ma"]) else atr
-            spike_strength = min((atr / atr_ma - p.atr_spike) / p.atr_spike, 0.3) if atr_ma > 0 else 0
-            score = round(max(0.58, min(0.88, 0.65 + spike_strength)), 3)
+            # Score: stronger spike on the SPIKE BAR (shift(1)) = stronger signal
+            # Use the atr_spike_ratio column which captured shift(1) ATR / shift(1) ATR_MA
+            spike_ratio    = float(last["atr_spike_ratio"]) if not pd.isna(last["atr_spike_ratio"]) else p.atr_spike
+            atr_ma         = float(last["atr_ma"]) if not pd.isna(last["atr_ma"]) else atr
+            spike_strength = min((spike_ratio - p.atr_spike) / p.atr_spike, 0.3)
+            score          = round(max(0.58, min(0.88, 0.65 + spike_strength)), 3)
 
             ma200 = float(last["ma200"]) if not pd.isna(last["ma200"]) else None
 
-            self.verbose_log(symbol, "ATR spike", True, round(atr / atr_ma, 2) if atr_ma > 0 else 0,
+            norm_atr_now = atr_ma / float(last["close"]) if float(last["close"]) > 0 else 0
+
+            # volume_ratio: current bar volume vs 20-bar average
+            vol_series = candles["volume"]
+            vol_ma_now = vol_series.rolling(20).mean().iloc[-1]
+            vol_ratio  = round(float(vol_series.iloc[-1] / vol_ma_now), 3) if vol_ma_now and vol_ma_now > 0 else None
+
+            self.verbose_log(symbol, "ATR spike (spike bar)", True, round(spike_ratio, 2),
                              f">{p.atr_spike}x ATR_MA", direction)
+            self.verbose_log(symbol, "Regime ATR", True,
+                             round(norm_atr_now * 100, 3),
+                             f"[{p.regime_atr_min*100:.1f}%–{p.regime_atr_max*100:.1f}%]",
+                             direction)
             self.verbose_log_score(symbol, score, 0.58)
 
             return self._make_signal(
@@ -175,19 +202,22 @@ class MR02VEFStrategy(BaseStrategy):
                 direction       = direction,
                 score           = score,
                 reason          = (
-                    f"MR-02 VEF: ATR spike {atr/atr_ma:.2f}x MA | "
+                    f"MR-02 VEF: ATR spike {spike_ratio:.2f}x MA | "
                     f"failed {'bull' if short_sig else 'bear'} continuation | "
                     f"{'above' if long_sig else 'below'} SMA200"
                 ),
                 stop_loss_pct   = sl_pct,
                 take_profit_pct = tp_pct,
                 metadata={
-                    "strategy_name":              "mr_02_vef",
-                    "entry_timeframe":            "1h",
-                    "atr":                        round(atr, 6),
-                    "atr_spike_ratio":            round(atr / atr_ma, 3) if atr_ma > 0 else None,
-                    "ma200":                      round(ma200, 4) if ma200 else None,
-                    "structural_stop_price":      round(sl_price, 6),
+                    "strategy_name":               "mr_02_vef",
+                    "entry_timeframe":             "1h",
+                    "atr":                         round(atr, 6),
+                    "atr_spike_ratio":             round(spike_ratio, 3),
+                    "atr_norm_pct":                round(norm_atr_now * 100, 3),
+                    "volume_ratio":                vol_ratio,
+                    "ma200":                       round(ma200, 4) if ma200 else None,
+                    "structural_stop_price":       round(sl_price, 6),
+                    "structural_tp_price":         round(tp_price, 6),
                     "preferred_initial_stop_mode": "signal_structural",
                     "preferred_trail_mode":        "none",
                 },
@@ -196,11 +226,21 @@ class MR02VEFStrategy(BaseStrategy):
             self.logger.error(f"MR02VEFStrategy.analyze error on {symbol}: {e}", exc_info=True)
             return None
 
-    def check_custom_exit(self, symbol: str, bars: pd.DataFrame,
-                          direction: str, entry_metadata: Optional[dict] = None) -> Optional[str]:
-        """Time stop: exit after max_bars regardless of P&L."""
-        meta      = entry_metadata or {}
-        bars_held = int(meta.get("_bars_held", 0))
+    def check_custom_exit(
+        self,
+        symbol: str,
+        bars: pd.DataFrame,
+        direction: str,
+        entry_metadata: Optional[dict] = None,
+    ) -> Optional[str]:
+        """
+        Time stop: exit after max_bars regardless of P&L.
+
+        Signature matches BaseStrategy.check_custom_exit and the backtester
+        call: (symbol, bars_window, direction, entry_metadata).
+        _bars_held is injected into entry_metadata by the backtester.
+        """
+        bars_held = int((entry_metadata or {}).get("_bars_held", 0))
         if bars_held >= self.params.max_bars:
             return "mr02_time_stop"
         return None

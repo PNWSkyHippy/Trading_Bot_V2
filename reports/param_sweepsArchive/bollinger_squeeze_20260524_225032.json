@@ -1,0 +1,2491 @@
+{
+  "meta": {
+    "strategy": "bollinger_squeeze",
+    "symbols": [
+      "DOT/USD",
+      "BNB/USD",
+      "LINK/USD",
+      "AVAX/USD"
+    ],
+    "timeframe": "1h",
+    "days": 365,
+    "asset_class": "crypto",
+    "direction": "both",
+    "method": "annealing",
+    "iterations": 60,
+    "metric": "profit_factor",
+    "params": [
+      {
+        "name": "stop_loss_pct",
+        "min": 1.0,
+        "max": 6.25,
+        "step": 0.5,
+        "is_int": false
+      },
+      {
+        "name": "take_profit_pct",
+        "min": 2.8,
+        "max": 17.5,
+        "step": 0.5,
+        "is_int": false
+      }
+    ],
+    "started_at": "2026-05-24T22:10:18.147114",
+    "finished_at": "2026-05-24T22:50:32.708786",
+    "cancelled": false,
+    "total_tested": 57
+  },
+  "results": [
+    {
+      "params": {
+        "stop_loss_pct": 3.5,
+        "take_profit_pct": 10.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 1.5,
+        "take_profit_pct": 12.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 1.0,
+        "take_profit_pct": 17.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.5,
+        "take_profit_pct": 16.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 6.0,
+        "take_profit_pct": 13.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 6.0,
+        "take_profit_pct": 14.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 6.0,
+        "take_profit_pct": 9.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 6.0,
+        "take_profit_pct": 5.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 6.0,
+        "take_profit_pct": 3.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 5.5,
+        "take_profit_pct": 5.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 6.0,
+        "take_profit_pct": 2.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 6.0,
+        "take_profit_pct": 4.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 6.0,
+        "take_profit_pct": 3.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 10.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.0,
+        "take_profit_pct": 7.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.0,
+        "take_profit_pct": 8.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.5,
+        "take_profit_pct": 5.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 5.0,
+        "take_profit_pct": 8.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 5.0,
+        "take_profit_pct": 11.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 13.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 15.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 16.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.5,
+        "take_profit_pct": 14.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.5,
+        "take_profit_pct": 16.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.5,
+        "take_profit_pct": 13.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.5,
+        "take_profit_pct": 13.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 12.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.0,
+        "take_profit_pct": 11.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 5.0,
+        "take_profit_pct": 13.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 6.0,
+        "take_profit_pct": 13.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 1.0,
+        "take_profit_pct": 15.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 1.0,
+        "take_profit_pct": 16.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 1.5,
+        "take_profit_pct": 15.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 1.5,
+        "take_profit_pct": 15.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.0,
+        "take_profit_pct": 15.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.5,
+        "take_profit_pct": 14.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.0,
+        "take_profit_pct": 14.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 5.5,
+        "take_profit_pct": 11.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 5.5,
+        "take_profit_pct": 16.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 6.0,
+        "take_profit_pct": 16.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 5.5,
+        "take_profit_pct": 3.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.5,
+        "take_profit_pct": 3.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 5.0,
+        "take_profit_pct": 3.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.0,
+        "take_profit_pct": 17.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.5,
+        "take_profit_pct": 17.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.5,
+        "take_profit_pct": 16.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.0,
+        "take_profit_pct": 16.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.0,
+        "take_profit_pct": 17.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.5,
+        "take_profit_pct": 11.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 1.5,
+        "take_profit_pct": 16.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 4.5,
+        "take_profit_pct": 5.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.5,
+        "take_profit_pct": 16.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 3.0,
+        "take_profit_pct": 16.8
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 1.5,
+        "take_profit_pct": 6.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.0,
+        "take_profit_pct": 6.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 1.5,
+        "take_profit_pct": 10.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "stop_loss_pct": 2.0,
+        "take_profit_pct": 10.3
+      },
+      "score": 0.9075,
+      "avg_profit_factor": 1.21,
+      "avg_win_rate": 30.4,
+      "avg_net_pnl": -1.12,
+      "consistency": 0.5,
+      "symbols_tested": 4,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "DOT/USD",
+          "trades": 13,
+          "win_rate": 38.5,
+          "profit_factor": 1.63,
+          "net_pnl": 11.39
+        },
+        {
+          "symbol": "BNB/USD",
+          "trades": 4,
+          "win_rate": 25.0,
+          "profit_factor": 1.71,
+          "net_pnl": 5.55
+        },
+        {
+          "symbol": "LINK/USD",
+          "trades": 26,
+          "win_rate": 34.6,
+          "profit_factor": 0.85,
+          "net_pnl": -6.67
+        },
+        {
+          "symbol": "AVAX/USD",
+          "trades": 17,
+          "win_rate": 23.5,
+          "profit_factor": 0.65,
+          "net_pnl": -14.74
+        }
+      ]
+    }
+  ]
+}

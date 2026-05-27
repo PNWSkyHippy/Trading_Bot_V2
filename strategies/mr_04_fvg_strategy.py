@@ -21,6 +21,9 @@ Key design decisions:
 Backtest results (1h):
     First test showed 68% WR but negative P&L due to bad SL (ATR-based, too wide)
     Fixed to symmetric gap-based SL — symmetric R:R restores positive expectancy
+    NOTE: Post-fix validation with symmetric gap SL is pending.
+    Numbers above are from the BROKEN ATR-stop version.
+    Re-validate after registering in bot backtester.
 """
 
 import numpy as np
@@ -177,6 +180,7 @@ class MR04FVGStrategy(BaseStrategy):
         self.reviewer_exempt         = True
         self.ml_exempt               = True
         self.time_stop_profile       = "strategy_defined"
+        self.enabled                 = False  # INCUBATE — partial backtest only, not live-ready
 
     def analyze(self, symbol: str, candles: pd.DataFrame,
                 market_condition: str = "unknown") -> Optional[TradeSignal]:
@@ -186,9 +190,12 @@ class MR04FVGStrategy(BaseStrategy):
             return None
 
         try:
-            df       = candles.copy()
-            df["atr"] = _atr(df, p.atr_len)
-            df["adx"] = _adx(df, p.adx_len)
+            df = candles.copy()
+            # Skip indicator recomputation if _precompute() already ran for this df
+            # (backtester passes precomputed df; standalone use computes on demand)
+            if "atr" not in df.columns or "adx" not in df.columns:
+                df["atr"] = _atr(df, p.atr_len)
+                df["adx"] = _adx(df, p.adx_len)
 
             last_idx = len(df) - 1
             adx_val  = float(df["adx"].iloc[last_idx])
@@ -215,13 +222,18 @@ class MR04FVGStrategy(BaseStrategy):
             sl_pct = round(abs(close - sl_price) / close * 100, 3)
             tp_pct = round(abs(tp_price - close)  / close * 100, 3)
 
-            # Score: larger gap relative to ATR = stronger imbalance = stronger signal
-            atr_val  = float(df["atr"].iloc[last_idx])
-            gap_atr  = gap_size / atr_val if atr_val > 0 else 0
+            # Score: larger gap = stronger imbalance; fresher FVG = higher quality
+            atr_val   = float(df["atr"].iloc[last_idx])
+            gap_atr   = gap_size / atr_val if atr_val > 0 else 0
             gap_bonus = min((gap_atr - p.min_gap_atr) / p.min_gap_atr * 0.1, 0.2)
-            score    = round(max(0.58, min(0.88, 0.65 + gap_bonus)), 3)
+            age       = last_idx - fvg["formed_at"]
+            age_penalty = min(age / p.lookback * 0.1, 0.1)   # older FVG → lower score
+            score     = round(max(0.58, min(0.88, 0.65 + gap_bonus - age_penalty)), 3)
 
-            age = last_idx - fvg["formed_at"]
+            # Volume ratio — 20-bar rolling mean
+            vol_series = candles["volume"]
+            vol_ma_val = vol_series.rolling(20).mean().iloc[-1]
+            vol_ratio  = round(float(vol_series.iloc[-1] / vol_ma_val), 3) if vol_ma_val > 0 else None
 
             self.verbose_log(symbol, "FVG zone entry", True,
                              f"gap={gap_size:.4f}", f">{p.min_gap_atr}x ATR", direction)
@@ -248,6 +260,7 @@ class MR04FVGStrategy(BaseStrategy):
                     "fvg_gap_size":               round(gap_size, 6),
                     "fvg_age_bars":               age,
                     "adx":                        round(adx_val, 2),
+                    "volume_ratio":               vol_ratio,
                     "structural_stop_price":      round(sl_price, 6),
                     "preferred_initial_stop_mode": "signal_structural",
                     "preferred_trail_mode":        "none",
@@ -265,3 +278,15 @@ class MR04FVGStrategy(BaseStrategy):
         if bars_held >= self.params.max_bars:
             return "mr04_time_stop"
         return None
+
+    def _precompute(self, symbol: str, df: pd.DataFrame) -> pd.DataFrame:
+        """
+        Pre-compute ATR and ADX once on the full df before the bar loop.
+        Called by backtester._simulate(); eliminates O(N²) indicator recomputation.
+        _find_active_fvg() still scans backward per bar (inherent to FVG detection).
+        """
+        p   = self.params
+        out = df.copy()
+        out["atr"] = _atr(out, p.atr_len)
+        out["adx"] = _adx(out, p.adx_len)
+        return out

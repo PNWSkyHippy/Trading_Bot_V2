@@ -134,8 +134,10 @@ class AdaptiveRegime(BaseStrategy):
     def __init__(self):
         super().__init__()
         self.strategy_name   = "adaptive_regime"
-        self.stop_loss_pct   = config.DEFAULT_STOP_LOSS_PCT   # fallback only
-        self.take_profit_pct = config.DEFAULT_TAKE_PROFIT_PCT  # fallback only
+        self.stop_loss_pct   = 1.5   # v3 matrix sweep optimum 2026-05-25
+                                     # 90d stock basket, 1h, signal_structural + two_bar trail
+                                     # NVDA/META/MSFT/AAPL — best PF at sl=1.5, tp=3.2
+        self.take_profit_pct = 3.2   # v3 matrix sweep optimum 2026-05-25 (was 3.0)
 
         self.stock_candle_timeframe  = "1Hour"
         self.crypto_candle_timeframe = "1h"
@@ -150,8 +152,9 @@ class AdaptiveRegime(BaseStrategy):
         # Those records were cleared on enable; this flag prevents re-disable
         # while fresh paper-trade data accumulates.
         # Set False once 50+ post-2026-05-16 trades are logged.
-        self.auto_disable_exempt = True
-        self.ml_exempt           = True     # ML model dominated by grid_bot (1507 trades) — redesigned 2026-05-16, prior 14 trades invalid
+        self.auto_disable_exempt = True      # prevent auto-disable while fresh data accumulates post 2026-05-16 redesign
+        self.ml_exempt           = True     # ML model dominated by grid_bot (1507 trades) — prior 14 adaptive trades invalid
+        self.reviewer_exempt     = True     # reviewer may suppress valid breakouts under bearish sentiment; exempt pending paper data
 
         self.time_stop_profile           = "strategy_defined"
         self.preferred_initial_stop_mode = "signal_structural"
@@ -382,8 +385,9 @@ class AdaptiveRegime(BaseStrategy):
 
         macd_hist = self._calc_macd_hist(close)
 
-        # Score: base 0.72, small ADX bonus — capped at 1.0
-        score = min(1.0, 0.72 + (adx - ADX_TREND_THRESHOLD) * 0.002)
+        # Score: base 0.72, small ADX bonus + volume participation bonus — capped at 1.0
+        vol_bonus = min(0.05, (volume_ratio - MIN_VOL_RATIO) * 0.03)
+        score = min(1.0, 0.72 + (adx - ADX_TREND_THRESHOLD) * 0.002 + vol_bonus)
         self.verbose_log_score(symbol, score, 0.65)
 
         _d["trend_long"] += 1

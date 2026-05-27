@@ -424,8 +424,8 @@ class RiskManager:
         logger.info(
             f"APPROVED: {symbol} {direction.upper()} | "
             f"${position_value:.2f} ({position_pct*100:.0f}% capital) | "
-            f"Entry: ${entry_price:.4f} | SL: ${stop_loss:.4f} | "
-            f"TP: ${take_profit:.4f} | Risk: ${risk_amount:.2f} | "
+            f"Entry: ${entry_price:.6f} | SL: ${stop_loss:.6f} | "
+            f"TP: ${take_profit:.6f} | Risk: ${risk_amount:.2f} | "
             f"Score: {signal_score:.2f}"
         )
 

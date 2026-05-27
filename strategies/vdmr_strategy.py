@@ -355,7 +355,10 @@ except ImportError:
 
 
 # ETH: breakeven in backtest. DOGE: negative on v4. Both excluded.
-VDMR_BLACKLIST = {"ETH/USD", "ETHUSDT", "ETH/USDT", "DOGE/USD", "DOGEUSDT", "DOGE/USDT"}
+VDMR_BLACKLIST = {
+    "ETH/USD", "ETHUSDT", "ETH/USDT", "ETHBUSD", "ETH-USD",
+    "DOGE/USD", "DOGEUSDT", "DOGE/USDT", "DOGE-USD",
+}
 
 
 class VDMRStrategy(BaseStrategy):
@@ -372,6 +375,7 @@ class VDMRStrategy(BaseStrategy):
         self.crypto_candle_timeframe = "1h"
         self.candle_limit            = 300
         self.reviewer_exempt         = True
+        self.time_stop_profile       = "strategy_defined"
 
     def analyze(self, symbol: str, candles: pd.DataFrame,
                 market_condition: str = "unknown") -> Optional[TradeSignal]:
@@ -419,9 +423,8 @@ class VDMRStrategy(BaseStrategy):
             vol_ma     = vol_series.rolling(50).mean().iloc[-1]
             vol_ratio  = round(float(vol_series.iloc[-1] / vol_ma), 3) if vol_ma > 0 else 1.0
 
-            # Map macro_ma alignment to ema_fast/slow/trend so ML scorer picks it up
-            macro_ma   = float(last["macro_ma"]) if not pd.isna(last["macro_ma"]) else close
-            ema_align  = close if not pd.isna(close) else 0.0
+            sl_price = (close - atr * self.params.sl_atr_mult if direction == "long"
+                        else close + atr * self.params.sl_atr_mult)
 
             return self._make_signal(
                 symbol          = symbol,
@@ -434,26 +437,50 @@ class VDMRStrategy(BaseStrategy):
                 stop_loss_pct   = sl_pct,
                 take_profit_pct = tp_pct,
                 metadata={
-                    "zscore":       round(zscore, 3),
-                    "z_vel":        round(z_vel,  4),
-                    "eff_ratio":    round(eff_ratio, 3),
-                    "roc_50":       round(float(last["roc_50"]), 2),
-                    "bull_regime":  bool(last["bull_regime"]),
-                    "bear_regime":  bool(last["bear_regime"]),
-                    "rev_ok":       bool(last["rev_ok"]),
-                    "atr":          round(atr, 6),
-                    # ML scorer keys
-                    "rsi":          50.0,
-                    "macd_hist":    round(z_vel, 4),   # z_vel is most MACD-like metric
-                    "macd":         round(zscore, 3),
-                    "volume_ratio": vol_ratio,
-                    "bb_pct":       round(max(0.0, min(1.0, 0.5 + zscore / 4)), 3),
-                    "ema_fast":     ema_align,
-                    "ema_slow":     macro_ma,
-                    "ema_trend":    macro_ma,
-                    "adx":          25.0,
+                    "strategy_name":               "vdmr_strategy",
+                    "entry_timeframe":             "1h",
+                    "zscore":                      round(zscore, 3),
+                    "z_vel":                       round(z_vel, 4),
+                    "eff_ratio":                   round(eff_ratio, 3),
+                    "roc_50":                      round(float(last["roc_50"]), 2),
+                    "bull_regime":                 bool(last["bull_regime"]),
+                    "bear_regime":                 bool(last["bear_regime"]),
+                    "rev_ok":                      bool(last["rev_ok"]),
+                    "atr":                         round(atr, 6),
+                    "volume_ratio":                vol_ratio,
+                    "structural_stop_price":       round(sl_price, 6),
+                    "preferred_initial_stop_mode": "signal_structural",
+                    "preferred_trail_mode":        "none",
                 },
             )
         except Exception as e:
             self.logger.error(f"VDMRStrategy.analyze error on {symbol}: {e}", exc_info=True)
             return None
+
+    def check_custom_exit(self, symbol: str, bars: pd.DataFrame,
+                          direction: str, entry_metadata: Optional[dict] = None) -> Optional[str]:
+        if bars is None or len(bars) < 2:
+            return None
+        p    = self.params
+        meta = entry_metadata or {}
+
+        # A. Z-score mean reversion exit (primary thesis exit)
+        try:
+            c         = bars["close"]
+            roll_mean = c.rolling(p.zscore_lookback).mean()
+            roll_std  = c.rolling(p.zscore_lookback).std(ddof=0).replace(0, np.nan)
+            z_now     = float(((c - roll_mean) / roll_std).iloc[-1])
+            if not pd.isna(z_now):
+                if direction == "long"  and z_now >= p.z_exit_thresh:
+                    return "vdmr_mean_return"
+                if direction == "short" and z_now <= p.z_exit_thresh:
+                    return "vdmr_mean_return"
+        except Exception:
+            pass
+
+        # B. Time stop (safety net)
+        bars_held = int(meta.get("_bars_held", 0))
+        if bars_held >= p.max_bars_in_trade:
+            return "vdmr_time_stop"
+
+        return None

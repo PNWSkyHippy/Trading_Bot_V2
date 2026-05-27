@@ -410,12 +410,22 @@ class PositionMonitor:
         qty         = trade["quantity"]
         symbol      = trade["symbol"]
 
+        asset_class = trade.get("asset_class", "crypto")
+
         if direction == "long":
             pnl     = (exit_price - entry_price) * qty
             pnl_pct = ((exit_price / entry_price) - 1) * 100 if entry_price else 0.0
         else:
             pnl     = (entry_price - exit_price) * qty
             pnl_pct = ((entry_price / exit_price) - 1) * 100 if exit_price else 0.0
+
+        # Fee simulation — matches backtester rates
+        if asset_class == "crypto":
+            fee_rt_pct = (config.BT_COMMISSION_CRYPTO_PCT + config.BT_SLIPPAGE_CRYPTO_PCT) / 100 * 2
+        else:
+            fee_rt_pct = (config.BT_COMMISSION_STOCK_PCT + config.BT_SLIPPAGE_STOCK_PCT) / 100 * 2
+        fees_paid = round(entry_price * qty * fee_rt_pct, 4)
+        pnl       = pnl - fees_paid
 
         pnl     = round(pnl, 4)
         pnl_pct = round(pnl_pct, 4)
@@ -426,11 +436,13 @@ class PositionMonitor:
             exit_reason = exit_reason,
             pnl         = pnl,
             pnl_pct     = pnl_pct,
+            fees_paid   = fees_paid,
         )
 
         try:
             full_trade = {**trade, "exit_time": datetime.now().isoformat(),
-                          "exit_price": exit_price, "status": "closed"}
+                          "exit_price": exit_price, "status": "closed",
+                          "fees_paid": fees_paid}
             self._db.record_tax_event(full_trade)
         except Exception:
             pass
@@ -1278,12 +1290,17 @@ class PositionMonitor:
         # ── 3. STOP-LOSS ──────────────────────────────────────────────────
         sl_exit = risk_manager.check_sl_exit(trade, current_price)
         if sl_exit:
+            # Fill at stop_loss price, not current candle price.
+            # Live brokers execute the stop order at stop price; paper must match.
+            # current_price is logged for context but is not used as the fill.
+            sl_fill_price = float(trade.get("stop_loss") or current_price)
             logger.info(
-                f"[STOP LOSS] {symbol} @ ${current_price:.4f} | "
+                f"[STOP LOSS] {symbol} @ ${current_price:.6f} | "
+                f"fill @ ${sl_fill_price:.6f} | "
                 f"P&L {pnl_pct:+.2f}% | age {age_hrs:.1f}hr"
             )
             self._db.set_state(f"momentum_ext_{trade_id}", 0)
-            self._attempt_close(trade, current_price, sl_exit)
+            self._attempt_close(trade, sl_fill_price, sl_exit)
             return
 
         # ── 4. ORB VWAP CROSS EXIT ──────────────────────────────────────

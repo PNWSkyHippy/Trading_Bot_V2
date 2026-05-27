@@ -720,6 +720,14 @@ class TradeExecutor:
         else:
             pnl = (entry_price - current_price) * qty
 
+        # ── Brokerage fee simulation (matches backtester rates) ───────────
+        if asset_class == "crypto":
+            fee_rt_pct = (config.BT_COMMISSION_CRYPTO_PCT + config.BT_SLIPPAGE_CRYPTO_PCT) / 100 * 2
+        else:
+            fee_rt_pct = (config.BT_COMMISSION_STOCK_PCT + config.BT_SLIPPAGE_STOCK_PCT) / 100 * 2
+        fees_paid = round(entry_price * qty * fee_rt_pct, 4)
+        pnl       = pnl - fees_paid
+
         # ── PnL% — calculate directly from price move, not position_value ─
         # position_value in DB can drift; price-based calc is always correct.
         # pnl_pct = % move from entry to exit, always positive for wins.
@@ -782,7 +790,8 @@ class TradeExecutor:
             exit_price = current_price,
             exit_reason= exit_reason,
             pnl        = round(pnl, 4),
-            pnl_pct    = round(pnl_pct, 4)
+            pnl_pct    = round(pnl_pct, 4),
+            fees_paid  = fees_paid,
         )
 
         full_trade = {

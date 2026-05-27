@@ -83,8 +83,9 @@ class VwapConfirmedOrb(BaseStrategy):
         self.candle_limit            = 220
 
         self.stock_enabled  = True
-        self.crypto_enabled = False   # VWAP has no reliable anchor on 24/7 crypto
-        self.enabled        = True
+        self.crypto_enabled  = False   # VWAP has no reliable anchor on 24/7 crypto
+        self.enabled         = True
+        self.reviewer_exempt = True
 
         # ML model is dominated by grid_bot (1507 trades); vwap_confirmed_orb has
         # ~0 representation so ML blending collapses valid scores below threshold.
@@ -350,8 +351,10 @@ class VwapConfirmedOrb(BaseStrategy):
                     "rsi":                   round(rsi, 2),
                     "volume_ratio":          round(vol_ratio, 3),
                     "distance_from_breakout_pct": round(long_chase_pct, 3),
-                    "bars_since_breakout":   0,
-                    "pattern":               "vwap_confirmed_orb_long",
+                    "bars_since_breakout":        0,
+                    "pattern":                    "vwap_confirmed_orb_long",
+                    "preferred_initial_stop_mode": "signal_structural",
+                    "preferred_trail_mode":        "none",
                 }
             )
 
@@ -421,8 +424,10 @@ class VwapConfirmedOrb(BaseStrategy):
                     "rsi":                   round(rsi, 2),
                     "volume_ratio":          round(vol_ratio, 3),
                     "distance_from_breakout_pct": round(short_chase_pct, 3),
-                    "bars_since_breakout":   0,
-                    "pattern":               "vwap_confirmed_orb_short",
+                    "bars_since_breakout":        0,
+                    "pattern":                    "vwap_confirmed_orb_short",
+                    "preferred_initial_stop_mode": "signal_structural",
+                    "preferred_trail_mode":        "none",
                 }
             )
 

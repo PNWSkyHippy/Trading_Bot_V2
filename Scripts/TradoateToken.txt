@@ -1,0 +1,39 @@
+OFix urgent (known issues):
+
+hammer_reversal.py — inverted RR (stop=10%, TP=5%)
+mr_02_vef_strategy.py — ON but losing, needs regime filter or disable
+pll_cycle.py — PERMANENTLY DISABLED, verify it can't fire
+Zero-trade ON strategies (broken or misconfigured):
+4. adaptive_regime.py
+5. bollinger_squeeze.py
+6. scalp_master.py
+7. rsi_dip_simple.py
+
+Core active strategies:
+8. rsi_dip_spike_v4.py
+9. mr_03_fbs_strategy.py
+10. mr_04_fvg_strategy.py
+11. kds_mean_reversion.py
+12. rcr_mean_reversion.py
+13. btc_v6_chandelier.py
+14. ema_ribbon_breakout.py
+15. orb_breakout.py
+16. vwap_confirmed_orb.py
+
+Lower priority:
+17–29: ema_crossover, rsi_momentum, bollinger_breakout, vdmr_strategy, vwap_momentum, grid_bot, ecb_strategy, cbae_strategy, rare_strategy, fels_strategy, mean_reversion, dca_accumulator, swing_trader
+
+Start with hammer_reversal.py — paste the full file contents to Lona and tell her: "Audit this strategy. Known issue: stop=10% TP=5% appears inverted. Check all logic, RR ratio, regime filter, and entry/exit quali
+
+
+ne thing to remember: The token lasts ~30 min to a few hours. 
+When MES goes delayed again, just run:
+
+.\venv312\Scripts\python.exe Scripts\inject_tradovate_token.py
+
+console.log(window._tok)
+Grab fresh token from Tradovate console → console.log(window._tok)
+ → copy → paste.
+
+Want to tackle something else — the strategy audit list, 
+hammer reversal RR fix, or the stop engine work?

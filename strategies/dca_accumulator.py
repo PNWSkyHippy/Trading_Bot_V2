@@ -75,7 +75,6 @@ NEXT STEPS:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 """
 
-import logging
 from typing import Optional
 
 import pandas as pd
@@ -124,14 +123,16 @@ class DCAAccumulator(BaseStrategy):
         # ML model is dominated by grid_bot (1507 trades); DCA has ~0 historical
         # trades in the training set so ML blending produces noise, not signal.
         # Raw strategy score is the correct confidence measure here.
-        self.ml_exempt = True
+        self.ml_exempt       = True
+        self.auto_disable_exempt = True
 
         # DCA is a systematic rules-based accumulator — no discretionary review
         # needed. Claude reviewer adds 12-60s latency per signal and can hang
         # the scan thread on Massive API delays after reboot.
         self.reviewer_exempt = True
 
-        self.logger = logging.getLogger("DCAAccumulator")
+        self.stock_enabled   = True
+        self.crypto_enabled  = True
 
     def analyze(
         self,
@@ -233,14 +234,32 @@ class DCAAccumulator(BaseStrategy):
         self.verbose_log_score(symbol, score, min_score)
 
         if score >= min_score:
+            vol_series  = candles["volume"]
+            vol_ma      = vol_series.rolling(20).mean().iloc[-1]
+            vol_ratio   = round(float(vol_series.iloc[-1] / vol_ma), 3) if vol_ma > 0 else None
+            stop_price  = float(current_price) * (1 - self.stop_loss_pct / 100)
             return self._make_signal(
-                symbol    = symbol,
-                direction = "long",
-                score     = score,
-                reason    = (
+                symbol          = symbol,
+                direction       = "long",
+                score           = score,
+                stop_loss_pct   = self.stop_loss_pct,
+                take_profit_pct = self.take_profit_pct,
+                reason          = (
                     f"DCA accumulate: price {abs(price_vs_ema)*100:.1f}% below "
                     f"EMA{ema_period}, RSI={current_rsi:.1f}"
-                )
+                ),
+                metadata        = {
+                    "strategy_name":               "dca_accumulator",
+                    "ema_value":                   round(float(ema_value), 4),
+                    "price_vs_ema_pct":            round(float(price_vs_ema) * 100, 3),
+                    "rsi":                         round(float(current_rsi), 2),
+                    "dip_depth":                   round(float(dip_depth), 3),
+                    "rsi_depth":                   round(float(rsi_depth), 3),
+                    "volume_ratio":                vol_ratio,
+                    "structural_stop_price":       round(stop_price, 4),
+                    "preferred_initial_stop_mode": "percent",
+                    "preferred_trail_mode":        "percent",
+                },
             )
 
         return None

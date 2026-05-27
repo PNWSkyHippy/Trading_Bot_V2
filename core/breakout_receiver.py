@@ -32,7 +32,7 @@ WICK_BODY_MAX_RATIO     = 2.0
 GAP_TRAP_MAX_PCT        = 30.0
 PRICE_DRIFT_MAX_PCT     = 0.5
 STOP_MAX_DISTANCE_STOCK = 2.5
-STOP_MAX_DISTANCE_CRYPTO= 5.0
+STOP_MAX_DISTANCE_CRYPTO= 3.5
 RSI_LONG_MIN            = 50.0
 RSI_LONG_EXHAUST        = 82.0
 RSI_SHORT_MAX           = 50.0
@@ -40,6 +40,9 @@ RSI_SHORT_EXHAUST       = 18.0
 MARKET_CRASH_THRESHOLD  = -2.0
 MARKET_RALLY_THRESHOLD  = +2.0
 MIN_SOFT_PASSES         = 0
+MIN_PRICE_CRYPTO        = 0.01   # reject sub-penny crypto — micro-caps with no liquidity
+PUMP_VOLUME_SPIKE_MAX   = 15.0   # volume spike above this = coordinated pump (organic breaks rarely > 10x)
+PUMP_MOVE_MAX_CRYPTO    = 15.0   # crypto move above this % = likely already at pump peak, not start
 
 BREAKOUT_SYMBOL_BLACKLIST = {"MLN/USD", "MLNUSD", "MLN/USDT", "MLNUSDT"}
 
@@ -288,10 +291,12 @@ class BreakoutReceiver:
             self._check_daily_symbol_limit(p),
             self._check_not_in_cooldown(p),
             self._check_trading_not_halted(),
+            self._check_min_price(p),
             self._check_price_still_moving(p),
             self._check_volume_elevated(p),
             self._check_no_wick_rejection(p),
             self._check_not_gap_trap(p),
+            self._check_not_pump_and_dump(p),
             self._check_momentum_phase(p),
             self._check_structural_stop(p),
         ]
@@ -406,6 +411,15 @@ class BreakoutReceiver:
         except Exception as e:
             return ChecklistResult.fail(f"Price re-verify exception: {e}")
 
+    def _check_min_price(self, p: Dict) -> ChecklistResult:
+        asset = str(p.get("asset_class", "")).lower()
+        price = float(p.get("current_price") or p.get("entry_price") or 0)
+        if "crypto" in asset and price > 0 and price < MIN_PRICE_CRYPTO:
+            return ChecklistResult.fail(
+                f"Price ${price:.6f} below MIN_PRICE_CRYPTO ${MIN_PRICE_CRYPTO} — micro-cap rejected"
+            )
+        return ChecklistResult.ok(f"Price ${price:.6f} passes min price check")
+
     def _check_volume_elevated(self, p: Dict) -> ChecklistResult:
         vol = float(p.get("volume_spike", 0))
         if vol <= 0 or vol == 1.0:
@@ -466,14 +480,46 @@ class BreakoutReceiver:
             )
         return ChecklistResult.ok(f"Move {move:.1f}% within range")
 
+    def _check_not_pump_and_dump(self, p: Dict) -> ChecklistResult:
+        """Reject signals that look like coordinated pump & dump activity.
+
+        Two tells that organic breakouts on liquid tokens almost never show:
+          1. Volume spike way above normal — legitimate breakouts on mid/large-cap
+             crypto run 3–8x volume. 15x+ is consistent with wash-trading or a
+             small group ramping a thin-float token.
+          2. Crypto move already > 18% — by the time the scanner fires, the pump is
+             likely at peak. Real breakout entries are 2–8% off base, not 18%+.
+             (Stocks use the existing GAP_TRAP_MAX_PCT = 30% which is fine for
+             pre-market gaps; this tighter crypto cap targets intraday pumps.)
+        """
+        asset  = str(p.get("asset_class", "")).lower()
+        vol    = float(p.get("volume_spike", 0) or 0)
+        move   = abs(float(p.get("move_pct", 0) or 0))
+
+        if vol > 0 and vol != 1.0 and vol > PUMP_VOLUME_SPIKE_MAX:
+            return ChecklistResult.fail(
+                f"Volume spike {vol:.1f}x exceeds PUMP_VOLUME_SPIKE_MAX {PUMP_VOLUME_SPIKE_MAX}x "
+                f"— possible wash-trade or thin-float pump"
+            )
+
+        if "crypto" in asset and move > PUMP_MOVE_MAX_CRYPTO:
+            return ChecklistResult.fail(
+                f"Crypto move {move:.1f}% exceeds PUMP_MOVE_MAX_CRYPTO {PUMP_MOVE_MAX_CRYPTO}% "
+                f"— likely at pump peak, not breakout entry"
+            )
+
+        return ChecklistResult.ok(
+            f"P&D check passed — vol={vol:.1f}x move={move:.1f}%"
+        )
+
     def _check_momentum_phase(self, p: Dict) -> ChecklistResult:
         direction   = p.get("direction", "long")
         bars_since  = p.get("bars_since_breakout")
         dist_pct    = p.get("distance_from_breakout_pct")
         rsi         = p.get("rsi")
 
-        MAX_BARS_SINCE    = 3    # tightened from 4 — 4 bars = 20min on 5m, too late
-        MAX_DIST_FROM_LVL = 6.0  # tightened from 8% — 7.93% PEAQ trade was a chase
+        MAX_BARS_SINCE    = 2    # spec: reject if >= 2, so max allowed = 1 fresh bar
+        MAX_DIST_FROM_LVL = 2.0  # spec: crypto hot = 2.0%, moving = 1.5% — 2.0 is the safe cap
         RSI_EXHAUST_LONG  = 78
         RSI_EXHAUST_SHORT = 22
 

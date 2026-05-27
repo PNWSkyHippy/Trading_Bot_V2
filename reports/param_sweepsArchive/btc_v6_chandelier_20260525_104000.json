@@ -1,0 +1,4774 @@
+{
+  "meta": {
+    "strategy": "btc_v6_chandelier",
+    "symbols": [
+      "FIL/USD",
+      "HT/USD",
+      "AXS/USD",
+      "BTC/USD",
+      "ETH/USD",
+      "SOL/USD"
+    ],
+    "timeframe": "1d",
+    "days": 365,
+    "asset_class": "crypto",
+    "direction": "long",
+    "method": "matrix",
+    "iterations": 60,
+    "metric": "profit_factor",
+    "params": [
+      {
+        "name": "atr_mult",
+        "min": 4.0,
+        "max": 7.0,
+        "step": 0.25,
+        "is_int": false
+      },
+      {
+        "name": "rsi_thresh",
+        "min": 37.5,
+        "max": 52.5,
+        "step": 2.5,
+        "is_int": false
+      }
+    ],
+    "started_at": "2026-05-25T10:39:26.510009",
+    "finished_at": "2026-05-25T10:40:00.653451",
+    "cancelled": false,
+    "total_tested": 91
+  },
+  "results": [
+    {
+      "params": {
+        "atr_mult": 4.0,
+        "rsi_thresh": 45.0
+      },
+      "score": 6.748611,
+      "avg_profit_factor": 8.098,
+      "avg_win_rate": 54.5,
+      "avg_net_pnl": 74.88,
+      "consistency": 0.667,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 27.85,
+          "net_pnl": 9.86
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 11,
+          "win_rate": 72.7,
+          "profit_factor": 15.45,
+          "net_pnl": 461.64
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 9,
+          "win_rate": 44.4,
+          "profit_factor": 0.48,
+          "net_pnl": -42.24
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.17,
+          "net_pnl": -9.69
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.17,
+          "net_pnl": 20.48
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.47,
+          "net_pnl": 9.21
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.25,
+        "rsi_thresh": 45.0
+      },
+      "score": 6.748611,
+      "avg_profit_factor": 8.098,
+      "avg_win_rate": 54.5,
+      "avg_net_pnl": 74.88,
+      "consistency": 0.667,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 27.85,
+          "net_pnl": 9.86
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 11,
+          "win_rate": 72.7,
+          "profit_factor": 15.45,
+          "net_pnl": 461.64
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 9,
+          "win_rate": 44.4,
+          "profit_factor": 0.48,
+          "net_pnl": -42.24
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.17,
+          "net_pnl": -9.69
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.17,
+          "net_pnl": 20.48
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.47,
+          "net_pnl": 9.21
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.5,
+        "rsi_thresh": 45.0
+      },
+      "score": 6.748611,
+      "avg_profit_factor": 8.098,
+      "avg_win_rate": 54.5,
+      "avg_net_pnl": 74.88,
+      "consistency": 0.667,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 27.85,
+          "net_pnl": 9.86
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 11,
+          "win_rate": 72.7,
+          "profit_factor": 15.45,
+          "net_pnl": 461.64
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 9,
+          "win_rate": 44.4,
+          "profit_factor": 0.48,
+          "net_pnl": -42.24
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.17,
+          "net_pnl": -9.69
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.17,
+          "net_pnl": 20.48
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.47,
+          "net_pnl": 9.21
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.75,
+        "rsi_thresh": 45.0
+      },
+      "score": 6.748611,
+      "avg_profit_factor": 8.098,
+      "avg_win_rate": 54.5,
+      "avg_net_pnl": 74.88,
+      "consistency": 0.667,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 27.85,
+          "net_pnl": 9.86
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 11,
+          "win_rate": 72.7,
+          "profit_factor": 15.45,
+          "net_pnl": 461.64
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 9,
+          "win_rate": 44.4,
+          "profit_factor": 0.48,
+          "net_pnl": -42.24
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.17,
+          "net_pnl": -9.69
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.17,
+          "net_pnl": 20.48
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.47,
+          "net_pnl": 9.21
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.0,
+        "rsi_thresh": 45.0
+      },
+      "score": 6.748611,
+      "avg_profit_factor": 8.098,
+      "avg_win_rate": 54.5,
+      "avg_net_pnl": 74.88,
+      "consistency": 0.667,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 27.85,
+          "net_pnl": 9.86
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 11,
+          "win_rate": 72.7,
+          "profit_factor": 15.45,
+          "net_pnl": 461.64
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 9,
+          "win_rate": 44.4,
+          "profit_factor": 0.48,
+          "net_pnl": -42.24
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.17,
+          "net_pnl": -9.69
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.17,
+          "net_pnl": 20.48
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.47,
+          "net_pnl": 9.21
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.25,
+        "rsi_thresh": 45.0
+      },
+      "score": 6.748611,
+      "avg_profit_factor": 8.098,
+      "avg_win_rate": 54.5,
+      "avg_net_pnl": 74.88,
+      "consistency": 0.667,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 27.85,
+          "net_pnl": 9.86
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 11,
+          "win_rate": 72.7,
+          "profit_factor": 15.45,
+          "net_pnl": 461.64
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 9,
+          "win_rate": 44.4,
+          "profit_factor": 0.48,
+          "net_pnl": -42.24
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.17,
+          "net_pnl": -9.69
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.17,
+          "net_pnl": 20.48
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.47,
+          "net_pnl": 9.21
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.5,
+        "rsi_thresh": 45.0
+      },
+      "score": 6.748611,
+      "avg_profit_factor": 8.098,
+      "avg_win_rate": 54.5,
+      "avg_net_pnl": 74.88,
+      "consistency": 0.667,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 27.85,
+          "net_pnl": 9.86
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 11,
+          "win_rate": 72.7,
+          "profit_factor": 15.45,
+          "net_pnl": 461.64
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 9,
+          "win_rate": 44.4,
+          "profit_factor": 0.48,
+          "net_pnl": -42.24
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.17,
+          "net_pnl": -9.69
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.17,
+          "net_pnl": 20.48
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.47,
+          "net_pnl": 9.21
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.75,
+        "rsi_thresh": 45.0
+      },
+      "score": 6.748611,
+      "avg_profit_factor": 8.098,
+      "avg_win_rate": 54.5,
+      "avg_net_pnl": 74.88,
+      "consistency": 0.667,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 27.85,
+          "net_pnl": 9.86
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 11,
+          "win_rate": 72.7,
+          "profit_factor": 15.45,
+          "net_pnl": 461.64
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 9,
+          "win_rate": 44.4,
+          "profit_factor": 0.48,
+          "net_pnl": -42.24
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.17,
+          "net_pnl": -9.69
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.17,
+          "net_pnl": 20.48
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.47,
+          "net_pnl": 9.21
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.0,
+        "rsi_thresh": 45.0
+      },
+      "score": 6.748611,
+      "avg_profit_factor": 8.098,
+      "avg_win_rate": 54.5,
+      "avg_net_pnl": 74.88,
+      "consistency": 0.667,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 27.85,
+          "net_pnl": 9.86
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 11,
+          "win_rate": 72.7,
+          "profit_factor": 15.45,
+          "net_pnl": 461.64
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 9,
+          "win_rate": 44.4,
+          "profit_factor": 0.48,
+          "net_pnl": -42.24
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.17,
+          "net_pnl": -9.69
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.17,
+          "net_pnl": 20.48
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.47,
+          "net_pnl": 9.21
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.25,
+        "rsi_thresh": 45.0
+      },
+      "score": 6.748611,
+      "avg_profit_factor": 8.098,
+      "avg_win_rate": 54.5,
+      "avg_net_pnl": 74.88,
+      "consistency": 0.667,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 27.85,
+          "net_pnl": 9.86
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 11,
+          "win_rate": 72.7,
+          "profit_factor": 15.45,
+          "net_pnl": 461.64
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 9,
+          "win_rate": 44.4,
+          "profit_factor": 0.48,
+          "net_pnl": -42.24
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.17,
+          "net_pnl": -9.69
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.17,
+          "net_pnl": 20.48
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.47,
+          "net_pnl": 9.21
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.5,
+        "rsi_thresh": 45.0
+      },
+      "score": 6.748611,
+      "avg_profit_factor": 8.098,
+      "avg_win_rate": 54.5,
+      "avg_net_pnl": 74.88,
+      "consistency": 0.667,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 27.85,
+          "net_pnl": 9.86
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 11,
+          "win_rate": 72.7,
+          "profit_factor": 15.45,
+          "net_pnl": 461.64
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 9,
+          "win_rate": 44.4,
+          "profit_factor": 0.48,
+          "net_pnl": -42.24
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.17,
+          "net_pnl": -9.69
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.17,
+          "net_pnl": 20.48
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.47,
+          "net_pnl": 9.21
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.75,
+        "rsi_thresh": 45.0
+      },
+      "score": 6.748611,
+      "avg_profit_factor": 8.098,
+      "avg_win_rate": 54.5,
+      "avg_net_pnl": 74.88,
+      "consistency": 0.667,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 27.85,
+          "net_pnl": 9.86
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 11,
+          "win_rate": 72.7,
+          "profit_factor": 15.45,
+          "net_pnl": 461.64
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 9,
+          "win_rate": 44.4,
+          "profit_factor": 0.48,
+          "net_pnl": -42.24
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.17,
+          "net_pnl": -9.69
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.17,
+          "net_pnl": 20.48
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.47,
+          "net_pnl": 9.21
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.0,
+        "rsi_thresh": 45.0
+      },
+      "score": 6.748611,
+      "avg_profit_factor": 8.098,
+      "avg_win_rate": 54.5,
+      "avg_net_pnl": 74.88,
+      "consistency": 0.667,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 27.85,
+          "net_pnl": 9.86
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 11,
+          "win_rate": 72.7,
+          "profit_factor": 15.45,
+          "net_pnl": 461.64
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 9,
+          "win_rate": 44.4,
+          "profit_factor": 0.48,
+          "net_pnl": -42.24
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.17,
+          "net_pnl": -9.69
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 3.17,
+          "net_pnl": 20.48
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 5,
+          "win_rate": 60.0,
+          "profit_factor": 1.47,
+          "net_pnl": 9.21
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.0,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.258,
+      "avg_profit_factor": 3.62,
+      "avg_win_rate": 77.7,
+      "avg_net_pnl": 57.15,
+      "consistency": 0.8,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "HT/USD",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 13.66,
+          "net_pnl": 219.68
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 4.24,
+          "net_pnl": 28.08
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 3,
+          "win_rate": 33.3,
+          "profit_factor": 0.2,
+          "net_pnl": -7.66
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 3,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 29.01
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.25,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.258,
+      "avg_profit_factor": 3.62,
+      "avg_win_rate": 77.7,
+      "avg_net_pnl": 57.15,
+      "consistency": 0.8,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "HT/USD",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 13.66,
+          "net_pnl": 219.68
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 4.24,
+          "net_pnl": 28.08
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 3,
+          "win_rate": 33.3,
+          "profit_factor": 0.2,
+          "net_pnl": -7.66
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 3,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 29.01
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.5,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.258,
+      "avg_profit_factor": 3.62,
+      "avg_win_rate": 77.7,
+      "avg_net_pnl": 57.15,
+      "consistency": 0.8,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "HT/USD",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 13.66,
+          "net_pnl": 219.68
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 4.24,
+          "net_pnl": 28.08
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 3,
+          "win_rate": 33.3,
+          "profit_factor": 0.2,
+          "net_pnl": -7.66
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 3,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 29.01
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.75,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.258,
+      "avg_profit_factor": 3.62,
+      "avg_win_rate": 77.7,
+      "avg_net_pnl": 57.15,
+      "consistency": 0.8,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "HT/USD",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 13.66,
+          "net_pnl": 219.68
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 4.24,
+          "net_pnl": 28.08
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 3,
+          "win_rate": 33.3,
+          "profit_factor": 0.2,
+          "net_pnl": -7.66
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 3,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 29.01
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.0,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.258,
+      "avg_profit_factor": 3.62,
+      "avg_win_rate": 77.7,
+      "avg_net_pnl": 57.15,
+      "consistency": 0.8,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "HT/USD",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 13.66,
+          "net_pnl": 219.68
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 4.24,
+          "net_pnl": 28.08
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 3,
+          "win_rate": 33.3,
+          "profit_factor": 0.2,
+          "net_pnl": -7.66
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 3,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 29.01
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.25,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.258,
+      "avg_profit_factor": 3.62,
+      "avg_win_rate": 77.7,
+      "avg_net_pnl": 57.15,
+      "consistency": 0.8,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "HT/USD",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 13.66,
+          "net_pnl": 219.68
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 4.24,
+          "net_pnl": 28.08
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 3,
+          "win_rate": 33.3,
+          "profit_factor": 0.2,
+          "net_pnl": -7.66
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 3,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 29.01
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.5,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.258,
+      "avg_profit_factor": 3.62,
+      "avg_win_rate": 77.7,
+      "avg_net_pnl": 57.15,
+      "consistency": 0.8,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "HT/USD",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 13.66,
+          "net_pnl": 219.68
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 4.24,
+          "net_pnl": 28.08
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 3,
+          "win_rate": 33.3,
+          "profit_factor": 0.2,
+          "net_pnl": -7.66
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 3,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 29.01
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.75,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.258,
+      "avg_profit_factor": 3.62,
+      "avg_win_rate": 77.7,
+      "avg_net_pnl": 57.15,
+      "consistency": 0.8,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "HT/USD",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 13.66,
+          "net_pnl": 219.68
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 4.24,
+          "net_pnl": 28.08
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 3,
+          "win_rate": 33.3,
+          "profit_factor": 0.2,
+          "net_pnl": -7.66
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 3,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 29.01
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.0,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.258,
+      "avg_profit_factor": 3.62,
+      "avg_win_rate": 77.7,
+      "avg_net_pnl": 57.15,
+      "consistency": 0.8,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "HT/USD",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 13.66,
+          "net_pnl": 219.68
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 4.24,
+          "net_pnl": 28.08
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 3,
+          "win_rate": 33.3,
+          "profit_factor": 0.2,
+          "net_pnl": -7.66
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 3,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 29.01
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.25,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.258,
+      "avg_profit_factor": 3.62,
+      "avg_win_rate": 77.7,
+      "avg_net_pnl": 57.15,
+      "consistency": 0.8,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "HT/USD",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 13.66,
+          "net_pnl": 219.68
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 4.24,
+          "net_pnl": 28.08
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 3,
+          "win_rate": 33.3,
+          "profit_factor": 0.2,
+          "net_pnl": -7.66
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 3,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 29.01
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.5,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.258,
+      "avg_profit_factor": 3.62,
+      "avg_win_rate": 77.7,
+      "avg_net_pnl": 57.15,
+      "consistency": 0.8,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "HT/USD",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 13.66,
+          "net_pnl": 219.68
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 4.24,
+          "net_pnl": 28.08
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 3,
+          "win_rate": 33.3,
+          "profit_factor": 0.2,
+          "net_pnl": -7.66
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 3,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 29.01
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.75,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.258,
+      "avg_profit_factor": 3.62,
+      "avg_win_rate": 77.7,
+      "avg_net_pnl": 57.15,
+      "consistency": 0.8,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "HT/USD",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 13.66,
+          "net_pnl": 219.68
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 4.24,
+          "net_pnl": 28.08
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 3,
+          "win_rate": 33.3,
+          "profit_factor": 0.2,
+          "net_pnl": -7.66
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 3,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 29.01
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.0,
+        "rsi_thresh": 42.5
+      },
+      "score": 3.258,
+      "avg_profit_factor": 3.62,
+      "avg_win_rate": 77.7,
+      "avg_net_pnl": 57.15,
+      "consistency": 0.8,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "HT/USD",
+          "trades": 4,
+          "win_rate": 75.0,
+          "profit_factor": 13.66,
+          "net_pnl": 219.68
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 5,
+          "win_rate": 80.0,
+          "profit_factor": 4.24,
+          "net_pnl": 28.08
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 3,
+          "win_rate": 33.3,
+          "profit_factor": 0.2,
+          "net_pnl": -7.66
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 3,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 29.01
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.0,
+        "rsi_thresh": 47.5
+      },
+      "score": 2.39,
+      "avg_profit_factor": 3.187,
+      "avg_win_rate": 51.5,
+      "avg_net_pnl": 94.2,
+      "consistency": 0.5,
+      "symbols_tested": 6,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 0.74,
+          "net_pnl": -4.5
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 16,
+          "win_rate": 68.8,
+          "profit_factor": 13.16,
+          "net_pnl": 601.9
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 0.42,
+          "net_pnl": -66.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.16,
+          "net_pnl": -10.9
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.97,
+          "net_pnl": 14.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.67,
+          "net_pnl": 30.9
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.25,
+        "rsi_thresh": 47.5
+      },
+      "score": 2.39,
+      "avg_profit_factor": 3.187,
+      "avg_win_rate": 51.5,
+      "avg_net_pnl": 94.2,
+      "consistency": 0.5,
+      "symbols_tested": 6,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 0.74,
+          "net_pnl": -4.5
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 16,
+          "win_rate": 68.8,
+          "profit_factor": 13.16,
+          "net_pnl": 601.9
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 0.42,
+          "net_pnl": -66.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.16,
+          "net_pnl": -10.9
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.97,
+          "net_pnl": 14.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.67,
+          "net_pnl": 30.9
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.5,
+        "rsi_thresh": 47.5
+      },
+      "score": 2.39,
+      "avg_profit_factor": 3.187,
+      "avg_win_rate": 51.5,
+      "avg_net_pnl": 94.2,
+      "consistency": 0.5,
+      "symbols_tested": 6,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 0.74,
+          "net_pnl": -4.5
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 16,
+          "win_rate": 68.8,
+          "profit_factor": 13.16,
+          "net_pnl": 601.9
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 0.42,
+          "net_pnl": -66.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.16,
+          "net_pnl": -10.9
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.97,
+          "net_pnl": 14.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.67,
+          "net_pnl": 30.9
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.75,
+        "rsi_thresh": 47.5
+      },
+      "score": 2.39,
+      "avg_profit_factor": 3.187,
+      "avg_win_rate": 51.5,
+      "avg_net_pnl": 94.2,
+      "consistency": 0.5,
+      "symbols_tested": 6,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 0.74,
+          "net_pnl": -4.5
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 16,
+          "win_rate": 68.8,
+          "profit_factor": 13.16,
+          "net_pnl": 601.9
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 0.42,
+          "net_pnl": -66.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.16,
+          "net_pnl": -10.9
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.97,
+          "net_pnl": 14.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.67,
+          "net_pnl": 30.9
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.0,
+        "rsi_thresh": 47.5
+      },
+      "score": 2.39,
+      "avg_profit_factor": 3.187,
+      "avg_win_rate": 51.5,
+      "avg_net_pnl": 94.2,
+      "consistency": 0.5,
+      "symbols_tested": 6,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 0.74,
+          "net_pnl": -4.5
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 16,
+          "win_rate": 68.8,
+          "profit_factor": 13.16,
+          "net_pnl": 601.9
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 0.42,
+          "net_pnl": -66.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.16,
+          "net_pnl": -10.9
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.97,
+          "net_pnl": 14.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.67,
+          "net_pnl": 30.9
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.25,
+        "rsi_thresh": 47.5
+      },
+      "score": 2.39,
+      "avg_profit_factor": 3.187,
+      "avg_win_rate": 51.5,
+      "avg_net_pnl": 94.2,
+      "consistency": 0.5,
+      "symbols_tested": 6,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 0.74,
+          "net_pnl": -4.5
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 16,
+          "win_rate": 68.8,
+          "profit_factor": 13.16,
+          "net_pnl": 601.9
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 0.42,
+          "net_pnl": -66.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.16,
+          "net_pnl": -10.9
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.97,
+          "net_pnl": 14.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.67,
+          "net_pnl": 30.9
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.5,
+        "rsi_thresh": 47.5
+      },
+      "score": 2.39,
+      "avg_profit_factor": 3.187,
+      "avg_win_rate": 51.5,
+      "avg_net_pnl": 94.2,
+      "consistency": 0.5,
+      "symbols_tested": 6,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 0.74,
+          "net_pnl": -4.5
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 16,
+          "win_rate": 68.8,
+          "profit_factor": 13.16,
+          "net_pnl": 601.9
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 0.42,
+          "net_pnl": -66.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.16,
+          "net_pnl": -10.9
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.97,
+          "net_pnl": 14.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.67,
+          "net_pnl": 30.9
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.75,
+        "rsi_thresh": 47.5
+      },
+      "score": 2.39,
+      "avg_profit_factor": 3.187,
+      "avg_win_rate": 51.5,
+      "avg_net_pnl": 94.2,
+      "consistency": 0.5,
+      "symbols_tested": 6,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 0.74,
+          "net_pnl": -4.5
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 16,
+          "win_rate": 68.8,
+          "profit_factor": 13.16,
+          "net_pnl": 601.9
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 0.42,
+          "net_pnl": -66.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.16,
+          "net_pnl": -10.9
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.97,
+          "net_pnl": 14.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.67,
+          "net_pnl": 30.9
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.0,
+        "rsi_thresh": 47.5
+      },
+      "score": 2.39,
+      "avg_profit_factor": 3.187,
+      "avg_win_rate": 51.5,
+      "avg_net_pnl": 94.2,
+      "consistency": 0.5,
+      "symbols_tested": 6,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 0.74,
+          "net_pnl": -4.5
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 16,
+          "win_rate": 68.8,
+          "profit_factor": 13.16,
+          "net_pnl": 601.9
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 0.42,
+          "net_pnl": -66.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.16,
+          "net_pnl": -10.9
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.97,
+          "net_pnl": 14.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.67,
+          "net_pnl": 30.9
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.25,
+        "rsi_thresh": 47.5
+      },
+      "score": 2.39,
+      "avg_profit_factor": 3.187,
+      "avg_win_rate": 51.5,
+      "avg_net_pnl": 94.2,
+      "consistency": 0.5,
+      "symbols_tested": 6,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 0.74,
+          "net_pnl": -4.5
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 16,
+          "win_rate": 68.8,
+          "profit_factor": 13.16,
+          "net_pnl": 601.9
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 0.42,
+          "net_pnl": -66.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.16,
+          "net_pnl": -10.9
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.97,
+          "net_pnl": 14.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.67,
+          "net_pnl": 30.9
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.5,
+        "rsi_thresh": 47.5
+      },
+      "score": 2.39,
+      "avg_profit_factor": 3.187,
+      "avg_win_rate": 51.5,
+      "avg_net_pnl": 94.2,
+      "consistency": 0.5,
+      "symbols_tested": 6,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 0.74,
+          "net_pnl": -4.5
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 16,
+          "win_rate": 68.8,
+          "profit_factor": 13.16,
+          "net_pnl": 601.9
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 0.42,
+          "net_pnl": -66.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.16,
+          "net_pnl": -10.9
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.97,
+          "net_pnl": 14.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.67,
+          "net_pnl": 30.9
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.75,
+        "rsi_thresh": 47.5
+      },
+      "score": 2.39,
+      "avg_profit_factor": 3.187,
+      "avg_win_rate": 51.5,
+      "avg_net_pnl": 94.2,
+      "consistency": 0.5,
+      "symbols_tested": 6,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 0.74,
+          "net_pnl": -4.5
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 16,
+          "win_rate": 68.8,
+          "profit_factor": 13.16,
+          "net_pnl": 601.9
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 0.42,
+          "net_pnl": -66.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.16,
+          "net_pnl": -10.9
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.97,
+          "net_pnl": 14.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.67,
+          "net_pnl": 30.9
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.0,
+        "rsi_thresh": 47.5
+      },
+      "score": 2.39,
+      "avg_profit_factor": 3.187,
+      "avg_win_rate": 51.5,
+      "avg_net_pnl": 94.2,
+      "consistency": 0.5,
+      "symbols_tested": 6,
+      "symbols_profitable": 3,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 4,
+          "win_rate": 50.0,
+          "profit_factor": 0.74,
+          "net_pnl": -4.5
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 16,
+          "win_rate": 68.8,
+          "profit_factor": 13.16,
+          "net_pnl": 601.9
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 12,
+          "win_rate": 33.3,
+          "profit_factor": 0.42,
+          "net_pnl": -66.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 5,
+          "win_rate": 40.0,
+          "profit_factor": 0.16,
+          "net_pnl": -10.9
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 6,
+          "win_rate": 50.0,
+          "profit_factor": 1.97,
+          "net_pnl": 14.76
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 6,
+          "win_rate": 66.7,
+          "profit_factor": 2.67,
+          "net_pnl": 30.9
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.0,
+        "rsi_thresh": 50.0
+      },
+      "score": 0.832222,
+      "avg_profit_factor": 1.248,
+      "avg_win_rate": 45.0,
+      "avg_net_pnl": 94.07,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.59,
+          "net_pnl": -11.31
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 4.42,
+          "net_pnl": 665.76
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.39,
+          "net_pnl": -73.64
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.12,
+          "net_pnl": -15.7
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.08,
+          "net_pnl": 4.07
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 0.89,
+          "net_pnl": -4.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.25,
+        "rsi_thresh": 50.0
+      },
+      "score": 0.832222,
+      "avg_profit_factor": 1.248,
+      "avg_win_rate": 45.0,
+      "avg_net_pnl": 94.07,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.59,
+          "net_pnl": -11.31
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 4.42,
+          "net_pnl": 665.76
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.39,
+          "net_pnl": -73.64
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.12,
+          "net_pnl": -15.7
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.08,
+          "net_pnl": 4.07
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 0.89,
+          "net_pnl": -4.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.5,
+        "rsi_thresh": 50.0
+      },
+      "score": 0.832222,
+      "avg_profit_factor": 1.248,
+      "avg_win_rate": 45.0,
+      "avg_net_pnl": 94.07,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.59,
+          "net_pnl": -11.31
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 4.42,
+          "net_pnl": 665.76
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.39,
+          "net_pnl": -73.64
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.12,
+          "net_pnl": -15.7
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.08,
+          "net_pnl": 4.07
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 0.89,
+          "net_pnl": -4.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.75,
+        "rsi_thresh": 50.0
+      },
+      "score": 0.832222,
+      "avg_profit_factor": 1.248,
+      "avg_win_rate": 45.0,
+      "avg_net_pnl": 94.07,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.59,
+          "net_pnl": -11.31
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 4.42,
+          "net_pnl": 665.76
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.39,
+          "net_pnl": -73.64
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.12,
+          "net_pnl": -15.7
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.08,
+          "net_pnl": 4.07
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 0.89,
+          "net_pnl": -4.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.0,
+        "rsi_thresh": 50.0
+      },
+      "score": 0.832222,
+      "avg_profit_factor": 1.248,
+      "avg_win_rate": 45.0,
+      "avg_net_pnl": 94.07,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.59,
+          "net_pnl": -11.31
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 4.42,
+          "net_pnl": 665.76
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.39,
+          "net_pnl": -73.64
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.12,
+          "net_pnl": -15.7
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.08,
+          "net_pnl": 4.07
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 0.89,
+          "net_pnl": -4.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.25,
+        "rsi_thresh": 50.0
+      },
+      "score": 0.832222,
+      "avg_profit_factor": 1.248,
+      "avg_win_rate": 45.0,
+      "avg_net_pnl": 94.07,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.59,
+          "net_pnl": -11.31
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 4.42,
+          "net_pnl": 665.76
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.39,
+          "net_pnl": -73.64
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.12,
+          "net_pnl": -15.7
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.08,
+          "net_pnl": 4.07
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 0.89,
+          "net_pnl": -4.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.5,
+        "rsi_thresh": 50.0
+      },
+      "score": 0.832222,
+      "avg_profit_factor": 1.248,
+      "avg_win_rate": 45.0,
+      "avg_net_pnl": 94.07,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.59,
+          "net_pnl": -11.31
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 4.42,
+          "net_pnl": 665.76
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.39,
+          "net_pnl": -73.64
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.12,
+          "net_pnl": -15.7
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.08,
+          "net_pnl": 4.07
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 0.89,
+          "net_pnl": -4.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.75,
+        "rsi_thresh": 50.0
+      },
+      "score": 0.832222,
+      "avg_profit_factor": 1.248,
+      "avg_win_rate": 45.0,
+      "avg_net_pnl": 94.07,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.59,
+          "net_pnl": -11.31
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 4.42,
+          "net_pnl": 665.76
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.39,
+          "net_pnl": -73.64
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.12,
+          "net_pnl": -15.7
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.08,
+          "net_pnl": 4.07
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 0.89,
+          "net_pnl": -4.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.0,
+        "rsi_thresh": 50.0
+      },
+      "score": 0.832222,
+      "avg_profit_factor": 1.248,
+      "avg_win_rate": 45.0,
+      "avg_net_pnl": 94.07,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.59,
+          "net_pnl": -11.31
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 4.42,
+          "net_pnl": 665.76
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.39,
+          "net_pnl": -73.64
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.12,
+          "net_pnl": -15.7
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.08,
+          "net_pnl": 4.07
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 0.89,
+          "net_pnl": -4.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.0,
+        "rsi_thresh": 50.0
+      },
+      "score": 0.709722,
+      "avg_profit_factor": 1.217,
+      "avg_win_rate": 45.0,
+      "avg_net_pnl": 92.28,
+      "consistency": 0.167,
+      "symbols_tested": 6,
+      "symbols_profitable": 1,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.59,
+          "net_pnl": -11.31
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 4.42,
+          "net_pnl": 665.76
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.39,
+          "net_pnl": -73.64
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.12,
+          "net_pnl": -15.7
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 0.89,
+          "net_pnl": -6.68
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 0.89,
+          "net_pnl": -4.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.25,
+        "rsi_thresh": 50.0
+      },
+      "score": 0.706806,
+      "avg_profit_factor": 1.212,
+      "avg_win_rate": 45.0,
+      "avg_net_pnl": 91.92,
+      "consistency": 0.167,
+      "symbols_tested": 6,
+      "symbols_profitable": 1,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.59,
+          "net_pnl": -11.31
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 4.42,
+          "net_pnl": 665.76
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.39,
+          "net_pnl": -73.64
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.12,
+          "net_pnl": -15.7
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 0.86,
+          "net_pnl": -8.86
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 0.89,
+          "net_pnl": -4.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.5,
+        "rsi_thresh": 50.0
+      },
+      "score": 0.703889,
+      "avg_profit_factor": 1.207,
+      "avg_win_rate": 45.0,
+      "avg_net_pnl": 91.55,
+      "consistency": 0.167,
+      "symbols_tested": 6,
+      "symbols_profitable": 1,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.59,
+          "net_pnl": -11.31
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 4.42,
+          "net_pnl": 665.76
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.39,
+          "net_pnl": -73.64
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.12,
+          "net_pnl": -15.7
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 0.83,
+          "net_pnl": -11.04
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 0.89,
+          "net_pnl": -4.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.75,
+        "rsi_thresh": 50.0
+      },
+      "score": 0.700972,
+      "avg_profit_factor": 1.202,
+      "avg_win_rate": 45.0,
+      "avg_net_pnl": 91.19,
+      "consistency": 0.167,
+      "symbols_tested": 6,
+      "symbols_profitable": 1,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 57.1,
+          "profit_factor": 0.59,
+          "net_pnl": -11.31
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 29,
+          "win_rate": 48.3,
+          "profit_factor": 4.42,
+          "net_pnl": 665.76
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.39,
+          "net_pnl": -73.64
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.12,
+          "net_pnl": -15.7
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 0.8,
+          "net_pnl": -13.23
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 8,
+          "win_rate": 50.0,
+          "profit_factor": 0.89,
+          "net_pnl": -4.74
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.0,
+        "rsi_thresh": 52.5
+      },
+      "score": 0.637778,
+      "avg_profit_factor": 0.957,
+      "avg_win_rate": 41.5,
+      "avg_net_pnl": 68.69,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.43,
+          "net_pnl": -20.38
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 41,
+          "win_rate": 41.5,
+          "profit_factor": 2.32,
+          "net_pnl": 517.71
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.29,
+          "net_pnl": -97.25
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.1,
+          "net_pnl": -17.46
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 0.75,
+          "net_pnl": -17.08
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.85,
+          "net_pnl": 46.59
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.25,
+        "rsi_thresh": 52.5
+      },
+      "score": 0.637778,
+      "avg_profit_factor": 0.957,
+      "avg_win_rate": 41.5,
+      "avg_net_pnl": 68.69,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.43,
+          "net_pnl": -20.38
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 41,
+          "win_rate": 41.5,
+          "profit_factor": 2.32,
+          "net_pnl": 517.71
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.29,
+          "net_pnl": -97.25
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.1,
+          "net_pnl": -17.46
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 0.75,
+          "net_pnl": -17.08
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.85,
+          "net_pnl": 46.59
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.5,
+        "rsi_thresh": 52.5
+      },
+      "score": 0.637778,
+      "avg_profit_factor": 0.957,
+      "avg_win_rate": 41.5,
+      "avg_net_pnl": 68.69,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.43,
+          "net_pnl": -20.38
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 41,
+          "win_rate": 41.5,
+          "profit_factor": 2.32,
+          "net_pnl": 517.71
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.29,
+          "net_pnl": -97.25
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.1,
+          "net_pnl": -17.46
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 0.75,
+          "net_pnl": -17.08
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.85,
+          "net_pnl": 46.59
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.75,
+        "rsi_thresh": 52.5
+      },
+      "score": 0.637778,
+      "avg_profit_factor": 0.957,
+      "avg_win_rate": 41.5,
+      "avg_net_pnl": 68.69,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.43,
+          "net_pnl": -20.38
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 41,
+          "win_rate": 41.5,
+          "profit_factor": 2.32,
+          "net_pnl": 517.71
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.29,
+          "net_pnl": -97.25
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.1,
+          "net_pnl": -17.46
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 0.75,
+          "net_pnl": -17.08
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.85,
+          "net_pnl": 46.59
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.0,
+        "rsi_thresh": 52.5
+      },
+      "score": 0.637778,
+      "avg_profit_factor": 0.957,
+      "avg_win_rate": 41.5,
+      "avg_net_pnl": 68.69,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.43,
+          "net_pnl": -20.38
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 41,
+          "win_rate": 41.5,
+          "profit_factor": 2.32,
+          "net_pnl": 517.71
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.29,
+          "net_pnl": -97.25
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.1,
+          "net_pnl": -17.46
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 0.75,
+          "net_pnl": -17.08
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.85,
+          "net_pnl": 46.59
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.25,
+        "rsi_thresh": 52.5
+      },
+      "score": 0.637778,
+      "avg_profit_factor": 0.957,
+      "avg_win_rate": 41.5,
+      "avg_net_pnl": 68.69,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.43,
+          "net_pnl": -20.38
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 41,
+          "win_rate": 41.5,
+          "profit_factor": 2.32,
+          "net_pnl": 517.71
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.29,
+          "net_pnl": -97.25
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.1,
+          "net_pnl": -17.46
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 0.75,
+          "net_pnl": -17.08
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.85,
+          "net_pnl": 46.59
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.5,
+        "rsi_thresh": 52.5
+      },
+      "score": 0.637778,
+      "avg_profit_factor": 0.957,
+      "avg_win_rate": 41.5,
+      "avg_net_pnl": 68.69,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.43,
+          "net_pnl": -20.38
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 41,
+          "win_rate": 41.5,
+          "profit_factor": 2.32,
+          "net_pnl": 517.71
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.29,
+          "net_pnl": -97.25
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.1,
+          "net_pnl": -17.46
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 0.75,
+          "net_pnl": -17.08
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.85,
+          "net_pnl": 46.59
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.75,
+        "rsi_thresh": 52.5
+      },
+      "score": 0.637778,
+      "avg_profit_factor": 0.957,
+      "avg_win_rate": 41.5,
+      "avg_net_pnl": 68.69,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.43,
+          "net_pnl": -20.38
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 41,
+          "win_rate": 41.5,
+          "profit_factor": 2.32,
+          "net_pnl": 517.71
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.29,
+          "net_pnl": -97.25
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.1,
+          "net_pnl": -17.46
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 0.75,
+          "net_pnl": -17.08
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.85,
+          "net_pnl": 46.59
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.0,
+        "rsi_thresh": 52.5
+      },
+      "score": 0.637778,
+      "avg_profit_factor": 0.957,
+      "avg_win_rate": 41.5,
+      "avg_net_pnl": 68.69,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.43,
+          "net_pnl": -20.38
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 41,
+          "win_rate": 41.5,
+          "profit_factor": 2.32,
+          "net_pnl": 517.71
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.29,
+          "net_pnl": -97.25
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.1,
+          "net_pnl": -17.46
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 0.75,
+          "net_pnl": -17.08
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.85,
+          "net_pnl": 46.59
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.0,
+        "rsi_thresh": 52.5
+      },
+      "score": 0.626667,
+      "avg_profit_factor": 0.94,
+      "avg_win_rate": 41.5,
+      "avg_net_pnl": 66.9,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.43,
+          "net_pnl": -20.38
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 41,
+          "win_rate": 41.5,
+          "profit_factor": 2.32,
+          "net_pnl": 517.71
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.29,
+          "net_pnl": -97.25
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.1,
+          "net_pnl": -17.46
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 0.65,
+          "net_pnl": -27.81
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.85,
+          "net_pnl": 46.59
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.25,
+        "rsi_thresh": 52.5
+      },
+      "score": 0.624444,
+      "avg_profit_factor": 0.937,
+      "avg_win_rate": 41.5,
+      "avg_net_pnl": 66.54,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.43,
+          "net_pnl": -20.38
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 41,
+          "win_rate": 41.5,
+          "profit_factor": 2.32,
+          "net_pnl": 517.71
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.29,
+          "net_pnl": -97.25
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.1,
+          "net_pnl": -17.46
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 0.63,
+          "net_pnl": -29.99
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.85,
+          "net_pnl": 46.59
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.5,
+        "rsi_thresh": 52.5
+      },
+      "score": 0.622222,
+      "avg_profit_factor": 0.933,
+      "avg_win_rate": 41.5,
+      "avg_net_pnl": 66.18,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.43,
+          "net_pnl": -20.38
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 41,
+          "win_rate": 41.5,
+          "profit_factor": 2.32,
+          "net_pnl": 517.71
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.29,
+          "net_pnl": -97.25
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.1,
+          "net_pnl": -17.46
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 0.61,
+          "net_pnl": -32.16
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.85,
+          "net_pnl": 46.59
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.75,
+        "rsi_thresh": 52.5
+      },
+      "score": 0.621111,
+      "avg_profit_factor": 0.932,
+      "avg_win_rate": 41.5,
+      "avg_net_pnl": 65.81,
+      "consistency": 0.333,
+      "symbols_tested": 6,
+      "symbols_profitable": 2,
+      "per_symbol": [
+        {
+          "symbol": "FIL/USD",
+          "trades": 7,
+          "win_rate": 42.9,
+          "profit_factor": 0.43,
+          "net_pnl": -20.38
+        },
+        {
+          "symbol": "HT/USD",
+          "trades": 41,
+          "win_rate": 41.5,
+          "profit_factor": 2.32,
+          "net_pnl": 517.71
+        },
+        {
+          "symbol": "AXS/USD",
+          "trades": 15,
+          "win_rate": 26.7,
+          "profit_factor": 0.29,
+          "net_pnl": -97.25
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 6,
+          "win_rate": 33.3,
+          "profit_factor": 0.1,
+          "net_pnl": -17.46
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 14,
+          "win_rate": 50.0,
+          "profit_factor": 0.6,
+          "net_pnl": -34.34
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 11,
+          "win_rate": 54.5,
+          "profit_factor": 1.85,
+          "net_pnl": 46.59
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.0,
+        "rsi_thresh": 40.0
+      },
+      "score": 0.2575,
+      "avg_profit_factor": 0.258,
+      "avg_win_rate": 87.5,
+      "avg_net_pnl": 11.76,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.03,
+          "net_pnl": 0.27
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 3.84
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.25,
+        "rsi_thresh": 40.0
+      },
+      "score": 0.2575,
+      "avg_profit_factor": 0.258,
+      "avg_win_rate": 87.5,
+      "avg_net_pnl": 11.76,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.03,
+          "net_pnl": 0.27
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 3.84
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.5,
+        "rsi_thresh": 40.0
+      },
+      "score": 0.2575,
+      "avg_profit_factor": 0.258,
+      "avg_win_rate": 87.5,
+      "avg_net_pnl": 11.76,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.03,
+          "net_pnl": 0.27
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 3.84
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.75,
+        "rsi_thresh": 40.0
+      },
+      "score": 0.2575,
+      "avg_profit_factor": 0.258,
+      "avg_win_rate": 87.5,
+      "avg_net_pnl": 11.76,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.03,
+          "net_pnl": 0.27
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 3.84
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.0,
+        "rsi_thresh": 40.0
+      },
+      "score": 0.2575,
+      "avg_profit_factor": 0.258,
+      "avg_win_rate": 87.5,
+      "avg_net_pnl": 11.76,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.03,
+          "net_pnl": 0.27
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 3.84
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.25,
+        "rsi_thresh": 40.0
+      },
+      "score": 0.2575,
+      "avg_profit_factor": 0.258,
+      "avg_win_rate": 87.5,
+      "avg_net_pnl": 11.76,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.03,
+          "net_pnl": 0.27
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 3.84
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.5,
+        "rsi_thresh": 40.0
+      },
+      "score": 0.2575,
+      "avg_profit_factor": 0.258,
+      "avg_win_rate": 87.5,
+      "avg_net_pnl": 11.76,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.03,
+          "net_pnl": 0.27
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 3.84
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.75,
+        "rsi_thresh": 40.0
+      },
+      "score": 0.2575,
+      "avg_profit_factor": 0.258,
+      "avg_win_rate": 87.5,
+      "avg_net_pnl": 11.76,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.03,
+          "net_pnl": 0.27
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 3.84
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.0,
+        "rsi_thresh": 40.0
+      },
+      "score": 0.2575,
+      "avg_profit_factor": 0.258,
+      "avg_win_rate": 87.5,
+      "avg_net_pnl": 11.76,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.03,
+          "net_pnl": 0.27
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 3.84
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.25,
+        "rsi_thresh": 40.0
+      },
+      "score": 0.2575,
+      "avg_profit_factor": 0.258,
+      "avg_win_rate": 87.5,
+      "avg_net_pnl": 11.76,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.03,
+          "net_pnl": 0.27
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 3.84
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.5,
+        "rsi_thresh": 40.0
+      },
+      "score": 0.2575,
+      "avg_profit_factor": 0.258,
+      "avg_win_rate": 87.5,
+      "avg_net_pnl": 11.76,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.03,
+          "net_pnl": 0.27
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 3.84
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.75,
+        "rsi_thresh": 40.0
+      },
+      "score": 0.2575,
+      "avg_profit_factor": 0.258,
+      "avg_win_rate": 87.5,
+      "avg_net_pnl": 11.76,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.03,
+          "net_pnl": 0.27
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 3.84
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.0,
+        "rsi_thresh": 40.0
+      },
+      "score": 0.2575,
+      "avg_profit_factor": 0.258,
+      "avg_win_rate": 87.5,
+      "avg_net_pnl": 11.76,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 2,
+          "win_rate": 50.0,
+          "profit_factor": 1.03,
+          "net_pnl": 0.27
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 3.84
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.0,
+        "rsi_thresh": 37.5
+      },
+      "score": 0.0,
+      "avg_profit_factor": 0.0,
+      "avg_win_rate": 100.0,
+      "avg_net_pnl": 13.01,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 8.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 0.15
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.25,
+        "rsi_thresh": 37.5
+      },
+      "score": 0.0,
+      "avg_profit_factor": 0.0,
+      "avg_win_rate": 100.0,
+      "avg_net_pnl": 13.01,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 8.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 0.15
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.5,
+        "rsi_thresh": 37.5
+      },
+      "score": 0.0,
+      "avg_profit_factor": 0.0,
+      "avg_win_rate": 100.0,
+      "avg_net_pnl": 13.01,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 8.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 0.15
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 4.75,
+        "rsi_thresh": 37.5
+      },
+      "score": 0.0,
+      "avg_profit_factor": 0.0,
+      "avg_win_rate": 100.0,
+      "avg_net_pnl": 13.01,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 8.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 0.15
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.0,
+        "rsi_thresh": 37.5
+      },
+      "score": 0.0,
+      "avg_profit_factor": 0.0,
+      "avg_win_rate": 100.0,
+      "avg_net_pnl": 13.01,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 8.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 0.15
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.25,
+        "rsi_thresh": 37.5
+      },
+      "score": 0.0,
+      "avg_profit_factor": 0.0,
+      "avg_win_rate": 100.0,
+      "avg_net_pnl": 13.01,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 8.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 0.15
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.5,
+        "rsi_thresh": 37.5
+      },
+      "score": 0.0,
+      "avg_profit_factor": 0.0,
+      "avg_win_rate": 100.0,
+      "avg_net_pnl": 13.01,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 8.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 0.15
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 5.75,
+        "rsi_thresh": 37.5
+      },
+      "score": 0.0,
+      "avg_profit_factor": 0.0,
+      "avg_win_rate": 100.0,
+      "avg_net_pnl": 13.01,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 8.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 0.15
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.0,
+        "rsi_thresh": 37.5
+      },
+      "score": 0.0,
+      "avg_profit_factor": 0.0,
+      "avg_win_rate": 100.0,
+      "avg_net_pnl": 13.01,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 8.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 0.15
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.25,
+        "rsi_thresh": 37.5
+      },
+      "score": 0.0,
+      "avg_profit_factor": 0.0,
+      "avg_win_rate": 100.0,
+      "avg_net_pnl": 13.01,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 8.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 0.15
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.5,
+        "rsi_thresh": 37.5
+      },
+      "score": 0.0,
+      "avg_profit_factor": 0.0,
+      "avg_win_rate": 100.0,
+      "avg_net_pnl": 13.01,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 8.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 0.15
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 6.75,
+        "rsi_thresh": 37.5
+      },
+      "score": 0.0,
+      "avg_profit_factor": 0.0,
+      "avg_win_rate": 100.0,
+      "avg_net_pnl": 13.01,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 8.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 0.15
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    },
+    {
+      "params": {
+        "atr_mult": 7.0,
+        "rsi_thresh": 37.5
+      },
+      "score": 0.0,
+      "avg_profit_factor": 0.0,
+      "avg_win_rate": 100.0,
+      "avg_net_pnl": 13.01,
+      "consistency": 1.0,
+      "symbols_tested": 6,
+      "symbols_profitable": 4,
+      "per_symbol": [
+        {
+          "symbol": "AXS/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 8.93
+        },
+        {
+          "symbol": "BTC/USD",
+          "trades": 1,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 0.15
+        },
+        {
+          "symbol": "ETH/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 16.63
+        },
+        {
+          "symbol": "SOL/USD",
+          "trades": 2,
+          "win_rate": 100.0,
+          "profit_factor": 0,
+          "net_pnl": 26.32
+        }
+      ]
+    }
+  ]
+}

@@ -154,6 +154,9 @@ STRATEGY_MAP = {
     "rsi_dip_simple":         ("strategies.rsi_dip_simple",      "RSIDipSimpleStrategy"),
     "pll_cycle":              ("strategies.pll_cycle",           "PLLCycleStrategy"),
     "pll_cycle_martingale":   ("strategies.pll_cycle",           "PLLCycleMartingaleStrategy"),
+    "kds_mean_reversion":     ("strategies.kds_mean_reversion",  "KDSMeanReversionStrategy"),
+    "ema_ribbon_breakout":    ("strategies.ema_ribbon_breakout", "EMARibbonBreakoutStrategy"),
+    "rcr_mean_reversion":     ("strategies.rcr_mean_reversion",  "RCRMeanReversionStrategy"),
 }
 
 

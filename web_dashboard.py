@@ -4,6 +4,7 @@ Run: python web_dashboard.py
 """
 import hashlib
 import json
+import logging
 import os
 import secrets
 import sqlite3
@@ -58,6 +59,30 @@ try:
     monitor = _monitor
 except Exception:
     monitor = None
+
+# ── Tradovate real-time feed (optional) ──────────────────────────────────────
+# Activated when a JWT token is posted to /api/tradovate_token.
+# Falls back to yfinance silently when not active.
+_tradovate_feed = None
+try:
+    from core.tradovate_feed import TradovateFeed, init_feed as _tv_init_feed
+    _tradovate_available = True
+except Exception:
+    _tradovate_available = False
+
+# Map dashboard symbol → Tradovate subscription name
+TRADOVATE_SYMBOL_MAP = {
+    "MES":  "MESM6",
+    "M2K":  "M2KM6",
+    "MNQ":  "MNQM6",
+    "MYM":  "MYMM6",
+    # Add more as you discover their numeric IDs
+}
+# Known Tradovate internal symbol IDs
+TRADOVATE_SYMBOL_IDS = {
+    "MESM6":  3961353,
+    # Others to be filled once discovered from DevTools
+}
 
 
 # ── Dashboard Auth ────────────────────────────────────────────────────────────
@@ -988,12 +1013,17 @@ _bt_cancel = threading.Event()
 _bt_running = threading.Event()
 
 BACKTEST_STRATEGIES = [
+    # Original 11
     "adaptive_regime", "rsi_momentum", "bollinger_breakout", "ema_crossover",
     "mean_reversion", "scalp_master", "swing_trader", "grid_bot",
     "dca_accumulator", "vwap_momentum", "hammer_reversal", "orb_breakout",
+    # Strategies 12-21
     "ecb_strategy", "vdmr_strategy", "rsi_dip_spike_v4",
-    "original_scorer", "vwap_confirmed_orb", "bollinger_squeeze",
+    "vwap_confirmed_orb", "bollinger_squeeze",
     "mr_02_vef", "mr_03_fbs", "mr_04_fvg",
+    # Strategies 22-27 (incubate / new)
+    "btc_v6_chandelier", "rsi_dip_simple", "pll_cycle",
+    "kds_mean_reversion", "ema_ribbon_breakout", "rcr_mean_reversion",
 ]
 
 
@@ -1633,12 +1663,20 @@ def get_candles(symbol, asset_class, timeframe="5 Min", limit=100):
 # ---------------------------------------------------------------------------
 
 _CHART_TF_ALPACA = {
-    '1m': '1Min', '5m': '5Min', '15m': '15Min', '30m': '30Min',
+    '1m': '1Min', '2m': '2Min', '3m': '3Min', '5m': '5Min',
+    '15m': '15Min', '30m': '30Min',
     '1h': '1Hour', '4h': '4Hour', '1D': '1Day', '1W': '1Week',
 }
 _CHART_TF_CCXT = {
-    '1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m',
+    '1m': '1m', '2m': '2m', '3m': '3m', '5m': '5m',
+    '15m': '15m', '30m': '30m',
     '1h': '1h', '4h': '4h', '1D': '1d', '1W': '1w',
+}
+# IBKR bar size strings for historical data requests
+_CHART_TF_IBKR = {
+    '1m': '1 min', '2m': '2 mins', '3m': '3 mins', '5m': '5 mins',
+    '15m': '15 mins', '30m': '30 mins',
+    '1h': '1 hour', '4h': '4 hours', '1D': '1 day', '1W': '1 week',
 }
 
 
@@ -1683,8 +1721,44 @@ def _chart_bars_ibkr(symbol, timeframe, limit, sec_type='STK', exchange='SMART')
                                             sec_type=sec_type, exchange=exchange)
     except Exception:
         pass
-    # Fallback: yfinance (no connection needed)
+    # Fallback: yfinance (no connection needed).
+    # For futures, caller handles symbol→yf mapping; for stocks/crypto pass as-is.
     return _chart_bars_yfinance(symbol, timeframe, limit)
+
+
+def _resample_bars(bars_1m, target_minutes):
+    """
+    Resample a list of 1-minute OHLCV bars into N-minute bars.
+    Used for timeframes brokers don't natively support (e.g. Kraken 2m/3m).
+    bars_1m must be sorted ascending by time.
+    """
+    if not bars_1m or target_minutes <= 1:
+        return bars_1m
+    out = []
+    bucket = None
+    for b in bars_1m:
+        # Snap timestamp to the start of the N-minute bucket
+        ts      = int(b['time'])
+        bucket_ts = ts - (ts % (target_minutes * 60))
+        if bucket is None or bucket['time'] != bucket_ts:
+            if bucket:
+                out.append(bucket)
+            bucket = {
+                'time':   bucket_ts,
+                'open':   b['open'],
+                'high':   b['high'],
+                'low':    b['low'],
+                'close':  b['close'],
+                'volume': b.get('volume', 0),
+            }
+        else:
+            bucket['high']   = max(bucket['high'],  b['high'])
+            bucket['low']    = min(bucket['low'],   b['low'])
+            bucket['close']  = b['close']
+            bucket['volume'] = bucket['volume'] + b.get('volume', 0)
+    if bucket:
+        out.append(bucket)
+    return out
 
 
 def _chart_bars_kraken(symbol, timeframe, limit):
@@ -1694,17 +1768,27 @@ def _chart_bars_kraken(symbol, timeframe, limit):
         from urllib.parse import urlencode
         from urllib.request import Request, urlopen
 
-        interval = {
-            '1m': 1, '5m': 5, '15m': 15, '30m': 30,
-            '1h': 60, '4h': 240, '1D': 1440, '1W': 10080,
-        }.get(timeframe, 5)
+        # Kraken natively supports: 1,5,15,30,60,240,1440,10080 minutes
+        # For 2m/3m we fetch 1m and resample in-house
+        _resample_to = None
+        if timeframe in ('2m', '3m'):
+            _resample_to = 2 if timeframe == '2m' else 3
+            fetch_interval = 1
+            fetch_limit = limit * _resample_to + 10   # extra for clean boundaries
+        else:
+            fetch_interval = {
+                '1m': 1, '5m': 5, '15m': 15, '30m': 30,
+                '1h': 60, '4h': 240, '1D': 1440, '1W': 10080,
+            }.get(timeframe, 5)
+            fetch_limit = limit
+
         pair = symbol.replace('/', '').replace('-', '').upper()
         if pair.startswith('BTC'):
             pair = pair.replace('BTC', 'XBT', 1)
 
         url = 'https://api.kraken.com/0/public/OHLC?' + urlencode({
             'pair': pair,
-            'interval': interval,
+            'interval': fetch_interval,
         })
         req = Request(url, headers={'User-Agent': 'trading-bot-dashboard/1.0'})
         with urlopen(req, timeout=6) as resp:
@@ -1715,12 +1799,15 @@ def _chart_bars_kraken(symbol, timeframe, limit):
         result = payload.get('result') or {}
         data_key = next((k for k in result.keys() if k != 'last'), None)
         rows = result.get(data_key) or []
-        rows = rows[-limit:]
-        return [
+        rows = rows[-fetch_limit:]
+        bars = [
             {'time': int(r[0]), 'open': float(r[1]), 'high': float(r[2]),
              'low': float(r[3]), 'close': float(r[4]), 'volume': float(r[6])}
             for r in rows
         ]
+        if _resample_to:
+            bars = _resample_bars(bars, _resample_to)
+        return bars[-limit:]
     except Exception as e:
         logging.getLogger(__name__).warning(f"[chart/kraken] {symbol}: {e}")
         return []
@@ -1743,19 +1830,60 @@ def _chart_bars_coinbase(symbol, timeframe, limit):
         return []
 
 
+_YF_INTERVAL_MAP = {
+    '1m': '1m', '2m': '2m', '3m': '5m',   # yfinance has no 3m → use 5m
+    '5m': '5m', '15m': '15m', '30m': '30m',
+    '1h': '1h', '4h': '1h', '1D': '1d', '1W': '1wk',
+    # Sub-minute (not yet exposed in UI — framework only)
+    '30s': '1m', '15s': '1m', '1s': '1m',
+}
+
+def _chart_bars_tradovate(symbol: str, timeframe: str, limit: int):
+    """
+    Return bars from the Tradovate real-time WebSocket cache.
+    Returns [] if the feed is not running or has no data yet.
+    Converts timeframe string ('1m','3m','5m'…) → element_size int.
+    """
+    global _tradovate_feed
+    if not _tradovate_available or _tradovate_feed is None:
+        return []
+    if not _tradovate_feed.is_connected():
+        return []
+
+    # Map dashboard symbol (e.g. "MES") → subscription name (e.g. "MESM6_5")
+    tf_map = {'1m': 1, '2m': 2, '3m': 3, '5m': 5, '15m': 15, '30m': 30,
+              '1h': 60, '4h': 240, '1D': 1440}
+    element_size = tf_map.get(timeframe, 5)
+
+    base_name = TRADOVATE_SYMBOL_MAP.get(symbol)
+    if not base_name:
+        return []
+
+    sub_name = base_name if element_size == 5 else f"{base_name}_{element_size}"
+
+    # Dynamically subscribe if this element_size wasn't pre-registered
+    sym_id = TRADOVATE_SYMBOL_IDS.get(base_name)
+    if sym_id and sub_name not in _tradovate_feed._subscriptions:
+        _tradovate_feed.subscribe(sub_name, symbol_id=sym_id,
+                                  element_size=element_size)
+
+    bars = _tradovate_feed.get_bars(sub_name)
+    return bars[-limit:] if bars else []
+
+
 def _chart_bars_yfinance(symbol, timeframe, limit):
     try:
         import yfinance as yf
         from datetime import timedelta
         # yfinance uses BTC-USD format for crypto
         yfSym = symbol.replace('/', '-')
-        _interval_map = {
-            '1m': '1m', '5m': '5m', '15m': '15m', '30m': '30m',
-            '1h': '1h', '4h': '1h', '1D': '1d', '1W': '1wk',
-        }
-        interval = _interval_map.get(timeframe, '5m')
+        interval = _YF_INTERVAL_MAP.get(timeframe, '5m')
         # Approximate period needed
-        mins_per_bar = {'1m':1,'5m':5,'15m':15,'30m':30,'1h':60,'4h':240,'1D':1440,'1W':10080}.get(timeframe,5)
+        mins_per_bar = {
+            '1s':1/60,'15s':0.25,'30s':0.5,
+            '1m':1,'2m':2,'3m':3,'5m':5,'15m':15,'30m':30,
+            '1h':60,'4h':240,'1D':1440,'1W':10080,
+        }.get(timeframe, 5)
         total_days = max(2, (mins_per_bar * limit) // 1440 + 1)
         period_str = f"{min(total_days, 729)}d" if interval not in ('1d','1wk') else f"{min(total_days*2, 1800)}d"
         raw = yf.download(
@@ -1787,6 +1915,77 @@ def _chart_bars_yfinance(symbol, timeframe, limit):
         return []
 
 
+def _futures_front_month_ticker(root: str) -> str:
+    """
+    Build the yfinance-style specific front-month contract ticker for a futures root.
+    e.g.  GC  → 'GCM26'  (Gold June 2026)
+          MGC → 'MGCM26'
+          ES  → 'ESM26'
+          CL  → 'CLM26'
+
+    Month codes: F=Jan G=Feb H=Mar J=Apr K=May M=Jun
+                 N=Jul Q=Aug U=Sep V=Oct X=Nov Z=Dec
+
+    Contract schedules (typical front-month delivery months per asset class):
+      Equities / FX / MBT / MET: Mar H / Jun M / Sep U / Dec Z  (quarterly)
+      Energy (CL QM MCL NG QG RB HO): every month
+      Metals (GC MGC SI SIL PL): Feb G / Apr J / Jun M / Aug Q / Oct V / Dec Z
+      Copper (HG MHG): every month
+      Rates (ZT ZF ZN ZB UB TN): Mar H / Jun M / Sep U / Dec Z
+      Agri grains (ZC ZW ZS ZM ZL): Mar H / May K / Jul N / Sep U / Dec Z
+      Livestock (LE HE): Feb G / Apr J / Jun M / Aug Q / Oct V / Dec Z
+    """
+    from datetime import date as _date
+
+    today = _date.today()
+    y, m = today.year, today.month
+
+    # Which delivery months are valid for this root?
+    _monthly   = {'CL','MCL','QM','NG','MNG','QG','RB','HO','HG','MHG'}
+    _quarterly = {'ES','MES','NQ','MNQ','YM','MYM','RTY','M2K','NKD',
+                  '6A','M6A','6B','M6B','6C','6E','M6E','6J','6S','E7','6M','6N',
+                  'ZT','ZF','ZN','ZB','UB','TN','MBT','MET'}
+    _metals    = {'GC','MGC','SI','SIL','PL'}
+    _livestock = {'LE','HE'}
+    _grains    = {'ZC','ZW','ZS','ZM','ZL'}
+
+    if root in _monthly:
+        delivery_months = list(range(1, 13))
+    elif root in _quarterly:
+        delivery_months = [3, 6, 9, 12]
+    elif root in _metals:
+        delivery_months = [2, 4, 6, 8, 10, 12]
+    elif root in _livestock:
+        delivery_months = [2, 4, 6, 8, 10, 12]
+    elif root in _grains:
+        delivery_months = [3, 5, 7, 9, 12]
+    else:
+        delivery_months = [3, 6, 9, 12]   # default quarterly
+
+    # Find the nearest upcoming delivery month (>= current month)
+    # Give 15 days lead time — front month is usually the next out by then
+    check_month = m + 1 if today.day >= 15 else m
+    check_year  = y
+    if check_month > 12:
+        check_month = 1
+        check_year += 1
+
+    for _ in range(13):
+        if check_month in delivery_months:
+            break
+        check_month += 1
+        if check_month > 12:
+            check_month = 1
+            check_year += 1
+
+    _code = {1:'F',2:'G',3:'H',4:'J',5:'K',6:'M',
+             7:'N',8:'Q',9:'U',10:'V',11:'X',12:'Z'}
+    month_code = _code.get(check_month, 'M')
+    year_code  = str(check_year)[-2:]
+
+    return f"{root}{month_code}{year_code}"   # e.g. 'MGCM26', 'ESU26'
+
+
 def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
     symbol = symbol.upper().strip()
     is_crypto = '/' in symbol
@@ -1796,14 +1995,44 @@ def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
     except Exception:
         limit = 300
 
-    # Futures: IBKR (real-time CME data) → yfinance continuous contract fallback
+    # Futures: Tradovate real-time feed (if token active) → IBKR → yfinance
     if is_futures:
+        # Try Tradovate WebSocket cache first (real-time, ~0 delay)
+        tv_bars = _chart_bars_tradovate(symbol, timeframe, limit)
+        if tv_bars:
+            tv_bars.sort(key=lambda b: b['time'])
+            return {'bars': tv_bars[-limit:], 'markers': [], 'open_positions': [],
+                    'symbol': symbol, 'timeframe': timeframe, 'source': 'tradovate_rt'}
+
         meta = FUTURES_META[symbol]
         exchange = meta[0]
         bars = _chart_bars_ibkr(symbol, timeframe, limit, sec_type='FUT', exchange=exchange)
         if not bars:
-            # yfinance continuous contract format: ES=F, NQ=F, GC=F etc.
-            bars = _chart_bars_yfinance(symbol + '=F', timeframe, limit)
+            # Build yfinance ticker candidates in priority order:
+            #  1. Override mapping (e.g. MGC → GC=F, MES → ES=F)
+            #  2. Specific front-month contract (e.g. MGCM26, GCM26)
+            #     — yfinance supports named contracts even when =F doesn't exist
+            #  3. Standard continuous-contract format (symbol + '=F')
+            yf_candidates = []
+            override = FUTURES_YF_OVERRIDES.get(symbol)
+            if override:
+                yf_candidates.append(override)
+
+            # Tier 2: specific front-month contract name
+            front = _futures_front_month_ticker(symbol)
+            if front and front not in yf_candidates:
+                yf_candidates.append(front)
+
+            # Tier 3: generic continuous contract
+            std_ticker = symbol + '=F'
+            if std_ticker not in yf_candidates:
+                yf_candidates.append(std_ticker)
+
+            for yf_sym in yf_candidates:
+                bars = _chart_bars_yfinance(yf_sym, timeframe, limit)
+                if bars:
+                    break
+
         # Sort, dedup, return early — skip stock/crypto broker logic below
         bars.sort(key=lambda b: b['time'])
         seen_t: set = set()
@@ -1812,7 +2041,8 @@ def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
             if b['time'] not in seen_t:
                 seen_t.add(b['time'])
                 deduped.append(b)
-        return deduped[-limit:]
+        return {'bars': deduped[-limit:], 'markers': [], 'open_positions': [],
+                'symbol': symbol, 'timeframe': timeframe}
 
     # Default broker by asset type
     if not broker:
@@ -2003,6 +2233,35 @@ FUTURES_META = {
 }
 
 FUTURES_SYMBOLS = set(FUTURES_META.keys())
+
+# ── yfinance ticker map for futures ─────────────────────────────────────────
+# Most contracts → symbol + '=F'  (ES=F, GC=F, NQ=F, CL=F …)
+# Micro contracts often have no yfinance coverage → fall back to the
+# parent (standard-size) contract so the chart still shows real price data.
+#
+# Format: symbol → yfinance_ticker_to_try_first
+# If that returns empty, _chart_bars_futures_yfinance tries symbol+'=F' as a
+# last resort before giving up.
+FUTURES_YF_OVERRIDES = {
+    # ── Equity Indices ──────────────────────────────────────────────────
+    'MES': 'ES=F',   # Micro E-mini S&P 500  → use E-mini
+    'MNQ': 'NQ=F',   # Micro E-mini NASDAQ   → use E-mini
+    'M2K': 'RTY=F',  # Micro Russell 2000    → use E-mini
+    'MYM': 'YM=F',   # Micro Mini-DOW        → use Mini-DOW
+    # ── Energy ──────────────────────────────────────────────────────────
+    'MCL': 'CL=F',   # Micro Crude Oil       → use CL
+    # ── Metals ──────────────────────────────────────────────────────────
+    'MGC': 'GC=F',   # Micro Gold            → use Gold
+    'SIL': 'SI=F',   # Micro Silver          → use Silver
+    'MHG': 'HG=F',   # Micro Copper          → use Copper
+    # ── FX ──────────────────────────────────────────────────────────────
+    'M6A': '6A=F',   # Micro AUD/USD         → use 6A
+    'M6B': '6B=F',   # Micro GBP/USD         → use 6B
+    'M6E': '6E=F',   # Micro EUR/USD         → use 6E
+    # ── Crypto Futures ──────────────────────────────────────────────────
+    'MBT': 'BTC-USD', # Micro Bitcoin        → spot BTC as proxy
+    'MET': 'ETH-USD', # Micro Ether          → spot ETH as proxy
+}
 
 
 def get_chart_symbols():
@@ -2382,6 +2641,140 @@ def chat_with_bot(message):
         return True, reply, {"reply": reply}
     except Exception as exc:
         return False, f"Chat failed: {exc}", {}
+
+
+# Module-level Chronos pipeline cache — load once, reuse across all calls.
+# Lock prevents double-load race condition under ThreadingHTTPServer.
+# None = not yet attempted; pipeline object = ready; "failed" string = gave up.
+import threading as _threading
+_CHRONOS_PIPELINE      = None
+_CHRONOS_LOAD_ATTEMPTED = False
+_CHRONOS_LOCK          = _threading.Lock()
+
+
+def _load_chronos_pipeline():
+    """
+    Load amazon/chronos-t5-base once and cache it.
+    Returns the pipeline object or None if unavailable.
+
+    Fixes vs. original:
+      - device_map="cpu" removed — caused meta-tensor crash on some torch/accelerate
+        combinations (Cannot copy out of meta tensor). CPU is the default anyway.
+      - torch_dtype → dtype (torch_dtype deprecated in newer transformers).
+      - Suppress the spurious lm_head.weight warning (known Chronos checkpoint quirk).
+    """
+    global _CHRONOS_PIPELINE, _CHRONOS_LOAD_ATTEMPTED
+    # Fast path — no lock needed once flag is set
+    if _CHRONOS_LOAD_ATTEMPTED:
+        return _CHRONOS_PIPELINE
+
+    # Slow path — acquire lock so only one thread does the load
+    with _CHRONOS_LOCK:
+        if _CHRONOS_LOAD_ATTEMPTED:          # re-check inside lock
+            return _CHRONOS_PIPELINE
+        _CHRONOS_LOAD_ATTEMPTED = True
+
+    _log = logging.getLogger("dashboard.chronos")
+    try:
+        import warnings
+        import torch
+        from chronos import ChronosPipeline
+
+        with warnings.catch_warnings():
+            warnings.filterwarnings("ignore", message=".*torch_dtype.*deprecated.*")
+            warnings.filterwarnings("ignore", message=".*lm_head.weight.*")
+            warnings.filterwarnings("ignore", message=".*newly initialized.*")
+            _CHRONOS_PIPELINE = ChronosPipeline.from_pretrained(
+                "amazon/chronos-t5-base",
+                dtype=torch.float32,   # removed device_map — CPU is default, avoids meta-tensor crash
+            )
+        _log.info("[Chronos] model loaded successfully (amazon/chronos-t5-base)")
+    except Exception as e:
+        _log.warning(f"[Chronos] model load failed, will use heuristic fallback: {e}")
+        _CHRONOS_PIPELINE = None
+
+    return _CHRONOS_PIPELINE
+
+
+def _chronos_predict(payload):
+    """
+    POST /api/chronos_predict
+    Receives: { symbol, timeframe, bars: [{time,open,high,low,close}, ...] }
+    Returns:  { direction: 'up'|'down'|'flat', confidence: float, model: str }
+
+    Uses amazon/chronos-t5-base (cached after first load).
+    Falls back to a heuristic if the model isn't available.
+    """
+    import numpy as np
+    _log = logging.getLogger("dashboard.chronos")
+
+    bars    = payload.get("bars") or []
+    symbol  = payload.get("symbol", "?")
+    tf      = payload.get("timeframe", "?")
+
+    if len(bars) < 8:
+        return {"direction": "flat", "confidence": 0.5, "model": "insufficient_data"}
+
+    closes = np.array([float(b.get("close", 0)) for b in bars], dtype=np.float32)
+
+    # ── Try Chronos T5 (cached pipeline) ────────────────────────────────────
+    try:
+        import torch
+        pipeline = _load_chronos_pipeline()
+        if pipeline is not None:
+            context    = torch.tensor(closes[-64:]).unsqueeze(0)   # (1, seq)
+            # Forecast 1 step, 20 samples → get a distribution
+            forecast   = pipeline.predict(context, prediction_length=1, num_samples=20)
+            # forecast shape: (1, 20, 1)
+            samples    = forecast[0, :, 0].cpu().numpy()           # (20,)
+            last_close = float(closes[-1])
+            up_pct     = float(np.mean(samples > last_close))
+            down_pct   = float(np.mean(samples < last_close))
+            flat_pct   = 1.0 - up_pct - down_pct
+
+            if up_pct >= down_pct and up_pct >= flat_pct:
+                direction, confidence = "up",   up_pct
+            elif down_pct >= up_pct and down_pct >= flat_pct:
+                direction, confidence = "down", down_pct
+            else:
+                direction, confidence = "flat", flat_pct
+
+            _log.info(f"[Chronos] {symbol}/{tf}: {direction} {confidence:.2%}")
+            return {"direction": direction, "confidence": round(confidence, 3), "model": "chronos-t5-base"}
+
+    except Exception as e:
+        _log.warning(f"[Chronos] prediction error: {e}")
+
+    # ── Heuristic fallback: momentum + mean-reversion composite ────────────
+    try:
+        # Simple: compare last 3 closes vs 10-bar EMA; RSI(7) direction
+        n       = len(closes)
+        w       = np.exp(np.linspace(-1, 0, min(10, n)))
+        w      /= w.sum()
+        ema10   = float(np.dot(w, closes[-len(w):]))
+        recent  = float(np.mean(closes[-3:]))
+        mom     = recent - ema10
+
+        # RSI(7) last value
+        delta   = np.diff(closes[-8:]) if n >= 8 else np.array([0.0])
+        gain    = np.mean(np.where(delta > 0, delta, 0))
+        loss    = np.mean(np.where(delta < 0, -delta, 0))
+        rsi     = 50.0 if loss == 0 else 100.0 - 100.0 / (1 + gain / loss)
+
+        score = 0.0
+        if mom > 0: score += 0.4
+        else:       score -= 0.4
+        if rsi < 40: score += 0.3   # oversold → up
+        if rsi > 60: score -= 0.3   # overbought → down
+
+        if score > 0.1:   direction, confidence = "up",   min(0.55 + abs(score)*0.3, 0.75)
+        elif score < -0.1: direction, confidence = "down", min(0.55 + abs(score)*0.3, 0.75)
+        else:              direction, confidence = "flat", 0.50
+
+        return {"direction": direction, "confidence": round(confidence, 3), "model": "heuristic"}
+    except Exception as e2:
+        _log.error(f"[Chronos] heuristic also failed: {e2}")
+        return {"direction": "flat", "confidence": 0.5, "model": "error"}
 
 
 def open_manual_trade(payload):
@@ -2925,6 +3318,25 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/chart/symbols":
             return self._json(200, {"symbols": get_chart_symbols()})
 
+        if path == "/api/tradovate_status":
+            if not _tradovate_available:
+                return self._json(200, {"available": False, "connected": False})
+            connected   = bool(_tradovate_feed and _tradovate_feed.is_connected())
+            auth_failed = bool(_tradovate_feed and _tradovate_feed.is_auth_failed())
+            running     = bool(_tradovate_feed and _tradovate_feed._running)
+            bar_counts  = {}
+            if _tradovate_feed:
+                from core.tradovate_feed import _bar_cache, _cache_lock
+                with _cache_lock:
+                    bar_counts = {k: len(v) for k, v in _bar_cache.items()}
+            return self._json(200, {
+                "available":   True,
+                "connected":   connected,
+                "running":     running,
+                "auth_failed": auth_failed,   # frontend can show "token expired" message
+                "bar_counts":  bar_counts,
+            })
+
         if path == "/api/candles":
             params = parse_qs(parsed.query)
             symbol = (params.get("symbol") or [""])[0].strip().upper()
@@ -3060,6 +3472,42 @@ class Handler(BaseHTTPRequestHandler):
         length = int(self.headers.get("Content-Length", "0"))
         body_raw = self.rfile.read(length).decode("utf-8") if length else "{}"
         data = json.loads(body_raw or "{}")
+
+        # ── Tradovate real-time feed token ────────────────────────────────────
+        if path == "/api/tradovate_token":
+            global _tradovate_feed, _tradovate_available
+            if not _tradovate_available:
+                return self._json(503, {"ok": False, "error": "tradovate_feed module not available"})
+            token = data.get("token", "").strip()
+            if not token:
+                return self._json(400, {"ok": False, "error": "token is required"})
+            if _tradovate_feed is None:
+                from core.tradovate_feed import init_feed as _tv_init_feed
+                _tradovate_feed = _tv_init_feed(token=token)
+            else:
+                # reset_auth clears the auth-failed flag and updates token
+                _tradovate_feed.reset_auth(token)
+                if not _tradovate_feed._running:
+                    # Feed was stopped (auth failure or inactivity) — restart it
+                    _tradovate_feed.stop()   # ensure WS closed
+                    import time as _time; _time.sleep(0.3)
+                    _tradovate_feed._authenticated = False
+                    _tradovate_feed.start()
+                else:
+                    # Feed still running — stop and reconnect with new token
+                    _tradovate_feed.stop()
+                    import time as _time; _time.sleep(0.3)
+                    _tradovate_feed._authenticated = False
+                    _tradovate_feed.start()
+            return self._json(200, {"ok": True, "message": "Tradovate feed started"})
+
+        if path == "/api/tradovate_stop":
+            # Called by the frontend when the indicator is toggled off or the
+            # futures chart tab is closed — prevents zombie reconnect loops.
+            if _tradovate_feed is not None:
+                _tradovate_feed.stop()
+                logger.info("TradovateFeed: stopped via /api/tradovate_stop")
+            return self._json(200, {"ok": True, "message": "Tradovate feed stopped"})
 
         # ── Auth endpoints (no session required) ──────────────────────────────
         if path == "/api/auth/setup":
@@ -3371,6 +3819,9 @@ class Handler(BaseHTTPRequestHandler):
                 pass
             msg = "Cancel signal sent — waiting for next backtest checkpoint." if running else "Cancel signal set; no active backtest was marked running."
             return self._json(200, {"ok": True, "running": running, "message": msg})
+
+        if path == "/api/chronos_predict":
+            return self._json(200, _chronos_predict(data))
 
         if path == "/api/backtest":
             ok, msg, details = run_backtest_api(data)

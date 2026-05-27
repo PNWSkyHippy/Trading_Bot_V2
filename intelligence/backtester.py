@@ -778,30 +778,41 @@ class Backtester:
 
     def _load_strategy(self, strategy_name: str):
         strategy_map = {
-            "rsi_momentum":       ("strategies.rsi_momentum",       "RSIMomentum"),
-            "bollinger_breakout": ("strategies.bollinger_breakout",  "BollingerBreakout"),
-            "bollinger_squeeze": ("strategies.bollinger_squeeze",  "BollingerSqueeze"),                      
-            "ema_crossover":      ("strategies.ema_crossover",       "EMACrossover"),
-            "mean_reversion":     ("strategies.mean_reversion",      "MeanReversion"),
-            "scalp_master":       ("strategies.scalp_master",        "ScalpMaster"),
-            "swing_trader":       ("strategies.swing_trader",        "SwingTrader"),
-            "grid_bot":           ("strategies.grid_bot",            "GridBot"),
-            "dca_accumulator":    ("strategies.dca_accumulator",     "DCAAccumulator"),
-            "vwap_momentum":      ("strategies.vwap_momentum",       "VWAPMomentum"),
-            "vwap_confirmed_orb": ("strategies.vwap_confirmed_orb",  "VwapConfirmedOrb"),
-            "hammer_reversal":    ("strategies.hammer_reversal",     "HammerReversal"),
-            "orb_breakout":       ("strategies.orb_breakout",        "ORBBreakout"),
-            "adaptive_regime":    ("strategies.adaptive_regime",     "AdaptiveRegime"),
-            "ecb_strategy":       ("strategies.ecb_strategy",        "ECBStrategy"),
-            "vdmr_strategy":      ("strategies.vdmr_strategy",       "VDMRStrategy"),
-            "rsi_dip_spike_v4":   ("strategies.rsi_dip_spike_v4",   "RSIDipSpikeV4Strategy"),
-            "mr_02_vef":          ("strategies.mr_02_vef_strategy",  "MR02VEFStrategy"),
-            "mr_03_fbs":          ("strategies.mr_03_fbs_strategy",  "MR03FBSStrategy"),
-            "mr_04_fvg":          ("strategies.mr_04_fvg_strategy",  "MR04FVGStrategy"),
-            "btc_v6_chandelier":      ("strategies.btc_v6_chandelier",      "BTCV6ChandelierStrategy"),
-            "rsi_dip_simple":         ("strategies.rsi_dip_simple",         "RSIDipSimpleStrategy"),
-            "pll_cycle":              ("strategies.pll_cycle",              "PLLCycleStrategy"),
-            "pll_cycle_martingale":   ("strategies.pll_cycle",              "PLLCycleMartingaleStrategy"),
+            "rsi_momentum":         ("strategies.rsi_momentum",         "RSIMomentum"),
+            "bollinger_breakout":   ("strategies.bollinger_breakout",   "BollingerBreakout"),
+            "bollinger_squeeze":    ("strategies.bollinger_squeeze",    "BollingerSqueeze"),
+            "ema_crossover":        ("strategies.ema_crossover",        "EMACrossover"),
+            "mean_reversion":       ("strategies.mean_reversion",       "MeanReversion"),
+            "scalp_master":         ("strategies.scalp_master",         "ScalpMaster"),
+            "swing_trader":         ("strategies.swing_trader",         "SwingTrader"),
+            "grid_bot":             ("strategies.grid_bot",             "GridBot"),
+            "dca_accumulator":      ("strategies.dca_accumulator",      "DCAAccumulator"),
+            "vwap_momentum":        ("strategies.vwap_momentum",        "VWAPMomentum"),
+            "vwap_confirmed_orb":   ("strategies.vwap_confirmed_orb",  "VwapConfirmedOrb"),
+            "hammer_reversal":      ("strategies.hammer_reversal",      "HammerReversal"),
+            "orb_breakout":         ("strategies.orb_breakout",         "ORBBreakout"),
+            "adaptive_regime":      ("strategies.adaptive_regime",      "AdaptiveRegime"),
+            "ecb_strategy":         ("strategies.ecb_strategy",         "ECBStrategy"),
+            "vdmr_strategy":        ("strategies.vdmr_strategy",        "VDMRStrategy"),
+            "rsi_dip_spike_v4":     ("strategies.rsi_dip_spike_v4",    "RSIDipSpikeV4Strategy"),
+            "mr_02_vef":            ("strategies.mr_02_vef_strategy",   "MR02VEFStrategy"),
+            "mr_03_fbs":            ("strategies.mr_03_fbs_strategy",   "MR03FBSStrategy"),
+            "mr_04_fvg":            ("strategies.mr_04_fvg_strategy",   "MR04FVGStrategy"),
+            "btc_v6_chandelier":    ("strategies.btc_v6_chandelier",    "BTCV6ChandelierStrategy"),
+            "rsi_dip_simple":       ("strategies.rsi_dip_simple",       "RSIDipSimpleStrategy"),
+            "pll_cycle":            ("strategies.pll_cycle",            "PLLCycleStrategy"),
+            "pll_cycle_martingale": ("strategies.pll_cycle",            "PLLCycleMartingaleStrategy"),
+            "kds_mean_reversion":   ("strategies.kds_mean_reversion",   "KDSMeanReversionStrategy"),
+            "ema_ribbon_breakout":  ("strategies.ema_ribbon_breakout",  "EMARibbonBreakoutStrategy"),
+            "ema_crossover":        ("strategies.ema_crossover",        "EMACrossover"),
+            "rsi_momentum":         ("strategies.rsi_momentum",         "RSIMomentum"),
+            "bollinger_breakout":   ("strategies.bollinger_breakout",   "BollingerBreakout"),
+            "vdmr_strategy":        ("strategies.vdmr_strategy",        "VDMRStrategy"),
+            "vwap_momentum":        ("strategies.vwap_momentum",        "VWAPMomentum"),
+            "rcr_mean_reversion":   ("strategies.rcr_mean_reversion",   "RCRMeanReversionStrategy"),
+            "cbae_strategy":        ("strategies.cbae_strategy",        "CBAEStrategy"),
+            "rare_strategy":        ("strategies.rare_strategy",        "RAREStrategy"),
+            "fels_strategy":        ("strategies.fels_strategy",        "FELSStrategy"),
         }
         if strategy_name not in strategy_map:
             return None
@@ -1074,7 +1085,38 @@ class Backtester:
         # mirror that here so backtest results are comparable to live.
         # ecb_strategy uses strategy-defined 24-bar hold; generic 8h/30m/2h/5h
         # stops fire before its thesis plays out and invalidate results.
-        TIME_STOP_EXEMPT = frozenset({"grid_bot", "dca_accumulator", "ecb_strategy", "rsi_dip_spike_v4", "adaptive_regime"})
+        TIME_STOP_EXEMPT = frozenset({
+            "grid_bot", "dca_accumulator", "ecb_strategy",
+            "rsi_dip_spike_v4", "adaptive_regime",
+            # strategies with their own tiered or cycle-based exit logic;
+            # generic 30m/2h/5h/8h stops must not fire before the strategy
+            # thesis plays out
+            "hammer_reversal",
+            "mr_02_vef",
+            "pll_cycle",
+            "pll_cycle_martingale",
+            "bollinger_squeeze",      # 8.5% TP target on 1h needs time; 30m/2h stops kill it
+            "scalp_master",           # tight SL/TP exit on 5m bars; generic 2h/8h stops irrelevant
+            "rsi_dip_simple",         # RSI exit + 72-bar max hold; generic 30m/2h/8h stops fire too early
+            "mr_03_fbs",              # 36-bar time stop is primary exit; generic stops fire before thesis
+            "mr_04_fvg",              # 48-bar time stop is primary exit; FVG fill needs time
+            "kds_mean_reversion",     # EMA-reversion exit + 72-bar safety net; daily bars make 8h stop irrelevant
+            "rcr_mean_reversion",     # SMA cross exit + 10-bar time stop; generic 30m/2h stops fire first
+            "btc_v6_chandelier",      # chandelier trailing stop; generic lifecycle stops create double-trailing
+            "ema_ribbon_breakout",    # chandelier trailing stop; same as btc_v6_chandelier
+            "orb_breakout",           # 3R target on 15m can take 8h+; hard_stop_bars kills valid trades
+            "vwap_confirmed_orb",     # 2R target on 5m can take 2-4h; perf_time_stop fires before target
+            "ema_crossover",          # trend-following; 8h hard stop is inappropriate for multi-session holds
+            "rsi_momentum",           # momentum trades benefit from time to develop; generic stops add noise
+            "bollinger_breakout",     # squeeze expansion can take >2h; perf_time_stop kills developing trades
+            "vdmr_strategy",          # 20-bar max hold on 1h; early_loss at 1 bar fires almost immediately
+            "vwap_momentum",          # 90-min intent on 1h; early_loss at 1 bar fires at wrong time
+            "cbae_strategy",          # 20-bar max hold on 1h; generic stops fire before body-sum revert exit
+            "rare_strategy",          # 24-bar max hold on 1h; generic stops kill Z-score revert thesis
+            "fels_strategy",          # 16-bar max hold on 1h; generic stops fire before time stop
+            "swing_trader",           # 2.5% SL / 6% TP; 8h hard stop kills developing swing trades
+            "mean_reversion",         # no custom exit; needs time for Z-score thesis to play out
+        })
         # ── Next-bar execution ────────────────────────────────────────────────
         # Signal generated on bar i is executed at bar i+1 open.
         # This eliminates the "signal and fill on the same close" lookahead bias.
@@ -1202,7 +1244,8 @@ class Backtester:
                     # Inject bars_held so strategy exits (e.g. ECB max_hold) can
                     # use actual elapsed bars without extending the signature.
                     _meta = dict(trade.get("entry_metadata", {}))
-                    _meta["_bars_held"] = i - trade["entry_idx"]
+                    _meta["_bars_held"]   = i - trade["entry_idx"]
+                    _meta["_entry_price"] = trade.get("entry_price", 0)
                     if _all_sigs is not None and hasattr(strategy_obj, '_exit_from_precomputed'):
                         # Fast O(1) path: look up RSI/indicators from precomputed df
                         exit_reason = strategy_obj._exit_from_precomputed(
@@ -1217,8 +1260,9 @@ class Backtester:
                             _meta,
                         )
 
-                # 1d. ORB VWAP cross exit (ORB strategy only)
-                if exit_reason is None and strategy_name == "orb_breakout":
+                # 1d. ORB VWAP cross exit (all ORB-family strategies)
+                _ORB_VWAP_STRATEGIES = frozenset({"orb_breakout", "vwap_confirmed_orb"})
+                if exit_reason is None and strategy_name in _ORB_VWAP_STRATEGIES:
                     exit_reason = _bt_orb_vwap(df, i, trade)
 
                 # ── Lifecycle exits: compute shared values once ───────────────

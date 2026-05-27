@@ -697,7 +697,11 @@ Return ONLY JSON. No markdown. No prose. No code fences."""
         }
 
         # ── Broad market ETFs: Massive preferred ─────────────────────────────
-        for sym in BRIEFING_BROAD_TICKERS:
+        # Stagger calls by 13s to stay under the free-tier 5 req/min cap.
+        # Without this, 5 rapid-fire requests at startup trigger 429 on all of them.
+        for i, sym in enumerate(BRIEFING_BROAD_TICKERS):
+            if i > 0 and self._massive_session:
+                time.sleep(13)
             row = self._massive_daily_change(sym, use_massive=True)
             if row:
                 snapshot["broad"][sym] = row

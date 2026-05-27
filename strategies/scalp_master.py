@@ -53,6 +53,9 @@ SYMBOL_DEFAULTS: Dict[str, Dict] = {
     "AMZN":  {"sl": 0.50, "tp": 1.25},
     "ALAB":  {"sl": 0.40, "tp": 1.00, "min_confidence": 0.58},
     "IREN":  {"sl": 0.35, "tp": 1.00, "min_confidence": 0.60},
+    # INTV: added to whitelist after Apr 2026 review; no individual backtest yet.
+    # Uses GLOBAL_FALLBACK (0.50/1.25) until enough live trades accumulate.
+    # Intentionally omitted from explicit seed — monitor closely.
 }
 
 # ── Global fallback for symbols not in SYMBOL_DEFAULTS ─────────────────────
@@ -65,30 +68,54 @@ RECALC_EVERY = 20    # Recalculate after this many closed trades per symbol
 # ── File write lock ─────────────────────────────────────────────────────────
 _params_lock = threading.Lock()
 
+# ── In-memory cache (avoids 600+ disk reads/day on 5m 8-symbol scans) ──────
+import time as _time
+_params_cache: Dict = {}
+_params_cache_time: float = 0.0
+_CACHE_TTL_SEC: float = 30.0
+
 
 # ===========================================================================
 #  Adaptive params helpers
 # ===========================================================================
 
 def _load_params_file() -> Dict:
-    try:
-        if os.path.exists(PARAMS_FILE):
-            with open(PARAMS_FILE, "r") as f:
-                return json.load(f)
-    except Exception as e:
-        logging.getLogger("ScalpMaster").warning(
-            f"Could not load {PARAMS_FILE}: {e} — using defaults"
-        )
+    """
+    Load params from disk with in-memory cache (30-second TTL).
+    Thread-safe: entire load is inside _params_lock to prevent partial reads
+    during concurrent saves.
+    """
+    global _params_cache, _params_cache_time
+    now = _time.time()
+    # Return cached copy if still fresh — avoids disk read on every analyze()
+    with _params_lock:
+        if _params_cache and (now - _params_cache_time) < _CACHE_TTL_SEC:
+            return dict(_params_cache)
+        try:
+            if os.path.exists(PARAMS_FILE):
+                with open(PARAMS_FILE, "r") as f:
+                    data = json.load(f)
+                _params_cache      = data
+                _params_cache_time = now
+                return dict(data)
+        except Exception as e:
+            logging.getLogger("ScalpMaster").warning(
+                f"Could not load {PARAMS_FILE}: {e} — using defaults"
+            )
     return {}
 
 
 def _save_params_file(data: Dict) -> None:
+    global _params_cache, _params_cache_time
     with _params_lock:
         try:
             tmp = PARAMS_FILE + ".tmp"
             with open(tmp, "w") as f:
                 json.dump(data, f, indent=2)
             os.replace(tmp, PARAMS_FILE)
+            # Update cache immediately so the next read sees the fresh data
+            _params_cache      = data
+            _params_cache_time = _time.time()
         except Exception as e:
             logging.getLogger("ScalpMaster").error(
                 f"Failed to save {PARAMS_FILE}: {e}"
@@ -213,13 +240,22 @@ class ScalpMaster(BaseStrategy):
     def __init__(self):
         super().__init__()
         self.strategy_name   = "scalp_master"
-        self.stop_loss_pct   = 0.5
-        self.take_profit_pct = 1.0
-        self.logger = logging.getLogger("ScalpMaster")
+        self.stop_loss_pct   = 0.5    # framework default; actual stops are per-symbol adaptive
+        self.take_profit_pct = 1.0    # framework default; actual TPs are per-symbol adaptive
+        # NOTE: self.logger is already set by BaseStrategy.__init__ to "ScalpMaster"
+        # (getLogger(self.__class__.__name__)). Do not override — it would shadow
+        # framework-level logging hooks that rely on the base class field.
+
+        self.stock_enabled          = True
+        self.crypto_enabled         = False   # scalp whitelist is stocks only
+        self.stock_candle_timeframe = "5Min"  # Alpaca 5-minute bars
 
         # ML model is dominated by grid_bot (1507 trades); scalp_master has
         # minimal training representation so ML blending collapses valid scores.
-        self.ml_exempt = True
+        self.ml_exempt           = True
+        self.reviewer_exempt     = True   # reviewer lacks 5m scalp metadata context; exempt
+        self.auto_disable_exempt = True   # whitelist-only; losing on one symbol ≠ strategy broken
+        self.time_stop_profile   = "strategy_defined"  # SL/TP exits; generic 30m/2h stops interfere
 
     def analyze(
         self,
@@ -309,8 +345,12 @@ class ScalpMaster(BaseStrategy):
             ema21 = ta.ema(close, length=21)
             ema9_val  = float(ema9.iloc[-1])  if ema9  is not None else None
             ema21_val = float(ema21.iloc[-1]) if ema21 is not None else None
-            ema_bullish = (ema9_val > ema21_val) if (ema9_val and ema21_val) else None
-            if ema9_val and ema21_val:
+            ema_bullish = (
+                (ema9_val > ema21_val)
+                if (ema9_val is not None and ema21_val is not None)
+                else None
+            )
+            if ema9_val is not None and ema21_val is not None:
                 self.logger.info(
                     f"[ScalpMaster] {symbol}: EMA9={ema9_val:.4f} "
                     f"EMA21={ema21_val:.4f} bullish={ema_bullish}"
@@ -398,7 +438,23 @@ class ScalpMaster(BaseStrategy):
                         f"ADX={adx_str} "
                         f"VWAP={vwap_str} "
                         f"SL={sym_sl}% TP={sym_tp}%"
-                    )
+                    ),
+                    metadata        = {
+                        "strategy_name":    "scalp_master",
+                        "entry_timeframe":  "5m",
+                        "rsi":              round(float(current_rsi),  2),
+                        "rsi_prev":         round(float(previous_rsi), 2),
+                        "volume_ratio":     round(float(volume_ratio), 3),
+                        "adx":              round(adx_val,    2) if adx_val    is not None else None,
+                        "vwap":             round(vwap_val,   4) if vwap_val   is not None else None,
+                        "price_above_vwap": price_above_vwap,
+                        "ema9":             round(ema9_val,   4) if ema9_val   is not None else None,
+                        "ema21":            round(ema21_val,  4) if ema21_val  is not None else None,
+                        "ema_bullish":      ema_bullish,
+                        "sym_sl":           sym_sl,
+                        "sym_tp":           sym_tp,
+                        "adaptive_params":  "learned" if sym_params.get("learned") else "seed",
+                    },
                 )
 
         # ── SHORT SIGNAL ─────────────────────────────────────────────────
@@ -450,7 +506,23 @@ class ScalpMaster(BaseStrategy):
                         f"ADX={adx_str} "
                         f"VWAP={vwap_str} "
                         f"SL={sym_sl}% TP={sym_tp}%"
-                    )
+                    ),
+                    metadata        = {
+                        "strategy_name":    "scalp_master",
+                        "entry_timeframe":  "5m",
+                        "rsi":              round(float(current_rsi),  2),
+                        "rsi_prev":         round(float(previous_rsi), 2),
+                        "volume_ratio":     round(float(volume_ratio), 3),
+                        "adx":              round(adx_val,    2) if adx_val    is not None else None,
+                        "vwap":             round(vwap_val,   4) if vwap_val   is not None else None,
+                        "price_above_vwap": price_above_vwap,
+                        "ema9":             round(ema9_val,   4) if ema9_val   is not None else None,
+                        "ema21":            round(ema21_val,  4) if ema21_val  is not None else None,
+                        "ema_bullish":      ema_bullish,
+                        "sym_sl":           sym_sl,
+                        "sym_tp":           sym_tp,
+                        "adaptive_params":  "learned" if sym_params.get("learned") else "seed",
+                    },
                 )
 
         self.verbose_log(

@@ -1,7 +1,7 @@
 # Autonomous Day Trading Bot v2
 
 A fully autonomous AI-powered day trading bot with:
-- **11 trading strategies** (stocks + crypto)
+- **27 trading strategies** (stocks + crypto)
 - **Streamlit dashboard** with live P&L, positions, backtester
 - **Claude AI chat interface** (Haiku model) for natural language control
 - **Multi-broker support**: Alpaca (stocks), Coinbase, Kraken, IBKR
@@ -164,7 +164,7 @@ Quick reference:
 morning scan          → Top trading candidates for the day
 enable orb_breakout   → Enable a strategy
 disable grid_bot      → Disable a strategy
-list strategies       → Show all 11 with ON/OFF status
+list strategies       → Show all 27 with ON/OFF status
 pause trading         → Halt new trades
 resume trading        → Resume trading
 withdraw $500 for rent → Record a withdrawal
@@ -175,7 +175,7 @@ show my stats         → Full performance summary
 
 ## ⭐ Strategies
 
-11 strategies run simultaneously. Each scores every symbol independently.
+27 strategies run simultaneously. Each scores every symbol independently.
 Highest score per symbol wins. See `strategies/INTEGRATION_GUIDE.py` to add your own.
 
 | Strategy | Style | Default |

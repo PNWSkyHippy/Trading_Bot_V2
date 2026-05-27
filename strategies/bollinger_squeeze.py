@@ -53,11 +53,12 @@ class BollingerSqueeze(BaseStrategy):
         self.strategy_name   = "bollinger_squeeze"
         # Optimized from 100-run trader-dev sweep: stop=2.5%, tp=7.0%
         # W/L ≈ 2.8 on all pairs → break-even WR = 26.7%
-        # NOTE: framework uses percentages (divided by 100 at execution).
-        # 2.5 here = 2.5% stop, NOT 0.025%.
-        self.stop_loss_pct   = 2.5
-        self.take_profit_pct = 7.0
-        self.logger = logging.getLogger("BollingerSqueeze")
+        # v3 matrix sweep 2026-05-25: 365d crypto basket, 1h, fixed_pct stop
+        # Best PF at sl=2.8, tp=8.5 across ETH/BNB/BTC/SOL
+        self.stop_loss_pct   = 2.8   # v3 matrix sweep optimum 2026-05-25 (was 2.5)
+        self.take_profit_pct = 8.5   # v3 matrix sweep optimum 2026-05-25 (was 7.0)
+        # NOTE: self.logger already set by BaseStrategy.__init__ to the class name.
+        # Do not override — that would shadow framework-level logging.
 
         self.crypto_enabled  = True   # primary purpose: 24/7 crypto coverage
         self.stock_enabled   = False  # not backtested on stocks; use bollinger_breakout there
@@ -67,6 +68,19 @@ class BollingerSqueeze(BaseStrategy):
         # If disabled, bot loses crypto squeeze coverage entirely.
         self.ml_exempt           = True
         self.auto_disable_exempt = True
+        self.reviewer_exempt     = True   # reviewer lacks squeeze/BB metadata interpretation; exempt
+        self.time_stop_profile   = "strategy_defined"  # generic 30m/2h stops kill 7-8.5% TP setups
+
+        # ── Tunable parameters ────────────────────────────────────────────
+        # Stored as instance vars so they're visible in logs and sweepable.
+        self.bb_period    = 20
+        self.bb_std       = 2.0
+        self.squeeze_thr  = 0.06    # band_width < this = squeeze. Insensitive 0.04–0.08.
+        self.squeeze_bars = 3       # consecutive bars in squeeze before we watch for release
+        self.ema_period   = 50
+        self.rsi_period   = 14
+        self.rsi_max_long = 70      # skip longs when RSI already overbought
+        self.rsi_min_short= 30      # skip shorts when RSI already oversold
 
     def analyze(
         self,
@@ -82,15 +96,16 @@ class BollingerSqueeze(BaseStrategy):
             self.verbose_log_skip(symbol, "In full squeeze blacklist — skipping")
             return None
 
-        # ── Parameter setup ───────────────────────────────────────────────
-        bb_period    = 20
-        bb_std       = 2.0
-        squeeze_thr  = 0.06    # band_width < this = squeeze. Insensitive 0.04–0.08.
-        squeeze_bars = 3       # consecutive bars in squeeze before we watch for release
-        ema_period   = 50
-        rsi_period   = 14
-        rsi_max_long = 70      # skip longs when RSI already overbought
-        rsi_min_short= 30      # skip shorts when RSI already oversold
+        # ── Parameters from instance (set in __init__, sweepable) ────────
+        bb_period    = self.bb_period
+        bb_std       = self.bb_std
+        squeeze_thr  = self.squeeze_thr
+        squeeze_bars = self.squeeze_bars
+        ema_period   = self.ema_period
+        rsi_period   = self.rsi_period
+        rsi_max_long = self.rsi_max_long
+        rsi_min_short= self.rsi_min_short
+        adx_val      = None  # will be set below if ADX computes successfully
 
         required = bb_period + ema_period + squeeze_bars + 5
         if not self._check_enough_candles(symbol, candles, required):
@@ -217,8 +232,9 @@ class BollingerSqueeze(BaseStrategy):
             if adx_df is not None and not adx_df.empty:
                 adx_col = [c for c in adx_df.columns if c.upper().startswith("ADX_")]
                 if adx_col:
-                    adx_val = float(adx_df[adx_col[0]].iloc[-1])
-                    if not pd.isna(adx_val):
+                    _adx_candidate = float(adx_df[adx_col[0]].iloc[-1])
+                    if not pd.isna(_adx_candidate):
+                        adx_val = _adx_candidate
                         self.logger.info(f"[ADX] {symbol}: adx={adx_val:.1f}")
                         if adx_val >= 28:
                             self.verbose_log_skip(
@@ -228,6 +244,13 @@ class BollingerSqueeze(BaseStrategy):
                             return None
         except Exception as e:
             self.logger.debug(f"[ADX] {symbol}: calculation skipped ({e})")
+
+        # ── Volume ratio ──────────────────────────────────────────────────
+        vol_ratio = None
+        if volume is not None:
+            vol_ma = volume.rolling(20).mean().iloc[-1]
+            if vol_ma and vol_ma > 0:
+                vol_ratio = round(float(volume.iloc[-1] / vol_ma), 3)
 
         # ── Score: base + squeeze strength bonus ─────────────────────────
         # Tighter the squeeze → more energy coiled → stronger expected release.
@@ -257,14 +280,32 @@ class BollingerSqueeze(BaseStrategy):
 
             self.verbose_log_score(symbol, score, base_score)
             return self._make_signal(
-                symbol    = symbol,
-                direction = "long",
-                score     = score,
-                reason    = (
+                symbol          = symbol,
+                direction       = "long",
+                score           = score,
+                reason          = (
                     f"Bollinger squeeze release UP: close={current_close:.4f} > "
                     f"upper={current_upper:.4f} | "
                     f"squeeze_tightness={squeeze_tightness:.2f} rsi={rsi_val:.1f}"
-                )
+                ),
+                stop_loss_pct   = self.stop_loss_pct,
+                take_profit_pct = self.take_profit_pct,
+                metadata        = {
+                    "strategy_name":               "bollinger_squeeze",
+                    "entry_timeframe":             "1h",
+                    "bb_upper":                    round(current_upper, 6),
+                    "bb_lower":                    round(current_lower, 6),
+                    "bb_mid":                      round(current_mid, 6),
+                    "band_width":                  round(current_band_width, 4),
+                    "squeeze_tightness":           round(squeeze_tightness, 4),
+                    "ema50":                       round(ema50_val, 4),
+                    "rsi":                         round(rsi_val, 2),
+                    "adx":                         round(adx_val, 2) if adx_val is not None else None,
+                    "volume_ratio":                vol_ratio,
+                    "structural_stop_price":       round(current_lower, 6),
+                    "preferred_initial_stop_mode": "fixed_pct",
+                    "preferred_trail_mode":        "none",
+                },
             )
 
         # ── SHORT signal ──────────────────────────────────────────────────
@@ -285,14 +326,32 @@ class BollingerSqueeze(BaseStrategy):
 
             self.verbose_log_score(symbol, score, base_score)
             return self._make_signal(
-                symbol    = symbol,
-                direction = "short",
-                score     = score,
-                reason    = (
+                symbol          = symbol,
+                direction       = "short",
+                score           = score,
+                reason          = (
                     f"Bollinger squeeze release DOWN: close={current_close:.4f} < "
                     f"lower={current_lower:.4f} | "
                     f"squeeze_tightness={squeeze_tightness:.2f} rsi={rsi_val:.1f}"
-                )
+                ),
+                stop_loss_pct   = self.stop_loss_pct,
+                take_profit_pct = self.take_profit_pct,
+                metadata        = {
+                    "strategy_name":               "bollinger_squeeze",
+                    "entry_timeframe":             "1h",
+                    "bb_upper":                    round(current_upper, 6),
+                    "bb_lower":                    round(current_lower, 6),
+                    "bb_mid":                      round(current_mid, 6),
+                    "band_width":                  round(current_band_width, 4),
+                    "squeeze_tightness":           round(squeeze_tightness, 4),
+                    "ema50":                       round(ema50_val, 4),
+                    "rsi":                         round(rsi_val, 2),
+                    "adx":                         round(adx_val, 2) if adx_val is not None else None,
+                    "volume_ratio":                vol_ratio,
+                    "structural_stop_price":       round(current_upper, 6),
+                    "preferred_initial_stop_mode": "fixed_pct",
+                    "preferred_trail_mode":        "none",
+                },
             )
 
         return None

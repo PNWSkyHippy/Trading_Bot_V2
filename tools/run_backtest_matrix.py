@@ -36,23 +36,19 @@ from intelligence.backtester import Backtester, clear_cancel
 
 
 DEFAULT_STRATEGIES = [
-    "grid_bot",
-    "dca_accumulator",
-    "ecb_strategy",
-    "rsi_dip_spike_v4",
-    "adaptive_regime",
-    "bollinger_breakout",
-    "bollinger_squeeze",
-    "rsi_momentum",
-    "ema_crossover",
-    "mean_reversion",
-    "scalp_master",
-    "swing_trader",
-    "vdmr_strategy",
-    "vwap_momentum",
-    "hammer_reversal",
-    "orb_breakout",
-    "vwap_confirmed_orb",
+    # Original core (1-11)
+    "grid_bot", "dca_accumulator", "rsi_momentum", "bollinger_breakout",
+    "ema_crossover", "mean_reversion", "scalp_master", "swing_trader",
+    "vwap_momentum", "hammer_reversal", "orb_breakout",
+    # Mid-gen (12-21)
+    "ecb_strategy", "vdmr_strategy", "rsi_dip_spike_v4",
+    "vwap_confirmed_orb", "bollinger_squeeze", "mr_02_vef", "mr_03_fbs",
+    "mr_04_fvg", "adaptive_regime",
+    # Phase 2 new / overhauled (22-30)
+    "btc_v6_chandelier", "rsi_dip_simple", "pll_cycle",
+    "kds_mean_reversion", "ema_ribbon_breakout", "rcr_mean_reversion",
+    "cbae_strategy", "rare_strategy", "fels_strategy",
+    # pll_cycle_martingale excluded — permanently disabled in DB
 ]
 
 QUICK_TIMEFRAMES = ["5m", "15m", "1h"]
@@ -84,35 +80,138 @@ FULL_STOP_PROFILES = [
 # Add/remove values here to control sweep density vs runtime.
 # ---------------------------------------------------------------------------
 PARAM_SWEEP_DEFS: Dict[str, Dict[str, list]] = {
+
+    # ------------------------------------------------------------------
+    # SIGNAL_TUNING strategies — keys patch config.SIGNAL_TUNING (Tier 1)
+    # ------------------------------------------------------------------
+
+    "rsi_momentum": {
+        "rsi_momentum_oversold":  [25, 28, 30, 33],
+        "rsi_momentum_period":    [7, 10, 14, 20],
+        "rsi_momentum_min_score": [0.55, 0.60, 0.65],
+    },
+    "bollinger_breakout": {
+        "bb_breakout_period": [15, 20, 25],
+        "bb_breakout_std":    [1.8, 2.0, 2.2, 2.5],
+        "bb_adx_min":         [22, 25, 28, 30],
+    },
+    "ema_crossover": {
+        "ema_fast_period": [5, 7, 9, 12],
+        "ema_slow_period": [18, 21, 26, 34],
+        "ema_trend_period":[40, 50, 60],
+    },
     "mean_reversion": {
         "mean_rev_zscore_entry": [1.5, 1.8, 2.0, 2.2, 2.5],
         "mean_rev_period":       [10, 15, 20, 25, 30],
         "mean_rev_min_score":    [0.55, 0.60, 0.65],
     },
-    "dca_accumulator": {
-        "dca_dip_pct":    [0.01, 0.015, 0.02, 0.025],
-        "dca_rsi_max":    [30, 35, 40],
-        "dca_ema_period": [30, 50, 70],
-    },
-    # rsi_dip_spike_v4 — keys must match RSIDipSpikeV4Params field names exactly.
-    # The backtester tier-2 patch applies them directly to strategy_obj.params.
-    # Focus: entry threshold (rsi_oversold), trend filter (adx_min), and R:R
-    # ratio (tp_atr_mult vs sl_atr_mult). rsi_length=7 is well-validated; test
-    # 10 as an alternative. Avoid sweeping too many dims at once — 4×3×3 = 36.
-    "rsi_dip_spike_v4": {
-        "rsi_oversold":  [28, 30, 33, 36],     # deeper dip = fewer but cleaner signals
-        "adx_min":       [20, 25, 30],          # 25 is default; test looser/tighter
-        "tp_atr_mult":   [1.5, 2.0, 2.5],      # default 2.0; 2.5 = wider profit target
+    "scalp_master": {
+        "scalp_rsi_oversold": [28, 30, 32, 35],
+        "scalp_adx_min":      [15, 18, 20, 25],
+        "scalp_min_score":    [0.55, 0.60, 0.65],
     },
     "swing_trader": {
-        "swing_adx_min":       [22, 25, 28, 30],
-        "swing_rsi_oversold":  [28, 30, 32, 35],
-        "swing_rsi_overbought":[65, 68, 70, 72],
+        "swing_adx_min":        [22, 25, 28, 30],
+        "swing_rsi_oversold":   [28, 30, 32, 35],
+        "swing_rsi_overbought": [65, 68, 70, 72],
     },
     "grid_bot": {
-        "grid_adx_max":    [12, 15, 18, 20],
-        "grid_bb_period":  [15, 20, 25],
-        "grid_bb_std":     [1.8, 2.0, 2.2],
+        "grid_adx_max":   [12, 15, 18, 20],
+        "grid_bb_period": [15, 20, 25, 30],
+    },
+    "dca_accumulator": {
+        "dca_dip_pct":    [0.01, 0.015, 0.02, 0.025],
+        "dca_rsi_max":    [28, 32, 35, 40],
+        "dca_ema_period": [30, 50, 70],
+    },
+    "vwap_momentum": {
+        "vwap_mom_adx_min":  [20, 22, 25, 28],
+        "vwap_mom_rsi_low":  [35, 38, 40, 42],
+        "vwap_mom_rsi_high": [58, 60, 62, 65],
+    },
+
+    # ------------------------------------------------------------------
+    # Params-dataclass strategies — keys patch strategy_obj.params (Tier 2)
+    # ------------------------------------------------------------------
+
+    # rsi_dip_spike_v4: RSIDipSpikeV4Params fields
+    "rsi_dip_spike_v4": {
+        "rsi_oversold": [25, 28, 30, 33, 36],
+        "adx_min":      [20, 25, 30],
+        "tp_atr_mult":  [1.5, 2.0, 2.5, 3.0],
+    },
+    # btc_v6_chandelier: BTCV6ChandelierParams fields
+    "btc_v6_chandelier": {
+        "rsi_thresh": [38.0, 42.0, 45.0, 48.0, 52.0],
+        "atr_mult":   [3.0, 3.5, 4.0, 4.5, 5.0, 5.5],
+        "adx_min":    [18.0, 20.0, 22.0, 25.0],
+    },
+    # rsi_dip_simple: RSIDipSimpleParams fields
+    "rsi_dip_simple": {
+        "rsi_oversold": [20.0, 22.0, 25.0, 28.0, 30.0],
+        "rsi_exit":     [68.0, 72.0, 75.0, 80.0, 85.0],
+        "sl_atr_mult":  [2.0, 2.5, 3.0, 3.5],
+    },
+    # mr_03_fbs: MR03Params fields
+    "mr_03_fbs": {
+        "bb_len":    [15, 20, 25, 30],
+        "bb_mult":   [1.5, 1.75, 2.0, 2.25],
+        "tp_mult":   [1.2, 1.5, 1.8, 2.0],
+        "sl_mult":   [1.5, 2.0, 2.5, 3.0],
+        "max_bars":  [24, 36, 48],
+    },
+    # kds_mean_reversion: KDSMeanReversionParams fields
+    "kds_mean_reversion": {
+        "kds_thresh": [1.5, 2.0, 2.5, 3.0],
+        "rsi_os":     [28.0, 32.0, 35.0, 38.0],
+        "rsi_ob":     [62.0, 65.0, 68.0, 72.0],
+        "sl_mult":    [1.0, 1.5, 2.0, 2.5],
+        "adx_max":    [22.0, 25.0, 28.0, 32.0],
+    },
+    # ema_ribbon_breakout: EMARibbonBreakoutParams fields
+    "ema_ribbon_breakout": {
+        "adx_min":  [18.0, 20.0, 22.0, 25.0, 28.0],
+        "atr_mult": [2.0, 2.5, 3.0, 3.5, 4.0],
+        "sl_pct":   [4.0, 5.0, 6.0, 7.0, 8.0],
+    },
+    # rcr_mean_reversion: RCRMeanReversionParams fields
+    "rcr_mean_reversion": {
+        "z_thresh":    [1.2, 1.5, 1.8, 2.0, 2.2],
+        "stop_atr_k":  [0.8, 1.0, 1.5, 2.0],
+        "ac_thresh":   [-0.10, -0.05, 0.0, 0.05],
+    },
+    # ecb_strategy: ECBParams fields
+    "ecb_strategy": {
+        "entropy_thresh": [0.65, 0.70, 0.75, 0.80],
+        "sl_atr_mult":    [1.0, 1.5, 2.0, 2.5],
+        "tp_atr_mult":    [2.0, 2.5, 3.0, 3.5],
+        "max_bars_hold":  [16, 20, 24, 32],
+    },
+    # cbae_strategy: CBAEParams fields
+    "cbae_strategy": {
+        "extreme_thresh": [4.0, 5.0, 6.0, 7.0],
+        "sl_atr_mult":    [1.0, 1.5, 2.0, 2.5],
+        "tp_atr_mult":    [1.5, 2.0, 2.5, 3.0],
+        "adx_max":        [25.0, 28.0, 30.0, 35.0],
+    },
+    # rare_strategy: RAREParams fields
+    "rare_strategy": {
+        "z_entry":     [1.5, 1.8, 2.0, 2.2],
+        "sl_atr_mult": [1.5, 2.0, 2.5, 3.0],
+        "tp_atr_mult": [2.0, 2.5, 3.0, 3.5],
+    },
+    # fels_strategy: FELSParams fields
+    "fels_strategy": {
+        "atr_close_thresh": [0.6, 0.8, 1.0, 1.2],
+        "tp_revert_pct":    [0.4, 0.5, 0.6, 0.7],
+        "adx_max":          [22.0, 25.0, 28.0, 32.0],
+        "sl_atr_buffer":    [0.2, 0.3, 0.4, 0.5],
+    },
+    # pll_cycle: PLLCycleParams fields
+    "pll_cycle": {
+        "lock_thresh": [0.8, 1.0, 1.2, 1.5],
+        "sl_pct":      [2.0, 2.5, 3.0, 3.5, 4.0],
+        "tp_pct":      [8.0, 10.0, 12.0, 15.0],
     },
 }
 
