@@ -1,0 +1,91 @@
+You are auditing a live algorithmic trading bot (C:\Users\Linda\trading_bot_v2). Do a cold read — no assumptions. Find real bugs, not style issues.
+The bot consists of 3 parts
+  bot_engine.py in the root folder maintains opening and closing 
+    trades, maintaining the database and is the central hub
+  web_dashboard.py is the frontend where users interact with the
+    trading platform to open trades monitor trades monitor capital
+  BreakoutScaner.py also in the root folder is a stand alone scanner
+    that looks for stocks and crypts entering a breakout period of
+    growth or loss and when finds candidates, sends those signals to
+    the main bot program  via breakout_sender.py and breakout_receiver.py
+    ,to deicide if those trades are worthy of being immediately opened
+    as an active trade
+  There are technical_refernces and readme files in the docs folder
+
+You are coming from a background of a Quant Mathematician Analyst 
+  and  a Quant financial strategy analyst
+
+Your task is to thoroughly analyze the code logic top to bottom
+  You will add missing commenting, cleanup variables ad functions that
+  have no use in the program , exhaustively make sure the formatting
+  and indentation is correct so as not to cause any unexpected logic
+  mistakes. That the best and fastest and most memory efficient
+  coding techniques are being used and fi if not. To analyze and
+  debug every system  and function ad variable for it effectiveness
+  in producing a wining profit at the end of the say . a net profit 
+  200 dollars a day for  given strategy with a 30pct win rate is
+  preferred over one with a 75pct win rate but a net loss of 200
+  dollars a day. The program has  a fully functional backtesting
+  system and a parameter optimization routine as well.
+
+The number 1 , must have, your reputation as a Quant is on the line here,
+  Must fix this system so it cab consistently pull in 2pct total
+  capital gains a day. the history has bee .5pct a day at best
+  We has outside source audit the code, made changes and now were
+  down from 35pct wis to 10pct wins, we're down from 100 trades
+  a day to 20ish trades a day.
+ A large part of the potential, I think, is in the breakakout scanner
+  as it trading on fat moving highly volatile positions.  When
+  first made it was winning 90-180 dollars a trade however also losing 
+  40-50pct of trades at equal amounts. I asked for changes
+  to cut off losing positions in their tracks but not to effect
+  winning trades. This didn't go a planned  a now it loses 90pct
+  of the positions it opens , albeit for much smaller amounts ave. 20-30 
+  per trade. I need It retuned to accepting trades and letting them
+  run the full distance if not if destined to win yet stopped
+  at half the amount of loss as the wins cash in. Thus even a 50
+  percent win rate will come out ahead on capital 
+
+We also have 32ish strategies in this program 19 currently enabled
+  rest sidelined due to under performing. We also now have a 
+  lack of strategies firing on 5 minute or 15 minute candles.
+  most it by until hourly candles complete and only trade then.
+  I need either fixes and adjustment made to every strat so they
+  are profitable and take trades , or to be removed and replaced
+  by newly created strategies you make from scratch that are indeed
+  profitable. after backtesting we also only have a few strategies
+  enable to handle crypto trades but lot that handle stocks
+  so we nee either existing made to work with crypto as well or new
+  crypto prove strategies to be added
+
+Audit every file but give extra to these specifically:
+
+core/position_monitor.py — SL/TP direction logic for short positions. Verify shorts exit correctly (SL above entry, TP below).
+core/risk_manager.py — SL calculation for both directions. Check structural stop validation.
+core/trade_executor.py — Stop guard logic. Verify it doesn't flip SL to wrong side for shorts.
+BreakoutScanner.py — structural_stop_price assignment for short signals (line ~1251). Verify high * 1.003 path is always taken for shorts.
+core/position_monitor.py — paper mode price clamp in _attempt_close(). Verify TP/SL direction logic for shorts isn't inverted.
+For each file: read it, find real issues, show the exact bad lines, explain why they're wrong, write the fix. If something looks suspicious but you can't confirm it's broken, say so clearly — don't guess.
+
+Known symptom to explain: ETH/USD SHORT (entry 2015.39) exited at 2007.16 (below entry = profitable direction for short) with reason "Stop Loss" and negative P&L after fees. Root cause unknown.
+
+Output: numbered bug list, severity (critical/minor), file + line, fix.
+
+Finally do not make any physical changes to the files. What I would
+like is your full report on at you find what you propose, with a 
+completed OverHaul.PR.md file and a .diff patch file for every 
+edit and change you think is needed. Store all files related
+to this in the folder Opus.Audit .The Claude sonnet and even 
+haiku can handle the work of processing the file changes at 
+a much more economical toke usage rate. I need you for your superior
+logic and multi thread able abilities to design for me a well
+oiled ready for live money trading, platform  instead of the losing
+money daily mess its muddle into. Its a great codebase
+and claude sonnet has done an excellent job.. it just gotten 
+convoluted with recent changes new strat, code audits , testing 
+ideas. 
+
+I have ultimate faith I you that you will literally blow my socks
+off with what well have after your analyzing and instructions
+
+Go to it! and thank you

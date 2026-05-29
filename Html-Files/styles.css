@@ -28,8 +28,20 @@
   --blue: #60a5fa;
   --purple: #a78bfa;
 
-  --shadow-window: 0 20px 50px -12px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.03);
+  --shadow-window: 0 24px 56px -8px rgba(0,0,0,0.82), 0 6px 18px rgba(0,0,0,0.45);
   --shadow-soft: 0 4px 12px rgba(0,0,0,0.25);
+
+  /* 3D bevel edges — highlight top/left, shadow bottom/right */
+  --bevel-hi:       rgba(255,255,255,0.10);
+  --bevel-sh:       rgba(0,0,0,0.62);
+  --bevel-inner-hi: rgba(255,255,255,0.055);
+  --bevel-inner-sh: rgba(0,0,0,0.28);
+
+  /* 3D panel effect — controlled from Theme panel */
+  --panel-tilt:        2;    /* 0-20 unitless → multiplied by 0.35deg in transform */
+  --panel-thickness:   5;    /* 0-20 unitless → multiplied by 1px for edge shadow */
+  --panel-perspective: 1400; /* 300-2000: lower = more dramatic 3D, higher = flatter */
+  --panel-edge-color: #1a2535; /* color of the extruded edge — tweak in Theme panel */
 
   --mono: 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
   --sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -65,8 +77,9 @@ input, textarea, select { font-family: inherit; }
 .topbar {
   display: flex;
   align-items: center;
-  background: var(--bg-1);
-  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--bg-2) 0%, var(--bg-1) 100%);
+  border-bottom: 1px solid var(--bevel-sh);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.45), inset 0 1px 0 var(--bevel-inner-hi);
   padding: 0 16px;
   gap: 18px;
   z-index: 100;
@@ -139,8 +152,9 @@ input, textarea, select { font-family: inherit; }
 .taskbar {
   display: flex;
   align-items: center;
-  background: var(--bg-1);
-  border-top: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--bg-1) 0%, var(--bg-2) 100%);
+  border-top: 1px solid var(--bevel-hi);
+  box-shadow: 0 -2px 10px rgba(0,0,0,0.4), inset 0 -1px 0 var(--bevel-inner-sh);
   padding: 0 10px;
   gap: 6px;
   z-index: 100;
@@ -184,33 +198,71 @@ input, textarea, select { font-family: inherit; }
 /* ============ Window ============ */
 .win {
   position: absolute;
-  background: var(--bg-1);
-  border: 1px solid var(--border-strong);
+  /* --win-bg-alpha is set inline per-window for the transparency effect.
+     color-mix fades the background while leaving text/content fully opaque. */
+  background: color-mix(in srgb, var(--bg-1) var(--win-bg-alpha, 100%), transparent);
+  /* Bevel: highlight top+left, shadow bottom+right */
+  border-top:    1px solid var(--bevel-hi);
+  border-left:   1px solid var(--bevel-hi);
+  border-bottom: 1px solid var(--bevel-sh);
+  border-right:  1px solid var(--bevel-sh);
   border-radius: var(--radius);
-  box-shadow: var(--shadow-window);
+  box-shadow:
+    /* ── 3D edge: zero-blur shadow offset bottom+right = visible panel thickness ── */
+    calc(var(--panel-thickness) * 1px) calc(var(--panel-thickness) * 1px) 0
+      var(--panel-edge-color),
+    /* ── Ambient drop shadow behind the extruded edge ── */
+    calc(var(--panel-thickness) * 1px + 14px) calc(var(--panel-thickness) * 1px + 14px)
+      calc(28px + var(--panel-thickness) * 1px) rgba(0,0,0,0.60),
+    /* ── Bevel inset highlights ── */
+    inset 0  1px 0 var(--bevel-inner-hi),
+    inset 1px 0  0 var(--bevel-inner-hi),
+    inset 0 -1px 0 var(--bevel-inner-sh);
   display: flex; flex-direction: column;
   min-width: 320px; min-height: 160px;
   overflow: hidden;
-  transition: box-shadow 0.15s;
+  transition: box-shadow 0.15s, border-color 0.15s, transform 0.12s;
+  /* ── 3D perspective tilt: top-left nearest, bottom-right furthest ── */
+  transform:
+    perspective(calc(var(--panel-perspective) * 1px))
+    rotateX(calc(var(--panel-tilt) * 0.35deg))
+    rotateY(calc(var(--panel-tilt) * -0.35deg));
+  transform-style: flat;
 }
 .win.focused {
-  border-color: rgba(20, 184, 166, 0.35);
-  box-shadow: 0 24px 60px -12px rgba(0,0,0,0.75), 0 0 0 1px rgba(20, 184, 166, 0.2);
+  border-top-color:    rgba(20,184,166,0.38);
+  border-left-color:   rgba(20,184,166,0.22);
+  border-bottom-color: rgba(0,0,0,0.72);
+  border-right-color:  rgba(0,0,0,0.62);
+  box-shadow:
+    /* focused: same edge color as unfocused, accent glow added separately */
+    calc(var(--panel-thickness) * 1px) calc(var(--panel-thickness) * 1px) 0
+      var(--panel-edge-color),
+    calc(var(--panel-thickness) * 1px + 14px) calc(var(--panel-thickness) * 1px + 14px)
+      calc(28px + var(--panel-thickness) * 1px) rgba(0,0,0,0.70),
+    0 0 0 1px rgba(20,184,166,0.12),
+    inset 0  1px 0 rgba(20,184,166,0.14),
+    inset 1px 0  0 rgba(20,184,166,0.08),
+    inset 0 -1px 0 var(--bevel-inner-sh);
 }
-.win.maximized { border-radius: 0; border: 0; }
+.win.maximized { border-radius: 0; border: 0; box-shadow: none; transform: none; }
 .win.minimized { display: none; }
 
 .win-titlebar {
   display: flex; align-items: center;
   height: 36px;
-  background: var(--bg-2);
+  background: linear-gradient(180deg, var(--bg-3) 0%, var(--bg-2) 100%);
   border-bottom: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 var(--bevel-inner-hi);
   padding: 0 6px 0 14px;
   cursor: grab;
   flex-shrink: 0;
 }
 .win-titlebar:active { cursor: grabbing; }
-.win.focused .win-titlebar { background: var(--bg-3); }
+.win.focused .win-titlebar {
+  background: linear-gradient(180deg, var(--bg-4) 0%, var(--bg-3) 100%);
+  box-shadow: inset 0 1px 0 rgba(20,184,166,0.12);
+}
 .win-title {
   display: flex; align-items: center; gap: 9px;
   font-size: 12px; font-weight: 500;
@@ -223,9 +275,11 @@ input, textarea, select { font-family: inherit; }
   width: 14px; height: 14px;
   color: var(--accent-bright);
   flex-shrink: 0;
+  filter: drop-shadow(0 0 4px rgba(20,184,166,0.4));
 }
 .win-title .label {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.65);
 }
 .win-controls {
   display: flex; gap: 2px; flex-shrink: 0;
@@ -245,13 +299,48 @@ input, textarea, select { font-family: inherit; }
 .win-body {
   flex: 1;
   overflow: auto;
-  background: var(--bg-1);
+  background: color-mix(in srgb, var(--bg-1) var(--win-bg-alpha, 100%), transparent);
   user-select: text;
 }
 .win-body::-webkit-scrollbar { width: 10px; height: 10px; }
 .win-body::-webkit-scrollbar-track { background: transparent; }
 .win-body::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 5px; border: 2px solid var(--bg-1); }
 .win-body::-webkit-scrollbar-thumb:hover { background: var(--bg-4); }
+
+/* Transparency propagation — form elements + common containers respect --win-bg-alpha */
+.win input:not([type="color"]):not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+.win select,
+.win textarea {
+  background: color-mix(in srgb, var(--bg-2) var(--win-bg-alpha, 100%), transparent) !important;
+}
+.win table, .win thead, .win tbody, .win tr, .win th, .win td {
+  background: color-mix(in srgb, transparent var(--win-bg-alpha, 100%), transparent) !important;
+}
+.win .panel-section {
+  background: color-mix(in srgb, var(--bg-1) var(--win-bg-alpha, 100%), transparent) !important;
+}
+
+/* 3D depth on large numbers and headings */
+.win-body h1, .win-body h2, .win-body h3 {
+  text-shadow: 0 1px 4px rgba(0,0,0,0.55);
+}
+/* Range input styling for opacity slider */
+.win-opacity-slider {
+  -webkit-appearance: none;
+  width: 100%; height: 4px;
+  border-radius: 2px;
+  background: var(--bg-4);
+  outline: none; cursor: pointer;
+}
+.win-opacity-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent-bright);
+  border: 2px solid var(--bg-1);
+  box-shadow: 0 0 6px rgba(20,184,166,0.5);
+  cursor: pointer;
+}
 
 .win-resize-edge { position: absolute; }
 .win-resize-edge.n { top: 0; left: 8px; right: 8px; height: 4px; cursor: ns-resize; }

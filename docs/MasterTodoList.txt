@@ -1,0 +1,19 @@
+GapScanner, hasn't fired a single time in over a week since 
+  invention lets debug what going on
+Trades are no log even winning 20-30pct more like 5pct now since
+  audits. Something is fugged up and we need to trace/debug what's 
+  globally wrong with all strategies ability to win now.
+Time to go through the entire code for a readiness test on live 
+  markets with real money. how stop loss , take profits are 
+  handled. Check on commissions and fees being tracked for 
+  IRS records (Id like an X-Out register feature to create a 
+  daily paper log of moneys in and out, and a way to input and 
+  track expenditure like collocate fees , materials, trade log 
+  journals etc that are deductible
+Get a clean repository version of the program ready for public 
+  consumption and remove/hide the private repository version, ie 
+  empty db, clear of personal notes and files, documentation in 
+  order, passwords cleared out for first time use.
+Sync up brokers with the chart in web_dash and a open trade panel,
+  as well as ability to track open positions, closed trades etc, 
+  including swap to different brokers

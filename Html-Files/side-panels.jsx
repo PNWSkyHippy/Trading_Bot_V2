@@ -38,8 +38,6 @@ const normalizePos = (p) => ({
 function ManagePositionsPanel() {
   const [positions, setPositions] = uS([]);
   const [chartSym, setChartSym] = uS(null);
-  const [candleSize, setCandleSize] = uS('5 Min');
-  const [chartRange, setChartRange] = uS('ALL');
   const [msg, setMsg] = uS('');
   const [refreshing, setRefreshing] = uS(false);
   const [lastRefresh, setLastRefresh] = uS('');
@@ -243,19 +241,8 @@ function ManagePositionsPanel() {
             </div>
 
             {isChart && (
-              <div style={{ marginTop: 12, padding: 12, background: 'var(--bg-1)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                  <label style={{ fontSize: 11, color: 'var(--text-2)' }}>Candle size:</label>
-                  <select className="select input" style={{ padding: '4px 8px', fontSize: 11 }} value={candleSize} onChange={e => setCandleSize(e.target.value)}>
-                    {['1 Min', '5 Min', '15 Min', '1 H', '4 H', '1 D'].map(c => <option key={c}>{c}</option>)}
-                  </select>
-                  <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
-                    {['1H', '6H', '12H', '1D', '3D', 'ALL'].map(per => (
-                      <button key={per} className={cls('btn', 'sm', chartRange === per ? 'primary' : 'ghost')} style={{ padding: '3px 8px', fontSize: 10 }} onClick={() => setChartRange(per)}>{per}</button>
-                    ))}
-                  </div>
-                </div>
-                <MiniCandleChart symbol={p.symbol} assetClass={p.assetClass} timeframe={candleSize} rangeKey={chartRange} dir={p.dir} entry={p.entry} sl={p.sl} tp={p.tp} />
+              <div style={{ marginTop: 10 }}>
+                <MiniLWChart symbol={p.symbol} assetClass={p.assetClass} entry={p.entry} sl={p.sl} tp={p.tp} />
               </div>
             )}
           </div>
@@ -265,154 +252,111 @@ function ManagePositionsPanel() {
   );
 }
 
-function MiniCandleChart({ symbol, assetClass, timeframe, rangeKey, dir, entry, sl, tp }) {
-  const [candles, setCandles] = uS([]);
+function MiniLWChart({ symbol, assetClass, entry, sl, tp }) {
+  const containerRef = uR(null);
   const [status, setStatus] = uS('Loading chart...');
-  const [view, setView] = uS({ start: 0, end: 0 });
-  const [yView, setYView] = uS(null);
-  const svgRef = uR(null);
-  const dragRef = uR(null);
 
+  // Single effect: create chart, load data, wire resize — all in guaranteed order.
+  // Re-runs if symbol or assetClass change (destroys old chart, builds new one).
   uE(() => {
+    const LC = window.LightweightCharts;
+    const el  = containerRef.current;
+    if (!LC || !el) { setStatus('Chart library unavailable.'); return; }
+
     let cancelled = false;
-    const load = async () => {
-      setStatus('Loading chart...');
+
+    // ── Build chart ──────────────────────────────────────────────────
+    const chart = LC.createChart(el, {
+      width:  el.offsetWidth  || 500,
+      height: 240,
+      layout: { background: { type: 'solid', color: '#0d1117' }, textColor: '#8b949e', fontSize: 11 },
+      grid:   { vertLines: { color: '#1a2035' }, horzLines: { color: '#1a2035' } },
+      crosshair: { mode: LC.CrosshairMode.Normal },
+      handleScale:  { axisPressedMouseMove: { time: true, price: true }, mouseWheel: true, pinch: true },
+      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
+      rightPriceScale: { borderColor: '#2a3347', autoScale: true },
+      timeScale: {
+        borderColor: '#2a3347', timeVisible: true, secondsVisible: false,
+        tickMarkFormatter: (ts, type) => {
+          const d = new Date(ts * 1000), tz = { timeZone: 'America/Los_Angeles' };
+          if (type <= 1) return d.toLocaleDateString('en-US', { ...tz, month: 'short', year: 'numeric' });
+          if (type === 2) return d.toLocaleDateString('en-US', { ...tz, month: 'numeric', day: 'numeric' });
+          return d.toLocaleTimeString('en-US', { ...tz, hour: 'numeric', minute: '2-digit', hour12: true });
+        },
+      },
+    });
+
+    const series = chart.addCandlestickSeries({
+      upColor: '#26a69a', downColor: '#ef5350', borderVisible: false,
+      wickUpColor: '#26a69a', wickDownColor: '#ef5350',
+    });
+
+    // Entry / SL / TP price lines
+    const LS = LC.LineStyle;
+    if (entry) series.createPriceLine({ price: +entry, color: '#60a5fa', lineWidth: 1, lineStyle: LS.Dashed, title: 'Entry', axisLabelVisible: true });
+    if (sl)    series.createPriceLine({ price: +sl,    color: '#f43f5e', lineWidth: 1, lineStyle: LS.Dashed, title: 'SL',    axisLabelVisible: true });
+    if (tp)    series.createPriceLine({ price: +tp,    color: '#10b981', lineWidth: 1, lineStyle: LS.Dashed, title: 'TP',    axisLabelVisible: true });
+
+    // Keep width in sync
+    const ro = new ResizeObserver(entries => {
+      const w = entries[0]?.contentRect.width;
+      if (w > 0) chart.resize(w, 240);
+    });
+    ro.observe(el);
+
+    // ── Fetch candles (after chart exists, no ref needed) ────────────
+    const toSec = t => {
+      const n = Number(t);
+      if (!isNaN(n)) return n > 1e10 ? Math.floor(n / 1000) : Math.floor(n);
+      return Math.floor(new Date(String(t).replace(' ', 'T')).getTime() / 1000);
+    };
+
+    (async () => {
       try {
-        const qs = new URLSearchParams({ symbol, asset_class: assetClass || 'crypto', timeframe: timeframe || '5 Min', limit: '120' });
-        const data = await apiCall(`/api/candles?${qs.toString()}`);
-        const rows = Array.isArray(data.candles) ? data.candles.map(c => ({
-          t: c.time,
-          o: Number(c.open),
-          h: Number(c.high),
-          l: Number(c.low),
-          c: Number(c.close),
-        })).filter(c => c.o && c.h && c.l && c.c) : [];
-        if (!cancelled) {
-          setCandles(rows);
-          setStatus(rows.length ? '' : 'No chart data available.');
+        const qs = new URLSearchParams({
+          symbol,
+          asset_class: assetClass || 'stock',
+          timeframe: '5 Min',
+          limit: '300',
+        });
+        const data = await apiCall(`/api/candles?${qs}`);
+        if (cancelled) return;
+
+        const raw = data.candles || [];
+        const rows = raw.map(c => ({
+          time:  toSec(c.time),
+          open:  +c.open, high: +c.high, low: +c.low, close: +c.close,
+        })).filter(c => c.time > 0 && c.open > 0);
+
+
+        if (!rows.length) {
+          setStatus(`No data — API returned ${raw.length} candle(s), 0 valid`);
+          return;
         }
-      } catch (e) {
-        if (!cancelled) setStatus(`Chart failed: ${e.message}`);
+        series.setData(rows);
+        chart.timeScale().fitContent();
+        setStatus('');
+      } catch(e) {
+        if (!cancelled) setStatus(`Fetch error: ${e.message}`);
       }
+    })();
+
+    return () => {
+      cancelled = true;
+      ro.disconnect();
+      chart.remove();
     };
-    load();
-    return () => { cancelled = true; };
-  }, [symbol, assetClass, timeframe]);
-
-  const timeframeMinutes = () => ({ '1 Min': 1, '5 Min': 5, '15 Min': 15, '1 H': 60, '4 H': 240, '1 D': 1440 }[timeframe] || 5);
-  const rangeCandles = () => {
-    if (!candles.length || rangeKey === 'ALL') return candles.length;
-    const mins = { '1H': 60, '6H': 360, '12H': 720, '1D': 1440, '3D': 4320 }[rangeKey] || 0;
-    return Math.max(8, Math.min(candles.length, Math.ceil(mins / timeframeMinutes())));
-  };
-
-  uE(() => {
-    const count = rangeCandles();
-    setView({ start: Math.max(0, candles.length - count), end: candles.length });
-    setYView(null);
-  }, [candles.length, rangeKey, timeframe]);
-
-  if (!candles.length) {
-    return <div style={{ height: 140, display: 'grid', placeItems: 'center', background: 'var(--bg-0)', borderRadius: 4, border: '1px solid var(--border)', color: 'var(--text-2)', fontSize: 11 }}>{status}</div>;
-  }
-
-  const start = Math.max(0, Math.min(view.start || 0, candles.length - 1));
-  const end = Math.max(start + 1, Math.min(view.end || candles.length, candles.length));
-  const visible = candles.slice(start, end);
-  const autoMax = Math.max(...visible.map(c => c.h), entry, sl, tp) * 1.001;
-  const autoMin = Math.min(...visible.map(c => c.l), entry, sl, tp) * 0.999;
-  const max = yView ? yView.max : autoMax;
-  const min = yView ? yView.min : autoMin;
-  const range = max - min;
-  const W = 100, H = 30;
-  const yScale = (v) => ((max - v) / range) * H;
-  const zoomX = (factor) => {
-    const size = end - start;
-    const nextSize = Math.max(8, Math.min(candles.length, Math.round(size * factor)));
-    const center = (start + end) / 2;
-    let nextStart = Math.round(center - nextSize / 2);
-    nextStart = Math.max(0, Math.min(nextStart, candles.length - nextSize));
-    setView({ start: nextStart, end: nextStart + nextSize });
-  };
-  const zoomY = (factor) => {
-    const mid = (max + min) / 2;
-    const half = Math.max(0.000001, (max - min) * factor / 2);
-    setYView({ min: mid - half, max: mid + half });
-  };
-  const resetView = () => {
-    const count = rangeCandles();
-    setView({ start: Math.max(0, candles.length - count), end: candles.length });
-    setYView(null);
-  };
-  const onDown = (e) => {
-    const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    dragRef.current = {
-      mode: e.clientX > rect.right - 44 ? 'y' : 'x',
-      x: e.clientX,
-      y: e.clientY,
-      start,
-      end,
-      min,
-      max,
-      width: rect.width,
-      height: rect.height,
-    };
-  };
-  const onMove = (e) => {
-    const d = dragRef.current;
-    if (!d) return;
-    if (d.mode === 'x') {
-      const span = d.end - d.start;
-      const delta = Math.round(-(e.clientX - d.x) / Math.max(1, d.width) * span);
-      let nextStart = Math.max(0, Math.min(d.start + delta, candles.length - span));
-      setView({ start: nextStart, end: nextStart + span });
-    } else {
-      const priceDelta = (e.clientY - d.y) / Math.max(1, d.height) * (d.max - d.min);
-      setYView({ min: d.min + priceDelta, max: d.max + priceDelta });
-    }
-  };
-  const onUp = () => { dragRef.current = null; };
+  }, [symbol, assetClass]);
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: 4, justifyContent: 'flex-end', marginBottom: 6 }}>
-        <button className="btn ghost sm" style={{ padding: '3px 8px', fontSize: 10 }} onClick={() => { zoomX(0.7); zoomY(0.7); }}>Zoom In</button>
-        <button className="btn ghost sm" style={{ padding: '3px 8px', fontSize: 10 }} onClick={() => { zoomX(1.35); zoomY(1.35); }}>Zoom Out</button>
-        <button className="btn ghost sm" style={{ padding: '3px 8px', fontSize: 10 }} onClick={resetView}>Reset</button>
-      </div>
-    <svg
-      ref={svgRef}
-      viewBox={`0 0 ${W} ${H + 4}`}
-      style={{ width: '100%', height: 170, background: 'var(--bg-0)', borderRadius: 4, border: '1px solid var(--border)', cursor: 'grab', touchAction: 'none' }}
-      preserveAspectRatio="none"
-      onMouseDown={onDown}
-      onMouseMove={onMove}
-      onMouseUp={onUp}
-      onMouseLeave={onUp}
-    >
-      <line x1="0" x2={W} y1={yScale(sl)} y2={yScale(sl)} stroke="#f43f5e" strokeWidth="0.15" strokeDasharray="0.5,0.5" />
-      <line x1="0" x2={W} y1={yScale(tp)} y2={yScale(tp)} stroke="#10b981" strokeWidth="0.15" strokeDasharray="0.5,0.5" />
-      <line x1="0" x2={W} y1={yScale(entry)} y2={yScale(entry)} stroke="#60a5fa" strokeWidth="0.15" strokeDasharray="0.5,0.5" />
-      {visible.map((c, i) => {
-        const x = (i / visible.length) * W;
-        const wide = W / visible.length * 0.7;
-        const up = c.c >= c.o;
-        return (
-          <g key={`${start + i}-${c.t || ''}`}>
-            <line x1={x + wide / 2} x2={x + wide / 2} y1={yScale(c.h)} y2={yScale(c.l)} stroke={up ? '#10b981' : '#f43f5e'} strokeWidth="0.1" />
-            <rect x={x} y={yScale(Math.max(c.o, c.c))} width={wide} height={Math.max(0.2, Math.abs(yScale(c.o) - yScale(c.c)))} fill={up ? '#10b981' : '#f43f5e'} />
-          </g>
-        );
-      })}
-      <text x={W - 0.5} y={yScale(sl) - 0.3} fill="#f43f5e" fontSize="1.4" textAnchor="end" fontFamily="JetBrains Mono">SL</text>
-      <text x={W - 0.5} y={yScale(tp) - 0.3} fill="#10b981" fontSize="1.4" textAnchor="end" fontFamily="JetBrains Mono">TP</text>
-      <text x={W - 0.5} y={yScale(entry) - 0.3} fill="#60a5fa" fontSize="1.4" textAnchor="end" fontFamily="JetBrains Mono">Entry</text>
-      <rect x="86" y="0" width="14" height={H + 4} fill="rgba(255,255,255,0.01)" />
-    </svg>
-      <div style={{ marginTop: 6, fontSize: 10.5, color: 'var(--text-2)' }}>
-        Drag chart left/right to pan time. Drag the right edge up/down to pan price.
-      </div>
+    <div style={{ position: 'relative', borderRadius: 4, overflow: 'hidden', border: '1px solid var(--border)' }}>
+      {status && (
+        <div style={{ position: 'absolute', inset: 0, display: 'grid', placeItems: 'center',
+          background: '#0d1117', color: '#8b949e', fontSize: 11, zIndex: 2, pointerEvents: 'none' }}>
+          {status}
+        </div>
+      )}
+      <div ref={containerRef} style={{ width: '100%', height: 240 }} />
     </div>
   );
 }
@@ -892,9 +836,10 @@ function DBBrowserPanel() {
   const [sortAsc,     setSortAsc]     = uS(true);
   const [gridTitle,   setGridTitle]   = uS('Select a table or click a query');
   const [status,      setStatus]      = uS({ msg: 'Ready', type: '' });
-  const [editOpen,    setEditOpen]    = uS(false);
-  const [editFields,  setEditFields]  = uS({});
-  const [editMeta,    setEditMeta]    = uS({});
+  const [editOpen,     setEditOpen]    = uS(false);
+  const [editFields,   setEditFields]  = uS({});
+  const [editOriginal, setEditOriginal]= uS({});
+  const [editMeta,     setEditMeta]    = uS({});
   // search fields
   const [fStrat,  setFStrat]  = uS('');
   const [fStatus, setFStatus] = uS('any');
@@ -994,24 +939,34 @@ function DBBrowserPanel() {
     const fields = {};
     cols.forEach((c, i) => { fields[c] = row[i] ?? ''; });
     setEditFields(fields);
+    setEditOriginal({...fields});
     setEditMeta({ table: curTable, rowid: rowids[selIdx] });
     setEditOpen(true);
   }
 
   async function saveEdit() {
     const { table, rowid } = editMeta;
-    if (rowid === null) { st('Cannot determine row ID — browse from sidebar', 'err'); return; }
-    try {
-      for (const [col, value] of Object.entries(editFields)) {
+    const tradeId = editFields['trade_id'] || null;
+    if (rowid === null && !tradeId) { st('Cannot determine row ID — browse from sidebar', 'err'); return; }
+    const changed = Object.entries(editFields).filter(([col, val]) => String(val) !== String(editOriginal[col] ?? ''));
+    if (changed.length === 0) { setEditOpen(false); st('No changes made', ''); return; }
+    let saved = 0, errors = [];
+    for (const [col, value] of changed) {
+      try {
         await apiCall('/api/db/edit_row', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ table, rowid, col, value })
+          body: JSON.stringify({ table, rowid, trade_id: tradeId, col, value })
         });
-      }
-      st(`Saved rowid=${rowid}`, 'ok');
-      setEditOpen(false);
-      refresh();
-    } catch(e) { st(e.message, 'err'); }
+        saved++;
+      } catch(e) { errors.push(`${col}: ${e.message}`); }
+    }
+    setEditOpen(false);
+    if (errors.length === 0) {
+      st(`Saved: ${changed.map(([c])=>c).join(', ')}`, 'ok');
+    } else {
+      st(`${saved} saved, ${errors.length} failed: ${errors[0]}`, 'err');
+    }
+    refresh();
   }
 
   async function flushGhost() {

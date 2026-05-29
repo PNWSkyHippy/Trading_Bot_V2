@@ -1,13 +1,9 @@
 {
-  "generated": "2026-05-26T13:34:45.858157",
+  "generated": "2026-05-28T13:35:43.587897",
   "valid_until": "next_market_close",
   "stocks": [
-    "ON",
-    "DELL",
-    "F"
+    "F",
+    "LLY"
   ],
-  "crypto": [
-    "FIGR_HELOC/USD",
-    "OKB/USD"
-  ]
+  "crypto": []
 }

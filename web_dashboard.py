@@ -66,22 +66,37 @@ except Exception:
 _tradovate_feed = None
 try:
     from core.tradovate_feed import TradovateFeed, init_feed as _tv_init_feed
+    import logging as _logging
+    _logging.getLogger("core.tradovate_feed").setLevel(_logging.WARNING)
     _tradovate_available = True
 except Exception:
     _tradovate_available = False
 
-# Map dashboard symbol → Tradovate subscription name
+# Map dashboard symbol → Tradovate front-month contract name
+# Format: ROOT → ROOT + MONTH_CODE + YEAR_CODE  (M6 = June 2026)
+# Update month code each quarterly rollover: M6→U6 (Sep), U6→Z6 (Dec), Z6→H7 (Mar)
 TRADOVATE_SYMBOL_MAP = {
-    "MES":  "MESM6",
-    "M2K":  "M2KM6",
-    "MNQ":  "MNQM6",
-    "MYM":  "MYMM6",
-    # Add more as you discover their numeric IDs
+    # ── CME Equity Index Micros & Minis ──────────────────────────────────
+    "MES":  "MESM6",   "ES":  "ESM6",
+    "MNQ":  "MNQM6",   "NQ":  "NQM6",
+    "M2K":  "M2KM6",   "RTY": "RTYM6",
+    # ── CBOT Equity ──────────────────────────────────────────────────────
+    "MYM":  "MYMM6",   "YM":  "YMM6",
+    # ── NYMEX Energy ─────────────────────────────────────────────────────
+    "MCL":  "MCLM6",   "CL":  "CLN6",   # CL front-month is July (N6) in late May
+    "NG":   "NGN6",    "MNG": "MNGN6",
+    # ── COMEX Metals ─────────────────────────────────────────────────────
+    "MGC":  "MGCM6",   "GC":  "GCM6",
+    "SI":   "SIU6",    "SIL": "SILQ6",  # Silver rolls to Sep (U6) by May
+    # ── CME Crypto Micros ────────────────────────────────────────────────
+    "MBT":  "MBTM6",   "MET": "METM6",
 }
-# Known Tradovate internal symbol IDs
-TRADOVATE_SYMBOL_IDS = {
-    "MESM6":  3961353,
-    # Others to be filled once discovered from DevTools
+
+# Known Tradovate numeric contract IDs (stable per contract, not per session)
+# IDs discovered via: GET /v1/contract/find?name=<NAME>  (auto-populated at runtime)
+TRADOVATE_SYMBOL_IDS: dict = {
+    "MESM6":  3961353,   # confirmed
+    # All others are auto-looked up via REST on first chart request and cached here
 }
 
 
@@ -1609,6 +1624,7 @@ def get_manual_trade_preview(params):
 
 def get_candles(symbol, asset_class, timeframe="5 Min", limit=100):
     """Return OHLC candles for the HTML chart."""
+    import traceback
     try:
         limit = max(10, min(int(limit), 300))
     except Exception:
@@ -1623,6 +1639,7 @@ def get_candles(symbol, asset_class, timeframe="5 Min", limit=100):
             api = tradeapi.REST(config.ALPACA_API_KEY, config.ALPACA_SECRET_KEY, config.ALPACA_BASE_URL)
             raw = api.get_bars(symbol, tf_map.get(timeframe, "5Min"), limit=limit, adjustment="raw").df
             if raw.empty:
+                print(f"[get_candles] Alpaca returned empty DataFrame for {symbol}")
                 return []
             raw.index = raw.index.astype(str)
             return [
@@ -1635,15 +1652,24 @@ def get_candles(symbol, asset_class, timeframe="5 Min", limit=100):
                 }
                 for idx, row in raw.iterrows()
             ]
-        except Exception:
+        except Exception as e:
+            print(f"[get_candles] Alpaca error for {symbol}: {e}\n{traceback.format_exc()}")
             return []
+
+    # Kraken native symbols → CCXT-normalized symbols
+    _kraken_sym_map = {
+        "XBT/USD": "BTC/USD", "XBT/EUR": "BTC/EUR",
+        "XDG/USD": "DOGE/USD", "XDG/EUR": "DOGE/EUR",
+        "XRP/USD": "XRP/USD",  # usually fine
+    }
+    ccxt_symbol = _kraken_sym_map.get(symbol, symbol)
 
     tf_map = {"1 Min": "1m", "5 Min": "5m", "15 Min": "15m", "1 H": "1h", "4 H": "4h", "1 D": "1d"}
     try:
         import ccxt
 
         exchange = ccxt.kraken({"enableRateLimit": True, "timeout": 10000})
-        rows = exchange.fetch_ohlcv(symbol, tf_map.get(timeframe, "5m"), limit=limit)
+        rows = exchange.fetch_ohlcv(ccxt_symbol, tf_map.get(timeframe, "5m"), limit=limit)
         return [
             {
                 "time": int(ts),
@@ -1654,7 +1680,8 @@ def get_candles(symbol, asset_class, timeframe="5 Min", limit=100):
             }
             for ts, o, h, l, c, _v in rows
         ]
-    except Exception:
+    except Exception as e:
+        print(f"[get_candles] CCXT/Kraken error for {symbol}: {e}\n{traceback.format_exc()}")
         return []
 
 
@@ -1847,8 +1874,11 @@ def _chart_bars_tradovate(symbol: str, timeframe: str, limit: int):
     global _tradovate_feed
     if not _tradovate_available or _tradovate_feed is None:
         return []
-    if not _tradovate_feed.is_connected():
-        return []
+
+    # If feed stopped due to inactivity (but not auth failure), restart it automatically
+    if not _tradovate_feed._running and not _tradovate_feed._auth_failed:
+        _tradovate_feed._last_client_activity = __import__('time').time()
+        _tradovate_feed.start()
 
     # Map dashboard symbol (e.g. "MES") → subscription name (e.g. "MESM6_5")
     tf_map = {'1m': 1, '2m': 2, '3m': 3, '5m': 5, '15m': 15, '30m': 30,
@@ -1861,11 +1891,37 @@ def _chart_bars_tradovate(symbol: str, timeframe: str, limit: int):
 
     sub_name = base_name if element_size == 5 else f"{base_name}_{element_size}"
 
-    # Dynamically subscribe if this element_size wasn't pre-registered
-    sym_id = TRADOVATE_SYMBOL_IDS.get(base_name)
-    if sym_id and sub_name not in _tradovate_feed._subscriptions:
+    # Dynamically subscribe if this timeframe wasn't pre-registered.
+    # Prefer a known numeric contract ID; fall back to REST lookup; last resort string name.
+    # Tradovate's md/getChart WS accepts both numeric IDs and string contract names.
+    if sub_name not in _tradovate_feed._subscriptions:
+        sym_id = TRADOVATE_SYMBOL_IDS.get(base_name)
+        if sym_id is None:
+            # Try REST lookup first (may fail with 401 if token has limited ACL)
+            looked_up = _tradovate_feed.lookup_symbol_id(base_name)
+            if looked_up:
+                TRADOVATE_SYMBOL_IDS[base_name] = looked_up
+                sym_id = looked_up
+                import logging as _lg
+                _lg.getLogger(__name__).info(
+                    "Tradovate: REST lookup %s → id=%d (cached)", base_name, looked_up)
+            else:
+                # Fall back to string contract name — the live WS accepts both formats
+                sym_id = base_name
+                import logging as _lg
+                _lg.getLogger(__name__).info(
+                    "Tradovate: using string name %s (REST lookup unavailable)", base_name)
         _tradovate_feed.subscribe(sub_name, symbol_id=sym_id,
                                   element_size=element_size)
+        # Send the subscription immediately if already authenticated
+        if _tradovate_feed._authenticated and _tradovate_feed._ws:
+            try:
+                _tradovate_feed._send_one_subscription(
+                    _tradovate_feed._ws, sub_name,
+                    _tradovate_feed._subscriptions[sub_name]
+                )
+            except Exception:
+                pass  # will be sent on next reconnect
 
     bars = _tradovate_feed.get_bars(sub_name)
     return bars[-limit:] if bars else []
@@ -1997,16 +2053,25 @@ def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
 
     # Futures: Tradovate real-time feed (if token active) → IBKR → yfinance
     if is_futures:
-        # Try Tradovate WebSocket cache first (real-time, ~0 delay)
-        tv_bars = _chart_bars_tradovate(symbol, timeframe, limit)
-        if tv_bars:
-            tv_bars.sort(key=lambda b: b['time'])
-            return {'bars': tv_bars[-limit:], 'markers': [], 'open_positions': [],
-                    'symbol': symbol, 'timeframe': timeframe, 'source': 'tradovate_rt'}
+        # Try Tradovate WebSocket cache first (real-time, ~0 delay).
+        # Always attempted unless user explicitly chose ibkr or yfinance in the toolbar.
+        force_yfinance  = broker == 'yfinance'
+        force_ibkr      = broker == 'ibkr'
+        force_tradovate = broker == 'tradovate'
+        if not force_yfinance and not force_ibkr:
+            tv_bars = _chart_bars_tradovate(symbol, timeframe, limit)
+            if tv_bars:
+                tv_bars.sort(key=lambda b: b['time'])
+                return {'bars': tv_bars[-limit:], 'markers': [], 'open_positions': [],
+                        'symbol': symbol, 'timeframe': timeframe, 'source': 'tradovate_rt'}
 
-        meta = FUTURES_META[symbol]
-        exchange = meta[0]
-        bars = _chart_bars_ibkr(symbol, timeframe, limit, sec_type='FUT', exchange=exchange)
+        # When Tradovate is explicitly selected, skip IBKR (avoids 30s timeout)
+        if force_yfinance or force_tradovate:
+            bars = []   # skip straight to yfinance below
+        else:
+            meta = FUTURES_META[symbol]
+            exchange = meta[0]
+            bars = _chart_bars_ibkr(symbol, timeframe, limit, sec_type='FUT', exchange=exchange)
         if not bars:
             # Build yfinance ticker candidates in priority order:
             #  1. Override mapping (e.g. MGC → GC=F, MES → ES=F)
@@ -2980,18 +3045,19 @@ def db_browse(table: str, limit: int = 500, offset: int = 0):
         return {"error": str(e)}
 
 _QUICK_SQL = {
-    "Open Today":      """SELECT trade_id,symbol,direction,status,strategy_name,entry_time,entry_price,stop_loss,take_profit,position_value,broker FROM trades WHERE status='open' AND DATE(entry_time)=DATE('now','localtime') ORDER BY entry_time DESC""",
-    "Closed Today":    """SELECT trade_id,symbol,direction,status,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','localtime') ORDER BY exit_time DESC""",
-    "All Open":        """SELECT trade_id,symbol,direction,status,strategy_name,entry_time,entry_price,stop_loss,take_profit,position_value,broker FROM trades WHERE status='open' ORDER BY entry_time DESC""",
-    "Ghost Trades":    """SELECT trade_id,symbol,direction,status,strategy_name,entry_time,entry_price,position_value,broker,ROUND((julianday('now','localtime')-julianday(entry_time))*24,1) AS hours_open FROM trades WHERE status='open' AND entry_time<datetime('now','-8 hours','localtime') ORDER BY entry_time ASC""",
+    # rowid is first column so the frontend edit-row feature works (applyResult strips it)
+    "Open Today":      """SELECT rowid,trade_id,symbol,direction,status,strategy_name,entry_time,entry_price,stop_loss,take_profit,position_value,broker FROM trades WHERE status='open' AND DATE(entry_time)=DATE('now','localtime') ORDER BY entry_time DESC""",
+    "Closed Today":    """SELECT rowid,trade_id,symbol,direction,status,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','localtime') ORDER BY exit_time DESC""",
+    "All Open":        """SELECT rowid,trade_id,symbol,direction,status,strategy_name,entry_time,entry_price,stop_loss,take_profit,position_value,broker FROM trades WHERE status='open' ORDER BY entry_time DESC""",
+    "Ghost Trades":    """SELECT rowid,trade_id,symbol,direction,status,strategy_name,entry_time,entry_price,position_value,broker,ROUND((julianday('now','localtime')-julianday(entry_time))*24,1) AS hours_open FROM trades WHERE status='open' AND entry_time<datetime('now','-8 hours','localtime') ORDER BY entry_time ASC""",
     "Capital Today":   """SELECT timestamp,total_capital,available_cash,invested_value,daily_pnl,total_pnl,note FROM capital WHERE DATE(timestamp)=DATE('now','localtime') ORDER BY timestamp DESC""",
-    "Settlement Queue":"""SELECT * FROM settlement_queue ORDER BY rowid DESC LIMIT 300""",
-    "By Strategy":     """SELECT trade_id,symbol,direction,status,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,broker FROM trades ORDER BY entry_time DESC LIMIT 500""",
+    "Settlement Queue":"""SELECT rowid,* FROM settlement_queue ORDER BY rowid DESC LIMIT 300""",
+    "By Strategy":     """SELECT rowid,trade_id,symbol,direction,status,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,broker FROM trades ORDER BY entry_time DESC LIMIT 500""",
     "Strategies":      """SELECT replace(key,'strategy_','') AS strategy, UPPER(value) AS enabled FROM bot_state WHERE key LIKE 'strategy_%_enabled' ORDER BY strategy""",
     "Daily P&L":       """SELECT trade_date,daily_pnl,daily_pnl_pct,total_trades,winning_trades,losing_trades,win_rate,largest_win,largest_loss,starting_capital,ending_capital FROM daily_summaries ORDER BY trade_date DESC LIMIT 60""",
-    "Yesterday Closed":"""SELECT trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','-1 day','localtime') ORDER BY exit_time DESC""",
-    "Signal Reviews":  """SELECT timestamp,symbol,direction,strategy_name,signal_score,decision,confidence,reasoning FROM ai_signal_reviews ORDER BY timestamp DESC LIMIT 200""",
-    "This Week Trades":"""SELECT trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker FROM trades WHERE status='closed' AND DATE(exit_time)>=DATE('now','-7 days','localtime') ORDER BY exit_time DESC""",
+    "Yesterday Closed":"""SELECT rowid,trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','-1 day','localtime') ORDER BY exit_time DESC""",
+    "Signal Reviews":  """SELECT rowid,timestamp,symbol,direction,strategy_name,signal_score,decision,confidence,reasoning FROM ai_signal_reviews ORDER BY timestamp DESC LIMIT 200""",
+    "This Week Trades":"""SELECT rowid,trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker FROM trades WHERE status='closed' AND DATE(exit_time)>=DATE('now','-7 days','localtime') ORDER BY exit_time DESC""",
     "Strategy P&L":    """SELECT strategy_name,COUNT(*) AS trades,SUM(CASE WHEN pnl>0 THEN 1 ELSE 0 END) AS wins,SUM(CASE WHEN pnl<=0 THEN 1 ELSE 0 END) AS losses,ROUND(100.0*SUM(CASE WHEN pnl>0 THEN 1 ELSE 0 END)/COUNT(*),1) AS win_rate_pct,ROUND(SUM(pnl),2) AS total_pnl,ROUND(SUM(CASE WHEN pnl>0 THEN pnl ELSE 0 END),2) AS gross_wins,ROUND(ABS(SUM(CASE WHEN pnl<=0 THEN pnl ELSE 0 END)),2) AS gross_losses,ROUND(SUM(CASE WHEN pnl>0 THEN pnl ELSE 0 END)/NULLIF(ABS(SUM(CASE WHEN pnl<=0 THEN pnl ELSE 0 END)),0),3) AS profit_factor FROM trades WHERE status='closed' GROUP BY strategy_name ORDER BY total_pnl DESC""",
     "💰 Financials":   """SELECT label,value,detail FROM (SELECT 'Total Capital' AS label,'$'||printf('%.2f',total_capital) AS value,'Cash: $'||printf('%.2f',available_cash)||'   Invested: $'||printf('%.2f',invested_value) AS detail FROM capital ORDER BY timestamp DESC LIMIT 1) UNION ALL SELECT label,value,detail FROM (SELECT 'Daily P&L (tracker)' AS label,(CASE WHEN daily_pnl>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',daily_pnl) AS value,'Cumulative: '||(CASE WHEN total_pnl>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',total_pnl) AS detail FROM capital ORDER BY timestamp DESC LIMIT 1) UNION ALL SELECT 'In Open Trades',('$'||printf('%.2f',COALESCE(SUM(position_value),0))),(CAST(COUNT(*) AS TEXT)||' open positions') FROM trades WHERE status='open' UNION ALL SELECT 'In Settlement',('$'||printf('%.2f',COALESCE(SUM(amount),0))),(CAST(COUNT(*) AS TEXT)||' unsettled items') FROM settlement_queue WHERE settled=0 UNION ALL SELECT 'Today Closed P&L',((CASE WHEN COALESCE(SUM(pnl),0)>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',COALESCE(SUM(pnl),0))),(CAST(COUNT(*) AS TEXT)||' trades  '||CAST(SUM(CASE WHEN pnl>0 THEN 1 ELSE 0 END) AS TEXT)||'W / '||CAST(SUM(CASE WHEN pnl<=0 THEN 1 ELSE 0 END) AS TEXT)||'L') FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','localtime') UNION ALL SELECT 'Yesterday P&L',((CASE WHEN COALESCE(SUM(pnl),0)>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',COALESCE(SUM(pnl),0))),(CAST(COUNT(*) AS TEXT)||' trades  '||CAST(SUM(CASE WHEN pnl>0 THEN 1 ELSE 0 END) AS TEXT)||'W / '||CAST(SUM(CASE WHEN pnl<=0 THEN 1 ELSE 0 END) AS TEXT)||'L') FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','-1 day','localtime') UNION ALL SELECT 'This Week P&L',((CASE WHEN COALESCE(SUM(pnl),0)>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',COALESCE(SUM(pnl),0))),(CAST(COUNT(*) AS TEXT)||' trades') FROM trades WHERE status='closed' AND DATE(exit_time)>=DATE('now','-7 days','localtime') UNION ALL SELECT 'This Month P&L',((CASE WHEN COALESCE(SUM(pnl),0)>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',COALESCE(SUM(pnl),0))),(CAST(COUNT(*) AS TEXT)||' trades') FROM trades WHERE status='closed' AND strftime('%Y-%m',exit_time)=strftime('%Y-%m','now','localtime')""",
 }
@@ -3061,18 +3127,27 @@ def db_search(data: dict):
         return {"error": str(e)}
 
 def db_edit_row(data: dict):
-    table   = data.get("table","")
-    rowid   = data.get("rowid")
-    col     = data.get("col","")
-    new_val = data.get("value","")
-    if not table or rowid is None or not col:
-        return False, "Missing table/rowid/col"
+    table    = data.get("table","")
+    rowid    = data.get("rowid")
+    trade_id = data.get("trade_id")
+    col      = data.get("col","")
+    new_val  = data.get("value","")
+    if not table or not col:
+        return False, "Missing table/col"
+    if rowid is None and not trade_id:
+        return False, "Missing rowid/trade_id"
     try:
         with _db_conn() as c:
-            c.execute(f"UPDATE [{table}] SET [{col}]=? WHERE rowid=?",
-                      (new_val, rowid))
+            if rowid is not None:
+                c.execute(f"UPDATE [{table}] SET [{col}]=? WHERE rowid=?",
+                          (new_val, rowid))
+            else:
+                # Fallback: quick-query views don't return rowid, use trade_id
+                c.execute(f"UPDATE [{table}] SET [{col}]=? WHERE trade_id=?",
+                          (new_val, trade_id))
             c.commit()
-        return True, f"Updated {table} rowid={rowid} {col}={new_val}"
+        ref = f"rowid={rowid}" if rowid is not None else f"trade_id={trade_id}"
+        return True, f"Updated {table} {ref} {col}={new_val}"
     except Exception as e:
         return False, str(e)
 
@@ -3318,6 +3393,14 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/chart/symbols":
             return self._json(200, {"symbols": get_chart_symbols()})
 
+        if path == "/api/theme":
+            _theme_path = Path(__file__).parent / "config" / "theme.json"
+            try:
+                theme = json.loads(_theme_path.read_text()) if _theme_path.exists() else {}
+            except Exception:
+                theme = {}
+            return self._json(200, {"theme": theme})
+
         if path == "/api/tradovate_status":
             if not _tradovate_available:
                 return self._json(200, {"available": False, "connected": False})
@@ -3459,6 +3542,8 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_header("Content-Type", mime)
                 self._cors_headers()
                 self.send_header("Content-Length", str(len(content)))
+                if file_path.suffix in (".jsx", ".js"):
+                    self.send_header("Cache-Control", "no-store")
                 self.end_headers()
                 self.wfile.write(content)
                 return
@@ -3473,32 +3558,124 @@ class Handler(BaseHTTPRequestHandler):
         body_raw = self.rfile.read(length).decode("utf-8") if length else "{}"
         data = json.loads(body_raw or "{}")
 
+        global _tradovate_feed, _tradovate_available
+
+        # ── Tradovate debug (no auth needed) ─────────────────────────────────
+        if path == "/api/tradovate_debug":
+            from core.tradovate_feed import _bar_cache, _cache_lock
+            snap = {}
+            if _tradovate_feed is not None:
+                with _cache_lock:
+                    for k, q in _bar_cache.items():
+                        bars = list(q)
+                        snap[k] = {"count": len(bars), "last_bar": bars[-1] if bars else None}
+                return self._json(200, {
+                    "connected":    _tradovate_feed.is_connected(),
+                    "auth_failed":  _tradovate_feed.is_auth_failed(),
+                    "running":      _tradovate_feed._running,
+                    "ws_url":       _tradovate_feed._ws_url,
+                    "subscriptions": list(_tradovate_feed._subscriptions.keys()),
+                    "chart_id_map": {str(k): v for k, v in _tradovate_feed._chart_id_map.items()},
+                    "cache": snap,
+                })
+            return self._json(200, {"status": "no_feed"})
+
+        # ── Theme persistence ─────────────────────────────────────────────────
+        if path == "/api/theme":
+            _theme_path = Path(__file__).parent / "config" / "theme.json"
+            theme = data.get("theme")
+            if not isinstance(theme, dict):
+                return self._json(400, {"ok": False, "error": "theme must be an object"})
+            try:
+                _theme_path.parent.mkdir(parents=True, exist_ok=True)
+                _theme_path.write_text(json.dumps(theme, indent=2))
+                return self._json(200, {"ok": True})
+            except Exception as e:
+                return self._json(500, {"ok": False, "error": str(e)})
+
         # ── Tradovate real-time feed token ────────────────────────────────────
         if path == "/api/tradovate_token":
-            global _tradovate_feed, _tradovate_available
             if not _tradovate_available:
                 return self._json(503, {"ok": False, "error": "tradovate_feed module not available"})
             token = data.get("token", "").strip()
             if not token:
                 return self._json(400, {"ok": False, "error": "token is required"})
+
+            # ── Auto-detect live vs demo from JWT payload ─────────────────────
+            # JWT middle segment (payload) is base64url-encoded JSON.
+            # envEndpoint.marketData tells us exactly which server to use.
+            def _detect_use_live(jwt: str) -> bool:
+                try:
+                    import base64, json as _json
+                    raw = jwt[jwt.index("eyJ"):]          # strip any Bearer prefix
+                    parts = raw.split(".")
+                    if len(parts) < 2:
+                        return False
+                    pad = parts[1] + "=="                  # fix base64 padding
+                    payload = _json.loads(base64.urlsafe_b64decode(pad))
+                    md_url = (payload.get("envEndpoint") or {}).get("marketData", "")
+                    return "md-live" in md_url             # live account → live WS
+                except Exception:
+                    return False                           # default to demo
+
+            _use_live = _detect_use_live(token)
+            import logging as _lg2
+            _lg2.getLogger(__name__).warning(
+                "Tradovate token inject: use_live=%s", _use_live
+            )
+
             if _tradovate_feed is None:
                 from core.tradovate_feed import init_feed as _tv_init_feed
-                _tradovate_feed = _tv_init_feed(token=token)
+                # init_feed pre-subscribes MESM6 + MNQM6 (1/3/5m each)
+                _tradovate_feed = _tv_init_feed(token=token, use_live=_use_live)
             else:
-                # reset_auth clears the auth-failed flag and updates token
-                _tradovate_feed.reset_auth(token)
-                if not _tradovate_feed._running:
-                    # Feed was stopped (auth failure or inactivity) — restart it
-                    _tradovate_feed.stop()   # ensure WS closed
+                # If the user switched accounts (demo↔live), recreate the feed
+                # with the correct WS URL rather than reusing the old one
+                from core.tradovate_feed import WS_URL_LIVE, WS_URL_DEMO
+                _needed_url = WS_URL_LIVE if _use_live else WS_URL_DEMO
+                if _tradovate_feed._ws_url != _needed_url:
+                    # Different endpoint — spin up a fresh feed instance
+                    _tradovate_feed.stop()
                     import time as _time; _time.sleep(0.3)
-                    _tradovate_feed._authenticated = False
-                    _tradovate_feed.start()
+                    from core.tradovate_feed import init_feed as _tv_init_feed2
+                    _tradovate_feed = _tv_init_feed2(token=token, use_live=_use_live)
                 else:
-                    # Feed still running — stop and reconnect with new token
+                    # Same endpoint — reset auth and restart
+                    _tradovate_feed.reset_auth(token)
+
+                    # Ensure MNQM6 subscriptions exist
+                    for _mnq_name, _mnq_es in [("MNQM6", 5), ("MNQM6_1", 1), ("MNQM6_3", 3)]:
+                        if _mnq_name not in _tradovate_feed._subscriptions:
+                            _tradovate_feed.subscribe(_mnq_name, symbol_id="MNQM6",
+                                                      element_size=_mnq_es)
+
+                    # Stop and restart so new token takes effect
                     _tradovate_feed.stop()
                     import time as _time; _time.sleep(0.3)
                     _tradovate_feed._authenticated = False
                     _tradovate_feed.start()
+
+            # Pre-resolve contract IDs for all symbols in the map (background thread)
+            # so the first chart request always has a numeric ID ready.
+            def _prefetch_contract_ids(feed, sym_map, id_cache):
+                import logging as _lg
+                _log = _lg.getLogger(__name__)
+                for root, contract_name in sym_map.items():
+                    if contract_name not in id_cache:
+                        cid = feed.lookup_symbol_id(contract_name)
+                        if cid:
+                            id_cache[contract_name] = cid
+                            _log.info("Tradovate pre-fetch: %s → id=%d", contract_name, cid)
+                        else:
+                            _log.warning("Tradovate pre-fetch: could not resolve %s", contract_name)
+            import threading as _threading
+            _threading.Thread(
+                target=_prefetch_contract_ids,
+                args=(_tradovate_feed, TRADOVATE_SYMBOL_MAP, TRADOVATE_SYMBOL_IDS),
+                name="tv-prefetch-ids",
+                daemon=True,
+            ).start()
+
             return self._json(200, {"ok": True, "message": "Tradovate feed started"})
 
         if path == "/api/tradovate_stop":
@@ -3506,7 +3683,7 @@ class Handler(BaseHTTPRequestHandler):
             # futures chart tab is closed — prevents zombie reconnect loops.
             if _tradovate_feed is not None:
                 _tradovate_feed.stop()
-                logger.info("TradovateFeed: stopped via /api/tradovate_stop")
+                import logging as _lg; _lg.getLogger(__name__).info("TradovateFeed: stopped via /api/tradovate_stop")
             return self._json(200, {"ok": True, "message": "Tradovate feed stopped"})
 
         # ── Auth endpoints (no session required) ──────────────────────────────

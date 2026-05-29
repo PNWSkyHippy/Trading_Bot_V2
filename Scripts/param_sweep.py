@@ -422,7 +422,7 @@ def print_summary(results, metric: str, top_n: int = 20):
 # ---------------------------------------------------------------------------
 
 def run_matrix(opt, strategy_name, param_ranges, symbols, metric, run_kwargs,
-               out_dir, label, strategy_name_label):
+               out_dir, label, strategy_name_label, skip: int = 0):
     """Exhaustive grid: every combination of param step values."""
     import itertools
     from intelligence.optimizer import ParamRange
@@ -432,7 +432,12 @@ def run_matrix(opt, strategy_name, param_ranges, symbols, metric, run_kwargs,
     combos = list(itertools.product(*grids))
     total  = len(combos)
 
-    print(f"\nMatrix mode: {total:,} combinations across {len(symbols)} symbol(s)")
+    if skip:
+        print(f"\nResuming: skipping first {skip} combos (already done).")
+        combos = combos[skip:]
+
+    print(f"\nMatrix mode: {total:,} combinations across {len(symbols)} symbol(s) "
+          f"(running {len(combos):,} remaining)")
     if total > 5000:
         print(f"WARNING: {total:,} combos × {len(symbols)} symbols = "
               f"{total * len(symbols):,} backtests — this may take a very long time.")
@@ -794,6 +799,7 @@ def cmd_sweep(args):
         results = run_matrix(
             opt, strategy_name, param_ranges, symbols,
             args.metric, run_kwargs, out_dir, label, strategy_name,
+            skip=args.skip,
         )
 
     elif args.method == "zoom":
@@ -938,6 +944,8 @@ if __name__ == "__main__":
     parser.add_argument("--label", default="",
                         metavar="TEXT",
                         help="Optional label appended to report filename.")
+    parser.add_argument("--skip", type=int, default=0, metavar="N",
+                        help="Skip first N combos (matrix/zoom resume after interruption).")
 
     args = parser.parse_args()
 

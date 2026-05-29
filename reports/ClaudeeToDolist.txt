@@ -1,4 +1,0 @@
-chronos connector, when not enabed, shouldn't keep trying to validate through my
-tradovate account and failing all the time
-Please open reports\QuarterHourlyLogScan.md and take are of the issues youu
-find logged about.

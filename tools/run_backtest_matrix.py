@@ -47,7 +47,7 @@ DEFAULT_STRATEGIES = [
     # Phase 2 new / overhauled (22-30)
     "btc_v6_chandelier", "rsi_dip_simple", "pll_cycle",
     "kds_mean_reversion", "ema_ribbon_breakout", "rcr_mean_reversion",
-    "cbae_strategy", "rare_strategy", "fels_strategy",
+    "cbae_strategy", "rare_strategy", "fels_strategy", "map_strategy",
     # pll_cycle_martingale excluded — permanently disabled in DB
 ]
 
@@ -146,12 +146,26 @@ PARAM_SWEEP_DEFS: Dict[str, Dict[str, list]] = {
         "atr_mult":   [3.0, 3.5, 4.0, 4.5, 5.0, 5.5],
         "adx_min":    [18.0, 20.0, 22.0, 25.0],
     },
+    # map_strategy: MapParams fields
+    "map_strategy": {
+        "sl_mult":    [1.5, 2.0, 2.5, 3.0],
+        "tp_mult":    [2.0, 3.0, 4.0, 5.0, 6.0],
+        "adx_thresh": [16.0, 18.0, 20.0, 22.0, 25.0],
+        "min_r1":     [0.002, 0.003, 0.004, 0.005],
+        "min_r2":     [0.004, 0.005, 0.006, 0.007],
+        "min_r3":     [0.006, 0.008, 0.010, 0.012],
+    },
+
+
+
+
     # rsi_dip_simple: RSIDipSimpleParams fields
     "rsi_dip_simple": {
         "rsi_oversold": [20.0, 22.0, 25.0, 28.0, 30.0],
         "rsi_exit":     [68.0, 72.0, 75.0, 80.0, 85.0],
         "sl_atr_mult":  [2.0, 2.5, 3.0, 3.5],
     },
+
     # mr_03_fbs: MR03Params fields
     "mr_03_fbs": {
         "bb_len":    [15, 20, 25, 30],

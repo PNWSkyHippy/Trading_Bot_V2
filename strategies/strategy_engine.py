@@ -49,6 +49,7 @@ from strategies.rcr_mean_reversion import RCRMeanReversionStrategy
 from strategies.cbae_strategy import CBAEStrategy
 from strategies.rare_strategy import RAREStrategy
 from strategies.fels_strategy import FELSStrategy
+from strategies.map_strategy import MAPStrategy
 from data.database import db
 
 logger = logging.getLogger(__name__)
@@ -109,13 +110,13 @@ class StrategyEngine:
             CBAEStrategy(),                          # Strategy 28 — Candle Body Asymmetry Exhaustion (WATCHLIST)
             RAREStrategy(),                          # Strategy 29 — Regime Autocorrelation Reversal Entry (WATCHLIST)
             FELSStrategy(),                          # Strategy 30 — Failed Extension Liquidity Sweep (WATCHLIST)
+            MAPStrategy(),                           # Strategy 31 — MAP Multi-Period Alignment (CANDIDATE) BTC 4h PF1.54 WR44%
         ]
 
         self._load_strategy_states()
 
         logger.info(
-            f"Strategy engine initialized with {len(self.strategies)} strategies "
-            f"(vwap_confirmed_orb included):"
+            f"Strategy engine initialized with {len(self.strategies)} strategies:"
         )
         for s in self.strategies:
             status  = "ENABLED"  if s.enabled           else "DISABLED"

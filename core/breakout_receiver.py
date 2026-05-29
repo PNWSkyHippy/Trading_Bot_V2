@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 # ── Tuning constants ────────────────────────────────────────────────────────
 SIGNAL_TTL_SEC          = 60
-VOLUME_SPIKE_MIN        = 1.5
+VOLUME_SPIKE_MIN        = 2.0   # raised from 1.5 — real breakouts need at least 2x volume
 WICK_BODY_MAX_RATIO     = 2.0
 GAP_TRAP_MAX_PCT        = 30.0
 PRICE_DRIFT_MAX_PCT     = 0.5
@@ -41,8 +41,15 @@ MARKET_CRASH_THRESHOLD  = -2.0
 MARKET_RALLY_THRESHOLD  = +2.0
 MIN_SOFT_PASSES         = 0
 MIN_PRICE_CRYPTO        = 0.01   # reject sub-penny crypto — micro-caps with no liquidity
+MAX_CONCURRENT_BREAKOUTS= 2      # max open breakout_scanner positions at once — stops burst entries
 PUMP_VOLUME_SPIKE_MAX   = 15.0   # volume spike above this = coordinated pump (organic breaks rarely > 10x)
 PUMP_MOVE_MAX_CRYPTO    = 15.0   # crypto move above this % = likely already at pump peak, not start
+
+# Quiet hours — crypto breakouts during thin market hours (00:00–05:00 UTC) are
+# mostly noise: no institutional flow, spreads widen, micro-moves look like breakouts.
+# US session (13:00–21:00 UTC) and Asia open (00:00 excluded) are the liquid windows.
+QUIET_HOURS_START_UTC   = 0      # midnight UTC
+QUIET_HOURS_END_UTC     = 5      # 5am UTC (covers US dead zone + thin Asia pre-market)
 
 BREAKOUT_SYMBOL_BLACKLIST = {"MLN/USD", "MLNUSD", "MLN/USDT", "MLNUSDT"}
 
@@ -109,6 +116,14 @@ class ChecklistResult:
 
 
 class BreakoutReceiver:
+    # Class-level slot counter — shared across all threads, prevents burst race.
+    # When 5 FundingScanner signals arrive simultaneously, each grabs a slot
+    # BEFORE any is committed to the DB, so _check_concurrent_breakouts using
+    # DB-only counts would allow all 5 through.  This counter reserves in-flight
+    # slots atomically; it is decremented after the trade completes or fails.
+    _slot_lock        = threading.Lock()
+    _slots_used       = 0    # breakout positions currently open OR being processed
+    _slots_reserved   = set()  # symbols whose slot is currently held (thread-safe via _slot_lock)
 
     def __init__(self):
         self._executor: Optional[TradeExecutor] = None
@@ -158,6 +173,13 @@ class BreakoutReceiver:
         finally:
             with self._pending_lock:
                 self._pending_symbols.discard(sym)
+            # Release the slot only if this signal reserved one (i.e., passed the
+            # concurrent check).  Signals that failed before reaching that check
+            # never took a slot and must NOT decrement.
+            with BreakoutReceiver._slot_lock:
+                if sym in BreakoutReceiver._slots_reserved:
+                    BreakoutReceiver._slots_reserved.discard(sym)
+                    BreakoutReceiver._slots_used = max(0, BreakoutReceiver._slots_used - 1)
 
     def _receive_signal_inner(
         self,
@@ -291,6 +313,8 @@ class BreakoutReceiver:
             self._check_daily_symbol_limit(p),
             self._check_not_in_cooldown(p),
             self._check_trading_not_halted(),
+            self._check_quiet_hours(p),
+            self._check_concurrent_breakouts(p),
             self._check_min_price(p),
             self._check_price_still_moving(p),
             self._check_volume_elevated(p),
@@ -346,7 +370,7 @@ class BreakoutReceiver:
         last = getattr(risk_manager, "_last_closed", {}).get(sym)
         if last:
             elapsed  = time.time() - last.get("time", 0)
-            cooldown = 120 if last.get("won") else 600
+            cooldown = 1800 if last.get("won") else 600  # win=30min, loss=10min
             if elapsed < cooldown:
                 esc = int(p.get("escalation") or 0)
                 if last.get("won") and p.get("bypass_win_cooldown"):
@@ -411,6 +435,53 @@ class BreakoutReceiver:
         except Exception as e:
             return ChecklistResult.fail(f"Price re-verify exception: {e}")
 
+    def _check_quiet_hours(self, p: Dict) -> ChecklistResult:
+        """Block crypto breakout entries during thin-volume hours (00:00–05:00 UTC).
+        Stocks are unaffected — they only trade during exchange hours anyway.
+        """
+        asset = str(p.get("asset_class", "")).lower()
+        if "crypto" not in asset:
+            return ChecklistResult.ok("Stocks not subject to quiet hours")
+        hour_utc = datetime.utcnow().hour
+        if QUIET_HOURS_START_UTC <= hour_utc < QUIET_HOURS_END_UTC:
+            return ChecklistResult.fail(
+                f"Quiet hours ({QUIET_HOURS_START_UTC:02d}:00–{QUIET_HOURS_END_UTC:02d}:00 UTC) "
+                f"— crypto volume too thin for reliable breakouts (now {hour_utc:02d}:xx UTC)"
+            )
+        return ChecklistResult.ok(f"Outside quiet hours ({hour_utc:02d}:xx UTC)")
+
+    def _check_concurrent_breakouts(self, p: Dict) -> ChecklistResult:
+        """Limit simultaneous open breakout_scanner positions to MAX_CONCURRENT_BREAKOUTS.
+
+        Uses a class-level slot counter (not just DB count) to handle bursts where
+        5 signals arrive simultaneously before any are committed to the DB.
+        Slots are reserved here (by adding sym to _slots_reserved) and released in
+        receive_signal's finally block.  Only signals that pass this check hold a slot.
+        """
+        sym = p.get("symbol", "?")
+        with BreakoutReceiver._slot_lock:
+            # Sync counter to reality: DB is the ground truth for already-open trades;
+            # the in-memory counter adds slots that are being processed right now but
+            # not yet in DB.  On restart the counter starts at 0 and syncs to DB.
+            open_trades = db.get_open_trades() or []
+            db_count = len([t for t in open_trades
+                            if t.get("strategy_name") == "breakout_scanner"])
+            # The counter may lag if a position closed since last update; clamp up to db_count.
+            BreakoutReceiver._slots_used = max(BreakoutReceiver._slots_used, db_count)
+            current = BreakoutReceiver._slots_used
+            if current >= MAX_CONCURRENT_BREAKOUTS:
+                return ChecklistResult.fail(
+                    f"Already {current} breakout_scanner position(s) in-flight/open "
+                    f"(max={MAX_CONCURRENT_BREAKOUTS}) — wait for one to close before adding more"
+                )
+            # Reserve a slot — this is the atomic claim that prevents burst races.
+            BreakoutReceiver._slots_used += 1
+            BreakoutReceiver._slots_reserved.add(sym)
+
+        return ChecklistResult.ok(
+            f"Concurrent breakouts: {current}/{MAX_CONCURRENT_BREAKOUTS} (slot reserved)"
+        )
+
     def _check_min_price(self, p: Dict) -> ChecklistResult:
         asset = str(p.get("asset_class", "")).lower()
         price = float(p.get("current_price") or p.get("entry_price") or 0)
@@ -423,8 +494,16 @@ class BreakoutReceiver:
     def _check_volume_elevated(self, p: Dict) -> ChecklistResult:
         vol = float(p.get("volume_spike", 0))
         if vol <= 0 or vol == 1.0:
-            return ChecklistResult.skip(
-                f"Volume spike is {vol:.2f}x (missing/default volume history) — skipping"
+            # FundingScanner doesn't have volume data — its edge is funding rate
+            # extremes, not breakout momentum.  Skip the volume check so it can
+            # still trade.  BreakoutScanner must have real volume data; fail hard.
+            if p.get("signal_source") == "funding_scanner":
+                return ChecklistResult.skip(
+                    f"Volume spike is {vol:.2f}x (funding scanner — volume N/A, rate-based signal)"
+                )
+            return ChecklistResult.fail(
+                f"No volume baseline available ({vol:.2f}x) — cannot confirm breakout volume. "
+                f"Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation."
             )
         if vol < VOLUME_SPIKE_MIN:
             esc = int(p.get("escalation") or 0)
@@ -518,8 +597,8 @@ class BreakoutReceiver:
         dist_pct    = p.get("distance_from_breakout_pct")
         rsi         = p.get("rsi")
 
-        MAX_BARS_SINCE    = 2    # spec: reject if >= 2, so max allowed = 1 fresh bar
-        MAX_DIST_FROM_LVL = 2.0  # spec: crypto hot = 2.0%, moving = 1.5% — 2.0 is the safe cap
+        MAX_BARS_SINCE    = 3    # reverted: 2 was too tight, scanner was silent — 3 bars = 15m on 5m
+        MAX_DIST_FROM_LVL = 6.0  # reverted: 2.0% killed nearly all signals — 6.0% is the proven working cap
         RSI_EXHAUST_LONG  = 78
         RSI_EXHAUST_SHORT = 22
 

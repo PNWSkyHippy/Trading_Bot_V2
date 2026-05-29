@@ -53,11 +53,36 @@ class TwoBarStopEngine:
         """
         Live/paper entry: bars = all recently fetched CLOSED bars.
         Stop uses the N bars immediately before the last bar (the signal bar).
+
+        Side-validation: if the computed stop is on the wrong side of the
+        signal-bar close (e.g. all prior lows are above entry after a sharp
+        gap-down long entry), fall back to a 2% percent-based stop so callers
+        always receive a logically valid value rather than passing a bad stop
+        all the way to the executor.
         """
-        end    = len(bars) - 1          # exclude the signal bar
-        start  = max(0, end - self.lookback)
-        window = bars.iloc[start:end]
-        return self._stop_from_window(window, direction, float(bars.iloc[-1]["close"]))
+        end       = len(bars) - 1          # exclude the signal bar
+        start     = max(0, end - self.lookback)
+        window    = bars.iloc[start:end]
+        entry     = float(bars.iloc[-1]["close"])
+        raw_stop  = self._stop_from_window(window, direction, entry)
+
+        # Validate side: stop must protect the position, not imprison it.
+        if direction == "long" and raw_stop >= entry:
+            import logging as _l
+            _l.getLogger(__name__).debug(
+                "initial_stop_from_tail: long stop %.6f >= entry %.6f — "
+                "using 2%% fallback", raw_stop, entry
+            )
+            return round(entry * 0.98, 6)
+        if direction == "short" and raw_stop <= entry:
+            import logging as _l
+            _l.getLogger(__name__).debug(
+                "initial_stop_from_tail: short stop %.6f <= entry %.6f — "
+                "using 2%% fallback", raw_stop, entry
+            )
+            return round(entry * 1.02, 6)
+
+        return raw_stop
 
     def _stop_from_window(self, window: pd.DataFrame,
                           direction: str, fallback_price: float) -> float:

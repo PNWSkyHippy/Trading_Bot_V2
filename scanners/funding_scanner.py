@@ -121,10 +121,9 @@ class FundingScanner(BaseEventScanner):
     # ------------------------------------------------------------------
 
     def _refresh_rates(self) -> None:
-        """Pull latest funding rates. Try Bybit first, fall back to Kraken Futures."""
-        rates = self._fetch_bybit()
-        if not rates:
-            rates = self._fetch_kraken()
+        """Pull latest funding rates from Kraken Futures.
+        Bybit is geo-blocked for US IPs — skipped entirely."""
+        rates = self._fetch_kraken()
         if rates:
             self._bybit_cache = rates
             self._last_fetch  = time.time()

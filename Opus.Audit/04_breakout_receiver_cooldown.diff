@@ -1,0 +1,16 @@
+--- a/core/breakout_receiver.py
++++ b/core/breakout_receiver.py
+@@ -370,7 +370,11 @@ def _check_not_in_cooldown(self, p: Dict) -> ChecklistResult:
+         last = getattr(risk_manager, "_last_closed", {}).get(sym)
+         if last:
+             elapsed  = time.time() - last.get("time", 0)
+-            cooldown = 1800 if last.get("won") else 600  # win=30min, loss=10min
++            # FIXED (Opus audit 2026-05-29): cooldown was INVERTED — it locked
++            # winning symbols out for 30min and losers for only 10min, the
++            # opposite of intent and of risk_manager (win=2min, loss=10min).
++            # A breakout winner is exactly the fast-mover we want to re-enter.
++            # Align to risk_manager: short win cooldown, long loss cooldown.
++            cooldown = 120 if last.get("won") else 600   # win=2min, loss=10min
+             if elapsed < cooldown:
+                 esc = int(p.get("escalation") or 0)
+                 if last.get("won") and p.get("bypass_win_cooldown"):

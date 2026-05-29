@@ -38,10 +38,10 @@ from typing import Optional
 @dataclass
 class RSIDipSimpleParams:
     rsi_length:   int   = 7
-    rsi_oversold: float = 25.0   # tuned 2026-05-25 v3 matrix (was 26.0)
-    rsi_exit:     float = 75.0   # tuned 2026-05-25 v3 matrix (was 82.5) — exit earlier on crypto
+    rsi_oversold: float = 16.0   # tuned 2026-05-25 v3 matrix (was 26.0)
+    rsi_exit:     float = 85.33   # tuned 2026-05-25 v3 matrix (was 82.5) — exit earlier on crypto
     atr_length:   int   = 14
-    sl_atr_mult:  float = 3.0    # hard stop — added vs original Pine
+    sl_atr_mult:  float = 1.25    # hard stop — added vs original Pine
     max_bars_hold: int  = 72     # 3 days on 1h — safety net
 
 

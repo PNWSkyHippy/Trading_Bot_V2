@@ -1,0 +1,73 @@
+--- a/core/risk_manager.py
++++ b/core/risk_manager.py
+@@ -459,6 +459,7 @@ def calculate_trailing_stop(self, trade, current_price, bars=None):
+         direction  = trade["direction"]
+         current_sl = trade["stop_loss"]
+         updates    = {}
++        entry      = float(trade.get("entry_price") or 0)
+
+         if bars is not None and len(bars) >= 3:
+             from core.stop_engine import stop_engine
+             triggered, new_sl = stop_engine.check_for_trail_update(
+                 bars, current_sl, direction
+             )
+-            if triggered:
++            if triggered and self._trail_clears_fee_hurdle(trade, new_sl, entry, direction):
+                 updates["stop_loss"] = round(new_sl, 4)
+                 logger.info(
+                     f"[TWO-BAR TRAIL] {trade['symbol']}: "
+                     f"${current_sl:.4f} -> ${new_sl:.4f}"
+                 )
+         else:
+             trailing_gap = config.TRAILING_STOP_PCT / 100
+             if direction == "long":
+                 new_sl = current_price * (1 - trailing_gap)
+-                if new_sl > current_sl:
++                if new_sl > current_sl and self._trail_clears_fee_hurdle(trade, new_sl, entry, direction):
+                     updates["stop_loss"] = round(new_sl, 4)
+                     logger.warning(
+                         f"[PERCENT TRAIL fallback] {trade['symbol']}: "
+                         f"${current_sl:.4f} -> ${new_sl:.4f} — bars unavailable"
+                     )
+             elif direction == "short":
+                 new_sl = current_price * (1 + trailing_gap)
+-                if new_sl < current_sl:
++                if new_sl < current_sl and self._trail_clears_fee_hurdle(trade, new_sl, entry, direction):
+                     updates["stop_loss"] = round(new_sl, 4)
+                     logger.warning(
+                         f"[PERCENT TRAIL fallback] {trade['symbol']}: "
+                         f"${current_sl:.4f} -> ${new_sl:.4f} — bars unavailable"
+                     )
+
+         return updates if updates else None
+
++    def _trail_clears_fee_hurdle(self, trade, new_sl, entry, direction) -> bool:
++        """
++        Profit-activation gate (Opus audit 2026-05-29).
++
++        A trailing stop may move INTO the profit zone (past entry) only if the
++        gain it would lock clears the asset's round-trip fee hurdle plus a
++        buffer. This prevents the ETH/USD-style exit: a trailing stop locking
++        +0.41% on crypto where the round-trip fee is 0.62% => a NET LOSS booked
++        as a 'stop'. Below the gate, the original (wider) protective stop stands
++        and the trade is given room to reach a real, fee-clearing profit.
++
++        Stops that are still on the LOSS side of entry are always allowed
++        (that is normal protective trailing and must not be blocked).
++        """
++        if entry <= 0:
++            return True
++        asset = trade.get("asset_class", "crypto")
++        min_net = (config.MIN_NET_PROFIT_CRYPTO_PCT if asset == "crypto"
++                   else config.MIN_NET_PROFIT_STOCK_PCT) / 100.0
++        if direction == "long":
++            # locking profit means stop above entry
++            if new_sl <= entry:
++                return True                      # still protective — allow
++            locked = (new_sl - entry) / entry
++            return locked >= min_net
++        else:  # short: locking profit means stop below entry
++            if new_sl >= entry:
++                return True                      # still protective — allow
++            locked = (entry - new_sl) / entry
++            return locked >= min_net
