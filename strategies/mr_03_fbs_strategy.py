@@ -18,16 +18,41 @@ Key design decisions (v5):
     - Time stop at 36 bars: sweep showed 36-bar plateau outperforms 48-72
     - ATR-based TP/SL: emergency guards only (time stop is the primary exit)
 
+Sentiment gate (v5.1):
+    Live performance showed catastrophic losses when shorting into BULLISH sessions
+    (16.7% WR, -$127 in a single BULLISH day, 2026-05-25).
+    Root cause: no market regime awareness — strategy shorted all morning into
+    9/9 green sectors, conviction 72 BULLISH.
+    Fix: block shorts when sentiment is BULLISH; block longs when BEARISH.
+    Neutral/Unknown → pass through (conservative default).
+
 Backtest results (BTCUSDT 1h, 2022-2025):
     v4 long-only (above SMA200): 209 trades | PF 1.39 | WR 56.0% | +6.83%
     v5 best combo (both dirs):   227 trades | PF 1.07 | WR 61.7% | +0.73%
     Note: long-only above SMA200 significantly outperforms both-dirs
 """
 
+import logging
 import numpy as np
 import pandas as pd
 from dataclasses import dataclass
 from typing import Optional
+
+_log = logging.getLogger(__name__)
+
+
+def _get_market_sentiment() -> str:
+    """
+    Return the current morning-briefing sentiment ("BULLISH", "BEARISH",
+    "NEUTRAL", or "UNKNOWN").  Fails silently so a reviewer outage never
+    blocks trade signals.
+    """
+    try:
+        from intelligence.claude_reviewer import claude_reviewer
+        ctx = claude_reviewer.get_morning_context()
+        return (ctx.market_sentiment or "UNKNOWN").upper()
+    except Exception:
+        return "UNKNOWN"
 
 # ─── Parameters ───────────────────────────────────────────────────────────────
 
@@ -155,6 +180,26 @@ class MR03FBSStrategy(BaseStrategy):
                 return None
 
             direction = "long" if long_sig else "short"
+
+            # ── Sentiment gate (v5.1) ──────────────────────────────────────
+            # Block shorts during BULLISH sessions and longs during BEARISH.
+            # Live data showed 16.7% WR when shorting into confirmed bull
+            # sessions (2026-05-25 case study: -$127 in a single BULLISH day).
+            # NEUTRAL and UNKNOWN are permissive (no data = no block).
+            sentiment = _get_market_sentiment()
+            if direction == "short" and sentiment == "BULLISH":
+                _log.debug(
+                    "[MR03] %s SHORT blocked — morning sentiment is BULLISH "
+                    "(regime gate)", symbol
+                )
+                return None
+            if direction == "long" and sentiment == "BEARISH":
+                _log.debug(
+                    "[MR03] %s LONG blocked — morning sentiment is BEARISH "
+                    "(regime gate)", symbol
+                )
+                return None
+
             close     = float(last["close"])
             atr       = float(last["atr"])
 
@@ -193,7 +238,8 @@ class MR03FBSStrategy(BaseStrategy):
                 reason          = (
                     f"MR-03 FBS: snapped {'above lower' if long_sig else 'below upper'} BB "
                     f"(mult={p.bb_mult}) | "
-                    f"{'above' if long_sig else 'below'} SMA200"
+                    f"{'above' if long_sig else 'below'} SMA200 | "
+                    f"sentiment={sentiment}"
                     + (" [long-only mode]" if p.long_only else " [both-dirs mode]")
                 ),
                 stop_loss_pct   = sl_pct,
@@ -207,6 +253,7 @@ class MR03FBSStrategy(BaseStrategy):
                     "bb_lower":                   round(bb_lower, 4),
                     "ma200":                      round(ma200, 4) if ma200 else None,
                     "volume_ratio":               vol_ratio,
+                    "market_sentiment":           sentiment,
                     "structural_stop_price":      round(sl_price, 6),
                     "preferred_initial_stop_mode": "signal_structural",
                     "preferred_trail_mode":        "none",

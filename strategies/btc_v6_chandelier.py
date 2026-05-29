@@ -150,7 +150,7 @@ class BTCV6ChandelierStrategy(BaseStrategy):
         self.take_profit_pct         = 30.0   # wide — chandelier exits before TP normally
         self.crypto_enabled          = True
         self.stock_enabled           = False
-        self.crypto_candle_timeframe = "1d"
+        self.crypto_candle_timeframe = "1h"
         self.time_stop_profile       = "strategy_defined"
         self.reviewer_exempt         = True
         self.candle_limit            = 250    # 200-bar vol ref + EMA55 warmup + buffer
@@ -203,7 +203,7 @@ class BTCV6ChandelierStrategy(BaseStrategy):
                     "volume_ratio":                vol_ratio,
                     "structural_stop_price":       round(chan_init, 6),
                     "preferred_initial_stop_mode": "signal_structural",
-                    "preferred_trail_mode":        "none",
+                    "preferred_trail_mode":        "chandelier",
                 },
             )
         except Exception as e:

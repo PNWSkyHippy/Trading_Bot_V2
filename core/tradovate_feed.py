@@ -69,10 +69,11 @@ class TradovateFeed:
         self._running = False
         self._auth_failed = False    # set True on 401/403 — prevents reconnect loop
         self._thread: Optional[threading.Thread] = None
-        self._reconnect_delay   = 30   # seconds between reconnect attempts (was 5 — raised to avoid hammering)
+        self._stop_event = threading.Event()         # signals reconnect sleep to wake early
+        self._reconnect_delay   = 5    # seconds before first reconnect after drop
         self._max_reconnect_delay = 300  # cap at 5 min for exponential backoff
         self._last_client_activity = time.time()   # updated on every get_bars() call
-        self._inactivity_stop_seconds = 300        # stop feed after 5 min of no bar requests
+        self._inactivity_stop_seconds = 1800       # stop feed after 30 min of no bar requests
 
     # ------------------------------------------------------------------
     # Public API
@@ -83,12 +84,14 @@ class TradovateFeed:
         self._token = token
         logger.info("TradovateFeed: token updated")
 
-    def subscribe(self, name: str, symbol_id: int, element_size: int = 5,
+    def subscribe(self, name: str, symbol_id, element_size: int = 5,
                   num_bars: int = 300):
         """
         Register a chart subscription.
-        name        : friendly name, e.g. "MESM6"
-        symbol_id   : Tradovate internal numeric ID (3961353 for MESM6)
+        name        : friendly name, e.g. "MESM6" or "MNQM6"
+        symbol_id   : Tradovate numeric contract ID (int) OR string symbol name.
+                      md/getChart accepts both — string names work when numeric ID
+                      is unknown (e.g. when REST lookup returns 401 with limited ACL).
         element_size: bar size in minutes (1, 3, 5, 15, …)
         num_bars    : how many historical bars to fetch on connect
         """
@@ -100,13 +103,19 @@ class TradovateFeed:
         with _cache_lock:
             if name not in _bar_cache:
                 _bar_cache[name] = deque(maxlen=MAX_BARS_CACHED)
-        logger.info("TradovateFeed: registered %s (id=%d, %dm)", name,
+        logger.info("TradovateFeed: registered %s (id=%s, %dm)", name,
                     symbol_id, element_size)
 
     def start(self):
         """Start the background WebSocket thread."""
         if self._running:
             return
+        # Wait for any previous thread to exit before starting a new one.
+        # _stop_event was set by stop(); old thread woke from sleep and should
+        # exit quickly.  2s timeout is generous — avoids a zombie race.
+        if self._thread and self._thread.is_alive():
+            self._thread.join(timeout=2.0)
+        self._stop_event.clear()
         self._running = True
         self._thread = threading.Thread(target=self._run_loop,
                                         name="tradovate-feed", daemon=True)
@@ -116,6 +125,7 @@ class TradovateFeed:
     def stop(self):
         """Stop the feed and WebSocket connection."""
         self._running = False
+        self._stop_event.set()   # wake any sleeping reconnect immediately
         if self._ws:
             try:
                 self._ws.close()
@@ -155,17 +165,68 @@ class TradovateFeed:
         self._msg_id += 1
         return mid
 
+    def _try_renew_token(self) -> bool:
+        """
+        Attempt to get a fresh JWT by calling Tradovate's renewaccesstoken endpoint.
+        Returns True if the token was successfully renewed.
+        Called automatically before giving up on a 401/403 or before reconnect.
+        """
+        import urllib.request
+        rest_base = (
+            "https://live-d.tradovateapi.com/v1"
+            if "live" in self._ws_url
+            else "https://demo-d.tradovateapi.com/v1"
+        )
+        url = f"{rest_base}/auth/renewaccesstoken"
+
+        token = self._token
+        if "eyJ" in token:
+            token = token[token.index("eyJ"):]
+
+        try:
+            req = urllib.request.Request(
+                url,
+                data=b"{}",
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {token}",
+                },
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=8) as resp:
+                data = json.loads(resp.read())
+                new_token = data.get("accessToken") or data.get("token")
+                if new_token:
+                    self._token = new_token
+                    self._auth_failed = False
+                    logger.info("TradovateFeed: token auto-renewed ✓ (expires ~20m)")
+                    return True
+                logger.warning(
+                    "TradovateFeed: renewaccesstoken returned no token: %s",
+                    str(data)[:200]
+                )
+        except Exception as exc:
+            logger.warning("TradovateFeed: token renewal failed: %s", exc)
+        return False
+
     def _run_loop(self):
         """Reconnect loop — exits on auth failure or inactivity.
         Uses exponential backoff (30s → 60s → 120s → … → 300s max) to avoid
         hammering Tradovate servers on repeated connection failures.
+        On 401/403, tries auto-renewal first before halting.
         """
         current_delay = self._reconnect_delay
         while self._running:
-            # Don't reconnect if auth previously failed — wait for new token
+            # Auth failed — try auto-renewal before giving up
             if self._auth_failed:
+                logger.info("TradovateFeed: attempting token auto-renewal…")
+                if self._try_renew_token():
+                    # Renewed — clear flag and reconnect immediately
+                    logger.info("TradovateFeed: reconnecting with renewed token")
+                    current_delay = self._reconnect_delay
+                    continue
                 logger.warning(
-                    "TradovateFeed: auth-failed flag set — feed halted. "
+                    "TradovateFeed: auto-renewal failed — feed halted. "
                     "Post a fresh token to /api/tradovate_token to restart."
                 )
                 self._running = False
@@ -182,18 +243,29 @@ class TradovateFeed:
                 self._running = False
                 break
 
+            conn_start = time.time()
             try:
                 self._connect()
             except Exception as exc:
                 logger.warning("TradovateFeed: connection error: %s", exc)
+            conn_duration = time.time() - conn_start
 
             self._authenticated = False
 
             # Only sleep and retry if not flagged to stop
             if self._running and not self._auth_failed:
-                logger.info("TradovateFeed: reconnecting in %ds (backoff)",
-                            current_delay)
-                time.sleep(current_delay)
+                # If the session lasted >10s it was a normal server-side drop
+                # (Tradovate demo enforces session time limits) — reset backoff
+                # so we don't accumulate 5→10→20→40s delays for routine drops.
+                if conn_duration > 10:
+                    current_delay = self._reconnect_delay
+                delay = current_delay
+                logger.warning("TradovateFeed: reconnecting in %ds", delay)
+                # Use event.wait() instead of time.sleep() so stop() can
+                # interrupt the sleep immediately (prevents zombie threads).
+                self._stop_event.wait(timeout=delay)
+                if not self._running:
+                    break
                 # Exponential backoff: double delay each attempt, cap at max
                 current_delay = min(current_delay * 2, self._max_reconnect_delay)
             else:
@@ -219,7 +291,9 @@ class TradovateFeed:
             on_close=self._on_close,
         )
         self._ws = ws
-        ws.run_forever(ping_interval=20, ping_timeout=10)
+        # No WS-level ping — SockJS sends its own 'h' heartbeat frames.
+        # WS pings cause Tradovate's SockJS server to close the connection.
+        ws.run_forever()
 
     def _on_open(self, ws):
         logger.info("TradovateFeed: WS connected, authenticating…")
@@ -255,7 +329,7 @@ class TradovateFeed:
         if text.startswith("c"):  # close
             return
 
-        logger.warning("TradovateFeed: frame: %s", text[:300])
+        logger.debug("TradovateFeed: frame: %s", text[:300])
 
         # ---- SockJS array format: a[msg, ...] ----
         # Server wraps messages as: a["{...}", "{...}"] or a[{...}]
@@ -309,15 +383,14 @@ class TradovateFeed:
                              _e, exc_info=True)
             return
 
-        # Auth failure — stop reconnecting immediately
+        # Auth failure — try renewal before halting
         if status in (401, 403):
-            logger.error(
-                "TradovateFeed: auth failed (%s) — token invalid/expired. "
-                "Halting reconnect loop. Post a fresh token to restart.",
-                status
+            logger.warning(
+                "TradovateFeed: auth rejected (%s) — token expired, "
+                "attempting auto-renewal…", status
             )
             self._authenticated = False
-            self._auth_failed   = True   # _run_loop will exit on next iteration
+            self._auth_failed   = True   # _run_loop sees this and calls _try_renew_token
             if self._ws:
                 try:
                     self._ws.close()
@@ -338,10 +411,34 @@ class TradovateFeed:
                 if isinstance(item, dict):
                     self._handle_chart_data(item)
 
+    def _send_one_subscription(self, ws, name: str, cfg: dict):
+        """Send a single subscription frame on a live WS (for dynamic subscriptions)."""
+        sym = cfg["symbol_id"]
+        payload = {
+            "symbol": sym,
+            "chartDescription": {
+                "underlyingType": "MinuteBar",
+                "elementSize": cfg["element_size"],
+                "elementSizeUnit": "UnderlyingUnits",
+                "withHistogram": False,
+            },
+            "timeRange": {
+                "asMuchAsElements": cfg["num_bars"],
+            },
+        }
+        mid = self._next_id()
+        frame = _make_frame("md/getChart", mid, payload)
+        ws.send(frame)
+        logger.info("TradovateFeed: dynamic subscribe %s → symbol=%s (msg %d)",
+                    name, sym, mid)
+
     def _send_subscriptions(self, ws):
         for name, cfg in self._subscriptions.items():
+            # symbol_id can be a numeric contract ID or a string contract name.
+            # Tradovate's md/getChart accepts both.
+            sym = cfg["symbol_id"]
             payload = {
-                "symbol": cfg["symbol_id"],
+                "symbol": sym,
                 "chartDescription": {
                     "underlyingType": "MinuteBar",
                     "elementSize": cfg["element_size"],
@@ -355,7 +452,8 @@ class TradovateFeed:
             mid = self._next_id()
             frame = _make_frame("md/getChart", mid, payload)
             ws.send(frame)
-            logger.info("TradovateFeed: subscribed %s (msg %d)", name, mid)
+            logger.info("TradovateFeed: subscribed %s → symbol=%s (msg %d)",
+                        name, sym, mid)
 
     def _register_chart_id(self, chart_id: int, bars_raw: list) -> Optional[str]:
         """
@@ -448,13 +546,55 @@ class TradovateFeed:
                 return name
         return None
 
+    def lookup_symbol_id(self, name: str) -> Optional[int]:
+        """
+        Look up a Tradovate numeric contract ID via the REST API.
+        Called lazily when a symbol is requested but has no known ID.
+        Result is returned to the caller for caching in TRADOVATE_SYMBOL_IDS.
+        """
+        import urllib.request
+        import urllib.parse
+
+        rest_base = (
+            "https://live-d.tradovateapi.com/v1"
+            if "live" in self._ws_url
+            else "https://demo-d.tradovateapi.com/v1"
+        )
+        url = f"{rest_base}/contract/find?name={urllib.parse.quote(name)}"
+
+        token = self._token
+        if "eyJ" in token:
+            token = token[token.index("eyJ"):]
+
+        try:
+            req = urllib.request.Request(
+                url, headers={"Authorization": f"Bearer {token}"}
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read())
+                sym_id = data.get("id")
+                if sym_id:
+                    logger.info(
+                        "TradovateFeed: REST lookup %s → id=%d", name, sym_id
+                    )
+                    return int(sym_id)
+                logger.warning(
+                    "TradovateFeed: REST lookup for %s returned no 'id': %s",
+                    name, str(data)[:200]
+                )
+        except Exception as exc:
+            logger.warning(
+                "TradovateFeed: symbol REST lookup failed for %s: %s", name, exc
+            )
+        return None
+
     def _on_error(self, ws, error):
         logger.warning("TradovateFeed: WS error: %s", error)
 
     def _on_close(self, ws, code, msg):
         self._authenticated = False
         self._chart_id_map.clear()
-        logger.info("TradovateFeed: WS closed (%s %s)", code, msg)
+        logger.warning("TradovateFeed: WS closed (%s %s)", code, msg)
 
 
 def _parse_bar(b: dict) -> Optional[dict]:
@@ -496,18 +636,32 @@ def get_feed() -> Optional[TradovateFeed]:
     return _feed
 
 
-def init_feed(token: str = "", use_live: bool = False) -> TradovateFeed:
+def init_feed(token: str = "", use_live: bool = False,
+              symbols: Optional[list] = None) -> TradovateFeed:
     """
     Create and start the global feed singleton.
     Call from web_dashboard.py startup after loading token from temp file.
+
+    symbols: list of (name, symbol_id, element_size) tuples to pre-subscribe.
+             Defaults to MESM6 on 1/3/5m if not specified.
+             Pass symbol_id=0 to trigger a REST lookup at subscription time.
     """
     global _feed
     _feed = TradovateFeed(token=token, use_live=use_live)
 
-    # Default subscription: MESM6 5-min bars
-    _feed.subscribe("MESM6",  symbol_id=3961353, element_size=5)
-    _feed.subscribe("MESM6_1", symbol_id=3961353, element_size=1)
-    _feed.subscribe("MESM6_3", symbol_id=3961353, element_size=3)
+    # Default subscriptions (MESM6 known ID; others discovered lazily via REST)
+    default_subs = symbols or [
+        ("MESM6",   3961353, 5),   # MES 5m  (known ID — always works)
+        ("MESM6_1", 3961353, 1),   # MES 1m
+        ("MESM6_3", 3961353, 3),   # MES 3m
+        ("MNQM6",   "MNQM6", 5),   # MNQ 5m  (string name fallback — ID unknown with limited ACL)
+        ("MNQM6_1", "MNQM6", 1),   # MNQ 1m
+        ("MNQM6_3", "MNQM6", 3),   # MNQ 3m
+    ]
+    for name, sym_id, element_size in default_subs:
+        if sym_id:
+            _feed.subscribe(name, symbol_id=sym_id, element_size=element_size)
+        # 0 / None IDs are looked up lazily on first chart request via lookup_symbol_id()
 
     _feed.start()
     return _feed

@@ -34,6 +34,7 @@ function WindowProvider({ children, defs }) {
         minimized: p.minimized ?? false,
         maximized: p.maximized ?? false,
         z: p.z ?? 1,
+        opacity: p.opacity ?? 1,
       };
     });
     return obj;
@@ -47,7 +48,7 @@ function WindowProvider({ children, defs }) {
   useEffect(() => {
     const toSave = {};
     Object.entries(windows).forEach(([id, w]) => {
-      toSave[id] = { x: w.x, y: w.y, w: w.w, h: w.h, open: w.open, minimized: w.minimized, maximized: w.maximized, z: w.z };
+      toSave[id] = { x: w.x, y: w.y, w: w.w, h: w.h, open: w.open, minimized: w.minimized, maximized: w.maximized, z: w.z, opacity: w.opacity };
     });
     saveState(toSave);
   }, [windows]);
@@ -96,6 +97,10 @@ function WindowProvider({ children, defs }) {
     setWindows(prev => ({ ...prev, [id]: { ...prev[id], ...geom } }));
   }, []);
 
+  const setOpacity = useCallback((id, opacity) => {
+    setWindows(prev => ({ ...prev, [id]: { ...prev[id], opacity: Math.min(1, Math.max(0.08, opacity)) } }));
+  }, []);
+
   const canvasSize = useMemo(() => {
     const margin = 220;
     const openWindows = Object.values(windows).filter(w => w.open && !w.minimized && !w.maximized);
@@ -104,7 +109,7 @@ function WindowProvider({ children, defs }) {
     return { width: maxRight, height: maxBottom };
   }, [windows]);
 
-  const ctx = { windows, focus, open, close, toggleMin, toggleMax, updateGeometry, focusedId, canvasSize };
+  const ctx = { windows, focus, open, close, toggleMin, toggleMax, updateGeometry, setOpacity, focusedId, canvasSize };
 
   return (
     <WindowContext.Provider value={ctx}>{children}</WindowContext.Provider>
@@ -112,12 +117,24 @@ function WindowProvider({ children, defs }) {
 }
 
 function Window({ id, children }) {
-  const { windows, focus, close, toggleMin, toggleMax, updateGeometry, focusedId } = useWindows();
+  const { windows, focus, close, toggleMin, toggleMax, updateGeometry, setOpacity, focusedId } = useWindows();
   const w = windows[id];
   const ref = useRef(null);
   const drag = useRef(null);
   const wRef = useRef(w);
+  const [showOpacity, setShowOpacity] = useState(false);
+  const opacityRef = useRef(null);
   useEffect(() => { wRef.current = w; }, [w]);
+
+  // Close opacity popup on outside click
+  useEffect(() => {
+    if (!showOpacity) return;
+    const h = (e) => {
+      if (opacityRef.current && !opacityRef.current.contains(e.target)) setShowOpacity(false);
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [showOpacity]);
 
   useEffect(() => {
     const onMove = (e) => {
@@ -192,9 +209,25 @@ function Window({ id, children }) {
     };
   };
 
+  const bgAlpha = `${Math.round((w.opacity ?? 1) * 100)}%`;
+  const alpha = w.opacity ?? 1;
+
+  // When opacity < 1, override the --bg-* CSS variables ON this window element.
+  // Since custom properties cascade, any descendant using var(--bg-2) etc —
+  // including inline styles — will resolve to the transparent version automatically.
+  const bgOverrides = alpha < 1 ? {
+    '--bg-0': `color-mix(in srgb, #0b0d10 ${bgAlpha}, transparent)`,
+    '--bg-1': `color-mix(in srgb, #111418 ${bgAlpha}, transparent)`,
+    '--bg-2': `color-mix(in srgb, #161a1f ${bgAlpha}, transparent)`,
+    '--bg-3': `color-mix(in srgb, #1c2128 ${bgAlpha}, transparent)`,
+    '--bg-4': `color-mix(in srgb, #252b34 ${bgAlpha}, transparent)`,
+    '--border': `color-mix(in srgb, #232830 ${bgAlpha}, transparent)`,
+    '--border-strong': `color-mix(in srgb, #2d343f ${bgAlpha}, transparent)`,
+  } : {};
+
   const style = w.maximized
-    ? { left: 0, top: 0, width: '100%', height: '100%', zIndex: w.z }
-    : { left: w.x, top: w.y, width: w.w, height: w.h, zIndex: w.z };
+    ? { left: 0, top: 0, width: '100%', height: '100%', zIndex: w.z, '--win-bg-alpha': bgAlpha, ...bgOverrides }
+    : { left: w.x, top: w.y, width: w.w, height: w.h, zIndex: w.z, '--win-bg-alpha': bgAlpha, ...bgOverrides };
 
   const focused = focusedId === id;
 
@@ -209,6 +242,36 @@ function Window({ id, children }) {
           <span className="label">{w.title}</span>
         </div>
         <div className="win-controls">
+          {/* Opacity button */}
+          <div ref={opacityRef} style={{ position: 'relative' }}>
+            <button
+              title={`Opacity: ${Math.round((w.opacity ?? 1) * 100)}%`}
+              onMouseDown={e => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); setShowOpacity(v => !v); }}
+              style={{ opacity: 0.55, fontSize: '10px', letterSpacing: '-0.03em' }}
+            >◧</button>
+            {showOpacity && (
+              <div onMouseDown={e => e.stopPropagation()} style={{
+                position: 'absolute', right: 0, top: '32px',
+                background: '#1c2128', border: '1px solid #2d343f',
+                borderTop: '1px solid rgba(255,255,255,0.09)',
+                borderLeft: '1px solid rgba(255,255,255,0.06)',
+                borderRadius: '7px', padding: '10px 14px',
+                zIndex: 99999, width: '160px',
+                boxShadow: '0 12px 32px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05)',
+              }}>
+                <div style={{ fontSize: '10px', color: '#7d8593', marginBottom: '8px', fontWeight: 500 }}>
+                  Background · <span style={{ color: '#b8bfca' }}>{Math.round((w.opacity ?? 1) * 100)}%</span>
+                </div>
+                <input
+                  type="range" min={8} max={100}
+                  value={Math.round((w.opacity ?? 1) * 100)}
+                  onChange={e => setOpacity(id, Number(e.target.value) / 100)}
+                  className="win-opacity-slider"
+                />
+              </div>
+            )}
+          </div>
           <button onClick={() => toggleMin(id)} title="Minimize"><Icon name="minus" size={12} /></button>
           <button onClick={() => toggleMax(id)} title="Maximize"><Icon name="square" size={11} /></button>
           <button className="close" onClick={() => close(id)} title="Close"><Icon name="x" size={12} /></button>

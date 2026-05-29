@@ -293,6 +293,33 @@ class PositionMonitor:
         symbol   = trade["symbol"]
         broker   = trade.get("broker", "")
 
+        # ── Paper mode price clamp ─────────────────────────────────────────
+        # In paper trading the monitor may catch a price AFTER it has blown
+        # through the SL or overshot the TP. A real stop/limit order would
+        # fill AT those levels (with only minor slippage). Clamp here so every
+        # exit path gets accurate P&L — wins capped at TP, losses floored at SL.
+        try:
+            import config as _cfg
+            asset_class = trade.get("asset_class", "")
+            _is_paper = (
+                (asset_class == "crypto" and getattr(_cfg, "KRAKEN_PAPER_MODE", False)) or
+                (asset_class == "stock"  and getattr(_cfg, "ALPACA_PAPER_MODE", False))
+            )
+            if _is_paper:
+                direction = trade.get("direction", "long")
+                _sl = trade.get("stop_loss")
+                _tp = trade.get("take_profit")
+                if _sl and _tp:
+                    _sl, _tp = float(_sl), float(_tp)
+                    if direction == "long":
+                        current_price = min(current_price, _tp)   # cap wins at TP
+                        current_price = max(current_price, _sl)   # floor losses at SL
+                    else:  # short: TP is lower, SL is higher
+                        current_price = max(current_price, _tp)   # cap wins at TP
+                        current_price = min(current_price, _sl)   # floor losses at SL
+        except Exception:
+            pass  # never block a close over a clamp error
+
         # ── Cooldown: don't hammer broker on repeated failures ─────────────
         last_attempt = self._get_last_attempt_time(trade_id)
         if last_attempt > 0:
@@ -714,6 +741,11 @@ class PositionMonitor:
         """
         if not _is_breakout_trade(trade):
             return None
+
+        # TEMPORARILY DISABLED — 2026-05-29: cutting winners too early on dips
+        # that recover. Chart shows price never near stop loss, would have hit TP.
+        # Re-evaluate after observing trade outcomes without fast-fail.
+        return None
 
         # Only in the 10-20 minute window
         if age_seconds < BREAKOUT_FAST_FAIL_SEC:
@@ -1484,7 +1516,13 @@ class PositionMonitor:
                             (trade_id,)
                         )
                         conn.commit()
-                    self._attempt_close(trade, current_price, "take_profit")
+                    # Fill at take_profit price, not current_price.
+                    # In paper mode the monitor catches TP after price may have
+                    # overshot — record at the actual TP level like a real limit order.
+                    # In live mode this path is rarely hit (broker reconciliation at
+                    # step 2b catches broker-filled TP orders first).
+                    tp_fill_price = float(trade.get("take_profit") or current_price)
+                    self._attempt_close(trade, tp_fill_price, "take_profit")
                     return
 
         # ── 10. PIVOT POINT BREAK ─────────────────────────────────────────

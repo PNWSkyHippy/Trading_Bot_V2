@@ -186,6 +186,18 @@ class StockScanner:
             config.ALPACA_SECRET_KEY,
             config.ALPACA_BASE_URL
         )
+        # Increase the HTTP connection pool size so concurrent callers
+        # (scan thread + position monitor thread) don't exhaust the default
+        # pool of 10 and spam "Connection pool is full, discarding connection"
+        # warnings every 30-60s.  pool_maxsize=30 covers the stock watchlist
+        # size plus a margin for simultaneous calls from other threads.
+        try:
+            from requests.adapters import HTTPAdapter
+            _adapter = HTTPAdapter(pool_connections=10, pool_maxsize=30)
+            self.api._session.mount("https://", _adapter)
+            self.api._session.mount("http://",  _adapter)
+        except Exception:
+            pass  # defensive — don't break on unexpected alpaca_trade_api changes
         self.ta = TechnicalAnalysis()
         # Candle integrity: tracks the last closed-bar timestamp evaluated
         # per symbol+timeframe so we never re-run strategies against the same bar.

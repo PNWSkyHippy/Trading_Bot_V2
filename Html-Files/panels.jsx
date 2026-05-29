@@ -2294,14 +2294,20 @@ function calcSuperTrend(bars, period = 10, mult = 3) {
 }
 
 const STOCK_BROKERS  = [
-  { id: 'alpaca',   label: 'Alpaca'   },
-  { id: 'ibkr',     label: 'IBKR'     },
-  { id: 'yfinance', label: 'yFinance' },
+  { id: 'alpaca',    label: 'Alpaca'    },
+  { id: 'ibkr',      label: 'IBKR'      },
+  { id: 'yfinance',  label: 'yFinance'  },
 ];
 const CRYPTO_BROKERS = [
-  { id: 'kraken',   label: 'Kraken'   },
-  { id: 'coinbase', label: 'Coinbase' },
-  { id: 'yfinance', label: 'yFinance' },
+  { id: 'kraken',    label: 'Kraken'    },
+  { id: 'coinbase',  label: 'Coinbase'  },
+  { id: 'yfinance',  label: 'yFinance'  },
+];
+// Futures: Tradovate real-time WebSocket (best) → IBKR → yfinance fallback
+const FUTURES_BROKERS = [
+  { id: 'tradovate', label: 'Tradovate' },
+  { id: 'ibkr',      label: 'IBKR'      },
+  { id: 'yfinance',  label: 'yFinance'  },
 ];
 
 const chartLimitForTf = (tf) => ({
@@ -2516,7 +2522,8 @@ function ChartPanel({ defaultSymbol }) {
   const [chronosPred,    setChronosPred]    = useS(null);
   // { direction: 'up'|'down'|'flat', confidence: 0.72, model: 'chronos-t5-base' }
 
-  const isCrypto = symbol.includes('/');
+  const isCrypto   = symbol.includes('/');
+  const isFutures  = !isCrypto && allSymbols.some(s => s.symbol === symbol && s.type === 'futures');
 
   const containerRef = useR(null);
   const drawingCanvasRef = useR(null);
@@ -3245,8 +3252,9 @@ function ChartPanel({ defaultSymbol }) {
     const newIsCrypto = sym.includes('/');
     const isFutures = allSymbols.some(s => s.symbol === sym && s.type === 'futures');
     // Reset broker to sensible default when switching asset type
-    if (newIsCrypto !== isCrypto || isFutures) {
-      setBroker(newIsCrypto ? 'kraken' : isFutures ? 'yfinance' : 'alpaca');
+    const newIsFutures = allSymbols.some(s => s.symbol === sym && s.type === 'futures');
+    if (newIsCrypto !== isCrypto || newIsFutures !== isFutures) {
+      setBroker(newIsCrypto ? 'kraken' : newIsFutures ? 'tradovate' : 'alpaca');
     }
     setSymbol(sym); setSearch(''); setDrop(false);
   };
@@ -3747,7 +3755,7 @@ function ChartPanel({ defaultSymbol }) {
 
         {/* Broker selector — shows relevant brokers for current asset type */}
         <div style={{ display:'flex', gap:2 }}>
-          {(isCrypto ? CRYPTO_BROKERS : STOCK_BROKERS).map(b => (
+          {(isCrypto ? CRYPTO_BROKERS : isFutures ? FUTURES_BROKERS : STOCK_BROKERS).map(b => (
             <button key={b.id}
               className={cls('btn', b.id === broker ? 'primary' : 'ghost', 'sm')}
               style={{ padding:'2px 7px', fontSize:11 }}

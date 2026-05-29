@@ -90,8 +90,8 @@ from typing import Dict, Optional
 @dataclass
 class RSIDipSpikeV4Params:
     rsi_length:      int   = 7
-    rsi_oversold:    float = 35.0 # 
-    rsi_overbought:  float = 80.0 # 
+    rsi_oversold:    float = 24.0 # 
+    rsi_overbought:  float = 79.999 # 
     rsi_exit_long:   float = 55.0   # Exit long when RSI recovers to here
     rsi_exit_short:  float = 45.0   # Exit short when RSI drops back here
     trend_ma_length: int   = 200
@@ -99,8 +99,8 @@ class RSIDipSpikeV4Params:
     adx_min:         float = 25.0   # Minimum ADX — needs directional momentum
     adx_max:         float = 60.0   # Maximum ADX — avoid runaway trends (mean rev dies in strong trends)
     atr_length:      int   = 14
-    sl_atr_mult:     float = 2.5
-    tp_atr_mult:     float = 2.0
+    sl_atr_mult:     float = 3.0
+    tp_atr_mult:     float = 1.25
     max_bars_hold:   int   = 48
 
     # A/B research toggle — default "penetration" matches all validated results.

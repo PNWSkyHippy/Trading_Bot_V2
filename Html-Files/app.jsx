@@ -4,6 +4,222 @@ const { useState: $S, useEffect: $E, useRef: $R, useMemo: $M } = React;
 const { TopOverview, OpenPositionsPanel, ManualTradePanel, TradeLogPanel, DailyPerfPanel, BacktesterPanel, OptimizerPanel, ChatPanel, ChartPanel } = window.Panels;
 const { ManagePositionsPanel, InjectSymbolsPanel, QuickControlsPanel, TerminalPanel, DBBrowserPanel } = window.SidePanels;
 
+// ── Theme system ──────────────────────────────────────────────────────────────
+const THEME_KEY = 'tbot.theme.v1';
+const DEFAULT_THEME = {
+  '--bg-0':             '#0b0d10',
+  '--bg-1':             '#111418',
+  '--bg-2':             '#161a1f',
+  '--bg-3':             '#1c2128',
+  '--bg-4':             '#252b34',
+  '--border':           '#232830',
+  '--border-strong':    '#2d343f',
+  '--text-0':           '#f3f5f8',
+  '--text-1':           '#b8bfca',
+  '--text-2':           '#7d8593',
+  '--accent':           '#14b8a6',
+  '--accent-bright':    '#2dd4bf',
+  '--bevel-hi':         'rgba(255,255,255,0.10)',
+  '--bevel-sh':         'rgba(0,0,0,0.62)',
+  '--panel-tilt':        '2',
+  '--panel-thickness':   '5',
+  '--panel-perspective': '1400',
+  '--panel-edge-color':  '#1a2535',
+};
+const THEME_LABELS = {
+  '--bg-0':          'Workspace BG',
+  '--bg-1':          'Window BG',
+  '--bg-2':          'Panel BG',
+  '--bg-3':          'Titlebar',
+  '--bg-4':          'Hover / Active',
+  '--border':        'Border',
+  '--border-strong': 'Border Strong',
+  '--text-0':        'Text Primary',
+  '--text-1':        'Text Secondary',
+  '--text-2':        'Text Muted',
+  '--accent':            'Accent',
+  '--accent-bright':     'Accent Bright',
+  '--panel-edge-color':  'Edge Color',
+};
+// Slider controls — min/max/step instead of color picker
+const THEME_SLIDERS = {
+  '--panel-tilt':        { label: 'Panel Tilt',        min: 0,   max: 20,   step: 1   },
+  '--panel-thickness':   { label: 'Edge Thickness',    min: 0,   max: 20,   step: 1   },
+  '--panel-perspective': { label: 'Perspective Depth', min: 300, max: 2000, step: 50, note: '↓ lower = more dramatic' },
+};
+
+function _applyTheme(obj) {
+  Object.entries(obj).forEach(([k, v]) => {
+    document.documentElement.style.setProperty(k, v);
+  });
+}
+async function _loadSavedTheme() {
+  try {
+    const r = await fetch('/api/theme');
+    const d = await r.json();
+    return (d.theme && Object.keys(d.theme).length) ? d.theme : null;
+  } catch { return null; }
+}
+async function _saveTheme(obj) {
+  try {
+    await fetch('/api/theme', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ theme: obj }),
+    });
+  } catch {}
+}
+
+// ColorRow — isolated component so each color input manages its own ref.
+// Using key={value} on the color input caused React to unmount it on every
+// drag step inside the native picker, closing it immediately.
+// Instead: uncontrolled input + ref that only syncs when the picker is NOT active.
+function ColorRow({ colorKey, label, value, apply }) {
+  const inputRef  = React.useRef(null);
+  const activeRef = React.useRef(false);  // true while native color picker is open
+
+  React.useEffect(() => {
+    // Sync swatch when value changes externally (e.g. text box typed a hex)
+    // but skip if the picker is currently open — that would kill the drag.
+    if (inputRef.current && !activeRef.current) {
+      inputRef.current.value = value || '#000000';
+    }
+  }, [value]);
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <span style={{ color: 'var(--text-1)', fontSize: '12px', flex: 1, minWidth: 0 }}>{label}</span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '7px', flexShrink: 0 }}>
+        <div style={{
+          width: '28px', height: '22px', borderRadius: '4px',
+          background: value,
+          border: '1px solid var(--border-strong)',
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.06)',
+          position: 'relative', overflow: 'hidden', cursor: 'pointer',
+        }}>
+          <input type="color"
+            ref={inputRef}
+            defaultValue={value || '#000000'}
+            onFocus={() => { activeRef.current = true; }}
+            onBlur={()  => { activeRef.current = false; }}
+            onChange={e => apply(colorKey, e.target.value)}
+            style={{
+              position: 'absolute', inset: '-4px', width: 'calc(100% + 8px)', height: 'calc(100% + 8px)',
+              opacity: 0, cursor: 'pointer',
+            }}
+          />
+        </div>
+        <input
+          type="text"
+          value={value || ''}
+          onChange={e => apply(colorKey, e.target.value)}
+          style={{
+            width: '72px', background: 'var(--bg-0)', border: '1px solid var(--border)',
+            borderRadius: '4px', color: 'var(--text-2)', fontSize: '10px',
+            fontFamily: 'var(--mono)', padding: '3px 5px', outline: 'none',
+          }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ThemeManager({ children }) {
+  React.useEffect(() => {
+    _loadSavedTheme().then(saved => { if (saved) _applyTheme(saved); });
+  }, []);
+  return children;
+}
+
+function ThemeConfigPanel() {
+  const [theme, setTheme] = $S({ ...DEFAULT_THEME });
+
+  // Load from server on mount
+  $E(() => {
+    _loadSavedTheme().then(saved => {
+      if (saved) setTheme({ ...DEFAULT_THEME, ...saved });
+    });
+  }, []);
+
+  const apply = (key, val) => {
+    const next = { ...theme, [key]: val };
+    setTheme(next);
+    document.documentElement.style.setProperty(key, val);
+    _saveTheme(next);
+  };
+
+  const reset = () => {
+    setTheme({ ...DEFAULT_THEME });
+    _applyTheme(DEFAULT_THEME);
+    _saveTheme(DEFAULT_THEME);
+  };
+
+  return (
+    <div style={{ padding: '14px 16px', overflowY: 'auto', height: '100%', display: 'flex', flexDirection: 'column', gap: '0' }}>
+      <div style={{ color: 'var(--text-2)', fontSize: '11px', marginBottom: '14px', lineHeight: 1.55 }}>
+        Changes apply instantly and persist across sessions.
+      </div>
+
+      {/* ── 3D Effects sliders ── */}
+      <div style={{ marginBottom: '14px', padding: '10px 12px', borderRadius: '7px',
+        background: 'var(--bg-2)', border: '1px solid var(--border)',
+        borderTop: '1px solid var(--bevel-hi)',
+        boxShadow: 'inset 0 1px 0 var(--bevel-inner-hi)' }}>
+        <div style={{ fontSize: '10px', fontWeight: 600, color: 'var(--accent-bright)',
+          textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '10px' }}>
+          3D Effects
+        </div>
+        {Object.entries(THEME_SLIDERS).map(([key, cfg]) => (
+          <div key={key} style={{ marginBottom: '10px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '3px' }}>
+              <span style={{ color: 'var(--text-1)', fontSize: '12px' }}>{cfg.label}</span>
+              <span style={{ color: 'var(--accent-bright)', fontSize: '11px', fontFamily: 'var(--mono)', fontWeight: 600 }}>
+                {theme[key] ?? cfg.min}
+              </span>
+            </div>
+            {cfg.note && <div style={{ fontSize: '9px', color: 'var(--text-3)', marginBottom: '4px' }}>{cfg.note}</div>}
+            <input type="range" min={cfg.min} max={cfg.max} step={cfg.step}
+              value={Number(theme[key] ?? cfg.min)}
+              onChange={e => apply(key, e.target.value)}
+              className="win-opacity-slider"
+              style={{ width: '100%' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'space-between',
+              fontSize: '9px', color: 'var(--text-3)', marginTop: '2px' }}>
+              <span>{cfg.min}</span><span>{cfg.max}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* ── Color pickers ── */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+        {Object.entries(THEME_LABELS).map(([key, label]) => (
+          <ColorRow key={key} colorKey={key} label={label} value={theme[key]} apply={apply} />
+        ))}
+      </div>
+
+      <div style={{ marginTop: '16px', display: 'flex', gap: '8px' }}>
+        <button onClick={reset} style={{
+          flex: 1, padding: '8px', borderRadius: '6px',
+          background: 'rgba(244,63,94,0.10)', border: '1px solid rgba(244,63,94,0.28)',
+          borderTop: '1px solid rgba(244,63,94,0.4)', color: '#f43f5e',
+          cursor: 'pointer', fontSize: '12px', fontWeight: 500,
+          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+        }}>Reset to Defaults</button>
+      </div>
+
+      <div style={{ marginTop: '14px', padding: '10px', borderRadius: '6px',
+        background: 'var(--bg-2)', border: '1px solid var(--border)',
+        borderTop: '1px solid var(--bevel-hi)',
+        boxShadow: 'inset 0 1px 0 var(--bevel-inner-hi)',
+        fontSize: '10.5px', color: 'var(--text-2)', lineHeight: 1.6 }}>
+        <strong style={{ color: 'var(--text-1)' }}>Tip:</strong> Use the <span style={{ color: 'var(--accent-bright)' }}>◧</span> button in any panel's title bar to set that panel's content opacity — useful for seeing through to charts beneath.
+      </div>
+    </div>
+  );
+}
+
 // Window definitions
 const WINDOW_DEFS = [
   { id: 'overview',         title: 'Overview · Capital & KPIs',  icon: 'activity',  defaultPos: { x: 20, y: 10 },    defaultSize: { w: 1180, h: 360 }, openByDefault: true },
@@ -20,14 +236,17 @@ const WINDOW_DEFS = [
   { id: 'quick-controls',   title: 'Quick Controls',              icon: 'settings',  defaultPos: { x: 100, y: 50 },   defaultSize: { w: 360, h: 720 },  openByDefault: false },
   { id: 'chart',            title: 'Chart',                       icon: 'activity',  defaultPos: { x: 300, y: 60 },   defaultSize: { w: 1000, h: 600 }, openByDefault: false },
   { id: 'db-browser',       title: 'Database Browser',            icon: 'log',       defaultPos: { x: 260, y: 80 },   defaultSize: { w: 1060, h: 660 }, openByDefault: false },
+  { id: 'theme-config',     title: 'Theme & Color Config',        icon: 'settings',  defaultPos: { x: 460, y: 120 },  defaultSize: { w: 340, h: 560 },  openByDefault: false },
 ];
 
 // =========== App Shell ===========
 function AppShell() {
   return (
-    <WindowProvider defs={WINDOW_DEFS}>
-      <Inner />
-    </WindowProvider>
+    <ThemeManager>
+      <WindowProvider defs={WINDOW_DEFS}>
+        <Inner />
+      </WindowProvider>
+    </ThemeManager>
   );
 }
 
@@ -66,13 +285,152 @@ function Topbar({ dateStr, timeStr }) {
         <button onClick={() => open('chart')}>Chart</button>
         <button onClick={() => open('chat')}>Chat</button>
         <button onClick={() => open('db-browser')}>Database</button>
+        <button onClick={() => open('theme-config')}>Theme</button>
       </div>
       <div className="spacer"></div>
+      <TradovateStatus />
       <div className="status-pill">
         <span className="dot"></span>
         Trading Active
       </div>
       <div className="clock">{dateStr} · {timeStr} PT</div>
+    </div>
+  );
+}
+
+function TradovateStatus() {
+  const [info, setInfo] = $S({ connected: false, running: false, auth_failed: false, age: null });
+  const [open, setOpen] = $S(false);
+  const [token, setToken] = $S('');
+  const [busy, setBusy] = $S(false);
+  const [msg, setMsg] = $S('');
+  const ref = $R(null);
+
+  // Poll feed status every 30s
+  $E(() => {
+    const poll = async () => {
+      try {
+        const r = await fetch('/api/tradovate_debug', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+        const d = await r.json();
+        let minAge = null;
+        for (const k of Object.keys(d.cache || {})) {
+          const lb = d.cache[k]?.last_bar;
+          if (lb?.time) { const a = Math.floor(Date.now()/1000) - lb.time; if (minAge===null||a<minAge) minAge=a; }
+        }
+        setInfo({ connected: d.connected, running: d.running, auth_failed: d.auth_failed, age: minAge });
+      } catch(_) {}
+    };
+    poll();
+    const t = setInterval(poll, 30000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Close modal when clicking outside (check both button ref AND portalled dropdown ref)
+  const dropRef = $R(null);
+  $E(() => {
+    if (!open) return;
+    const h = (e) => {
+      const inButton = ref.current && ref.current.contains(e.target);
+      const inDrop   = dropRef.current && dropRef.current.contains(e.target);
+      if (!inButton && !inDrop) setOpen(false);
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, [open]);
+
+  const inject = async () => {
+    setBusy(true); setMsg('');
+    try {
+      const r = await fetch('/api/tradovate_token', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ token: token.trim() }) });
+      const d = await r.json();
+      if (d.ok) {
+        setMsg('✓ Feed connecting…');
+        setToken('');
+        setTimeout(() => { setOpen(false); setMsg(''); }, 2000);
+        setTimeout(async () => {
+          try {
+            const r2 = await fetch('/api/tradovate_debug', { method:'POST', headers:{'Content-Type':'application/json'}, body:'{}' });
+            const d2 = await r2.json();
+            setInfo({ connected: d2.connected, running: d2.running, auth_failed: d2.auth_failed, age: null });
+          } catch(_) {}
+        }, 4000);
+      } else { setMsg('✗ ' + (d.error || 'Failed')); }
+    } catch(e) { setMsg('✗ ' + e.message); }
+    setBusy(false);
+  };
+
+  const live = info.connected && info.running;
+  const color = live ? '#22c55e' : info.auth_failed ? '#ef4444' : '#f59e0b';
+  const label = live ? 'RT LIVE' : info.auth_failed ? 'AUTH ERR' : 'FEED OFF';
+  const ageStr = info.age !== null ? (info.age < 60 ? `${info.age}s` : `${Math.floor(info.age/60)}m`) + ' ago' : '';
+
+  const btnRect = open && ref.current ? ref.current.getBoundingClientRect() : null;
+  const dropTop   = btnRect ? btnRect.bottom + 8 : 60;
+  const dropRight = btnRect ? window.innerWidth - btnRect.right : 10;
+
+  const dropdown = open ? ReactDOM.createPortal(
+    <div ref={dropRef} style={{
+      position:'fixed', top: dropTop, right: dropRight,
+      background:'#1e293b', border:'1px solid #334155', borderRadius:'10px',
+      padding:'16px', width:'370px', zIndex:2147483647,
+      boxShadow:'0 20px 60px rgba(0,0,0,0.7)',
+    }}>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px' }}>
+        <span style={{ color:'#f1f5f9', fontSize:'0.85rem', fontWeight:600 }}>Inject Tradovate Token</span>
+        <span style={{ color: live?'#22c55e':'#f59e0b', fontSize:'0.75rem' }}>{label}{live && ageStr ? ` · ${ageStr}` : ''}</span>
+      </div>
+      {info.auth_failed && (
+        <div style={{ background:'rgba(239,68,68,0.12)', border:'1px solid #ef444460', borderRadius:'6px',
+          color:'#fca5a5', fontSize:'0.76rem', padding:'8px 10px', marginBottom:'10px' }}>
+          ⚠ Token expired — paste a fresh one below to reconnect.
+        </div>
+      )}
+      <div style={{ color:'#64748b', fontSize:'0.73rem', marginBottom:'10px', lineHeight:1.55 }}>
+        DevTools → Network → any PATCH request → copy the full <strong style={{color:'#94a3b8'}}>Authorization</strong> header value
+      </div>
+      <textarea value={token} onChange={e => setToken(e.target.value)}
+        placeholder="Bearer Ron Hensley eyJ…  (or just the eyJ… part)"
+        rows={4} style={{
+          width:'100%', boxSizing:'border-box',
+          background:'#0f172a', border:'1px solid #334155', borderRadius:'6px',
+          color:'#f1f5f9', fontSize:'0.75rem', padding:'8px',
+          resize:'vertical', fontFamily:'monospace', outline:'none',
+        }} />
+      {msg && <div style={{ marginTop:'8px', fontSize:'0.8rem', color: msg.startsWith('✓')?'#22c55e':'#ef4444' }}>{msg}</div>}
+      <div style={{ display:'flex', gap:'8px', marginTop:'10px' }}>
+        <button onClick={inject} disabled={busy || !token.trim()} style={{
+          flex:1, background:'#6366f1', border:'none', borderRadius:'6px',
+          color:'#fff', cursor:'pointer', fontSize:'0.82rem', fontWeight:600,
+          padding:'9px', opacity:(busy||!token.trim())?0.5:1, transition:'opacity 0.15s',
+        }}>{busy ? 'Connecting…' : 'Inject & Connect'}</button>
+        <button onClick={() => { setOpen(false); setMsg(''); setToken(''); }} style={{
+          background:'#334155', border:'none', borderRadius:'6px',
+          color:'#94a3b8', cursor:'pointer', fontSize:'0.82rem', padding:'9px 14px',
+        }}>Cancel</button>
+      </div>
+    </div>,
+    document.body
+  ) : null;
+
+  return (
+    <div ref={ref} style={{ position:'relative', marginRight:'8px' }}>
+      <button onClick={() => setOpen(v => !v)} title={live && ageStr ? `Last bar: ${ageStr}` : 'Click to inject Tradovate token'} style={{
+        display:'flex', alignItems:'center', gap:'6px',
+        background: live ? 'rgba(34,197,94,0.1)' : info.auth_failed ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)',
+        border:`1px solid ${color}40`, borderRadius:'999px',
+        color, cursor:'pointer', padding:'4px 12px',
+        fontSize:'11.5px', fontWeight:600, letterSpacing:'0.05em',
+        transition:'all 0.2s',
+      }}>
+        <span style={{
+          width:'7px', height:'7px', borderRadius:'50%', background:color, flexShrink:0,
+          boxShadow: live ? `0 0 7px ${color}` : 'none',
+          animation: live ? 'pulse 2s ease-in-out infinite' : 'none',
+        }}/>
+        Tradovate {label}
+        {live && ageStr && <span style={{ opacity:0.65, fontSize:'10px' }}>{ageStr}</span>}
+      </button>
+      {dropdown}
     </div>
   );
 }
@@ -155,6 +513,7 @@ function Workspace() {
       <Window id="quick-controls"><QuickControlsPanel /></Window>
       <Window id="chart"><ChartPanel /></Window>
       <Window id="db-browser"><DBBrowserPanel /></Window>
+      <Window id="theme-config"><ThemeConfigPanel /></Window>
     </div>
   );
 }
@@ -162,7 +521,7 @@ function Workspace() {
 function Dock() {
   const { windows, open, focus } = useWindows();
   const resetLayout = () => {
-    if (confirm('Reset all windows to default positions?')) {
+    if (prompt('Type RESET to confirm wiping your window layout:') === 'RESET') {
       localStorage.removeItem('tbot.windows.v2');
       location.reload();
     }
@@ -208,7 +567,7 @@ function Taskbar() {
   const wins = Object.values(windows).filter(w => w.open);
   const cpu = $M(() => 12 + Math.floor(Math.random() * 8), []);
   const resetLayout = () => {
-    if (confirm('Reset all windows to their default positions and sizes?')) {
+    if (prompt('Type RESET to confirm wiping your window layout:') === 'RESET') {
       localStorage.removeItem('tbot.windows.v2');
       location.reload();
     }
