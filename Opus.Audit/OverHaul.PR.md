@@ -165,21 +165,22 @@ any of these would *introduce* the inversion you were worried about.
   because loosening gates without a backtest can re-introduce the 40-50% loser
   regime — see §4 for the disciplined path.
 
-### BUG-5 — MINOR — Structural-stop direction derived from two different momentum functions
-- **File:** `BreakoutScanner.py:1245-1253` vs `:1289-1294`
-- **Problem:** in `_build_data` the structural-stop direction falls back to
-  `self._momentum(prices) < -0.5`; in `detect_breakout` the signal direction
-  falls back to `self.momentum_val(pd) < -0.5`. These are **different functions**.
-  If they disagree at the boundary, the structural stop is computed for the wrong
-  side (e.g. `low × 0.997` for what becomes a short).
-- **Impact:** currently **contained** — `trade_executor.py:507-525` and
-  `risk_manager.py:296-304` both re-validate the stop side and fall back to the
-  percent stop, so no wrong-side stop reaches the broker. But it is fragile and
-  will silently degrade structural-stop quality on shorts.
+### BUG-5 — INVESTIGATED, NOT A BUG — Structural-stop direction for shorts
+- **File:** `BreakoutScanner.py:1245-1253` (`_build_enrichment`) vs `:1289-1294` (`detect_breakout`)
+- **Initial suspicion:** `_build_enrichment` derives the structural-stop
+  direction from `self._momentum(prices)` while `detect_breakout` uses
+  `self.momentum_val(pd)`, which looked like two different functions that could
+  disagree and place the stop on the wrong side.
+- **Verified:** `momentum_val(pd)` (line 1193-1195) is just a thin wrapper:
+  `return self._momentum(list(self.price_history.get(pd.symbol)))`. And in
+  `_build_enrichment`, `prices = list(self.price_history.get(sym, []))`
+  (line 1209). **Both paths call the identical `_momentum()` on the identical
+  price series, and both check `_pattern_dir` first.** They cannot disagree.
 - **You asked specifically:** *is `high × 1.003` always taken for shorts?* —
-  Yes, **when `direction == "short"` in `_build_data`** (line 1252). The risk is
-  only that `direction` there can disagree with the final signal direction. Make
-  both paths call the same momentum function. (diff 06)
+  **Yes, confirmed.** When the signal is a short, `direction == "short"` in
+  `_build_enrichment` and line 1252-1253 (`high × 1.003`, above entry) is taken.
+  No wrong-side risk here. No patch needed. (This is the kind of thing you asked
+  me to confirm rather than guess at — confirmed clean.)
 
 ### BUG-6 — MINOR — Trailing-stop exits mislabeled "stop_loss"
 - **File:** `core/risk_manager.py:495-500`, `core/position_monitor.py:1322-1336`
@@ -247,7 +248,8 @@ win rate. Here is the disciplined sequence:
 | `03_risk_manager_profit_gate.diff` | `core/risk_manager.py` | CRITICAL | Profit-activation gate on the trailing stop (won't lock sub-fee gains) |
 | `04_breakout_receiver_cooldown.diff` | `core/breakout_receiver.py` | MEDIUM | Fixes inverted win/loss cooldown |
 | `05_exit_reason_labels.diff` | `core/risk_manager.py` | MINOR | Distinguishes `trailing_stop` from `stop_loss` |
-| `06_breakout_scanner_direction.diff` | `BreakoutScanner.py` | MINOR | Uses one momentum function for structural-stop direction |
+
+(No diff 06 — BUG-5 was investigated and found to be a non-issue; see §3.)
 
 All diffs are **proposals**. They are anchored to the current code as of
 2026-05-29. Review each before applying; re-run the backtest matrix after 01-03.
