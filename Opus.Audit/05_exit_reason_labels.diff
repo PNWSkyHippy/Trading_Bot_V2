@@ -1,0 +1,27 @@
+--- a/core/risk_manager.py
++++ b/core/risk_manager.py
+@@ -495,8 +495,21 @@ class RiskManager:
+     def check_sl_exit(self, trade: Dict, current_price: float) -> Optional[str]:
+         direction = trade["direction"]
+         sl = trade["stop_loss"]
+-        if direction == "long"  and current_price <= sl: return "stop_loss"
+-        if direction == "short" and current_price >= sl: return "stop_loss"
+-        return None
++        entry = float(trade.get("entry_price") or 0)
++        hit = (
++            (direction == "long"  and current_price <= sl) or
++            (direction == "short" and current_price >= sl)
++        )
++        if not hit:
++            return None
++        # Distinguish a profit-locking trailing stop from a protective stop-out
++        # (Opus audit 2026-05-29). Both used to log "stop_loss", which made a
++        # profitable-direction trailing exit (ETH/USD case) look like a bug.
++        if entry > 0:
++            on_profit_side = (
++                (direction == "long"  and sl > entry) or
++                (direction == "short" and sl < entry)
++            )
++            if on_profit_side:
++                return "trailing_stop"
++        return "stop_loss"

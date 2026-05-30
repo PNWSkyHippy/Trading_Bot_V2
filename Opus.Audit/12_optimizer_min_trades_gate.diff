@@ -1,0 +1,33 @@
+# Target: intelligence/optimizer.py (physically logs/intelligence/optimizer.py).
+# Opus overfitting audit 2026-05-29.
+# _score_basket counts ANY symbol result with total_trades > 0 as valid. A combo
+# that fires 2 trades and wins both shows win_rate=100% and an (capped) profit
+# factor, and with cross-symbol consistency can rank at the top — pure noise, not
+# edge. Require a minimum trade count per symbol before a result is statistically
+# admissible. 20 is a floor; raise to 30 for 1h/1d strategies if data allows.
+--- a/intelligence/optimizer.py
++++ b/intelligence/optimizer.py
+@@ -149,6 +149,11 @@
+     SEARCH_METHODS = ('random', 'all_random', 'annealing', 'sequential')
+     METRICS = ('profit_factor', 'win_rate', 'net_pnl', 'sharpe',
+                'expectancy', 'consistency_score')
+
++    # Opus 2026-05-29: a symbol result with fewer than this many trades is
++    # statistical noise, not evidence of edge. Excluded from scoring so the
++    # optimizer cannot curve-fit to a 2-trade 100%-win combo.
++    MIN_TRADES_FOR_VALID = 20
++
+     def __init__(self, backtester):
+         self.bt = backtester
+
+@@ -221,8 +226,9 @@
+         Compute composite score across all symbol results.
+         Returns (composite_score, stats_dict).
+         """
+-        valid = [r for r in symbol_results
+-                 if r is not None and r.total_trades > 0]
++        valid = [r for r in symbol_results
++                 if r is not None
++                 and r.total_trades >= self.MIN_TRADES_FOR_VALID]
+         if not valid:
+             return (-999.0 if not minimize else 999.0), {}

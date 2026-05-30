@@ -1,0 +1,30 @@
+# Target: intelligence/backtester.py (the PRODUCTION backtester used by
+# tools/run_backtest_matrix.py and Scripts/param_sweep.py — physically located
+# at logs/intelligence/backtester.py in this tree). NOT Scripts/backtester.py.
+#
+# Opus live-vs-paper audit 2026-05-29.
+# Stop-loss exits already fill at the stop level (good). Take-profit exits,
+# however, fill at the BAR CLOSE (`price`) even though the TP was detected via
+# intrabar high/low. Live TP is a resting limit order that fills AT the TP price.
+# Filling at close over-credits winners that closed beyond TP (optimistic) and
+# under-credits ones that closed back below it — both diverge from live. Fill TP
+# at the TP level, matching the SL treatment and the real limit-order fill.
+--- a/intelligence/backtester.py
++++ b/intelligence/backtester.py
+@@ -919,11 +919,16 @@
+         d   = trade["direction"]
+         qty = trade["quantity"]
+
+         # Stop loss exits fill at the stop price for both stop modes.
+         # Both _check_exit_standard and _check_exit_two_bar now use intrabar
+         # low/high, so we know the stop was touched — fill at the stop level,
+         # not the close (which may be far from where the stop was hit).
+         if reason == "stop_loss":
+             exit_price = trade["current_sl"]
++        elif reason == "take_profit":
++            # Opus 2026-05-29: TP is a resting limit order live — it fills AT the
++            # TP level, not the bar close. _check_exit_* confirmed the TP was
++            # touched intrabar, so credit exactly the TP price for live parity.
++            exit_price = trade["current_tp"]
+         else:
+             exit_price = price

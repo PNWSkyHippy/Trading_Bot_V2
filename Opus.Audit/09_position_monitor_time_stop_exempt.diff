@@ -1,0 +1,48 @@
+--- a/core/position_monitor.py
++++ b/core/position_monitor.py
+@@ -529,11 +529,40 @@
+         # Grid bot: profits from range oscillations across many hours.
+         # MR mean-reversion 1h strategies: 24/36/48-bar holds are intentional;
+         # the 8hr generic stop would cut trades before the thesis plays out.
+-        TIME_STOP_EXEMPT = {
+-            "ecb_strategy", "grid_bot", "dca_accumulator",
+-            "mr_02_vef", "mr_03_fbs", "mr_04_fvg",
+-        }
++        # ── Opus live-vs-paper audit 2026-05-29 ──────────────────────────────
++        # This set MUST mirror intelligence/backtester.py TIME_STOP_EXEMPT.
++        # Previously live exempted only 6 strategies while the backtester
++        # exempted ~30. Result: ~16 strategies were backtested WITHOUT generic
++        # 30m/2h/5h/8h stops (they ran to their own thesis), but traded LIVE
++        # WITH those stops firing early — so live exit-reason distributions and
++        # expectancy did not match the backtest the params were tuned on. Keep
++        # the two lists identical or the divergence returns.
++        TIME_STOP_EXEMPT = {
++            "grid_bot", "dca_accumulator", "ecb_strategy",
++            "rsi_dip_spike_v4", "adaptive_regime",
++            "hammer_reversal",
++            "mr_02_vef", "mr_03_fbs", "mr_04_fvg",
++            "map_strategy",
++            "pll_cycle", "pll_cycle_martingale",
++            "bollinger_squeeze",
++            "scalp_master",
++            "rsi_dip_simple",
++            "kds_mean_reversion",
++            "rcr_mean_reversion",
++            "btc_v6_chandelier",
++            "ema_ribbon_breakout",
++            "orb_breakout",
++            "vwap_confirmed_orb",
++            "ema_crossover",
++            "rsi_momentum",
++            "bollinger_breakout",
++            "vdmr_strategy",
++            "vwap_momentum",
++            "cbae_strategy",
++            "rare_strategy",
++            "fels_strategy",
++            "swing_trader",
++            "mean_reversion",
++        }
+         if strategy in TIME_STOP_EXEMPT:
+             logger.debug(
+                 f"[TIME STOP EXEMPT] {symbol}: strategy={strategy} "

@@ -1,0 +1,35 @@
+--- a/core/breakout_receiver.py
++++ b/core/breakout_receiver.py
+@@ -27,7 +27,7 @@
+
+ # ── Tuning constants ────────────────────────────────────────────────────────
+ SIGNAL_TTL_SEC          = 60
+-VOLUME_SPIKE_MIN        = 2.0   # raised from 1.5 — real breakouts need at least 2x volume
++VOLUME_SPIKE_MIN        = 1.5   # Opus retune 2026-05-29: back to 1.5. 2.0 rejected legit early breakouts whose volume had not fully ramped — a primary cause of the 100→20 trades/day collapse.
+ WICK_BODY_MAX_RATIO     = 2.0
+ GAP_TRAP_MAX_PCT        = 30.0
+ PRICE_DRIFT_MAX_PCT     = 0.5
+@@ -41,7 +41,9 @@
+ MARKET_RALLY_THRESHOLD  = +2.0
+ MIN_SOFT_PASSES         = 0
+ MIN_PRICE_CRYPTO        = 0.01   # reject sub-penny crypto — micro-caps with no liquidity
+-MAX_CONCURRENT_BREAKOUTS= 2      # max open breakout_scanner positions at once — stops burst entries
++# Opus retune 2026-05-29: 2 was THE dominant bottleneck. Winners are meant to
++# run for hours, so 2 slots stayed full all day and rejected nearly every new
++# signal. At 2% sizing + tight protective stop, 8 concurrent = 16% worst-case
++# capital at risk, within the circuit breakers. Tune 6/8/10 against backtest.
++MAX_CONCURRENT_BREAKOUTS= 8      # max open breakout_scanner positions at once
+ PUMP_VOLUME_SPIKE_MAX   = 15.0   # volume spike above this = coordinated pump (organic breaks rarely > 10x)
+ PUMP_MOVE_MAX_CRYPTO    = 15.0   # crypto move above this % = likely already at pump peak, not start
+@@ -347,7 +349,9 @@
+         return ChecklistResult.ok(f"No existing position on {sym}")
+
+     def _check_daily_symbol_limit(self, p: Dict) -> ChecklistResult:
+-        MAX_DAILY_PER_SYMBOL = 2
++        # Opus retune 2026-05-29: 2→4. A fast mover that breaks out, wins, pulls
++        # back and breaks out again was blocked after 2/day; the original scanner
++        # re-entered momentum names repeatedly.
++        MAX_DAILY_PER_SYMBOL = 4
+         sym = p["symbol"]
+         try:
+             today = date.today().isoformat()
