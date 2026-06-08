@@ -2459,8 +2459,14 @@ const loadChartIndicators = () => {
     const saved = JSON.parse(localStorage.getItem('chart_indicators_v1') || 'null');
     if (Array.isArray(saved) && saved.length) {
       const savedIds = new Set(saved.map(ind => ind.id));
+      // Merge saved with defaults — keep user settings but pull place/type from
+      // DEFAULT_CHART_INDICATORS so code fixes (like SuperTrend place:'main') take effect.
+      const defaultMap = new Map(DEFAULT_CHART_INDICATORS.map(d => [d.id, d]));
       return [
-        ...saved.map(cloneIndicator),
+        ...saved.map(ind => {
+          const def = defaultMap.get(ind.id);
+          return cloneIndicator(def ? { ...ind, place: def.place, type: def.type } : ind);
+        }),
         ...DEFAULT_CHART_INDICATORS.filter(ind => !savedIds.has(ind.id)).map(cloneIndicator),
       ];
     }
