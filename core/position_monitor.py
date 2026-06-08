@@ -1669,18 +1669,19 @@ class PositionMonitor:
             logger.info(f"[PM-DBG] ⑥ {symbol} — reached trailing stop section")
         # ── 11b. BREAKOUT RATCHET STOP ───────────────────────────────────
         # Rule: while negative → leave SL alone (wide, no premature trips).
-        # Once P&L hits +$20 dollars → snap SL to entry (zero-loss guaranteed).
+        # Once P&L hits +1% → snap SL to entry (zero-loss guaranteed).
         # After that → trail SL at the SAME DOLLAR DISTANCE the original SL was
         # below entry — so the buffer stays proportional to the instrument's ATR.
         # SL only ever moves UP (for longs); it never retreats. Trip on price drop.
+        # MUST be percentage-based — dollar amount doesn't scale across position sizes.
+        # A $20 trigger is 1% on $2K paper but 10% on a $200 live position = never fires.
         if _is_breakout_trade(trade):
             _entry   = float(trade.get("entry_price") or 0)
             _cur_sl  = float(trade.get("stop_loss") or 0)
             _pos_val = float(trade.get("position_value") or 0)
-            _pnl_dollars  = pnl_pct * _pos_val / 100 if _pos_val > 0 else 0.0
             _pnl_pct_raw  = pnl_pct
 
-            _RATCHET_TRIGGER_USD = 20.0   # $20 profit (~1%) → snap to breakeven — this is what drove 75% WR
+            _RATCHET_TRIGGER_PCT = 1.0   # 1% P&L → snap to breakeven (scales with any position size)
 
             if _entry > 0 and direction == "long":
                 # Capture original SL distance once on first cycle (before any ratchet move).
@@ -1707,19 +1708,19 @@ class PositionMonitor:
                 _ratchet_sl = _peak - _sl_dist
 
                 logger.info(
-                    f"[BREAKOUT RATCHET] {symbol}: P&L ${_pnl_dollars:+.2f} | "
+                    f"[BREAKOUT RATCHET] {symbol}: P&L {_pnl_pct_raw:+.2f}% | "
                     f"peak=${_peak:.4f} trail_sl=${_ratchet_sl:.4f} "
                     f"dist=${_sl_dist:.4f} "
-                    f"{'ACTIVE' if _pnl_dollars >= _RATCHET_TRIGGER_USD else f'waiting (+${_RATCHET_TRIGGER_USD:.0f} trigger)'}"
+                    f"{'ACTIVE' if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT else f'waiting ({_RATCHET_TRIGGER_PCT}% trigger)'}"
                 )
 
-                if _pnl_dollars >= _RATCHET_TRIGGER_USD:
+                if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT:
                     # Floor = entry price (never take a loss once the ratchet fires)
                     _target_sl = max(_entry, _ratchet_sl)
                     if _target_sl > _cur_sl:   # only ever ratchet UP
                         logger.info(
                             f"[BREAKOUT RATCHET] {symbol}: SL ${_cur_sl:.4f} → "
-                            f"${_target_sl:.4f} | P&L +${_pnl_dollars:.2f} "
+                            f"${_target_sl:.4f} | P&L {_pnl_pct_raw:+.2f}% "
                             f"peak=${_peak:.4f}"
                         )
                         self._db.update_trade_levels(trade_id, stop_loss=round(_target_sl, 6))
@@ -1747,12 +1748,12 @@ class PositionMonitor:
 
                 _ratchet_sl = _peak + _sl_dist
 
-                if _pnl_dollars >= _RATCHET_TRIGGER_USD:
+                if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT:
                     _target_sl = min(_entry, _ratchet_sl)   # ceiling = entry for shorts
                     if _target_sl < _cur_sl:   # only ever ratchet DOWN (short)
                         logger.info(
                             f"[BREAKOUT RATCHET] {symbol}: SL ${_cur_sl:.4f} → "
-                            f"${_target_sl:.4f} | P&L +${_pnl_dollars:.2f} "
+                            f"${_target_sl:.4f} | P&L {_pnl_pct_raw:+.2f}% "
                             f"peak=${_peak:.4f}"
                         )
                         self._db.update_trade_levels(trade_id, stop_loss=round(_target_sl, 6))
