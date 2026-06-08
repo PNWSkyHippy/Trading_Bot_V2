@@ -26,7 +26,7 @@
     2.  EOD close (15:45 ET)
     3.  Stop-loss
     4.  ORB VWAP cross exit
-    4b. Adaptive regime exit (adaptive_regime strategy only)
+    4b. RSI dip & spike exit (rsi_dip_spike_v4 strategy only)
     5.  Early loss identification (30 min check, -0.5% threshold)
     6.  Performance-contingent time stop (2hr check, needs 0.2%)
     7.  Performance-contingent time stop (5hr check, needs 1.0%)
@@ -70,6 +70,8 @@ STALE_THRESHOLD_SEC = 3 * 60 * 60       # 3 hours before ADX/DI stale check fire
 
 # ADX threshold below which trend is considered stalled
 ADX_STALE_THRESHOLD = 25.0
+
+PM_DEBUG = False
 
 # ── NEW: Time-based exit thresholds ──────────────────────────────────────────
 # Performance-contingent: close if profit is below threshold after N hours.
@@ -213,6 +215,11 @@ class PositionMonitor:
         self.check_interval = 10   # reduced from 30s — faster SL detection
         self._thread        = None
         self._on_breakout_win_closed: Optional[Callable] = None
+        # Peak price tracker — in-memory, per trade_id.
+        # Resets on restart (acceptable — worst case SL trails from entry on restart).
+        # Tracks the highest price seen for longs (lowest for shorts) so the ratchet
+        # trails from the BEST price ever seen, not just the current price.
+        self._peak_prices: dict = {}   # {trade_id: peak_price}
 
     def set_breakout_win_callback(
         self, cb: Callable[[str, bool, float, str], None]
@@ -280,6 +287,44 @@ class PositionMonitor:
 
     def _is_stuck(self, trade_id: str) -> bool:
         return int(self._db.get_state(f"close_stuck_{trade_id}", default=0)) == 1
+
+    def _ratchet_update_exchange_stop(
+        self, trade: dict, trade_id: str, symbol: str, direction: str, new_sl: float
+    ) -> None:
+        """
+        Cancel the old exchange stop order and place a new one at the ratchet price.
+        Works for both paper mode (fake order ID tracking) and live mode (real cancel+replace).
+        Falls back to software-only monitoring if the exchange call fails — the DB SL
+        is the source of truth for the position monitor's 10s price check loop.
+        """
+        asset_class = trade.get("asset_class", "")
+        if asset_class != "crypto":
+            return   # stocks: Alpaca trailing stop handled separately
+        try:
+            import config as _cfg
+            kraken_ex   = self._get_executor().kraken
+            if kraken_ex is None:
+                return
+            qty         = float(trade.get("quantity") or 0)
+            old_stop_id = trade.get("stop_order_id", "")
+            stop_side   = "buy" if direction == "short" else "sell"
+            new_stop_id = kraken_ex.update_stop_order(
+                symbol, old_stop_id, qty, stop_side, round(new_sl, 6)
+            )
+            if new_stop_id:
+                self._db.update_trade_order_ids(trade_id, stop_order_id=new_stop_id)
+                trade["stop_order_id"] = new_stop_id
+                logger.info(
+                    f"[RATCHET {'PAPER' if _cfg.KRAKEN_PAPER_MODE else 'LIVE'}] "
+                    f"{symbol}: exchange stop updated → ${new_sl:.6f} "
+                    f"(order {new_stop_id})"
+                )
+        except Exception as _e:
+            # Non-fatal: DB SL is updated, software monitor will enforce it
+            logger.warning(
+                f"[RATCHET] {symbol}: exchange stop update failed ({_e}) — "
+                f"software monitor will enforce SL ${new_sl:.6f}"
+            )
 
     def _attempt_close(self, trade: Dict, current_price: float,
                        reason: str) -> bool:
@@ -518,20 +563,60 @@ class PositionMonitor:
         trade_id  = trade["trade_id"]
         strategy  = trade.get("strategy_name", "")
 
+        # ── Fee-hurdle floor (Opus audit 2026-05-29) ───────────────────
+        # A "perf time stop" that closes a crypto trade for being below
+        # 0.2% booked a guaranteed net loss (round-trip fee = 0.62%) AND
+        # truncated winners that simply needed more time. Raise the floor
+        # above the asset's fee hurdle, and on crypto only cut when the
+        # trade is genuinely NEGATIVE — let slow-but-green trades run.
+        _asset = trade.get("asset_class", "crypto")
+        if _asset == "crypto":
+            _hurdle    = getattr(config, "FEE_RT_CRYPTO_PCT", 0.62)
+            _floor_2hr = 0.0                           # crypto: only cut if losing
+            _floor_5hr = round(_hurdle + 0.40, 2)      # ~1.02 % net target
+        else:
+            _hurdle    = getattr(config, "FEE_RT_STOCK_PCT", 0.02)
+            _floor_2hr = max(PERF_CHECK_2HR_MIN_PCT, round(_hurdle + 0.10, 2))
+            _floor_5hr = max(PERF_CHECK_5HR_MIN_PCT, round(_hurdle + 0.30, 2))
+
         # ── Strategy-defined time stop exemption ──────────────────────
         # Strategies that manage their own exit timing declare this via
         # time_stop_profile = "strategy_defined" on their class.
         # The position monitor must not override their thesis with generic
         # intraday time stops.
         #
-        # ECB (ecb_strategy): 24-bar hold. 2hr stop fires at bar 2 — kills thesis.
         # DCA accumulator: slow oscillation strategy; time stops inappropriate.
         # Grid bot: profits from range oscillations across many hours.
         # MR mean-reversion 1h strategies: 24/36/48-bar holds are intentional;
         # the 8hr generic stop would cut trades before the thesis plays out.
+        # ── Opus live-vs-paper audit 2026-05-29 ──────────────────────────────
+        # This set MUST mirror intelligence/backtester.py TIME_STOP_EXEMPT.
+        # Previously live exempted only 6 strategies while the backtester
+        # exempted ~30. Result: ~16 strategies were backtested WITHOUT generic
+        # 30m/2h/5h/8h stops (they ran to their own thesis), but traded LIVE
+        # WITH those stops firing early — so live exit-reason distributions and
+        # expectancy did not match the backtest the params were tuned on. Keep
+        # the two lists identical or the divergence returns.
         TIME_STOP_EXEMPT = {
-            "ecb_strategy", "grid_bot", "dca_accumulator",
-            "mr_02_vef", "mr_03_fbs", "mr_04_fvg",
+            "grid_bot", "dca_accumulator",
+            "rsi_dip_spike_v4",
+            "hammer_reversal",
+            "mr_02_vef", "mr_03_fbs",
+            "pll_cycle", "pll_cycle_martingale",
+            "scalp_master",
+            "rsi_dip_simple",
+            "rcr_mean_reversion",
+            "btc_v6_chandelier",
+            "orb_breakout",
+            "vwap_confirmed_orb",
+            "ema_crossover",
+            "rsi_momentum",
+            "bollinger_breakout",
+            "vwap_momentum",
+            "fels_strategy",
+            "swing_trader",
+            "mean_reversion",
+            "bmr_357",          # 48-bar time stop + SMA20 midline exit; generic lifecycle stops fire too early
         }
         if strategy in TIME_STOP_EXEMPT:
             logger.debug(
@@ -550,19 +635,19 @@ class PositionMonitor:
 
         # ── 5-hour performance check ──────────────────────────────────
         if age_seconds >= PERF_CHECK_5HR_SEC:
-            if pnl_pct < PERF_CHECK_5HR_MIN_PCT:
+            if pnl_pct < _floor_5hr:
                 logger.info(
                     f"[PERF TIME STOP 5HR] {symbol}: open {age_seconds/3600:.1f}hrs | "
-                    f"P&L {pnl_pct:+.2f}% < {PERF_CHECK_5HR_MIN_PCT}% target — closing"
+                    f"P&L {pnl_pct:+.2f}% < {_floor_5hr}% target — closing"
                 )
                 return "perf_time_stop_3hr"   # reason code unchanged for DB compatibility
 
         # ── 2-hour performance check ──────────────────────────────────
         if age_seconds >= PERF_CHECK_2HR_SEC:
-            if pnl_pct < PERF_CHECK_2HR_MIN_PCT:
+            if pnl_pct < _floor_2hr:
                 logger.info(
                     f"[PERF TIME STOP 2HR] {symbol}: open {age_seconds/3600:.1f}hrs | "
-                    f"P&L {pnl_pct:+.2f}% < {PERF_CHECK_2HR_MIN_PCT}% target — closing"
+                    f"P&L {pnl_pct:+.2f}% < {_floor_2hr}% target — closing"
                 )
                 return "perf_time_stop_1hr"   # reason code unchanged for DB compatibility
 
@@ -645,7 +730,7 @@ class PositionMonitor:
     # ------------------------------------------------------------------
 
     def _check_reversal_candles(
-        self, trade: Dict, age_seconds: float
+        self, trade: Dict, age_seconds: float, pnl_pct: float = 0.0
     ) -> Optional[str]:
         """
         If 2+ consecutive CLOSED candles move against the trade direction
@@ -664,6 +749,10 @@ class PositionMonitor:
         """
         strategy = trade.get("strategy_name", "")
         if strategy not in ("breakout_scanner", "vwap_confirmed_orb"):
+            return None
+
+        # Opus diff 08: only fire when trade is losing — don't cut profitable breakouts early
+        if pnl_pct > 0:
             return None
 
         # Only in first 30 minutes
@@ -984,98 +1073,87 @@ class PositionMonitor:
             return None
 
     # ------------------------------------------------------------------
-    #  ADAPTIVE REGIME EXIT (strategy-specific)
     # ------------------------------------------------------------------
-
-    def _check_adaptive_regime_exit(
-        self, trade: Dict, current_price: float
+    #  GENERIC STRATEGY CUSTOM EXIT  (Opus live-vs-paper audit 2026-05-29)
+    # ------------------------------------------------------------------
+    def _check_generic_custom_exit(
+        self, trade: Dict, age_seconds: float
     ) -> Optional[str]:
         """
-        Delegate to AdaptiveRegime.check_custom_exit() — the same code path
-        used by the backtester — so live and backtest apply identical exit logic.
+        Call the trade's strategy object's check_custom_exit() — the SAME method
+        the backtester calls on every bar. This gives live/backtest parity for
+        every strategy that defines a custom exit, instead of hardcoding each one.
 
-        Previously this method duplicated the EMA/BB/RSI exit rules inline.
-        The canonical implementation lives in strategies/adaptive_regime.py;
-        maintaining two copies causes live/backtest drift whenever one is
-        updated without the other. Now there is exactly one source of truth.
-
-        entry_timeframe and indicators_json (persisted at trade open time) are
-        both confirmed present in the trades table — see database.py lines 99
-        and 93 respectively.
+        Returns an exit-reason string to close, or None to keep holding.
+        Fails safe (returns None) on any error so a strategy bug can never wedge
+        the monitor — the protective structural stop is still the hard backstop.
         """
         import json
 
-        symbol          = trade["symbol"]
-        asset_class     = trade["asset_class"]
-        direction       = trade["direction"]
-        entry_timeframe = trade.get("entry_timeframe") or (
-            "1Hour" if asset_class == "stock" else "1h"
-        )
-
-        # ── Parse entry metadata — fast-path skip if adaptive_exit_mode absent
-        try:
-            entry_metadata = json.loads(trade.get("indicators_json") or "{}")
-        except (json.JSONDecodeError, TypeError):
-            entry_metadata = {}
-
-        if not entry_metadata.get("adaptive_exit_mode"):
-            # Not an adaptive_regime trade or missing metadata — skip quietly
-            return None
-
-        # ── Fetch closed bars on the entry timeframe ───────────────────────
-        # 150 bars needed for EMA100 warm-up.  _get_bars() enforces closed-only
-        # via _strip_forming_bar() so the decision is never based on an intrabar
-        # wick (same guarantee the backtester gets from yfinance history).
-        bars = self._get_bars(symbol, asset_class, limit=150, timeframe=entry_timeframe)
-        if bars is None or len(bars) < 30:
-            logger.debug(
-                f"[ADAPTIVE EXIT] {symbol}: insufficient bars "
-                f"(got {len(bars) if bars is not None else 0}, need 30+) — skip"
-            )
+        symbol      = trade["symbol"]
+        asset_class = trade.get("asset_class", "crypto")
+        direction   = trade["direction"]
+        strat_name  = trade.get("strategy_name", "")
+        if not strat_name:
             return None
 
         try:
-            from strategies.adaptive_regime import AdaptiveRegime
-            return AdaptiveRegime().check_custom_exit(
-                symbol, bars, direction, entry_metadata
-            )
+            from strategies.strategy_engine import strategy_engine
+            from strategies.base_strategy import BaseStrategy
+            strat = strategy_engine._get_strategy(strat_name)
         except Exception as e:
-            logger.debug(f"[ADAPTIVE EXIT] {symbol}: check_custom_exit error: {e}")
+            logger.debug(f"[CUSTOM EXIT] {symbol}: engine lookup failed: {e}")
+            return None
+        if strat is None:
+            return None
+
+        # Only strategies that actually override the hook are worth fetching bars
+        # for; the BaseStrategy stub returns None.
+        if type(strat).check_custom_exit is BaseStrategy.check_custom_exit:
+            return None
+
+        # Pick the timeframe and bar size the strategy declares for this asset.
+        if asset_class == "stock":
+            tf = getattr(strat, "stock_candle_timeframe", "5Min")
+            bar_sec = {"1Min": 60, "5Min": 300, "15Min": 900,
+                       "1Hour": 3600, "1Day": 86400}.get(tf, 300)
+        else:
+            tf = getattr(strat, "crypto_candle_timeframe", "1h")
+            bar_sec = {"1m": 60, "5m": 300, "15m": 900,
+                       "1h": 3600, "1d": 86400}.get(tf, 3600)
+
+        try:
+            meta = json.loads(trade.get("indicators_json") or "{}")
+        except (json.JSONDecodeError, TypeError):
+            meta = {}
+        meta["_bars_held"]   = int(age_seconds / bar_sec) if bar_sec else 0
+        meta["_entry_price"] = trade.get("entry_price", 0)
+
+        bars = self._get_bars(symbol, asset_class, limit=150, timeframe=tf)
+        if bars is None or len(bars) < 30:
+            return None
+
+        try:
+            return strat.check_custom_exit(symbol, bars, direction, meta)
+        except Exception as e:
+            logger.debug(f"[CUSTOM EXIT] {symbol}: {strat_name} check error: {e}")
             return None
 
     def _check_vwap_cross_exit(self, trade: Dict, current_price: float) -> bool:
-        """VWAP cross exit for ORB trades."""
-        try:
-            bars = self._get_bars(trade["symbol"], trade["asset_class"], limit=50)
-            if bars is None or len(bars) < 5:
-                return False
+        """
+        VWAP cross exit for ORB trades.
 
-            typical = (bars["high"] + bars["low"] + bars["close"]) / 3
-            cum_tpv = (typical * bars["volume"]).cumsum()
-            cum_vol = bars["volume"].cumsum()
-            vwap    = (cum_tpv / cum_vol.replace(0, float("nan"))).iloc[-1]
+        DISABLED 2026-05-31: This exit used a rolling 50-bar VWAP which is a
+        different calculation from the session-anchored VWAP used for ORB entry
+        confirmation.  The mismatch caused the exit to fire on the first monitor
+        cycle (often within 0.1–1 min of entry) before the trade had any chance
+        to move — 21 of 28 ORB trades exited this way at 0% WR.  The ORB
+        backtester (PF=2.01) never included this exit; removing it restores
+        live behaviour to match the backtested thesis.
 
-            if pd.isna(vwap):
-                return False
-
-            direction = trade["direction"]
-            if direction == "long" and current_price < vwap:
-                logger.info(
-                    f"[ORB VWAP EXIT] {trade['symbol']}: price {current_price:.4f} "
-                    f"crossed below VWAP {vwap:.4f} — closing"
-                )
-                return True
-            elif direction == "short" and current_price > vwap:
-                logger.info(
-                    f"[ORB VWAP EXIT] {trade['symbol']}: price {current_price:.4f} "
-                    f"crossed above VWAP {vwap:.4f} — closing"
-                )
-                return True
-
-            return False
-        except Exception as e:
-            logger.debug(f"VWAP cross check error for {trade['symbol']}: {e}")
-            return False
+        ORB exits are now handled solely by: stop_loss, take_profit, stale checks.
+        """
+        return False
 
     # ------------------------------------------------------------------
     #  MOMENTUM RIDER HELPERS
@@ -1111,13 +1189,25 @@ class PositionMonitor:
         thread, with an aggressive timeout so a stale connection can't hang forever.
         """
         try:
+            # CandleManager cache first — eliminates ccxt thread-safety issue entirely.
+            # The refresh loop pre-warms all watchlist symbols so this is usually
+            # an instant SQLite read with no network call.
+            from core.candle_manager import candle_manager
+            tf = timeframe or ("5Min" if asset_class == "stock" else "5m")
+            df = candle_manager.get(symbol, tf, limit=limit)
+            if df is not None and not df.empty:
+                return df
+        except Exception:
+            pass
+
+        # Fallback: direct fetch (candle_manager cold start or symbol not in watchlist)
+        try:
             if asset_class == "stock":
                 tf = timeframe or "5Min"
                 sc = self._get_scanner()
                 return sc.stock_scanner.get_bars(symbol, timeframe=tf, limit=limit)
             else:
                 tf = timeframe or "5m"
-                # Use monitor's own private ccxt instance — never shares with scanner thread
                 ex = self._get_monitor_exchange()
                 ohlcv = ex.fetch_ohlcv(symbol, tf, limit=limit + 1)
                 if not ohlcv:
@@ -1128,7 +1218,6 @@ class PositionMonitor:
                 )
                 df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
                 df.set_index("timestamp", inplace=True)
-                # Drop the still-forming bar (last row) — same logic as CryptoScanner
                 if len(df) > 1:
                     df = df.iloc[:-1]
                 return df
@@ -1224,6 +1313,9 @@ class PositionMonitor:
             "5Min" if asset_class == "stock" else "5m"
         )
 
+        if PM_DEBUG:
+            if PM_DEBUG:logger.info(f"[PM-DBG] ① {symbol} — entering _process_position")
+
         # ── 1. STUCK CHECK ───────────────────────────────────────────────
         if self._is_stuck(trade_id):
             logger.warning(
@@ -1232,10 +1324,14 @@ class PositionMonitor:
             )
             return
 
+        if PM_DEBUG:
+            logger.info(f"[PM-DBG] ② {symbol} — fetching price")
         current_price = self._get_scanner().get_current_price(symbol, asset_class)
         if current_price is None:
             logger.warning(f"Could not get price for {symbol} — skipping check")
             return
+        if PM_DEBUG:
+            logger.info(f"[PM-DBG] ③ {symbol} — price=${current_price:.6g}")
 
         # ── Price sanity gate ─────────────────────────────────────────────────
         # Reject prices that are wildly wrong relative to the trade entry.
@@ -1263,7 +1359,7 @@ class PositionMonitor:
         age_hrs     = age_seconds / 3600
 
         logger.debug(
-            f"{symbol} [{entry_timeframe}]: price=${current_price:.4f} | "
+            f"[PM-DBG] ④ {symbol} [{entry_timeframe}]: price=${current_price:.4f} | "
             f"SL=${trade['stop_loss']:.4f} | TP=${trade['take_profit']:.4f} | "
             f"P&L: {pnl_pct:+.2f}% | Age: {age_hrs:.1f}hr"
         )
@@ -1319,13 +1415,24 @@ class PositionMonitor:
             except Exception as _rec_err:
                 logger.debug(f"Reconciliation check error for {symbol}: {_rec_err}")
 
+        if PM_DEBUG:
+            logger.info(f"[PM-DBG] ⑤ {symbol} — checking SL/TP exits")
         # ── 3. STOP-LOSS ──────────────────────────────────────────────────
         sl_exit = risk_manager.check_sl_exit(trade, current_price)
         if sl_exit:
             # Fill at stop_loss price, not current candle price.
             # Live brokers execute the stop order at stop price; paper must match.
-            # current_price is logged for context but is not used as the fill.
-            sl_fill_price = float(trade.get("stop_loss") or current_price)
+            # Sanity check: if stop_loss is > 20% away from current_price it was
+            # corrupted by a bad price feed — fall back to current_price.
+            _raw_sl = float(trade.get("stop_loss") or 0)
+            _sl_dist_pct = abs(_raw_sl - current_price) / current_price * 100 if current_price else 0
+            sl_fill_price = _raw_sl if _raw_sl and _sl_dist_pct <= 20.0 else current_price
+            if _sl_dist_pct > 20.0:
+                logger.warning(
+                    f"[SL FILL SANITY] {symbol}: stop_loss ${_raw_sl:.4f} is "
+                    f"{_sl_dist_pct:.1f}% from current ${current_price:.4f} "
+                    f"-- suspected corrupt stop, filling at current price"
+                )
             logger.info(
                 f"[STOP LOSS] {symbol} @ ${current_price:.6f} | "
                 f"fill @ ${sl_fill_price:.6f} | "
@@ -1342,17 +1449,6 @@ class PositionMonitor:
                 self._attempt_close(trade, current_price, "vwap_cross")
                 return
 
-        # ── 4b. ADAPTIVE REGIME EXIT ─────────────────────────────────────
-        # Strategy-specific exit: EMA cross (trend) or BB midline / RSI (mean rev).
-        # Checked before early loss so the strategy's own exit model takes priority
-        # over generic time-based rules. Only fires for adaptive_regime trades.
-        if strategy == "adaptive_regime":
-            adaptive_exit = self._check_adaptive_regime_exit(trade, current_price)
-            if adaptive_exit:
-                self._db.set_state(f"momentum_ext_{trade_id}", 0)
-                self._attempt_close(trade, current_price, adaptive_exit)
-                return
-
         # ── 4c. RSI DIP & SPIKE EXIT ─────────────────────────────────────
         # Strategy-specific exit: RSI neutral exit + 48-bar max-hold.
         # Takes priority over generic time stops — rsi_dip_spike_v4 is
@@ -1364,10 +1460,25 @@ class PositionMonitor:
                 self._attempt_close(trade, current_price, rsi_dip_exit)
                 return
 
+        # ── 4c-2. GENERIC STRATEGY CUSTOM EXIT (live/backtest parity) ────────
+        # Opus live-vs-paper audit 2026-05-29. Every strategy overriding
+        # BaseStrategy.check_custom_exit() has its exit applied by the backtester
+        # on every bar. adaptive_regime and rsi_dip_spike_v4 are handled above;
+        # this dispatch covers ALL remaining strategies (btc_v6_chandelier,
+        # ema_ribbon_breakout, kds/rcr_mean_reversion, mr_02/03/04, ecb_strategy,
+        # swing_trader, bollinger_squeeze, pll_cycle, etc.) so live exits match
+        # the thesis the params were tuned on. Pairs with diff 09.
+        if strategy not in ("adaptive_regime", "rsi_dip_spike_v4", "orb_breakout"):
+            custom_exit = self._check_generic_custom_exit(trade, age_seconds)
+            if custom_exit:
+                self._db.set_state(f"momentum_ext_{trade_id}", 0)
+                self._attempt_close(trade, current_price, custom_exit)
+                return
+
         # ── 4d. REVERSAL CANDLE EXIT (10-30 min, breakout + vwap_orb) ───────
         # 2 consecutive candles closing against the trade = reversal confirmed.
         # Fires before fast-fail — gets out even earlier on clean reversals.
-        reversal_exit = self._check_reversal_candles(trade, age_seconds)
+        reversal_exit = self._check_reversal_candles(trade, age_seconds, pnl_pct)
         if reversal_exit:
             self._db.set_state(f"momentum_ext_{trade_id}", 0)
             self._attempt_close(trade, current_price, reversal_exit)
@@ -1553,32 +1664,118 @@ class PositionMonitor:
                 self._attempt_close(trade, current_price, stale_exit)
                 return
 
+        if PM_DEBUG:
+            logger.info(f"[PM-DBG] ⑥ {symbol} — reached trailing stop section")
+        # ── 11b. BREAKOUT RATCHET STOP ───────────────────────────────────
+        # For breakout trades: once P&L hits +$20, snap SL to entry (zero loss).
+        # After that, trail the SL $20 below current price — but ONLY upward.
+        # The stop never moves back down; it trips if price falls to it.
+        # This replaces the wide initial stop with a profit-protecting ratchet.
+        if _is_breakout_trade(trade):
+            _entry    = float(trade.get("entry_price") or 0)
+            _cur_sl   = float(trade.get("stop_loss") or 0)
+            _pos_val  = float(trade.get("position_value") or 0)
+            _pnl_dollars = (_pnl_pct_raw := pnl_pct) * _pos_val / 100 if _pos_val > 0 else 0.0
+            # Percentage-based ratchet — trails from PEAK price, not current price.
+            # Trigger at 1% profit (~$20 on a $2K position) → SL snaps to entry (buy-in).
+            # Trail at 0.75% below peak from that point — as price rises the SL follows,
+            # naturally moving above entry so any stop-out books real profit not just breakeven.
+            _RATCHET_TRIGGER_PCT = 1.0    # % P&L before trail activates
+            _RATCHET_TRAIL_PCT   = 0.75   # % trail below/above PEAK price
+
+            if _entry > 0 and direction == "long":
+                # Update peak price (highest seen for this trade)
+                _peak = self._peak_prices.get(trade_id, _entry)
+                if current_price > _peak:
+                    _peak = current_price
+                    self._peak_prices[trade_id] = _peak
+                # Trail SL from peak — locks in gains even when price pulls back
+                _ratchet_sl = _peak * (1 - _RATCHET_TRAIL_PCT / 100)
+                logger.info(
+#                    f"[PM-DBG] ⑦ {symbol} — ratchet: P&L={_pnl_pct_raw:+.2f}% "
+                    f"peak=${_peak:.4f} ratchet_sl=${_ratchet_sl:.4f} "
+                    f"trigger={_RATCHET_TRIGGER_PCT}% "
+                    f"{'ACTIVE' if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT else 'waiting'}"
+                )
+                if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT:
+                    # Floor is entry (buy-in price) — SL never goes below what you paid.
+                    # Trail naturally moves above entry as price rises, locking real profit.
+                    _target_sl = max(_entry, _ratchet_sl)
+                    if _target_sl > _cur_sl:   # only ever ratchet UP
+                        logger.info(
+                            f"[BREAKOUT RATCHET] {symbol}: SL ${_cur_sl:.4f} → "
+                            f"${_target_sl:.4f} | P&L {_pnl_pct_raw:.2f}% "
+                            f"peak ${_peak:.4f}"
+                        )
+                        self._db.update_trade_levels(trade_id, stop_loss=round(_target_sl, 6))
+                        trade["stop_loss"] = round(_target_sl, 6)
+                        # Live + Paper: cancel old exchange stop, place new one at ratchet price
+                        # Paper: tracks order ID for parity. Live: real Kraken cancel+replace.
+                        self._ratchet_update_exchange_stop(
+                            trade, trade_id, symbol, direction, _target_sl
+                        )
+            elif _entry > 0 and direction == "short":
+                # For shorts: peak = lowest price seen
+                _peak = self._peak_prices.get(trade_id, _entry)
+                if current_price < _peak:
+                    _peak = current_price
+                    self._peak_prices[trade_id] = _peak
+                _ratchet_sl = _peak * (1 + _RATCHET_TRAIL_PCT / 100)
+                if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT:
+                    _target_sl = min(_entry, _ratchet_sl)
+                    if _target_sl < _cur_sl:   # only ever ratchet DOWN (short)
+                        logger.info(
+                            f"[BREAKOUT RATCHET] {symbol}: SL ${_cur_sl:.4f} → "
+                            f"${_target_sl:.4f} | P&L {_pnl_pct_raw:.2f}% "
+                            f"peak ${_peak:.4f}"
+                        )
+                        self._db.update_trade_levels(trade_id, stop_loss=round(_target_sl, 6))
+                        trade["stop_loss"] = round(_target_sl, 6)
+                        self._ratchet_update_exchange_stop(
+                            trade, trade_id, symbol, direction, _target_sl
+                        )
+
         # ── 12. TRAILING STOP UPDATE + LOGGING ───────────────────────────
-        # Fetch bars on the trade's originating timeframe so the two-bar
-        # structural stop trails on the same candle size that generated the entry.
-        # A 1h trade must trail on 1h bars — not 5m bars — or the stop advances
-        # on every minor 5m high/low instead of on structural 1h breaks.
-        #
-        # Strategy-preferred trail mode: strategies set preferred_trail_mode in
-        # their signal metadata at signal creation time. We honour it here so that
-        # mean-reversion strategies (rsi_dip_spike_v4: "none") don't get their
-        # stops trailed before RSI can recover to the exit threshold, while
-        # trend-follow strategies (adaptive_regime: "two_bar") get structural trails.
+        # Breakout trades use the ratchet stop (section 11b) — skip two-bar trail.
+        if _is_breakout_trade(trade):
+            return
+        # Non-breakout path — two-bar structural trailing stop
         _trade_meta   = _json.loads(trade.get("indicators_json") or "{}")
         _trail_pref   = _trade_meta.get("preferred_trail_mode", "two_bar").lower()
+        if PM_DEBUG:
+            logger.info(f"[PM-DBG] ⑦ {symbol} — two-bar trail path | trail_mode={_trail_pref}")
         if _trail_pref == "none":
             updates = None   # strategy manages its own exit — no trailing
         else:
             _trail_bars = self._get_bars(symbol, asset_class, limit=25, timeframe=entry_timeframe)
             updates = risk_manager.calculate_trailing_stop(trade, current_price, bars=_trail_bars)
+        if PM_DEBUG:
+            logger.info(f"[PM-DBG] ⑧ {symbol} — trail calc done | updates={updates}")
         if updates:
             old_sl = trade.get("stop_loss", 0)
             old_tp = trade.get("take_profit", 0)
-            self._db.update_trade_levels(
-                trade_id,
-                stop_loss   = updates.get("stop_loss"),
-                take_profit = updates.get("take_profit"),
-            )
+            # Sanity-check the proposed new stop against entry before writing to DB.
+            # A bad price feed can produce a bar low that's nowhere near entry, which
+            # would corrupt the stop_loss and then get used as the exit fill price.
+            _entry      = float(trade.get("entry_price") or 0)
+            _prop_sl    = updates.get("stop_loss")
+            _max_sl_pct = 25.0 if asset_class == "stock" else 60.0
+            if (_prop_sl and _entry > 0
+                    and abs(_prop_sl - _entry) / _entry * 100 > _max_sl_pct):
+                logger.warning(
+                    f"[TRAIL SANITY] {symbol}: proposed SL ${_prop_sl:.4f} is "
+                    f"{abs(_prop_sl-_entry)/_entry*100:.1f}% from entry ${_entry:.4f} "
+                    f"-- bad price feed suspected, skipping stop update"
+                )
+                updates.pop("stop_loss", None)
+            if not updates:
+                pass  # nothing safe to write
+            else:
+                self._db.update_trade_levels(
+                    trade_id,
+                    stop_loss   = updates.get("stop_loss"),
+                    take_profit = updates.get("take_profit"),
+                )
             if "stop_loss" in updates and updates["stop_loss"] != old_sl:
                 new_sl = updates["stop_loss"]
                 # Track how many times the stop has been ratcheted for dashboard indicator
@@ -1623,6 +1820,8 @@ class PositionMonitor:
 
     def check_positions(self):
         open_trades = self._db.get_open_trades()
+        if PM_DEBUG:
+            logger.info(f"[PM-DBG] check_positions called — {len(open_trades)} open trade(s)")
         if not open_trades:
             return
 
@@ -1691,41 +1890,51 @@ class PositionMonitor:
             symbol      = trade["symbol"]
             asset_class = trade["asset_class"]
 
+            entry_price = float(trade["entry_price"] or 0)
             if asset_class == "stock" and not market_open:
-                current_price = trade["entry_price"]
+                current_price = entry_price
             else:
-                current_price = self._get_scanner().get_current_price(
-                    symbol, asset_class
-                )
-                if current_price is None:
-                    current_price = trade["entry_price"]
+                raw_price = self._get_scanner().get_current_price(symbol, asset_class)
+                if raw_price and entry_price > 0:
+                    _dev = abs(raw_price - entry_price) / entry_price
+                    if _dev > 0.80:
+                        logger.warning(
+                            "[SUMMARY SANITY] %s: live $%.4f deviates %.1f%% from "
+                            "entry $%.4f — bad feed, using entry for display",
+                            symbol, raw_price, _dev * 100, entry_price,
+                        )
+                        current_price = entry_price
+                    else:
+                        current_price = raw_price
+                else:
+                    current_price = raw_price or entry_price
 
             qty       = trade["quantity"]
             direction = trade["direction"]
 
             if direction == "long":
-                unrealized_pnl = (current_price - trade["entry_price"]) * qty
-                pnl_pct = (current_price / trade["entry_price"] - 1) * 100
+                unrealized_pnl = (current_price - entry_price) * qty
+                pnl_pct = (current_price / entry_price - 1) * 100 if entry_price else 0.0
             else:
-                unrealized_pnl = (trade["entry_price"] - current_price) * qty
-                pnl_pct = (trade["entry_price"] / current_price - 1) * 100
+                unrealized_pnl = (entry_price - current_price) * qty
+                pnl_pct = (entry_price / current_price - 1) * 100 if current_price else 0.0
 
             age_seconds = _get_position_age_seconds(trade)
             is_stuck    = self._is_stuck(trade["trade_id"])
             close_attempts = self._get_close_attempts(trade["trade_id"])
 
+            _raw_sl  = float(trade.get("stop_loss") or 0)
+            _raw_tp  = float(trade.get("take_profit") or 0)
+            _sl_dist = abs(current_price - _raw_sl) / current_price * 100 if current_price else 0
+            _tp_dist = abs(_raw_tp - current_price) / current_price * 100 if current_price else 0
             enriched.append({
                 **trade,
                 "current_price":   round(current_price, 6),
                 "unrealized_pnl":  round(unrealized_pnl, 4),
-                "pnl_pct":         round(pnl_pct, 2),
+                "pnl_pct":         round(max(-200.0, min(200.0, pnl_pct)), 2),
                 "market_value":    round(current_price * qty, 2),
-                "distance_to_sl":  round(
-                    abs(current_price - trade["stop_loss"]) / current_price * 100, 2
-                ),
-                "distance_to_tp":  round(
-                    abs(trade["take_profit"] - current_price) / current_price * 100, 2
-                ),
+                "distance_to_sl":  round(min(_sl_dist, 999.0), 2),
+                "distance_to_tp":  round(min(_tp_dist, 999.0), 2),
                 "age_hours":       round(age_seconds / 3600, 2),
                 "is_overnight":    bool(trade.get("is_overnight", False)),
                 "tp_hit_count":    int(trade.get("tp_hit_count", 0)),

@@ -32,24 +32,16 @@ from strategies.vwap_momentum import VWAPMomentum
 from strategies.vwap_confirmed_orb import VwapConfirmedOrb
 from strategies.hammer_reversal import HammerReversal
 from strategies.orb_breakout import ORBBreakout
-from strategies.adaptive_regime import AdaptiveRegime
-from strategies.ecb_strategy import ECBStrategy
-from strategies.vdmr_strategy import VDMRStrategy
 from strategies.rsi_dip_spike_v4 import RSIDipSpikeV4Strategy
-from strategies.bollinger_squeeze import BollingerSqueeze
 from strategies.mr_02_vef_strategy import MR02VEFStrategy
 from strategies.mr_03_fbs_strategy import MR03FBSStrategy
-from strategies.mr_04_fvg_strategy import MR04FVGStrategy
 from strategies.btc_v6_chandelier import BTCV6ChandelierStrategy
 from strategies.rsi_dip_simple import RSIDipSimpleStrategy
 from strategies.pll_cycle import PLLCycleStrategy
-from strategies.kds_mean_reversion import KDSMeanReversionStrategy
-from strategies.ema_ribbon_breakout import EMARibbonBreakoutStrategy
 from strategies.rcr_mean_reversion import RCRMeanReversionStrategy
-from strategies.cbae_strategy import CBAEStrategy
-from strategies.rare_strategy import RAREStrategy
 from strategies.fels_strategy import FELSStrategy
-from strategies.map_strategy import MAPStrategy
+from strategies.sfr_structural_fakeout import SFRStrategy
+from strategies.bmr357_strategy import BMR357Strategy
 from data.database import db
 
 logger = logging.getLogger(__name__)
@@ -89,28 +81,17 @@ class StrategyEngine:
             VwapConfirmedOrb(),         # Strategy 10 — VWAP-confirmed ORB
             HammerReversal(),           # Strategy 11 — disabled, backtest first
             ORBBreakout(),              # Strategy 12 — disabled, backtest first
-            AdaptiveRegime(),           # Strategy 13 — dual-mode trend/mean-rev (1h bars)
-            ECBStrategy(),              # Strategy 14 — Entropy Collapse Breakout (CANDIDATE)
-            VDMRStrategy(),             # Strategy 15 — Velocity-Deceleration Mean Reversion (INCUBATE)
             RSIDipSpikeV4Strategy(),    # Strategy 16 — RSI Dip & Spike v4c (INCUBATE/CANDIDATE)
-            BollingerSqueeze(),         # Strategy 17 — Bollinger Squeeze release (INCUBATE)
             MR02VEFStrategy(),          # Strategy 18 — Volatility Exhaustion Fade 1h (INCUBATE)
             MR03FBSStrategy(),          # Strategy 19 — False Breakout Snap 1h (INCUBATE)
-            MR04FVGStrategy(),          # Strategy 20 — Fair Value Gap Fill 1h (INCUBATE)
-                                        # Backtest May2025-May2026 1h crypto:
-                                        # ETH PF=1.32 +7.3% Sharpe=1.21 | BNB PF=1.15 +0.9%
-                                        # BTC PF=1.12 +0.2% | SOL longs disabled (bled)
             BTCV6ChandelierStrategy(),  # Strategy 21 — BTC V6 Chandelier (INCUBATE) — RSI+EMA+ADX, chandelier trailing stop
             RSIDipSimpleStrategy(),     # Strategy 22 — RSI Dip Simple (INCUBATE) — naked RSI(7) cross, no filters
             PLLCycleStrategy(use_martingale=False),  # Strategy 23 — PLL Cycle base (INCUBATE) — PLL cycle detector long/short
             PLLCycleStrategy(use_martingale=True),   # Strategy 24 — PLL Cycle + Martingale (INCUBATE) — F41d variant
-            KDSMeanReversionStrategy(),              # Strategy 25 — KDS Mean Reversion (INCUBATE) — 1d crypto/stock, selective edge
-            EMARibbonBreakoutStrategy(),             # Strategy 26 — EMA Ribbon Breakout (INCUBATE) — 1d daily only, short edge strong
-            RCRMeanReversionStrategy(),              # Strategy 27 — RCR Mean Reversion (INCUBATE) — 1d crypto/stock, AGIX/BONK edge
-            CBAEStrategy(),                          # Strategy 28 — Candle Body Asymmetry Exhaustion (WATCHLIST)
-            RAREStrategy(),                          # Strategy 29 — Regime Autocorrelation Reversal Entry (WATCHLIST)
+            RCRMeanReversionStrategy(),              # Strategy 27 — RCR Mean Reversion (INCUBATE)
             FELSStrategy(),                          # Strategy 30 — Failed Extension Liquidity Sweep (WATCHLIST)
-            MAPStrategy(),                           # Strategy 31 — MAP Multi-Period Alignment (CANDIDATE) BTC 4h PF1.54 WR44%
+            SFRStrategy(),                           # Strategy 32 — Structural Fakeout Reversal (WATCHLIST) — fade ORB/prior-day false breaks
+            BMR357Strategy(),                        # Strategy 33 — BB Mean Reversion 3-5-7 (INCUBATE) — BB+RSI fade, 15m crypto longs primary
         ]
 
         self._load_strategy_states()
@@ -227,57 +208,68 @@ class StrategyEngine:
             if asset_class == "stock" and not getattr(strategy, "stock_enabled", True):
                 continue
 
-            # Look up the correct timeframe key for this asset class
-            if asset_class == "stock":
-                tf_key = getattr(strategy, "stock_candle_timeframe", "5Min")
-            else:
-                tf_key = getattr(strategy, "crypto_candle_timeframe", "1h")
-
-            bars = bar_cache.get(tf_key)
-            if bars is None:
-                # Bars for this timeframe weren't fetched (API error or too few bars)
-                logger.debug(
-                    f"[{strategy.name}] Skipping {symbol} — "
-                    f"no bars available for timeframe {tf_key}"
-                )
+            # Per-strategy symbol whitelist — skip symbols not in the list.
+            _wl = getattr(strategy, "stock_symbol_whitelist", None) if asset_class == "stock" \
+                  else getattr(strategy, "crypto_symbol_whitelist", None)
+            if _wl and symbol.upper() not in {s.upper() for s in _wl}:
                 continue
 
-            try:
-                market_condition = "unknown"
-                trade_signal = strategy.analyze(symbol, bars, market_condition)
+            # Resolve which timeframes to run this strategy on.
+            # stock_candle_timeframes (list) takes priority over stock_candle_timeframe (str).
+            if asset_class == "stock":
+                _tfs_attr = getattr(strategy, "stock_candle_timeframes", None)
+                if _tfs_attr and isinstance(_tfs_attr, (list, tuple)):
+                    tf_keys = [tf for tf in _tfs_attr if tf in bar_cache]
+                else:
+                    tf_keys = [getattr(strategy, "stock_candle_timeframe", "5Min")]
+            else:
+                tf_keys = [getattr(strategy, "crypto_candle_timeframe", "1h")]
 
-                if trade_signal is None:
+            for tf_key in tf_keys:
+                bars = bar_cache.get(tf_key)
+                if bars is None:
+                    logger.debug(
+                        f"[{strategy.name}] Skipping {symbol} {tf_key} — "
+                        f"no bars available for timeframe {tf_key}"
+                    )
                     continue
 
-                compat = StrategySignalCompat(
-                    symbol                 = symbol,
-                    asset_class            = asset_class,
-                    direction              = trade_signal.direction,
-                    score                  = trade_signal.score,
-                    current_price          = price,
-                    indicators             = {**(trade_signal.metadata or {}), "timeframe": tf_key},
-                    reason                 = trade_signal.reason,
-                    strategy_name          = strategy.strategy_name,
-                    custom_stop_loss_pct   = trade_signal.stop_loss_pct,
-                    custom_take_profit_pct = trade_signal.take_profit_pct,
-                    custom_position_pct    = None,
-                    ml_exempt              = getattr(strategy, "ml_exempt",        False),
-                    reviewer_exempt        = getattr(strategy, "reviewer_exempt",  False),
-                )
-                results.append(compat)
+                try:
+                    market_condition = "unknown"
+                    trade_signal = strategy.analyze(symbol, bars, market_condition)
 
-                logger.info(
-                    f"[{strategy.name}] Signal: {symbol} "
-                    f"{trade_signal.direction.upper()} "
-                    f"score={trade_signal.score:.3f} | "
-                    f"tf={tf_key} | {trade_signal.reason}"
-                )
+                    if trade_signal is None:
+                        continue
 
-            except Exception as e:
-                logger.error(
-                    f"Strategy {strategy.name} error on {symbol}: {e}",
-                    exc_info=config.VERBOSE_MODE
-                )
+                    compat = StrategySignalCompat(
+                        symbol                 = symbol,
+                        asset_class            = asset_class,
+                        direction              = trade_signal.direction,
+                        score                  = trade_signal.score,
+                        current_price          = price,
+                        indicators             = {**(trade_signal.metadata or {}), "timeframe": tf_key},
+                        reason                 = trade_signal.reason,
+                        strategy_name          = strategy.strategy_name,
+                        custom_stop_loss_pct   = trade_signal.stop_loss_pct,
+                        custom_take_profit_pct = trade_signal.take_profit_pct,
+                        custom_position_pct    = None,
+                        ml_exempt              = getattr(strategy, "ml_exempt",        False),
+                        reviewer_exempt        = getattr(strategy, "reviewer_exempt",  False),
+                    )
+                    results.append(compat)
+
+                    logger.info(
+                        f"[{strategy.name}] Signal: {symbol} "
+                        f"{trade_signal.direction.upper()} "
+                        f"score={trade_signal.score:.3f} | "
+                        f"tf={tf_key} | {trade_signal.reason}"
+                    )
+
+                except Exception as e:
+                    logger.error(
+                        f"Strategy {strategy.name} error on {symbol} {tf_key}: {e}",
+                        exc_info=config.VERBOSE_MODE
+                    )
 
         return results
 
@@ -337,22 +329,34 @@ class StrategyEngine:
         if total < MIN_TRADES_FOR_EVAL:
             return
 
-        win_rate = stats["win_rate"] / 100
+        # Opus 2026-05-29: disable on PROFITABILITY, not win rate. Edge here is
+        # asymmetry (big wins / small losses), so a low win rate can still be
+        # net positive — and a high win rate can still bleed. A strategy is a
+        # loser only if it is BOTH net-negative AND has profit factor < 1.0
+        # (gross wins < gross losses). Re-enable once it is net positive again.
+        avg_pnl       = stats["avg_pnl"]        # expectancy per trade
+        total_pnl     = stats["total_pnl"]
+        profit_factor = stats["profit_factor"]  # 999 sentinel when no losses
 
-        if win_rate < MIN_WIN_RATE:
+        is_loser   = (total_pnl <= 0.0) and (profit_factor < 1.0)
+        is_winner  = (total_pnl > 0.0)  and (profit_factor >= 1.0)
+
+        if is_loser:
             strategy.enabled = False
             self._save_strategy_state(strategy)
             logger.warning(
-                f"[AUTO-DISABLE] '{strategy_name}' disabled — "
-                f"win rate {win_rate*100:.1f}% below minimum "
-                f"{MIN_WIN_RATE*100:.0f}% after {total} trades"
+                f"[AUTO-DISABLE] '{strategy_name}' disabled — net-negative "
+                f"after {total} trades: total_pnl=${total_pnl:+.2f} "
+                f"expectancy=${avg_pnl:+.2f}/trade PF={profit_factor:.2f} "
+                f"(win rate {stats['win_rate']:.1f}% is NOT the gate)"
             )
-        elif not strategy.enabled and win_rate >= REENABLE_WIN_RATE:
+        elif not strategy.enabled and is_winner:
             strategy.enabled = True
             self._save_strategy_state(strategy)
             logger.info(
-                f"[AUTO-ENABLE] '{strategy_name}' re-enabled — "
-                f"win rate recovered to {win_rate*100:.1f}%"
+                f"[AUTO-ENABLE] '{strategy_name}' re-enabled — profitable again: "
+                f"total_pnl=${total_pnl:+.2f} expectancy=${avg_pnl:+.2f}/trade "
+                f"PF={profit_factor:.2f}"
             )
 
     def get_strategy_stats(self, strategy_name: str) -> Dict:

@@ -1,7 +1,7 @@
 // Main App — assembles top bar, taskbar, dock, and all windows
 const { useState: $S, useEffect: $E, useRef: $R, useMemo: $M } = React;
 
-const { TopOverview, OpenPositionsPanel, ManualTradePanel, TradeLogPanel, DailyPerfPanel, BacktesterPanel, OptimizerPanel, ChatPanel, ChartPanel } = window.Panels;
+const { TopOverview, OpenPositionsPanel, ManualTradePanel, TradeLogPanel, DailyPerfPanel, BacktesterPanel, OptimizerPanel, ChatPanel, ChartPanel, BrokerPanel, ScannerAlertsPanel } = window.Panels;
 const { ManagePositionsPanel, InjectSymbolsPanel, QuickControlsPanel, TerminalPanel, DBBrowserPanel } = window.SidePanels;
 
 // ── Theme system ──────────────────────────────────────────────────────────────
@@ -237,6 +237,8 @@ const WINDOW_DEFS = [
   { id: 'chart',            title: 'Chart',                       icon: 'activity',  defaultPos: { x: 300, y: 60 },   defaultSize: { w: 1000, h: 600 }, openByDefault: false },
   { id: 'db-browser',       title: 'Database Browser',            icon: 'log',       defaultPos: { x: 260, y: 80 },   defaultSize: { w: 1060, h: 660 }, openByDefault: false },
   { id: 'theme-config',     title: 'Theme & Color Config',        icon: 'settings',  defaultPos: { x: 460, y: 120 },  defaultSize: { w: 340, h: 560 },  openByDefault: false },
+  { id: 'broker-panel',     title: 'Broker Account',              icon: 'activity',  defaultPos: { x: 500, y: 100 },  defaultSize: { w: 780, h: 520 },  openByDefault: false },
+  { id: 'scanner-alerts',   title: 'Scanner Alerts',              icon: 'telescope', defaultPos: { x: 340, y: 90 },   defaultSize: { w: 960, h: 560 },  openByDefault: false },
 ];
 
 // =========== App Shell ===========
@@ -514,6 +516,8 @@ function Workspace() {
       <Window id="chart"><ChartPanel /></Window>
       <Window id="db-browser"><DBBrowserPanel /></Window>
       <Window id="theme-config"><ThemeConfigPanel /></Window>
+      <Window id="broker-panel"><BrokerPanel /></Window>
+      <Window id="scanner-alerts"><ScannerAlertsPanel /></Window>
     </div>
   );
 }
@@ -541,6 +545,8 @@ function Dock() {
     { id: 'chart',          label: 'Chart',           icon: 'activity' },
     { id: 'quick-controls', label: 'Quick Controls', icon: 'settings' },
     { id: 'db-browser',     label: 'Database Browser', icon: 'log' },
+    { id: 'broker-panel',    label: 'Broker Account',   icon: 'activity' },
+    { id: 'scanner-alerts',  label: 'Scanner Alerts',   icon: 'telescope' },
   ];
   return (
     <div className="dock">

@@ -75,7 +75,7 @@ GAP_FILL_SCORE_BASE     = 0.65
 
 # Firing windows
 STOCK_OPEN_WINDOW_START  = (9, 30)
-STOCK_OPEN_WINDOW_END    = (9, 45)
+STOCK_OPEN_WINDOW_END    = (10, 15)  # widened: 45 min window covers late bot starts
 CRYPTO_OPEN_WINDOW_START = (0, 0)
 CRYPTO_OPEN_WINDOW_END   = (0, 15)
 
@@ -114,6 +114,7 @@ class GapSetup:
     registered_at:    datetime      # UTC
     attempts:         int = 0       # how many monitor cycles checked
     fired:            bool = False  # True once signal pushed
+    alert_id:         Optional[str] = None  # scanner_alerts DB row id
 
     @property
     def abs_gap(self) -> float:
@@ -126,6 +127,11 @@ class GapSetup:
 # ---------------------------------------------------------------------------
 # GapScanner
 # ---------------------------------------------------------------------------
+# Module-level singleton reference — set when GapScanner is instantiated.
+# web_dashboard.py imports this to serve /api/gap_setups without needing
+# access to the bot_engine or scanner_engine objects.
+_instance: Optional["GapScanner"] = None
+
 
 class GapScanner(BaseEventScanner):
     """
@@ -155,6 +161,10 @@ class GapScanner(BaseEventScanner):
         # Watchlist queue: symbol -> GapSetup
         self._watchlist: Dict[str, GapSetup] = {}
 
+        # Register singleton so web_dashboard can read live watchlist
+        global _instance
+        _instance = self
+
         # Session tracking
         self._stock_session_scanned:  Optional[str] = None
         self._crypto_session_scanned: Optional[str] = None
@@ -179,9 +189,12 @@ class GapScanner(BaseEventScanner):
             today_str = now_et.strftime("%Y-%m-%d")
             if in_window and self._stock_session_scanned != today_str:
                 self._stock_session_scanned = today_str
-                logger.info("[GapScanner] Stock open window -- registering gaps for %d symbols",
-                            len(self.stock_symbols))
+                logger.info("[GapScanner] Stock open window %s -- registering gaps for %d symbols",
+                            now_et.strftime("%H:%M ET"), len(self.stock_symbols))
                 self._register_stock_gaps()
+            elif not in_window and self._stock_session_scanned != today_str:
+                logger.debug("[GapScanner] Stock gap window not yet/already passed: %s ET",
+                             now_et.strftime("%H:%M"))
 
         if self.enable_crypto and self.crypto_symbols:
             in_window = (
@@ -223,7 +236,7 @@ class GapScanner(BaseEventScanner):
 
         # Dynamic: ask Alpaca who is actually moving today.
         # Fall back to static watchlist only if Alpaca screener is unavailable.
-        symbols = self._get_alpaca_gap_symbols() or self.stock_symbols
+        symbols = self._get_gap_symbols() or self.stock_symbols
 
         if not symbols:
             logger.warning("[GapScanner] No symbols to scan for gaps")
@@ -240,59 +253,84 @@ class GapScanner(BaseEventScanner):
                 logger.warning("[GapScanner] Error registering stock gap %s: %s", symbol, e)
 
     # Minimum filters to exclude penny stocks and illiquid micro-caps
-    SCREENER_MIN_PRICE  = 5.0       # skip anything under $5
+    SCREENER_MIN_PRICE  = 10.0      # skip anything under $10 — low price stocks often lack candle data
     SCREENER_MIN_VOLUME = 500_000   # skip anything under 500K shares at open
 
-    def _get_alpaca_gap_symbols(self, top: int = 25) -> Optional[List[str]]:
+    def _get_gap_symbols(self) -> Optional[List[str]]:
         """
-        Query Alpaca screener for today's top market movers (gainers + losers).
+        Fetch today's top gainers + losers from Alpha Vantage TOP_GAINERS_LOSERS.
 
-        At 9:30 ET the percent_change on these is essentially the overnight gap.
-        Penny stocks and low-volume names are filtered out — they gap huge on
-        tiny volume and are untradeable.
-
-        Returns a flat symbol list, or None if the screener is unavailable.
+        Single API call, no rate limit math, returns ~60 symbols (top 20 gainers,
+        20 losers, 20 most active). At 9:30 ET these are overnight gaps.
+        Falls back to Alpaca ScreenerClient, then static watchlist.
         """
+        from config import ALPHA_VANTAGE_KEY
+        import urllib.request, json as _json
+
+        if not ALPHA_VANTAGE_KEY:
+            logger.debug("[GapScanner] Alpha Vantage key not configured -- trying Alpaca screener")
+            return self._get_alpaca_gap_symbols_fallback()
+
+        try:
+            url = (
+                f"https://www.alphavantage.co/query"
+                f"?function=TOP_GAINERS_LOSERS&apikey={ALPHA_VANTAGE_KEY}"
+            )
+            with urllib.request.urlopen(url, timeout=10) as r:
+                data = _json.loads(r.read())
+
+            gainers  = data.get("top_gainers",  [])
+            losers   = data.get("top_losers",   [])
+            active   = data.get("most_actively_traded", [])
+            all_rows = gainers + losers + active
+
+            if not all_rows:
+                logger.warning("[GapScanner] Alpha Vantage TOP_GAINERS_LOSERS returned empty -- falling back")
+                return self._get_alpaca_gap_symbols_fallback()
+
+            symbols = []
+            for row in all_rows:
+                sym        = row.get("ticker", "")
+                price      = float(row.get("price", 0) or 0)
+                change_pct = float((row.get("change_percentage") or "0%").replace("%", ""))
+
+                if not sym or price < self.SCREENER_MIN_PRICE:
+                    continue
+                if abs(change_pct) >= GAP_MIN_PCT_STOCKS and sym not in symbols:
+                    symbols.append(sym)
+                    logger.info("[GapScanner] AV mover: %s  %+.2f%%  $%.2f",
+                                sym, change_pct, price)
+
+            logger.info("[GapScanner] Alpha Vantage: %d gap candidates from %d movers",
+                        len(symbols), len(all_rows))
+            return symbols if symbols else None
+
+        except Exception as e:
+            logger.warning("[GapScanner] Alpha Vantage TOP_GAINERS_LOSERS failed (%s) -- falling back", e)
+            return self._get_alpaca_gap_symbols_fallback()
+
+    def _get_alpaca_gap_symbols_fallback(self, top: int = 25) -> Optional[List[str]]:
+        """Alpaca ScreenerClient fallback when Alpha Vantage key is absent."""
         try:
             from alpaca.data import ScreenerClient, MarketMoversRequest, MarketType
             from config import ALPACA_API_KEY, ALPACA_SECRET_KEY
 
             if not ALPACA_API_KEY or not ALPACA_SECRET_KEY:
-                logger.debug("[GapScanner] Alpaca keys not configured -- skipping screener")
                 return None
 
-            client = ScreenerClient(
-                api_key    = ALPACA_API_KEY,
-                secret_key = ALPACA_SECRET_KEY,
-            )
-            req    = MarketMoversRequest(market_type=MarketType.STOCKS, top=top)
-            result = client.get_market_movers(req)
+            client = ScreenerClient(api_key=ALPACA_API_KEY, secret_key=ALPACA_SECRET_KEY)
+            result = client.get_market_movers(MarketMoversRequest(market_type=MarketType.STOCKS, top=top))
 
-            raw_gainers = result.gainers if hasattr(result, "gainers") and result.gainers else []
-            raw_losers  = result.losers  if hasattr(result, "losers")  and result.losers  else []
-            all_movers  = raw_gainers + raw_losers
+            raw = (result.gainers or []) + (result.losers or [])
+            tradeable = [m for m in raw
+                         if getattr(m, "price", 0)  >= self.SCREENER_MIN_PRICE
+                         and getattr(m, "volume", 0) >= self.SCREENER_MIN_VOLUME]
 
-            # Filter: price >= $5, volume >= 500K
-            tradeable = [
-                m for m in all_movers
-                if getattr(m, "price",  0) >= self.SCREENER_MIN_PRICE
-                and getattr(m, "volume", 0) >= self.SCREENER_MIN_VOLUME
-            ]
-
-            skipped = len(all_movers) - len(tradeable)
-            logger.info(
-                "[GapScanner] Alpaca screener: %d movers, %d tradeable (filtered %d penny/illiquid)",
-                len(all_movers), len(tradeable), skipped,
-            )
-
-            if tradeable:
-                return [m.symbol for m in tradeable]
-
-            logger.warning("[GapScanner] Alpaca screener returned no tradeable movers -- falling back to watchlist")
-            return None
+            logger.info("[GapScanner] Alpaca screener fallback: %d tradeable movers", len(tradeable))
+            return [m.symbol for m in tradeable] if tradeable else None
 
         except Exception as e:
-            logger.warning("[GapScanner] Alpaca screener unavailable (%s) -- falling back to watchlist", e)
+            logger.warning("[GapScanner] Alpaca screener fallback unavailable (%s)", e)
             return None
 
     def _register_crypto_gaps(self) -> None:
@@ -321,23 +359,42 @@ class GapScanner(BaseEventScanner):
         today_open = float(hist["Open"].iloc[-1])
 
         if prev_close <= 0 or today_open <= 0:
+            logger.info("[GapScanner] %s -- bad price data (prev_close=%.4f open=%.4f) -- skip",
+                        symbol, prev_close, today_open)
             return
 
         gap_pct   = (today_open - prev_close) / prev_close * 100.0
         min_pct   = GAP_MIN_PCT_STOCKS if asset_class == "stock" else GAP_MIN_PCT_CRYPTO
 
         if abs(gap_pct) < min_pct:
+            logger.info("[GapScanner] %s -- gap %.2f%% below min %.1f%% -- skip",
+                        symbol, gap_pct, min_pct)
             return
 
+        # Volume spike: use 5-min intraday bars for today vs rolling avg.
+        # Daily yfinance bars have near-zero volume at 9:30 ET (bar still forming)
+        # which was causing vol_spike ≈ 0 and blocking gap_and_go classification.
         try:
-            avg_vol    = float(hist["Volume"].iloc[:-1].mean())
-            today_vol  = float(hist["Volume"].iloc[-1])
-            vol_spike  = today_vol / avg_vol if avg_vol > 0 else 1.0
+            intraday = self._get_intraday_candles(symbol, asset_class)
+            if intraday is not None and len(intraday) >= 3:
+                # First few bars of the day vs rolling 20-bar avg
+                today_vol  = float(intraday["Volume"].iloc[:3].sum())   # first 15 min
+                rolling_avg = float(intraday["Volume"].rolling(20).mean().iloc[-1])
+                # Scale: 3 bars vs 1-bar avg → divide by 3
+                vol_spike  = (today_vol / 3) / rolling_avg if rolling_avg > 0 else 1.0
+            else:
+                avg_vol    = float(hist["Volume"].iloc[:-1].mean())
+                today_vol  = float(hist["Volume"].iloc[-1])
+                vol_spike  = today_vol / avg_vol if avg_vol > 0 else 1.0
         except Exception:
             vol_spike = 1.0
 
-        gap_type = self._classify_gap(abs(gap_pct), vol_spike)
+        gap_type = self._classify_gap(abs(gap_pct), vol_spike, min_pct)
         if gap_type is None:
+            logger.info("[GapScanner] %s -- gap %.2f%% vol=%.2fx -- no classification "
+                        "(need >=%.1f%%+%.1fx for G&G or <%.1fx for fill) -- skip",
+                        symbol, gap_pct, vol_spike,
+                        GAP_GO_MIN_PCT, GAP_GO_VOLUME_MIN, GAP_FILL_VOLUME_MAX)
             return
 
         direction = (
@@ -362,6 +419,71 @@ class GapScanner(BaseEventScanner):
             "[GapScanner] REGISTERED %s  %s %s  gap=%.2f%%  vol=%.2fx  -- watching for confirmation",
             symbol, gap_type.upper(), direction.upper(), gap_pct, vol_spike,
         )
+        try:
+            from data.database import db as _db
+            aid = _db.log_scanner_alert({
+                "alert_type":    "gap",
+                "symbol":        symbol,
+                "asset_class":   asset_class,
+                "direction":     direction,
+                "status":        "watching",
+                "registered_at": setup.registered_at.isoformat(),
+                "gap_pct":       gap_pct,
+                "gap_type":      gap_type,
+                "vol_spike":     vol_spike,
+                "source":        "gap_scanner",
+                "metadata":      {"prev_close": prev_close, "gap_open": today_open},
+            })
+            setup.alert_id = aid
+        except Exception as _e:
+            logger.debug("[GapScanner] DB log failed: %s", _e)
+        self._write_shared_file()
+
+    # ------------------------------------------------------------------
+    # Shared file bridge — keeps BreakoutScanner GUI in sync
+    # ------------------------------------------------------------------
+
+    _SHARED_GAP_FILE = "watchlist/gap_setups.json"
+
+    def _write_shared_file(self) -> None:
+        """Write current watchlist to a JSON file so BreakoutScanner GUI can read it.
+        Called after every register and remove so the file is always current.
+        """
+        import json, os
+        now_utc = self.utc_now()
+        rows = []
+        for sym, s in self._watchlist.items():
+            age_min = int((now_utc - s.registered_at).total_seconds() / 60)
+            lp = getattr(s, "last_price", None)
+            gap_size = abs(s.gap_open - s.prev_close)
+            fill_pct = None
+            if lp is not None and gap_size > 0:
+                fill_pct = round(abs(lp - s.gap_open) / gap_size * 100, 1)
+            gap_abs = abs(s.gap_pct)
+            rows.append({
+                "symbol":      sym,
+                "asset_class": s.asset_class,
+                # Match gap_watchlist.summary() format so GUI renders identically
+                "gap_type":    "G&GO" if s.gap_type == "gap_and_go" else "FILL",
+                "direction":   s.direction.upper(),
+                "gap_pct":     round(s.gap_pct, 2),
+                "prev_close":  round(s.prev_close, 4),
+                "gap_open":    round(s.gap_open, 4),
+                "vol_spike":   round(s.vol_spike, 2),
+                "age_min":     age_min,
+                "attempts":    getattr(s, "attempts", 0),
+                "fired":       getattr(s, "fired", False),
+                "status":      getattr(s, "status", "WATCHING"),
+                "last_price":  round(lp, 4) if lp is not None else None,
+                "fill_pct":    fill_pct,
+                "severity":    "strong" if gap_abs >= 15 else ("medium" if gap_abs >= 5 else "mild"),
+            })
+        try:
+            os.makedirs(os.path.dirname(self._SHARED_GAP_FILE), exist_ok=True)
+            with open(self._SHARED_GAP_FILE, "w") as f:
+                json.dump({"setups": rows, "updated": now_utc.isoformat()}, f)
+        except Exception as e:
+            logger.debug("[GapScanner] Could not write shared gap file: %s", e)
 
     # ------------------------------------------------------------------
     # Stage 2: watchdog monitor
@@ -371,7 +493,7 @@ class GapScanner(BaseEventScanner):
         if not self._watchlist:
             return
 
-        logger.debug("[GapScanner] Monitoring %d queued gap setup(s)", len(self._watchlist))
+        logger.info("[GapScanner] Monitoring %d queued gap setup(s)", len(self._watchlist))
         to_remove = []
 
         for symbol, setup in list(self._watchlist.items()):
@@ -386,6 +508,11 @@ class GapScanner(BaseEventScanner):
             max_wait = GAP_GO_MAX_WAIT_HOURS if setup.gap_type == "gap_and_go" else GAP_FILL_MAX_WAIT_HOURS
             if age_h > max_wait:
                 logger.info("[GapScanner] %s expired after %.1fh without confirming -- removed", symbol, age_h)
+                if setup.alert_id:
+                    try:
+                        from data.database import db as _db
+                        _db.update_scanner_alert(setup.alert_id, "expired")
+                    except Exception: pass
                 to_remove.append(symbol)
                 continue
 
@@ -403,10 +530,20 @@ class GapScanner(BaseEventScanner):
                     # If price has filled back below gap open, setup failed
                     if setup.gap_pct > 0 and live_price < setup.gap_open * 0.995:
                         logger.info("[GapScanner] %s GAP-GO failed -- price filled back below open", symbol)
+                        if setup.alert_id:
+                            try:
+                                from data.database import db as _db
+                                _db.update_scanner_alert(setup.alert_id, "failed")
+                            except Exception: pass
                         to_remove.append(symbol)
                         continue
                     if setup.gap_pct < 0 and live_price > setup.gap_open * 1.005:
                         logger.info("[GapScanner] %s GAP-GO failed -- price filled back above open", symbol)
+                        if setup.alert_id:
+                            try:
+                                from data.database import db as _db
+                                _db.update_scanner_alert(setup.alert_id, "failed")
+                            except Exception: pass
                         to_remove.append(symbol)
                         continue
 
@@ -417,6 +554,11 @@ class GapScanner(BaseEventScanner):
                     fill_ratio = retraced / gap_size if gap_size > 0 else 0
                     if fill_ratio >= GAP_FILL_TOO_LATE_RATIO:
                         logger.info("[GapScanner] %s GAP-FILL too late -- %.0f%% already filled", symbol, fill_ratio * 100)
+                        if setup.alert_id:
+                            try:
+                                from data.database import db as _db
+                                _db.update_scanner_alert(setup.alert_id, "expired")
+                            except Exception: pass
                         to_remove.append(symbol)
                         continue
 
@@ -428,10 +570,27 @@ class GapScanner(BaseEventScanner):
                         "[GapScanner] %s CONFIRMED after %.1fh (%d attempts) -- firing signal",
                         symbol, age_h, setup.attempts,
                     )
+                    if setup.alert_id:
+                        try:
+                            from data.database import db as _db
+                            _db.update_scanner_alert(setup.alert_id, "confirmed")
+                        except Exception: pass
                     result = self.push_signal(payload)
                     if result.get("accepted"):
                         setup.fired = True
                         self.mark_fired(symbol)
+                        if setup.alert_id:
+                            try:
+                                from data.database import db as _db
+                                _db.link_alert_to_trade(symbol, result.get("trade_id"))
+                            except Exception: pass
+                    else:
+                        if setup.alert_id:
+                            try:
+                                from data.database import db as _db
+                                _db.update_scanner_alert(setup.alert_id, "rejected",
+                                                         reason=result.get("reason", "")[:200])
+                            except Exception: pass
                     to_remove.append(symbol)
 
                 time.sleep(0.3)
@@ -441,6 +600,8 @@ class GapScanner(BaseEventScanner):
 
         for symbol in set(to_remove):
             self._watchlist.pop(symbol, None)
+        if to_remove:
+            self._write_shared_file()
 
     # ------------------------------------------------------------------
     # Confirmation logic
@@ -555,7 +716,7 @@ class GapScanner(BaseEventScanner):
 
         if vol_spike > 2.5:
             # Volume surging too hard -- gap may be legitimate, don't fade
-            logger.debug("[GapScanner] %s GAP-FILL blocked -- volume spike %.2fx too strong to fade", setup.symbol, vol_spike)
+            logger.info("[GapScanner] %s GAP-FILL blocked -- volume spike %.2fx too strong to fade", setup.symbol, vol_spike)
             return False, None
 
         payload = self._build_payload(setup, live_price, vol_spike)
@@ -592,6 +753,9 @@ class GapScanner(BaseEventScanner):
             reason  = "GAP-FILL: %.1f%% gap %s vol=%.1fx -- reversal confirmed" % (
                 setup.gap_pct, "up" if setup.gap_pct > 0 else "down", vol_spike)
             trail   = "none"
+
+        # Cap stop at 2.0% — breakout receiver hard-rejects > 2.5%, leave buffer
+        sl_pct = min(sl_pct, 2.0)
 
         if setup.direction == "long":
             structural_stop = live_price * (1 - sl_pct / 100)
@@ -630,10 +794,14 @@ class GapScanner(BaseEventScanner):
     # Helpers
     # ------------------------------------------------------------------
 
-    def _classify_gap(self, abs_gap_pct: float, vol_spike: float) -> Optional[str]:
+    def _classify_gap(self, abs_gap_pct: float, vol_spike: float,
+                      min_pct: float = GAP_MIN_PCT_STOCKS) -> Optional[str]:
+        # Gap & Go: strong gap + volume surge = momentum continuation
         if abs_gap_pct >= GAP_GO_MIN_PCT and vol_spike >= GAP_GO_VOLUME_MIN:
             return "gap_and_go"
-        if abs_gap_pct >= GAP_MIN_PCT_STOCKS and abs_gap_pct < GAP_FILL_MAX_PCT:
+        # Gap Fill: moderate gap + not surging = fade/mean reversion
+        # Bug fix: was hardcoded to GAP_MIN_PCT_STOCKS (2.0), ignoring crypto (1.5)
+        if abs_gap_pct >= min_pct and abs_gap_pct < GAP_FILL_MAX_PCT:
             if vol_spike < GAP_FILL_VOLUME_MAX:
                 return "gap_fill"
         return None

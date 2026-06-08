@@ -101,10 +101,15 @@ COINBASE_SECRET_KEY = _db_key("coinbase",  "secret_key", _decrypt(os.getenv("COI
 
 KRAKEN_API_KEY      = _db_key("kraken",    "api_key",    _decrypt(os.getenv("KRAKEN_API_KEY",      "")))
 KRAKEN_SECRET_KEY   = _db_key("kraken",    "secret_key", _decrypt(os.getenv("KRAKEN_SECRET_KEY",   "")))
+# Read-only key for web dashboard (avoids nonce conflicts with trading key)
+KRAKEN_RO_API_KEY   = _db_key("kraken_ro", "api_key",    _decrypt(os.getenv("KRAKEN_RO_API_KEY", "")))
+KRAKEN_RO_SECRET    = _db_key("kraken_ro", "secret_key", _decrypt(os.getenv("KRAKEN_RO_SECRET",  "")))
 
 ANTHROPIC_API_KEY   = _db_key("anthropic", "api_key",    _decrypt(os.getenv("ANTHROPIC_API_KEY",  "")))
 
 COINDESK_API_KEY    = _db_key("coindesk",  "api_key",    _decrypt(os.getenv("COINDESK_API_KEY", "gAAAAABqE0y3UHrVHis66FBSmi3Lv8jIv6xodP02_6aOL7pDcUX_4eMa7ViRVhRz3jcw188fDzS8vIUB6zH_oFcjdLwyAhPj5KyxviSJWtITJsTU2kR5RcPHd7hS8mjVC6EkeTthL9EpjM-vXzcMw20UIOX7xHkVA8BP6S8IWSCty02KGt5kU5k=")))
+
+ALPHA_VANTAGE_KEY   = _db_key("alpha_vantage", "api_key", _decrypt(os.getenv("ALPHA_VANTAGE_KEY", "")))
 
 KRAKEN_ENABLED      = True
 
@@ -126,9 +131,11 @@ KRAKEN_MAX_LEVERAGE   = 10   # Kraken's advertised max for most pairs
 # Interactive Brokers — add keys to .env when account is ready
 # IBKR uses TWS or IB Gateway running locally (no REST key — just account ID)
 # TWS paper port: 7497  |  TWS live port: 7496
-IBKR_ACCOUNT        = _db_key("ibkr",       "account",             os.getenv("IBKR_ACCOUNT", ""))
-IBKR_ENABLED        = True
-IBKR_PAPER_MODE     = True
+IBKR_ACCOUNT        = _db_key("ibkr",       "account",             os.getenv("IBKR_ACCOUNT", "U25414641"))
+IBKR_ENABLED        = True   # keeps executor alive for broker panel balance/positions display
+IBKR_PAPER_MODE     = False  # TWS on live port 7496
+IBKR_TRADE_ENABLED  = False  # SAFETY LOCK — set True only when ready to execute live trades
+                              # While False: IBKR connected for display only, all stock trades route Alpaca paper
 
 CLAUDE_REVIEWER_ENABLED = True
 CLAUDE_REVIEWER_MODE = "strict"
@@ -174,6 +181,21 @@ BT_COMMISSION_CRYPTO_PCT = 0.26   # Kraken taker fee, standard tier
 BT_SLIPPAGE_STOCK_PCT    = 0.01   # stock NBBO half-spread estimate
 BT_SLIPPAGE_CRYPTO_PCT   = 0.05   # crypto bid-ask half-spread estimate
 
+# ---------------------------------------------------------------------------
+# Fee-hurdle floors (derived)  —  added by Opus audit 2026-05-29
+# Round-trip cost = (commission + slippage) * 2 legs.
+#   crypto = (0.26 + 0.05) * 2 = 0.62 %
+#   stock  = (0.00 + 0.01) * 2 = 0.02 %
+# Any exit that books less than its asset-class hurdle is a NET LOSS even if it
+# is "in profit". Every profit-lock / time-stop threshold below MUST clear this.
+# ---------------------------------------------------------------------------
+FEE_RT_CRYPTO_PCT  = (BT_COMMISSION_CRYPTO_PCT + BT_SLIPPAGE_CRYPTO_PCT) * 2   # 0.62
+FEE_RT_STOCK_PCT   = (BT_COMMISSION_STOCK_PCT  + BT_SLIPPAGE_STOCK_PCT)  * 2   # 0.02
+# Minimum NET profit a trailing stop / profit-lock is allowed to book.
+# = fee hurdle + buffer. Below this the protective stop stands instead.
+MIN_NET_PROFIT_CRYPTO_PCT = round(FEE_RT_CRYPTO_PCT + 0.40, 2)   # ~1.02 %
+MIN_NET_PROFIT_STOCK_PCT  = round(FEE_RT_STOCK_PCT  + 0.30, 2)   # ~0.32 %
+
 # Momentum rider
 MOMENTUM_RIDER_ENABLED        = True
 MOMENTUM_RIDER_RSI_MIN        = 50
@@ -181,7 +203,7 @@ MOMENTUM_RIDER_VOL_RATIO      = 1.3
 MOMENTUM_RIDER_MIN_SCORE      = 0.67
 MOMENTUM_RIDER_MAX_EXTENSIONS = 3
 MOMENTUM_RIDER_LOCK_PROFIT_RATIO = 0.50  # lock half of open profit when TP is extended
-MOMENTUM_RIDER_MIN_LOCK_PCT      = 0.25  # at least breakeven + 0.25% once riding
+MOMENTUM_RIDER_MIN_LOCK_PCT      = 1.00  # RAISED: Opus audit — 0.25% was below 0.62% crypto fee hurdle
 
 # Risk circuit breakers
 MAX_DAILY_LOSS_PCT      = 15.0

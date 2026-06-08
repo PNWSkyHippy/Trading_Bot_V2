@@ -3926,6 +3926,69 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as _e:
                 return self._json(500, {"ok": False, "error": str(_e)})
 
+        if path == "/api/candle_store/sync_watchlist":
+            # Remove cached symbols NOT on any active watchlist.
+            try:
+                import os as _os
+                from intelligence.candle_store import get_store as _gcs
+                _root = _os.path.dirname(_os.path.abspath(__file__))
+                _watch_syms = set()
+                for _wf in ["watchlists/crypto.txt", "watchlists/stocks.txt",
+                            "watchlist/scanned_crypto.txt", "watchlist/scanned_stocks.txt"]:
+                    _fp = _os.path.join(_root, _wf)
+                    if _os.path.exists(_fp):
+                        with open(_fp) as _fh:
+                            for _line in _fh:
+                                _s = _line.strip()
+                                if _s and not _s.startswith('#'):
+                                    _watch_syms.add(_s.upper())
+                _cs = _gcs()
+                _all = _cs.list_available()
+                _all_syms = set(e["symbol"].upper() for e in _all)
+                _orphans = _all_syms - _watch_syms
+                _deleted_bars = 0
+                for _sym in _orphans:
+                    for _e in [e for e in _all if e["symbol"].upper() == _sym.upper()]:
+                        _deleted_bars += _cs.delete(_e["symbol"], _e["timeframe"])
+                return self._json(200, {
+                    "ok": True,
+                    "deleted_symbols": sorted(_orphans),
+                    "remaining_symbols": sorted(_watch_syms & _all_syms),
+                    "deleted_bars": _deleted_bars,
+                    "watchlist_size": len(_watch_syms),
+                })
+            except Exception as _e:
+                return self._json(500, {"ok": False, "error": str(_e)})
+
+        if path == "/api/candle_store/flush_download":
+            # Wipe ALL candles for given symbols then re-download fresh.
+            # Payload: {symbols: [...], timeframe: "1h", days: 365, asset_class: "crypto"}
+            _syms = data.get("symbols", [])
+            _tf   = data.get("timeframe", "1h")
+            _days = int(data.get("days", 365))
+            if not _syms:
+                return self._json(400, {"ok": False, "error": "No symbols provided"})
+            try:
+                from intelligence.candle_store import get_store as _gcs
+                _cs = _gcs()
+                _wiped = 0
+                _all = _cs.list_available()
+                for _e in _all:
+                    if _e["symbol"] in _syms:
+                        _wiped += _cs.delete(_e["symbol"], _e["timeframe"])
+                from core.candle_manager import candle_manager as _cm
+                _results = []
+                for _sym in _syms:
+                    try:
+                        ok = _cm.prefetch(_sym, _tf, limit=max(300, _days * 24))
+                        _results.append({"symbol": _sym, "ok": ok,
+                                         "bars": len(_cm.get(_sym, _tf, limit=9999) or [])})
+                    except Exception as _se:
+                        _results.append({"symbol": _sym, "ok": False, "error": str(_se)})
+                return self._json(200, {"ok": True, "wiped_bars": _wiped, "results": _results})
+            except Exception as _e:
+                return self._json(500, {"ok": False, "error": str(_e)})
+
         # ── Optimizer routes (no separate auth needed — dashboard access implies auth) ──
         if path == "/api/optimize/cancel":
             was_running = _opt_running.is_set()

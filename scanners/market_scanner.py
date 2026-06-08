@@ -206,9 +206,17 @@ class StockScanner:
 
     def get_bars(self, symbol: str, timeframe: str = "5Min",
                  limit: int = 100) -> Optional[pd.DataFrame]:
+        # Try CandleManager cache first
         try:
-            # Request one extra bar so that after stripping the forming bar
-            # callers always receive at least `limit` fully closed bars.
+            from core.candle_manager import candle_manager
+            df = candle_manager.get(symbol, timeframe, limit=limit)
+            if df is not None and not df.empty:
+                return df
+        except Exception:
+            pass
+
+        # Fallback: direct Alpaca call
+        try:
             bars = self.api.get_bars(
                 symbol, timeframe,
                 limit=limit + 1, adjustment="raw"
@@ -224,6 +232,14 @@ class StockScanner:
             return None
 
     def get_current_price(self, symbol: str) -> Optional[float]:
+        # Primary: get_position returns live current_price regardless of data tier
+        try:
+            pos = self.api.get_position(symbol)
+            if pos and pos.current_price:
+                return float(pos.current_price)
+        except Exception:
+            pass
+        # Fallback: latest trade (may be delayed on free tier)
         try:
             trade = self.api.get_latest_trade(symbol)
             return float(trade.price)
@@ -244,17 +260,24 @@ class StockScanner:
         This avoids redundant API calls while giving each strategy
         the candle resolution it was designed and backtested for.
         """
-        # Build timeframe → strategies map once (only enabled stock strategies)
+        # Build timeframe → strategies map once (only enabled stock strategies).
+        # Supports both stock_candle_timeframe (str, single TF) and
+        # stock_candle_timeframes (list[str], multi-TF) on the same strategy.
         tf_groups: dict = {}
         for strategy in strategy_engine.get_all_strategies():
             if not strategy.enabled:
                 continue
             if not getattr(strategy, "stock_enabled", True):
                 continue
-            tf = getattr(strategy, "stock_candle_timeframe", "5Min")
-            tf_groups.setdefault(tf, [])
-            if strategy not in tf_groups[tf]:
-                tf_groups[tf].append(strategy)
+            tfs_attr = getattr(strategy, "stock_candle_timeframes", None)
+            if tfs_attr and isinstance(tfs_attr, (list, tuple)):
+                tfs = list(tfs_attr)
+            else:
+                tfs = [getattr(strategy, "stock_candle_timeframe", "5Min")]
+            for tf in tfs:
+                tf_groups.setdefault(tf, [])
+                if strategy not in tf_groups[tf]:
+                    tf_groups[tf].append(strategy)
 
         signals = []
         for symbol in config.STOCK_WATCHLIST:
@@ -431,9 +454,18 @@ class CryptoScanner:
 
     def get_ohlcv(self, symbol: str, timeframe: str = "5m",
                   limit: int = 100) -> Optional[pd.DataFrame]:
+        # Try CandleManager cache first — avoids redundant CCXT calls and
+        # eliminates the thread-safety issue (only one thread ever calls ccxt).
         try:
-            # Request one extra bar so that after stripping the forming bar
-            # callers always receive at least `limit` fully closed bars.
+            from core.candle_manager import candle_manager
+            df = candle_manager.get(symbol, timeframe, limit=limit)
+            if df is not None and not df.empty:
+                return df
+        except Exception:
+            pass
+
+        # Fallback: direct CCXT call (candle_manager unavailable or not yet warmed)
+        try:
             ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit + 1)
             if not ohlcv:
                 return None
@@ -458,6 +490,28 @@ class CryptoScanner:
         cg = _coingecko_price(symbol)
         if cg:
             return cg, "COINGECKO"
+
+        # Kraken REST ticker — real-time, works for any Kraken-listed pair including
+        # low-liquidity tokens not in CoinGecko map. Much faster than ccxt.
+        try:
+            if _REQUESTS_OK:
+                base  = symbol.split("/")[0].upper()
+                quote = (symbol.split("/")[1].upper() if "/" in symbol else "USD")
+                pair  = base + quote
+                resp  = _requests.get(
+                    f"https://api.kraken.com/0/public/Ticker?pair={pair}",
+                    timeout=5
+                )
+                data = resp.json()
+                if not data.get("error"):
+                    result = data.get("result", {})
+                    if result:
+                        ticker_data = next(iter(result.values()))
+                        last_price = float(ticker_data["c"][0])  # c = last trade closed
+                        if last_price > 0:
+                            return last_price, "KRAKEN_REST"
+        except Exception:
+            pass
 
         # Fallback: ccxt exchange(s)
         named = getattr(self, "exchanges", {})
@@ -590,6 +644,12 @@ class MarketScanner:
         self._receiver_ref             = None
         self._pending_reentry: set     = set()
         self._pending_lock             = threading.Lock()
+        # Cross-batch duplicate gate: symbol → timestamp of last open order sent.
+        # Prevents two overlapping scan cycles from both executing the same symbol
+        # when the DB write from the first cycle hasn't landed before the second
+        # cycle reads get_open_trades(). TTL = 60s.
+        self._recently_opened: Dict[str, float] = {}
+        self._recently_opened_ttl: float = 60.0
 
     def set_reentry_receiver(self, receiver) -> None:
         self._receiver_ref = receiver
@@ -890,6 +950,15 @@ class MarketScanner:
         open_trades  = db.get_open_trades()
         open_symbols = set(t["symbol"] for t in open_trades)
 
+        # Merge in recently-opened symbols that may not be in DB yet,
+        # and evict any entries older than the TTL.
+        _now = time.time()
+        self._recently_opened = {
+            sym: ts for sym, ts in self._recently_opened.items()
+            if _now - ts < self._recently_opened_ttl
+        }
+        open_symbols |= set(self._recently_opened.keys())
+
         for signal in final:
             if signal.symbol in open_symbols:
                 logger.info(
@@ -951,6 +1020,7 @@ class MarketScanner:
                 trade_id = executor.execute_signal(signal)
                 if trade_id:
                     open_symbols.add(signal.symbol)
+                    self._recently_opened[signal.symbol] = time.time()
                     if reviewer_enabled and not reviewer_exempt and not reviewer_strict:
                         self._review_signal_advisory_async(signal, trade_id=trade_id)
             except Exception as e:

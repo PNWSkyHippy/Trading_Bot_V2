@@ -250,6 +250,30 @@ class Database:
                     created_at      TEXT NOT NULL,
                     updated_at      TEXT NOT NULL
                 );
+
+                -- Scanner alerts: full lifecycle tracking for gap and breakout signals.
+                -- status: watching -> confirmed -> fired (-> traded via trade_id FK)
+                --                  -> expired / failed / rejected
+                CREATE TABLE IF NOT EXISTS scanner_alerts (
+                    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                    alert_id       TEXT UNIQUE NOT NULL,
+                    alert_type     TEXT NOT NULL,
+                    symbol         TEXT NOT NULL,
+                    asset_class    TEXT NOT NULL,
+                    direction      TEXT NOT NULL,
+                    status         TEXT NOT NULL,
+                    registered_at  TEXT NOT NULL,
+                    status_at      TEXT,
+                    trade_id       TEXT,
+                    gap_pct        REAL,
+                    gap_type       TEXT,
+                    vol_spike      REAL,
+                    score          REAL,
+                    broker         TEXT,
+                    source         TEXT,
+                    reason         TEXT,
+                    metadata_json  TEXT
+                );
             """)
             # Column migrations for existing databases (ALTER TABLE ignores if already present)
             for sql in [
@@ -731,6 +755,97 @@ class Database:
                 (today,)
             ).fetchall()
             return [dict(r) for r in rows]
+
+    # --- SCANNER ALERTS ------------------------------------------------
+
+    def log_scanner_alert(self, alert: Dict[str, Any]) -> str:
+        """Insert a new scanner alert. Returns the alert_id."""
+        import uuid as _uuid
+        alert_id = alert.get("alert_id") or _uuid.uuid4().hex[:16]
+        with self._conn() as conn:
+            conn.execute("""
+                INSERT OR IGNORE INTO scanner_alerts
+                    (alert_id, alert_type, symbol, asset_class, direction,
+                     status, registered_at, status_at, trade_id, gap_pct, gap_type,
+                     vol_spike, score, broker, source, reason, metadata_json)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            """, (
+                alert_id,
+                alert.get("alert_type", "breakout"),
+                alert.get("symbol", ""),
+                alert.get("asset_class", ""),
+                alert.get("direction", ""),
+                alert.get("status", "watching"),
+                alert.get("registered_at", _now_local().isoformat()),
+                _now_local().isoformat(),
+                alert.get("trade_id"),
+                alert.get("gap_pct"),
+                alert.get("gap_type"),
+                alert.get("vol_spike"),
+                alert.get("score"),
+                alert.get("broker"),
+                alert.get("source"),
+                alert.get("reason"),
+                json.dumps(alert.get("metadata", {})),
+            ))
+        return alert_id
+
+    def update_scanner_alert(self, alert_id: str, status: str, **kwargs):
+        """Update status and optional fields on an existing alert."""
+        sets = ["status = ?", "status_at = ?"]
+        vals: list = [status, _now_local().isoformat()]
+        for k, v in kwargs.items():
+            sets.append(f"{k} = ?")
+            vals.append(v)
+        vals.append(alert_id)
+        with self._conn() as conn:
+            conn.execute(
+                f"UPDATE scanner_alerts SET {', '.join(sets)} WHERE alert_id = ?",
+                vals,
+            )
+
+    def link_alert_to_trade(self, symbol: str, trade_id: str):
+        """Link the most recent unlinked alert for symbol to a trade, marking it fired."""
+        with self._conn() as conn:
+            conn.execute("""
+                UPDATE scanner_alerts
+                SET trade_id = ?, status = 'fired', status_at = ?
+                WHERE id = (
+                    SELECT id FROM scanner_alerts
+                    WHERE symbol = ?
+                      AND status IN ('confirmed', 'watching', 'received')
+                      AND trade_id IS NULL
+                    ORDER BY registered_at DESC LIMIT 1
+                )
+            """, (trade_id, _now_local().isoformat(), symbol))
+
+    def get_scanner_alerts(
+        self,
+        alert_type: str = None,
+        status: str = None,
+        days: int = 7,
+        limit: int = 500,
+    ) -> List[Dict]:
+        """Query scanner alerts with optional filters."""
+        from datetime import timedelta
+        cutoff = (_now_local() - timedelta(days=days)).isoformat()
+        conditions = ["registered_at >= ?"]
+        params: list = [cutoff]
+        if alert_type:
+            conditions.append("alert_type = ?")
+            params.append(alert_type)
+        if status:
+            conditions.append("status = ?")
+            params.append(status)
+        params.append(limit)
+        where = " AND ".join(conditions)
+        with self._conn() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM scanner_alerts WHERE {where} "
+                f"ORDER BY registered_at DESC LIMIT ?",
+                params,
+            ).fetchall()
+        return [dict(r) for r in rows]
 
 
 # Singleton instance

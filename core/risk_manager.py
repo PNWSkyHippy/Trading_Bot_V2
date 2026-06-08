@@ -458,14 +458,32 @@ class RiskManager:
         """
         direction  = trade["direction"]
         current_sl = trade["stop_loss"]
+        entry      = float(trade.get("entry_price") or 0)
         updates    = {}
+
+        # ── Profit-activation gate ────────────────────────────────────────────
+        # The two-bar structural trail fires on the FIRST monitor cycle because
+        # it legitimately sees a new bar-low/high.  But at that point the trade
+        # hasn't moved yet, so max(recent highs) / min(recent lows) is almost
+        # exactly at the entry price — replacing a healthy 1-3% protective stop
+        # with a 0.05-0.3% micro-stop that gets hit by normal noise within minutes.
+        #
+        # Fix: don't trail AT ALL while the position is still on the loss side of
+        # entry.  Once price crosses into profit the stop can begin tracking.
+        # The fee-hurdle gate (_trail_clears_fee_hurdle) still applies on top of
+        # this to prevent locking sub-fee gains once we ARE in profit.
+        if entry > 0:
+            if direction == "long"  and current_price <= entry:
+                return None   # not yet in profit — hold initial protective stop
+            if direction == "short" and current_price >= entry:
+                return None   # not yet in profit — hold initial protective stop
 
         if bars is not None and len(bars) >= 3:
             from core.stop_engine import stop_engine
             triggered, new_sl = stop_engine.check_for_trail_update(
                 bars, current_sl, direction
             )
-            if triggered:
+            if triggered and self._trail_clears_fee_hurdle(trade, new_sl, entry, direction):
                 updates["stop_loss"] = round(new_sl, 4)
                 logger.info(
                     f"[TWO-BAR TRAIL] {trade['symbol']}: "
@@ -475,7 +493,7 @@ class RiskManager:
             trailing_gap = config.TRAILING_STOP_PCT / 100
             if direction == "long":
                 new_sl = current_price * (1 - trailing_gap)
-                if new_sl > current_sl:
+                if new_sl > current_sl and self._trail_clears_fee_hurdle(trade, new_sl, entry, direction):
                     updates["stop_loss"] = round(new_sl, 4)
                     logger.warning(
                         f"[PERCENT TRAIL fallback] {trade['symbol']}: "
@@ -483,7 +501,7 @@ class RiskManager:
                     )
             elif direction == "short":
                 new_sl = current_price * (1 + trailing_gap)
-                if new_sl < current_sl:
+                if new_sl < current_sl and self._trail_clears_fee_hurdle(trade, new_sl, entry, direction):
                     updates["stop_loss"] = round(new_sl, 4)
                     logger.warning(
                         f"[PERCENT TRAIL fallback] {trade['symbol']}: "
@@ -492,12 +510,57 @@ class RiskManager:
 
         return updates if updates else None
 
+    def _trail_clears_fee_hurdle(self, trade, new_sl, entry, direction) -> bool:
+        """
+        Profit-activation gate (Opus audit 2026-05-29).
+
+        A trailing stop may move INTO the profit zone (past entry) only if the
+        gain it would lock clears the asset's round-trip fee hurdle plus a
+        buffer. This prevents the ETH/USD-style exit: a trailing stop locking
+        +0.41% on crypto where the round-trip fee is 0.62% => a NET LOSS booked
+        as a 'stop'. Below the gate, the original (wider) protective stop stands
+        and the trade is given room to reach a real, fee-clearing profit.
+
+        Stops that are still on the LOSS side of entry are always allowed
+        (that is normal protective trailing and must not be blocked).
+        """
+        if entry <= 0:
+            return True
+        asset   = trade.get("asset_class", "crypto")
+        min_net = (config.MIN_NET_PROFIT_CRYPTO_PCT if asset == "crypto"
+                   else config.MIN_NET_PROFIT_STOCK_PCT) / 100.0
+        if direction == "long":
+            if new_sl <= entry:
+                return True                  # still protective — allow
+            locked = (new_sl - entry) / entry
+            return locked >= min_net
+        else:  # short: locking profit means stop below entry
+            if new_sl >= entry:
+                return True                  # still protective — allow
+            locked = (entry - new_sl) / entry
+            return locked >= min_net
+
     def check_sl_exit(self, trade: Dict, current_price: float) -> Optional[str]:
         direction = trade["direction"]
-        sl = trade["stop_loss"]
-        if direction == "long"  and current_price <= sl: return "stop_loss"
-        if direction == "short" and current_price >= sl: return "stop_loss"
-        return None
+        sl        = trade["stop_loss"]
+        entry     = float(trade.get("entry_price") or 0)
+        hit = (
+            (direction == "long"  and current_price <= sl) or
+            (direction == "short" and current_price >= sl)
+        )
+        if not hit:
+            return None
+        # Distinguish a profit-locking trailing stop from a protective stop-out
+        # (Opus audit 2026-05-29). Both used to log "stop_loss", masking trailing
+        # exits as apparent directional bugs (e.g. ETH/USD SHORT case).
+        if entry > 0:
+            on_profit_side = (
+                (direction == "long"  and sl > entry) or
+                (direction == "short" and sl < entry)
+            )
+            if on_profit_side:
+                return "trailing_stop"
+        return "stop_loss"
 
     def check_exit_conditions(self, trade: Dict,
                                current_price: float) -> Optional[str]:
@@ -553,9 +616,10 @@ class RiskManager:
                 f"Losing trade recorded. Consecutive losses: {new_losses}"
             )
             if new_losses >= config.MAX_CONSECUTIVE_LOSSES:
-                self._halt_trading(
-                    f"{config.MAX_CONSECUTIVE_LOSSES} consecutive losing trades"
-                )
+                if not self._session.get("trading_halted"):   # guard: only fire once
+                    self._halt_trading(
+                        f"{config.MAX_CONSECUTIVE_LOSSES} consecutive losing trades"
+                    )
         else:
             logger.info(f"Winning trade: +${pnl:.2f}. Consecutive loss counter reset.")
 

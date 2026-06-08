@@ -48,6 +48,7 @@ IBKR_HOST       = "127.0.0.1"
 IBKR_CLIENT_ID  = 2      # Changed from 1 — avoids conflict with TWS own clientId
 MAX_RECONNECT_ATTEMPTS = 3
 CLIENT_ID_FALLBACKS = [2, 3, 4, 5]  # Try these in order if primary clientId is in use
+_last_successful_client_id: int = IBKR_CLIENT_ID   # module-level cache: start first next time
 
 
 class IBKRExecutor:
@@ -93,7 +94,14 @@ class IBKRExecutor:
         self._ensure_event_loop()
         from ib_insync import IB
 
-        for client_id in CLIENT_ID_FALLBACKS:
+        global _last_successful_client_id
+        # Rotate so the last-successful clientId is tried first — skips known-bad slots
+        # on quick restarts where the primary (clientId 2) is still held by TWS.
+        ordered = (
+            [_last_successful_client_id]
+            + [c for c in CLIENT_ID_FALLBACKS if c != _last_successful_client_id]
+        )
+        for client_id in ordered:
             ib = IB()
             # Track if TWS sent error 326 (clientId in use) via error callback
             client_id_rejected = [False]
@@ -130,6 +138,7 @@ class IBKRExecutor:
                     self._ib        = ib
                     self._connected = True
                     self._client_id = client_id
+                    _last_successful_client_id = client_id   # remember for next restart
                     logger.info(
                         f"IBKR connected: port={self.port} "
                         f"({'paper' if self.paper_mode else 'LIVE'}) "
@@ -210,7 +219,8 @@ class IBKRExecutor:
                 action        = action,
                 totalQuantity = shares,
                 transmit      = False,
-                orderId       = ib.client.getReqId()
+                orderId       = ib.client.getReqId(),
+                orderRef      = "54321",   # automated API order (IBKR required differentiation)
             )
 
             sl_action = "SELL" if action == "BUY" else "BUY"
@@ -220,7 +230,8 @@ class IBKRExecutor:
                 stopPrice     = round(stop_loss, 2),
                 parentId      = parent.orderId,
                 transmit      = False,
-                orderId       = ib.client.getReqId()
+                orderId       = ib.client.getReqId(),
+                orderRef      = "54321",
             )
 
             tp = LimitOrder(
@@ -229,7 +240,8 @@ class IBKRExecutor:
                 lmtPrice      = round(take_profit, 2),
                 parentId      = parent.orderId,
                 transmit      = True,
-                orderId       = ib.client.getReqId()
+                orderId       = ib.client.getReqId(),
+                orderRef      = "54321",
             )
 
             parent_trade = ib.placeOrder(contract, parent)
@@ -265,13 +277,67 @@ class IBKRExecutor:
             logger.error(f"IBKR order failed for {symbol}: {e}")
             return None
 
+    def cancel_all_orders(self, symbol: str) -> int:
+        """
+        Cancel all open orders for a specific symbol.
+        Filters by symbol so only orders related to this position are cancelled —
+        not every open order across the whole account.
+        Returns count of orders cancelled.
+        """
+        self._ensure_event_loop()
+        if not self._ensure_connected():
+            return 0
+
+        try:
+            ib          = self._ib
+            open_orders = ib.openOrders()
+            cancelled   = 0
+
+            for o in open_orders:
+                # ib_insync openOrders() returns Trade objects; contract is on o.contract
+                order_sym = getattr(getattr(o, "contract", None), "symbol", "") or ""
+                if order_sym.upper() != symbol.upper():
+                    continue
+                try:
+                    ib.cancelOrder(o.order)
+                    cancelled += 1
+                    logger.info(
+                        f"[PRE-CLOSE CANCEL] IBKR {symbol}: "
+                        f"cancelled order {getattr(o.order, 'orderId', '?')}"
+                    )
+                except Exception as ce:
+                    logger.warning(
+                        f"[PRE-CLOSE CANCEL] IBKR {symbol}: "
+                        f"could not cancel order: {ce}"
+                    )
+
+            if cancelled:
+                logger.info(f"IBKR cancelled {cancelled} open order(s) for {symbol}")
+            return cancelled
+
+        except Exception as e:
+            logger.error(f"IBKR cancel_all_orders failed for {symbol}: {e}")
+            return 0
+
     def close_position(self, symbol: str) -> bool:
-        """Close an open IBKR position via market order."""
+        """
+        Close an open IBKR position via market order.
+        Always cancels all open orders for the symbol first so no resting
+        stop or bracket leg fires after the position is gone.
+        """
         self._ensure_event_loop()
         if not self._ensure_connected():
             logger.error(f"IBKR close_position: cannot connect for {symbol}")
             return False
 
+        # ── 1. Cancel all resting orders for this symbol first ───────────────
+        n_cancelled = self.cancel_all_orders(symbol)
+        if n_cancelled:
+            logger.info(
+                f"[CLOSE] IBKR {symbol}: cancelled {n_cancelled} order(s) before close"
+            )
+
+        # ── 2. Close the position via market order ────────────────────────────
         try:
             from ib_insync import Stock, MarketOrder
 
@@ -283,8 +349,7 @@ class IBKRExecutor:
             if not positions:
                 positions = ib.positions()
 
-            target    = None
-
+            target = None
             for pos in positions:
                 if pos.contract.symbol == symbol:
                     target = pos
@@ -300,7 +365,7 @@ class IBKRExecutor:
             contract = Stock(symbol, "SMART", "USD")
             ib.qualifyContracts(contract)
 
-            order = MarketOrder(action=action, totalQuantity=qty, transmit=True)
+            order = MarketOrder(action=action, totalQuantity=qty, transmit=True, orderRef="54321")
             trade = ib.placeOrder(contract, order)
 
             for _ in range(20):
@@ -318,51 +383,57 @@ class IBKRExecutor:
             logger.error(f"IBKR close_position failed for {symbol}: {e}")
             return False
 
-    def cancel_all_orders(self, symbol: str) -> int:
-        """Cancel all open orders for a symbol."""
-        self._ensure_event_loop()
-        if not self._ensure_connected():
-            return 0
-
-        try:
-            ib          = self._ib
-            open_orders = ib.openOrders()
-            cancelled   = 0
-
-            for order in open_orders:
-                try:
-                    ib.cancelOrder(order)
-                    cancelled += 1
-                except Exception:
-                    pass
-
-            logger.info(f"IBKR cancelled {cancelled} open orders for {symbol}")
-            return cancelled
-
-        except Exception as e:
-            logger.error(f"IBKR cancel_all_orders failed for {symbol}: {e}")
-            return 0
-
     def get_account(self) -> Dict:
-        """Fetch account summary from IBKR."""
+        """
+        Fetch account balance from IBKR.
+
+        Strategy:
+          1. accountValues() — auto-subscribed on connect, has data immediately.
+             Must filter currency='USD' (IBKR returns values in every currency).
+          2. accountSummary() — subscription-based, may be empty on first call.
+          Both return AccountValue(account, tag, value, currency).
+          We merge both, USD-filtered accountValues wins on conflict.
+        """
         self._ensure_event_loop()
         if not self._ensure_connected():
             return {"equity": 0, "cash": 0, "buying_power": 0,
                     "portfolio_value": 0, "settled_cash": 0}
 
         try:
-            ib      = self._ib
-            summary = ib.accountSummary(account=self.account or "")
-            values  = {item.tag: item.value for item in summary}
+            ib = self._ib
 
-            equity       = float(values.get("NetLiquidation", 0))
-            cash         = float(values.get("CashBalance",    0))
-            buying_power = float(values.get("BuyingPower",    0))
-            settled_cash = float(values.get("SettledCash",    0))
+            # -- Source 1: accountValues (auto-subscribed, always has data) -------
+            av = ib.accountValues(account=self.account or "")
+            if not av:
+                av = ib.accountValues()   # no filter — try all accounts
+
+            # Build values dict, preferring USD-denominated entries.
+            # IBKR returns each tag N times (once per currency); we want USD.
+            values: Dict[str, str] = {}
+            for item in av:
+                cur = getattr(item, 'currency', '')
+                if cur in ('USD', 'BASE', ''):
+                    values[item.tag] = item.value
+                elif item.tag not in values:
+                    values[item.tag] = item.value   # keep non-USD as fallback
+
+            # accountSummary() is intentionally NOT called here.
+            # It is a blocking subscription call that hangs when invoked from
+            # a non-ib_insync thread (the dashboard's thread-pool executor),
+            # causing a 15s timeout. accountValues() already contains all tags
+            # we need (NetLiquidation, AvailableFunds, BuyingPower, etc.)
+            # since TWS auto-subscribes account updates on connect.
+
+            equity       = float(values.get("NetLiquidation",  0))
+            cash         = float(values.get("AvailableFunds",  values.get("CashBalance", 0)))
+            buying_power = float(values.get("BuyingPower",     0))
+            settled_cash = float(values.get("SettledCash",     values.get("ExcessLiquidity", 0)))
 
             logger.info(
                 f"IBKR account: equity=${equity:,.2f} | "
-                f"cash=${cash:,.2f} | settled=${settled_cash:,.2f}"
+                f"cash=${cash:,.2f} | bp=${buying_power:,.2f} | "
+                f"settled=${settled_cash:,.2f} | "
+                f"tags_found={len(values)}"
             )
 
             return {

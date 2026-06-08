@@ -22,8 +22,16 @@
 import uuid
 import time
 import logging
+import threading
 from datetime import datetime
 from typing import Optional, Dict
+
+# ── Duplicate-entry race-condition guard ──────────────────────────────────────
+# Tracks symbols currently mid-execution. Prevents two scan cycles firing
+# within ~2s from both passing the DB "already open?" check before the first
+# write commits. Lock makes the check-and-add atomic across threads.
+_pending_symbols: set = set()
+_pending_lock = threading.Lock()
 try:
     from zoneinfo import ZoneInfo
 except ImportError:
@@ -361,6 +369,23 @@ class TradeExecutor:
                 )
 
     def execute_signal(self, signal) -> Optional[str]:
+        # ── Race-condition guard: block duplicate entries within same scan cycle ──
+        with _pending_lock:
+            if signal.symbol in _pending_symbols:
+                logger.warning(
+                    f"[LOCK] {signal.symbol} already pending execution — "
+                    f"dropping duplicate signal ({signal.direction})"
+                )
+                return None
+            _pending_symbols.add(signal.symbol)
+
+        try:
+            return self._execute_signal_inner(signal)
+        finally:
+            with _pending_lock:
+                _pending_symbols.discard(signal.symbol)
+
+    def _execute_signal_inner(self, signal) -> Optional[str]:
         logger.info(
             f"Attempting to execute signal: {signal.symbol} {signal.direction}"
         )
@@ -439,10 +464,14 @@ class TradeExecutor:
                 logger.info(f"Trade rejected for {signal.symbol}: {approval.reason}")
                 return None
 
+        # Settlement tracker only applies to IBKR cash account trades.
+        # Alpaca paper has margin buying power — no settlement restriction needed.
+        _broker_hint = self._get_broker_name(signal)
         if (signal.asset_class == "stock" and
                 self._ibkr is not None and
                 settlement_tracker is not None and
-                getattr(config, "CASH_ACCOUNT_MODE", True)):
+                getattr(config, "CASH_ACCOUNT_MODE", True) and
+                "ibkr" in _broker_hint.lower()):
             allowed, reason, available = settlement_tracker.can_open_trade(
                 approval.position_value
             )
@@ -456,6 +485,18 @@ class TradeExecutor:
         broker_result = self._submit(signal, approval, broker_name_hint)
         if not broker_result:
             logger.error(f"Order submission failed for {signal.symbol}")
+            return None
+        # Ghost trade guard: block definitively-rejected orders from creating DB records.
+        # Alpaca returns status=pending_new or accepted with filled_qty=0 — these are
+        # valid in-flight orders that WILL fill. Only block hard failure statuses.
+        # IBKR rejected orders return filled_qty=0 with status=cancelled/rejected.
+        _status = broker_result.get("status", "")
+        _HARD_FAIL_STATUSES = {"rejected", "cancelled", "expired", "done_for_day"}
+        if _status in _HARD_FAIL_STATUSES:
+            logger.warning(
+                f"[GHOST GUARD] {signal.symbol}: order status='{_status}' — "
+                f"definitively rejected, skipping DB record"
+            )
             return None
 
         entry_price = broker_result.get("filled_avg_price") or signal.current_price
@@ -614,12 +655,15 @@ class TradeExecutor:
         try:
             from core.broker_manager import broker_manager
             bal = broker_manager.get_broker_balance(broker_name)
-            new_invested  = bal.get("invested",  0.0) + approval.position_value
-            new_available = max(0.0, bal.get("available", 0.0) - approval.position_value)
-            broker_manager.update_broker_balance(
-                broker_name, bal.get("balance", 0.0),
-                new_invested, new_available
-            )
+            if not isinstance(bal, dict):
+                logger.debug(f"Broker balance update on open skipped: get_broker_balance returned {type(bal).__name__} for {broker_name}")
+            else:
+                new_invested  = bal.get("invested",  0.0) + approval.position_value
+                new_available = max(0.0, bal.get("available", 0.0) - approval.position_value)
+                broker_manager.update_broker_balance(
+                    broker_name, bal.get("balance", 0.0),
+                    new_invested, new_available
+                )
         except Exception as _bm_err:
             logger.debug(f"Broker balance update on open failed: {_bm_err}")
 
@@ -706,7 +750,25 @@ class TradeExecutor:
             # Kraken is the default crypto executor — Coinbase API is deprecated.
             side = "buy" if direction == "long" else "sell"
             if config.KRAKEN_ENABLED:
-                success = self.kraken.close_position(symbol, qty, side)
+                # ── Re-derive leverage to match the entry order ───────────────
+                # Short entries are placed as margin orders at KRAKEN_SHORT_LEVERAGE.
+                # The close must send the same leverage so Kraken reduces the margin
+                # position rather than opening a new opposing spot position.
+                # Longs are entered as spot (leverage=0), so close is also spot.
+                close_leverage = 0
+                if direction == "short":
+                    desired_lev = getattr(config, "KRAKEN_SHORT_LEVERAGE", 2)
+                    max_lev     = exchange_capabilities.get_max_short_leverage(
+                        symbol, "kraken"
+                    )
+                    close_leverage = min(desired_lev, max_lev) if max_lev > 1 else 0
+
+                # close_position now: (1) cancels ALL open orders for symbol first,
+                # (2) sends a margin-aware market close.  The separate stop_order_id
+                # cancel below is therefore redundant but left as a belt-and-braces
+                # fallback for paper mode where cancel_all_orders_for_symbol is a no-op.
+                success = self.kraken.close_position(symbol, qty, side,
+                                                     leverage=close_leverage)
             else:
                 logger.info(f"[PAPER] Simulated close: {symbol} {side.upper()} @ ${current_price:.4f}")
                 success = True
@@ -737,40 +799,23 @@ class TradeExecutor:
         else:
             pnl_pct = (pnl / trade["position_value"]) * 100 if trade["position_value"] else 0
 
-        # ── Sanity check: pnl_pct should never exceed 3x the trade's actual SL ─
-        # If it does, the price feed was corrupt (e.g. Kraken returning a stale
-        # listing price).  Cap pnl_pct AND back-calculate a sane exit_price so
-        # the DB doesn't record a nonsense price alongside capped P&L numbers.
-        #
-        # Cap is based on the trade's stored stop_loss price (not the config TP)
-        # so HV coins with wider stops get a proportionally wider cap while
-        # tight-stop coins (like grid_bot 0.8%) get a tighter cap.
-        # Floor: 3× config SL so we never cap a legitimate exit on a volatile bar.
-        sl_price = trade.get("stop_loss")
-        if sl_price and sl_price > 0 and entry_price and entry_price > 0:
-            actual_sl_pct = abs(entry_price - sl_price) / entry_price * 100
-            max_sane_pct  = max(actual_sl_pct * 3, config.DEFAULT_STOP_LOSS_PCT * 3)
-        else:
-            max_sane_pct  = config.DEFAULT_STOP_LOSS_PCT * 3
+        # ── Sanity check: pnl_pct cap against bad price feeds ────────────────
+        # Use a FIXED asset-class cap, not derived from stop_loss — the stop_loss
+        # itself can be corrupted by the same bad feed, making a derived cap useless.
+        # Stocks: 15% max (a genuine 15% stock move in one trade is already huge;
+        #   this catches $85-for-$209 entry corruption like the NFLX case)
+        # Crypto: 60% max (wider for volatile coins)
+        # Fall-through: also honour 3× DEFAULT_STOP_LOSS_PCT as a floor so
+        # legitimate wide-stop trades are never accidentally capped.
+        _fixed_cap   = 15.0 if asset_class == "stock" else 60.0
+        max_sane_pct = max(_fixed_cap, config.DEFAULT_STOP_LOSS_PCT * 3)
         if abs(pnl_pct) > max_sane_pct:
             logger.warning(
-                f"[PNL SANITY] {symbol}: pnl_pct={pnl_pct:.2f}% exceeds 3x SL cap "
+                f"[PNL SANITY] {symbol}: pnl_pct={pnl_pct:.2f}% exceeds cap "
                 f"({max_sane_pct:.1f}%). Bad price feed suspected — "
-                f"entry={entry_price} bad_exit={current_price} qty={qty}"
+                f"entry={entry_price} bad_exit={current_price} qty={qty} — CLOSE SKIPPED"
             )
-            pnl_pct = max_sane_pct if pnl_pct > 0 else -max_sane_pct
-            # Recalculate pnl dollar amount to match capped pct
-            pnl = (pnl_pct / 100) * trade["position_value"]
-            # Back-calculate a sane exit_price so DB isn't poisoned with the
-            # bad feed price — this implied price is consistent with capped pnl
-            if direction == "long":
-                current_price = entry_price * (1 + pnl_pct / 100)
-            else:
-                current_price = entry_price * (1 - pnl_pct / 100)
-            logger.warning(
-                f"[PNL SANITY] {symbol}: exit_price corrected to implied "
-                f"${current_price:.4f} (from capped {pnl_pct:+.2f}%)"
-            )
+            return  # ignore bad tick, position monitor will retry next cycle
 
         trade_won = pnl > 0
 
@@ -798,6 +843,7 @@ class TradeExecutor:
             **trade,
             "exit_time":  datetime.now().isoformat(),
             "exit_price": current_price,
+            "fees_paid":  fees_paid,   # Opus audit 2026-05-29: was missing → tax ledger showed fees=0
             "status":     "closed"
         }
         self._db.record_tax_event(full_trade)
@@ -840,13 +886,16 @@ class TradeExecutor:
             from core.broker_manager import broker_manager
             close_broker = trade.get("broker", broker)
             bal = broker_manager.get_broker_balance(close_broker)
-            returned      = trade.get("position_value", 0.0) + pnl
-            new_invested  = max(0.0, bal.get("invested",  0.0) - trade.get("position_value", 0.0))
-            new_available = bal.get("available", 0.0) + returned
-            new_balance   = bal.get("balance",  0.0) + pnl
-            broker_manager.update_broker_balance(
-                close_broker, new_balance, new_invested, new_available
-            )
+            if not isinstance(bal, dict):
+                logger.debug(f"Broker balance update on close skipped: get_broker_balance returned {type(bal).__name__} for {close_broker}")
+            else:
+                returned      = trade.get("position_value", 0.0) + pnl
+                new_invested  = max(0.0, bal.get("invested",  0.0) - trade.get("position_value", 0.0))
+                new_available = bal.get("available", 0.0) + returned
+                new_balance   = bal.get("balance",  0.0) + pnl
+                broker_manager.update_broker_balance(
+                    close_broker, new_balance, new_invested, new_available
+                )
         except Exception as _bm_err:
             logger.debug(f"Broker balance update on close failed: {_bm_err}")
 
@@ -881,28 +930,37 @@ class TradeExecutor:
         side   = "buy" if signal.direction == "long" else "sell"
 
         if signal.asset_class == "stock":
-            use_ibkr = broker_name_hint != "alpaca"
-            if use_ibkr and self._ibkr is not None:
+            # IBKR_TRADE_ENABLED must be explicitly True before any live order is routed.
+            # IBKR_ENABLED alone only keeps the executor alive for the broker panel display.
+            ibkr_trade_ok = (
+                broker_name_hint != "alpaca"
+                and self._ibkr is not None
+                and getattr(config, "IBKR_TRADE_ENABLED", False)
+            )
+            if ibkr_trade_ok:
                 if self._ibkr.is_available():
-                    logger.info(f"Routing {signal.symbol} to IBKR (cash account)")
+                    logger.info(f"Routing {signal.symbol} to IBKR (cash account, LIVE)")
                     result = self._ibkr.submit_order(
                         signal.symbol, approval.quantity, side,
                         approval.stop_loss, approval.take_profit
                     )
-                    if result is not None:
-                        result["actual_broker"] = "ibkr"   # record which broker filled
+                    if result is not None and result.get("filled_qty", 0) > 0:
+                        result["actual_broker"] = "ibkr"
                         return result
                     logger.warning(
-                        f"IBKR order failed for {signal.symbol} — "
-                        f"falling back to Alpaca"
+                        f"IBKR order failed/unfilled for {signal.symbol} — "
+                        f"falling back to Alpaca (status={result.get('status') if result else 'None'})"
                     )
                 else:
                     logger.warning(
-                        f"IBKR unreachable (TWS not running?) — "
-                        f"falling back to Alpaca for {signal.symbol}"
+                        f"IBKR unreachable — falling back to Alpaca for {signal.symbol}"
                     )
-            elif broker_name_hint == "alpaca":
-                logger.info(f"Routing {signal.symbol} to Alpaca (IBKR cash unavailable)")
+            elif broker_name_hint != "alpaca" and not getattr(config, "IBKR_TRADE_ENABLED", False):
+                logger.info(
+                    f"Routing {signal.symbol} to Alpaca (IBKR_TRADE_ENABLED=False — display-only mode)"
+                )
+            else:
+                logger.info(f"Routing {signal.symbol} to Alpaca")
             result = self.alpaca.submit_order(
                 signal.symbol, approval.quantity, side,
                 approval.stop_loss, approval.take_profit

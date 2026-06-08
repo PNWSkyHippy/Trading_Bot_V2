@@ -1337,17 +1337,30 @@ function OptimizerPanel() {
     });
   };
 
-  const toggleCsSymbol = (sym) => {
-    const keys = csEntries.filter(e => e.symbol === sym).map(csKey);
-    const allSelected = keys.every(k => csSelected.has(k));
-    setCsSelected(prev => {
-      const next = new Set(prev);
-      keys.forEach(k => allSelected ? next.delete(k) : next.add(k));
-      return next;
-    });
-  };
+  // Group csEntries by symbol — one row per symbol in the table
+  const csGrouped = React.useMemo(() => {
+    const groups = {};
+    for (const e of csEntries) {
+      if (!groups[e.symbol]) groups[e.symbol] = {
+        symbol: e.symbol, timeframes: [], total_bars: 0,
+        first_date: null, last_date: null, max_age_hours: 0, stale: false,
+      };
+      const g = groups[e.symbol];
+      g.timeframes.push(e.timeframe);
+      g.total_bars += (e.bar_count || 0);
+      if (!g.first_date || (e.first_date && e.first_date < g.first_date)) g.first_date = e.first_date;
+      if (!g.last_date  || (e.last_date  && e.last_date  > g.last_date))  g.last_date  = e.last_date;
+      if ((e.age_hours || 0) > g.max_age_hours) g.max_age_hours = e.age_hours || 0;
+      if (e.stale) g.stale = true;
+    }
+    return Object.values(groups).sort((a, b) => a.symbol.localeCompare(b.symbol));
+  }, [csEntries]);
 
-  const selectAllCs = () => setCsSelected(new Set(csEntries.map(csKey)));
+  // csSelected is a Set of symbol names
+  const toggleCsSymbol = (sym) => setCsSelected(prev => {
+    const next = new Set(prev); next.has(sym) ? next.delete(sym) : next.add(sym); return next;
+  });
+  const selectAllCs = () => setCsSelected(new Set(csGrouped.map(g => g.symbol)));
   const clearCsSelection = () => setCsSelected(new Set());
 
   const deleteSelected = async () => {

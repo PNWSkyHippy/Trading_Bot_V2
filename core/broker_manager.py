@@ -152,7 +152,15 @@ class BrokerManager:
         """Get the latest tracked balance for a broker."""
         bal = db.get_state(f"broker_balance_{broker_name}")
         if bal:
-            return bal
+            # Guard against double-encoded JSON (stored as str instead of dict)
+            if isinstance(bal, str):
+                try:
+                    import json as _json
+                    bal = _json.loads(bal)
+                except Exception:
+                    bal = None
+            if isinstance(bal, dict):
+                return bal
         return {
             "broker": broker_name,
             "balance": 0.0,
