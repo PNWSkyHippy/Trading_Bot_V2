@@ -1714,7 +1714,7 @@ class PositionMonitor:
             #   trigger fires at +$40   (2%)
             #   trail  holds  at  $15   (0.75% below peak)
             #   worst-case exit when triggered = peak - 0.75% = ~+$25 real profit after fees
-            _RATCHET_TRIGGER_PCT = 2.0   # 2% P&L → snap to breakeven-plus (above fee hurdle)
+            _RATCHET_TRIGGER_PCT = 1.0   # 1% P&L → snap to breakeven-plus
             _RATCHET_TRAIL_PCT   = 0.75  # trail SL 0.75% of entry below peak
 
             if _entry > 0 and direction == "long":
