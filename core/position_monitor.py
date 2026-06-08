@@ -1715,7 +1715,7 @@ class PositionMonitor:
             #   trail  holds  at  $15   (0.75% below peak)
             #   worst-case exit when triggered = peak - 0.75% = ~+$25 real profit after fees
             _RATCHET_TRIGGER_PCT = 1.0   # 1% P&L → snap to breakeven-plus
-            _RATCHET_TRAIL_PCT   = 0.75  # trail SL 0.75% of entry below peak
+            _RATCHET_TRAIL_PCT   = 1.0   # trail SL 1% below peak
 
             if _entry > 0 and direction == "long":
                 # Trail distance: 0.75% of entry price — scales with asset price
