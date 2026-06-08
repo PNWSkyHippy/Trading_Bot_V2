@@ -3648,8 +3648,7 @@ function ChartPanel({ defaultSymbol }) {
 
   const quickIndicators = DEFAULT_CHART_INDICATORS
     .map(def => indicators.find(ind => ind.id === def.id))
-    .filter(Boolean)
-    .slice(0, 6);
+    .filter(Boolean);
 
   // Sub-minute TFs reserved for future data feeds — add '30s','15s','1s' here when feed supports them
   const TFS = ['1m','2m','3m','5m','15m','30m','1h','4h','1D'];
