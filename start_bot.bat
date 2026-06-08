@@ -6,10 +6,6 @@ echo   AUTONOMOUS DAY TRADING AI - STARTING UP
 echo ============================================================
 echo.
 
-:: Wait 60 seconds after boot for network to fully connect
-echo Waiting for network...
-timeout /t 60 /nobreak
-
 :: Navigate to bot folder
 cd /d C:\Users\Linda\trading_bot_v2
 
@@ -19,13 +15,6 @@ call venv312\Scripts\activate.bat
 :: Set UTF-8 encoding for Windows console
 set PYTHONIOENCODING=utf-8
 chcp 65001 > nul
-
-:: Start the dashboard in a separate window
-echo Starting dashboard...
-start "Trading Dashboard" cmd /k "cd /d C:\Users\Linda\trading_bot_v2 && venv312\Scripts\activate.bat && set PYTHONIOENCODING=utf-8 && streamlit run dashboard.py"
-
-:: Wait a moment for dashboard to initialize
-timeout /t 5 /nobreak
 
 :: Start the main bot engine in this window
 echo Starting bot engine...

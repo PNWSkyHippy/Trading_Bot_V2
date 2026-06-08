@@ -1,10 +1,16 @@
 *claude_desktop_config.json*
 logs/bot.log
 *.log
+.archon/
+.continue/
 .pytest_cache/
 data/trading_bot.db
 ai-trading-agent/
 Archon/
+Deesigns/
+Opus.Audit/
+OverHaul/
+prompts/
 .env
 *.db
 *.pkl
@@ -20,3 +26,4 @@ exports/
 # Never commit encryption utility with real keys
 encrypt_key.py
 claude-skills/
+claud-skills/
