@@ -340,6 +340,7 @@ function OpenPositionsPanel() {
     toTP: Number(p.distance_to_tp || 0),
     slRaised: Number(p.sl_raise_count || 0),
     tpExt:    Number(p.tp_ext_count   || 0),
+    strategy: String(p.strategy_name || p.strategy || '—'),
   });
   const sortValue = (row, key) => {
     if (key === 'opened') {
@@ -464,7 +465,7 @@ function OpenPositionsPanel() {
       <TblWrap>
         <table className="tbl">
           <thead><tr>
-            <SortHead k="opened">Opened</SortHead><SortHead k="symbol">Symbol</SortHead><SortHead k="type">Type</SortHead><SortHead k="dir">Dir</SortHead>
+            <SortHead k="opened">Opened</SortHead><SortHead k="symbol">Symbol</SortHead><SortHead k="type">Type</SortHead><SortHead k="dir">Dir</SortHead><SortHead k="strategy">Strategy</SortHead>
             <SortHead k="entry" num>Entry</SortHead><SortHead k="current" num>Current</SortHead><SortHead k="sl" num>SL</SortHead><SortHead k="tp" num>TP</SortHead>
             <SortHead k="pnlD" num>Unreal P&L</SortHead><SortHead k="pnlP" num>P&L %</SortHead><SortHead k="toSL" num>→ SL</SortHead><SortHead k="toTP" num>→ TP</SortHead>
           </tr></thead>
@@ -475,6 +476,7 @@ function OpenPositionsPanel() {
                 <td><strong>{p.symbol}</strong></td>
                 <td className="muted">{p.type}</td>
                 <td><span className={cls('pill', p.dir.toLowerCase())}>{p.dir}</span></td>
+                <td className="muted" style={{ fontSize: 10, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.strategy}>{p.strategy}</td>
                 <td className="num">{fmtN(p.entry)}</td>
                 <td className="num">{fmtN(p.current)}</td>
                 <td className="num muted">{fmtN(p.sl)}</td>

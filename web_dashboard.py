@@ -816,6 +816,7 @@ def get_open_positions(sort_by=None, sort_dir="desc", enrich=True):
                     "is_stuck": bool(t.get("is_stuck")),
                     "close_attempts": int(t.get("close_attempts") or 0),
                     "tp_hit_count": int(t.get("tp_hit_count") or 0),
+                    "strategy_name": str(t.get("strategy_name") or "—"),
                 }
                 for t in rows
             ]
@@ -875,6 +876,7 @@ def get_open_positions(sort_by=None, sort_dir="desc", enrich=True):
                     "distance_to_sl": distance_to_sl,
                     "distance_to_tp": distance_to_tp,
                     "entry_time": t.get("entry_time") or "",
+                    "strategy_name": str(t.get("strategy_name") or "—"),
                 })
             return sort_open_positions(positions, sort_by, sort_dir)
         except Exception:
