@@ -855,12 +855,16 @@ class BreakoutReceiver:
         except Exception as _log_err:
             logger.debug(f"[TREND CONFIRM] DB log failed for {symbol}: {_log_err}")
 
+        # Advisory-only — logs to ai_signal_reviews for analysis but never blocks.
+        # Gate was too restrictive in live testing (2026-06-07); re-enable as hard
+        # block by changing ChecklistResult.ok → fail in the branch below once
+        # enough log data confirms the thresholds are correctly calibrated.
         if passed < MIN_PASS:
-            return ChecklistResult.fail(
-                f"Trend confirmation {passed}/{len(checks)} — {details}"
+            logger.warning(
+                f"[TREND WARN] {symbol} {direction}: {passed}/{len(checks)} — {details}"
             )
         return ChecklistResult.ok(
-            f"Trend confirmed {passed}/{len(checks)} — {details}"
+            f"Trend advisory {passed}/{len(checks)} — {details}"
         )
 
     def _check_structural_stop(self, p: Dict) -> ChecklistResult:
