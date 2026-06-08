@@ -1365,6 +1365,32 @@ class PositionMonitor:
             f"P&L: {pnl_pct:+.2f}% | Age: {age_hrs:.1f}hr"
         )
 
+        # ── 1b. RATCHET SAFETY NET (runs every cycle, before all exit logic) ─
+        # Belt-and-suspenders: the main ratchet block runs at step 11b, but if
+        # anything between here and there throws or returns early, this early
+        # pass guarantees SL is already at breakeven before the SL-hit check
+        # at step 3. This is the reason the user saw "SL still 2% below entry"
+        # on profitable trades — if the ratchet block was unreachable for any
+        # reason, the trade could slide back through a wider-than-entry stop.
+        if _is_breakout_trade(trade):
+            _safety_entry = float(trade.get("entry_price") or 0)
+            _safety_sl    = float(trade.get("stop_loss") or 0)
+            if _safety_entry > 0 and pnl_pct >= 1.0:
+                if direction == "long" and _safety_sl < _safety_entry:
+                    logger.info(
+                        f"[RATCHET SAFETY] {symbol}: SL ${_safety_sl:.4f} below entry "
+                        f"${_safety_entry:.4f} at P&L {pnl_pct:+.2f}% — snapping to entry"
+                    )
+                    self._db.update_trade_levels(trade_id, stop_loss=round(_safety_entry, 6))
+                    trade["stop_loss"] = round(_safety_entry, 6)
+                elif direction == "short" and _safety_sl > _safety_entry:
+                    logger.info(
+                        f"[RATCHET SAFETY] {symbol}: SL ${_safety_sl:.4f} above entry "
+                        f"${_safety_entry:.4f} at P&L {pnl_pct:+.2f}% — snapping to entry"
+                    )
+                    self._db.update_trade_levels(trade_id, stop_loss=round(_safety_entry, 6))
+                    trade["stop_loss"] = round(_safety_entry, 6)
+
         # ── 2. EOD CLOSE (15:45 ET) ──────────────────────────────────────
         if asset_class == "stock" and not is_overnight and _approaching_eod():
             logger.info(
