@@ -1121,13 +1121,14 @@ class BreakoutReceiver:
             # TP ladder: start at 6% so the ratchet trail (not the TP) is the primary
             # exit.  Bump TP as price proves the move — the escalation level from the
             # scanner tells us how far price has already traveled from the breakout:
-            #   esc 1 → 2% move  → TP 6%   (base — catches fast close-outs)
-            #   esc 2 → 5% move  → TP 12%  (real momentum — let it breathe more)
+            #   esc 1 → 2% move  → TP  6%  (base — catches fast close-outs)
+            #   esc 2 → 5% move  → TP 12%  (real momentum — let it breathe)
             #   esc 3 → 10% move → TP 18%  (strong trend — widen further)
-            # The position monitor ratchet ($40 trigger, $15 trail) protects profits
-            # for runners beyond these levels.
-            _esc_tp_map = {0: 6.0, 1: 6.0, 2: 12.0, 3: 18.0}
-            custom_tp = _esc_tp_map.get(int(esc), 6.0)
+            #   esc 4 → 15% move → TP 24%  (monster move — max ceiling)
+            # Ratchet trail (original-SL-dist below peak) is the real exit for
+            # runners — the TP is just a hard ceiling in case ratchet misfires.
+            _esc_tp_map = {0: 6.0, 1: 6.0, 2: 12.0, 3: 18.0, 4: 24.0}
+            custom_tp = _esc_tp_map.get(int(esc), 24.0 if int(esc) >= 4 else 6.0)
 
             signal = Signal(
                 symbol        = sym,

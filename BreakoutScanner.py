@@ -377,6 +377,7 @@ DEFAULT_CONFIG = {
     "escalate_2pct":        2.0,
     "escalate_5pct":        5.0,
     "escalate_10pct":       10.0,
+    "escalate_15pct":       15.0,   # esc 4 — monster move → 24% TP
     "bot_min_escalation":   1,
 }
 
@@ -1438,11 +1439,13 @@ class EscalationTracker:
         if fav_move > sig.best_move_pct:
             sig.best_move_pct = fav_move
         lvl     = entry["level"]
+        t15     = self.config.get("escalate_15pct", 15.0)
         t10     = self.config.get("escalate_10pct", 10.0)
         t5      = self.config.get("escalate_5pct",   5.0)
         t2      = self.config.get("escalate_2pct",   2.0)
         new_lvl = lvl
-        if   fav_move >= t10 and lvl < 3: new_lvl = 3
+        if   fav_move >= t15 and lvl < 4: new_lvl = 4
+        elif fav_move >= t10 and lvl < 3: new_lvl = 3
         elif fav_move >= t5  and lvl < 2: new_lvl = 2
         elif fav_move >= t2  and lvl < 1: new_lvl = 1
         if new_lvl > lvl:
