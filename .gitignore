@@ -1,6 +1,7 @@
 *claude_desktop_config.json*
 logs/bot.log
 *.log
+.pytest_cache/
 data/trading_bot.db
 ai-trading-agent/
 Archon/
