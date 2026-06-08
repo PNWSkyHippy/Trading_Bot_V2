@@ -209,6 +209,7 @@ MOMENTUM_RIDER_MIN_LOCK_PCT      = 1.00  # RAISED: Opus audit — 0.25% was belo
 MAX_DAILY_LOSS_PCT      = 15.0
 MAX_CONSECUTIVE_LOSSES  = 10
 MAX_OPEN_POSITIONS      = 30
+MAX_CONCURRENT_BMR      = 100   # BMR-357 cluster strategy — up to 100 simultaneous longs
 
 # Price filters
 STOCK_MIN_PRICE     = 0.40

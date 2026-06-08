@@ -431,6 +431,7 @@ class TradeExecutor:
             broker_name            = broker_name_hint,
             structural_stop_price  = structural_stop_hint,
             bypass_win_cooldown    = bypass_win_cooldown,
+            strategy_name          = signal.indicators.get("strategy_name"),
         )
         if not approval.approved:
             # If IBKR was selected but has $0 cash (drained paper account or

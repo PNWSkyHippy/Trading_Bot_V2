@@ -185,7 +185,8 @@ class RiskManager:
                       custom_position_pct: float = None,
                       broker_name: str = None,
                       structural_stop_price: float = None,
-                      bypass_win_cooldown: bool = False) -> TradeApproval:
+                      bypass_win_cooldown: bool = False,
+                      strategy_name: str = None) -> TradeApproval:
         """
         Approve a trade signal and compute position sizing.
 
@@ -222,9 +223,28 @@ class RiskManager:
                     reason=f"Invalid {_name}: {_val} (must be 0 < value ≤ 100)"
                 )
 
-        allowed, reason = self.is_trading_allowed()
-        if not allowed:
-            return TradeApproval(approved=False, reason=reason)
+        _is_bmr = (strategy_name == "bmr_357")
+        if _is_bmr:
+            # BMR-357 cluster strategy: bypass global 30-slot cap, use own 100-slot pool.
+            # Still enforce daily loss + consecutive loss circuit breakers.
+            pnl_today  = self._session.get("pnl_today", 0.0)
+            _start_cap = self._get_or_lock_starting_capital()
+            _max_loss  = _start_cap * (config.MAX_DAILY_LOSS_PCT / 100)
+            if pnl_today <= -_max_loss:
+                return TradeApproval(approved=False,
+                    reason=f"{config.MAX_DAILY_LOSS_PCT:.0f}% daily loss ceiling reached.")
+            if self._session.get("consecutive_losses", 0) >= config.MAX_CONSECUTIVE_LOSSES:
+                return TradeApproval(approved=False,
+                    reason=f"{config.MAX_CONSECUTIVE_LOSSES} consecutive losses. Trading halted.")
+            _open_bmr = [t for t in db.get_open_trades()
+                         if t.get("strategy_name") == "bmr_357"]
+            if len(_open_bmr) >= config.MAX_CONCURRENT_BMR:
+                return TradeApproval(approved=False,
+                    reason=f"BMR-357 slot cap {config.MAX_CONCURRENT_BMR} reached")
+        else:
+            allowed, reason = self.is_trading_allowed()
+            if not allowed:
+                return TradeApproval(approved=False, reason=reason)
 
         min_confidence = config.SIGNAL_TUNING.get(
             "min_signal_confidence", config.MIN_SIGNAL_CONFIDENCE
@@ -242,8 +262,14 @@ class RiskManager:
             return TradeApproval(approved=False, reason="No capital available")
 
         # ── Position sizing ───────────────────────────────────────────────
-        position_pct   = (custom_position_pct or config.MAX_POSITION_PCT) / 100
-        position_value = capital * position_pct
+        if _is_bmr:
+            # Scale: capital ÷ (open BMR count + 1) so total exposure never exceeds capital.
+            # 1 open → full capital slice. 10 open → 1/11 each. 100 open → 1/101 each.
+            _bmr_open_n    = len(_open_bmr)
+            position_value = max(1.0, capital / (_bmr_open_n + 1))
+        else:
+            position_pct   = (custom_position_pct or config.MAX_POSITION_PCT) / 100
+            position_value = capital * position_pct
 
         # ── Per-broker cash check ─────────────────────────────────────────
         # broker_name is now an explicit parameter — no shared mutable state,
