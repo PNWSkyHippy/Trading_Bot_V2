@@ -4028,7 +4028,7 @@ function ChartPanel({ defaultSymbol }) {
                   const delta = ev.clientY - startY;
                   setLowerHeights(prev => {
                     const next = [...prev];
-                    next[i] = Math.max(60, Math.min(400, startH + delta));
+                    next[i] = Math.max(60, Math.min(400, startH - delta));
                     return next;
                   });
                 };
