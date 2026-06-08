@@ -230,12 +230,11 @@ class BMR357Strategy(BaseStrategy):
             last = sig.iloc[-1]
 
             long_sig  = bool(last["long_signal"])
-            short_sig = bool(last["short_signal"])
 
-            if not (long_sig or short_sig):
+            if not long_sig:
                 return None
 
-            direction = "long" if long_sig else "short"
+            direction = "long"
             close     = float(last["close"])
             rsi_val   = float(last["rsi"])
             bb_mid    = float(last["bb_mid"])   if not pd.isna(last["bb_mid"])   else close
