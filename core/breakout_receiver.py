@@ -815,6 +815,18 @@ class BreakoutReceiver:
         adx_val   = float((100 * (di_plus - di_minus).abs() / di_sum).ewm(alpha=alpha, adjust=False).mean().iloc[-1])
         c_adx     = adx_val >= 25
 
+        # ── ADX hard block: ≤ 20 = no trend, refuse entry ────────────────
+        # ADX < 20 = flat/choppy market, breakout is likely exhausted.
+        # 20-25 = weak trend (advisory warn but allow), ≥ 25 = confirmed trend.
+        if adx_val <= 20:
+            logger.warning(
+                f"[ADX BLOCK] {symbol} {direction}: ADX={adx_val:.1f} ≤ 20 — "
+                f"no trend, hard block (late/exhausted breakout)"
+            )
+            return ChecklistResult.fail(
+                f"ADX {adx_val:.1f} ≤ 20 — no trend (hard block)"
+            )
+
         # ── Verdict ───────────────────────────────────────────────────────
         checks  = [c_ema, c_rsi, c_macd, c_adx]
         passed  = sum(checks)
