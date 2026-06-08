@@ -3481,10 +3481,10 @@ class Handler(BaseHTTPRequestHandler):
                 _where = "WHERE status='closed'"
                 _params = []
                 if _from:
-                    _where += " AND DATE(exit_time) >= DATE(?)"
+                    _where += " AND DATETIME(exit_time) >= DATETIME(?)"
                     _params.append(_from)
                 if _to:
-                    _where += " AND DATE(exit_time) <= DATE(?)"
+                    _where += " AND DATETIME(exit_time) <= DATETIME(?)"
                     _params.append(_to)
                 _sql = f"""
                     SELECT strategy_name,
