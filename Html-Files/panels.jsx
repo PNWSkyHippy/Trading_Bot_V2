@@ -1,4 +1,4 @@
-// Trading Bot Dashboard panels
+﻿// Trading Bot Dashboard panels
 const { useState: useS, useEffect: useE, useRef: useR, useMemo: useM, useCallback: useC } = React;
 
 // Format helpers
@@ -2548,6 +2548,7 @@ function ChartPanel({ defaultSymbol }) {
   const lowerChartRefs = useR([null, null, null, null]);
   const [lowerHeights, setLowerHeights] = useS([120, 120, 120, 120]);
   const [chartInitKey, setChartInitKey] = useS(0);  // bumped when a lazy lower chart is created
+  const lowerRetryCountRef = useR(0);  // guards against infinite retry if lower chart creation fails
   const resizeDragRef = useR(null);
   const lowerScaleMargins = useR([[0.05,0.05],[0.05,0.05],[0.05,0.05],[0.05,0.05]]);
   const panBtnRefs = useR([]);
@@ -2932,9 +2933,13 @@ function ChartPanel({ defaultSymbol }) {
     livePriceLinesRef.current = [];
 
     const panelForIndicator = (ind) => ind.place || 'main';
+    let _needsLowerRetry = false;
     const chartForPlace = (place) => {
       const idx = LOWER_IDS.indexOf(place);
-      if (idx >= 0) return lowerChartRefs.current[idx] || chartRef.current;
+      if (idx >= 0) {
+        if (!lowerChartRefs.current[idx]) _needsLowerRetry = true;
+        return lowerChartRefs.current[idx] || null;
+      }
       return chartRef.current;
     };
     // Every indicator gets its own price scale (scaleId = ind.id) so different-magnitude
@@ -3045,11 +3050,25 @@ function ChartPanel({ defaultSymbol }) {
         const downColor = ind.downColor || '#ef5350';
         const st = calcSuperTrend(cleanBars, period, Number(ind.mult) || 3);
         // Each segment is a contiguous same-colour run — renders per-bar historical colours
-        st.segments.forEach(seg => addLine(seg.points, seg.isUp ? upColor : downColor, place, 2, sid));
+        // Last segment gets showLabel=true so the current value appears as a colored dial marker
+        st.segments.forEach((seg, si) => {
+          const isLast = si === st.segments.length - 1;
+          addLine(seg.points, seg.isUp ? upColor : downColor, place, 2, sid, isLast);
+        });
         // Collect crossover markers to be added after the indicators loop
         st.crossovers.forEach(co => stCrossovers.push({ ...co, upColor, downColor }));
       }
     });
+
+    // If any lower-panel chart wasn't created yet, bump chartInitKey so this
+    // effect re-runs after the chart-creation effect builds the missing chart.
+    // Cap at 3 retries to avoid an infinite loop if chart creation keeps failing.
+    if (_needsLowerRetry && lowerRetryCountRef.current < 3) {
+      lowerRetryCountRef.current += 1;
+      setChartInitKey(k => k + 1);
+    } else if (!_needsLowerRetry) {
+      lowerRetryCountRef.current = 0;
+    }
 
     const fmtLinePrice = (v) => {
       const n = Number(v || 0);
@@ -3122,7 +3141,7 @@ function ChartPanel({ defaultSymbol }) {
     const stPlace = stInd?.place || 'main';
     const stChart = chartForPlace(stPlace);
 
-    if (!stMarkers.length || stChart === chartRef.current) {
+    if (!stMarkers.length || !stChart || stChart === chartRef.current) {
       // ST on main or no ST — merge everything on candle series
       const merged = [...stMarkers, ...liveProcessed].sort((a, b) => a.time - b.time);
       candleRef.current.setMarkers(merged);
@@ -3477,6 +3496,7 @@ function ChartPanel({ defaultSymbol }) {
   useE(() => {
     const LC = window.LightweightCharts;
     if (!LC || !chartRef.current) return;
+    lowerRetryCountRef.current = 0;  // reset retry counter on each lower panel visibility change
     let newChartCreated = false;
 
     lowerVisible.forEach((vis, i) => {
@@ -4094,5 +4114,998 @@ function ChartPanel({ defaultSymbol }) {
   );
 }
 
-window.Panels = { TopOverview, OpenPositionsPanel, ManualTradePanel, TradeLogPanel, DailyPerfPanel, BacktesterPanel, OptimizerPanel, ChatPanel, ChartPanel };
+function BrokerPanel() {
+  const [accounts, setAccounts] = useS([]);
+  const [broker, setBroker] = useS('alpaca');
+  const [mode, setMode] = useS('paper');
+  const [balance, setBalance] = useS(null);
+  const [positions, setPositions] = useS([]);
+  const [history, setHistory] = useS([]);
+  const [tab, setTab] = useS('positions');
+  const [loading, setLoading] = useS(false);
+  const [closeMsg, setCloseMsg] = useS('');
+  const [err, setErr] = useS('');
+  const [balErr, setBalErr] = useS('');
+  // Order tab
+  const [ordSym,       setOrdSym]       = useS('');
+  const [ordSide,      setOrdSide]      = useS('buy');
+  const [ordType,      setOrdType]      = useS('market');
+  const [ordAmtUsd,    setOrdAmtUsd]    = useS('');
+  const [ordQty,       setOrdQty]       = useS('');
+  const [ordLimitPx,   setOrdLimitPx]   = useS('');
+  const [ordStopPx,    setOrdStopPx]    = useS('');
+  const [ordTrailVal,  setOrdTrailVal]  = useS('1');
+  const [ordTrailType, setOrdTrailType] = useS('pct');
+  const [ordTpPx,      setOrdTpPx]      = useS('');
+  const [ordSlPx,      setOrdSlPx]      = useS('');
+  const [ordMargin,    setOrdMargin]    = useS(false);
+  const [ordLeverage,  setOrdLeverage]  = useS('5');   // max leverage for pair (auto-fetched)
+  const [ordMaxLev,    setOrdMaxLev]    = useS(null);  // display only
+  const [ordMsg,       setOrdMsg]       = useS('');
+  const [ordBusy,      setOrdBusy]      = useS(false);
+  const [ordCurPx,     setOrdCurPx]     = useS(null);
+  const [ordPxLoading, setOrdPxLoading] = useS(false);
+
+  // Markets tab
+  const [mktCategory, setMktCategory] = useS('crypto');
+  const [mktAssets, setMktAssets] = useS([]);
+  const [mktLoading, setMktLoading] = useS(false);
+  const [mktSearch, setMktSearch] = useS('');
+  const [mktSort, setMktSort] = useS({ key: 'volume_usd', dir: 'desc' });
+  const [mktFavs, setMktFavs] = useS(() => {
+    try { return JSON.parse(localStorage.getItem('tbot.bp.favs') || '[]'); } catch { return []; }
+  });
+
+  // Auto-fetch current price + max leverage when order symbol changes (500ms debounce)
+  useE(() => {
+    const sym = ordSym.trim().toUpperCase();
+    setOrdCurPx(null); setOrdMaxLev(null);
+    if (!sym) return;
+    // Check cached sources first
+    const mkt = mktAssets.find(a => a.symbol.toUpperCase() === sym);
+    if (mkt && mkt.last) { setOrdCurPx(mkt.last); }
+    const pos = positions.find(p => !p._is_order && p.symbol.toUpperCase() === sym);
+    if (pos && pos.current_price) { setOrdCurPx(pos.current_price); }
+    // Debounced fetch for price + max leverage
+    const t = setTimeout(() => {
+      setOrdPxLoading(true);
+      panelApi(`/api/broker_panel/price?broker=${broker}&symbol=${encodeURIComponent(sym)}`)
+        .then(d => {
+          if (d.price) setOrdCurPx(d.price);
+          if (d.max_leverage) {
+            setOrdMaxLev(d.max_leverage);
+            setOrdLeverage(String(d.max_leverage));
+          }
+        })
+        .catch(() => {})
+        .finally(() => setOrdPxLoading(false));
+    }, 500);
+    return () => clearTimeout(t);
+  }, [ordSym, broker]);
+
+  const loadMarkets = (cat) => {
+    setMktLoading(true);
+    panelApi(`/api/broker_panel/assets?broker=${broker}&category=${cat}`)
+      .then(d => { setMktAssets(d.assets || []); setMktLoading(false); })
+      .catch(() => setMktLoading(false));
+  };
+
+  // Load broker list once
+  useE(() => {
+    panelApi('/api/broker_panel/accounts')
+      .then(d => {
+        setAccounts(d.accounts || []);
+        if (d.accounts && d.accounts.length) {
+          setBroker(d.accounts[0].broker);
+          setMode((d.accounts[0].modes || ['paper'])[0]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const modesFor = b => (accounts.find(a => a.broker === b) || {}).modes || ['live'];
+
+  const refresh = async () => {
+    setLoading(true);
+    setErr('');
+    setBalErr('');
+    // Fetch independently — a balance failure shouldn't affect positions/history display
+    const [balR, posR, histR] = await Promise.allSettled([
+      panelApi(`/api/broker_panel/balance?broker=${broker}&mode=${mode}`),
+      panelApi(`/api/broker_panel/positions?broker=${broker}&mode=${mode}`),
+      panelApi(`/api/broker_panel/history?broker=${broker}&mode=${mode}&limit=50`),
+    ]);
+    if (balR.status === 'fulfilled') {
+      const bal = balR.value;
+      if (bal.error) setBalErr(bal.error); else { setBalance(bal); setBalErr(''); }
+    } else {
+      setBalErr(balR.reason?.message || 'unavailable');
+    }
+    if (posR.status === 'fulfilled') setPositions(posR.value.positions || []);
+    else setErr(`Positions: ${posR.reason?.message || 'error'}`);
+    if (histR.status === 'fulfilled') setHistory(histR.value.history || []);
+    else setErr(`History: ${histR.reason?.message || 'error'}`);
+    setLoading(false);
+  };
+
+  // Auto-refresh on broker/mode change
+  useE(() => { refresh(); }, [broker, mode]);
+
+  // Auto-refresh positions + balance every 30s
+  useE(() => {
+    const id = setInterval(() => {
+      if (tab === 'markets') return; // don't auto-refresh heavy markets call
+      Promise.allSettled([
+        panelApi(`/api/broker_panel/balance?broker=${broker}&mode=${mode}`),
+        panelApi(`/api/broker_panel/positions?broker=${broker}&mode=${mode}`),
+      ]).then(([balR, posR]) => {
+        if (balR.status === 'fulfilled') {
+          const bal = balR.value;
+          if (bal.error) setBalErr(bal.error); else { setBalance(bal); setBalErr(''); }
+        }
+        if (posR.status === 'fulfilled') setPositions(posR.value.positions || []);
+      });
+    }, 30000);
+    return () => clearInterval(id);
+  }, [broker, mode, tab]);
+
+  // When broker changes, reset mode to first available
+  const fireChartBroker = b => {
+    // Map broker panel broker → chart broker id
+    const chartBroker = { alpaca: 'alpaca', kraken: 'kraken', ibkr: 'ibkr' }[b] || b;
+    window.dispatchEvent(new CustomEvent('tbot:chart-broker', { detail: { broker: chartBroker } }));
+  };
+
+  const { open: openWin } = useWindows();
+  const fireChartSymbol = (sym, positionData) => {
+    openWin('chart');
+    const chartBroker = { alpaca: 'alpaca', kraken: 'kraken', ibkr: 'ibkr' }[broker] || broker;
+    window.dispatchEvent(new CustomEvent('tbot:chart-broker', { detail: { broker: chartBroker } }));
+    window.dispatchEvent(new CustomEvent('tbot:chart-symbol', { detail: { symbol: sym } }));
+    // Inject live position overlay (SL/TP lines + entry line).
+    // Delayed so the symbol-change effect's setOpenPositions([]) runs first,
+    // then we inject fresh — same race fix as tbot:chart-trades.
+    if (positionData) {
+      setTimeout(() =>
+        window.dispatchEvent(new CustomEvent('tbot:chart-positions', { detail: { positions: [positionData] } }))
+      , 600);
+    }
+    // Inject closed trade markers from the already-loaded history tab.
+    // Converts entry_time/exit_time ISO strings → Unix timestamps so the
+    // chart canvas can draw entry (teal) and exit (green/red) badges.
+    const symTrades = history.filter(t => t.symbol === sym);
+    if (symTrades.length) {
+      // Append 'Z' if no timezone present so JS parses as UTC not local time
+    const toTs = s => { try { const d = /Z|[+-]\d\d:\d\d/.test(s) ? s : s + 'Z'; return Math.floor(new Date(d).getTime() / 1000); } catch { return 0; } };
+      const markers = [];
+      symTrades.forEach(t => {
+        const ets = toTs(t.entry_time);
+        if (ets > 0) markers.push({
+          time: ets, type: 'entry',
+          direction: t.side || 'long',
+          price: Number(t.entry_price || 0), pnl: 0,
+        });
+        const xts = toTs(t.exit_time);
+        if (xts > 0) markers.push({
+          time: xts, type: 'exit',
+          direction: t.side || 'long',
+          price: Number(t.exit_price || 0),
+          pnl: Number(t.pnl || 0),
+        });
+      });
+      if (markers.length)
+        // Delay slightly so the symbol-change effect's setLiveMarks([]) runs first,
+        // then we set the fresh markers — avoids the clear racing the inject.
+        setTimeout(() =>
+          window.dispatchEvent(new CustomEvent('tbot:chart-trades', { detail: { markers, symbol: sym } }))
+        , 600);
+    }
+  };
+
+  const onBrokerChange = b => {
+    setBroker(b);
+    const modes = (accounts.find(a => a.broker === b) || {}).modes || ['live'];
+    setMode(modes[0]);
+    fireChartBroker(b);
+  };
+
+  const closePosition = async (symbol, trade_id, cancelOnly = false) => {
+    setCloseMsg(cancelOnly ? 'Cancelling order...' : 'Closing...');
+    try {
+      const r = await panelApi('/api/broker_panel/close', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ broker, mode, symbol, trade_id, cancel_order: cancelOnly }),
+      });
+      setCloseMsg(r.message || 'Done');
+      refresh();
+    } catch (e) {
+      setCloseMsg(e.message);
+    }
+  };
+
+  const [posSort,  setPosSort]  = useS({ key: 'symbol',     dir: 'asc' });
+  const [histSort, setHistSort] = useS({ key: 'entry_time', dir: 'desc' });
+
+  const pnlColor = v => v > 0 ? 'var(--green)' : v < 0 ? 'var(--red)' : 'var(--text-2)';
+  const fmtMode = m => m.charAt(0).toUpperCase() + m.slice(1);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', padding: 14, gap: 10 }}>
+
+      {/* ── Broker / Mode selector ── */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="field" style={{ margin: 0 }}>
+          <label style={{ fontSize: 11 }}>Broker</label>
+          <select className="select input" style={{ minWidth: 100 }} value={broker} onChange={e => onBrokerChange(e.target.value)}>
+            {accounts.map(a => <option key={a.broker} value={a.broker}>{a.broker.charAt(0).toUpperCase() + a.broker.slice(1)}</option>)}
+          </select>
+        </div>
+        <div className="field" style={{ margin: 0 }}>
+          <label style={{ fontSize: 11 }}>Mode</label>
+          <select className="select input" style={{ minWidth: 90 }} value={mode} onChange={e => setMode(e.target.value)}>
+            {modesFor(broker).map(m => <option key={m} value={m}>{fmtMode(m)}</option>)}
+          </select>
+        </div>
+        <button className="btn" style={{ marginTop: 16 }} onClick={refresh} disabled={loading}>
+          <Icon name="refresh" size={13} /> {loading ? 'Loading…' : 'Refresh'}
+        </button>
+        {err && <span style={{ fontSize: 11, color: 'var(--red)', marginTop: 16 }}>{err}</span>}
+      </div>
+
+      {/* ── Balance bar ── */}
+      {balErr
+        ? <div style={{ fontSize: 11, color: 'var(--text-2)', padding: '6px 10px', background: 'var(--bg-2)', borderRadius: 'var(--radius)' }}>Balance unavailable: {balErr}</div>
+        : balance && (
+          <div style={{ display: 'flex', gap: 12, background: 'var(--bg-2)', borderRadius: 'var(--radius)', padding: '8px 12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            {[
+              { label: 'Cash', val: balance.cash },
+              { label: 'Buying Power', val: balance.buying_power },
+              { label: 'Portfolio Value', val: balance.portfolio_value },
+              { label: 'Equity', val: balance.equity },
+            ].map(({ label, val }) => (
+              <div key={label} style={{ minWidth: 100 }}>
+                <div style={{ fontSize: 10, color: 'var(--text-2)', marginBottom: 2 }}>{label}</div>
+                <div style={{ fontSize: 13, fontFamily: 'var(--mono)', fontWeight: 600 }}>{fmt$(val)}</div>
+              </div>
+            ))}
+            {balance.note && (
+              <div style={{ fontSize: 10, color: 'var(--text-2)', marginLeft: 'auto', alignSelf: 'center', fontStyle: 'italic' }}>{balance.note}</div>
+            )}
+          </div>
+        )
+      }
+
+      {/* ── Tabs ── */}
+      <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid var(--border)', paddingBottom: 4 }}>
+        {['positions', 'history', 'order', 'markets'].map(t => (
+          <button key={t} onClick={() => {
+            setTab(t);
+            if (t === 'markets' && mktAssets.length === 0) loadMarkets(mktCategory);
+          }}
+            style={{ padding: '3px 12px', fontSize: 12, borderRadius: 'var(--radius)',
+              background: tab === t ? 'var(--accent)' : 'transparent',
+              color: tab === t ? '#fff' : 'var(--text-2)',
+              border: 'none', cursor: 'pointer' }}>
+            {t.charAt(0).toUpperCase() + t.slice(1)}
+            {t === 'positions' && positions.length > 0 && (
+              <span style={{ marginLeft: 5, background: 'rgba(255,255,255,0.2)', borderRadius: 10, padding: '0 5px', fontSize: 10 }}>
+                {positions.length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Positions tab ── */}
+      {tab === 'positions' && (
+        <div style={{ flex: 1, overflow: 'auto' }}>
+          {positions.length === 0
+            ? <div style={{ color: 'var(--text-2)', fontSize: 12, padding: 8 }}>
+                No open positions
+              </div>
+            : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    <BpSortTh label="Symbol"   k="symbol"             sort={posSort} setter={setPosSort} />
+                    <BpSortTh label="Side"     k="side"               sort={posSort} setter={setPosSort} />
+                    <BpSortTh label="Qty"      k="qty"                sort={posSort} setter={setPosSort} />
+                    <BpSortTh label="Entry"    k="entry_price"        sort={posSort} setter={setPosSort} />
+                    <BpSortTh label="Current"  k="current_price"      sort={posSort} setter={setPosSort} />
+                    <BpSortTh label="P&L"      k="unrealized_pnl"     sort={posSort} setter={setPosSort} />
+                    <BpSortTh label="P&L %"    k="unrealized_pnl_pct" sort={posSort} setter={setPosSort} />
+                    <th style={{ padding: '4px 6px' }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {_bpSortArr(positions, posSort).map((p, i) => {
+                    const isOrder = p._is_order;
+                    return (
+                    <tr key={i} style={{ borderBottom: '1px solid var(--border)',
+                      background: isOrder ? 'rgba(245,158,11,0.04)' : '' }}>
+                      <td style={{ padding: '5px 6px', fontFamily: 'var(--mono)', fontWeight: 600, cursor: 'pointer',
+                        color: isOrder ? 'var(--yellow)' : 'var(--accent)' }}
+                          onClick={() => {
+                            if (isOrder) { fireChartSymbol(p.symbol); return; }
+                            // Look up any resting stop/TP orders for this symbol
+                            // from the same positions list (broker panel shows all 3:
+                            // position row + stop order row + TP order row).
+                            const relOrders = positions.filter(o =>
+                              o._is_order && o.symbol === p.symbol
+                            );
+                            const slOrder = relOrders.find(o =>
+                              (o.side || '').toLowerCase().includes('stop')
+                            );
+                            const tpOrder = relOrders.find(o => {
+                              const s = (o.side || '').toLowerCase();
+                              return s.includes('limit') && !s.includes('stop');
+                            });
+                            fireChartSymbol(p.symbol, {
+                              direction:   p.side,
+                              entry_price: p.entry_price,
+                              stop_loss:   slOrder ? slOrder.entry_price : 0,
+                              take_profit: tpOrder ? tpOrder.entry_price : 0,
+                              entry_ts:    p.entry_ts || null,
+                              symbol:      p.symbol,
+                            });
+                          }} title="Load in chart">{p.symbol}</td>
+                      <td style={{ padding: '5px 6px', fontSize: 11,
+                        color: isOrder ? 'var(--yellow)' : p.side === 'long' || p.side === 'buy' ? 'var(--green)' : 'var(--red)' }}>
+                        {p.side}
+                      </td>
+                      <td style={{ padding: '5px 6px', fontFamily: 'var(--mono)' }}>{Number(p.qty).toFixed(4)}</td>
+                      <td style={{ padding: '5px 6px', fontFamily: 'var(--mono)' }}>{p.entry_price > 0 ? fmt$(p.entry_price, 4) : '—'}</td>
+                      <td style={{ padding: '5px 6px', fontFamily: 'var(--mono)' }}>{p.current_price > 0 ? fmt$(p.current_price, 4) : '—'}</td>
+                      <td style={{ padding: '5px 6px', fontFamily: 'var(--mono)', color: pnlColor(p.unrealized_pnl) }}>
+                        {isOrder ? '—' : fmt$Sign(p.unrealized_pnl)}
+                      </td>
+                      <td style={{ padding: '5px 6px', fontFamily: 'var(--mono)', color: pnlColor(p.unrealized_pnl_pct) }}>
+                        {isOrder ? '—' : fmtP(p.unrealized_pnl_pct / 100)}
+                      </td>
+                      <td style={{ padding: '5px 6px' }}>
+                        <button className="btn" style={{ fontSize: 11, padding: '2px 8px',
+                          color: isOrder ? 'var(--yellow)' : 'var(--red)' }}
+                          onClick={() => closePosition(p.symbol, p.trade_id, isOrder)}>
+                          {isOrder ? 'Cancel' : 'Close'}
+                        </button>
+                      </td>
+                    </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )
+          }
+          {closeMsg && <div style={{ marginTop: 8, fontSize: 11, color: 'var(--text-2)' }}>{closeMsg}</div>}
+        </div>
+      )}
+
+      {/* ── History tab ── */}
+      {tab === 'history' && (
+        <div style={{ flex: 1, overflow: 'auto' }}>
+          {history.length === 0
+            ? <div style={{ color: 'var(--text-2)', fontSize: 12, padding: 8 }}>
+                No trade history
+              </div>
+            : (
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--border)' }}>
+                    <BpSortTh label="Symbol"  k="symbol"      sort={histSort} setter={setHistSort} />
+                    <BpSortTh label="Side"    k="side"        sort={histSort} setter={setHistSort} />
+                    <BpSortTh label="Entry"   k="entry_price" sort={histSort} setter={setHistSort} />
+                    <BpSortTh label="Exit"    k="exit_price"  sort={histSort} setter={setHistSort} />
+                    <BpSortTh label="P&L"     k="pnl"         sort={histSort} setter={setHistSort} />
+                    <BpSortTh label="P&L %"   k="pnl_pct"     sort={histSort} setter={setHistSort} />
+                    <BpSortTh label="Reason"  k="exit_reason" sort={histSort} setter={setHistSort} />
+                    <BpSortTh label="Opened"  k="entry_time"  sort={histSort} setter={setHistSort} />
+                    <BpSortTh label="Closed"  k="exit_time"   sort={histSort} setter={setHistSort} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {_bpSortArr(history, histSort).map((t, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                      <td style={{ padding: '5px 6px', fontFamily: 'var(--mono)', fontWeight: 600, cursor: 'pointer', color: 'var(--accent)' }}
+                          onClick={() => fireChartSymbol(t.symbol)} title="Load in chart">{t.symbol}</td>
+                      <td style={{ padding: '5px 6px', color: t.side === 'long' ? 'var(--green)' : 'var(--red)' }}>{t.side}</td>
+                      <td style={{ padding: '5px 6px', fontFamily: 'var(--mono)' }}>{fmt$(t.entry_price, 4)}</td>
+                      <td style={{ padding: '5px 6px', fontFamily: 'var(--mono)' }}>{fmt$(t.exit_price, 4)}</td>
+                      <td style={{ padding: '5px 6px', fontFamily: 'var(--mono)', color: pnlColor(t.pnl) }}>{fmt$Sign(t.pnl)}</td>
+                      <td style={{ padding: '5px 6px', fontFamily: 'var(--mono)', color: pnlColor(t.pnl_pct) }}>{fmtP(t.pnl_pct / 100)}</td>
+                      <td style={{ padding: '5px 6px', color: 'var(--text-2)', fontSize: 11 }}>{t.exit_reason}</td>
+                      <td style={{ padding: '5px 6px', color: 'var(--text-2)', fontSize: 11 }}>
+                        {t.entry_time ? t.entry_time.slice(0, 16) : '—'}
+                      </td>
+                      <td style={{ padding: '5px 6px', color: 'var(--text-2)', fontSize: 11 }}>
+                        {t.exit_time ? t.exit_time.slice(0, 16) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )
+          }
+        </div>
+      )}
+
+      {/* ── Order tab ── */}
+      {tab === 'order' && (() => {
+        const placeOrder = async () => {
+          if (!ordSym.trim()) { setOrdMsg('Enter a symbol'); return; }
+          setOrdBusy(true); setOrdMsg('Placing order…');
+          const body = {
+            broker, mode, symbol: ordSym.trim().toUpperCase(),
+            side: ordSide, order_type: ordType,
+            qty:        ordQty    ? parseFloat(ordQty)    : undefined,
+            amount_usd: ordAmtUsd ? parseFloat(ordAmtUsd) : undefined,
+            limit_price:  ordType === 'limit'         ? ordLimitPx   : undefined,
+            stop_price:   ordType === 'stop'          ? ordStopPx    : undefined,
+            trail_value:  ordType === 'trailing_stop' ? ordTrailVal  : undefined,
+            trail_type:   ordType === 'trailing_stop' ? ordTrailType : undefined,
+            take_profit:  (ordType === 'market' || ordType === 'limit') && ordTpPx ? ordTpPx : undefined,
+            stop_loss_px: (ordType === 'market' || ordType === 'limit') && ordSlPx ? ordSlPx : undefined,
+            margin:    ordMargin || undefined,
+            leverage:  ordMargin ? parseInt(ordLeverage) || 5 : undefined,
+          };
+          try {
+            const r = await panelApi('/api/broker_panel/order', {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body),
+            });
+            setOrdMsg(r.message || 'Done');
+            if (r.ok) refresh();
+          } catch(e) { setOrdMsg(e.message); }
+          setOrdBusy(false);
+        };
+
+        const inp = { background: 'var(--bg-1)', border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-sm)', color: 'var(--text-0)',
+          padding: '5px 8px', fontSize: 12, outline: 'none', width: '100%' };
+        const toggle = (val, cur, set) => (
+          <button onClick={() => set(val)}
+            style={{ padding: '4px 14px', fontSize: 12, borderRadius: 'var(--radius-sm)',
+              background: cur === val ? 'var(--accent)' : 'var(--bg-2)',
+              color: cur === val ? '#fff' : 'var(--text-2)',
+              border: cur === val ? 'none' : '1px solid var(--border)', cursor: 'pointer' }}>
+            {val.toUpperCase().replace('_', ' ')}
+          </button>
+        );
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: '4px 0' }}>
+
+            {/* Symbol + current price */}
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                <span style={{ fontSize: 10, color: 'var(--text-2)' }}>SYMBOL</span>
+                {ordPxLoading && <span style={{ fontSize: 10, color: 'var(--text-3)' }}>fetching…</span>}
+                {!ordPxLoading && ordCurPx != null && (
+                  <span style={{ fontSize: 11, fontFamily: 'var(--mono)', color: 'var(--accent)' }}>
+                    {fmt$(ordCurPx, ordCurPx < 0.01 ? 6 : ordCurPx < 1 ? 4 : 2)}
+                  </span>
+                )}
+              </div>
+              <input style={inp} value={ordSym}
+                onChange={e => setOrdSym(e.target.value)}
+                placeholder="ETH/USD" />
+            </div>
+
+            {/* Side */}
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-2)', marginBottom: 5 }}>SIDE</div>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {toggle('buy',  ordSide, setOrdSide)}
+                {toggle('sell', ordSide, setOrdSide)}
+              </div>
+            </div>
+
+            {/* Order type */}
+            <div>
+              <div style={{ fontSize: 10, color: 'var(--text-2)', marginBottom: 5 }}>ORDER TYPE</div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {toggle('market',        ordType, setOrdType)}
+                {toggle('limit',         ordType, setOrdType)}
+                {toggle('stop',          ordType, setOrdType)}
+                {toggle('trailing_stop', ordType, setOrdType)}
+              </div>
+            </div>
+
+            {/* Margin toggle — Kraken only */}
+            {broker === 'kraken' && mode === 'live' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', userSelect: 'none' }}>
+                  <div onClick={() => setOrdMargin(v => !v)}
+                    style={{ width: 36, height: 20, borderRadius: 10, position: 'relative',
+                      background: ordMargin ? 'var(--accent)' : 'var(--bg-3)',
+                      transition: 'background 0.2s', cursor: 'pointer' }}>
+                    <div style={{ position: 'absolute', top: 2, left: ordMargin ? 18 : 2,
+                      width: 16, height: 16, borderRadius: 8, background: '#fff',
+                      transition: 'left 0.2s' }} />
+                  </div>
+                  <span style={{ fontSize: 11, color: ordMargin ? 'var(--accent)' : 'var(--text-2)', fontWeight: 600 }}>
+                    MARGIN
+                  </span>
+                </label>
+                {ordMargin && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 10, color: 'var(--text-2)' }}>MAX LEVERAGE</span>
+                    <span style={{ fontSize: 12, fontWeight: 600, fontFamily: 'var(--mono)',
+                      color: 'var(--accent)' }}>
+                      {ordMaxLev ? `${ordMaxLev}×` : '—'}
+                    </span>
+                    <span style={{ fontSize: 10, color: 'var(--text-3)' }}>
+                      (actual leverage set by amount entered)
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Amount — USD or exact qty */}
+            <div style={{ display: 'flex', gap: 8 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 10, color: 'var(--text-2)', marginBottom: 3 }}>AMOUNT (USD)</div>
+                <input style={inp} type="number" min="0" value={ordAmtUsd}
+                  onChange={e => { setOrdAmtUsd(e.target.value); if(e.target.value) setOrdQty(''); }}
+                  placeholder="e.g. 20" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                  <span style={{ fontSize: 10, color: 'var(--text-2)' }}>OR QTY</span>
+                  <button onClick={() => {
+                    // Fill qty from matching position for this symbol
+                    const sym = ordSym.trim().toUpperCase();
+                    const pos = positions.find(p => !p._is_order &&
+                      p.symbol.toUpperCase() === sym);
+                    if (pos) { setOrdQty(String(pos.qty)); setOrdAmtUsd(''); }
+                  }} style={{ fontSize: 10, color: 'var(--accent)', background: 'none',
+                    border: 'none', cursor: 'pointer', padding: 0 }}>MAX</button>
+                </div>
+                <input style={inp} type="number" min="0" value={ordQty || ''}
+                  onChange={e => { setOrdQty(e.target.value); if(e.target.value) setOrdAmtUsd(''); }}
+                  placeholder="e.g. 1037" />
+              </div>
+            </div>
+
+            {/* Limit price */}
+            {ordType === 'limit' && (
+              <div>
+                <div style={{ fontSize: 10, color: 'var(--text-2)', marginBottom: 3 }}>LIMIT PRICE</div>
+                <input style={inp} type="number" value={ordLimitPx}
+                  onChange={e => setOrdLimitPx(e.target.value)} placeholder="e.g. 1980.00" />
+              </div>
+            )}
+
+            {/* Stop price */}
+            {ordType === 'stop' && (
+              <div>
+                <div style={{ fontSize: 10, color: 'var(--text-2)', marginBottom: 3 }}>STOP PRICE</div>
+                <input style={inp} type="number" value={ordStopPx}
+                  onChange={e => setOrdStopPx(e.target.value)} placeholder="e.g. 1950.00" />
+              </div>
+            )}
+
+            {/* Trailing stop */}
+            {ordType === 'trailing_stop' && (
+              <div>
+                <div style={{ fontSize: 10, color: 'var(--text-2)', marginBottom: 5 }}>TRAIL AMOUNT</div>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                  <input style={{ ...inp, width: 100 }} type="number" value={ordTrailVal}
+                    onChange={e => setOrdTrailVal(e.target.value)} placeholder="1" />
+                  <div style={{ display: 'flex', gap: 4 }}>
+                    {toggle('pct',    ordTrailType, setOrdTrailType)}
+                    {toggle('dollar', ordTrailType, setOrdTrailType)}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TP / SL — only for Market and Limit (not for Stop/Trail which are already protection) */}
+            {(ordType === 'market' || ordType === 'limit') && (
+              <div style={{ borderTop: '1px solid var(--border)', paddingTop: 10 }}>
+                <div style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 8 }}>
+                  {ordMargin
+                    ? <span style={{ color: 'var(--green)' }}>PROTECTION — TP + SL both supported on margin orders</span>
+                    : <>PROTECTION — choose <strong style={{color:'var(--text-1)'}}>TP or SL, not both</strong>
+                        <span style={{ color: 'var(--yellow)', marginLeft: 6 }}>
+                          ⚠ Kraken can't link them without OCO — use trailing stop for full bracket
+                        </span></>
+                  }
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, color: 'var(--text-2)', marginBottom: 3 }}>TAKE PROFIT</div>
+                    <input style={inp} type="number" value={ordTpPx}
+                      onChange={e => setOrdTpPx(e.target.value)} placeholder="e.g. 2100" />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 10, color: 'var(--text-2)', marginBottom: 3 }}>STOP LOSS</div>
+                    <input style={inp} type="number" value={ordSlPx}
+                      onChange={e => setOrdSlPx(e.target.value)} placeholder="e.g. 1900" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Submit */}
+            <button className="btn" onClick={placeOrder} disabled={ordBusy}
+              style={{ marginTop: 4, padding: '8px 0', fontSize: 13, fontWeight: 600,
+                background: ordSide === 'buy' ? 'var(--green)' : 'var(--red)',
+                color: '#fff', border: 'none', borderRadius: 'var(--radius)', cursor: 'pointer' }}>
+              {ordBusy ? 'Placing…' : `${ordSide.toUpperCase()} ${ordSym || '—'}`}
+            </button>
+
+            {ordMsg && (
+              <div style={{ fontSize: 12, padding: '6px 10px', borderRadius: 'var(--radius-sm)',
+                background: ordMsg.includes('error') || ordMsg.includes('Error') || ordMsg.includes('fail')
+                  ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)',
+                color: ordMsg.includes('error') || ordMsg.includes('Error') || ordMsg.includes('fail')
+                  ? 'var(--red)' : 'var(--green)' }}>
+                {ordMsg}
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ── Markets tab ── */}
+      {tab === 'markets' && (() => {
+        const CATS = broker === 'kraken'
+          ? [['crypto','Spot & Margin'],['stocks','Stocks & ETFs']]
+          : [['stocks','Stocks']];
+
+        const toggleFav = (sym) => {
+          setMktFavs(prev => {
+            const next = prev.includes(sym) ? prev.filter(s => s !== sym) : [...prev, sym];
+            localStorage.setItem('tbot.bp.favs', JSON.stringify(next));
+            return next;
+          });
+        };
+
+        const visible = _bpSortArr(
+          mktAssets.filter(a =>
+            (!mktSearch || a.symbol.toUpperCase().includes(mktSearch.toUpperCase()))
+          ),
+          mktSort
+        );
+
+
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, flex: 1, minHeight: 0 }}>
+            {/* Category tabs */}
+            <div style={{ display: 'flex', gap: 4 }}>
+              {CATS.map(([cat, label]) => (
+                <button key={cat} onClick={() => { setMktCategory(cat); setMktAssets([]); loadMarkets(cat); }}
+                  style={{ padding: '3px 10px', fontSize: 11, borderRadius: 'var(--radius-sm)',
+                    background: mktCategory === cat ? 'var(--bg-4)' : 'transparent',
+                    color: mktCategory === cat ? 'var(--accent-bright)' : 'var(--text-2)',
+                    border: mktCategory === cat ? '1px solid var(--border-strong)' : '1px solid transparent',
+                    cursor: 'pointer' }}>
+                  {label}
+                </button>
+              ))}
+              <input value={mktSearch} onChange={e => setMktSearch(e.target.value)}
+                placeholder="Search…"
+                style={{ marginLeft: 'auto', padding: '2px 8px', fontSize: 11, width: 110,
+                  background: 'var(--bg-2)', border: '1px solid var(--border)',
+                  borderRadius: 'var(--radius-sm)', color: 'var(--text-0)', outline: 'none' }} />
+              <button className="btn sm" onClick={() => loadMarkets(mktCategory)} disabled={mktLoading}
+                style={{ padding: '2px 8px', fontSize: 11 }}>
+                <Icon name="refresh" size={11} />
+              </button>
+            </div>
+
+            {mktLoading
+              ? <div style={{ color: 'var(--text-2)', fontSize: 12, padding: 8 }}>Loading…</div>
+              : (
+              <div style={{ flex: 1, overflow: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      <BpSortTh label="Symbol"   k="symbol"     sort={mktSort} setter={setMktSort} width="28%" />
+                      <BpSortTh label="Last"     k="last"       sort={mktSort} setter={setMktSort} width="22%" right />
+                      <BpSortTh label="% Chg"    k="pct_change" sort={mktSort} setter={setMktSort} width="18%" right />
+                      <BpSortTh label="Vol (USD)" k="volume_usd" sort={mktSort} setter={setMktSort} width="24%" right />
+                      <th style={{ width: 28, borderBottom: '1px solid var(--border)', background: 'var(--bg-2)' }} />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visible.map((a, i) => {
+                      const isFav = mktFavs.includes(a.symbol);
+                      return (
+                        <tr key={i} style={{ borderBottom: '1px solid rgba(35,40,48,0.5)' }}
+                          onMouseEnter={e => e.currentTarget.style.background='rgba(20,184,166,0.04)'}
+                          onMouseLeave={e => e.currentTarget.style.background=''}>
+                          <td style={{ padding: '5px 8px', fontFamily: 'var(--mono)', fontWeight: 600,
+                            cursor: 'pointer', color: 'var(--accent)', width: '28%' }}
+                            onClick={() => fireChartSymbol(a.symbol)}>{a.symbol}</td>
+                          <td style={{ padding: '5px 8px', fontFamily: 'var(--mono)', textAlign: 'right', width: '22%' }}>
+                            {(() => {
+                              const p = a.last;
+                              if (!p) return <span style={{color:'var(--text-3)'}}>—</span>;
+                              const dec = p >= 100 ? 2 : p >= 1 ? 4 : p >= 0.01 ? 6 : p >= 0.0001 ? 8 : 10;
+                              return fmt$(p, dec);
+                            })()}
+                          </td>
+                          <td style={{ padding: '5px 8px', fontFamily: 'var(--mono)', textAlign: 'right', width: '18%',
+                            color: a.pct_change > 0 ? 'var(--green)' : a.pct_change < 0 ? 'var(--red)' : 'var(--text-3)' }}>
+                            {a.last ? `${a.pct_change > 0 ? '+' : ''}${a.pct_change.toFixed(2)}%` : <span style={{color:'var(--text-3)'}}>—</span>}
+                          </td>
+                          <td style={{ padding: '5px 8px', fontFamily: 'var(--mono)', textAlign: 'right', width: '24%', color: 'var(--text-2)' }}>
+                            {a.volume_usd >= 1e9 ? (a.volume_usd/1e9).toFixed(1)+'B'
+                              : a.volume_usd >= 1e6 ? (a.volume_usd/1e6).toFixed(1)+'M'
+                              : a.volume_usd >= 1e3 ? (a.volume_usd/1e3).toFixed(0)+'K'
+                              : a.volume_usd > 0 ? a.volume_usd.toFixed(0)
+                              : <span style={{color:'var(--text-3)'}}>—</span>}
+                          </td>
+                          <td style={{ padding: '5px 8px', textAlign: 'center' }}>
+                            <span onClick={() => toggleFav(a.symbol)}
+                              style={{ cursor: 'pointer', color: isFav ? 'var(--yellow)' : 'var(--text-3)', fontSize: 14 }}>
+                              {isFav ? '★' : '☆'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+    </div>
+  );
+}
+
+// ============ ScannerAlertsPanel =============================================
+function ScannerAlertsPanel() {
+  const [tab, setTab]       = useS('gaps');
+  const [alerts, setAlerts] = useS([]);
+  const [loading, setLoading] = useS(true);
+  const [err, setErr]       = useS(null);
+  const [muted, setMuted]   = useS(false);
+  const [volume, setVolume] = useS(0.18);
+  const [sort, setSort]     = useS({ key: 'registered_at', dir: 'desc' });
+  const mutedRef            = useR(false);
+  const volumeRef           = useR(0.18);
+  const prevFired           = useR(new Set());
+
+  const toggleSort = key => setSort(s => ({ key, dir: s.key === key && s.dir === 'desc' ? 'asc' : 'desc' }));
+
+  const STATUS_COLOR = {
+    watching:  '#64748b',
+    confirmed: '#f59e0b',
+    fired:     '#3b82f6',
+    traded:    '#22c55e',
+    expired:   '#475569',
+    failed:    '#ef4444',
+    rejected:  '#ef4444',
+  };
+
+  const chime = () => {
+    if (mutedRef.current || volumeRef.current <= 0) return;
+    const vol = volumeRef.current;
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880; osc.type = 'sine';
+      gain.gain.setValueAtTime(vol, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+      osc.start(); osc.stop(ctx.currentTime + 0.5);
+    } catch {}
+  };
+
+  const load = async () => {
+    try {
+      // Fetch DB alerts + live gap watchlist in parallel
+      const [d, liveGaps] = await Promise.all([
+        panelApi('/api/scanner_alerts?days=3&limit=500'),
+        panelApi('/api/gap_setups').catch(() => ({ setups: [] })),
+      ]);
+      const dbAlerts = d.alerts || [];
+      // Convert live gap setups to alert format so they show in Gaps tab
+      const dbSymbols = new Set(dbAlerts.filter(a => a.alert_type === 'gap').map(a => a.symbol));
+      const liveAlerts = (liveGaps.setups || [])
+        .filter(s => !dbSymbols.has(s.symbol))  // don't duplicate if already in DB
+        .map(s => ({
+          alert_id:      `live_${s.symbol}`,
+          alert_type:    'gap',
+          symbol:        s.symbol,
+          asset_class:   s.asset_class || 'stock',
+          direction:     (s.direction || '').toLowerCase(),
+          status:        (s.status || 'WATCHING').toLowerCase(),
+          registered_at: new Date(Date.now() - (s.age_min || 0) * 60000).toISOString(),
+          status_at:     null,
+          trade_id:      null,
+          gap_pct:       s.gap_pct,
+          gap_type:      s.gap_type === 'G&GO' ? 'gap_and_go' : 'gap_fill',
+          vol_spike:     s.vol_spike,
+          score:         null,
+          broker:        null,
+          source:        'gap_scanner',
+          reason:        null,
+          metadata_json: JSON.stringify({ prev_close: s.prev_close, gap_open: s.gap_open, fill_pct: s.fill_pct }),
+          _live:         true,
+        }));
+      const fresh = [...dbAlerts, ...liveAlerts];
+      const nowFiredIds = new Set(
+        fresh.filter(a => a.status === 'confirmed' || a.status === 'fired').map(a => a.alert_id)
+      );
+      const prev = prevFired.current;
+      const hasNew = [...nowFiredIds].some(id => !prev.has(id));
+      if (hasNew && prev.size > 0) chime();
+      prevFired.current = nowFiredIds;
+      setAlerts(fresh);
+      setErr(null);
+    } catch (e) { setErr(e.message); }
+    finally { setLoading(false); }
+  };
+
+  useE(() => { load(); const t = setInterval(load, 15000); return () => clearInterval(t); }, []);
+
+  const fmtTime = iso => {
+    if (!iso) return '—';
+    try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); }
+    catch { return iso.slice(11, 16); }
+  };
+  const fmtPct = v => v != null ? (v > 0 ? '+' : '') + Number(v).toFixed(1) + '%' : '—';
+  const fmtVol = v => v != null ? Number(v).toFixed(1) + 'x' : '—';
+
+  const gaps      = alerts.filter(a => a.alert_type === 'gap');
+  const brkStocks = alerts.filter(a => a.alert_type === 'breakout' && a.asset_class === 'stock');
+  const brkCrypto = alerts.filter(a => a.alert_type === 'breakout' && a.asset_class === 'crypto');
+
+  const parseMeta = r => { try { return JSON.parse(r.metadata_json || '{}'); } catch { return {}; } };
+
+  const GAP_COLS = [
+    { label: 'Time',    key: 'registered_at', value: r => fmtTime(r.registered_at), sortVal: r => r.registered_at },
+    { label: 'Symbol',  key: 'symbol',         value: 'symbol',                       sortVal: r => r.symbol },
+    { label: 'Type',    key: 'gap_type',        value: r => r.gap_type === 'gap_and_go' ? 'G&GO' : 'FILL', sortVal: r => r.gap_type },
+    { label: 'Dir',     key: 'direction',       value: r => r.direction?.toUpperCase() || '—', sortVal: r => r.direction },
+    { label: 'Status',  key: 'status',          value: 'status',                       sortVal: r => r.status },
+    { label: 'Gap%',    key: 'gap_pct',         value: r => fmtPct(r.gap_pct),         sortVal: r => r.gap_pct ?? -999, num: true },
+    { label: 'Vol',     key: 'vol_spike',       value: r => fmtVol(r.vol_spike),       sortVal: r => r.vol_spike ?? 0, num: true },
+    { label: 'Source',  key: 'source',          value: r => r.source || '—',           sortVal: r => r.source },
+    { label: 'Trade',   key: 'trade_id',        value: r => r.trade_id ? r.trade_id.slice(0, 8) + '…' : '—', sortVal: r => r.trade_id || '' },
+  ];
+  const BRK_COLS = [
+    { label: 'Time',    key: 'registered_at', value: r => fmtTime(r.registered_at), sortVal: r => r.registered_at },
+    { label: 'Symbol',  key: 'symbol',         value: 'symbol',                       sortVal: r => r.symbol },
+    { label: 'Dir',     key: 'direction',       value: r => r.direction?.toUpperCase() || '—', sortVal: r => r.direction },
+    { label: 'Status',  key: 'status',          value: 'status',                       sortVal: r => r.status },
+    { label: 'Move%',   key: 'move_pct',        value: r => fmtPct(parseMeta(r).move_pct), sortVal: r => parseMeta(r).move_pct ?? -999, num: true },
+    { label: 'Esc',     key: 'escalation',      value: r => parseMeta(r).escalation ?? '—', sortVal: r => parseMeta(r).escalation ?? 0, num: true },
+    { label: 'Vol',     key: 'vol_spike',       value: r => fmtVol(r.vol_spike),       sortVal: r => r.vol_spike ?? 0, num: true },
+    { label: 'Score',   key: 'score',           value: r => r.score != null ? Number(r.score).toFixed(2) : '—', sortVal: r => r.score ?? 0, num: true },
+    { label: 'Broker',  key: 'broker',          value: r => r.broker || '—',           sortVal: r => r.broker },
+    { label: 'Pattern', key: 'pattern',         value: r => parseMeta(r).pattern || '—', sortVal: r => parseMeta(r).pattern || '' },
+    { label: 'Trade',   key: 'trade_id',        value: r => r.trade_id ? r.trade_id.slice(0, 8) + '…' : '—', sortVal: r => r.trade_id || '' },
+  ];
+  const ALL_COLS = [
+    { label: 'Time',       key: 'registered_at', value: r => fmtTime(r.registered_at), sortVal: r => r.registered_at },
+    { label: 'Symbol',     key: 'symbol',         value: 'symbol',                       sortVal: r => r.symbol },
+    { label: 'Kind',       key: 'alert_type',     value: r => r.alert_type === 'gap' ? (r.gap_type === 'gap_and_go' ? 'Gap G&GO' : 'Gap FILL') : (r.asset_class === 'stock' ? 'Brk Stock' : 'Brk Crypto'), sortVal: r => r.alert_type + r.asset_class },
+    { label: 'Dir',        key: 'direction',       value: r => r.direction?.toUpperCase() || '—', sortVal: r => r.direction },
+    { label: 'Status',     key: 'status',          value: 'status',                       sortVal: r => r.status },
+    { label: 'Move/Gap%',  key: 'gap_pct',         value: r => r.alert_type === 'gap' ? fmtPct(r.gap_pct) : fmtPct(parseMeta(r).move_pct), sortVal: r => r.alert_type === 'gap' ? (r.gap_pct ?? -999) : (parseMeta(r).move_pct ?? -999), num: true },
+    { label: 'Vol',        key: 'vol_spike',       value: r => fmtVol(r.vol_spike),       sortVal: r => r.vol_spike ?? 0, num: true },
+    { label: 'Broker',     key: 'broker',          value: r => r.broker || '—',           sortVal: r => r.broker },
+    { label: 'Trade',      key: 'trade_id',        value: r => r.trade_id ? r.trade_id.slice(0, 8) + '…' : '—', sortVal: r => r.trade_id || '' },
+  ];
+
+  const tabCfg = {
+    gaps:        { label: `Gaps (${gaps.length})`,              data: gaps,      cols: GAP_COLS },
+    brk_stocks:  { label: `Stocks (${brkStocks.length})`,       data: brkStocks, cols: BRK_COLS },
+    brk_crypto:  { label: `Crypto (${brkCrypto.length})`,       data: brkCrypto, cols: BRK_COLS },
+    all:         { label: `History (${alerts.length})`,          data: alerts,    cols: ALL_COLS },
+  };
+  const { data: rawShown, cols } = tabCfg[tab] || tabCfg.gaps;
+
+  const shown = useM(() => {
+    const col = cols.find(c => c.key === sort.key);
+    if (!col) return rawShown;
+    return [...rawShown].sort((a, b) => {
+      const av = col.sortVal ? col.sortVal(a) : '';
+      const bv = col.sortVal ? col.sortVal(b) : '';
+      const cmp = typeof av === 'number' ? av - bv : String(av ?? '').localeCompare(String(bv ?? ''));
+      return sort.dir === 'asc' ? cmp : -cmp;
+    });
+  }, [rawShown, sort, cols]);
+
+  const TAB_STYLE = active => ({
+    padding: '4px 12px', border: 'none', borderRadius: '6px', cursor: 'pointer',
+    fontSize: '0.78rem', fontWeight: 600,
+    background: active ? 'var(--accent)' : 'var(--bg-4)',
+    color: active ? '#fff' : 'var(--text-2)',
+  });
+
+  const summary = { watching: 0, confirmed: 0, fired: 0, traded: 0, expired: 0, failed: 0, rejected: 0 };
+  shown.forEach(a => { if (summary[a.status] !== undefined) summary[a.status]++; });
+
+  return (
+    <div style={{ padding: '12px', height: '100%', display: 'flex', flexDirection: 'column', gap: '8px', boxSizing: 'border-box' }}>
+
+      {/* Tab bar */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+        {Object.entries(tabCfg).map(([k, { label }]) => (
+          <button key={k} style={TAB_STYLE(tab === k)} onClick={() => setTab(k)}>{label}</button>
+        ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          {/* Mute / volume */}
+          <button
+            onClick={() => setMuted(m => { mutedRef.current = !m; return !m; })}
+            title={muted ? 'Unmute alerts' : 'Mute alerts'}
+            style={{ padding: '4px 8px', border: '1px solid var(--border)', borderRadius: '6px', background: muted ? 'rgba(239,68,68,0.15)' : 'transparent', color: muted ? '#ef4444' : 'var(--text-2)', cursor: 'pointer', fontSize: '0.78rem', fontWeight: 600 }}
+          >{muted ? '🔇 Muted' : '🔊'}</button>
+          {!muted && (
+            <input
+              type="range" min="0" max="1" step="0.05"
+              value={volume}
+              onChange={e => { const v = parseFloat(e.target.value); volumeRef.current = v; setVolume(v); }}
+              title={`Volume: ${Math.round(volume * 100)}%`}
+              style={{ width: '70px', accentColor: 'var(--accent)', cursor: 'pointer' }}
+            />
+          )}
+          <button onClick={load} style={{ padding: '4px 8px', border: '1px solid var(--border)', borderRadius: '6px', background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', fontSize: '0.78rem' }}>↻</button>
+          <button onClick={() => exportCsv('scanner_alerts.csv', cols, shown)} style={{ padding: '4px 8px', border: '1px solid var(--border)', borderRadius: '6px', background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', fontSize: '0.78rem' }}>CSV</button>
+        </div>
+      </div>
+
+      {/* Status badges */}
+      <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+        {Object.entries(summary).filter(([, v]) => v > 0).map(([s, v]) => (
+          <span key={s} style={{ fontSize: '0.71rem', padding: '2px 7px', borderRadius: '999px', background: STATUS_COLOR[s] + '22', color: STATUS_COLOR[s], border: `1px solid ${STATUS_COLOR[s]}44` }}>
+            {s}: {v}
+          </span>
+        ))}
+      </div>
+
+      {loading && <div style={{ color: 'var(--text-2)', fontSize: '0.82rem' }}>Loading…</div>}
+      {err    && <div style={{ color: '#ef4444', fontSize: '0.8rem' }}>{err}</div>}
+
+      {!loading && (
+        <TblWrap>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.79rem' }}>
+            <thead>
+              <tr>{cols.map(c => {
+                const active = sort.key === c.key;
+                return (
+                  <th key={c.label} onClick={() => toggleSort(c.key)} style={{ padding: '5px 8px', textAlign: c.num ? 'right' : 'left', color: active ? 'var(--accent-bright)' : 'var(--text-2)', borderBottom: '1px solid var(--border)', whiteSpace: 'nowrap', cursor: 'pointer', userSelect: 'none' }}>
+                    {c.label}{active ? (sort.dir === 'asc' ? ' ▲' : ' ▼') : ''}
+                  </th>
+                );
+              })}</tr>
+            </thead>
+            <tbody>
+              {shown.length === 0 && (
+                <tr><td colSpan={cols.length} style={{ padding: '20px', textAlign: 'center', color: 'var(--text-2)' }}>No alerts yet</td></tr>
+              )}
+              {shown.map((row, i) => (
+                <tr key={row.alert_id || i} style={{ background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
+                  {cols.map(c => {
+                    const val = typeof c.value === 'function' ? c.value(row) : row[c.value];
+                    const isStatus = c.label === 'Status';
+                    return (
+                      <td key={c.label} style={{ padding: '4px 8px', color: isStatus ? (STATUS_COLOR[row.status] || 'var(--text-1)') : 'var(--text-1)', whiteSpace: 'nowrap', borderBottom: '1px solid var(--border)22', fontWeight: isStatus ? 600 : 400 }}>
+                        {isStatus
+                          ? <span style={{ padding: '1px 6px', borderRadius: '4px', background: (STATUS_COLOR[row.status] || '#64748b') + '22', fontSize: '0.74rem' }}>{val}</span>
+                          : val}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </TblWrap>
+      )}
+    </div>
+  );
+}
+
+window.Panels = { TopOverview, OpenPositionsPanel, ManualTradePanel, TradeLogPanel, DailyPerfPanel, BacktesterPanel, OptimizerPanel, ChatPanel, ChartPanel, BrokerPanel, ScannerAlertsPanel };
 window.fmt = { fmt$, fmt$Sign, fmtP, fmtN, cls };
