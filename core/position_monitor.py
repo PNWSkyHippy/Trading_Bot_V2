@@ -219,7 +219,8 @@ class PositionMonitor:
         # Resets on restart (acceptable — worst case SL trails from entry on restart).
         # Tracks the highest price seen for longs (lowest for shorts) so the ratchet
         # trails from the BEST price ever seen, not just the current price.
-        self._peak_prices: dict = {}   # {trade_id: peak_price}
+        self._peak_prices:    dict = {}   # {trade_id: peak_price}
+        self._initial_sl_dist: dict = {}  # {trade_id: original $ distance from entry to SL}
 
     def set_breakout_win_callback(
         self, cb: Callable[[str, bool, float, str], None]
@@ -1667,67 +1668,92 @@ class PositionMonitor:
         if PM_DEBUG:
             logger.info(f"[PM-DBG] ⑥ {symbol} — reached trailing stop section")
         # ── 11b. BREAKOUT RATCHET STOP ───────────────────────────────────
-        # For breakout trades: once P&L hits +$20, snap SL to entry (zero loss).
-        # After that, trail the SL $20 below current price — but ONLY upward.
-        # The stop never moves back down; it trips if price falls to it.
-        # This replaces the wide initial stop with a profit-protecting ratchet.
+        # Rule: while negative → leave SL alone (wide, no premature trips).
+        # Once P&L hits +$20 dollars → snap SL to entry (zero-loss guaranteed).
+        # After that → trail SL at the SAME DOLLAR DISTANCE the original SL was
+        # below entry — so the buffer stays proportional to the instrument's ATR.
+        # SL only ever moves UP (for longs); it never retreats. Trip on price drop.
         if _is_breakout_trade(trade):
-            _entry    = float(trade.get("entry_price") or 0)
-            _cur_sl   = float(trade.get("stop_loss") or 0)
-            _pos_val  = float(trade.get("position_value") or 0)
-            _pnl_dollars = (_pnl_pct_raw := pnl_pct) * _pos_val / 100 if _pos_val > 0 else 0.0
-            # Percentage-based ratchet — trails from PEAK price, not current price.
-            # Trigger at 1% profit (~$20 on a $2K position) → SL snaps to entry (buy-in).
-            # Trail at 0.75% below peak from that point — as price rises the SL follows,
-            # naturally moving above entry so any stop-out books real profit not just breakeven.
-            _RATCHET_TRIGGER_PCT = 1.0    # % P&L before trail activates
-            _RATCHET_TRAIL_PCT   = 0.75   # % trail below/above PEAK price
+            _entry   = float(trade.get("entry_price") or 0)
+            _cur_sl  = float(trade.get("stop_loss") or 0)
+            _pos_val = float(trade.get("position_value") or 0)
+            _pnl_dollars  = pnl_pct * _pos_val / 100 if _pos_val > 0 else 0.0
+            _pnl_pct_raw  = pnl_pct
+
+            _RATCHET_TRIGGER_USD = 20.0   # $20 profit → snap to breakeven
 
             if _entry > 0 and direction == "long":
-                # Update peak price (highest seen for this trade)
+                # Capture original SL distance once on first cycle (before any ratchet move).
+                # Prefer structural_stop_price from signal metadata — it's the exact OR-low
+                # stop the strategy set at entry, unaffected by any prior ratchet tick.
+                if trade_id not in self._initial_sl_dist:
+                    _meta_r   = _json.loads(trade.get("indicators_json") or "{}")
+                    _struct   = _meta_r.get("structural_stop_price")
+                    if _struct and float(_struct) > 0 and _entry > float(_struct):
+                        self._initial_sl_dist[trade_id] = _entry - float(_struct)
+                    else:
+                        self._initial_sl_dist[trade_id] = max(0.0, _entry - _cur_sl)
+
+                _sl_dist = self._initial_sl_dist.get(trade_id, 0.0)
+
+                # Track best (highest) price seen for this trade
                 _peak = self._peak_prices.get(trade_id, _entry)
                 if current_price > _peak:
                     _peak = current_price
                     self._peak_prices[trade_id] = _peak
-                # Trail SL from peak — locks in gains even when price pulls back
-                _ratchet_sl = _peak * (1 - _RATCHET_TRAIL_PCT / 100)
+
+                # Trail SL at original distance below peak — tightens automatically as
+                # price climbs, holds still on pullbacks (never retreats downward).
+                _ratchet_sl = _peak - _sl_dist
+
                 logger.info(
-#                    f"[PM-DBG] ⑦ {symbol} — ratchet: P&L={_pnl_pct_raw:+.2f}% "
-                    f"peak=${_peak:.4f} ratchet_sl=${_ratchet_sl:.4f} "
-                    f"trigger={_RATCHET_TRIGGER_PCT}% "
-                    f"{'ACTIVE' if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT else 'waiting'}"
+                    f"[BREAKOUT RATCHET] {symbol}: P&L ${_pnl_dollars:+.2f} | "
+                    f"peak=${_peak:.4f} trail_sl=${_ratchet_sl:.4f} "
+                    f"dist=${_sl_dist:.4f} "
+                    f"{'ACTIVE' if _pnl_dollars >= _RATCHET_TRIGGER_USD else f'waiting (+${_RATCHET_TRIGGER_USD:.0f} trigger)'}"
                 )
-                if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT:
-                    # Floor is entry (buy-in price) — SL never goes below what you paid.
-                    # Trail naturally moves above entry as price rises, locking real profit.
+
+                if _pnl_dollars >= _RATCHET_TRIGGER_USD:
+                    # Floor = entry price (never take a loss once the ratchet fires)
                     _target_sl = max(_entry, _ratchet_sl)
                     if _target_sl > _cur_sl:   # only ever ratchet UP
                         logger.info(
                             f"[BREAKOUT RATCHET] {symbol}: SL ${_cur_sl:.4f} → "
-                            f"${_target_sl:.4f} | P&L {_pnl_pct_raw:.2f}% "
-                            f"peak ${_peak:.4f}"
+                            f"${_target_sl:.4f} | P&L +${_pnl_dollars:.2f} "
+                            f"peak=${_peak:.4f}"
                         )
                         self._db.update_trade_levels(trade_id, stop_loss=round(_target_sl, 6))
                         trade["stop_loss"] = round(_target_sl, 6)
-                        # Live + Paper: cancel old exchange stop, place new one at ratchet price
-                        # Paper: tracks order ID for parity. Live: real Kraken cancel+replace.
                         self._ratchet_update_exchange_stop(
                             trade, trade_id, symbol, direction, _target_sl
                         )
+
             elif _entry > 0 and direction == "short":
-                # For shorts: peak = lowest price seen
+                # Mirror logic for shorts: peak = lowest price seen
+                if trade_id not in self._initial_sl_dist:
+                    _meta_r  = _json.loads(trade.get("indicators_json") or "{}")
+                    _struct  = _meta_r.get("structural_stop_price")
+                    if _struct and float(_struct) > 0 and float(_struct) > _entry:
+                        self._initial_sl_dist[trade_id] = float(_struct) - _entry
+                    else:
+                        self._initial_sl_dist[trade_id] = max(0.0, _cur_sl - _entry)
+
+                _sl_dist = self._initial_sl_dist.get(trade_id, 0.0)
+
                 _peak = self._peak_prices.get(trade_id, _entry)
                 if current_price < _peak:
                     _peak = current_price
                     self._peak_prices[trade_id] = _peak
-                _ratchet_sl = _peak * (1 + _RATCHET_TRAIL_PCT / 100)
-                if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT:
-                    _target_sl = min(_entry, _ratchet_sl)
+
+                _ratchet_sl = _peak + _sl_dist
+
+                if _pnl_dollars >= _RATCHET_TRIGGER_USD:
+                    _target_sl = min(_entry, _ratchet_sl)   # ceiling = entry for shorts
                     if _target_sl < _cur_sl:   # only ever ratchet DOWN (short)
                         logger.info(
                             f"[BREAKOUT RATCHET] {symbol}: SL ${_cur_sl:.4f} → "
-                            f"${_target_sl:.4f} | P&L {_pnl_pct_raw:.2f}% "
-                            f"peak ${_peak:.4f}"
+                            f"${_target_sl:.4f} | P&L +${_pnl_dollars:.2f} "
+                            f"peak=${_peak:.4f}"
                         )
                         self._db.update_trade_levels(trade_id, stop_loss=round(_target_sl, 6))
                         trade["stop_loss"] = round(_target_sl, 6)
