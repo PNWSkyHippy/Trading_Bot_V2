@@ -2361,7 +2361,7 @@ const DEFAULT_CHART_INDICATORS = [
   { id: 'macd', type: 'MACD', period: 12, fast: 12, slow: 26, signal: 9, color: '#38bdf8', signalColor: '#f59e0b', histUpColor: '#26a69a66', histDownColor: '#ef535066', place: 'lower2', visible: false },
   { id: 'atr14', type: 'ATR', period: 14, color: '#14b8a6', place: 'lower2', visible: false },
   { id: 'vwap', type: 'VWAP', period: 1, anchor: 'session', source: 'hlc3', color: '#eab308', place: 'main', visible: false },
-  { id: 'supertrend', type: 'SuperTrend', period: 10, mult: 3, color: '#22c55e', downColor: '#ef5350', place: 'lower1', visible: false },
+  { id: 'supertrend', type: 'SuperTrend', period: 10, mult: 3, color: '#22c55e', downColor: '#ef5350', place: 'main', visible: false },
 ];
 
 const IND_TYPES = ['EMA', 'SMA', 'RSI', 'MACD', 'BB', 'ADX', 'ATR', 'VWAP', 'SuperTrend'];
@@ -2382,7 +2382,7 @@ const IND_TYPE_DEFAULTS = {
   ADX:        { period: 14, threshold: 20, color: '#f97316', thresholdColor: '#8b949e66', place: 'lower1' },
   ATR:        { period: 14, color: '#14b8a6', place: 'lower2' },
   VWAP:       { period: 1, anchor: 'session', source: 'hlc3', color: '#eab308', place: 'main' },
-  SuperTrend: { period: 10, mult: 3, color: '#22c55e', downColor: '#ef5350', place: 'lower1' },
+  SuperTrend: { period: 10, mult: 3, color: '#22c55e', downColor: '#ef5350', place: 'main' },
 };
 const IND_PARAM_DEFS = {
   EMA:        [{ key: 'period', label: 'Period', min: 1, max: 300, fallback: 50 }],
