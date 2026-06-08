@@ -2985,7 +2985,7 @@ def open_manual_trade(payload):
 
 _DB_TABLE_SEARCH = {
     "trades":           {"strategy":True,"status":True,"symbol":True,
-                         "broker":True,"time_col":"entry_time"},
+                         "broker":True,"time_col":"exit_time"},
     "capital":          {"time_col":"timestamp"},
     "daily_summaries":  {"time_col":"trade_date"},
     "settlement_queue": {"time_col":"created_at"},
