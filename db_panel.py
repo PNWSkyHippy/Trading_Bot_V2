@@ -94,9 +94,16 @@ QUICK_QUERIES = [
         FROM daily_summaries ORDER BY trade_date DESC LIMIT 60"""),
 
     ("Signal Reviews",   "ai_signal_reviews",
-     """SELECT timestamp,symbol,direction,strategy_name,
+     """SELECT timestamp,symbol,direction,strategy_name,reviewer,
                signal_score,decision,confidence,reasoning
         FROM ai_signal_reviews ORDER BY timestamp DESC LIMIT 200"""),
+
+    ("Trend Filter",     "ai_signal_reviews",
+     """SELECT timestamp,symbol,direction,strategy_name,
+               decision,confidence AS indicators_passed,reasoning
+        FROM ai_signal_reviews
+        WHERE reviewer='trend_confirm'
+        ORDER BY timestamp DESC LIMIT 500"""),
 
     ("Yesterday Closed", "trades",
      """SELECT trade_id,symbol,direction,strategy_name,
