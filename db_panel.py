@@ -308,9 +308,23 @@ class DBPanel(tk.Tk):
     # ── UI ────────────────────────────────────────────────────────────────────
 
     def _build_ui(self):
-        # ── quick query buttons ──────────────────────────────────────────────
-        top = tk.Frame(self, bg=PANEL_BG, pady=5)
-        top.pack(fill="x")
+        # ── quick query buttons (scrollable row) ────────────────────────────
+        top_outer = tk.Frame(self, bg=PANEL_BG)
+        top_outer.pack(fill="x")
+        # Canvas + scrollbar so all buttons are reachable even on narrow windows
+        btn_canvas = tk.Canvas(top_outer, bg=PANEL_BG, height=34,
+                               highlightthickness=0)
+        btn_scroll = tk.Scrollbar(top_outer, orient="horizontal",
+                                  command=btn_canvas.xview)
+        btn_canvas.configure(xscrollcommand=btn_scroll.set)
+        btn_scroll.pack(side="bottom", fill="x")
+        btn_canvas.pack(side="top", fill="x", expand=True)
+        top = tk.Frame(btn_canvas, bg=PANEL_BG, pady=3)
+        top_win = btn_canvas.create_window((0, 0), window=top, anchor="nw")
+        def _on_btn_frame_configure(e):
+            btn_canvas.configure(scrollregion=btn_canvas.bbox("all"))
+        top.bind("<Configure>", _on_btn_frame_configure)
+
         tk.Label(top, text="  Queries:", fg=FG_DIM, bg=PANEL_BG,
                  font=("Consolas", 9)).pack(side="left")
         for label, _tbl, sql in QUICK_QUERIES:
@@ -505,8 +519,14 @@ class DBPanel(tk.Tk):
         self._current_table = table if not table.startswith("_") else None
         self._current_view  = label
         self._build_action_bar()
+        self.update_idletasks()   # flush widget rebuild before populating grid
         # Run the SQL directly -- no subquery wrapping (breaks rowid access)
-        self._exec_display(sql, title=label)
+        try:
+            self._exec_display(sql, title=label)
+        except Exception as _e:
+            import traceback
+            self._status.config(text=f"ERROR in {label}: {_e}", fg=RED)
+            traceback.print_exc()
 
     # ── search ────────────────────────────────────────────────────────────────
 
