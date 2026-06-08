@@ -436,17 +436,17 @@ class Database:
                              stop_loss: float = None,
                              take_profit: float = None):
         with self._conn() as conn:
-            if stop_loss and take_profit:
+            if stop_loss is not None and take_profit is not None:
                 conn.execute(
                     "UPDATE trades SET stop_loss=?, take_profit=? WHERE trade_id=?",
                     (stop_loss, take_profit, trade_id)
                 )
-            elif stop_loss:
+            elif stop_loss is not None:
                 conn.execute(
                     "UPDATE trades SET stop_loss=? WHERE trade_id=?",
                     (stop_loss, trade_id)
                 )
-            elif take_profit:
+            elif take_profit is not None:
                 conn.execute(
                     "UPDATE trades SET take_profit=? WHERE trade_id=?",
                     (take_profit, trade_id)
