@@ -1680,7 +1680,7 @@ class PositionMonitor:
             _pnl_dollars  = pnl_pct * _pos_val / 100 if _pos_val > 0 else 0.0
             _pnl_pct_raw  = pnl_pct
 
-            _RATCHET_TRIGGER_USD = 40.0   # $40 profit (~2%) → snap to breakeven
+            _RATCHET_TRIGGER_USD = 20.0   # $20 profit (~1%) → snap to breakeven — this is what drove 75% WR
 
             if _entry > 0 and direction == "long":
                 # Capture original SL distance once on first cycle (before any ratchet move).
