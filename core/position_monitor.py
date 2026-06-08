@@ -1707,21 +1707,20 @@ class PositionMonitor:
             _pos_val = float(trade.get("position_value") or 0)
             _pnl_pct_raw  = pnl_pct
 
-            _RATCHET_TRIGGER_PCT = 1.0   # 1% P&L → snap to breakeven (scales with any position size)
+            # 2% trigger: must clear the 0.62% round-trip fee hurdle before locking in.
+            # 0.75% trail: tighter than the original 2% SL distance — preserves more of
+            # the locked gain while still giving the trade room to breathe.
+            # Combined math on a $2000 position:
+            #   trigger fires at +$40   (2%)
+            #   trail  holds  at  $15   (0.75% below peak)
+            #   worst-case exit when triggered = peak - 0.75% = ~+$25 real profit after fees
+            _RATCHET_TRIGGER_PCT = 2.0   # 2% P&L → snap to breakeven-plus (above fee hurdle)
+            _RATCHET_TRAIL_PCT   = 0.75  # trail SL 0.75% of entry below peak
 
             if _entry > 0 and direction == "long":
-                # Capture original SL distance once on first cycle (before any ratchet move).
-                # Prefer structural_stop_price from signal metadata — it's the exact OR-low
-                # stop the strategy set at entry, unaffected by any prior ratchet tick.
-                if trade_id not in self._initial_sl_dist:
-                    _meta_r   = _json.loads(trade.get("indicators_json") or "{}")
-                    _struct   = _meta_r.get("structural_stop_price")
-                    if _struct and float(_struct) > 0 and _entry > float(_struct):
-                        self._initial_sl_dist[trade_id] = _entry - float(_struct)
-                    else:
-                        self._initial_sl_dist[trade_id] = max(0.0, _entry - _cur_sl)
-
-                _sl_dist = self._initial_sl_dist.get(trade_id, 0.0)
+                # Trail distance: 0.75% of entry price — scales with asset price
+                # so a $0.05 altcoin and a $1700 ETH both get the right buffer.
+                _trail_dist = _entry * (_RATCHET_TRAIL_PCT / 100)
 
                 # Track best (highest) price seen for this trade
                 _peak = self._peak_prices.get(trade_id, _entry)
@@ -1729,14 +1728,14 @@ class PositionMonitor:
                     _peak = current_price
                     self._peak_prices[trade_id] = _peak
 
-                # Trail SL at original distance below peak — tightens automatically as
-                # price climbs, holds still on pullbacks (never retreats downward).
-                _ratchet_sl = _peak - _sl_dist
+                # Trail SL 0.75% below peak — tightens automatically as price climbs,
+                # holds still on pullbacks (never retreats downward).
+                _ratchet_sl = _peak - _trail_dist
 
                 logger.info(
                     f"[BREAKOUT RATCHET] {symbol}: P&L {_pnl_pct_raw:+.2f}% | "
                     f"peak=${_peak:.4f} trail_sl=${_ratchet_sl:.4f} "
-                    f"dist=${_sl_dist:.4f} "
+                    f"trail={_RATCHET_TRAIL_PCT}% "
                     f"{'ACTIVE' if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT else f'waiting ({_RATCHET_TRIGGER_PCT}% trigger)'}"
                 )
 
@@ -1757,22 +1756,14 @@ class PositionMonitor:
 
             elif _entry > 0 and direction == "short":
                 # Mirror logic for shorts: peak = lowest price seen
-                if trade_id not in self._initial_sl_dist:
-                    _meta_r  = _json.loads(trade.get("indicators_json") or "{}")
-                    _struct  = _meta_r.get("structural_stop_price")
-                    if _struct and float(_struct) > 0 and float(_struct) > _entry:
-                        self._initial_sl_dist[trade_id] = float(_struct) - _entry
-                    else:
-                        self._initial_sl_dist[trade_id] = max(0.0, _cur_sl - _entry)
-
-                _sl_dist = self._initial_sl_dist.get(trade_id, 0.0)
+                _trail_dist = _entry * (_RATCHET_TRAIL_PCT / 100)
 
                 _peak = self._peak_prices.get(trade_id, _entry)
                 if current_price < _peak:
                     _peak = current_price
                     self._peak_prices[trade_id] = _peak
 
-                _ratchet_sl = _peak + _sl_dist
+                _ratchet_sl = _peak + _trail_dist
 
                 if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT:
                     _target_sl = min(_entry, _ratchet_sl)   # ceiling = entry for shorts
