@@ -80,12 +80,17 @@ def _alpaca_tf(timeframe: str) -> str:
 # ---------------------------------------------------------------------------
 # Source constants
 # ---------------------------------------------------------------------------
-SRC_KRAKEN  = "kraken"
-SRC_ALPACA  = "alpaca"
-SRC_YFINANCE= "yfinance"
+SRC_KRAKEN   = "kraken"
+SRC_ALPACA   = "alpaca"
+SRC_YFINANCE = "yfinance"
+SRC_KUCOIN   = "kucoin"
 
-_CRYPTO_SOURCES = [SRC_KRAKEN, SRC_YFINANCE]
-_STOCK_SOURCES  = [SRC_ALPACA,  SRC_YFINANCE]
+# KuCoin runs in parallel with Kraken — no auth required, large US-accessible symbol universe.
+# Kraken tried first (existing preferred-source registry), KuCoin second (BTC/USDT pairs),
+# yfinance last resort.
+# Note: Binance 451 geo-blocks US IPs; Bybit geo-blocks US; Coinbase requires CDP auth.
+_CRYPTO_SOURCES = [SRC_KRAKEN, SRC_KUCOIN, SRC_YFINANCE]
+_STOCK_SOURCES  = [SRC_ALPACA, SRC_YFINANCE]
 
 # Crypto tickers that consistently fail yfinance (NoneType errors) — skip directly to Kraken.
 # yfinance uses SYMBOL-USD format but many newer/meme tokens are not listed there.
@@ -302,6 +307,51 @@ class CandleManager:
             logger.debug(f"[CandleManager] yfinance fetch failed for {symbol}/{timeframe}: {e}")
             return None
 
+    def _fetch_kucoin(self, symbol: str, timeframe: str, limit: int) -> Optional[pd.DataFrame]:
+        """
+        Fetch from KuCoin via CCXT — no auth required (public endpoint).
+        KuCoin uses BTC/USDT pairs; we translate from BTC/USD internally.
+        US-accessible, large symbol universe, well-supported by CCXT.
+
+        Supported timeframes: 1m, 3m, 5m, 15m, 30m, 1h, 2h, 4h, 6h, 8h, 12h, 1d, 1w
+        Note: Binance/Bybit geo-block US IPs; KuCoin does not.
+        """
+        try:
+            import ccxt
+            tf = _normalise_tf(timeframe)
+
+            # KuCoin timeframe map
+            _KC_TF = {
+                "1m":"1m","3m":"3m","5m":"5m","15m":"15m","30m":"30m",
+                "1h":"1h","2h":"2h","4h":"4h","6h":"6h","8h":"8h","12h":"12h",
+                "1d":"1d","1w":"1week",
+            }
+            if tf not in _KC_TF:
+                return None   # unsupported timeframe, skip silently
+
+            # Symbol translation: BTC/USD → BTC/USDT  (KuCoin trades USDT pairs, not USD)
+            parts = symbol.split("/")
+            if len(parts) == 2 and parts[1] == "USD":
+                kc_symbol = f"{parts[0]}/USDT"
+            else:
+                kc_symbol = symbol   # already in USDT or other quote form
+
+            ex = ccxt.kucoin({"enableRateLimit": True, "timeout": 10000})
+            ohlcv = ex.fetch_ohlcv(kc_symbol, _KC_TF[tf], limit=limit + 1)
+            if not ohlcv:
+                return None
+
+            df = pd.DataFrame(ohlcv, columns=["timestamp","open","high","low","close","volume"])
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True).dt.tz_localize(None)
+            df.set_index("timestamp", inplace=True)
+            if len(df) > 1:
+                df = df.iloc[:-1]   # drop forming bar
+            return df if not df.empty else None
+
+        except Exception as e:
+            logger.debug(f"[CandleManager] KuCoin fetch failed for {symbol}/{timeframe}: {e}")
+            return None
+
     def _fetch_from_source(self, symbol: str, timeframe: str,
                            limit: int, source: str) -> Optional[pd.DataFrame]:
         """Dispatch to the correct fetcher."""
@@ -311,6 +361,8 @@ class CandleManager:
             return self._fetch_alpaca(symbol, timeframe, limit)
         if source == SRC_YFINANCE:
             return self._fetch_yfinance(symbol, timeframe, limit)
+        if source == SRC_KUCOIN:
+            return self._fetch_kucoin(symbol, timeframe, limit)
         logger.warning(f"[CandleManager] Unknown source: {source}")
         return None
 
