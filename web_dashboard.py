@@ -4137,6 +4137,90 @@ class Handler(BaseHTTPRequestHandler):
                 ok, msg = db_strategy_toggle(data)
                 return self._json(200 if ok else 400, {"ok": ok, "message": msg})
 
+        # ── Broker Panel API ──────────────────────────────────────────────────
+        if path == "/api/broker_panel/accounts":
+            try:
+                from core.trade_executor import executor as _tex
+                _ibkr_ok   = bool(getattr(_tex, '_ibkr',   None) and getattr(_tex._ibkr,   'is_available', lambda: False)())
+                _kraken_ok = bool(getattr(_tex, '_kraken', None))
+                _alpaca_ok = bool(getattr(_tex, '_alpaca', None))
+            except Exception:
+                _ibkr_ok = _kraken_ok = _alpaca_ok = False
+            _accts = []
+            if _kraken_ok:
+                _accts.append({"broker": "kraken", "modes": ["live"]})
+            if _alpaca_ok:
+                _accts.append({"broker": "alpaca", "modes": ["paper", "live"]})
+            if _ibkr_ok:
+                _accts.append({"broker": "ibkr", "modes": ["live"]})
+            if not _accts:
+                _accts = [
+                    {"broker": "kraken", "modes": ["live"]},
+                    {"broker": "alpaca", "modes": ["paper", "live"]},
+                    {"broker": "ibkr",   "modes": ["live"]},
+                    {"broker": "paper",  "modes": ["paper"]},
+                ]
+            return self._json(200, {"accounts": _accts})
+
+        if path == "/api/broker_panel/balance":
+            params = parse_qs(parsed.query)
+            _broker = (params.get("broker") or [""])[0].lower()
+            try:
+                from core.trade_executor import executor as _tex
+                if _broker == "kraken":
+                    _k = getattr(_tex, '_kraken', None)
+                    if _k: return self._json(200, {"balance": _k.get_account_balance()})
+                if _broker in ("alpaca", "paper"):
+                    _a = getattr(_tex, '_alpaca', None)
+                    if _a: return self._json(200, {"balance": _a.get_account_balance()})
+                if _broker == "ibkr":
+                    _i = getattr(_tex, '_ibkr', None)
+                    if _i: return self._json(200, {"balance": _i.get_account_balance()})
+                return self._json(200, {"balance": {}, "note": f"{_broker} not connected"})
+            except Exception as _e:
+                return self._json(200, {"balance": {}, "error": str(_e)})
+
+        if path == "/api/broker_panel/positions":
+            params = parse_qs(parsed.query)
+            _broker = (params.get("broker") or [""])[0].lower()
+            try:
+                from core.trade_executor import executor as _tex
+                if _broker == "kraken":
+                    _k = getattr(_tex, '_kraken', None)
+                    if _k: return self._json(200, {"positions": _k.get_open_positions()})
+                if _broker in ("alpaca", "paper"):
+                    _a = getattr(_tex, '_alpaca', None)
+                    if _a: return self._json(200, {"positions": _a.get_open_positions()})
+                if _broker == "ibkr":
+                    _i = getattr(_tex, '_ibkr', None)
+                    if _i: return self._json(200, {"positions": _i.get_open_positions()})
+                return self._json(200, {"positions": []})
+            except Exception as _e:
+                return self._json(200, {"positions": [], "error": str(_e)})
+
+        if path == "/api/broker_panel/history":
+            return self._json(200, {"history": []})
+
+        if path == "/api/broker_panel/price":
+            params = parse_qs(parsed.query)
+            _sym   = (params.get("symbol") or [""])[0].strip()
+            _broker = (params.get("broker") or [""])[0].lower()
+            try:
+                _ac = "crypto" if "/" in _sym else "stock"
+                _px = get_current_price(_sym, _ac)
+                return self._json(200, {"price": _px, "symbol": _sym})
+            except Exception as _e:
+                return self._json(200, {"price": None, "error": str(_e)})
+
+        if path == "/api/broker_panel/assets":
+            return self._json(200, {"assets": []})
+
+        if path == "/api/broker_panel/close":
+            return self._json(200, {"ok": False, "message": "Close via broker panel not yet implemented — use Manage Positions."})
+
+        if path == "/api/broker_panel/order":
+            return self._json(200, {"ok": False, "message": "Direct order via broker panel not yet implemented."})
+
         if path != "/api/control":
             return self._json(404, {"error": "not found"})
 
