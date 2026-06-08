@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 # ── Tuning constants ────────────────────────────────────────────────────────
 SIGNAL_TTL_SEC          = 60
-VOLUME_SPIKE_MIN        = 2.0   # raised from 1.5 — real breakouts need at least 2x volume
+VOLUME_SPIKE_MIN        = 1.2   # Opus retune: 2.0 was filtering too many valid breakouts;
 WICK_BODY_MAX_RATIO     = 2.0
 GAP_TRAP_MAX_PCT        = 30.0
 PRICE_DRIFT_MAX_PCT     = 0.5
@@ -40,18 +40,22 @@ RSI_SHORT_EXHAUST       = 18.0
 MARKET_CRASH_THRESHOLD  = -2.0
 MARKET_RALLY_THRESHOLD  = +2.0
 MIN_SOFT_PASSES         = 0
-MIN_PRICE_CRYPTO        = 0.01   # reject sub-penny crypto — micro-caps with no liquidity
-MAX_CONCURRENT_BREAKOUTS= 2      # max open breakout_scanner positions at once — stops burst entries
+MIN_PRICE_CRYPTO        = 0.0001
+MAX_CONCURRENT_BREAKOUTS= 15     # breakout gets half the 30-slot system budget; leaves room for other strategies
+MAX_CONCURRENT_CRYPTO   = 15     # same — crypto breakouts share the same 15-slot cap
 PUMP_VOLUME_SPIKE_MAX   = 15.0   # volume spike above this = coordinated pump (organic breaks rarely > 10x)
 PUMP_MOVE_MAX_CRYPTO    = 15.0   # crypto move above this % = likely already at pump peak, not start
 
-# Quiet hours — crypto breakouts during thin market hours (00:00–05:00 UTC) are
-# mostly noise: no institutional flow, spreads widen, micro-moves look like breakouts.
-# US session (13:00–21:00 UTC) and Asia open (00:00 excluded) are the liquid windows.
-QUIET_HOURS_START_UTC   = 0      # midnight UTC
-QUIET_HOURS_END_UTC     = 5      # 5am UTC (covers US dead zone + thin Asia pre-market)
+# Quiet hours — block crypto during the truly thin overnight window.
+# 02:00–12:00 UTC = 10pm ET to 8am ET — dead zone (post-US, pre-London).
+# Allows: US session (12:00–02:00 UTC next day = 8am–10pm ET) + early London open.
+# Blocks: the genuinely dead 10pm–8am ET window that caused 25 overnight losses.
+QUIET_HOURS_START_UTC   = 11       # 2am UTC = 2am PST
+QUIET_HOURS_END_UTC     = 12     # noon UTC = 6m PST
 
-BREAKOUT_SYMBOL_BLACKLIST = {"MLN/USD", "MLNUSD", "MLN/USDT", "MLNUSDT"}
+
+BREAKOUT_SYMBOL_BLACKLIST = {"MLN/USD", "MLNUSD", "MLN/USDT", "MLNUSDT",
+                             "XBT/USD", "XBTUSD"}  # Kraken BTC alias — position monitor gets 0.0002 bad tick
 
 # Reject any symbol whose quote currency is not USD.
 # USDC, USDT, BUSD pairs can't be priced by Kraken's USD feed and get stuck
@@ -168,8 +172,34 @@ class BreakoutReceiver:
                 }
             self._pending_symbols.add(sym)
         try:
-            return self._receive_signal_inner(payload, sym, direction, esc,
-                                              ts_in, signal_age_sec)
+            result = self._receive_signal_inner(payload, sym, direction, esc,
+                                                ts_in, signal_age_sec)
+            # Log rejected breakout/gap signals to scanner_alerts (opened trades
+            # are already logged inside _inject_signal; only log rejections here)
+            if not result.get("accepted"):
+                signal_source = payload.get("signal_source", "breakout_scanner")
+                if signal_source in ("breakout_scanner", "gap_scanner"):
+                    try:
+                        from data.database import db as _db
+                        _db.log_scanner_alert({
+                            "alert_type":  "gap" if signal_source == "gap_scanner" else "breakout",
+                            "symbol":      sym,
+                            "asset_class": payload.get("asset_class", ""),
+                            "direction":   direction,
+                            "status":      "rejected",
+                            "vol_spike":   float(payload.get("volume_spike", 0) or 0),
+                            "score":       float(payload.get("confidence", 0) or 0),
+                            "broker":      payload.get("broker", ""),
+                            "source":      signal_source,
+                            "reason":      result.get("reason", "")[:200],
+                            "gap_pct":     payload.get("gap_pct"),
+                            "gap_type":    payload.get("gap_type"),
+                            "metadata":    {"move_pct": payload.get("move_pct"),
+                                            "escalation": payload.get("escalation")},
+                        })
+                    except Exception as _e:
+                        logger.debug("[BREAKOUT RECV] rejected signal DB log failed: %s", _e)
+            return result
         finally:
             with self._pending_lock:
                 self._pending_symbols.discard(sym)
@@ -313,7 +343,6 @@ class BreakoutReceiver:
             self._check_daily_symbol_limit(p),
             self._check_not_in_cooldown(p),
             self._check_trading_not_halted(),
-            self._check_quiet_hours(p),
             self._check_concurrent_breakouts(p),
             self._check_min_price(p),
             self._check_price_still_moving(p),
@@ -328,6 +357,10 @@ class BreakoutReceiver:
             self._check_rsi_confirms(p),
             self._check_trend_alignment(p),
             self._check_market_context(p),
+            # Trend confirmation is advisory only — breakout scanner catches EARLY moves
+            # before all 4 indicators confirm. Moving this to soft logs the opinion
+            # without blocking entries that pass all other hard checks.
+            self._check_trend_confirmation(p),
         ]
         return hard, soft
 
@@ -344,22 +377,35 @@ class BreakoutReceiver:
         sym = p["symbol"]
         if any(t["symbol"] == sym for t in (db.get_open_trades() or [])):
             return ChecklistResult.fail(f"Already have open position on {sym}")
+        with BreakoutReceiver._slot_lock:
+            if sym in BreakoutReceiver._slots_reserved:
+                return ChecklistResult.fail(f"Already have in-flight signal for {sym}")
         return ChecklistResult.ok(f"No existing position on {sym}")
 
     def _check_daily_symbol_limit(self, p: Dict) -> ChecklistResult:
-        MAX_DAILY_PER_SYMBOL = 2
+        MAX_CONSECUTIVE_LOSSES = 4  # block symbol after this many losses in a row; resets on any win
         sym = p["symbol"]
         try:
             today = date.today().isoformat()
-            count = len([
-                t for t in (db.get_trades_for_date(today) or [])
-                if t.get("symbol") == sym
-                and t.get("strategy_name") == "breakout_scanner"
-            ])
-            if count >= MAX_DAILY_PER_SYMBOL:
+            trades = sorted(
+                [
+                    t for t in (db.get_trades_for_date(today) or [])
+                    if t.get("symbol") == sym
+                    and t.get("strategy_name") == "breakout_scanner"
+                    and t.get("status") == "closed"
+                ],
+                key=lambda t: t.get("exit_time") or "",
+            )
+            # Count consecutive losses from the most recent trade backwards
+            consecutive = 0
+            for t in reversed(trades):
+                if (t.get("pnl") or 0) > 0:
+                    break  # win resets the streak
+                consecutive += 1
+            if consecutive >= MAX_CONSECUTIVE_LOSSES:
                 return ChecklistResult.fail(
-                    f"{sym} already traded {count}× today via breakout_scanner "
-                    f"(daily limit={MAX_DAILY_PER_SYMBOL})"
+                    f"{sym} has {consecutive} consecutive losses today via breakout_scanner "
+                    f"— blocked until a win resets the counter (max={MAX_CONSECUTIVE_LOSSES})"
                 )
         except Exception as e:
             logger.debug(f"[DAILY LIMIT] Could not check daily trade count: {e}")
@@ -370,7 +416,10 @@ class BreakoutReceiver:
         last = getattr(risk_manager, "_last_closed", {}).get(sym)
         if last:
             elapsed  = time.time() - last.get("time", 0)
-            cooldown = 1800 if last.get("won") else 600  # win=30min, loss=10min
+            # FIXED (Opus audit 2026-05-29): was INVERTED — locked winning symbols
+            # out for 30min, losers only 10min. A breakout winner is the fast-mover
+            # we want to re-enter. Align to risk_manager policy (win=2min, loss=10min).
+            cooldown = 120 if last.get("won") else 600   # win=2min, loss=10min
             if elapsed < cooldown:
                 esc = int(p.get("escalation") or 0)
                 if last.get("won") and p.get("bypass_win_cooldown"):
@@ -435,21 +484,7 @@ class BreakoutReceiver:
         except Exception as e:
             return ChecklistResult.fail(f"Price re-verify exception: {e}")
 
-    def _check_quiet_hours(self, p: Dict) -> ChecklistResult:
-        """Block crypto breakout entries during thin-volume hours (00:00–05:00 UTC).
-        Stocks are unaffected — they only trade during exchange hours anyway.
-        """
-        asset = str(p.get("asset_class", "")).lower()
-        if "crypto" not in asset:
-            return ChecklistResult.ok("Stocks not subject to quiet hours")
-        hour_utc = datetime.utcnow().hour
-        if QUIET_HOURS_START_UTC <= hour_utc < QUIET_HOURS_END_UTC:
-            return ChecklistResult.fail(
-                f"Quiet hours ({QUIET_HOURS_START_UTC:02d}:00–{QUIET_HOURS_END_UTC:02d}:00 UTC) "
-                f"— crypto volume too thin for reliable breakouts (now {hour_utc:02d}:xx UTC)"
-            )
-        return ChecklistResult.ok(f"Outside quiet hours ({hour_utc:02d}:xx UTC)")
-
+ 
     def _check_concurrent_breakouts(self, p: Dict) -> ChecklistResult:
         """Limit simultaneous open breakout_scanner positions to MAX_CONCURRENT_BREAKOUTS.
 
@@ -460,26 +495,32 @@ class BreakoutReceiver:
         """
         sym = p.get("symbol", "?")
         with BreakoutReceiver._slot_lock:
-            # Sync counter to reality: DB is the ground truth for already-open trades;
-            # the in-memory counter adds slots that are being processed right now but
-            # not yet in DB.  On restart the counter starts at 0 and syncs to DB.
+            # True sync: DB is ground truth for committed open trades.
+            # in_flight = symbols currently being processed (reserved slot, not yet in DB).
+            # Set _slots_used = db_count + in_flight so the counter goes DOWN when trades
+            # close via SL/TP/manual/script — the old max() only ever drove it upward,
+            # causing "10/30 used" when only 5 trades were actually open.
             open_trades = db.get_open_trades() or []
             db_count = len([t for t in open_trades
                             if t.get("strategy_name") == "breakout_scanner"])
-            # The counter may lag if a position closed since last update; clamp up to db_count.
-            BreakoutReceiver._slots_used = max(BreakoutReceiver._slots_used, db_count)
+            in_flight = len(BreakoutReceiver._slots_reserved)   # processing but not yet in DB
+            BreakoutReceiver._slots_used = db_count + in_flight
             current = BreakoutReceiver._slots_used
-            if current >= MAX_CONCURRENT_BREAKOUTS:
+            # Crypto gets a tighter concurrent cap than stocks
+            is_crypto = "/" in sym or "crypto" in str(p.get("asset_class", "")).lower()
+            cap = MAX_CONCURRENT_CRYPTO if is_crypto else MAX_CONCURRENT_BREAKOUTS
+            if current >= cap:
                 return ChecklistResult.fail(
                     f"Already {current} breakout_scanner position(s) in-flight/open "
-                    f"(max={MAX_CONCURRENT_BREAKOUTS}) — wait for one to close before adding more"
+                    f"(max={cap} for {'crypto' if is_crypto else 'stock'}) — "
+                    f"wait for one to close before adding more"
                 )
             # Reserve a slot — this is the atomic claim that prevents burst races.
             BreakoutReceiver._slots_used += 1
             BreakoutReceiver._slots_reserved.add(sym)
 
         return ChecklistResult.ok(
-            f"Concurrent breakouts: {current}/{MAX_CONCURRENT_BREAKOUTS} (slot reserved)"
+            f"Concurrent breakouts: {current}/{cap} (slot reserved)"
         )
 
     def _check_min_price(self, p: Dict) -> ChecklistResult:
@@ -494,18 +535,26 @@ class BreakoutReceiver:
     def _check_volume_elevated(self, p: Dict) -> ChecklistResult:
         vol = float(p.get("volume_spike", 0))
         if vol <= 0 or vol == 1.0:
-            # FundingScanner doesn't have volume data — its edge is funding rate
-            # extremes, not breakout momentum.  Skip the volume check so it can
-            # still trade.  BreakoutScanner must have real volume data; fail hard.
+            # FundingScanner: edge is funding rate extremes, not breakout momentum
             if p.get("signal_source") == "funding_scanner":
                 return ChecklistResult.skip(
                     f"Volume spike is {vol:.2f}x (funding scanner — volume N/A, rate-based signal)"
+                )
+            # GapScanner gap_fill: deliberately fades low-volume moves — skip volume check
+            if p.get("signal_source") == "gap_scanner" and p.get("gap_type") == "gap_fill":
+                return ChecklistResult.skip(
+                    f"Volume spike {vol:.2f}x (gap fill — fading low-volume reversal, volume check N/A)"
                 )
             return ChecklistResult.fail(
                 f"No volume baseline available ({vol:.2f}x) — cannot confirm breakout volume. "
                 f"Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation."
             )
         if vol < VOLUME_SPIKE_MIN:
+            # Gap fills trade on fading volume by design — don't require breakout-level vol
+            if p.get("signal_source") == "gap_scanner" and p.get("gap_type") == "gap_fill":
+                return ChecklistResult.skip(
+                    f"Volume spike {vol:.2f}x (gap fill — low volume expected on reversal)"
+                )
             esc = int(p.get("escalation") or 0)
             move = abs(float(p.get("move_pct") or 0))
             if _is_breakout_scanner_payload(p) and (esc >= 2 or move >= 5.0):
@@ -609,6 +658,13 @@ class BreakoutReceiver:
                     f"Move is {bars_since} bars old — too late to enter "
                     f"(max {MAX_BARS_SINCE} bars from breakout level)"
                 )
+        else:
+            # bars_since missing from payload — rely on candle direction check below
+            symbol_dbg = p.get("symbol", "?")
+            logger.debug(
+                f"[MOMENTUM] {symbol_dbg}: bars_since_breakout not in payload "
+                f"— staleness check skipped, candle trend check is backstop"
+            )
 
         if dist_pct is not None:
             dist = abs(float(dist_pct))
@@ -644,8 +700,167 @@ class BreakoutReceiver:
                     f"(short rejected, threshold={RSI_EXHAUST_SHORT})"
                 )
 
+        # ── Recent candle trend check ─────────────────────────────────────────
+        # Even if bars_since is within limit, the last 2-3 candles may already
+        # be moving against the signal direction (move peaked, now reversing).
+        # Reject if 2 of the last 3 closed candles are against our direction.
+        symbol = p.get("symbol", "")
+        tf     = p.get("timeframe", "5m") or "5m"
+        if symbol:
+            try:
+                from core.candle_manager import candle_manager
+                df = candle_manager.get(symbol, tf, limit=5)
+                if df is not None and len(df) >= 3:
+                    recent        = df.tail(3)
+                    bearish_count = int((recent["close"] < recent["open"]).sum())
+                    bullish_count = int((recent["close"] >= recent["open"]).sum())
+                    if direction == "long" and bearish_count >= 2:
+                        return ChecklistResult.fail(
+                            f"Trend reversed — {bearish_count}/3 recent candles bearish "
+                            f"on LONG signal ({symbol}/{tf})"
+                        )
+                    if direction == "short" and bullish_count >= 2:
+                        return ChecklistResult.fail(
+                            f"Trend reversed — {bullish_count}/3 recent candles bullish "
+                            f"on SHORT signal ({symbol}/{tf})"
+                        )
+            except Exception:
+                pass   # candle_manager unavailable — skip check, don't block signal
+
         return ChecklistResult.ok(
             f"Momentum phase OK: bars_since={bars_since} dist={dist_pct}% rsi={rsi}"
+        )
+
+    def _check_trend_confirmation(self, p: Dict) -> ChecklistResult:
+        """
+        Confirms trend health using 4 technical indicators before entry.
+        Requires 3-of-4 to pass — same criteria used for manual entry decisions:
+          1. EMA 9 > EMA 20 and spread widening  (trend direction + strength)
+          2. RSI rising                           (momentum building)
+          3. MACD line > signal AND histogram > 0 (bullish momentum confirmed)
+          4. ADX >= 25                            (trend is strong, not choppy)
+
+        For SHORT direction all conditions are mirrored.
+        Skipped silently if candle data is unavailable.
+        """
+        symbol    = p.get("symbol", "")
+        direction = p.get("direction", "long")
+        tf        = p.get("timeframe", "5m") or "5m"
+        MIN_PASS  = 3   # require 3-of-4 (adjust to 4 if too many bad entries slip through)
+
+        if not symbol:
+            return ChecklistResult.ok("No symbol — trend confirmation skipped")
+
+        try:
+            import pandas as pd
+            from core.candle_manager import candle_manager
+            df = candle_manager.get(symbol, tf, limit=60)
+            if df is None or len(df) < 30:
+                return ChecklistResult.ok(
+                    f"Insufficient bars ({len(df) if df is not None else 0}) — skipped"
+                )
+        except Exception as _e:
+            return ChecklistResult.ok(f"Candle fetch failed — trend confirmation skipped ({_e})")
+
+        close = df["close"]
+        high  = df["high"]
+        low   = df["low"]
+
+        # ── 1. EMA 9 / EMA 20 alignment + spread widening ────────────────
+        ema9       = close.ewm(span=9,  adjust=False).mean()
+        ema20      = close.ewm(span=20, adjust=False).mean()
+        spread_now = float(ema9.iloc[-1] - ema20.iloc[-1])
+        spread_prv = float(ema9.iloc[-2] - ema20.iloc[-2])
+        if direction == "long":
+            c_ema = spread_now > 0 and spread_now > spread_prv   # above & widening
+        else:
+            c_ema = spread_now < 0 and spread_now < spread_prv   # below & widening down
+
+        # ── 2. RSI 14 rising / falling ───────────────────────────────────
+        delta = close.diff()
+        gain  = delta.clip(lower=0).rolling(14).mean()
+        loss  = (-delta.clip(upper=0)).rolling(14).mean()
+        rsi   = 100 - (100 / (1 + gain / loss.replace(0, 1e-9)))
+        rsi_now = float(rsi.iloc[-1])
+        rsi_prv = float(rsi.iloc[-2])
+        c_rsi = (rsi_now > rsi_prv) if direction == "long" else (rsi_now < rsi_prv)
+
+        # ── 3. MACD (12/26/9) line > signal AND histogram aligned ────────
+        macd_line = close.ewm(span=12, adjust=False).mean() - close.ewm(span=26, adjust=False).mean()
+        macd_sig  = macd_line.ewm(span=9, adjust=False).mean()
+        hist_val  = float(macd_line.iloc[-1] - macd_sig.iloc[-1])
+        if direction == "long":
+            c_macd = float(macd_line.iloc[-1]) > float(macd_sig.iloc[-1]) and hist_val > 0
+        else:
+            c_macd = float(macd_line.iloc[-1]) < float(macd_sig.iloc[-1]) and hist_val < 0
+
+        # ── 4. ADX 14 >= 25 (trend strength, direction-neutral) ──────────
+        prev_close = close.shift(1)
+        tr = pd.concat([
+            high - low,
+            (high - prev_close).abs(),
+            (low  - prev_close).abs(),
+        ], axis=1).max(axis=1)
+        prev_high = high.shift(1)
+        prev_low  = low.shift(1)
+        raw_dm_p  = high - prev_high
+        raw_dm_m  = prev_low - low
+        dm_plus   = raw_dm_p.where((raw_dm_p > raw_dm_m) & (raw_dm_p > 0), 0.0)
+        dm_minus  = raw_dm_m.where((raw_dm_m > raw_dm_p) & (raw_dm_m > 0), 0.0)
+        alpha     = 1 / 14
+        atr_s     = tr.ewm(alpha=alpha, adjust=False).mean()
+        di_plus   = 100 * dm_plus.ewm(alpha=alpha, adjust=False).mean()  / atr_s.replace(0, 1e-9)
+        di_minus  = 100 * dm_minus.ewm(alpha=alpha, adjust=False).mean() / atr_s.replace(0, 1e-9)
+        di_sum    = (di_plus + di_minus).replace(0, 1e-9)
+        adx_val   = float((100 * (di_plus - di_minus).abs() / di_sum).ewm(alpha=alpha, adjust=False).mean().iloc[-1])
+        c_adx     = adx_val >= 25
+
+        # ── Verdict ───────────────────────────────────────────────────────
+        checks  = [c_ema, c_rsi, c_macd, c_adx]
+        passed  = sum(checks)
+        details = (
+            f"EMA={'✓' if c_ema else '✗'}  "
+            f"RSI={'✓' if c_rsi else '✗'}({rsi_now:.1f})  "
+            f"MACD={'✓' if c_macd else '✗'}(hist={hist_val:+.5f})  "
+            f"ADX={'✓' if c_adx else '✗'}({adx_val:.1f})"
+        )
+
+        decision = "APPROVE" if passed >= MIN_PASS else "BLOCK"
+
+        # ── Log every result to ai_signal_reviews for post-trade analysis ─
+        # reviewer="trend_confirm" — query this in db_panel to see how often
+        # the check would have blocked a signal and whether those blocks were right.
+        # trade_id is unknown at checklist time; joins can use symbol + timestamp proximity.
+        try:
+            from data.database import db as _db
+            from datetime import datetime as _dt
+            _db.record_ai_signal_review({
+                "timestamp":          _dt.now().isoformat(),
+                "trade_id":           None,   # unknown pre-execution; link manually if needed
+                "symbol":             symbol,
+                "asset_class":        p.get("asset_class", "crypto"),
+                "direction":          direction,
+                "strategy_name":      p.get("signal_source", "breakout_scanner"),
+                "signal_score":       float(p.get("confidence", 0)),
+                "reviewer":           "trend_confirm",
+                "mode":               "advisory",
+                "decision":           decision,
+                "confidence":         passed,            # 0-4 indicators that passed
+                "reasoning":          details,
+                "suggested_size_pct": None,
+                "warnings":           [f"failed: {n}" for n, ok in
+                                       zip(["EMA","RSI","MACD","ADX"], checks) if not ok],
+                "elapsed_ms":         0,
+            })
+        except Exception as _log_err:
+            logger.debug(f"[TREND CONFIRM] DB log failed for {symbol}: {_log_err}")
+
+        if passed < MIN_PASS:
+            return ChecklistResult.fail(
+                f"Trend confirmation {passed}/{len(checks)} — {details}"
+            )
+        return ChecklistResult.ok(
+            f"Trend confirmed {passed}/{len(checks)} — {details}"
         )
 
     def _check_structural_stop(self, p: Dict) -> ChecklistResult:
@@ -903,6 +1118,17 @@ class BreakoutReceiver:
             else:
                 custom_stop = None
 
+            # TP ladder: start at 6% so the ratchet trail (not the TP) is the primary
+            # exit.  Bump TP as price proves the move — the escalation level from the
+            # scanner tells us how far price has already traveled from the breakout:
+            #   esc 1 → 2% move  → TP 6%   (base — catches fast close-outs)
+            #   esc 2 → 5% move  → TP 12%  (real momentum — let it breathe more)
+            #   esc 3 → 10% move → TP 18%  (strong trend — widen further)
+            # The position monitor ratchet ($40 trigger, $15 trail) protects profits
+            # for runners beyond these levels.
+            _esc_tp_map = {0: 6.0, 1: 6.0, 2: 12.0, 3: 18.0}
+            custom_tp = _esc_tp_map.get(int(esc), 6.0)
+
             signal = Signal(
                 symbol        = sym,
                 asset_class   = asset_class,
@@ -935,6 +1161,7 @@ class BreakoutReceiver:
                     "bars_since_breakout":        p.get("bars_since_breakout"),
                     "distance_from_breakout_pct": p.get("distance_from_breakout_pct"),
                     "custom_stop_loss_pct":       custom_stop,
+                    "custom_take_profit_pct":     custom_tp,
                     "bypass_win_cooldown":        p.get("bypass_win_cooldown", False),
                 },
             )
@@ -949,6 +1176,34 @@ class BreakoutReceiver:
 
             if trade_id:
                 logger.info(f"[BREAKOUT RECV] EXECUTED {sym} -> trade_id={trade_id}")
+                # Log to scanner_alerts DB
+                try:
+                    from data.database import db as _db
+                    signal_source = p.get("signal_source", "breakout_scanner")
+                    if signal_source == "gap_scanner":
+                        # Gap alert was already logged in gap_watchlist — just link trade
+                        _db.link_alert_to_trade(sym, trade_id)
+                    else:
+                        # Log new breakout alert with trade_id
+                        _db.log_scanner_alert({
+                            "alert_type":  "breakout",
+                            "symbol":      sym,
+                            "asset_class": asset_class,
+                            "direction":   direction,
+                            "status":      "fired",
+                            "trade_id":    trade_id,
+                            "score":       float(p.get("confidence", 0.7)),
+                            "vol_spike":   float(p.get("volume_spike", 0)),
+                            "broker":      broker_hint,
+                            "source":      signal_source,
+                            "metadata": {
+                                "move_pct":   p.get("move_pct"),
+                                "escalation": p.get("escalation"),
+                                "pattern":    p.get("pattern"),
+                            },
+                        })
+                except Exception as _e:
+                    logger.debug("[BREAKOUT RECV] scanner_alert DB log failed: %s", _e)
                 return {
                     "accepted": True,
                     "execution_eligible": True,

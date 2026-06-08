@@ -819,7 +819,7 @@ const QUICK_QUERIES_DB = [
   { label: 'Daily P&L',        view: 'daily_summaries' },
   { label: 'Yesterday Closed', view: 'trades' },
   { label: 'This Week Trades', view: 'trades' },
-  { label: 'Strategy P&L',    view: 'trades' },
+  { label: 'Strategy P&L',    view: '_strategy_pnl' },
   { label: '💰 Financials',   view: 'capital' },
   { label: 'Signal Reviews',   view: 'ai_signal_reviews' },
 ];
@@ -843,11 +843,35 @@ function DBBrowserPanel() {
   // search fields
   const [fStrat,  setFStrat]  = uS('');
   const [fStatus, setFStatus] = uS('any');
-  const [fTime,   setFTime]   = uS('any');
   const [fSym,    setFSym]    = uS('');
   const [fBroker, setFBroker] = uS('any');
+  // Global date range — shared by trade search AND Strategy P&L
+  const [gPreset, setGPreset] = uS('all');
+  const [gFrom,   setGFrom]   = uS('');
+  const [gTo,     setGTo]     = uS('');
 
   const st = (msg, type='') => setStatus({ msg, type });
+
+  // Convert a preset name to {from, to} ISO datetime strings.
+  // 'custom' returns null — caller uses gFrom/gTo directly.
+  function presetToFromTo(preset) {
+    const now = new Date();
+    const pad  = n => String(n).padStart(2, '0');
+    const fmt  = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    if (preset === 'all')       return { from: '', to: '' };
+    if (preset === '1h')        { const d = new Date(now - 3600000);      return { from: fmt(d), to: '' }; }
+    if (preset === '4h')        { const d = new Date(now - 4*3600000);    return { from: fmt(d), to: '' }; }
+    if (preset === '8h')        { const d = new Date(now - 8*3600000);    return { from: fmt(d), to: '' }; }
+    if (preset === 'today')     { const d = new Date(now); d.setHours(0,0,0,0);  return { from: fmt(d), to: '' }; }
+    if (preset === 'yesterday') {
+      const s = new Date(now); s.setDate(s.getDate()-1); s.setHours(0,0,0,0);
+      const e = new Date(now); e.setDate(e.getDate()-1); e.setHours(23,59,0,0);
+      return { from: fmt(s), to: fmt(e) };
+    }
+    if (preset === 'week')  { const d = new Date(now - 7*86400000);  d.setHours(0,0,0,0); return { from: fmt(d), to: '' }; }
+    if (preset === 'month') { const d = new Date(now.getFullYear(), now.getMonth(), 1);    return { from: fmt(d), to: '' }; }
+    return { from: '', to: '' };
+  }
 
   uE(() => { loadTables(); }, []);
 
@@ -861,7 +885,11 @@ function DBBrowserPanel() {
   function applyResult(data, title) {
     if (data.error) { st(data.error, 'err'); return; }
     if (!data.rows || !data.cols) { st('No data returned', 'err'); return; }
-    const hasRowid = data.cols[0] === 'rowid';
+    // Strip hidden rowid-style leading column.
+    // All table queries use "SELECT rowid AS _rowid_, *" so a real 'id' column is always SECOND.
+    // If 'id' somehow lands in position 0 (race/stale-state edge case) it is safe to strip.
+    const hasRowid = data.cols[0] === 'rowid' || data.cols[0] === '_rowid_'
+                  || (data.cols[0] === 'id' && data.cols.length > 1);
     setRowids(hasRowid ? data.rows.map(r => r[0]) : data.rows.map(() => null));
     setCols(hasRowid ? data.cols.slice(1) : data.cols);
     setRows(hasRowid ? data.rows.map(r => r.slice(1)) : data.rows);
@@ -880,8 +908,28 @@ function DBBrowserPanel() {
     } catch(e) { st(e.message, 'err'); }
   }
 
+  async function runStrategyPnl(fromDt, toDt, presetLabel) {
+    setCurView('Strategy P&L');
+    setCurTable(null);
+    st('Loading Strategy P&L...');
+    try {
+      const qp = [];
+      if (fromDt) qp.push(`from=${encodeURIComponent(fromDt)}`);
+      if (toDt)   qp.push(`to=${encodeURIComponent(toDt)}`);
+      const url = '/api/db/strategy_pnl' + (qp.length ? '?' + qp.join('&') : '');
+      const d = await apiCall(url);
+      const label = (!fromDt && !toDt) ? 'Strategy P&L' : `Strategy P&L · ${presetLabel || 'custom'}`;
+      applyResult(d, label);
+    } catch(e) { st(e.message, 'err'); }
+  }
+
   async function runQuick(label) {
     const cleanLabel = label.replace('☠ ','');
+    if (cleanLabel === 'Strategy P&L') {
+      const { from, to } = gPreset === 'custom' ? { from: gFrom, to: gTo } : presetToFromTo(gPreset);
+      await runStrategyPnl(from, to, gPreset);
+      return;
+    }
     setCurView(cleanLabel);
     const tbl = QUICK_QUERIES_DB.find(q => q.label === label)?.view;
     setCurTable(tbl?.startsWith('_') ? null : tbl);
@@ -892,17 +940,35 @@ function DBBrowserPanel() {
     } catch(e) { st(e.message, 'err'); }
   }
 
-  async function runSearch() {
+  // presetToTimeArgs — maps a preset id + optional explicit from/to into backend time args
+  function presetToTimeArgs(preset, fromOverride='', toOverride='') {
+    if (preset === 'custom')     return { timeArg:'custom',    fromDt: fromOverride, toDt: toOverride };
+    if (preset === '1h')         return { timeArg:'last 1h',   fromDt:'', toDt:'' };
+    if (preset === '4h')         return { timeArg:'last 4h',   fromDt:'', toDt:'' };
+    if (preset === '8h')         return { timeArg:'last 8h',   fromDt:'', toDt:'' };
+    if (preset === 'today')      return { timeArg:'today',     fromDt:'', toDt:'' };
+    if (preset === 'yesterday')  { const r = presetToFromTo('yesterday'); return { timeArg:'custom', fromDt:r.from, toDt:r.to }; }
+    if (preset === 'week')       return { timeArg:'this week', fromDt:'', toDt:'' };
+    if (preset === 'month')      { const r = presetToFromTo('month');     return { timeArg:'custom', fromDt:r.from, toDt:r.to }; }
+    return { timeArg:'any', fromDt:'', toDt:'' }; // 'all'
+  }
+
+  async function runSearch(presetOverride, fromOverride, toOverride) {
     const STRAT_TABLES = ['trades','ai_signal_reviews','strategy_results'];
     const wantsStrat   = fStrat.trim() !== '';
     let table = curTable || 'trades';
     if (wantsStrat && !STRAT_TABLES.includes(table)) table = 'trades';
     st('Searching…');
+    const preset = presetOverride !== undefined ? presetOverride : gPreset;
+    const from   = fromOverride  !== undefined ? fromOverride  : gFrom;
+    const to     = toOverride    !== undefined ? toOverride    : gTo;
+    const { timeArg, fromDt, toDt } = presetToTimeArgs(preset, from, to);
     try {
       const d = await apiCall('/api/db/search', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ table, strategy: fStrat, status: fStatus,
-                               time: fTime, symbol: fSym, broker: fBroker })
+                               time: timeArg, from_dt: fromDt, to_dt: toDt,
+                               symbol: fSym, broker: fBroker })
       });
       setCurTable(table); setCurView(null);
       applyResult(d, `Search → ${table}`);
@@ -923,8 +989,8 @@ function DBBrowserPanel() {
     const paired = rows.map((r, i) => [r, rowids[i]]);
     paired.sort((a, b) => {
       const av = a[0][ci], bv = b[0][ci];
-      const an = parseFloat(av), bn = parseFloat(bv);
-      const c = (!isNaN(an) && !isNaN(bn)) ? an - bn : String(av||'').localeCompare(String(bv||''));
+      const an = Number(av), bn = Number(bv);
+      const c = (!isNaN(an) && !isNaN(bn) && av !== '' && bv !== '') ? an - bn : String(av||'').localeCompare(String(bv||''));
       return asc ? c : -c;
     });
     setRows(paired.map(p => p[0]));
@@ -1048,6 +1114,62 @@ function DBBrowserPanel() {
         ))}
       </div>
 
+      {/* Global date range bar */}
+      {(() => {
+        const presets = [
+          { id:'all',       label:'All' },
+          { id:'1h',        label:'1h' },
+          { id:'4h',        label:'4h' },
+          { id:'8h',        label:'8h' },
+          { id:'today',     label:'Today' },
+          { id:'yesterday', label:'Yesterday' },
+          { id:'week',      label:'This Week' },
+          { id:'month',     label:'This Month' },
+          { id:'custom',    label:'Custom' },
+        ];
+        const pbtn = (id, label) => (
+          <button key={id} onClick={() => {
+            setGPreset(id);
+            if (id === 'custom') return; // wait for user to fill inputs then hit Apply
+            setGFrom(''); setGTo('');
+            // Auto-rerun current view immediately, passing values directly (state update is async)
+            const { from, to } = presetToFromTo(id);
+            if (curView === 'Strategy P&L') runStrategyPnl(from, to, id);
+            else if (curTable || curView)   runSearch(id, from, to);
+          }} style={{
+            fontSize:10, padding:'2px 7px', cursor:'pointer', borderRadius:3,
+            background: gPreset===id ? '#2563eb' : 'var(--bg-3)',
+            color:      gPreset===id ? '#fff'    : 'var(--text-2)',
+            border:     '1px solid '+(gPreset===id ? '#2563eb' : 'var(--border)'),
+            fontWeight: gPreset===id ? 700 : 400,
+          }}>{label}</button>
+        );
+        const dtIn = (val, setter, placeholder) => (
+          <input type="datetime-local" value={val} onChange={e=>setter(e.target.value)}
+            placeholder={placeholder}
+            style={{fontSize:10,background:'var(--bg-2)',color:'var(--text-1)',
+                    border:'1px solid var(--border)',borderRadius:3,padding:'2px 4px'}}/>
+        );
+        return (
+          <div style={{display:'flex',alignItems:'center',gap:3,padding:'4px 8px',
+                       borderBottom:'1px solid var(--border)',flexShrink:0,flexWrap:'wrap',
+                       background:'var(--bg-2)'}}>
+            <span style={{color:'var(--text-2)',fontSize:10,marginRight:3}}>Date:</span>
+            {presets.map(p => pbtn(p.id, p.label))}
+            {gPreset === 'custom' && <>
+              {dtIn(gFrom, setGFrom, 'From')}
+              <span style={{color:'var(--text-2)',fontSize:10}}>to</span>
+              {dtIn(gTo, setGTo, 'To')}
+              <button onClick={() => {
+                if (curView === 'Strategy P&L') runStrategyPnl(gFrom, gTo, 'custom');
+                else runSearch('custom', gFrom, gTo);
+              }} style={{fontSize:10,padding:'2px 8px',background:'#16a34a',color:'#fff',
+                         border:'none',borderRadius:3,cursor:'pointer',fontWeight:700}}>Apply</button>
+            </>}
+          </div>
+        );
+      })()}
+
       {/* Search bar */}
       <div style={S.sbar}>
         <span style={S.lbl}>Strategy</span>
@@ -1055,10 +1177,6 @@ function DBBrowserPanel() {
         <span style={S.lbl}>Status</span>
         <select style={S.sel} value={fStatus} onChange={e=>setFStatus(e.target.value)}>
           {['any','open','closed','pending','cancelled'].map(v=><option key={v}>{v}</option>)}
-        </select>
-        <span style={S.lbl}>Time</span>
-        <select style={S.sel} value={fTime} onChange={e=>setFTime(e.target.value)}>
-          {['any','last 1h','last 4h','last 8h','today','yesterday','this week'].map(v=><option key={v}>{v}</option>)}
         </select>
         <span style={S.lbl}>Symbol</span>
         <input style={{...S.inp,width:75}} value={fSym} onChange={e=>setFSym(e.target.value)} onKeyDown={e=>e.key==='Enter'&&runSearch()} placeholder="AAPL" />
@@ -1119,13 +1237,49 @@ function DBBrowserPanel() {
                         const col = cols[ci]||'';
                         const s = v===null?'':String(v);
                         let color = 'var(--text-1)';
-                        if ((col==='pnl'||col==='daily_pnl'||col==='gain_loss') && s) color = parseFloat(s)>=0?'#4ade80':'#f87171';
+                        if ((col==='pnl'||col==='daily_pnl'||col==='gain_loss'||col==='total_pnl'||col==='gross_losses') && s) color = parseFloat(s)>=0?'#4ade80':'#f87171';
+                        if (col==='gross_wins' && s) color = '#4ade80';
                         if (col==='enabled') color = s==='TRUE'?'#4ade80':'#f87171';
                         return <td key={ci} style={{...S.td,color}} title={s}>{s}</td>;
                       })}
                     </tr>
                   );
                 })}
+                {curView === 'Strategy P&L' && rows.length > 0 && (() => {
+                  const ci = n => cols.indexOf(n);
+                  const num = (r, n) => parseFloat(r[ci(n)]) || 0;
+                  const totTrades = rows.reduce((a,r)=>a+num(r,'trades'),0);
+                  const totWins   = rows.reduce((a,r)=>a+num(r,'wins'),0);
+                  const totLosses = rows.reduce((a,r)=>a+num(r,'losses'),0);
+                  const totPnl    = rows.reduce((a,r)=>a+num(r,'total_pnl'),0);
+                  const totGW     = rows.reduce((a,r)=>a+num(r,'gross_wins'),0);
+                  const totGL     = rows.reduce((a,r)=>a+num(r,'gross_losses'),0);
+                  const totPF     = totGL !== 0 ? (totGW / Math.abs(totGL)).toFixed(3) : '';
+                  const totWR     = totTrades > 0 ? (totWins/totTrades*100).toFixed(1) : '0';
+                  const totAW     = totWins > 0 ? (totGW/totWins).toFixed(2) : '';
+                  const totAL     = totLosses > 0 ? (totGL/totLosses).toFixed(2) : '';
+                  const cells = cols.map((c,i) => {
+                    if (i===0) return {v:'TOTALS', color:'#f0c040'};
+                    if (c==='trades')       return {v:totTrades, color:'#ccc'};
+                    if (c==='wins')         return {v:totWins,   color:'#4ade80'};
+                    if (c==='losses')       return {v:totLosses, color:'#f87171'};
+                    if (c==='win_rate_pct') return {v:totWR+'%', color:'#ccc'};
+                    if (c==='total_pnl')    return {v:totPnl.toFixed(2), color:totPnl>=0?'#4ade80':'#f87171'};
+                    if (c==='gross_wins')   return {v:totGW.toFixed(2),  color:'#4ade80'};
+                    if (c==='gross_losses') return {v:totGL.toFixed(2),  color:'#f87171'};
+                    if (c==='profit_factor')return {v:totPF, color:'#ccc'};
+                    if (c==='avg_win')      return {v:totAW, color:'#4ade80'};
+                    if (c==='avg_loss')     return {v:totAL, color:'#f87171'};
+                    return {v:'', color:'#ccc'};
+                  });
+                  return (
+                    <tr style={{background:'#1a1a2e',borderTop:'2px solid #f0c040',fontWeight:700}}>
+                      {cells.map((cell,i)=>(
+                        <td key={i} style={{...S.td,color:cell.color,fontWeight:700}}>{cell.v}</td>
+                      ))}
+                    </tr>
+                  );
+                })()}
               </tbody>
             </table>
           </div>

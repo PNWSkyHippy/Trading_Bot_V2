@@ -100,11 +100,65 @@ class KrakenExecutor:
             logger.error(f"Kraken order failed for {symbol}: {e}")
             return None
 
-    def close_position(self, symbol: str, qty: float, side: str) -> bool:
+    def cancel_all_orders_for_symbol(self, symbol: str) -> int:
+        """
+        Cancel every open order on Kraken for the given symbol.
+
+        Called before closing a position so no resting stop/TP order fires
+        after the position is gone and opens an unintended new trade.
+
+        Returns the number of orders cancelled.
+        Paper mode: always returns 0 (no real orders placed in paper mode).
+        """
+        if self.paper:
+            return 0
+        cancelled = 0
+        try:
+            # Fetch all open orders (Kraken returns them keyed by order ID)
+            resp       = self.exchange.privatePostOpenorders({})
+            open_orders = (resp.get("result", {}).get("open") or {})
+            for oid, o in open_orders.items():
+                descr    = o.get("descr", {})
+                pair_raw = descr.get("pair", "")
+                # Normalise both sides to "BASE/QUOTE" for comparison
+                norm = pair_raw.replace("XBT", "BTC").upper()
+                tgt  = symbol.replace("-", "/").upper()
+                # Match if pair contains the base currency or full symbol
+                if tgt in norm or norm.replace("/", "") in tgt.replace("/", ""):
+                    try:
+                        self.exchange.cancelOrder(oid)
+                        logger.info(
+                            f"[PRE-CLOSE CANCEL] {symbol}: cancelled order {oid[:12]}"
+                        )
+                        cancelled += 1
+                    except Exception as ce:
+                        logger.warning(
+                            f"[PRE-CLOSE CANCEL] {symbol}: could not cancel {oid[:12]}: {ce}"
+                        )
+        except Exception as e:
+            logger.warning(f"cancel_all_orders_for_symbol({symbol}): {e}")
+        return cancelled
+
+    def close_position(self, symbol: str, qty: float, side: str,
+                       leverage: int = 0) -> bool:
+        """
+        Close an open Kraken position.
+
+        Steps (live mode):
+          1. Cancel all resting orders for the symbol first (stop, TP, etc.)
+             so nothing fires after the position is gone.
+          2. Send a margin-aware market close order.
+             - If leverage > 1 the original entry was a margin trade; we must
+               send leverage in the close order so Kraken reduces the margin
+               position rather than opening a new spot position.
+             - If leverage == 0 (spot entry) a plain market order is correct.
+
+        Paper mode skips both steps and returns True immediately.
+        """
         ccxt_symbol = symbol.replace("-", "/")
 
         if self.paper:
-            price = self.get_current_price(symbol) or 0.0
+            price      = self.get_current_price(symbol) or 0.0
             close_side = "sell" if side == "buy" else "buy"
             logger.info(
                 f"[PAPER] Kraken simulated close: {symbol} "
@@ -112,11 +166,25 @@ class KrakenExecutor:
             )
             return True
 
-        # Live mode
+        # ── 1. Cancel all resting orders for this symbol ─────────────────────
+        n_cancelled = self.cancel_all_orders_for_symbol(symbol)
+        if n_cancelled:
+            logger.info(
+                f"[CLOSE] {symbol}: cancelled {n_cancelled} open order(s) before close"
+            )
+
+        # ── 2. Send margin-aware market close order ───────────────────────────
         try:
             close_side = "sell" if side == "buy" else "buy"
-            self.exchange.create_market_order(ccxt_symbol, close_side, qty)
-            logger.info(f"Kraken position closed: {symbol}")
+            params     = {}
+            if leverage > 1:
+                params["leverage"] = leverage
+            self.exchange.create_market_order(ccxt_symbol, close_side, qty,
+                                              params=params)
+            logger.info(
+                f"Kraken position closed: {symbol} {close_side} "
+                f"{qty} {'@ {}x leverage'.format(leverage) if leverage > 1 else '(spot)'}"
+            )
             return True
         except Exception as e:
             logger.error(f"Failed to close Kraken {symbol}: {e}")

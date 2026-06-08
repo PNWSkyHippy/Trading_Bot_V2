@@ -64,7 +64,7 @@ class MR03Params:
     ma_len:     int   = 200    # SMA200 trend direction filter
     atr_len:    int   = 14
     tp_mult:    float = 1.5    # emergency TP guard — time stop is primary exit
-    sl_mult:    float = 2.0
+    sl_mult:    float = 4.0    # widened 2.0→4.0: bracket was firing on noise (2026-06-07)
     max_bars:   int   = 36     # time stop — sweep plateau at 36 bars
     # long_only defaults to True: v4 long-only (PF 1.39, +6.83%) dominates
     # v5 both-dirs (PF 1.07, +0.73%) per documented backtest — see class header.
@@ -181,24 +181,10 @@ class MR03FBSStrategy(BaseStrategy):
 
             direction = "long" if long_sig else "short"
 
-            # ── Sentiment gate (v5.1) ──────────────────────────────────────
-            # Block shorts during BULLISH sessions and longs during BEARISH.
-            # Live data showed 16.7% WR when shorting into confirmed bull
-            # sessions (2026-05-25 case study: -$127 in a single BULLISH day).
-            # NEUTRAL and UNKNOWN are permissive (no data = no block).
-            sentiment = _get_market_sentiment()
-            if direction == "short" and sentiment == "BULLISH":
-                _log.debug(
-                    "[MR03] %s SHORT blocked — morning sentiment is BULLISH "
-                    "(regime gate)", symbol
-                )
-                return None
-            if direction == "long" and sentiment == "BEARISH":
-                _log.debug(
-                    "[MR03] %s LONG blocked — morning sentiment is BEARISH "
-                    "(regime gate)", symbol
-                )
-                return None
+            # ── Sentiment gate DISABLED for 1-week clean test (2026-06-07) ──
+            # Re-evaluate after 30+ trades. sl_mult widened to 4.0 simultaneously.
+            # Original gate blocked shorts/BULLISH, longs/BEARISH.
+            sentiment = "UNKNOWN"   # gate bypassed — set fixed value for reason string
 
             close     = float(last["close"])
             atr       = float(last["atr"])

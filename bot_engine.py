@@ -135,6 +135,24 @@ def setup_logging(verbose: bool) -> logging.Logger:
     for _name in _NOISY:
         logging.getLogger(_name).setLevel(logging.WARNING)
 
+    # Dedicated scanner/signal log — captures signal generation, circuit breaker blocks,
+    # and breakout alerts in one file without hunting through bot.log.
+    _signal_handler = logging.FileHandler("logs/scanner_signals.log", encoding="utf-8")
+    _signal_handler.setLevel(logging.DEBUG)
+    _signal_handler.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    ))
+    for _sig_logger in (
+        "strategies.strategy_engine",
+        "scanners",
+        "scanners.breakout_scanner",
+        "scanners.funding_scanner",
+        "core.breakout_receiver",
+        "core.trade_executor",
+    ):
+        logging.getLogger(_sig_logger).addHandler(_signal_handler)
+
     return logging.getLogger("BotEngine")
 
 
@@ -225,6 +243,7 @@ class BotEngine:
         self._clear_stuck_flags_on_startup()
         self._reconcile_positions()
         self._register_scheduled_jobs()
+        self._start_candle_refresh()
 
     def _clear_stuck_flags_on_startup(self):
         try:
@@ -295,30 +314,118 @@ class BotEngine:
             if not stock_trades:
                 return
 
+            # Fetch recent closed orders from Alpaca so we can record real exit prices
+            # instead of ghosting trades that were legitimately closed by bracket SL/TP.
+            try:
+                from datetime import datetime, timezone, timedelta
+                since = (datetime.now(timezone.utc) - timedelta(hours=8)).isoformat()
+                closed_orders = api.list_orders(status="closed", after=since, limit=200)
+                # Build map: symbol -> best fill price from most recent filled sell/buy order
+                _alpaca_fills = {}
+                for o in closed_orders:
+                    if o.status == "filled" and float(o.filled_qty or 0) > 0:
+                        sym = o.symbol
+                        price = float(o.filled_avg_price or 0)
+                        if price > 0:
+                            # Keep the most recent fill per symbol
+                            if sym not in _alpaca_fills:
+                                _alpaca_fills[sym] = {"price": price, "side": o.side}
+            except Exception as e:
+                self.logger.debug(f"Reconciliation: could not fetch closed orders: {e}")
+                _alpaca_fills = {}
+
             ghost_count = 0
             for trade in stock_trades:
                 symbol = trade["symbol"]
                 if symbol not in alpaca_symbols:
-                    self.logger.warning(
-                        f"Reconciliation: {symbol} in DB but not in Alpaca — "
-                        f"marking as ghost (trade_id={trade['trade_id']})"
-                    )
+                    entry   = float(trade.get("entry_price") or 0)
+                    qty     = float(trade.get("quantity") or 0)
+                    pos_val = float(trade.get("position_value") or 0)
+                    direction = trade.get("direction", "long")
+
+                    # Check if Alpaca has a real fill for this symbol
+                    fill = _alpaca_fills.get(symbol)
+                    if fill and fill["price"] > 0:
+                        exit_price = fill["price"]
+                        if direction == "long":
+                            pnl     = (exit_price - entry) * qty
+                            pnl_pct = (exit_price / entry - 1) * 100 if entry else 0
+                        else:
+                            pnl     = (entry - exit_price) * qty
+                            pnl_pct = (1 - exit_price / entry) * 100 if entry else 0
+                        exit_reason = "bracket_fill"
+                        self.logger.info(
+                            f"Reconciliation: {symbol} closed by Alpaca bracket "
+                            f"@ ${exit_price:.4f} | P&L ${pnl:+.2f} ({pnl_pct:+.2f}%) "
+                            f"(trade_id={trade['trade_id']})"
+                        )
+                    else:
+                        exit_price  = entry
+                        pnl         = 0.0
+                        pnl_pct     = 0.0
+                        exit_reason = "reconciled_ghost"
+                        self.logger.warning(
+                            f"Reconciliation: {symbol} in DB but not in Alpaca — "
+                            f"marking as ghost (trade_id={trade['trade_id']})"
+                        )
                     try:
                         self.db.close_trade(
                             trade_id    = trade["trade_id"],
-                            exit_price  = trade["entry_price"],
-                            exit_reason = "reconciled_ghost",
-                            pnl         = 0.0,
-                            pnl_pct     = 0.0
+                            exit_price  = exit_price,
+                            exit_reason = exit_reason,
+                            pnl         = round(pnl, 4),
+                            pnl_pct     = round(pnl_pct, 4)
                         )
                         ghost_count += 1
                     except Exception as e:
-                        self.logger.error(f"Reconciliation: failed to close ghost {symbol}: {e}")
+                        self.logger.error(f"Reconciliation: failed to close {symbol}: {e}")
 
             if ghost_count > 0:
                 self.logger.info(f"Reconciliation: {ghost_count} ghost position(s) cleaned.")
             else:
                 self.logger.info("Reconciliation: all DB stock positions confirmed in Alpaca.")
+
+            # ── IBKR reconcile pass (Opus 2026-05-29) ─────────────────────
+            # IBKR is the preferred stock broker; its DB trades were excluded
+            # from the Alpaca check above. Reconcile them against live IBKR
+            # positions so server-side bracket fills don't leave DB ghosts.
+            try:
+                from core.trade_executor import executor as _exec
+                ibkr = getattr(_exec, "_ibkr", None)
+                if ibkr is not None and ibkr.is_available():
+                    ibkr_symbols = {p.contract.symbol for p in ibkr._ib.positions()}
+                    ibkr_trades  = [
+                        t for t in open_trades
+                        if t.get("asset_class") == "stock"
+                        and t.get("broker") == "ibkr"
+                    ]
+                    ibkr_ghosts = 0
+                    for trade in ibkr_trades:
+                        if trade["symbol"] not in ibkr_symbols:
+                            self.logger.warning(
+                                f"Reconciliation: {trade['symbol']} in DB but not "
+                                f"in IBKR — marking ghost (trade_id={trade['trade_id']})"
+                            )
+                            try:
+                                self.db.close_trade(
+                                    trade_id    = trade["trade_id"],
+                                    exit_price  = trade["entry_price"],
+                                    exit_reason = "reconciled_ghost",
+                                    pnl         = 0.0,
+                                    pnl_pct     = 0.0,
+                                )
+                                ibkr_ghosts += 1
+                            except Exception as e:
+                                self.logger.error(
+                                    f"Reconciliation: failed to close IBKR ghost "
+                                    f"{trade['symbol']}: {e}"
+                                )
+                    if ibkr_ghosts:
+                        self.logger.info(
+                            f"Reconciliation: {ibkr_ghosts} IBKR ghost(s) cleaned."
+                        )
+            except Exception as e:
+                self.logger.warning(f"IBKR reconciliation error: {e}")
         except Exception as e:
             self.logger.error(f"Reconciliation error: {e}", exc_info=True)
 
@@ -327,7 +434,7 @@ class BotEngine:
 
         schedule.every(config.CRYPTO_SCAN_INTERVAL_SEC).seconds.do(self._run_crypto_scan)
         schedule.every(config.STOCK_SCAN_INTERVAL_SEC).seconds.do(self._run_stock_scan)
-        schedule.every(30).seconds.do(self.position_monitor.check_positions)
+        schedule.every(30).seconds.do(self._run_position_monitor)
         schedule.every(config.CAPITAL_SYNC_MIN).minutes.do(self._sync_capital)
         schedule.every(1).minutes.do(self._flush_alert_digest)
 
@@ -357,6 +464,21 @@ class BotEngine:
         self.logger.info("  - Midnight reset:   00:01 PT daily (session counters)")
         self.logger.info("  - Weekly trade log: Sunday 00:00 PT (covers prev Sun-Sat)")
 
+    def _start_candle_refresh(self):
+        try:
+            from core.candle_manager import candle_manager
+            crypto_syms = list(getattr(config, "CRYPTO_WATCHLIST", []))
+            stock_syms  = list(getattr(config, "STOCK_WATCHLIST",  []))
+            candle_manager.start_refresh_loop(
+                crypto_symbols = crypto_syms,
+                stock_symbols  = stock_syms,
+                crypto_tfs     = ["5m", "15m", "1h"],
+                stock_tfs      = ["5Min", "15Min", "1Hour"],
+                interval_sec   = 300,   # 5 minutes — matches crypto scan interval
+            )
+        except Exception as e:
+            self.logger.warning(f"CandleManager refresh loop failed to start: {e}")
+
     def _midnight_reset(self):
         try:
             self.db.reset_session_state()
@@ -370,6 +492,13 @@ class BotEngine:
             self.scanner_engine.reset_daily_cooldowns()
         except Exception as e:
             self.logger.error(f"[MIDNIGHT RESET] Scanner cooldown reset error: {e}")
+
+    def _run_position_monitor(self):
+        """Run check_positions in a background thread so a slow price fetch
+        can't block the main scheduler loop."""
+        import threading
+        threading.Thread(target=self.position_monitor.check_positions,
+                         daemon=True, name="position-monitor").start()
 
     def _run_stock_scan(self):
         import threading
@@ -390,9 +519,7 @@ class BotEngine:
 
     def _do_crypto_scan(self):
         try:
-            self.logger.info("[SCAN] Crypto scan starting...")
             self.market_scanner.scan_crypto()
-            self.logger.info("[SCAN] Crypto scan complete.")
         except Exception as e:
             self.logger.error(f"Crypto scan error: {e}", exc_info=True)
 
@@ -561,10 +688,22 @@ class BotEngine:
 
     def run(self):
         self.logger.info("Bot is running. Press Ctrl+C to stop.")
-        self._sync_capital()
+        import threading as _threading
+        _t = _threading.Thread(target=self._sync_capital, daemon=True, name="startup-capital-sync")
+        _t.start()
         try:
             while True:
-                schedule.run_pending()
+                try:
+                    schedule.run_pending()
+                except Exception as _sched_err:
+                    # A scheduled job threw an unhandled exception.
+                    # Log it as CRITICAL (so the log scan catches it) then
+                    # continue — do NOT let it kill the main loop.
+                    self.logger.critical(
+                        f"[SCHEDULER CRASH CAUGHT] Unhandled exception in scheduled "
+                        f"job — bot continuing: {_sched_err}",
+                        exc_info=True
+                    )
                 time.sleep(1)
         except KeyboardInterrupt:
             self.logger.info("Shutdown requested. Stopping bot.")
@@ -572,10 +711,13 @@ class BotEngine:
 
 if __name__ == "__main__":
     args   = parse_args()
-    config.VERBOSE_MODE = args.verbose
-    logger = setup_logging(args.verbose)
+    # CLI flag takes precedence; fall back to config.py setting so the dashboard
+    # Restart button picks up VERBOSE_MODE = True without needing --verbose flag.
+    verbose = args.verbose or getattr(config, "VERBOSE_MODE", False)
+    config.VERBOSE_MODE = verbose
+    logger = setup_logging(verbose)
 
-    if args.verbose:
+    if verbose:
         print("\n" + "=" * 60)
         print("  VERBOSE MODE ENABLED")
         print("=" * 60 + "\n")

@@ -268,6 +268,8 @@ def scan_stocks(top_n: int = 10, tickers: Optional[list[str]] = None) -> pd.Data
             vol_ok    = vol_surge >= STOCK_VOL_SURGE_MIN
             price_up  = last_close > prev_close
 
+            if last_close < 10.0:   # skip low-price stocks — data gaps + wide spreads
+                continue
             if not (near_52w and trend_ok and vol_ok and price_up):
                 continue
 
