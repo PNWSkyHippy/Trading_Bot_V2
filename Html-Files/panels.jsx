@@ -2396,7 +2396,8 @@ const IND_PARAM_DEFS = {
     { key: 'fast', label: 'Fast', min: 2, max: 80, fallback: 12 },
     { key: 'slow', label: 'Slow', min: 2, max: 120, fallback: 26 },
     { key: 'signal', label: 'Signal', min: 1, max: 60, fallback: 9 },
-    { key: 'signalColor', label: 'Sig', type: 'color', fallback: '#f59e0b' },
+    { key: 'color',       label: 'MACD', type: 'color', fallback: '#38bdf8' },
+    { key: 'signalColor', label: 'Sig',  type: 'color', fallback: '#f59e0b' },
     { key: 'histUpColor', label: 'Hist+', type: 'color', fallback: '#26a69a66' },
     { key: 'histDownColor', label: 'Hist-', type: 'color', fallback: '#ef535066' },
   ],
@@ -2938,7 +2939,8 @@ function ChartPanel({ defaultSymbol }) {
     // series never crush each other — even on the main panel alongside candlesticks.
     // The candlestick series itself is hardcoded to 'right' and never passes through here.
     const scaleForPlace = (_place, scaleId) => scaleId || 'right';
-    const addLine = (data, color, place, width = 1, scaleId) => {
+    // showLabel=true → current value appears as a coloured label on the right price-scale dial
+    const addLine = (data, color, place, width = 1, scaleId, showLabel = false) => {
       if (!data.length) return;
       const targetChart = chartForPlace(place);
       if (!targetChart) return;
@@ -2946,7 +2948,7 @@ function ChartPanel({ defaultSymbol }) {
       const s = targetChart.addLineSeries({
         color, lineWidth: width, priceScaleId,
         priceFormat,
-        priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+        priceLineVisible: false, lastValueVisible: showLabel, crosshairMarkerVisible: false,
       });
       s.setData(data);
       indicatorSeriesRef.current.push({ chart: targetChart, series: s });
@@ -2958,6 +2960,7 @@ function ChartPanel({ defaultSymbol }) {
       const s = targetChart.addHistogramSeries({
         priceScaleId: scaleForPlace(place, scaleId),
         priceFormat: { type: 'price', precision: 4, minMove: 0.0001 },
+        lastValueVisible: false,   // suppress Hist value from the dial — MACD/Signal labels are enough
       });
       s.setData(data);
       indicatorSeriesRef.current.push({ chart: targetChart, series: s });
@@ -2999,18 +3002,18 @@ function ChartPanel({ defaultSymbol }) {
       // a fully interactive (draggable, scrollable) axis without needing a workaround.
       const OVERLAY_TYPES = new Set(['EMA', 'SMA', 'VWAP', 'BB', 'SuperTrend']);
       const sid = (place === 'main' && !OVERLAY_TYPES.has(ind.type)) ? ind.id : 'right';
-      if (ind.type === 'EMA') addLine(calcEMA(cleanBars, period), color, place, 1, sid);
-      if (ind.type === 'SMA') addLine(calcSMA(cleanBars, period), color, place, 1, sid);
+      if (ind.type === 'EMA') addLine(calcEMA(cleanBars, period), color, place, 1, sid, true);
+      if (ind.type === 'SMA') addLine(calcSMA(cleanBars, period), color, place, 1, sid, true);
       if (ind.type === 'RSI') {
-        addLine(calcRSI(cleanBars, period), color, place, 1, sid);
-        addLine(cleanBars.map(b => ({ time: b.time, value: Number(ind.overbought) || 70 })), '#ef535055', place, 1, sid);
-        addLine(cleanBars.map(b => ({ time: b.time, value: Number(ind.oversold) || 30 })), '#26a69a55', place, 1, sid);
+        addLine(calcRSI(cleanBars, period), color, place, 1, sid, true);
+        addLine(cleanBars.map(b => ({ time: b.time, value: Number(ind.overbought) || 70 })), '#ef535055', place, 1, sid, false);
+        addLine(cleanBars.map(b => ({ time: b.time, value: Number(ind.oversold) || 30 })), '#26a69a55', place, 1, sid, false);
       }
       if (ind.type === 'BB') {
         const bb = calcBB(cleanBars, period, Number(ind.mult) || 2);
-        addLine(bb.upper, color, place, 1, sid);
-        addLine(bb.mid, ind.midColor || '#8b949e88', place, 1, sid);
-        addLine(bb.lower, color, place, 1, sid);
+        addLine(bb.upper, color, place, 1, sid, true);
+        addLine(bb.mid, ind.midColor || '#8b949e88', place, 1, sid, false);  // mid is reference only
+        addLine(bb.lower, color, place, 1, sid, true);
       }
       if (ind.type === 'MACD') {
         const m = calcMACD(
@@ -3021,19 +3024,19 @@ function ChartPanel({ defaultSymbol }) {
           ind.histUpColor || '#26a69a66',
           ind.histDownColor || '#ef535066'
         );
-        addHist(m.hist, place, sid);
-        addLine(m.macd, color, place, 1, sid);
-        addLine(m.signal, ind.signalColor || '#f59e0b', place, 1, sid);
+        addHist(m.hist, place, sid);                                                    // Hist — no dial label
+        addLine(m.macd,   color,                        place, 1, sid, true);           // MACD line — show on dial
+        addLine(m.signal, ind.signalColor || '#f59e0b', place, 1, sid, true);           // Signal — show on dial
       }
       if (ind.type === 'ADX') {
-        addLine(calcADX(cleanBars, period), color, place, 1, sid);
-        addLine(cleanBars.map(b => ({ time: b.time, value: Number(ind.threshold) || 20 })), ind.thresholdColor || '#8b949e66', place, 1, sid);
+        addLine(calcADX(cleanBars, period), color, place, 1, sid, true);
+        addLine(cleanBars.map(b => ({ time: b.time, value: Number(ind.threshold) || 20 })), ind.thresholdColor || '#8b949e66', place, 1, sid, false);
       }
       if (ind.type === 'ATR') {
-        addLine(calcATR(cleanBars, period), color, place, 1, sid);
+        addLine(calcATR(cleanBars, period), color, place, 1, sid, true);
       }
       if (ind.type === 'VWAP') {
-        addLine(calcVWAP(cleanBars, ind.anchor || 'session', ind.source || 'hlc3'), color, place, 2, sid);
+        addLine(calcVWAP(cleanBars, ind.anchor || 'session', ind.source || 'hlc3'), color, place, 2, sid, true);
       }
       if (ind.type === 'SuperTrend') {
         const upColor   = color || '#22c55e';
