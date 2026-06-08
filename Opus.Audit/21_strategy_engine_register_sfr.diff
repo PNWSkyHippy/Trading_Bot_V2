@@ -1,0 +1,30 @@
+# Target: strategies/strategy_engine.py
+# Opus option-B deliverable 2026-05-29 — register the new SFR strategy.
+#
+# Two inserts: (1) the import, alongside the other strategy imports; (2) the
+# instantiation, appended to the self.strategies list as Strategy 32.
+# It loads DISABLED (WATCHLIST) — _load_strategy_states will seed its DB row.
+#
+# NOTE on whitespace: the list comments are column-aligned with runs of spaces,
+# and the two context blank lines below carry a single leading space (diff
+# convention). If `git apply` still rejects on whitespace, this is a trivial
+# 2-line manual insert — add the import next to the other `from strategies.*
+# import` lines and add `SFRStrategy(),` to the end of the self.strategies list.
+--- a/strategies/strategy_engine.py
++++ b/strategies/strategy_engine.py
+@@ -50,6 +50,7 @@
+ from strategies.rare_strategy import RAREStrategy
+ from strategies.fels_strategy import FELSStrategy
+ from strategies.map_strategy import MAPStrategy
++from strategies.sfr_structural_fakeout import SFRStrategy
+ from data.database import db
+
+ logger = logging.getLogger(__name__)
+@@ -111,6 +112,7 @@
+             RAREStrategy(),                          # Strategy 29 — Regime Autocorrelation Reversal Entry (WATCHLIST)
+             FELSStrategy(),                          # Strategy 30 — Failed Extension Liquidity Sweep (WATCHLIST)
+             MAPStrategy(),                           # Strategy 31 — MAP Multi-Period Alignment (CANDIDATE) BTC 4h PF1.54 WR44%
++            SFRStrategy(),                           # Strategy 32 — Structural Fakeout Reversal (WATCHLIST) — fade ORB/prior-day false breaks
+         ]
+
+         self._load_strategy_states()
