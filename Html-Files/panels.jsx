@@ -2718,6 +2718,24 @@ function ChartPanel({ defaultSymbol }) {
     return () => window.removeEventListener('keydown', onKey);
   }, []);
 
+  // ── Cross-panel events from BrokerPanel ──────────────────────────────────
+  useE(() => {
+    const onSym    = e => { if (e.detail?.symbol) setSymbol(e.detail.symbol); };
+    const onBroker = e => { if (e.detail?.broker) setBroker(e.detail.broker); };
+    const onPos    = e => { if (e.detail?.positions) setOpenPositions(e.detail.positions); };
+    const onTrades = e => { if (e.detail?.markers) setMarks(e.detail.markers); };
+    window.addEventListener('tbot:chart-symbol',    onSym);
+    window.addEventListener('tbot:chart-broker',    onBroker);
+    window.addEventListener('tbot:chart-positions', onPos);
+    window.addEventListener('tbot:chart-trades',    onTrades);
+    return () => {
+      window.removeEventListener('tbot:chart-symbol',    onSym);
+      window.removeEventListener('tbot:chart-broker',    onBroker);
+      window.removeEventListener('tbot:chart-positions', onPos);
+      window.removeEventListener('tbot:chart-trades',    onTrades);
+    };
+  }, []);
+
   // ── Tradovate feed lifecycle ──────────────────────────────────────────────
   // Stop the feed immediately when switching away from a futures symbol,
   // instead of waiting for the 5-minute server-side inactivity timer.
