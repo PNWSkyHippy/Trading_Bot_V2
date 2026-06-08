@@ -193,13 +193,13 @@ class ORBBreakout(BaseStrategy):
         self.stop_loss_pct   = 1.5   # fallback only — overridden per-signal by structural ORB stop
         self.take_profit_pct = 3.2   # fallback only — overridden per-signal by structural ORB risk × R_MULT
 
-        self.stock_candle_timeframe  = "5Min"
+        self.stock_candle_timeframe  = "15Min"  # matrix 2026-05-31: best edge on 15m (PF 2.65, WR 65%)
         self.crypto_candle_timeframe = "15m"
         self.candle_limit            = 220
 
         self.stock_enabled  = True
-        self.crypto_enabled = True
-        self.enabled        = True    # ENABLED 2026-05-16 — paper trading to gather stats
+        self.crypto_enabled = False   # matrix 2026-05-31: no edge on crypto
+        self.enabled        = True
         self.reviewer_exempt = True
 
         # ML model is dominated by grid_bot (1507 trades); orb_breakout has
