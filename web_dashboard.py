@@ -3460,6 +3460,44 @@ class Handler(BaseHTTPRequestHandler):
             label  = (params.get("q") or [""])[0]
             return self._json(200, db_quick(label))
 
+        if path == "/api/db/strategy_pnl":
+            # Strategy P&L summary — grouped by strategy_name, optional date range.
+            # Query params: from=YYYY-MM-DD, to=YYYY-MM-DD (both optional)
+            try:
+                _qs   = parse_qs(parsed.query)
+                _from = (_qs.get("from") or [""])[0].strip()
+                _to   = (_qs.get("to")   or [""])[0].strip()
+                _where = "WHERE status='closed'"
+                _params = []
+                if _from:
+                    _where += " AND DATE(exit_time) >= ?"
+                    _params.append(_from)
+                if _to:
+                    _where += " AND DATE(exit_time) <= ?"
+                    _params.append(_to)
+                _sql = f"""
+                    SELECT strategy_name,
+                           COUNT(*) AS trades,
+                           SUM(CASE WHEN pnl>0 THEN 1 ELSE 0 END) AS wins,
+                           SUM(CASE WHEN pnl<=0 THEN 1 ELSE 0 END) AS losses,
+                           ROUND(100.0*SUM(CASE WHEN pnl>0 THEN 1 ELSE 0 END)/COUNT(*),1) AS win_rate_pct,
+                           ROUND(SUM(pnl),2) AS total_pnl,
+                           ROUND(SUM(CASE WHEN pnl>0 THEN pnl ELSE 0 END),2) AS gross_wins,
+                           ROUND(ABS(SUM(CASE WHEN pnl<=0 THEN pnl ELSE 0 END)),2) AS gross_losses,
+                           ROUND(SUM(CASE WHEN pnl>0 THEN pnl ELSE 0 END)
+                                 /NULLIF(ABS(SUM(CASE WHEN pnl<=0 THEN pnl ELSE 0 END)),0),3) AS profit_factor
+                    FROM trades {_where}
+                    GROUP BY strategy_name ORDER BY total_pnl DESC
+                """
+                import sqlite3 as _sq3
+                with _sq3.connect(DB_PATH) as _c:
+                    _cur  = _c.execute(_sql, _params)
+                    _cols = [d[0] for d in _cur.description]
+                    _rows = [list(r) for r in _cur.fetchall()]
+                return self._json(200, {"cols": _cols, "rows": _rows})
+            except Exception as _e:
+                return self._json(500, {"error": str(_e)})
+
         if path == "/api/manual_trade/config":
             return self._json(200, get_manual_trade_config())
 
