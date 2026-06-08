@@ -3114,6 +3114,17 @@ def db_search(data: dict):
             where.append(f"DATE({tcol})=DATE('now','localtime','-1 day')")
         elif tf == "this week":
             where.append(f"{tcol}>=datetime('now','localtime','-7 days')")
+        elif tf == "custom":
+            # Custom date range from the datetime-local pickers (YYYY-MM-DDTHH:MM format).
+            # DATETIME(?) handles the T separator correctly; DATE(?) strips time if needed.
+            from_dt = (data.get("from_dt") or "").strip()
+            to_dt   = (data.get("to_dt")   or "").strip()
+            if from_dt:
+                where.append(f"DATETIME({tcol}) >= DATETIME(?)")
+                params.append(from_dt)
+            if to_dt:
+                where.append(f"DATETIME({tcol}) <= DATETIME(?)")
+                params.append(to_dt)
 
     clause = ("WHERE " + " AND ".join(where)) if where else ""
     sql    = f"SELECT rowid, * FROM [{table}] {clause} ORDER BY rowid DESC LIMIT 2000"
@@ -3470,10 +3481,10 @@ class Handler(BaseHTTPRequestHandler):
                 _where = "WHERE status='closed'"
                 _params = []
                 if _from:
-                    _where += " AND DATE(exit_time) >= ?"
+                    _where += " AND DATE(exit_time) >= DATE(?)"
                     _params.append(_from)
                 if _to:
-                    _where += " AND DATE(exit_time) <= ?"
+                    _where += " AND DATE(exit_time) <= DATE(?)"
                     _params.append(_to)
                 _sql = f"""
                     SELECT strategy_name,
