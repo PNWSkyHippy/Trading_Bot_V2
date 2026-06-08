@@ -2580,7 +2580,7 @@ function ChartPanel({ defaultSymbol }) {
     const baseChartOptions = (el, showTime = true) => ({
       width:  el.offsetWidth  || 900,
       height: el.offsetHeight || (showTime ? 500 : 120),
-      layout: { background: { type: 'solid', color: '#0d1117' }, textColor: '#8b949e', fontSize: 11 },
+      layout: { background: { type: 'solid', color: '#0d1117' }, textColor: '#8b949e', fontSize: 11, attributionLogo: false },
       grid:   { vertLines: { color: '#1a2035' }, horzLines: { color: '#1a2035' } },
       crosshair: { mode: LC.CrosshairMode.Normal },
       handleScale: { axisPressedMouseMove: { time: true, price: true }, mouseWheel: true, pinch: true },
@@ -3489,7 +3489,7 @@ function ChartPanel({ defaultSymbol }) {
           const h = c.offsetHeight || lowerHeights[i] || 120;
           const ch = LC.createChart(c, {
             width: w, height: h,
-            layout: { background: { type: 'solid', color: '#0d1117' }, textColor: '#8b949e', fontSize: 11 },
+            layout: { background: { type: 'solid', color: '#0d1117' }, textColor: '#8b949e', fontSize: 11, attributionLogo: false },
             grid:   { vertLines: { color: '#1a2035' }, horzLines: { color: '#1a2035' } },
             crosshair: { mode: LC.CrosshairMode.Normal },
             handleScale: { axisPressedMouseMove: { time: true, price: true }, mouseWheel: true, pinch: true },
@@ -3968,6 +3968,34 @@ function ChartPanel({ defaultSymbol }) {
       {/* ── Chart panes ── */}
       <div style={{ flex:1, minHeight:220, position:'relative' }}>
         <div ref={containerRef} style={{ position:'absolute', inset:0 }} />
+        {/* Main pane indicator legend — top-left overlay */}
+        {(() => {
+          const mainInds = indicators.filter(ind => ind.visible && effectiveIndicatorPlace(ind) === 'main');
+          if (!mainInds.length) return null;
+          return (
+            <div style={{ position:'absolute', top:6, left:6, zIndex:6, display:'flex', flexDirection:'column', gap:3, pointerEvents:'none' }}>
+              {mainInds.map(ind => {
+                const label = ind.type === 'MACD'
+                  ? `MACD ${ind.fast||12}/${ind.slow||26}/${ind.signal||9}`
+                  : ind.type === 'BB'
+                    ? `BB ${ind.period||20}`
+                    : ind.type === 'SuperTrend'
+                      ? `ST ${ind.period||10} ${ind.mult||3}`
+                      : ind.period
+                        ? `${ind.type} ${ind.period}`
+                        : ind.type;
+                return (
+                  <span key={ind.id} style={{
+                    fontSize:10, fontFamily:'var(--mono)', fontWeight:700, letterSpacing:.3,
+                    color: ind.color || '#8b949e',
+                    background: '#0d111799',
+                    padding: '1px 5px', borderRadius:3,
+                  }}>{label}</span>
+                );
+              })}
+            </div>
+          );
+        })()}
         <canvas
           ref={drawingCanvasRef}
           onPointerDown={onDrawPointerDown}
@@ -4018,16 +4046,47 @@ function ChartPanel({ defaultSymbol }) {
             </div>
           )}
           {/* Always render container so ref is available for chart init on mount */}
-          <div
-            ref={el => { lowerContainerRefs.current[i] = el; }}
-            style={{
-              height: lowerVisible[i] ? lowerHeights[i] : 0,
-              minHeight: 0,
-              overflow: 'hidden',
-              flexShrink: 0,
-              borderTop: lowerVisible[i] ? '1px solid #1a2035' : 'none',
-            }}
-          />
+          <div style={{
+            position: 'relative',
+            height: lowerVisible[i] ? lowerHeights[i] : 0,
+            minHeight: 0,
+            overflow: 'hidden',
+            flexShrink: 0,
+            borderTop: lowerVisible[i] ? '1px solid #1a2035' : 'none',
+          }}>
+            <div
+              ref={el => { lowerContainerRefs.current[i] = el; }}
+              style={{ position:'absolute', inset:0 }}
+            />
+            {/* Indicator legend — top-left overlay for this lower pane */}
+            {lowerVisible[i] && (() => {
+              const paneInds = indicators.filter(ind => ind.visible && effectiveIndicatorPlace(ind) === pid);
+              if (!paneInds.length) return null;
+              return (
+                <div style={{ position:'absolute', top:4, left:4, zIndex:10, display:'flex', flexDirection:'column', gap:3, pointerEvents:'none' }}>
+                  {paneInds.map(ind => {
+                    const label = ind.type === 'MACD'
+                      ? `MACD ${ind.fast||12}/${ind.slow||26}/${ind.signal||9}`
+                      : ind.type === 'BB'
+                        ? `BB ${ind.period||20}`
+                        : ind.type === 'SuperTrend'
+                          ? `ST ${ind.period||10} ${ind.mult||3}`
+                          : ind.period
+                            ? `${ind.type} ${ind.period}`
+                            : ind.type;
+                    return (
+                      <span key={ind.id} style={{
+                        fontSize:10, fontFamily:'var(--mono)', fontWeight:700, letterSpacing:.3,
+                        color: ind.color || '#8b949e',
+                        background: '#0d111799',
+                        padding: '1px 5px', borderRadius:3,
+                      }}>{label}</span>
+                    );
+                  })}
+                </div>
+              );
+            })()}
+          </div>
         </React.Fragment>
       ))}
     </div>
