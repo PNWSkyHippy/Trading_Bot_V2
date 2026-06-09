@@ -238,9 +238,20 @@ class RiskManager:
                     reason=f"{config.MAX_CONSECUTIVE_LOSSES} consecutive losses. Trading halted.")
             _open_bmr = [t for t in db.get_open_trades()
                          if t.get("strategy_name") == "bmr_357"]
-            if len(_open_bmr) >= config.MAX_CONCURRENT_BMR:
+            # Dynamic slot cap: check BTC momentum to unlock extra slots
+            _bmr_cap = config.MAX_CONCURRENT_BMR
+            try:
+                from intelligence.candle_manager import candle_manager as _cm
+                _btc_df = _cm.get("BTC/USD", "15m", limit=3)
+                if _btc_df is not None and len(_btc_df) >= 2:
+                    _btc_chg = abs((_btc_df["close"].iloc[-1] - _btc_df["close"].iloc[-2]) / _btc_df["close"].iloc[-2] * 100)
+                    if _btc_chg >= config.BMR_BTC_MOMENTUM_THRESHOLD:
+                        _bmr_cap = config.MAX_CONCURRENT_BMR_MOMENTUM
+            except Exception:
+                pass
+            if len(_open_bmr) >= _bmr_cap:
                 return TradeApproval(approved=False,
-                    reason=f"BMR-357 slot cap {config.MAX_CONCURRENT_BMR} reached")
+                    reason=f"BMR-357 slot cap {_bmr_cap} reached (BTC momentum {'active' if _bmr_cap > config.MAX_CONCURRENT_BMR else 'normal'})")
         else:
             allowed, reason = self.is_trading_allowed()
             if not allowed:

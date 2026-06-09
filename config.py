@@ -209,7 +209,9 @@ MOMENTUM_RIDER_MIN_LOCK_PCT      = 1.00  # RAISED: Opus audit — 0.25% was belo
 MAX_DAILY_LOSS_PCT      = 15.0
 MAX_CONSECUTIVE_LOSSES  = 10
 MAX_OPEN_POSITIONS      = 30
-MAX_CONCURRENT_BMR      = 100   # BMR-357 cluster strategy — up to 100 simultaneous longs
+MAX_CONCURRENT_BMR          = 10   # BMR-357 normal market cap
+MAX_CONCURRENT_BMR_MOMENTUM = 15   # BMR-357 cap when BTC is moving ≥1% (bull/bear run)
+BMR_BTC_MOMENTUM_THRESHOLD  = 1.0  # % BTC move (up or down) to unlock extra slots
 
 # Price filters
 STOCK_MIN_PRICE     = 0.40
