@@ -1,9 +1,10 @@
 {
-  "generated": "2026-05-28T13:35:43.587897",
+  "generated": "2026-06-10T13:37:38.950094",
   "valid_until": "next_market_close",
   "stocks": [
-    "F",
-    "LLY"
+    "CASY",
+    "KIM",
+    "KO"
   ],
   "crypto": []
 }

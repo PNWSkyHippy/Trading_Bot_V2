@@ -113,7 +113,6 @@ BONK/USD
 #POPCAT/USD -- no yfinance data
 #MEW/USD    -- no yfinance data
 TRUMP/USD
-MELANIA/USD
 
 # ── Meme (high volatility — high reward/risk) ────────────────────────────────
 #RAVE/USD  -- no yfinance data
@@ -139,8 +138,6 @@ PYTH/USD
 JTO/USD
 BOME/USD
 W/USD
-TNSR/USD
-ETHFI/USD
 REZ/USD
 #BB/USD    -- no yfinance data
 NOT/USD

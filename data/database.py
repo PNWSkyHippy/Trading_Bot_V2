@@ -164,6 +164,19 @@ class Database:
                     tax_year        INTEGER NOT NULL
                 );
 
+                -- Business expense ledger (Schedule C deductions)
+                CREATE TABLE IF NOT EXISTS expenses (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    expense_date    TEXT NOT NULL,
+                    category        TEXT NOT NULL,
+                    amount          REAL NOT NULL,
+                    description     TEXT NOT NULL,
+                    vendor          TEXT,
+                    recurring       INTEGER DEFAULT 0,
+                    tax_year        INTEGER NOT NULL,
+                    recorded_at     TEXT DEFAULT CURRENT_TIMESTAMP
+                );
+
                 -- Withdrawal history
                 CREATE TABLE IF NOT EXISTS withdrawals (
                     id              INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -279,6 +292,7 @@ class Database:
             for sql in [
                 "ALTER TABLE trades    ADD COLUMN fees_paid REAL DEFAULT 0",
                 "ALTER TABLE tax_ledger ADD COLUMN fees_paid REAL NOT NULL DEFAULT 0",
+                "ALTER TABLE daily_summaries ADD COLUMN fees_paid REAL DEFAULT 0",
             ]:
                 try:
                     conn.execute(sql)
@@ -555,8 +569,8 @@ class Database:
                     (trade_date, starting_capital, ending_capital, daily_pnl,
                      daily_pnl_pct, total_trades, winning_trades, losing_trades,
                      win_rate, largest_win, largest_loss, trading_halted,
-                     halt_reason, goal_met)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     halt_reason, goal_met, fees_paid)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 summary["trade_date"], summary["starting_capital"],
                 summary["ending_capital"], summary["daily_pnl"],
@@ -564,7 +578,8 @@ class Database:
                 summary["winning_trades"], summary["losing_trades"],
                 summary["win_rate"], summary["largest_win"],
                 summary["largest_loss"], summary.get("trading_halted", 0),
-                summary.get("halt_reason"), summary.get("goal_met", 0)
+                summary.get("halt_reason"), summary.get("goal_met", 0),
+                summary.get("fees_paid", 0.0)
             ))
 
     def get_daily_summaries(self, days: int = 30) -> List[Dict]:
@@ -655,6 +670,70 @@ class Database:
             """, (_now_local().isoformat(), amount, reason,
                   capital_before, capital_after))
         logger.info(f"Withdrawal recorded: ${amount:.2f}")
+
+    # --- EXPENSES ------------------------------------------------------
+
+    EXPENSE_CATEGORIES = [
+        "SOFTWARE",
+        "DATA_FEEDS",
+        "BROKER_FEES",
+        "TRADE_COMMISSIONS",
+        "EDUCATION",
+        "HARDWARE",
+        "HOSTING",
+        "PUBLICATIONS",
+        "PROFESSIONAL",
+        "OFFICE",
+        "TRADING_INFRASTRUCTURE",
+        "OTHER",
+    ]
+
+    def record_expense(self, expense_date: str, category: str, amount: float,
+                       description: str, vendor: str = None, recurring: bool = False) -> int:
+        from datetime import date as _date
+        tax_year = int(expense_date[:4]) if expense_date else _date.today().year
+        with self._conn() as conn:
+            cur = conn.execute("""
+                INSERT INTO expenses
+                    (expense_date, category, amount, description, vendor, recurring, tax_year)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (expense_date, category, round(amount, 2), description,
+                  vendor, int(recurring), tax_year))
+            expense_id = cur.lastrowid
+        logger.info(f"Expense recorded: {category} ${amount:.2f} — {description}")
+        return expense_id
+
+    def get_expenses(self, days: int = 90, year: int = None) -> List[Dict]:
+        with self._conn() as conn:
+            if year:
+                rows = conn.execute(
+                    "SELECT * FROM expenses WHERE tax_year=? ORDER BY expense_date DESC",
+                    (year,)
+                ).fetchall()
+            else:
+                rows = conn.execute(
+                    "SELECT * FROM expenses ORDER BY expense_date DESC LIMIT ?",
+                    (days * 5,)
+                ).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_expense_summary(self, year: int = None) -> Dict:
+        from datetime import date as _date
+        year = year or _date.today().year
+        with self._conn() as conn:
+            rows = conn.execute("""
+                SELECT category, SUM(amount) as total, COUNT(*) as count
+                FROM expenses WHERE tax_year=?
+                GROUP BY category ORDER BY total DESC
+            """, (year,)).fetchall()
+            total = conn.execute(
+                "SELECT COALESCE(SUM(amount),0) FROM expenses WHERE tax_year=?", (year,)
+            ).fetchone()[0]
+        return {
+            "year": year,
+            "total": round(float(total), 2),
+            "by_category": [dict(r) for r in rows],
+        }
 
     # --- BOT STATE -----------------------------------------------------
 

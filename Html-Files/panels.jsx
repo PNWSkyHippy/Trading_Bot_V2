@@ -767,7 +767,7 @@ function TradeLogPanel() {
   );
 }
 
-// ============ Recent Daily Performance ============
+// ============ Daily X-Out Register ============
 function DailyPerfPanel() {
   const [rows, setRows] = useS([]);
   const [msg, setMsg] = useS('Loading daily performance...');
@@ -819,7 +819,7 @@ function DailyPerfPanel() {
       : new Date(latest.getTime() - (selected.days - 1) * 86400000);
     const filtered = parsed.filter(r => r._date >= cutoff);
     const dir = sort.dir === 'asc' ? 1 : -1;
-    const numeric = ['trades', 'wins', 'losses', 'win_rate', 'pnl', 'pnl_pct', 'capital'];
+    const numeric = ['trades', 'wins', 'losses', 'win_rate', 'pnl', 'fees_paid', 'net_pnl', 'pnl_pct', 'start_capital', 'capital'];
     return filtered.sort((a, b) => {
       const av = sort.key === 'date' ? a._date.getTime() : numeric.includes(sort.key) ? Number(a[sort.key] || 0) : String(a[sort.key] || '').toLowerCase();
       const bv = sort.key === 'date' ? b._date.getTime() : numeric.includes(sort.key) ? Number(b[sort.key] || 0) : String(b[sort.key] || '').toLowerCase();
@@ -833,8 +833,10 @@ function DailyPerfPanel() {
     acc.wins += Number(d.wins || 0);
     acc.losses += Number(d.losses || 0);
     acc.pnl += Number(d.pnl || 0);
+    acc.fees += Number(d.fees_paid || 0);
+    acc.net_pnl += Number(d.net_pnl || 0);
     return acc;
-  }, { trades: 0, wins: 0, losses: 0, pnl: 0 });
+  }, { trades: 0, wins: 0, losses: 0, pnl: 0, fees: 0, net_pnl: 0 });
   const toggleSort = (key) => {
     const current = sortRef.current || sort;
     const next = { key, dir: current.key === key && current.dir === 'asc' ? 'desc' : 'asc' };
@@ -869,7 +871,7 @@ function DailyPerfPanel() {
     <div style={{ padding: 0 }}>
       <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
         <div className="panel-sub" style={{ margin: 0 }}>
-          {loading ? 'Refreshing daily performance...' : `${visibleRows.length} of ${rows.length} sessions`} · Sorted by {sort.key} {sort.dir} · {totals.trades} trades · {totals.wins}W/{totals.losses}L · {fmt$Sign(totals.pnl)}{lastRefresh ? ` · refreshed ${lastRefresh}` : ''}
+          {loading ? 'Refreshing register...' : `${visibleRows.length} of ${rows.length} sessions`} · {totals.trades} trades · {totals.wins}W/{totals.losses}L · Gross {fmt$Sign(totals.pnl)} · Fees −${Math.abs(totals.fees).toFixed(2)} · Net {fmt$Sign(totals.net_pnl)}{lastRefresh ? ` · ${lastRefresh}` : ''}
         </div>
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
           {Object.keys(ranges).map(k => (
@@ -877,15 +879,20 @@ function DailyPerfPanel() {
               {k}
             </button>
           ))}
-          <button className="btn ghost sm" onClick={() => exportCsv(`recent-daily-performance-${range}.csv`, [
+          <button className="btn ghost sm" onClick={() => exportCsv(`xout-register-${range}.csv`, [
             { label: 'Date', value: 'date' },
+            { label: 'Start Cap', value: r => Number(r.start_capital || 0).toFixed(2) },
+            { label: 'Gross P&L', value: r => Number(r.pnl || 0).toFixed(2) },
+            { label: 'Fees Paid', value: r => Number(r.fees_paid || 0).toFixed(2) },
+            { label: 'Net P&L', value: r => Number(r.net_pnl || 0).toFixed(2) },
+            { label: 'End Cap', value: r => Number(r.capital || 0).toFixed(2) },
             { label: 'Trades', value: 'trades' },
             { label: 'Wins', value: 'wins' },
             { label: 'Losses', value: 'losses' },
             { label: 'Win Rate', value: r => Number(r.win_rate || 0).toFixed(1) + '%' },
-            { label: 'P&L $', value: r => Number(r.pnl || 0).toFixed(2) },
             { label: 'P&L %', value: r => Number(r.pnl_pct || 0).toFixed(2) },
-            { label: 'Capital', value: r => Number(r.capital || 0).toFixed(2) },
+            { label: 'Goal Met', value: r => r.goal_met ? 'YES' : 'NO' },
+            { label: 'Halted', value: r => r.trading_halted ? 'YES' : 'NO' },
           ], visibleRows)}><Icon name="download" size={12} />CSV</button>
           <button className="btn ghost sm" onClick={() => loadDaily({ manual: true })}><Icon name="refresh" size={12} />{refreshing ? 'Refreshing...' : 'Refresh'}</button>
         </div>
@@ -894,19 +901,21 @@ function DailyPerfPanel() {
       <TblWrap>
         <table className="tbl">
           <thead><tr>
-            <SortHead k="date">Date</SortHead><SortHead k="trades" num>Trades</SortHead><SortHead k="wins" num>Wins</SortHead><SortHead k="losses" num>Losses</SortHead><SortHead k="win_rate" num>Win Rate</SortHead><SortHead k="pnl" num>P&L $</SortHead><SortHead k="pnl_pct" num>P&L %</SortHead><SortHead k="capital" num>Capital</SortHead>
+            <SortHead k="date">Date</SortHead><SortHead k="start_capital" num>Start Cap</SortHead><SortHead k="pnl" num>Gross P&L</SortHead><SortHead k="fees_paid" num>Fees</SortHead><SortHead k="net_pnl" num>Net P&L</SortHead><SortHead k="capital" num>End Cap</SortHead><SortHead k="trades" num>Trades</SortHead><SortHead k="wins" num>W/L</SortHead><SortHead k="win_rate" num>Win%</SortHead><SortHead k="pnl_pct" num>P&L%</SortHead>
           </tr></thead>
           <tbody>
             {visibleRows.map((d) => (
               <tr key={d.date || `${d.trades}-${d.pnl}-${d.capital}`}>
-                <td><strong>{d.date || '—'}</strong></td>
-                <td className="num">{d.trades}</td>
-                <td className="num pos">{d.wins}</td>
-                <td className="num neg">{d.losses}</td>
-                <td className="num">{Number(d.win_rate || 0).toFixed(1)}%</td>
+                <td><strong>{d.date || '—'}</strong>{d.goal_met ? ' ✅' : ''}{d.trading_halted ? ' ⚠️' : ''}</td>
+                <td className="num">{fmt$(d.start_capital)}</td>
                 <td className={cls('num', d.pnl > 0 && 'pos', d.pnl < 0 && 'neg')}>{fmt$Sign(Number(d.pnl || 0))}</td>
-                <td className={cls('num', d.pnl_pct > 0 && 'pos', d.pnl_pct < 0 && 'neg')}>{fmtP(Number(d.pnl_pct || 0))}</td>
+                <td className="num" style={{ color: 'var(--text-2)' }}>{d.fees_paid > 0 ? `−$${Number(d.fees_paid || 0).toFixed(2)}` : '—'}</td>
+                <td className={cls('num', d.net_pnl > 0 && 'pos', d.net_pnl < 0 && 'neg')}><strong>{fmt$Sign(Number(d.net_pnl || 0))}</strong></td>
                 <td className="num">{fmt$(d.capital)}</td>
+                <td className="num">{d.trades}</td>
+                <td className="num">{d.wins}W/{d.losses}L</td>
+                <td className="num">{Number(d.win_rate || 0).toFixed(1)}%</td>
+                <td className={cls('num', d.pnl_pct > 0 && 'pos', d.pnl_pct < 0 && 'neg')}>{fmtP(Number(d.pnl_pct || 0))}</td>
               </tr>
             ))}
           </tbody>

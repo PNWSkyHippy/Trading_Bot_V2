@@ -285,8 +285,10 @@ class FundingScanner(BaseEventScanner):
         """
         if bybit_sym.endswith("USDT"):
             base = bybit_sym[:-4]           # strip USDT
-            # Kraken renames a handful of bases
-            _renames = {"BTC": "XBT", "DOGE": "XDG", "MATIC": "MATIC"}
+            # Kraken renames a handful of bases for their API, but we keep BTC/USD
+            # (not XBT/USD) because XBT/USD is blacklisted in the breakout receiver
+            # due to a 0.0002 phantom tick in the position monitor.
+            _renames = {"DOGE": "XDG", "MATIC": "MATIC"}   # BTC stays as BTC
             base = _renames.get(base, base)
             return f"{base}/USD"
         if bybit_sym.endswith("USD"):

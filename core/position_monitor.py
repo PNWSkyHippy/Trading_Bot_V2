@@ -219,8 +219,11 @@ class PositionMonitor:
         # Resets on restart (acceptable — worst case SL trails from entry on restart).
         # Tracks the highest price seen for longs (lowest for shorts) so the ratchet
         # trails from the BEST price ever seen, not just the current price.
-        self._peak_prices:    dict = {}   # {trade_id: peak_price}
-        self._initial_sl_dist: dict = {}  # {trade_id: original $ distance from entry to SL}
+        self._peak_prices: dict = {}   # {trade_id: peak_price}
+        # Duplicate-close guard: prevents monitor thread and dashboard HTTP thread
+        # from both submitting a close order for the same trade simultaneously.
+        self._closing_lock         = threading.Lock()
+        self._closing_in_progress: set = set()
 
     def set_breakout_win_callback(
         self, cb: Callable[[str, bool, float, str], None]
@@ -366,6 +369,25 @@ class PositionMonitor:
         except Exception:
             pass  # never block a close over a clamp error
 
+        # ── Duplicate-close guard ─────────────────────────────────────────
+        # Monitor thread and dashboard HTTP thread can both trigger closes
+        # simultaneously. The set check + add is atomic under the lock, so
+        # only one caller proceeds to the broker; the other returns False.
+        with self._closing_lock:
+            if trade_id in self._closing_in_progress:
+                logger.debug(f"[CLOSE GUARD] {symbol}: close already in progress, skipping")
+                return False
+            self._closing_in_progress.add(trade_id)
+
+        try:
+            return self._attempt_close_inner(trade, trade_id, symbol, broker,
+                                             current_price, reason)
+        finally:
+            with self._closing_lock:
+                self._closing_in_progress.discard(trade_id)
+
+    def _attempt_close_inner(self, trade: Dict, trade_id: str, symbol: str,
+                              broker: str, current_price: float, reason: str) -> bool:
         # ── Cooldown: don't hammer broker on repeated failures ─────────────
         last_attempt = self._get_last_attempt_time(trade_id)
         if last_attempt > 0:
@@ -1365,32 +1387,6 @@ class PositionMonitor:
             f"P&L: {pnl_pct:+.2f}% | Age: {age_hrs:.1f}hr"
         )
 
-        # ── 1b. RATCHET SAFETY NET (runs every cycle, before all exit logic) ─
-        # Belt-and-suspenders: the main ratchet block runs at step 11b, but if
-        # anything between here and there throws or returns early, this early
-        # pass guarantees SL is already at breakeven before the SL-hit check
-        # at step 3. This is the reason the user saw "SL still 2% below entry"
-        # on profitable trades — if the ratchet block was unreachable for any
-        # reason, the trade could slide back through a wider-than-entry stop.
-        if _is_breakout_trade(trade):
-            _safety_entry = float(trade.get("entry_price") or 0)
-            _safety_sl    = float(trade.get("stop_loss") or 0)
-            if _safety_entry > 0 and pnl_pct >= 1.0:
-                if direction == "long" and _safety_sl < _safety_entry:
-                    logger.info(
-                        f"[RATCHET SAFETY] {symbol}: SL ${_safety_sl:.4f} below entry "
-                        f"${_safety_entry:.4f} at P&L {pnl_pct:+.2f}% — snapping to entry"
-                    )
-                    self._db.update_trade_levels(trade_id, stop_loss=round(_safety_entry, 6))
-                    trade["stop_loss"] = round(_safety_entry, 6)
-                elif direction == "short" and _safety_sl > _safety_entry:
-                    logger.info(
-                        f"[RATCHET SAFETY] {symbol}: SL ${_safety_sl:.4f} above entry "
-                        f"${_safety_entry:.4f} at P&L {pnl_pct:+.2f}% — snapping to entry"
-                    )
-                    self._db.update_trade_levels(trade_id, stop_loss=round(_safety_entry, 6))
-                    trade["stop_loss"] = round(_safety_entry, 6)
-
         # ── 2. EOD CLOSE (15:45 ET) ──────────────────────────────────────
         if asset_class == "stock" and not is_overnight and _approaching_eod():
             logger.info(
@@ -1449,7 +1445,7 @@ class PositionMonitor:
         if sl_exit:
             # Fill at stop_loss price, not current candle price.
             # Live brokers execute the stop order at stop price; paper must match.
-            # Sanity check: if stop_loss is > 20% away from current_price it was
+            # Sanity check 1: if stop_loss is > 20% away from current_price it was
             # corrupted by a bad price feed — fall back to current_price.
             _raw_sl = float(trade.get("stop_loss") or 0)
             _sl_dist_pct = abs(_raw_sl - current_price) / current_price * 100 if current_price else 0
@@ -1460,6 +1456,35 @@ class PositionMonitor:
                     f"{_sl_dist_pct:.1f}% from current ${current_price:.4f} "
                     f"-- suspected corrupt stop, filling at current price"
                 )
+            # Sanity check 2: for trailing_stop exits, the fill price should not be
+            # more than 11% (stock) / 22% (crypto) above entry.  A fake feed spike
+            # can leave a corrupted SL that triggers a windfall exit at an impossible
+            # price.  If the fill looks too good relative to entry, fall back to
+            # current_price (the real market price) instead of the inflated SL value.
+            if sl_exit == "trailing_stop":
+                _entry_ref = float(trade.get("entry_price") or 0)
+                _direction = trade.get("direction", "long")
+                _fill_max_pct = 11.0 if asset_class == "stock" else 22.0
+                if _entry_ref > 0 and _direction == "long":
+                    _fill_gain_pct = (sl_fill_price - _entry_ref) / _entry_ref * 100
+                    if _fill_gain_pct > _fill_max_pct:
+                        logger.warning(
+                            f"[TRAIL FILL SANITY] {symbol}: trailing_stop fill ${sl_fill_price:.4f} "
+                            f"is {_fill_gain_pct:.1f}% above entry ${_entry_ref:.4f} "
+                            f"(>{_fill_max_pct}% cap) — suspected bad-feed exit, "
+                            f"using current_price ${current_price:.4f} instead"
+                        )
+                        sl_fill_price = current_price
+                elif _entry_ref > 0 and _direction == "short":
+                    _fill_gain_pct = (_entry_ref - sl_fill_price) / _entry_ref * 100
+                    if _fill_gain_pct > _fill_max_pct:
+                        logger.warning(
+                            f"[TRAIL FILL SANITY] {symbol}: trailing_stop fill ${sl_fill_price:.4f} "
+                            f"is {_fill_gain_pct:.1f}% gain on short from entry ${_entry_ref:.4f} "
+                            f"(>{_fill_max_pct}% cap) — suspected bad-feed exit, "
+                            f"using current_price ${current_price:.4f} instead"
+                        )
+                        sl_fill_price = current_price
             logger.info(
                 f"[STOP LOSS] {symbol} @ ${current_price:.6f} | "
                 f"fill @ ${sl_fill_price:.6f} | "
@@ -1694,84 +1719,67 @@ class PositionMonitor:
         if PM_DEBUG:
             logger.info(f"[PM-DBG] ⑥ {symbol} — reached trailing stop section")
         # ── 11b. BREAKOUT RATCHET STOP ───────────────────────────────────
-        # Rule: while negative → leave SL alone (wide, no premature trips).
-        # Once P&L hits +1% → snap SL to entry (zero-loss guaranteed).
-        # After that → trail SL at the SAME DOLLAR DISTANCE the original SL was
-        # below entry — so the buffer stays proportional to the instrument's ATR.
-        # SL only ever moves UP (for longs); it never retreats. Trip on price drop.
-        # MUST be percentage-based — dollar amount doesn't scale across position sizes.
-        # A $20 trigger is 1% on $2K paper but 10% on a $200 live position = never fires.
+        # For breakout trades: once P&L hits +$20, snap SL to entry (zero loss).
+        # After that, trail the SL $20 below current price — but ONLY upward.
+        # The stop never moves back down; it trips if price falls to it.
+        # This replaces the wide initial stop with a profit-protecting ratchet.
         if _is_breakout_trade(trade):
-            _entry   = float(trade.get("entry_price") or 0)
-            _cur_sl  = float(trade.get("stop_loss") or 0)
-            _pos_val = float(trade.get("position_value") or 0)
-            _pnl_pct_raw  = pnl_pct
-
-            # 2% trigger: must clear the 0.62% round-trip fee hurdle before locking in.
-            # 0.75% trail: tighter than the original 2% SL distance — preserves more of
-            # the locked gain while still giving the trade room to breathe.
-            # Combined math on a $2000 position:
-            #   trigger fires at +$40   (2%)
-            #   trail  holds  at  $15   (0.75% below peak)
-            #   worst-case exit when triggered = peak - 0.75% = ~+$25 real profit after fees
-            _RATCHET_TRIGGER_PCT = 1.0   # 1% P&L → snap to breakeven-plus
-            _RATCHET_TRAIL_PCT   = 1.0   # trail SL 1% below peak
+            _entry    = float(trade.get("entry_price") or 0)
+            _cur_sl   = float(trade.get("stop_loss") or 0)
+            _pos_val  = float(trade.get("position_value") or 0)
+            _pnl_dollars = (_pnl_pct_raw := pnl_pct) * _pos_val / 100 if _pos_val > 0 else 0.0
+            # Percentage-based ratchet — trails from PEAK price, not current price.
+            # Trigger at 1% profit (~$20 on a $2K position) → SL snaps to entry (buy-in).
+            # Trail at 0.75% below peak from that point — as price rises the SL follows,
+            # naturally moving above entry so any stop-out books real profit not just breakeven.
+            _RATCHET_TRIGGER_PCT = 1.0    # % P&L before trail activates
+            _RATCHET_TRAIL_PCT   = 0.75   # % trail below/above PEAK price
 
             if _entry > 0 and direction == "long":
-                # Trail distance: 0.75% of entry price — scales with asset price
-                # so a $0.05 altcoin and a $1700 ETH both get the right buffer.
-                _trail_dist = _entry * (_RATCHET_TRAIL_PCT / 100)
-
-                # Track best (highest) price seen for this trade
+                # Update peak price (highest seen for this trade)
                 _peak = self._peak_prices.get(trade_id, _entry)
                 if current_price > _peak:
                     _peak = current_price
                     self._peak_prices[trade_id] = _peak
-
-                # Trail SL 0.75% below peak — tightens automatically as price climbs,
-                # holds still on pullbacks (never retreats downward).
-                _ratchet_sl = _peak - _trail_dist
-
+                # Trail SL from peak — locks in gains even when price pulls back
+                _ratchet_sl = _peak * (1 - _RATCHET_TRAIL_PCT / 100)
                 logger.info(
-                    f"[BREAKOUT RATCHET] {symbol}: P&L {_pnl_pct_raw:+.2f}% | "
-                    f"peak=${_peak:.4f} trail_sl=${_ratchet_sl:.4f} "
-                    f"trail={_RATCHET_TRAIL_PCT}% "
-                    f"{'ACTIVE' if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT else f'waiting ({_RATCHET_TRIGGER_PCT}% trigger)'}"
+#                    f"[PM-DBG] ⑦ {symbol} — ratchet: P&L={_pnl_pct_raw:+.2f}% "
+                    f"peak=${_peak:.4f} ratchet_sl=${_ratchet_sl:.4f} "
+                    f"trigger={_RATCHET_TRIGGER_PCT}% "
+                    f"{'ACTIVE' if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT else 'waiting'}"
                 )
-
                 if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT:
-                    # Floor = entry price (never take a loss once the ratchet fires)
+                    # Floor is entry (buy-in price) — SL never goes below what you paid.
+                    # Trail naturally moves above entry as price rises, locking real profit.
                     _target_sl = max(_entry, _ratchet_sl)
                     if _target_sl > _cur_sl:   # only ever ratchet UP
                         logger.info(
                             f"[BREAKOUT RATCHET] {symbol}: SL ${_cur_sl:.4f} → "
-                            f"${_target_sl:.4f} | P&L {_pnl_pct_raw:+.2f}% "
-                            f"peak=${_peak:.4f}"
+                            f"${_target_sl:.4f} | P&L {_pnl_pct_raw:.2f}% "
+                            f"peak ${_peak:.4f}"
                         )
                         self._db.update_trade_levels(trade_id, stop_loss=round(_target_sl, 6))
                         trade["stop_loss"] = round(_target_sl, 6)
+                        # Live + Paper: cancel old exchange stop, place new one at ratchet price
+                        # Paper: tracks order ID for parity. Live: real Kraken cancel+replace.
                         self._ratchet_update_exchange_stop(
                             trade, trade_id, symbol, direction, _target_sl
                         )
-
             elif _entry > 0 and direction == "short":
-                # Mirror logic for shorts: peak = lowest price seen
-                _trail_dist = _entry * (_RATCHET_TRAIL_PCT / 100)
-
+                # For shorts: peak = lowest price seen
                 _peak = self._peak_prices.get(trade_id, _entry)
                 if current_price < _peak:
                     _peak = current_price
                     self._peak_prices[trade_id] = _peak
-
-                _ratchet_sl = _peak + _trail_dist
-
+                _ratchet_sl = _peak * (1 + _RATCHET_TRAIL_PCT / 100)
                 if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT:
-                    _target_sl = min(_entry, _ratchet_sl)   # ceiling = entry for shorts
+                    _target_sl = min(_entry, _ratchet_sl)
                     if _target_sl < _cur_sl:   # only ever ratchet DOWN (short)
                         logger.info(
                             f"[BREAKOUT RATCHET] {symbol}: SL ${_cur_sl:.4f} → "
-                            f"${_target_sl:.4f} | P&L {_pnl_pct_raw:+.2f}% "
-                            f"peak=${_peak:.4f}"
+                            f"${_target_sl:.4f} | P&L {_pnl_pct_raw:.2f}% "
+                            f"peak ${_peak:.4f}"
                         )
                         self._db.update_trade_levels(trade_id, stop_loss=round(_target_sl, 6))
                         trade["stop_loss"] = round(_target_sl, 6)
@@ -1792,7 +1800,31 @@ class PositionMonitor:
             updates = None   # strategy manages its own exit — no trailing
         else:
             _trail_bars = self._get_bars(symbol, asset_class, limit=25, timeframe=entry_timeframe)
-            updates = risk_manager.calculate_trailing_stop(trade, current_price, bars=_trail_bars)
+
+            # ── Price-spike guard ─────────────────────────────────────────────
+            # A single bad feed tick can drive current_price far above real market
+            # price.  If the trail runs on that tick it writes a corrupted SL above
+            # the real price; the real price then falls "below" that fake SL and
+            # fires a trailing_stop exit at the inflated fill → fake large wins.
+            # Guard: if current_price is >3% above the highest candle high in the
+            # last 3 closed bars, treat it as a bad tick and skip the trail update.
+            _spike_blocked = False
+            if _trail_bars is not None and len(_trail_bars) >= 2:
+                _recent_high = float(_trail_bars["high"].iloc[-3:].max())
+                _spike_pct   = (current_price - _recent_high) / _recent_high * 100 if _recent_high > 0 else 0
+                if _spike_pct > 3.0:
+                    logger.warning(
+                        f"[PRICE SPIKE GUARD] {symbol}: current_price ${current_price:.4f} "
+                        f"is {_spike_pct:.1f}% above recent candle high ${_recent_high:.4f} "
+                        f"— suspected bad feed tick, skipping trail update this cycle"
+                    )
+                    _spike_blocked = True
+
+            updates = (
+                None
+                if _spike_blocked
+                else risk_manager.calculate_trailing_stop(trade, current_price, bars=_trail_bars)
+            )
         if PM_DEBUG:
             logger.info(f"[PM-DBG] ⑧ {symbol} — trail calc done | updates={updates}")
         if updates:
@@ -1801,15 +1833,18 @@ class PositionMonitor:
             # Sanity-check the proposed new stop against entry before writing to DB.
             # A bad price feed can produce a bar low that's nowhere near entry, which
             # would corrupt the stop_loss and then get used as the exit fill price.
+            # Stocks: cap SL at 10% above entry (real intraday moves >10% are rare;
+            #         anything beyond that is almost certainly a feed spike).
+            # Crypto: cap at 20% (wider for volatile assets, still tighter than old 60%).
             _entry      = float(trade.get("entry_price") or 0)
             _prop_sl    = updates.get("stop_loss")
-            _max_sl_pct = 25.0 if asset_class == "stock" else 60.0
+            _max_sl_pct = 10.0 if asset_class == "stock" else 20.0
             if (_prop_sl and _entry > 0
                     and abs(_prop_sl - _entry) / _entry * 100 > _max_sl_pct):
                 logger.warning(
                     f"[TRAIL SANITY] {symbol}: proposed SL ${_prop_sl:.4f} is "
                     f"{abs(_prop_sl-_entry)/_entry*100:.1f}% from entry ${_entry:.4f} "
-                    f"-- bad price feed suspected, skipping stop update"
+                    f"(>{_max_sl_pct}% cap) -- bad price feed suspected, skipping stop update"
                 )
                 updates.pop("stop_loss", None)
             if not updates:

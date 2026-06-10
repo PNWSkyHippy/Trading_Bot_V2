@@ -546,25 +546,36 @@ class TradeExecutor:
                     )
                 if _fresh is not None and len(_fresh) >= 3:
                     _new_stop = _se.initial_stop_from_tail(_fresh, signal.direction)
-                    _valid = (
-                        (signal.direction == "long"  and _new_stop < entry_price) or
-                        (signal.direction == "short" and _new_stop > entry_price)
+                    _wrong_side = (
+                        (signal.direction == "long"  and _new_stop >= entry_price) or
+                        (signal.direction == "short" and _new_stop <= entry_price)
                     )
-                    if _valid:
+                    # Also reject stops that are technically on the correct side
+                    # but unreasonably far (> 3× the expected percent stop distance).
+                    # These indicate a bad candle tail or data glitch and would result
+                    # in a bracket order with a 50-98% stop that never fires.
+                    _max_stop_dist = entry_price * config.DEFAULT_STOP_LOSS_PCT / 100 * 3
+                    _too_far = abs(entry_price - _new_stop) > _max_stop_dist
+                    if _wrong_side or _too_far:
+                        _reason = (
+                            "wrong side of fill"
+                            if _wrong_side
+                            else f"distance {abs(entry_price - _new_stop) / entry_price * 100:.1f}% > 3× expected"
+                        )
+                        logger.warning(
+                            f"[STOP REFRESH] {signal.symbol}: fresh structural stop "
+                            f"${_new_stop:.6f} rejected ({_reason}) vs fill "
+                            f"${entry_price:.6f} ({signal.direction}) — "
+                            f"falling back to percent-based stop"
+                        )
+                        structural_stop = None   # force percent fallback below
+                    else:
                         logger.info(
                             f"[STOP REFRESH] {signal.symbol}: structural stop "
                             f"recomputed at fill — "
                             f"${structural_stop:.6f} → ${_new_stop:.6f}"
                         )
                         structural_stop = _new_stop
-                    else:
-                        logger.warning(
-                            f"[STOP REFRESH] {signal.symbol}: fresh structural stop "
-                            f"${_new_stop:.6f} is on the wrong side of fill price "
-                            f"${entry_price:.6f} ({signal.direction}) — "
-                            f"falling back to percent-based stop"
-                        )
-                        structural_stop = None   # force percent fallback below
             except Exception as _sr_err:
                 logger.warning(
                     f"[STOP REFRESH] {signal.symbol}: could not recompute "
