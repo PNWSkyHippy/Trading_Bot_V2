@@ -197,14 +197,30 @@ def kill_ibkr(pids: list[int]) -> None:
     time.sleep(20)
     for pid in pids:
         try:
-            os.kill(pid, 0)   # check still alive
-            if IS_WINDOWS:
-                subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True)
+            # os.kill(pid, 0) is a Unix liveness check — on Windows it raises
+            # OSError WinError 11 (bad exe format) instead of ProcessLookupError.
+            # Use psutil if available, otherwise fall back to tasklist query.
+            alive = False
+            try:
+                import psutil
+                alive = psutil.pid_exists(pid)
+            except ImportError:
+                result = subprocess.run(
+                    ["tasklist", "/FI", f"PID eq {pid}", "/NH"],
+                    capture_output=True, text=True
+                )
+                alive = str(pid) in result.stdout
+
+            if alive:
+                if IS_WINDOWS:
+                    subprocess.run(["taskkill", "/F", "/T", "/PID", str(pid)], capture_output=True)
+                else:
+                    os.kill(pid, signal.SIGKILL)
+                logger.info(f"Force-killed PID {pid} (still alive after grace period)")
             else:
-                os.kill(pid, signal.SIGKILL)
-            logger.info(f"Force-killed PID {pid} (still alive after grace period)")
-        except ProcessLookupError:
-            pass   # already dead, good
+                logger.info(f"PID {pid} already exited cleanly")
+        except Exception as e:
+            logger.warning(f"Liveness check for PID {pid} failed: {e}")
 
 
 def _kill_by_name() -> None:

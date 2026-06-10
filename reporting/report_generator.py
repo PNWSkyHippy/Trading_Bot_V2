@@ -45,6 +45,7 @@ class ReportGenerator:
         losses = [t for t in closed if t.get("pnl", 0) <= 0]
 
         total_pnl    = sum(t.get("pnl", 0) for t in closed)
+        total_fees   = sum(t.get("fees_paid", 0) for t in closed)
         win_rate     = (len(wins) / len(closed) * 100) if closed else 0
         largest_win  = max((t.get("pnl", 0) for t in wins),   default=0)
         largest_loss = min((t.get("pnl", 0) for t in losses), default=0)
@@ -70,6 +71,8 @@ class ReportGenerator:
             "starting_capital":  round(starting_capital or 0, 2),
             "ending_capital":    round(ending_capital or 0, 2),
             "daily_pnl":         round(total_pnl or 0, 2),
+            "fees_paid":         round(total_fees or 0, 2),
+            "net_pnl":           round((total_pnl - total_fees) or 0, 2),
             "daily_pnl_pct":     round(pnl_pct or 0, 2),
             "total_trades":      len(closed),
             "winning_trades":    len(wins),
@@ -268,11 +271,62 @@ class ReportGenerator:
         """
         return html
 
+    # ------------------------------------------------------------------
+    #  X-OUT REGISTER
+    # ------------------------------------------------------------------
+
+    def write_xout_register_row(self, summary: Dict) -> None:
+        """
+        Append one row to reports/xout_register.csv.
+        Creates the file with headers on first write.
+        Called automatically from generate_and_send_daily_report().
+        """
+        import csv
+        import pathlib
+
+        reports_dir = pathlib.Path("reports")
+        reports_dir.mkdir(exist_ok=True)
+        csv_path = reports_dir / "xout_register.csv"
+
+        headers = [
+            "Date", "Start_Cap", "Gross_PNL", "Fees_Paid", "Net_PNL",
+            "End_Cap", "Trades", "Wins", "Losses", "Win_Pct", "Goal_Met", "Halted"
+        ]
+
+        row = {
+            "Date":      summary["trade_date"],
+            "Start_Cap": round(summary.get("starting_capital", 0), 2),
+            "Gross_PNL": round(summary.get("daily_pnl", 0), 2),
+            "Fees_Paid": round(summary.get("fees_paid", 0), 2),
+            "Net_PNL":   round(summary.get("net_pnl", summary.get("daily_pnl", 0)), 2),
+            "End_Cap":   round(summary.get("ending_capital", 0), 2),
+            "Trades":    summary.get("total_trades", 0),
+            "Wins":      summary.get("winning_trades", 0),
+            "Losses":    summary.get("losing_trades", 0),
+            "Win_Pct":   round(summary.get("win_rate", 0), 1),
+            "Goal_Met":  "YES" if summary.get("goal_met") else "NO",
+            "Halted":    "YES" if summary.get("trading_halted") else "NO",
+        }
+
+        write_header = not csv_path.exists()
+        try:
+            with csv_path.open("a", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=headers)
+                if write_header:
+                    writer.writeheader()
+                writer.writerow(row)
+            logger.info(f"[XOut] Register updated: {csv_path} — {row['Date']} Net P&L ${row['Net_PNL']:+.2f}")
+        except Exception as e:
+            logger.error(f"[XOut] Failed to write register row: {e}")
+
+    # ------------------------------------------------------------------
+
     def generate_and_send_daily_report(self, report_date: str = None):
         """Generate end-of-day summary, save to DB, and email it."""
         summary = self.generate_daily_summary(report_date)
 
         self._db.save_daily_summary(summary)
+        self.write_xout_register_row(summary)
 
         for trade in summary.get("trades", []):
             try:

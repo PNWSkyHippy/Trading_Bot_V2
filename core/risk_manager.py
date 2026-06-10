@@ -278,6 +278,7 @@ class RiskManager:
             # 1 open → full capital slice. 10 open → 1/11 each. 100 open → 1/101 each.
             _bmr_open_n    = len(_open_bmr)
             position_value = max(1.0, capital / (_bmr_open_n + 1))
+            position_pct   = position_value / capital if capital > 0 else 0.0  # derived for logging
         else:
             position_pct   = (custom_position_pct or config.MAX_POSITION_PCT) / 100
             position_value = capital * position_pct
@@ -366,6 +367,7 @@ class RiskManager:
                 f"Capital inflation bug likely — capping at ${baseline_max:,.0f}."
             )
             position_value = baseline_max
+            position_pct   = position_value / capital if capital > 0 else 0.0  # recalc after cap
 
         quantity = position_value / entry_price
         if quantity <= 0 or position_value < 1.0:

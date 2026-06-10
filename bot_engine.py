@@ -452,6 +452,9 @@ class BotEngine:
         schedule.every().sunday.at("00:00").do(run_weekly_export)
         schedule.every().day.at("00:01").do(self._midnight_reset)
 
+        for day in ["monday", "tuesday", "wednesday", "thursday", "friday"]:
+            getattr(schedule.every(), day).at("07:00").do(self._run_morning_briefing)
+
         self.logger.info("All scheduled jobs registered.")
         self.logger.info("  - Crypto scan:      every 5 min (24/7)")
         self.logger.info("  - Stock scan:       every 60s (gated: Mon-Fri 10:00-15:44 ET)")
@@ -463,6 +466,7 @@ class BotEngine:
         self.logger.info("  - ML retrain:       18:00 ET (15:00 PT) daily")
         self.logger.info("  - Midnight reset:   00:01 PT daily (session counters)")
         self.logger.info("  - Weekly trade log: Sunday 00:00 PT (covers prev Sun-Sat)")
+        self.logger.info("  - Morning briefing: 10:00 ET (07:00 PT) weekdays")
 
     def _start_candle_refresh(self):
         try:
@@ -478,6 +482,21 @@ class BotEngine:
             )
         except Exception as e:
             self.logger.warning(f"CandleManager refresh loop failed to start: {e}")
+
+    def _run_morning_briefing(self):
+        """Fire at 07:00 PT (10:00 ET) weekdays to pre-warm the Claude briefing cache."""
+        try:
+            from intelligence.claude_reviewer import claude_reviewer
+            if not claude_reviewer.is_enabled():
+                return
+            ctx = claude_reviewer.get_morning_context(force_refresh=True)
+            self.logger.info(
+                "[MORNING BRIEFING] conviction=%d sentiment=%s allow=%s risk=%d | %s",
+                ctx.conviction_score, ctx.market_sentiment,
+                ctx.allow_trading, ctx.top_risk_score, ctx.briefing_text[:80],
+            )
+        except Exception as exc:
+            self.logger.error("[MORNING BRIEFING] Error: %s", exc)
 
     def _midnight_reset(self):
         try:

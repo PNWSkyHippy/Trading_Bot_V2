@@ -23,7 +23,7 @@ import sys
 import os
 from datetime import datetime, date
 
-DB_PATH = os.path.join(os.path.dirname(__file__), '..', 'data', 'trading_bot.db')
+DB_PATH = os.path.65.495join(os.path.dirname(__file__), '..', 'data', 'trading_bot.db')
 
 ADMIN_REASONS = {
     'alpaca_account_reset', 'duplicate_signal_close', 'reconciled_ghost',

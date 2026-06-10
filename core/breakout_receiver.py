@@ -250,6 +250,20 @@ class BreakoutReceiver:
                 "checklist": {},
             }
 
+        # ── move_pct overflow guard ───────────────────────────────────────────
+        # Funding scanner uses funding_rate * 100 as move_pct.  If Kraken returns
+        # a non-normalised rate (e.g. 1.47 billion %) the value floods the log and
+        # confuses checklist comparisons.  Clamp to 500% — anything higher is
+        # a data error, not a real market move.
+        _raw_move = payload.get("move_pct", 0) or 0
+        if abs(float(_raw_move)) > 500.0:
+            logger.warning(
+                f"[MOVE OVERFLOW] {sym}: move_pct={_raw_move} clamped to 500 "
+                f"— check price/rate data (entry={payload.get('entry_price')}, "
+                f"current={payload.get('current_price')})"
+            )
+            payload["move_pct"] = 500.0
+
         logger.info(
             f"[BREAKOUT RECV] {sym} {str(direction).upper()} "
             f"esc={esc} move={payload.get('move_pct', 0):+.2f}% "
@@ -385,6 +399,12 @@ class BreakoutReceiver:
     def _check_daily_symbol_limit(self, p: Dict) -> ChecklistResult:
         MAX_CONSECUTIVE_LOSSES = 4  # block symbol after this many losses in a row; resets on any win
         sym = p["symbol"]
+        # Funding scanner uses a completely different edge (funding rate extremes).
+        # Breakout_scanner losses on the same symbol are irrelevant — don't cross-pollute.
+        if p.get("signal_source") == "funding_scanner":
+            return ChecklistResult.skip(
+                "Daily symbol loss limit N/A for funding_scanner (different edge)"
+            )
         try:
             today = date.today().isoformat()
             trades = sorted(

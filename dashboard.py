@@ -887,16 +887,57 @@ else:
 st.divider()
 
 # ----------------------------------------------------------
-#  RECENT PERFORMANCE TABLE
+#  X-OUT DAILY REGISTER
 # ----------------------------------------------------------
-st.markdown("### 📅 Recent Daily Performance")
-if summaries:
-    perf_data = []
-    for s in summaries[:14]:
-        perf_data.append({"Date": s["trade_date"], "P&L $": f"${s['daily_pnl']:+.2f}", "P&L %": f"{s['daily_pnl_pct']:+.2f}%", "Trades": s["total_trades"], "W/L": f"{s['winning_trades']}W / {s['losing_trades']}L", "Win Rate": f"{s['win_rate']:.1f}%", "Capital": f"${s['ending_capital']:,.2f}", "Goal Met": "✅" if s.get("goal_met") else "❌", "Halted": "⚠️" if s.get("trading_halted") else ""})
-    st.dataframe(pd.DataFrame(perf_data), width='stretch', hide_index=True)
+st.markdown("### 📒 Daily X-Out Register")
+section_note("End-of-day close: capital in/out, gross P&L, fees, net. Last 30 trading days.")
+
+xout_summaries = db.get_daily_summaries(30)
+if xout_summaries:
+    xout_data = []
+    running_net = 0.0
+    for s in reversed(xout_summaries):   # oldest → newest for running total
+        gross  = s.get("daily_pnl", 0) or 0
+        fees   = s.get("fees_paid", 0) or 0
+        net    = gross - fees
+        running_net += net
+        xout_data.append({
+            "Date":        s["trade_date"],
+            "Start Cap":   f"${s.get('starting_capital', 0):,.2f}",
+            "Gross P&L":   f"${gross:+.2f}",
+            "Fees":        f"-${abs(fees):.2f}",
+            "Net P&L":     f"${net:+.2f}",
+            "End Cap":     f"${s.get('ending_capital', 0):,.2f}",
+            "W / L":       f"{s.get('winning_trades',0)}W / {s.get('losing_trades',0)}L",
+            "Win %":       f"{s.get('win_rate', 0):.1f}%",
+            "Goal":        "✅" if s.get("goal_met") else "❌",
+            "Halted":      "⚠️" if s.get("trading_halted") else "",
+        })
+    xout_data.reverse()   # newest first for display
+
+    xout_df = pd.DataFrame(xout_data)
+    st.dataframe(xout_df, width='stretch', hide_index=True)
+
+    # Totals row beneath table
+    all_gross  = sum((s.get("daily_pnl",  0) or 0) for s in xout_summaries)
+    all_fees   = sum((s.get("fees_paid",  0) or 0) for s in xout_summaries)
+    all_net    = all_gross - all_fees
+    tot_c1, tot_c2, tot_c3, tot_c4 = st.columns(4)
+    tot_c1.metric("30-Day Gross P&L", f"${all_gross:+,.2f}")
+    tot_c2.metric("30-Day Fees",      f"-${abs(all_fees):,.2f}")
+    tot_c3.metric("30-Day Net P&L",   f"${all_net:+,.2f}")
+    tot_c4.metric("Trading Days",     len(xout_summaries))
+
+    # CSV download
+    csv_bytes = xout_df.to_csv(index=False).encode("utf-8")
+    st.download_button(
+        label="⬇️ Download X-Out Register (CSV)",
+        data=csv_bytes,
+        file_name=f"xout_register_{date.today().isoformat()}.csv",
+        mime="text/csv",
+    )
 else:
-    st.info("No daily summaries yet.")
+    st.info("No daily summaries yet — register populates automatically at market close.")
 st.divider()
 
 # ===========================================================================

@@ -7,11 +7,13 @@ logs/bot.log
 data/trading_bot.db
 ai-trading-agent/
 Archon/
+Ron/
 Deesigns/
 Opus.Audit/
 OverHaul/
 prompts/
 .env
+.tmp.driveupload/
 *.db
 *.pkl
 logs/

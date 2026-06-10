@@ -2534,16 +2534,19 @@ def get_overview_data():
     daily_summaries = db.get_daily_summaries(370) or []
     daily_perf = [
         {
-            "date": s.get("trade_date"),
-            "trades": int(s.get("total_trades") or 0),
-            "wins": int(s.get("winning_trades") or 0),
-            "losses": int(s.get("losing_trades") or 0),
-            "win_rate": float(s.get("win_rate") or 0),
-            "pnl": float(s.get("daily_pnl") or 0),
-            "pnl_pct": float(s.get("daily_pnl_pct") or 0),
-            "capital": float(s.get("ending_capital") or 0),
-            "goal_met": bool(s.get("goal_met")),
-            "trading_halted": bool(s.get("trading_halted")),
+            "date":            s.get("trade_date"),
+            "trades":          int(s.get("total_trades") or 0),
+            "wins":            int(s.get("winning_trades") or 0),
+            "losses":          int(s.get("losing_trades") or 0),
+            "win_rate":        float(s.get("win_rate") or 0),
+            "pnl":             float(s.get("daily_pnl") or 0),
+            "fees_paid":       float(s.get("fees_paid") or 0),
+            "net_pnl":         float(s.get("daily_pnl") or 0) - float(s.get("fees_paid") or 0),
+            "pnl_pct":         float(s.get("daily_pnl_pct") or 0),
+            "start_capital":   float(s.get("starting_capital") or 0),
+            "capital":         float(s.get("ending_capital") or 0),
+            "goal_met":        bool(s.get("goal_met")),
+            "trading_halted":  bool(s.get("trading_halted")),
         }
         for s in daily_summaries
     ]

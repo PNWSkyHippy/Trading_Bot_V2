@@ -101,6 +101,10 @@ _YFINANCE_CRYPTO_SKIP: set[str] = {
     "BOME-USD", "W-USD", "EREBRO-USD",   # delisted — hangs yfinance fetch
 }
 
+# Limit simultaneous yfinance calls — Yahoo rate-limits aggressively.
+# 2 concurrent slots + exponential backoff in _fetch_yfinance().
+_yf_semaphore = threading.Semaphore(2)
+
 
 # ---------------------------------------------------------------------------
 # CandleManager
@@ -278,34 +282,40 @@ class CandleManager:
             return None
 
     def _fetch_yfinance(self, symbol: str, timeframe: str, limit: int) -> Optional[pd.DataFrame]:
-        """Fetch from yfinance as last resort."""
-        try:
-            import yfinance as yf
-            tf = _normalise_tf(timeframe)
-            # Convert symbol format: BTC/USD → BTC-USD
-            yf_sym = symbol.replace("/", "-")
-            # Skip known-bad crypto tickers — yfinance doesn't list them, skip to Kraken
-            if yf_sym in _YFINANCE_CRYPTO_SKIP:
-                return None
-            days = _bars_to_days(limit, tf)
-            # yfinance interval strings
-            interval_map = {"1m":"1m","5m":"5m","15m":"15m","30m":"30m",
-                            "1h":"1h","4h":"4h","1d":"1d"}
-            interval = interval_map.get(tf, tf)
-            period = f"{min(days, 60)}d" if tf in ("1m","5m","15m","30m") else f"{days}d"
-            df = yf.download(yf_sym, period=period, interval=interval,
-                             progress=False, auto_adjust=True)
-            if df is None or df.empty:
-                return None
-            df.columns = [c.lower() if isinstance(c, str) else c[0].lower()
-                          for c in df.columns]
-            df.index = pd.to_datetime(df.index).tz_localize(None)
-            if len(df) > 1:
-                df = df.iloc[:-1]   # drop forming bar
-            return df if not df.empty else None
-        except Exception as e:
-            logger.debug(f"[CandleManager] yfinance fetch failed for {symbol}/{timeframe}: {e}")
+        """Fetch from yfinance with semaphore + exponential backoff retry."""
+        import yfinance as yf
+        tf = _normalise_tf(timeframe)
+        yf_sym = symbol.replace("/", "-")
+        if yf_sym in _YFINANCE_CRYPTO_SKIP:
             return None
+        days = _bars_to_days(limit, tf)
+        interval_map = {"1m":"1m","5m":"5m","15m":"15m","30m":"30m",
+                        "1h":"1h","4h":"4h","1d":"1d"}
+        interval = interval_map.get(tf, tf)
+        period   = f"{min(days, 60)}d" if tf in ("1m","5m","15m","30m") else f"{days}d"
+
+        with _yf_semaphore:
+            for attempt in range(3):
+                try:
+                    df = yf.download(yf_sym, period=period, interval=interval,
+                                     progress=False, auto_adjust=True)
+                    if df is None or df.empty:
+                        return None
+                    df.columns = [c.lower() if isinstance(c, str) else c[0].lower()
+                                  for c in df.columns]
+                    df.index = pd.to_datetime(df.index).tz_localize(None)
+                    if len(df) > 1:
+                        df = df.iloc[:-1]   # drop forming bar
+                    return df if not df.empty else None
+                except Exception as e:
+                    wait = 2 ** attempt   # 1s, 2s, 4s
+                    logger.debug(
+                        f"[CandleManager] yfinance attempt {attempt+1}/3 failed "
+                        f"for {symbol}/{timeframe}: {e} — retrying in {wait}s"
+                    )
+                    if attempt < 2:
+                        time.sleep(wait)
+        return None
 
     def _fetch_kucoin(self, symbol: str, timeframe: str, limit: int) -> Optional[pd.DataFrame]:
         """
@@ -375,9 +385,15 @@ class CandleManager:
         for source in sources:
             df = self._fetch_from_source(symbol, timeframe, limit, source)
             if df is not None and not df.empty:
+                # Strip duplicate columns before caching and returning — duplicate
+                # column names (e.g. two 'volume' columns after lowercasing) cause
+                # "truth value of a Series is ambiguous" in candle_store.save() and
+                # "cannot convert series to float" in downstream strategies.
+                if df.columns.duplicated().any():
+                    df = df.loc[:, ~df.columns.duplicated()]
                 if self._store:
                     try:
-                        self._store.save(symbol, timeframe, df)
+                        self._store.save(self._store_key(symbol, asset_class), timeframe, df)
                     except Exception as e:
                         logger.debug(f"[CandleManager] Cache save failed for {symbol}: {e}")
                 self._update_registry(symbol, asset_class, source, success=True)
@@ -415,6 +431,17 @@ class CandleManager:
             ":" in s                        # any exchange-specific notation
         )
 
+    @staticmethod
+    def _store_key(symbol: str, asset_class: str) -> str:
+        """
+        Namespace stock symbols in the candle store to prevent collision with
+        any same-named crypto token (e.g. stock META vs crypto META token).
+        Crypto symbols already carry "/" so they are inherently unique.
+        """
+        if asset_class == "stock" and "/" not in symbol:
+            return f"{symbol}/stock"
+        return symbol
+
     def get(self, symbol: str, timeframe: str, limit: int = 200) -> Optional[pd.DataFrame]:
         """
         Get OHLCV candles for a symbol/timeframe.
@@ -424,12 +451,13 @@ class CandleManager:
             return None
         asset_class = "crypto" if "/" in symbol else "stock"
         tf = _normalise_tf(timeframe)
+        store_sym = self._store_key(symbol, asset_class)
 
         # Cache hit?
         if self._store:
             days = _bars_to_days(limit, tf)
-            if self._store.has_data(symbol, tf, days):
-                df = self._store.load(symbol, tf, days)
+            if self._store.has_data(store_sym, tf, days):
+                df = self._store.load(store_sym, tf, days)
                 if df is not None and not df.empty:
                     return df.tail(limit)
 
@@ -442,6 +470,15 @@ class CandleManager:
         tf = _normalise_tf(timeframe)
         df = self._fetch_multi(symbol, asset_class, tf, limit)
         return df is not None
+
+    def invalidate_store(self, symbol: str, asset_class: str, timeframe: str):
+        """Remove a namespaced entry from the candle store."""
+        if self._store:
+            store_sym = self._store_key(symbol, asset_class)
+            try:
+                self._store.delete(store_sym, _normalise_tf(timeframe))
+            except Exception:
+                pass
 
     def invalidate(self, symbol: str, timeframe: str):
         """Force next get() to re-fetch (e.g. after a known stale period)."""
