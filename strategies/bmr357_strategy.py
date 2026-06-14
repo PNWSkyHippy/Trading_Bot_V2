@@ -65,6 +65,7 @@ STATUS    : INCUBATE — paper trade only | ml_exempt=True (no training history)
 import logging
 import numpy as np
 import pandas as pd
+import config
 from dataclasses import dataclass
 from typing import Optional
 
@@ -97,6 +98,15 @@ class BMR357Params:
 
     # Time stop
     max_bars:       int   = 48     # exit after N bars regardless
+
+    # Live fee/edge guard. BMR exits at the SMA20 midline, so tiny targets
+    # can be directionally correct but still lose after crypto round-trip costs.
+    min_dist_to_mid_pct: float = 1.5
+
+    # Regime guard. BMR's observed edge is strongest when the whole crypto tape
+    # is moving, using BTC as the broad-market proxy.
+    require_btc_momentum: bool = True
+    min_btc_move_pct:     float = 1.0
 
     # 3-5-7 portfolio limits (stored in metadata, enforced by risk engine)
     max_risk_per_trade_pct:  float = 3.0   # 3 %
@@ -210,13 +220,37 @@ class BMR357Strategy(BaseStrategy):
         self.stop_loss_pct           = self.params.sl_pct
         self.take_profit_pct         = self.params.tp_pct
         self.crypto_enabled          = True
-        self.stock_enabled           = True   # designed for crypto oscillation
+        self.stock_enabled           = False  # crypto-only until stock edge is re-audited
         self.stock_candle_timeframe  = "15Min"  # matches crypto 15m TF per backtest findings
         self.crypto_candle_timeframe = "15m"   # primary TF per backtest (best PF/edge rate)
         self.candle_limit            = 250
         self.reviewer_exempt         = True
         self.ml_exempt               = True
         self.time_stop_profile       = "strategy_defined"
+
+    def _btc_momentum_active(self, symbol: str, candles: pd.DataFrame) -> tuple[bool, Optional[float]]:
+        p = self.params
+        min_move = float(getattr(config, "BMR_BTC_MOMENTUM_THRESHOLD", p.min_btc_move_pct))
+
+        try:
+            btc_df = candles if symbol.upper() == "BTC/USD" else None
+            if btc_df is None:
+                from intelligence.candle_manager import candle_manager
+                btc_df = candle_manager.get("BTC/USD", self.crypto_candle_timeframe, limit=3)
+            if btc_df is None or len(btc_df) < 2:
+                return False, None
+
+            close = btc_df["close"]
+            last = float(close.iloc[-1])
+            prev = float(close.iloc[-2])
+            if prev <= 0:
+                return False, None
+
+            move_pct = abs((last - prev) / prev * 100)
+            return move_pct >= min_move, move_pct
+        except Exception as e:
+            self.logger.debug(f"BMR BTC momentum check failed for {symbol}: {e}")
+            return False, None
 
     def analyze(self, symbol: str, candles: pd.DataFrame,
                 market_condition: str = "unknown") -> Optional["TradeSignal"]:
@@ -244,6 +278,41 @@ class BMR357Strategy(BaseStrategy):
 
             # Distance from midline — larger distance = stronger reversion potential
             dist_to_mid_pct = abs(close - bb_mid) / bb_mid * 100
+            min_target_pct = max(
+                p.min_dist_to_mid_pct,
+                float(getattr(config, "MIN_NET_PROFIT_CRYPTO_PCT", 1.02)),
+            )
+            if dist_to_mid_pct < min_target_pct:
+                self.verbose_log(
+                    symbol,
+                    "BMR target too small after fees",
+                    False,
+                    round(close, 6),
+                    f"dist_to_mid={dist_to_mid_pct:.2f}% < min_target={min_target_pct:.2f}%",
+                    "long",
+                )
+                return None
+
+            btc_active = True
+            btc_move_pct = None
+            if p.require_btc_momentum:
+                btc_active, btc_move_pct = self._btc_momentum_active(symbol, candles)
+                min_btc_move = float(getattr(config, "BMR_BTC_MOMENTUM_THRESHOLD", p.min_btc_move_pct))
+                if not btc_active:
+                    detail = (
+                        "BTC move unavailable"
+                        if btc_move_pct is None
+                        else f"BTC 15m move {btc_move_pct:.2f}% < {min_btc_move:.2f}%"
+                    )
+                    self.verbose_log(
+                        symbol,
+                        "BMR BTC momentum regime inactive",
+                        False,
+                        round(close, 6),
+                        detail,
+                        "long",
+                    )
+                    return None
 
             # Score: further from midline + stronger RSI = higher conviction
             if long_sig:
@@ -293,6 +362,8 @@ class BMR357Strategy(BaseStrategy):
                     "bb_lower":        round(bb_lower, 6),
                     "sma_filter":      round(sma_filt, 6) if sma_filt else None,
                     "dist_to_mid_pct": round(dist_to_mid_pct, 4),
+                    "btc_15m_move_pct": round(btc_move_pct, 4) if btc_move_pct is not None else None,
+                    "btc_momentum_active": btc_active,
                     "volume_ratio":    vol_ratio,
                     # 3-5-7 rule parameters (consumed by risk engine / position sizer)
                     "rule_357_max_risk_per_trade_pct":  p.max_risk_per_trade_pct,

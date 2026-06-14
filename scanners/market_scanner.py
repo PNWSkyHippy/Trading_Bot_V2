@@ -691,6 +691,16 @@ class MarketScanner:
             logger.warning("[REENTRY] No receiver wired — skipping")
             return
 
+        try:
+            from core.scanner_controls import is_scanner_enabled
+            if not is_scanner_enabled("breakout_scanner"):
+                logger.info(
+                    f"[REENTRY] {symbol}: suppressed — breakout_scanner disabled"
+                )
+                return
+        except Exception:
+            pass
+
         asset_class   = "crypto" if "/" in symbol else "stock"
         current_price = self.get_current_price(symbol, asset_class)
 

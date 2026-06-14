@@ -2542,6 +2542,11 @@ function ChartPanel({ defaultSymbol }) {
   const [drawingsHidden, setDrawingsHidden] = useS(false);
   const [drawingsLocked, setDrawingsLocked] = useS(false);
   const [chartType, setChartType] = useS('candles'); // 'candles' | 'heikin_ashi' | 'line'
+  const [patternDrawings, setPatternDrawings] = useS([]);
+  const [patternLoading, setPatternLoading]   = useS(false);
+  const [patternMsg, setPatternMsg]           = useS('');
+  const [fibData, setFibData]                 = useS(null);
+  const [fibLoading, setFibLoading]           = useS(false);
 
   // ── Chronos AI ────────────────────────────────────────────────────────────
   const [chronosActive,  setChronosActive]  = useS(false);
@@ -2576,6 +2581,8 @@ function ChartPanel({ defaultSymbol }) {
   const marksRef = useR([]);
   const openPositionsRef = useR([]);
   const cleanBarsRef = useR([]);
+  const patternDrawingsRef = useR([]);
+  const fibDataRef         = useR(null);
   const chartSeriesTypeRef = useR('candles'); // tracks what type candleRef.current actually is
   const isLiveUpdateRef = useR(false); // true when bars changed via live poll (not full reload)
   const savedRangeRef = useR(null);   // visible time range saved before setData() so we can restore it
@@ -2703,6 +2710,8 @@ function ChartPanel({ defaultSymbol }) {
       setDrawings([]);
       setDraftDrawing(null);
     }
+    setPatternDrawings([]);
+    setPatternMsg('');
   }, [symbol, tf]);
 
   useE(() => {
@@ -2714,6 +2723,8 @@ function ChartPanel({ defaultSymbol }) {
 
   useE(() => { draftDrawingRef.current = draftDrawing; }, [draftDrawing]);
   useE(() => { drawingsHiddenRef.current = drawingsHidden; }, [drawingsHidden]);
+  useE(() => { patternDrawingsRef.current = patternDrawings; }, [patternDrawings]);
+  useE(() => { fibDataRef.current = fibData; }, [fibData]);
   useE(() => { marksRef.current = marks; }, [marks]);
   useE(() => { openPositionsRef.current = openPositions; }, [openPositions]);
   useE(() => {
@@ -3490,6 +3501,122 @@ function ChartPanel({ defaultSymbol }) {
     };
     drawingsRef.current.forEach(d => drawOne(d, false));
     drawOne(draftDrawingRef.current, true);
+
+    // ── Pattern analysis overlays ─────────────────────────────────────────
+    if (!drawingsHiddenRef.current) {
+      patternDrawingsRef.current.forEach((p, pi) => {
+        const col = p.color || '#e879f9';
+
+        // Label badge — always rendered regardless of whether line coords resolve
+        const arrow  = p.direction === 'LONG' ? '▲' : p.direction === 'SHORT' ? '▼' : '─';
+        const label  = `${p.name}  [${arrow} ${Math.round(p.confidence * 100)}%]`;
+        const labelY = 22 + pi * 20;
+        try {
+          ctx.save();
+          ctx.font         = 'bold 11px "JetBrains Mono", monospace';
+          ctx.textAlign    = 'right';
+          ctx.textBaseline = 'alphabetic';
+          const tw  = ctx.measureText(label).width;
+          const lx  = w - 8;
+          const ly  = labelY;
+          ctx.fillStyle = col + 'dd';
+          const bx = lx - tw - 10, by = ly - 13, bw = tw + 12, bh = 17;
+          if (ctx.roundRect) {
+            ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 3); ctx.fill();
+          } else {
+            ctx.fillRect(bx, by, bw, bh);
+          }
+          ctx.fillStyle = '#ffffff';
+          ctx.fillText(label, lx - 2, ly);
+          ctx.restore();
+        } catch (_) { try { ctx.restore(); } catch (_2) {} }
+
+        // Geometric drawings (lines, rects, vlines) — skip silently if coords unavailable
+        if (!p.drawings?.length) return;
+        try {
+          p.drawings.forEach(d => {
+            ctx.save();
+            ctx.strokeStyle = col;
+            ctx.lineWidth   = 2;
+            ctx.setLineDash([6, 3]);
+            if (d.type === 'line') {
+              const a = toXY(d.p1), b = toXY(d.p2);
+              if (a && b) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+            } else if (d.type === 'hline') {
+              const y = series.priceToCoordinate(d.p1.price);
+              if (y != null) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke(); }
+            } else if (d.type === 'vline') {
+              const x = chart.timeScale().timeToCoordinate(d.p1.time);
+              if (x != null) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
+            } else if (d.type === 'rect') {
+              const a = toXY(d.p1), b = toXY(d.p2);
+              if (a && b) {
+                ctx.fillStyle = col + '22';
+                const rx = Math.min(a.x,b.x), ry = Math.min(a.y,b.y);
+                const rw = Math.abs(a.x-b.x),  rh = Math.abs(a.y-b.y);
+                ctx.fillRect(rx, ry, rw, rh);
+                ctx.strokeRect(rx, ry, rw, rh);
+              }
+            }
+            ctx.restore();
+          });
+        } catch (_) { try { ctx.restore(); } catch (_2) {} }
+      });
+    }
+
+    // ── Fibonacci retracement overlay ────────────────────────────────────
+    if (!drawingsHiddenRef.current && fibDataRef.current) {
+      const fib = fibDataRef.current;
+      const FIB_STYLES = {
+        '0.0':   { color: '#FFD700', width: 1.5, dash: [4,4] },
+        '23.6':  { color: '#FFF176', width: 1.0, dash: [3,5] },
+        '38.2':  { color: '#FFA726', width: 1.5, dash: [4,3] },
+        '50.0':  { color: '#E0E0E0', width: 1.5, dash: [4,3] },
+        '61.8':  { color: '#FFD700', width: 2.5, dash: []     },  // golden ratio — solid
+        '78.6':  { color: '#FF6B35', width: 1.5, dash: [4,3] },
+        '100.0': { color: '#4FC3F7', width: 1.5, dash: [4,4] },
+        '127.2': { color: '#86EFAC', width: 1.0, dash: [3,5] },
+        '161.8': { color: '#4ADE80', width: 2.0, dash: []     },  // main target — solid
+        '200.0': { color: '#10B981', width: 1.0, dash: [3,5] },
+      };
+      const allLevels = { ...fib.retracements, ...fib.extensions };
+      try {
+        Object.entries(allLevels).forEach(([pct, price]) => {
+          const y = series.priceToCoordinate(price);
+          if (y == null || y < 0 || y > h) return;
+          const st = FIB_STYLES[pct] || { color:'#aaaaaa', width:1, dash:[3,5] };
+          ctx.save();
+          ctx.strokeStyle  = st.color;
+          ctx.lineWidth    = st.width;
+          ctx.setLineDash(st.dash);
+          ctx.globalAlpha  = 0.65;
+          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+          // Label
+          ctx.setLineDash([]);
+          ctx.globalAlpha  = 1.0;
+          ctx.font         = `${st.width >= 2 ? 'bold ' : ''}10px "JetBrains Mono", monospace`;
+          ctx.textAlign    = 'right';
+          ctx.textBaseline = 'bottom';
+          ctx.fillStyle    = st.color;
+          const decimals   = price < 1 ? 5 : price < 100 ? 4 : 2;
+          ctx.fillText(`${pct}%  ${price.toFixed(decimals)}`, w - 4, y - 2);
+          ctx.restore();
+        });
+        // Vertical anchor lines
+        const drawAnchorVline = (t, col) => {
+          if (!t) return;
+          const x = chart.timeScale().timeToCoordinate(t);
+          if (x == null) return;
+          ctx.save();
+          ctx.strokeStyle = col; ctx.lineWidth = 1;
+          ctx.setLineDash([2, 5]); ctx.globalAlpha = 0.4;
+          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+          ctx.restore();
+        };
+        drawAnchorVline(fib.anchor_high_time, '#FFD700');
+        drawAnchorVline(fib.anchor_low_time,  '#4FC3F7');
+      } catch (_) { try { ctx.restore(); } catch (_2) {} }
+    }
   }, []);
 
   useE(() => {
@@ -3508,7 +3635,7 @@ function ChartPanel({ defaultSymbol }) {
       try { chart.timeScale().unsubscribeVisibleLogicalRangeChange(handler); } catch (_) {}
       try { ro?.disconnect(); } catch (_) {}
     };
-  }, [drawOverlay, drawings, draftDrawing, drawingsHidden, bars, marks, openPositions, tf]);
+  }, [drawOverlay, drawings, draftDrawing, drawingsHidden, bars, marks, openPositions, tf, patternDrawings]);
 
   // Which lower panels have at least one visible indicator assigned to them.
   // Declared here (before the lazy-init useEffect) so Babel's var-hoisting
@@ -3732,9 +3859,59 @@ function ChartPanel({ defaultSymbol }) {
     )).filter(ind => ind.id !== id || isDefaultIndicator(id)));
   };
   const resetIndicators = () => setIndicators(cloneDefaultIndicators());
-  const clearDrawings = () => { setDrawings([]); setDraftDrawing(null); };
+  const clearDrawings = () => { setDrawings([]); setDraftDrawing(null); setPatternDrawings([]); setPatternMsg(''); };
   const clearIndicators = () => setIndicators(cloneDefaultIndicators().map(ind => ({ ...ind, visible: false })));
   const clearDrawingsAndIndicators = () => { clearDrawings(); clearIndicators(); };
+
+  const PATTERN_COLORS = { LONG: '#4ade80', SHORT: '#f87171', NEUTRAL: '#e879f9' };
+  const analyzePatterns = async () => {
+    setPatternLoading(true);
+    setPatternMsg('');
+    setPatternDrawings([]);
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 15000);
+    try {
+      const data = await panelApi(
+        `/api/chart/patterns?symbol=${encodeURIComponent(symbol)}&timeframe=${tf}`,
+        { signal: ctrl.signal }
+      );
+      clearTimeout(timer);
+      if (!data.patterns?.length) {
+        setPatternMsg('No patterns detected');
+        setTimeout(() => setPatternMsg(''), 4000);
+        return;
+      }
+      setPatternDrawings(data.patterns.map(p => ({
+        ...p,
+        color: PATTERN_COLORS[p.direction] || '#e879f9',
+      })));
+    } catch (err) {
+      clearTimeout(timer);
+      const msg = err?.name === 'AbortError' ? 'Pattern scan timed out' : 'Pattern analysis failed';
+      setPatternMsg(msg);
+      setTimeout(() => setPatternMsg(''), 5000);
+    } finally {
+      setPatternLoading(false);
+    }
+  };
+
+  const analyzeFib = async () => {
+    setFibLoading(true);
+    try {
+      const data = await panelApi(
+        `/api/chart/fib?symbol=${encodeURIComponent(symbol)}&timeframe=${tf}`
+      );
+      setFibData(data.fib || null);
+      if (!data.fib) {
+        // brief flash to signal no setup found
+        setTimeout(() => setFibLoading(false), 0);
+      }
+    } catch (_) {
+      setFibData(null);
+    } finally {
+      setFibLoading(false);
+    }
+  };
 
   return (
     <div style={{ display:'flex', flexDirection:'column', height:'100%', background:'#0d1117', overflow:'hidden' }}>
@@ -3935,6 +4112,42 @@ function ChartPanel({ defaultSymbol }) {
           onClick={clearDrawingsAndIndicators}
           title="Remove drawings and indicators">
           Clear Both
+        </button>
+
+        {/* ── Pattern analysis ── */}
+        <span style={{ borderLeft:'1px solid #2a3347', height:16, margin:'0 2px', flexShrink:0 }} />
+        <button
+          className={cls('btn', patternDrawings.length ? 'primary' : 'ghost', 'sm')}
+          style={{ padding:'2px 8px', fontSize:11 }}
+          onClick={analyzePatterns}
+          disabled={patternLoading}
+          title="Scan current chart for patterns and draw overlays">
+          {patternLoading ? 'Scanning...' : 'Patterns'}
+        </button>
+        {patternDrawings.length > 0 && (
+          <button className="btn ghost sm"
+            style={{ padding:'2px 6px', fontSize:11 }}
+            onClick={() => { setPatternDrawings([]); setPatternMsg(''); }}
+            title="Clear pattern overlays">
+            Clr Pat
+          </button>
+        )}
+        {patternMsg && (
+          <span style={{ fontSize:10, color:'#6b7280', fontStyle:'italic', whiteSpace:'nowrap' }}>
+            {patternMsg}
+          </span>
+        )}
+
+        {/* ── Fibonacci ── */}
+        <span style={{ borderLeft:'1px solid #2a3347', height:16, margin:'0 2px', flexShrink:0 }} />
+        <button
+          className={cls('btn', fibData ? 'primary' : 'ghost', 'sm')}
+          style={{ padding:'2px 8px', fontSize:11, color: fibData ? '#FFD700' : undefined,
+                   borderColor: fibData ? '#FFD70066' : undefined }}
+          onClick={fibData ? () => setFibData(null) : analyzeFib}
+          disabled={fibLoading}
+          title="Draw Fibonacci retracement from liquidity high to swing low">
+          {fibLoading ? '...' : fibData ? 'Clr Fib' : 'Fib'}
         </button>
       </div>
       </div>

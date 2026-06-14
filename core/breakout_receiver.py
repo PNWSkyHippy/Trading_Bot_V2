@@ -19,6 +19,7 @@ from datetime import datetime, timezone, date
 from typing import Optional, Dict, Any, Tuple, List
 
 import config
+from core.scanner_controls import is_scanner_enabled
 from data.database import db
 from core.risk_manager import risk_manager
 from core.trade_executor import TradeExecutor
@@ -142,6 +143,10 @@ class BreakoutReceiver:
     def set_scanner(self, scanner):
         self._scanner_ref = scanner
 
+    def _is_receiver_enabled(self, payload: Dict[str, Any]) -> bool:
+        signal_source = payload.get("signal_source", "breakout_scanner")
+        return is_scanner_enabled(signal_source)
+
     # ──────────────────────────────────────────────────────────────────────
     # Public entry
     # ──────────────────────────────────────────────────────────────────────
@@ -153,6 +158,19 @@ class BreakoutReceiver:
         esc            = payload.get("escalation", 0)
         ts_in          = payload.get("timestamp", "")
         signal_age_sec = self._signal_age(ts_in)
+
+        if not self._is_receiver_enabled(payload):
+            signal_source = payload.get("signal_source", "breakout_scanner")
+            reason = f"{signal_source} disabled by bot_state"
+            logger.warning(f"[BREAKOUT RECV] {sym} rejected — {reason}")
+            return {
+                "accepted": False,
+                "execution_eligible": False,
+                "failure_class": "breakout_disabled",
+                "reason": reason,
+                "trade_id": None,
+                "checklist": {},
+            }
 
         # ── Duplicate-signal race guard ──────────────────────────────────────
         # Prevents two signals for the same symbol arriving within the same
@@ -1144,6 +1162,46 @@ class BreakoutReceiver:
 
             move_pct_abs = abs(float(p.get("move_pct", 0)))
             has_structural_stop = p.get("structural_stop_price") is not None
+            signal_source = p.get("signal_source", "breakout_scanner")
+            strategy_name = p.get("strategy_name") or signal_source or "breakout_scanner"
+            original_direction = direction
+            contrarian_flag_map = getattr(
+                config,
+                "BREAKOUT_CONTRARIAN_SOURCE_FLAGS",
+                {
+                    "breakout_scanner": "BREAKOUT_SCANNER_CONTRARIAN",
+                    "funding_scanner":  "FUNDING_SCANNER_CONTRARIAN",
+                    "gap_scanner":      "GAP_SCANNER_CONTRARIAN",
+                },
+            )
+            contrarian_flag = contrarian_flag_map.get(signal_source)
+            source_contrarian_enabled = (
+                bool(getattr(config, contrarian_flag, False))
+                if contrarian_flag
+                else signal_source in set(getattr(
+                    config,
+                    "BREAKOUT_CONTRARIAN_SOURCES",
+                    ("breakout_scanner",),
+                ))
+            )
+
+            if (
+                getattr(config, "BREAKOUT_CONTRARIAN_MODE", False)
+                and source_contrarian_enabled
+                and not checklist.get("direction_flip")
+                and str(direction).lower() in ("long", "short")
+            ):
+                direction = "short" if str(direction).lower() == "long" else "long"
+                p["direction"] = direction
+                p["contrarian_original_direction"] = original_direction
+                p["contrarian_mode"] = True
+                p["structural_stop_price"] = None
+                has_structural_stop = False
+                logger.warning(
+                    f"[BREAKOUT CONTRARIAN] {sym}: flipping "
+                    f"{str(original_direction).upper()}->{direction.upper()} "
+                    f"after checklist pass source={signal_source}"
+                )
 
             if asset_class == "crypto" and not has_structural_stop:
                 custom_stop = round(min(max(move_pct_abs * 0.30, 2.0), 4.5), 2)
@@ -1173,14 +1231,14 @@ class BreakoutReceiver:
                 score         = min(float(p.get("confidence", 0.7)) + 0.1, 1.0),
                 current_price = price,
                 reason        = (
-                    f"breakout_scanner esc={esc} "
+                    f"{signal_source} esc={esc} "
                     f"move={p.get('move_pct', 0):+.1f}% "
                     f"vol={p.get('volume_spike', 0):.1f}x"
                 ),
                 indicators    = {
-                    "strategy_name":              "breakout_scanner",
+                    "strategy_name":              strategy_name,
                     "timeframe":                  "5m" if asset_class == "crypto" else "5Min",
-                    "signal_source":              "breakout_scanner",
+                    "signal_source":              signal_source,
                     "preferred_broker":           broker_hint,
                     "source_broker":              source_broker,
                     "source_price":               p.get("source_price", p.get("current_price")),
@@ -1194,6 +1252,8 @@ class BreakoutReceiver:
                     "rsi":                        p.get("rsi"),
                     "sma200":                     p.get("sma200"),
                     "structural_stop_price":      p.get("structural_stop_price"),
+                    "contrarian_mode":            p.get("contrarian_mode", False),
+                    "original_direction":         p.get("contrarian_original_direction"),
                     "breakout_level":             p.get("breakout_level"),
                     "bars_since_breakout":        p.get("bars_since_breakout"),
                     "distance_from_breakout_pct": p.get("distance_from_breakout_pct"),

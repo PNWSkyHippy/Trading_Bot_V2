@@ -52,6 +52,30 @@ RULES_MIN_RSI_SHORT  = 22
 RULES_MAX_ADX_BLOCK  = 20
 RULES_MAX_RISK_SCORE = 80
 
+REVIEW_INDICATOR_KEYS = (
+    "rsi",
+    "adx",
+    "volume_ratio",
+    "macd_hist",
+    "bb_pct",
+    "dist_to_mid_pct",
+    "btc_15m_move_pct",
+    "btc_momentum_active",
+    "move_pct",
+    "volume_spike",
+    "escalation",
+    "pattern",
+    "bars_since_breakout",
+    "distance_from_breakout_pct",
+    "breakout_level",
+    "sma20_target",
+    "market_condition",
+    "condition_scalar",
+    "timeframe",
+    "structural_stop_price",
+    "signal_source",
+)
+
 
 # ===========================================================================
 #  STATIC SYSTEM PROMPT — kept constant to enable Anthropic prompt caching
@@ -131,24 +155,23 @@ class _RulesFilter:
         direction = (signal.direction or "").lower()
 
         # Score gate
-        score = getattr(signal, "score", 0.0)
+        score = _safe_float(getattr(signal, "score", 0.0), 0.0) or 0.0
         if score < RULES_MIN_SCORE:
             return True, f"score {score:.3f} < minimum {RULES_MIN_SCORE}"
 
         # ADX flat-market block
-        adx = ind.get("adx")
-        if adx is not None and float(adx) <= RULES_MAX_ADX_BLOCK:
+        adx = _safe_float(ind.get("adx"))
+        if adx is not None and adx <= RULES_MAX_ADX_BLOCK:
             return True, f"ADX {adx:.1f} <= {RULES_MAX_ADX_BLOCK} (no trend)"
 
         # Volume confirmation
-        vol = ind.get("volume_ratio")
-        if vol is not None and float(vol) < RULES_MIN_VOLUME:
+        vol = _safe_float(ind.get("volume_ratio"))
+        if vol is not None and vol < RULES_MIN_VOLUME:
             return True, f"volume_ratio {vol:.2f} < {RULES_MIN_VOLUME}"
 
         # RSI extremes
-        rsi = ind.get("rsi")
+        rsi = _safe_float(ind.get("rsi"))
         if rsi is not None:
-            rsi = float(rsi)
             if direction == "long" and rsi > RULES_MAX_RSI_LONG:
                 return True, f"RSI {rsi:.1f} overbought for long (>{RULES_MAX_RSI_LONG})"
             if direction == "short" and rsi < RULES_MIN_RSI_SHORT:
@@ -169,6 +192,43 @@ class _RulesFilter:
             return True, f"top_risk_score {market_context.top_risk_score} > {RULES_MAX_RISK_SCORE}"
 
         return False, ""
+
+
+def _safe_float(value, default: Optional[float] = None) -> Optional[float]:
+    if value is None or value == "":
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def _round_for_prompt(value):
+    if isinstance(value, float):
+        return round(value, 6)
+    return value
+
+
+def _compact_signal_payload(signal) -> Dict:
+    ind = signal.indicators or {}
+    payload = {
+        "symbol": getattr(signal, "symbol", ""),
+        "direction": getattr(signal, "direction", ""),
+        "asset_class": getattr(signal, "asset_class", ""),
+        "score": round(_safe_float(getattr(signal, "score", None), 0.0) or 0.0, 4),
+        "current_price": _round_for_prompt(getattr(signal, "current_price", None)),
+        "strategy": ind.get("strategy_name", getattr(signal, "strategy_name", "unknown")),
+        "reason": getattr(signal, "reason", "") or ind.get("reason", ""),
+        "stop_loss_pct": _round_for_prompt(getattr(signal, "stop_loss_pct", None)),
+        "take_profit_pct": _round_for_prompt(getattr(signal, "take_profit_pct", None)),
+        "custom_stop_loss": _round_for_prompt(getattr(signal, "custom_stop_loss", None)),
+        "custom_take_profit": _round_for_prompt(getattr(signal, "custom_take_profit", None)),
+        "indicators": {},
+    }
+    for key in REVIEW_INDICATOR_KEYS:
+        if key in ind and ind[key] is not None:
+            payload["indicators"][key] = _round_for_prompt(ind[key])
+    return payload
 
 
 # ===========================================================================
@@ -395,18 +455,7 @@ class ClaudeReviewer:
         Build a compact multi-signal prompt, call Claude once, parse JSON array.
         Returns {symbol: SignalDecision}. Falls back to SKIP on any error.
         """
-        signal_blocks = []
-        for i, sig in enumerate(signals, 1):
-            ind = sig.indicators or {}
-            block = (
-                f"[{i}] {sig.symbol} {sig.direction.upper()} "
-                f"score={sig.score:.2f} price=${sig.current_price:.4f} "
-                f"RSI={ind.get('rsi','?')} ADX={ind.get('adx','?')} "
-                f"vol_ratio={ind.get('volume_ratio','?')} "
-                f"macd={ind.get('macd_hist','?')} "
-                f"strategy={ind.get('strategy_name','unknown')}"
-            )
-            signal_blocks.append(block)
+        signal_payloads = [_compact_signal_payload(sig) for sig in signals]
 
         user_prompt = (
             f"MARKET CONTEXT:\n"
@@ -414,8 +463,8 @@ class ClaudeReviewer:
             f"breadth={ctx.breadth_health} risk={ctx.top_risk_score}/100\n"
             f"hot_sectors={ctx.hot_sectors[:3]} cold_sectors={ctx.cold_sectors[:3]}\n"
             f"events={ctx.high_impact_events or 'none'}\n\n"
-            f"SIGNALS TO REVIEW ({len(signals)}):\n"
-            + "\n".join(signal_blocks)
+            f"SIGNALS TO REVIEW ({len(signals)}), in order:\n"
+            + json.dumps(signal_payloads, separators=(",", ":"), default=str)
             + f"\n\nReturn a JSON array with {len(signals)} elements, one per signal above."
         )
 

@@ -258,7 +258,34 @@ const QUICK_SQL = {
   "GridBot Open 4h": {table:"trades",
     sql:`SELECT trade_id,symbol,direction,status,entry_time,entry_price,stop_loss,take_profit,position_value,broker FROM trades WHERE status='open' AND strategy_name LIKE '%grid%' AND entry_time>=datetime('now','-4 hours','localtime') ORDER BY entry_time DESC`},
   "Strategies": {table:"_strategies",
-    sql:`SELECT replace(key,'strategy_','') AS strategy, UPPER(value) AS enabled FROM bot_state WHERE key LIKE 'strategy_%_enabled' ORDER BY strategy`},
+    sql:`SELECT kind,name,UPPER(enabled) AS enabled,state_key FROM (
+      SELECT 'strategy' AS kind,
+             SUBSTR(key,10,LENGTH(key)-17) AS name,
+             value AS enabled,
+             key AS state_key
+      FROM bot_state
+      WHERE key LIKE 'strategy_%_enabled'
+      UNION ALL
+      SELECT 'scanner','breakout_scanner',
+             COALESCE((SELECT value FROM bot_state WHERE key='breakout_scanner_enabled'),'true'),
+             'breakout_scanner_enabled'
+      UNION ALL
+      SELECT 'scanner','funding_scanner',
+             COALESCE((SELECT value FROM bot_state WHERE key='scanner_funding_scanner_enabled'),'true'),
+             'scanner_funding_scanner_enabled'
+      UNION ALL
+      SELECT 'scanner','gap_scanner',
+             COALESCE((SELECT value FROM bot_state WHERE key='scanner_gap_scanner_enabled'),'true'),
+             'scanner_gap_scanner_enabled'
+      UNION ALL
+      SELECT 'scanner','nr7_scanner',
+             COALESCE((SELECT value FROM bot_state WHERE key='scanner_nr7_scanner_enabled'),'true'),
+             'scanner_nr7_scanner_enabled'
+      UNION ALL
+      SELECT 'scanner','volume_surge',
+             COALESCE((SELECT value FROM bot_state WHERE key='scanner_volume_surge_enabled'),'true'),
+             'scanner_volume_surge_enabled'
+    ) ORDER BY kind,name`},
   "Daily P&L": {table:"daily_summaries",
     sql:`SELECT trade_date,daily_pnl,daily_pnl_pct,total_trades,winning_trades,losing_trades,win_rate,largest_win,largest_loss,starting_capital,ending_capital FROM daily_summaries ORDER BY trade_date DESC LIMIT 60`},
   "Yesterday Closed": {table:"trades",

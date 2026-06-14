@@ -138,8 +138,22 @@ IBKR_TRADE_ENABLED  = False  # SAFETY LOCK — set True only when ready to execu
                               # While False: IBKR connected for display only, all stock trades route Alpaca paper
 
 CLAUDE_REVIEWER_ENABLED = True
-CLAUDE_REVIEWER_MODE = "strict"
+CLAUDE_REVIEWER_MODE = "Strict"
 CLAUDE_REVIEWER_APPLY_SIZE_ADVICE = True
+
+# Contrarian scanner mode — invert selected scanner signal directions after
+# their receiver checklist passes, immediately before trade execution.
+# Source-specific flags let each scanner be tested independently.
+BREAKOUT_CONTRARIAN_MODE = True
+BREAKOUT_SCANNER_CONTRARIAN = True
+FUNDING_SCANNER_CONTRARIAN  = True
+GAP_SCANNER_CONTRARIAN      = False
+
+BREAKOUT_CONTRARIAN_SOURCE_FLAGS = {
+    "breakout_scanner": "BREAKOUT_SCANNER_CONTRARIAN",
+    "funding_scanner":  "FUNDING_SCANNER_CONTRARIAN",
+    "gap_scanner":      "GAP_SCANNER_CONTRARIAN",
+}
 
 MASSIVE_API_KEY     = _db_key("massive",   "api_key",    _decrypt(os.getenv("MASSIVE_API_KEY",    "")))
 
@@ -195,6 +209,14 @@ FEE_RT_STOCK_PCT   = (BT_COMMISSION_STOCK_PCT  + BT_SLIPPAGE_STOCK_PCT)  * 2   #
 # = fee hurdle + buffer. Below this the protective stop stands instead.
 MIN_NET_PROFIT_CRYPTO_PCT = round(FEE_RT_CRYPTO_PCT + 0.40, 2)   # ~1.02 %
 MIN_NET_PROFIT_STOCK_PCT  = round(FEE_RT_STOCK_PCT  + 0.30, 2)   # ~0.32 %
+
+# Scanner profit protection stages:
+#   +1.0%: reduce risk to gross breakeven without choking the trade at the
+#          full fee-adjusted stop immediately.
+#   +1.5%: lock fee-adjusted breakeven/net-positive stop, then let peak trail.
+SCANNER_RATCHET_REDUCE_RISK_TRIGGER_PCT = 1.00
+SCANNER_RATCHET_GROSS_BREAKEVEN_PCT     = 0.00
+SCANNER_RATCHET_NET_LOCK_TRIGGER_PCT    = 1.50
 
 # Momentum rider
 MOMENTUM_RIDER_ENABLED        = True

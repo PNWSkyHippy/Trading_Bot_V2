@@ -65,6 +65,11 @@ STRATEGY_NAMES = [
     "kds_mean_reversion", "ema_ribbon_breakout", "rcr_mean_reversion",
 ]
 
+SCANNER_NAMES = [
+    "breakout_scanner", "funding_scanner", "gap_scanner", "nr7_scanner",
+    "volume_surge",
+]
+
 # Watchlist file paths
 WATCHLIST_DIR        = Path("watchlists")
 MASTER_STOCKS_FILE   = WATCHLIST_DIR / "stocks.txt"
@@ -89,6 +94,10 @@ ecb_strategy, vdmr_strategy, rsi_dip_spike_v4, vwap_confirmed_orb, bollinger_squ
 mr_02_vef, mr_03_fbs, mr_04_fvg,
 btc_v6_chandelier, rsi_dip_simple, pll_cycle, pll_cycle_martingale (PERMANENTLY DISABLED — NEVER enable, blew $1000 live),
 kds_mean_reversion, ema_ribbon_breakout, rcr_mean_reversion
+
+SCANNER COMMANDS:
+Valid scanner names: breakout_scanner, funding_scanner, gap_scanner, nr7_scanner, volume_surge.
+These are not normal StrategyEngine strategies, but they can be enabled/disabled.
 
 When user says "enable X" or "disable X" — execute IMMEDIATELY, no questions.
 Do NOT say the strategy doesn't exist. Do NOT list strategies first. Just do it.
@@ -462,10 +471,12 @@ class ChatInterface:
 
         if any(p in msg_lower for p in [
             "show strategies", "list strategies", "what strategies",
-            "enabled strategies", "disabled strategies"
+            "enabled strategies", "disabled strategies", "show scanners",
+            "list scanners", "enabled scanners", "disabled scanners"
         ]):
             try:
                 from strategies.strategy_engine import strategy_engine
+                from core.scanner_controls import list_scanner_controls
                 strategies = strategy_engine.list_strategies()
                 lines = ["Strategies:"]
                 for s in strategies:
@@ -477,6 +488,10 @@ class ChatInterface:
                         flags.append("no auto-disable")
                     suffix = f" ({', '.join(flags)})" if flags else ""
                     lines.append(f"- {s['name']}: {status}{suffix}")
+                lines.append("Scanners:")
+                for s in list_scanner_controls():
+                    status = "ON" if s.get("enabled") else "OFF"
+                    lines.append(f"- {s['name']}: {status}")
                 logger.info("[CLAUDE] PRE-PARSE list_strategies")
                 return "\n".join(lines)
             except Exception as e:
@@ -682,6 +697,15 @@ class ChatInterface:
             return [local_status]
 
         # --- enable strategy ---
+        for name in SCANNER_NAMES:
+            if re.search(rf'\benable\b.*\b{re.escape(name)}\b', msg) or \
+               re.search(rf'\b{re.escape(name)}\b.*\benable\b', msg) or \
+               re.search(rf'turn on.*\b{re.escape(name)}\b', msg):
+                from core.scanner_controls import set_scanner_enabled
+                result = set_scanner_enabled(name, True)
+                logger.info(f"[CLAUDE] PRE-PARSE enable_scanner | name={name}")
+                return [result]
+
         for name in STRATEGY_NAMES:
             if re.search(rf'\benable\b.*\b{re.escape(name)}\b', msg) or \
                re.search(rf'\b{re.escape(name)}\b.*\benable\b', msg) or \
@@ -693,6 +717,15 @@ class ChatInterface:
                 return [result]
 
         # --- disable strategy ---
+        for name in SCANNER_NAMES:
+            if re.search(rf'\bdisable\b.*\b{re.escape(name)}\b', msg) or \
+               re.search(rf'\b{re.escape(name)}\b.*\bdisable\b', msg) or \
+               re.search(rf'turn off.*\b{re.escape(name)}\b', msg):
+                from core.scanner_controls import set_scanner_enabled
+                result = set_scanner_enabled(name, False)
+                logger.info(f"[CLAUDE] PRE-PARSE disable_scanner | name={name}")
+                return [result]
+
         for name in STRATEGY_NAMES:
             if re.search(rf'\bdisable\b.*\b{re.escape(name)}\b', msg) or \
                re.search(rf'\b{re.escape(name)}\b.*\bdisable\b', msg) or \
@@ -1001,24 +1034,45 @@ class ChatInterface:
 
                 elif action == "list_strategies":
                     from strategies.strategy_engine import strategy_engine
+                    from core.scanner_controls import list_scanner_controls
                     strategies = strategy_engine.list_strategies()
                     info = "\n".join(
                         f"  {'ON' if s['enabled'] else 'OFF'} {s['name']}"
                         for s in strategies
                     )
-                    result_msg = f"Strategies:\n{info}"
+                    scanners = "\n".join(
+                        f"  {'ON' if s['enabled'] else 'OFF'} {s['name']}"
+                        for s in list_scanner_controls()
+                    )
+                    result_msg = f"Strategies:\n{info}\nScanners:\n{scanners}"
                     logger.info("[CLAUDE] ACTION list_strategies")
 
                 elif action == "enable_strategy":
                     from strategies.strategy_engine import strategy_engine
+                    from core.scanner_controls import (
+                        SCANNER_CONTROLS,
+                        normalize_scanner_name,
+                        set_scanner_enabled,
+                    )
                     name = cmd.get("name", "")
-                    result_msg = strategy_engine.enable_strategy(name)
+                    if normalize_scanner_name(name) in SCANNER_CONTROLS:
+                        result_msg = set_scanner_enabled(name, True)
+                    else:
+                        result_msg = strategy_engine.enable_strategy(name)
                     logger.info(f"[CLAUDE] ACTION enable_strategy | name={name}")
 
                 elif action == "disable_strategy":
                     from strategies.strategy_engine import strategy_engine
+                    from core.scanner_controls import (
+                        SCANNER_CONTROLS,
+                        normalize_scanner_name,
+                        set_scanner_enabled,
+                    )
                     name = cmd.get("name", "")
-                    result_msg = strategy_engine.disable_strategy(name)
+                    if normalize_scanner_name(name) in SCANNER_CONTROLS:
+                        result_msg = set_scanner_enabled(name, False)
+                    else:
+                        result_msg = strategy_engine.disable_strategy(name)
                     logger.info(f"[CLAUDE] ACTION disable_strategy | name={name}")
 
                 elif action == "strategy_stats":

@@ -17,6 +17,15 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
+try:
+    from chart_patterns import PatternDetector as _PatternDetector
+except Exception:
+    _PatternDetector = None
+
+# Cache last 200 bars per symbol/tf — populated when /api/chart/data is served,
+# consumed by /api/chart/patterns.  No I/O needed in the patterns endpoint.
+_pattern_bars_cache: dict = {}   # key: "SYMBOL/tf"
+
 ROOT = Path(__file__).parent
 HTML_ROOT = ROOT / "Html-Files"
 if not HTML_ROOT.exists():
@@ -2044,6 +2053,184 @@ def _futures_front_month_ticker(root: str) -> str:
     return f"{root}{month_code}{year_code}"   # e.g. 'MGCM26', 'ESU26'
 
 
+def _pattern_coords(pattern_name, bars):
+    """Return drawing segments for frontend canvas overlay."""
+    n = len(bars)
+    if n < 5:
+        return []
+    times  = [b['time']                                      for b in bars]
+    closes = [float(b.get('close') or 0)                     for b in bars]
+    highs  = [float(b.get('high',  b.get('close', 0)) or 0) for b in bars]
+    lows   = [float(b.get('low',   b.get('close', 0)) or 0) for b in bars]
+
+    def lr(vals):
+        n2 = len(vals)
+        if n2 < 2: return vals[0], vals[-1]
+        xs = list(range(n2)); mx = sum(xs)/n2; my = sum(vals)/n2
+        num = sum((xs[i]-mx)*(vals[i]-my) for i in range(n2))
+        den = sum((xs[i]-mx)**2 for i in range(n2)) or 1
+        s = num/den
+        return my - s*mx, my - s*mx + s*(n2-1)
+
+    def seg(t1,p1,t2,p2): return {'type':'line','p1':{'time':t1,'price':p1},'p2':{'time':t2,'price':p2}}
+    def hl(price):        return {'type':'hline','p1':{'time':times[0],'price':price},'p2':{'time':times[-1],'price':price}}
+    def vl(t, price):     return {'type':'vline','p1':{'time':t,'price':price}}
+    def rc(t1,p1,t2,p2): return {'type':'rect','p1':{'time':t1,'price':p1},'p2':{'time':t2,'price':p2}}
+
+    segs = []
+    pn = pattern_name
+
+    if pn in ('Ascending Triangle','Descending Triangle','Symmetrical Triangle',
+              'Rising Wedge','Falling Wedge'):
+        h0,h1 = lr(highs); l0,l1 = lr(lows)
+        segs += [seg(times[0],h0,times[-1],h1), seg(times[0],l0,times[-1],l1)]
+
+    elif pn in ('Bull Flag','Bear Flag','Bull Pennant','Bear Pennant'):
+        pe = n // 3
+        segs.append(seg(times[0],closes[0],times[pe],closes[pe]))
+        fh = max(highs[pe:]); fl = min(lows[pe:])
+        segs.append(rc(times[pe],fh,times[-1],fl))
+
+    elif pn in ('Head & Shoulders','Inv Head & Shoulders'):
+        segs.append(hl(sum(lows[-n//2:]) / max(len(lows[-n//2:]),1)))  # approx neckline
+        segs.append(vl(times[n//4], highs[n//4]))
+        segs.append(vl(times[n//2], (highs[n//2] if pn=='Head & Shoulders' else lows[n//2])))
+        segs.append(vl(times[3*n//4], highs[3*n//4]))
+
+    elif pn in ('Double Top','Double Bottom'):
+        if pn == 'Double Top':
+            # Find peak in each half → two vlines + resistance hline + neckline at valley
+            h1 = highs[:n//2]; h2 = highs[n//2:]
+            i1 = h1.index(max(h1)); i2 = h2.index(max(h2)) + n//2
+            resistance = (highs[i1] + highs[i2]) / 2
+            valley = min(lows[i1:i2+1]) if i1 < i2 else min(lows)
+            segs += [hl(resistance),
+                     hl(valley),
+                     vl(times[i1], highs[i1]),
+                     vl(times[i2], highs[i2])]
+        else:
+            # Find trough in each half → two vlines + support hline + neckline at peak
+            l1 = lows[:n//2]; l2 = lows[n//2:]
+            i1 = l1.index(min(l1)); i2 = l2.index(min(l2)) + n//2
+            support = (lows[i1] + lows[i2]) / 2
+            peak = max(highs[i1:i2+1]) if i1 < i2 else max(highs)
+            segs += [hl(support),
+                     hl(peak),
+                     vl(times[i1], lows[i1]),
+                     vl(times[i2], lows[i2])]
+
+    elif pn == 'Cup & Handle':
+        cup_end = int(n*0.75)
+        segs += [seg(times[0],closes[0],times[n//2],min(closes[:cup_end])),
+                 seg(times[n//2],min(closes[:cup_end]),times[cup_end],closes[cup_end]),
+                 rc(times[cup_end],max(highs[cup_end:]),times[-1],min(lows[cup_end:]))]
+
+    elif pn == 'Consolidation Breakout':
+        # Consolidation zone = the quiet range just before the breakout bar
+        # Box covers last 8–12 bars of tight range; line shows the break out of it
+        cb = max(0, n - 13)   # left edge of consolidation window
+        ce = max(cb + 3, n - 2)  # right edge / where breakout begins
+        box_h = max(highs[cb:ce])
+        box_l = min(lows[cb:ce])
+        segs += [rc(times[cb], box_h, times[ce - 1], box_l),
+                 seg(times[ce - 1], closes[ce - 1], times[-1], closes[-1])]
+
+    elif pn == 'Parabolic Acceleration':
+        pts = [0, n//3, 2*n//3, n-1]
+        for i in range(len(pts)-1):
+            segs.append(seg(times[pts[i]],closes[pts[i]],times[pts[i+1]],closes[pts[i+1]]))
+
+    elif pn in ('Volume Climax',
+                'Shooting Star','Hammer','Gravestone Doji','Dragonfly Doji','Doji',
+                'Bearish Engulfing','Bullish Engulfing',
+                'Evening Star','Morning Star',
+                'Three Black Crows','Three White Soldiers',
+                'Bearish Exhaustion','Bullish Exhaustion'):
+        num_c = (3 if pn in ('Evening Star','Morning Star',
+                              'Three Black Crows','Three White Soldiers',
+                              'Bearish Exhaustion','Bullish Exhaustion')
+                 else 2 if pn in ('Bearish Engulfing','Bullish Engulfing')
+                 else 1)
+        # Highlight box spanning all signal candles
+        # For single-candle patterns num_c==1, use the bar before as left edge so
+        # the rect has non-zero width (same time both sides → invisible rect).
+        if len(times) >= num_c:
+            box_h  = max(highs[-num_c:])
+            box_l  = min(lows[-num_c:])
+            t_left = times[-(num_c + 1)] if num_c == 1 and len(times) > 1 else times[-num_c]
+            segs.append(rc(t_left, box_h, times[-1], box_l))
+        # Vline on each candle as well
+        for i in range(num_c, 0, -1):
+            if len(times) >= i:
+                segs.append(vl(times[-i], closes[-i]))
+
+    return segs
+
+
+def _calc_fib_levels(bars):
+    """
+    Anchor point A = highest dollar-volume candle (liquidity candle) high.
+    Anchor point B = lowest low after A in the lookback window.
+    Returns retracement + extension levels plus anchor metadata, or None if no valid setup.
+    """
+    if len(bars) < 5:
+        return None
+    lookback = min(100, len(bars))
+    recent   = bars[-lookback:]
+
+    times  = [b['time']                                      for b in recent]
+    highs  = [float(b.get('high',  b.get('close', 0)) or 0) for b in recent]
+    lows   = [float(b.get('low',   b.get('close', 0)) or 0) for b in recent]
+    vols   = [float(b.get('volume', 0) or 0)                 for b in recent]
+
+    # Liquidity candle: highest price × volume (dollar volume)
+    dvols   = [highs[i] * vols[i] for i in range(len(recent))]
+    liq_idx = max(range(len(recent)), key=lambda i: dvols[i]) if any(v > 0 for v in dvols) \
+              else highs.index(max(highs))
+
+    anchor_high      = highs[liq_idx]
+    anchor_high_time = times[liq_idx]
+
+    # Swing low: lowest low at-or-after the liquidity candle
+    after_lows  = lows[liq_idx:]
+    after_times = times[liq_idx:]
+    if len(after_lows) < 1:
+        return None
+    min_pos      = after_lows.index(min(after_lows))
+    anchor_low   = after_lows[min_pos]
+    anchor_low_time = after_times[min_pos]
+
+    if anchor_high <= anchor_low:
+        # No downswing from liquidity high — can't draw retracements
+        return None
+
+    diff = anchor_high - anchor_low
+
+    retracements = {
+        '0.0':   round(anchor_high,         6),
+        '23.6':  round(anchor_high - diff * 0.236, 6),
+        '38.2':  round(anchor_high - diff * 0.382, 6),
+        '50.0':  round(anchor_high - diff * 0.500, 6),
+        '61.8':  round(anchor_high - diff * 0.618, 6),
+        '78.6':  round(anchor_high - diff * 0.786, 6),
+        '100.0': round(anchor_low,          6),
+    }
+    extensions = {
+        '127.2': round(anchor_high + diff * 0.272, 6),
+        '161.8': round(anchor_high + diff * 0.618, 6),
+        '200.0': round(anchor_high + diff * 1.000, 6),
+    }
+    return {
+        'anchor_high':      anchor_high,
+        'anchor_high_time': anchor_high_time,
+        'anchor_low':       anchor_low,
+        'anchor_low_time':  anchor_low_time,
+        'diff':             round(diff, 6),
+        'retracements':     retracements,
+        'extensions':       extensions,
+    }
+
+
 def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
     symbol = symbol.upper().strip()
     is_crypto = '/' in symbol
@@ -3058,7 +3245,34 @@ _QUICK_SQL = {
     "Capital Today":   """SELECT timestamp,total_capital,available_cash,invested_value,daily_pnl,total_pnl,note FROM capital WHERE DATE(timestamp)=DATE('now','localtime') ORDER BY timestamp DESC""",
     "Settlement Queue":"""SELECT rowid,* FROM settlement_queue ORDER BY rowid DESC LIMIT 300""",
     "By Strategy":     """SELECT rowid,trade_id,symbol,direction,status,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,broker FROM trades ORDER BY entry_time DESC LIMIT 500""",
-    "Strategies":      """SELECT replace(key,'strategy_','') AS strategy, UPPER(value) AS enabled FROM bot_state WHERE key LIKE 'strategy_%_enabled' ORDER BY strategy""",
+    "Strategies":      """SELECT kind,name,UPPER(enabled) AS enabled,state_key FROM (
+        SELECT 'strategy' AS kind,
+               SUBSTR(key,10,LENGTH(key)-17) AS name,
+               value AS enabled,
+               key AS state_key
+        FROM bot_state
+        WHERE key LIKE 'strategy_%_enabled'
+        UNION ALL
+        SELECT 'scanner' AS kind, 'breakout_scanner' AS name,
+               COALESCE((SELECT value FROM bot_state WHERE key='breakout_scanner_enabled'),'true') AS enabled,
+               'breakout_scanner_enabled' AS state_key
+        UNION ALL
+        SELECT 'scanner', 'funding_scanner',
+               COALESCE((SELECT value FROM bot_state WHERE key='scanner_funding_scanner_enabled'),'true'),
+               'scanner_funding_scanner_enabled'
+        UNION ALL
+        SELECT 'scanner', 'gap_scanner',
+               COALESCE((SELECT value FROM bot_state WHERE key='scanner_gap_scanner_enabled'),'true'),
+               'scanner_gap_scanner_enabled'
+        UNION ALL
+        SELECT 'scanner', 'nr7_scanner',
+               COALESCE((SELECT value FROM bot_state WHERE key='scanner_nr7_scanner_enabled'),'true'),
+               'scanner_nr7_scanner_enabled'
+        UNION ALL
+        SELECT 'scanner', 'volume_surge',
+               COALESCE((SELECT value FROM bot_state WHERE key='scanner_volume_surge_enabled'),'true'),
+               'scanner_volume_surge_enabled'
+    ) ORDER BY kind,name""",
     "Daily P&L":       """SELECT trade_date,daily_pnl,daily_pnl_pct,total_trades,winning_trades,losing_trades,win_rate,largest_win,largest_loss,starting_capital,ending_capital FROM daily_summaries ORDER BY trade_date DESC LIMIT 60""",
     "Yesterday Closed":"""SELECT rowid,trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','-1 day','localtime') ORDER BY exit_time DESC""",
     "Signal Reviews":  """SELECT rowid,timestamp,symbol,direction,strategy_name,signal_score,decision,confidence,reasoning FROM ai_signal_reviews ORDER BY timestamp DESC LIMIT 200""",
@@ -3400,7 +3614,11 @@ class Handler(BaseHTTPRequestHandler):
             limit     = (params.get("limit")     or ["300"])[0].strip()
             broker    = (params.get("broker")    or [""])[0].strip().lower() or None
             try:
-                return self._json(200, get_chart_data(symbol, timeframe, limit, broker))
+                _cd = get_chart_data(symbol, timeframe, limit, broker)
+                # Cache bars so /api/chart/patterns can use them without re-fetching
+                if _cd.get("bars"):
+                    _pattern_bars_cache[f"{symbol}/{timeframe}"] = _cd["bars"][-200:]
+                return self._json(200, _cd)
             except Exception as _ce:
                 import logging as _lg
                 _lg.getLogger(__name__).error(f"[/api/chart] {symbol} crashed: {_ce}", exc_info=True)
@@ -3408,6 +3626,52 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/chart/symbols":
             return self._json(200, {"symbols": get_chart_symbols()})
+
+        if path == "/api/chart/patterns":
+            params    = parse_qs(parsed.query)
+            symbol    = (params.get("symbol")    or ["BTC/USD"])[0].strip()
+            timeframe = (params.get("timeframe") or ["5m"])[0].strip()
+            try:
+                if _PatternDetector is None:
+                    return self._json(200, {"patterns": [], "error": "chart_patterns unavailable"})
+                bars = _pattern_bars_cache.get(f"{symbol}/{timeframe}", [])
+                if not bars:
+                    return self._json(200, {"patterns": [], "symbol": symbol, "bar_count": 0,
+                                            "note": "load chart first"})
+                prices  = [float(b.get("close") or 0)  for b in bars]
+                volumes = [float(b.get("volume") or 0) for b in bars]
+                opens   = [float(b.get("open")  or 0)  for b in bars]
+                bhighs  = [float(b.get("high")  or 0)  for b in bars]
+                blows   = [float(b.get("low")   or 0)  for b in bars]
+                all_candidates = _PatternDetector().detect(
+                    prices, volumes, opens=opens, highs=bhighs, lows=blows, min_confidence=0.0)
+                logging.getLogger(__name__).info(
+                    f"[patterns] {symbol}/{timeframe}: {len(bars)} bars · "
+                    + " | ".join(f"{r.name}={r.confidence:.2f}" for r in all_candidates)
+                )
+                results = [r for r in all_candidates if r.confidence >= 0.25]
+                out = [{"name": r.name, "direction": r.direction, "confidence": round(r.confidence, 3),
+                        "description": r.description, "drawings": _pattern_coords(r.name, bars)}
+                       for r in results]
+                return self._json(200, {"patterns": out, "symbol": symbol,
+                                        "timeframe": timeframe, "bar_count": len(bars)})
+            except Exception as _pe:
+                logging.getLogger(__name__).error(f"[/api/chart/patterns] {symbol}: {_pe}", exc_info=True)
+                return self._json(200, {"patterns": [], "error": str(_pe)})
+
+        if path == "/api/chart/fib":
+            params    = parse_qs(parsed.query)
+            symbol    = (params.get("symbol")    or ["BTC/USD"])[0].strip()
+            timeframe = (params.get("timeframe") or ["5m"])[0].strip()
+            bars      = _pattern_bars_cache.get(f"{symbol}/{timeframe}", [])
+            if not bars:
+                return self._json(200, {"fib": None, "error": "load chart first"})
+            try:
+                fib = _calc_fib_levels(bars)
+                return self._json(200, {"fib": fib, "symbol": symbol, "timeframe": timeframe})
+            except Exception as _fe:
+                logging.getLogger(__name__).error(f"[/api/chart/fib] {symbol}: {_fe}", exc_info=True)
+                return self._json(200, {"fib": None, "error": str(_fe)})
 
         if path == "/api/theme":
             _theme_path = Path(__file__).parent / "config" / "theme.json"
@@ -4219,7 +4483,27 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"assets": []})
 
         if path == "/api/broker_panel/close":
-            return self._json(200, {"ok": False, "message": "Close via broker panel not yet implemented — use Manage Positions."})
+            position_id = (
+                data.get("trade_id")
+                or data.get("position_id")
+                or data.get("id")
+            )
+            if position_id is None and data.get("symbol"):
+                symbol = str(data.get("symbol")).upper()
+                try:
+                    for trade in db.get_open_trades() or []:
+                        if str(trade.get("symbol", "")).upper() == symbol:
+                            position_id = trade.get("trade_id") or trade.get("id")
+                            break
+                except Exception:
+                    position_id = None
+            if position_id is None:
+                return self._json(
+                    400,
+                    {"ok": False, "message": "position_id or trade_id is required"},
+                )
+            ok, msg = request_close_position(position_id)
+            return self._json(202 if ok else 400, {"ok": ok, "message": msg})
 
         if path == "/api/broker_panel/order":
             return self._json(200, {"ok": False, "message": "Direct order via broker panel not yet implemented."})

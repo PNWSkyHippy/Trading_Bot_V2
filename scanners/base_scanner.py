@@ -21,7 +21,16 @@ import time
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 
+from core.scanner_controls import (
+    is_scanner_enabled,
+    scanner_source_from_runtime_name,
+)
+
 logger = logging.getLogger(__name__)
+
+
+def breakout_injection_enabled() -> bool:
+    return is_scanner_enabled("breakout_scanner")
 
 
 class BaseEventScanner:
@@ -47,6 +56,7 @@ class BaseEventScanner:
 
         self.signals_fired  = 0
         self.signals_accepted = 0
+        self._last_disabled_log = 0.0
 
     # ------------------------------------------------------------------
     # Wiring (called by scanner_engine)
@@ -98,6 +108,23 @@ class BaseEventScanner:
 
         sym = payload.get("symbol", "?")
         self.signals_fired += 1
+        signal_source = payload.get(
+            "signal_source",
+            scanner_source_from_runtime_name(self.name),
+        )
+
+        if not is_scanner_enabled(signal_source):
+            logger.info(
+                "[%s] Signal suppressed %s — %s disabled",
+                self.name, sym, signal_source,
+            )
+            return {
+                "accepted": False,
+                "execution_eligible": False,
+                "failure_class": "breakout_disabled",
+                "reason": f"{signal_source} disabled",
+                "trade_id": None,
+            }
 
         try:
             result = self._receiver.receive_signal(payload)
@@ -141,7 +168,14 @@ class BaseEventScanner:
     def _run_loop(self) -> None:
         while self._running:
             try:
-                self.run_once()
+                source = scanner_source_from_runtime_name(self.name)
+                if is_scanner_enabled(source):
+                    self.run_once()
+                else:
+                    now = time.time()
+                    if now - self._last_disabled_log > 300:
+                        logger.info("[%s] disabled — scanner loop idle", self.name)
+                        self._last_disabled_log = now
             except Exception as e:
                 logger.error("[%s] run_once() error: %s", self.name, e, exc_info=True)
             time.sleep(self.check_interval_sec)

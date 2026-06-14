@@ -71,7 +71,7 @@ STALE_THRESHOLD_SEC = 3 * 60 * 60       # 3 hours before ADX/DI stale check fire
 # ADX threshold below which trend is considered stalled
 ADX_STALE_THRESHOLD = 25.0
 
-PM_DEBUG = False
+PM_DEBUG = True
 
 # ── NEW: Time-based exit thresholds ──────────────────────────────────────────
 # Performance-contingent: close if profit is below threshold after N hours.
@@ -123,11 +123,15 @@ MIN_CLOSE_RETRY_SEC = 60   # wait at least 60s between failed close attempts
 
 
 def _is_breakout_trade(trade: dict) -> bool:
-    if trade.get("strategy_name") == "breakout_scanner":
+    scanner_strategies = {"breakout_scanner", "funding_scanner", "gap_scanner"}
+    if trade.get("strategy_name") in scanner_strategies:
         return True
     try:
         meta = _json.loads(trade.get("indicators_json") or "{}")
-        return meta.get("strategy_name") == "breakout_scanner"
+        return (
+            meta.get("strategy_name") in scanner_strategies
+            or meta.get("signal_source") in scanner_strategies
+        )
     except Exception:
         return False
 
@@ -542,7 +546,8 @@ class PositionMonitor:
         except Exception:
             pass
 
-        risk_manager.record_trade_result(pnl=pnl, trade_won=(pnl > 0), symbol=symbol)
+        risk_manager.record_trade_result(pnl=pnl, trade_won=(pnl > 0), symbol=symbol,
+                                          strategy=trade.get("strategy_name", ""))
         self._reset_close_attempts(trade_id)
         if self._on_breakout_win_closed and _is_breakout_trade(trade):
             try:
@@ -627,8 +632,8 @@ class PositionMonitor:
             "mr_02_vef", "mr_03_fbs",
             "pll_cycle", "pll_cycle_martingale",
             "scalp_master",
-            "rsi_dip_simple",
-            "rcr_mean_reversion",
+            "rsi_dip_simple", "breakout_scanner",
+            "rcr_mean_reversion", "funding_scanner",
             "btc_v6_chandelier",
             "orb_breakout",
             "vwap_confirmed_orb",
@@ -1010,6 +1015,20 @@ class PositionMonitor:
             f"[STALE CHECK] {symbol} {direction.upper()} | "
             f"Open 3+ hrs | ADX={adx:.1f} +DI={plus_di:.1f} -DI={minus_di:.1f}"
         )
+
+        if not all(np.isfinite(v) for v in (adx, plus_di, minus_di)):
+            logger.warning(
+                f"[STALE EXIT] {symbol}: invalid ADX/DI data "
+                f"ADX={adx} +DI={plus_di} -DI={minus_di} — closing"
+            )
+            return "stale_bad_di_data"
+
+        if plus_di == 0.0 and minus_di == 0.0:
+            logger.warning(
+                f"[STALE EXIT] {symbol}: +DI and -DI are both 0.0 while "
+                f"ADX={adx:.1f}; treating as missing DI data — closing"
+            )
+            return "stale_bad_di_data"
 
         if adx < ADX_STALE_THRESHOLD:
             logger.info(
@@ -1445,17 +1464,41 @@ class PositionMonitor:
         if sl_exit:
             # Fill at stop_loss price, not current candle price.
             # Live brokers execute the stop order at stop price; paper must match.
-            # Sanity check 1: if stop_loss is > 20% away from current_price it was
-            # corrupted by a bad price feed — fall back to current_price.
-            _raw_sl = float(trade.get("stop_loss") or 0)
+            #
+            # Sanity check 1: if stop_loss is > 20% away from current price AND
+            # the stop is below entry (original/structural stop, not ratcheted),
+            # treat it as a corrupt bad-feed stop and fill at current_price instead.
+            #
+            # IMPORTANT: when stop_loss > entry_price the stop has been ratcheted
+            # to lock profit.  A crash can gap the price 25%+ below the ratcheted SL
+            # in one 10-second monitor interval.  Overriding with current_price here
+            # would turn a locked profit into a large loss.  Sanity check 2 (below)
+            # already caps fake windfall gains, so check 1 is not needed for ratcheted
+            # stops — honour the ratcheted SL price unconditionally.
+            _raw_sl    = float(trade.get("stop_loss") or 0)
+            _entry_ref = float(trade.get("entry_price") or 0)
             _sl_dist_pct = abs(_raw_sl - current_price) / current_price * 100 if current_price else 0
-            sl_fill_price = _raw_sl if _raw_sl and _sl_dist_pct <= 20.0 else current_price
-            if _sl_dist_pct > 20.0:
-                logger.warning(
-                    f"[SL FILL SANITY] {symbol}: stop_loss ${_raw_sl:.4f} is "
-                    f"{_sl_dist_pct:.1f}% from current ${current_price:.4f} "
-                    f"-- suspected corrupt stop, filling at current price"
-                )
+            _sl_is_ratcheted = (_raw_sl > _entry_ref > 0)  # stop moved above entry = profit locked
+
+            if _sl_is_ratcheted:
+                # Ratcheted stop: price crashed through it — honour the locked-in stop price.
+                # A real exchange stop order would have filled at or near this level.
+                sl_fill_price = _raw_sl
+                if _sl_dist_pct > 20.0:
+                    logger.info(
+                        f"[SL FILL] {symbol}: ratcheted stop ${_raw_sl:.6f} "
+                        f"({_sl_dist_pct:.1f}% above crash price ${current_price:.6f}) — "
+                        f"filling at locked SL (profit protected)"
+                    )
+            else:
+                # Original/structural stop below entry — apply corrupt-stop guard
+                sl_fill_price = _raw_sl if _raw_sl and _sl_dist_pct <= 20.0 else current_price
+                if _sl_dist_pct > 20.0:
+                    logger.warning(
+                        f"[SL FILL SANITY] {symbol}: stop_loss ${_raw_sl:.4f} is "
+                        f"{_sl_dist_pct:.1f}% from current ${current_price:.4f} "
+                        f"-- suspected corrupt stop, filling at current price"
+                    )
             # Sanity check 2: for trailing_stop exits, the fill price should not be
             # more than 11% (stock) / 22% (crypto) above entry.  A fake feed spike
             # can leave a corrupted SL that triggers a windfall exit at an impossible
@@ -1690,7 +1733,7 @@ class PositionMonitor:
 
         # ── 10. PIVOT POINT BREAK ─────────────────────────────────────────
         # Only check after 30 min to allow trade to breathe past entry noise
-        if age_seconds >= 30 * 60 and strategy != "orb_breakout":
+        if age_seconds >= 30 * 60 and strategy not in ("orb_breakout", "bmr_357"):
             pivot_exit = self._check_pivot_break(trade, current_price)
             if pivot_exit:
                 logger.info(
@@ -1718,68 +1761,114 @@ class PositionMonitor:
 
         if PM_DEBUG:
             logger.info(f"[PM-DBG] ⑥ {symbol} — reached trailing stop section")
-        # ── 11b. BREAKOUT RATCHET STOP ───────────────────────────────────
-        # For breakout trades: once P&L hits +$20, snap SL to entry (zero loss).
-        # After that, trail the SL $20 below current price — but ONLY upward.
-        # The stop never moves back down; it trips if price falls to it.
-        # This replaces the wide initial stop with a profit-protecting ratchet.
-        if _is_breakout_trade(trade):
-            _entry    = float(trade.get("entry_price") or 0)
-            _cur_sl   = float(trade.get("stop_loss") or 0)
-            _pos_val  = float(trade.get("position_value") or 0)
-            _pnl_dollars = (_pnl_pct_raw := pnl_pct) * _pos_val / 100 if _pos_val > 0 else 0.0
-            # Percentage-based ratchet — trails from PEAK price, not current price.
-            # Trigger at 1% profit (~$20 on a $2K position) → SL snaps to entry (buy-in).
-            # Trail at 0.75% below peak from that point — as price rises the SL follows,
-            # naturally moving above entry so any stop-out books real profit not just breakeven.
-            _RATCHET_TRIGGER_PCT = 1.0    # % P&L before trail activates
-            _RATCHET_TRAIL_PCT   = 0.75   # % trail below/above PEAK price
+        # ── 11b. UNIVERSAL PROFIT RATCHET ────────────────────────────────────
+        # Staged protection:
+        #   1) first meaningful green move: reduce risk to gross breakeven;
+        #   2) stronger move: lock fee-adjusted breakeven/net-positive;
+        #   3) runners: trail from peak while never lowering the locked floor.
+        #
+        # Per-strategy thresholds — tighter for faster/crypto strategies:
+        _RATCHET_THRESHOLDS = {
+            # strategy_name:           (trigger_pct, trail_pct)   None = exempt
+            "breakout_scanner":        (1.0, 0.75),
+            "funding_scanner":         (1.0, 0.75),
+            "gap_scanner":             (1.0, 0.75),
+            "vwap_confirmed_orb":      (1.0, 0.75),
+            "orb_breakout":            (1.0, 0.75),
+            "bmr_357":                 (1.5, 0.50),  # 15m crypto — must clear fee/edge floor
+            "fakeout_fade_sfr":        (0.8, 0.60),  # stock 5m
+            "rsi_dip_spike_v4":        (1.0, 0.75),
+            "grid_bot":                None,          # oscillates by design — ratchet kills the pattern
+            "dca_accumulator":         None,          # adds on dips — ratchet would SL out mid-ladder
+        }
+        _ratchet_cfg = _RATCHET_THRESHOLDS.get(strategy, (1.0, 0.75))
+        if _ratchet_cfg is not None:
+            _RATCHET_TRIGGER_PCT, _RATCHET_TRAIL_PCT = _ratchet_cfg
+            _entry       = float(trade.get("entry_price") or 0)
+            _cur_sl      = float(trade.get("stop_loss") or 0)
+            _pnl_pct_raw = pnl_pct
+            _min_lock_pct = float(getattr(
+                config,
+                "MIN_NET_PROFIT_CRYPTO_PCT" if asset_class == "crypto" else "MIN_NET_PROFIT_STOCK_PCT",
+                0.0,
+            ))
+
+            _is_scanner_ratchet = _is_breakout_trade(trade)
+            if _is_scanner_ratchet:
+                _risk_reduce_trigger = float(getattr(
+                    config, "SCANNER_RATCHET_REDUCE_RISK_TRIGGER_PCT", 1.0
+                ))
+                _gross_lock_pct = float(getattr(
+                    config, "SCANNER_RATCHET_GROSS_BREAKEVEN_PCT", 0.0
+                ))
+                _net_lock_trigger = max(
+                    float(getattr(config, "SCANNER_RATCHET_NET_LOCK_TRIGGER_PCT", 1.5)),
+                    _min_lock_pct,
+                )
+            else:
+                _risk_reduce_trigger = max(_RATCHET_TRIGGER_PCT, _min_lock_pct)
+                _gross_lock_pct = _min_lock_pct
+                _net_lock_trigger = _risk_reduce_trigger
+
+            _active_trigger = (
+                _net_lock_trigger
+                if _pnl_pct_raw >= _net_lock_trigger
+                else _risk_reduce_trigger
+            )
+            _lock_floor_pct = (
+                _min_lock_pct
+                if _pnl_pct_raw >= _net_lock_trigger
+                else _gross_lock_pct
+            )
 
             if _entry > 0 and direction == "long":
-                # Update peak price (highest seen for this trade)
                 _peak = self._peak_prices.get(trade_id, _entry)
                 if current_price > _peak:
                     _peak = current_price
                     self._peak_prices[trade_id] = _peak
-                # Trail SL from peak — locks in gains even when price pulls back
                 _ratchet_sl = _peak * (1 - _RATCHET_TRAIL_PCT / 100)
-                logger.info(
-#                    f"[PM-DBG] ⑦ {symbol} — ratchet: P&L={_pnl_pct_raw:+.2f}% "
-                    f"peak=${_peak:.4f} ratchet_sl=${_ratchet_sl:.4f} "
-                    f"trigger={_RATCHET_TRIGGER_PCT}% "
-                    f"{'ACTIVE' if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT else 'waiting'}"
-                )
-                if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT:
-                    # Floor is entry (buy-in price) — SL never goes below what you paid.
-                    # Trail naturally moves above entry as price rises, locking real profit.
-                    _target_sl = max(_entry, _ratchet_sl)
-                    if _target_sl > _cur_sl:   # only ever ratchet UP
+                if PM_DEBUG:
+                    logger.info(
+                        f"[PM-DBG] ⑦ {symbol} ({strategy}) ratchet: P&L={_pnl_pct_raw:+.2f}% "
+                        f"peak=${_peak:.4f} ratchet_sl=${_ratchet_sl:.4f} "
+                        f"trigger={_active_trigger}% floor={_lock_floor_pct}% "
+                        f"{'ACTIVE' if _pnl_pct_raw >= _risk_reduce_trigger else 'waiting'}"
+                    )
+                if _pnl_pct_raw >= _risk_reduce_trigger:
+                    _floor_sl = _entry * (1 + _lock_floor_pct / 100)
+                    _target_sl = max(_floor_sl, _ratchet_sl)
+                    if _target_sl > _cur_sl:
                         logger.info(
-                            f"[BREAKOUT RATCHET] {symbol}: SL ${_cur_sl:.4f} → "
+                            f"[PROFIT RATCHET] {symbol} ({strategy}): SL ${_cur_sl:.4f} → "
                             f"${_target_sl:.4f} | P&L {_pnl_pct_raw:.2f}% "
-                            f"peak ${_peak:.4f}"
+                            f"peak ${_peak:.4f} lock={_lock_floor_pct:.2f}%"
                         )
                         self._db.update_trade_levels(trade_id, stop_loss=round(_target_sl, 6))
                         trade["stop_loss"] = round(_target_sl, 6)
-                        # Live + Paper: cancel old exchange stop, place new one at ratchet price
-                        # Paper: tracks order ID for parity. Live: real Kraken cancel+replace.
                         self._ratchet_update_exchange_stop(
                             trade, trade_id, symbol, direction, _target_sl
                         )
             elif _entry > 0 and direction == "short":
-                # For shorts: peak = lowest price seen
                 _peak = self._peak_prices.get(trade_id, _entry)
                 if current_price < _peak:
                     _peak = current_price
                     self._peak_prices[trade_id] = _peak
                 _ratchet_sl = _peak * (1 + _RATCHET_TRAIL_PCT / 100)
-                if _pnl_pct_raw >= _RATCHET_TRIGGER_PCT:
-                    _target_sl = min(_entry, _ratchet_sl)
-                    if _target_sl < _cur_sl:   # only ever ratchet DOWN (short)
+                if PM_DEBUG:
+                    logger.info(
+                        f"[PM-DBG] ⑦ {symbol} ({strategy}) ratchet: P&L={_pnl_pct_raw:+.2f}% "
+                        f"peak=${_peak:.4f} ratchet_sl=${_ratchet_sl:.4f} "
+                        f"trigger={_active_trigger}% floor={_lock_floor_pct}% "
+                        f"{'ACTIVE' if _pnl_pct_raw >= _risk_reduce_trigger else 'waiting'}"
+                    )
+                if _pnl_pct_raw >= _risk_reduce_trigger:
+                    _floor_sl = _entry * (1 - _lock_floor_pct / 100)
+                    _target_sl = min(_floor_sl, _ratchet_sl)
+                    if _target_sl < _cur_sl:
                         logger.info(
-                            f"[BREAKOUT RATCHET] {symbol}: SL ${_cur_sl:.4f} → "
+                            f"[PROFIT RATCHET] {symbol} ({strategy}): SL ${_cur_sl:.4f} → "
                             f"${_target_sl:.4f} | P&L {_pnl_pct_raw:.2f}% "
-                            f"peak ${_peak:.4f}"
+                            f"peak ${_peak:.4f} lock={_lock_floor_pct:.2f}%"
                         )
                         self._db.update_trade_levels(trade_id, stop_loss=round(_target_sl, 6))
                         trade["stop_loss"] = round(_target_sl, 6)
@@ -1788,7 +1877,8 @@ class PositionMonitor:
                         )
 
         # ── 12. TRAILING STOP UPDATE + LOGGING ───────────────────────────
-        # Breakout trades use the ratchet stop (section 11b) — skip two-bar trail.
+        # Breakout trades use the ratchet only — skip two-bar trail.
+        # All others: two-bar structural trail runs in addition to the ratchet above.
         if _is_breakout_trade(trade):
             return
         # Non-breakout path — two-bar structural trailing stop
