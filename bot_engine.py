@@ -205,6 +205,8 @@ class BotEngine:
         self.condition_detector= ConditionDetector()
         self.market_scanner    = MarketScanner()
         self.report_generator  = ReportGenerator()
+        self._job_threads      = {}
+        self._last_scheduler_heartbeat = 0.0
 
         self.logger.info("All components initialized successfully.")
         # Wire breakout receiver
@@ -515,13 +517,24 @@ class BotEngine:
     def _run_position_monitor(self):
         """Run check_positions in a background thread so a slow price fetch
         can't block the main scheduler loop."""
-        import threading
-        threading.Thread(target=self.position_monitor.check_positions,
-                         daemon=True, name="position-monitor").start()
+        self._run_singleton_job(
+            "position-monitor",
+            self._do_position_monitor,
+            heartbeat_label="Position monitor",
+        )
+
+    def _do_position_monitor(self):
+        try:
+            self.position_monitor.check_positions()
+        except Exception as e:
+            self.logger.error(f"Position monitor error: {e}", exc_info=True)
 
     def _run_stock_scan(self):
-        import threading
-        threading.Thread(target=self._do_stock_scan, daemon=True).start()
+        self._run_singleton_job(
+            "stock-scan",
+            self._do_stock_scan,
+            heartbeat_label="Stock scan",
+        )
 
     def _do_stock_scan(self):
         try:
@@ -532,15 +545,43 @@ class BotEngine:
             self.logger.error(f"Stock scan error: {e}", exc_info=True)
 
     def _run_crypto_scan(self):
-        import threading
-        t = threading.Thread(target=self._do_crypto_scan, daemon=True)
-        t.start()
+        self._run_singleton_job(
+            "crypto-scan",
+            self._do_crypto_scan,
+            heartbeat_label="Crypto scan",
+        )
 
     def _do_crypto_scan(self):
         try:
             self.market_scanner.scan_crypto()
         except Exception as e:
             self.logger.error(f"Crypto scan error: {e}", exc_info=True)
+
+    def _run_singleton_job(self, name, target, heartbeat_label=None):
+        """Start a scheduled job unless the prior run is still active."""
+        import threading
+
+        existing = self._job_threads.get(name)
+        if existing is not None and existing.is_alive():
+            self.logger.warning(
+                f"[SCHED] {heartbeat_label or name} skipped; previous run still active"
+            )
+            return
+
+        def _wrapped():
+            started = time.time()
+            self.logger.info(f"[SCHED] {heartbeat_label or name} started")
+            try:
+                target()
+            finally:
+                elapsed = time.time() - started
+                self.logger.info(
+                    f"[SCHED] {heartbeat_label or name} finished in {elapsed:.1f}s"
+                )
+
+        thread = threading.Thread(target=_wrapped, daemon=True, name=name)
+        self._job_threads[name] = thread
+        thread.start()
 
     def _run_daily_scan(self):
         try:
@@ -683,8 +724,14 @@ class BotEngine:
             self.broker_manager.sync_all_balances()
             breakdown = self.broker_manager.get_capital_breakdown()
             total     = breakdown.get("total_balance", 0.0)
-            if total > 0:
-                self.db.record_capital_snapshot(total)
+            cap = self.db.get_latest_capital()
+            db_total = float(cap.get("total_capital", 0.0)) if cap else 0.0
+            if total > 0 and db_total > 0 and abs(total - db_total) > 1000:
+                self.logger.warning(
+                    f"[CAPITAL SYNC] broker equity ${total:,.2f} differs from "
+                    f"DB trading capital ${db_total:,.2f}; leaving risk capital "
+                    "on DB/PnL accounting"
+                )
             self._reconcile_positions()
         except Exception as e:
             self.logger.error(f"Capital sync error: {e}", exc_info=True)
@@ -722,6 +769,16 @@ class BotEngine:
                         f"[SCHEDULER CRASH CAUGHT] Unhandled exception in scheduled "
                         f"job — bot continuing: {_sched_err}",
                         exc_info=True
+                    )
+                now = time.time()
+                if now - self._last_scheduler_heartbeat >= 60:
+                    self._last_scheduler_heartbeat = now
+                    active = [
+                        name for name, thread in self._job_threads.items()
+                        if thread is not None and thread.is_alive()
+                    ]
+                    self.logger.info(
+                        f"[SCHED] heartbeat jobs={len(schedule.jobs)} active={active or 'none'}"
                     )
                 time.sleep(1)
         except KeyboardInterrupt:

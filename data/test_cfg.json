@@ -1,1 +1,0 @@
-{"strategy":"rsi_dip_spike_v4","symbols":["BTC/USD"],"params":[{"name":"rsi_period","min":10,"max":14,"step":2,"is_int":true}],"method":"sequential","iterations":3,"days":30,"timeframe":"1h","asset_class":"crypto","metric":"profit_factor","minimize":false}

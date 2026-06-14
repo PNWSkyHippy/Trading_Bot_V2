@@ -7,6 +7,11 @@ if _project_root not in sys.path:
 os.chdir(_project_root)
 
 from data.database import db
+from core.scanner_controls import (
+    SCANNER_CONTROLS,
+    normalize_scanner_name,
+    scanner_state_key,
+)
 
 
 if len(sys.argv) >= 2:
@@ -22,7 +27,10 @@ if not plaintext:
     print("ERROR: No strategy provided.", file=sys.stderr)
     sys.exit(1)
 
-if plaintext.startswith("strategy_") and plaintext.endswith("_enabled"):
+scanner_name = normalize_scanner_name(plaintext)
+if scanner_name in SCANNER_CONTROLS:
+    key = scanner_state_key(scanner_name)
+elif plaintext.startswith("strategy_") and plaintext.endswith("_enabled"):
     key = plaintext
 else:
     key = f"strategy_{plaintext}_enabled"

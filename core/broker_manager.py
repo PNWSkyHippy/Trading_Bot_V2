@@ -172,8 +172,25 @@ class BrokerManager:
     def update_broker_balance(self, broker_name: str, balance: float,
                               invested: float = 0.0, available: float = None):
         """Update tracked balance for a broker."""
+        balance = float(balance or 0.0)
+        invested = max(0.0, float(invested or 0.0))
         if available is None:
             available = balance - invested
+        available = max(0.0, float(available or 0.0))
+
+        # Free cash should never grow above account equity.  Kraken paper
+        # bookkeeping can otherwise add closed position value repeatedly and
+        # report impossible values like $272k available on a $97k account.
+        if available > balance:
+            equity_free = max(0.0, balance - invested)
+            capped_available = equity_free if equity_free > 0 else balance
+            logger.warning(
+                f"[BROKER BALANCE SANITY] {broker_name}: available "
+                f"${available:,.2f} exceeds balance ${balance:,.2f}; "
+                f"capping at ${capped_available:,.2f}"
+            )
+            available = capped_available
+
         record = {
             "broker": broker_name,
             "balance": round(balance, 2),

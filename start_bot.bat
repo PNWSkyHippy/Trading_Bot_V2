@@ -18,7 +18,7 @@ chcp 65001 > nul
 
 :: Start the main bot engine in this window
 echo Starting bot engine...
-python bot_engine.py
+python bot_engine.py --verbose
 
 :: If bot crashes, wait 30 seconds and restart automatically
 :restart

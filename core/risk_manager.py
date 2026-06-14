@@ -277,7 +277,9 @@ class RiskManager:
             # Scale: capital ÷ (open BMR count + 1) so total exposure never exceeds capital.
             # 1 open → full capital slice. 10 open → 1/11 each. 100 open → 1/101 each.
             _bmr_open_n    = len(_open_bmr)
-            position_value = max(1.0, capital / (_bmr_open_n + 1))
+            bmr_slot_value = capital / (_bmr_open_n + 1)
+            baseline_max   = config.STARTING_CAPITAL * (config.MAX_POSITION_PCT / 100)
+            position_value = max(1.0, min(bmr_slot_value, baseline_max))
             position_pct   = position_value / capital if capital > 0 else 0.0  # derived for logging
         else:
             position_pct   = (custom_position_pct or config.MAX_POSITION_PCT) / 100
@@ -420,24 +422,39 @@ class RiskManager:
                     f"of entry ${entry_price:.4f} — reset to ${take_profit:.4f}"
                 )
 
-        # ── Symbol cooldown ───────────────────────────────────────────────
-        # Loss: 10-min cooldown (revenge trade prevention)
-        # Win:   2-min cooldown (allow momentum re-entry, block instant flip)
-        LOSS_COOLDOWN_SEC = 10 * 60
-        WIN_COOLDOWN_SEC  =  2 * 60
-        last = self._last_closed.get(symbol)
+        # ── Symbol cooldown ─────────────────────────────────────────────────
+        # Keyed by strategy+symbol so strategies don't override each other's
+        # cooldowns (a breakout win on BTC/USD previously cleared BMR-357's
+        # loss cooldown on the same symbol — that's the bug this fixes).
+        #
+        # Loss cooldowns are strategy-timeframe aware: longer TF = longer cooldown.
+        # Rule of thumb: loss cooldown ≥ 4 candles on the strategy's timeframe.
+        _LOSS_COOLDOWN_BY_STRATEGY = {
+            "bmr_357":                 60 * 60,   # 15m chart: 4× 15m = 60 min
+            "fakeout_fade_sfr":        30 * 60,   # 5m chart:  6× 5m  = 30 min
+            "breakout_scanner":        20 * 60,   # 5m chart:  4× 5m  = 20 min
+            "vwap_confirmed_orb":      20 * 60,
+            "orb_breakout":            20 * 60,
+            "rsi_dip_spike_v4":        20 * 60,
+        }
+        LOSS_COOLDOWN_SEC = _LOSS_COOLDOWN_BY_STRATEGY.get(strategy_name or "", 15 * 60)
+        WIN_COOLDOWN_SEC  = 2 * 60
+
+        # Cooldown key is strategy-scoped so strategies don't clobber each other
+        _cd_key = f"cooldown_{strategy_name}_{symbol}" if strategy_name else f"cooldown_{symbol}"
+        last = self._last_closed.get(_cd_key)
         if last is None:
             # On restart, in-memory dict is empty. Check DB for a persisted
             # cooldown that hasn't expired yet (set in record_trade_result).
             try:
-                raw = db.get_state(f"cooldown_{symbol}")
+                raw = db.get_state(_cd_key)
                 if raw:
                     ts_str, won_str = str(raw).split(",")
-                    self._last_closed[symbol] = {
+                    self._last_closed[_cd_key] = {
                         "time": float(ts_str),
                         "won":  bool(int(won_str)),
                     }
-                    last = self._last_closed[symbol]
+                    last = self._last_closed[_cd_key]
             except Exception:
                 pass
         if last:
@@ -455,8 +472,8 @@ class RiskManager:
                     return TradeApproval(
                         approved=False,
                         reason=(
-                            f"Symbol cooldown ({label}): {symbol} closed {int(elapsed)}s ago "
-                            f"— wait {remaining}min before re-entry"
+                            f"Symbol cooldown ({label}): {symbol} [{strategy_name}] "
+                            f"closed {int(elapsed)}s ago — wait {remaining}min before re-entry"
                         )
                     )
 
@@ -621,16 +638,18 @@ class RiskManager:
     # ----------------------------------------------------------
 
     def record_trade_result(self, pnl: float, trade_won: bool,
-                            symbol: str = ""):
+                            symbol: str = "", strategy: str = ""):
         """Update session state after a trade closes."""
         # Record close time and outcome for symbol cooldown.
         # Persisted to DB so cooldowns survive bot restarts.
+        # Keyed by strategy+symbol to prevent cross-strategy cooldown interference.
         if symbol:
             import time as _time
             now = _time.time()
-            self._last_closed[symbol] = {"time": now, "won": trade_won}
+            _cd_key = f"cooldown_{strategy}_{symbol}" if strategy else f"cooldown_{symbol}"
+            self._last_closed[_cd_key] = {"time": now, "won": trade_won}
             try:
-                db.set_state(f"cooldown_{symbol}", f"{now},{int(trade_won)}")
+                db.set_state(_cd_key, f"{now},{int(trade_won)}")
             except Exception:
                 pass
         self._refresh_session()

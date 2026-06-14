@@ -1,0 +1,13 @@
+[mcp_servers.github]
+command = "docker"
+args = [
+    "run",
+    "-i",
+    "--rm",
+    "-e",
+    "GITHUB_PERSONAL_ACCESS_TOKEN",
+    "ghcr.io/github/github-mcp-server",
+]
+
+[mcp_servers.github.env]
+GITHUB_PERSONAL_ACCESS_TOKEN = "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"

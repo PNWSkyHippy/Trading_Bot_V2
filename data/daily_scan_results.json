@@ -1,10 +1,6 @@
 {
-  "generated": "2026-06-10T13:37:38.950094",
+  "generated": "2026-06-12T13:36:46.352571",
   "valid_until": "next_market_close",
-  "stocks": [
-    "CASY",
-    "KIM",
-    "KO"
-  ],
+  "stocks": [],
   "crypto": []
 }

@@ -1,0 +1,18 @@
+AssetClass,Ticker,Price,Vol Change,RSI,% from 52W Hi,% vs 200SMA,Score,Signal,24h %,Funding %
+Stock,AMAT,552.64,1.46,76.1,-0.89,80.3,116.97,Within 0.9% of 52W high | 1.5x avg vol | 80% above 200MA,,
+Stock,LRCX,362.52,1.47,68.5,-0.63,78.6,115.84,Within 0.6% of 52W high | 1.5x avg vol | 79% above 200MA,,
+Stock,ASML,1899.48,1.64,72.1,-0.21,53.6,87.71,Within 0.2% of 52W high | 1.6x avg vol | 54% above 200MA,,
+Stock,CASY,916.28,1.52,65.4,-1.25,43.0,65.18,Within 1.2% of 52W high | 1.5x avg vol | 43% above 200MA,,
+Stock,KIM,25.75,3.2,76.2,-1.09,19.4,62.0,Within 1.1% of 52W high | 3.2x avg vol | 19% above 200MA,,
+Stock,CVS,100.48,1.36,68.5,-0.01,28.0,38.03,Within 0.0% of 52W high | 1.4x avg vol | 28% above 200MA,,
+Stock,NTRS,170.75,1.35,56.9,-1.28,20.8,27.97,Within 1.3% of 52W high | 1.3x avg vol | 21% above 200MA,,
+Crypto,XMR,375.95,,70.8,,,24.34,+17.0% 24h | RSI 71 (momentum zone),16.95,0.0002
+Crypto,SOL,66.55,,72.7,,,23.8,+4.8% 24h | RSI 73 (momentum zone),4.79,0.0003
+Crypto,HYPE,58.52,,70.3,,,22.2,+9.2% 24h | RSI 70 (momentum zone) | shorts paying (contrarian long),9.17,-0.0045
+Crypto,BCH,203.17,,70.1,,,20.86,+3.8% 24h | RSI 70 (momentum zone),3.82,-0.0005
+Crypto,BNB,600.9,,68.0,,,18.41,+2.2% 24h | RSI 68 (momentum zone),2.22,0.0013
+Crypto,BTC,63311.0,,67.2,,,17.63,+2.4% 24h | RSI 67 (momentum zone),2.39,-0.0003
+Crypto,ADA,0.168293,,65.5,,,16.18,+4.4% 24h | RSI 66 (momentum zone),4.35,-0.0003
+Crypto,DOGE,0.086139,,64.4,,,14.92,+3.8% 24h | RSI 64 (momentum zone),3.83,0.0009
+Crypto,LINK,7.9,,64.1,,,14.67,+3.8% 24h | RSI 64 (momentum zone),3.81,-0.0011
+Crypto,ONDO,0.356694,,63.0,,,13.87,+6.6% 24h | RSI 63 (momentum zone),6.64,-0.0019

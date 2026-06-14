@@ -1,3 +1,9 @@
+check breakout status
+venv312\Scripts\activate; python -c "from data.database import db; print(db.get_state('breakout_scanner_enabled', default=True))"
+disable breakout
+venv312\Scripts\activate; python -c "from data.database import db; db.set_state('breakout_scanner_enabled', False); print(db.get_state('breakout_scanner_enabled'))"
+re enable breakout
+venv312\Scripts\activate; python -c "from data.database import db; db.set_state('breakout_scanner_enabled', True); print(db.get_state('breakout_scanner_enabled'))"
 Windows Terminal
 Alt-Shift + , split window into panel right
 Alt Shift - , split window into panel down

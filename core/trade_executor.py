@@ -404,7 +404,17 @@ class TradeExecutor:
         # a temporary outage does not block all shorts.
         if signal.direction == "short":
             _broker_for_cap = self._get_broker_name(signal)
-            if not exchange_capabilities.can_short(signal.symbol, _broker_for_cap):
+            _paper_short = (
+                signal.asset_class == "crypto"
+                and _broker_for_cap == "kraken"
+                and getattr(config, "KRAKEN_PAPER_MODE", False)
+            )
+            if _paper_short:
+                logger.info(
+                    f"[PAPER SHORT] {signal.symbol}: skipping live Kraken "
+                    "margin-eligibility check"
+                )
+            elif not exchange_capabilities.can_short(signal.symbol, _broker_for_cap):
                 logger.info(
                     f"[SHORT BLOCKED] {signal.symbol} on {_broker_for_cap}: "
                     f"not margin-eligible — short signal dropped"
@@ -881,10 +891,13 @@ class TradeExecutor:
         cap = self._db.get_latest_capital()
         if cap:
             new_capital = cap["total_capital"] + pnl
+            new_invested = max(0, cap["invested_value"] - trade["position_value"])
+            new_available = cap["available_cash"] + trade["position_value"] + pnl
+            new_available = min(new_available, max(0.0, new_capital - new_invested))
             self._db.log_capital(
                 total     = new_capital,
-                available = cap["available_cash"] + trade["position_value"] + pnl,
-                invested  = max(0, cap["invested_value"] - trade["position_value"]),
+                available = new_available,
+                invested  = new_invested,
                 daily_pnl = cap["daily_pnl"] + pnl,
                 total_pnl = cap["total_pnl"] + pnl,
                 note      = (
@@ -996,7 +1009,7 @@ class TradeExecutor:
             # Example at defaults (desired=2, max=10):
             #   scale = 2/10 = 0.20  →  order qty = 20% of normal
             #   At 2× leverage, margin required = qty/2 = 10% of normal capital
-            if signal.direction == "short":
+            if signal.direction == "short" and not getattr(config, "KRAKEN_PAPER_MODE", False):
                 desired_lev = getattr(config, "KRAKEN_SHORT_LEVERAGE", 2)
                 max_lev     = exchange_capabilities.get_max_short_leverage(
                     signal.symbol, "kraken"
@@ -1014,6 +1027,11 @@ class TradeExecutor:
                         f"qty {approval.quantity:.6f}→{qty:.6f} "
                         f"(margin≈${qty/actual_lev * signal.current_price:.2f})"
                     )
+            elif signal.direction == "short":
+                logger.info(
+                    f"[PAPER SHORT] {signal.symbol}: using full paper size "
+                    "with no live Kraken leverage params"
+                )
 
             return self.kraken.submit_order(
                 signal.symbol, qty, side,

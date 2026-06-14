@@ -19,6 +19,8 @@ Config keys (scanner_config.json):
 """
 
 import logging
+import json
+from pathlib import Path
 import threading
 import time
 from datetime import datetime, timezone
@@ -37,6 +39,8 @@ DEFAULT_MIN_ESCALATION = 2
 SEND_TIMEOUT_SEC       = 5
 MAX_RETRIES            = 1
 RETRY_DELAY_SEC        = 1
+BASE_DIR               = Path(__file__).resolve().parent
+SCANNER_CONFIG_PATH    = BASE_DIR / "scanner_config.json"
 
 
 class BreakoutSender:
@@ -53,6 +57,7 @@ class BreakoutSender:
         self._session  = requests.Session() if REQUESTS_AVAILABLE else None
         self._last_sent: Dict[str, float] = {}
         self._dedup_sec = 30
+        self._last_disabled_log = 0.0
 
         if not REQUESTS_AVAILABLE:
             logger.warning("[SENDER] requests not installed — bot injection disabled")
@@ -66,7 +71,52 @@ class BreakoutSender:
 
     @property
     def ready(self) -> bool:
-        return REQUESTS_AVAILABLE and bool(self._key) and self._enabled
+        return (
+            REQUESTS_AVAILABLE
+            and bool(self._key)
+            and self._enabled
+            and self._live_enabled()
+        )
+
+    def _truthy_enabled(self, value, default: bool = True) -> bool:
+        if value is None:
+            return default
+        if isinstance(value, bool):
+            return value
+        return str(value).strip().lower() not in {
+            "0", "false", "no", "off", "disabled"
+        }
+
+    def _live_enabled(self) -> bool:
+        """
+        Live kill switch. The standalone scanner can keep running for alerts,
+        but bot injection must stop immediately when either switch is off.
+        """
+        try:
+            from core.scanner_controls import is_scanner_enabled
+            if not is_scanner_enabled("breakout_scanner"):
+                self._log_disabled_once("bot_state.breakout_scanner_enabled=False")
+                return False
+        except Exception as exc:
+            logger.debug("[SENDER] DB kill-switch check skipped: %s", exc)
+
+        try:
+            if SCANNER_CONFIG_PATH.exists():
+                with open(SCANNER_CONFIG_PATH, "r", encoding="utf-8") as f:
+                    cfg = json.load(f)
+                if not self._truthy_enabled(cfg.get("bot_enabled", True)):
+                    self._log_disabled_once("scanner_config bot_enabled=False")
+                    return False
+        except Exception as exc:
+            logger.debug("[SENDER] config kill-switch check skipped: %s", exc)
+
+        return True
+
+    def _log_disabled_once(self, reason: str):
+        now = time.time()
+        if now - self._last_disabled_log > 60:
+            logger.info("[SENDER] Bot injection disabled by %s", reason)
+            self._last_disabled_log = now
 
     # Maximum bars since breakout was first detected before we stop sending.
     # On 5m candles: 6 bars = 30 minutes. Signals older than this are stale
