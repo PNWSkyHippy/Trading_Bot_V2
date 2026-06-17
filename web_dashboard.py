@@ -6,6 +6,7 @@ import hashlib
 import json
 import logging
 import os
+import re
 import secrets
 import sqlite3
 import subprocess
@@ -2059,6 +2060,7 @@ def _pattern_coords(pattern_name, bars):
     if n < 5:
         return []
     times  = [b['time']                                      for b in bars]
+    opens  = [float(b.get('open',  b.get('close', 0)) or 0) for b in bars]
     closes = [float(b.get('close') or 0)                     for b in bars]
     highs  = [float(b.get('high',  b.get('close', 0)) or 0) for b in bars]
     lows   = [float(b.get('low',   b.get('close', 0)) or 0) for b in bars]
@@ -2075,7 +2077,16 @@ def _pattern_coords(pattern_name, bars):
     def seg(t1,p1,t2,p2): return {'type':'line','p1':{'time':t1,'price':p1},'p2':{'time':t2,'price':p2}}
     def hl(price):        return {'type':'hline','p1':{'time':times[0],'price':price},'p2':{'time':times[-1],'price':price}}
     def vl(t, price):     return {'type':'vline','p1':{'time':t,'price':price}}
-    def rc(t1,p1,t2,p2): return {'type':'rect','p1':{'time':t1,'price':p1},'p2':{'time':t2,'price':p2}}
+    def rc(t1,p1,t2,p2, **extra):
+        d = {'type':'rect','p1':{'time':t1,'price':p1},'p2':{'time':t2,'price':p2}}
+        d.update(extra)
+        return d
+    def pivot_highs_idx(vals, window=4):
+        return [(i, vals[i]) for i in range(window, len(vals)-window)
+                if vals[i] == max(vals[i-window:i+window+1])]
+    def pivot_lows_idx(vals, window=4):
+        return [(i, vals[i]) for i in range(window, len(vals)-window)
+                if vals[i] == min(vals[i-window:i+window+1])]
 
     segs = []
     pn = pattern_name
@@ -2099,25 +2110,27 @@ def _pattern_coords(pattern_name, bars):
 
     elif pn in ('Double Top','Double Bottom'):
         if pn == 'Double Top':
-            # Find peak in each half → two vlines + resistance hline + neckline at valley
-            h1 = highs[:n//2]; h2 = highs[n//2:]
-            i1 = h1.index(max(h1)); i2 = h2.index(max(h2)) + n//2
-            resistance = (highs[i1] + highs[i2]) / 2
-            valley = min(lows[i1:i2+1]) if i1 < i2 else min(lows)
-            segs += [hl(resistance),
-                     hl(valley),
-                     vl(times[i1], highs[i1]),
-                     vl(times[i2], highs[i2])]
+            pivots = pivot_highs_idx(closes, window=4)
+            if len(pivots) >= 2:
+                (i1, p1), (i2, p2) = pivots[-2], pivots[-1]
+                resistance = (p1 + p2) / 2
+                valley = min(closes[i1:i2+1]) if i1 < i2 else min(closes)
+                segs += [hl(resistance),
+                         hl(valley),
+                         vl(times[i1], p1),
+                         vl(times[i2], p2),
+                         seg(times[i1], p1, times[i2], p2)]
         else:
-            # Find trough in each half → two vlines + support hline + neckline at peak
-            l1 = lows[:n//2]; l2 = lows[n//2:]
-            i1 = l1.index(min(l1)); i2 = l2.index(min(l2)) + n//2
-            support = (lows[i1] + lows[i2]) / 2
-            peak = max(highs[i1:i2+1]) if i1 < i2 else max(highs)
-            segs += [hl(support),
-                     hl(peak),
-                     vl(times[i1], lows[i1]),
-                     vl(times[i2], lows[i2])]
+            pivots = pivot_lows_idx(closes, window=4)
+            if len(pivots) >= 2:
+                (i1, p1), (i2, p2) = pivots[-2], pivots[-1]
+                support = (p1 + p2) / 2
+                peak = max(closes[i1:i2+1]) if i1 < i2 else max(closes)
+                segs += [hl(support),
+                         hl(peak),
+                         vl(times[i1], p1),
+                         vl(times[i2], p2),
+                         seg(times[i1], p1, times[i2], p2)]
 
     elif pn == 'Cup & Handle':
         cup_end = int(n*0.75)
@@ -2151,14 +2164,19 @@ def _pattern_coords(pattern_name, bars):
                               'Bearish Exhaustion','Bullish Exhaustion')
                  else 2 if pn in ('Bearish Engulfing','Bullish Engulfing')
                  else 1)
-        # Highlight box spanning all signal candles
-        # For single-candle patterns num_c==1, use the bar before as left edge so
-        # the rect has non-zero width (same time both sides → invisible rect).
+        # Highlight box spanning all signal candles.  Single-candle signals are
+        # intentionally anchored to one bar; the frontend expands the pixel box.
         if len(times) >= num_c:
-            box_h  = max(highs[-num_c:])
-            box_l  = min(lows[-num_c:])
-            t_left = times[-(num_c + 1)] if num_c == 1 and len(times) > 1 else times[-num_c]
-            segs.append(rc(t_left, box_h, times[-1], box_l))
+            if pn in ('Bearish Engulfing','Bullish Engulfing'):
+                body_tops = [max(opens[i], closes[i]) for i in range(n - num_c, n)]
+                body_bots = [min(opens[i], closes[i]) for i in range(n - num_c, n)]
+                box_h = max(body_tops)
+                box_l = min(body_bots)
+            else:
+                box_h  = max(highs[-num_c:])
+                box_l  = min(lows[-num_c:])
+            t_left = times[-1] if num_c == 1 else times[-num_c]
+            segs.append(rc(t_left, box_h, times[-1], box_l, single_candle=(num_c == 1)))
         # Vline on each candle as well
         for i in range(num_c, 0, -1):
             if len(times) >= i:
@@ -3191,17 +3209,121 @@ _DB_TABLE_SEARCH = {
     "session_state":    {},
 }
 
-def _db_conn():
-    c = sqlite3.connect(str(DB_PATH))
+_DB_CHOICES = {
+    "trading": DB_PATH,
+    "candles": ROOT / "data" / "candle_store.db",
+}
+
+def _db_path_for(db_key: str | None = None) -> Path:
+    key = (db_key or "trading").strip().lower()
+    if key in ("candle", "candle_store"):
+        key = "candles"
+    path = _DB_CHOICES.get(key, DB_PATH)
+    if key == "candles" and not path.exists():
+        try:
+            from intelligence.candle_store import get_store as _get_candle_store
+            _get_candle_store(str(path))
+        except Exception:
+            path.parent.mkdir(parents=True, exist_ok=True)
+    return path
+
+def _db_conn(db_key: str | None = None):
+    c = sqlite3.connect(str(_db_path_for(db_key)))
     c.execute("PRAGMA journal_mode=WAL")
     c.execute("PRAGMA busy_timeout=3000")
     c.row_factory = sqlite3.Row
     return c
 
-def db_tables():
+def _db_valid_tables(conn):
+    return {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'"
+    ).fetchall()}
+
+def _db_valid_cols(conn, table: str):
+    return {r[1] for r in conn.execute(f"PRAGMA table_info([{table}])").fetchall()}
+
+def _db_glob_to_regex(pattern: str) -> str:
+    out, i = "", 0
+    while i < len(pattern):
+        ch = pattern[i]
+        if ch == "*":
+            if i + 1 < len(pattern) and pattern[i + 1] == "*":
+                out += ".*"
+                i += 2
+            else:
+                out += r"[^/\\]*"
+                i += 1
+        elif ch == "?":
+            out += r"[^/\\]"
+            i += 1
+        elif ch == "{":
+            end = pattern.find("}", i + 1)
+            if end > i:
+                parts = [_db_glob_to_regex(p)[1:-1] for p in pattern[i + 1:end].split(",")]
+                out += "(?:" + "|".join(parts) + ")"
+                i = end + 1
+            else:
+                out += re.escape(ch)
+                i += 1
+        elif ch == "[":
+            end = pattern.find("]", i + 1)
+            if end > i:
+                body = pattern[i + 1:end]
+                if body.startswith("!"):
+                    body = "^" + body[1:]
+                out += "[" + body + "]"
+                i = end + 1
+            else:
+                out += re.escape(ch)
+                i += 1
+        elif ch in ("/", "\\"):
+            out += r"[/\\]"
+            i += 1
+        else:
+            out += re.escape(ch)
+            i += 1
+    return "^" + out + "$"
+
+def _db_like_pattern(pattern: str) -> str:
+    s = pattern.replace("\\", "/")
+    s = s.replace("%", r"\%").replace("_", r"\_")
+    return s.replace("*", "%").replace("?", "_")
+
+def _db_filter_where(filters: dict, valid_cols: set[str]):
+    where, params = [], []
+    for col, raw in (filters or {}).items():
+        if col not in valid_cols:
+            continue
+        value = str(raw or "").strip()
+        if not value:
+            continue
+        num = re.match(r"^(<=|>=|<|>|==|=|!=)\s*(-?\d+(?:\.\d+)?)$", value)
+        if num:
+            op = "=" if num.group(1) in ("=", "==") else num.group(1)
+            if op == "!=":
+                op = "<>"
+            where.append(f"CAST([{col}] AS REAL) {op} ?")
+            params.append(float(num.group(2)))
+            continue
+        lead = re.match(r"^([<>])\s*([a-z])$", value, re.I)
+        if lead:
+            where.append(f"LOWER(SUBSTR(CAST([{col}] AS TEXT),1,1)) {lead.group(1)} ?")
+            params.append(lead.group(2).lower())
+            continue
+        if any(ch in value for ch in "{}[]"):
+            where.append(f"REGEXP(?, CAST([{col}] AS TEXT))")
+            params.append(_db_glob_to_regex(value))
+        else:
+            where.append(
+                f"REPLACE(CAST([{col}] AS TEXT), '\\', '/') LIKE ? ESCAPE '\\' COLLATE NOCASE"
+            )
+            params.append(_db_like_pattern(value))
+    return where, params
+
+def db_tables(db_key: str | None = None):
     rows = []
     try:
-        with _db_conn() as c:
+        with _db_conn(db_key) as c:
             tables = c.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
             ).fetchall()
@@ -3210,29 +3332,39 @@ def db_tables():
                 cnt  = c.execute(f"SELECT COUNT(*) FROM [{name}]").fetchone()[0]
                 rows.append({"name": name, "rows": cnt})
     except Exception as e:
-        return {"error": str(e), "tables": []}
-    return {"tables": rows}
+        return {"error": str(e), "tables": [], "db": db_key or "trading"}
+    return {"tables": rows, "db": db_key or "trading",
+            "db_path": str(_db_path_for(db_key))}
 
-def db_browse(table: str, limit: int = 500, offset: int = 0):
+def db_browse(table: str, limit: int = 500, offset: int = 0,
+              db_key: str | None = None, filters: dict | None = None):
     # Whitelist: only real table names
     try:
-        with _db_conn() as c:
-            valid = {r[0] for r in c.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        with _db_conn(db_key) as c:
+            valid = _db_valid_tables(c)
     except Exception as e:
         return {"error": str(e)}
     if table not in valid:
         return {"error": f"Unknown table: {table}"}
     try:
-        with _db_conn() as c:
+        with _db_conn(db_key) as c:
+            c.create_function(
+                "REGEXP", 2,
+                lambda pattern, value: bool(re.match(pattern, str(value or ""), re.I))
+            )
+            valid_cols = _db_valid_cols(c, table)
+            where, params = _db_filter_where(filters or {}, valid_cols)
+            clause = ("WHERE " + " AND ".join(where)) if where else ""
             cur  = c.execute(
-                f"SELECT rowid, * FROM [{table}] ORDER BY rowid DESC LIMIT ? OFFSET ?",
-                (limit, offset)
+                f"SELECT rowid, * FROM [{table}] {clause} ORDER BY rowid DESC LIMIT ? OFFSET ?",
+                (*params, limit, offset)
             )
             cols = [d[0] for d in cur.description]
             rows = [list(r) for r in cur.fetchall()]
         return {"table": table, "cols": cols, "rows": rows,
-                "limit": limit, "offset": offset}
+                "limit": limit, "offset": offset, "db": db_key or "trading",
+                "filters": filters or {},
+                "db_path": str(_db_path_for(db_key))}
     except Exception as e:
         return {"error": str(e)}
 
@@ -3281,12 +3413,14 @@ _QUICK_SQL = {
     "💰 Financials":   """SELECT label,value,detail FROM (SELECT 'Total Capital' AS label,'$'||printf('%.2f',total_capital) AS value,'Cash: $'||printf('%.2f',available_cash)||'   Invested: $'||printf('%.2f',invested_value) AS detail FROM capital ORDER BY timestamp DESC LIMIT 1) UNION ALL SELECT label,value,detail FROM (SELECT 'Daily P&L (tracker)' AS label,(CASE WHEN daily_pnl>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',daily_pnl) AS value,'Cumulative: '||(CASE WHEN total_pnl>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',total_pnl) AS detail FROM capital ORDER BY timestamp DESC LIMIT 1) UNION ALL SELECT 'In Open Trades',('$'||printf('%.2f',COALESCE(SUM(position_value),0))),(CAST(COUNT(*) AS TEXT)||' open positions') FROM trades WHERE status='open' UNION ALL SELECT 'In Settlement',('$'||printf('%.2f',COALESCE(SUM(amount),0))),(CAST(COUNT(*) AS TEXT)||' unsettled items') FROM settlement_queue WHERE settled=0 UNION ALL SELECT 'Today Closed P&L',((CASE WHEN COALESCE(SUM(pnl),0)>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',COALESCE(SUM(pnl),0))),(CAST(COUNT(*) AS TEXT)||' trades  '||CAST(SUM(CASE WHEN pnl>0 THEN 1 ELSE 0 END) AS TEXT)||'W / '||CAST(SUM(CASE WHEN pnl<=0 THEN 1 ELSE 0 END) AS TEXT)||'L') FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','localtime') UNION ALL SELECT 'Yesterday P&L',((CASE WHEN COALESCE(SUM(pnl),0)>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',COALESCE(SUM(pnl),0))),(CAST(COUNT(*) AS TEXT)||' trades  '||CAST(SUM(CASE WHEN pnl>0 THEN 1 ELSE 0 END) AS TEXT)||'W / '||CAST(SUM(CASE WHEN pnl<=0 THEN 1 ELSE 0 END) AS TEXT)||'L') FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','-1 day','localtime') UNION ALL SELECT 'This Week P&L',((CASE WHEN COALESCE(SUM(pnl),0)>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',COALESCE(SUM(pnl),0))),(CAST(COUNT(*) AS TEXT)||' trades') FROM trades WHERE status='closed' AND DATE(exit_time)>=DATE('now','-7 days','localtime') UNION ALL SELECT 'This Month P&L',((CASE WHEN COALESCE(SUM(pnl),0)>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',COALESCE(SUM(pnl),0))),(CAST(COUNT(*) AS TEXT)||' trades') FROM trades WHERE status='closed' AND strftime('%Y-%m',exit_time)=strftime('%Y-%m','now','localtime')""",
 }
 
-def db_quick(label: str):
+def db_quick(label: str, db_key: str | None = None):
+    if (db_key or "trading") not in ("", "trading"):
+        return {"error": "Quick queries are only available for the trading database"}
     sql = _QUICK_SQL.get(label)
     if not sql:
         return {"error": f"Unknown quick query: {label}"}
     try:
-        with _db_conn() as c:
+        with _db_conn(db_key) as c:
             cur  = c.execute(sql)
             cols = [d[0] for d in cur.description]
             rows = [list(r) for r in cur.fetchall()]
@@ -3295,11 +3429,11 @@ def db_quick(label: str):
         return {"error": str(e)}
 
 def db_search(data: dict):
+    db_key = data.get("db", "trading")
     table = data.get("table", "trades")
     try:
-        with _db_conn() as c:
-            valid = {r[0] for r in c.execute(
-                "SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+        with _db_conn(db_key) as c:
+            valid = _db_valid_tables(c)
     except Exception as e:
         return {"error": str(e)}
     if table not in valid:
@@ -3348,15 +3482,16 @@ def db_search(data: dict):
     clause = ("WHERE " + " AND ".join(where)) if where else ""
     sql    = f"SELECT rowid, * FROM [{table}] {clause} ORDER BY rowid DESC LIMIT 2000"
     try:
-        with _db_conn() as c:
+        with _db_conn(db_key) as c:
             cur  = c.execute(sql, params)
             cols = [d[0] for d in cur.description]
             rows = [list(r) for r in cur.fetchall()]
-        return {"table": table, "cols": cols, "rows": rows}
+        return {"table": table, "cols": cols, "rows": rows, "db": db_key}
     except Exception as e:
         return {"error": str(e)}
 
 def db_edit_row(data: dict):
+    db_key   = data.get("db", "trading")
     table    = data.get("table","")
     rowid    = data.get("rowid")
     trade_id = data.get("trade_id")
@@ -3367,7 +3502,13 @@ def db_edit_row(data: dict):
     if rowid is None and not trade_id:
         return False, "Missing rowid/trade_id"
     try:
-        with _db_conn() as c:
+        with _db_conn(db_key) as c:
+            valid = _db_valid_tables(c)
+            if table not in valid:
+                return False, f"Unknown table: {table}"
+            cols = _db_valid_cols(c, table)
+            if col not in cols:
+                return False, f"Unknown column: {col}"
             if rowid is not None:
                 c.execute(f"UPDATE [{table}] SET [{col}]=? WHERE rowid=?",
                           (new_val, rowid))
@@ -3378,6 +3519,87 @@ def db_edit_row(data: dict):
             c.commit()
         ref = f"rowid={rowid}" if rowid is not None else f"trade_id={trade_id}"
         return True, f"Updated {table} {ref} {col}={new_val}"
+    except Exception as e:
+        return False, str(e)
+
+def _db_blank_value_for(col_name: str, col_type: str):
+    name = (col_name or "").lower()
+    ctype = (col_type or "").upper()
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    stamp = datetime.now().strftime("%Y%m%d%H%M%S%f")
+    if name in ("key", "state_key"):
+        return f"new_key_{stamp}"
+    if "user" in name:
+        return f"new_user_{stamp}"
+    if name == "symbol":
+        return f"NEW_{stamp}"
+    if name == "timeframe":
+        return "1m"
+    if name in ("ts", "first_ts", "last_ts"):
+        return int(time.time())
+    if "time" in name or "date" in name or name.endswith("_at"):
+        return now
+    if "INT" in ctype:
+        return 0
+    if "REAL" in ctype or "FLOA" in ctype or "DOUB" in ctype or "NUM" in ctype:
+        return 0.0
+    return ""
+
+def db_add_row(data: dict):
+    db_key = data.get("db", "trading")
+    table = data.get("table", "")
+    if not table:
+        return False, "Missing table", {}
+    try:
+        with _db_conn(db_key) as c:
+            valid = _db_valid_tables(c)
+            if table not in valid:
+                return False, f"Unknown table: {table}", {}
+            info = c.execute(f"PRAGMA table_info([{table}])").fetchall()
+            try:
+                c.execute(f"INSERT INTO [{table}] DEFAULT VALUES")
+            except Exception:
+                names, vals = [], []
+                for col in info:
+                    name, ctype, notnull, default, pk = col[1], col[2], col[3], col[4], col[5]
+                    if pk == 1 and "INT" in (ctype or "").upper():
+                        continue
+                    if notnull or pk or default is None:
+                        names.append(name)
+                        vals.append(_db_blank_value_for(name, ctype))
+                if not names:
+                    return False, "Could not infer blank row columns", {}
+                col_sql = ",".join(f"[{n}]" for n in names)
+                qmarks = ",".join("?" for _ in names)
+                c.execute(f"INSERT INTO [{table}] ({col_sql}) VALUES ({qmarks})", vals)
+            rowid = c.execute("SELECT last_insert_rowid()").fetchone()[0]
+            c.commit()
+            cur = c.execute(f"SELECT rowid, * FROM [{table}] WHERE rowid=?", (rowid,))
+            cols = [d[0] for d in cur.description]
+            row = list(cur.fetchone() or [])
+        return True, f"Added blank row to {table}", {"cols": cols, "row": row, "rowid": rowid}
+    except Exception as e:
+        return False, str(e), {}
+
+def db_delete_rows(data: dict):
+    db_key = data.get("db", "trading")
+    table = data.get("table", "")
+    rowids = data.get("rowids") or []
+    try:
+        rowids = [int(r) for r in rowids if r is not None]
+    except Exception:
+        return False, "Invalid rowids"
+    if not table or not rowids:
+        return False, "Missing table/rowids"
+    try:
+        with _db_conn(db_key) as c:
+            valid = _db_valid_tables(c)
+            if table not in valid:
+                return False, f"Unknown table: {table}"
+            qmarks = ",".join("?" for _ in rowids)
+            cur = c.execute(f"DELETE FROM [{table}] WHERE rowid IN ({qmarks})", rowids)
+            c.commit()
+        return True, f"Deleted {cur.rowcount} row(s) from {table}"
     except Exception as e:
         return False, str(e)
 
@@ -3504,6 +3726,8 @@ class Handler(BaseHTTPRequestHandler):
     def _serve_html(self, content: bytes):
         self.send_response(200)
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Pragma", "no-cache")
         self.send_header("Content-Length", str(len(content)))
         self.end_headers()
         self.wfile.write(content)
@@ -3726,19 +3950,27 @@ class Handler(BaseHTTPRequestHandler):
 
         # ── Database browser API ──────────────────────────────────────────
         if path == "/api/db/tables":
-            return self._json(200, db_tables())
+            params = parse_qs(parsed.query)
+            db_key = (params.get("db") or ["trading"])[0]
+            return self._json(200, db_tables(db_key))
 
         if path == "/api/db/browse":
             params = parse_qs(parsed.query)
             table  = (params.get("table") or ["trades"])[0]
             limit  = int((params.get("limit")  or ["500"])[0])
             offset = int((params.get("offset") or ["0"])[0])
-            return self._json(200, db_browse(table, limit, offset))
+            db_key = (params.get("db") or ["trading"])[0]
+            try:
+                filters = json.loads((params.get("filters") or ["{}"])[0] or "{}")
+            except Exception:
+                filters = {}
+            return self._json(200, db_browse(table, limit, offset, db_key, filters))
 
         if path == "/api/db/quick":
             params = parse_qs(parsed.query)
             label  = (params.get("q") or [""])[0]
-            return self._json(200, db_quick(label))
+            db_key = (params.get("db") or ["trading"])[0]
+            return self._json(200, db_quick(label, db_key))
 
         if path == "/api/db/strategy_pnl":
             # Strategy P&L summary — grouped by strategy_name, optional date range.
@@ -3826,6 +4058,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("X-Dashboard-Mode", mode)
             self._cors_headers()
+            self.send_header("Cache-Control", "no-store, max-age=0")
+            self.send_header("Pragma", "no-cache")
             self.send_header("Content-Length", str(len(page)))
             self.end_headers()
             self.wfile.write(page)
@@ -3836,6 +4070,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self._cors_headers()
+            self.send_header("Cache-Control", "no-store, max-age=0")
+            self.send_header("Pragma", "no-cache")
             self.send_header("Content-Length", str(len(page)))
             self.end_headers()
             self.wfile.write(page)
@@ -3860,8 +4096,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.send_header("Content-Type", mime)
                 self._cors_headers()
                 self.send_header("Content-Length", str(len(content)))
-                if file_path.suffix in (".jsx", ".js"):
-                    self.send_header("Cache-Control", "no-store")
+                if file_path.suffix in (".jsx", ".js", ".html"):
+                    self.send_header("Cache-Control", "no-store, max-age=0")
+                    self.send_header("Pragma", "no-cache")
                 self.end_headers()
                 self.wfile.write(content)
                 return
@@ -4390,12 +4627,19 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
 
         # ── Database browser POST actions ─────────────────────────────────────
-        if path in ("/api/db/search", "/api/db/edit_row",
-                    "/api/db/flush_ghost", "/api/db/strategy_toggle"):
+        if path in ("/api/db/search", "/api/db/edit_row", "/api/db/add_row",
+                    "/api/db/delete_rows", "/api/db/flush_ghost",
+                    "/api/db/strategy_toggle"):
             if path == "/api/db/search":
                 return self._json(200, db_search(data))
             if path == "/api/db/edit_row":
                 ok, msg = db_edit_row(data)
+                return self._json(200 if ok else 400, {"ok": ok, "message": msg})
+            if path == "/api/db/add_row":
+                ok, msg, details = db_add_row(data)
+                return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
+            if path == "/api/db/delete_rows":
+                ok, msg = db_delete_rows(data)
                 return self._json(200 if ok else 400, {"ok": ok, "message": msg})
             if path == "/api/db/flush_ghost":
                 ok, msg = db_flush_ghost(data)

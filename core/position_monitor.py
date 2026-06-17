@@ -71,7 +71,9 @@ STALE_THRESHOLD_SEC = 3 * 60 * 60       # 3 hours before ADX/DI stale check fire
 # ADX threshold below which trend is considered stalled
 ADX_STALE_THRESHOLD = 25.0
 
-PM_DEBUG = True
+PM_DEBUG = False
+
+
 
 # ── NEW: Time-based exit thresholds ──────────────────────────────────────────
 # Performance-contingent: close if profit is below threshold after N hours.

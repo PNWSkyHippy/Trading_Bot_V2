@@ -84,9 +84,10 @@ REVIEW_INDICATOR_KEYS = (
 _SYSTEM_PROMPT = (
     "You are the signal-review layer of an autonomous day trading bot. "
     "You have VETO power only — you cannot initiate trades. "
-    "Respond with ONLY a valid JSON array. No markdown, no explanation, no surrounding text. "
-    "Each element corresponds to one signal in the order provided. "
-    "For each signal output: "
+    "Respond with ONLY the JSON shape requested by the user prompt. "
+    "No markdown, no explanation, no surrounding text. "
+    "For signal-review prompts, each array element corresponds to one signal in the order provided. "
+    "For each signal-review item output: "
     "{\"symbol\": \"SYM\", \"decision\": \"APPROVE|REJECT|SKIP\", "
     "\"confidence\": 0-100, \"reasoning\": \"one clear sentence\"}. "
     "Decision rules: "
@@ -207,6 +208,120 @@ def _round_for_prompt(value):
     if isinstance(value, float):
         return round(value, 6)
     return value
+
+
+def _pct_change(current: float, previous: float) -> Optional[float]:
+    try:
+        if previous == 0:
+            return None
+        return ((float(current) - float(previous)) / float(previous)) * 100
+    except Exception:
+        return None
+
+
+def _summarize_bars(symbol: str, bars) -> Dict:
+    close = bars["close"]
+    last_close = float(close.iloc[-1])
+    first_close = float(close.iloc[0])
+    prev_close = float(close.iloc[-2]) if len(close) >= 2 else first_close
+    sma20 = float(close.tail(20).mean()) if len(close) >= 20 else None
+    return {
+        "symbol": symbol,
+        "bars": int(len(bars)),
+        "last_timestamp": str(bars.index[-1]),
+        "last_close": round(last_close, 4),
+        "change_from_first_bar_pct": _round_for_prompt(_pct_change(last_close, first_close)),
+        "last_bar_change_pct": _round_for_prompt(_pct_change(last_close, prev_close)),
+        "above_sma20": None if sma20 is None else bool(last_close > sma20),
+    }
+
+
+def _fetch_alpha_movers() -> Dict:
+    if not getattr(config, "ALPHA_VANTAGE_KEY", ""):
+        return {"enabled": False, "reason": "missing_alpha_vantage_key"}
+
+    try:
+        import urllib.parse
+        import urllib.request
+
+        url = "https://www.alphavantage.co/query?" + urllib.parse.urlencode({
+            "function": "TOP_GAINERS_LOSERS",
+            "apikey": config.ALPHA_VANTAGE_KEY,
+        })
+        with urllib.request.urlopen(url, timeout=10) as response:
+            data = json.loads(response.read(200000))
+
+        if "Note" in data:
+            return {"enabled": True, "error": "rate_limit", "message": data["Note"][:200]}
+        if "Information" in data:
+            return {"enabled": True, "error": "api_message", "message": data["Information"][:200]}
+        if "Error Message" in data:
+            return {"enabled": True, "error": "api_error", "message": data["Error Message"][:200]}
+
+        def _top(rows):
+            output = []
+            for row in rows[:5]:
+                output.append({
+                    "ticker": row.get("ticker", ""),
+                    "price": row.get("price", ""),
+                    "change_pct": row.get("change_percentage", ""),
+                    "volume": row.get("volume", ""),
+                })
+            return output
+
+        return {
+            "enabled": True,
+            "last_updated": data.get("last_updated", ""),
+            "top_gainers": _top(data.get("top_gainers", [])),
+            "top_losers": _top(data.get("top_losers", [])),
+            "most_active": _top(data.get("most_actively_traded", [])),
+        }
+    except Exception as exc:
+        return {"enabled": True, "error": type(exc).__name__, "message": str(exc)[:200]}
+
+
+def _build_market_snapshot() -> Dict:
+    snapshot = {
+        "generated_at": datetime.now().isoformat(timespec="seconds"),
+        "equity_index_proxies": [],
+        "market_condition": None,
+        "alpha_vantage_movers": None,
+        "errors": [],
+    }
+
+    try:
+        from scanners.market_scanner import StockScanner
+        from intelligence.condition_detector import condition_detector
+
+        stock_scanner = StockScanner()
+        for symbol in ("SPY", "QQQ", "IWM", "DIA"):
+            try:
+                bars = stock_scanner.get_bars(symbol, timeframe="5Min", limit=100)
+                if bars is None or bars.empty:
+                    snapshot["errors"].append(f"{symbol}: no 5Min bars")
+                    continue
+                snapshot["equity_index_proxies"].append(_summarize_bars(symbol, bars))
+            except Exception as exc:
+                snapshot["errors"].append(f"{symbol}: {type(exc).__name__}: {exc}")
+
+        try:
+            report = condition_detector.get_spy_condition(stock_scanner)
+            snapshot["market_condition"] = {
+                "condition": report.condition.value,
+                "should_trade": bool(report.should_trade),
+                "reason": report.reason,
+                "adx": report.adx,
+                "atr_pct": report.atr_pct,
+                "bb_width": report.bb_width,
+                "position_scalar": report.position_scalar,
+            }
+        except Exception as exc:
+            snapshot["errors"].append(f"condition_detector: {type(exc).__name__}: {exc}")
+    except Exception as exc:
+        snapshot["errors"].append(f"stock_snapshot: {type(exc).__name__}: {exc}")
+
+    snapshot["alpha_vantage_movers"] = _fetch_alpha_movers()
+    return snapshot
 
 
 def _compact_signal_payload(signal) -> Dict:
@@ -401,9 +516,14 @@ class ClaudeReviewer:
     # =========================================================================
 
     def _run_morning_briefing(self) -> MarketContext:
+        market_snapshot = _build_market_snapshot()
         prompt = (
             f"Today is {datetime.now().strftime('%A, %B %d, %Y')}. "
-            "Assess current US market conditions and return ONLY this JSON — "
+            "Assess current US market conditions using ONLY the bot-fetched "
+            "market snapshot below. Do not claim that current price action, "
+            "breadth, or VIX data is unavailable if the snapshot contains usable "
+            "proxy data. If a field is missing, name only that missing field. "
+            "Return ONLY this JSON object — "
             "no markdown, no explanation:\n"
             '{"allow_trading": true, "conviction_score": 70, '
             '"market_sentiment": "BULLISH", "breadth_health": "HEALTHY", '
@@ -411,7 +531,9 @@ class ClaudeReviewer:
             '"cold_sectors": ["Utilities"], "active_themes": ["AI momentum"], '
             '"high_impact_events": [], "earnings_today": [], '
             '"max_exposure_pct": 60, "summary": "Replace with actual assessment."}'
-            "\n\nReplace ALL values with your real assessment right now."
+            "\n\nBOT-FETCHED MARKET SNAPSHOT:\n"
+            + json.dumps(market_snapshot, separators=(",", ":"), default=str)
+            + "\n\nReplace ALL values with your assessment of that snapshot."
         )
         try:
             text = self._call_claude(prompt, BRIEFING_TIMEOUT_SEC, MAX_TOKENS_BRIEFING)

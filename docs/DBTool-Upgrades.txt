@@ -1,0 +1,65 @@
+DB tool panel thats part of web_dash, few mods id like . its very fast  and nice
+1) There's an option to filter trades by symbol but not by tpe like crypto stock 
+or both. Rather then add another button to do son id like a more global change that
+works no maater what data is being displayed. On the results table, no matter what 
+seached caused that data to appear, top row after he descriptive headers insert a 
+new blank filer row thats between heade and first line of data. if i click in the
+empty box I can type in it.. id like it to support glob search paters same as VS code does
+
+"""
+VS Code supports the following glob syntax:
+
+/ to separate path segments
+* to match zero or more characters in a path segment
+? to match on one character in a path segment
+** to match any number of path segments, including none
+{} to group conditions (for example {**/*.html,**/*.txt} matches all HTML and text files)
+[] to declare a range of characters to match (example.[0-9] to match on example.0, example.1, …)
+[!...] to negate a range of characters to match (example.[!0-9] to match on example.a, example.b, but not example.0)
+Note: Paths are separated by / and not \ even on Windows. But when applied, glob patterns will match paths with both slash and backslashes.
+
+Case sensitivity
+Glob pattern matching behavior differs based on the platform's file system:
+
+Windows and macOS: Glob patterns are case-insensitive by default. For example, the pattern **/MyFolder/** will match myfolder/, MyFolder/, MYFOLDER/, and any other case variation.
+Linux: Glob patterns are case-sensitive. The pattern **/MyFolder/** will only match folders with that exact casing.
+This platform-aware behavior applies to all uses of glob patterns in VS Code, including:
+
+Search view include/exclude patterns
+files.exclude
+ setting
+search.exclude
+ setting
+.gitignore file patterns (when 
+explorer.excludeGitIgnore
+ is enabled)
+Search Editor patterns
+"""
+Also id like it to support  <g meaning the contents begin with a - f but filters out any starting with g-z
+
+in addition as we have numeric colums id like it to support numeric operators IE of typed <=4000 then the result of the search 
+would be onl those where this colums value is <= 4000
+
+given all this we can filter o just crypto or just tock in that columns header no need for a button but can also filter
+by date ranges in date field when viewing trades table  for instance  or by strategy names  or by winning onl > 0 etc etc
+
+2)
+ Whewn viewing raw database tables from the list on the left side we have edit content of a row. id also like a delete row/s option
+ and also prior to doing so id like the ability to select multiple rows standard fasion (clik starting row, hold shift , click
+ another row and from first to that one highlight. want to add more non conequtive rows, hold control and click a random
+ row and it also gets added to the highlighted list of rows.
+ once row selection is made hitting delete row would prmpt for verificcation , then delete all those rows.
+ 
+ 3)
+   Id like the ability to load te candle database OR the trades database. When the candle database is loaded theentire menu would change to
+   a way to reload the trading databasem a way to view the candle meta table or the main ccandle table, same filter row at the op with ssame glob options,
+   a way to multi select rows and then delete them entirey from the database, and lastly a way to click one row, hit edi row and edit any column in the row 
+   as we can ow on trading database. This will make it even easier to filter a trouble candle , select all its rows,delete
+   
+4) 
+  While were at it ew may as well add an "Add Row" option in both databases that will add a blannk row at the bottom, then automatically
+  bring up the eit window for that new row. for things like adding a new API key, addding a new candle memta entry, adding a new user/pass combo
+  by just pasting in an encrypted pas and username
+ 
+ The tools already extremely powerful for info gathering when paired with is CVS dump ability to make custom
+ reports and graphs on the data in Excel. I think these additions will make it supre functional

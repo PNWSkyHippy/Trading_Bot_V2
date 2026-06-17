@@ -109,7 +109,10 @@ ANTHROPIC_API_KEY   = _db_key("anthropic", "api_key",    _decrypt(os.getenv("ANT
 
 COINDESK_API_KEY    = _db_key("coindesk",  "api_key",    _decrypt(os.getenv("COINDESK_API_KEY", "gAAAAABqE0y3UHrVHis66FBSmi3Lv8jIv6xodP02_6aOL7pDcUX_4eMa7ViRVhRz3jcw188fDzS8vIUB6zH_oFcjdLwyAhPj5KyxviSJWtITJsTU2kR5RcPHd7hS8mjVC6EkeTthL9EpjM-vXzcMw20UIOX7xHkVA8BP6S8IWSCty02KGt5kU5k=")))
 
-ALPHA_VANTAGE_KEY   = _db_key("alpha_vantage", "api_key", _decrypt(os.getenv("ALPHA_VANTAGE_KEY", "")))
+ALPHA_VANTAGE_KEY   = _db_key(
+    "alphavantage", "api_key",
+    _db_key("alpha_vantage", "api_key", _decrypt(os.getenv("ALPHA_VANTAGE_KEY", "")))
+)
 
 KRAKEN_ENABLED      = True
 
@@ -138,7 +141,7 @@ IBKR_TRADE_ENABLED  = False  # SAFETY LOCK — set True only when ready to execu
                               # While False: IBKR connected for display only, all stock trades route Alpaca paper
 
 CLAUDE_REVIEWER_ENABLED = True
-CLAUDE_REVIEWER_MODE = "Strict"
+CLAUDE_REVIEWER_MODE = "advisory"
 CLAUDE_REVIEWER_APPLY_SIZE_ADVICE = True
 
 # Contrarian scanner mode — invert selected scanner signal directions after
@@ -146,7 +149,7 @@ CLAUDE_REVIEWER_APPLY_SIZE_ADVICE = True
 # Source-specific flags let each scanner be tested independently.
 BREAKOUT_CONTRARIAN_MODE = True
 BREAKOUT_SCANNER_CONTRARIAN = True
-FUNDING_SCANNER_CONTRARIAN  = True
+FUNDING_SCANNER_CONTRARIAN  = False
 GAP_SCANNER_CONTRARIAN      = False
 
 BREAKOUT_CONTRARIAN_SOURCE_FLAGS = {
