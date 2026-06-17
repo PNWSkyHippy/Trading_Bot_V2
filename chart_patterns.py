@@ -400,21 +400,26 @@ class PatternDetector:
 
         # Last two significant highs
         p1, p2 = ph[-2], ph[-1]
+        if p2[0] - p1[0] < 6: return None
         diff   = abs(p1[1]-p2[1]) / max(p1[1], p2[1])
-        if diff > 0.025: return None   # peaks must be within 2.5%
+        if diff > 0.018: return None   # peaks must be genuinely similar
 
         # Valley between them
         valley = min(prices[p1[0]:p2[0]+1]) if p1[0] < p2[0] else None
         if valley is None: return None
         pullback = (max(p1[1],p2[1]) - valley) / max(p1[1],p2[1])
-        if pullback < 0.02: return None   # meaningful trough between
+        if pullback < 0.03: return None   # meaningful trough between
 
-        # Current price should be declining from second top
+        prior = self._prior_trend(prices[:p1[0]+1]) if p1[0] >= 8 else self._prior_trend(prices)
+        if prior < 0.001: return None
+
+        # Confirmed double top should be breaking or retesting below the neckline.
         cur_drop = (p2[1] - prices[-1]) / p2[1]
-        confirming = cur_drop > 0.005
+        confirming = prices[-1] <= valley * 1.005
+        if not confirming: return None
 
-        score = 0.35 + 0.30*(diff<0.01) + 0.20*(pullback>0.04) + 0.15*confirming
-        desc  = f"Two peaks at {p1[1]:.2f}/{p2[1]:.2f} ({diff:.1%} apart). Valley={valley:.2f}."
+        score = 0.45 + 0.25*(diff<0.01) + 0.20*(pullback>0.045) + 0.10*(cur_drop>0.02)
+        desc  = f"Two similar peaks at {p1[1]:.2f}/{p2[1]:.2f} ({diff:.1%} apart), neckline={valley:.2f}, confirmed below neckline."
         return PatternResult("Double Top", min(score,1.0), "SHORT", desc, score)
 
     def _double_bottom(self, prices, volumes):
@@ -422,19 +427,25 @@ class PatternDetector:
         if len(pl) < 2: return None
 
         t1, t2 = pl[-2], pl[-1]
+        if t2[0] - t1[0] < 6: return None
         diff   = abs(t1[1]-t2[1]) / max(t1[1], t2[1])
-        if diff > 0.025: return None
+        if diff > 0.018: return None
 
         peak  = max(prices[t1[0]:t2[0]+1]) if t1[0] < t2[0] else None
         if peak is None: return None
         bounce = (peak - min(t1[1],t2[1])) / peak
-        if bounce < 0.02: return None
+        if bounce < 0.03: return None
 
+        prior = self._prior_trend(prices[:t1[0]+1]) if t1[0] >= 8 else self._prior_trend(prices)
+        if prior > -0.001: return None
+
+        # Confirmed double bottom should be breaking or retesting above the neckline.
         cur_rise = (prices[-1] - t2[1]) / t2[1]
-        confirming = cur_rise > 0.005
+        confirming = prices[-1] >= peak * 0.995
+        if not confirming: return None
 
-        score = 0.35 + 0.30*(diff<0.01) + 0.20*(bounce>0.04) + 0.15*confirming
-        desc  = f"Two troughs at {t1[1]:.2f}/{t2[1]:.2f} ({diff:.1%} apart). Peak={peak:.2f}."
+        score = 0.45 + 0.25*(diff<0.01) + 0.20*(bounce>0.045) + 0.10*(cur_rise>0.02)
+        desc  = f"Two similar troughs at {t1[1]:.2f}/{t2[1]:.2f} ({diff:.1%} apart), neckline={peak:.2f}, confirmed above neckline."
         return PatternResult("Double Bottom", min(score,1.0), "LONG", desc, score)
 
     def _cup_and_handle(self, prices, volumes):
@@ -593,9 +604,9 @@ class PatternDetector:
         prev_bull  = c1 > o1
         curr_bear  = c2 < o2
         engulfs    = o2 >= c1 and c2 <= o1   # current body wraps prior body
-        if not (prev_bull and curr_bear and engulfs): return None
-
         size_ratio = abs(c2-o2) / max(abs(c1-o1), 1e-9)
+        if not (prev_bull and curr_bear and engulfs and size_ratio >= 1.05): return None
+
         score = 0.45 + 0.30*(size_ratio>1.5) + 0.25*(self._prior_trend(closes)>0)
         return PatternResult("Bearish Engulfing", min(score,1.0), "SHORT",
             f"Bearish candle engulfs prior bullish ({size_ratio:.1f}x size).", score)
@@ -607,9 +618,9 @@ class PatternDetector:
         prev_bear  = c1 < o1
         curr_bull  = c2 > o2
         engulfs    = o2 <= c1 and c2 >= o1
-        if not (prev_bear and curr_bull and engulfs): return None
-
         size_ratio = abs(c2-o2) / max(abs(c1-o1), 1e-9)
+        if not (prev_bear and curr_bull and engulfs and size_ratio >= 1.05): return None
+
         score = 0.45 + 0.30*(size_ratio>1.5) + 0.25*(self._prior_trend(closes)<0)
         return PatternResult("Bullish Engulfing", min(score,1.0), "LONG",
             f"Bullish candle engulfs prior bearish ({size_ratio:.1f}x size).", score)

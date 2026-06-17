@@ -2484,13 +2484,113 @@ const loadChartIndicators = () => {
 const DRAW_TOOLS = [
   ['cursor', 'Cursor'],
   ['trend', 'Trend'],
+  ['fib', 'Fib'],
   ['hline', 'H'],
   ['vline', 'V'],
   ['rect', 'Box'],
   ['eraser', 'Erase'],
 ];
+const FIB_LEVELS = [
+  ['0.0', 0],
+  ['23.6', 0.236],
+  ['38.2', 0.382],
+  ['50.0', 0.5],
+  ['61.8', 0.618],
+  ['78.6', 0.786],
+  ['100.0', 1],
+  ['127.2', 1.272],
+  ['161.8', 1.618],
+  ['200.0', 2],
+];
+const FIB_STYLES = {
+  '0.0':   { color: '#FFD700', width: 1.5, dash: [4,4] },
+  '23.6':  { color: '#FFF176', width: 1.0, dash: [3,5] },
+  '38.2':  { color: '#FFA726', width: 1.5, dash: [4,3] },
+  '50.0':  { color: '#E0E0E0', width: 1.5, dash: [4,3] },
+  '61.8':  { color: '#FFD700', width: 2.5, dash: [] },
+  '78.6':  { color: '#FF6B35', width: 1.5, dash: [4,3] },
+  '100.0': { color: '#4FC3F7', width: 1.5, dash: [4,4] },
+  '127.2': { color: '#86EFAC', width: 1.0, dash: [3,5] },
+  '161.8': { color: '#4ADE80', width: 2.0, dash: [] },
+  '200.0': { color: '#10B981', width: 1.0, dash: [3,5] },
+};
+const PATTERN_HELP = {
+  'Ascending Triangle': 'Horizontal resistance with rising support. Often bullish if price breaks above resistance.',
+  'Descending Triangle': 'Horizontal support with falling resistance. Often bearish if price breaks below support.',
+  'Symmetrical Triangle': 'Converging upper and lower trendlines. Direction depends on the breakout and prior trend.',
+  'Rising Wedge': 'Higher highs and higher lows converging. Often warns of weakening upside momentum.',
+  'Falling Wedge': 'Lower highs and lower lows converging. Often warns sellers are losing control.',
+  'Bull Flag': 'Tight pullback after a sharp bullish move. Usually a continuation setup if it breaks upward.',
+  'Bear Flag': 'Tight bounce after a sharp bearish move. Usually a continuation setup if it breaks downward.',
+  'Bull Pennant': 'Small triangle after a bullish impulse. Usually looks for continuation above the pennant.',
+  'Bear Pennant': 'Small triangle after a bearish impulse. Usually looks for continuation below the pennant.',
+  'Head & Shoulders': 'Three-peak reversal structure with a higher middle peak. Bearish if the neckline breaks.',
+  'Inv Head & Shoulders': 'Three-trough reversal structure with a lower middle trough. Bullish if the neckline breaks.',
+  'Double Top': 'Price tests resistance twice and fails to break higher. Often bearish if support breaks after it.',
+  'Double Bottom': 'Price tests support twice and fails to break lower. Often bullish if resistance breaks after it.',
+  'Triple Top': 'Price rejects a resistance area three times. Often bearish if support gives way.',
+  'Triple Bottom': 'Price rejects a support area three times. Often bullish if resistance gives way.',
+  'Cup & Handle': 'Rounded base followed by a smaller pullback. Often bullish if price clears the handle.',
+  'Consolidation Breakout': 'Price leaves a tight range. Watch whether volume and follow-through confirm the break.',
+  'Parabolic Acceleration': 'Price speed increases rapidly. Strong trend, but also higher exhaustion/reversal risk.',
+  'Volume Climax': 'Unusually heavy volume near an extreme. Can signal capitulation or a short-term exhaustion point.',
+  'Shooting Star': 'Small body with a long upper wick after strength. Often warns buyers were rejected.',
+  'Hammer': 'Small body with a long lower wick after weakness. Often warns sellers were rejected.',
+  'Gravestone Doji': 'Open and close near the low with a long upper wick. Often bearish rejection.',
+  'Dragonfly Doji': 'Open and close near the high with a long lower wick. Often bullish rejection.',
+  'Doji': 'Open and close are nearly equal. Shows indecision; needs trend/context confirmation.',
+  'Bearish Engulfing': 'A bearish real body wraps the prior bullish real body; wicks do not count. Often reversal pressure after an upswing.',
+  'Bullish Engulfing': 'A bullish real body wraps the prior bearish real body; wicks do not count. Often reversal pressure after a downswing.',
+  'Evening Star': 'Three-candle bearish reversal: strength, indecision, then selling pressure.',
+  'Morning Star': 'Three-candle bullish reversal: weakness, indecision, then buying pressure.',
+  'Three Black Crows': 'Three strong bearish candles in a row. Often signals persistent selling pressure.',
+  'Three White Soldiers': 'Three strong bullish candles in a row. Often signals persistent buying pressure.',
+  'Bearish Exhaustion': 'Late-stage selling/buying imbalance that may be running out of fuel. Confirm before acting.',
+  'Bullish Exhaustion': 'Late-stage weakness that may be running out of fuel. Confirm before acting.',
+  'Broadening Top': 'Expanding swings with higher highs and lower lows. Often unstable and reversal-prone.',
+  'Megaphone Pattern': 'Expanding highs and lows. Breakout direction matters more than the shape alone.',
+  'Rounding Bottom': 'Smooth base that gradually turns upward. Often a slower bullish reversal pattern.',
+  'Rounding Top': 'Smooth peak that gradually turns downward. Often a slower bearish reversal pattern.',
+  'Rectangle': 'Price is trapped between support and resistance. Breakout direction sets the bias.',
+  'Price Channel': 'Price is moving between parallel trendlines. Watch reactions at channel edges.',
+  'Measured Move': 'A trend leg, pause, then possible second leg of similar size after breakout.',
+  'Dead Cat Bounce': 'Short-lived rally after a sharp decline. Often fails if buyers cannot reclaim key levels.',
+  'Island Reversal': 'A gap away from trend followed by a gap back. Often marks abrupt sentiment change.',
+};
+const CANDLE_PATTERN_NAMES = new Set([
+  'Shooting Star',
+  'Hammer',
+  'Gravestone Doji',
+  'Dragonfly Doji',
+  'Doji',
+  'Bearish Engulfing',
+  'Bullish Engulfing',
+  'Evening Star',
+  'Morning Star',
+  'Three Black Crows',
+  'Three White Soldiers',
+  'Bearish Exhaustion',
+  'Bullish Exhaustion',
+]);
+const patternHelpText = (name) => PATTERN_HELP[name] || 'Pattern signal found by the scanner. Treat it as context, then confirm with price action, volume, and your indicators.';
+const patternCategoryText = (name) => CANDLE_PATTERN_NAMES.has(name) ? 'Candlestick signal' : 'Chart formation';
 const drawingStoreKey = (symbol, tf) => `chart_drawings_v1:${symbol}:${tf}`;
 const makeDrawingId = () => `draw_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+const fibLevelsForDrawing = (d) => {
+  if (!d?.p1 || !d?.p2) return [];
+  const start = Number(d.p1.price);
+  const end = Number(d.p2.price);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return [];
+  const span = end - start;
+  return FIB_LEVELS.map(([pct, ratio]) => ({ pct, price: start + span * ratio }));
+};
+const priceDecimalsFor = (price) => {
+  const p = Math.abs(Number(price) || 0);
+  if (p < 0.001) return 8;
+  if (p < 1) return 5;
+  if (p < 100) return 4;
+  return 2;
+};
 const priceFormatForBars = (bars = []) => {
   const prices = bars
     .flatMap(b => [b.open, b.high, b.low, b.close])
@@ -2507,6 +2607,10 @@ const drawingDistance = (d, pt) => {
   if (!d || !pt) return Infinity;
   if (d.type === 'hline') return Math.abs(d.p1.price - pt.price);
   if (d.type === 'vline') return Math.abs(d.p1.time - pt.time);
+  if (d.type === 'fib') {
+    const prices = fibLevelsForDrawing(d).map(l => Math.abs(l.price - pt.price));
+    if (prices.length) return Math.min(...prices);
+  }
   const p1 = d.p1 || {};
   const p2 = d.p2 || p1;
   const tMin = Math.min(p1.time, p2.time), tMax = Math.max(p1.time, p2.time);
@@ -2545,8 +2649,8 @@ function ChartPanel({ defaultSymbol }) {
   const [patternDrawings, setPatternDrawings] = useS([]);
   const [patternLoading, setPatternLoading]   = useS(false);
   const [patternMsg, setPatternMsg]           = useS('');
-  const [fibData, setFibData]                 = useS(null);
-  const [fibLoading, setFibLoading]           = useS(false);
+  const [hoverPattern, setHoverPattern]       = useS(null);
+  const [focusedPatternId, setFocusedPatternId] = useS(null);
 
   // ── Chronos AI ────────────────────────────────────────────────────────────
   const [chronosActive,  setChronosActive]  = useS(false);
@@ -2582,7 +2686,7 @@ function ChartPanel({ defaultSymbol }) {
   const openPositionsRef = useR([]);
   const cleanBarsRef = useR([]);
   const patternDrawingsRef = useR([]);
-  const fibDataRef         = useR(null);
+  const focusedPatternIdRef = useR(null);
   const chartSeriesTypeRef = useR('candles'); // tracks what type candleRef.current actually is
   const isLiveUpdateRef = useR(false); // true when bars changed via live poll (not full reload)
   const savedRangeRef = useR(null);   // visible time range saved before setData() so we can restore it
@@ -2724,7 +2828,7 @@ function ChartPanel({ defaultSymbol }) {
   useE(() => { draftDrawingRef.current = draftDrawing; }, [draftDrawing]);
   useE(() => { drawingsHiddenRef.current = drawingsHidden; }, [drawingsHidden]);
   useE(() => { patternDrawingsRef.current = patternDrawings; }, [patternDrawings]);
-  useE(() => { fibDataRef.current = fibData; }, [fibData]);
+  useE(() => { focusedPatternIdRef.current = focusedPatternId; }, [focusedPatternId]);
   useE(() => { marksRef.current = marks; }, [marks]);
   useE(() => { openPositionsRef.current = openPositions; }, [openPositions]);
   useE(() => {
@@ -3376,6 +3480,41 @@ function ChartPanel({ defaultSymbol }) {
       if (x === null || x === undefined || y === null || y === undefined) return null;
       return { x, y };
     };
+    const pixelBarWidth = (time) => {
+      const bars = cleanBarsRef.current || [];
+      const idx = bars.findIndex(b => Number(b.time) === Number(time));
+      const coords = [];
+      if (idx > 0) {
+        const x = chart.timeScale().timeToCoordinate(bars[idx - 1].time);
+        if (x != null) coords.push(x);
+      }
+      if (idx >= 0) {
+        const x = chart.timeScale().timeToCoordinate(bars[idx].time);
+        if (x != null) coords.push(x);
+      }
+      if (idx >= 0 && idx < bars.length - 1) {
+        const x = chart.timeScale().timeToCoordinate(bars[idx + 1].time);
+        if (x != null) coords.push(x);
+      }
+      if (coords.length >= 2) {
+        coords.sort((a, b) => a - b);
+        return Math.max(10, Math.min(34, Math.abs(coords[coords.length - 1] - coords[0]) * 0.55));
+      }
+      return 18;
+    };
+    const rectPixels = (d) => {
+      const a = toXY(d.p1), b = toXY(d.p2);
+      if (!a || !b) return null;
+      let rx = Math.min(a.x, b.x);
+      const ry = Math.min(a.y, b.y);
+      let rw = Math.abs(a.x - b.x);
+      const rh = Math.abs(a.y - b.y);
+      if (d.single_candle || rw < 2) {
+        rw = pixelBarWidth(d.p2?.time || d.p1?.time);
+        rx = a.x - rw / 2;
+      }
+      return { rx, ry, rw: Math.max(4, rw), rh };
+    };
     const lineColor = '#f8fafc';
     const fillColor = 'rgba(56, 189, 248, 0.10)';
     const drawTradeFill = (m) => {
@@ -3489,6 +3628,57 @@ function ChartPanel({ defaultSymbol }) {
           ctx.fillRect(x, y, rw, rh);
           ctx.strokeRect(x, y, rw, rh);
         }
+      } else if (d.type === 'fib') {
+        const a = toXY(d.p1), b = toXY(d.p2 || d.p1);
+        if (a && b) {
+          const levels = fibLevelsForDrawing(d);
+          const x1 = Math.min(a.x, b.x);
+          const x2 = Math.max(a.x, b.x);
+          const labelX = Math.min(w - 6, x2 + 98);
+
+          ctx.setLineDash(isDraft ? [4, 4] : [2, 5]);
+          ctx.globalAlpha = isDraft ? 0.7 : 0.45;
+          ctx.beginPath(); ctx.moveTo(a.x, 0); ctx.lineTo(a.x, h); ctx.stroke();
+          ctx.beginPath(); ctx.moveTo(b.x, 0); ctx.lineTo(b.x, h); ctx.stroke();
+
+          const zone618 = levels.find(l => l.pct === '61.8');
+          const zone786 = levels.find(l => l.pct === '78.6');
+          const y618 = zone618 ? series.priceToCoordinate(zone618.price) : null;
+          const y786 = zone786 ? series.priceToCoordinate(zone786.price) : null;
+          if (y618 != null && y786 != null) {
+            ctx.save();
+            ctx.fillStyle = 'rgba(255, 215, 0, 0.08)';
+            ctx.fillRect(x1, Math.min(y618, y786), Math.max(20, x2 - x1), Math.abs(y786 - y618));
+            ctx.restore();
+          }
+
+          levels.forEach(({ pct, price }) => {
+            const y = series.priceToCoordinate(price);
+            if (y == null || y < -40 || y > h + 40) return;
+            const st = FIB_STYLES[pct] || { color:'#aaaaaa', width:1, dash:[3,5] };
+            ctx.save();
+            ctx.strokeStyle = st.color;
+            ctx.lineWidth = isDraft ? 1 : st.width;
+            ctx.setLineDash(isDraft ? [4,4] : st.dash);
+            ctx.globalAlpha = isDraft ? 0.55 : 0.72;
+            ctx.beginPath(); ctx.moveTo(x1, y); ctx.lineTo(w, y); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.globalAlpha = 1;
+            ctx.font = `${st.width >= 2 ? 'bold ' : ''}10px "JetBrains Mono", monospace`;
+            ctx.textAlign = 'right';
+            ctx.textBaseline = 'bottom';
+            ctx.fillStyle = st.color;
+            ctx.fillText(`${pct}%  ${price.toFixed(priceDecimalsFor(price))}`, labelX, y - 2);
+            ctx.restore();
+          });
+
+          ctx.setLineDash([]);
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = '#FFD700';
+          ctx.beginPath(); ctx.arc(a.x, a.y, 4, 0, Math.PI * 2); ctx.fill();
+          ctx.fillStyle = '#4FC3F7';
+          ctx.beginPath(); ctx.arc(b.x, b.y, 4, 0, Math.PI * 2); ctx.fill();
+        }
       } else {
         const a = toXY(d.p1), b = toXY(d.p2 || d.p1);
         if (a && b) {
@@ -3504,32 +3694,102 @@ function ChartPanel({ defaultSymbol }) {
 
     // ── Pattern analysis overlays ─────────────────────────────────────────
     if (!drawingsHiddenRef.current) {
+      const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+      const patternPoints = (pattern) => {
+        const pts = [];
+        (pattern.drawings || []).forEach(d => {
+          if (d.type === 'line') {
+            const a = toXY(d.p1), b = toXY(d.p2);
+            if (a) pts.push(a);
+            if (b) pts.push(b);
+          } else if (d.type === 'rect') {
+            const r = rectPixels(d);
+            if (r) {
+              pts.push(
+                { x: r.rx, y: r.ry },
+                { x: r.rx + r.rw, y: r.ry },
+                { x: r.rx, y: r.ry + r.rh },
+                { x: r.rx + r.rw, y: r.ry + r.rh },
+              );
+            }
+          } else if (d.type === 'vline') {
+            const a = toXY(d.p1);
+            if (a) pts.push(a);
+          } else if (d.type === 'hline') {
+            const a = toXY(d.p1), b = toXY(d.p2);
+            if (a) pts.push(a);
+            if (b) pts.push(b);
+          }
+        });
+        return pts.filter(pt =>
+          pt && Number.isFinite(pt.x) && Number.isFinite(pt.y) &&
+          pt.x >= -80 && pt.x <= w + 80 && pt.y >= -80 && pt.y <= h + 80
+        );
+      };
+      const drawPatternLocalLabel = (p, pi, col, arrow) => {
+        const pts = patternPoints(p);
+        if (!pts.length) return;
+        const minX = Math.min(...pts.map(pt => pt.x));
+        const maxX = Math.max(...pts.map(pt => pt.x));
+        const minY = Math.min(...pts.map(pt => pt.y));
+        const maxY = Math.max(...pts.map(pt => pt.y));
+        const anchorX = clamp((minX + maxX) / 2, 8, w - 8);
+        const anchorY = clamp((minY + maxY) / 2, 8, h - 8);
+        const label = `${arrow} ${p.name} ${Math.round(Number(p.confidence || 0) * 100)}%`;
+
+        ctx.save();
+        ctx.font = 'bold 11px "JetBrains Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const padX = 7;
+        const bw = Math.min(w - 16, ctx.measureText(label).width + padX * 2);
+        const bh = 18;
+        let bx = clamp(anchorX - bw / 2, 8, w - bw - 8);
+        let by = minY - bh - 8 - (pi % 3) * 8;
+        if (by < 8) by = maxY + 10 + (pi % 3) * 8;
+        by = clamp(by, 8, h - bh - 8);
+        const badgeCx = bx + bw / 2;
+        const badgeCy = by + bh / 2;
+
+        ctx.strokeStyle = col;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([2, 3]);
+        ctx.beginPath();
+        ctx.moveTo(badgeCx, badgeCy);
+        ctx.lineTo(anchorX, anchorY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.shadowColor = 'rgba(0,0,0,0.65)';
+        ctx.shadowBlur = 5;
+        ctx.fillStyle = col + 'ee';
+        if (ctx.roundRect) {
+          ctx.beginPath();
+          ctx.roundRect(bx, by, bw, bh, 4);
+          ctx.fill();
+        } else {
+          ctx.fillRect(bx, by, bw, bh);
+        }
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#ffffff88';
+        ctx.strokeRect(bx, by, bw, bh);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(label, badgeCx, badgeCy + 0.5);
+
+        ctx.fillStyle = col;
+        ctx.beginPath();
+        ctx.arc(anchorX, anchorY, 3.5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      };
+
       patternDrawingsRef.current.forEach((p, pi) => {
         const col = p.color || '#e879f9';
+        const focused = p.id && p.id === focusedPatternIdRef.current;
 
-        // Label badge — always rendered regardless of whether line coords resolve
         const arrow  = p.direction === 'LONG' ? '▲' : p.direction === 'SHORT' ? '▼' : '─';
-        const label  = `${p.name}  [${arrow} ${Math.round(p.confidence * 100)}%]`;
-        const labelY = 22 + pi * 20;
-        try {
-          ctx.save();
-          ctx.font         = 'bold 11px "JetBrains Mono", monospace';
-          ctx.textAlign    = 'right';
-          ctx.textBaseline = 'alphabetic';
-          const tw  = ctx.measureText(label).width;
-          const lx  = w - 8;
-          const ly  = labelY;
-          ctx.fillStyle = col + 'dd';
-          const bx = lx - tw - 10, by = ly - 13, bw = tw + 12, bh = 17;
-          if (ctx.roundRect) {
-            ctx.beginPath(); ctx.roundRect(bx, by, bw, bh, 3); ctx.fill();
-          } else {
-            ctx.fillRect(bx, by, bw, bh);
-          }
-          ctx.fillStyle = '#ffffff';
-          ctx.fillText(label, lx - 2, ly);
-          ctx.restore();
-        } catch (_) { try { ctx.restore(); } catch (_2) {} }
+
+        drawPatternLocalLabel(p, pi, col, arrow);
 
         // Geometric drawings (lines, rects, vlines) — skip silently if coords unavailable
         if (!p.drawings?.length) return;
@@ -3537,7 +3797,9 @@ function ChartPanel({ defaultSymbol }) {
           p.drawings.forEach(d => {
             ctx.save();
             ctx.strokeStyle = col;
-            ctx.lineWidth   = 2;
+            ctx.lineWidth   = focused ? 3.25 : 2;
+            ctx.shadowColor = focused ? col : 'transparent';
+            ctx.shadowBlur  = focused ? 10 : 0;
             ctx.setLineDash([6, 3]);
             if (d.type === 'line') {
               const a = toXY(d.p1), b = toXY(d.p2);
@@ -3549,13 +3811,21 @@ function ChartPanel({ defaultSymbol }) {
               const x = chart.timeScale().timeToCoordinate(d.p1.time);
               if (x != null) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke(); }
             } else if (d.type === 'rect') {
-              const a = toXY(d.p1), b = toXY(d.p2);
-              if (a && b) {
-                ctx.fillStyle = col + '22';
-                const rx = Math.min(a.x,b.x), ry = Math.min(a.y,b.y);
-                const rw = Math.abs(a.x-b.x),  rh = Math.abs(a.y-b.y);
+              const r = rectPixels(d);
+              if (r) {
+                const { rx, ry, rw, rh } = r;
+                const tiny = rw < 16 || rh < 16;
+                ctx.fillStyle = col + (focused ? '44' : tiny ? '40' : '22');
+                ctx.lineWidth = focused ? 3.25 : tiny ? 2.75 : 2;
                 ctx.fillRect(rx, ry, rw, rh);
                 ctx.strokeRect(rx, ry, rw, rh);
+                if (tiny) {
+                  ctx.setLineDash([]);
+                  ctx.fillStyle = col;
+                  ctx.beginPath();
+                  ctx.arc(rx + rw / 2, ry + rh / 2, 3.5, 0, Math.PI * 2);
+                  ctx.fill();
+                }
               }
             }
             ctx.restore();
@@ -3564,59 +3834,6 @@ function ChartPanel({ defaultSymbol }) {
       });
     }
 
-    // ── Fibonacci retracement overlay ────────────────────────────────────
-    if (!drawingsHiddenRef.current && fibDataRef.current) {
-      const fib = fibDataRef.current;
-      const FIB_STYLES = {
-        '0.0':   { color: '#FFD700', width: 1.5, dash: [4,4] },
-        '23.6':  { color: '#FFF176', width: 1.0, dash: [3,5] },
-        '38.2':  { color: '#FFA726', width: 1.5, dash: [4,3] },
-        '50.0':  { color: '#E0E0E0', width: 1.5, dash: [4,3] },
-        '61.8':  { color: '#FFD700', width: 2.5, dash: []     },  // golden ratio — solid
-        '78.6':  { color: '#FF6B35', width: 1.5, dash: [4,3] },
-        '100.0': { color: '#4FC3F7', width: 1.5, dash: [4,4] },
-        '127.2': { color: '#86EFAC', width: 1.0, dash: [3,5] },
-        '161.8': { color: '#4ADE80', width: 2.0, dash: []     },  // main target — solid
-        '200.0': { color: '#10B981', width: 1.0, dash: [3,5] },
-      };
-      const allLevels = { ...fib.retracements, ...fib.extensions };
-      try {
-        Object.entries(allLevels).forEach(([pct, price]) => {
-          const y = series.priceToCoordinate(price);
-          if (y == null || y < 0 || y > h) return;
-          const st = FIB_STYLES[pct] || { color:'#aaaaaa', width:1, dash:[3,5] };
-          ctx.save();
-          ctx.strokeStyle  = st.color;
-          ctx.lineWidth    = st.width;
-          ctx.setLineDash(st.dash);
-          ctx.globalAlpha  = 0.65;
-          ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-          // Label
-          ctx.setLineDash([]);
-          ctx.globalAlpha  = 1.0;
-          ctx.font         = `${st.width >= 2 ? 'bold ' : ''}10px "JetBrains Mono", monospace`;
-          ctx.textAlign    = 'right';
-          ctx.textBaseline = 'bottom';
-          ctx.fillStyle    = st.color;
-          const decimals   = price < 1 ? 5 : price < 100 ? 4 : 2;
-          ctx.fillText(`${pct}%  ${price.toFixed(decimals)}`, w - 4, y - 2);
-          ctx.restore();
-        });
-        // Vertical anchor lines
-        const drawAnchorVline = (t, col) => {
-          if (!t) return;
-          const x = chart.timeScale().timeToCoordinate(t);
-          if (x == null) return;
-          ctx.save();
-          ctx.strokeStyle = col; ctx.lineWidth = 1;
-          ctx.setLineDash([2, 5]); ctx.globalAlpha = 0.4;
-          ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-          ctx.restore();
-        };
-        drawAnchorVline(fib.anchor_high_time, '#FFD700');
-        drawAnchorVline(fib.anchor_low_time,  '#4FC3F7');
-      } catch (_) { try { ctx.restore(); } catch (_2) {} }
-    }
   }, []);
 
   useE(() => {
@@ -3635,7 +3852,7 @@ function ChartPanel({ defaultSymbol }) {
       try { chart.timeScale().unsubscribeVisibleLogicalRangeChange(handler); } catch (_) {}
       try { ro?.disconnect(); } catch (_) {}
     };
-  }, [drawOverlay, drawings, draftDrawing, drawingsHidden, bars, marks, openPositions, tf, patternDrawings]);
+  }, [drawOverlay, drawings, draftDrawing, drawingsHidden, bars, marks, openPositions, tf, patternDrawings, focusedPatternId]);
 
   // Which lower panels have at least one visible indicator assigned to them.
   // Declared here (before the lazy-init useEffect) so Babel's var-hoisting
@@ -3719,6 +3936,56 @@ function ChartPanel({ defaultSymbol }) {
     return { time: typeof time === 'number' ? time : time.timestamp, price: Number(price), x, y };
   };
 
+  const focusPattern = (p) => {
+    if (!p || !chartRef.current) return;
+    setFocusedPatternId(p.id || null);
+    const times = [];
+    const fallbackTimes = [];
+    (p.drawings || []).forEach(d => {
+      const target = d.type === 'hline' ? fallbackTimes : times;
+      [d.p1, d.p2].forEach(pt => {
+        const t = Number(pt?.time);
+        if (Number.isFinite(t)) target.push(t);
+      });
+    });
+    if (!times.length && fallbackTimes.length) times.push(...fallbackTimes);
+    const chart = chartRef.current;
+    const barList = cleanBarsRef.current || [];
+    if (!times.length && barList.length) {
+      times.push(Number(barList[barList.length - 1].time));
+    }
+    if (!times.length) {
+      requestAnimationFrame(drawOverlay);
+      return;
+    }
+
+    let from = Math.min(...times);
+    let to = Math.max(...times);
+    if (from === to) {
+      const idx = barList.findIndex(b => Number(b.time) === from);
+      if (idx >= 0 && barList.length > 1) {
+        const left = barList[Math.max(0, idx - 18)];
+        const right = barList[Math.min(barList.length - 1, idx + 18)];
+        from = Number(left.time);
+        to = Number(right.time);
+      } else {
+        from -= 60 * 30;
+        to += 60 * 30;
+      }
+    } else {
+      const pad = Math.max(60, (to - from) * 0.35);
+      from -= pad;
+      to += pad;
+    }
+
+    try {
+      chart.timeScale().setVisibleRange({ from, to });
+    } catch (_) {
+      try { chart.timeScale().fitContent(); } catch (_2) {}
+    }
+    requestAnimationFrame(drawOverlay);
+  };
+
   const onDrawPointerDown = (e) => {
     if (drawTool === 'cursor' || drawingsLocked) return;
     const pt = chartPointFromEvent(e);
@@ -3739,7 +4006,10 @@ function ChartPanel({ defaultSymbol }) {
       setDrawTool('cursor');
       return;
     }
-    const type = drawTool === 'hline' || drawTool === 'vline' ? drawTool : (drawTool === 'rect' ? 'rect' : 'trend');
+    const type =
+      drawTool === 'hline' || drawTool === 'vline' || drawTool === 'fib'
+        ? drawTool
+        : (drawTool === 'rect' ? 'rect' : 'trend');
     const next = { id: makeDrawingId(), type, p1: { time: pt.time, price: pt.price }, p2: { time: pt.time, price: pt.price } };
     setDraftDrawing(next);
   };
@@ -3881,8 +4151,9 @@ function ChartPanel({ defaultSymbol }) {
         setTimeout(() => setPatternMsg(''), 4000);
         return;
       }
-      setPatternDrawings(data.patterns.map(p => ({
+      setPatternDrawings(data.patterns.map((p, idx) => ({
         ...p,
+        id: `pattern_${Date.now().toString(36)}_${idx}_${String(p.name || 'pattern').replace(/\W+/g, '_')}`,
         color: PATTERN_COLORS[p.direction] || '#e879f9',
       })));
     } catch (err) {
@@ -3892,24 +4163,6 @@ function ChartPanel({ defaultSymbol }) {
       setTimeout(() => setPatternMsg(''), 5000);
     } finally {
       setPatternLoading(false);
-    }
-  };
-
-  const analyzeFib = async () => {
-    setFibLoading(true);
-    try {
-      const data = await panelApi(
-        `/api/chart/fib?symbol=${encodeURIComponent(symbol)}&timeframe=${tf}`
-      );
-      setFibData(data.fib || null);
-      if (!data.fib) {
-        // brief flash to signal no setup found
-        setTimeout(() => setFibLoading(false), 0);
-      }
-    } catch (_) {
-      setFibData(null);
-    } finally {
-      setFibLoading(false);
     }
   };
 
@@ -4127,7 +4380,7 @@ function ChartPanel({ defaultSymbol }) {
         {patternDrawings.length > 0 && (
           <button className="btn ghost sm"
             style={{ padding:'2px 6px', fontSize:11 }}
-            onClick={() => { setPatternDrawings([]); setPatternMsg(''); }}
+            onClick={() => { setPatternDrawings([]); setPatternMsg(''); setHoverPattern(null); setFocusedPatternId(null); }}
             title="Clear pattern overlays">
             Clr Pat
           </button>
@@ -4138,17 +4391,6 @@ function ChartPanel({ defaultSymbol }) {
           </span>
         )}
 
-        {/* ── Fibonacci ── */}
-        <span style={{ borderLeft:'1px solid #2a3347', height:16, margin:'0 2px', flexShrink:0 }} />
-        <button
-          className={cls('btn', fibData ? 'primary' : 'ghost', 'sm')}
-          style={{ padding:'2px 8px', fontSize:11, color: fibData ? '#FFD700' : undefined,
-                   borderColor: fibData ? '#FFD70066' : undefined }}
-          onClick={fibData ? () => setFibData(null) : analyzeFib}
-          disabled={fibLoading}
-          title="Draw Fibonacci retracement from liquidity high to swing low">
-          {fibLoading ? '...' : fibData ? 'Clr Fib' : 'Fib'}
-        </button>
       </div>
       </div>
 
@@ -4259,6 +4501,109 @@ function ChartPanel({ defaultSymbol }) {
             </div>
           );
         })()}
+        {patternDrawings.length > 0 && !drawingsHidden && (
+          <div
+            style={{
+              position:'absolute',
+              top:6,
+              right:6,
+              zIndex:7,
+              width:260,
+              maxWidth:'42%',
+              display:'flex',
+              flexDirection:'column',
+              gap:4,
+              alignItems:'flex-end',
+              pointerEvents:'auto',
+            }}
+            onMouseLeave={() => setHoverPattern(null)}
+          >
+            <div style={{
+              display:'flex',
+              flexDirection:'column',
+              gap:3,
+              alignItems:'flex-end',
+              maxHeight:150,
+              overflowY:'auto',
+              paddingRight:2,
+            }}>
+              {patternDrawings.map((p, idx) => {
+                const arrow = p.direction === 'LONG' ? '▲' : p.direction === 'SHORT' ? '▼' : '─';
+                const conf = Math.round(Number(p.confidence || 0) * 100);
+                const selected = p.id && p.id === focusedPatternId;
+                return (
+                  <button
+                    key={p.id || `${p.name}-${idx}`}
+                    className={cls('btn', selected ? 'primary' : 'ghost', 'sm')}
+                    style={{
+                      display:'flex',
+                      justifyContent:'space-between',
+                      alignItems:'center',
+                      gap:6,
+                      minWidth:150,
+                      maxWidth:250,
+                      padding:'2px 7px',
+                      fontSize:10,
+                      lineHeight:'14px',
+                      color:selected ? '#ffffff' : (p.color || '#e879f9'),
+                      borderColor:selected ? `${p.color || '#e879f9'}aa` : `${p.color || '#e879f9'}55`,
+                      background:selected ? `${p.color || '#e879f9'}33` : '#0d1117cc',
+                      boxShadow:selected ? `0 0 0 1px ${(p.color || '#e879f9')}55, 0 0 12px ${(p.color || '#e879f9')}44` : 'none',
+                      textAlign:'left',
+                    }}
+                    onMouseEnter={() => setHoverPattern(p)}
+                    onFocus={() => setHoverPattern(p)}
+                    onClick={() => focusPattern(p)}
+                    title="Click to center this pattern on the chart"
+                  >
+                    <span style={{ overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>
+                      {p.name}
+                    </span>
+                    <span style={{ fontFamily:'var(--mono)', whiteSpace:'nowrap' }}>
+                      {arrow} {conf}%
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            {hoverPattern && (
+              <div style={{
+                width:260,
+                maxWidth:'100%',
+                padding:'8px 9px',
+                border:`1px solid ${(hoverPattern.color || '#e879f9')}66`,
+                borderRadius:5,
+                background:'#0d1117ee',
+                boxShadow:'0 10px 28px rgba(0,0,0,.35)',
+                color:'#d1d5db',
+                fontSize:11,
+                lineHeight:'15px',
+                fontFamily:'var(--font)',
+              }}>
+                <div style={{ display:'flex', justifyContent:'space-between', gap:8, marginBottom:4 }}>
+                  <strong style={{ color:hoverPattern.color || '#e879f9' }}>{hoverPattern.name}</strong>
+                  <span style={{ color:'#9ca3af', fontFamily:'var(--mono)', whiteSpace:'nowrap' }}>
+                    {hoverPattern.direction || 'NEUTRAL'} {Math.round(Number(hoverPattern.confidence || 0) * 100)}%
+                  </span>
+                </div>
+                <div style={{
+                  marginBottom:5,
+                  color:'#9ca3af',
+                  fontSize:10,
+                  textTransform:'uppercase',
+                  fontWeight:700,
+                  letterSpacing:0,
+                }}>
+                  {patternCategoryText(hoverPattern.name)}
+                </div>
+                <div>{patternHelpText(hoverPattern.name)}</div>
+                {hoverPattern.description && (
+                  <div style={{ marginTop:5, color:'#9ca3af' }}>{hoverPattern.description}</div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
         <canvas
           ref={drawingCanvasRef}
           onPointerDown={onDrawPointerDown}

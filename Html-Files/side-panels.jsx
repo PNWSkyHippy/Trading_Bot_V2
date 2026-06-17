@@ -840,6 +840,16 @@ function DBBrowserPanel() {
   const [editFields,   setEditFields]  = uS({});
   const [editOriginal, setEditOriginal]= uS({});
   const [editMeta,     setEditMeta]    = uS({});
+  const [dbMode,        setDbMode]      = uS('trading');
+  const [columnFilters, setColumnFilters]= uS({});
+  const [selectedRowids, setSelectedRowids]= uS(new Set());
+  const [lastPick,      setLastPick]    = uS(null);
+  const [browseOffset,  setBrowseOffset]= uS(0);
+  const [hasMoreRows,   setHasMoreRows] = uS(false);
+  const [appliedFilters, setAppliedFilters] = uS({});
+  const browseSeqRef = uR(0);
+  const tableScrollRef = uR(null);
+  const BROWSE_LIMIT = 500;
   // search fields
   const [fStrat,  setFStrat]  = uS('');
   const [fStatus, setFStatus] = uS('any');
@@ -873,16 +883,37 @@ function DBBrowserPanel() {
     return { from: '', to: '' };
   }
 
-  uE(() => { loadTables(); }, []);
+  uE(() => { loadTables(); }, [dbMode]);
 
-  async function loadTables() {
+  const dbParam = (mode = dbMode) => `db=${encodeURIComponent(mode)}`;
+  const isTradingDb = dbMode === 'trading';
+  const dbLabel = isTradingDb ? 'Trading DB' : 'Candle DB';
+  const hasActiveColumnFilters = (filters = columnFilters) => (
+    Object.values(filters).some(v => String(v || '').trim() !== '')
+  );
+
+  async function loadTables(mode = dbMode) {
     try {
-      const d = await apiCall('/api/db/tables');
+      const d = await apiCall(`/api/db/tables?${dbParam(mode)}`);
       setTables(d.tables || []);
     } catch(e) { st(e.message, 'err'); }
   }
 
-  function applyResult(data, title) {
+  function switchDb(mode) {
+    const label = mode === 'trading' ? 'Trading database' : 'Candle database';
+    setDbMode(mode);
+    setCurTable(null); setCurView(null); setRows([]); setCols([]); setRowids([]);
+    setSelectedRowids(new Set()); setLastPick(null); setColumnFilters({});
+    setBrowseOffset(0); setHasMoreRows(false);
+    setAppliedFilters({});
+    setGridTitle(mode === 'trading' ? 'Select a trading table or click a query' : 'Select candles or candle_meta');
+    st(`${label} loaded`, 'ok');
+    loadTables(mode);
+  }
+
+  function applyResult(data, title, opts = {}) {
+    const append = !!opts.append;
+    const resetFilters = opts.resetFilters !== false;
     if (data.error) { st(data.error, 'err'); return; }
     if (!data.rows || !data.cols) { st('No data returned', 'err'); return; }
     // Strip hidden rowid-style leading column.
@@ -890,22 +921,67 @@ function DBBrowserPanel() {
     // If 'id' somehow lands in position 0 (race/stale-state edge case) it is safe to strip.
     const hasRowid = data.cols[0] === 'rowid' || data.cols[0] === '_rowid_'
                   || (data.cols[0] === 'id' && data.cols.length > 1);
-    setRowids(hasRowid ? data.rows.map(r => r[0]) : data.rows.map(() => null));
-    setCols(hasRowid ? data.cols.slice(1) : data.cols);
-    setRows(hasRowid ? data.rows.map(r => r.slice(1)) : data.rows);
-    setSelIdx(null); setSortCol(null);
+    const nextRowids = hasRowid ? data.rows.map(r => r[0]) : data.rows.map(() => null);
+    const nextCols = hasRowid ? data.cols.slice(1) : data.cols;
+    const nextRows = hasRowid ? data.rows.map(r => r.slice(1)) : data.rows;
+    setRowids(prev => append ? [...prev, ...nextRowids] : nextRowids);
+    setCols(nextCols);
+    setRows(prev => append ? [...prev, ...nextRows] : nextRows);
+    setSelIdx(null); setSortCol(null); setSelectedRowids(new Set()); setLastPick(null);
+    if (resetFilters) setColumnFilters({});
+    const loadedThrough = Number(data.offset || 0) + data.rows.length;
+    setBrowseOffset(loadedThrough);
+    setHasMoreRows(data.rows.length >= Number(data.limit || BROWSE_LIMIT));
+    setAppliedFilters(data.filters || {});
     setGridTitle(title);
-    st(`${data.rows.length.toLocaleString()} rows · ${title}`);
+    const filterNote = data.filters && Object.keys(data.filters).length
+      ? ` · server filters ${JSON.stringify(data.filters)}`
+      : '';
+    st(`${append ? 'Loaded +' : ''}${data.rows.length.toLocaleString()} rows · ${title}${filterNote}`);
+    if (!append && tableScrollRef.current) {
+      setTimeout(() => { tableScrollRef.current.scrollTop = 0; }, 0);
+    }
   }
 
-  async function browseTable(table) {
+  async function browseTable(table, offset = 0, append = false, keepFilters = false, filtersOverride = null) {
     setCurTable(table); setCurView(null);
-    st(`Loading ${table}…`);
+    const seq = ++browseSeqRef.current;
+    st(`${append ? 'Loading more' : 'Loading'} ${dbLabel} · ${table}…`);
     try {
-      const d = await apiCall(`/api/db/browse?table=${encodeURIComponent(table)}&limit=500`);
-      applyResult(d, table);
+      const filters = filtersOverride !== null ? filtersOverride : (keepFilters || append ? columnFilters : {});
+      const filterParam = encodeURIComponent(JSON.stringify(filters));
+      const d = await apiCall(`/api/db/browse?${dbParam()}&table=${encodeURIComponent(table)}&limit=${BROWSE_LIMIT}&offset=${offset}&filters=${filterParam}`);
+      if (seq !== browseSeqRef.current) return;
+      const suffix = hasActiveColumnFilters(filters) ? ' · filtered' : '';
+      applyResult(d, `${dbLabel} · ${table}${suffix}`, { append, resetFilters: !append && !keepFilters });
       loadTables();
     } catch(e) { st(e.message, 'err'); }
+  }
+
+  function readLiveColumnFilters() {
+    const next = {};
+    document.querySelectorAll('[data-db-filter-col]').forEach(input => {
+      const col = input.getAttribute('data-db-filter-col');
+      if (col) next[col] = input.value;
+    });
+    return next;
+  }
+
+  function applyColumnFilters() {
+    if (!curTable || curView) return;
+    const liveFilters = readLiveColumnFilters();
+    setColumnFilters(liveFilters);
+    browseTable(curTable, 0, false, true, liveFilters);
+  }
+
+  function clearColumnFilters() {
+    browseSeqRef.current++;
+    if (!curTable || curView) {
+      setColumnFilters({});
+      return;
+    }
+    setColumnFilters({});
+    browseTable(curTable, 0, false, false, {});
   }
 
   async function runStrategyPnl(fromDt, toDt, presetLabel) {
@@ -935,7 +1011,7 @@ function DBBrowserPanel() {
     setCurTable(tbl?.startsWith('_') ? null : tbl);
     st(`Running: ${cleanLabel}…`);
     try {
-      const d = await apiCall(`/api/db/quick?q=${encodeURIComponent(cleanLabel)}`);
+      const d = await apiCall(`/api/db/quick?${dbParam()}&q=${encodeURIComponent(cleanLabel)}`);
       applyResult(d, cleanLabel);
     } catch(e) { st(e.message, 'err'); }
   }
@@ -966,7 +1042,7 @@ function DBBrowserPanel() {
     try {
       const d = await apiCall('/api/db/search', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ table, strategy: fStrat, status: fStatus,
+        body: JSON.stringify({ db: dbMode, table, strategy: fStrat, status: fStatus,
                                time: timeArg, from_dt: fromDt, to_dt: toDt,
                                symbol: fSym, broker: fBroker })
       });
@@ -981,7 +1057,31 @@ function DBBrowserPanel() {
     await loadTables();
   }
 
-  function selectRow(idx) { setSelIdx(idx); }
+  function selectRow(item, visibleIdx, evt) {
+    const rowid = item.rowid;
+    setSelIdx(item.sourceIdx);
+    setSelectedRowids(prev => {
+      const next = new Set(prev);
+      if (evt?.shiftKey && lastPick) {
+        const a = Math.min(lastPick.visibleIdx, visibleIdx);
+        const b = Math.max(lastPick.visibleIdx, visibleIdx);
+        visibleRows.slice(a, b + 1).forEach(v => {
+          if (v.rowid !== null && v.rowid !== undefined) next.add(String(v.rowid));
+        });
+      } else if (evt?.ctrlKey || evt?.metaKey) {
+        if (rowid !== null && rowid !== undefined) {
+          const key = String(rowid);
+          if (next.has(key)) next.delete(key);
+          else next.add(key);
+        }
+      } else {
+        next.clear();
+        if (rowid !== null && rowid !== undefined) next.add(String(rowid));
+      }
+      return next;
+    });
+    setLastPick({ visibleIdx, sourceIdx: item.sourceIdx, rowid });
+  }
 
   function sortBy(ci) {
     const asc = sortCol === ci ? !sortAsc : true;
@@ -995,7 +1095,7 @@ function DBBrowserPanel() {
     });
     setRows(paired.map(p => p[0]));
     setRowids(paired.map(p => p[1]));
-    setSelIdx(null);
+    setSelIdx(null); setSelectedRowids(new Set()); setLastPick(null);
   }
 
   function openEdit() {
@@ -1021,7 +1121,7 @@ function DBBrowserPanel() {
       try {
         await apiCall('/api/db/edit_row', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ table, rowid, trade_id: tradeId, col, value })
+          body: JSON.stringify({ db: dbMode, table, rowid, trade_id: tradeId, col, value })
         });
         saved++;
       } catch(e) { errors.push(`${col}: ${e.message}`); }
@@ -1033,6 +1133,47 @@ function DBBrowserPanel() {
       st(`${saved} saved, ${errors.length} failed: ${errors[0]}`, 'err');
     }
     refresh();
+  }
+
+  async function addRow() {
+    if (!curTable || curTable.startsWith('_')) { st('Browse a real table first', 'err'); return; }
+    try {
+      const d = await apiCall('/api/db/add_row', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ db: dbMode, table: curTable })
+      });
+      st(d.message || `Added row to ${curTable}`, 'ok');
+      await browseTable(curTable);
+      if (d.row && d.cols) {
+        const hasRowid = d.cols[0] === 'rowid' || d.cols[0] === '_rowid_';
+        const fields = {};
+        const editCols = hasRowid ? d.cols.slice(1) : d.cols;
+        const editRow = hasRowid ? d.row.slice(1) : d.row;
+        editCols.forEach((c, i) => { fields[c] = editRow[i] ?? ''; });
+        setEditFields(fields);
+        setEditOriginal({...fields});
+        setEditMeta({ table: curTable, rowid: d.rowid });
+        setEditOpen(true);
+      }
+    } catch(e) { st(e.message, 'err'); }
+  }
+
+  async function deleteRows() {
+    if (!curTable || curTable.startsWith('_')) { st('Browse a real table first', 'err'); return; }
+    const ids = Array.from(selectedRowids).map(v => Number(v)).filter(Number.isFinite);
+    if (!ids.length) { st('Select one or more rows first', 'err'); return; }
+    if (!confirm(`DELETE ${ids.length} row(s) from ${dbLabel} table '${curTable}'?\n\nThis cannot be undone from the dashboard.`)) return;
+    try {
+      const d = await apiCall('/api/db/delete_rows', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ db: dbMode, table: curTable, rowids: ids })
+      });
+      st(d.message || `Deleted ${ids.length} rows`, d.ok ? 'ok' : 'err');
+      if (d.ok) {
+        await browseTable(curTable, 0, false, true, appliedFilters);
+        st(d.message || `Deleted ${ids.length} rows`, 'ok');
+      }
+    } catch(e) { st(e.message, 'err'); }
   }
 
   async function flushGhost() {
@@ -1076,6 +1217,77 @@ function DBBrowserPanel() {
   const isTrades = curTable === 'trades' ||
     ['Open Today','Closed Today','All Open','Ghost Trades','By Strategy','Yesterday Closed'].includes(curView);
 
+  function globToRegex(pattern) {
+    const esc = ch => ch.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
+    let out = '', i = 0;
+    while (i < pattern.length) {
+      const ch = pattern[i];
+      if (ch === '*') {
+        if (pattern[i+1] === '*') { out += '.*'; i += 2; }
+        else { out += '[^/\\\\]*'; i += 1; }
+      } else if (ch === '?') {
+        out += '[^/\\\\]'; i += 1;
+      } else if (ch === '{') {
+        const end = pattern.indexOf('}', i + 1);
+        if (end > i) {
+          const parts = pattern.slice(i + 1, end).split(',').map(p => globToRegex(p).source.replace(/^\^|\$$/g, ''));
+          out += `(?:${parts.join('|')})`; i = end + 1;
+        } else { out += esc(ch); i += 1; }
+      } else if (ch === '[') {
+        const end = pattern.indexOf(']', i + 1);
+        if (end > i) {
+          let body = pattern.slice(i + 1, end);
+          if (body.startsWith('!')) body = '^' + body.slice(1);
+          out += `[${body}]`; i = end + 1;
+        } else { out += esc(ch); i += 1; }
+      } else if (ch === '/' || ch === '\\') {
+        out += '[/\\\\]'; i += 1;
+      } else {
+        out += esc(ch); i += 1;
+      }
+    }
+    return new RegExp(`^${out}$`, 'i');
+  }
+
+  function cellMatches(value, rawFilter) {
+    const filter = String(rawFilter || '').trim();
+    if (!filter) return true;
+    const text = value === null || value === undefined ? '' : String(value);
+    const numMatch = filter.match(/^(<=|>=|<|>|==|=|!=)\s*(-?\d+(?:\.\d+)?)$/);
+    if (numMatch) {
+      const n = Number(String(text).replace(/[$,%]/g, ''));
+      const target = Number(numMatch[2]);
+      if (!Number.isFinite(n)) return false;
+      if (numMatch[1] === '<=') return n <= target;
+      if (numMatch[1] === '>=') return n >= target;
+      if (numMatch[1] === '<')  return n < target;
+      if (numMatch[1] === '>')  return n > target;
+      if (numMatch[1] === '!=') return n !== target;
+      return n === target;
+    }
+    const leadMatch = filter.match(/^([<>])\s*([a-z])$/i);
+    if (leadMatch) {
+      const first = text.trim().charAt(0).toLowerCase();
+      if (!first) return false;
+      const target = leadMatch[2].toLowerCase();
+      return leadMatch[1] === '<' ? first < target : first > target;
+    }
+    try {
+      return globToRegex(filter).test(text);
+    } catch {
+      return text.toLowerCase().includes(filter.toLowerCase());
+    }
+  }
+
+  const visibleRows = rows
+    .map((row, sourceIdx) => ({ row, rowid: rowids[sourceIdx], sourceIdx }))
+    .filter(item => curTable && !curView
+      ? true
+      : cols.every((col, ci) => cellMatches(item.row[ci], columnFilters[col])));
+  const selectedCount = selectedRowids.size;
+  const activeFilterCount = Object.values(columnFilters).filter(v => String(v || '').trim() !== '').length;
+  const appliedFilterCount = Object.values(appliedFilters).filter(v => String(v || '').trim() !== '').length;
+
   const S = { // styles
     wrap:    { display:'flex', flexDirection:'column', height:'100%', background:'var(--bg-1)', overflow:'hidden' },
     qbar:    { display:'flex', gap:4, flexWrap:'wrap', padding:'6px 8px', borderBottom:'1px solid var(--border)', flexShrink:0 },
@@ -1095,6 +1307,8 @@ function DBBrowserPanel() {
     gtitle:  { padding:'5px 10px', borderBottom:'1px solid var(--border)', flexShrink:0, display:'flex', alignItems:'center', gap:8 },
     tcon:    { flex:1, overflow:'auto' },
     th:      (sorted) => ({ background:'#1e2d40', color: sorted ? '#58a6ff' : 'var(--text-2)', padding:'5px 8px', textAlign:'left', fontSize:10, fontWeight:700, position:'sticky', top:0, cursor:'pointer', whiteSpace:'nowrap', borderBottom:'1px solid var(--border)' }),
+    fth:     { background:'#162232', padding:'3px 5px', position:'sticky', top:25, borderBottom:'1px solid var(--border)', zIndex:2 },
+    finp:    { width:'100%', minWidth:70, boxSizing:'border-box', background:'var(--bg-1)', border:'1px solid var(--border)', color:'var(--text-1)', borderRadius:3, padding:'2px 5px', fontSize:10, fontFamily:'inherit' },
     td:      { padding:'4px 8px', fontSize:11, whiteSpace:'nowrap', maxWidth:200, overflow:'hidden', textOverflow:'ellipsis' },
     abar:    { display:'flex', gap:6, padding:'5px 8px', borderTop:'1px solid var(--border)', flexShrink:0, alignItems:'center' },
     abtnE:   { background:'#2563eb', border:'none', color:'#fff', padding:'4px 10px', borderRadius:4, cursor:'pointer', fontSize:11 },
@@ -1108,14 +1322,22 @@ function DBBrowserPanel() {
     <div style={S.wrap}>
       {/* Quick buttons */}
       <div style={S.qbar}>
-        {QUICK_QUERIES_DB.map(q => (
+        <button style={dbMode === 'trading' ? S.qbtnG : S.qbtn}
+          onClick={() => switchDb('trading')}>
+          Trading DB
+        </button>
+        <button style={dbMode === 'candles' ? S.qbtnG : S.qbtn}
+          onClick={() => switchDb('candles')}>
+          Candle DB
+        </button>
+        {isTradingDb && QUICK_QUERIES_DB.map(q => (
           <button key={q.label} style={q.label.includes('Ghost') ? S.qbtnR : q.label==='Strategies' ? S.qbtnG : S.qbtn}
             onClick={() => runQuick(q.label)}>{q.label}</button>
         ))}
       </div>
 
       {/* Global date range bar */}
-      {(() => {
+      {isTradingDb && (() => {
         const presets = [
           { id:'all',       label:'All' },
           { id:'1h',        label:'1h' },
@@ -1171,7 +1393,7 @@ function DBBrowserPanel() {
       })()}
 
       {/* Search bar */}
-      <div style={S.sbar}>
+      {isTradingDb && <div style={S.sbar}>
         <span style={S.lbl}>Strategy</span>
         <input style={{...S.inp,width:100}} value={fStrat} onChange={e=>setFStrat(e.target.value)} onKeyDown={e=>e.key==='Enter'&&runSearch()} placeholder="e.g. grid_bot" />
         <span style={S.lbl}>Status</span>
@@ -1186,13 +1408,13 @@ function DBBrowserPanel() {
         </select>
         <button style={S.sbtnG} onClick={runSearch}>Search</button>
         <button style={S.sbtnD} onClick={refresh}>⟳</button>
-      </div>
+      </div>}
 
       {/* Main split */}
       <div style={S.main}>
         {/* Sidebar */}
         <div style={S.sidebar}>
-          <div style={{padding:'6px 8px',fontSize:10,fontWeight:700,color:'var(--text-2)',textTransform:'uppercase',borderBottom:'1px solid var(--border)'}}>Tables</div>
+          <div style={{padding:'6px 8px',fontSize:10,fontWeight:700,color:'var(--text-2)',textTransform:'uppercase',borderBottom:'1px solid var(--border)'}}>{dbLabel} Tables</div>
           {tables.map(t => (
             <div key={t.name} style={S.tblItem(curTable===t.name && !curView)} onClick={()=>browseTable(t.name)}>
               <span style={{fontSize:11,color:'var(--text-1)'}}>{t.name}</span>
@@ -1205,15 +1427,37 @@ function DBBrowserPanel() {
         <div style={S.grid}>
           <div style={S.gtitle}>
             <span style={{color:'#f0c040',fontSize:12,fontWeight:700}}>{gridTitle}</span>
-            <span style={{color:'var(--text-2)',fontSize:11}}>{rows.length.toLocaleString()} rows</span>
+            <span style={{color:'var(--text-2)',fontSize:11}}>
+              {visibleRows.length.toLocaleString()} / {rows.length.toLocaleString()} rows
+              {curTable && !curView && activeFilterCount ? ` · ${activeFilterCount} pending filter(s)` : ''}
+              {curTable && !curView && appliedFilterCount ? ` · ${appliedFilterCount} applied` : ''}
+            </span>
+            {curTable && !curView && (
+              <>
+                <button style={{...S.sbtnD,marginLeft:'auto',padding:'2px 8px',fontSize:10}}
+                  onClick={applyColumnFilters}>
+                  Apply Filters
+                </button>
+                <button style={{...S.sbtnD,padding:'2px 8px',fontSize:10}}
+                  onClick={clearColumnFilters}>
+                  Clear
+                </button>
+              </>
+            )}
+            {curTable && !curView && hasMoreRows && (
+              <button style={{...S.sbtnD,marginLeft:curTable && !curView ? 0 : 'auto',padding:'2px 8px',fontSize:10}}
+                onClick={() => browseTable(curTable, browseOffset, true)}>
+                Load More
+              </button>
+            )}
             {rows.length > 0 && (
-              <button style={{...S.sbtnG,marginLeft:'auto',padding:'2px 8px',fontSize:10}} onClick={() => {
+              <button style={{...S.sbtnG,marginLeft:curTable && !curView ? 0 : 'auto',padding:'2px 8px',fontSize:10}} onClick={() => {
                 const filename = `db-${curTable||'export'}-${new Date().toISOString().slice(0,19).replace(/[T:]/g,'-')}.csv`;
-                window.exportCsv?.(filename, cols.map((c, i) => ({ label: c, value: (r) => r[i] })), rows);
+                window.exportCsv?.(filename, cols.map((c, i) => ({ label: c, value: (r) => r[i] })), visibleRows.map(v => v.row));
               }}>⬇ CSV</button>
             )}
           </div>
-          <div style={S.tcon}>
+          <div style={S.tcon} ref={tableScrollRef}>
             <table style={{width:'100%',borderCollapse:'collapse'}}>
               <thead>
                 <tr>
@@ -1221,17 +1465,42 @@ function DBBrowserPanel() {
                     <th key={c} style={S.th(sortCol===i)} onClick={()=>sortBy(i)}>{c}</th>
                   ))}
                 </tr>
+                {cols.length > 0 && (
+                  <tr>
+                    {cols.map(c => (
+                      <th key={`filter-${c}`} style={S.fth}>
+                        <input
+                          data-db-filter-col={c}
+                          value={columnFilters[c] || ''}
+                          onChange={e => setColumnFilters(p => ({...p, [c]: e.target.value}))}
+                          onKeyDown={e => { if (e.key === 'Enter') applyColumnFilters(); }}
+                          onClick={e => e.stopPropagation()}
+                          placeholder="filter"
+                          title="Glob: * ? ** {a,b} [a-z] [!a-z] · Numeric: >0 <=4000 · Leading letter: <g"
+                          style={{
+                            ...S.finp,
+                            borderColor: String(columnFilters[c] || '').trim() ? '#58a6ff' : 'var(--border)',
+                            background: String(columnFilters[c] || '').trim() ? '#10233a' : 'var(--bg-1)'
+                          }}
+                        />
+                      </th>
+                    ))}
+                  </tr>
+                )}
               </thead>
               <tbody>
-                {rows.length === 0 && cols.length > 0 && (
+                {visibleRows.length === 0 && cols.length > 0 && (
                   <tr><td colSpan={cols.length} style={{padding:'20px',textAlign:'center',color:'var(--text-2)',fontSize:12}}>No results — try different filters</td></tr>
                 )}
-                {rows.map((row, ri) => {
-                  const isSel = ri === selIdx;
+                {visibleRows.map((item, ri) => {
+                  const row = item.row;
+                  const isSel = item.rowid !== null && item.rowid !== undefined
+                    ? selectedRowids.has(String(item.rowid))
+                    : item.sourceIdx === selIdx;
                   return (
-                    <tr key={ri}
+                    <tr key={`${item.rowid ?? 'row'}-${item.sourceIdx}`}
                       style={{background: isSel ? '#1e3a5f' : ri%2===0 ? 'var(--bg-1)' : 'var(--bg-2)', cursor:'pointer', outline: isSel ? '1px solid #2563eb' : 'none'}}
-                      onClick={()=>selectRow(ri)}
+                      onClick={(e)=>selectRow(item, ri, e)}
                       onDoubleClick={openEdit}>
                       {row.map((v,ci) => {
                         const col = cols[ci]||'';
@@ -1245,15 +1514,16 @@ function DBBrowserPanel() {
                     </tr>
                   );
                 })}
-                {curView === 'Strategy P&L' && rows.length > 0 && (() => {
+                {curView === 'Strategy P&L' && visibleRows.length > 0 && (() => {
+                  const statRows = visibleRows.map(v => v.row);
                   const ci = n => cols.indexOf(n);
                   const num = (r, n) => parseFloat(r[ci(n)]) || 0;
-                  const totTrades = rows.reduce((a,r)=>a+num(r,'trades'),0);
-                  const totWins   = rows.reduce((a,r)=>a+num(r,'wins'),0);
-                  const totLosses = rows.reduce((a,r)=>a+num(r,'losses'),0);
-                  const totPnl    = rows.reduce((a,r)=>a+num(r,'total_pnl'),0);
-                  const totGW     = rows.reduce((a,r)=>a+num(r,'gross_wins'),0);
-                  const totGL     = rows.reduce((a,r)=>a+num(r,'gross_losses'),0);
+                  const totTrades = statRows.reduce((a,r)=>a+num(r,'trades'),0);
+                  const totWins   = statRows.reduce((a,r)=>a+num(r,'wins'),0);
+                  const totLosses = statRows.reduce((a,r)=>a+num(r,'losses'),0);
+                  const totPnl    = statRows.reduce((a,r)=>a+num(r,'total_pnl'),0);
+                  const totGW     = statRows.reduce((a,r)=>a+num(r,'gross_wins'),0);
+                  const totGL     = statRows.reduce((a,r)=>a+num(r,'gross_losses'),0);
                   const totPF     = totGL !== 0 ? (totGW / Math.abs(totGL)).toFixed(3) : '';
                   const totWR     = totTrades > 0 ? (totWins/totTrades*100).toFixed(1) : '0';
                   const totAW     = totWins > 0 ? (totGW/totWins).toFixed(2) : '';
@@ -1289,11 +1559,15 @@ function DBBrowserPanel() {
       {/* Action bar */}
       <div style={S.abar}>
         <span style={S.lbl}>Actions:</span>
+        <button style={S.abtnEn} onClick={addRow}>＋ Add Row</button>
         <button style={S.abtnE} onClick={openEdit}>✏ Edit Row</button>
+        <button style={S.abtnF} onClick={deleteRows}>🗑 Delete Selected</button>
         {isTrades  && <button style={S.abtnF}   onClick={flushGhost}>☠ Flush Ghost</button>}
         {isStrat   && <button style={S.abtnEn}  onClick={()=>toggleStrategy(true)}>✔ Enable</button>}
         {isStrat   && <button style={S.abtnDis} onClick={()=>toggleStrategy(false)}>✖ Disable</button>}
-        <span style={{...S.lbl,marginLeft:6}}>{selIdx===null?'← select a row first':`row ${selIdx+1} selected`}</span>
+        <span style={{...S.lbl,marginLeft:6}}>
+          {selectedCount ? `${selectedCount} selected` : selIdx===null ? '← select a row first' : `row ${selIdx+1} selected`}
+        </span>
       </div>
 
       {/* Status bar */}

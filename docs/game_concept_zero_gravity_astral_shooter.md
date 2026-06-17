@@ -1,111 +1,57 @@
-# Game Concept: Zero-Gravity Astral Shooter
+# Game Design Document: Project Astral Drift (Working Title)
 
-## Core Idea
+## 1. Executive Summary & Inspiration
+A modern six-degrees-of-freedom (6DOF) spaceship shooter inspired by classic 90s gravity-free tunnel shooters (*Descent*). The game focuses on high-speed motion, light, and perspective, blending claustrophobic mechanical structures with impossibly vast cosmic vistas. 
 
-A six-degrees-of-freedom spaceship shooter set inside vast complexes, tunnels,
-stations, and impossible cosmic spaces. The player flies with no fixed sense of
-up or down: sideways, upside down, sharp drops into new tunnels, sudden turns,
-and high-speed exits into open nebulae or galaxy-scale vistas.
+## 2. The Core Pillars
+*   **Impossible Motion:** Full 6DOF flight (pitch, yaw, roll, strafe, vertical/horizontal thrust) with absolutely no fixed up or down. 
+*   **Astral Wonder:** A deep emotional hook focused on beauty, disorientation, and the dreamlike feeling of astral travel.
+*   **Seamless Transitions:** Bursting out of tight industrial corridors directly into galaxy-scale vistas with zero loading cuts.
 
-This is inspired by old no-gravity tunnel shooters and the feeling of graphics
-demos where motion, light, and perspective were the whole magic.
+## 3. Player Fantasy & Core Loop
+The player pilots a highly responsive, nimble ship through asteroid interiors, reactor tunnels, and open-space regions. While combat mirrors the frantic wave-based nature of top-down shooters, it unfolds in a fully 3D, zero-gravity environment.
+1.  **Navigate:** Master disorienting 360-degree environments and sharp tunnel drops.
+2.  **Survive:** Fight off hostile drone waves entering from side shafts and open-space swarms.
+3.  **Explore & Upgrade:** Locate hidden caches to enhance ship capabilities.
+4.  **Escape:** Move through increasingly surreal transition routes to reach the next zone.
 
-## Emotional Target
+## 4. Mechanical Specifications
 
-The game should feel like the dream of astral travel:
+### 4.1. Movement Loop
+*   **Controls:** Immediate, crisp, and responsive (never mushy). Must run entirely local on the client with no heavy state systems or server round-trips.
+*   **Features:** Dedicated boost for hyperspeed tunnel runs, and precision brake/reverse thrust.
+*   **Orientation:** HUD provides optional orientation assistance, but the game world itself has no true floor or ceiling.
 
-- Flying through space at light-blur speeds.
-- Bursting out of tight mechanical tunnels into wide open cosmic scenes.
-- Feeling disoriented but powerful.
-- Moving through beauty and danger at the same time.
-- Combat is important, but the deeper hook is impossible motion and wonder.
+### 4.2. Combat & Upgrade Caches
+*   **Combat:** Visually rich but mechanically elegant. Features enemy drone waves, bright projectile trails, and charged missile shots.
+*   **Upgrade System:** Caches hidden in tunnels incentivize deep exploration. 
+    *   *Faster Boost Recharge* / *Wider Weapon Spread*
+    *   *Homing Shard Projectiles* / *Temporary Shields*
+    *   *Roll-Stabilizer Assist* / *Light-Burst Bombs*
 
-## Player Fantasy
+## 5. Signature Visual Moments (Tech Demo Targets)
+*   **The Bloom:** Shooting out of a dark tunnel into the sudden, blinding bloom of open space.
+*   **Dandelion Splinter:** A weapon projectile splits into a hundred glowing, seed-like fragments that the player can fly directly through as they spiral away.
+*   **Hyperspeed Streaks:** Nebula fog and starfields stretch dramatically during maximum boost.
+*   **Dissolving Reality:** Walled rooms seamlessly fade into transparent geometry, dissolving entirely into open galaxies.
 
-The player pilots a small ship through industrial complexes, asteroid interiors,
-reactor tunnels, and open-space regions. Enemies attack in waves like a top-down
-shooter, but the world is fully 3D and gravity-free.
+## 6. Initial Prototype Scope (Phase 1)
+To ensure immediate playability, the first prototype will be built as a lightweight browser-based 3D demo:
+*   **Engine:** Three.js (or a similar lightweight web-based 3D renderer).
+*   **Assets:** One player ship model, one basic tunnel/complex layout, and one open-space transition zone.
+*   **Gameplay:** 6DOF movement, basic shooting mechanics, one enemy drone type, and one grabable upgrade cache.
+*   **VFX/UI:** Star-streak boost effect and a debug overlay displaying FPS and frame time.
 
-The player must reach objectives, survive enemy waves, find upgrade caches, and
-escape through increasingly surreal transition routes.
+## 7. Creative Identity & Working Titles
+*   Astral Drift *(Current Lead)*
+*   Tunnelstar
+*   No Up But Forward
+*   Dandelion Drive
+*   Voidvector
+*   Dream Velocity
 
-## Movement
+---
 
-Movement is the heart of the game.
-
-- Full 6DOF flight: pitch, yaw, roll, strafe, vertical thrust, forward/back.
-- Boost for hyperspeed tunnel runs.
-- Brake/reverse thrust for precision.
-- No fixed up/down unless the ship HUD gives one.
-- Tunnels can sharply turn, drop, twist, or open into exterior space.
-
-Controls must feel immediate, not mushy. No server round-trip or heavy state
-system in the movement loop.
-
-## Combat
-
-Combat should be simple at first but visually rich.
-
-- Enemy drone waves.
-- Projectiles with bright trails.
-- Missiles or charged shots.
-- Enemies entering from tunnel mouths, side shafts, and open-space swarms.
-- Objectives guarded by waves.
-
-## Upgrade Caches
-
-Caches give the player a reason to explore.
-
-Possible upgrades:
-
-- Faster boost recharge.
-- Wider weapon spread.
-- Homing shard projectiles.
-- Temporary shield.
-- Roll-stabilizer assist.
-- Light-burst bomb.
-
-## Signature Visual Moments
-
-The game should have at least one unforgettable visual trick early.
-
-Ideas:
-
-- Shoot out of a tunnel and the view blooms into open space.
-- A projectile splits into a hundred glowing dandelion-seed fragments.
-- The camera flies through those fragments as they drift and spiral away.
-- Nebula fog and star streaks stretch during boost.
-- Walled rooms fade into transparent geometry, then dissolve into galaxies.
-- A tight corridor opens into an outdoor/space vista without a loading cut.
-
-## Prototype Scope
-
-First prototype should be small and playable:
-
-- Three.js or similar browser 3D rendering.
-- One ship with 6DOF movement.
-- One tunnel/complex section.
-- One open-space transition.
-- One enemy drone type.
-- Basic shooting.
-- One upgrade cache.
-- Boost star-streak effect.
-- Debug overlay with FPS/frame time.
-
-## Working Title Ideas
-
-- Astral Drift
-- Tunnelstar
-- No Up But Forward
-- Dandelion Drive
-- Voidvector
-- Dream Velocity
-
-## Notes For Future Codex
-
-This is not a trading bot feature. It is a future creative/game prototype Linda
-wants to preserve and pursue later. Treat it like a real project seed, not a
-throwaway chat idea.
-
-The most important feeling to preserve is: old-school 6DOF tunnel shooter plus
-modern dreamlike cosmic speed, beauty, and disorientation.
+### 📝 Notes For Future Codex Reference
+*   **Project Context:** This is an independent, high-priority creative game prototype for Linda. It is **not** a trading bot feature or a throwaway conversation. Treat this file as a persistent project seed to be preserved and referenced for future development.
+*   **The Anchor Feeling:** Never lose the core juxtaposition: old-school 6DOF tunnel-shooter physics combined with modern, dreamlike cosmic speed and beautiful disorientation.
