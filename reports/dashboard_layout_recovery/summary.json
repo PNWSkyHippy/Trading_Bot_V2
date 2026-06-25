@@ -1,0 +1,100 @@
+[
+  {
+    "rank": 1,
+    "file": "reports\\dashboard_layout_recovery\\layout_candidate_01_open11.json",
+    "open_count": 11,
+    "total_windows": 17,
+    "opened": [
+      "backtester",
+      "chart",
+      "chat",
+      "daily-perf",
+      "db-browser",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "terminal",
+      "theme-config",
+      "trade-log"
+    ],
+    "sources": [
+      "C:\\Users\\Linda\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Local Storage\\leveldb\\000012.log"
+    ]
+  },
+  {
+    "rank": 2,
+    "file": "reports\\dashboard_layout_recovery\\layout_candidate_02_open10.json",
+    "open_count": 10,
+    "total_windows": 17,
+    "opened": [
+      "backtester",
+      "chart",
+      "chat",
+      "daily-perf",
+      "db-browser",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "terminal",
+      "trade-log"
+    ],
+    "sources": [
+      "C:\\Users\\Linda\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Local Storage\\leveldb\\000012.log"
+    ]
+  },
+  {
+    "rank": 3,
+    "file": "reports\\dashboard_layout_recovery\\layout_candidate_03_open8.json",
+    "open_count": 8,
+    "total_windows": 17,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "terminal",
+      "trade-log"
+    ],
+    "sources": [
+      "C:\\Users\\Linda\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Local Storage\\leveldb\\000012.log"
+    ]
+  },
+  {
+    "rank": 4,
+    "file": "reports\\dashboard_layout_recovery\\layout_candidate_04_open7.json",
+    "open_count": 7,
+    "total_windows": 17,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      "C:\\Users\\Linda\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Local Storage\\leveldb\\000012.log"
+    ]
+  },
+  {
+    "rank": 5,
+    "file": "reports\\dashboard_layout_recovery\\layout_candidate_05_open7.json",
+    "open_count": 7,
+    "total_windows": 17,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      "C:\\Users\\Linda\\AppData\\Local\\Google\\Chrome\\User Data\\Default\\Local Storage\\leveldb\\000012.log"
+    ]
+  }
+]

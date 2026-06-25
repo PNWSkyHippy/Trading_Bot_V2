@@ -1,0 +1,57 @@
+//@version=5
+strategy("RSI Dip & Spike v4c", overlay=true,
+         default_qty_type=strategy.percent_of_equity, default_qty_value=10,
+         commission_type=strategy.commission.percent, commission_value=0.05,
+         slippage=1)
+rsi_length     = input.int(7,    "RSI Length",       minval=2)
+rsi_oversold   = input.float(35, "RSI Oversold",     minval=1, maxval=49)
+rsi_overbought = input.float(80, "RSI Overbought",   minval=51, maxval=99)
+rsi_exit_long  = input.float(55, "RSI Exit (Long)",  minval=40)
+rsi_exit_short = input.float(45, "RSI Exit (Short)", maxval=60)
+trend_len      = input.int(200,  "Trend SMA",        minval=10)
+adx_length     = input.int(14,   "ADX Length",       minval=1)
+adx_min        = input.float(25, "Min ADX",          minval=0)
+atr_length     = input.int(14,   "ATR Length",       minval=1)
+sl_atr_mult    = input.float(2.5,"Hard Stop ATR",    step=0.1)
+tp_atr_mult    = input.float(2.0,"TP ATR Mult",      step=0.1)
+max_bars_hold  = input.int(48,   "Max Bars Hold",    minval=1)
+rsi_val  = ta.rsi(close, rsi_length)
+atr_val  = ta.atr(atr_length)
+[_, _, adx_val] = ta.dmi(adx_length, adx_length)
+macro_ma = ta.sma(close, trend_len)
+bull_regime = close > macro_ma
+bear_regime = close < macro_ma
+adx_ok      = adx_val >= adx_min
+long_entry  = ta.crossunder(rsi_val, rsi_oversold)  and bull_regime and adx_ok
+short_entry = ta.crossover(rsi_val,  rsi_overbought) and bear_regime and adx_ok
+var float long_sl  = na
+var float long_tp  = na
+var float short_sl = na
+var float short_tp = na
+var int   bars_held = 0
+if strategy.position_size != 0
+    bars_held += 1
+else
+    bars_held := 0
+if long_entry and strategy.position_size == 0
+    long_sl   := close - atr_val * sl_atr_mult
+    long_tp   := close + atr_val * tp_atr_mult
+    bars_held := 0
+    strategy.entry("Long", strategy.long)
+if short_entry and strategy.position_size == 0
+    short_sl  := close + atr_val * sl_atr_mult
+    short_tp  := close - atr_val * tp_atr_mult
+    bars_held := 0
+    strategy.entry("Short", strategy.short)
+if strategy.position_size > 0
+    strategy.exit("L-Limits", "Long", stop=long_sl, limit=long_tp)
+    if rsi_val >= rsi_exit_long
+        strategy.close("Long", comment="RSI_Exit")
+    else if bars_held >= max_bars_hold
+        strategy.close("Long", comment="MaxDur")
+if strategy.position_size < 0
+    strategy.exit("S-Limits", "Short", stop=short_sl, limit=short_tp)
+    if rsi_val <= rsi_exit_short
+        strategy.close("Short", comment="RSI_Exit")
+    else if bars_held >= max_bars_hold
+        strategy.close("Short", comment="MaxDur")

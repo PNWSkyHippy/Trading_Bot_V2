@@ -85,9 +85,54 @@ if (-not (Test-Path -LiteralPath $ReportPath)) {
 & $Python "Scripts\quarterly_hourly_log_scan.py"
 $AnalyzerExit = $LASTEXITCODE
 
+& $Python "Scripts\night_watch_log_digest.py" --archive
+$NightWatchExit = $LASTEXITCODE
+
+& $Python "Scripts\night_watch_rollup.py" --period week
+$WeeklyRollupExit = $LASTEXITCODE
+
+& $Python "Scripts\night_watch_rollup.py" --period month
+$MonthlyRollupExit = $LASTEXITCODE
+
+$OllamaExit = 0
+$OllamaModel = if ($env:OLLAMA_NIGHT_WATCH_MODEL) { $env:OLLAMA_NIGHT_WATCH_MODEL } else { "llama3:latest" }
+$OllamaEnabled = ($env:ENABLE_OLLAMA_NIGHT_WATCH -eq "1")
+if ($OllamaEnabled) {
+    $OllamaTimeout = if ($env:OLLAMA_NIGHT_WATCH_TIMEOUT) { [int]$env:OLLAMA_NIGHT_WATCH_TIMEOUT } else { 180 }
+    & $Python "Scripts\ollama_night_watch_summary.py" --model $OllamaModel --timeout $OllamaTimeout
+    $OllamaExit = $LASTEXITCODE
+}
+
 $Now = Get-Date -Format "yyyy-MM-dd HH:mm:ss zzz"
 Add-ReportLine ""
 Add-ReportLine "### Process Health - $Now"
+Add-ReportLine "- Night watch deterministic digest exit code: $NightWatchExit"
+Add-ReportLine "- Night watch weekly rollup exit code: $WeeklyRollupExit"
+Add-ReportLine "- Night watch monthly rollup exit code: $MonthlyRollupExit"
+if (-not $OllamaEnabled) {
+    Add-ReportLine "- Ollama night watch summary skipped. Set ENABLE_OLLAMA_NIGHT_WATCH=1 to run local model summaries."
+    $SkippedSummary = Join-Path $Root "reports\night_watch\ollama_summary_latest.md"
+    @(
+        "# Ollama Night Watch Summary",
+        "",
+        "- Status: SKIPPED",
+        "- Reason: ENABLE_OLLAMA_NIGHT_WATCH is not set to 1.",
+        "- Deterministic digest: reports\night_watch\latest_digest.md",
+        "",
+        "Run manually when wanted:",
+        "",
+        '```powershell',
+        '$env:ENABLE_OLLAMA_NIGHT_WATCH="1"',
+        'venv312\Scripts\python.exe Scripts\ollama_night_watch_summary.py --model llama3:latest --timeout 180',
+        '```'
+    ) | Set-Content -LiteralPath $SkippedSummary -Encoding UTF8
+} elseif ($OllamaExit -eq 0) {
+    $OllamaReportLine = "- Ollama night watch summary OK using {0}: reports\night_watch\ollama_summary_latest.md" -f $OllamaModel
+    Add-ReportLine -Line $OllamaReportLine
+} else {
+    $OllamaReportLine = "- Ollama night watch summary failed or timed out using {0}; deterministic digest is still available at reports\night_watch\latest_digest.md" -f $OllamaModel
+    Add-ReportLine -Line $OllamaReportLine
+}
 
 $checks = @(
     @{ Label = "bot_engine.py"; Needle = "bot_engine.py"; Launcher = "start_bot.bat" },
@@ -96,7 +141,7 @@ $checks = @(
     @{ Label = "launch-watchdog.ps1 / watchdog_ibkr.py"; Needle = "watchdog_ibkr.py"; Launcher = "launch-watchdog.ps1" }
 )
 
-$HadIssue = $AnalyzerExit -ne 0
+$HadIssue = ($AnalyzerExit -ne 0) -or ($NightWatchExit -ne 0)
 foreach ($check in $checks) {
     $running = Test-CommandLineRunning -Needle $check.Needle
     if ($running.Count -gt 0) {

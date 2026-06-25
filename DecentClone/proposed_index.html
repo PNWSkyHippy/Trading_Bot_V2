@@ -1,0 +1,172 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Astral Drift - Main Render Pipeline</title>
+    <style>
+        html, body {
+            margin: 0; padding: 0; width: 100% !important; height: 100% !important;
+            overflow: hidden !important; background-color: #020208; font-family: sans-serif;
+        }
+        canvas {
+            position: absolute !important; top: 0 !important; left: 0 !important;
+            width: 100vw !important; height: 100vh !important; display: block !important; z-index: 1 !important;
+        }
+        #menu {
+            position: absolute; top: 20px; left: 20px; color: white;
+            background: rgba(0, 0, 0, 0.85); padding: 20px; border-radius: 8px;
+            z-index: 10; width: 280px; border: 1px solid #444;
+        }
+        .controls { margin-top: 10px; padding: 8px; background: #222; border-radius: 4px; font-size: 12px; color: #4aff4a; }
+    </style>
+</head>
+<body>
+
+    <div id="menu">
+        <h3>Astral Drift Engine</h3>
+        <p>Main Engine State: ONLINE</p>
+        <div class="controls">
+            <b>W / Up Arrow:</b> Accelerate Forward<br>
+            <b>S / Down Arrow:</b> Brake / Reverse
+        </div>
+        <small id="statusText">Loading Core Texture Asset...</small>
+    </div>
+
+    <canvas id="webglCanvas"></canvas>
+
+    <script>
+        // =========================================================================
+        // 1. HARDWARE STORAGE & CORE GRAPHICS SETUP (Do Not Change)
+        // =========================================================================
+        const canvas = document.getElementById('webglCanvas');
+        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+        if (!gl) { alert('WebGL not supported.'); }
+
+        const vsSource = `attribute vec4 aPosition; attribute vec2 aTexCoord; uniform mat4 uMatrix; varying vec2 vTexCoord; void main() { gl_Position = uMatrix * aPosition; vTexCoord = aTexCoord; }`;
+        const fsSource = `precision mediump float; varying vec2 vTexCoord; uniform sampler2D uSampler; uniform float uOffset; void main() { vec2 tiledCoord = vec2(vTexCoord.x * 6.0, (vTexCoord.y + uOffset) * 15.0); gl_FragColor = texture2D(uSampler, tiledCoord); }`;
+
+        function initShaderProgram(gl, vs, fs) {
+            const vShader = gl.createShader(gl.VERTEX_SHADER); gl.shaderSource(vShader, vs); gl.compileShader(vShader);
+            const fShader = gl.createShader(gl.FRAGMENT_SHADER); gl.shaderSource(fShader, fs); gl.compileShader(fShader);
+            const prog = gl.createProgram(); gl.attachShader(prog, vShader); gl.attachShader(prog, fShader); gl.linkProgram(prog); return prog;
+        }
+        const shaderProgram = initShaderProgram(gl, vsSource, fsSource); gl.useProgram(shaderProgram);
+
+        // Build 3D structural cylinder geometry vertex arrays
+        const vertices = []; const texCoords = []; const indices = [];
+        const radius = 5.0; const length = 120.0; const radialSegments = 32; const tubularSegments = 50;
+
+        for (let j = 0; j <= tubularSegments; j++) {
+            let v = j / tubularSegments; let z = v * length - (length / 2.0);
+            for (let i = 0; i <= radialSegments; i++) {
+                let u = i / radialSegments; let theta = u * Math.PI * 2.0;
+                vertices.push(radius * Math.cos(theta), radius * Math.sin(theta), z); texCoords.push(u, v);
+            }
+        }
+        for (let j = 0; j < tubularSegments; j++) {
+            for (let i = 0; i < radialSegments; i++) {
+                let first = (j * (radialSegments + 1)) + i; let second = first + radialSegments + 1;
+                indices.push(first, first + 1, second); indices.push(second, first + 1, second + 1);
+            }
+        }
+
+        const vertexBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(gl.getAttribLocation(shaderProgram, 'aPosition')); gl.vertexAttribPointer(gl.getAttribLocation(shaderProgram, 'aPosition'), 3, gl.FLOAT, false, 0, 0);
+        const texCoordBuffer = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, texCoordBuffer); gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
+        gl.enableVertexAttribArray(gl.getAttribLocation(shaderProgram, 'aTexCoord')); gl.vertexAttribPointer(gl.getAttribLocation(shaderProgram, 'aTexCoord'), 2, gl.FLOAT, false, 0, 0);
+        const indexBuffer = gl.createBuffer(); gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer); gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+        const uMatrix = gl.getUniformLocation(shaderProgram, 'uMatrix');
+        const uOffset = gl.getUniformLocation(shaderProgram, 'uOffset');
+
+        function makePerspectiveMatrix(fov, aspect, near, far) {
+            let f = Math.tan(Math.PI * 0.5 - 0.5 * fov); let rangeInv = 1.0 / (near - far);
+            return [f / aspect, 0, 0, 0, 0, f, 0, 0, 0, 0, (near + far) * rangeInv, -1, 0, 0, near * far * rangeInv * 2, 0];
+        }
+
+        const texture = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, texture);
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array());
+
+        const image = new Image(); image.src = "./Rock060_1K-JPG_Color.jpg";
+        image.onload = function() {
+            document.getElementById('statusText').innerText = "✅ Rock060 Texture Bound to GPU!";
+            gl.bindTexture(gl.TEXTURE_2D, texture); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        };
+
+        // =========================================================================
+        // 2. PLACE GAME ENGINE DATA HERE (Your Coder Can Expand This Block)
+        // =========================================================================
+        let flightScroll = 0.0;
+        
+        // Balanced speed defaults
+        const CRUISE_SPEED = 0.0015; 
+        const MAX_SPEED = 0.005;     
+        const MIN_SPEED = -0.001;    
+        
+        let currentSpeed = CRUISE_SPEED;
+        let targetSpeed = CRUISE_SPEED;
+
+        // =========================================================================
+        // 3. KEYBOARD CONTROL EVENT ENGINE (Fixed & Tuned)
+        // =========================================================================
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'w' || e.key === 'W' || e.key === 'ArrowUp') {
+                targetSpeed = MAX_SPEED; // Smoothly speed up forward motion
+            }
+            if (e.key === 's' || e.key === 'S' || e.key === 'ArrowDown') {
+                targetSpeed = MIN_SPEED; // Smoothly brake or glide backward
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            // Drop back to steady cruising speed when keys are released
+            if (['w', 'W', 's', 'S', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+                targetSpeed = CRUISE_SPEED;
+            }
+        });
+
+        // =========================================================================
+        // 4. MAIN GAME LOOP ROUTINE (Pipes logic directly onto the GPU hardware)
+        // =========================================================================
+        function drawScene() {
+            if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+                canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+                gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+            }
+
+            gl.clearColor(0.01, 0.01, 0.03, 1.0);
+            gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); gl.enable(gl.DEPTH_TEST);
+
+            const aspect = canvas.width / canvas.height;
+            const matrix = makePerspectiveMatrix(75 * Math.PI / 180, aspect, 0.1, 1000.0);
+
+            // ---------------------------------------------------------------------
+            // INSERT CUSTOM LOGIC LOOP UPDATES HERE (Score, Map, Ship Position)
+            // ---------------------------------------------------------------------
+            
+            // Linear speed calculation (stops the rapid, infinite backward/forward acceleration)
+            currentSpeed += (targetSpeed - currentSpeed) * 0.05;
+            
+            // Subtract speed to fly forward smoothly into the stone wall textures
+            flightScroll -= currentSpeed; 
+
+            // ---------------------------------------------------------------------
+            // ENGINE DRAW COMMANDS (Do Not Alter)
+            // ---------------------------------------------------------------------
+            gl.uniformMatrix4fv(uMatrix, false, matrix);
+            gl.uniform1f(uOffset, flightScroll);
+
+            gl.drawElements(gl.TRIANGLES, indices.length, gl.UNSIGNED_SHORT, 0);
+            requestAnimationFrame(drawScene);
+        }
+
+        // Boot up the execution sequence
+        drawScene();
+    </script>
+</body>
+</html>
+

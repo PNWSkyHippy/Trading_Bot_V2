@@ -811,6 +811,10 @@ class TradeExecutor:
             fee_rt_pct = (config.BT_COMMISSION_STOCK_PCT + config.BT_SLIPPAGE_STOCK_PCT) / 100 * 2
         fees_paid = round(entry_price * qty * fee_rt_pct, 4)
         pnl       = pnl - fees_paid
+        partial_pnl = float(trade.get("partial_pnl") or 0.0)
+        partial_fees_paid = float(trade.get("partial_fees_paid") or 0.0)
+        total_pnl = pnl + partial_pnl
+        total_fees_paid = fees_paid + partial_fees_paid
 
         # ── PnL% — calculate directly from price move, not position_value ─
         # position_value in DB can drift; price-based calc is always correct.
@@ -839,7 +843,7 @@ class TradeExecutor:
             )
             return  # ignore bad tick, position monitor will retry next cycle
 
-        trade_won = pnl > 0
+        trade_won = total_pnl > 0
 
         if asset_class == "stock" and settlement_tracker:
             try:
@@ -865,18 +869,19 @@ class TradeExecutor:
             **trade,
             "exit_time":  datetime.now().isoformat(),
             "exit_price": current_price,
-            "fees_paid":  fees_paid,   # Opus audit 2026-05-29: was missing → tax ledger showed fees=0
+            "fees_paid":  total_fees_paid,
+            "pnl":        total_pnl,
             "status":     "closed"
         }
         self._db.record_tax_event(full_trade)
-        self._risk_manager.record_trade_result(pnl, trade_won, symbol=symbol)
+        self._risk_manager.record_trade_result(total_pnl, trade_won, symbol=symbol)
 
         strategy_name = trade.get("strategy_name", "original")
         if strategy_name not in ("original", "manual") and exit_reason != "manual_close":
             try:
                 from strategies.strategy_engine import strategy_engine
                 strategy_engine.record_trade_result(
-                    strategy_name, pnl, trade_won, exit_reason=exit_reason
+                    strategy_name, total_pnl, trade_won, exit_reason=exit_reason
                 )
             except Exception as e:
                 logger.debug(f"Strategy result recording error: {e}")
@@ -938,7 +943,134 @@ class TradeExecutor:
 
         logger.info(
             f"[TRADE CLOSED] [{result}] {symbol} | {broker} | {exit_reason} | "
-            f"PnL: {'+'if pnl>0 else ''}{pnl:.4f} ({pnl_pct:+.2f}%)"
+            f"PnL: {'+'if total_pnl>0 else ''}{total_pnl:.4f} "
+            f"({pnl_pct:+.2f}%)"
+        )
+        return True
+
+    def close_partial_trade(
+        self, trade: Dict, current_price: float, fraction: float,
+        exit_reason: str = "partial_take_profit"
+    ) -> bool:
+        """Close part of an open trade while leaving the remainder open."""
+        symbol      = trade["symbol"]
+        direction   = trade["direction"]
+        qty         = float(trade.get("quantity") or 0)
+        entry_price = float(trade.get("entry_price") or 0)
+        asset_class = trade.get("asset_class", "crypto")
+        broker      = trade.get("broker", "alpaca")
+        trade_id    = trade["trade_id"]
+
+        fraction = max(0.0, min(float(fraction or 0), 0.95))
+        close_qty = round(qty * fraction, 8)
+        if close_qty <= 0 or qty <= 0 or entry_price <= 0:
+            return False
+
+        if asset_class != "crypto":
+            logger.info(
+                f"[PARTIAL SKIP] {symbol}: partial exits currently enabled "
+                f"only for crypto scanner trades"
+            )
+            return False
+
+        side = "buy" if direction == "long" else "sell"
+        if config.KRAKEN_ENABLED:
+            close_leverage = 0
+            if direction == "short":
+                desired_lev = getattr(config, "KRAKEN_SHORT_LEVERAGE", 2)
+                max_lev = exchange_capabilities.get_max_short_leverage(
+                    symbol, "kraken"
+                )
+                close_leverage = min(desired_lev, max_lev) if max_lev > 1 else 0
+            success = self.kraken.close_position(
+                symbol, close_qty, side, leverage=close_leverage
+            )
+        else:
+            close_side = "sell" if direction == "long" else "buy"
+            logger.info(
+                f"[PAPER] Simulated partial close: {symbol} "
+                f"{close_side.upper()} {close_qty} @ ${current_price:.4f}"
+            )
+            success = True
+
+        if not success:
+            logger.error(f"Failed to partially close position {symbol}")
+            return False
+
+        if direction == "long":
+            pnl = (current_price - entry_price) * close_qty
+            pnl_pct = ((current_price - entry_price) / entry_price) * 100
+        else:
+            pnl = (entry_price - current_price) * close_qty
+            pnl_pct = ((entry_price - current_price) / entry_price) * 100
+
+        fee_rt_pct = (
+            (config.BT_COMMISSION_CRYPTO_PCT + config.BT_SLIPPAGE_CRYPTO_PCT)
+            / 100 * 2
+        )
+        fees_paid = round(entry_price * close_qty * fee_rt_pct, 4)
+        pnl = pnl - fees_paid
+        partial_value = entry_price * close_qty
+
+        self._db.record_partial_exit(
+            trade_id=trade_id,
+            symbol=symbol,
+            exit_price=current_price,
+            quantity=close_qty,
+            position_value=partial_value,
+            pnl=round(pnl, 4),
+            pnl_pct=round(pnl_pct, 4),
+            fees_paid=fees_paid,
+            reason=exit_reason,
+        )
+
+        cap = self._db.get_latest_capital()
+        if cap:
+            new_capital = cap["total_capital"] + pnl
+            new_invested = max(0, cap["invested_value"] - partial_value)
+            new_available = cap["available_cash"] + partial_value + pnl
+            new_available = min(new_available, max(0.0, new_capital - new_invested))
+            self._db.log_capital(
+                total=new_capital,
+                available=new_available,
+                invested=new_invested,
+                daily_pnl=cap["daily_pnl"] + pnl,
+                total_pnl=cap["total_pnl"] + pnl,
+                note=(
+                    f"Partial {symbol} @ {broker} {exit_reason}: "
+                    f"{'+' if pnl > 0 else ''}{pnl:.2f}"
+                ),
+            )
+
+        try:
+            from core.broker_manager import broker_manager
+            bal = broker_manager.get_broker_balance(broker)
+            if isinstance(bal, dict):
+                returned = partial_value + pnl
+                broker_manager.update_broker_balance(
+                    broker,
+                    bal.get("balance", 0.0) + pnl,
+                    max(0.0, bal.get("invested", 0.0) - partial_value),
+                    bal.get("available", 0.0) + returned,
+                )
+        except Exception as _bm_err:
+            logger.debug(f"Broker balance update on partial close failed: {_bm_err}")
+
+        trade["quantity"] = max(qty - close_qty, 0)
+        trade["position_value"] = max(
+            float(trade.get("position_value") or 0) - partial_value, 0
+        )
+        trade["partial_pnl"] = float(trade.get("partial_pnl") or 0) + pnl
+        trade["partial_fees_paid"] = (
+            float(trade.get("partial_fees_paid") or 0) + fees_paid
+        )
+        trade["partial_exit_count"] = int(trade.get("partial_exit_count") or 0) + 1
+
+        logger.info(
+            f"[PARTIAL TP] {symbol}: closed {fraction:.0%} "
+            f"({close_qty:.6f}) @ ${current_price:.4f} | "
+            f"P&L ${pnl:.2f} ({pnl_pct:+.2f}%) | "
+            f"remaining qty {trade['quantity']:.6f}"
         )
         return True
 

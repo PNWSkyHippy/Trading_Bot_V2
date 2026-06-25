@@ -1,0 +1,476 @@
+{
+  "meta": {
+    "strategy": "btc_v6_chandelier",
+    "days": 365,
+    "param_overrides": {},
+    "crypto_symbols": [
+      "BTC/USD",
+      "ETH/USD",
+      "SOL/USD",
+      "BNB/USD"
+    ],
+    "stock_symbols": [],
+    "timeframes": [
+      "1h"
+    ],
+    "directions": [
+      "long",
+      "short",
+      "both"
+    ],
+    "total_cells": 12,
+    "done_cells": 12,
+    "cancelled": false,
+    "started_at": "2026-06-17T07:41:07.698269",
+    "finished_at": "2026-06-17T07:41:09.114140",
+    "edge_threshold": 1.2,
+    "min_trades": 2
+  },
+  "summary": {
+    "overall_avg_pf": 2.407,
+    "overall_edge_rate": 75.0,
+    "overall_n_edge": 6,
+    "total_valid_cells": 8,
+    "best_conditions": [
+      {
+        "condition": "1h/long",
+        "avg_pf": 2.407,
+        "avg_wr": 50.97,
+        "n_symbols": 4,
+        "n_edge": 3,
+        "edge_rate": 75.0
+      },
+      {
+        "condition": "1h/both",
+        "avg_pf": 2.407,
+        "avg_wr": 50.97,
+        "n_symbols": 4,
+        "n_edge": 3,
+        "edge_rate": 75.0
+      },
+      {
+        "condition": "1h/short",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_symbols": 0,
+        "n_edge": 0,
+        "edge_rate": 0.0
+      }
+    ],
+    "worst_conditions": [
+      {
+        "condition": "1h/long",
+        "avg_pf": 2.407,
+        "avg_wr": 50.97,
+        "n_symbols": 4,
+        "n_edge": 3,
+        "edge_rate": 75.0
+      },
+      {
+        "condition": "1h/both",
+        "avg_pf": 2.407,
+        "avg_wr": 50.97,
+        "n_symbols": 4,
+        "n_edge": 3,
+        "edge_rate": 75.0
+      },
+      {
+        "condition": "1h/short",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_symbols": 0,
+        "n_edge": 0,
+        "edge_rate": 0.0
+      }
+    ],
+    "best_symbols": [
+      {
+        "symbol": "SOL/USD",
+        "avg_pf": 3.21,
+        "avg_wr": 60.0,
+        "n_conditions": 2,
+        "n_edge": 2,
+        "edge_rate": 100.0,
+        "asset_class": "crypto"
+      },
+      {
+        "symbol": "BTC/USD",
+        "avg_pf": 2.59,
+        "avg_wr": 50.0,
+        "n_conditions": 2,
+        "n_edge": 2,
+        "edge_rate": 100.0,
+        "asset_class": "crypto"
+      },
+      {
+        "symbol": "BNB/USD",
+        "avg_pf": 1.42,
+        "avg_wr": 42.9,
+        "n_conditions": 2,
+        "n_edge": 2,
+        "edge_rate": 100.0,
+        "asset_class": "crypto"
+      },
+      {
+        "symbol": "ETH/USD",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 2,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "crypto"
+      }
+    ],
+    "worst_symbols": [
+      {
+        "symbol": "SOL/USD",
+        "avg_pf": 3.21,
+        "avg_wr": 60.0,
+        "n_conditions": 2,
+        "n_edge": 2,
+        "edge_rate": 100.0,
+        "asset_class": "crypto"
+      },
+      {
+        "symbol": "BTC/USD",
+        "avg_pf": 2.59,
+        "avg_wr": 50.0,
+        "n_conditions": 2,
+        "n_edge": 2,
+        "edge_rate": 100.0,
+        "asset_class": "crypto"
+      },
+      {
+        "symbol": "BNB/USD",
+        "avg_pf": 1.42,
+        "avg_wr": 42.9,
+        "n_conditions": 2,
+        "n_edge": 2,
+        "edge_rate": 100.0,
+        "asset_class": "crypto"
+      },
+      {
+        "symbol": "ETH/USD",
+        "avg_pf": 0.0,
+        "avg_wr": 0.0,
+        "n_conditions": 2,
+        "n_edge": 0,
+        "edge_rate": 0.0,
+        "asset_class": "crypto"
+      }
+    ]
+  },
+  "condition_stats": {
+    "1h/long": {
+      "avg_pf": 2.407,
+      "avg_wr": 50.97,
+      "n_symbols": 4,
+      "n_edge": 3,
+      "edge_rate": 75.0
+    },
+    "1h/short": {
+      "avg_pf": 0.0,
+      "avg_wr": 0.0,
+      "n_symbols": 0,
+      "n_edge": 0,
+      "edge_rate": 0.0
+    },
+    "1h/both": {
+      "avg_pf": 2.407,
+      "avg_wr": 50.97,
+      "n_symbols": 4,
+      "n_edge": 3,
+      "edge_rate": 75.0
+    }
+  },
+  "symbol_stats": {
+    "BTC/USD": {
+      "avg_pf": 2.59,
+      "avg_wr": 50.0,
+      "n_conditions": 2,
+      "n_edge": 2,
+      "edge_rate": 100.0,
+      "asset_class": "crypto"
+    },
+    "ETH/USD": {
+      "avg_pf": 0.0,
+      "avg_wr": 0.0,
+      "n_conditions": 2,
+      "n_edge": 0,
+      "edge_rate": 0.0,
+      "asset_class": "crypto"
+    },
+    "SOL/USD": {
+      "avg_pf": 3.21,
+      "avg_wr": 60.0,
+      "n_conditions": 2,
+      "n_edge": 2,
+      "edge_rate": 100.0,
+      "asset_class": "crypto"
+    },
+    "BNB/USD": {
+      "avg_pf": 1.42,
+      "avg_wr": 42.9,
+      "n_conditions": 2,
+      "n_edge": 2,
+      "edge_rate": 100.0,
+      "asset_class": "crypto"
+    }
+  },
+  "edge_cells": [
+    {
+      "symbol": "SOL/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 5,
+      "profit_factor": 3.21,
+      "win_rate": 60.0,
+      "net_pnl": 4.9,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "SOL/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "both",
+      "condition": "1h/both",
+      "trades": 5,
+      "profit_factor": 3.21,
+      "win_rate": 60.0,
+      "net_pnl": 4.9,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "BTC/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 6,
+      "profit_factor": 2.59,
+      "win_rate": 50.0,
+      "net_pnl": 5.88,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "BTC/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "both",
+      "condition": "1h/both",
+      "trades": 6,
+      "profit_factor": 2.59,
+      "win_rate": 50.0,
+      "net_pnl": 5.88,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "BNB/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 7,
+      "profit_factor": 1.42,
+      "win_rate": 42.9,
+      "net_pnl": 1.93,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "BNB/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "both",
+      "condition": "1h/both",
+      "trades": 7,
+      "profit_factor": 1.42,
+      "win_rate": 42.9,
+      "net_pnl": 1.93,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    }
+  ],
+  "all_cells": [
+    {
+      "symbol": "BTC/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 6,
+      "profit_factor": 2.59,
+      "win_rate": 50.0,
+      "net_pnl": 5.88,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "BTC/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "short",
+      "condition": "1h/short",
+      "trades": 0,
+      "profit_factor": 0.0,
+      "win_rate": 0.0,
+      "net_pnl": 0.0,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "BTC/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "both",
+      "condition": "1h/both",
+      "trades": 6,
+      "profit_factor": 2.59,
+      "win_rate": 50.0,
+      "net_pnl": 5.88,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "ETH/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 6,
+      "profit_factor": 0.0,
+      "win_rate": 0.0,
+      "net_pnl": -11.34,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "ETH/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "short",
+      "condition": "1h/short",
+      "trades": 0,
+      "profit_factor": 0.0,
+      "win_rate": 0.0,
+      "net_pnl": 0.0,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "ETH/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "both",
+      "condition": "1h/both",
+      "trades": 6,
+      "profit_factor": 0.0,
+      "win_rate": 0.0,
+      "net_pnl": -11.34,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "SOL/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 5,
+      "profit_factor": 3.21,
+      "win_rate": 60.0,
+      "net_pnl": 4.9,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "SOL/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "short",
+      "condition": "1h/short",
+      "trades": 0,
+      "profit_factor": 0.0,
+      "win_rate": 0.0,
+      "net_pnl": 0.0,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "SOL/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "both",
+      "condition": "1h/both",
+      "trades": 5,
+      "profit_factor": 3.21,
+      "win_rate": 60.0,
+      "net_pnl": 4.9,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "BNB/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "long",
+      "condition": "1h/long",
+      "trades": 7,
+      "profit_factor": 1.42,
+      "win_rate": 42.9,
+      "net_pnl": 1.93,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "BNB/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "short",
+      "condition": "1h/short",
+      "trades": 0,
+      "profit_factor": 0.0,
+      "win_rate": 0.0,
+      "net_pnl": 0.0,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    },
+    {
+      "symbol": "BNB/USD",
+      "asset_class": "crypto",
+      "timeframe": "1h",
+      "direction": "both",
+      "condition": "1h/both",
+      "trades": 7,
+      "profit_factor": 1.42,
+      "win_rate": 42.9,
+      "net_pnl": 1.93,
+      "sharpe": 0.0,
+      "expectancy": 0.0,
+      "error": null
+    }
+  ]
+}

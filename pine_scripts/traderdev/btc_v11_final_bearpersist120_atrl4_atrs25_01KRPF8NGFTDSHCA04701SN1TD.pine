@@ -1,0 +1,76 @@
+//@version=5
+strategy("BTC V11 final",overlay=true,initial_capital=10000,default_qty_type=strategy.cash,default_qty_value=30000,commission_type=strategy.commission.percent,commission_value=0.04,slippage=1)
+growthRate=input.float(2.0,"growthRate",step=0.1)
+decayRate=input.float(0.7,"decayRate",step=0.1)
+martMultMax=input.float(1.5,"martMultMax",step=0.5)
+atrMultL=input.float(4.0,"atrMultL",step=0.5)
+atrMultS=input.float(2.5,"atrMultS",step=0.5)
+rsiLong=input.int(40,"rsiLong")
+maxMartStreak=input.int(2,"maxMartStreak")
+ddCircuitPct=input.float(35.0,"ddCircuitPct",step=5.0)
+smaLen=input.int(48,"smaLen")
+smaLookback=input.int(48,"smaLookback")
+breakoutLen=input.int(20,"breakoutLen")
+bearPersist=input.int(120,"bearPersist")
+baseCash=30000.0
+amMultCap=3.0
+sma=ta.sma(close,smaLen)
+smaFalling=sma<sma[smaLookback]
+var int bearCount=0
+var int bullCount=0
+if smaFalling
+    bearCount:=bearCount+1
+    bullCount:=0
+else
+    bullCount:=bullCount+1
+    bearCount:=0
+bullRegime=bullCount>=1
+bearRegime=bearCount>=bearPersist
+rsi=ta.rsi(close,14)
+atr=ta.atr(14)
+ema21=ta.ema(close,21)
+ema55=ta.ema(close,55)
+[_dp,_dm,adx]=ta.dmi(14,14)
+trendUp=ema21>ema55
+trendDown=ema21<ema55
+normATR=ta.atr(14)/close
+refATR=ta.sma(normATR,200)
+volMult=math.max(1.0,math.min(1.5,normATR/math.max(refATR,1e-10)))
+signalMult=math.max(1.0,math.min(2.0,1.0+(adx-20.0)/30.0))
+var float hwm=10000.0
+var bool circuitOpen=false
+hwm:=math.max(hwm,strategy.equity)
+dd=(hwm-strategy.equity)/hwm*100.0
+if dd>ddCircuitPct
+    circuitOpen:=true
+if dd<ddCircuitPct*0.5
+    circuitOpen:=false
+donchLow=ta.lowest(low,breakoutLen)
+shortBreakout=low==donchLow and trendDown and(adx>=20)and bearRegime and(not circuitOpen)and(strategy.position_size==0)
+longEntry=(rsi<rsiLong)and trendUp and(adx>=20)and bullRegime and(not circuitOpen)and(strategy.position_size==0)
+var float chL=na
+var float thL=na
+var float chS=na
+var float tlS=na
+if longEntry
+    thL:=high
+    chL:=close-atr*atrMultL
+    strategy.entry("Long",strategy.long)
+if strategy.position_size>0
+    thL:=math.max(nz(thL,high),high)
+    chL:=math.max(nz(chL,close-atr*atrMultL),thL-atr*atrMultL)
+    strategy.exit("LX","Long",stop=chL)
+else
+    thL:=na
+    chL:=na
+if shortBreakout
+    tlS:=low
+    chS:=close+atr*atrMultS
+    strategy.entry("Short",strategy.short)
+if strategy.position_size<0
+    tlS:=math.min(nz(tlS,low),low)
+    chS:=math.min(nz(chS,close+atr*atrMultS),tlS+atr*atrMultS)
+    strategy.exit("SX","Short",stop=chS)
+else
+    tlS:=na
+    chS:=na

@@ -1,0 +1,58 @@
+//@version=5
+// Grid Bot - Iter1 ADX threshold 15
+strategy("GridBot Iter1 ADX15", overlay=true,
+         default_qty_type=strategy.percent_of_equity, default_qty_value=10,
+         commission_type=strategy.commission.percent, commission_value=0.1,
+         slippage=2)
+
+adx_max    = input.int(15,    "ADX Max (ranging)")
+adx_period = input.int(14,    "ADX Period")
+bb_period  = input.int(30,    "BB Period")
+bb_std     = input.float(2.0, "BB StdDev")
+sl_pct     = input.float(0.8, "SL %", step=0.1)
+tp_pct     = input.float(1.5, "TP %", step=0.1)
+
+[diPlus, diMinus, adxVal] = ta.dmi(adx_period, adx_period)
+is_ranging = adxVal < adx_max
+
+[bb_mid, bb_upper, bb_lower] = ta.bb(close, bb_period, bb_std)
+band_range = bb_upper - bb_lower
+pos_pct    = band_range > 0 ? (close - bb_lower) / band_range : 0.5
+
+var bool  inLong  = false
+var bool  inShort = false
+var float longTP  = na
+var float longSL  = na
+var float shortTP = na
+var float shortSL = na
+
+longEntry  = is_ranging and pos_pct <= 0.20 and not inLong and not inShort
+shortEntry = is_ranging and pos_pct >= 0.80 and not inLong and not inShort
+
+if longEntry
+    longTP := close * (1 + tp_pct / 100)
+    longSL := close * (1 - sl_pct / 100)
+    strategy.entry("GL", strategy.long)
+    inLong := true
+
+if shortEntry
+    shortTP := close * (1 - tp_pct / 100)
+    shortSL := close * (1 + sl_pct / 100)
+    strategy.entry("GS", strategy.short)
+    inShort := true
+
+if inLong and strategy.position_size > 0
+    if close >= longTP
+        strategy.close("GL", comment="tp")
+        inLong := false
+    else if close <= longSL
+        strategy.close("GL", comment="sl")
+        inLong := false
+
+if inShort and strategy.position_size < 0
+    if close <= shortTP
+        strategy.close("GS", comment="tp")
+        inShort := false
+    else if close >= shortSL
+        strategy.close("GS", comment="sl")
+        inShort := false

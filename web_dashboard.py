@@ -3289,6 +3289,34 @@ def _db_like_pattern(pattern: str) -> str:
     s = s.replace("%", r"\%").replace("_", r"\_")
     return s.replace("*", "%").replace("?", "_")
 
+def _db_datetime_expr(col: str) -> str:
+    text_expr = f"REPLACE(SUBSTR(CAST([{col}] AS TEXT), 1, 26), 'T', ' ')"
+    return f"julianday({text_expr})"
+
+def _db_normalize_datetime_filter(value: str) -> str | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    raw = raw.replace("T", " ")
+    # Forgive common typed variants like 2026:06:16:12:00:00 or
+    # 2026-06-16:12:00:00 and normalize them before parsing.
+    m = re.match(
+        r"^(\d{4})[-:](\d{2})[-:](\d{2})(?:[ :](\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d{1,6}))?)?)?$",
+        raw,
+    )
+    if m:
+        y, mo, d, hh, mm, ss, micro = m.groups()
+        hh = hh or "00"
+        mm = mm or "00"
+        ss = ss or "00"
+        micro = (micro or "0").ljust(6, "0")
+        return f"{y}-{mo}-{d} {int(hh):02d}:{mm}:{ss}.{micro}"
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    return parsed.strftime("%Y-%m-%d %H:%M:%S.%f")
+
 def _db_filter_where(filters: dict, valid_cols: set[str]):
     where, params = [], []
     for col, raw in (filters or {}).items():
@@ -3305,6 +3333,24 @@ def _db_filter_where(filters: dict, valid_cols: set[str]):
             where.append(f"CAST([{col}] AS REAL) {op} ?")
             params.append(float(num.group(2)))
             continue
+        dt_cmp = re.match(r"^(<=|>=|<|>|==|=|!=)\s*(.+)$", value)
+        if dt_cmp:
+            dt_value = _db_normalize_datetime_filter(dt_cmp.group(2))
+            if dt_value:
+                op = "=" if dt_cmp.group(1) in ("=", "==") else dt_cmp.group(1)
+                if op == "!=":
+                    op = "<>"
+                where.append(f"{_db_datetime_expr(col)} {op} julianday(?)")
+                params.append(dt_value)
+                continue
+        dt_range = re.match(r"^(.+?)\s*\.\.\s*(.+)$", value)
+        if dt_range:
+            start = _db_normalize_datetime_filter(dt_range.group(1))
+            end = _db_normalize_datetime_filter(dt_range.group(2))
+            if start and end:
+                where.append(f"{_db_datetime_expr(col)} BETWEEN julianday(?) AND julianday(?)")
+                params.extend([start, end])
+                continue
         lead = re.match(r"^([<>])\s*([a-z])$", value, re.I)
         if lead:
             where.append(f"LOWER(SUBSTR(CAST([{col}] AS TEXT),1,1)) {lead.group(1)} ?")
@@ -3408,6 +3454,7 @@ _QUICK_SQL = {
     "Daily P&L":       """SELECT trade_date,daily_pnl,daily_pnl_pct,total_trades,winning_trades,losing_trades,win_rate,largest_win,largest_loss,starting_capital,ending_capital FROM daily_summaries ORDER BY trade_date DESC LIMIT 60""",
     "Yesterday Closed":"""SELECT rowid,trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','-1 day','localtime') ORDER BY exit_time DESC""",
     "Signal Reviews":  """SELECT rowid,timestamp,symbol,direction,strategy_name,signal_score,decision,confidence,reasoning FROM ai_signal_reviews ORDER BY timestamp DESC LIMIT 200""",
+    "Log Events":      """SELECT rowid,timestamp,severity,event_type,symbol,strategy_name,direction,decision,policy,source_file,line_no,message FROM log_events ORDER BY COALESCE(timestamp, imported_at) DESC, rowid DESC LIMIT 500""",
     "This Week Trades":"""SELECT rowid,trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker FROM trades WHERE status='closed' AND DATE(exit_time)>=DATE('now','-7 days','localtime') ORDER BY exit_time DESC""",
     "Strategy P&L":    """SELECT strategy_name,COUNT(*) AS trades,SUM(CASE WHEN pnl>0 THEN 1 ELSE 0 END) AS wins,SUM(CASE WHEN pnl<=0 THEN 1 ELSE 0 END) AS losses,ROUND(100.0*SUM(CASE WHEN pnl>0 THEN 1 ELSE 0 END)/COUNT(*),1) AS win_rate_pct,ROUND(SUM(pnl),2) AS total_pnl,ROUND(SUM(CASE WHEN pnl>0 THEN pnl ELSE 0 END),2) AS gross_wins,ROUND(ABS(SUM(CASE WHEN pnl<=0 THEN pnl ELSE 0 END)),2) AS gross_losses,ROUND(SUM(CASE WHEN pnl>0 THEN pnl ELSE 0 END)/NULLIF(ABS(SUM(CASE WHEN pnl<=0 THEN pnl ELSE 0 END)),0),3) AS profit_factor FROM trades WHERE status='closed' GROUP BY strategy_name ORDER BY total_pnl DESC""",
     "💰 Financials":   """SELECT label,value,detail FROM (SELECT 'Total Capital' AS label,'$'||printf('%.2f',total_capital) AS value,'Cash: $'||printf('%.2f',available_cash)||'   Invested: $'||printf('%.2f',invested_value) AS detail FROM capital ORDER BY timestamp DESC LIMIT 1) UNION ALL SELECT label,value,detail FROM (SELECT 'Daily P&L (tracker)' AS label,(CASE WHEN daily_pnl>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',daily_pnl) AS value,'Cumulative: '||(CASE WHEN total_pnl>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',total_pnl) AS detail FROM capital ORDER BY timestamp DESC LIMIT 1) UNION ALL SELECT 'In Open Trades',('$'||printf('%.2f',COALESCE(SUM(position_value),0))),(CAST(COUNT(*) AS TEXT)||' open positions') FROM trades WHERE status='open' UNION ALL SELECT 'In Settlement',('$'||printf('%.2f',COALESCE(SUM(amount),0))),(CAST(COUNT(*) AS TEXT)||' unsettled items') FROM settlement_queue WHERE settled=0 UNION ALL SELECT 'Today Closed P&L',((CASE WHEN COALESCE(SUM(pnl),0)>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',COALESCE(SUM(pnl),0))),(CAST(COUNT(*) AS TEXT)||' trades  '||CAST(SUM(CASE WHEN pnl>0 THEN 1 ELSE 0 END) AS TEXT)||'W / '||CAST(SUM(CASE WHEN pnl<=0 THEN 1 ELSE 0 END) AS TEXT)||'L') FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','localtime') UNION ALL SELECT 'Yesterday P&L',((CASE WHEN COALESCE(SUM(pnl),0)>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',COALESCE(SUM(pnl),0))),(CAST(COUNT(*) AS TEXT)||' trades  '||CAST(SUM(CASE WHEN pnl>0 THEN 1 ELSE 0 END) AS TEXT)||'W / '||CAST(SUM(CASE WHEN pnl<=0 THEN 1 ELSE 0 END) AS TEXT)||'L') FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','-1 day','localtime') UNION ALL SELECT 'This Week P&L',((CASE WHEN COALESCE(SUM(pnl),0)>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',COALESCE(SUM(pnl),0))),(CAST(COUNT(*) AS TEXT)||' trades') FROM trades WHERE status='closed' AND DATE(exit_time)>=DATE('now','-7 days','localtime') UNION ALL SELECT 'This Month P&L',((CASE WHEN COALESCE(SUM(pnl),0)>=0 THEN '+' ELSE '' END)||'$'||printf('%.2f',COALESCE(SUM(pnl),0))),(CAST(COUNT(*) AS TEXT)||' trades') FROM trades WHERE status='closed' AND strftime('%Y-%m',exit_time)=strftime('%Y-%m','now','localtime')""",
@@ -3636,6 +3683,111 @@ def db_strategy_toggle(data: dict):
         return True, f"{'Enabled' if enabled else 'Disabled'} {key}"
     except Exception as e:
         return False, str(e)
+
+
+def _safe_log_path(path_value: str) -> Path:
+    raw = Path(str(path_value or ""))
+    path = raw if raw.is_absolute() else ROOT / raw
+    path = path.resolve()
+    root = ROOT.resolve()
+    try:
+        path.relative_to(root)
+    except ValueError:
+        raise ValueError("Log path must stay inside the project folder")
+    if not path.exists() or not path.is_file():
+        raise FileNotFoundError(f"Log file not found: {path}")
+    return path
+
+
+def _read_log_context(path: Path, needle: str, context: int = 10,
+                      prefer_line: int | None = None):
+    context = max(0, min(int(context or 10), 100))
+    needle = str(needle or "").strip()
+    if not needle:
+        raise ValueError("Missing log search text")
+    lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+    if not lines:
+        return {"match_line": None, "lines": []}
+
+    matches = []
+    for idx, line in enumerate(lines, start=1):
+        if needle in line:
+            matches.append(idx)
+    if not matches:
+        # Fall back to a shorter escaped fragment in case the DB row was clipped.
+        fragment = needle[:220]
+        matches = [
+            idx for idx, line in enumerate(lines, start=1)
+            if fragment and fragment in line
+        ]
+    if not matches:
+        # Final fallback: regex term search.
+        try:
+            rx = re.compile(needle, re.I)
+            matches = [
+                idx for idx, line in enumerate(lines, start=1)
+                if rx.search(line)
+            ]
+        except re.error:
+            matches = []
+    if not matches:
+        return {"match_line": None, "lines": []}
+
+    if prefer_line:
+        match_line = min(matches, key=lambda line_no: abs(line_no - prefer_line))
+    else:
+        match_line = matches[-1]
+    start = max(1, match_line - context)
+    end = min(len(lines), match_line + context)
+    return {
+        "match_line": match_line,
+        "start_line": start,
+        "end_line": end,
+        "lines": [
+            {
+                "line_no": line_no,
+                "text": lines[line_no - 1],
+                "match": line_no == match_line,
+            }
+            for line_no in range(start, end + 1)
+        ],
+    }
+
+
+def db_log_context(data: dict):
+    context = int(data.get("context", 10) or 10)
+    rowid = data.get("rowid")
+    try:
+        if rowid is not None:
+            with _db_conn("trading") as c:
+                row = c.execute(
+                    "SELECT * FROM log_events WHERE rowid=?", (rowid,)
+                ).fetchone()
+            if not row:
+                return False, f"log_events rowid not found: {rowid}", {}
+            event = dict(row)
+            path = _safe_log_path(event.get("source_file", ""))
+            needle = event.get("raw_line") or event.get("message") or ""
+            prefer_line = event.get("line_no")
+        else:
+            event = {}
+            path = _safe_log_path(data.get("source_file", ""))
+            needle = data.get("term") or data.get("message") or ""
+            prefer_line = None
+
+        result = _read_log_context(path, needle, context, prefer_line)
+        if not result["lines"]:
+            return False, "No matching line found in source log", {
+                "source_file": str(path.relative_to(ROOT)),
+                "event": event,
+            }
+        return True, "Log context loaded", {
+            "source_file": str(path.relative_to(ROOT)),
+            "event": event,
+            **result,
+        }
+    except Exception as e:
+        return False, str(e), {}
 
 
 def build_snapshot():
@@ -4629,7 +4781,7 @@ class Handler(BaseHTTPRequestHandler):
         # ── Database browser POST actions ─────────────────────────────────────
         if path in ("/api/db/search", "/api/db/edit_row", "/api/db/add_row",
                     "/api/db/delete_rows", "/api/db/flush_ghost",
-                    "/api/db/strategy_toggle"):
+                    "/api/db/strategy_toggle", "/api/db/log_context"):
             if path == "/api/db/search":
                 return self._json(200, db_search(data))
             if path == "/api/db/edit_row":
@@ -4647,6 +4799,9 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/db/strategy_toggle":
                 ok, msg = db_strategy_toggle(data)
                 return self._json(200 if ok else 400, {"ok": ok, "message": msg})
+            if path == "/api/db/log_context":
+                ok, msg, details = db_log_context(data)
+                return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
 
         # ── Broker Panel API ──────────────────────────────────────────────────
         if path == "/api/broker_panel/accounts":

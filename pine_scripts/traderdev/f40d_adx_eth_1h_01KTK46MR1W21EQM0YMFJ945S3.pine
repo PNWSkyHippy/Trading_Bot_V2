@@ -1,0 +1,61 @@
+// Strategy : F40d C104 ADX14 v1 (growth=2.0 decay=0.9) - forked
+//@version=5
+strategy("F40d C104 ADX14 v1 (growth=2.0 decay=0.9) - forked", overlay=true, initial_capital=10000, commission_type="percent", commission_value=0.04, slippage=2, pyramiding=0, process_orders_on_close=true)
+adxThresh = input.int(10, "ADX Threshold", minval=8, maxval=25, step=1)
+slPct = input.float(2, "Stop Loss %", minval=1.0, maxval=5.0, step=0.25)
+tpPct = input.float(5, "Take Profit %", minval=3.0, maxval=12.0, step=0.5)
+expansionZ = input.float(1.0, "Expansion Z-Threshold", minval=0.5, maxval=2.0, step=0.1)
+minVelZ = input.float(0.5, "Min Velocity Z-Score", minval=0.2, maxval=1.5, step=0.1)
+detrendLen = input.int(50, "Detrend Length", minval=30, maxval=70, step=5)
+adxLen = 14
+tr = math.max(high - low, math.abs(high - nz(close[1], close)), math.abs(low - nz(close[1], close)))
+up = high - nz(high[1], high)
+down = nz(low[1], low) - low
+plusDM = up > down and up > 0 ? up : 0
+minusDM = down > up and down > 0 ? down : 0
+smoothedTR = ta.rma(tr, adxLen)
+smoothedPlusDM = ta.rma(plusDM, adxLen)
+smoothedMinusDM = ta.rma(minusDM, adxLen)
+plusDI = 100 * smoothedPlusDM / (smoothedTR + 1e-10)
+minusDI = 100 * smoothedMinusDM / (smoothedTR + 1e-10)
+dx = 100 * math.abs(plusDI - minusDI) / (plusDI + minusDI + 1e-10)
+adx = ta.rma(dx, adxLen)
+ema200 = ta.ema(close, 200)
+regimeBull = close > ema200
+sideways = adx < adxThresh
+envSmoothLen = 10
+envSlopeLen = 10
+envBaseLen = 150
+priceVelLen = 5
+trend = ta.sma(close, detrendLen)
+osc = nz(close - trend)
+quad = 0.0962 * osc + 0.5769 * nz(osc[2]) - 0.5769 * nz(osc[4]) - 0.0962 * nz(osc[6])
+envInst = math.sqrt(osc * osc + quad * quad)
+env = ta.ema(envInst, envSmoothLen)
+envSlope = env - nz(env[envSlopeLen], env)
+envSlopeMean = nz(ta.sma(envSlope, envBaseLen))
+envSlopeStd = ta.stdev(envSlope, envBaseLen)
+envExpZ = (envSlope - envSlopeMean) / math.max(nz(envSlopeStd), 1e-10)
+priceVel = close - nz(close[priceVelLen], close)
+priceVelMean = nz(ta.sma(priceVel, envBaseLen))
+priceVelStd = ta.stdev(priceVel, envBaseLen)
+priceVelZ = (priceVel - priceVelMean) / math.max(nz(priceVelStd), 1e-10)
+expansionEdge = ta.crossover(envExpZ, expansionZ)
+ready = bar_index > detrendLen + envBaseLen + 50
+goLong = expansionEdge and priceVel > 0 and math.abs(priceVelZ) > minVelZ and regimeBull and not sideways
+goShort = expansionEdge and priceVel < 0 and math.abs(priceVelZ) > minVelZ and not sideways
+if not regimeBull and strategy.position_size > 0
+    strategy.close("Long", comment="bear-exit")
+if sideways and strategy.position_size > 0
+    strategy.close("Long", comment="sideways-exit")
+    strategy.close("Short", comment="sideways-exit")
+if goShort and strategy.position_size > 0
+    strategy.close("Long", comment="env-flip-short")
+if goLong and strategy.position_size < 0
+    strategy.close("Short", comment="env-flip-long")
+if goLong and ready
+    strategy.entry("Long", strategy.long)
+if goShort and ready
+    strategy.entry("Short", strategy.short)
+strategy.exit("L-brk", from_entry="Long", limit=strategy.position_avg_price * (1 + tpPct / 100), stop=strategy.position_avg_price * (1 - slPct / 100))
+strategy.exit("S-brk", from_entry="Short", limit=strategy.position_avg_price * (1 - tpPct / 100), stop=strategy.position_avg_price * (1 + slPct / 100))

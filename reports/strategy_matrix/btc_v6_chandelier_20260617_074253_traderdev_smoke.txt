@@ -1,0 +1,49 @@
+========================================================================
+  STRATEGY MATRIX REPORT
+========================================================================
+  Strategy   : btc_v6_chandelier
+  Period     : 365 days
+  Timeframes : 1h
+  Directions : long
+  Crypto     : BTC/USD, SOL/USD
+  Stocks     : none
+  Generated  : 2026-06-17T07:42:53
+
+========================================================================
+  OVERALL SUMMARY
+========================================================================
+  Total cells tested    : 2
+  Overall avg PF        : 2.900
+  Cells with edge (PF>=1.2) : 2  (100.0%)
+  Verdict               : STRONG EDGE -- profitable across many conditions
+
+  -- CONDITIONS RANKED BY AVERAGE PF (best first) --
+  Condition     Avg PF  Avg WR%  Symbols  Edge cnt   Edge%
+  ------------ ------- -------- -------- --------- -------
+  1h/long        2.900    55.0%        2         2    100% <-- best
+
+  -- SYMBOLS RANKED BY AVERAGE PF (best first) --
+  Symbol           Class     Avg PF  Avg WR%  Conditions  Edge cnt   Edge%
+  ---------------- -------- ------- -------- ----------- --------- -------
+  SOL/USD          crypto     3.210    60.0%           1         1    100%
+  BTC/USD          crypto     2.590    50.0%           1         1    100%
+
+  -- TOP EDGE CELLS  (PF >= 1.2, >= 2 trades) --
+  #    Symbol           TF    Dir         PF    WR%  Trades        PnL
+  ---- ---------------- ----- ------- ------ ------ ------- ----------
+  1    SOL/USD          1h    long     3.210  60.0%       5       4.90
+  2    BTC/USD          1h    long     2.590  50.0%       6       5.88
+========================================================================
+  FULL MATRIX  (PF / WR%  per cell)
+========================================================================
+  Symbol               1h/l    
+  -----------------------------
+  -- CRYPTO --
+  BTC/USD           2.59/  50% 
+  SOL/USD           3.21/  60% 
+
+  l=long  s=short  b=both  |  format: PF/WR%
+
+========================================================================
+  END OF REPORT
+========================================================================

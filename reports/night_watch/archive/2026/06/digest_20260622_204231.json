@@ -1,0 +1,514 @@
+{
+  "generated_at": "2026-06-22T20:42:31-07:00",
+  "tail_bytes": 5000000,
+  "logs": {
+    "files": [
+      {
+        "path": "logs\\bot.log",
+        "exists": true,
+        "size_bytes": 128380782,
+        "last_write": "2026-06-22T20:42:11-07:00",
+        "tail_lines": 49934
+      },
+      {
+        "path": "logs\\scanner_signals.log",
+        "exists": true,
+        "size_bytes": 99976836,
+        "last_write": "2026-06-22T20:38:43-07:00",
+        "tail_lines": 42886
+      },
+      {
+        "path": "scanner.log",
+        "exists": true,
+        "size_bytes": 48061748,
+        "last_write": "2026-06-22T20:42:05-07:00",
+        "tail_lines": 51242
+      },
+      {
+        "path": "logs\\watchdog_ibkr.log",
+        "exists": true,
+        "size_bytes": 171258,
+        "last_write": "2026-06-22T07:09:28-07:00",
+        "tail_lines": 1996
+      },
+      {
+        "path": "logs\\web_dashboard_stderr.log",
+        "exists": true,
+        "size_bytes": 2561834,
+        "last_write": "2026-05-17T21:50:20-07:00",
+        "tail_lines": 31116
+      },
+      {
+        "path": "logs\\web_dashboard_stdout.log",
+        "exists": true,
+        "size_bytes": 3066,
+        "last_write": "2026-05-17T18:10:46-07:00",
+        "tail_lines": 41
+      }
+    ],
+    "counts": {
+      "checklist_rejected": 1873,
+      "position_monitor": 2298,
+      "disabled_activity": 2580,
+      "trade_open": 182,
+      "trade_closed": 150,
+      "executor_rejected": 191,
+      "critical_error": 412,
+      "timeout_connection": 151,
+      "zero_volume_baseline": 180,
+      "sender_rejected": 249,
+      "manual_command": 38
+    },
+    "rejection_reasons": {
+      "volume_below_minimum": 317,
+      "other": 1055,
+      "wick_rejection": 245,
+      "price_reversed_or_drift": 205,
+      "missing_volume_baseline": 48,
+      "min_price": 3,
+      "sender_other": 191,
+      "sender_volume_below_minimum": 14,
+      "sender_wick_rejection": 15,
+      "sender_bad_quote_currency": 9,
+      "sender_missing_volume_baseline": 4,
+      "sender_price_reversed_or_drift": 16
+    },
+    "examples": {
+      "checklist_rejected": [
+        "2026-06-22 02:32:24 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED PLAY/USD \u2014 Hard check failed: Volume spike 0.78x below minimum 1.2x",
+        "2026-06-22 02:45:01 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED RNBW/USD \u2014 Hard check failed: Already have open position on RNBW/USD",
+        "2026-06-22 02:56:16 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED RNBW/USD \u2014 Hard check failed: Price already 7.9% from breakout level \u2014 chasing (max 6.0% allowed)",
+        "2026-06-22 02:56:23 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED RNBW/USD \u2014 Hard check failed: Price already 7.9% from breakout level \u2014 chasing (max 6.0% allowed)",
+        "2026-06-22 02:56:41 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED BLESS/USD \u2014 Hard check failed: Already have open position on BLESS/USD",
+        "2026-06-22 02:57:23 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED ARC/USD \u2014 Hard check failed: Already have open position on ARC/USD",
+        "2026-06-22 03:10:07 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED ELX/USD \u2014 Hard check failed: Move 31.4% > gap trap threshold 30.0%",
+        "2026-06-22 03:10:18 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED ELX/USD \u2014 Hard check failed: Move 31.4% > gap trap threshold 30.0%"
+      ],
+      "reject_volume_below_minimum": [
+        "2026-06-22 02:32:24 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED PLAY/USD \u2014 Hard check failed: Volume spike 0.78x below minimum 1.2x",
+        "2026-06-22 03:21:42 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED BICO/USD \u2014 Hard check failed: Volume spike 0.01x below minimum 1.2x",
+        "2026-06-22 03:21:51 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED BICO/USD \u2014 Hard check failed: Volume spike 0.01x below minimum 1.2x",
+        "2026-06-22 03:36:40 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED W/USD \u2014 Hard check failed: Volume spike 0.82x below minimum 1.2x",
+        "2026-06-22 03:36:46 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED W/USD \u2014 Hard check failed: Volume spike 0.82x below minimum 1.2x",
+        "2026-06-22 03:49:23 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED TNSR/USD \u2014 Hard check failed: Volume spike 0.51x below minimum 1.2x",
+        "2026-06-22 03:49:31 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED TNSR/USD \u2014 Hard check failed: Volume spike 0.51x below minimum 1.2x",
+        "2026-06-22 04:02:21 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED PLAY/USD \u2014 Hard check failed: Volume spike 0.41x below minimum 1.2x"
+      ],
+      "position_monitor": [
+        "2026-06-22 02:32:35 [INFO] BotEngine: [SCHED] Position monitor started",
+        "2026-06-22 02:33:06 [INFO] BotEngine: [SCHED] Position monitor started",
+        "2026-06-22 02:33:36 [INFO] BotEngine: [SCHED] Position monitor started",
+        "2026-06-22 02:34:07 [INFO] BotEngine: [SCHED] Position monitor started",
+        "2026-06-22 02:34:37 [INFO] BotEngine: [SCHED] Position monitor started",
+        "2026-06-22 02:35:08 [INFO] BotEngine: [SCHED] Position monitor started",
+        "2026-06-22 02:35:38 [INFO] BotEngine: [SCHED] Position monitor started",
+        "2026-06-22 02:36:08 [INFO] BotEngine: [SCHED] Position monitor started"
+      ],
+      "disabled_activity": [
+        "2026-06-22 02:33:41 [INFO] scanners.base_scanner: [FundingScanner] disabled \u2014 scanner loop idle",
+        "2026-06-22 02:34:32 [INFO] scanners.base_scanner: [GapScanner] disabled \u2014 scanner loop idle",
+        "2026-06-22 02:38:41 [INFO] scanners.base_scanner: [FundingScanner] disabled \u2014 scanner loop idle",
+        "2026-06-22 02:39:33 [INFO] scanners.base_scanner: [GapScanner] disabled \u2014 scanner loop idle",
+        "2026-06-22 02:43:42 [INFO] scanners.base_scanner: [FundingScanner] disabled \u2014 scanner loop idle",
+        "2026-06-22 02:44:33 [INFO] scanners.base_scanner: [GapScanner] disabled \u2014 scanner loop idle",
+        "2026-06-22 02:48:42 [INFO] scanners.base_scanner: [FundingScanner] disabled \u2014 scanner loop idle",
+        "2026-06-22 02:49:33 [INFO] scanners.base_scanner: [GapScanner] disabled \u2014 scanner loop idle"
+      ],
+      "trade_open": [
+        "2026-06-22 02:44:53 [INFO] data.database: Trade opened: RNBW/USD @ 0.020565",
+        "2026-06-22 02:44:53 [INFO] core.trade_executor: [TRADE OPEN] RNBW/USD LONG | Entry: $0.0206 | Qty: 96711.8891 | SL: $0.0202 | TP: $0.0224 | Broker: kraken | ID: 17dc67dd-986",
+        "2026-06-22 02:55:34 [INFO] data.database: Trade opened: BILL/USD @ 0.062515",
+        "2026-06-22 02:55:34 [INFO] core.trade_executor: [TRADE OPEN] BILL/USD SHORT | Entry: $0.0625 | Qty: 31813.1648 | SL: $0.0638 | TP: $0.0569 | Broker: kraken | ID: df6afb6a-8fd",
+        "2026-06-22 02:56:33 [INFO] data.database: Trade opened: BLESS/USD @ 0.008186",
+        "2026-06-22 02:56:33 [INFO] core.trade_executor: [TRADE OPEN] BLESS/USD SHORT | Entry: $0.0082 | Qty: 242966.2208 | SL: $0.0083 | TP: $0.0074 | Broker: kraken | ID: e5f17b9d-40d",
+        "2026-06-22 02:57:15 [INFO] data.database: Trade opened: ARC/USD @ 0.078625",
+        "2026-06-22 02:57:15 [INFO] core.trade_executor: [TRADE OPEN] ARC/USD SHORT | Entry: $0.0786 | Qty: 25294.7536 | SL: $0.0802 | TP: $0.0668 | Broker: kraken | ID: f5013e5b-0b1"
+      ],
+      "reject_other": [
+        "2026-06-22 02:45:01 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED RNBW/USD \u2014 Hard check failed: Already have open position on RNBW/USD",
+        "2026-06-22 02:56:16 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED RNBW/USD \u2014 Hard check failed: Price already 7.9% from breakout level \u2014 chasing (max 6.0% allowed)",
+        "2026-06-22 02:56:23 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED RNBW/USD \u2014 Hard check failed: Price already 7.9% from breakout level \u2014 chasing (max 6.0% allowed)",
+        "2026-06-22 02:56:41 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED BLESS/USD \u2014 Hard check failed: Already have open position on BLESS/USD",
+        "2026-06-22 02:57:23 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED ARC/USD \u2014 Hard check failed: Already have open position on ARC/USD",
+        "2026-06-22 03:10:07 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED ELX/USD \u2014 Hard check failed: Move 31.4% > gap trap threshold 30.0%",
+        "2026-06-22 03:10:18 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED ELX/USD \u2014 Hard check failed: Move 31.4% > gap trap threshold 30.0%",
+        "2026-06-22 03:10:40 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED DRIFT/USD \u2014 Hard check failed: Move is 5 bars old \u2014 too late to enter (max 3 bars from breakout level)"
+      ],
+      "trade_closed": [
+        "2026-06-22 02:46:55 [INFO] core.trade_executor: [TRADE CLOSED] [LOSS] RNBW/USD | kraken | trailing_stop | PnL: -3.7237 (+0.43%)",
+        "2026-06-22 03:00:04 [INFO] core.trade_executor: [TRADE CLOSED] [LOSS] ARC/USD | kraken | breakout_loss_cap | PnL: -39.5225 (-1.37%)",
+        "2026-06-22 03:05:33 [INFO] core.trade_executor: [TRADE CLOSED] [LOSS] BILL/USD | kraken | breakout_loss_cap | PnL: -24.5787 (-0.62%)",
+        "2026-06-22 03:06:36 [INFO] core.trade_executor: [TRADE CLOSED] [LOSS] BLESS/USD | kraken | breakout_fast_fail | PnL: -20.1062 (-0.39%)",
+        "2026-06-22 04:34:20 [INFO] core.trade_executor: [TRADE CLOSED] [WIN] W/USD | kraken | trailing_stop | PnL: +33.2913 (+2.54%)",
+        "2026-06-22 04:50:31 [INFO] core.trade_executor: [TRADE CLOSED] [LOSS] TRIA/USD | kraken | breakout_loss_cap | PnL: -43.0631 (-1.55%)",
+        "2026-06-22 06:43:40 [INFO] core.trade_executor: [TRADE CLOSED] [LOSS] ES/USD | kraken | breakout_fast_fail | PnL: -12.3189 (+0.00%)",
+        "2026-06-22 07:23:34 [INFO] core.trade_executor: [TRADE CLOSED] [WIN] ME/USD | kraken | take_profit | PnL: +115.1986 (+9.00%)"
+      ],
+      "executor_rejected": [
+        "2026-06-22 02:56:23 [INFO] core.trade_executor: Trade rejected for W/USD: Signal confidence 0.63 below minimum 0.65",
+        "2026-06-22 02:56:23 [WARNING] core.breakout_receiver: [BREAKOUT RECV] Executor rejected W/USD",
+        "2026-06-22 02:56:31 [INFO] core.trade_executor: Trade rejected for W/USD: Signal confidence 0.63 below minimum 0.65",
+        "2026-06-22 02:56:31 [WARNING] core.breakout_receiver: [BREAKOUT RECV] Executor rejected W/USD",
+        "2026-06-22 07:15:02 [INFO] core.trade_executor: Trade rejected for NIO (Alpaca fallback): No available cash on alpaca: $0.00",
+        "2026-06-22 07:15:03 [INFO] core.trade_executor: Trade rejected for ADI (Alpaca fallback): No available cash on alpaca: $0.00",
+        "2026-06-22 07:15:03 [INFO] core.trade_executor: Trade rejected for CRWV (Alpaca fallback): No available cash on alpaca: $0.00",
+        "2026-06-22 07:15:03 [INFO] core.trade_executor: Trade rejected for SNOW (Alpaca fallback): No available cash on alpaca: $0.00"
+      ],
+      "reject_wick_rejection": [
+        "2026-06-22 03:22:45 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED BANANAS31/USD \u2014 Hard check failed: Upper wick 0.0008 > 2.0x body 0.0002",
+        "2026-06-22 04:14:36 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED BANANAS31/USD \u2014 Hard check failed: Upper wick 0.0007 > 2.0x body 0.0000",
+        "2026-06-22 04:15:29 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED CHILLHOUSE/USD \u2014 Hard check failed: Upper wick 0.0005 > 2.0x body 0.0002",
+        "2026-06-22 04:27:24 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED ZEX/USD \u2014 Hard check failed: Upper wick 0.0075 > 2.0x body 0.0005",
+        "2026-06-22 05:34:38 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED ZEX/USD \u2014 Hard check failed: Upper wick 0.0075 > 2.0x body 0.0006",
+        "2026-06-22 05:34:46 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED ZEX/USD \u2014 Hard check failed: Upper wick 0.0075 > 2.0x body 0.0006",
+        "2026-06-22 07:35:31 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED LAYER/USD \u2014 Hard check failed: Upper wick 0.0340 > 2.0x body 0.0142",
+        "2026-06-22 08:04:22 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED TOKEN/USD \u2014 Hard check failed: Upper wick 0.0001 > 2.0x body 0.0000"
+      ],
+      "reject_price_reversed_or_drift": [
+        "2026-06-22 03:36:19 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED LAYER/USD \u2014 Hard check failed: LAYER/USD reversed -2.06% from signal price (limit -0.5%)",
+        "2026-06-22 03:47:28 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED BASED/USD \u2014 Hard check failed: BASED/USD reversed -99.91% from signal price (limit -0.5%)",
+        "2026-06-22 03:47:36 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED BASED/USD \u2014 Hard check failed: BASED/USD reversed -99.91% from signal price (limit -0.5%)",
+        "2026-06-22 04:01:00 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED TNSR/USD \u2014 Hard check failed: TNSR/USD reversed +0.76% from signal price (limit +0.5%)",
+        "2026-06-22 04:27:56 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED RNBW/USD \u2014 Hard check failed: RNBW/USD reversed -2.47% from signal price (limit -0.5%)",
+        "2026-06-22 04:53:45 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED LAYER/USD \u2014 Hard check failed: LAYER/USD reversed -1.18% from signal price (limit -0.5%)",
+        "2026-06-22 05:09:05 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED LAYER/USD \u2014 Hard check failed: LAYER/USD reversed -25.20% from signal price (limit -0.5%)",
+        "2026-06-22 07:40:09 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED GFI/USD \u2014 Hard check failed: GFI/USD reversed -5.60% from signal price (limit -0.5%)"
+      ],
+      "critical_error": [
+        "2026-06-22 04:52:54 [ERROR] yfinance: $CLSK: possibly delisted; no price data found  (period=3d)",
+        "2026-06-22 04:52:54 [ERROR] yfinance:",
+        "2026-06-22 04:52:54 [ERROR] yfinance: ['CLSK']: possibly delisted; no price data found  (period=3d)",
+        "2026-06-22 04:55:03 [ERROR] yfinance: $KKR: possibly delisted; no price data found  (period=14d)",
+        "2026-06-22 04:55:03 [ERROR] yfinance:",
+        "2026-06-22 04:55:03 [ERROR] yfinance: ['KKR']: possibly delisted; no price data found  (period=14d)",
+        "2026-06-22 04:56:43 [ERROR] yfinance: $GALA-USD: possibly delisted; no price data found  (period=18d)",
+        "2026-06-22 04:56:43 [ERROR] yfinance:"
+      ],
+      "timeout_connection": [
+        "2026-06-22 04:55:04 [WARNING] core.candle_manager: [CandleManager] KKR/1h unreachable on all sources \u2014 logged",
+        "2026-06-22 17:49:43 [WARNING] core.candle_manager: [CandleManager] RUNE/USD/15m unreachable on all sources \u2014 logged",
+        "2026-06-22 17:49:53 [WARNING] core.candle_manager: [CandleManager] BAL/USD/15m unreachable on all sources \u2014 logged",
+        "2026-06-21 14:11:39,284 | WARNING | [SENDER] TNSR/USD timed out after 2 attempts",
+        "2026-06-21 14:35:06,190 | WARNING | [SENDER] SYN/USD timed out after 2 attempts",
+        "2026-06-21 14:37:00,369 | WARNING | [SENDER] DRIFT/USD timed out after 2 attempts",
+        "2026-06-21 14:59:54,143 | WARNING | [SENDER] REPPO/USD timed out after 2 attempts",
+        "2026-06-21 15:11:21,215 | WARNING | [SENDER] US/USD timed out after 2 attempts"
+      ],
+      "zero_volume_baseline": [
+        "2026-06-22 07:23:47 [WARNING] core.breakout_receiver:   [HARD] [FAIL] No volume baseline available (1.00x, source=unknown, current_volume=None, avg_volume=None) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-22 07:23:47 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED ME/USD \u2014 Hard check failed: No volume baseline available (1.00x, source=unknown, current_volume=None, avg_volume=None) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-22 07:23:47 [INFO] scanners.market_scanner: [REENTRY] ME/USD: REJECTED \u2014 Hard check failed: No volume baseline available (1.00x, source=unknown, current_volume=None, avg_volume=None) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-22 08:30:19 [WARNING] core.breakout_receiver:   [HARD] [FAIL] No volume baseline available (1.00x, source=signal.volume_spike, current_volume=58.1799999814, avg_volume=0.0) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-22 08:30:19 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED AVAAI/USD \u2014 Hard check failed: No volume baseline available (1.00x, source=signal.volume_spike, current_volume=58.1799999814, avg_volume=0.0) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-22 08:31:28 [WARNING] core.breakout_receiver:   [HARD] [FAIL] No volume baseline available (1.00x, source=unknown, current_volume=None, avg_volume=None) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-22 08:31:28 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED BREV/USD \u2014 Hard check failed: No volume baseline available (1.00x, source=unknown, current_volume=None, avg_volume=None) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-22 08:31:28 [INFO] scanners.market_scanner: [REENTRY] BREV/USD: REJECTED \u2014 Hard check failed: No volume baseline available (1.00x, source=unknown, current_volume=None, avg_volume=None) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation."
+      ],
+      "reject_missing_volume_baseline": [
+        "2026-06-22 07:23:47 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED ME/USD \u2014 Hard check failed: No volume baseline available (1.00x, source=unknown, current_volume=None, avg_volume=None) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-22 08:30:19 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED AVAAI/USD \u2014 Hard check failed: No volume baseline available (1.00x, source=signal.volume_spike, current_volume=58.1799999814, avg_volume=0.0) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-22 08:31:28 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED BREV/USD \u2014 Hard check failed: No volume baseline available (1.00x, source=unknown, current_volume=None, avg_volume=None) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-22 08:35:59 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED UNFI/USD \u2014 Hard check failed: No volume baseline available (1.00x, source=unknown, current_volume=None, avg_volume=None) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-22 12:34:49 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED BICO/USD \u2014 Hard check failed: No volume baseline available (1.00x, source=unknown, current_volume=None, avg_volume=None) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-19 06:36:22 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED PORTAL/USD \u2014 Hard check failed: No volume baseline available (1.00x, source=unknown, current_volume=None, avg_volume=None) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-19 09:33:17 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED SYN/USD \u2014 Hard check failed: No volume baseline available (1.00x, source=unknown, current_volume=None, avg_volume=None) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-19 12:25:38 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED LSETH/USD \u2014 Hard check failed: No volume baseline available (1.00x, source=signal.volume_spike, current_volume=616.003523338, avg_volume=0.0) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation."
+      ],
+      "reject_min_price": [
+        "2026-06-20 06:17:42 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED SIDEKICK/USD \u2014 Hard check failed: Price $0.000080 below MIN_PRICE_CRYPTO $0.0001 \u2014 micro-cap rejected",
+        "2026-06-20 12:19:07 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED UNITE/USD \u2014 Hard check failed: Price $0.000015 below MIN_PRICE_CRYPTO $0.0001 \u2014 micro-cap rejected",
+        "2026-06-20 12:19:16 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED UNITE/USD \u2014 Hard check failed: Price $0.000015 below MIN_PRICE_CRYPTO $0.0001 \u2014 micro-cap rejected"
+      ],
+      "sender_rejected": [
+        "2026-06-21 14:14:19,888 | INFO | [SENDER] REJECTED WARD/USD esc=1 \ufffd Duplicate signal rejected \ufffd WARD/USD already being processed",
+        "2026-06-21 14:23:44,080 | INFO | [SENDER] REJECTED RE/USD esc=1 \ufffd Hard check failed: Volume spike 117.5x exceeds PUMP_VOLUME_SPIKE_MAX 15.0x \ufffd possible wash-trade or thin-float pump",
+        "2026-06-21 14:36:32,010 | INFO | [SENDER] REJECTED ATLAS/USD esc=3 \ufffd Hard check failed: Price already 12.5% from breakout level \ufffd chasing (max 6.0% allowed)",
+        "2026-06-21 14:37:18,599 | INFO | [SENDER] REJECTED SAGA/USD esc=1 \ufffd Hard check failed: Move is 5 bars old \ufffd too late to enter (max 3 bars from breakout level)",
+        "2026-06-21 14:47:49,778 | INFO | [SENDER] REJECTED EREBRO/USD esc=1 \ufffd Duplicate signal rejected \ufffd EREBRO/USD already being processed",
+        "2026-06-21 15:00:25,260 | INFO | [SENDER] REJECTED SYN/USD esc=1 \ufffd Duplicate signal rejected \ufffd SYN/USD already being processed",
+        "2026-06-21 15:11:06,037 | INFO | [SENDER] REJECTED REPPO/USD esc=2 \ufffd Hard check failed: Price already 7.1% from breakout level \ufffd chasing (max 6.0% allowed)",
+        "2026-06-21 15:11:19,130 | INFO | [SENDER] REJECTED W/USD esc=1 \ufffd Hard check failed: Move is 4 bars old \ufffd too late to enter (max 3 bars from breakout level)"
+      ],
+      "manual_command": [
+        "[manual close OK] position=28056b58-a53: Closed AR/USD @ $2.1990.",
+        "[manual close OK] position=85ea3961-64a: Closed YFI/USD @ $2533.0000.",
+        "[manual close OK] position=c2718769-167: Closed ANKR/USD @ $0.0048.",
+        "[manual close OK] position=ff96654a-c1a: Closed DYM/USD @ $0.0222.",
+        "[manual close OK] position=3883e675-5a9: Closed SNX/USD @ $0.3127.",
+        "[manual close OK] position=fbdd852a-23a: Closed NMR/USD @ $9.6800.",
+        "[manual close OK] position=82786eb5-467: Closed DYM/USD @ $0.0220.",
+        "[manual close OK] position=81c72d79-7da: Closed RAILS/USD @ $0.0865."
+      ]
+    },
+    "last_seen": {
+      "checklist_rejected": "2026-06-22 20:32:16 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED SYN/USD \u2014 Hard check failed: Move is 5 bars old \u2014 too late to enter (max 3 bars from breakout level)",
+      "position_monitor": "2026-06-22 17:06:16 [INFO] core.trade_executor: [PARTIAL TP] SYND/USD: closed 35% (27725.632344) @ $0.0243 | P&L $19.11 (+3.37%) | remaining qty 51490.460068",
+      "disabled_activity": "2026-06-22 20:38:43 [INFO] scanners.base_scanner: [GapScanner] disabled \u2014 scanner loop idle",
+      "trade_open": "2026-06-22 19:13:27 [INFO] core.trade_executor: [TRADE OPEN] VELODROME/USD LONG | Entry: $0.0225 | Qty: 88585.0401 | SL: $0.0220 | TP: $0.0245 | Broker: kraken | ID: 485df9a0-979",
+      "trade_closed": "2026-06-22 19:23:41 [INFO] core.trade_executor: [TRADE CLOSED] [LOSS] VELODROME/USD | kraken | breakout_fast_fail | PnL: -18.5366 (-0.31%)",
+      "executor_rejected": "2026-06-22 20:16:57 [WARNING] core.breakout_receiver: [BREAKOUT RECV] Executor rejected VELODROME/USD",
+      "critical_error": "['INJ-US']: possibly delisted; no price data found  (period=4d) (Yahoo error = \"No data found, symbol may be delisted\")",
+      "timeout_connection": "2026-06-22 20:32:15,583 | WARNING | [SENDER] SYN/USD timed out after 2 attempts",
+      "zero_volume_baseline": "2026-06-22 08:30:19,101 | INFO | [SENDER] REJECTED AVAAI/USD esc=4 \ufffd Hard check failed: No volume baseline available (1.00x, source=signal.volume_spike, current_volume=58.1799999814, avg_volume=0.0) \ufffd cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+      "sender_rejected": "2026-06-22 20:30:17,137 | INFO | [SENDER] REJECTED AIO/USD esc=1 \ufffd Hard check failed: Volume spike 42.5x exceeds PUMP_VOLUME_SPIKE_MAX 15.0x \ufffd possible wash-trade or thin-float pump",
+      "manual_command": "[manual close OK] position=797e0977-a0b: Closed BCH/USD @ $403.0500."
+    },
+    "position_monitor_lines": 2298,
+    "trade_open_lines": 182,
+    "trade_closed_lines": 150
+  },
+  "db": {
+    "exists": true,
+    "today": "2026-06-22",
+    "open_trade_count": 0,
+    "open_trades": [],
+    "strategy_stats_today": [
+      {
+        "strategy_name": "breakout_scanner",
+        "trades": 32,
+        "wins": 11,
+        "losses": 21,
+        "total_pnl": 17.14,
+        "gross_wins": 579.86,
+        "gross_losses": 562.72,
+        "win_rate_pct": 34.4,
+        "profit_factor": 1.03
+      }
+    ],
+    "asset_counts_today": [
+      {
+        "asset_class": "crypto",
+        "status": "closed",
+        "count": 32
+      }
+    ],
+    "oversized_entries_today": [],
+    "scanner_strategy_flags": [
+      {
+        "key": "breakout_scanner_enabled",
+        "value": "true",
+        "updated": "2026-06-12T21:24:18.024820"
+      },
+      {
+        "key": "scanner_funding_scanner_enabled",
+        "value": "false",
+        "updated": "2026-06-14T16:34:30.187091"
+      },
+      {
+        "key": "scanner_gap_scanner_enabled",
+        "value": "false",
+        "updated": "2026-06-18T00:42:14.614394"
+      },
+      {
+        "key": "strategy_adaptive_regime_enabled",
+        "value": "false",
+        "updated": "2026-06-01 07:30:22"
+      },
+      {
+        "key": "strategy_bmr_357_enabled",
+        "value": "true",
+        "updated": "2026-06-07T09:39:40.589353"
+      },
+      {
+        "key": "strategy_bollinger_breakout_enabled",
+        "value": "true",
+        "updated": "2026-05-19T09:11:37.137761"
+      },
+      {
+        "key": "strategy_bollinger_squeeze_enabled",
+        "value": "false",
+        "updated": "2026-06-01 07:30:22"
+      },
+      {
+        "key": "strategy_btc_v6_chandelier_enabled",
+        "value": "false",
+        "updated": "2026-06-01T06:58:16.972837"
+      },
+      {
+        "key": "strategy_cbae_strategy_enabled",
+        "value": "false",
+        "updated": "2026-06-01 07:30:22"
+      },
+      {
+        "key": "strategy_dca_accumulator_enabled",
+        "value": "false",
+        "updated": "2026-05-20T10:22:04.338536"
+      },
+      {
+        "key": "strategy_ecb_strategy_enabled",
+        "value": "false",
+        "updated": "2026-05-20T10:35:47.936180"
+      },
+      {
+        "key": "strategy_ema_crossover_enabled",
+        "value": "false",
+        "updated": "2026-05-16T18:38:26.843042+00:00"
+      },
+      {
+        "key": "strategy_ema_ribbon_breakout_enabled",
+        "value": "false",
+        "updated": "2026-06-01 07:30:22"
+      },
+      {
+        "key": "strategy_fels_strategy_enabled",
+        "value": "false",
+        "updated": "2026-06-08 01:19:46"
+      },
+      {
+        "key": "strategy_grid_bot_enabled",
+        "value": "false",
+        "updated": "2026-05-21 07:04:04"
+      },
+      {
+        "key": "strategy_hammer_reversal_enabled",
+        "value": "true",
+        "updated": "2026-05-20T08:22:18.654872"
+      },
+      {
+        "key": "strategy_kds_mean_reversion_enabled",
+        "value": "false",
+        "updated": "2026-06-01 07:30:22"
+      },
+      {
+        "key": "strategy_map_strategy_enabled",
+        "value": "false",
+        "updated": "2026-06-08 01:19:46"
+      },
+      {
+        "key": "strategy_mean_reversion_enabled",
+        "value": "false",
+        "updated": "2026-05-19T09:11:37.160763"
+      },
+      {
+        "key": "strategy_mr_02_vef_enabled",
+        "value": "false",
+        "updated": "2026-06-16T13:53:48.270333"
+      },
+      {
+        "key": "strategy_mr_03_fbs_enabled",
+        "value": "false",
+        "updated": "2026-06-08T07:20:33.310168"
+      },
+      {
+        "key": "strategy_mr_04_fvg_enabled",
+        "value": "false",
+        "updated": "2026-05-23T01:40:45.637601"
+      },
+      {
+        "key": "strategy_orb_breakout_enabled",
+        "value": "true",
+        "updated": "2026-05-19T09:11:37.206762"
+      },
+      {
+        "key": "strategy_pll_cycle_enabled",
+        "value": "true",
+        "updated": "2026-05-24T10:37:37.442540"
+      },
+      {
+        "key": "strategy_pll_cycle_martingale_enabled",
+        "value": "false",
+        "updated": "2026-05-25T11:27:46.190337"
+      },
+      {
+        "key": "strategy_rare_strategy_enabled",
+        "value": "false",
+        "updated": "2026-06-01 07:30:22"
+      },
+      {
+        "key": "strategy_rcr_mean_reversion_enabled",
+        "value": "false",
+        "updated": "2026-06-08T07:46:01.699348"
+      },
+      {
+        "key": "strategy_rsi_dip_simple_enabled",
+        "value": "false",
+        "updated": "2026-06-08 01:19:46"
+      },
+      {
+        "key": "strategy_rsi_dip_spike_v4_enabled",
+        "value": "false",
+        "updated": "2026-06-05T11:40:37.467863"
+      },
+      {
+        "key": "strategy_rsi_momentum_enabled",
+        "value": "false",
+        "updated": "2026-05-16T18:38:26.843042+00:00"
+      },
+      {
+        "key": "strategy_scalp_master_enabled",
+        "value": "true",
+        "updated": "2026-05-19T09:31:26.427605"
+      },
+      {
+        "key": "strategy_sfr_structural_fakeout_enabled",
+        "value": "true",
+        "updated": "2026-06-01 07:30:22"
+      },
+      {
+        "key": "strategy_swing_trader_enabled",
+        "value": "false",
+        "updated": "2026-05-16T18:38:26.843042+00:00"
+      },
+      {
+        "key": "strategy_vdmr_strategy_enabled",
+        "value": "true",
+        "updated": "2026-05-19T09:35:43.420914"
+      },
+      {
+        "key": "strategy_vwap_confirmed_orb_enabled",
+        "value": "false",
+        "updated": "2026-06-08 01:19:46"
+      },
+      {
+        "key": "strategy_vwap_momentum_enabled",
+        "value": "true",
+        "updated": "2026-05-16T18:38:26.843042+00:00"
+      }
+    ],
+    "stock_trade_check_ready": true,
+    "stock_trade_check_reason": "stock market window elapsed"
+  },
+  "findings": [
+    {
+      "severity": "HIGH",
+      "title": "Errors or exceptions in recent logs",
+      "detail": "412 recent critical/error/exception lines found.",
+      "evidence": [
+        "2026-06-22 04:52:54 [ERROR] yfinance: $CLSK: possibly delisted; no price data found  (period=3d)",
+        "2026-06-22 04:52:54 [ERROR] yfinance:",
+        "2026-06-22 04:52:54 [ERROR] yfinance: ['CLSK']: possibly delisted; no price data found  (period=3d)",
+        "2026-06-22 04:55:03 [ERROR] yfinance: $KKR: possibly delisted; no price data found  (period=14d)",
+        "2026-06-22 04:55:03 [ERROR] yfinance:"
+      ]
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Timeouts or connection problems",
+      "detail": "151 recent timeout/connection lines found.",
+      "evidence": [
+        "2026-06-22 04:55:04 [WARNING] core.candle_manager: [CandleManager] KKR/1h unreachable on all sources \u2014 logged",
+        "2026-06-22 17:49:43 [WARNING] core.candle_manager: [CandleManager] RUNE/USD/15m unreachable on all sources \u2014 logged",
+        "2026-06-22 17:49:53 [WARNING] core.candle_manager: [CandleManager] BAL/USD/15m unreachable on all sources \u2014 logged",
+        "2026-06-21 14:11:39,284 | WARNING | [SENDER] TNSR/USD timed out after 2 attempts",
+        "2026-06-21 14:35:06,190 | WARNING | [SENDER] SYN/USD timed out after 2 attempts"
+      ]
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "Missing or zero volume baseline events",
+      "detail": "180 recent zero-volume/baseline events found.",
+      "evidence": [
+        "2026-06-22 07:23:47 [WARNING] core.breakout_receiver:   [HARD] [FAIL] No volume baseline available (1.00x, source=unknown, current_volume=None, avg_volume=None) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-22 07:23:47 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED ME/USD \u2014 Hard check failed: No volume baseline available (1.00x, source=unknown, current_volume=None, avg_volume=None) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-22 07:23:47 [INFO] scanners.market_scanner: [REENTRY] ME/USD: REJECTED \u2014 Hard check failed: No volume baseline available (1.00x, source=unknown, current_volume=None, avg_volume=None) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-22 08:30:19 [WARNING] core.breakout_receiver:   [HARD] [FAIL] No volume baseline available (1.00x, source=signal.volume_spike, current_volume=58.1799999814, avg_volume=0.0) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation.",
+        "2026-06-22 08:30:19 [INFO] core.breakout_receiver: [BREAKOUT RECV] CHECKLIST REJECTED AVAAI/USD \u2014 Hard check failed: No volume baseline available (1.00x, source=signal.volume_spike, current_volume=58.1799999814, avg_volume=0.0) \u2014 cannot confirm breakout volume. Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation."
+      ]
+    },
+    {
+      "severity": "MEDIUM",
+      "title": "No stock trades recorded today",
+      "detail": "DB shows zero stock trades opened/closed today. Check market-hours gate, scanner, reviewer, and broker path."
+    }
+  ]
+}

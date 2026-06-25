@@ -99,7 +99,27 @@ class Database:
                     is_overnight    INTEGER DEFAULT 0,
                     broker_order_id  TEXT,
                     tp_hit_count     INTEGER DEFAULT 0,
-                    entry_timeframe  TEXT DEFAULT '5Min'
+                    entry_timeframe  TEXT DEFAULT '5Min',
+                    mfe_pct          REAL DEFAULT 0,
+                    mae_pct          REAL DEFAULT 0,
+                    partial_pnl      REAL DEFAULT 0,
+                    partial_fees_paid REAL DEFAULT 0,
+                    partial_exit_count INTEGER DEFAULT 0
+                );
+
+                -- Realized partial exits for positions that continue running.
+                CREATE TABLE IF NOT EXISTS trade_partials (
+                    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+                    trade_id        TEXT NOT NULL,
+                    timestamp       TEXT NOT NULL,
+                    symbol          TEXT NOT NULL,
+                    exit_price      REAL NOT NULL,
+                    quantity        REAL NOT NULL,
+                    position_value  REAL NOT NULL,
+                    pnl             REAL NOT NULL,
+                    pnl_pct         REAL NOT NULL,
+                    fees_paid       REAL DEFAULT 0,
+                    reason          TEXT
                 );
 
                 -- Advisory AI signal reviews.
@@ -287,6 +307,38 @@ class Database:
                     reason         TEXT,
                     metadata_json  TEXT
                 );
+
+                -- Parsed high-value log events for DB Browser filtering.
+                -- Populated on demand by Scripts/import_log_events.py.
+                CREATE TABLE IF NOT EXISTS log_events (
+                    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                    event_hash     TEXT UNIQUE NOT NULL,
+                    timestamp      TEXT,
+                    source_file    TEXT NOT NULL,
+                    line_no        INTEGER,
+                    severity       TEXT,
+                    event_type     TEXT,
+                    symbol         TEXT,
+                    strategy_name  TEXT,
+                    direction      TEXT,
+                    decision       TEXT,
+                    policy         TEXT,
+                    message        TEXT NOT NULL,
+                    raw_line       TEXT NOT NULL,
+                    details_json   TEXT,
+                    imported_at    TEXT NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_log_events_timestamp
+                    ON log_events(timestamp);
+                CREATE INDEX IF NOT EXISTS idx_log_events_type
+                    ON log_events(event_type);
+                CREATE INDEX IF NOT EXISTS idx_log_events_symbol
+                    ON log_events(symbol);
+                CREATE INDEX IF NOT EXISTS idx_log_events_strategy
+                    ON log_events(strategy_name);
+                CREATE INDEX IF NOT EXISTS idx_log_events_decision
+                    ON log_events(decision);
             """)
             # Column migrations for existing databases (ALTER TABLE ignores if already present)
             for sql in [
@@ -306,6 +358,11 @@ class Database:
                 "ALTER TABLE trades ADD COLUMN broker_order_id  TEXT",
                 "ALTER TABLE trades ADD COLUMN tp_hit_count     INTEGER DEFAULT 0",
                 "ALTER TABLE trades ADD COLUMN entry_timeframe  TEXT    DEFAULT '5Min'",
+                "ALTER TABLE trades ADD COLUMN mfe_pct          REAL    DEFAULT 0",
+                "ALTER TABLE trades ADD COLUMN mae_pct          REAL    DEFAULT 0",
+                "ALTER TABLE trades ADD COLUMN partial_pnl      REAL    DEFAULT 0",
+                "ALTER TABLE trades ADD COLUMN partial_fees_paid REAL   DEFAULT 0",
+                "ALTER TABLE trades ADD COLUMN partial_exit_count INTEGER DEFAULT 0",
                 "ALTER TABLE session_state ADD COLUMN starting_capital_today REAL DEFAULT 0",
             ]
             for sql in migrations:
@@ -367,6 +424,13 @@ class Database:
                     exit_reason: str, pnl: float, pnl_pct: float,
                     fees_paid: float = 0.0):
         with self._conn() as conn:
+            row = conn.execute(
+                "SELECT partial_pnl, partial_fees_paid FROM trades WHERE trade_id = ?",
+                (trade_id,)
+            ).fetchone()
+            if row:
+                pnl += float(row["partial_pnl"] or 0.0)
+                fees_paid += float(row["partial_fees_paid"] or 0.0)
             conn.execute("""
                 UPDATE trades SET
                     status      = 'closed',
@@ -379,6 +443,52 @@ class Database:
                 WHERE trade_id = ?
             """, (_now_local().isoformat(), exit_price, exit_reason,
                   pnl, pnl_pct, fees_paid, trade_id))
+
+    def update_trade_diagnostics(
+        self, trade_id: str, mfe_pct: float = None, mae_pct: float = None
+    ):
+        sets, vals = [], []
+        if mfe_pct is not None:
+            sets.append("mfe_pct = ?"); vals.append(round(float(mfe_pct), 4))
+        if mae_pct is not None:
+            sets.append("mae_pct = ?"); vals.append(round(float(mae_pct), 4))
+        if not sets:
+            return
+        vals.append(trade_id)
+        with self._conn() as conn:
+            conn.execute(
+                f"UPDATE trades SET {', '.join(sets)} WHERE trade_id = ?", vals
+            )
+
+    def record_partial_exit(
+        self, trade_id: str, symbol: str, exit_price: float,
+        quantity: float, position_value: float, pnl: float, pnl_pct: float,
+        fees_paid: float = 0.0, reason: str = "partial_take_profit"
+    ):
+        with self._conn() as conn:
+            conn.execute("""
+                INSERT INTO trade_partials
+                    (trade_id, timestamp, symbol, exit_price, quantity,
+                     position_value, pnl, pnl_pct, fees_paid, reason)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                trade_id, _now_local().isoformat(), symbol,
+                round(float(exit_price), 8), round(float(quantity), 8),
+                round(float(position_value), 4), round(float(pnl), 4),
+                round(float(pnl_pct), 4), round(float(fees_paid), 4), reason
+            ))
+            conn.execute("""
+                UPDATE trades SET
+                    quantity = MAX(quantity - ?, 0),
+                    position_value = MAX(position_value - ?, 0),
+                    partial_pnl = COALESCE(partial_pnl, 0) + ?,
+                    partial_fees_paid = COALESCE(partial_fees_paid, 0) + ?,
+                    partial_exit_count = COALESCE(partial_exit_count, 0) + 1
+                WHERE trade_id = ?
+            """, (
+                float(quantity), float(position_value), float(pnl),
+                float(fees_paid), trade_id
+            ))
 
     def update_trade_order_ids(self, trade_id: str,
                                stop_order_id: str = None,

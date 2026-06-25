@@ -95,6 +95,11 @@ class BreakoutSignalPayload(BaseModel):
     breakout_level:  Optional[float]    = None
     bars_since_breakout: Optional[int]  = None
     distance_from_breakout_pct: Optional[float] = None
+    volume_source:   Optional[str]      = None
+    current_volume:  Optional[float]    = None
+    bar_volume:      Optional[float]    = None
+    avg_volume:      Optional[float]    = None
+    vol_mult:        Optional[float]    = None
 
 
 class ControlPayload(BaseModel):

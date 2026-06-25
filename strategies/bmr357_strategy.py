@@ -63,9 +63,12 @@ STATUS    : INCUBATE — paper trade only | ml_exempt=True (no training history)
 """
 
 import logging
+import time
+from collections import defaultdict
 import numpy as np
 import pandas as pd
 import config
+from strategies.base_strategy import BaseStrategy, TradeSignal
 from dataclasses import dataclass
 from typing import Optional
 
@@ -198,13 +201,6 @@ def generate_signals(df: pd.DataFrame,
 
 # ── Bot integration wrapper ────────────────────────────────────────────────────
 
-try:
-    from strategies.base_strategy import BaseStrategy, TradeSignal
-except ImportError:
-    BaseStrategy = object
-    TradeSignal  = None
-
-
 class BMR357Strategy(BaseStrategy):
     """
     Bollinger Band Mean Reversion with 3-5-7 Risk Rule.
@@ -227,6 +223,69 @@ class BMR357Strategy(BaseStrategy):
         self.reviewer_exempt         = True
         self.ml_exempt               = True
         self.time_stop_profile       = "strategy_defined"
+        self._health_interval_sec    = max(
+            30.0,
+            float(getattr(config, "BMR357_HEALTH_LOG_INTERVAL_SEC", 300.0)),
+        )
+        self._health_window_started  = time.monotonic()
+        self._health_scans           = 0
+        self._health_counts          = defaultdict(int)
+        self._health_examples        = {}
+
+    def _record_health(self, symbol: str, outcome: str, detail: str = "",
+                       extra_counts: Optional[list[str]] = None,
+                       force: bool = False) -> None:
+        """Aggregate BMR gate outcomes so INFO logs stay useful without spam."""
+        self._health_scans += 1
+        self._health_counts[outcome] += 1
+        for extra in extra_counts or []:
+            self._health_counts[extra] += 1
+
+        if detail:
+            self._health_examples[outcome] = f"{symbol} {detail}"
+
+        now = time.monotonic()
+        if force or (now - self._health_window_started) >= self._health_interval_sec:
+            self._flush_health(now)
+
+    def _flush_health(self, now: Optional[float] = None) -> None:
+        if self._health_scans <= 0:
+            return
+
+        now = time.monotonic() if now is None else now
+        elapsed = max(1.0, now - self._health_window_started)
+        ordered_keys = [
+            "no_bars",
+            "insufficient_bars",
+            "setup_fail",
+            "bb_fail",
+            "rsi_fail",
+            "distance_fail",
+            "btc_momentum_unavailable",
+            "btc_momentum_fail",
+            "signal_generated",
+            "error",
+        ]
+        counts = " ".join(
+            f"{key}={self._health_counts[key]}"
+            for key in ordered_keys
+            if self._health_counts.get(key, 0) > 0
+        )
+        examples = "; ".join(
+            f"{key}: {value}"
+            for key, value in self._health_examples.items()
+        )
+        example_suffix = f" | examples={examples}" if examples else ""
+
+        self.logger.info(
+            f"[BMR357][health] window={elapsed:.0f}s scans={self._health_scans} "
+            f"{counts}{example_suffix}"
+        )
+
+        self._health_window_started = now
+        self._health_scans = 0
+        self._health_counts.clear()
+        self._health_examples.clear()
 
     def _btc_momentum_active(self, symbol: str, candles: pd.DataFrame) -> tuple[bool, Optional[float]]:
         p = self.params
@@ -235,7 +294,7 @@ class BMR357Strategy(BaseStrategy):
         try:
             btc_df = candles if symbol.upper() == "BTC/USD" else None
             if btc_df is None:
-                from intelligence.candle_manager import candle_manager
+                from core.candle_manager import candle_manager
                 btc_df = candle_manager.get("BTC/USD", self.crypto_candle_timeframe, limit=3)
             if btc_df is None or len(btc_df) < 2:
                 return False, None
@@ -253,10 +312,19 @@ class BMR357Strategy(BaseStrategy):
             return False, None
 
     def analyze(self, symbol: str, candles: pd.DataFrame,
-                market_condition: str = "unknown") -> Optional["TradeSignal"]:
+                market_condition: str = "unknown") -> Optional[TradeSignal]:
         p       = self.params
         MIN_BARS = max(p.bb_len, p.rsi_len, p.sma_filter_len) + 10
+        candle_count = 0 if candles is None else len(candles)
+        if candle_count <= 0:
+            self._record_health(symbol, "no_bars", f"required={MIN_BARS}")
+            return None
         if not self._check_enough_candles(symbol, candles, MIN_BARS):
+            self._record_health(
+                symbol,
+                "insufficient_bars",
+                f"bars={candle_count} required={MIN_BARS}",
+            )
             return None
 
         try:
@@ -266,6 +334,24 @@ class BMR357Strategy(BaseStrategy):
             long_sig  = bool(last["long_signal"])
 
             if not long_sig:
+                close = float(last["close"])
+                rsi_val = float(last["rsi"]) if not pd.isna(last["rsi"]) else None
+                bb_lower = float(last["bb_lower"]) if not pd.isna(last["bb_lower"]) else None
+                bb_pass = bb_lower is not None and close < bb_lower
+                rsi_pass = rsi_val is not None and rsi_val < p.rsi_long
+                failed_parts = []
+                if not bb_pass:
+                    failed_parts.append("bb_fail")
+                if not rsi_pass:
+                    failed_parts.append("rsi_fail")
+                rsi_detail = "nan" if rsi_val is None else f"{rsi_val:.1f}"
+                bb_detail = "nan" if bb_lower is None else f"{bb_lower:.6f}"
+                self._record_health(
+                    symbol,
+                    "setup_fail",
+                    f"close={close:.6f} bb_lower={bb_detail} rsi={rsi_detail}",
+                    extra_counts=failed_parts,
+                )
                 return None
 
             direction = "long"
@@ -274,7 +360,7 @@ class BMR357Strategy(BaseStrategy):
             bb_mid    = float(last["bb_mid"])   if not pd.isna(last["bb_mid"])   else close
             bb_upper  = float(last["bb_upper"]) if not pd.isna(last["bb_upper"]) else close
             bb_lower  = float(last["bb_lower"]) if not pd.isna(last["bb_lower"]) else close
-            sma_filt  = float(last["sma_filter"]) if not pd.isna(last["sma_filter"]) else None
+            sma_filter_value = float(last["sma_filter"]) if not pd.isna(last["sma_filter"]) else None
 
             # Distance from midline — larger distance = stronger reversion potential
             dist_to_mid_pct = abs(close - bb_mid) / bb_mid * 100
@@ -283,6 +369,11 @@ class BMR357Strategy(BaseStrategy):
                 float(getattr(config, "MIN_NET_PROFIT_CRYPTO_PCT", 1.02)),
             )
             if dist_to_mid_pct < min_target_pct:
+                self._record_health(
+                    symbol,
+                    "distance_fail",
+                    f"dist_to_mid={dist_to_mid_pct:.2f}% min={min_target_pct:.2f}%",
+                )
                 self.verbose_log(
                     symbol,
                     "BMR target too small after fees",
@@ -303,6 +394,11 @@ class BMR357Strategy(BaseStrategy):
                         "BTC move unavailable"
                         if btc_move_pct is None
                         else f"BTC 15m move {btc_move_pct:.2f}% < {min_btc_move:.2f}%"
+                    )
+                    self._record_health(
+                        symbol,
+                        "btc_momentum_unavailable" if btc_move_pct is None else "btc_momentum_fail",
+                        detail,
                     )
                     self.verbose_log(
                         symbol,
@@ -344,6 +440,12 @@ class BMR357Strategy(BaseStrategy):
             self.verbose_log(symbol, "BB+RSI mean-reversion", True,
                              round(close, 6), reason_tag, direction)
             self.verbose_log_score(symbol, score, 0.60)
+            self._record_health(
+                symbol,
+                "signal_generated",
+                f"score={score:.3f} close={close:.6f} dist_to_mid={dist_to_mid_pct:.2f}%",
+                force=True,
+            )
 
             return self._make_signal(
                 symbol          = symbol,
@@ -360,7 +462,7 @@ class BMR357Strategy(BaseStrategy):
                     "bb_mid":          round(bb_mid,   6),
                     "bb_upper":        round(bb_upper, 6),
                     "bb_lower":        round(bb_lower, 6),
-                    "sma_filter":      round(sma_filt, 6) if sma_filt else None,
+                    "sma_filter":      round(sma_filter_value, 6) if sma_filter_value is not None else None,
                     "dist_to_mid_pct": round(dist_to_mid_pct, 4),
                     "btc_15m_move_pct": round(btc_move_pct, 4) if btc_move_pct is not None else None,
                     "btc_momentum_active": btc_active,
@@ -379,6 +481,7 @@ class BMR357Strategy(BaseStrategy):
             )
 
         except Exception as e:
+            self._record_health(symbol, "error", str(e), force=True)
             self.logger.error(f"BMR357Strategy.analyze error on {symbol}: {e}", exc_info=True)
             return None
 

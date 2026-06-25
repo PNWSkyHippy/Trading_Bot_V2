@@ -13,8 +13,8 @@
   "--accent-bright": "#2dd4bf",
   "--bevel-hi": "rgba(255,255,255,0.10)",
   "--bevel-sh": "rgba(0,0,0,0.62)",
-  "--panel-tilt": "0",
-  "--panel-thickness": "0",
-  "--panel-perspective": "2000",
-  "--panel-edge-color": "#1a2535"
+  "--panel-tilt": "2",
+  "--panel-thickness": "10",
+  "--panel-perspective": "1200",
+  "--panel-edge-color": "#7a361f"
 }

@@ -1,0 +1,212 @@
+{
+  "defaultWallTextureId": "rock060",
+  "walls": [
+    {
+      "id": "rock060",
+      "label": "Rock 060",
+      "path": "Textures/WallTextures/Rock060_1K-JPG_Color.jpg",
+      "normal": "Textures/WallTextures/Rock060_1K-JPG_NormalGL.jpg",
+      "ao": "Textures/WallTextures/Rock060_1K-JPG_AmbientOcclusion.jpg"
+    },
+    {
+      "id": "metal050a",
+      "label": "Metal 050A - white/silver",
+      "path": "Textures/WallTextures/Metal050A_2K-JPG_Color.jpg",
+      "normal": "Textures/WallTextures/Metal050A_2K-JPG_NormalGL.jpg",
+      "roughness": "Textures/WallTextures/Metal050A_2K-JPG_Roughness.jpg",
+      "metalness": "Textures/WallTextures/Metal050A_2K-JPG_Metalness.jpg"
+    },
+    {
+      "id": "metal056c",
+      "label": "Metal 056C - darker/rusted",
+      "path": "Textures/WallTextures/Metal056C_2K-JPG_Color.jpg",
+      "normal": "Textures/WallTextures/Metal056C_2K-JPG_NormalGL.jpg",
+      "roughness": "Textures/WallTextures/Metal056C_2K-JPG_Roughness.jpg",
+      "metalness": "Textures/WallTextures/Metal056C_2K-JPG_Metalness.jpg"
+    },
+    {
+      "id": "onyx003",
+      "label": "Shiny Onyx 003",
+      "path": "Textures/WallTextures/Onyx003_2K-JPG_Color.jpg",
+      "normal": "Textures/WallTextures/Onyx003_2K-JPG_NormalGL.jpg",
+      "roughness": "Textures/WallTextures/Onyx003_2K-JPG_Roughness.jpg"
+    },
+    {
+      "id": "onyx010",
+      "label": "Shiny Onyx 010",
+      "path": "Textures/WallTextures/Onyx010_2K-JPG_Color.jpg",
+      "normal": "Textures/WallTextures/Onyx010_2K-JPG_NormalGL.jpg",
+      "roughness": "Textures/WallTextures/Onyx010_2K-JPG_Roughness.jpg"
+    },
+    {
+      "id": "onyx013",
+      "label": "Shiny Onyx 013",
+      "path": "Textures/WallTextures/Onyx013_2K-JPG_Color.jpg",
+      "normal": "Textures/WallTextures/Onyx013_2K-JPG_NormalGL.jpg",
+      "roughness": "Textures/WallTextures/Onyx013_2K-JPG_Roughness.jpg"
+    },
+    {
+      "id": "ground054",
+      "label": "Sand Ground 054",
+      "path": "Textures/WallTextures/Ground054_2K-JPG_Color.jpg",
+      "normal": "Textures/WallTextures/Ground054_2K-JPG_NormalGL.jpg",
+      "ao": "Textures/WallTextures/Ground054_2K-JPG_AmbientOcclusion.jpg"
+    },
+    {
+      "id": "ground104",
+      "label": "Sand Ground 104",
+      "path": "Textures/WallTextures/Ground104_2K-JPG_Color.jpg",
+      "normal": "Textures/WallTextures/Ground104_2K-JPG_NormalGL.jpg",
+      "ao": "Textures/WallTextures/Ground104_2K-JPG_AmbientOcclusion.jpg"
+    },
+    {
+      "id": "snow008c",
+      "label": "Ice Snow 008C",
+      "path": "Textures/WallTextures/Snow008C_2K-JPG_Color.jpg",
+      "normal": "Textures/WallTextures/Snow008C_2K-JPG_NormalGL.jpg",
+      "ao": "Textures/WallTextures/Snow008C_2K-JPG_AmbientOcclusion.jpg"
+    },
+    {
+      "id": "snow012",
+      "label": "Ice Snow 012",
+      "path": "Textures/WallTextures/Snow012_2K-JPG_Color.jpg",
+      "normal": "Textures/WallTextures/Snow012_2K-JPG_NormalGL.jpg",
+      "ao": "Textures/WallTextures/Snow012_2K-JPG_AmbientOcclusion.jpg"
+    },
+    {
+      "id": "water1",
+      "label": "Underwater 1",
+      "path": "Textures/WallTextures/water1.jpg"
+    },
+    {
+      "id": "water2",
+      "label": "Underwater 2",
+      "path": "Textures/WallTextures/water2.jpg"
+    },
+    {
+      "id": "water3",
+      "label": "Underwater 3",
+      "path": "Textures/WallTextures/Waater3.jpg"
+    },
+    {
+      "id": "water4",
+      "label": "Underwater 4",
+      "path": "Textures/WallTextures/water4.jpg"
+    },
+    {
+      "id": "water5",
+      "label": "Underwater 5",
+      "path": "Textures/WallTextures/water5.jpg"
+    },
+    {
+      "id": "metal001_nm",
+      "label": "Normal Map Metal 001 - not color",
+      "path": "Textures/WallTextures/metall001-new-nm.jpeg"
+    },
+    {
+      "id": "metal003_nm",
+      "label": "Normal Map Metal 003 - not color",
+      "path": "Textures/WallTextures/metall003-new-nm.jpeg"
+    },
+    {
+      "id": "metal005_nm",
+      "label": "Normal Map Metal 005 - not color",
+      "path": "Textures/WallTextures/metall005-new-nm.jpeg"
+    },
+    {
+      "id": "metal010_bar",
+      "label": "Normal Map Metal 010 Bar - not color",
+      "path": "Textures/WallTextures/metall010-new-tileable-bar-nm.jpeg"
+    },
+    {
+      "id": "metal010_bar_1",
+      "label": "Normal Map Metal 010 Bar Alt - not color",
+      "path": "Textures/WallTextures/metall010-new-tileable-bar-nm-1.jpeg"
+    }
+  ],
+  "ai": [
+    {
+      "id": "wire_star_destroyer",
+      "label": "Wire Star Destroyer",
+      "path": ""
+    },
+    {
+      "id": "enemy_black_1",
+      "label": "Enemy Black 1",
+      "path": "Textures/AI Textures/PNG/Enemies/enemyBlack1.png"
+    },
+    {
+      "id": "enemy_blue_1",
+      "label": "Enemy Blue 1",
+      "path": "Textures/AI Textures/PNG/Enemies/enemyBlue1.png"
+    },
+    {
+      "id": "enemy_green_1",
+      "label": "Enemy Green 1",
+      "path": "Textures/AI Textures/PNG/Enemies/enemyGreen1.png"
+    },
+    {
+      "id": "enemy_red_1",
+      "label": "Enemy Red 1",
+      "path": "Textures/AI Textures/PNG/Enemies/enemyRed1.png"
+    },
+    {
+      "id": "ufo_blue",
+      "label": "UFO Blue",
+      "path": "Textures/AI Textures/PNG/ufoBlue.png"
+    },
+    {
+      "id": "ufo_green",
+      "label": "UFO Green",
+      "path": "Textures/AI Textures/PNG/ufoGreen.png"
+    },
+    {
+      "id": "ufo_red",
+      "label": "UFO Red",
+      "path": "Textures/AI Textures/PNG/ufoRed.png"
+    },
+    {
+      "id": "ufo_yellow",
+      "label": "UFO Yellow",
+      "path": "Textures/AI Textures/PNG/ufoYellow.png"
+    }
+  ],
+  "effects": [
+    {
+      "id": "orange_laser",
+      "label": "Orange Laser",
+      "path": "",
+      "color": "#ff5500"
+    },
+    {
+      "id": "blue_laser",
+      "label": "Blue Laser",
+      "path": "Textures/AI Textures/PNG/Lasers/laserBlue01.png",
+      "color": "#33a8ff"
+    },
+    {
+      "id": "green_laser",
+      "label": "Green Laser",
+      "path": "Textures/AI Textures/PNG/Lasers/laserGreen01.png",
+      "color": "#32ff88"
+    },
+    {
+      "id": "red_laser",
+      "label": "Red Laser",
+      "path": "Textures/AI Textures/PNG/Lasers/laserRed01.png",
+      "color": "#ff3333"
+    },
+    {
+      "id": "projectile_enemy_shot_0",
+      "label": "Enemy Shot 0",
+      "path": "Textures/Projectile Textures/enemy_shot_0.png",
+      "color": "#ff8844"
+    },
+    {
+      "id": "projectile_player_shot_0",
+      "label": "Player Shot 0",
+      "path": "Textures/Projectile Textures/player_shot_0.png",
+      "color": "#66d9ff"
+    }
+  ]
+}

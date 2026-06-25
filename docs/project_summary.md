@@ -156,9 +156,15 @@ asset classes it would never trade live. rsi_dip_spike_v4 is the main case.
 6. **Hammer whitelist expanded** — consider relaxing OBV window 3->2 bars for more signals.
 7. **Double "Signals after ML/filter" log** — `_process_signals()` called twice
    on same batch. Minor bug.
+8. **DB archival/shedding system** — keep `data/trading_bot.db` fast by moving
+   older high-volume rows out of the hot DB while preserving queryable history.
+   Target behavior: keep roughly the latest 30 days in the main DB, append shed
+   rows into an archive SQLite DB, preserve IRS/tax/export records, and roll to a
+   new yearly archive DB at year end. Should likely run manually or monthly/every
+   couple months at first, with dry-run counts and backup creation before delete.
 
 ### Low
-8. **scalp_master ADX filter** — adx_min=20 may be too tight after f-string fix.
+9. **scalp_master ADX filter** — adx_min=20 may be too tight after f-string fix.
    Watch live results; consider 15 if signals still rare.
 
 ---

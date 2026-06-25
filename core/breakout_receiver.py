@@ -282,10 +282,13 @@ class BreakoutReceiver:
             )
             payload["move_pct"] = 500.0
 
+        self._normalize_volume_fields(payload)
+
         logger.info(
             f"[BREAKOUT RECV] {sym} {str(direction).upper()} "
             f"esc={esc} move={payload.get('move_pct', 0):+.2f}% "
             f"age={signal_age_sec:.0f}s vol={payload.get('volume_spike', 0):.2f}x "
+            f"vol_src={payload.get('volume_source') or 'unknown'} "
             f"broker={broker_hint or 'none'} source_broker={source_broker or 'none'} "
             f"stop={payload.get('structural_stop_price', 'none')} "
             f"bars_since={payload.get('bars_since_breakout', '?')}"
@@ -583,8 +586,12 @@ class BreakoutReceiver:
                 return ChecklistResult.skip(
                     f"Volume spike {vol:.2f}x (gap fill — fading low-volume reversal, volume check N/A)"
                 )
+            cur_vol = p.get("current_volume") or p.get("bar_volume")
+            avg_vol = p.get("avg_volume")
+            source  = p.get("volume_source") or "unknown"
             return ChecklistResult.fail(
-                f"No volume baseline available ({vol:.2f}x) — cannot confirm breakout volume. "
+                f"No volume baseline available ({vol:.2f}x, source={source}, "
+                f"current_volume={cur_vol}, avg_volume={avg_vol}) — cannot confirm breakout volume. "
                 f"Rejecting to prevent thin-float / micro-cap entries with no liquidity confirmation."
             )
         if vol < VOLUME_SPIKE_MIN:
@@ -604,6 +611,44 @@ class BreakoutReceiver:
                 f"Volume spike {vol:.2f}x below minimum {VOLUME_SPIKE_MIN}x"
             )
         return ChecklistResult.ok(f"Volume elevated {vol:.2f}x")
+
+    def _normalize_volume_fields(self, p: Dict) -> None:
+        """Recover equivalent volume ratio fields before checklist evaluation."""
+        try:
+            vol = float(p.get("volume_spike") or 0)
+        except (TypeError, ValueError):
+            vol = 0.0
+
+        if vol > 0:
+            return
+
+        for key in ("vol_mult",):
+            try:
+                candidate = float(p.get(key) or 0)
+            except (TypeError, ValueError):
+                candidate = 0.0
+            if candidate > 0:
+                p["volume_spike"] = candidate
+                p["volume_source"] = p.get("volume_source") or key
+                logger.info(
+                    "[BREAKOUT RECV] %s volume_spike recovered from %s=%.3fx",
+                    p.get("symbol", "?"), key, candidate
+                )
+                return
+
+        try:
+            cur = float((p.get("current_volume") or p.get("bar_volume") or 0))
+            avg = float(p.get("avg_volume") or 0)
+        except (TypeError, ValueError):
+            cur = avg = 0.0
+
+        if cur > 0 and avg > 0:
+            p["volume_spike"] = cur / avg
+            p["volume_source"] = p.get("volume_source") or "current_volume/avg_volume"
+            logger.info(
+                "[BREAKOUT RECV] %s volume_spike recovered from current/avg volume %.3fx",
+                p.get("symbol", "?"), p["volume_spike"]
+            )
 
     def _check_no_wick_rejection(self, p: Dict) -> ChecklistResult:
         o, h, l, c = (
@@ -1184,6 +1229,20 @@ class BreakoutReceiver:
                     ("breakout_scanner",),
                 ))
             )
+            # Direction is intentionally manual right now: edit config.py flags
+            # to flip a scanner. Do not let live performance stats auto-switch.
+            flip_policy = "static_config"
+            flip_decision = "CONTRARIAN" if source_contrarian_enabled else "FORWARD"
+            logger.warning(
+                "[BREAKOUT DIRECTION DECISION] %s source=%s policy=%s decision=%s "
+                "incoming=%s adaptive_reason=%s",
+                sym,
+                signal_source,
+                flip_policy,
+                flip_decision,
+                str(original_direction).upper(),
+                "manual_config_flag",
+            )
 
             if (
                 getattr(config, "BREAKOUT_CONTRARIAN_MODE", False)
@@ -1212,17 +1271,18 @@ class BreakoutReceiver:
             else:
                 custom_stop = None
 
-            # TP ladder: start at 6% so the ratchet trail (not the TP) is the primary
-            # exit.  Bump TP as price proves the move — the escalation level from the
+            # TP ladder: start at 9% so true speed-runners have room again while
+            # the ratchet trail remains the primary protective exit.
+            # Bump TP as price proves the move — the escalation level from the
             # scanner tells us how far price has already traveled from the breakout:
-            #   esc 1 → 2% move  → TP  6%  (base — catches fast close-outs)
-            #   esc 2 → 5% move  → TP 12%  (real momentum — let it breathe)
-            #   esc 3 → 10% move → TP 18%  (strong trend — widen further)
-            #   esc 4 → 15% move → TP 24%  (monster move — max ceiling)
+            #   esc 1 → 2% move  → TP  9%  (base — old runner ceiling restored)
+            #   esc 2 → 5% move  → TP 15%  (real momentum — let it breathe)
+            #   esc 3 → 10% move → TP 21%  (strong trend — widen further)
+            #   esc 4 → 15% move → TP 27%  (monster move — max ceiling)
             # Ratchet trail (original-SL-dist below peak) is the real exit for
             # runners — the TP is just a hard ceiling in case ratchet misfires.
-            _esc_tp_map = {0: 6.0, 1: 6.0, 2: 12.0, 3: 18.0, 4: 24.0}
-            custom_tp = _esc_tp_map.get(int(esc), 24.0 if int(esc) >= 4 else 6.0)
+            _esc_tp_map = {0: 9.0, 1: 9.0, 2: 15.0, 3: 21.0, 4: 27.0}
+            custom_tp = _esc_tp_map.get(int(esc), 27.0 if int(esc) >= 4 else 9.0)
 
             signal = Signal(
                 symbol        = sym,
@@ -1233,7 +1293,8 @@ class BreakoutReceiver:
                 reason        = (
                     f"{signal_source} esc={esc} "
                     f"move={p.get('move_pct', 0):+.1f}% "
-                    f"vol={p.get('volume_spike', 0):.1f}x"
+                    f"vol={p.get('volume_spike', 0):.1f}x "
+                    f"dir_mode={flip_decision.lower()}"
                 ),
                 indicators    = {
                     "strategy_name":              strategy_name,
@@ -1254,6 +1315,8 @@ class BreakoutReceiver:
                     "structural_stop_price":      p.get("structural_stop_price"),
                     "contrarian_mode":            p.get("contrarian_mode", False),
                     "original_direction":         p.get("contrarian_original_direction"),
+                    "direction_decision":         flip_decision.lower(),
+                    "direction_policy":           flip_policy,
                     "breakout_level":             p.get("breakout_level"),
                     "bars_since_breakout":        p.get("bars_since_breakout"),
                     "distance_from_breakout_pct": p.get("distance_from_breakout_pct"),

@@ -450,3 +450,48 @@ class PLLCycleMartingaleStrategy(PLLCycleStrategy):
             "_loss_streak never updates (no notify_order hook). "
             "Running as flat-size PLL until wired."
         )
+
+
+class PLLConservativeETHStrategy(PLLCycleStrategy):
+    """
+    TraderDev public strategy: "PLL Conservative ETH 1h — gauntlet".
+
+    This is a closer Pine-parity lane than PLLCycleStrategy:
+      - exact public params: p96/detrend200/BW0.04/LPF0.15/lock1.2
+      - fixed 4% stop and 12% target
+      - no martingale
+      - no half-cycle timeout
+      - closes on opposite PLL signal, matching strategy.close() in Pine
+    """
+
+    def __init__(self):
+        super().__init__(use_martingale=False)
+        self.params = PLLCycleParams(
+            center_period=96,
+            detrend_len=200,
+            loop_bw=0.04,
+            lpf_alpha=0.15,
+            lock_thresh=1.2,
+            sl_pct=4.0,
+            tp_pct=12.0,
+            use_martingale=False,
+        )
+        self.strategy_name = "pll_conservative_eth_1h"
+        self.stop_loss_pct = self.params.sl_pct
+        self.take_profit_pct = self.params.tp_pct
+        self.crypto_candle_timeframe = "1h"
+        self.candle_limit = self.params.detrend_len + 200
+
+    def _exit_from_precomputed(self, i: int, sigs: pd.DataFrame,
+                               direction: str, meta: dict) -> Optional[str]:
+        row = sigs.iloc[i]
+        if direction == "long" and bool(row["short_signal"]):
+            return "pll_reverse_signal"
+        if direction == "short" and bool(row["long_signal"]):
+            return "pll_reverse_signal"
+        return None
+
+    def check_custom_exit(self, symbol: str, bars: pd.DataFrame,
+                          direction: str, entry_metadata: Optional[dict] = None) -> Optional[str]:
+        sigs = generate_signals(bars, self.params)
+        return self._exit_from_precomputed(len(sigs) - 1, sigs, direction, entry_metadata or {})

@@ -1,0 +1,6 @@
+symbol,trades,wins,losses,total_pnl,avg_pnl,avg_win,avg_loss,gross_wins,gross_losses,win_rate_pct,profit_factor
+BTC/USD,1,1,0,65.0,65.0,65.0,0.0,65.0,0.0,100.0,
+TSLA,1,1,0,22.1,22.1,22.1,0.0,22.1,0.0,100.0,
+AAVE/USD,1,0,1,-12.5,-12.5,0.0,-12.5,0.0,12.5,0.0,0.0
+NVDA,1,0,1,-30.0,-30.0,0.0,-30.0,0.0,30.0,0.0,0.0
+TOTAL,4,2,2,44.6,11.15,43.55,-21.25,87.1,42.5,50.0,2.049

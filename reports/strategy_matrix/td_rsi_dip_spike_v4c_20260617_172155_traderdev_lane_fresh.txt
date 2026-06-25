@@ -1,0 +1,54 @@
+========================================================================
+  STRATEGY MATRIX REPORT
+========================================================================
+  Strategy   : td_rsi_dip_spike_v4c
+  Period     : 365 days
+  Timeframes : 1h
+  Directions : long, short, both
+  Crypto     : SOL/USD, BTC/USD, ETH/USD, BNB/USD, DOGE/USD
+  Stocks     : none
+  Generated  : 2026-06-17T17:21:55
+
+========================================================================
+  OVERALL SUMMARY
+========================================================================
+  Total cells tested    : 15
+  Overall avg PF        : 0.361
+  Cells with edge (PF>=1.2) : 0  (0.0%)
+  Verdict               : WEAK / NO EDGE -- few profitable conditions found
+
+  -- CONDITIONS RANKED BY AVERAGE PF (best first) --
+  Condition     Avg PF  Avg WR%  Symbols  Edge cnt   Edge%
+  ------------ ------- -------- -------- --------- -------
+  1h/long        0.400    42.3%        5         0      0% <-- best
+  1h/both        0.370    42.0%        5         0      0%
+  1h/short       0.314    39.1%        5         0      0%
+
+  -- SYMBOLS RANKED BY AVERAGE PF (best first) --
+  Symbol           Class     Avg PF  Avg WR%  Conditions  Edge cnt   Edge%
+  ---------------- -------- ------- -------- ----------- --------- -------
+  SOL/USD          crypto     0.523    45.9%           3         0      0%
+  DOGE/USD         crypto     0.473    39.9%           3         0      0%
+  BNB/USD          crypto     0.330    46.7%           3         0      0%
+  ETH/USD          crypto     0.273    37.1%           3         0      0%
+  BTC/USD          crypto     0.207    36.1%           3         0      0%
+
+  -- TOP EDGE CELLS  (PF >= 1.2, >= 2 trades) --
+  No cells met the edge threshold.
+========================================================================
+  FULL MATRIX  (PF / WR%  per cell)
+========================================================================
+  Symbol               1h/l         1h/s         1h/b    
+  -------------------------------------------------------
+  -- CRYPTO --
+  SOL/USD           0.76/  61%   0.23/  22%   0.58/  54% 
+  BTC/USD           0.13/  26%   0.32/  50%   0.17/  32% 
+  ETH/USD           0.37/  44%   0.13/  27%   0.32/  40% 
+  BNB/USD           0.33/  45%   0.33/  50%   0.33/  45% 
+  DOGE/USD          0.41/  36%   0.56/  46%   0.45/  38% 
+
+  l=long  s=short  b=both  |  format: PF/WR%
+
+========================================================================
+  END OF REPORT
+========================================================================

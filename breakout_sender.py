@@ -270,6 +270,7 @@ class BreakoutSender:
         asset_class = "crypto" if "/" in signal.symbol else "stock"
         broker      = getattr(signal, "broker", "KRAKEN").lower()
         now_utc     = datetime.now(timezone.utc).isoformat()
+        vol_info    = self._resolve_volume_info(signal, cd)
 
         sig_ts = getattr(signal, "timestamp", None)
         source_ts = (
@@ -301,7 +302,12 @@ class BreakoutSender:
             "escalation":    escalation,
 
             # Quality
-            "volume_spike":   getattr(signal, "volume_spike",   cd.get("volume_spike",  0.0)),
+            "volume_spike":   vol_info["volume_spike"],
+            "volume_source":  vol_info["volume_source"],
+            "current_volume": vol_info["current_volume"],
+            "bar_volume":     vol_info["current_volume"],
+            "avg_volume":     vol_info["avg_volume"],
+            "vol_mult":       vol_info["volume_spike"],
             "momentum_score": getattr(signal, "momentum_score", cd.get("momentum_score", 0.0)),
             "confidence":     getattr(signal, "confidence",     0.7),
 
@@ -322,6 +328,59 @@ class BreakoutSender:
             "breakout_level":             getattr(signal, "breakout_level",             None),
             "bars_since_breakout":        getattr(signal, "bars_since_breakout",        None),
             "distance_from_breakout_pct": getattr(signal, "distance_from_breakout_pct", None),
+        }
+
+    def _to_float(self, value) -> Optional[float]:
+        try:
+            if value is None:
+                return None
+            return float(value)
+        except (TypeError, ValueError):
+            return None
+
+    def _resolve_volume_info(self, signal, cd: dict) -> dict:
+        """Return the best non-zero volume ratio plus raw volume diagnostics."""
+        cd = cd or {}
+        hist = list(getattr(signal, "volume_history", []) or [])
+
+        current_volume = (
+            self._to_float(cd.get("current_volume"))
+            or self._to_float(cd.get("bar_volume"))
+            or self._to_float(cd.get("volume"))
+            or (self._to_float(hist[-1]) if hist else None)
+        )
+
+        avg_volume = (
+            self._to_float(getattr(signal, "avg_volume", None))
+            or self._to_float(cd.get("avg_volume"))
+        )
+        if avg_volume is None and len(hist) > 1:
+            prior = [float(v) for v in hist[:-1] if self._to_float(v) is not None]
+            if prior:
+                avg_volume = sum(prior) / len(prior)
+
+        candidates = [
+            ("signal.volume_spike", self._to_float(getattr(signal, "volume_spike", None))),
+            ("enrichment.volume_spike", self._to_float(cd.get("volume_spike"))),
+            ("enrichment.vol_mult", self._to_float(cd.get("vol_mult"))),
+        ]
+        if current_volume and avg_volume and avg_volume > 0:
+            candidates.append(("volume_history", current_volume / avg_volume))
+
+        for source, value in candidates:
+            if value is not None and value > 0:
+                return {
+                    "volume_spike": value,
+                    "volume_source": source,
+                    "current_volume": current_volume,
+                    "avg_volume": avg_volume,
+                }
+
+        return {
+            "volume_spike": 0.0,
+            "volume_source": "missing",
+            "current_volume": current_volume,
+            "avg_volume": avg_volume,
         }
 
     def send_raw_payload(self, payload: dict) -> None:

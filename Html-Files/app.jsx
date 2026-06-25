@@ -526,9 +526,13 @@ function Dock() {
   const { windows, open, focus } = useWindows();
   const resetLayout = () => {
     if (prompt('Type RESET to confirm wiping your window layout:') === 'RESET') {
+      window.tbotLayout?.saveCurrentAsBackup?.();
       localStorage.removeItem('tbot.windows.v2');
       location.reload();
     }
+  };
+  const restoreMainLayout = () => {
+    window.tbotLayout?.restoreMain?.();
   };
   const items = [
     { id: 'overview', label: 'Overview', icon: 'activity' },
@@ -560,7 +564,11 @@ function Dock() {
           </button>
         );
       })}
-      <button className="dock-btn" onClick={resetLayout} title="Reset Layout" style={{ marginLeft: 'auto', opacity: 0.5 }}>
+      <button className="dock-btn" onClick={restoreMainLayout} title="Restore Main Layout" style={{ marginLeft: 'auto', opacity: 0.75 }}>
+        <Icon name="grid" size={18} />
+        <span className="tip">Main Layout</span>
+      </button>
+      <button className="dock-btn" onClick={resetLayout} title="Reset Layout" style={{ opacity: 0.5 }}>
         <Icon name="refresh" size={18} />
         <span className="tip">Reset Layout</span>
       </button>
@@ -574,9 +582,13 @@ function Taskbar() {
   const cpu = $M(() => 12 + Math.floor(Math.random() * 8), []);
   const resetLayout = () => {
     if (prompt('Type RESET to confirm wiping your window layout:') === 'RESET') {
+      window.tbotLayout?.saveCurrentAsBackup?.();
       localStorage.removeItem('tbot.windows.v2');
       location.reload();
     }
+  };
+  const restoreMainLayout = () => {
+    window.tbotLayout?.restoreMain?.();
   };
   return (
     <div className="taskbar">
@@ -595,6 +607,7 @@ function Taskbar() {
         );
       })}
       <div className="tray">
+        <button className="btn ghost sm" onClick={restoreMainLayout} title="Restore saved main dashboard layout"><Icon name="grid" size={11} />Main Layout</button>
         <button className="btn ghost sm" onClick={resetLayout} title="Reset all windows to default positions"><Icon name="refresh" size={11} />Reset Layout</button>
         <div className="item"><span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)', boxShadow: '0 0 6px var(--green)' }}></span> Bot · PID 11552</div>
         <div className="item"><Icon name="cpu" size={11} /> CPU {cpu}%</div>

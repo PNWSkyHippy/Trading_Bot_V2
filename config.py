@@ -221,6 +221,28 @@ SCANNER_RATCHET_REDUCE_RISK_TRIGGER_PCT = 1.00
 SCANNER_RATCHET_GROSS_BREAKEVEN_PCT     = 0.00
 SCANNER_RATCHET_NET_LOCK_TRIGGER_PCT    = 1.50
 
+# Scanner fast-fail / partial-profit harvesting.
+# These affect only scanner-origin crypto trades unless a caller opts in.
+BREAKOUT_FAST_FAIL_ENABLED        = True
+BREAKOUT_PARTIAL_TP_ENABLED       = True
+BREAKOUT_PARTIAL_TP_TRIGGER_PCT   = 1.50
+BREAKOUT_PARTIAL_TP_FRACTION      = 0.35
+BREAKOUT_EARLY_LOSS_CAP_ENABLED   = True
+BREAKOUT_EARLY_LOSS_CAP_SEC       = 2 * 60
+BREAKOUT_EARLY_LOSS_CAP_PCT       = -0.50
+# Deprecated: breakout loss-cap used to exempt trades that briefly moved green.
+# That let small winners decay into full -2% stop-outs. Keep the setting for
+# old imports, but current logic treats this as a hard max-loss guard.
+BREAKOUT_EARLY_LOSS_CAP_MAX_MFE   = None
+
+# Bad-tick guard for crypto position monitoring.
+# If the scanner/monitor price claims a huge move from entry, require it to
+# roughly agree with Kraken before using it for partial exits, TP fills, or
+# ratchet writes. This catches stale/new-listing feed prints without muting
+# normal breakout movement.
+CRYPTO_MONITOR_BROKER_CONFIRM_MOVE_PCT = 20.0
+CRYPTO_MONITOR_BROKER_MAX_DIFF_PCT     = 5.0
+
 # Momentum rider
 MOMENTUM_RIDER_ENABLED        = True
 MOMENTUM_RIDER_RSI_MIN        = 50
@@ -358,6 +380,9 @@ EARLY_LOSS_MIN_PCT       = -0.3   # trigger threshold (negative = loss)
 # Only fires after 30 minutes to allow trade to breathe past entry noise
 PIVOT_EXIT_ENABLED       = True
 PIVOT_EXIT_BARS          = 20     # bars used to calculate pivot levels
+# Pivot exits are opt-in by strategy.  They were originally global, but that
+# let structural exits bleed into strategies with their own exit logic.
+PIVOT_EXIT_STRATEGIES    = set()
 
 # =============================================================================
 # DAILY MARKET SCANNER

@@ -1,0 +1,61 @@
+﻿Summary By Strategy
+"P&L, win rate, average win/loss, and profit factor grouped by strategy."
+strategy_name,trades,wins,losses,total_pnl,avg_pnl,avg_win,avg_loss,gross_wins,gross_losses,win_rate_pct,profit_factor
+breakout_scanner,2,1,1,52.5,26.25,65.0,-12.5,65.0,12.5,50.0,5.2
+sfr_structural_fakeout,1,1,0,22.1,22.1,22.1,0.0,22.1,0.0,100.0,
+gap_scanner,1,0,1,-30.0,-30.0,0.0,-30.0,0.0,30.0,0.0,0.0
+TOTAL,4,2,2,44.6,11.15,43.55,-21.25,87.1,42.5,50.0,2.049
+
+
+Summary By Exit Reason
+Shows which exit paths are making or losing money.
+exit_reason,trades,wins,losses,total_pnl,avg_pnl,avg_win,avg_loss,gross_wins,gross_losses,win_rate_pct,profit_factor
+take_profit,2,2,0,87.1,43.55,43.55,0.0,87.1,0.0,100.0,
+trailing_stop,1,0,1,-12.5,-12.5,0.0,-12.5,0.0,12.5,0.0,0.0
+stop_loss,1,0,1,-30.0,-30.0,0.0,-30.0,0.0,30.0,0.0,0.0
+TOTAL,4,2,2,44.6,11.15,43.55,-21.25,87.1,42.5,50.0,2.049
+
+
+Summary By Symbol
+Top 100 symbols by total P&L in this dump.
+symbol,trades,wins,losses,total_pnl,avg_pnl,avg_win,avg_loss,gross_wins,gross_losses,win_rate_pct,profit_factor
+BTC/USD,1,1,0,65.0,65.0,65.0,0.0,65.0,0.0,100.0,
+TSLA,1,1,0,22.1,22.1,22.1,0.0,22.1,0.0,100.0,
+AAVE/USD,1,0,1,-12.5,-12.5,0.0,-12.5,0.0,12.5,0.0,0.0
+NVDA,1,0,1,-30.0,-30.0,0.0,-30.0,0.0,30.0,0.0,0.0
+TOTAL,4,2,2,44.6,11.15,43.55,-21.25,87.1,42.5,50.0,2.049
+
+
+Scanner Trades
+Raw rows for strategies with 'scanner' in the strategy name.
+strategy_name,symbol,pnl,pnl_pct,exit_reason,mfe_pct,mae_pct,partial_exit_count
+breakout_scanner,AAVE/USD,-12.5,-0.6,trailing_stop,1.7,-0.8,0
+breakout_scanner,BTC/USD,65.0,3.2,take_profit,4.1,-0.2,1
+gap_scanner,NVDA,-30.0,-1.5,stop_loss,0.2,-1.5,0
+
+
+Green Then Red
+Trades that were up at least 1.5% but still closed at breakeven/loss.
+strategy_name,symbol,pnl,pnl_pct,exit_reason,mfe_pct,mae_pct,partial_exit_count
+breakout_scanner,AAVE/USD,-12.5,-0.6,trailing_stop,1.7,-0.8,0
+
+
+Big Winners
+Trades with P&L of $50 or more.
+strategy_name,symbol,pnl,pnl_pct,exit_reason,mfe_pct,mae_pct,partial_exit_count
+breakout_scanner,BTC/USD,65.0,3.2,take_profit,4.1,-0.2,1
+
+
+Trades With Partials
+Trades where at least one partial exit was recorded.
+strategy_name,symbol,pnl,pnl_pct,exit_reason,mfe_pct,mae_pct,partial_exit_count
+breakout_scanner,BTC/USD,65.0,3.2,take_profit,4.1,-0.2,1
+
+
+MFE / MAE Audit
+Maximum favorable and adverse excursion by trade.
+strategy_name,symbol,pnl,mfe_pct,mae_pct,exit_reason
+breakout_scanner,BTC/USD,65.0,4.1,-0.2,take_profit
+breakout_scanner,AAVE/USD,-12.5,1.7,-0.8,trailing_stop
+sfr_structural_fakeout,TSLA,22.1,1.2,-0.3,take_profit
+gap_scanner,NVDA,-30.0,0.2,-1.5,stop_loss

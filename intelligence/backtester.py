@@ -81,6 +81,34 @@ TF_CONFIG = {
     "1d":  {"interval": "1d",  "max_days": 3650, "bars_per_day": 1,   "annualise": 252,        "annualise_crypto": 365},
 }
 
+
+def _store_covers_request(
+    df: Optional[pd.DataFrame],
+    days: int,
+    timeframe: str,
+    *,
+    is_crypto: bool,
+) -> bool:
+    """Return True only when cached candles are long enough for the request."""
+    if df is None or len(df) < 30:
+        return False
+
+    cfg = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
+    effective_days = min(days, cfg["max_days"])
+    bars_per_day = cfg["annualise_crypto"] / 365 if is_crypto else cfg["bars_per_day"]
+    expected_bars = max(30, int(effective_days * bars_per_day))
+
+    # Give Yahoo/exchange gaps room, but reject tiny live-cache slices such as
+    # 300 bars when a 365d matrix requested thousands of bars.
+    if len(df) >= expected_bars * 0.70:
+        return True
+
+    try:
+        span_days = (df.index[-1] - df.index[0]).total_seconds() / 86400
+        return span_days >= effective_days * 0.70
+    except Exception:
+        return False
+
 # Stop loss mode constants
 STOP_STANDARD = "standard"   # Fixed % stop (existing behavior)
 STOP_TWO_BAR  = "two_bar"    # N-bar trailing stop (Pine Script port)
@@ -573,20 +601,26 @@ class Backtester:
         _key = (symbol, days, timeframe)
         if _key in self._candle_cache:
             return self._candle_cache[_key]
+        cfg   = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
+        tf    = cfg["interval"]
+        max_d = cfg["max_days"]
+        effective_days = min(days, max_d)
         # ── Persistent candle store — try load() directly, no has_data() gatekeeping ──
         if _candle_store is not None:
             try:
                 df = _candle_store.load(symbol, timeframe, days)
-                if df is not None and len(df) >= 30:
+                if _store_covers_request(df, days, timeframe, is_crypto=False):
                     logger.info(f"CandleStore hit: {symbol}/{timeframe}/{days}d ({len(df):,} bars)")
                     self._candle_cache[_key] = df
                     return df
+                if df is not None:
+                    logger.info(
+                        "CandleStore short hit skipped: %s/%s/%sd (%s bars)",
+                        symbol, timeframe, days, len(df),
+                    )
             except Exception as _cs_e:
                 logger.warning(f"CandleStore load failed for {symbol}: {_cs_e}")
-        cfg   = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
-        tf    = cfg["interval"]
-        max_d = cfg["max_days"]
-        days  = min(days, max_d)
+        days  = effective_days
 
         # Intraday (5m / 15m / 1h): use period= so Yahoo returns exactly the
         # requested window without date-boundary edge cases or +5-day padding.
@@ -639,21 +673,27 @@ class Backtester:
         _key = (symbol, days, timeframe)
         if _key in self._candle_cache:
             return self._candle_cache[_key]
-        # ── Persistent candle store — try load() directly, no has_data() gatekeeping ──
-        if _candle_store is not None:
-            try:
-                df = _candle_store.load(symbol, timeframe, days)
-                if df is not None and len(df) >= 30:
-                    logger.info(f"CandleStore hit: {symbol}/{timeframe}/{days}d ({len(df):,} bars)")
-                    self._candle_cache[_key] = df
-                    return df
-            except Exception as _cs_e:
-                logger.warning(f"CandleStore load failed for {symbol}: {_cs_e}")
         yf_symbol = symbol.replace("/", "-")
         cfg   = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
         tf    = cfg["interval"]
         max_d = cfg["max_days"]
-        days  = min(days, max_d)
+        effective_days = min(days, max_d)
+        # ── Persistent candle store — try load() directly, no has_data() gatekeeping ──
+        if _candle_store is not None:
+            try:
+                df = _candle_store.load(symbol, timeframe, days)
+                if _store_covers_request(df, days, timeframe, is_crypto=True):
+                    logger.info(f"CandleStore hit: {symbol}/{timeframe}/{days}d ({len(df):,} bars)")
+                    self._candle_cache[_key] = df
+                    return df
+                if df is not None:
+                    logger.info(
+                        "CandleStore short hit skipped: %s/%s/%sd (%s bars)",
+                        symbol, timeframe, days, len(df),
+                    )
+            except Exception as _cs_e:
+                logger.warning(f"CandleStore load failed for {symbol}: {_cs_e}")
+        days  = effective_days
 
         # Same intraday / daily split as fetch_history — period= for intraday
         # avoids the start/end boundary weirdness and +5-day over-fetch.
@@ -801,6 +841,13 @@ class Backtester:
             "rsi_dip_simple":       ("strategies.rsi_dip_simple",       "RSIDipSimpleStrategy"),
             "pll_cycle":            ("strategies.pll_cycle",            "PLLCycleStrategy"),
             "pll_cycle_martingale": ("strategies.pll_cycle",            "PLLCycleMartingaleStrategy"),
+            "pll_conservative_eth_1h": ("strategies.pll_cycle",          "PLLConservativeETHStrategy"),
+            "td_day_trader_v3":     ("strategies.traderdev_day_trader_v3", "TraderDevDayTraderV3Strategy"),
+            "td_gridbot_adx15":     ("strategies.traderdev_gridbot_adx15", "TraderDevGridBotADX15"),
+            "td_rsi_dip_spike_v4c": ("strategies.traderdev_rsi_dip_spike_v4c", "TraderDevRSIDipSpikeV4CStrategy"),
+            "td_v6_bnb_adx":        ("strategies.traderdev_v6_bnb_adx", "TraderDevV6BNBADXStrategy"),
+            "td_btc_v11":           ("strategies.traderdev_btc_v11", "TraderDevBTCV11Strategy"),
+            "td_f40d_adx":          ("strategies.traderdev_f40d_adx", "TraderDevF40DADXStrategy"),
             "kds_mean_reversion":   ("strategies.kds_mean_reversion",   "KDSMeanReversionStrategy"),
             "ema_ribbon_breakout":  ("strategies.ema_ribbon_breakout",  "EMARibbonBreakoutStrategy"),
             "ema_crossover":        ("strategies.ema_crossover",        "EMACrossover"),
@@ -1090,7 +1137,7 @@ class Backtester:
         # mirror that here so backtest results are comparable to live.
         TIME_STOP_EXEMPT = frozenset({
             "grid_bot", "dca_accumulator",
-            "rsi_dip_spike_v4", "adaptive_regime",
+            "rsi_dip_spike_v4", "td_rsi_dip_spike_v4c", "adaptive_regime",
             # strategies with their own tiered or cycle-based exit logic;
             # generic 30m/2h/5h/8h stops must not fire before the strategy
             # thesis plays out
@@ -1106,6 +1153,9 @@ class Backtester:
             "kds_mean_reversion",     # EMA-reversion exit + 72-bar safety net; daily bars make 8h stop irrelevant
             "rcr_mean_reversion",     # SMA cross exit + 10-bar time stop; generic 30m/2h stops fire first
             "btc_v6_chandelier",      # chandelier trailing stop; generic lifecycle stops create double-trailing
+            "td_v6_bnb_adx",           # TraderDev BNB V6 lane; chandelier trailing stop
+            "td_btc_v11",              # TraderDev V11 lane; long/short chandelier exits
+            "td_f40d_adx",             # TraderDev envelope expansion strategy has own flip/sideways exits
             "ema_ribbon_breakout",    # chandelier trailing stop; same as btc_v6_chandelier
             "orb_breakout",           # 3R target on 15m can take 8h+; hard_stop_bars kills valid trades
             "vwap_confirmed_orb",     # 2R target on 5m can take 2-4h; perf_time_stop fires before target
@@ -1317,8 +1367,17 @@ class Backtester:
                     exit_reason = "hard_time_stop"
 
                 # 1i. Pivot point break (structure failure)
-                if exit_reason is None:
-                    exit_reason = _bt_pivot_break(df, i, trade)
+                # Opt-in only, matching live position_monitor behavior.
+                pivot_strategies = set(
+                    getattr(config, "PIVOT_EXIT_STRATEGIES", set()) or set()
+                )
+                if (
+                    exit_reason is None
+                    and getattr(config, "PIVOT_EXIT_ENABLED", True)
+                    and strategy_name in pivot_strategies
+                ):
+                    pivot_bars = int(getattr(config, "PIVOT_EXIT_BARS", 20))
+                    exit_reason = _bt_pivot_break(df, i, trade, pivot_bars)
 
                 # 1j. Stale ADX/DI exit (fires after 3hr of holding)
                 # Skip on large datasets (>2000 bars) — pandas_ta ADX

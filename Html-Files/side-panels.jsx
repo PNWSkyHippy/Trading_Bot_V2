@@ -822,6 +822,7 @@ const QUICK_QUERIES_DB = [
   { label: 'Strategy P&L',    view: '_strategy_pnl' },
   { label: '💰 Financials',   view: 'capital' },
   { label: 'Signal Reviews',   view: 'ai_signal_reviews' },
+  { label: 'Log Events',       view: 'log_events' },
 ];
 
 function DBBrowserPanel() {
@@ -840,6 +841,7 @@ function DBBrowserPanel() {
   const [editFields,   setEditFields]  = uS({});
   const [editOriginal, setEditOriginal]= uS({});
   const [editMeta,     setEditMeta]    = uS({});
+  const [logCtx,       setLogCtx]       = uS(null);
   const [dbMode,        setDbMode]      = uS('trading');
   const [columnFilters, setColumnFilters]= uS({});
   const [selectedRowids, setSelectedRowids]= uS(new Set());
@@ -1030,7 +1032,7 @@ function DBBrowserPanel() {
   }
 
   async function runSearch(presetOverride, fromOverride, toOverride) {
-    const STRAT_TABLES = ['trades','ai_signal_reviews','strategy_results'];
+    const STRAT_TABLES = ['trades','ai_signal_reviews','strategy_results','log_events'];
     const wantsStrat   = fStrat.trim() !== '';
     let table = curTable || 'trades';
     if (wantsStrat && !STRAT_TABLES.includes(table)) table = 'trades';
@@ -1213,9 +1215,25 @@ function DBBrowserPanel() {
     } catch(e) { st(e.message, 'err'); }
   }
 
+  async function openLogContext() {
+    if (selIdx === null) { st('Select a log_events row first', 'err'); return; }
+    if (curTable !== 'log_events') { st('Browse log_events first', 'err'); return; }
+    const rowid = rowids[selIdx];
+    if (rowid === null || rowid === undefined) { st('Selected row has no rowid', 'err'); return; }
+    try {
+      const d = await apiCall('/api/db/log_context', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rowid, context: 10 })
+      });
+      setLogCtx(d);
+      st(`Loaded log context ${d.source_file}:${d.match_line}`, 'ok');
+    } catch(e) { st(e.message, 'err'); }
+  }
+
   const isStrat  = curView === 'Strategies';
   const isTrades = curTable === 'trades' ||
     ['Open Today','Closed Today','All Open','Ghost Trades','By Strategy','Yesterday Closed'].includes(curView);
+  const isLogEvents = curTable === 'log_events';
 
   function globToRegex(pattern) {
     const esc = ch => ch.replace(/[|\\{}()[\]^$+?.]/g, '\\$&');
@@ -1249,6 +1267,20 @@ function DBBrowserPanel() {
     return new RegExp(`^${out}$`, 'i');
   }
 
+  function parseFilterDate(raw) {
+    let s = String(raw || '').trim();
+    if (!s) return NaN;
+    const m = s.match(/^(\d{4})[-:](\d{2})[-:](\d{2})(?:[ T:](\d{1,2}):(\d{2})(?::(\d{2})(?:\.(\d{1,6}))?)?)?$/);
+    if (m) {
+      const [, y, mo, d, hh = '00', mm = '00', ss = '00', micro = '0'] = m;
+      s = `${y}-${mo}-${d}T${String(hh).padStart(2, '0')}:${mm}:${ss}.${micro.padEnd(3, '0').slice(0, 3)}`;
+    } else {
+      s = s.replace(' ', 'T');
+    }
+    const t = Date.parse(s);
+    return Number.isFinite(t) ? t : NaN;
+  }
+
   function cellMatches(value, rawFilter) {
     const filter = String(rawFilter || '').trim();
     if (!filter) return true;
@@ -1264,6 +1296,32 @@ function DBBrowserPanel() {
       if (numMatch[1] === '>')  return n > target;
       if (numMatch[1] === '!=') return n !== target;
       return n === target;
+    }
+    const dateCmp = filter.match(/^(<=|>=|<|>|==|=|!=)\s*(.+)$/);
+    if (dateCmp) {
+      const valueTime = parseFilterDate(text);
+      const targetTime = parseFilterDate(dateCmp[2]);
+      if (Number.isFinite(valueTime) && Number.isFinite(targetTime)) {
+        if (dateCmp[1] === '<=') return valueTime <= targetTime;
+        if (dateCmp[1] === '>=') return valueTime >= targetTime;
+        if (dateCmp[1] === '<')  return valueTime < targetTime;
+        if (dateCmp[1] === '>')  return valueTime > targetTime;
+        if (dateCmp[1] === '!=') return valueTime !== targetTime;
+        return valueTime === targetTime;
+      }
+    }
+    const dateRange = filter.match(/^(.+?)\s*\.\.\s*(.+)$/);
+    if (dateRange) {
+      const valueTime = parseFilterDate(text);
+      const startTime = parseFilterDate(dateRange[1]);
+      const endTime = parseFilterDate(dateRange[2]);
+      if (
+        Number.isFinite(valueTime) &&
+        Number.isFinite(startTime) &&
+        Number.isFinite(endTime)
+      ) {
+        return valueTime >= startTime && valueTime <= endTime;
+      }
     }
     const leadMatch = filter.match(/^([<>])\s*([a-z])$/i);
     if (leadMatch) {
@@ -1565,6 +1623,7 @@ function DBBrowserPanel() {
         {isTrades  && <button style={S.abtnF}   onClick={flushGhost}>☠ Flush Ghost</button>}
         {isStrat   && <button style={S.abtnEn}  onClick={()=>toggleStrategy(true)}>✔ Enable</button>}
         {isStrat   && <button style={S.abtnDis} onClick={()=>toggleStrategy(false)}>✖ Disable</button>}
+        {isLogEvents && <button style={S.abtnE} onClick={openLogContext}>↕ Log Context</button>}
         <span style={{...S.lbl,marginLeft:6}}>
           {selectedCount ? `${selectedCount} selected` : selIdx===null ? '← select a row first' : `row ${selIdx+1} selected`}
         </span>
@@ -1594,6 +1653,25 @@ function DBBrowserPanel() {
               <button style={{background:'#16a34a',border:'none',color:'#fff',padding:'6px 16px',borderRadius:4,cursor:'pointer',fontWeight:700}} onClick={saveEdit}>Save</button>
               <button style={{background:'var(--bg-3)',border:'none',color:'var(--text-1)',padding:'6px 14px',borderRadius:4,cursor:'pointer'}} onClick={()=>setEditOpen(false)}>Cancel</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Log context modal */}
+      {logCtx && (
+        <div style={{position:'absolute',inset:0,background:'rgba(0,0,0,.74)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:999}} onClick={e=>{if(e.target===e.currentTarget)setLogCtx(null)}}>
+          <div style={{background:'var(--bg-2)',border:'1px solid var(--border)',borderRadius:8,width:'min(1100px,92vw)',maxHeight:'82%',display:'flex',flexDirection:'column'}}>
+            <div style={{padding:'10px 14px',borderBottom:'1px solid var(--border)',display:'flex',justifyContent:'space-between',alignItems:'center',gap:10}}>
+              <span style={{fontWeight:700,fontSize:13}}>Log Context — {logCtx.source_file}:{logCtx.match_line}</span>
+              <button style={{background:'none',border:'none',color:'var(--text-2)',cursor:'pointer',fontSize:16}} onClick={()=>setLogCtx(null)}>✕</button>
+            </div>
+            <pre style={{margin:0,overflow:'auto',padding:'12px 14px',fontSize:11,lineHeight:1.45,whiteSpace:'pre-wrap',fontFamily:'Consolas, monospace',color:'var(--text-1)',background:'var(--bg-1)'}}>
+{(logCtx.lines || []).map(line => {
+  const prefix = String(line.line_no).padStart(7, ' ');
+  const marker = line.match ? '>> ' : '   ';
+  return `${marker}${prefix}: ${line.text}`;
+}).join('\n')}
+            </pre>
           </div>
         </div>
       )}

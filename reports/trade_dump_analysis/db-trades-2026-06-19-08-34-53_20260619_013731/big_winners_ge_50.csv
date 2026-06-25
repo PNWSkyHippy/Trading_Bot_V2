@@ -1,0 +1,4 @@
+trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker
+19cfd1f1-ff8,BASED/USD,short,breakout_scanner,2026-06-18T21:30:00.771831,2026-06-18T21:39:34.203219,0.104475,0.092841,142.6327,11.1357,trailing_stop,kraken
+c8ecc9f9-c8a,TRUST/USD,short,breakout_scanner,2026-06-18T00:13:04.279668,2026-06-18T01:06:13.279635,0.055275,0.052783,73.8834,4.5084,trailing_stop,kraken
+7dfafcc0-368,MEGA/USD,short,breakout_scanner,2026-06-17T23:59:03.263724,2026-06-18T00:01:05.181287,0.06807,0.063986,69.78,5.9997,take_profit,kraken

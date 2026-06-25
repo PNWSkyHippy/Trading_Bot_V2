@@ -1,0 +1,52 @@
+========================================================================
+  STRATEGY MATRIX REPORT
+========================================================================
+  Strategy   : td_day_trader_v3
+  Period     : 365 days
+  Timeframes : 15m
+  Directions : long, short, both
+  Crypto     : BTC/USD, SOL/USD, ETH/USD, BNB/USD
+  Stocks     : none
+  Generated  : 2026-06-17T11:25:02
+
+========================================================================
+  OVERALL SUMMARY
+========================================================================
+  Total cells tested    : 0
+  Overall avg PF        : 0.000
+  Cells with edge (PF>=1.2) : 0  (0.0%)
+  Verdict               : WEAK / NO EDGE -- few profitable conditions found
+
+  -- CONDITIONS RANKED BY AVERAGE PF (best first) --
+  Condition     Avg PF  Avg WR%  Symbols  Edge cnt   Edge%
+  ------------ ------- -------- -------- --------- -------
+  15m/long       0.000     0.0%        0         0      0% <-- best
+  15m/short      0.000     0.0%        0         0      0%
+  15m/both       0.000     0.0%        0         0      0%
+
+  -- SYMBOLS RANKED BY AVERAGE PF (best first) --
+  Symbol           Class     Avg PF  Avg WR%  Conditions  Edge cnt   Edge%
+  ---------------- -------- ------- -------- ----------- --------- -------
+  BTC/USD          crypto     0.000     0.0%           0         0      0%
+  SOL/USD          crypto     0.000     0.0%           0         0      0%
+  ETH/USD          crypto     0.000     0.0%           0         0      0%
+  BNB/USD          crypto     0.000     0.0%           0         0      0%
+
+  -- TOP EDGE CELLS  (PF >= 1.2, >= 2 trades) --
+  No cells met the edge threshold.
+========================================================================
+  FULL MATRIX  (PF / WR%  per cell)
+========================================================================
+  Symbol              15m/l        15m/s        15m/b    
+  -------------------------------------------------------
+  -- CRYPTO --
+  BTC/USD             (0t)         (0t)         (0t)     
+  SOL/USD             (0t)         (0t)         (0t)     
+  ETH/USD           0.00/   0%     (0t)       0.00/   0% 
+  BNB/USD           0.00/   0%     (0t)       0.00/   0% 
+
+  l=long  s=short  b=both  |  format: PF/WR%
+
+========================================================================
+  END OF REPORT
+========================================================================
