@@ -1,0 +1,4 @@
+exit_reason,trades,wins,losses,total_pnl,avg_pnl,gross_wins,gross_losses,win_rate_pct,profit_factor
+take_profit,2,2,0,87.1,43.55,87.1,0.0,100.0,
+trailing_stop,1,0,1,-12.5,-12.5,0.0,12.5,0.0,0.0
+stop_loss,1,0,1,-30.0,-30.0,0.0,30.0,0.0,0.0

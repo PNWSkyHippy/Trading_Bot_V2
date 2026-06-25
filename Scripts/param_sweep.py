@@ -157,6 +157,9 @@ STRATEGY_MAP = {
     "kds_mean_reversion":     ("strategies.kds_mean_reversion",  "KDSMeanReversionStrategy"),
     "ema_ribbon_breakout":    ("strategies.ema_ribbon_breakout", "EMARibbonBreakoutStrategy"),
     "rcr_mean_reversion":     ("strategies.rcr_mean_reversion",  "RCRMeanReversionStrategy"),
+    "traderdev_day_trader_v3":     ("strategies.traderdev_day_trader_v3",  "traderdevdaytraderv3Strategy"),
+    "traderdev_gridbot_adx15":     ("strategies.traderdev_gridbot_adx15",  "traderdevgridbotadx15Strategy"),     
+
 }
 
 

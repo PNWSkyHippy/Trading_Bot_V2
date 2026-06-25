@@ -1,0 +1,52 @@
+========================================================================
+  STRATEGY MATRIX REPORT
+========================================================================
+  Strategy   : pll_conservative_eth_1h
+  Period     : 365 days
+  Timeframes : 1h
+  Directions : long, short, both
+  Crypto     : ETH/USD, BTC/USD, SOL/USD, BNB/USD
+  Stocks     : none
+  Generated  : 2026-06-17T11:25:01
+
+========================================================================
+  OVERALL SUMMARY
+========================================================================
+  Total cells tested    : 0
+  Overall avg PF        : 0.000
+  Cells with edge (PF>=1.2) : 0  (0.0%)
+  Verdict               : WEAK / NO EDGE -- few profitable conditions found
+
+  -- CONDITIONS RANKED BY AVERAGE PF (best first) --
+  Condition     Avg PF  Avg WR%  Symbols  Edge cnt   Edge%
+  ------------ ------- -------- -------- --------- -------
+  1h/long        0.000     0.0%        0         0      0% <-- best
+  1h/short       0.000     0.0%        0         0      0%
+  1h/both        0.000     0.0%        0         0      0%
+
+  -- SYMBOLS RANKED BY AVERAGE PF (best first) --
+  Symbol           Class     Avg PF  Avg WR%  Conditions  Edge cnt   Edge%
+  ---------------- -------- ------- -------- ----------- --------- -------
+  ETH/USD          crypto     0.000     0.0%           0         0      0%
+  BTC/USD          crypto     0.000     0.0%           0         0      0%
+  SOL/USD          crypto     0.000     0.0%           0         0      0%
+  BNB/USD          crypto     0.000     0.0%           0         0      0%
+
+  -- TOP EDGE CELLS  (PF >= 1.2, >= 2 trades) --
+  No cells met the edge threshold.
+========================================================================
+  FULL MATRIX  (PF / WR%  per cell)
+========================================================================
+  Symbol               1h/l         1h/s         1h/b    
+  -------------------------------------------------------
+  -- CRYPTO --
+  ETH/USD             (0t)         (0t)         (0t)     
+  BTC/USD             (0t)         (0t)         (0t)     
+  SOL/USD             (0t)         (0t)         (0t)     
+  BNB/USD             (0t)         (0t)         (0t)     
+
+  l=long  s=short  b=both  |  format: PF/WR%
+
+========================================================================
+  END OF REPORT
+========================================================================

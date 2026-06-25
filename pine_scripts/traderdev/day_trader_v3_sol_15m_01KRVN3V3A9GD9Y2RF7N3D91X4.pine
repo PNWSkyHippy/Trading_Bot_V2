@@ -1,0 +1,61 @@
+//@version=5
+strategy("Day Trader v3 - SOL 15m", overlay=true, default_qty_type=strategy.percent_of_equity, default_qty_value=25, commission_type=strategy.commission.percent, commission_value=0.05, slippage=1, initial_capital=10000, pyramiding=0, calc_on_every_tick=false)
+
+stLen = input.int(10, "ST ATR", group="Supertrend")
+stMult = input.float(2.5, "ST Mult", group="Supertrend", step=0.1)
+macdFast = input.int(12, "MACD Fast", group="MACD")
+macdSlow = input.int(26, "MACD Slow", group="MACD")
+macdSig = input.int(9, "MACD Signal", group="MACD")
+rsiLen = input.int(14, "RSI", group="Filters")
+rsiLong = input.int(55, "RSI Long", group="Filters")
+rsiShrt = input.int(50, "RSI Short", group="Filters")
+emaLen = input.int(50, "EMA", group="Filters")
+volLen = input.int(20, "Vol SMA", group="Filters")
+volMult = input.float(1.2, "Vol Mult", group="Filters", step=0.1)
+stopMult = input.float(1.0, "Stop ATR", group="Risk")
+tp1RR = input.float(2.0, "TP1 R:R", group="Risk", step=0.1)
+tp2RR = input.float(4.0, "TP2 R:R", group="Risk", step=0.1)
+tp1Pct = input.int(60, "TP1 %", group="Risk")
+trailMult = input.float(1.0, "Trail ATR", group="Risk", step=0.1)
+timeCap = input.int(32, "Time Cap (bars)", group="Risk")
+
+atr = ta.atr(stLen)
+ema50 = ta.ema(close, emaLen)
+rsi = ta.rsi(close, rsiLen)
+volAvg = ta.sma(volume, volLen)
+[stVal, stDir] = ta.supertrend(stMult, stLen)
+[ml, sl2, hist] = ta.macd(close, macdFast, macdSlow, macdSig)
+
+stBull = stDir == -1
+stBear = stDir == 1
+stFlipUp = stBull and not stBull[1]
+stFlipDown = stBear and not stBear[1]
+macdBull = hist > 0 and hist[1] <= 0
+macdBear = hist < 0 and hist[1] >= 0
+macdRB = hist > 0 and (macdBull or macdBull[1] or macdBull[2])
+macdRBear = hist < 0 and (macdBear or macdBear[1] or macdBear[2])
+volOk = volume > volAvg * volMult
+
+longE = stFlipUp and macdRB and rsi > rsiLong and close > ema50 and volOk
+shortE = stFlipDown and macdRBear and rsi < rsiShrt and close < ema50 and volOk
+
+if longE and strategy.position_size == 0
+    r = atr * stopMult
+    strategy.entry("Long", strategy.long, comment="entry")
+    strategy.exit("L1", "Long", qty_percent=tp1Pct, limit=close+r*tp1RR, stop=close-r, comment="tp1")
+    strategy.exit("L2", "Long", limit=close+r*tp2RR, stop=close-r, trail_points=atr*trailMult, trail_offset=atr*trailMult, comment="tp2")
+
+if shortE and strategy.position_size == 0
+    r = atr * stopMult
+    strategy.entry("Short", strategy.short, comment="entry")
+    strategy.exit("S1", "Short", qty_percent=tp1Pct, limit=close-r*tp1RR, stop=close+r, comment="tp1")
+    strategy.exit("S2", "Short", limit=close-r*tp2RR, stop=close+r, trail_points=atr*trailMult, trail_offset=atr*trailMult, comment="tp2")
+
+if strategy.position_size > 0 and stBear
+    strategy.close("Long", comment="st_exit")
+
+if strategy.position_size < 0 and stBull
+    strategy.close("Short", comment="st_exit")
+
+if strategy.position_size != 0 and bar_index - strategy.opentrades.entry_bar_index(0) >= timeCap
+    strategy.close_all(comment="time_exit")

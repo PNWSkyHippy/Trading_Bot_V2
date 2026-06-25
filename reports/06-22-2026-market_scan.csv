@@ -1,0 +1,12 @@
+AssetClass,Ticker,Price,Vol Change,RSI,% from 52W Hi,% vs 200SMA,Score,Signal,24h %,Funding %
+Stock,LRCX,409.54,1.33,70.7,-0.05,93.9,125.23,Within 0.1% of 52W high | 1.3x avg vol | 94% above 200MA,,
+Stock,GNRC,295.54,1.45,59.6,-0.16,50.6,73.18,Within 0.2% of 52W high | 1.4x avg vol | 51% above 200MA,,
+Stock,CAT,1022.28,1.37,72.5,-0.09,52.2,71.62,Within 0.1% of 52W high | 1.4x avg vol | 52% above 200MA,,
+Stock,STT,173.71,1.49,73.9,-0.54,33.8,50.37,Within 0.5% of 52W high | 1.5x avg vol | 34% above 200MA,,
+Crypto,TRX,0.332057,,72.3,,,22.65,+1.4% 24h | RSI 72 (momentum zone),1.38,0.0005
+Crypto,SUI,0.723773,,65.2,,,15.48,+2.1% 24h | RSI 65 (momentum zone),2.11,-0.0022
+Crypto,BTC,64319.0,,60.7,,,10.77,+0.5% 24h | RSI 61 (momentum zone),0.49,0.0014
+Crypto,XMR,332.79,,60.0,,,10.54,+5.6% 24h | RSI 60 (momentum zone),5.61,-0.0022
+Crypto,BNB,590.14,,60.3,,,10.28,+0.1% 24h | RSI 60 (momentum zone),0.09,0.0001
+Crypto,AVAX,6.27,,57.0,,,7.02,+0.7% 24h | RSI 57 (momentum zone),0.74,-0.0009
+Crypto,ETH,1731.65,,56.1,,,6.15,+0.2% 24h | RSI 56 (momentum zone),0.22,0.0

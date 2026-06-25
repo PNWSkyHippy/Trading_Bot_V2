@@ -241,7 +241,7 @@ class RiskManager:
             # Dynamic slot cap: check BTC momentum to unlock extra slots
             _bmr_cap = config.MAX_CONCURRENT_BMR
             try:
-                from intelligence.candle_manager import candle_manager as _cm
+                from core.candle_manager import candle_manager as _cm
                 _btc_df = _cm.get("BTC/USD", "15m", limit=3)
                 if _btc_df is not None and len(_btc_df) >= 2:
                     _btc_chg = abs((_btc_df["close"].iloc[-1] - _btc_df["close"].iloc[-2]) / _btc_df["close"].iloc[-2] * 100)

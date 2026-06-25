@@ -2,17 +2,90 @@
 const { useState, useEffect, useRef, useCallback, useMemo, createContext, useContext } = React;
 
 const STORAGE_KEY = 'tbot.windows.v2';
+const BACKUP_KEY = 'tbot.windows.v2.backups';
+const MAX_LAYOUT_BACKUPS = 20;
+const MIN_BACKUP_INTERVAL_MS = 10000;
+let lastLayoutBackupAt = 0;
+const RECOVERED_LAYOUT_20260617 = {"overview":{"x":20,"y":10,"w":1180,"h":360,"open":true,"minimized":false,"maximized":false,"z":103,"opacity":1},"open-positions":{"x":20,"y":380,"w":1180,"h":320,"open":true,"minimized":false,"maximized":false,"z":104,"opacity":1},"manual-trade":{"x":1210,"y":10,"w":520,"h":420,"open":true,"minimized":false,"maximized":false,"z":1,"opacity":1},"trade-log":{"x":1210,"y":440,"w":560,"h":360,"open":true,"minimized":false,"maximized":false,"z":105,"opacity":1},"daily-perf":{"x":20,"y":710,"w":820,"h":290,"open":true,"minimized":false,"maximized":false,"z":1,"opacity":1},"backtester":{"x":850,"y":810,"w":680,"h":420,"open":true,"minimized":false,"maximized":false,"z":106,"opacity":1},"optimizer":{"x":870,"y":830,"w":860,"h":600,"open":false,"minimized":false,"maximized":false,"z":1,"opacity":1},"chat":{"x":20,"y":1010,"w":800,"h":300,"open":true,"minimized":false,"maximized":false,"z":111,"opacity":1},"manage-positions":{"x":360,"y":80,"w":760,"h":540,"open":false,"minimized":false,"maximized":false,"z":1,"opacity":1},"inject-symbols":{"x":420,"y":100,"w":740,"h":540,"open":false,"minimized":false,"maximized":false,"z":1,"opacity":1},"terminal":{"x":180,"y":140,"w":520,"h":560,"open":true,"minimized":false,"maximized":false,"z":109,"opacity":1},"quick-controls":{"x":100,"y":50,"w":360,"h":720,"open":false,"minimized":false,"maximized":false,"z":1,"opacity":1},"chart":{"x":300,"y":60,"w":1000,"h":600,"open":true,"minimized":false,"maximized":false,"z":110,"opacity":1},"db-browser":{"x":260,"y":80,"w":1060,"h":660,"open":true,"minimized":false,"maximized":false,"z":113,"opacity":1},"theme-config":{"x":460,"y":120,"w":340,"h":560,"open":true,"minimized":false,"maximized":false,"z":114,"opacity":1},"broker-panel":{"x":500,"y":100,"w":780,"h":520,"open":false,"minimized":false,"maximized":false,"z":1,"opacity":1},"scanner-alerts":{"x":340,"y":90,"w":960,"h":560,"open":false,"minimized":false,"maximized":false,"z":1,"opacity":1}};
+const MAIN_LAYOUT_20260617 = {"overview":{"x":20,"y":16,"w":610,"h":150,"open":true,"minimized":false,"maximized":false,"z":201,"opacity":1},"trade-log":{"x":0,"y":170,"w":155,"h":280,"open":true,"minimized":false,"maximized":false,"z":202,"opacity":1},"open-positions":{"x":158,"y":170,"w":238,"h":145,"open":true,"minimized":false,"maximized":false,"z":203,"opacity":1},"manage-positions":{"x":399,"y":170,"w":230,"h":145,"open":true,"minimized":false,"maximized":false,"z":204,"opacity":1},"daily-perf":{"x":158,"y":320,"w":238,"h":140,"open":true,"minimized":false,"maximized":false,"z":205,"opacity":1},"manual-trade":{"x":399,"y":320,"w":230,"h":270,"open":true,"minimized":false,"maximized":false,"z":206,"opacity":1},"chat":{"x":0,"y":458,"w":155,"h":135,"open":true,"minimized":false,"maximized":false,"z":207,"opacity":1},"inject-symbols":{"x":158,"y":462,"w":238,"h":132,"open":true,"minimized":false,"maximized":false,"z":208,"opacity":1},"quick-controls":{"x":640,"y":18,"w":115,"h":310,"open":true,"minimized":false,"maximized":false,"z":209,"opacity":1},"optimizer":{"x":758,"y":18,"w":315,"h":310,"open":true,"minimized":false,"maximized":false,"z":210,"opacity":1},"chart":{"x":635,"y":330,"w":438,"h":265,"open":true,"minimized":false,"maximized":false,"z":211,"opacity":1},"db-browser":{"x":1077,"y":18,"w":365,"h":575,"open":true,"minimized":false,"maximized":false,"z":212,"opacity":1},"backtester":{"x":850,"y":810,"w":680,"h":420,"open":false,"minimized":false,"maximized":false,"z":1,"opacity":1},"terminal":{"x":180,"y":140,"w":520,"h":560,"open":false,"minimized":false,"maximized":false,"z":1,"opacity":1},"theme-config":{"x":460,"y":120,"w":340,"h":560,"open":false,"minimized":false,"maximized":false,"z":1,"opacity":1},"broker-panel":{"x":500,"y":100,"w":780,"h":520,"open":false,"minimized":false,"maximized":false,"z":1,"opacity":1},"scanner-alerts":{"x":340,"y":90,"w":960,"h":560,"open":false,"minimized":false,"maximized":false,"z":1,"opacity":1}};
 
 const WindowContext = createContext(null);
 const useWindows = () => useContext(WindowContext);
 
 function loadState() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); }
-  catch { return {}; }
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const restoreJson = params.get('restoreLayoutJson');
+    if (restoreJson) {
+      localStorage.setItem(STORAGE_KEY, restoreJson);
+      params.delete('restoreLayoutJson');
+      const qs = params.toString();
+      history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`);
+    } else if (params.get('restoreLayout') === 'recovered') {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(RECOVERED_LAYOUT_20260617));
+      params.delete('restoreLayout');
+      const qs = params.toString();
+      history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`);
+    }
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+  } catch { return {}; }
 }
 function saveState(s) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch {}
+  try {
+    const next = JSON.stringify(s);
+    const prev = localStorage.getItem(STORAGE_KEY);
+    if (prev && prev !== next) backupLayoutState(prev);
+    localStorage.setItem(STORAGE_KEY, next);
+  } catch {}
 }
+function backupLayoutState(raw) {
+  const now = Date.now();
+  if (now - lastLayoutBackupAt < MIN_BACKUP_INTERVAL_MS) return;
+  lastLayoutBackupAt = now;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return;
+    const backups = JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]');
+    const newest = backups[0]?.state;
+    if (newest && JSON.stringify(newest) === JSON.stringify(parsed)) return;
+    backups.unshift({ savedAt: new Date(now).toISOString(), state: parsed });
+    localStorage.setItem(BACKUP_KEY, JSON.stringify(backups.slice(0, MAX_LAYOUT_BACKUPS)));
+  } catch {}
+}
+function restoreLayoutBackup(index = 0) {
+  try {
+    const backups = JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]');
+    const item = backups[index];
+    if (!item?.state) return false;
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(item.state));
+    location.reload();
+    return true;
+  } catch {
+    return false;
+  }
+}
+function restoreMainLayout() {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(MAIN_LAYOUT_20260617));
+    location.reload();
+    return true;
+  } catch {
+    return false;
+  }
+}
+window.tbotLayout = {
+  backupNow: () => backupLayoutState(localStorage.getItem(STORAGE_KEY)),
+  backups: () => {
+    try { return JSON.parse(localStorage.getItem(BACKUP_KEY) || '[]'); }
+    catch { return []; }
+  },
+  restoreBackup: restoreLayoutBackup,
+  restoreMain: restoreMainLayout,
+  saveCurrentAsBackup: () => {
+    lastLayoutBackupAt = 0;
+    backupLayoutState(localStorage.getItem(STORAGE_KEY));
+  },
+};
 
 function WindowProvider({ children, defs }) {
   // defs: { id, title, icon, defaultPos, defaultSize, content, openByDefault }

@@ -1,0 +1,3 @@
+trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker
+ad8749aa-53a,SYND/USD,long,breakout_scanner,2026-06-19T04:49:02.126633,2026-06-19T04:53:39.327886,0.01661,0.01718,61.6438,3.4317,trailing_stop,kraken
+83fc0493-41a,BICO/USD,short,breakout_scanner,2026-06-19T04:13:43.398335,2026-06-19T04:20:33.172668,0.027435,0.026407,58.0287,3.747,trailing_stop,kraken

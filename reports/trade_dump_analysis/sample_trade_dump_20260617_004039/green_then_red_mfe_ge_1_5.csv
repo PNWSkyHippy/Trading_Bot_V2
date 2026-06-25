@@ -1,0 +1,2 @@
+strategy_name,symbol,pnl,pnl_pct,exit_reason,mfe_pct,mae_pct,partial_exit_count
+breakout_scanner,AAVE/USD,-12.5,-0.6,trailing_stop,1.7,-0.8,0

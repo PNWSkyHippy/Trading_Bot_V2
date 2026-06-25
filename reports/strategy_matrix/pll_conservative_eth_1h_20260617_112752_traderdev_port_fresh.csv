@@ -1,0 +1,13 @@
+symbol,asset_class,timeframe,direction,condition,trades,profit_factor,win_rate,net_pnl,sharpe,expectancy,error
+ETH/USD,crypto,1h,long,1h/long,23,0.21,8.7,-39.6,0.0,0.0,
+ETH/USD,crypto,1h,short,1h/short,25,0.42,24.0,-23.91,0.0,0.0,
+ETH/USD,crypto,1h,both,1h/both,48,0.31,16.7,-63.42,0.0,0.0,
+BTC/USD,crypto,1h,long,1h/long,25,0.01,4.0,-41.37,0.0,0.0,
+BTC/USD,crypto,1h,short,1h/short,22,0.44,13.6,-15.42,0.0,0.0,
+BTC/USD,crypto,1h,both,1h/both,47,0.18,8.5,-56.72,0.0,0.0,
+SOL/USD,crypto,1h,long,1h/long,23,0.31,13.0,-30.92,0.0,0.0,
+SOL/USD,crypto,1h,short,1h/short,22,0.29,27.3,-22.78,0.0,0.0,
+SOL/USD,crypto,1h,both,1h/both,45,0.31,20.0,-53.62,0.0,0.0,
+BNB/USD,crypto,1h,long,1h/long,22,1.28,40.9,5.61,0.0,0.0,
+BNB/USD,crypto,1h,short,1h/short,27,0.33,18.5,-31.43,0.0,0.0,
+BNB/USD,crypto,1h,both,1h/both,49,0.61,28.6,-25.84,0.0,0.0,

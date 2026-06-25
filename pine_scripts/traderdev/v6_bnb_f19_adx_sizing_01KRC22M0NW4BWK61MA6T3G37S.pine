@@ -1,0 +1,43 @@
+//@version=5
+strategy("V6 BNB F19 + ADX-sized (F31)",
+         overlay=true, initial_capital=10000,
+         default_qty_type=strategy.cash, default_qty_value=30000,
+         commission_type=strategy.commission.percent, commission_value=0.04, slippage=1)
+
+baseCash    = input.float(30000.0,"Base cash per trade ($)",  minval=10.0)
+atrLen      = input.int(14,       "ATR length (overlay)",     minval=2)
+volRefLen   = input.int(200,      "Vol reference SMA length", minval=20)
+volMultMin  = input.float(1.00,   "Min vol mult",             minval=0.1, maxval=2.0)
+volMultMax  = input.float(1.50,   "Max vol mult",             minval=1.0, maxval=3.0)
+
+rsi   = ta.rsi(close, 14)
+atr   = ta.atr(14)
+ema21 = ta.ema(close, 21)
+ema55 = ta.ema(close, 55)
+[diPlus, diMinus, adx] = ta.dmi(14, 14)
+trendUp   = ema21 > ema55
+
+normATR_e = close > 0 ? ta.atr(atrLen) / close : 0.0
+refATR_e  = ta.sma(normATR_e, volRefLen)
+volRatio  = (refATR_e > 0 and normATR_e > 0) ? (normATR_e / refATR_e) : 1.0
+volMult   = math.max(volMultMin, math.min(volMultMax, volRatio))
+effCashBase = baseCash * volMult
+
+signalMult = math.max(1.0, math.min(2.0, 1.0 + (adx - 20.0) / 30.0))
+effCash = effCashBase * signalMult
+effQty  = close > 0 ? effCash / close : 0.0
+
+longEntry = rsi < 40 and trendUp and adx >= 20 and strategy.position_size == 0
+var float chandelier = na
+var float trackHigh  = na
+if longEntry and effQty > 0
+    trackHigh  := high
+    chandelier := close - atr * 4.0
+    strategy.entry("Long", strategy.long, qty=effQty)
+if strategy.position_size > 0
+    trackHigh  := math.max(nz(trackHigh, high), high)
+    chandelier := math.max(nz(chandelier, close - atr * 4.0), trackHigh - atr * 4.0)
+    strategy.exit("LX", "Long", stop=chandelier)
+else
+    trackHigh  := na
+    chandelier := na

@@ -121,6 +121,7 @@ td.neg{color:#f87171}
   <button class="qbtn" onclick="quick('Daily P&L')">Daily P&amp;L</button>
   <button class="qbtn" onclick="quick('Yesterday Closed')">Yesterday Closed</button>
   <button class="qbtn" onclick="quick('Signal Reviews')">Signal Reviews</button>
+  <button class="qbtn" onclick="quick('Log Events')">Log Events</button>
 </div>
 
 <!-- search bar -->
@@ -232,6 +233,7 @@ const TABLE_SEARCH = {
   daily_summaries:  {time_col:"trade_date"},
   settlement_queue: {time_col:"created_at"},
   ai_signal_reviews:{strategy:1,symbol:1,time_col:"timestamp"},
+  log_events:       {strategy:1,symbol:1,time_col:"timestamp"},
   strategy_results: {strategy:1,time_col:"recorded_at"},
   tax_ledger:       {symbol:1,time_col:"close_date"},
   withdrawals:      {time_col:"timestamp"},
@@ -292,6 +294,8 @@ const QUICK_SQL = {
     sql:`SELECT trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','-1 day','localtime') ORDER BY exit_time DESC`},
   "Signal Reviews": {table:"ai_signal_reviews",
     sql:`SELECT timestamp,symbol,direction,strategy_name,signal_score,decision,confidence,reasoning FROM ai_signal_reviews ORDER BY timestamp DESC LIMIT 200`},
+  "Log Events": {table:"log_events",
+    sql:`SELECT rowid,timestamp,severity,event_type,symbol,strategy_name,direction,decision,policy,source_file,line_no,message FROM log_events ORDER BY COALESCE(timestamp, imported_at) DESC, rowid DESC LIMIT 500`},
 };
 
 // ── init ─────────────────────────────────────────────────────────────────────

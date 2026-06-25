@@ -1,0 +1,961 @@
+[
+  {
+    "rank": 1,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_01_open12_z278.json",
+    "open_count": 12,
+    "total_windows": 12,
+    "max_z": 278,
+    "open_area": 2959063,
+    "opened": [
+      "backtester",
+      "chart",
+      "chat",
+      "daily-perf",
+      "inject-symbols",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "quick-controls",
+      "terminal",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 46460
+      }
+    ]
+  },
+  {
+    "rank": 2,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_02_open11_z114.json",
+    "open_count": 11,
+    "total_windows": 17,
+    "max_z": 114,
+    "open_area": 3767000,
+    "opened": [
+      "backtester",
+      "chart",
+      "chat",
+      "daily-perf",
+      "db-browser",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "terminal",
+      "theme-config",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\web\\Codex\\Default\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 9535
+      }
+    ]
+  },
+  {
+    "rank": 3,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_03_open10_z256.json",
+    "open_count": 10,
+    "total_windows": 12,
+    "max_z": 256,
+    "open_area": 2114787,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "inject-symbols",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "terminal",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 45116
+      }
+    ]
+  },
+  {
+    "rank": 4,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_04_open9_z243.json",
+    "open_count": 9,
+    "total_windows": 12,
+    "max_z": 243,
+    "open_area": 2082708,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "inject-symbols",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 43772
+      }
+    ]
+  },
+  {
+    "rank": 5,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_05_open9_z117.json",
+    "open_count": 9,
+    "total_windows": 12,
+    "max_z": 117,
+    "open_area": 2996200,
+    "opened": [
+      "backtester",
+      "chart",
+      "chat",
+      "daily-perf",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 27648
+      }
+    ]
+  },
+  {
+    "rank": 6,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_06_open9_z116.json",
+    "open_count": 9,
+    "total_windows": 12,
+    "max_z": 116,
+    "open_area": 2996200,
+    "opened": [
+      "backtester",
+      "chart",
+      "chat",
+      "daily-perf",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 26201
+      }
+    ]
+  },
+  {
+    "rank": 7,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_07_open9_z115.json",
+    "open_count": 9,
+    "total_windows": 12,
+    "max_z": 115,
+    "open_area": 2996200,
+    "opened": [
+      "backtester",
+      "chart",
+      "chat",
+      "daily-perf",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 23996
+      }
+    ]
+  },
+  {
+    "rank": 8,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_08_open8_z231.json",
+    "open_count": 8,
+    "total_windows": 12,
+    "max_z": 231,
+    "open_area": 1674212,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 42427
+      }
+    ]
+  },
+  {
+    "rank": 9,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_09_open8_z211.json",
+    "open_count": 8,
+    "total_windows": 12,
+    "max_z": 211,
+    "open_area": 1998202,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 41079
+      }
+    ]
+  },
+  {
+    "rank": 10,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_10_open8_z199.json",
+    "open_count": 8,
+    "total_windows": 12,
+    "max_z": 199,
+    "open_area": 2098436,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 39733
+      }
+    ]
+  },
+  {
+    "rank": 11,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_11_open8_z183.json",
+    "open_count": 8,
+    "total_windows": 12,
+    "max_z": 183,
+    "open_area": 2049550,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 38394
+      }
+    ]
+  },
+  {
+    "rank": 12,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_12_open8_z113.json",
+    "open_count": 8,
+    "total_windows": 12,
+    "max_z": 113,
+    "open_area": 2396200,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 21974
+      }
+    ]
+  },
+  {
+    "rank": 13,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_13_open8_z112.json",
+    "open_count": 8,
+    "total_windows": 12,
+    "max_z": 112,
+    "open_area": 2396200,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 20583
+      }
+    ]
+  },
+  {
+    "rank": 14,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_14_open8_z112.json",
+    "open_count": 8,
+    "total_windows": 10,
+    "max_z": 112,
+    "open_area": 2396200,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 11485
+      }
+    ]
+  },
+  {
+    "rank": 15,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_15_open8_z110.json",
+    "open_count": 8,
+    "total_windows": 10,
+    "max_z": 110,
+    "open_area": 2396200,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 19450
+      }
+    ]
+  },
+  {
+    "rank": 16,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_16_open8_z109.json",
+    "open_count": 8,
+    "total_windows": 10,
+    "max_z": 109,
+    "open_area": 2396200,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 18317
+      }
+    ]
+  },
+  {
+    "rank": 17,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_17_open8_z108.json",
+    "open_count": 8,
+    "total_windows": 10,
+    "max_z": 108,
+    "open_area": 2396200,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 17184
+      }
+    ]
+  },
+  {
+    "rank": 18,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_18_open8_z106.json",
+    "open_count": 8,
+    "total_windows": 10,
+    "max_z": 106,
+    "open_area": 2396200,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 16051
+      }
+    ]
+  },
+  {
+    "rank": 19,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_19_open8_z105.json",
+    "open_count": 8,
+    "total_windows": 10,
+    "max_z": 105,
+    "open_area": 2396200,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manage-positions",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 14918
+      }
+    ]
+  },
+  {
+    "rank": 20,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_20_open8_z103.json",
+    "open_count": 8,
+    "total_windows": 17,
+    "max_z": 103,
+    "open_area": 2685400,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "db-browser",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\web\\Codex\\Default\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 6370
+      }
+    ]
+  },
+  {
+    "rank": 21,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_21_open8_z102.json",
+    "open_count": 8,
+    "total_windows": 17,
+    "max_z": 102,
+    "open_area": 2685400,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "db-browser",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\web\\Codex\\Default\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 4307
+      }
+    ]
+  },
+  {
+    "rank": 22,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_22_open8_z101.json",
+    "open_count": 8,
+    "total_windows": 17,
+    "max_z": 101,
+    "open_area": 2685400,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "db-browser",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\web\\Codex\\Default\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 2219
+      }
+    ]
+  },
+  {
+    "rank": 23,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_23_open7_z166.json",
+    "open_count": 7,
+    "total_windows": 12,
+    "max_z": 166,
+    "open_area": 1935399,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 37057
+      }
+    ]
+  },
+  {
+    "rank": 24,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_24_open7_z160.json",
+    "open_count": 7,
+    "total_windows": 12,
+    "max_z": 160,
+    "open_area": 1935399,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 35718
+      }
+    ]
+  },
+  {
+    "rank": 25,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_25_open7_z148.json",
+    "open_count": 7,
+    "total_windows": 12,
+    "max_z": 148,
+    "open_area": 1935399,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 34384
+      }
+    ]
+  },
+  {
+    "rank": 26,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_26_open7_z135.json",
+    "open_count": 7,
+    "total_windows": 12,
+    "max_z": 135,
+    "open_area": 1985800,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 33050
+      }
+    ]
+  },
+  {
+    "rank": 27,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_27_open7_z127.json",
+    "open_count": 7,
+    "total_windows": 12,
+    "max_z": 127,
+    "open_area": 1985800,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 30375
+      }
+    ]
+  },
+  {
+    "rank": 28,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_28_open7_z123.json",
+    "open_count": 7,
+    "total_windows": 12,
+    "max_z": 123,
+    "open_area": 1985800,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 29042
+      }
+    ]
+  },
+  {
+    "rank": 29,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_29_open7_z110.json",
+    "open_count": 7,
+    "total_windows": 10,
+    "max_z": 110,
+    "open_area": 1985800,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 10355
+      }
+    ]
+  },
+  {
+    "rank": 30,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_30_open7_z109.json",
+    "open_count": 7,
+    "total_windows": 10,
+    "max_z": 109,
+    "open_area": 1985800,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 9225
+      }
+    ]
+  },
+  {
+    "rank": 31,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_31_open7_z108.json",
+    "open_count": 7,
+    "total_windows": 10,
+    "max_z": 108,
+    "open_area": 1985800,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 8032
+      }
+    ]
+  },
+  {
+    "rank": 32,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_32_open7_z107.json",
+    "open_count": 7,
+    "total_windows": 10,
+    "max_z": 107,
+    "open_area": 1985800,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 6904
+      }
+    ]
+  },
+  {
+    "rank": 33,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_33_open7_z106.json",
+    "open_count": 7,
+    "total_windows": 10,
+    "max_z": 106,
+    "open_area": 1985800,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 5776
+      }
+    ]
+  },
+  {
+    "rank": 34,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_34_open7_z105.json",
+    "open_count": 7,
+    "total_windows": 10,
+    "max_z": 105,
+    "open_area": 1985800,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 4648
+      }
+    ]
+  },
+  {
+    "rank": 35,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_35_open7_z104.json",
+    "open_count": 7,
+    "total_windows": 10,
+    "max_z": 104,
+    "open_area": 1985800,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 3520
+      }
+    ]
+  },
+  {
+    "rank": 36,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_36_open7_z103.json",
+    "open_count": 7,
+    "total_windows": 10,
+    "max_z": 103,
+    "open_area": 1985800,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 13786
+      }
+    ]
+  },
+  {
+    "rank": 37,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_37_open7_z102.json",
+    "open_count": 7,
+    "total_windows": 10,
+    "max_z": 102,
+    "open_area": 1985800,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 2392
+      }
+    ]
+  },
+  {
+    "rank": 38,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_38_open7_z101.json",
+    "open_count": 7,
+    "total_windows": 10,
+    "max_z": 101,
+    "open_area": 1985800,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 1264
+      }
+    ]
+  },
+  {
+    "rank": 39,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_39_open7_z1.json",
+    "open_count": 7,
+    "total_windows": 17,
+    "max_z": 1,
+    "open_area": 1985800,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\web\\Codex\\Default\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 94
+      }
+    ]
+  },
+  {
+    "rank": 40,
+    "file": "reports\\dashboard_layout_recovery\\all_layout_candidate_40_open7_z1.json",
+    "open_count": 7,
+    "total_windows": 10,
+    "max_z": 1,
+    "open_area": 1985800,
+    "opened": [
+      "backtester",
+      "chat",
+      "daily-perf",
+      "manual-trade",
+      "open-positions",
+      "overview",
+      "trade-log"
+    ],
+    "sources": [
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 75
+      },
+      {
+        "file": "C:\\Users\\Linda\\AppData\\Roaming\\Codex\\Partitions\\codex-browser-app\\Local Storage\\leveldb\\000003.log",
+        "offset": 12616
+      }
+    ]
+  }
+]

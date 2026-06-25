@@ -1,0 +1,61 @@
+//@version=5
+strategy("PLL inv p96 lock1.2", overlay=false, initial_capital=10000, default_qty_type=strategy.percent_of_equity, default_qty_value=25, commission_type=strategy.commission.percent, commission_value=0.04, slippage=2, pyramiding=0, process_orders_on_close=true)
+centerPeriod=96
+detrendLen=200
+loopBW=0.04
+lpfAlpha=0.15
+lockThresh=1.2
+slPct=4.0
+tpPct=12.0
+twoPi=2.0*math.pi
+nomFreq=twoPi/centerPeriod
+fMax=nomFreq*2.0
+fMin=nomFreq*0.4
+Kp=1.4142*loopBW
+Ki=loopBW*loopBW
+trend=ta.sma(close,detrendLen)
+osc=nz(close-trend)
+oscRms=math.sqrt(math.max(nz(ta.sma(osc*osc,detrendLen)),1e-10))
+norm=osc/oscRms
+warmedUp=bar_index>detrendLen+5
+var float phase=0.0
+var float freq=0.06544984695
+var float integrator=0.0
+var float iLpf=0.0
+var float qLpf=0.0
+cosRef=math.cos(phase)
+sinRef=math.sin(phase)
+i_inst=warmedUp?norm*cosRef:0.0
+q_inst=warmedUp?-norm*sinRef:0.0
+iLpf:=iLpf+lpfAlpha*(i_inst-iLpf)
+qLpf:=qLpf+lpfAlpha*(q_inst-qLpf)
+denom=math.sqrt(iLpf*iLpf+qLpf*qLpf)+iLpf
+phaseErr=denom>1e-10?2.0*math.atan(qLpf/denom):(qLpf>=0?math.pi:-math.pi)
+integrator:=warmedUp?integrator+Ki*phaseErr:0.0
+freqRaw=nomFreq+Kp*phaseErr+integrator
+freqClamped=math.max(fMin,math.min(fMax,freqRaw))
+if freqClamped!=freqRaw
+    integrator:=freqClamped-nomFreq-Kp*phaseErr
+freq:=freqClamped
+phase:=phase+freq
+if phase>=twoPi
+    phase:=phase-twoPi
+if phase<0.0
+    phase:=phase+twoPi
+amp=math.sqrt(iLpf*iLpf+qLpf*qLpf)
+lockQ=amp/0.7071
+sinP=math.sin(phase)
+shortSig=ta.crossunder(sinP,0.0)
+longSig=ta.crossover(sinP,0.0)
+locked=lockQ>lockThresh
+ready=warmedUp and bar_index>detrendLen+100
+if shortSig and strategy.position_size>0
+    strategy.close("Long")
+if longSig and strategy.position_size<0
+    strategy.close("Short")
+if longSig and ready and locked
+    strategy.entry("Long",strategy.long)
+if shortSig and ready and locked
+    strategy.entry("Short",strategy.short)
+strategy.exit("L-brk",from_entry="Long",limit=strategy.position_avg_price*(1+tpPct/100),stop=strategy.position_avg_price*(1-slPct/100))
+strategy.exit("S-brk",from_entry="Short",limit=strategy.position_avg_price*(1-tpPct/100),stop=strategy.position_avg_price*(1+slPct/100))

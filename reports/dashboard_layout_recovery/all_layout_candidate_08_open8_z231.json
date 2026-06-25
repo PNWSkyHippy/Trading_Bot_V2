@@ -1,0 +1,122 @@
+{
+  "overview": {
+    "x": 60,
+    "y": 7,
+    "w": 1180,
+    "h": 461,
+    "open": true,
+    "minimized": false,
+    "maximized": false,
+    "z": 201
+  },
+  "open-positions": {
+    "x": 444,
+    "y": 470,
+    "w": 399,
+    "h": 493,
+    "open": true,
+    "minimized": false,
+    "maximized": false,
+    "z": 225
+  },
+  "manual-trade": {
+    "x": 835,
+    "y": 1306,
+    "w": 414,
+    "h": 428,
+    "open": true,
+    "minimized": false,
+    "maximized": false,
+    "z": 222
+  },
+  "trade-log": {
+    "x": 12,
+    "y": 470,
+    "w": 434,
+    "h": 339,
+    "open": true,
+    "minimized": false,
+    "maximized": false,
+    "z": 231
+  },
+  "daily-perf": {
+    "x": 434,
+    "y": 970,
+    "w": 407,
+    "h": 338,
+    "open": true,
+    "minimized": false,
+    "maximized": false,
+    "z": 211
+  },
+  "backtester": {
+    "x": 845,
+    "y": 970,
+    "w": 403,
+    "h": 337,
+    "open": true,
+    "minimized": false,
+    "maximized": false,
+    "z": 214
+  },
+  "chat": {
+    "x": 312,
+    "y": 1364,
+    "w": 469,
+    "h": 300,
+    "open": true,
+    "minimized": false,
+    "maximized": false,
+    "z": 219
+  },
+  "manage-positions": {
+    "x": 844,
+    "y": 473,
+    "w": 395,
+    "h": 494,
+    "open": true,
+    "minimized": false,
+    "maximized": false,
+    "z": 205
+  },
+  "inject-symbols": {
+    "x": 231,
+    "y": 137,
+    "w": 740,
+    "h": 540,
+    "open": false,
+    "minimized": false,
+    "maximized": false,
+    "z": 158
+  },
+  "terminal": {
+    "x": 180,
+    "y": 140,
+    "w": 520,
+    "h": 560,
+    "open": false,
+    "minimized": false,
+    "maximized": false,
+    "z": 153
+  },
+  "quick-controls": {
+    "x": 100,
+    "y": 50,
+    "w": 360,
+    "h": 720,
+    "open": false,
+    "minimized": false,
+    "maximized": false,
+    "z": 1
+  },
+  "chart": {
+    "x": 300,
+    "y": 60,
+    "w": 1000,
+    "h": 600,
+    "open": false,
+    "minimized": false,
+    "maximized": false,
+    "z": 118
+  }
+}

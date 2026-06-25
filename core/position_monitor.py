@@ -106,6 +106,14 @@ BREAKOUT_FAST_FAIL_SEC      = 10 * 60   # 10 minutes — 2 bars on 5m
 BREAKOUT_FAST_FAIL_MAX_SEC  = 20 * 60   # 20 minutes — window closes, early_loss takes over
 BREAKOUT_FAST_FAIL_MIN_PCT  = 0.10      # must be up at least 0.1% to NOT fast-fail
 
+# Breakout loss cap: cut failing breakout_scanner trades before they hit the
+# full hard stop. This is a maximum-loss guard, not only a dead-on-arrival test.
+BREAKOUT_EARLY_LOSS_CAP_SEC = int(
+    getattr(config, "BREAKOUT_EARLY_LOSS_CAP_SEC", 3 * 60)
+)
+BREAKOUT_EARLY_LOSS_CAP_PCT = float(
+    getattr(config, "BREAKOUT_EARLY_LOSS_CAP_PCT", -0.75)
+)
 # Pivot point break exit
 # Uses last N bars to calculate classic floor trader pivots (PP, S1, S2, R1, R2)
 PIVOT_BARS             = 20             # bars to use for pivot calculation
@@ -208,6 +216,10 @@ def _get_position_age_seconds(trade: Dict) -> float:
         return 0.0
 
 
+def _scanner_stop_side(direction: str) -> str:
+    return "sell" if direction == "long" else "buy"
+
+
 class PositionMonitor:
     """
     Continuously monitors all open positions.
@@ -245,6 +257,142 @@ class PositionMonitor:
     def _get_scanner(self):
         from scanners.market_scanner import scanner
         return scanner
+
+    def _confirmed_monitor_price(
+        self, trade: Dict, current_price: float, asset_class: str
+    ) -> Optional[float]:
+        """
+        Reject crypto monitor ticks that show a huge move but disagree with Kraken.
+
+        Scanner prices can occasionally come from a stale/new-listing feed print.
+        A normal entry-distance sanity check will not catch a fake +40% crypto move,
+        but that tick can still trigger partial TP, TP close, and ratchet writes.
+        For large claimed moves, require the monitor price to agree with the broker
+        quote before using it for any money-recording decision.
+        """
+        if asset_class != "crypto":
+            return current_price
+
+        entry_price = float(trade.get("entry_price") or 0)
+        if entry_price <= 0 or current_price <= 0:
+            return current_price
+
+        move_pct = abs(current_price - entry_price) / entry_price * 100
+        confirm_move_pct = float(getattr(
+            config, "CRYPTO_MONITOR_BROKER_CONFIRM_MOVE_PCT", 20.0
+        ))
+        if move_pct < confirm_move_pct:
+            return current_price
+
+        symbol = trade.get("symbol", "")
+        try:
+            broker_price = self._get_executor().kraken.get_current_price(symbol)
+        except Exception as exc:
+            logger.warning(
+                f"[PRICE CONFIRM] {symbol}: monitor price ${current_price:.6f} "
+                f"is {move_pct:.1f}% from entry but broker quote failed ({exc}); "
+                "skipping this cycle"
+            )
+            return None
+
+        if not broker_price or broker_price <= 0:
+            logger.warning(
+                f"[PRICE CONFIRM] {symbol}: monitor price ${current_price:.6f} "
+                f"is {move_pct:.1f}% from entry but broker quote unavailable; "
+                "skipping this cycle"
+            )
+            return None
+
+        diff_pct = abs(current_price - broker_price) / broker_price * 100
+        max_diff_pct = float(getattr(
+            config, "CRYPTO_MONITOR_BROKER_MAX_DIFF_PCT", 5.0
+        ))
+        if diff_pct > max_diff_pct:
+            broker_move_pct = abs(broker_price - entry_price) / entry_price * 100
+            logger.warning(
+                f"[PRICE CONFIRM] {symbol}: monitor=${current_price:.6f} "
+                f"({move_pct:.1f}% from entry) disagrees with broker="
+                f"${broker_price:.6f} ({broker_move_pct:.1f}% from entry) by "
+                f"{diff_pct:.1f}% > {max_diff_pct:.1f}% — suspected bad tick; "
+                "skipping this cycle"
+            )
+            return None
+
+        return current_price
+
+    def _update_trade_excursions(self, trade: Dict, pnl_pct: float) -> None:
+        """Persist max favorable/adverse excursion seen while a trade is open."""
+        try:
+            trade_id = trade["trade_id"]
+            mfe_key = f"mfe_pct_{trade_id}"
+            mae_key = f"mae_pct_{trade_id}"
+            old_mfe = float(self._db.get_state(mfe_key, default=0) or 0)
+            old_mae = float(self._db.get_state(mae_key, default=0) or 0)
+            mfe = max(old_mfe, pnl_pct)
+            mae = min(old_mae, pnl_pct)
+            if mfe == old_mfe and mae == old_mae:
+                return
+            self._db.set_state(mfe_key, round(mfe, 4))
+            self._db.set_state(mae_key, round(mae, 4))
+            self._db.update_trade_diagnostics(trade_id, mfe_pct=mfe, mae_pct=mae)
+            trade["mfe_pct"] = mfe
+            trade["mae_pct"] = mae
+        except Exception as e:
+            logger.debug(f"MFE/MAE update failed for {trade.get('symbol')}: {e}")
+
+    def _maybe_take_scanner_partial(
+        self, trade: Dict, current_price: float, pnl_pct: float
+    ) -> bool:
+        """Bank one partial profit on scanner trades, then let the rest trail."""
+        if not getattr(config, "BREAKOUT_PARTIAL_TP_ENABLED", True):
+            return False
+        if not _is_breakout_trade(trade):
+            return False
+        if trade.get("asset_class") != "crypto":
+            return False
+        if int(trade.get("partial_exit_count") or 0) > 0:
+            return False
+
+        trade_id = trade["trade_id"]
+        if int(self._db.get_state(f"scanner_partial_taken_{trade_id}", default=0) or 0):
+            return False
+
+        trigger = float(getattr(config, "BREAKOUT_PARTIAL_TP_TRIGGER_PCT", 1.5))
+        fraction = float(getattr(config, "BREAKOUT_PARTIAL_TP_FRACTION", 0.35))
+        if pnl_pct < trigger:
+            return False
+
+        success = self._get_executor().close_partial_trade(
+            trade, current_price, fraction, "scanner_partial_tp"
+        )
+        if not success:
+            return False
+
+        self._db.set_state(f"scanner_partial_taken_{trade_id}", 1)
+        logger.info(
+            f"[SCANNER PARTIAL] {trade['symbol']}: banked {fraction:.0%} at "
+            f"{pnl_pct:+.2f}% | remaining position will keep trailing"
+        )
+
+        # Partial close cancels/replaces exchange-side orders on Kraken. Re-place
+        # a protective stop for the remaining reduced size at the current DB stop.
+        try:
+            stop_loss = float(trade.get("stop_loss") or 0)
+            qty = float(trade.get("quantity") or 0)
+            if stop_loss > 0 and qty > 0:
+                stop_id = self._get_executor().kraken.place_stop_order(
+                    trade["symbol"], qty, _scanner_stop_side(trade["direction"]),
+                    round(stop_loss, 6)
+                )
+                if stop_id:
+                    self._db.update_trade_order_ids(trade_id, stop_order_id=stop_id)
+                    trade["stop_order_id"] = stop_id
+        except Exception as e:
+            logger.warning(
+                f"[SCANNER PARTIAL] {trade['symbol']}: could not refresh "
+                f"remaining stop after partial: {e}"
+            )
+        return True
 
     def start(self):
         if self.running:
@@ -366,7 +514,30 @@ class PositionMonitor:
                 _tp = trade.get("take_profit")
                 if _sl and _tp:
                     _sl, _tp = float(_sl), float(_tp)
-                    if direction == "long":
+                    _entry = float(trade.get("entry_price") or 0)
+                    _skip_ratcheted_clamp = (
+                        reason == "trailing_stop"
+                        and _entry > 0
+                        and (
+                            (
+                                direction == "long"
+                                and _sl > _entry
+                                and current_price < _entry
+                            )
+                            or (
+                                direction == "short"
+                                and 0 < _sl < _entry
+                                and current_price > _entry
+                            )
+                        )
+                    )
+                    if _skip_ratcheted_clamp:
+                        logger.warning(
+                            f"[PAPER CLAMP SANITY] {symbol}: ratcheted SL "
+                            f"${_sl:.6f} conflicts with sanity fill "
+                            f"${current_price:.6f}; keeping sanity fill"
+                        )
+                    elif direction == "long":
                         current_price = min(current_price, _tp)   # cap wins at TP
                         current_price = max(current_price, _sl)   # floor losses at SL
                     else:  # short: TP is lower, SL is higher
@@ -861,10 +1032,8 @@ class PositionMonitor:
         if not _is_breakout_trade(trade):
             return None
 
-        # TEMPORARILY DISABLED — 2026-05-29: cutting winners too early on dips
-        # that recover. Chart shows price never near stop loss, would have hit TP.
-        # Re-evaluate after observing trade outcomes without fast-fail.
-        return None
+        if not getattr(config, "BREAKOUT_FAST_FAIL_ENABLED", True):
+            return None
 
         # Only in the 10-20 minute window
         if age_seconds < BREAKOUT_FAST_FAIL_SEC:
@@ -898,6 +1067,38 @@ class PositionMonitor:
             f"cutting before full stop | price=${current_price:.4f}"
         )
         return "breakout_fast_fail"
+
+    def _check_breakout_early_loss_cap(
+        self, trade: Dict, current_price: float, pnl_pct: float, age_seconds: float
+    ) -> Optional[str]:
+        """
+        Breakout-specific maximum loss guard.
+
+        This is intentionally narrower than _is_breakout_trade(): it applies
+        only to breakout_scanner, because funding/gap scanners need separate
+        evidence before sharing the same emergency exit.
+        """
+        strategy = trade.get("strategy_name", "")
+        if strategy != "breakout_scanner":
+            return None
+
+        if not getattr(config, "BREAKOUT_EARLY_LOSS_CAP_ENABLED", True):
+            return None
+
+        if age_seconds < BREAKOUT_EARLY_LOSS_CAP_SEC:
+            return None
+
+        if pnl_pct > BREAKOUT_EARLY_LOSS_CAP_PCT:
+            return None
+
+        symbol = trade["symbol"]
+        mfe_pct = float(trade.get("mfe_pct") or 0.0)
+        logger.info(
+            f"[BREAKOUT LOSS-CAP] {symbol}: P&L {pnl_pct:+.2f}% "
+            f"after {age_seconds/60:.1f}min with MFE {mfe_pct:+.2f}% — "
+            f"cutting before full stop | price=${current_price:.4f}"
+        )
+        return "breakout_loss_cap"
 
     # ------------------------------------------------------------------
     #  NEW: PIVOT POINT BREAK EXIT
@@ -1386,12 +1587,56 @@ class PositionMonitor:
         if _entry > 0 and current_price > 0:
             _deviation = abs(current_price - _entry) / _entry
             if _deviation > 0.80:
-                logger.warning(
-                    f"[PRICE SANITY] {symbol}: live=${current_price:.6f} is "
-                    f"{_deviation*100:.1f}% from entry=${_entry:.4f} — "
-                    f"likely bad price feed, skipping this cycle"
-                )
-                return
+                if asset_class == "crypto":
+                    try:
+                        broker_price = self._get_executor().kraken.get_current_price(symbol)
+                        if broker_price and broker_price > 0:
+                            broker_deviation = abs(broker_price - _entry) / _entry
+                            if broker_deviation <= 0.80:
+                                logger.warning(
+                                    f"[PRICE SANITY FALLBACK] {symbol}: scanner "
+                                    f"live=${current_price:.6f} is "
+                                    f"{_deviation*100:.1f}% from entry=${_entry:.4f}; "
+                                    f"using Kraken quote ${broker_price:.6f} "
+                                    f"({broker_deviation*100:.1f}% from entry)"
+                                )
+                                current_price = broker_price
+                            else:
+                                logger.warning(
+                                    f"[PRICE SANITY] {symbol}: scanner "
+                                    f"live=${current_price:.6f} and Kraken "
+                                    f"live=${broker_price:.6f} are both far from "
+                                    f"entry=${_entry:.4f}; skipping this cycle"
+                                )
+                                return
+                        else:
+                            logger.warning(
+                                f"[PRICE SANITY] {symbol}: live=${current_price:.6f} is "
+                                f"{_deviation*100:.1f}% from entry=${_entry:.4f}; "
+                                "Kraken fallback unavailable, skipping this cycle"
+                            )
+                            return
+                    except Exception as exc:
+                        logger.warning(
+                            f"[PRICE SANITY] {symbol}: live=${current_price:.6f} is "
+                            f"{_deviation*100:.1f}% from entry=${_entry:.4f}; "
+                            f"Kraken fallback failed ({exc}), skipping this cycle"
+                        )
+                        return
+                else:
+                    logger.warning(
+                        f"[PRICE SANITY] {symbol}: live=${current_price:.6f} is "
+                        f"{_deviation*100:.1f}% from entry=${_entry:.4f} — "
+                        f"likely bad price feed, skipping this cycle"
+                    )
+                    return
+
+        confirmed_price = self._confirmed_monitor_price(
+            trade, current_price, asset_class
+        )
+        if confirmed_price is None:
+            return
+        current_price = confirmed_price
 
         qty = trade["quantity"]
         if direction == "long":
@@ -1401,6 +1646,7 @@ class PositionMonitor:
 
         age_seconds = _get_position_age_seconds(trade)
         age_hrs     = age_seconds / 3600
+        self._update_trade_excursions(trade, pnl_pct)
 
         logger.debug(
             f"[PM-DBG] ④ {symbol} [{entry_timeframe}]: price=${current_price:.4f} | "
@@ -1461,6 +1707,19 @@ class PositionMonitor:
 
         if PM_DEBUG:
             logger.info(f"[PM-DBG] ⑤ {symbol} — checking SL/TP exits")
+
+        # ── 2c. BREAKOUT EARLY LOSS CAP ───────────────────────────────────
+        # Cut failing breakout_scanner trades before they reach the full hard
+        # stop, even if they briefly moved green first.
+# Temp disabled by ron 06\23\2026 as its responsible for 95pct of loss count
+# breakout_loss_cap_exit = self._check_breakout_early_loss_cap(
+#            trade, current_price, pnl_pct, age_seconds
+#        )
+#        if breakout_loss_cap_exit:
+#            self._db.set_state(f"momentum_ext_{trade_id}", 0)
+#            self._attempt_close(trade, current_price, breakout_loss_cap_exit)
+#            return
+
         # ── 3. STOP-LOSS ──────────────────────────────────────────────────
         sl_exit = risk_manager.check_sl_exit(trade, current_price)
         if sl_exit:
@@ -1479,17 +1738,21 @@ class PositionMonitor:
             # stops — honour the ratcheted SL price unconditionally.
             _raw_sl    = float(trade.get("stop_loss") or 0)
             _entry_ref = float(trade.get("entry_price") or 0)
+            _direction_ref = trade.get("direction", "long")
             _sl_dist_pct = abs(_raw_sl - current_price) / current_price * 100 if current_price else 0
-            _sl_is_ratcheted = (_raw_sl > _entry_ref > 0)  # stop moved above entry = profit locked
+            _sl_is_ratcheted = (
+                (_direction_ref == "long" and _raw_sl > _entry_ref > 0) or
+                (_direction_ref == "short" and 0 < _raw_sl < _entry_ref)
+            )
 
             if _sl_is_ratcheted:
-                # Ratcheted stop: price crashed through it — honour the locked-in stop price.
+                # Ratcheted stop: price moved through it — honour the locked-in stop price.
                 # A real exchange stop order would have filled at or near this level.
                 sl_fill_price = _raw_sl
                 if _sl_dist_pct > 20.0:
                     logger.info(
                         f"[SL FILL] {symbol}: ratcheted stop ${_raw_sl:.6f} "
-                        f"({_sl_dist_pct:.1f}% above crash price ${current_price:.6f}) — "
+                        f"({_sl_dist_pct:.1f}% from live price ${current_price:.6f}) — "
                         f"filling at locked SL (profit protected)"
                     )
             else:
@@ -1615,6 +1878,11 @@ class PositionMonitor:
                 self._attempt_close(trade, current_price, time_exit)
                 return
 
+        # ── 8b. SCANNER PARTIAL PROFIT ───────────────────────────────────
+        # One-shot harvest at fee-adjusted net-lock territory; remainder keeps
+        # using the existing ratchet/trailing logic.
+        self._maybe_take_scanner_partial(trade, current_price, pnl_pct)
+
         # ── 9. TAKE-PROFIT + MOMENTUM RIDER (non-ORB) ────────────────────
         if strategy != "orb_breakout":
             at_tp = (
@@ -1734,8 +2002,17 @@ class PositionMonitor:
                     return
 
         # ── 10. PIVOT POINT BREAK ─────────────────────────────────────────
-        # Only check after 30 min to allow trade to breathe past entry noise
-        if age_seconds >= 30 * 60 and strategy not in ("orb_breakout", "bmr_357"):
+        # Only check after 30 min, and only for strategies explicitly opted in.
+        # This prevents structural pivot exits from bleeding into strategies
+        # that own their own exit logic.
+        pivot_strategies = set(
+            getattr(config, "PIVOT_EXIT_STRATEGIES", set()) or set()
+        )
+        if (
+            getattr(config, "PIVOT_EXIT_ENABLED", True)
+            and age_seconds >= 30 * 60
+            and strategy in pivot_strategies
+        ):
             pivot_exit = self._check_pivot_break(trade, current_price)
             if pivot_exit:
                 logger.info(

@@ -1,0 +1,96 @@
+﻿Summary By Strategy
+"P&L, win rate, average win/loss, and profit factor grouped by strategy."
+strategy_name,trades,wins,losses,total_pnl,avg_pnl,avg_win,avg_loss,gross_wins,gross_losses,win_rate_pct,profit_factor
+breakout_scanner,34,11,23,-50.8105,-1.4944,52.7142,-27.4203,579.8567,630.6672,32.4,0.919
+TOTAL,34,11,23,-50.8105,-1.4944,52.7142,-27.4203,579.8567,630.6672,32.4,0.919
+
+
+Summary By Exit Reason
+Shows which exit paths are making or losing money.
+exit_reason,trades,wins,losses,total_pnl,avg_pnl,avg_win,avg_loss,gross_wins,gross_losses,win_rate_pct,profit_factor
+trailing_stop,12,8,4,376.9162,31.4097,49.1872,-4.1454,393.4976,16.5814,66.7,23.731
+take_profit,1,1,0,115.1986,115.1986,115.1986,0.0,115.1986,0.0,100.0,
+breakout_fast_fail,4,0,4,-70.3023,-17.5756,0.0,-17.5756,0.0,70.3023,0.0,0.0
+breakout_loss_cap,17,2,15,-472.623,-27.8014,35.5802,-36.2522,71.1605,543.7835,11.8,0.131
+TOTAL,34,11,23,-50.8105,-1.4944,52.7142,-27.4203,579.8567,630.6672,32.4,0.919
+
+
+Summary By Symbol
+Top 100 symbols by total P&L in this dump.
+symbol,trades,wins,losses,total_pnl,avg_pnl,avg_win,avg_loss,gross_wins,gross_losses,win_rate_pct,profit_factor
+UNFI/USD,1,1,0,147.2753,147.2753,147.2753,0.0,147.2753,0.0,100.0,
+SYND/USD,2,2,0,131.9107,65.9554,65.9554,0.0,131.9107,0.0,100.0,
+ME/USD,1,1,0,115.1986,115.1986,115.1986,0.0,115.1986,0.0,100.0,
+ARX/USD,1,1,0,40.7206,40.7206,40.7206,0.0,40.7206,0.0,100.0,
+W/USD,1,1,0,33.2913,33.2913,33.2913,0.0,33.2913,0.0,100.0,
+FIDA/USD,1,1,0,25.9241,25.9241,25.9241,0.0,25.9241,0.0,100.0,
+BREV/USD,1,1,0,16.5689,16.5689,16.5689,0.0,16.5689,0.0,100.0,
+BICO/USD,4,2,2,-1.469,-0.3673,28.5089,-29.2434,57.0178,58.4868,50.0,0.975
+STBL/USD,1,0,1,-1.6889,-1.6889,0.0,-1.6889,0.0,1.6889,0.0,0.0
+RNBW/USD,1,0,1,-3.7237,-3.7237,0.0,-3.7237,0.0,3.7237,0.0,0.0
+ESPORTS/USD,1,0,1,-4.7978,-4.7978,0.0,-4.7978,0.0,4.7978,0.0,0.0
+ES/USD,1,0,1,-12.3189,-12.3189,0.0,-12.3189,0.0,12.3189,0.0,0.0
+ION/USD,1,0,1,-19.3406,-19.3406,0.0,-19.3406,0.0,19.3406,0.0,0.0
+BLESS/USD,1,0,1,-20.1062,-20.1062,0.0,-20.1062,0.0,20.1062,0.0,0.0
+BLZ/USD,1,0,1,-22.3778,-22.3778,0.0,-22.3778,0.0,22.3778,0.0,0.0
+BILL/USD,1,0,1,-24.5787,-24.5787,0.0,-24.5787,0.0,24.5787,0.0,0.0
+GFI/USD,1,0,1,-25.5267,-25.5267,0.0,-25.5267,0.0,25.5267,0.0,0.0
+TNSR/USD,1,0,1,-27.3512,-27.3512,0.0,-27.3512,0.0,27.3512,0.0,0.0
+GWEI/USD,1,0,1,-28.4383,-28.4383,0.0,-28.4383,0.0,28.4383,0.0,0.0
+TRIA/USD,2,1,1,-31.1137,-15.5568,11.9494,-43.0631,11.9494,43.0631,50.0,0.277
+ARPA/USD,1,0,1,-31.6527,-31.6527,0.0,-31.6527,0.0,31.6527,0.0,0.0
+SYN/USD,1,0,1,-33.9138,-33.9138,0.0,-33.9138,0.0,33.9138,0.0,0.0
+ARC/USD,1,0,1,-39.5225,-39.5225,0.0,-39.5225,0.0,39.5225,0.0,0.0
+MYX/USD,1,0,1,-40.412,-40.412,0.0,-40.412,0.0,40.412,0.0,0.0
+LOCKIN/USD,1,0,1,-41.0027,-41.0027,0.0,-41.0027,0.0,41.0027,0.0,0.0
+RLS/USD,1,0,1,-42.3743,-42.3743,0.0,-42.3743,0.0,42.3743,0.0,0.0
+PARTI/USD,1,0,1,-42.845,-42.845,0.0,-42.845,0.0,42.845,0.0,0.0
+VELODROME/USD,2,0,2,-67.1455,-33.5728,0.0,-33.5728,0.0,67.1455,0.0,0.0
+TOTAL,34,11,23,-50.8105,-1.4944,52.7142,-27.4203,579.8567,630.6672,32.4,0.919
+
+
+Scanner Trades
+Raw rows for strategies with 'scanner' in the strategy name.
+trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker
+cedfa11f-3c2,ION/USD,short,breakout_scanner,2026-06-22T23:06:20.404599,2026-06-22T23:16:33.948782,0.1701,0.1707,-19.3406,-0.3527,breakout_fast_fail,kraken
+08077aa3-b49,VELODROME/USD,long,breakout_scanner,2026-06-22T21:20:27.871349,2026-06-22T21:22:52.460711,0.02358,0.02315,-48.6089,-1.8236,breakout_loss_cap,kraken
+485df9a0-979,VELODROME/USD,long,breakout_scanner,2026-06-22T19:13:27.566156,2026-06-22T19:23:41.395812,0.02246,0.02239,-18.5366,-0.3117,breakout_fast_fail,kraken
+828630a4-a41,SYND/USD,short,breakout_scanner,2026-06-22T17:01:31.278480,2026-06-22T17:07:17.267491,0.025105,0.024442,45.2364,2.6409,breakout_loss_cap,kraken
+ddbb6da8-ffe,SYND/USD,short,breakout_scanner,2026-06-22T16:07:58.700794,2026-06-22T16:18:39.225150,0.02477,0.023152,86.67429999999999,6.5321,trailing_stop,kraken
+cd2d698c-b66,SYN/USD,long,breakout_scanner,2026-06-22T16:08:39.724000,2026-06-22T16:10:51.707656,0.2946,0.2914,-33.9138,-1.0862,breakout_loss_cap,kraken
+1b4eeabb-539,TNSR/USD,long,breakout_scanner,2026-06-22T15:58:00.412862,2026-06-22T16:00:27.587878,0.0397,0.0394,-27.3512,-0.7557,breakout_loss_cap,kraken
+7f9452b3-1c1,LOCKIN/USD,long,breakout_scanner,2026-06-22T15:32:25.924034,2026-06-22T15:34:32.522209,0.001665,0.001641,-41.0027,-1.4414,breakout_loss_cap,kraken
+05d8064d-706,FIDA/USD,long,breakout_scanner,2026-06-22T15:20:28.385705,2026-06-22T15:25:22.661071,0.02477,0.02518,25.9241,1.6552,breakout_loss_cap,kraken
+09f91780-555,BLZ/USD,long,breakout_scanner,2026-06-22T13:07:42.742846,2026-06-22T15:13:14.690248,0.00792,0.00788,-22.3778,-0.5051,breakout_loss_cap,kraken
+ddf00c4d-630,ESPORTS/USD,long,breakout_scanner,2026-06-22T14:57:08.858312,2026-06-22T15:04:40.401558,0.0264,0.0265,-4.7978,0.3788,trailing_stop,kraken
+43250e52-75b,BICO/USD,long,breakout_scanner,2026-06-22T12:27:11.931730,2026-06-22T12:34:35.984011,0.03069,0.031522,34.2747,2.711,trailing_stop,kraken
+d6d65885-2f7,BICO/USD,short,breakout_scanner,2026-06-22T11:34:28.808613,2026-06-22T11:37:20.359435,0.029555,0.030146,-52.1158,-1.9997,breakout_loss_cap,kraken
+72947d77-20a,BICO/USD,short,breakout_scanner,2026-06-22T10:56:46.895329,2026-06-22T11:05:58.567649,0.03069,0.030598,-6.371,0.2998,trailing_stop,kraken
+e0607249-296,BICO/USD,short,breakout_scanner,2026-06-22T10:45:18.078179,2026-06-22T10:53:17.708454,0.031445,0.03095,22.7431,1.5742,trailing_stop,kraken
+599a8c74-c3c,RLS/USD,long,breakout_scanner,2026-06-22T09:23:27.471912,2026-06-22T09:25:50.612996,0.00265,0.00261,-42.3743,-1.5094,breakout_loss_cap,kraken
+f7295f91-33f,GWEI/USD,long,breakout_scanner,2026-06-22T09:10:39.618194,2026-06-22T09:12:46.394353,0.1218,0.120815,-28.4383,-0.8087,breakout_loss_cap,kraken
+e978cb5e-4a9,GFI/USD,short,breakout_scanner,2026-06-22T08:59:02.017852,2026-06-22T09:01:39.487862,0.06795,0.0684,-25.5267,-0.6623,breakout_loss_cap,kraken
+38a49fe0-529,TRIA/USD,long,breakout_scanner,2026-06-22T08:56:14.982960,2026-06-22T09:01:34.959533,0.028605,0.028897,11.9494,1.0208,trailing_stop,kraken
+177ceefe-69d,ARX/USD,long,breakout_scanner,2026-06-22T08:44:50.832799,2026-06-22T08:54:26.603865,0.290665,0.297621,40.720600000000005,2.3931,trailing_stop,kraken
+7472871d-b8b,ARPA/USD,long,breakout_scanner,2026-06-22T08:45:51.085110,2026-06-22T08:51:58.383548,0.00929,0.0092,-31.6527,-0.9688,breakout_loss_cap,kraken
+ff1a0dff-531,MYX/USD,long,breakout_scanner,2026-06-22T08:43:32.697933,2026-06-22T08:49:54.773608,0.1065,0.105,-40.412,-1.4085,breakout_loss_cap,kraken
+faac13a3-069,PARTI/USD,long,breakout_scanner,2026-06-22T08:42:59.222923,2026-06-22T08:47:22.762632,0.062395,0.06144,-42.845,-1.5306,breakout_loss_cap,kraken
+a69c39ef-a73,UNFI/USD,long,breakout_scanner,2026-06-22T05:07:23.326132,2026-06-22T08:35:45.343912,0.0183,0.020346,147.27530000000002,11.1803,trailing_stop,kraken
+8de00067-8a2,BREV/USD,long,breakout_scanner,2026-06-22T08:30:01.426372,2026-06-22T08:31:15.850054,0.08975,0.090814,16.5689,1.1855,trailing_stop,kraken
+2adc0829-cad,ME/USD,long,breakout_scanner,2026-06-22T06:15:49.220896,2026-06-22T07:23:34.751973,0.0678,0.073902,115.1986,9.0,take_profit,kraken
+aca122a5-fe0,ES/USD,long,breakout_scanner,2026-06-22T06:33:05.520211,2026-06-22T06:43:39.922179,0.0159,0.0159,-12.3189,0.0,breakout_fast_fail,kraken
+de5c9b6e-2bf,TRIA/USD,long,breakout_scanner,2026-06-22T04:38:27.909746,2026-06-22T04:50:31.129957,0.02716,0.02674,-43.0631,-1.5464,breakout_loss_cap,kraken
+457ad943-53d,W/USD,long,breakout_scanner,2026-06-22T04:25:27.692982,2026-06-22T04:34:20.296240,0.012815,0.013141,33.2913,2.5439,trailing_stop,kraken
+e5f17b9d-40d,BLESS/USD,short,breakout_scanner,2026-06-22T02:56:33.486057,2026-06-22T03:06:36.491908,0.008186,0.008218,-20.1062,-0.3909,breakout_fast_fail,kraken
+df6afb6a-8fd,BILL/USD,short,breakout_scanner,2026-06-22T02:55:34.401124,2026-06-22T03:05:33.510935,0.062515,0.0629,-24.5787,-0.6159,breakout_loss_cap,kraken
+f5013e5b-0b1,ARC/USD,short,breakout_scanner,2026-06-22T02:57:15.557177,2026-06-22T03:00:04.836634,0.078625,0.0797,-39.5225,-1.3672,breakout_loss_cap,kraken
+17dc67dd-986,RNBW/USD,long,breakout_scanner,2026-06-22T02:44:53.849129,2026-06-22T02:46:55.142158,0.020565,0.020654,-3.7237,0.4328,trailing_stop,kraken
+fec3006c-81a,STBL/USD,short,breakout_scanner,2026-06-21T18:30:36.240129,2026-06-22T00:16:33.160232,0.024668,0.024536,-1.6889,0.5351,trailing_stop,kraken
+
+
+Big Winners
+Trades with P&L of $50 or more.
+trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker
+a69c39ef-a73,UNFI/USD,long,breakout_scanner,2026-06-22T05:07:23.326132,2026-06-22T08:35:45.343912,0.0183,0.020346,147.27530000000002,11.1803,trailing_stop,kraken
+2adc0829-cad,ME/USD,long,breakout_scanner,2026-06-22T06:15:49.220896,2026-06-22T07:23:34.751973,0.0678,0.073902,115.1986,9.0,take_profit,kraken
+ddbb6da8-ffe,SYND/USD,short,breakout_scanner,2026-06-22T16:07:58.700794,2026-06-22T16:18:39.225150,0.02477,0.023152,86.67429999999999,6.5321,trailing_stop,kraken

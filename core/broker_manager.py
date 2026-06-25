@@ -377,20 +377,31 @@ class BrokerManager:
                 else:
                     logger.debug(f"No sync handler for broker: {name}")
             except Exception as e:
-                logger.debug(f"Balance sync failed for {name}: {e}")
+                logger.warning(f"Balance sync failed for {name}: {e}")
 
     def _sync_alpaca(self, info: Dict):
         try:
             import alpaca_trade_api as tradeapi
-            api = tradeapi.REST(info["api_key"], info["api_secret"],
-                                info.get("base_url", "https://paper-api.alpaca.markets"))
+            # Use current config credentials instead of the persisted broker
+            # registration. API keys can be rotated from the dashboard/env while
+            # registered_brokers remains stale; stale creds previously made
+            # Alpaca sync fail silently and left available cash at $0.
+            from config import ALPACA_API_KEY, ALPACA_SECRET_KEY, ALPACA_BASE_URL
+            api = tradeapi.REST(
+                ALPACA_API_KEY,
+                ALPACA_SECRET_KEY,
+                ALPACA_BASE_URL or info.get("base_url", "https://paper-api.alpaca.markets"),
+            )
             acct = api.get_account()
             balance = float(acct.equity)
-            invested = float(acct.portfolio_value) - float(acct.cash)
-            available = float(acct.cash)
+            invested = (
+                abs(float(getattr(acct, "long_market_value", 0) or 0)) +
+                abs(float(getattr(acct, "short_market_value", 0) or 0))
+            )
+            available = float(getattr(acct, "cash", 0) or 0)
             self.update_broker_balance("alpaca", balance, invested, available)
         except Exception as e:
-            logger.debug(f"Alpaca sync error: {e}")
+            logger.warning(f"Alpaca sync error: {e}")
 
     def _sync_coinbase(self, info: Dict):
         try:
