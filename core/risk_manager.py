@@ -312,9 +312,13 @@ class RiskManager:
                 # Cleaner and safer than reverse-engineering a fake total capital.
                 position_value = min(position_value, broker_available)
             except Exception as _brok_err:
-                logger.debug(
-                    f"Broker balance check skipped ({broker_name}): {_brok_err} "
-                    f"— proceeding with theoretical capital"
+                logger.error(
+                    f"Broker balance check failed for {broker_name}: {_brok_err}; "
+                    "rejecting trade rather than using theoretical capital"
+                )
+                return TradeApproval(
+                    approved=False,
+                    reason=f"Broker balance unavailable for {broker_name}"
                 )
 
         # ── Stop / take-profit percentages ────────────────────────────────
