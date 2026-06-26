@@ -33,3 +33,11 @@ Focus areas:
 5. Audit Claude/Haiku reviewer modes and any strict/advisory mismatch.
 6. Audit scanner enabled flags and DB/script naming mismatches.
 7. Audit payload fields from breakout/funding/gap scanners into receiver and trade records.
+
+### 2026-06-26 - Broker Cash Failure Must Fail Closed
+- Scope inspected: broker/config/DB state paths across `core/broker_manager.py`, `core/risk_manager.py`, `core/trade_executor.py`, `bot_engine.py`, the live SQLite state, and the latest bot log.
+- Evidence: the persisted `registered_brokers` state contains only `alpaca` and `coinbase`, while `TradeExecutor._get_broker_name()` routes every crypto signal to `kraken` when `KRAKEN_ENABLED=True`. `sync_all_balances()` only iterates registered brokers, so the persisted Kraken balance ($95,243.80; available $74,669.75) is not periodically refreshed. Its last update was 2026-06-25 12:48:28, versus Alpaca's successful startup sync at 2026-06-25 05:53:37. The prior Alpaca stale-cash symptom is also present in the 2026-06-22 log digest.
+- Finding fixed: `RiskManager.approve_trade()` caught every per-broker cash-check exception and continued with theoretical capital. A locked/corrupt DB or state-read failure could therefore approve an order without a trustworthy broker cash limit.
+- Files touched: `core/risk_manager.py`.
+- Verification: `venv312\\Scripts\\python.exe -m py_compile core\\risk_manager.py` passed. A focused runtime check replaced `get_broker_balance()` with a raising function; `approve_trade(..., broker_name="alpaca")` returned `approved=False` with `Broker balance unavailable for alpaca`.
+- Next starting point: trace the Kraken balance lifecycle end-to-end. Decide whether the registered-broker default/migration should include Kraken and whether its sync must use current `config` credentials (as Alpaca now does), while preserving intentional broker disablement and paper-mode behavior. Then verify no execution path can use stale broker cash after a sync failure.
