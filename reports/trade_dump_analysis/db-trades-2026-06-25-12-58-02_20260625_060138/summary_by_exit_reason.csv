@@ -1,0 +1,5 @@
+exit_reason,trades,wins,losses,total_pnl,avg_pnl,avg_win,avg_loss,gross_wins,gross_losses,win_rate_pct,profit_factor
+trailing_stop,5,4,1,120.8527,24.1705,30.9664,-3.0131,123.8658,3.0131,80.0,41.109
+breakout_fast_fail,2,0,2,-44.4945,-22.2472,0.0,-22.2472,0.0,44.4945,0.0,0.0
+stop_loss,4,0,4,-207.7739,-51.9435,0.0,-51.9435,0.0,207.7739,0.0,0.0
+TOTAL,11,4,7,-131.4157,-11.9469,30.9665,-36.4688,123.8658,255.2815,36.4,0.485

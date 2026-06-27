@@ -8,21 +8,33 @@
       "normal": "Textures/WallTextures/Rock060_1K-JPG_NormalGL.jpg",
       "ao": "Textures/WallTextures/Rock060_1K-JPG_AmbientOcclusion.jpg"
     },
+     {
+      "id": "CloudySky",
+      "label": "CloudySky",
+      "path": "Textures/WallTextures/cloudy3.jpg",
+      "normal": "Textures/WallTextures/cloudy3.jpg",
+      "ao": "Textures/WallTextures/cloudy3.jpg"
+    },   
     {
-      "id": "metal050a",
-      "label": "Metal 050A - white/silver",
-      "path": "Textures/WallTextures/Metal050A_2K-JPG_Color.jpg",
-      "normal": "Textures/WallTextures/Metal050A_2K-JPG_NormalGL.jpg",
-      "roughness": "Textures/WallTextures/Metal050A_2K-JPG_Roughness.jpg",
-      "metalness": "Textures/WallTextures/Metal050A_2K-JPG_Metalness.jpg"
+      "id": "Sunrise2",
+      "label": "Sunrise2",
+      "path": "Textures/WallTextures/sunrise.jpg",
+      "normal": "Textures/WallTextures/sunise.jpg",
+      "ao": "Textures/WallTextures/sunrise.jpg"
+    },
+     {
+      "id": "leopard",
+      "label": "leopard",
+      "path": "Textures/WallTextures/leopard_128.jpg",
+      "normal": "Textures/WallTextures/leopard_128.jpg",
+      "ao": "Textures/WallTextures/leopard_128.jpg"
     },
     {
-      "id": "metal056c",
-      "label": "Metal 056C - darker/rusted",
-      "path": "Textures/WallTextures/Metal056C_2K-JPG_Color.jpg",
-      "normal": "Textures/WallTextures/Metal056C_2K-JPG_NormalGL.jpg",
-      "roughness": "Textures/WallTextures/Metal056C_2K-JPG_Roughness.jpg",
-      "metalness": "Textures/WallTextures/Metal056C_2K-JPG_Metalness.jpg"
+      "id": "Sunrise",
+      "label": "Sunrise",
+      "path": "Textures/WallTextures/layered.jpg",
+      "normal": "Textures/WallTextures/layered.jpg",
+      "ao": "Textures/WallTextures/layered.jpg"
     },
     {
       "id": "onyx003",
@@ -79,21 +91,6 @@
       "path": "Textures/WallTextures/water1.jpg"
     },
     {
-      "id": "water2",
-      "label": "Underwater 2",
-      "path": "Textures/WallTextures/water2.jpg"
-    },
-    {
-      "id": "water3",
-      "label": "Underwater 3",
-      "path": "Textures/WallTextures/Waater3.jpg"
-    },
-    {
-      "id": "water4",
-      "label": "Underwater 4",
-      "path": "Textures/WallTextures/water4.jpg"
-    },
-    {
       "id": "water5",
       "label": "Underwater 5",
       "path": "Textures/WallTextures/water5.jpg"
@@ -104,19 +101,9 @@
       "path": "Textures/WallTextures/metall001-new-nm.jpeg"
     },
     {
-      "id": "metal003_nm",
-      "label": "Normal Map Metal 003 - not color",
-      "path": "Textures/WallTextures/metall003-new-nm.jpeg"
-    },
-    {
       "id": "metal005_nm",
       "label": "Normal Map Metal 005 - not color",
       "path": "Textures/WallTextures/metall005-new-nm.jpeg"
-    },
-    {
-      "id": "metal010_bar",
-      "label": "Normal Map Metal 010 Bar - not color",
-      "path": "Textures/WallTextures/metall010-new-tileable-bar-nm.jpeg"
     },
     {
       "id": "metal010_bar_1",
@@ -181,19 +168,19 @@
     {
       "id": "blue_laser",
       "label": "Blue Laser",
-      "path": "Textures/AI Textures/PNG/Lasers/laserBlue01.png",
+      "path": "Textures/AI Textures/PNG/Lasers/laserBlue03.png",
       "color": "#33a8ff"
     },
     {
       "id": "green_laser",
       "label": "Green Laser",
-      "path": "Textures/AI Textures/PNG/Lasers/laserGreen01.png",
+      "path": "Textures/AI Textures/PNG/Lasers/laserGreen04.png",
       "color": "#32ff88"
     },
     {
       "id": "red_laser",
       "label": "Red Laser",
-      "path": "Textures/AI Textures/PNG/Lasers/laserRed01.png",
+      "path": "Textures/AI Textures/PNG/Lasers/laserRed03.png",
       "color": "#ff3333"
     },
     {

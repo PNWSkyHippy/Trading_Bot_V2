@@ -595,7 +595,7 @@
             <div id="sentry-quickref">
                 <b>AI Sentries</b> (3D map: press M, then 7)<br>
                 Ctrl+LMB = place sentry · click sentry = edit · patrol: click stagepoints, close loop at spawn<br>
-                Max 10 per level · Guard = stationary · Patrol = path loop · V/RMB = shoot (10%/hit, 5 min respawn)
+                Max 100 per level · Guard = stationary · Patrol = path loop · V/RMB = shoot (10%/hit, 5 min respawn)
             </div>
             <div class="dev-section">
                 <h4>Builder Procedures</h4>
@@ -728,7 +728,7 @@
             ['C', 'cycle selected pipe kind'],
             ['LMB target box', 'edit label / explosive red damage'],
             ['Shift+LMB target', 'multi-select target boxes'],
-            ['Alt+Shift target', 'select target range A→B'],
+            ['Alt+Shift target', 'select target range A→B when no tunnel is under cursor'],
             ['V with targets', 'batch edit selected target boxes'],
             ['G', 'prune disconnected strays'],
             ['Y', 'join tunnel A→B (optional bend C)'],
@@ -736,7 +736,7 @@
             ['8', 'toggle portal vs tunnel mode'],
             ['Ctrl+Shift+S', 'save named map'],
             ['Ctrl+Shift+L', 'load saved map'],
-            ['N', 'new clean map'],
+            ['Ctrl+Shift+K', 'new clean map'],
             ['M', 'open 3D map']
         ];
         const combatCheats = [
@@ -758,8 +758,9 @@
             'Create a branch: select the source endpoint, press O or Shift+O, then select that new stub later to continue the branch.',
             'Connect two tunnel endpoints: LMB sets A, Ctrl+LMB sets B, optional Shift+Ctrl+LMB sets curve handle C, then press Y.',
             'Create a portal: in map mode press 8 for portal mode, LMB sets entry A, Ctrl+LMB sets exit B, then Shift+Y links them.',
-            'Edit textures/ring colors: select one segment or Alt+Shift select a range, then press V and apply the texture/ring change.',
-            'Edit target boxes: Shift+LMB selects targets, Alt+Shift selects a target range, then press V to batch label/explosive settings.',
+            'Edit textures/ring colors: in 3D map, click the first tunnel section, Alt+Shift+LMB the ending tunnel section, then press V.',
+            'Delete tunnel sections: select one section or a tunnel range, then press Del/Backspace.',
+            'Edit target boxes: Shift+LMB selects target boxes, Alt+Shift selects a target-box range only when no tunnel is under the cursor, then press V.',
             'Place sentries: press M, then 7 for sentry tools, Ctrl+LMB places a spawn, click a sentry to edit guard or patrol behavior.',
             'Save/load maps: Ctrl+Shift+S saves the current map; Ctrl+Shift+L opens the local map library.',
             'Clean mistakes: Del deletes selected segment/range, U undoes the last placed segment, G prunes disconnected strays.',
@@ -771,14 +772,20 @@
             ['Dbl-RMB / Alt+LMB', 'snap camera to tunnel'],
             ['LMB target box', 'edit target label / explosive'],
             ['Shift+LMB target', 'multi-select target boxes'],
-            ['Alt+Shift target', 'select target range A→B'],
+            ['Alt+Shift target', 'select target range if no tunnel hit'],
             ['V with targets', 'batch edit selected target boxes'],
             ['9', 'snap to anchor, B, or ship'],
             ['Drag B / C', 'move point on active edit plane'],
             ['Click blue join line', 'edit A/B/C coordinates'],
             ['LMB endpoint', 'activate build endpoint'],
-            ['Shift+LMB', 'multi-select segment'],
-            ['Alt+Shift+LMB', 'select tunnel range A→B'],
+            ['LMB tunnel', 'select tunnel section A'],
+            ['Shift+LMB tunnel', 'add/remove one tunnel section'],
+            ['Alt+Shift+LMB tunnel', 'select tunnel range A→B'],
+            ['V', 'texture/rib color selected tunnel range'],
+            ['Del', 'delete selected tunnel range'],
+            ['N', 'toggle multi-node draft route'],
+            ['Route LMB', 'add route nodes on active plane'],
+            ['Route line click', 'edit C handle / angle'],
             ['Alt+Shift empty', 'set free orbit anchor'],
             ['Drag LMB (empty)', 'orbit view only'],
             ['Ctrl+Alt+drag', 'tether orbit object'],
@@ -810,6 +817,7 @@
             ['Coords', 'HUD XYZ in 1 decimal; grid snap = integers @ 50u'],
             ['Ctrl+Shift+S', 'save named map'],
             ['Ctrl+Shift+L', 'load saved map'],
+            ['Ctrl+Shift+K', "new defeault map"], 
             ['B', 'toggle builder cursor'],
             ['M', 'return to cockpit']
         ];
@@ -983,6 +991,7 @@
             orbitAroundPivot: false,
             orbitScreen: null,
             dragTarget: null,
+            routeDragIndex: null,
             dragMoved: false,
             selection: new Set(),
             targetSelection: new Set(),
@@ -1002,6 +1011,7 @@
             'data/map_library_bundle.json',
             'data/map_library.json'
         ];
+        const autoost = false;
         const TUNNEL_DEFAULT_RADIUS = 120;
         // mapBuildFix1: min tube length + spacing on T-placed and Y-autogen paths
         const MAP_MIN_SEGMENT_LENGTH = 42;
@@ -2709,7 +2719,7 @@
         const SHIELD_REGEN_PER_SEC = 8;
         const SHIELD_REGEN_UNDER_SENTRY_FIRE = 1.5;
         const HULL_MAX = 100;
-        const SENTRY_MAX_COUNT = 10;
+        const SENTRY_MAX_COUNT = 100;
         const SENTRY_COLOR = '#ff6622';
         const SENTRY_COLOR_CORE = '#ff2200';
         const SENTRY_DETECT_RANGE = 280;
@@ -2737,6 +2747,9 @@
         const SENTRY_CHASE_SPEED = 4 * SENTRY_PHYSICS_FPS * SENTRY_CHASE_CRUISE_RATIO;
         const SENTRY_CHASE_CATCHUP_START = 90;
         const SENTRY_CHASE_CATCHUP_MAX = 1.7;
+        const SENTRY_CHASE_TRAIL_DIST = 145;
+        const SENTRY_CHASE_SIDE_OFFSET = 34;
+        const SENTRY_CHASE_MIN_VISIBLE_DIST = 74;
         const SENTRY_SIZE = 30;
         const SENTRY_PATROL_CLOSE_DIST = 42;
         const SENTRY_PATH_CLOSE_DIST = 55;
@@ -2828,11 +2841,13 @@
         }
         if (pilotNameInput) {
             pilotNameInput.addEventListener('keydown', (event) => {
+                event.stopPropagation();
                 if (event.key === 'Enter') {
                     event.preventDefault();
                     startPilotSession(pilotNameInput.value);
                 }
             });
+            pilotNameInput.addEventListener('keyup', (event) => event.stopPropagation());
         }
         if (changePilotBtn) {
             changePilotBtn.addEventListener('click', () => showPilotStart(true));
@@ -3167,7 +3182,7 @@
         const controlKeys = new Set([
             'w', 'a', 's', 'd', 'r', 'f', 'q', 'e', 'v', 'c', 'shift',
             '0', '1', '2', '3', '4', '5', '6', ' ',
-            'b', 'g', 'h', 'm', 'n', 't', 'i', 'j', 'k', 'l', 'o', 'u', 'p', 'x', 'y', 'z', '7', '8', '9', '[', ']',
+            'b', 'g', 'h', 'm', 't', 'i', 'j', 'k', 'l', 'o', 'u', 'p', 'x', 'y', 'z', '7', '8', '9', '[', ']',
             'delete', 'backspace', 'escape',
             'arrowup', 'arrowdown', 'arrowleft', 'arrowright'
         ]);
@@ -3202,7 +3217,6 @@
             75: 'k',
             76: 'l',
             77: 'm',
-            78: 'n',
             79: 'o',
             80: 'p',
             81: 'q',
@@ -3228,16 +3242,21 @@
             return mapLibraryDialog.style.display === 'block';
         }
 
+        function isPilotStartDialogOpen() {
+            return pilotStartOverlay && pilotStartOverlay.style.display === 'flex';
+        }
+
         function isDialogInputTarget(el) {
             return !!el?.closest?.(
                 '#join-edit-dialog input, #join-edit-dialog textarea, #join-edit-dialog select, ' +
                 '#map-library-dialog input, #map-library-dialog textarea, #map-library-dialog select, ' +
-                '#game-over-overlay input, #game-over-overlay textarea, #game-over-overlay select'
+                '#game-over-overlay input, #game-over-overlay textarea, #game-over-overlay select, ' +
+                '#pilot-start-overlay input, #pilot-start-overlay textarea, #pilot-start-overlay select'
             );
         }
 
         function focusGameSurface() {
-            if (isJoinEditDialogOpen() || isMapLibraryDialogOpen()) return;
+            if (isJoinEditDialogOpen() || isMapLibraryDialogOpen() || isPilotStartDialogOpen()) return;
             try {
                 canvas.focus({ preventScroll: true });
             } catch {
@@ -3268,7 +3287,7 @@
         }
 
         function clearKeyboardState(force = false) {
-            if (!force && isJoinEditDialogOpen()) return;
+            if (!force && (isJoinEditDialogOpen() || isPilotStartDialogOpen())) return;
             for (const key of Object.keys(keys)) {
                 keys[key] = false;
             }
@@ -3342,6 +3361,7 @@
                 mapMouse.anchor ||
                 mapMouse.destination ||
                 mapMouse.midpoint ||
+                mapMouse.routeDraft ||
                 mapMouse.orbitAnchor
             )) {
                 mapMouse.selection.clear();
@@ -3349,6 +3369,8 @@
                 mapMouse.anchor = null;
                 mapMouse.destination = null;
                 mapMouse.midpoint = null;
+                mapMouse.routeDraft = null;
+                mapMouse.routeDragIndex = null;
                 clearMapOrbitAnchor();
                 keyboardStatus.innerText = 'builder selections cleared';
                 e.preventDefault();
@@ -3406,7 +3428,7 @@
         function handleKeyUp(e) {
             if (e.astralDriftHandledUp) return;
             e.astralDriftHandledUp = true;
-            if (isDialogInputTarget(e.target) || isJoinEditDialogOpen()) return;
+            if (isDialogInputTarget(e.target) || isJoinEditDialogOpen() || isPilotStartDialogOpen()) return;
             const key = normalizeKey(e);
             if (mobileInputMode) {
                 const age = performance.now() - (lastKeyDown[key] || 0);
@@ -3498,15 +3520,15 @@
         }
         canvas.addEventListener('pointerdown', (e) => {
             if (e.pointerType === 'touch') mobileInputMode = true;
-            if (!isJoinEditDialogOpen() && !isMapLibraryDialogOpen()) focusGameSurface();
+            if (!isJoinEditDialogOpen() && !isMapLibraryDialogOpen() && !isPilotStartDialogOpen()) focusGameSurface();
         });
         canvas.addEventListener('touchstart', () => {
             mobileInputMode = true;
-            if (!isJoinEditDialogOpen() && !isMapLibraryDialogOpen()) focusGameSurface();
+            if (!isJoinEditDialogOpen() && !isMapLibraryDialogOpen() && !isPilotStartDialogOpen()) focusGameSurface();
         }, { passive: true });
         canvas.addEventListener('contextmenu', (e) => e.preventDefault());
         canvas.addEventListener('mousedown', (e) => {
-            if (!isJoinEditDialogOpen() && !isMapLibraryDialogOpen()) {
+            if (!isJoinEditDialogOpen() && !isMapLibraryDialogOpen() && !isPilotStartDialogOpen()) {
                 focusGameSurface();
             }
             const { x: canvasX, y: canvasY } = getCanvasPointerCoords(e.clientX, e.clientY);
@@ -3634,7 +3656,32 @@
                         return;
                     }
                 }
+                if (mapMouse.routeDraft && handleRouteDraftMouseDown(canvasX, canvasY, e)) {
+                    e.preventDefault();
+                    return;
+                }
                 if (mapMouse.joinMode !== 'sentry') {
+                    if (e.altKey && e.shiftKey) {
+                        const tunnelRangeHit = pickMapTunnel(canvasX, canvasY, 140);
+                        if (
+                            tunnelRangeHit &&
+                            tunnelRangeHit.segmentIndex !== null &&
+                            tunnelRangeHit.segmentIndex !== undefined
+                        ) {
+                            if (
+                                mapMouse.anchor?.segmentIndex === null ||
+                                mapMouse.anchor?.segmentIndex === undefined
+                            ) {
+                                setMapAnchor(tunnelRangeHit, false);
+                                keyboardStatus.innerText =
+                                    `tunnel range start set at ${tunnelRangeHit.label} — Alt+Shift+LMB ending tunnel section`;
+                            } else {
+                                selectSegmentRangeTo(tunnelRangeHit);
+                            }
+                            e.preventDefault();
+                            return;
+                        }
+                    }
                     const preTargetHit = pickMapTarget(canvasX, canvasY, !(e.shiftKey || e.altKey));
                     if (preTargetHit && e.altKey && e.shiftKey) {
                         selectTargetRangeTo(preTargetHit.id);
@@ -3663,7 +3710,8 @@
                         e.preventDefault();
                         return;
                     }
-                    const anchor = pickMapPortalDisc(canvasX, canvasY) || pickMapAnchor(canvasX, canvasY, false);
+                    const tunnelHit = pickMapTunnel(canvasX, canvasY, 92);
+                    const anchor = pickMapPortalDisc(canvasX, canvasY) || tunnelHit || pickMapAnchor(canvasX, canvasY, false);
                     if (anchor) {
                         handledPick = true;
                         if (e.altKey && e.shiftKey) {
@@ -3755,6 +3803,7 @@
                 mapMouse.orbiting = false;
                 mapMouse.orbitAroundPivot = false;
                 mapMouse.dragTarget = null;
+                mapMouse.routeDragIndex = null;
             }
             if (e.button === 1) {
                 mapMouse.orbiting = false;
@@ -3781,6 +3830,19 @@
                     const resolved = resolveSentryMapPoint(canvasX, canvasY, planeOrigin, mapMouse.editPlane);
                     if (resolved && moveSentrySpawn(mapMouse.dragSentryId, resolved.point, { save: false })) {
                         mapMouse.dragMoved = true;
+                    }
+                    e.preventDefault();
+                    return;
+                }
+                if (mapMouse.dragTarget === 'routeNode' || mapMouse.dragTarget === 'routeHandle') {
+                    const origin = getEditPlaneOrigin(mapMouse.dragTarget);
+                    const raw = mapScreenToAxisPlane(canvasX, canvasY, origin, mapMouse.editPlane);
+                    const point = finalizeEditPlanePoint(raw, origin, mapMouse.editPlane);
+                    if (dragRouteDraftPoint(point)) {
+                        mapMouse.dragMoved = true;
+                        keyboardStatus.innerText =
+                            `drag ${mapMouse.dragTarget} on PLANE: ${mapMouse.editPlane.toUpperCase()} ` +
+                            `XYZ ${formatMapPoint(point)}`;
                     }
                     e.preventDefault();
                     return;
@@ -6007,22 +6069,45 @@
 
         function pruneDisconnectedSegments() {
             const total = builder.segments.length;
-            const root = nearestSegmentIndexToShip();
-            if (root < 0) {
+            if (!total) {
                 keyboardStatus.innerText = 'no map segments to prune';
                 return true;
             }
 
-            const keep = new Set([root]);
-            const queue = [root];
-            while (queue.length) {
-                const current = queue.shift();
-                for (let i = 0; i < total; i++) {
-                    if (keep.has(i)) continue;
-                    if (segmentsTouch(builder.segments[current], builder.segments[i])) {
-                        keep.add(i);
-                        queue.push(i);
+            const unvisited = new Set();
+            for (let i = 0; i < total; i++) unvisited.add(i);
+
+            const components = [];
+            while (unvisited.size) {
+                const start = unvisited.values().next().value;
+                const component = new Set([start]);
+                const queue = [start];
+                unvisited.delete(start);
+                while (queue.length) {
+                    const current = queue.shift();
+                    for (const next of [...unvisited]) {
+                        if (segmentsTouch(builder.segments[current], builder.segments[next])) {
+                            unvisited.delete(next);
+                            component.add(next);
+                            queue.push(next);
+                        }
                     }
+                }
+                components.push(component);
+            }
+
+            components.sort((a, b) => b.size - a.size);
+            let keep = components[0] || new Set();
+            const selectedRoot = mapMouse.anchor?.segmentIndex;
+            if (
+                selectedRoot !== null &&
+                selectedRoot !== undefined &&
+                selectedRoot >= 0 &&
+                selectedRoot < total
+            ) {
+                const selectedComponent = components.find(component => component.has(selectedRoot));
+                if (selectedComponent && selectedComponent.size >= keep.size * 0.5) {
+                    keep = selectedComponent;
                 }
             }
 
@@ -6031,10 +6116,22 @@
                 return true;
             }
 
+            const removeCount = total - keep.size;
+            const keepPct = Math.round((keep.size / total) * 100);
+            if (!window.confirm(
+                `Prune disconnected tunnel pieces?\n\n` +
+                `Keep: ${keep.size}/${total} segment(s) (${keepPct}%)\n` +
+                `Delete: ${removeCount} segment(s)\n\n` +
+                `Cancel if this is not what you expected.`
+            )) {
+                keyboardStatus.innerText = 'prune canceled';
+                return true;
+            }
+
             builder.segments = builder.segments.filter((_, index) => keep.has(index));
             mapMouse.anchor = null;
             mapMouse.selection.clear();
-            applyMapGeometryChange(`pruned ${total - keep.size} disconnected segment(s)`);
+            applyMapGeometryChange(`pruned ${removeCount} disconnected segment(s), kept largest map island`);
             frameMapCameraOnTunnel();
             return true;
         }
@@ -6940,7 +7037,7 @@
             const handle = Math.min(distance * 0.42, builder.length * 1.8);
             const p0 = pair.a.point;
             const p3 = pair.b.point;
-            const bendPoint = mapMouse.midpoint ? copyVec(mapMouse.midpoint.point) : null;
+            const bendPoint = mapMouse.midpoint ? adjustedJoinMidpoint(p0, p3) : null;
             const targetLen = mapAutogenTargetLength();
             const pathDensity = Math.max(
                 32,
@@ -7738,18 +7835,7 @@
                 focusGameSurface();
                 return true;
             }
-            if (key === 'n') {
-                createDefaultTunnelMap();
-                placeShipAtTunnelStart();
-                frameMapCameraOnTunnel();
-                resetPlayerCombatState();
-                livesRemaining = STARTING_LIVES;
-                savePlayerProfile();
-                updatePlayerHud();
-                targetScore = 0;
-                updateScoreHud();
-                return true;
-            }
+            
             if (key === 'delete' || key === 'backspace') {
                 if (mapView || builderMode) return deleteAnchoredSegment();
                 return false;
@@ -7761,6 +7847,7 @@
             if (key === 'y') {
                 if (mapView || builderMode) {
                     if (event?.shiftKey) return linkPortalGateway();
+                    if (mapMouse.routeDraft) return generateRouteDraftTunnel();
                     return mapMouse.joinMode === 'portal'
                         ? linkPortalGateway()
                         : addSmoothEndpointConnector();
@@ -7772,6 +7859,9 @@
             }
             if (key === '7') {
                 return startSentryEditMode();
+            }
+            if (key === 'n') {
+                return toggleRouteDraftMode();
             }
             if (key === 's' && event?.ctrlKey && event?.shiftKey && (mapView || builderMode)) {
                 if (mapView || builderMode) return saveNamedTunnelMap();
@@ -8102,8 +8192,367 @@
             return copyVec(point);
         }
 
+        function getHandlePlaneNormal(planeName, point) {
+            return normalize(getEditPlaneSpec(planeName || mapMouse.editPlane, point || mapCamera.target).normal);
+        }
+
+        function adjustedHandlePoint(handle, fromPoint, toPoint) {
+            if (!handle?.point) return null;
+            const base = copyVec(handle.point);
+            const angleDeg = Number(handle.angleDeg) || 0;
+            if (Math.abs(angleDeg) < 0.001 || !fromPoint || !toPoint) return base;
+            const span = Math.sqrt(distanceSq(fromPoint, toPoint));
+            const offset = Math.tan(angleDeg * Math.PI / 180) * span * 0.5;
+            return addVec(base, scaleVec(getHandlePlaneNormal(handle.plane, base), offset));
+        }
+
+        function adjustedJoinMidpoint(fromPoint, toPoint) {
+            if (!mapMouse.midpoint) return null;
+            return adjustedHandlePoint(mapMouse.midpoint, fromPoint, toPoint);
+        }
+
+        function makePlaneLockedPointRecord(point, label, planeName, extra = {}) {
+            const plane = planeName || mapMouse.editPlane;
+            const spec = getEditPlaneSpec(plane, point);
+            return {
+                point: copyVec(point),
+                label,
+                plane,
+                lockedAxis: spec.fixed,
+                lockedValue: point[spec.fixed],
+                ...extra
+            };
+        }
+
+        function makeRouteHandle(fromPoint, toPoint, planeName = mapMouse.editPlane) {
+            const base = lerpVec(fromPoint, toPoint, 0.5);
+            return makePlaneLockedPointRecord(base, 'route C', planeName, { angleDeg: 0 });
+        }
+
+        function ensureRouteDraft(seedAnchor = null) {
+            if (!mapMouse.routeDraft) {
+                mapMouse.routeDraft = {
+                    nodes: [],
+                    handles: [],
+                    activeSegmentIndex: null
+                };
+                mapMouse.destination = null;
+                mapMouse.midpoint = null;
+                mapMouse.joinMode = 'tunnel';
+            }
+            if (seedAnchor && mapMouse.routeDraft.nodes.length === 0) {
+                appendRouteDraftNode(routeNodeFromAnchor(seedAnchor));
+            }
+            return mapMouse.routeDraft;
+        }
+
+        function routeNodeFromAnchor(anchor) {
+            return makePlaneLockedPointRecord(
+                anchor.point,
+                anchor.label || `route node ${routeDraftNodeCount() + 1}`,
+                mapMouse.editPlane,
+                {
+                    segmentIndex: anchor.segmentIndex,
+                    endKind: anchor.endKind,
+                    segmentT: anchor.segmentT,
+                    portalId: anchor.portalId,
+                    portalSide: anchor.portalSide,
+                    freePoint: !!anchor.freePoint
+                }
+            );
+        }
+
+        function routeDraftNodeCount() {
+            return mapMouse.routeDraft?.nodes?.length || 0;
+        }
+
+        function appendRouteDraftNode(node) {
+            const draft = ensureRouteDraft();
+            const prev = draft.nodes[draft.nodes.length - 1];
+            draft.nodes.push(node);
+            if (prev) {
+                draft.handles.push(makeRouteHandle(prev.point, node.point, mapMouse.editPlane));
+                draft.activeSegmentIndex = draft.handles.length - 1;
+            }
+            keyboardStatus.innerText = draft.nodes.length > 1
+                ? `route node ${draft.nodes.length} added (${draft.handles.length} segment${draft.handles.length === 1 ? '' : 's'}) — Y builds whole route`
+                : `route start set on ${node.plane.toUpperCase()} — click more nodes, Y builds whole route`;
+            return true;
+        }
+
+        function addRouteDraftNodeAtPoint(point, label = null) {
+            const draft = ensureRouteDraft();
+            const node = makePlaneLockedPointRecord(
+                point,
+                label || `route node ${draft.nodes.length + 1}`,
+                mapMouse.editPlane,
+                { freePoint: true }
+            );
+            return appendRouteDraftNode(node);
+        }
+
+        function routeHandleAdjustedPoint(segmentIndex) {
+            const draft = mapMouse.routeDraft;
+            if (!draft || segmentIndex < 0 || segmentIndex >= draft.handles.length) return null;
+            return adjustedHandlePoint(
+                draft.handles[segmentIndex],
+                draft.nodes[segmentIndex]?.point,
+                draft.nodes[segmentIndex + 1]?.point
+            );
+        }
+
+        function routePreviewPolyline(segmentIndex) {
+            const draft = mapMouse.routeDraft;
+            if (!draft || segmentIndex < 0 || segmentIndex >= draft.handles.length) return null;
+            const a = draft.nodes[segmentIndex]?.point;
+            const b = draft.nodes[segmentIndex + 1]?.point;
+            const c = routeHandleAdjustedPoint(segmentIndex);
+            if (!a || !b || !c) return null;
+            const pts = [];
+            for (let i = 0; i <= 28; i++) {
+                pts.push(quadraticPoint(a, c, b, i / 28));
+            }
+            return pts;
+        }
+
+        function routePreviewPolylines() {
+            const draft = mapMouse.routeDraft;
+            if (!draft?.handles?.length) return [];
+            const lines = [];
+            for (let i = 0; i < draft.handles.length; i++) {
+                const pts = routePreviewPolyline(i);
+                if (pts?.length) lines.push({ index: i, points: pts });
+            }
+            return lines;
+        }
+
+        function pickRouteDraftPoint(screenX, screenY) {
+            const draft = mapMouse.routeDraft;
+            if (!mapView || !draft) return null;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const fov = 520;
+            let best = null;
+            const consider = (kind, index, point, limit) => {
+                const projected = projectMapPoint(point, centerX, centerY, fov);
+                if (!projected) return;
+                const dist = Math.hypot(projected.x - screenX, projected.y - screenY);
+                const weighted = dist + projected.z * 0.001;
+                if (dist <= limit && (!best || weighted < best.weighted)) {
+                    best = { kind, index, point, dist, weighted };
+                }
+            };
+            draft.nodes.forEach((node, index) => consider('node', index, node.point, 18));
+            draft.handles.forEach((handle, index) => consider('handle', index, handle.point, 18));
+            return best;
+        }
+
+        function pickRoutePreviewNear(screenX, screenY, threshold = 16) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const fov = 520;
+            let best = null;
+            for (const preview of routePreviewPolylines()) {
+                const pts = preview.points;
+                for (let i = 1; i < pts.length; i++) {
+                    const pa = projectMapPoint(pts[i - 1], centerX, centerY, fov);
+                    const pb = projectMapPoint(pts[i], centerX, centerY, fov);
+                    if (!pa || !pb) continue;
+                    const dist = distancePointToSegment2D(screenX, screenY, pa.x, pa.y, pb.x, pb.y);
+                    if (dist <= threshold && (!best || dist < best.dist)) {
+                        best = { segmentIndex: preview.index, dist };
+                    }
+                }
+            }
+            return best;
+        }
+
+        function toggleRouteDraftMode() {
+            if (!mapView && !builderMode) {
+                keyboardStatus.innerText = 'open 3D map (M) before drafting a route';
+                return true;
+            }
+            if (mapMouse.routeDraft) {
+                const count = mapMouse.routeDraft.nodes.length;
+                mapMouse.routeDraft = null;
+                mapMouse.routeDragIndex = null;
+                keyboardStatus.innerText = `route draft canceled (${count} node${count === 1 ? '' : 's'})`;
+                return true;
+            }
+            ensureRouteDraft(mapMouse.anchor || null);
+            if (!mapMouse.routeDraft.nodes.length) {
+                addRouteDraftNodeAtPoint(builder.cursor || mapCamera.target, 'route start');
+            }
+            keyboardStatus.innerText = `ROUTE DRAFT — click nodes on ${mapMouse.editPlane.toUpperCase()}, click route line to edit C angle, Y builds`;
+            return true;
+        }
+
+        function handleRouteDraftMouseDown(screenX, screenY, event) {
+            const draft = mapMouse.routeDraft;
+            if (!draft || event.altKey) return false;
+            const pickedRoutePoint = pickRouteDraftPoint(screenX, screenY);
+            if (pickedRoutePoint) {
+                mapMouse.dragTarget = pickedRoutePoint.kind === 'handle' ? 'routeHandle' : 'routeNode';
+                mapMouse.routeDragIndex = pickedRoutePoint.index;
+                mapMouse.dragMoved = false;
+                keyboardStatus.innerText =
+                    `drag route ${pickedRoutePoint.kind} ${pickedRoutePoint.index + 1} on ${mapMouse.editPlane.toUpperCase()}`;
+                return true;
+            }
+            const routeLine = pickRoutePreviewNear(screenX, screenY);
+            if (routeLine) {
+                openRouteSegmentEditDialog(routeLine.segmentIndex);
+                return true;
+            }
+            const tunnelHit = pickMapTunnel(screenX, screenY, 92);
+            if (tunnelHit) {
+                appendRouteDraftNode(routeNodeFromAnchor(tunnelHit));
+                return true;
+            }
+            const origin = draft.nodes[draft.nodes.length - 1]?.point || builder.cursor || mapCamera.target;
+            const raw = mapScreenToAxisPlane(screenX, screenY, origin, mapMouse.editPlane);
+            const point = finalizeEditPlanePoint(raw, origin, mapMouse.editPlane);
+            if (!point) {
+                keyboardStatus.innerText = `route: no ${mapMouse.editPlane.toUpperCase()} plane hit`;
+                return true;
+            }
+            addRouteDraftNodeAtPoint(point);
+            return true;
+        }
+
+        function dragRouteDraftPoint(point) {
+            const draft = mapMouse.routeDraft;
+            const index = mapMouse.routeDragIndex;
+            if (!draft || index === null || index === undefined || !point) return false;
+            if (mapMouse.dragTarget === 'routeNode' && draft.nodes[index]) {
+                draft.nodes[index].point = copyVec(point);
+                draft.nodes[index].plane = mapMouse.editPlane;
+                const spec = getEditPlaneSpec(mapMouse.editPlane, point);
+                draft.nodes[index].lockedAxis = spec.fixed;
+                draft.nodes[index].lockedValue = point[spec.fixed];
+                return true;
+            }
+            if (mapMouse.dragTarget === 'routeHandle' && draft.handles[index]) {
+                draft.handles[index].point = copyVec(point);
+                draft.handles[index].plane = mapMouse.editPlane;
+                const spec = getEditPlaneSpec(mapMouse.editPlane, point);
+                draft.handles[index].lockedAxis = spec.fixed;
+                draft.handles[index].lockedValue = point[spec.fixed];
+                draft.activeSegmentIndex = index;
+                return true;
+            }
+            return false;
+        }
+
+        function routeEndpointBasis(node, fallbackRight, fallbackDown) {
+            const basis = endpointBasisFromAnchor(node);
+            if (basis) {
+                return {
+                    right: copyVec(basis.right),
+                    down: copyVec(basis.down)
+                };
+            }
+            const nearest = nearestTunnelPoint(node.point);
+            if (nearest?.seg) {
+                return {
+                    right: copyVec(nearest.seg.right),
+                    down: copyVec(nearest.seg.down)
+                };
+            }
+            return {
+                right: copyVec(fallbackRight || builder.right),
+                down: copyVec(fallbackDown || builder.down)
+            };
+        }
+
+        function buildRouteSegmentPieces(fromNode, toNode, handle, rightHint, downHint, out) {
+            const p0 = fromNode.point;
+            const p2 = toNode.point;
+            const c = adjustedHandlePoint(handle, p0, p2);
+            const distance = Math.sqrt(distanceSq(p0, p2));
+            const targetLen = mapAutogenTargetLength();
+            const pathDensity = Math.max(
+                32,
+                Math.min(256, Math.ceil(distance / Math.max(targetLen * 0.25, mapMinSegmentLength())))
+            );
+            const polyline = denseConnectorPolyline(
+                t => quadraticPoint(p0, c, p2, t),
+                p2,
+                pathDensity
+            );
+            const pathLength = estimatePolylineLength(polyline);
+            const pieceCount = Math.max(2, Math.ceil(pathLength / targetLen));
+            const samplePoints = arcLengthSplitPolyline(polyline, pieceCount);
+            const radius = resolveEndpointJoinRadius(fromNode, toNode);
+            let spanState = {
+                end: samplePoints[0],
+                right: copyVec(rightHint),
+                down: copyVec(downHint)
+            };
+            for (let i = 1; i < samplePoints.length; i++) {
+                spanState = appendAutogenSpan(
+                    spanState.end,
+                    samplePoints[i],
+                    spanState.right,
+                    spanState.down,
+                    radius,
+                    out
+                );
+            }
+            return spanState;
+        }
+
+        function generateRouteDraftTunnel() {
+            const draft = mapMouse.routeDraft;
+            if (!draft?.nodes || draft.nodes.length < 2) {
+                keyboardStatus.innerText = 'route needs at least two nodes';
+                return true;
+            }
+            const newSegments = [];
+            let basis = routeEndpointBasis(draft.nodes[0], builder.right, builder.down);
+            for (let i = 0; i < draft.nodes.length - 1; i++) {
+                if (!draft.handles[i]) {
+                    draft.handles[i] = makeRouteHandle(draft.nodes[i].point, draft.nodes[i + 1].point, mapMouse.editPlane);
+                }
+                basis = buildRouteSegmentPieces(
+                    draft.nodes[i],
+                    draft.nodes[i + 1],
+                    draft.handles[i],
+                    basis.right,
+                    basis.down,
+                    newSegments
+                );
+            }
+            const filtered = filterNonOverlappingJoinSegments(newSegments);
+            if (!filtered.length) {
+                keyboardStatus.innerText = newSegments.length
+                    ? 'route rejected: would stack on existing tunnel axis'
+                    : 'route was too short to add';
+                return true;
+            }
+            builder.segments.push(...filtered);
+            const lastSegmentIndex = builder.segments.length - 1;
+            const lastSegment = builder.segments[lastSegmentIndex];
+            mapMouse.routeDraft = null;
+            mapMouse.routeDragIndex = null;
+            mapMouse.anchor = {
+                point: copyVec(lastSegment.to),
+                label: `seg ${lastSegmentIndex + 1} end`,
+                segmentIndex: lastSegmentIndex,
+                endKind: 'end'
+            };
+            mapMouse.selection.clear();
+            applyMapGeometryChange(`route generated: ${filtered.length} segment(s) from ${draft.nodes.length} nodes`);
+            activateBuilderEndpoint(mapMouse.anchor);
+            return true;
+        }
+
         function getMapOrbitPivot() {
             if (mapMouse.orbitAnchor) return mapMouse.orbitAnchor.point;
+            if (mapMouse.routeDraft?.activeSegmentIndex !== null && mapMouse.routeDraft?.activeSegmentIndex !== undefined) {
+                const point = routeHandleAdjustedPoint(mapMouse.routeDraft.activeSegmentIndex);
+                if (point) return point;
+            }
             if (mapMouse.midpoint) return mapMouse.midpoint.point;
             if (mapMouse.destination) return mapMouse.destination.point;
             if (mapMouse.anchor) return mapMouse.anchor.point;
@@ -8381,6 +8830,12 @@
         function getEditPlaneOrigin(dragTarget) {
             if (dragTarget === 'midpoint' && mapMouse.midpoint) return mapMouse.midpoint.point;
             if (dragTarget === 'destination' && mapMouse.destination) return mapMouse.destination.point;
+            if (dragTarget === 'routeNode' && mapMouse.routeDraft?.nodes?.[mapMouse.routeDragIndex]) {
+                return mapMouse.routeDraft.nodes[mapMouse.routeDragIndex].point;
+            }
+            if (dragTarget === 'routeHandle' && mapMouse.routeDraft?.handles?.[mapMouse.routeDragIndex]) {
+                return mapMouse.routeDraft.handles[mapMouse.routeDragIndex].point;
+            }
             return mapMouse.anchor?.point || builder.cursor || mapCamera.target;
         }
 
@@ -8411,9 +8866,10 @@
             const a = mapMouse.anchor.point;
             const b = mapMouse.destination.point;
             if (mapMouse.midpoint) {
+                const c = adjustedJoinMidpoint(a, b) || mapMouse.midpoint.point;
                 const pts = [];
                 for (let i = 0; i <= 28; i++) {
-                    pts.push(quadraticPoint(a, mapMouse.midpoint.point, b, i / 28));
+                    pts.push(quadraticPoint(a, c, b, i / 28));
                 }
                 return pts;
             }
@@ -8448,7 +8904,9 @@
         function setMapMidpoint(point) {
             mapMouse.midpoint = {
                 point: copyVec(point),
-                label: 'bend control C'
+                label: 'bend control C',
+                plane: mapMouse.editPlane,
+                angleDeg: mapMouse.midpoint?.angleDeg || 0
             };
             keyboardStatus.innerText =
                 `bend point C on PLANE: ${mapMouse.editPlane.toUpperCase()} XYZ ${formatMapPoint(point)} (press Y)`;
@@ -8827,7 +9285,120 @@
             wireDialogInputFocus(labelInput);
         }
 
-        function applyJoinCoordinateEdit(a, b, c, useMidpoint) {
+        function openRouteSegmentEditDialog(segmentIndex) {
+            const draft = mapMouse.routeDraft;
+            const handle = draft?.handles?.[segmentIndex];
+            const fromNode = draft?.nodes?.[segmentIndex];
+            const toNode = draft?.nodes?.[segmentIndex + 1];
+            if (!draft || !handle || !fromNode || !toNode) {
+                keyboardStatus.innerText = 'route segment not found';
+                return;
+            }
+            draft.activeSegmentIndex = segmentIndex;
+            joinEditDialog.innerHTML = '';
+            joinEditDialog.dataset.mode = 'route-segment';
+
+            const title = document.createElement('h3');
+            title.textContent = `Route Segment ${segmentIndex + 1} C Handle`;
+            title.style.color = '#33a8ff';
+            joinEditDialog.appendChild(title);
+
+            const hint = document.createElement('div');
+            hint.className = 'hint';
+            hint.textContent =
+                'C point drags on the active plane. Angle pushes the curve out of that plane: positive one side, negative the other.';
+            joinEditDialog.appendChild(hint);
+
+            const planeRow = document.createElement('div');
+            planeRow.className = 'join-actions';
+            const planeButtons = [];
+            for (const plane of ['xy', 'yz', 'zx']) {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.textContent = `${plane.toUpperCase()} C plane`;
+                if ((handle.plane || mapMouse.editPlane) === plane) btn.classList.add('active');
+                btn.addEventListener('click', () => {
+                    handle.plane = plane;
+                    mapMouse.editPlane = plane;
+                    mapMouse.planeLocked = true;
+                    for (const other of planeButtons) other.classList.toggle('active', other === btn);
+                    keyboardStatus.innerText = `route C plane: ${plane.toUpperCase()} (locked)`;
+                });
+                planeButtons.push(btn);
+                planeRow.appendChild(btn);
+            }
+            joinEditDialog.appendChild(planeRow);
+
+            const grid = document.createElement('div');
+            grid.className = 'join-grid';
+            const titleNode = document.createElement('div');
+            titleNode.style.gridColumn = '1 / -1';
+            titleNode.style.color = '#33a8ff';
+            titleNode.textContent = 'C Handle';
+            grid.appendChild(titleNode);
+            const inputs = {};
+            for (const axis of ['x', 'y', 'z']) {
+                const axisLabel = document.createElement('label');
+                axisLabel.textContent = axis.toUpperCase();
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.step = '1';
+                input.value = String(Math.round(handle.point[axis] * 10) / 10);
+                inputs[axis] = input;
+                grid.append(axisLabel, input);
+            }
+            const angleLabel = document.createElement('label');
+            angleLabel.textContent = 'Angle';
+            const angleInput = document.createElement('input');
+            angleInput.type = 'number';
+            angleInput.step = '1';
+            angleInput.value = String(Math.round((Number(handle.angleDeg) || 0) * 10) / 10);
+            grid.append(angleLabel, angleInput);
+            joinEditDialog.appendChild(grid);
+
+            const adjusted = adjustedHandlePoint(handle, fromNode.point, toNode.point);
+            const adjustedInfo = document.createElement('div');
+            adjustedInfo.className = 'hint';
+            adjustedInfo.textContent = `Adjusted C through-route point: ${formatMapPoint(adjusted)}`;
+            joinEditDialog.appendChild(adjustedInfo);
+
+            const actions = document.createElement('div');
+            actions.className = 'join-actions';
+            const applyBtn = document.createElement('button');
+            applyBtn.type = 'button';
+            applyBtn.textContent = 'Apply';
+            applyBtn.addEventListener('click', () => {
+                const next = {
+                    x: Number(inputs.x.value),
+                    y: Number(inputs.y.value),
+                    z: Number(inputs.z.value)
+                };
+                const angleDeg = Number(angleInput.value);
+                if ([next.x, next.y, next.z, angleDeg].some(v => Number.isNaN(v))) {
+                    keyboardStatus.innerText = 'invalid route C handle entry';
+                    return;
+                }
+                handle.point = copyVec(next);
+                handle.angleDeg = Math.max(-75, Math.min(75, angleDeg));
+                handle.plane = handle.plane || mapMouse.editPlane;
+                const spec = getEditPlaneSpec(handle.plane, handle.point);
+                handle.lockedAxis = spec.fixed;
+                handle.lockedValue = handle.point[spec.fixed];
+                keyboardStatus.innerText =
+                    `route segment ${segmentIndex + 1} C updated (${handle.angleDeg}deg) — Y builds route`;
+                closeJoinEditDialog();
+            });
+            const cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', closeJoinEditDialog);
+            actions.append(applyBtn, cancelBtn);
+            joinEditDialog.appendChild(actions);
+            joinEditDialog.style.display = 'block';
+            wireDialogInputFocus(inputs.x, inputs.y, inputs.z, angleInput);
+        }
+
+        function applyJoinCoordinateEdit(a, b, c, useMidpoint, angleDeg = 0) {
             const planeOrigin = mapMouse.anchor?.point || mapCamera.target;
             const plane = mapMouse.editPlane;
             if (shouldSnapMapGrid()) {
@@ -8845,6 +9416,8 @@
             }
             if (useMidpoint && c) {
                 setMapMidpoint(c);
+                mapMouse.midpoint.angleDeg = Math.max(-75, Math.min(75, Number(angleDeg) || 0));
+                mapMouse.midpoint.plane = plane;
             } else {
                 mapMouse.midpoint = null;
             }
@@ -8926,12 +9499,27 @@
             const bInputs = addCoordGroup('Point B (target)', b, 'join-b');
             const cInputs = addCoordGroup('Point C (optional bend)', c, 'join-c');
 
+            const angleRow = document.createElement('div');
+            angleRow.className = 'join-grid';
+            const angleTitle = document.createElement('div');
+            angleTitle.style.gridColumn = '1 / -1';
+            angleTitle.style.color = '#ffb040';
+            angleTitle.textContent = 'C Handle Plane Angle';
+            const angleLabel = document.createElement('label');
+            angleLabel.textContent = 'Angle';
+            const angleInput = document.createElement('input');
+            angleInput.type = 'number';
+            angleInput.step = '1';
+            angleInput.value = String(Math.round((Number(mapMouse.midpoint?.angleDeg) || 0) * 10) / 10);
+            angleRow.append(angleTitle, angleLabel, angleInput);
+            joinEditDialog.appendChild(angleRow);
+
             const useMid = document.createElement('label');
             useMid.className = 'hint';
             const useMidCheck = document.createElement('input');
             useMidCheck.type = 'checkbox';
             useMidCheck.checked = !!mapMouse.midpoint;
-            useMid.append(useMidCheck, ' use bend point C when joining');
+            useMid.append(useMidCheck, ' use bend point C when joining (angle pushes C out of active plane)');
             joinEditDialog.appendChild(useMid);
 
             const actions = document.createElement('div');
@@ -8955,11 +9543,12 @@
                     y: Number(cInputs.y.value),
                     z: Number(cInputs.z.value)
                 };
-                if ([nextA, nextB, nextC].some(p => [p.x, p.y, p.z].some(v => Number.isNaN(v)))) {
+                const angleDeg = Number(angleInput.value);
+                if ([nextA, nextB, nextC].some(p => [p.x, p.y, p.z].some(v => Number.isNaN(v))) || Number.isNaN(angleDeg)) {
                     keyboardStatus.innerText = 'invalid coordinate entry';
                     return;
                 }
-                applyJoinCoordinateEdit(nextA, nextB, nextC, useMidCheck.checked);
+                applyJoinCoordinateEdit(nextA, nextB, nextC, useMidCheck.checked, angleDeg);
                 closeJoinEditDialog();
             });
             const cancelBtn = document.createElement('button');
@@ -8969,6 +9558,7 @@
             actions.append(applyBtn, cancelBtn);
             joinEditDialog.appendChild(actions);
             joinEditDialog.style.display = 'block';
+            wireDialogInputFocus(aInputs.x, aInputs.y, aInputs.z, bInputs.x, bInputs.y, bInputs.z, cInputs.x, cInputs.y, cInputs.z, angleInput);
         }
 
         function pickMapPortalDisc(screenX, screenY) {
@@ -9719,24 +10309,36 @@
             return true;
         }
 
-        function applyTargetEdit(targetId, label, explosive) {
-            const ids = selectedTargetIds(targetId);
+        function orderedTargetIdsForBatch(ids) {
+            return ids.slice().sort((a, b) => {
+                const ai = targetSegmentIndexById(a);
+                const bi = targetSegmentIndexById(b);
+                if (ai !== bi) return ai - bi;
+                return targetIndexById(a) - targetIndexById(b);
+            });
+        }
+
+        function applyTargetEdit(targetId, label, explosive, sequenceOptions = null) {
+            const ids = orderedTargetIdsForBatch(selectedTargetIds(targetId));
             if (!ids.length) return false;
             const cleanLabel = (label || '').trim();
-            for (const id of ids) {
+            const useSequence = !!sequenceOptions?.enabled && ids.length > 1;
+            const prefix = (sequenceOptions?.prefix || '').trim() || cleanLabel || 'Target ';
+            const start = Number.isFinite(sequenceOptions?.start) ? sequenceOptions.start : 1;
+            ids.forEach((id, index) => {
                 const target = findTargetById(id);
-                if (!target) continue;
-                target.label = cleanLabel;
+                if (!target) return;
+                target.label = useSequence ? `${prefix}${start + index}` : cleanLabel;
                 target.explosive = !!explosive;
                 const runtime = findRuntimeTargetById(id);
                 if (runtime) {
                     runtime.explosive = target.explosive;
                     runtime.label = target.label;
                 }
-            }
+            });
             saveTunnelMap();
             keyboardStatus.innerText =
-                `${ids.length} target box(es) updated${explosive ? ' (explosive)' : ''}`;
+                `${ids.length} target box(es) updated${useSequence ? ' with sequence labels' : ''}${explosive ? ' (explosive)' : ''}`;
             return true;
         }
 
@@ -9791,13 +10393,56 @@
             explosiveRow.append(explosiveCheck, ' Explosive (red) — shield damage on fly-through');
             joinEditDialog.appendChild(explosiveRow);
 
+            let sequenceCheck = null;
+            let prefixInput = null;
+            let startInput = null;
+            if (ids.length > 1) {
+                const sequenceRow = document.createElement('label');
+                sequenceRow.className = 'hint';
+                sequenceCheck = document.createElement('input');
+                sequenceCheck.type = 'checkbox';
+                sequenceRow.append(sequenceCheck, ' Batch sequence labels');
+                joinEditDialog.appendChild(sequenceRow);
+
+                const sequenceGrid = document.createElement('div');
+                sequenceGrid.className = 'join-grid';
+                const sequenceTitle = document.createElement('div');
+                sequenceTitle.style.gridColumn = '1 / -1';
+                sequenceTitle.style.color = '#66b8ff';
+                sequenceTitle.textContent = 'Sequence Labeling';
+                const prefixLabel = document.createElement('label');
+                prefixLabel.textContent = 'Prefix';
+                prefixInput = document.createElement('input');
+                prefixInput.type = 'text';
+                prefixInput.placeholder = 'Gate ';
+                const startLabel = document.createElement('label');
+                startLabel.textContent = 'Start #';
+                startInput = document.createElement('input');
+                startInput.type = 'number';
+                startInput.step = '1';
+                startInput.value = '1';
+                sequenceGrid.append(sequenceTitle, prefixLabel, prefixInput, startLabel, startInput);
+                joinEditDialog.appendChild(sequenceGrid);
+            }
+
             const actions = document.createElement('div');
             actions.className = 'join-actions';
             const applyBtn = document.createElement('button');
             applyBtn.type = 'button';
             applyBtn.textContent = 'Apply';
             applyBtn.addEventListener('click', () => {
-                applyTargetEdit(target.id, labelInput.value, explosiveCheck.checked);
+                const sequenceOptions = sequenceCheck?.checked
+                    ? {
+                        enabled: true,
+                        prefix: prefixInput.value,
+                        start: Number(startInput.value)
+                    }
+                    : null;
+                if (sequenceOptions && Number.isNaN(sequenceOptions.start)) {
+                    keyboardStatus.innerText = 'invalid sequence start number';
+                    return;
+                }
+                applyTargetEdit(target.id, labelInput.value, explosiveCheck.checked, sequenceOptions);
                 closeJoinEditDialog();
             });
             const cancelBtn = document.createElement('button');
@@ -9807,7 +10452,7 @@
             actions.append(applyBtn, cancelBtn);
             joinEditDialog.appendChild(actions);
             joinEditDialog.style.display = 'block';
-            wireDialogInputFocus(labelInput);
+            wireDialogInputFocus(labelInput, prefixInput, startInput);
         }
 
         function makeSentryId() {
@@ -10706,6 +11351,29 @@
             sentry.down = normalize(cross(sentry.forward, sentry.right));
         }
 
+        function sentryChaseAnchor(sentry, ship) {
+            const side = sentry.id && sentry.id.charCodeAt(sentry.id.length - 1) % 2 ? 1 : -1;
+            const base = addVec(
+                ship,
+                addVec(
+                    scaleVec(shipForward, -SENTRY_CHASE_TRAIL_DIST),
+                    scaleVec(shipRight, SENTRY_CHASE_SIDE_OFFSET * side)
+                )
+            );
+            const distToPlayer = sentryDistanceToPlayer(sentry, ship);
+            if (distToPlayer < SENTRY_CHASE_MIN_VISIBLE_DIST) {
+                const away = normalize({
+                    x: sentry.x - ship.x,
+                    y: sentry.y - ship.y,
+                    z: sentry.z - ship.z
+                });
+                if (Math.hypot(away.x, away.y, away.z) > 0.001) {
+                    return addVec(ship, scaleVec(away, SENTRY_CHASE_MIN_VISIBLE_DIST));
+                }
+            }
+            return base;
+        }
+
         function sentryPatrolWaypoints(sentry) {
             if (!sentry.path?.length) return [];
             return sentry.path.map(stage => stage.point);
@@ -10731,7 +11399,7 @@
             }
 
             if (sentry.engaged) {
-                sentryFaceToward(sentry, ship);
+                const chaseAnchor = sentryChaseAnchor(sentry, ship);
                 const chaseMult = sentryIsGuardMode(sentry) ? SENTRY_GUARD_CHASE_MULT : 1;
                 const catchUpMult = dist > SENTRY_CHASE_CATCHUP_START
                     ? Math.min(
@@ -10741,7 +11409,8 @@
                     : 1;
                 const boostMult = boostingForward ? SENTRY_CHASE_BOOST_MULT : 1;
                 const chaseSpeed = SENTRY_CHASE_SPEED * chaseMult * catchUpMult * boostMult;
-                moveSentryToward(sentry, ship, chaseSpeed, dt);
+                moveSentryToward(sentry, chaseAnchor, chaseSpeed, dt);
+                sentryFaceToward(sentry, ship);
                 const fireCooldown = SENTRY_FIRE_COOLDOWN_ENGAGED_MS;
                 if (dist <= SENTRY_FIRE_RANGE && now - sentry.lastFireAt >= fireCooldown) {
                     fireSentryBeam(sentry, ship);
@@ -10971,7 +11640,7 @@
                 let drewAny = false;
                 for (const [[ax, ay, az], [bx, by, bz]] of SENTRY_STAR_DESTROYER_SEGMENTS) {
                     const pa = toScreen(ax, ay, az);
-                    const pb = toScreen(bx, by, bz);
+                     const pb = toScreen(bx, by, bz);
                     if (!pa || !pb) continue;
                     ctx.moveTo(pa.x, pa.y);
                     ctx.lineTo(pb.x, pb.y);
@@ -13448,6 +14117,49 @@
                     );
                 }
             }
+            if (mapMouse.routeDraft) {
+                const draft = mapMouse.routeDraft;
+                for (const preview of routePreviewPolylines()) {
+                    const active = draft.activeSegmentIndex === preview.index;
+                    for (let i = 1; i < preview.points.length; i++) {
+                        drawMapLine(
+                            preview.points[i - 1],
+                            preview.points[i],
+                            active ? '#ffe95c' : '#33a8ff',
+                            active ? 5 : 4,
+                            active ? 0.92 : 0.72
+                        );
+                    }
+                }
+                for (let i = 0; i < draft.handles.length; i++) {
+                    const handle = draft.handles[i];
+                    const adjusted = routeHandleAdjustedPoint(i);
+                    drawMapLine(handle.point, adjusted, '#ffb040', 2, 0.58);
+                    drawMapDot(handle.point, '#ffb040', 9);
+                    if (adjusted && distanceSq(handle.point, adjusted) > 1) {
+                        drawMapDot(adjusted, '#ff7a40', 7);
+                    }
+                    const handleScreen = projectMapPoint(handle.point, centerX, centerY, fov);
+                    if (handleScreen) {
+                        ctx.fillStyle = '#ffd18a';
+                        ctx.font = '12px monospace';
+                        ctx.fillText(
+                            `C${i + 1} ${Number(handle.angleDeg) || 0}deg`,
+                            handleScreen.x + 10,
+                            handleScreen.y - 8
+                        );
+                    }
+                }
+                for (let i = 0; i < draft.nodes.length; i++) {
+                    const node = draft.nodes[i];
+                    const nodeScreen = drawMapDot(node.point, i === 0 ? '#ff4fd8' : '#7ec8ff', i === 0 ? 11 : 10);
+                    if (nodeScreen) {
+                        ctx.fillStyle = i === 0 ? '#ffb6f0' : '#d5f0ff';
+                        ctx.font = '13px monospace';
+                        ctx.fillText(`R${i + 1}`, nodeScreen.x + 11, nodeScreen.y + 4);
+                    }
+                }
+            }
             renderPortalGatewaysMap(centerX, centerY, fov);
             for (const target of tunnelTargets) {
                 const half = target.size / 2;
@@ -14148,7 +14860,7 @@
                 ctx.fillText(`Engine error: ${err.message}`, 20, 42);
                 ctx.fillStyle = '#8ca3a0';
                 ctx.font = '13px monospace';
-                ctx.fillText('Hard refresh after updating index.html. N = new map, Ctrl+Shift+L = load library.', 20, 72);
+                ctx.fillText('Hard refresh after updating index.html. Ctrl+Shiftt+K = new map, Ctrl+Shift+L = load library.', 20, 72);
                 keyboardStatus.innerText = `engine error: ${err.message}`;
             }
 
