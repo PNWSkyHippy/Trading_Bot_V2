@@ -1,0 +1,2 @@
+trade_id,symbol,direction,status,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker
+aef42d58-895,TX/USD,short,closed,breakout_scanner,2026-06-25T01:14:42.495863,2026-06-25T01:40:04.032304,0.0056,0.00536,54.9076,4.2857,trailing_stop,kraken
