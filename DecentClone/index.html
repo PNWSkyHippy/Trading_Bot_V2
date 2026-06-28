@@ -794,7 +794,7 @@
             ['V', 'texture/rib color selected tunnel range'],
             ['Del', 'delete selected tunnel range'],
             ['N', 'toggle multi-node draft route'],
-            ['Route LMB', 'add route nodes on active plane'],
+            ['Route LMB', 'set first/add route nodes'],
             ['Shift+N route', 'pause/resume adding route nodes'],
             ['U route', 'undo last route draft edit'],
             ['Ctrl+drag R node', 'snap route node to tunnel/portal'],
@@ -8699,12 +8699,12 @@
                 keyboardStatus.innerText = `route draft canceled (${count} node${count === 1 ? '' : 's'})`;
                 return true;
             }
+            const seededFromAnchor = !!mapMouse.anchor;
             ensureRouteDraft(mapMouse.anchor || null);
-            if (!mapMouse.routeDraft.nodes.length) {
-                addRouteDraftNodeAtPoint(builder.cursor || mapCamera.target, 'route start');
-            }
             keyboardStatus.innerText =
-                `ROUTE DRAFT - click nodes on ${mapMouse.editPlane.toUpperCase()}, Shift+N pauses, U undoes, Y builds`;
+                seededFromAnchor
+                    ? `ROUTE DRAFT - R1 seeded from ${mapMouse.anchor.label}, click next node, U undoes, Y builds`
+                    : `ROUTE DRAFT - click the first R1 node on ${mapMouse.editPlane.toUpperCase()}, U undoes, Y builds`;
             return true;
         }
 
