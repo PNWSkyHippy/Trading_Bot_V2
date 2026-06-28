@@ -750,6 +750,7 @@
         ];
         const combatCheats = [
             ['V / RMB', 'fire at sentries (10% per hit, 10 hits = kill)'],
+            ['Ctrl+Shift+R', 'developer repair hull/shields'],
             ['Sentries', 'guard spot or patrol; dead = 5 min respawn'],
             ['Orange bolts', 'sentry fire drains shields — shoot first'],
         ];
@@ -3149,6 +3150,36 @@
             gameOverOverlay.style.display = 'block';
         }
 
+        function showShipDestroyedOverlay() {
+            if (!gameOverOverlay) return;
+            gameOverState.active = true;
+            gameOverState.rank = null;
+            gameOverState.entryId = null;
+            gameOverOverlay.innerHTML = '';
+
+            const title = document.createElement('h2');
+            title.textContent = 'SHIP DESTROYED';
+            gameOverOverlay.appendChild(title);
+
+            const livesLine = document.createElement('div');
+            livesLine.className = 'go-rank';
+            livesLine.textContent = `${livesRemaining} ${livesRemaining === 1 ? 'life' : 'lives'} remaining`;
+            gameOverOverlay.appendChild(livesLine);
+
+            const scoreLine = document.createElement('div');
+            scoreLine.className = 'go-score';
+            scoreLine.textContent = `Score: ${targetScore}`;
+            gameOverOverlay.appendChild(scoreLine);
+
+            const continueBtn = document.createElement('button');
+            continueBtn.type = 'button';
+            continueBtn.textContent = 'Respawn (R)';
+            continueBtn.addEventListener('click', continueAfterShipDestroyed);
+            gameOverOverlay.appendChild(continueBtn);
+
+            gameOverOverlay.style.display = 'block';
+        }
+
         function computeSentryHitDirectionDot(sentry, ship) {
             const toSentry = normalize({
                 x: sentry.x - ship.x,
@@ -3202,22 +3233,52 @@
             savePlayerProfile();
             updatePlayerHud();
             if (livesRemaining > 0) {
-                resetPlayerCombatState();
-                placeShipAtTunnelStart();
-                wallHit.stuckCount = 0;
-                wallHit.active = false;
-                wallHit.intensity = 0;
-                tunnelCoreLatX = 0;
-                tunnelCoreLatY = 0;
-                latchedMove.forward = 0;
-                latchedMove.strafe = 0;
-                latchedMove.lift = 0;
-                keyboardStatus.innerText = `ship destroyed — ${livesRemaining} lives remaining`;
+                showShipDestroyedOverlay();
+                keyboardStatus.innerText = `ship destroyed — press R to respawn (${livesRemaining} lives remaining)`;
                 return;
             }
             const result = submitScoreToLeaderboard(targetScore, currentPlayerName);
             showGameOverOverlay(result.rank, result.entry.id, result.board);
             keyboardStatus.innerText = `game over — ${currentPlayerName} score ${targetScore} rank #${result.rank}`;
+        }
+
+        function continueAfterShipDestroyed() {
+            if (livesRemaining <= 0) return restartAfterDeath();
+            resetPlayerCombatState();
+            placeShipAtTunnelStart();
+            wallHit.stuckCount = 0;
+            wallHit.active = false;
+            wallHit.intensity = 0;
+            tunnelCoreLatX = 0;
+            tunnelCoreLatY = 0;
+            latchedMove.forward = 0;
+            latchedMove.strafe = 0;
+            latchedMove.lift = 0;
+            autoBoostActive = false;
+            autoBoostTurbo = false;
+            keyboardStatus.innerText = `respawned — ${livesRemaining} lives remaining`;
+        }
+
+        function developerRepairPlayer() {
+            shieldCurrent = SHIELD_MAX;
+            hullCurrent = HULL_MAX;
+            shieldsBreached = false;
+            shieldFlashUntil = 0;
+            shieldHitFlashUntil = 0;
+            hullFlashUntil = 0;
+            if (gameOverState.active && livesRemaining > 0) {
+                gameOverState.active = false;
+                gameOverState.rank = null;
+                gameOverState.entryId = null;
+                if (gameOverOverlay) {
+                    gameOverOverlay.style.display = 'none';
+                    gameOverOverlay.innerHTML = '';
+                }
+            }
+            updateShieldHud();
+            updateHullHud();
+            keyboardStatus.innerText = 'developer repair: hull and shields restored';
+            return true;
         }
 
         function restartAfterDeath() {
@@ -3429,6 +3490,12 @@
             }
             focusGameSurface();
             const key = normalizeKey(e);
+            if (key === 'r' && e.ctrlKey && e.shiftKey) {
+                if (developerRepairPlayer()) {
+                    e.preventDefault();
+                    return;
+                }
+            }
             if (mapLibraryDialog.style.display === 'block' && key === 'escape') {
                 closeMapLibraryDialog();
                 e.preventDefault();
@@ -8000,7 +8067,8 @@
             }
             if (key === 'r') {
                 if (gameOverState.active) {
-                    restartAfterDeath();
+                    if (livesRemaining > 0) continueAfterShipDestroyed();
+                    else restartAfterDeath();
                     return true;
                 }
                 return false;
@@ -8097,12 +8165,11 @@
             wallHit.active = false;
             wallHit.intensity = 0;
             shieldCurrent = SHIELD_MAX;
-            hullCurrent = HULL_MAX;
-            shieldsBreached = false;
+            shieldsBreached = hullCurrent <= 0;
             latchedMove.forward = 0;
             latchedMove.strafe = 0;
             latchedMove.lift = 0;
-            keyboardStatus.innerText = 'ship recovered to nearest tunnel';
+            keyboardStatus.innerText = 'ship recovered to nearest tunnel — hull unchanged';
             return true;
         }
 
