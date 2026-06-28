@@ -14531,6 +14531,12 @@
                 if (length < 80) continue;
 
                 const segmentHasWallCover = wallsCoverSegments && texturedSegmentIndices.has(segIndex);
+                // Opaque wall sections already have their texture surface; drawing
+                // their rib overlay afterward makes neighboring tunnels look visible
+                // through the wall. Transparent special sections keep their ribs.
+                if (segmentHasWallCover && segmentWallOpaque(seg)) {
+                    continue;
+                }
                 const ribTimes = segmentHasWallCover
                     ? [0.5]
                     : Array.from(
