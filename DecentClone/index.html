@@ -5703,7 +5703,9 @@
                 forward: basis.forward,
                 right: basis.right,
                 down: basis.down,
-                radius: Math.max(44, radius)
+                radius: Math.max(44, radius),
+                segmentIndex: Number.isInteger(frame.segmentIndex) ? frame.segmentIndex : null,
+                segmentT: Number.isFinite(frame.segmentT) ? frame.segmentT : null
             };
         }
 
@@ -6573,7 +6575,9 @@
                     forward: normalize(scaleVec(basis.forward, outwardSign)),
                     right: copyVec(basis.right),
                     down: copyVec(basis.down),
-                    radius: portalRadiusForSegment(seg)
+                    radius: portalRadiusForSegment(seg),
+                    segmentIndex: anchorLike.segmentIndex ?? null,
+                    segmentT: anchorLike.segmentT ?? null
                 };
             }
             const seg = anchorLike.segmentIndex !== null && anchorLike.segmentIndex !== undefined
@@ -6592,7 +6596,9 @@
                 forward: normalize(scaleVec(forward, outwardSign)),
                 right: normalize(right),
                 down: normalize(down),
-                radius: portalRadiusForSegment(orientSeg)
+                radius: portalRadiusForSegment(orientSeg),
+                segmentIndex: anchorLike.segmentIndex ?? nearest?.index ?? null,
+                segmentT: anchorLike.segmentT ?? nearest?.t ?? null
             };
         }
 
@@ -7138,7 +7144,7 @@
             }
         }
 
-        function renderPortalGatewaysFlight(centerX, centerY, fov) {
+        function renderPortalGatewaysFlight(centerX, centerY, fov, texturedSegmentIndices = null, forwardPathSet = null) {
             for (const portal of builder.portals) {
                 const oneWay = portalIsOneWay(portal);
                 const sides = [
@@ -7147,6 +7153,7 @@
                 ];
                 for (const [frame, stroke, fill, showDisc] of sides) {
                     if (!showDisc) continue;
+                    if (shouldSuppressOpaqueFrameOverlay(frame, texturedSegmentIndices, forwardPathSet)) continue;
                     const cameraPoint = worldToCamera(frame.point);
                     if (cameraPoint.z <= 14 || cameraPoint.z > 1500) continue;
                     const sidesCount = 16;
@@ -12590,7 +12597,7 @@
             if (index === null || index === undefined || index < 0) return false;
             if (index === shipSegmentIndex) return true;
             if (shipSegmentIndex !== null && Math.abs(index - shipSegmentIndex) <= TUNNEL_TEXTURE_SHIP_RING) return true;
-            return !!forwardPathSet?.has?.(index);
+            return false;
         }
 
         function shouldSuppressOpaqueOverlay(index, texturedSegmentIndices = null, forwardPathSet = null) {
@@ -12598,6 +12605,22 @@
             if (!tunnelWallsReady() || !texturedSegmentIndices?.has?.(index)) return false;
             const seg = builder.segments[index];
             return !!seg && segmentWallOpaque(seg) && !isMainTrackOverlaySegment(index, forwardPathSet);
+        }
+
+        function overlaySegmentIndexForPoint(point, preferredIndex = null) {
+            if (Number.isInteger(preferredIndex) && preferredIndex >= 0 && preferredIndex < builder.segments.length) {
+                return preferredIndex;
+            }
+            const nearest = nearestTunnelPoint(point);
+            return nearest?.index ?? null;
+        }
+
+        function shouldSuppressOpaqueFrameOverlay(frame, texturedSegmentIndices = null, forwardPathSet = null) {
+            return shouldSuppressOpaqueOverlay(
+                overlaySegmentIndexForPoint(frame?.point, frame?.segmentIndex),
+                texturedSegmentIndices,
+                forwardPathSet
+            );
         }
 
         function collectVisibleTunnelSegments(maxSegments = TUNNEL_TEXTURE_MAX_SEGMENTS, options = {}) {
@@ -15125,7 +15148,7 @@
                 renderTunnelSentries(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderLaserAimCrosshair(centerX, centerY, fov);
                 updateAndRenderParticles(centerX, centerY, fov);
-                renderPortalGatewaysFlight(centerX, centerY, fov);
+                renderPortalGatewaysFlight(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderPortalTransitVfx(centerX, centerY);
                 renderSentryBeams(centerX, centerY, fov);
                 renderSentryMuzzleFlashes(centerX, centerY, fov);
