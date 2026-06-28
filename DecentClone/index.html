@@ -797,6 +797,7 @@
             ['Route LMB', 'add route nodes on active plane'],
             ['Shift+N route', 'pause/resume adding route nodes'],
             ['U route', 'undo last route draft edit'],
+            ['Ctrl+drag R node', 'snap route node to tunnel/portal'],
             ['Route line click', 'edit C handle / angle'],
             ['Alt+Shift empty', 'set free orbit anchor'],
             ['Drag LMB (empty)', 'orbit view only'],
@@ -4011,6 +4012,16 @@
                     return;
                 }
                 if (mapMouse.dragTarget === 'routeNode' || mapMouse.dragTarget === 'routeHandle') {
+                    if (mapMouse.dragTarget === 'routeNode' && e.ctrlKey) {
+                        const snapHit = pickMapTunnel(canvasX, canvasY, 130);
+                        if (snapHit && snapRouteDraftNodeToAnchor(snapHit)) {
+                            mapMouse.dragMoved = true;
+                            keyboardStatus.innerText =
+                                `route node R${mapMouse.routeDragIndex + 1} snapped to ${snapHit.label}`;
+                            e.preventDefault();
+                            return;
+                        }
+                    }
                     const origin = getEditPlaneOrigin(mapMouse.dragTarget);
                     const raw = mapScreenToAxisPlane(canvasX, canvasY, origin, mapMouse.editPlane);
                     const point = finalizeEditPlanePoint(raw, origin, mapMouse.editPlane);
@@ -8759,6 +8770,16 @@
                 return true;
             }
             return false;
+        }
+
+        function snapRouteDraftNodeToAnchor(anchor) {
+            const draft = mapMouse.routeDraft;
+            const index = mapMouse.routeDragIndex;
+            if (!draft || index === null || index === undefined || !draft.nodes[index] || !anchor?.point) {
+                return false;
+            }
+            draft.nodes[index] = routeNodeFromAnchor(anchor);
+            return true;
         }
 
         function routeEndpointBasis(node, fallbackRight, fallbackDown) {
