@@ -5198,6 +5198,8 @@
                             down: copyVec(seg.down),
                             radius: seg.radius || builder.radius,
                             branch: branchConnected,
+                            segmentIndex: i,
+                            segmentIndices: [i],
                             label: branchConnected ? 'BRANCH' : 'JUNCTION'
                         });
                     }
@@ -5209,6 +5211,7 @@
                 let cluster = clusters.find(item => distanceSq(item.point, mouth.point) <= clusterDistSq);
                 if (!cluster) {
                     cluster = { ...mouth, count: 0 };
+                    cluster.segmentIndices = new Set(mouth.segmentIndices || [mouth.segmentIndex]);
                     clusters.push(cluster);
                 }
                 cluster.point = {
@@ -5221,7 +5224,15 @@
                 cluster.down = normalize(addVec(scaleVec(cluster.down, cluster.count), mouth.down));
                 cluster.branch = cluster.branch || mouth.branch;
                 cluster.label = cluster.branch ? 'BRANCH' : 'JUNCTION';
+                if (!cluster.segmentIndices) cluster.segmentIndices = new Set();
+                for (const index of mouth.segmentIndices || [mouth.segmentIndex]) {
+                    if (index !== null && index !== undefined) cluster.segmentIndices.add(index);
+                }
                 cluster.count += 1;
+            }
+            for (const cluster of clusters) {
+                cluster.segmentIndices = [...(cluster.segmentIndices || [])];
+                cluster.segmentIndex = cluster.segmentIndices[0];
             }
             return clusters;
         }
@@ -12489,6 +12500,20 @@
             return indices;
         }
 
+        function isMainTrackOverlaySegment(index, forwardPathSet = null) {
+            if (index === null || index === undefined || index < 0) return false;
+            if (index === shipSegmentIndex) return true;
+            if (shipSegmentIndex !== null && Math.abs(index - shipSegmentIndex) <= TUNNEL_TEXTURE_SHIP_RING) return true;
+            return !!forwardPathSet?.has?.(index);
+        }
+
+        function shouldSuppressOpaqueOverlay(index, texturedSegmentIndices = null, forwardPathSet = null) {
+            if (index === null || index === undefined) return false;
+            if (!tunnelWallsReady() || !texturedSegmentIndices?.has?.(index)) return false;
+            const seg = builder.segments[index];
+            return !!seg && segmentWallOpaque(seg) && !isMainTrackOverlaySegment(index, forwardPathSet);
+        }
+
         function collectVisibleTunnelSegments(maxSegments = TUNNEL_TEXTURE_MAX_SEGMENTS, options = {}) {
             const coverageMode = !!options.coverageMode;
             const cacheKey = coverageMode ? 'coverage' : 'streak';
@@ -14445,9 +14470,10 @@
             };
         }
 
-        function renderBranchMouths(centerX, centerY, fov) {
+        function renderBranchMouths(centerX, centerY, fov, texturedSegmentIndices = null, forwardPathSet = null) {
             const mouths = collectJunctionMouths();
-            for (const seg of builder.segments) {
+            for (let segmentIndex = 0; segmentIndex < builder.segments.length; segmentIndex++) {
+                const seg = builder.segments[segmentIndex];
                 const mouthInset = Math.min(36, Math.max(12, (seg.length || builder.length) * 0.18));
                 if (isBranchMouthSegment(seg)) {
                     mouths.push({
@@ -14457,11 +14483,20 @@
                         down: copyVec(seg.down),
                         radius: seg.radius || builder.radius,
                         branch: true,
+                        segmentIndex,
+                        segmentIndices: [segmentIndex],
                         label: 'BRANCH'
                     });
                 }
             }
             for (const mouth of mouths) {
+                const sourceIndices = mouth.segmentIndices || [mouth.segmentIndex];
+                if (
+                    sourceIndices.length > 0 &&
+                    sourceIndices.every(index => shouldSuppressOpaqueOverlay(index, texturedSegmentIndices, forwardPathSet))
+                ) {
+                    continue;
+                }
                 const mouthCenter = addVec(mouth.point, scaleVec(mouth.forward, Math.max(8, mouth.radius * 0.06)));
                 const cameraPoint = worldToCamera(mouthCenter);
                 if (cameraPoint.z <= 18 || cameraPoint.z > 1350) continue;
@@ -14523,7 +14558,7 @@
             }
         }
 
-        function renderSegmentRibs(centerX, centerY, fov, texturedSegmentIndices = null) {
+        function renderSegmentRibs(centerX, centerY, fov, texturedSegmentIndices = null, forwardPathSet = null) {
             const wallsCoverSegments = tunnelWallsReady() && texturedSegmentIndices;
             for (let segIndex = 0; segIndex < builder.segments.length; segIndex++) {
                 const seg = builder.segments[segIndex];
@@ -14534,7 +14569,7 @@
                 // Opaque wall sections already have their texture surface; drawing
                 // their rib overlay afterward makes neighboring tunnels look visible
                 // through the wall. Transparent special sections keep their ribs.
-                if (segmentHasWallCover && segmentWallOpaque(seg)) {
+                if (shouldSuppressOpaqueOverlay(segIndex, texturedSegmentIndices, forwardPathSet)) {
                     continue;
                 }
                 const ribTimes = segmentHasWallCover
@@ -14598,10 +14633,11 @@
             return { right: target.right, down: target.down };
         }
 
-        function renderTunnelTargets(centerX, centerY, fov) {
+        function renderTunnelTargets(centerX, centerY, fov, texturedSegmentIndices = null, forwardPathSet = null) {
             if (!tunnelTargets.length) return;
             for (const target of tunnelTargets) {
                 if (!targetIsActive(target)) continue;
+                if (shouldSuppressOpaqueOverlay(target.segmentIndex, texturedSegmentIndices, forwardPathSet)) continue;
                 const cameraPoint = worldToCamera(target.point);
                 if (cameraPoint.z <= 16 || cameraPoint.z > 1500) continue;
                 const half = target.size / 2;
@@ -14965,11 +15001,12 @@
                 const texturedSegmentIndices = coverageSegments
                     ? new Set(coverageSegments.map(entry => entry.index))
                     : null;
+                const forwardPathOverlaySet = new Set(collectForwardPathSegmentIndices(TUNNEL_FORWARD_LOOKAHEAD));
                 renderTunnelWorld(centerX, centerY, fov, coverageSegments, streakSegments);
                 renderBuilderWorld(centerX, centerY, fov);
                 renderMiniMapHud();
-                renderSegmentRibs(centerX, centerY, fov, texturedSegmentIndices);
-                renderBranchMouths(centerX, centerY, fov);
+                renderSegmentRibs(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
+                renderBranchMouths(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 ctx.globalCompositeOperation = 'source-over';
                 ctx.globalAlpha = 1;
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -14998,7 +15035,7 @@
                     ctx.fillRect(laserProjection.x, laserProjection.y, lSize, lSize);
                 }
 
-                renderTunnelTargets(centerX, centerY, fov);
+                renderTunnelTargets(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderTunnelSentries(centerX, centerY, fov);
                 renderLaserAimCrosshair(centerX, centerY, fov);
                 updateAndRenderParticles(centerX, centerY, fov);
