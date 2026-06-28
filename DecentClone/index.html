@@ -4064,7 +4064,7 @@
                     return;
                 }
                 mapCamera.yaw = wrapAngle(mapCamera.yaw + dx * 0.006);
-                mapCamera.pitch = Math.max(-1.48, Math.min(1.48, mapCamera.pitch + dy * 0.006));
+                mapCamera.pitch = wrapAngle(mapCamera.pitch + dy * 0.006);
                 return;
             }
             if (mapView && !mapMouse.dragTarget && !mapMouse.orbiting) {
@@ -8379,10 +8379,9 @@
                 z: cy * cp
             });
             const cameraPos = addVec(mapCamera.target, scaleVec(back, mapCamera.distance));
-            let right = normalize(cross({ x: 0, y: 1, z: 0 }, back));
-            if (Math.hypot(right.x, right.y, right.z) < 0.01) {
-                right = { x: 1, y: 0, z: 0 };
-            }
+            // Keep editor orbit continuous through top/bottom views. Using worldUp x back
+            // collapses at the poles and flips after ~180deg; yaw-derived right stays valid.
+            const right = normalize({ x: cy, y: 0, z: -sy });
             const forward = normalize(scaleVec(back, -1));
             const down = normalize(cross(forward, right));
             return { cameraPos, forward, right, down };
@@ -8944,7 +8943,7 @@
             const unitBack = scaleVec(back, 1 / distance);
             mapCamera.target = copyVec(pivot);
             mapCamera.distance = Math.max(80, Math.min(12000, distance));
-            mapCamera.pitch = Math.max(-1.48, Math.min(1.48, Math.asin(unitBack.y)));
+            mapCamera.pitch = Math.asin(Math.max(-1, Math.min(1, unitBack.y)));
             mapCamera.yaw = Math.atan2(unitBack.x, unitBack.z);
             mapCamera.snappedPlane = null;
             return true;
@@ -8960,7 +8959,7 @@
             if (distance < 10) return false;
             const unitBack = scaleVec(back, 1 / distance);
             mapCamera.distance = Math.max(80, Math.min(12000, distance));
-            mapCamera.pitch = Math.max(-1.48, Math.min(1.48, Math.asin(unitBack.y)));
+            mapCamera.pitch = Math.asin(Math.max(-1, Math.min(1, unitBack.y)));
             mapCamera.yaw = Math.atan2(unitBack.x, unitBack.z);
             mapCamera.target = copyVec(target);
             mapCamera.snappedPlane = null;
