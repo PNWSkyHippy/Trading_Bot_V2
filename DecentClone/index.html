@@ -10643,7 +10643,9 @@
                         point: copyVec(raw.spawn.point),
                         right: normalize(copyVec(raw.spawn.right)),
                         down: normalize(copyVec(raw.spawn.down)),
-                        forward: normalize(raw.spawn.forward || cross(raw.spawn.right, raw.spawn.down))
+                        forward: normalize(raw.spawn.forward || cross(raw.spawn.right, raw.spawn.down)),
+                        segmentIndex: Number.isInteger(raw.spawn.segmentIndex) ? raw.spawn.segmentIndex : null,
+                        segmentT: Number.isFinite(raw.spawn.segmentT) ? raw.spawn.segmentT : null
                     },
                     path: path
                         .filter(stage => stage?.point && isFiniteVec(stage.point))
@@ -10666,7 +10668,9 @@
                     point: copyVec(spawn.point),
                     right: copyVec(spawn.right),
                     down: copyVec(spawn.down),
-                    forward: normalize(spawn.forward || cross(spawn.right, spawn.down))
+                    forward: normalize(spawn.forward || cross(spawn.right, spawn.down)),
+                    segmentIndex: Number.isInteger(spawn.segmentIndex) ? spawn.segmentIndex : null,
+                    segmentT: Number.isFinite(spawn.segmentT) ? spawn.segmentT : null
                 },
                 path: (saved.path || []).map(stage => ({
                     point: copyVec(stage.point),
@@ -10862,7 +10866,9 @@
                     point: copyVec(snapped.point),
                     right: snapped.right,
                     down: snapped.down,
-                    forward: snapped.forward
+                    forward: snapped.forward,
+                    segmentIndex: snapped.segmentIndex ?? null,
+                    segmentT: snapped.segmentT ?? null
                 },
                 path: []
             };
@@ -10927,6 +10933,8 @@
             sentry.spawn.right = snapped.right;
             sentry.spawn.down = snapped.down;
             sentry.spawn.forward = snapped.forward;
+            sentry.spawn.segmentIndex = snapped.segmentIndex ?? null;
+            sentry.spawn.segmentT = snapped.segmentT ?? null;
             rebuildTunnelSentries();
             const runtime = findRuntimeSentryById(sentryId);
             if (runtime) resetSentryToSpawn(runtime);
@@ -11723,8 +11731,18 @@
             [[-0.9, 0, 0.1], [-1.02, 0, 0.14]]
         ];
 
-        function renderSentryDrone(sentry, centerX, centerY, fov, mapMode = false) {
+        function sentryOverlaySegmentIndex(sentry) {
+            const pos = sentry
+                ? { x: sentry.x ?? sentry.spawn?.point?.x, y: sentry.y ?? sentry.spawn?.point?.y, z: sentry.z ?? sentry.spawn?.point?.z }
+                : null;
+            if (!pos || !Number.isFinite(pos.x) || !Number.isFinite(pos.y) || !Number.isFinite(pos.z)) return null;
+            const nearest = nearestTunnelPoint(pos, sentry.spawn?.segmentIndex);
+            return nearest?.index ?? sentry.spawn?.segmentIndex ?? null;
+        }
+
+        function renderSentryDrone(sentry, centerX, centerY, fov, mapMode = false, texturedSegmentIndices = null, forwardPathSet = null) {
             if (!mapMode && !sentryIsActive(sentry)) return;
+            if (!mapMode && shouldSuppressOpaqueOverlay(sentryOverlaySegmentIndex(sentry), texturedSegmentIndices, forwardPathSet)) return;
             const pos = mapMode && mapMouse.sentrySpawnMoveId === sentry.id
                 ? sentry.spawn.point
                 : { x: sentry.x, y: sentry.y, z: sentry.z };
@@ -11889,10 +11907,10 @@
             }
         }
 
-        function renderTunnelSentries(centerX, centerY, fov) {
+        function renderTunnelSentries(centerX, centerY, fov, texturedSegmentIndices = null, forwardPathSet = null) {
             if (!tunnelSentries.length) return;
             for (const sentry of tunnelSentries) {
-                renderSentryDrone(sentry, centerX, centerY, fov, false);
+                renderSentryDrone(sentry, centerX, centerY, fov, false, texturedSegmentIndices, forwardPathSet);
             }
         }
 
@@ -12210,7 +12228,7 @@
             ctx.globalAlpha = 1;
         }
 
-        function renderTunnelStarStreaksOverlay(centerX, centerY, fov, segments = null) {
+        function renderTunnelStarStreaksOverlay(centerX, centerY, fov, segments = null, texturedSegmentIndices = null, forwardPathSet = null) {
             if (mapView || builderMode || portalTransit.active || !tunnelWallsReady()) return;
 
             const forward = Math.max(0, lastForwardAmount);
@@ -12223,6 +12241,7 @@
 
             for (const entry of visible) {
                 const { index, seg } = entry;
+                if (shouldSuppressOpaqueOverlay(index, texturedSegmentIndices, forwardPathSet)) continue;
                 const isBranchMouth = isBranchMouthSegment(seg);
                 const palette = mapMouse.selection.has(index) || mapMouse.anchor?.segmentIndex === index
                     ? 'selected'
@@ -15010,7 +15029,7 @@
                 ctx.globalCompositeOperation = 'source-over';
                 ctx.globalAlpha = 1;
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
-                renderTunnelStarStreaksOverlay(centerX, centerY, fov, streakSegments);
+                renderTunnelStarStreaksOverlay(centerX, centerY, fov, streakSegments, texturedSegmentIndices, forwardPathOverlaySet);
                 renderMovementStreaks(centerX, centerY, fov);
 
                 // Render Lasers Beams Hurling Forward into Space
@@ -15036,7 +15055,7 @@
                 }
 
                 renderTunnelTargets(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
-                renderTunnelSentries(centerX, centerY, fov);
+                renderTunnelSentries(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderLaserAimCrosshair(centerX, centerY, fov);
                 updateAndRenderParticles(centerX, centerY, fov);
                 renderPortalGatewaysFlight(centerX, centerY, fov);
