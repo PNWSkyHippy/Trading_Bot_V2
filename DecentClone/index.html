@@ -795,6 +795,8 @@
             ['Del', 'delete selected tunnel range'],
             ['N', 'toggle multi-node draft route'],
             ['Route LMB', 'add route nodes on active plane'],
+            ['Shift+N route', 'pause/resume adding route nodes'],
+            ['U route', 'undo last route draft edit'],
             ['Route line click', 'edit C handle / angle'],
             ['Alt+Shift empty', 'set free orbit anchor'],
             ['Drag LMB (empty)', 'orbit view only'],
@@ -8110,6 +8112,13 @@
                 return startSentryEditMode();
             }
             if (key === 'n') {
+                if (event?.shiftKey && mapMouse.routeDraft) {
+                    mapMouse.routeDraft.drawPaused = !mapMouse.routeDraft.drawPaused;
+                    keyboardStatus.innerText = mapMouse.routeDraft.drawPaused
+                        ? 'route DRAW PAUSED - drag/edit nodes or orbit freely | Shift+N resumes | Y builds | Esc cancels'
+                        : 'route draw RESUMED - click to add nodes | Shift+N pauses | U undoes draft edits';
+                    return true;
+                }
                 return toggleRouteDraftMode();
             }
             if (key === 's' && event?.ctrlKey && event?.shiftKey && (mapView || builderMode)) {
@@ -8173,6 +8182,7 @@
                 return true;
             }
             if (key === 'u') {
+                if (mapMouse.routeDraft) return undoRouteDraftAction();
                 builder.segments.pop();
                 mapMouse.anchor = null;
                 applyMapGeometryChange(`undo: ${builder.segments.length} segs remain`);
@@ -8492,7 +8502,9 @@
                 mapMouse.routeDraft = {
                     nodes: [],
                     handles: [],
-                    activeSegmentIndex: null
+                    activeSegmentIndex: null,
+                    history: [],       // undo stack — each entry is a deep snapshot
+                    drawPaused: false  // Shift+N toggles; blocks new-node clicks while true
                 };
                 mapMouse.destination = null;
                 mapMouse.midpoint = null;
@@ -8524,8 +8536,48 @@
             return mapMouse.routeDraft?.nodes?.length || 0;
         }
 
+        // --- Route draft undo helpers ---
+        function routeDraftDeepCopy(draft) {
+            return {
+                nodes: draft.nodes.map(n => ({ ...n, point: copyVec(n.point) })),
+                handles: draft.handles.map(h => ({ ...h, point: copyVec(h.point) })),
+                activeSegmentIndex: draft.activeSegmentIndex,
+                drawPaused: !!draft.drawPaused
+            };
+        }
+
+        function pushRouteDraftHistory() {
+            const draft = mapMouse.routeDraft;
+            if (!draft) return;
+            draft.history.push(routeDraftDeepCopy(draft));
+            if (draft.history.length > 80) draft.history.shift();
+        }
+
+        function undoRouteDraftAction() {
+            const draft = mapMouse.routeDraft;
+            if (!draft) return false;
+            if (!draft.history.length) {
+                keyboardStatus.innerText = 'route: nothing to undo (U)';
+                return true;
+            }
+            const prev = draft.history.pop();
+            draft.nodes = prev.nodes;
+            draft.handles = prev.handles;
+            draft.activeSegmentIndex = prev.activeSegmentIndex;
+            draft.drawPaused = !!prev.drawPaused;
+            mapMouse.dragTarget = null;
+            mapMouse.routeDragIndex = null;
+            const n = draft.nodes.length;
+            const s = draft.handles.length;
+            keyboardStatus.innerText = n === 0
+                ? 'route undo — back to empty draft'
+                : `route undo — ${n} node${n === 1 ? '' : 's'}, ${s} segment${s === 1 ? '' : 's'} remain (${draft.drawPaused ? 'paused' : 'drawing'})`;
+            return true;
+        }
+
         function appendRouteDraftNode(node) {
             const draft = ensureRouteDraft();
+            pushRouteDraftHistory();
             const prev = draft.nodes[draft.nodes.length - 1];
             draft.nodes.push(node);
             if (prev) {
@@ -8641,7 +8693,8 @@
             if (!mapMouse.routeDraft.nodes.length) {
                 addRouteDraftNodeAtPoint(builder.cursor || mapCamera.target, 'route start');
             }
-            keyboardStatus.innerText = `ROUTE DRAFT — click nodes on ${mapMouse.editPlane.toUpperCase()}, click route line to edit C angle, Y builds`;
+            keyboardStatus.innerText =
+                `ROUTE DRAFT - click nodes on ${mapMouse.editPlane.toUpperCase()}, Shift+N pauses, U undoes, Y builds`;
             return true;
         }
 
@@ -8650,6 +8703,7 @@
             if (!draft || event.altKey) return false;
             const pickedRoutePoint = pickRouteDraftPoint(screenX, screenY);
             if (pickedRoutePoint) {
+                pushRouteDraftHistory();
                 mapMouse.dragTarget = pickedRoutePoint.kind === 'handle' ? 'routeHandle' : 'routeNode';
                 mapMouse.routeDragIndex = pickedRoutePoint.index;
                 mapMouse.dragMoved = false;
@@ -8660,6 +8714,11 @@
             const routeLine = pickRoutePreviewNear(screenX, screenY);
             if (routeLine) {
                 openRouteSegmentEditDialog(routeLine.segmentIndex);
+                return true;
+            }
+            if (draft.drawPaused) {
+                beginMapOrbit(event.clientX, event.clientY, false);
+                keyboardStatus.innerText = 'route DRAW PAUSED - orbiting only | drag nodes/C handles, Shift+N resumes';
                 return true;
             }
             const tunnelHit = pickMapTunnel(screenX, screenY, 92);
@@ -9608,6 +9667,7 @@
                 btn.textContent = `${plane.toUpperCase()} C plane`;
                 if ((handle.plane || mapMouse.editPlane) === plane) btn.classList.add('active');
                 btn.addEventListener('click', () => {
+                    pushRouteDraftHistory();
                     handle.plane = plane;
                     mapMouse.editPlane = plane;
                     mapMouse.planeLocked = true;
@@ -9658,6 +9718,7 @@
             applyBtn.type = 'button';
             applyBtn.textContent = 'Apply';
             applyBtn.addEventListener('click', () => {
+                pushRouteDraftHistory();
                 const next = {
                     x: Number(inputs.x.value),
                     y: Number(inputs.y.value),
@@ -11890,9 +11951,18 @@
             const z = mapMode ? cameraPoint.z : cameraPoint.z;
             if (!mapMode && (z <= 12 || z > 1500)) return;
 
+            // size: world-space scale used by sentryLocalWorldPoint for the wireframe renderer.
+            // In flight mode we keep it as a constant world-space value so perspective projection
+            // handles the depth falloff naturally (tunnel radius ~120, ship ~1/4 tunnel width).
             const size = mapMode
                 ? Math.max(5, SENTRY_SIZE * 0.22 * (fov / Math.max(60, z)))
-                : Math.max(4, SENTRY_SIZE * (1 - z / 1600) * (fov / Math.max(80, z)) * 0.08);
+                : SENTRY_SIZE;
+            // screenSize: perspective-correct pixel size for sprites and HUD elements.
+            // SENTRY_SIZE * 1.9 matches the ship's y-span (±0.95 * size = 57 world units),
+            // giving ~1/4 tunnel diameter apparent size at all depths.
+            const screenSize = mapMode
+                ? size
+                : Math.max(16, SENTRY_SIZE * 1.9 * (fov / Math.max(50, z)));
             const right = sentry.right || copyVec(sentry.spawn.right);
             const down = sentry.down || copyVec(sentry.spawn.down);
             const fwd = sentry.forward || sentryForwardAxis(sentry);
@@ -11927,9 +11997,9 @@
             const shipImage = getTextureImage(getSentryTextureEntry(sentry.shipTextureId));
             const hasShipImage = shipImage?.complete && shipImage.naturalWidth > 0;
             if (hasShipImage) {
-                const spriteSize = Math.max(12, size * (mapMode ? 1.8 : 2.4));
+                const spriteSize = mapMode ? Math.max(12, size * 1.8) : screenSize;
                 ctx.shadowColor = engaged ? '#ff2200' : '#ff7733';
-                ctx.shadowBlur = mapMode ? 5 : Math.max(3, size * 0.2);
+                ctx.shadowBlur = mapMode ? 5 : Math.max(4, screenSize * 0.18);
                 ctx.drawImage(
                     shipImage,
                     projected.x - spriteSize * 0.5,
@@ -11943,7 +12013,7 @@
                 ctx.lineJoin = 'round';
                 ctx.lineCap = 'round';
                 ctx.shadowColor = engaged ? '#ff2200' : '#ff7733';
-                ctx.shadowBlur = mapMode ? 5 : Math.max(3, size * 0.2);
+                ctx.shadowBlur = mapMode ? 5 : Math.max(4, screenSize * 0.18);
                 ctx.beginPath();
                 let drewAny = false;
                 for (const [[ax, ay, az], [bx, by, bz]] of SENTRY_STAR_DESTROYER_SEGMENTS) {
@@ -11966,10 +12036,10 @@
                 ctx.fillText(sentry.label, projected.x + 8, projected.y - 6);
             }
             if (!mapMode && sentry.health < SENTRY_HEALTH_MAX) {
-                const barW = Math.max(18, size * 2.2);
+                const barW = Math.max(20, screenSize * 1.1);
                 const barH = 3;
                 const barX = projected.x - barW * 0.5;
-                const barY = projected.y - size * 0.5 - 8;
+                const barY = projected.y - screenSize * 0.5 - 8;
                 const pct = sentry.health / SENTRY_HEALTH_MAX;
                 ctx.globalAlpha = alpha * 0.95;
                 ctx.fillStyle = 'rgba(20, 0, 0, 0.75)';
