@@ -8752,11 +8752,19 @@
             const index = mapMouse.routeDragIndex;
             if (!draft || index === null || index === undefined || !point) return false;
             if (mapMouse.dragTarget === 'routeNode' && draft.nodes[index]) {
-                draft.nodes[index].point = copyVec(point);
-                draft.nodes[index].plane = mapMouse.editPlane;
+                const node = draft.nodes[index];
+                node.point = copyVec(point);
+                node.plane = mapMouse.editPlane;
                 const spec = getEditPlaneSpec(mapMouse.editPlane, point);
-                draft.nodes[index].lockedAxis = spec.fixed;
-                draft.nodes[index].lockedValue = point[spec.fixed];
+                node.lockedAxis = spec.fixed;
+                node.lockedValue = point[spec.fixed];
+                node.segmentIndex = null;
+                node.endKind = null;
+                node.segmentT = null;
+                node.portalId = null;
+                node.portalSide = null;
+                node.freePoint = true;
+                node.label = `route node ${index + 1}`;
                 return true;
             }
             if (mapMouse.dragTarget === 'routeHandle' && draft.handles[index]) {
