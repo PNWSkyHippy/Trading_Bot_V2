@@ -1062,6 +1062,7 @@
         const MAP_RIB_RADIUS_SPREAD_FRAC = 0.055;
         // mapAutogenStretchFix1: Y autogen uses T-sized cylinder chunks (~builder.length), never mega wires
         const MAP_AUTOGEN_MAX_LENGTH_MULT = 1.15;
+        const MAP_AUTOGEN_MAX_ROUTE_DISTANCE = 4200;
         // mapCoordUxFix1: edit-plane lock, live XYZ HUD, grid overlay + integer snap on active plane
         const MAP_EDIT_GRID_SPACING = 50;
         /*
@@ -4347,6 +4348,31 @@
             return mapAutogenTargetLength() * MAP_AUTOGEN_MAX_LENGTH_MULT;
         }
 
+        function mapMaxAutogenRouteDistance() {
+            return Math.max(MAP_AUTOGEN_MAX_ROUTE_DISTANCE, mapAutogenTargetLength() * 14);
+        }
+
+        function isFiniteMapPoint(point) {
+            return !!point &&
+                Number.isFinite(point.x) &&
+                Number.isFinite(point.y) &&
+                Number.isFinite(point.z);
+        }
+
+        function routeSpanTooLarge(from, to, label = 'build') {
+            if (!isFiniteMapPoint(from) || !isFiniteMapPoint(to)) {
+                keyboardStatus.innerText = `${label} rejected: invalid map point`;
+                return true;
+            }
+            const dist = Math.sqrt(distanceSq(from, to));
+            if (!Number.isFinite(dist) || dist > mapMaxAutogenRouteDistance()) {
+                keyboardStatus.innerText =
+                    `${label} rejected: ${Math.round(dist || 0)}u span is too long (select closer points)`;
+                return true;
+            }
+            return false;
+        }
+
         function estimatePolylineLength(polyline) {
             let length = 0;
             for (let i = 1; i < polyline.length; i++) {
@@ -4415,9 +4441,16 @@
         }
 
         function appendAutogenSpan(from, to, rightHint, downHint, joinRadius, out) {
+            if (routeSpanTooLarge(from, to, 'autogen span')) {
+                return { end: copyVec(from), right: rightHint, down: downHint, rejected: true };
+            }
             const maxLen = mapAutogenMaxSegmentLength();
             const targetLen = mapAutogenTargetLength();
             const spanLen = Math.hypot(to.x - from.x, to.y - from.y, to.z - from.z);
+            if (!Number.isFinite(spanLen)) {
+                keyboardStatus.innerText = 'autogen span rejected: invalid length';
+                return { end: copyVec(from), right: rightHint, down: downHint, rejected: true };
+            }
             if (spanLen < mapMinSegmentLength()) {
                 return { end: copyVec(from), right: rightHint, down: downHint };
             }
@@ -5016,11 +5049,12 @@
 
         function normalizeSegmentFromEndpoints(seg) {
             if (!seg?.from || !seg?.to) return false;
+            if (!isFiniteMapPoint(seg.from) || !isFiniteMapPoint(seg.to)) return false;
             const dx = seg.to.x - seg.from.x;
             const dy = seg.to.y - seg.from.y;
             const dz = seg.to.z - seg.from.z;
             const length = Math.hypot(dx, dy, dz);
-            if (length < 0.001) return false;
+            if (!Number.isFinite(length) || length < 0.001 || length > mapMaxAutogenRouteDistance()) return false;
             const forward = normalize({ x: dx, y: dy, z: dz });
             let right = seg.right || builder.right;
             right = normalize({
@@ -5087,6 +5121,9 @@
         function sanitizeMapSegments() {
             const minLen = mapMinSegmentLength();
             const snapThreshSq = Math.pow(Math.min(MAP_ENDPOINT_SNAP_MAX, builder.radius * 0.18), 2);
+            const beforeGuard = builder.segments.length;
+            builder.segments = builder.segments.filter(seg => normalizeSegmentFromEndpoints(seg));
+            const invalidRemoved = beforeGuard - builder.segments.length;
             let snapped = 0;
             let merged = 0;
             const autogenSplit = repairLongAutogenChains();
@@ -5142,10 +5179,11 @@
                 ribRepair.gapsRemaining = builder.ribGapHints.length;
             }
 
-            return { removed, snapped, merged, deduped, branchNormalized, ribRepair, autogenSplit };
+            return { removed: removed + invalidRemoved, snapped, merged, deduped, branchNormalized, ribRepair, autogenSplit };
         }
 
         function makeSegmentBetween(from, to, rightHint, downHint, kind = 'join', radiusHint = null) {
+            if (routeSpanTooLarge(from, to, kind || 'segment')) return null;
             const delta = {
                 x: to.x - from.x,
                 y: to.y - from.y,
@@ -7235,6 +7273,9 @@
                 keyboardStatus.innerText = 'endpoints are already touching';
                 return true;
             }
+            if (routeSpanTooLarge(pair.a.point, pair.b.point, 'connector')) {
+                return true;
+            }
 
             const handle = Math.min(distance * 0.42, builder.length * 1.8);
             const p0 = pair.a.point;
@@ -7266,6 +7307,11 @@
             }
 
             const pathLength = estimatePolylineLength(polyline);
+            if (!Number.isFinite(pathLength) || pathLength > mapMaxAutogenRouteDistance() * 1.65) {
+                keyboardStatus.innerText =
+                    `connector rejected: ${Math.round(pathLength || 0)}u curve is too long`;
+                return true;
+            }
             const pieceCount = Math.max(2, Math.ceil(pathLength / targetLen));
             const samplePoints = arcLengthSplitPolyline(polyline, pieceCount);
             let spanState = {
@@ -7282,6 +7328,7 @@
                     joinRadius,
                     newSegments
                 );
+                if (spanState.rejected) return true;
             }
 
             const filtered = filterNonOverlappingJoinSegments(newSegments);
@@ -8680,6 +8727,13 @@
             const p0 = fromNode.point;
             const p2 = toNode.point;
             const c = adjustedHandlePoint(handle, p0, p2);
+            if (routeSpanTooLarge(p0, p2, 'route segment')) {
+                return { end: copyVec(p0), right: rightHint, down: downHint, rejected: true };
+            }
+            if (!isFiniteMapPoint(c)) {
+                keyboardStatus.innerText = 'route segment rejected: invalid C handle';
+                return { end: copyVec(p0), right: rightHint, down: downHint, rejected: true };
+            }
             const distance = Math.sqrt(distanceSq(p0, p2));
             const targetLen = mapAutogenTargetLength();
             const pathDensity = Math.max(
@@ -8692,6 +8746,11 @@
                 pathDensity
             );
             const pathLength = estimatePolylineLength(polyline);
+            if (!Number.isFinite(pathLength) || pathLength > mapMaxAutogenRouteDistance() * 1.65) {
+                keyboardStatus.innerText =
+                    `route segment rejected: ${Math.round(pathLength || 0)}u curve is too long`;
+                return { end: copyVec(p0), right: rightHint, down: downHint, rejected: true };
+            }
             const pieceCount = Math.max(2, Math.ceil(pathLength / targetLen));
             const samplePoints = arcLengthSplitPolyline(polyline, pieceCount);
             const radius = resolveEndpointJoinRadius(fromNode, toNode);
@@ -8709,6 +8768,7 @@
                     radius,
                     out
                 );
+                if (spanState.rejected) return spanState;
             }
             return spanState;
         }
@@ -8733,6 +8793,7 @@
                     basis.down,
                     newSegments
                 );
+                if (basis.rejected) return true;
             }
             const filtered = filterNonOverlappingJoinSegments(newSegments);
             if (!filtered.length) {
