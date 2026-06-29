@@ -14137,14 +14137,15 @@
                 ctx.stroke();
             }
 
-            if (mapMouse.anchor?.segmentIndex !== null && mapMouse.anchor?.segmentIndex !== undefined) {
+            const revealBuilderMarkersOnHud = builderMode || mapMouse.joinMode === 'sentry';
+            if (revealBuilderMarkersOnHud && mapMouse.anchor?.segmentIndex !== null && mapMouse.anchor?.segmentIndex !== undefined) {
                 const anchorPoint = mapHudPoint(mapMouse.anchor.point);
                 ctx.fillStyle = '#ff4fd8';
                 ctx.beginPath();
                 ctx.arc(anchorPoint.x, anchorPoint.y, 5, 0, Math.PI * 2);
                 ctx.fill();
             }
-            if (mapMouse.destination) {
+            if (revealBuilderMarkersOnHud && mapMouse.destination) {
                 const destinationPoint = mapHudPoint(mapMouse.destination.point);
                 ctx.fillStyle = '#33a8ff';
                 ctx.beginPath();
