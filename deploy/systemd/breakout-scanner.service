@@ -1,0 +1,18 @@
+[Unit]
+Description=Trading Bot V2 breakout scanner
+Wants=network-online.target
+After=network-online.target trading-bot.service
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/trading_bot_v2
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/opt/trading_bot_v2/.env
+ExecStart=/opt/trading_bot_v2/venv312/bin/python /opt/trading_bot_v2/BreakoutScanner.py --console
+Restart=always
+RestartSec=20
+KillSignal=SIGINT
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
