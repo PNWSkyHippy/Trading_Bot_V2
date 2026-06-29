@@ -76,6 +76,11 @@ class AlpacaExecutor:
     """Executes stock trades via Alpaca Markets API."""
 
     def __init__(self):
+        if not config.ALPACA_API_KEY or not config.ALPACA_SECRET_KEY:
+            raise RuntimeError(
+                "Alpaca credentials are not configured. Set ALPACA_API_KEY and "
+                "ALPACA_SECRET_KEY, or APCA_API_KEY_ID and APCA_API_SECRET_KEY."
+            )
         self.api = tradeapi.REST(
             config.ALPACA_API_KEY,
             config.ALPACA_SECRET_KEY,
@@ -345,7 +350,15 @@ class TradeExecutor:
         self._db           = db_ref or db
         self._risk_manager = risk_manager_ref or risk_manager
 
-        self.alpaca   = AlpacaExecutor()
+        self.alpaca = None
+        try:
+            self.alpaca = AlpacaExecutor()
+        except Exception as e:
+            logger.warning(
+                f"Alpaca executor disabled: {e} "
+                "Stock orders will be unavailable unless IBKR live trading is enabled."
+            )
+
         self.kraken   = KrakenExecutor(
             api_key    = config.KRAKEN_API_KEY,
             api_secret = config.KRAKEN_SECRET_KEY,
@@ -729,7 +742,10 @@ class TradeExecutor:
                         f"[IBKR CLOSE FAILED] {symbol}: trying Alpaca as well "
                         f"(position may exist on either broker)"
                     )
-                    alpaca_success = self.alpaca.close_position(symbol)
+                    alpaca_success = (
+                        self.alpaca.close_position(symbol)
+                        if self.alpaca is not None else False
+                    )
                     if alpaca_success:
                         logger.info(f"[ALPACA FALLBACK CLOSE] {symbol}: closed via Alpaca")
                         # Correct the DB broker field so future lookups are accurate
@@ -751,7 +767,13 @@ class TradeExecutor:
                             f"— leaving open in DB for EOD sweep retry"
                         )
             else:
-                success = self.alpaca.close_position(symbol)
+                if self.alpaca is None:
+                    logger.warning(
+                        f"[ALPACA CLOSE SKIP] {symbol}: Alpaca credentials are not configured"
+                    )
+                    success = False
+                else:
+                    success = self.alpaca.close_position(symbol)
                 # If Alpaca doesn't have it, check IBKR too
                 if not success and self._ibkr is not None:
                     logger.warning(
@@ -1076,6 +1098,9 @@ class TradeExecutor:
 
     def close_all_stock_positions(self):
         """Close all open stock positions — called at end of day."""
+        if self.alpaca is None:
+            logger.warning("EOD Alpaca close skipped: Alpaca credentials are not configured")
+            return
         self.alpaca.close_all_stock_positions()
 
     def _submit(
@@ -1118,6 +1143,12 @@ class TradeExecutor:
                 )
             else:
                 logger.info(f"Routing {signal.symbol} to Alpaca")
+            if self.alpaca is None:
+                logger.error(
+                    f"Stock order rejected for {signal.symbol}: Alpaca credentials "
+                    "are not configured and IBKR did not fill the order"
+                )
+                return None
             result = self.alpaca.submit_order(
                 signal.symbol, approval.quantity, side,
                 approval.stop_loss, approval.take_profit
@@ -1197,6 +1228,8 @@ class TradeExecutor:
             if self._ibkr is not None and self._ibkr.is_available():
                 acct = self._ibkr.get_account()
                 return acct["equity"]
+            if self.alpaca is None:
+                raise RuntimeError("Alpaca credentials are not configured")
             acct = self.alpaca.get_account()
             return acct["equity"]
         except Exception:
