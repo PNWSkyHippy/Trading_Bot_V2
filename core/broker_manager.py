@@ -36,6 +36,7 @@ class BrokerManager:
         saved = db.get_state("registered_brokers")
         if saved:
             self._brokers = saved
+            self._ensure_configured_brokers()
         else:
             # Initialize with defaults from config
             self._register_defaults()
@@ -43,7 +44,9 @@ class BrokerManager:
     def _register_defaults(self):
         """Register the default brokers from config.py."""
         from config import (ALPACA_API_KEY, ALPACA_SECRET_KEY, ALPACA_BASE_URL,
-                            COINBASE_API_KEY, COINBASE_SECRET_KEY)
+                            COINBASE_API_KEY, COINBASE_SECRET_KEY,
+                            KRAKEN_ENABLED, KRAKEN_API_KEY,
+                            KRAKEN_SECRET_KEY, KRAKEN_PAPER_MODE)
 
         self.register_broker(
             name="alpaca",
@@ -65,6 +68,50 @@ class BrokerManager:
             enabled=True,
             paper=False
         )
+
+        if KRAKEN_ENABLED:
+            self.register_broker(
+                name="kraken",
+                broker_type="crypto",
+                display_name="Kraken",
+                api_key=KRAKEN_API_KEY,
+                api_secret=KRAKEN_SECRET_KEY,
+                enabled=True,
+                paper=KRAKEN_PAPER_MODE
+            )
+
+    def _ensure_configured_brokers(self):
+        """Add config-enabled brokers missing from an older DB registration."""
+        try:
+            from config import (
+                KRAKEN_ENABLED, KRAKEN_API_KEY, KRAKEN_SECRET_KEY,
+                KRAKEN_PAPER_MODE
+            )
+        except Exception as e:
+            logger.warning(f"Could not load broker config defaults: {e}")
+            return
+
+        changed = False
+        if KRAKEN_ENABLED and "kraken" not in self._brokers:
+            self._brokers["kraken"] = {
+                "name": "kraken",
+                "broker_type": "crypto",
+                "display_name": "Kraken",
+                "api_key": KRAKEN_API_KEY,
+                "api_secret": KRAKEN_SECRET_KEY,
+                "base_url": "",
+                "enabled": True,
+                "paper": KRAKEN_PAPER_MODE,
+                "registered_at": datetime.utcnow().isoformat(),
+            }
+            changed = True
+            logger.warning(
+                "Registered missing Kraken broker from config because "
+                "KRAKEN_ENABLED=True and crypto execution routes to kraken"
+            )
+
+        if changed:
+            self._save_brokers()
 
     def register_broker(self, name: str, broker_type: str,
                         display_name: str = "",
@@ -196,11 +243,30 @@ class BrokerManager:
             "balance": round(balance, 2),
             "invested": round(invested, 2),
             "available": round(available, 2),
-            "last_updated": datetime.utcnow().isoformat()
+            "last_updated": datetime.utcnow().isoformat(),
+            "status": "ok",
         }
         db.set_state(f"broker_balance_{broker_name}", record)
         logger.info(f"Broker balance updated: {broker_name} = ${balance:,.2f} "
                     f"(available: ${available:,.2f}, invested: ${invested:,.2f})")
+
+    def mark_broker_balance_unavailable(self, broker_name: str, reason: str):
+        """Fail closed for a broker whose live cash source cannot be trusted."""
+        bal = self.get_broker_balance(broker_name)
+        record = {
+            "broker": broker_name,
+            "balance": round(float(bal.get("balance", 0.0) or 0.0), 2),
+            "invested": round(float(bal.get("invested", 0.0) or 0.0), 2),
+            "available": 0.0,
+            "last_known_available": round(float(bal.get("available", 0.0) or 0.0), 2),
+            "last_updated": datetime.utcnow().isoformat(),
+            "status": "unavailable",
+            "unavailable_reason": reason,
+        }
+        db.set_state(f"broker_balance_{broker_name}", record)
+        logger.warning(
+            f"Broker balance marked unavailable: {broker_name} ({reason})"
+        )
 
     def get_capital_breakdown(self) -> Dict:
         """
@@ -420,12 +486,21 @@ class BrokerManager:
             logger.debug(f"Coinbase sync error: {e}")
 
     def _sync_kraken(self, info: Dict):
+        paper_mode = bool(info.get("paper", True))
         try:
             import ccxt
+            from config import KRAKEN_API_KEY, KRAKEN_SECRET_KEY, KRAKEN_PAPER_MODE
+            paper_mode = KRAKEN_PAPER_MODE
+            if KRAKEN_PAPER_MODE:
+                logger.debug(
+                    "Kraken sync skipped in paper mode; preserving local paper balance"
+                )
+                return
             exchange = ccxt.kraken({
-                "apiKey": info["api_key"],
-                "secret": info["api_secret"],
+                "apiKey": KRAKEN_API_KEY,
+                "secret": KRAKEN_SECRET_KEY,
                 "enableRateLimit": True,
+                "timeout": 10000,
             })
             balance = exchange.fetch_balance()
             # Kraken reports in ZUSD for USD
@@ -435,10 +510,19 @@ class BrokerManager:
                 # Try ZUSD (Kraken's internal name)
                 usd_total = float(balance.get("ZUSD", {}).get("total", 0))
                 usd_free = float(balance.get("ZUSD", {}).get("free", 0))
+            if usd_total <= 0 and usd_free <= 0:
+                self.mark_broker_balance_unavailable(
+                    "kraken", "live sync returned zero USD balance"
+                )
+                return
             self.update_broker_balance("kraken", usd_total,
                                        usd_total - usd_free, usd_free)
         except Exception as e:
-            logger.debug(f"Kraken sync error: {e}")
+            logger.warning(f"Kraken sync error: {e}")
+            if not paper_mode:
+                self.mark_broker_balance_unavailable(
+                    "kraken", f"live sync failed: {e}"
+                )
 
 
 # Singleton
