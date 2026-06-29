@@ -107,8 +107,8 @@ def _db_key(service: str, key_name: str, fallback: str = "") -> str:
 # API KEYS  — DB first, .env fallback (both go through _decrypt)
 # =============================================================================
 
-ALPACA_API_KEY      = _db_key("alpaca",    "api_key",    _decrypt(os.getenv("ALPACA_API_KEY",      "")))
-ALPACA_SECRET_KEY   = _db_key("alpaca",    "secret_key", _decrypt(os.getenv("ALPACA_SECRET_KEY",   "")))
+ALPACA_API_KEY      = _db_key("alpaca",    "api_key",    _decrypt(os.getenv("ALPACA_API_KEY") or os.getenv("APCA_API_KEY_ID", "")))
+ALPACA_SECRET_KEY   = _db_key("alpaca",    "secret_key", _decrypt(os.getenv("ALPACA_SECRET_KEY") or os.getenv("APCA_API_SECRET_KEY", "")))
 ALPACA_BASE_URL     = _db_key("alpaca",    "base_url",            os.getenv("ALPACA_BASE_URL",     "https://paper-api.alpaca.markets"))
 
 COINBASE_API_KEY    = _db_key("coinbase",  "api_key",    _decrypt(os.getenv("COINBASE_API_KEY",    "")))
