@@ -998,6 +998,7 @@
             lastY: 0,
             bounds: null
         };
+        const MINI_MAP_DRAG_PAN_MULT = 6;
         /*
          * Map/editor mouse state.
          *
@@ -3995,8 +3996,8 @@
                 const dy = e.clientY - miniMapHud.lastY;
                 miniMapHud.lastX = e.clientX;
                 miniMapHud.lastY = e.clientY;
-                miniMapHud.panX -= dx / miniMapHud.zoom;
-                miniMapHud.panY -= dy / miniMapHud.zoom;
+                miniMapHud.panX -= (dx * MINI_MAP_DRAG_PAN_MULT) / miniMapHud.zoom;
+                miniMapHud.panY -= (dy * MINI_MAP_DRAG_PAN_MULT) / miniMapHud.zoom;
                 e.preventDefault();
                 return;
             }
@@ -14101,8 +14102,10 @@
             ctx.arc(shipPoint.x, shipPoint.y, 5, 0, Math.PI * 2);
             ctx.fill();
 
+            const revealSentriesOnHud = builderMode || mapMouse.joinMode === 'sentry';
             for (const sentry of tunnelSentries) {
                 if (!sentryIsActive(sentry)) continue;
+                if (!revealSentriesOnHud && !sentry.engaged) continue;
                 const sentryPoint = mapHudPoint({ x: sentry.x, y: sentry.y, z: sentry.z });
                 const spawnPoint = mapHudPoint(sentry.spawn.point);
                 if (sentry.engaged) {
