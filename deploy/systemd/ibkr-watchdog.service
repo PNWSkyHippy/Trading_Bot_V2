@@ -1,0 +1,18 @@
+[Unit]
+Description=Trading Bot V2 IBKR watchdog
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/trading_bot_v2
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/opt/trading_bot_v2/.env
+ExecStart=/opt/trading_bot_v2/venv312/bin/python /opt/trading_bot_v2/Scripts/watchdog_ibkr.py --live
+Restart=always
+RestartSec=30
+KillSignal=SIGINT
+TimeoutStopSec=30
+
+[Install]
+WantedBy=multi-user.target
