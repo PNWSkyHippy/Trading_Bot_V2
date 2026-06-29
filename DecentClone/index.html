@@ -999,6 +999,8 @@
             bounds: null
         };
         const MINI_MAP_DRAG_PAN_MULT = 8;
+        const XYZ_GIZMO_WORLD_LEN = 130;
+        const XYZ_GIZMO_PICK_PX = 12;
         /*
          * Map/editor mouse state.
          *
@@ -1028,6 +1030,10 @@
             orbitScreen: null,
             dragTarget: null,
             routeDragIndex: null,
+            gizmoTarget: null,
+            gizmoAxis: null,
+            gizmoStartMouse: null,
+            gizmoStartPoint: null,
             dragMoved: false,
             selection: new Set(),
             targetSelection: new Set(),
@@ -3540,6 +3546,7 @@
                 mapMouse.midpoint = null;
                 mapMouse.routeDraft = null;
                 mapMouse.routeDragIndex = null;
+                mapMouse.gizmoTarget = null;
                 clearMapOrbitAnchor();
                 keyboardStatus.innerText = 'builder selections cleared';
                 e.preventDefault();
@@ -3834,6 +3841,20 @@
                         return;
                     }
                 }
+                const gizmoAxis = pickXyzGizmoAxis(canvasX, canvasY);
+                if (gizmoAxis) {
+                    if (mapMouse.gizmoTarget?.kind === 'routeNode' || mapMouse.gizmoTarget?.kind === 'routeHandle') {
+                        pushRouteDraftHistory();
+                    }
+                    mapMouse.dragTarget = 'xyzGizmo';
+                    mapMouse.gizmoAxis = gizmoAxis;
+                    mapMouse.gizmoStartMouse = { x: canvasX, y: canvasY };
+                    mapMouse.gizmoStartPoint = copyVec(gizmoTargetPoint());
+                    mapMouse.dragMoved = false;
+                    keyboardStatus.innerText = `XYZ gizmo: dragging ${gizmoAxis.toUpperCase()} only`;
+                    e.preventDefault();
+                    return;
+                }
                 if (mapMouse.routeDraft && handleRouteDraftMouseDown(canvasX, canvasY, e)) {
                     e.preventDefault();
                     return;
@@ -3872,12 +3893,14 @@
                         return;
                     }
                     if (mapMouse.destination && pickMapMarker(canvasX, canvasY, mapMouse.destination.point, 14)) {
+                        setXyzGizmoTarget('destination');
                         mapMouse.dragTarget = 'destination';
                         mapMouse.dragMoved = false;
                         e.preventDefault();
                         return;
                     }
                     if (mapMouse.midpoint && pickMapMarker(canvasX, canvasY, mapMouse.midpoint.point, 12)) {
+                        setXyzGizmoTarget('midpoint');
                         mapMouse.dragTarget = 'midpoint';
                         mapMouse.dragMoved = false;
                         e.preventDefault();
@@ -3978,10 +4001,23 @@
                     }
                     mapMouse.dragSentryId = null;
                 }
+                if (mapMouse.dragTarget === 'xyzGizmo' && mapMouse.dragMoved) {
+                    const kind = mapMouse.gizmoTarget?.kind;
+                    if (kind === 'anchor' || kind === 'destination') {
+                        applyMapGeometryChange(`moved ${kind} with XYZ gizmo`);
+                    } else if (kind === 'midpoint') {
+                        keyboardStatus.innerText = 'moved bend point C with XYZ gizmo';
+                    } else if (kind === 'routeNode' || kind === 'routeHandle') {
+                        keyboardStatus.innerText = 'moved route point with XYZ gizmo';
+                    }
+                }
                 mapMouse.orbiting = false;
                 mapMouse.orbitAroundPivot = false;
                 mapMouse.dragTarget = null;
                 mapMouse.routeDragIndex = null;
+                mapMouse.gizmoAxis = null;
+                mapMouse.gizmoStartMouse = null;
+                mapMouse.gizmoStartPoint = null;
             }
             if (e.button === 1) {
                 mapMouse.orbiting = false;
@@ -4008,6 +4044,44 @@
                     const resolved = resolveSentryMapPoint(canvasX, canvasY, planeOrigin, mapMouse.editPlane);
                     if (resolved && moveSentrySpawn(mapMouse.dragSentryId, resolved.point, { save: false })) {
                         mapMouse.dragMoved = true;
+                    }
+                    e.preventDefault();
+                    return;
+                }
+                if (mapMouse.dragTarget === 'xyzGizmo') {
+                    const startPoint = mapMouse.gizmoStartPoint;
+                    const startMouse = mapMouse.gizmoStartMouse;
+                    const axis = mapMouse.gizmoAxis;
+                    if (startPoint && startMouse && axis) {
+                        const centerX = canvas.width / 2;
+                        const centerY = canvas.height / 2;
+                        const fov = 520;
+                        const originScreen = projectMapPoint(startPoint, centerX, centerY, fov);
+                        const axisEndScreen = projectMapPoint(
+                            addVec(startPoint, scaleVec(axisVector(axis), XYZ_GIZMO_WORLD_LEN)),
+                            centerX,
+                            centerY,
+                            fov
+                        );
+                        if (originScreen && axisEndScreen) {
+                            const sx = axisEndScreen.x - originScreen.x;
+                            const sy = axisEndScreen.y - originScreen.y;
+                            const screenLen = Math.hypot(sx, sy) || 1;
+                            const ux = sx / screenLen;
+                            const uy = sy / screenLen;
+                            const px = canvasX - startMouse.x;
+                            const py = canvasY - startMouse.y;
+                            const worldDelta = ((px * ux + py * uy) / screenLen) * XYZ_GIZMO_WORLD_LEN;
+                            const next = addVec(startPoint, scaleVec(axisVector(axis), worldDelta));
+                            if (shouldSnapMapGrid()) {
+                                next[axis] = Math.round(next[axis] / MAP_EDIT_GRID_SPACING) * MAP_EDIT_GRID_SPACING;
+                            }
+                            if (applyXyzGizmoPoint(next)) {
+                                mapMouse.dragMoved = true;
+                                keyboardStatus.innerText =
+                                    `XYZ ${axis.toUpperCase()} ${formatMapCoord(next[axis])} | ${formatMapPoint(next)}`;
+                            }
+                        }
                     }
                     e.preventDefault();
                     return;
@@ -8595,6 +8669,7 @@
                 draft.handles.push(makeRouteHandle(prev.point, node.point, mapMouse.editPlane));
                 draft.activeSegmentIndex = draft.handles.length - 1;
             }
+            setXyzGizmoTarget('routeNode', draft.nodes.length - 1);
             keyboardStatus.innerText = draft.nodes.length > 1
                 ? `route node ${draft.nodes.length} added (${draft.handles.length} segment${draft.handles.length === 1 ? '' : 's'}) — Y builds whole route`
                 : `route start set on ${node.plane.toUpperCase()} — click more nodes, Y builds whole route`;
@@ -8697,6 +8772,7 @@
                 const count = mapMouse.routeDraft.nodes.length;
                 mapMouse.routeDraft = null;
                 mapMouse.routeDragIndex = null;
+                mapMouse.gizmoTarget = null;
                 keyboardStatus.innerText = `route draft canceled (${count} node${count === 1 ? '' : 's'})`;
                 return true;
             }
@@ -8715,6 +8791,7 @@
             const pickedRoutePoint = pickRouteDraftPoint(screenX, screenY);
             if (pickedRoutePoint) {
                 pushRouteDraftHistory();
+                setXyzGizmoTarget(pickedRoutePoint.kind === 'handle' ? 'routeHandle' : 'routeNode', pickedRoutePoint.index);
                 mapMouse.dragTarget = pickedRoutePoint.kind === 'handle' ? 'routeHandle' : 'routeNode';
                 mapMouse.routeDragIndex = pickedRoutePoint.index;
                 mapMouse.dragMoved = false;
@@ -8753,19 +8830,7 @@
             const index = mapMouse.routeDragIndex;
             if (!draft || index === null || index === undefined || !point) return false;
             if (mapMouse.dragTarget === 'routeNode' && draft.nodes[index]) {
-                const node = draft.nodes[index];
-                node.point = copyVec(point);
-                node.plane = mapMouse.editPlane;
-                const spec = getEditPlaneSpec(mapMouse.editPlane, point);
-                node.lockedAxis = spec.fixed;
-                node.lockedValue = point[spec.fixed];
-                node.segmentIndex = null;
-                node.endKind = null;
-                node.segmentT = null;
-                node.portalId = null;
-                node.portalSide = null;
-                node.freePoint = true;
-                node.label = `route node ${index + 1}`;
+                markRouteNodeAsFree(draft.nodes[index], index, point);
                 return true;
             }
             if (mapMouse.dragTarget === 'routeHandle' && draft.handles[index]) {
@@ -8901,6 +8966,7 @@
                 segmentIndex: lastSegmentIndex,
                 endKind: 'end'
             };
+            setXyzGizmoTarget('anchor');
             mapMouse.selection.clear();
             applyMapGeometryChange(`route generated: ${filtered.length} segment(s) from ${draft.nodes.length} nodes`);
             activateBuilderEndpoint(mapMouse.anchor);
@@ -9199,6 +9265,119 @@
             return mapMouse.anchor?.point || builder.cursor || mapCamera.target;
         }
 
+        function axisVector(axis) {
+            if (axis === 'x') return { x: 1, y: 0, z: 0 };
+            if (axis === 'y') return { x: 0, y: 1, z: 0 };
+            return { x: 0, y: 0, z: 1 };
+        }
+
+        function setXyzGizmoTarget(kind, index = null) {
+            mapMouse.gizmoTarget = { kind, index };
+        }
+
+        function gizmoTargetPoint(target = mapMouse.gizmoTarget) {
+            if (!target) return null;
+            if (target.kind === 'anchor') return mapMouse.anchor?.point || null;
+            if (target.kind === 'destination') return mapMouse.destination?.point || null;
+            if (target.kind === 'midpoint') return mapMouse.midpoint?.point || null;
+            if (target.kind === 'routeNode') return mapMouse.routeDraft?.nodes?.[target.index]?.point || null;
+            if (target.kind === 'routeHandle') return mapMouse.routeDraft?.handles?.[target.index]?.point || null;
+            return null;
+        }
+
+        function pickXyzGizmoAxis(screenX, screenY) {
+            const point = gizmoTargetPoint();
+            if (!mapView || !point) return null;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const fov = 520;
+            const origin = projectMapPoint(point, centerX, centerY, fov);
+            if (!origin) return null;
+            let best = null;
+            for (const axis of ['x', 'y', 'z']) {
+                const endPoint = addVec(point, scaleVec(axisVector(axis), XYZ_GIZMO_WORLD_LEN));
+                const end = projectMapPoint(endPoint, centerX, centerY, fov);
+                if (!end) continue;
+                const dist = distancePointToSegment2D(screenX, screenY, origin.x, origin.y, end.x, end.y);
+                if (dist <= XYZ_GIZMO_PICK_PX && (!best || dist < best.dist)) best = { axis, dist };
+            }
+            return best?.axis || null;
+        }
+
+        function moveConnectedTunnelNode(ref, point) {
+            if (!ref || !point) return false;
+            const oldPoint = copyVec(ref.point);
+            ref.point = copyVec(point);
+            if (ref.segmentIndex === null || ref.segmentIndex === undefined ||
+                (ref.endKind !== 'start' && ref.endKind !== 'end')) {
+                updateMapPointRef(ref, point);
+                return false;
+            }
+            const touchSq = 4;
+            const changed = new Set();
+            for (let i = 0; i < builder.segments.length; i++) {
+                const seg = builder.segments[i];
+                if (!seg) continue;
+                if (distanceSq(seg.from, oldPoint) <= touchSq) {
+                    seg.from = copyVec(point);
+                    changed.add(i);
+                }
+                if (distanceSq(seg.to, oldPoint) <= touchSq) {
+                    seg.to = copyVec(point);
+                    changed.add(i);
+                }
+            }
+            for (const index of changed) normalizeSegmentFromEndpoints(builder.segments[index]);
+            return changed.size > 0;
+        }
+
+        function markRouteNodeAsFree(node, index, point) {
+            node.point = copyVec(point);
+            node.plane = mapMouse.editPlane;
+            const spec = getEditPlaneSpec(mapMouse.editPlane, point);
+            node.lockedAxis = spec.fixed;
+            node.lockedValue = point[spec.fixed];
+            node.segmentIndex = null;
+            node.endKind = null;
+            node.segmentT = null;
+            node.portalId = null;
+            node.portalSide = null;
+            node.freePoint = true;
+            node.label = `route node ${index + 1}`;
+        }
+
+        function applyXyzGizmoPoint(point) {
+            const target = mapMouse.gizmoTarget;
+            if (!target || !point) return false;
+            if (target.kind === 'anchor' && mapMouse.anchor) {
+                moveConnectedTunnelNode(mapMouse.anchor, point);
+                return true;
+            }
+            if (target.kind === 'destination' && mapMouse.destination) {
+                moveConnectedTunnelNode(mapMouse.destination, point);
+                return true;
+            }
+            if (target.kind === 'midpoint' && mapMouse.midpoint) {
+                mapMouse.midpoint.point = copyVec(point);
+                return true;
+            }
+            if (target.kind === 'routeNode' && mapMouse.routeDraft?.nodes?.[target.index]) {
+                markRouteNodeAsFree(mapMouse.routeDraft.nodes[target.index], target.index, point);
+                return true;
+            }
+            if (target.kind === 'routeHandle' && mapMouse.routeDraft?.handles?.[target.index]) {
+                const handle = mapMouse.routeDraft.handles[target.index];
+                handle.point = copyVec(point);
+                handle.plane = mapMouse.editPlane;
+                const spec = getEditPlaneSpec(mapMouse.editPlane, point);
+                handle.lockedAxis = spec.fixed;
+                handle.lockedValue = point[spec.fixed];
+                mapMouse.routeDraft.activeSegmentIndex = target.index;
+                return true;
+            }
+            return false;
+        }
+
         function pickMapMarker(screenX, screenY, point, baseRadius = 12) {
             const centerX = canvas.width / 2;
             const centerY = canvas.height / 2;
@@ -9268,6 +9447,7 @@
                 plane: mapMouse.editPlane,
                 angleDeg: mapMouse.midpoint?.angleDeg || 0
             };
+            setXyzGizmoTarget('midpoint');
             keyboardStatus.innerText =
                 `bend point C on PLANE: ${mapMouse.editPlane.toUpperCase()} XYZ ${formatMapPoint(point)} (press Y)`;
         }
@@ -9673,6 +9853,7 @@
                 return;
             }
             draft.activeSegmentIndex = segmentIndex;
+            setXyzGizmoTarget('routeHandle', segmentIndex);
             joinEditDialog.innerHTML = '';
             joinEditDialog.dataset.mode = 'route-segment';
 
@@ -10220,6 +10401,7 @@
                 portalId: anchor.portalId,
                 portalSide: anchor.portalSide
             };
+            setXyzGizmoTarget('anchor');
             mapMouse.selectedPortalId = anchor.portalId || null;
             if (!additive) {
                 mapMouse.midpoint = null;
@@ -10261,6 +10443,7 @@
                     ? anchor.segmentT
                     : null
             };
+            setXyzGizmoTarget('destination');
             const modeHint = mapMouse.joinMode === 'portal'
                 ? 'Shift+Y or Y links portal (no tunnel tube)'
                 : 'Y builds tunnel | Shift+Y portal | 8 toggle mode';
@@ -14233,6 +14416,49 @@
             ctx.restore();
         }
 
+        function renderXyzGizmoOverlay(centerX, centerY, fov) {
+            const point = gizmoTargetPoint();
+            if (!mapView || !point) return;
+            const origin = projectMapPoint(point, centerX, centerY, fov);
+            if (!origin) return;
+            const axes = [
+                { key: 'x', label: 'X', color: '#ff5c74' },
+                { key: 'y', label: 'Y', color: '#44ff88' },
+                { key: 'z', label: 'Z', color: '#66d9ff' }
+            ];
+            ctx.save();
+            ctx.globalAlpha = 0.96;
+            ctx.lineCap = 'round';
+            for (const axis of axes) {
+                const endPoint = addVec(point, scaleVec(axisVector(axis.key), XYZ_GIZMO_WORLD_LEN));
+                const end = projectMapPoint(endPoint, centerX, centerY, fov);
+                if (!end) continue;
+                const active = mapMouse.dragTarget === 'xyzGizmo' && mapMouse.gizmoAxis === axis.key;
+                ctx.strokeStyle = axis.color;
+                ctx.fillStyle = axis.color;
+                ctx.lineWidth = active ? 6 : 4;
+                ctx.shadowColor = axis.color;
+                ctx.shadowBlur = active ? 12 : 6;
+                ctx.beginPath();
+                ctx.moveTo(origin.x, origin.y);
+                ctx.lineTo(end.x, end.y);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.beginPath();
+                ctx.arc(end.x, end.y, active ? 8 : 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.font = 'bold 13px monospace';
+                ctx.fillText(axis.label, end.x + 7, end.y + 5);
+            }
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowColor = '#ffffff';
+            ctx.shadowBlur = 8;
+            ctx.beginPath();
+            ctx.arc(origin.x, origin.y, 5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
         function updateHudTopLayer(shipOffScreen = false) {
             if (!mapView) {
                 hudModeBanner.style.display = 'none';
@@ -14687,6 +14913,7 @@
                 }
             }
 
+            renderXyzGizmoOverlay(centerX, centerY, fov);
             renderOrientationCube();
             updateHudTopLayer(shipOffScreen);
         }
