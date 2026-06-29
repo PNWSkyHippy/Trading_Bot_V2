@@ -1034,6 +1034,7 @@
             gizmoAxis: null,
             gizmoStartMouse: null,
             gizmoStartPoint: null,
+            selectionBendPoint: null,
             dragMoved: false,
             selection: new Set(),
             targetSelection: new Set(),
@@ -1695,6 +1696,25 @@
                 if (Math.hypot(right.x, right.y, right.z) < 0.001) {
                     right = { x: 1, y: 0, z: 0 };
                 }
+            }
+            const down = normalize(cross(f, right));
+            return { forward: f, right, down };
+        }
+
+        function buildStableBasisFromHints(forward, rightHint = null, downHint = null) {
+            const f = normalize(forward);
+            let right = rightHint
+                ? normalize({
+                    x: rightHint.x - f.x * dot(rightHint, f),
+                    y: rightHint.y - f.y * dot(rightHint, f),
+                    z: rightHint.z - f.z * dot(rightHint, f)
+                })
+                : { x: 0, y: 0, z: 0 };
+            if (Math.hypot(right.x, right.y, right.z) < 0.001 && downHint) {
+                right = normalize(cross(downHint, f));
+            }
+            if (Math.hypot(right.x, right.y, right.z) < 0.001) {
+                right = buildWorldUpBasis(f, shipRight).right;
             }
             const down = normalize(cross(f, right));
             return { forward: f, right, down };
@@ -3938,6 +3958,14 @@
                         e.preventDefault();
                         return;
                     }
+                    const selectionBend = selectedRangeBendPoint();
+                    if (selectionBend && pickMapMarker(canvasX, canvasY, selectionBend, 12)) {
+                        setXyzGizmoTarget('selectionBend');
+                        mapMouse.dragTarget = 'selectionBend';
+                        mapMouse.dragMoved = false;
+                        e.preventDefault();
+                        return;
+                    }
                     if (pickJoinPreviewNear(canvasX, canvasY)) {
                         openJoinEditDialog();
                         e.preventDefault();
@@ -4039,6 +4067,8 @@
                         applyMapGeometryChange(`moved ${kind} with XYZ gizmo`);
                     } else if (kind === 'midpoint') {
                         keyboardStatus.innerText = 'moved bend point C with XYZ gizmo';
+                    } else if (kind === 'selectionBend') {
+                        applyMapGeometryChange('smoothed selected tunnel range with bend C');
                     } else if (kind === 'routeNode' || kind === 'routeHandle') {
                         keyboardStatus.innerText = 'moved route point with XYZ gizmo';
                     }
@@ -4149,6 +4179,8 @@
                         mapMouse.destination.point = copyVec(point);
                     } else if (mapMouse.dragTarget === 'midpoint' && mapMouse.midpoint) {
                         mapMouse.midpoint.point = copyVec(point);
+                    } else if (mapMouse.dragTarget === 'selectionBend') {
+                        applySelectedRangeBend(point);
                     }
                     mapMouse.dragMoved = true;
                     keyboardStatus.innerText =
@@ -4287,16 +4319,14 @@
             };
             const ctx = options.branchContext || getBranchFlightContext();
             if (ctx.active && ctx.allowVerticalPitch && (ctx.verticalSegment || ctx.pivotMode || ctx.steerBranch)) {
-                shipForward = normalize(shipForward);
-                shipRight = normalize(cross(shipDown, shipForward));
-                if (Math.hypot(shipRight.x, shipRight.y, shipRight.z) < 0.001) {
-                    const hint = ctx.branchBasis?.right || builder.right;
-                    shipRight = normalize(cross(hint, shipForward));
-                }
-                if (Math.hypot(shipRight.x, shipRight.y, shipRight.z) < 0.001) {
-                    shipRight = normalize(cross(shipForward, WORLD_UP));
-                }
-                shipDown = normalize(cross(shipForward, shipRight));
+                const basis = buildStableBasisFromHints(
+                    shipForward,
+                    shipRight || ctx.branchBasis?.right || builder.right,
+                    shipDown || ctx.branchBasis?.down || builder.down
+                );
+                shipForward = basis.forward;
+                shipRight = basis.right;
+                shipDown = basis.down;
                 // branchFlightFix2: no world-up horizon lock while branch flight is active
                 if (shipRollAngle) {
                     shipRight = rotateVector(shipRight, shipForward, shipRollAngle);
@@ -4360,10 +4390,15 @@
 
         function forceCockpitBasisFromNose(resetRoll = false) {
             if (resetRoll) shipRollAngle = 0;
-            const basis = applyPlayerRollToBasis(
-                buildWorldUpBasis(shipForward, shipRight),
-                shipRollAngle
-            );
+            const ctx = getBranchFlightContext();
+            const base = ctx.active && ctx.allowVerticalPitch
+                ? buildStableBasisFromHints(
+                    shipForward,
+                    shipRight || ctx.branchBasis?.right,
+                    shipDown || ctx.branchBasis?.down
+                )
+                : buildWorldUpBasis(shipForward, shipRight);
+            const basis = applyPlayerRollToBasis(base, shipRollAngle);
             shipForward = basis.forward;
             shipRight = basis.right;
             shipDown = basis.down;
@@ -6574,6 +6609,8 @@
             return {
                 point,
                 segmentIndex: anchorLike.segmentIndex,
+                segmentRef: seg,
+                segmentT: anchorLike.segmentT ?? 0.5,
                 endKind: 'body',
                 outward,
                 right: copyVec(seg.right),
@@ -6612,6 +6649,32 @@
             return addVec(center, scaleVec(outward, radius));
         }
 
+        function punchBodyJoinMouth(segmentRef, segmentIndex, segmentT, wallPoint, radiusHint = builder.radius) {
+            const seg = segmentRef || builder.segments[segmentIndex];
+            if (!seg || !wallPoint) return false;
+            const currentIndex = builder.segments.indexOf(seg);
+            if (currentIndex < 0) return false;
+            const t = Math.max(0.08, Math.min(0.92, segmentT ?? 0.5));
+            const center = pointOnSegment(seg, t);
+            const radius = clampMapSegmentRadius(radiusHint);
+            const mouth = makeSegmentBetween(
+                center,
+                wallPoint,
+                seg.right,
+                seg.down,
+                'branch-mouth-autoconnect',
+                radius
+            );
+            if (!mouth) return false;
+            mouth.branch = true;
+            mouth.branchMouth = true;
+            mouth.generated = true;
+            const split = splitSegmentAtPoint(currentIndex, center);
+            if (!split) return false;
+            builder.segments.push(mouth);
+            return true;
+        }
+
         function chooseEndpointPair(openEnds) {
             const source = endpointFromAnchorLike(openEnds, mapMouse.anchor) || bodyEndpointFromAnchor(mapMouse.anchor);
             const destination = endpointFromAnchorLike(openEnds, mapMouse.destination) || bodyEndpointFromAnchor(mapMouse.destination);
@@ -6622,7 +6685,11 @@
                     dist: distanceSq(source.point, destination.point),
                     directed: true,
                     sourceSegmentIndex: source.bodySplit ? source.segmentIndex : null,
-                    targetSegmentIndex: destination.bodySplit ? destination.segmentIndex : null
+                    sourceSegmentRef: source.bodySplit ? source.segmentRef : null,
+                    sourceSegmentT: source.bodySplit ? source.segmentT : null,
+                    targetSegmentIndex: destination.bodySplit ? destination.segmentIndex : null,
+                    targetSegmentRef: destination.bodySplit ? destination.segmentRef : null,
+                    targetSegmentT: destination.bodySplit ? destination.segmentT : null
                 };
             }
             if (source && mapMouse.destination?.freePoint) {
@@ -6655,7 +6722,12 @@
                     directed: true,
                     freeDestination: true,
                     sourceSegmentIndex: source.bodySplit ? source.segmentIndex : null,
+                    sourceSegmentRef: source.bodySplit ? source.segmentRef : null,
+                    sourceSegmentT: source.bodySplit ? source.segmentT : null,
                     targetSegmentIndex: mapMouse.destination.targetSegmentIndex,
+                    targetSegmentRef: mapMouse.destination.targetSegmentIndex !== null && mapMouse.destination.targetSegmentIndex !== undefined
+                        ? builder.segments[mapMouse.destination.targetSegmentIndex]
+                        : null,
                     targetSegmentT: mapMouse.destination.targetSegmentT
                 };
             }
@@ -7460,9 +7532,21 @@
             }
 
             const sourcePunched = pair.sourceSegmentIndex !== null && pair.sourceSegmentIndex !== undefined
-                && splitSegmentAtPoint(pair.sourceSegmentIndex, pair.a.point);
+                && punchBodyJoinMouth(
+                    pair.sourceSegmentRef,
+                    pair.sourceSegmentIndex,
+                    pair.sourceSegmentT,
+                    pair.a.point,
+                    joinRadius
+                );
             const targetPunched = pair.targetSegmentIndex !== null && pair.targetSegmentIndex !== undefined
-                && splitSegmentAtPoint(pair.targetSegmentIndex, pair.b.point);
+                && punchBodyJoinMouth(
+                    pair.targetSegmentRef,
+                    pair.targetSegmentIndex,
+                    pair.targetSegmentT,
+                    pair.b.point,
+                    joinRadius
+                );
             const punched = sourcePunched || targetPunched;
             builder.segments.push(...filtered);
             const lastSegmentIndex = builder.segments.length - 1;
@@ -9287,6 +9371,7 @@
 
         function getEditPlaneOrigin(dragTarget) {
             if (dragTarget === 'midpoint' && mapMouse.midpoint) return mapMouse.midpoint.point;
+            if (dragTarget === 'selectionBend') return selectedRangeBendPoint() || mapCamera.target;
             if (dragTarget === 'destination' && mapMouse.destination) return mapMouse.destination.point;
             if (dragTarget === 'routeNode' && mapMouse.routeDraft?.nodes?.[mapMouse.routeDragIndex]) {
                 return mapMouse.routeDraft.nodes[mapMouse.routeDragIndex].point;
@@ -9312,6 +9397,7 @@
             if (target.kind === 'anchor') return mapMouse.anchor?.point || null;
             if (target.kind === 'destination') return mapMouse.destination?.point || null;
             if (target.kind === 'midpoint') return mapMouse.midpoint?.point || null;
+            if (target.kind === 'selectionBend') return selectedRangeBendPoint();
             if (target.kind === 'routeNode') return mapMouse.routeDraft?.nodes?.[target.index]?.point || null;
             if (target.kind === 'routeHandle') return mapMouse.routeDraft?.handles?.[target.index]?.point || null;
             return null;
@@ -9392,6 +9478,9 @@
             if (target.kind === 'midpoint' && mapMouse.midpoint) {
                 mapMouse.midpoint.point = copyVec(point);
                 return true;
+            }
+            if (target.kind === 'selectionBend') {
+                return applySelectedRangeBend(point);
             }
             if (target.kind === 'routeNode' && mapMouse.routeDraft?.nodes?.[target.index]) {
                 markRouteNodeAsFree(mapMouse.routeDraft.nodes[target.index], target.index, point);
@@ -9506,6 +9595,80 @@
             return [...new Set(indices)];
         }
 
+        function orderedSelectedSegmentIndices() {
+            const indices = [...mapMouse.selection]
+                .filter(index => index >= 0 && index < builder.segments.length);
+            const anchorIndex = mapMouse.anchor?.segmentIndex;
+            if (indices.length <= 1 && anchorIndex !== null && anchorIndex !== undefined) {
+                indices.push(anchorIndex);
+            }
+            return [...new Set(indices)];
+        }
+
+        function selectedRangePointChain() {
+            const indices = orderedSelectedSegmentIndices();
+            if (indices.length < 2) return null;
+            const first = builder.segments[indices[0]];
+            const second = builder.segments[indices[1]];
+            if (!first || !second) return null;
+            const touchSq = Math.pow(Math.max(24, builder.radius * 0.72), 2);
+            let start = copyVec(first.from);
+            let end = copyVec(first.to);
+            if (distanceSq(first.from, second.from) <= touchSq || distanceSq(first.from, second.to) <= touchSq) {
+                start = copyVec(first.to);
+                end = copyVec(first.from);
+            }
+            const points = [start, end];
+            for (let i = 1; i < indices.length; i++) {
+                const seg = builder.segments[indices[i]];
+                if (!seg) return null;
+                const last = points[points.length - 1];
+                const fromDist = distanceSq(last, seg.from);
+                const toDist = distanceSq(last, seg.to);
+                if (fromDist <= toDist) {
+                    points.push(copyVec(seg.to));
+                } else {
+                    points.push(copyVec(seg.from));
+                }
+            }
+            return { indices, points };
+        }
+
+        function selectedRangeBendPoint() {
+            if (mapMouse.selectionBendPoint) return mapMouse.selectionBendPoint;
+            const chain = selectedRangePointChain();
+            if (!chain) return null;
+            const start = chain.points[0];
+            const end = chain.points[chain.points.length - 1];
+            const middle = chain.points[Math.floor(chain.points.length / 2)];
+            return {
+                x: (start.x + end.x + middle.x * 2) / 4,
+                y: (start.y + end.y + middle.y * 2) / 4,
+                z: (start.z + end.z + middle.z * 2) / 4
+            };
+        }
+
+        function applySelectedRangeBend(point) {
+            const chain = selectedRangePointChain();
+            if (!chain || !point) return false;
+            const { indices, points } = chain;
+            const start = points[0];
+            const end = points[points.length - 1];
+            const curved = [];
+            for (let i = 0; i < points.length; i++) {
+                curved.push(quadraticPoint(start, point, end, i / (points.length - 1)));
+            }
+            for (let i = 0; i < indices.length; i++) {
+                const seg = builder.segments[indices[i]];
+                if (!seg) continue;
+                seg.from = copyVec(curved[i]);
+                seg.to = copyVec(curved[i + 1]);
+                normalizeSegmentFromEndpoints(seg);
+            }
+            mapMouse.selectionBendPoint = copyVec(point);
+            return true;
+        }
+
         function segmentEndpointList(index) {
             const seg = builder.segments[index];
             if (!seg) return [];
@@ -9580,6 +9743,7 @@
                 return false;
             }
             mapMouse.selection = new Set(path);
+            mapMouse.selectionBendPoint = null;
             mapMouse.anchor = {
                 point: copyVec(anchor.point),
                 label: anchor.label,
@@ -9592,8 +9756,9 @@
             mapMouse.selectedPortalId = null;
             mapMouse.destination = null;
             mapMouse.midpoint = null;
+            setXyzGizmoTarget('selectionBend');
             keyboardStatus.innerText =
-                `selected tunnel range seg ${startIndex + 1}→${endIndex + 1} (${path.length} segment${path.length === 1 ? '' : 's'}). Press V to texture/style all.`;
+                `selected tunnel range seg ${startIndex + 1}→${endIndex + 1} (${path.length} segment${path.length === 1 ? '' : 's'}). Drag bend C with XYZ gizmo for smooth reshaping.`;
             return true;
         }
 
@@ -10416,7 +10581,10 @@
 
         function setMapAnchor(anchor, additive = false) {
             if (!anchor) return false;
-            if (!additive) mapMouse.selection.clear();
+            if (!additive) {
+                mapMouse.selection.clear();
+                mapMouse.selectionBendPoint = null;
+            }
             if (anchor.segmentIndex !== null && anchor.segmentIndex !== undefined) {
                 if (additive && mapMouse.selection.has(anchor.segmentIndex)) {
                     mapMouse.selection.delete(anchor.segmentIndex);
@@ -14942,6 +15110,16 @@
                     ctx.fillStyle = '#ffd18a';
                     ctx.font = '13px monospace';
                     ctx.fillText('bend C', midScreen.x + 12, midScreen.y - 8);
+                }
+            }
+            const selectionBend = selectedRangeBendPoint();
+            if (selectionBend) {
+                drawMapDot(selectionBend, '#ff66e8', 11);
+                const bendScreen = projectMapPoint(selectionBend, centerX, centerY, fov);
+                if (bendScreen) {
+                    ctx.fillStyle = '#ffc4f4';
+                    ctx.font = '13px monospace';
+                    ctx.fillText('range C', bendScreen.x + 12, bendScreen.y - 8);
                 }
             }
 
