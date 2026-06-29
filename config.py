@@ -19,11 +19,26 @@ load_dotenv()
 # with that prefix is treated as plaintext and returned unchanged — this lets
 # you migrate keys one at a time without breaking unencrypted ones.
 #
-# If an encrypted token is found but the Fernet key is missing from Windows
-# Credential Manager, a RuntimeError is raised at startup (fail fast).
+# If an encrypted token is found but the Fernet key is missing from .env or the
+# OS credential store, a RuntimeError is raised at startup (fail fast).
 # =============================================================================
 
-_fernet_raw = keyring.get_password("trading_bot_v2", "fernet_key")
+def _load_fernet_key() -> str | None:
+    """Load Fernet key from .env first, then from the OS keyring if available."""
+    env_key = (
+        os.getenv("TRADING_BOT_FERNET_KEY")
+        or os.getenv("FERNET_KEY")
+        or ""
+    ).strip()
+    if env_key:
+        return env_key
+    try:
+        return keyring.get_password("trading_bot_v2", "fernet_key")
+    except Exception:
+        return None
+
+
+_fernet_raw = _load_fernet_key()
 _BASE_KEY   = _fernet_raw.encode() if _fernet_raw else None
 
 def _decrypt(val: str) -> str:
@@ -33,7 +48,7 @@ def _decrypt(val: str) -> str:
     - Empty string        → returned unchanged (key not configured).
     - Plaintext value     → returned unchanged (migration-safe).
     - Fernet token        → decrypted and returned.
-    - Encrypted but no Fernet key in Credential Manager → RuntimeError.
+    - Encrypted but no Fernet key in .env or credential store → RuntimeError.
     """
     if not val:
         return val
@@ -43,8 +58,8 @@ def _decrypt(val: str) -> str:
     if not _BASE_KEY:
         raise RuntimeError(
             "Encrypted API key found in .env but the Fernet key is not in "
-            "Windows Credential Manager.  "
-            "Run: python Scripts\\store_fernet_key.py"
+            ".env or the OS credential store. Set TRADING_BOT_FERNET_KEY in "
+            ".env, or run: python Scripts\\setup_encryption.py"
         )
     try:
         return Fernet(_BASE_KEY).decrypt(val.encode()).decode().strip()
@@ -107,7 +122,7 @@ KRAKEN_RO_SECRET    = _db_key("kraken_ro", "secret_key", _decrypt(os.getenv("KRA
 
 ANTHROPIC_API_KEY   = _db_key("anthropic", "api_key",    _decrypt(os.getenv("ANTHROPIC_API_KEY",  "")))
 
-COINDESK_API_KEY    = _db_key("coindesk",  "api_key",    _decrypt(os.getenv("COINDESK_API_KEY", "gAAAAABqE0y3UHrVHis66FBSmi3Lv8jIv6xodP02_6aOL7pDcUX_4eMa7ViRVhRz3jcw188fDzS8vIUB6zH_oFcjdLwyAhPj5KyxviSJWtITJsTU2kR5RcPHd7hS8mjVC6EkeTthL9EpjM-vXzcMw20UIOX7xHkVA8BP6S8IWSCty02KGt5kU5k=")))
+COINDESK_API_KEY    = _db_key("coindesk",  "api_key",    _decrypt(os.getenv("COINDESK_API_KEY", "")))
 
 ALPHA_VANTAGE_KEY   = _db_key(
     "alphavantage", "api_key",
