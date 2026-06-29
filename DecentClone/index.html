@@ -998,7 +998,7 @@
             lastY: 0,
             bounds: null
         };
-        const MINI_MAP_DRAG_PAN_MULT = 6;
+        const MINI_MAP_DRAG_PAN_MULT = 8;
         /*
          * Map/editor mouse state.
          *
@@ -14124,16 +14124,18 @@
                 ctx.fill();
             }
 
-            const cursorPoint = mapHudPoint(builder.cursor);
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(cursorPoint.x - 4, cursorPoint.y - 4, 8, 8);
-            const nosePoint = mapHudPoint(addVec(builder.cursor, scaleVec(builder.forward, 55)));
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(cursorPoint.x, cursorPoint.y);
-            ctx.lineTo(nosePoint.x, nosePoint.y);
-            ctx.stroke();
+            if (builderMode || mapMouse.joinMode === 'sentry') {
+                const cursorPoint = mapHudPoint(builder.cursor);
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(cursorPoint.x - 4, cursorPoint.y - 4, 8, 8);
+                const nosePoint = mapHudPoint(addVec(builder.cursor, scaleVec(builder.forward, 55)));
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(cursorPoint.x, cursorPoint.y);
+                ctx.lineTo(nosePoint.x, nosePoint.y);
+                ctx.stroke();
+            }
 
             if (mapMouse.anchor?.segmentIndex !== null && mapMouse.anchor?.segmentIndex !== undefined) {
                 const anchorPoint = mapHudPoint(mapMouse.anchor.point);
