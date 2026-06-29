@@ -14,6 +14,7 @@ ccxt==4.2.90                  # Crypto exchanges (Coinbase, Kraken, etc.)
 
 # Scheduling
 APScheduler==3.10.4
+schedule==1.2.2
 pytz==2024.1
 
 # Dashboard
@@ -37,4 +38,3 @@ Jinja2==3.1.3
 python-dotenv==1.0.1          # Load .env file for API keys
 keyring>=25.0.0               # Secure credential storage in Windows Credential Manager
 cryptography>=42.0.0          # Fernet encryption for API keys in .env
-

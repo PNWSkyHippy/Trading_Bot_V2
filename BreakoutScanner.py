@@ -29,6 +29,8 @@ Run:
     python BreakoutScanner.py --console # Force console mode
 """
 
+from __future__ import annotations
+
 import csv
 import json
 import logging
