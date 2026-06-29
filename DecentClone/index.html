@@ -2904,11 +2904,18 @@
             loadPlayerProfile();
             updatePlayerHud();
             if (!pilotStartOverlay || (!force && currentPlayerName !== 'Pilot')) return;
+            pilotStartOverlay.style.display = 'flex';
             if (pilotNameInput) {
                 pilotNameInput.value = currentPlayerName !== 'Pilot' ? currentPlayerName : '';
-                setTimeout(() => pilotNameInput.focus(), 0);
+                requestAnimationFrame(() => {
+                    try {
+                        pilotNameInput.focus({ preventScroll: true });
+                    } catch {
+                        pilotNameInput.focus();
+                    }
+                    if (typeof pilotNameInput.select === 'function') pilotNameInput.select();
+                });
             }
-            pilotStartOverlay.style.display = 'flex';
         }
 
         if (pilotStartBtn) {
@@ -2917,6 +2924,18 @@
             });
         }
         if (pilotNameInput) {
+            const stopPilotInputEvent = (event) => event.stopPropagation();
+            const refocusPilotInput = () => {
+                if (!isPilotStartDialogOpen()) return;
+                requestAnimationFrame(() => {
+                    if (!isPilotStartDialogOpen()) return;
+                    try {
+                        pilotNameInput.focus({ preventScroll: true });
+                    } catch {
+                        pilotNameInput.focus();
+                    }
+                });
+            };
             pilotNameInput.addEventListener('keydown', (event) => {
                 event.stopPropagation();
                 if (event.key === 'Enter') {
@@ -2924,7 +2943,16 @@
                     startPilotSession(pilotNameInput.value);
                 }
             });
-            pilotNameInput.addEventListener('keyup', (event) => event.stopPropagation());
+            pilotNameInput.addEventListener('keyup', stopPilotInputEvent);
+            pilotNameInput.addEventListener('keypress', stopPilotInputEvent);
+            pilotNameInput.addEventListener('beforeinput', stopPilotInputEvent);
+            pilotNameInput.addEventListener('input', stopPilotInputEvent);
+            pilotNameInput.addEventListener('pointerdown', stopPilotInputEvent);
+            pilotNameInput.addEventListener('mousedown', stopPilotInputEvent);
+            pilotNameInput.addEventListener('mouseup', stopPilotInputEvent);
+            pilotNameInput.addEventListener('click', stopPilotInputEvent);
+            pilotNameInput.addEventListener('touchstart', stopPilotInputEvent);
+            pilotNameInput.addEventListener('blur', refocusPilotInput);
         }
         if (changePilotBtn) {
             changePilotBtn.addEventListener('click', () => showPilotStart(true));
@@ -3368,6 +3396,7 @@
             89: 'y',
             90: 'z',
             46: 'delete',
+            59: ';',
             186: ';',
             219: '[',
             221: ']'
@@ -3418,6 +3447,9 @@
             if (key === 'backspace' || code === 'backspace') return 'backspace';
             if (key === 'escape' || key === 'esc' || code === 'escape') return 'escape';
             if (key === 'spacebar' || key === ' ' || code === 'space') return ' ';
+            if (key === ';' || key === ':' || key === 'semicolon' || code === 'semicolon') return ';';
+            if (key === '[' || key === '{' || key === 'bracketleft' || code === 'bracketleft') return '[';
+            if (key === ']' || key === '}' || key === 'bracketright' || code === 'bracketright') return ']';
             if (/^[a-z0-9]$/.test(key)) return key;
             if (code.startsWith('key') && code.length === 4) return code.slice(3);
             if (code.startsWith('digit') && code.length === 6) return code.slice(5);
@@ -3431,7 +3463,7 @@
                 keys[key] = false;
             }
             for (const key of [
-                'w', 'a', 's', 'd', 'r', 'f', 'p', 'q', 'e', 'v', 'c', 'shift', ' ',
+                'w', 'a', 's', 'd', 'r', 'f', 'p', 'q', 'e', 'v', 'c', 'shift', ' ', ';',
                 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'z', 'x'
             ]) {
                 lastKeyDown[key] = 0;
