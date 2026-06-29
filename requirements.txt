@@ -11,7 +11,7 @@ ib-insync==0.9.86             # IBKR Gateway/TWS integration
 # Data & Technical Analysis
 #
 #numpy==1.26.3
-pandas-ta==0.3.14b0           # 130+ technical indicators
+pandas-ta==0.4.71b0           # 130+ technical indicators
 
 # Scheduling
 APScheduler==3.10.4
