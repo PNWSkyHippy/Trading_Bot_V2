@@ -87,8 +87,8 @@ class BMR357Params:
     # RSI confirmation
     # Sweep winner: RSI 28/72 selects deeper exhaustion — edge rate 50% vs 24% at 30/70
     rsi_len:        int   = 14
-    rsi_long:       float = 28.0   # long entry: RSI must be BELOW this
-    rsi_short:      float = 72.0   # short entry: RSI must be ABOVE this
+    rsi_long:       float = 35.0   # long entry: RSI must be BELOW this # was 28
+    rsi_short:      float = 65.0   # short entry: RSI must be ABOVE this # was 72
 
     # Risk / reward (3-5-7 rule core)
     # Sweep winner: TP 3.5% gives R:R 2.33:1 — beats 2:1 default, satisfies "7" rule
@@ -104,7 +104,7 @@ class BMR357Params:
 
     # Live fee/edge guard. BMR exits at the SMA20 midline, so tiny targets
     # can be directionally correct but still lose after crypto round-trip costs.
-    min_dist_to_mid_pct: float = 1.5
+    min_dist_to_mid_pct: float = 1.0  # Was 1.5
 
     # Regime guard. BMR's observed edge is strongest when the whole crypto tape
     # is moving, using BTC as the broad-market proxy.

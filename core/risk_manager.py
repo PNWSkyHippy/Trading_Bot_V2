@@ -292,6 +292,11 @@ class RiskManager:
             try:
                 from core.broker_manager import broker_manager
                 bal              = broker_manager.get_broker_balance(broker_name)
+                if bal.get("status") == "unavailable":
+                    return TradeApproval(
+                        approved=False,
+                        reason=f"Broker balance unavailable for {broker_name}"
+                    )
                 broker_available = bal.get("available", 0.0)
                 # Reject immediately when the broker reports zero or near-zero
                 # cash. Do NOT silently fall back to theoretical capital — that
