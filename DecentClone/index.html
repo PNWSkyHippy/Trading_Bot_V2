@@ -1036,6 +1036,7 @@
             gizmoStartPoint: null,
             selectionBendPoint: null,
             selectionPath: null,
+            selectionChainPoints: null,
             dragMoved: false,
             selection: new Set(),
             targetSelection: new Set(),
@@ -4071,6 +4072,7 @@
                         keyboardStatus.innerText = 'moved bend point C with XYZ gizmo';
                     } else if (kind === 'selectionBend') {
                         applyMapGeometryChange('smoothed selected tunnel range with bend C');
+                        setXyzGizmoTarget('selectionBend');
                     } else if (kind === 'routeNode' || kind === 'routeHandle') {
                         keyboardStatus.innerText = 'moved route point with XYZ gizmo';
                     }
@@ -5316,8 +5318,9 @@
 
             for (const seg of builder.segments) {
                 if (seg.generated && (seg.kind || '').startsWith('join')) {
-                    seg.branch = false;
-                    seg.branchMouth = false;
+                    const keepMouth = seg.kind === 'branch-mouth-autoconnect';
+                    seg.branch = keepMouth ? true : false;
+                    seg.branchMouth = keepMouth ? true : false;
                 }
             }
 
@@ -9620,6 +9623,7 @@
         function clearSelectedRangeBend() {
             mapMouse.selectionBendPoint = null;
             mapMouse.selectionPath = null;
+            mapMouse.selectionChainPoints = null;
             if (mapMouse.gizmoTarget?.kind === 'selectionBend') {
                 mapMouse.gizmoTarget = null;
             }
@@ -9640,6 +9644,15 @@
         function selectedRangePointChain() {
             const indices = orderedSelectedSegmentIndices();
             if (indices.length < 2) return null;
+            if (
+                Array.isArray(mapMouse.selectionChainPoints) &&
+                mapMouse.selectionChainPoints.length === indices.length + 1
+            ) {
+                return {
+                    indices,
+                    points: mapMouse.selectionChainPoints.map(copyVec)
+                };
+            }
             const first = builder.segments[indices[0]];
             const second = builder.segments[indices[1]];
             if (!first || !second) return null;
@@ -9664,6 +9677,7 @@
                     points.push(copyVec(seg.from));
                 }
             }
+            mapMouse.selectionChainPoints = points.map(copyVec);
             return { indices, points };
         }
 
@@ -9699,6 +9713,7 @@
                 normalizeSegmentFromEndpoints(seg);
             }
             mapMouse.selectionBendPoint = copyVec(point);
+            mapMouse.selectionChainPoints = curved.map(copyVec);
             return true;
         }
 
@@ -9778,6 +9793,7 @@
             mapMouse.selection = new Set(path);
             mapMouse.selectionPath = path.slice();
             mapMouse.selectionBendPoint = null;
+            mapMouse.selectionChainPoints = null;
             mapMouse.anchor = {
                 point: copyVec(anchor.point),
                 label: anchor.label,
@@ -10619,6 +10635,7 @@
                 mapMouse.selection.clear();
                 mapMouse.selectionBendPoint = null;
                 mapMouse.selectionPath = null;
+                mapMouse.selectionChainPoints = null;
             }
             if (anchor.segmentIndex !== null && anchor.segmentIndex !== undefined) {
                 if (additive && mapMouse.selection.has(anchor.segmentIndex)) {
@@ -10629,6 +10646,7 @@
                 if (additive) {
                     mapMouse.selectionPath = null;
                     mapMouse.selectionBendPoint = null;
+                    mapMouse.selectionChainPoints = null;
                 }
             }
             mapMouse.anchor = {
