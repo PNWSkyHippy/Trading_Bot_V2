@@ -1035,6 +1035,7 @@
             gizmoStartMouse: null,
             gizmoStartPoint: null,
             selectionBendPoint: null,
+            selectionPath: null,
             dragMoved: false,
             selection: new Set(),
             targetSelection: new Set(),
@@ -3592,6 +3593,7 @@
                 mapMouse.orbitAnchor
             )) {
                 mapMouse.selection.clear();
+                clearSelectedRangeBend();
                 mapMouse.targetSelection.clear();
                 mapMouse.anchor = null;
                 mapMouse.destination = null;
@@ -4141,7 +4143,7 @@
                             if (applyXyzGizmoPoint(next)) {
                                 mapMouse.dragMoved = true;
                                 keyboardStatus.innerText =
-                                    `XYZ ${axis.toUpperCase()} ${formatMapCoord(next[axis])} | ${formatMapPoint(next)}`;
+                                    `WORLD ${axis.toUpperCase()} ${formatMapCoord(next[axis])} | ${formatMapPoint(next)}`;
                             }
                         }
                     }
@@ -5981,6 +5983,7 @@
             mapMouse.sentrySpawnMoveId = null;
             mapMouse.dragSentryId = null;
             mapMouse.selection.clear();
+            clearSelectedRangeBend();
             repairBuilderBasis();
             sanitizeMapSegments();
             rebuildTunnelStars();
@@ -6326,6 +6329,7 @@
                 const removedCount = selected.size;
                 builder.segments = builder.segments.filter((_, index) => !selected.has(index));
                 mapMouse.selection.clear();
+                clearSelectedRangeBend();
                 mapMouse.anchor = null;
                 applyMapGeometryChange(`deleted ${removedCount} selected segment(s)`);
                 return true;
@@ -6344,6 +6348,7 @@
             const removed = builder.segments.splice(segmentIndex, 1)[0];
             mapMouse.anchor = null;
             mapMouse.selection.clear();
+            clearSelectedRangeBend();
             applyMapGeometryChange(`deleted ${removed?.kind || 'segment'} ${segmentIndex + 1}`);
             return true;
         }
@@ -6651,12 +6656,17 @@
 
         function punchBodyJoinMouth(segmentRef, segmentIndex, segmentT, wallPoint, radiusHint = builder.radius) {
             const seg = segmentRef || builder.segments[segmentIndex];
-            if (!seg || !wallPoint) return false;
+            if (!seg) return false;
             const currentIndex = builder.segments.indexOf(seg);
             if (currentIndex < 0) return false;
             const t = Math.max(0.08, Math.min(0.92, segmentT ?? 0.5));
             const center = pointOnSegment(seg, t);
             const radius = clampMapSegmentRadius(radiusHint);
+            const split = splitSegmentAtPoint(currentIndex, center);
+            if (!split) return false;
+            if (!wallPoint || distanceSq(center, wallPoint) < Math.pow(mapMinSegmentLength() * 0.5, 2)) {
+                return true;
+            }
             const mouth = makeSegmentBetween(
                 center,
                 wallPoint,
@@ -6669,8 +6679,6 @@
             mouth.branch = true;
             mouth.branchMouth = true;
             mouth.generated = true;
-            const split = splitSegmentAtPoint(currentIndex, center);
-            if (!split) return false;
             builder.segments.push(mouth);
             return true;
         }
@@ -7530,6 +7538,19 @@
                     : 'connector was too short to add';
                 return true;
             }
+            if (pair.sourceSegmentIndex !== null && pair.sourceSegmentIndex !== undefined && filtered[0]) {
+                filtered[0].branch = true;
+                filtered[0].branchMouth = true;
+                filtered[0].kind = 'branch-mouth-autoconnect';
+                normalizeSegmentRadius(filtered[0], joinRadius);
+            }
+            if (pair.targetSegmentIndex !== null && pair.targetSegmentIndex !== undefined && filtered[filtered.length - 1]) {
+                const last = filtered[filtered.length - 1];
+                last.branch = true;
+                last.branchMouth = true;
+                last.kind = 'branch-mouth-autoconnect';
+                normalizeSegmentRadius(last, joinRadius);
+            }
 
             const sourcePunched = pair.sourceSegmentIndex !== null && pair.sourceSegmentIndex !== undefined
                 && punchBodyJoinMouth(
@@ -7984,7 +8005,8 @@
                 const branchRight = normalize(seg.right || builder.right);
                 const branchDown = normalize(seg.down || builder.down);
                 ctx.branchBasis = { forward: branchForward, right: branchRight, down: branchDown };
-                ctx.blend = ctx.nearJunction ? 0.30 : 0.18;
+                ctx.blend = ctx.nearJunction ? 0.85 : 1.0;
+                ctx.turnSpeedMult = Math.max(ctx.turnSpeedMult, BRANCH_FLIGHT_TURN_SPEED_MULT);
             }
 
             branchFlightContext = ctx;
@@ -9595,13 +9617,23 @@
             return [...new Set(indices)];
         }
 
-        function orderedSelectedSegmentIndices() {
-            const indices = [...mapMouse.selection]
-                .filter(index => index >= 0 && index < builder.segments.length);
-            const anchorIndex = mapMouse.anchor?.segmentIndex;
-            if (indices.length <= 1 && anchorIndex !== null && anchorIndex !== undefined) {
-                indices.push(anchorIndex);
+        function clearSelectedRangeBend() {
+            mapMouse.selectionBendPoint = null;
+            mapMouse.selectionPath = null;
+            if (mapMouse.gizmoTarget?.kind === 'selectionBend') {
+                mapMouse.gizmoTarget = null;
             }
+        }
+
+        function orderedSelectedSegmentIndices() {
+            const source = Array.isArray(mapMouse.selectionPath)
+                ? mapMouse.selectionPath
+                : [];
+            const indices = source.filter(index =>
+                index >= 0 &&
+                index < builder.segments.length &&
+                mapMouse.selection.has(index)
+            );
             return [...new Set(indices)];
         }
 
@@ -9625,6 +9657,7 @@
                 const last = points[points.length - 1];
                 const fromDist = distanceSq(last, seg.from);
                 const toDist = distanceSq(last, seg.to);
+                if (Math.min(fromDist, toDist) > touchSq) return null;
                 if (fromDist <= toDist) {
                     points.push(copyVec(seg.to));
                 } else {
@@ -9743,6 +9776,7 @@
                 return false;
             }
             mapMouse.selection = new Set(path);
+            mapMouse.selectionPath = path.slice();
             mapMouse.selectionBendPoint = null;
             mapMouse.anchor = {
                 point: copyVec(anchor.point),
@@ -10584,12 +10618,17 @@
             if (!additive) {
                 mapMouse.selection.clear();
                 mapMouse.selectionBendPoint = null;
+                mapMouse.selectionPath = null;
             }
             if (anchor.segmentIndex !== null && anchor.segmentIndex !== undefined) {
                 if (additive && mapMouse.selection.has(anchor.segmentIndex)) {
                     mapMouse.selection.delete(anchor.segmentIndex);
                 } else {
                     mapMouse.selection.add(anchor.segmentIndex);
+                }
+                if (additive) {
+                    mapMouse.selectionPath = null;
+                    mapMouse.selectionBendPoint = null;
                 }
             }
             mapMouse.anchor = {
@@ -14622,9 +14661,9 @@
             const origin = projectMapPoint(point, centerX, centerY, fov);
             if (!origin) return;
             const axes = [
-                { key: 'x', label: 'X', color: '#ff5c74' },
-                { key: 'y', label: 'Y', color: '#44ff88' },
-                { key: 'z', label: 'Z', color: '#66d9ff' }
+                { key: 'x', label: 'WX', color: '#ff5c74' },
+                { key: 'y', label: 'WY', color: '#44ff88' },
+                { key: 'z', label: 'WZ', color: '#66d9ff' }
             ];
             ctx.save();
             ctx.globalAlpha = 0.96;
@@ -14701,7 +14740,7 @@
             const statusLines = [
                 `PLANE: ${mapMouse.editPlane.toUpperCase()} (${mapMouse.planeLocked ? 'LOCKED' : 'free'}) | ` +
                     `grid ${mapGrid.visible ? 'ON' : 'off'} | snap ${snapActive ? 'ON' : mapGrid.snapEnabled ? 'toggle' : 'off'} | ` +
-                    `XYZ ${formatMapPoint(focusPoint)}`,
+                    `world XYZ ${formatMapPoint(focusPoint)}`,
                 `3D MAP | mode ${mapMouse.joinMode.toUpperCase()} | portals ${builder.portals.length} | targets ${tunnelTargets.length} | sentries ${tunnelSentries.length}/${SENTRY_MAX_COUNT}`,
                 mapMouse.joinMode === 'sentry'
                     ? mapMouse.sentrySpawnMoveId
