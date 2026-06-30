@@ -4,7 +4,7 @@ import config
 import alpaca_trade_api as tradeapi
 
 print(f"base_url : {config.ALPACA_BASE_URL}")
-print(f"api_key  : {config.ALPACA_API_KEY[:8]}...")
+print(f"api_key configured: {'yes' if config.ALPACA_API_KEY else 'no'}")
 
 try:
     api = tradeapi.REST(config.ALPACA_API_KEY, config.ALPACA_SECRET_KEY, config.ALPACA_BASE_URL)

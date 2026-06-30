@@ -94,9 +94,15 @@ def _save(users: dict) -> None:
 
 
 def _hash(password: str) -> str:
-    salt   = secrets.token_hex(16)
-    digest = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
-    return f"sha256:{salt}:{digest}"
+    iterations = 260_000
+    salt = secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        iterations,
+    ).hex()
+    return f"pbkdf2_sha256:{iterations}:{salt}:{digest}"
 
 
 def cmd_set_password(username: str | None = None) -> None:

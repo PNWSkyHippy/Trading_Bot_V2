@@ -812,7 +812,7 @@ class StockDataFetcher:
                 )
                 logger.info("Alpaca API initialized")
             except Exception as e:
-                logger.error(f"Alpaca init failed: {e}")
+                logger.error("Alpaca init failed (%s)", type(e).__name__)
 
     def _stock_universe(self) -> List[str]:
         injected = load_injected_stock_symbols()
@@ -973,7 +973,7 @@ class CryptoDataFetcher:
                     self.exchange_name = name.upper()
                 logger.info(f"{name.capitalize()} exchange initialized")
             except Exception as e:
-                logger.warning(f"{name} init failed: {e}")
+                logger.warning("%s init failed (%s)", name, type(e).__name__)
 
     def get_top_movers(self, count: int = 100) -> List[PriceData]:
         """Scan ALL loaded exchanges. Each PriceData is tagged with its
@@ -1684,7 +1684,7 @@ class TradingEngine:
                     self.config.get("alpaca_base_url"), api_version="v2",
                 )
             except Exception as e:
-                logger.error(f"Alpaca trading init failed: {e}")
+                logger.error("Alpaca trading init failed (%s)", type(e).__name__)
         if CCXT_AVAILABLE:
             for name, kw in [
                 ("kraken",   {"apiKey": self.config.get("kraken_api_key"),
