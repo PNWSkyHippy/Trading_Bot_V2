@@ -16,7 +16,7 @@ import time
 from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 try:
     from chart_patterns import PatternDetector as _PatternDetector
@@ -112,7 +112,7 @@ TRADOVATE_SYMBOL_IDS: dict = {
 
 # ── Dashboard Auth ────────────────────────────────────────────────────────────
 # User store: data/dashboard_users.json
-# Schema: { username: { "hash": "sha256:salt:hex", "role": "admin"|"user",
+# Schema: { username: { "hash": "pbkdf2_sha256:iterations:salt:hex", "role": "admin"|"user",
 #                        "force_change": bool } }
 #
 # On first start the file is seeded with admin / admin (force_change=True).
@@ -284,15 +284,29 @@ def _needs_setup() -> bool:
 
 
 def _hash_password(password: str) -> str:
-    salt   = secrets.token_hex(16)
-    digest = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
-    return f"sha256:{salt}:{digest}"
+    iterations = 260_000
+    salt = secrets.token_hex(16)
+    digest = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        iterations,
+    ).hex()
+    return f"pbkdf2_sha256:{iterations}:{salt}:{digest}"
 
 
 def _verify_password(password: str, stored: str) -> bool:
     try:
-        _, salt, expected = stored.split(":", 2)
-        actual = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
+        scheme, *parts = (stored or "").split(":")
+        if scheme != "pbkdf2_sha256" or len(parts) != 3:
+            return False
+        iterations_raw, salt, expected = parts
+        actual = hashlib.pbkdf2_hmac(
+            "sha256",
+            password.encode("utf-8"),
+            salt.encode("utf-8"),
+            int(iterations_raw),
+        ).hex()
         return secrets.compare_digest(actual, expected)
     except Exception:
         return False
@@ -3240,7 +3254,23 @@ def _db_valid_tables(conn):
     ).fetchall()}
 
 def _db_valid_cols(conn, table: str):
-    return {r[1] for r in conn.execute(f"PRAGMA table_info([{table}])").fetchall()}
+    table_sql = _db_quote_identifier(table, _db_valid_tables(conn))
+    return {r[1] for r in conn.execute(f"PRAGMA table_info({table_sql})").fetchall()}
+
+_DB_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+
+def _db_quote_identifier(name: str, valid_names: set[str]) -> str:
+    """
+    Return a quoted SQLite identifier after strict allow-list validation.
+
+    SQLite parameters cannot bind table/column identifiers. The dashboard DB
+    browser is admin-only, but request-provided identifiers still must be
+    constrained to real schema names before being interpolated into SQL.
+    """
+    raw = str(name or "")
+    if raw not in valid_names or not _DB_IDENTIFIER_RE.match(raw):
+        raise ValueError(f"Invalid database identifier: {raw}")
+    return '"' + raw.replace('"', '""') + '"'
 
 def _db_glob_to_regex(pattern: str) -> str:
     out, i = "", 0
@@ -3289,8 +3319,8 @@ def _db_like_pattern(pattern: str) -> str:
     s = s.replace("%", r"\%").replace("_", r"\_")
     return s.replace("*", "%").replace("?", "_")
 
-def _db_datetime_expr(col: str) -> str:
-    text_expr = f"REPLACE(SUBSTR(CAST([{col}] AS TEXT), 1, 26), 'T', ' ')"
+def _db_datetime_expr(col_sql: str) -> str:
+    text_expr = f"REPLACE(SUBSTR(CAST({col_sql} AS TEXT), 1, 26), 'T', ' ')"
     return f"julianday({text_expr})"
 
 def _db_normalize_datetime_filter(value: str) -> str | None:
@@ -3343,12 +3373,13 @@ def _db_filter_where(filters: dict, valid_cols: set[str]):
         value = str(raw or "").strip()
         if not value:
             continue
+        col_sql = _db_quote_identifier(col, valid_cols)
         num = re.match(r"^(<=|>=|<|>|==|=|!=)\s*(-?\d+(?:\.\d+)?)$", value)
         if num:
             op = "=" if num.group(1) in ("=", "==") else num.group(1)
             if op == "!=":
                 op = "<>"
-            where.append(f"CAST([{col}] AS REAL) {op} ?")
+            where.append(f"CAST({col_sql} AS REAL) {op} ?")
             params.append(float(num.group(2)))
             continue
         dt_cmp = re.match(r"^(<=|>=|<|>|==|=|!=)\s*(.+)$", value)
@@ -3358,7 +3389,7 @@ def _db_filter_where(filters: dict, valid_cols: set[str]):
                 op = "=" if dt_cmp.group(1) in ("=", "==") else dt_cmp.group(1)
                 if op == "!=":
                     op = "<>"
-                where.append(f"{_db_datetime_expr(col)} {op} julianday(?)")
+                where.append(f"{_db_datetime_expr(col_sql)} {op} julianday(?)")
                 params.append(dt_value)
                 continue
         dt_range = re.match(r"^(.+?)\s*\.\.\s*(.+)$", value)
@@ -3366,20 +3397,20 @@ def _db_filter_where(filters: dict, valid_cols: set[str]):
             start = _db_normalize_datetime_filter(dt_range.group(1))
             end = _db_normalize_datetime_range_end(dt_range.group(2))
             if start and end:
-                where.append(f"{_db_datetime_expr(col)} BETWEEN julianday(?) AND julianday(?)")
+                where.append(f"{_db_datetime_expr(col_sql)} BETWEEN julianday(?) AND julianday(?)")
                 params.extend([start, end])
                 continue
         lead = re.match(r"^([<>])\s*([a-z])$", value, re.I)
         if lead:
-            where.append(f"LOWER(SUBSTR(CAST([{col}] AS TEXT),1,1)) {lead.group(1)} ?")
+            where.append(f"LOWER(SUBSTR(CAST({col_sql} AS TEXT),1,1)) {lead.group(1)} ?")
             params.append(lead.group(2).lower())
             continue
         if any(ch in value for ch in "{}[]"):
-            where.append(f"REGEXP(?, CAST([{col}] AS TEXT))")
+            where.append(f"REGEXP(?, CAST({col_sql} AS TEXT))")
             params.append(_db_glob_to_regex(value))
         else:
             where.append(
-                f"REPLACE(CAST([{col}] AS TEXT), '\\', '/') LIKE ? ESCAPE '\\' COLLATE NOCASE"
+                f"REPLACE(CAST({col_sql} AS TEXT), '\\', '/') LIKE ? ESCAPE '\\' COLLATE NOCASE"
             )
             params.append(_db_like_pattern(value))
     return where, params
@@ -3391,9 +3422,11 @@ def db_tables(db_key: str | None = None):
             tables = c.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
             ).fetchall()
+            valid = {t[0] for t in tables}
             for t in tables:
                 name = t[0]
-                cnt  = c.execute(f"SELECT COUNT(*) FROM [{name}]").fetchone()[0]
+                table_sql = _db_quote_identifier(name, valid)
+                cnt = c.execute(f"SELECT COUNT(*) FROM {table_sql}").fetchone()[0]
                 rows.append({"name": name, "rows": cnt})
     except Exception as e:
         return {"error": str(e), "tables": [], "db": db_key or "trading"}
@@ -3412,6 +3445,7 @@ def db_browse(table: str, limit: int = 500, offset: int = 0,
         return {"error": f"Unknown table: {table}"}
     try:
         with _db_conn(db_key) as c:
+            table_sql = _db_quote_identifier(table, valid)
             c.create_function(
                 "REGEXP", 2,
                 lambda pattern, value: bool(re.match(pattern, str(value or ""), re.I))
@@ -3420,7 +3454,7 @@ def db_browse(table: str, limit: int = 500, offset: int = 0,
             where, params = _db_filter_where(filters or {}, valid_cols)
             clause = ("WHERE " + " AND ".join(where)) if where else ""
             cur  = c.execute(
-                f"SELECT rowid, * FROM [{table}] {clause} ORDER BY rowid DESC LIMIT ? OFFSET ?",
+                f"SELECT rowid, * FROM {table_sql} {clause} ORDER BY rowid DESC LIMIT ? OFFSET ?",
                 (*params, limit, offset)
             )
             cols = [d[0] for d in cur.description]
@@ -3503,6 +3537,7 @@ def db_search(data: dict):
         return {"error": str(e)}
     if table not in valid:
         return {"error": f"Unknown table: {table}"}
+    table_sql = _db_quote_identifier(table, valid)
 
     cfg    = _DB_TABLE_SEARCH.get(table, {})
     where, params = [], []
@@ -3521,7 +3556,8 @@ def db_search(data: dict):
     tf   = data.get("time","any")
     time_params = []
     if tcol and tf != "any":
-        texpr = _db_datetime_expr(tcol)
+        tcol_sql = _db_quote_identifier(tcol, {tcol})
+        texpr = _db_datetime_expr(tcol_sql)
         if tf == "last 1h":
             where.append(f"{texpr} >= julianday('now','localtime','-1 hour')")
         elif tf == "last 4h":
@@ -3554,7 +3590,7 @@ def db_search(data: dict):
                     time_params.append(to_norm)
 
     clause = ("WHERE " + " AND ".join(where)) if where else ""
-    sql    = f"SELECT rowid, * FROM [{table}] {clause} ORDER BY rowid DESC LIMIT 2000"
+    sql    = f"SELECT rowid, * FROM {table_sql} {clause} ORDER BY rowid DESC LIMIT 2000"
     try:
         with _db_conn(db_key) as c:
             cur  = c.execute(sql, params)
@@ -3591,15 +3627,17 @@ def db_edit_row(data: dict):
             valid = _db_valid_tables(c)
             if table not in valid:
                 return False, f"Unknown table: {table}"
+            table_sql = _db_quote_identifier(table, valid)
             cols = _db_valid_cols(c, table)
             if col not in cols:
                 return False, f"Unknown column: {col}"
+            col_sql = _db_quote_identifier(col, cols)
             if rowid is not None:
-                c.execute(f"UPDATE [{table}] SET [{col}]=? WHERE rowid=?",
+                c.execute(f"UPDATE {table_sql} SET {col_sql}=? WHERE rowid=?",
                           (new_val, rowid))
             else:
                 # Fallback: quick-query views don't return rowid, use trade_id
-                c.execute(f"UPDATE [{table}] SET [{col}]=? WHERE trade_id=?",
+                c.execute(f"UPDATE {table_sql} SET {col_sql}=? WHERE trade_id=?",
                           (new_val, trade_id))
             c.commit()
         ref = f"rowid={rowid}" if rowid is not None else f"trade_id={trade_id}"
@@ -3640,11 +3678,13 @@ def db_add_row(data: dict):
             valid = _db_valid_tables(c)
             if table not in valid:
                 return False, f"Unknown table: {table}", {}
-            info = c.execute(f"PRAGMA table_info([{table}])").fetchall()
+            table_sql = _db_quote_identifier(table, valid)
+            info = c.execute(f"PRAGMA table_info({table_sql})").fetchall()
             try:
-                c.execute(f"INSERT INTO [{table}] DEFAULT VALUES")
+                c.execute(f"INSERT INTO {table_sql} DEFAULT VALUES")
             except Exception:
                 names, vals = [], []
+                valid_cols = {col[1] for col in info}
                 for col in info:
                     name, ctype, notnull, default, pk = col[1], col[2], col[3], col[4], col[5]
                     if pk == 1 and "INT" in (ctype or "").upper():
@@ -3654,12 +3694,12 @@ def db_add_row(data: dict):
                         vals.append(_db_blank_value_for(name, ctype))
                 if not names:
                     return False, "Could not infer blank row columns", {}
-                col_sql = ",".join(f"[{n}]" for n in names)
+                col_sql = ",".join(_db_quote_identifier(n, valid_cols) for n in names)
                 qmarks = ",".join("?" for _ in names)
-                c.execute(f"INSERT INTO [{table}] ({col_sql}) VALUES ({qmarks})", vals)
+                c.execute(f"INSERT INTO {table_sql} ({col_sql}) VALUES ({qmarks})", vals)
             rowid = c.execute("SELECT last_insert_rowid()").fetchone()[0]
             c.commit()
-            cur = c.execute(f"SELECT rowid, * FROM [{table}] WHERE rowid=?", (rowid,))
+            cur = c.execute(f"SELECT rowid, * FROM {table_sql} WHERE rowid=?", (rowid,))
             cols = [d[0] for d in cur.description]
             row = list(cur.fetchone() or [])
         return True, f"Added blank row to {table}", {"cols": cols, "row": row, "rowid": rowid}
@@ -3681,8 +3721,9 @@ def db_delete_rows(data: dict):
             valid = _db_valid_tables(c)
             if table not in valid:
                 return False, f"Unknown table: {table}"
+            table_sql = _db_quote_identifier(table, valid)
             qmarks = ",".join("?" for _ in rowids)
-            cur = c.execute(f"DELETE FROM [{table}] WHERE rowid IN ({qmarks})", rowids)
+            cur = c.execute(f"DELETE FROM {table_sql} WHERE rowid IN ({qmarks})", rowids)
             c.commit()
         return True, f"Deleted {cur.rowcount} row(s) from {table}"
     except Exception as e:
@@ -3909,6 +3950,10 @@ class Handler(BaseHTTPRequestHandler):
         return _session_user(self._session_token())
 
     def _redirect(self, target: str):
+        target = str(target or "/").replace("\r", "").replace("\n", "")
+        parsed = urlparse(target)
+        if parsed.scheme or parsed.netloc or not target.startswith("/"):
+            target = "/"
         self.send_response(302)
         self.send_header("Location", target)
         self.end_headers()
@@ -4004,7 +4049,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._redirect("/setup")
 
         if not self._authed() and not _static:
-            return self._redirect(f"/login?next={self.path}")
+                return self._redirect(f"/login?next={quote(self.path, safe='/?=&')}")
         # ── End auth gate ─────────────────────────────────────────────────────
 
         if path == "/api/snapshot":
@@ -4283,8 +4328,9 @@ class Handler(BaseHTTPRequestHandler):
         if rel_path.startswith("static/"):
             rel_path = rel_path[len("static/"):]
         if rel_path:
-            file_path = HTML_ROOT / rel_path
-            if file_path.exists() and file_path.is_file():
+            html_root = HTML_ROOT.resolve()
+            file_path = (html_root / rel_path).resolve()
+            if file_path.is_relative_to(html_root) and file_path.exists() and file_path.is_file():
                 content = file_path.read_bytes()
                 self.send_response(200)
                 if file_path.suffix in (".jsx", ".js"):

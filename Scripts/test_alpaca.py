@@ -19,7 +19,7 @@ print("=" * 50)
 print("  ALPACA CONNECTION TEST")
 print("=" * 50)
 print(f"  URL: {ALPACA_BASE_URL}")
-print(f"  Key: {ALPACA_API_KEY[:8]}...")
+print(f"  Key configured: {'yes' if ALPACA_API_KEY else 'no'}")
 print()
 
 try:

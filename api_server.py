@@ -134,8 +134,11 @@ def receive_breakout_signal(
             "trade_id": None,
         }
 
-    result = breakout_receiver.receive_signal(payload.dict())
-    return result
+    try:
+        return breakout_receiver.receive_signal(payload.dict())
+    except Exception:
+        logger.exception("Breakout signal processing failed")
+        raise HTTPException(status_code=500, detail="Signal processing failed")
 
 
 @app.get("/api/open_positions")
