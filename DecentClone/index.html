@@ -1034,6 +1034,7 @@
             gizmoAxis: null,
             gizmoStartMouse: null,
             gizmoStartPoint: null,
+            dragStartMouse: null,
             selectionBendPoint: null,
             selectionPath: null,
             selectionChainPoints: null,
@@ -3896,6 +3897,17 @@
                         return;
                     }
                 }
+                if (builderMode) {
+                    const bendHandle = builderBendHandlePoint();
+                    if (pickMapMarker(canvasX, canvasY, bendHandle, 16)) {
+                        mapMouse.dragTarget = 'builderBendHandle';
+                        mapMouse.dragStartMouse = { x: canvasX, y: canvasY };
+                        mapMouse.dragMoved = false;
+                        keyboardStatus.innerText = 'builder bend handle armed — drag to aim, release to keep';
+                        e.preventDefault();
+                        return;
+                    }
+                }
                 const gizmoAxis = pickXyzGizmoAxis(canvasX, canvasY);
                 if (gizmoAxis) {
                     if (mapMouse.gizmoTarget?.kind === 'routeNode' || mapMouse.gizmoTarget?.kind === 'routeHandle') {
@@ -4077,6 +4089,11 @@
                         keyboardStatus.innerText = 'moved route point with XYZ gizmo';
                     }
                 }
+                if (mapMouse.dragTarget === 'builderBendHandle' && mapMouse.dragMoved) {
+                    saveTunnelMap();
+                    keyboardStatus.innerText =
+                        `builder bend handle set: ${Math.round(builder.bendDeg)}deg roll ${Math.round(builder.bendRollDeg)}deg`;
+                }
                 mapMouse.orbiting = false;
                 mapMouse.orbitAroundPivot = false;
                 mapMouse.dragTarget = null;
@@ -4084,6 +4101,7 @@
                 mapMouse.gizmoAxis = null;
                 mapMouse.gizmoStartMouse = null;
                 mapMouse.gizmoStartPoint = null;
+                mapMouse.dragStartMouse = null;
             }
             if (e.button === 1) {
                 mapMouse.orbiting = false;
@@ -4110,6 +4128,20 @@
                     const resolved = resolveSentryMapPoint(canvasX, canvasY, planeOrigin, mapMouse.editPlane);
                     if (resolved && moveSentrySpawn(mapMouse.dragSentryId, resolved.point, { save: false })) {
                         mapMouse.dragMoved = true;
+                    }
+                    e.preventDefault();
+                    return;
+                }
+                if (mapMouse.dragTarget === 'builderBendHandle') {
+                    const start = mapMouse.dragStartMouse;
+                    const movedPx = start ? Math.hypot(canvasX - start.x, canvasY - start.y) : 0;
+                    if (movedPx >= 6) {
+                        const origin = builder.cursor;
+                        const raw = mapScreenToAxisPlane(canvasX, canvasY, origin, mapMouse.editPlane);
+                        const point = finalizeEditPlanePoint(raw, origin, mapMouse.editPlane);
+                        if (aimBuilderBendAtPoint(point)) {
+                            mapMouse.dragMoved = true;
+                        }
                     }
                     e.preventDefault();
                     return;
@@ -4369,6 +4401,40 @@
         function builderBranchVector(reverse = false) {
             const branch = builderBendVector();
             return reverse ? scaleVec(branch, -1) : branch;
+        }
+
+        function builderBendHandlePoint(scale = 150) {
+            const bendVector = builderBendVector();
+            const bendForward = builderBasisAfter(builder.bendDeg, 0, bendVector).forward;
+            return addVec(builder.cursor, scaleVec(bendForward, scale));
+        }
+
+        function aimBuilderBendAtPoint(point) {
+            if (!point || !builder.cursor) return false;
+            const offset = {
+                x: point.x - builder.cursor.x,
+                y: point.y - builder.cursor.y,
+                z: point.z - builder.cursor.z
+            };
+            const len = Math.sqrt(distanceSq(point, builder.cursor));
+            if (len < 24) return false;
+            const desired = scaleVec(offset, 1 / len);
+            const forward = normalize(builder.forward);
+            const rawDot = Math.max(-1, Math.min(1, dot(forward, desired)));
+            const angleDeg = Math.acos(rawDot) * 180 / Math.PI;
+            const bendDeg = Math.max(5, Math.min(90, angleDeg));
+            const axis = normalize(cross(forward, desired));
+            if (!axis || (Math.abs(axis.x) + Math.abs(axis.y) + Math.abs(axis.z)) < 0.0001) return false;
+            const bendVector = normalize(cross(axis, forward));
+            const x = dot(bendVector, builder.right);
+            const y = dot(bendVector, builder.down);
+            let rollDeg = Math.atan2(x, y) * 180 / Math.PI;
+            if (rollDeg < 0) rollDeg += 360;
+            builder.bendDeg = bendDeg;
+            builder.bendRollDeg = rollDeg;
+            keyboardStatus.innerText =
+                `builder bend aimed: ${Math.round(builder.bendDeg)}deg roll ${Math.round(builder.bendRollDeg)}deg`;
+            return true;
         }
 
         function normalizedBasis(forward, right, down) {
@@ -15015,6 +15081,7 @@
                 drawMapLine(builder.cursor, planeEnd, '#7a5b22', 2, 0.55);
                 drawMapLine(builder.cursor, reverseEnd, '#7a5b22', 3, 0.72);
                 drawMapLine(builder.cursor, bendEnd, '#ffb040', 5, 0.95);
+                drawMapDot(bendEnd, '#ffb040', 10);
                 drawMapLine(builder.cursor, branchReverseEnd, '#126a70', 4, 0.7);
                 drawMapLine(builder.cursor, branchEnd, '#00f5ff', 5, 0.95);
                 const bendScreen = projectMapPoint(bendEnd, centerX, centerY, fov);
