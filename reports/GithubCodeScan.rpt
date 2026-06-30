@@ -1,0 +1,434 @@
+***
+web_dashboard.py:3530 
+            rel_path = rel_path[len("static/"):]
+        if rel_path:
+            file_path = HTML_ROOT / rel_path
+            if file_path.exists() and file_path.is_file():
+ Error
+Uncontrolled data used in path expression
+This path depends on a user-provided value
+.
+CodeQL 
+                content = file_path.read_bytes()
+                self.send_response(200)
+                if file_path.suffix in (".jsx", ".js"):
+Rule
+Tool
+CodeQL
+Rule ID
+py/path-injection
+Query
+View source
+Description
+Accessing files using paths constructed from user-controlled data can allow an attacker to access unexpected resources. 
+This can result in sensitive information being revealed or deleted, or an attacker being able to influence behavior by
+ modifying unexpected files.
+ 
+ ***
+ web_dashboard.py:3531 
+        if rel_path:
+            file_path = HTML_ROOT / rel_path
+            if file_path.exists() and file_path.is_file():
+                content = file_path.read_bytes()
+ Error
+Uncontrolled data used in path expression
+This path depends on a user-provided value
+.
+CodeQL 
+                self.send_response(200)
+                if file_path.suffix in (".jsx", ".js"):
+                    mime = "text/javascript"
+Rule
+Tool
+CodeQL
+Rule ID
+py/path-injection
+Query
+View source
+Description
+Accessing files using paths constructed from user-controlled data can allow an attacker to access unexpected resources.
+ This can result in sensitive information being revealed or deleted, or an attacker being able to influence behavior 
+ by modifying unexpected files.
+
+
+*** 
+ web_dashboard.py:3530 
+            rel_path = rel_path[len("static/"):]
+        if rel_path:
+            file_path = HTML_ROOT / rel_path
+            if file_path.exists() and file_path.is_file():
+ Error
+Uncontrolled data used in path expression
+This path depends on a user-provided value
+.
+CodeQL 
+                content = file_path.read_bytes()
+                self.send_response(200)
+                if file_path.suffix in (".jsx", ".js"):
+Rule
+Tool
+CodeQL
+Rule ID
+py/path-injection
+Query
+View source
+Description
+Accessing files using paths constructed from user-controlled data can allow an attacker to access unexpected resources. 
+This can result in sensitive information being revealed or deleted, or an attacker being able to influence behavior 
+by modifying unexpected files.
+
+******
+Recommendation
+Validate paths constructed from untrusted user input before using them to access files.
+
+The choice of validation depends on the use case.
+
+If you want to allow paths spanning multiple folders, a common strategy is to make sure that the constructed file path is contained within a safe root folder. First, normalize the path using os.path.normpath or os.path.realpath (make sure to use the latter if symlinks are a consideration) to remove any internal ".." segments and/or follow links. Then check that the normalized path starts with the root folder. Note that the normalization step is important, since otherwise even a path that starts with the root folder could be used to access files outside the root folder.
+
+More restrictive options include using a library function like werkzeug.utils.secure_filename to eliminate any special characters from the file path, or restricting the path to a known list of safe paths. These options are safe, but can only be used in particular circumstances.
+
+Example
+In the first example, a file name is read from an HTTP request and then used to access a file. However, a malicious user could enter a file name that is an absolute path, such as "/etc/passwd".
+
+In the second example, it appears that the user is restricted to opening a file within the "user" home directory. However, a malicious user could enter a file name containing special characters. For example, the string "../../../etc/passwd" will result in the code reading the file located at "/server/static/images/../../../etc/passwd", which is the system's password file. This file would then be sent back to the user, giving them access to all the system's passwords. Note that a user could also use an absolute path here, since the result of os.path.join("/server/static/images/", "/etc/passwd") is "/etc/passwd".
+
+In the third example, the path used to access the file system is normalized before being checked against a known prefix. This ensures that regardless of the user input, the resulting path is safe.
+
+import os.path
+from flask import Flask, request, abort
+
+app = Flask(__name__)
+
+@app.route("/user_picture1")
+def user_picture1():
+    filename = request.args.get('p')
+    # BAD: This could read any file on the file system
+    data = open(filename, 'rb').read()
+    return data
+
+@app.route("/user_picture2")
+def user_picture2():
+    base_path = '/server/static/images'
+    filename = request.args.get('p')
+    # BAD: This could still read any file on the file system
+    data = open(os.path.join(base_path, filename), 'rb').read()
+    return data
+
+@app.route("/user_picture3")
+def user_picture3():
+    base_path = '/server/static/images'
+    filename = request.args.get('p')
+    #GOOD -- Verify with normalised version of path
+    fullpath = os.path.normpath(os.path.join(base_path, filename))
+    if not fullpath.startswith(base_path):
+        raise Exception("not allowed")
+    data = open(fullpath, 'rb').read()
+    return data
+		
+
+
+***
+web_dashboard.py:285 
+def _verify_password(password: str, stored: str) -> bool:
+    try:
+        _, salt, expected = stored.split(":", 2)
+        actual = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
+ Warning
+Use of a broken or weak cryptographic hashing algorithm on sensitive data
+Sensitive data (password)
+ is used in a hashing algorithm (SHA256) that is insecure for password hashing, since it is not a computationally expensive hash function.
+Sensitive data (password)
+ is used in a hashing algorithm (SHA256) that is insecure for password hashing, since it is not a computationally expensive hash function.
+Sensitive data (password)
+ is used in a hashing algorithm (SHA256) that is insecure for password hashing, since it is not a computationally expensive hash function.
+Sensitive data (password)
+ is used in a hashing algorithm (SHA256) that is insecure for password hashing, since it is not a computationally expensive hash function.
+CodeQL 
+        return secrets.compare_digest(actual, expected)
+    except Exception:
+        return False
+Rule
+Tool
+CodeQL
+Rule ID
+py/weak-sensitive-data-hashing
+Query
+View source
+Description
+Using a broken or weak cryptographic hash function can leave data vulnerable, and should not be used in security related code.
+
+A strong cryptographic hash function should be resistant to:
+
+pre-image attacks: if you know a hash value h(x), you should not be able to easily find the input x.
+collision attacks: if you know a hash value h(x), you should not be able to easily find a different input y with the same hash value h(x) = h(y).
+In cases with a limited input space, such as for passwords, the hash function also needs to be computationally expensive to be resistant to brute-force attacks. Passwords should also have an unique salt applied before hashing, but that is not considered by this query.
+As an example, both MD5 and SHA-1 are known to be vulnerable to collision attacks.
+
+Since it's OK to use a weak cryptographic hash function in a non-security context, this query only alerts when these are used to hash sensitive data (such as passwords, certificates, usernames).
+
+Use of broken or weak cryptographic algorithms that are not hashing algorithms, is handled by the py/weak-cryptographic-algorithm query.
+
+******
+Recommendation
+Ensure that you use a strong, modern cryptographic hash function:
+
+such as Argon2, scrypt, bcrypt, or PBKDF2 for passwords and other data with limited input space.
+such as SHA-2, or SHA-3 in other cases.
+Example
+The following example shows two functions for checking whether the hash of a certificate matches a known value -- to prevent tampering. The first function uses MD5 that is known to be vulnerable to collision attacks. The second function uses SHA-256 that is a strong cryptographic hashing function.
+
+import hashlib
+
+def certificate_matches_known_hash_bad(certificate, known_hash):
+    hash = hashlib.md5(certificate).hexdigest() # BAD
+    return hash == known_hash
+
+def certificate_matches_known_hash_good(certificate, known_hash):
+    hash = hashlib.sha256(certificate).hexdigest() # GOOD
+    return hash == known_hash
+
+
+***
+web_dashboard.py:278 
+
+def _hash_password(password: str) -> str:
+    salt   = secrets.token_hex(16)
+    digest = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
+	
+	Scripts/set_dashboard_password.py:98 
+
+def _hash(password: str) -> str:
+    salt   = secrets.token_hex(16)
+    digest = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
+ Warning
+Use of a broken or weak cryptographic hashing algorithm on sensitive data
+
+
+***
+web_dashboard.py:3141 
+    try:
+        with _db_conn() as c:
+            if rowid is not None:
+                c.execute(f"UPDATE [{table}] SET [{col}]=? WHERE rowid=?",
+ Error
+SQL query built from user-controlled sources
+This SQL query depends on a user-provided value
+.
+CodeQL 
+                          (new_val, rowid))
+            else:
+                # Fallback: quick-query views don't return rowid, use trade_id
+Rule
+Tool
+CodeQL
+Rule ID
+py/sql-injection
+Query
+web_dashboard.py:3036 
+    try:
+        with _db_conn() as c:
+            cur  = c.execute(
+                f"SELECT rowid, * FROM [{table}] ORDER BY rowid DESC LIMIT ? OFFSET ?",
+ Error
+
+***
+web_dashboard.py:3121 
+    sql    = f"SELECT rowid, * FROM [{table}] {clause} ORDER BY rowid DESC LIMIT 2000"
+    try:
+        with _db_conn() as c:
+            cur  = c.execute(sql, params)
+ Error
+SQL query built from user-controlled sources
+This SQL query depends on a user-provided value
+.
+CodeQL 
+
+
+***
+web_dashboard.py:3145 
+                          (new_val, rowid))
+            else:
+                # Fallback: quick-query views don't return rowid, use trade_id
+                c.execute(f"UPDATE [{table}] SET [{col}]=? WHERE trade_id=?",
+ Error
+SQL query built from user-controlled sources
+This SQL query depends on a user-provided value
+.
+CodeQL 
+
+******
+Recommendation
+Most database connector libraries offer a way of safely embedding untrusted data into a query by means of query parameters or prepared statements.
+
+Example
+In the following snippet, a user is fetched from the database using three different queries.
+
+In the first case, the query string is built by directly using string formatting from a user-supplied request parameter. The parameter may include quote characters, so this code is vulnerable to a SQL injection attack.
+
+In the second case, the user-supplied request attribute is passed to the database using query parameters. The database connector library will take care of escaping and inserting quotes as needed.
+
+In the third case, the placeholder in the SQL string has been manually quoted. Since most databaseconnector libraries will insert their own quotes, doing so yourself will make the code vulnerable to SQL injection attacks. In this example, if username was ; DROP ALL TABLES -- , the final SQL query would be SELECT * FROM users WHERE username = ''; DROP ALL TABLES -- ''
+
+from django.conf.urls import url
+from django.db import connection
+
+
+def show_user(request, username):
+    with connection.cursor() as cursor:
+        # BAD -- Using string formatting
+        cursor.execute("SELECT * FROM users WHERE username = '%s'" % username)
+        user = cursor.fetchone()
+
+        # GOOD -- Using parameters
+        cursor.execute("SELECT * FROM users WHERE username = %s", username)
+        user = cursor.fetchone()
+
+        # BAD -- Manually quoting placeholder (%s)
+        cursor.execute("SELECT * FROM users WHERE username = '%s'", username)
+        user = cursor.fetchone()
+
+urlpatterns = [url(r'^users/(?P<username>[^/]+)$', show_user)
+
+
+
+	Scripts/test_alpaca.py:22  Test
+print("  ALPACA CONNECTION TEST")
+print("=" * 50)
+print(f"  URL: {ALPACA_BASE_URL}")
+print(f"  Key: {ALPACA_API_KEY[:8]}...")
+ Error
+Clear-text logging of sensitive information
+This expression logs sensitive data (password)
+ as clear text.
+This expression logs sensitive data (password)
+ as clear text.
+CodeQL 
+
+***
+Scripts/fetch_key.py:3 
+import os
+API_KEY2    = os.getenv("TRADER-DEV-APII-KEY")
+print(f"API-Key = {API_KEY2}")
+ Error
+ 
+ 
+ BreakoutScanner.py:972 
+                    self.exchange_name = name.upper()
+                logger.info(f"{name.capitalize()} exchange initialized")
+            except Exception as e:
+                logger.warning(f"{name} init failed: {e}")
+				
+				
+				BreakoutScanner.py:970 
+                if self.exchange is None:
+                    self.exchange      = exc
+                    self.exchange_name = name.upper()
+                logger.info(f"{name.capitalize()} exchange initialized")
+ Error
+
+
+******
+ Recommendation
+Sensitive data should not be logged.
+
+Example
+In the example the entire process environment is logged using `print`. Regular users of the production deployed application should not have access to this much information about the environment configuration.
+
+# BAD: Logging cleartext sensitive data
+import os
+print(f"[INFO] Environment: {os.environ}")
+In the second example the data that is logged is not sensitive.
+
+not_sensitive_data = {'a': 1, 'b': 2}
+# GOOD: it is fine to log data that is not sensitive
+print(f"[INFO] Some object contains: {not_sensitive_data}")
+
+
+
+*** 
+ web_dashboard.py:3270 
+
+    def _redirect(self, target: str):
+        self.send_response(302)
+        self.send_header("Location", target)
+ Error
+HTTP Response Splitting
+This HTTP header is constructed from a user-provided value
+.
+CodeQL 
+
+ 
+ ******
+		Recommendation
+Ensure that user input containing line break characters is not written to an HTTP header.
+
+Example
+In the following example, the case marked BAD writes user input to the header name. In the GOOD case, input is first escaped to not contain any line break characters.
+
+@app.route("/example_bad")
+def example_bad():
+    rfs_header = request.args["rfs_header"]
+    response = Response()
+    custom_header = "X-MyHeader-" + rfs_header
+    # BAD: User input is used as part of the header name.
+    response.headers[custom_header] = "HeaderValue" 
+    return response
+
+@app.route("/example_good")
+def example_bad():
+    rfs_header = request.args["rfs_header"]
+    response = Response()
+    custom_header = "X-MyHeader-" + rfs_header.replace("\n", "").replace("\r","").replace(":","")
+    # GOOD: Line break characters are removed from the input.
+    response.headers[custom_header] = "HeaderValue" 
+    return response	
+
+***
+api_server.py:133 
+        }
+
+    result = breakout_receiver.receive_signal(payload.dict())
+    return result
+ Error
+Information exposure through an exception
+Stack trace information
+ flows to this location and may be exposed to an external user.
+Stack trace information
+ flows to this location and may be exposed to an external user.
+CodeQL 
+
+******
+Recommendation
+Send the user a more generic error message that reveals less information. Either suppress the stack trace entirely, or log it only on the server.
+
+Example
+In the following example, an exception is handled in two different ways. In the first version, labeled BAD, the exception is sent back to the remote user by returning it from the function. As such, the user is able to see a detailed stack trace, which may contain sensitive information. In the second version, the error message is logged only on the server, and a generic error message is displayed to the user. That way, the developers can still access and use the error log, but remote users will not see the information.
+
+from flask import Flask
+app = Flask(__name__)
+
+
+import traceback
+
+def do_computation():
+    raise Exception("Secret info")
+
+# BAD
+@app.route('/bad')
+def server_bad():
+    try:
+        do_computation()
+    except Exception as e:
+        return traceback.format_exc()
+
+# GOOD
+@app.route('/good')
+def server_good():
+    try:
+        do_computation()
+    except Exception as e:
+        log(traceback.format_exc())
+        return "An internal error has occurred!"
+			
+
+	
