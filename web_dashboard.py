@@ -3317,6 +3317,24 @@ def _db_normalize_datetime_filter(value: str) -> str | None:
         return None
     return parsed.strftime("%Y-%m-%d %H:%M:%S.%f")
 
+def _db_normalize_datetime_range_end(value: str) -> str | None:
+    raw = str(value or "").strip()
+    normalized = _db_normalize_datetime_filter(raw)
+    if not normalized:
+        return None
+    # datetime-local inputs normally stop at minutes. Treat the chosen ending
+    # minute as inclusive, so 23:59 includes trades through 23:59:59.999999.
+    if re.match(r"^\d{4}-\d{2}-\d{2}[T ]\d{1,2}:\d{2}$", raw):
+        try:
+            parsed = datetime.fromisoformat(raw.replace("T", " "))
+            parsed = parsed.replace(second=59, microsecond=999999)
+            return parsed.strftime("%Y-%m-%d %H:%M:%S.%f")
+        except ValueError:
+            return normalized
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", raw):
+        return f"{raw} 23:59:59.999999"
+    return normalized
+
 def _db_filter_where(filters: dict, valid_cols: set[str]):
     where, params = [], []
     for col, raw in (filters or {}).items():
@@ -3346,7 +3364,7 @@ def _db_filter_where(filters: dict, valid_cols: set[str]):
         dt_range = re.match(r"^(.+?)\s*\.\.\s*(.+)$", value)
         if dt_range:
             start = _db_normalize_datetime_filter(dt_range.group(1))
-            end = _db_normalize_datetime_filter(dt_range.group(2))
+            end = _db_normalize_datetime_range_end(dt_range.group(2))
             if start and end:
                 where.append(f"{_db_datetime_expr(col)} BETWEEN julianday(?) AND julianday(?)")
                 params.extend([start, end])
@@ -4126,7 +4144,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/db/strategy_pnl":
             # Strategy P&L summary — grouped by strategy_name, optional date range.
-            # Query params: from=YYYY-MM-DD, to=YYYY-MM-DD (both optional)
+            # Query params: from/to are browser-local datetime strings (both optional).
             try:
                 _qs   = parse_qs(parsed.query)
                 _from = (_qs.get("from") or [""])[0].strip()
@@ -4134,11 +4152,15 @@ class Handler(BaseHTTPRequestHandler):
                 _where = "WHERE status='closed'"
                 _params = []
                 if _from:
-                    _where += " AND DATETIME(exit_time) >= DATETIME(?)"
-                    _params.append(_from)
+                    _from_norm = _db_normalize_datetime_filter(_from)
+                    if _from_norm:
+                        _where += f" AND {_db_datetime_expr('exit_time')} >= julianday(?)"
+                        _params.append(_from_norm)
                 if _to:
-                    _where += " AND DATETIME(exit_time) <= DATETIME(?)"
-                    _params.append(_to)
+                    _to_norm = _db_normalize_datetime_range_end(_to)
+                    if _to_norm:
+                        _where += f" AND {_db_datetime_expr('exit_time')} <= julianday(?)"
+                        _params.append(_to_norm)
                 _sql = f"""
                     SELECT strategy_name,
                            COUNT(*) AS trades,
@@ -4158,7 +4180,15 @@ class Handler(BaseHTTPRequestHandler):
                     _cur  = _c.execute(_sql, _params)
                     _cols = [d[0] for d in _cur.description]
                     _rows = [list(r) for r in _cur.fetchall()]
-                return self._json(200, {"cols": _cols, "rows": _rows})
+                return self._json(200, {
+                    "cols": _cols,
+                    "rows": _rows,
+                    "filters": {
+                        "from": _from,
+                        "to": _to,
+                        "normalized": _params,
+                    },
+                })
             except Exception as _e:
                 return self._json(500, {"error": str(_e)})
 
