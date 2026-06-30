@@ -6657,6 +6657,19 @@
             return addVec(center, scaleVec(outward, radius));
         }
 
+        function bodyJoinCenterPoint(anchorLike) {
+            if (
+                !anchorLike ||
+                anchorLike.segmentIndex === null ||
+                anchorLike.segmentIndex === undefined
+            ) {
+                return anchorLike?.point ? copyVec(anchorLike.point) : null;
+            }
+            const seg = builder.segments[anchorLike.segmentIndex];
+            if (!seg) return anchorLike.point ? copyVec(anchorLike.point) : null;
+            return pointOnSegment(seg, anchorLike.segmentT ?? 0.5);
+        }
+
         function punchBodyJoinMouth(segmentRef, segmentIndex, segmentT, wallPoint, radiusHint = builder.radius) {
             const seg = segmentRef || builder.segments[segmentIndex];
             if (!seg) return false;
@@ -6704,12 +6717,11 @@
                 };
             }
             if (source && mapMouse.destination?.freePoint) {
-                const targetPoint = clampBodyJoinToTunnelWall(
-                    source.point,
-                    mapMouse.destination.point,
-                    mapMouse.destination.targetSegmentIndex,
-                    mapMouse.destination.targetSegmentT
-                );
+                const targetPoint = bodyJoinCenterPoint({
+                    point: mapMouse.destination.point,
+                    segmentIndex: mapMouse.destination.targetSegmentIndex,
+                    segmentT: mapMouse.destination.targetSegmentT
+                }) || copyVec(mapMouse.destination.point);
                 const targetDist = distanceSq(source.point, targetPoint);
                 if (targetDist < Math.max(20, builder.radius * 0.25) ** 2) {
                     return { invalidDirected: true };
@@ -10680,12 +10692,7 @@
                 anchor.segmentIndex !== undefined &&
                 mapMouse.anchor?.point
             ) {
-                point = clampBodyJoinToTunnelWall(
-                    mapMouse.anchor.point,
-                    anchor.point,
-                    anchor.segmentIndex,
-                    anchor.segmentT
-                );
+                point = bodyJoinCenterPoint(anchor) || point;
             }
             mapMouse.destination = {
                 point,
