@@ -7492,17 +7492,63 @@
                 return true;
             }
 
-            const handle = Math.min(distance * 0.42, builder.length * 1.8);
-            const p0 = pair.a.point;
-            const p3 = pair.b.point;
-            const bendPoint = mapMouse.midpoint ? adjustedJoinMidpoint(p0, p3) : null;
+            let p0 = copyVec(pair.a.point);
+            let p3 = copyVec(pair.b.point);
             const targetLen = mapAutogenTargetLength();
+            const joinRadius = resolveEndpointJoinRadius(pair.a, pair.b);
+            const newSegments = [];
+            let aOutward = normalize(pair.a.outward);
+            let bOutward = normalize(pair.b.outward);
+
+            function addAutoBranchMouth(center, toward, right, down) {
+                const dir = normalize({
+                    x: toward.x - center.x,
+                    y: toward.y - center.y,
+                    z: toward.z - center.z
+                });
+                if (Math.hypot(dir.x, dir.y, dir.z) < 0.01) return null;
+                const mouthLen = Math.min(
+                    Math.max(mapMinSegmentLength(), joinRadius * 1.2),
+                    Math.max(mapMinSegmentLength(), distance * 0.34)
+                );
+                const end = addVec(center, scaleVec(dir, mouthLen));
+                const mouth = makeSegmentBetween(
+                    center,
+                    end,
+                    right,
+                    down,
+                    'branch-mouth-autoconnect',
+                    joinRadius
+                );
+                if (!mouth) return null;
+                mouth.branch = true;
+                mouth.branchMouth = true;
+                mouth.generated = true;
+                newSegments.push(mouth);
+                return { end, dir };
+            }
+
+            if (pair.sourceSegmentIndex !== null && pair.sourceSegmentIndex !== undefined) {
+                const mouth = addAutoBranchMouth(p0, p3, pair.a.right, pair.a.down);
+                if (mouth) {
+                    p0 = mouth.end;
+                    aOutward = mouth.dir;
+                }
+            }
+            if (pair.targetSegmentIndex !== null && pair.targetSegmentIndex !== undefined) {
+                const mouth = addAutoBranchMouth(p3, p0, pair.b.right, pair.b.down);
+                if (mouth) {
+                    p3 = mouth.end;
+                    bOutward = scaleVec(mouth.dir, -1);
+                }
+            }
+
+            const handle = Math.min(Math.sqrt(distanceSq(p0, p3)) * 0.42, builder.length * 1.8);
+            const bendPoint = mapMouse.midpoint ? adjustedJoinMidpoint(p0, p3) : null;
             const pathDensity = Math.max(
                 32,
                 Math.min(256, Math.ceil(distance / Math.max(targetLen * 0.25, mapMinSegmentLength())))
             );
-            const joinRadius = resolveEndpointJoinRadius(pair.a, pair.b);
-            const newSegments = [];
 
             let polyline;
             if (bendPoint) {
@@ -7512,8 +7558,8 @@
                     pathDensity
                 );
             } else {
-                const p1 = addVec(p0, scaleVec(normalize(pair.a.outward), handle));
-                const p2 = addVec(p3, scaleVec(normalize(pair.b.outward), handle));
+                const p1 = addVec(p0, scaleVec(aOutward, handle));
+                const p2 = addVec(p3, scaleVec(bOutward, handle));
                 polyline = denseConnectorPolyline(
                     t => cubicPoint(p0, p1, p2, p3, t),
                     p3,
@@ -7547,10 +7593,15 @@
             }
 
             const filtered = filterNonOverlappingJoinSegments(newSegments);
+            const hasNonMouthConnector = filtered.some(seg => seg.kind !== 'branch-mouth-autoconnect');
             if (!filtered.length) {
                 keyboardStatus.innerText = newSegments.length
                     ? 'connector rejected: would stack on existing tunnel axis'
                     : 'connector was too short to add';
+                return true;
+            }
+            if (!hasNonMouthConnector) {
+                keyboardStatus.innerText = 'connector rejected: branch mouth had no tunnel run to connect';
                 return true;
             }
             if (pair.sourceSegmentIndex !== null && pair.sourceSegmentIndex !== undefined && filtered[0]) {
