@@ -3519,30 +3519,39 @@ def db_search(data: dict):
 
     tcol = cfg.get("time_col")
     tf   = data.get("time","any")
+    time_params = []
     if tcol and tf != "any":
+        texpr = _db_datetime_expr(tcol)
         if tf == "last 1h":
-            where.append(f"{tcol}>=datetime('now','localtime','-1 hour')")
+            where.append(f"{texpr} >= julianday('now','localtime','-1 hour')")
         elif tf == "last 4h":
-            where.append(f"{tcol}>=datetime('now','localtime','-4 hours')")
+            where.append(f"{texpr} >= julianday('now','localtime','-4 hours')")
         elif tf == "last 8h":
-            where.append(f"{tcol}>=datetime('now','localtime','-8 hours')")
+            where.append(f"{texpr} >= julianday('now','localtime','-8 hours')")
         elif tf == "today":
-            where.append(f"DATE({tcol})=DATE('now','localtime')")
+            where.append(f"{texpr} >= julianday(DATE('now','localtime'))")
+            where.append(f"{texpr} < julianday(DATE('now','localtime','+1 day'))")
         elif tf == "yesterday":
-            where.append(f"DATE({tcol})=DATE('now','localtime','-1 day')")
+            where.append(f"{texpr} >= julianday(DATE('now','localtime','-1 day'))")
+            where.append(f"{texpr} < julianday(DATE('now','localtime'))")
         elif tf == "this week":
-            where.append(f"{tcol}>=datetime('now','localtime','-7 days')")
+            where.append(f"{texpr} >= julianday('now','localtime','-7 days')")
         elif tf == "custom":
             # Custom date range from the datetime-local pickers (YYYY-MM-DDTHH:MM format).
-            # DATETIME(?) handles the T separator correctly; DATE(?) strips time if needed.
             from_dt = (data.get("from_dt") or "").strip()
             to_dt   = (data.get("to_dt")   or "").strip()
             if from_dt:
-                where.append(f"DATETIME({tcol}) >= DATETIME(?)")
-                params.append(from_dt)
+                from_norm = _db_normalize_datetime_filter(from_dt)
+                if from_norm:
+                    where.append(f"{texpr} >= julianday(?)")
+                    params.append(from_norm)
+                    time_params.append(from_norm)
             if to_dt:
-                where.append(f"DATETIME({tcol}) <= DATETIME(?)")
-                params.append(to_dt)
+                to_norm = _db_normalize_datetime_range_end(to_dt)
+                if to_norm:
+                    where.append(f"{texpr} <= julianday(?)")
+                    params.append(to_norm)
+                    time_params.append(to_norm)
 
     clause = ("WHERE " + " AND ".join(where)) if where else ""
     sql    = f"SELECT rowid, * FROM [{table}] {clause} ORDER BY rowid DESC LIMIT 2000"
@@ -3551,7 +3560,18 @@ def db_search(data: dict):
             cur  = c.execute(sql, params)
             cols = [d[0] for d in cur.description]
             rows = [list(r) for r in cur.fetchall()]
-        return {"table": table, "cols": cols, "rows": rows, "db": db_key}
+        return {
+            "table": table,
+            "cols": cols,
+            "rows": rows,
+            "db": db_key,
+            "filters": {
+                "time": tf,
+                "from": data.get("from_dt") or "",
+                "to": data.get("to_dt") or "",
+                "normalized_time_params": time_params,
+            },
+        }
     except Exception as e:
         return {"error": str(e)}
 
