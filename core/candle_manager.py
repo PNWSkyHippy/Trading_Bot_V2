@@ -99,6 +99,7 @@ _YFINANCE_CRYPTO_SKIP: set[str] = {
     "MELANIA-USD", "FLOKI-USD", "RUNE-USD", "ZRX-USD", "REN-USD",
     "ANKR-USD", "TIA-USD", "DYM-USD", "PYTH-USD", "JTO-USD",
     "BOME-USD", "W-USD", "EREBRO-USD",   # delisted — hangs yfinance fetch
+    "EOS-USD",                           # frequent empty Yahoo response
 }
 
 # Limit simultaneous yfinance calls — Yahoo rate-limits aggressively.
@@ -296,7 +297,13 @@ class CandleManager:
 
         with _yf_semaphore:
             for attempt in range(3):
+                yf_logger = logging.getLogger("yfinance")
+                old_yf_level = yf_logger.level
                 try:
+                    # yfinance logs empty Yahoo responses as ERROR before raising/returning.
+                    # CandleManager already records the failed source and unreachable symbol,
+                    # so suppress the library noise during this controlled fallback attempt.
+                    yf_logger.setLevel(logging.CRITICAL)
                     df = yf.download(yf_sym, period=period, interval=interval,
                                      progress=False, auto_adjust=True)
                     if df is None or df.empty:
@@ -315,6 +322,8 @@ class CandleManager:
                     )
                     if attempt < 2:
                         time.sleep(wait)
+                finally:
+                    yf_logger.setLevel(old_yf_level)
         return None
 
     def _fetch_kucoin(self, symbol: str, timeframe: str, limit: int) -> Optional[pd.DataFrame]:
