@@ -1,3 +1,21 @@
+tmux new -s trading
+Useful keys inside tmux:
+Ctrl+b  %     split pane left/right
+Ctrl+b  "     split pane top/bottom
+Ctrl+b  c     new window
+Ctrl+b  n     next window
+Ctrl+b  p     previous window
+Ctrl+b  d     detach, leaves it running
+Ctrl+b %        split side-by-side
+Ctrl+b "        split top/bottom
+Ctrl+b arrows   move pane focus
+Hold Ctrl+b + arrows   resize current pane
+Ctrl+b Space    rebalance/cycle layouts
+Ctrl+b z        zoom current pane
+Ctrl+b d        detach session
+
+
+
 check breakout status
 venv312\Scripts\activate; python -c "from data.database import db; print(db.get_state('breakout_scanner_enabled', default=True))"
 disable breakout

@@ -1,0 +1,121 @@
+Jun 29 07:50:51 srv1791934 start_bot.sh[17486]: RuntimeError: Encrypted API key found in .env but the Fernet key is not in .env or the OS credential store. Set TRADING_BOT_FERNET_KEY in .env, or run: python Scripts\setup_encryption.py
+Jun 29 07:50:51 srv1791934 systemd[1]: trading-bot.service: Main process exited, code=exited, status=1/FAILURE
+Jun 29 07:50:51 srv1791934 systemd[1]: trading-bot.service: Failed with result 'exit-code'.
+Jun 29 07:51:06 srv1791934 systemd[1]: trading-bot.service: Scheduled restart job, restart counter is at 102.
+Jun 29 07:51:06 srv1791934 systemd[1]: Started trading-bot.service - Trading Bot V2 engine.
+Jun 29 07:51:06 srv1791934 start_bot.sh[17507]: Traceback (most recent call last):
+Jun 29 07:51:06 srv1791934 start_bot.sh[17507]:   File "/root/Trading_Bot_V2/bot_engine.py", line 38, in <module>
+Jun 29 07:51:06 srv1791934 start_bot.sh[17507]:     import config
+Jun 29 07:51:06 srv1791934 start_bot.sh[17507]:   File "/root/Trading_Bot_V2/config.py", line 120, in <module>
+Jun 29 07:51:06 srv1791934 start_bot.sh[17507]:     KRAKEN_RO_API_KEY   = _db_key("kraken_ro", "api_key",    _decrypt(os.getenv("KRAKEN_RO_API_KEY", "")))
+Jun 29 07:51:06 srv1791934 start_bot.sh[17507]:                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Jun 29 07:51:06 srv1791934 start_bot.sh[17507]:   File "/root/Trading_Bot_V2/config.py", line 59, in _decrypt
+Jun 29 07:51:06 srv1791934 start_bot.sh[17507]:     raise RuntimeError(
+Jun 29 07:51:06 srv1791934 start_bot.sh[17507]: RuntimeError: Encrypted API key found in .env but the Fernet key is not in .env or the OS credential store. Set TRADING_BOT_FERNET_KEY in .env, or run: python Scripts\setup_encryption.py
+Jun 29 07:51:06 srv1791934 systemd[1]: trading-bot.service: Main process exited, code=exited, status=1/FAILURE
+Jun 29 07:51:06 srv1791934 systemd[1]: trading-bot.service: Failed with result 'exit-code'.
+Jun 29 07:51:21 srv1791934 systemd[1]: trading-bot.service: Scheduled restart job, restart counter is at 103.
+Jun 29 07:51:21 srv1791934 systemd[1]: Started trading-bot.service - Trading Bot V2 engine.
+Jun 29 07:51:21 srv1791934 start_bot.sh[17528]: Traceback (most recent call last):
+Jun 29 07:51:21 srv1791934 start_bot.sh[17528]:   File "/root/Trading_Bot_V2/bot_engine.py", line 38, in <module>
+Jun 29 07:51:21 srv1791934 start_bot.sh[17528]:     import config
+Jun 29 07:51:21 srv1791934 start_bot.sh[17528]:   File "/root/Trading_Bot_V2/config.py", line 120, in <module>
+Jun 29 07:51:21 srv1791934 start_bot.sh[17528]:     KRAKEN_RO_API_KEY   = _db_key("kraken_ro", "api_key",    _decrypt(os.getenv("KRAKEN_RO_API_KEY", "")))
+Jun 29 07:51:21 srv1791934 start_bot.sh[17528]:                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Jun 29 07:51:21 srv1791934 start_bot.sh[17528]:   File "/root/Trading_Bot_V2/config.py", line 59, in _decrypt
+Jun 29 07:51:21 srv1791934 start_bot.sh[17528]:     raise RuntimeError(
+Jun 29 07:51:21 srv1791934 start_bot.sh[17528]: RuntimeError: Encrypted API key found in .env but the Fernet key is not in .env or the OS credential store. Set TRADING_BOT_FERNET_KEY in .env, or run: python Scripts\setup_encryption.py
+Jun 29 07:51:21 srv1791934 systemd[1]: trading-bot.service: Main process exited, code=exited, status=1/FAILURE
+Jun 29 07:51:21 srv1791934 systemd[1]: trading-bot.service: Failed with result 'exit-code'.
+Jun 29 07:51:36 srv1791934 systemd[1]: trading-bot.service: Scheduled restart job, restart counter is at 104.
+Jun 29 07:51:36 srv1791934 systemd[1]: Started trading-bot.service - Trading Bot V2 engine.
+Jun 29 07:51:36 srv1791934 start_bot.sh[17556]: Traceback (most recent call last):
+Jun 29 07:51:36 srv1791934 start_bot.sh[17556]:   File "/root/Trading_Bot_V2/bot_engine.py", line 38, in <module>
+Jun 29 07:51:36 srv1791934 start_bot.sh[17556]:     import config
+Jun 29 07:51:36 srv1791934 start_bot.sh[17556]:   File "/root/Trading_Bot_V2/config.py", line 120, in <module>
+Jun 29 07:51:36 srv1791934 start_bot.sh[17556]:     KRAKEN_RO_API_KEY   = _db_key("kraken_ro", "api_key",    _decrypt(os.getenv("KRAKEN_RO_API_KEY", "")))
+Jun 29 07:51:36 srv1791934 start_bot.sh[17556]:                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Jun 29 07:51:36 srv1791934 start_bot.sh[17556]:   File "/root/Trading_Bot_V2/config.py", line 59, in _decrypt
+Jun 29 07:51:36 srv1791934 start_bot.sh[17556]:     raise RuntimeError(
+Jun 29 07:51:36 srv1791934 start_bot.sh[17556]: RuntimeError: Encrypted API key found in .env but the Fernet key is not in .env or the OS credential store. Set TRADING_BOT_FERNET_KEY in .env, or run: python Scripts\setup_encryption.py
+Jun 29 07:51:36 srv1791934 systemd[1]: trading-bot.service: Main process exited, code=exited, status=1/FAILURE
+Jun 29 07:51:36 srv1791934 systemd[1]: trading-bot.service: Failed with result 'exit-code'.
+Jun 29 07:51:52 srv1791934 systemd[1]: trading-bot.service: Scheduled restart job, restart counter is at 105.
+Jun 29 07:51:52 srv1791934 systemd[1]: Started trading-bot.service - Trading Bot V2 engine.
+Jun 29 07:51:52 srv1791934 start_bot.sh[17576]: Traceback (most recent call last):
+Jun 29 07:51:52 srv1791934 start_bot.sh[17576]:   File "/root/Trading_Bot_V2/bot_engine.py", line 38, in <module>
+Jun 29 07:51:52 srv1791934 start_bot.sh[17576]:     import config
+Jun 29 07:51:52 srv1791934 start_bot.sh[17576]:   File "/root/Trading_Bot_V2/config.py", line 120, in <module>
+Jun 29 07:51:52 srv1791934 start_bot.sh[17576]:     KRAKEN_RO_API_KEY   = _db_key("kraken_ro", "api_key",    _decrypt(os.getenv("KRAKEN_RO_API_KEY", "")))
+Jun 29 07:51:52 srv1791934 start_bot.sh[17576]:                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Jun 29 07:51:52 srv1791934 start_bot.sh[17576]:   File "/root/Trading_Bot_V2/config.py", line 59, in _decrypt
+Jun 29 07:51:52 srv1791934 start_bot.sh[17576]:     raise RuntimeError(
+Jun 29 07:51:52 srv1791934 start_bot.sh[17576]: RuntimeError: Encrypted API key found in .env but the Fernet key is not in .env or the OS credential store. Set TRADING_BOT_FERNET_KEY in .env, or run: python Scripts\setup_encryption.py
+Jun 29 07:51:52 srv1791934 systemd[1]: trading-bot.service: Main process exited, code=exited, status=1/FAILURE
+Jun 29 07:51:52 srv1791934 systemd[1]: trading-bot.service: Failed with result 'exit-code'.
+Jun 29 07:52:07 srv1791934 systemd[1]: trading-bot.service: Scheduled restart job, restart counter is at 106.
+Jun 29 07:52:07 srv1791934 systemd[1]: Started trading-bot.service - Trading Bot V2 engine.
+Jun 29 07:52:07 srv1791934 start_bot.sh[17598]: Traceback (most recent call last):
+Jun 29 07:52:07 srv1791934 start_bot.sh[17598]:   File "/root/Trading_Bot_V2/bot_engine.py", line 38, in <module>
+Jun 29 07:52:07 srv1791934 start_bot.sh[17598]:     import config
+Jun 29 07:52:07 srv1791934 start_bot.sh[17598]:   File "/root/Trading_Bot_V2/config.py", line 120, in <module>
+Jun 29 07:52:07 srv1791934 start_bot.sh[17598]:     KRAKEN_RO_API_KEY   = _db_key("kraken_ro", "api_key",    _decrypt(os.getenv("KRAKEN_RO_API_KEY", "")))
+Jun 29 07:52:07 srv1791934 start_bot.sh[17598]:                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Jun 29 07:52:07 srv1791934 start_bot.sh[17598]:   File "/root/Trading_Bot_V2/config.py", line 59, in _decrypt
+Jun 29 07:52:07 srv1791934 start_bot.sh[17598]:     raise RuntimeError(
+Jun 29 07:52:07 srv1791934 start_bot.sh[17598]: RuntimeError: Encrypted API key found in .env but the Fernet key is not in .env or the OS credential store. Set TRADING_BOT_FERNET_KEY in .env, or run: python Scripts\setup_encryption.py
+Jun 29 07:52:07 srv1791934 systemd[1]: trading-bot.service: Main process exited, code=exited, status=1/FAILURE
+Jun 29 07:52:07 srv1791934 systemd[1]: trading-bot.service: Failed with result 'exit-code'.
+Jun 29 07:52:13 srv1791934 systemd[1]: Stopped trading-bot.service - Trading Bot V2 engine.
+Jun 29 07:52:13 srv1791934 systemd[1]: Started trading-bot.service - Trading Bot V2 engine.
+Jun 29 07:52:13 srv1791934 start_bot.sh[17623]: Traceback (most recent call last):
+Jun 29 07:52:13 srv1791934 start_bot.sh[17623]:   File "/root/Trading_Bot_V2/bot_engine.py", line 38, in <module>
+Jun 29 07:52:13 srv1791934 start_bot.sh[17623]:     import config
+Jun 29 07:52:13 srv1791934 start_bot.sh[17623]:   File "/root/Trading_Bot_V2/config.py", line 120, in <module>
+Jun 29 07:52:13 srv1791934 start_bot.sh[17623]:     KRAKEN_RO_API_KEY   = _db_key("kraken_ro", "api_key",    _decrypt(os.getenv("KRAKEN_RO_API_KEY", "")))
+Jun 29 07:52:13 srv1791934 start_bot.sh[17623]:                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Jun 29 07:52:13 srv1791934 start_bot.sh[17623]:   File "/root/Trading_Bot_V2/config.py", line 59, in _decrypt
+Jun 29 07:52:13 srv1791934 start_bot.sh[17623]:     raise RuntimeError(
+Jun 29 07:52:13 srv1791934 start_bot.sh[17623]: RuntimeError: Encrypted API key found in .env but the Fernet key is not in .env or the OS credential store. Set TRADING_BOT_FERNET_KEY in .env, or run: python Scripts\setup_encryption.py
+Jun 29 07:52:13 srv1791934 systemd[1]: trading-bot.service: Main process exited, code=exited, status=1/FAILURE
+Jun 29 07:52:13 srv1791934 systemd[1]: trading-bot.service: Failed with result 'exit-code'.
+Jun 29 07:52:28 srv1791934 systemd[1]: trading-bot.service: Scheduled restart job, restart counter is at 107.
+Jun 29 07:52:28 srv1791934 systemd[1]: Started trading-bot.service - Trading Bot V2 engine.
+Jun 29 07:52:28 srv1791934 start_bot.sh[17667]: Traceback (most recent call last):
+Jun 29 07:52:28 srv1791934 start_bot.sh[17667]:   File "/root/Trading_Bot_V2/bot_engine.py", line 38, in <module>
+Jun 29 07:52:28 srv1791934 start_bot.sh[17667]:     import config
+Jun 29 07:52:28 srv1791934 start_bot.sh[17667]:   File "/root/Trading_Bot_V2/config.py", line 120, in <module>
+Jun 29 07:52:28 srv1791934 start_bot.sh[17667]:     KRAKEN_RO_API_KEY   = _db_key("kraken_ro", "api_key",    _decrypt(os.getenv("KRAKEN_RO_API_KEY", "")))
+Jun 29 07:52:28 srv1791934 start_bot.sh[17667]:                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Jun 29 07:52:28 srv1791934 start_bot.sh[17667]:   File "/root/Trading_Bot_V2/config.py", line 59, in _decrypt
+Jun 29 07:52:28 srv1791934 start_bot.sh[17667]:     raise RuntimeError(
+Jun 29 07:52:28 srv1791934 start_bot.sh[17667]: RuntimeError: Encrypted API key found in .env but the Fernet key is not in .env or the OS credential store. Set TRADING_BOT_FERNET_KEY in .env, or run: python Scripts\setup_encryption.py
+Jun 29 07:52:28 srv1791934 systemd[1]: trading-bot.service: Main process exited, code=exited, status=1/FAILURE
+Jun 29 07:52:28 srv1791934 systemd[1]: trading-bot.service: Failed with result 'exit-code'.
+Jun 29 07:52:44 srv1791934 systemd[1]: trading-bot.service: Scheduled restart job, restart counter is at 108.
+Jun 29 07:52:44 srv1791934 systemd[1]: Started trading-bot.service - Trading Bot V2 engine.
+Jun 29 07:52:44 srv1791934 start_bot.sh[17687]: Traceback (most recent call last):
+Jun 29 07:52:44 srv1791934 start_bot.sh[17687]:   File "/root/Trading_Bot_V2/bot_engine.py", line 38, in <module>
+Jun 29 07:52:44 srv1791934 start_bot.sh[17687]:     import config
+Jun 29 07:52:44 srv1791934 start_bot.sh[17687]:   File "/root/Trading_Bot_V2/config.py", line 120, in <module>
+Jun 29 07:52:44 srv1791934 start_bot.sh[17687]:     KRAKEN_RO_API_KEY   = _db_key("kraken_ro", "api_key",    _decrypt(os.getenv("KRAKEN_RO_API_KEY", "")))
+Jun 29 07:52:44 srv1791934 start_bot.sh[17687]:                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Jun 29 07:52:44 srv1791934 start_bot.sh[17687]:   File "/root/Trading_Bot_V2/config.py", line 59, in _decrypt
+Jun 29 07:52:44 srv1791934 start_bot.sh[17687]:     raise RuntimeError(
+Jun 29 07:52:44 srv1791934 start_bot.sh[17687]: RuntimeError: Encrypted API key found in .env but the Fernet key is not in .env or the OS credential store. Set TRADING_BOT_FERNET_KEY in .env, or run: python Scripts\setup_encryption.py
+Jun 29 07:52:44 srv1791934 systemd[1]: trading-bot.service: Main process exited, code=exited, status=1/FAILURE
+Jun 29 07:52:44 srv1791934 systemd[1]: trading-bot.service: Failed with result 'exit-code'.
+Jun 29 07:52:59 srv1791934 systemd[1]: trading-bot.service: Scheduled restart job, restart counter is at 109.
+Jun 29 07:52:59 srv1791934 systemd[1]: Started trading-bot.service - Trading Bot V2 engine.
+Jun 29 07:52:59 srv1791934 start_bot.sh[17707]: Traceback (most recent call last):
+Jun 29 07:52:59 srv1791934 start_bot.sh[17707]:   File "/root/Trading_Bot_V2/bot_engine.py", line 38, in <module>
+Jun 29 07:52:59 srv1791934 start_bot.sh[17707]:     import config
+Jun 29 07:52:59 srv1791934 start_bot.sh[17707]:   File "/root/Trading_Bot_V2/config.py", line 120, in <module>
+Jun 29 07:52:59 srv1791934 start_bot.sh[17707]:     KRAKEN_RO_API_KEY   = _db_key("kraken_ro", "api_key",    _decrypt(os.getenv("KRAKEN_RO_API_KEY", "")))
+Jun 29 07:52:59 srv1791934 start_bot.sh[17707]:                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Jun 29 07:52:59 srv1791934 start_bot.sh[17707]:   File "/root/Trading_Bot_V2/config.py", line 59, in _decrypt
+Jun 29 07:52:59 srv1791934 start_bot.sh[17707]:     raise RuntimeError(
+Jun 29 07:52:59 srv1791934 start_bot.sh[17707]: RuntimeError: Encrypted API key found in .env but the Fernet key is not in .env or the OS credential store. Set TRADING_BOT_FERNET_KEY in .env, or run: python Scripts\setup_encryption.py
+Jun 29 07:52:59 srv1791934 systemd[1]: trading-bot.service: Main process exited, code=exited, status=1/FAILURE
+Jun 29 07:52:59 srv1791934 systemd[1]: trading-bot.service: Failed with result 'exit-code'.
+(venv312) root@srv1791934:~/Trading_Bot_V2#pico jun

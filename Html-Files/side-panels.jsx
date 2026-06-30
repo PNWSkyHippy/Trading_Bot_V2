@@ -732,13 +732,13 @@ function TerminalPanel() {
   const [msg, setMsg] = uS('');
   const [copied, setCopied] = uS('');
   const commands = [
-    { label: 'Watch bot log', cmd: 'Get-Content .\\logs\\bot.log -Tail 80 -Wait' },
-    { label: 'Find errors', cmd: 'Select-String -Path .\\logs\\*.log -Pattern "ERROR|Traceback|Exception|DEGEN|FOREST|BOBBOB|PTB|ASSET|MATH|SPY"' },
+    { label: 'Watch bot log', cmd: 'Get-Content .//logs//bot.log -Tail 80 -Wait' },
+    { label: 'Find errors', cmd: 'Select-String -Path .//logs//*.log -Pattern "ERROR|Traceback|Exception|DEGEN|FOREST|BOBBOB|PTB|ASSET|MATH|SPY"' },
     { label: 'Find scanner errors', cmd: 'Select-String -Path *.log -Pattern "SPY|ESCALATE 2"' },
-    { label: 'Recent scanner log', cmd: 'Get-Content .\\scanner.log -Tail 120' },
-    { label: 'Compile dashboard bridge', cmd: 'python -m py_compile .\\web_dashboard.py' },
-    { label: 'Run dashboard bridge', cmd: 'python .\\web_dashboard.py' },
-    { label: 'Run bot engine', cmd: 'python .\\bot_engine.py' },
+    { label: 'Recent scanner log', cmd: 'Get-Content .//scanner.log -Tail 120' },
+    { label: 'Compile dashboard bridge', cmd: 'python -m py_compile .//web_dashboard.py' },
+    { label: 'Run dashboard bridge', cmd: 'python .//web_dashboard.py' },
+    { label: 'Run bot engine', cmd: 'python .//bot_engine.py' },
   ];
   const openShell = async () => {
     setBusy(true);
