@@ -206,6 +206,7 @@ class BotEngine:
         self.market_scanner    = MarketScanner()
         self.report_generator  = ReportGenerator()
         self._job_threads      = {}
+        self._job_started_at   = {}
         self._last_scheduler_heartbeat = 0.0
 
         self.logger.info("All components initialized successfully.")
@@ -561,23 +562,28 @@ class BotEngine:
         """Start a scheduled job unless the prior run is still active."""
         import threading
 
+        label = heartbeat_label or name
         existing = self._job_threads.get(name)
         if existing is not None and existing.is_alive():
+            age = time.time() - self._job_started_at.get(name, time.time())
             self.logger.warning(
-                f"[SCHED] {heartbeat_label or name} skipped; previous run still active"
+                f"[SCHED] {label} skipped; previous run still active "
+                f"for {age:.1f}s"
             )
             return
 
         def _wrapped():
             started = time.time()
-            self.logger.info(f"[SCHED] {heartbeat_label or name} started")
+            self._job_started_at[name] = started
+            self.logger.info(f"[SCHED] {label} started")
             try:
                 target()
             finally:
                 elapsed = time.time() - started
                 self.logger.info(
-                    f"[SCHED] {heartbeat_label or name} finished in {elapsed:.1f}s"
+                    f"[SCHED] {label} finished in {elapsed:.1f}s"
                 )
+                self._job_started_at.pop(name, None)
 
         thread = threading.Thread(target=_wrapped, daemon=True, name=name)
         self._job_threads[name] = thread
@@ -773,10 +779,11 @@ class BotEngine:
                 now = time.time()
                 if now - self._last_scheduler_heartbeat >= 60:
                     self._last_scheduler_heartbeat = now
-                    active = [
-                        name for name, thread in self._job_threads.items()
-                        if thread is not None and thread.is_alive()
-                    ]
+                    active = []
+                    for name, thread in self._job_threads.items():
+                        if thread is not None and thread.is_alive():
+                            age = now - self._job_started_at.get(name, now)
+                            active.append(f"{name}:{age:.0f}s")
                     self.logger.info(
                         f"[SCHED] heartbeat jobs={len(schedule.jobs)} active={active or 'none'}"
                     )
