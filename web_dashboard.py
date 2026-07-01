@@ -298,16 +298,20 @@ def _hash_password(password: str) -> str:
 def _verify_password(password: str, stored: str) -> bool:
     try:
         scheme, *parts = (stored or "").split(":")
-        if scheme != "pbkdf2_sha256" or len(parts) != 3:
-            return False
-        iterations_raw, salt, expected = parts
-        actual = hashlib.pbkdf2_hmac(
-            "sha256",
-            password.encode("utf-8"),
-            salt.encode("utf-8"),
-            int(iterations_raw),
-        ).hex()
-        return secrets.compare_digest(actual, expected)
+        if scheme == "pbkdf2_sha256" and len(parts) == 3:
+            iterations_raw, salt, expected = parts
+            actual = hashlib.pbkdf2_hmac(
+                "sha256",
+                password.encode("utf-8"),
+                salt.encode("utf-8"),
+                int(iterations_raw),
+            ).hex()
+            return secrets.compare_digest(actual, expected)
+        if scheme == "sha256" and len(parts) == 2:
+            salt, expected = parts
+            actual = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
+            return secrets.compare_digest(actual, expected)
+        return False
     except Exception:
         return False
 
