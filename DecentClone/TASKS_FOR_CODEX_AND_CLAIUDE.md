@@ -1,154 +1,145 @@
-## Asrtal Drift play and builder modee work that nees doing
+## Astral Drift Current Work List
 
-## Tasks in need of doing at the stop of the stack
+Use `DecentClone/index.html` as the source of truth. Preserve the existing
+flight/render path and keep map saves backward-compatible.
 
-#1
-Fully document this code like you were doing so for youtr 10 year old son whos taken up an interest
-  in programming and gamed  development. game devel is what fist drew me into the field of
-  computers and this one extses me a lot.. I tried impementing the autoboost myself the other day and
-  it took me a few hours to try and flow chart the code in my head and then start searhing similar
-  code to mimic. Not only idiot proof comment the hell of of it but write up an atral_technical_reference.md
-  that flow charts the flow of the program and goes into same detail we do on the trading bot , such
-  as instructions a new coder would want to know to ge up to speed on it
+## Highest Priority Bugs
 
- ##2
+### 1. Straight Up / Straight Down Tunnel Flight Control
 
-Its totatly losing the tunneleffect of the game that even ith fully texture covered tunne walls i can
-still see the other tunnels visibly al around me. i like tis "Feature" to be kept fo special use. IE add
-a tune flag option for if textues are Opaque or not opaque. The default is they are 100pct fdense, you cant see
-anything throug hthm of the outside workd or neighboring tunnesls Big task make this a reality
+Vertical tunnel runs are now easy to build with the 3D tool, but flying into
+straight-up or straight-down tunnels quickly breaks control orientation:
 
-#3
-its tiring holding shft and w to keep yhe engines going which makes it dam near imppossibel to work
-any headmovement, strafing or rolling with the same hand and right hands busty with mouse or arrow keys steering
-Add an AutoBoost option, a toggle on or off, Whe on the game will ignore 'w' and'shift always boost your speed to max.
-Besides the toggle off autoboost key sequencre you choose also make S or backup immediately disable autoboost.
-As we have 2 speeds, w and shift ,make autoboost lock in the speed your doing when engaged, if jut 'w' then it makes
-you keep going 'w', but if engage when your doing 'shift' 'w' then itll keep you at that speed even withouy holding either
-key. if its engaged at 'w' youd temporaraily press 'w' and 'shift' and toggle auto boost off then on to make ti pock in
-turbo speed
+- Pitch/yaw/strafe directions feel reversed or crossed.
+- Ship can lose useful forward/up reference and becomes hard to steer.
+- Fix likely belongs in tunnel-frame/orientation math, not in builder geometry.
+- Goal: full 6DOF flight must remain stable through vertical shafts, loops, and
+  sharp 3D changes without camera/ship axes flipping.
 
-#4 AI Ships
-once those things engage youll see them fly by once thenbo matter here you look, free spin look behind, do a uturn,
-anything you wont see them and cant target them to shoot them yet go as fast as you want they keep up and kill you,
-Get the icons fixed above fist then lets make sure they stay out front of you to start , tailing behind shhe give chase
-but easilty spottable and targetable by lookinh in the rear view. Also its time to add Spy  VS Spy gadgets to the player
-ships Not al will be available at first they wi be game awardded uphrades
- - Cloaking mode
-     - not usable if you have a live ai still agressively chasing you.
-         - Drops if you fire a single shot
-         - Drops if you trigger an explosive target box
-         - Drops if you hit a wall at turbo speed and leave sparks
-        - Limited use 3 tims per Cloak Boost Pack, to be found i game Staches, each oe granting 3 cloaks.
-        - Not usable at all until your ship is upgraded to have a cloaking device at a Space Station Garage, bought with
-            game earned coin and not until reach level 3. shows n Garage shop as locked if not level 3 or above
- - Smoke bomb
-    - Limited use, lasts 10 seconds and leaves entre tunnel behind you unable to see at all , lasts as far as you travel
-            in 10 seconds. Will cause AI to loose track of you and return to patrol .
-            - Recharges found in Cache and bought at Garage. Coes 3 uses per pack
- - Nanobot slick
-    - works like a oil slick leaves a traiil behind for 5 seconds. Ay thip running int tem is attacked by swarm of nano
-          bots  that cause the ship to slide out of control intowals losing direction just like an oil slick
-        - Foun in caches ad bought in Garages, 3 use per pack
-- EMT Bomb
-  -- totally disables al machinery in its wake goes off 2 secones fter deployed. will also disable player  if they arent
-     moving when deployed and ahead when it goes off. Leaves visible in air partciles effect of where its active so player
-         is free to stop turn , stay outside the effect zne and shoot and kill the now disabled AI
-  - Use 1 per charge  not usalbe till level 5 , found only in rare caches generally during quests obtained at the
-      smuggles guild at space stations or bought if available at the same smugglers guilds
-- Developer God Mode
-  Switchwhen enable have full unlimite use of all above weaponry. ot fo in game player use just testing developer mode
+### 2. Branch / Auto-Connect Junctions Are Not Reliably Enterable
 
+Auto-connect often creates geometry that visually touches a tunnel but does not
+produce a clean flyable entrance:
 
- Cursor is no more these are now back i n your lap
+- Branch line may pass through the existing tunnel and end outside it.
+- Auto-connect from outside into an existing tunnel can cut a big notch.
+- Starting from the tunnel outward looks cleaner but still may not create an
+  enterable opening.
+- Goal: click an existing tunnel, draw/build a branch, and have the code create
+  a clean junction opening/connector object automatically.
 
- # Astral Drift Builder CAD Tasks
+Treat manual angle tweaking as a fallback, not the main workflow.
 
-Use `index.html` as the current source of truth. Preserve the existing flight/render path and avoid rewrites.
+### 3. ABC Existing-Tunnel Move Tool Stability
 
-## Already Done
+ABC move mode mostly works now and the old leftover-artifact trail was improved,
+but it still needs hardening:
 
-- Tunnel range selection exists: click segment A, `Alt+Shift+LMB` segment B, then `V` applies one texture/rib color to all selected tunnel segments.
-- Target box multi-select exists: `Shift+LMB` target boxes, click one selected target to edit all, `Del` deletes selected target boxes.
-- Free orbit anchor exists: `Alt+Shift+LMB` empty space on the active plane sets a yellow ORBIT anchor, then `Alt+drag` or middle-drag can orbit around it.
+- After using the 3D tool a few times, the gizmo can become inactive and stop
+  moving the selected item.
+- It has previously relinked a tunnel run to a far-off tunnel unexpectedly.
+- It has previously punched holes in nearby unrelated tunnel runs.
+- Goal: moving A/B/C on an existing connected tunnel run should only affect the
+  intended connected range and should keep a smooth fit.
 
-## Build Next
+Preferred edit model:
 
-### 1. Multi-Segment Draft Route
+- Select start and end of a connected tunnel range.
+- Drag a middle C/control point.
+- Refit the selected run smoothly between start/end instead of making jagged
+  per-segment kinks.
 
-Current builder only has A, B, and optional C midpoint for one join. Add a draft route mode:
+### 4. 3D Gizmo Axis Consistency
 
-- A route is an ordered list of nodes.
-- Each segment is `node[i] -> node[i+1]`.
-- Each segment owns its own C handle:
-  - `handle.point`
-  - `handle.angleDeg`
-  - `handle.plane`
-- Draw all route segments live before generation.
-- `Y` should generate the whole route into tunnel segments in one operation.
-- Keep generated segments chunked near `mapAutogenTargetLength()`, not long stretched mega-segments.
+The 3D move tool axis labels/directions do not always match the X/Y/Z grid panel
+that appears when clicking tunnel pieces.
 
+- Make gizmo X/Y/Z directions consistent with the grid/plane UI.
+- Keep axis movement one dimension at a time.
+- Avoid oversensitive handle picking.
 
-### 2. Plane-Locked Point Creation
+## Builder Features To Keep / Already Working
 
-When adding a new route node:
+- Enemy ship sprite loading and scaling is working.
+- Enemy AI chase/targetability is working well enough for now.
+- Tunnel opacity/neighbor visibility is much improved and acceptable for now.
+- AutoBoost exists and is liked, but `;`/semicolon behavior should stay watched
+  because it previously stopped the ship when pressed during W/Shift movement.
+- Multi-segment route mode exists:
+  - `N` starts route mode.
+  - `U` undoes route steps.
+  - Drawing can be paused/resumed so left-click does not keep adding unwanted
+    segments while editing.
+  - `Y` renders routes, including free-floating routes.
+- Plane-locked creation is working well.
+- XYZ gizmo works well on draft segment nodes/handles.
+- HUD map no longer shows all sentries/enemies by default.
 
-- Default to the current active plane (`mapMouse.editPlane`).
-- If the first point is `{x, y, z}`, the next point should keep the fixed axis from that plane until the user drags it off-plane with the XYZ tool.
-- Examples:
-  - XY plane keeps Z constant.
-  - YZ plane keeps X constant.
-  - ZX plane keeps Y constant.
+## Medium Priority Builder Improvements
 
-### 3. C Handle Angle
+### 5. Free-Drag Yellow Build Handle
 
-For each C handle, add a numeric angle field:
+Add an optional way to click/drag the yellow build handle freely in 3D:
 
-- Positive angle pushes the handle out of the active plane in one direction.
-- Negative angle pushes the handle the opposite way.
-- The generated route should arc through that adjusted handle.
-- Keep the handle draggable on the active plane plus editable numerically.
+- Should allow orienting a new branch more naturally than only `Q/E` and `[]`.
+- Must not be oversensitive or move just because the user tried to select it.
+- Keep existing keyboard controls as fallback.
 
-### 4. XYZ Transform Gizmo
+### 6. Tunnel Range Operations
 
-Add a small CAD-style gizmo for selected route nodes, C handles, existing tunnel endpoints, portal discs, and target boxes:
-
-- X axis drag moves only X.
-- Y axis drag moves only Y.
-- Z axis drag moves only Z.
-- The gizmo should show red/green/blue or labeled X/Y/Z arms.
-- Dragging an existing tunnel endpoint should recompute adjacent segment basis/length and smooth neighbor continuity instead of creating a kink.
-
-### 5. Existing Tunnel Range Operations
-
-Expand current range selection:
+Existing range selection should grow into safer CAD-style operations:
 
 - Delete selected A-to-B connected tunnel range.
-- Apply texture/rib color to range already works through `V`; keep that.
-- Later: copy/cut/move/resize selected connected run.
+- Move/refit selected connected run.
+- Later: copy/cut/resize selected connected run.
 
-### 6. Target Batch Operations
+Texture/rib-color range apply through `V` already works; keep it.
 
-Expand current target batch selection:
+## Gameplay / Map Ideas Backlog
 
-- Batch set explosive red/normal blue already works via target edit dialog.
-- Add optional batch labels with prefix + sequence number.
-- - Add batch texture/sprite when target texture assets are added.
+### Cache Rooms, Hidden Doors, And Quest Rooms
 
-## Safety Rules
+Add side rooms/caves that can be connected by visible or hidden doors:
+
+- Some doors clearly marked.
+- Some doors found by scanner while stopped/not moving.
+- Scanner chance starts low, around 10%, and can be upgraded at garages.
+- Rooms can contain treasure, quest objects, guards, or hostile groups.
+- Room entrances may also be portals to small off-map cave rooms.
+
+### Gadgets Backlog
+
+Player gadgets are still back-burner:
+
+- Cloaking mode.
+- Smoke bomb.
+- Nanobot slick.
+- EMT/EMP bomb.
+- Developer god mode with unlimited gadget use for testing.
+
+## Documentation Backlog
+
+Write `astral_technical_reference.md` later:
+
+- Explain architecture for a new programmer.
+- Flow-chart game loop, builder mode, map geometry, rendering, controls, and
+  save/load path.
+- Comment complex code, but do not bury simple code in noisy comments.
+
+## Required Safety Rules For Code Edits
 
 - Do not remove `applyMapGeometryChange()`.
-- After geometry edits, call:
-  - `syncBuilderTargetsFromGeometry()` when tunnel geometry changes.
-  - `rebuildTunnelStars()`.
-  - `rebuildTunnelTargets()`.
-  - `invalidateTunnelSegmentCache()`.
-  - `saveTunnelMap()`.
+- After tunnel geometry edits, call the required rebuild/sync functions:
+  - `syncBuilderTargetsFromGeometry()`
+  - `rebuildTunnelStars()`
+  - `rebuildTunnelTargets()`
+  - `invalidateTunnelSegmentCache()`
+  - `saveTunnelMap()`
 - Keep map save format backward-compatible.
 - Run the script parse check after edits:
 
 ```powershell
-$p = "Ron\Coding Projects\DecentClone\index.html"
+$p = "DecentClone\index.html"
 $html = Get-Content $p -Raw
 $m = [regex]::Match($html, '(?s)<script>(.*)</script>')
 $scriptPath = Join-Path $env:TEMP 'astral_index_inner_script.js'
