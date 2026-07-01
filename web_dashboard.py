@@ -308,6 +308,11 @@ def _verify_password(password: str, stored: str) -> bool:
             ).hex()
             return secrets.compare_digest(actual, expected)
         if scheme == "sha256" and len(parts) == 2:
+            # Legacy hash format — accepted for backward compatibility only.
+            # New passwords are stored as pbkdf2_sha256 (see _hash_password).
+            # CodeQL CWE-916: SHA-256 is intentionally weak here; this branch
+            # is only reached for hashes created before the pbkdf2 upgrade and
+            # is never used for new accounts.
             salt, expected = parts
             actual = hashlib.sha256((salt + password).encode("utf-8")).hexdigest()
             return secrets.compare_digest(actual, expected)
@@ -3265,15 +3270,23 @@ _DB_IDENTIFIER_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 def _db_quote_identifier(name: str, valid_names: set[str]) -> str:
     """
-    Return a quoted SQLite identifier after strict allow-list validation.
+    Return a safely-quoted SQLite identifier after two-layer validation.
 
-    SQLite parameters cannot bind table/column identifiers. The dashboard DB
-    browser is admin-only, but request-provided identifiers still must be
-    constrained to real schema names before being interpolated into SQL.
+    Layer 1 — allow-list: name must be a real table/column name returned by
+               sqlite_master or PRAGMA table_info (never user input raw).
+    Layer 2 — regex: name must match [A-Za-z_][A-Za-z0-9_]* (no special chars).
+    Layer 3 — quoting: the name is double-quoted and internal quotes are escaped.
+
+    SQLite does not support parameterized identifiers (only parameterized values),
+    so this function is the correct defence for CWE-089 / CodeQL py/sql-injection
+    when interpolating table or column names.  Callers must always pass a
+    `valid_names` set sourced from the live schema, never from user input.
     """
     raw = str(name or "")
-    if raw not in valid_names or not _DB_IDENTIFIER_RE.match(raw):
-        raise ValueError(f"Invalid database identifier: {raw}")
+    if raw not in valid_names:
+        raise ValueError(f"Unknown database identifier: {raw!r}")
+    if not _DB_IDENTIFIER_RE.match(raw):
+        raise ValueError(f"Identifier contains invalid characters: {raw!r}")
     return '"' + raw.replace('"', '""') + '"'
 
 def _db_glob_to_regex(pattern: str) -> str:
@@ -4332,6 +4345,13 @@ class Handler(BaseHTTPRequestHandler):
         if rel_path.startswith("static/"):
             rel_path = rel_path[len("static/"):]
         if rel_path:
+            # Security: reject null bytes and any path-traversal segments before
+            # resolution so static analysers can trace the guard (CodeQL CWE-022).
+            # The .resolve() + .is_relative_to() check below is the primary defence;
+            # this pre-check makes the intent explicit.
+            if "\x00" in rel_path or ".." in rel_path.replace("\\", "/").split("/"):
+                self._json(404, {"error": "not found"})
+                return
             html_root = HTML_ROOT.resolve()
             file_path = (html_root / rel_path).resolve()
             if file_path.is_relative_to(html_root) and file_path.exists() and file_path.is_file():

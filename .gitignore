@@ -29,6 +29,10 @@ exports/
 *.pyc
 *.ignore
 .env
+.env - Copy.env
+.env - Copy*.env
+.env.local
+.env.*.local
 .mcp.json
 # Never commit encryption utility with real keys
 encrypt_key.py
