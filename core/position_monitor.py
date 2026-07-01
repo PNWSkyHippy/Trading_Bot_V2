@@ -2116,16 +2116,18 @@ class PositionMonitor:
                 if _pnl_pct_raw >= _risk_reduce_trigger:
                     _floor_sl = _entry * (1 + _lock_floor_pct / 100)
                     _target_sl = max(_floor_sl, _ratchet_sl)
-                    if _target_sl > _cur_sl:
+                    _target_sl_rounded = round(_target_sl, 6)
+                    _cur_sl_rounded = round(_cur_sl, 6)
+                    if _target_sl_rounded > _cur_sl_rounded:
                         logger.info(
-                            f"[PROFIT RATCHET] {symbol} ({strategy}): SL ${_cur_sl:.4f} → "
-                            f"${_target_sl:.4f} | P&L {_pnl_pct_raw:.2f}% "
+                            f"[PROFIT RATCHET] {symbol} ({strategy}): SL ${_cur_sl_rounded:.6f} → "
+                            f"${_target_sl_rounded:.6f} | P&L {_pnl_pct_raw:.2f}% "
                             f"peak ${_peak:.4f} lock={_lock_floor_pct:.2f}%"
                         )
-                        self._db.update_trade_levels(trade_id, stop_loss=round(_target_sl, 6))
-                        trade["stop_loss"] = round(_target_sl, 6)
+                        self._db.update_trade_levels(trade_id, stop_loss=_target_sl_rounded)
+                        trade["stop_loss"] = _target_sl_rounded
                         self._ratchet_update_exchange_stop(
-                            trade, trade_id, symbol, direction, _target_sl
+                            trade, trade_id, symbol, direction, _target_sl_rounded
                         )
             elif _entry > 0 and direction == "short":
                 _peak = self._peak_prices.get(trade_id, _entry)
@@ -2143,16 +2145,18 @@ class PositionMonitor:
                 if _pnl_pct_raw >= _risk_reduce_trigger:
                     _floor_sl = _entry * (1 - _lock_floor_pct / 100)
                     _target_sl = min(_floor_sl, _ratchet_sl)
-                    if _target_sl < _cur_sl:
+                    _target_sl_rounded = round(_target_sl, 6)
+                    _cur_sl_rounded = round(_cur_sl, 6)
+                    if _target_sl_rounded < _cur_sl_rounded:
                         logger.info(
-                            f"[PROFIT RATCHET] {symbol} ({strategy}): SL ${_cur_sl:.4f} → "
-                            f"${_target_sl:.4f} | P&L {_pnl_pct_raw:.2f}% "
+                            f"[PROFIT RATCHET] {symbol} ({strategy}): SL ${_cur_sl_rounded:.6f} → "
+                            f"${_target_sl_rounded:.6f} | P&L {_pnl_pct_raw:.2f}% "
                             f"peak ${_peak:.4f} lock={_lock_floor_pct:.2f}%"
                         )
-                        self._db.update_trade_levels(trade_id, stop_loss=round(_target_sl, 6))
-                        trade["stop_loss"] = round(_target_sl, 6)
+                        self._db.update_trade_levels(trade_id, stop_loss=_target_sl_rounded)
+                        trade["stop_loss"] = _target_sl_rounded
                         self._ratchet_update_exchange_stop(
-                            trade, trade_id, symbol, direction, _target_sl
+                            trade, trade_id, symbol, direction, _target_sl_rounded
                         )
 
         # ── 12. TRAILING STOP UPDATE + LOGGING ───────────────────────────

@@ -363,8 +363,23 @@ class KrakenExecutor:
         Cancel old order → place new one → return new order_id.
         Returns new order_id or None on failure.
         """
-        self.cancel_order(symbol, old_order_id)
-        return self.place_stop_order(symbol, qty, side, new_stop_price)
+        if old_order_id:
+            cancelled = self.cancel_order(symbol, old_order_id)
+            if not cancelled:
+                logger.warning(
+                    f"Stop replacement skipped for {symbol}: could not cancel "
+                    f"existing stop {old_order_id}"
+                )
+                return None
+
+        new_order_id = self.place_stop_order(symbol, qty, side, new_stop_price)
+        if old_order_id and not new_order_id and not self.paper:
+            logger.error(
+                f"[STOP REPLACE UNPROTECTED] {symbol}: cancelled stop "
+                f"{old_order_id} but failed to place replacement at "
+                f"${new_stop_price:.6f}"
+            )
+        return new_order_id
 
     def get_trading_pairs(self) -> list:
         try:

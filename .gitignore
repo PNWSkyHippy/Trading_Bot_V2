@@ -1,4 +1,8 @@
 *claude_desktop_config.json*
+signals_log.csv
+DecentClone/mykey.txt
+DecentClone/mykey.txt.pub
+data/junk.ps1
 logs/bot.log
 *.log
 .archon/
@@ -8,6 +12,7 @@ data/trading_bot.db
 ai-trading-agent/
 Archon/
 Ron/
+.cursor/
 Deesigns/
 Opus.Audit/
 OverHaul/
