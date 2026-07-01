@@ -72,17 +72,29 @@ SENSITIVE = {"secret_key", "api_key", "password"}   # hide input while typing
 
 def _get_fernet():
     try:
-        import keyring as _kr
         from cryptography.fernet import Fernet as _F
-        raw = _kr.get_password("trading_bot_v2", "fernet_key")
+        # Check env vars first (works on headless/root Linux where keyring has no daemon).
+        # Matches the fallback order in config.py (_load_fernet_key).
+        raw = (
+            os.getenv("TRADING_BOT_FERNET_KEY")
+            or os.getenv("FERNET_KEY")
+            or ""
+        ).strip()
+        if not raw:
+            try:
+                import keyring as _kr
+                raw = _kr.get_password("trading_bot_v2", "fernet_key") or ""
+            except Exception:
+                pass
         if not raw:
             print("ERROR: Fernet key not found.")
-            print("Run:  python Scripts/setup_encryption.py")
+            print("Set TRADING_BOT_FERNET_KEY in .env, or run:")
+            print("  python Scripts/setup_encryption.py")
             sys.exit(1)
         return _F(raw.encode())
     except ImportError as e:
         print(f"ERROR: Missing package — {e}")
-        print("Run:  pip install cryptography keyring")
+        print("Run:  pip install cryptography")
         sys.exit(1)
 
 
