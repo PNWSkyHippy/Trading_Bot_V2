@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="/root/Trading_Bot_V2/DecentClone"
-PY="/root/Trading_Bot_V2/venv312/bin/python"
+APP_DIR="/opt/trading_bot_v2/DecentClone"
+PY="/opt/trading_bot_v2/venv312/bin/python"
 
 cd "$APP_DIR"
 
