@@ -4449,6 +4449,10 @@
             const sideAgreement = dot(basis.right, referenceBasis.right) +
                 dot(basis.down, referenceBasis.down);
             if (sideAgreement < 0) {
+                console.warn('[FLIP] keepBasisSameHemisphere flipped roll=' +
+                    (shipRollAngle * 180 / Math.PI).toFixed(1) + '° agree=' + sideAgreement.toFixed(3) +
+                    ' newR=(' + basis.right.x.toFixed(2) + ',' + basis.right.y.toFixed(2) + ')' +
+                    ' prR=(' + referenceBasis.right.x.toFixed(2) + ',' + referenceBasis.right.y.toFixed(2) + ')');
                 return {
                     forward: basis.forward,
                     right: scaleVec(basis.right, -1),
@@ -8240,7 +8244,10 @@
                 wallHit.lastRadius = segRadius;
                 wallHit.stuckCount = Math.max(0, wallHit.stuckCount - 1);
                 if (wallHit.last && performance.now() - wallHit.last < 900) {
-                    forceCockpitBasisFromNose(cockpitBasisLooksFlipped());
+                    const _flipped = cockpitBasisLooksFlipped();
+                    if (shipRollAngle) console.warn('[WALL-BASIS] containShipInTunnel forceBasis roll=' +
+                        (shipRollAngle * 180 / Math.PI).toFixed(1) + '° flipped=' + _flipped);
+                    forceCockpitBasisFromNose(_flipped);
                 }
                 return;
             }
@@ -15783,11 +15790,21 @@
             // rollFix1: don't auto-level during a deliberate barrel roll (>60° accumulated roll).
             const inBarrelRoll = Math.abs(shipRollAngle) > Math.PI / 3;
             if (!inVerticalFlight && !inBarrelRoll && shouldProtectCockpit && canAutoResetCockpit && (cockpitBasisLooksSeverelyFlipped() || shouldResetForWallRoll)) {
+                console.warn('[AUTO-LEVEL] fired roll=' + (shipRollAngle * 180 / Math.PI).toFixed(1) +
+                    '° scrape=' + recentlyScrapedWall + ' levelLock=' + wallLevelLockActive +
+                    ' lockUntil=' + Math.round((wallHit.levelLockUntil || 0) - now) + 'ms');
                 forceCockpitBasisFromNose(true);
                 wallHit.cockpitResetCooldownUntil = now + 900;
                 keyboardStatus.innerText = recentlyScrapedWall || wallLevelLockActive
                     ? 'cockpit auto-leveled after wall scrape'
                     : 'cockpit auto-leveled';
+            }
+            // DEBUG: log roll state every ~30 frames while rolling
+            if (rollInput && !(renderFrameCounter % 30)) {
+                console.log('[ROLL] angle=' + (shipRollAngle * 180 / Math.PI).toFixed(1) +
+                    '° down=(' + shipDown.x.toFixed(2) + ',' + shipDown.y.toFixed(2) + ',' + shipDown.z.toFixed(2) + ')' +
+                    ' vR=(' + viewRight.x.toFixed(2) + ',' + viewRight.y.toFixed(2) + ')' +
+                    ' scrape=' + recentlyScrapedWall + ' lkLock=' + wallLevelLockActive);
             }
             mouseInput.pitch = 0;
             mouseInput.yaw = 0;
