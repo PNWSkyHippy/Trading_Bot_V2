@@ -361,7 +361,8 @@ class KrakenExecutor:
         """
         Move a stop order to a new price.
         Cancel old order → place new one → return new order_id.
-        Returns new order_id or None on failure.
+        Returns new order_id on success, None when the old stop remains in
+        place, or "" when the old stop was cancelled but replacement failed.
         """
         if old_order_id:
             cancelled = self.cancel_order(symbol, old_order_id)
@@ -379,6 +380,7 @@ class KrakenExecutor:
                 f"{old_order_id} but failed to place replacement at "
                 f"${new_stop_price:.6f}"
             )
+            return ""
         return new_order_id
 
     def get_trading_pairs(self) -> list:

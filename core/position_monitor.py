@@ -472,10 +472,15 @@ class PositionMonitor:
             if new_stop_id:
                 self._db.update_trade_order_ids(trade_id, stop_order_id=new_stop_id)
                 trade["stop_order_id"] = new_stop_id
+                self._db.set_state(f"kraken_stop_unprotected_{trade_id}", 0)
                 logger.info(
                     f"[RATCHET {'PAPER' if _cfg.KRAKEN_PAPER_MODE else 'LIVE'}] "
                     f"{symbol}: exchange stop updated → ${new_sl:.6f} "
                     f"(order {new_stop_id})"
+                )
+            elif new_stop_id == "" and old_stop_id:
+                self._mark_kraken_stop_unprotected(
+                    trade, trade_id, symbol, old_stop_id, new_sl
                 )
         except Exception as _e:
             # Non-fatal: DB SL is updated, software monitor will enforce it
@@ -483,6 +488,24 @@ class PositionMonitor:
                 f"[RATCHET] {symbol}: exchange stop update failed ({_e}) — "
                 f"software monitor will enforce SL ${new_sl:.6f}"
             )
+
+    def _mark_kraken_stop_unprotected(
+        self, trade: dict, trade_id: str, symbol: str, old_stop_id: str, new_sl: float
+    ) -> None:
+        self._db.update_trade_order_ids(trade_id, stop_order_id="")
+        trade["stop_order_id"] = ""
+        self._db.set_state(
+            f"kraken_stop_unprotected_{trade_id}",
+            {
+                "symbol": symbol,
+                "cancelled_stop_order_id": old_stop_id,
+                "target_stop_loss": round(float(new_sl), 6),
+            },
+        )
+        logger.error(
+            f"[STOP UNPROTECTED] {symbol}: cleared stale stop id {old_stop_id}; "
+            f"software monitor will enforce SL ${new_sl:.6f}"
+        )
 
     def _attempt_close(self, trade: Dict, current_price: float,
                        reason: str) -> bool:
@@ -2254,11 +2277,16 @@ class PositionMonitor:
                             self._db.update_trade_order_ids(
                                 trade_id, stop_order_id=new_stop_id
                             )
+                            self._db.set_state(f"kraken_stop_unprotected_{trade_id}", 0)
                             logger.info(
                                 f"[{'PAPER' if __import__('config').KRAKEN_PAPER_MODE else 'LIVE'}] "
                                 f"Stop order updated for {symbol} "
                                 f"${old_sl:.4f} → ${new_sl:.4f} | "
                                 f"new_id={new_stop_id}"
+                            )
+                        elif new_stop_id == "" and old_stop_id:
+                            self._mark_kraken_stop_unprotected(
+                                trade, trade_id, symbol, old_stop_id, new_sl
                             )
                     except Exception as _trail_err:
                         logger.warning(
