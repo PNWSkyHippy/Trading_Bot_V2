@@ -4446,13 +4446,16 @@
 
         function keepBasisSameHemisphere(basis, referenceBasis) {
             if (!basis || !referenceBasis) return basis;
-            const sideAgreement = dot(basis.right, referenceBasis.right) +
-                dot(basis.down, referenceBasis.down);
+            // Only check the right vector. Down is derived from forward+right so if right is
+            // correct, down must be too. Including down in the sum caused false positives when
+            // body-space yaw left priorBasis.down lagging behind — total went negative even
+            // though right hadn't flipped, triggering a spurious inversion every frame.
+            const sideAgreement = dot(basis.right, referenceBasis.right);
             if (sideAgreement < 0) {
                 console.warn('[FLIP] keepBasisSameHemisphere flipped roll=' +
-                    (shipRollAngle * 180 / Math.PI).toFixed(1) + '° agree=' + sideAgreement.toFixed(3) +
-                    ' newR=(' + basis.right.x.toFixed(2) + ',' + basis.right.y.toFixed(2) + ')' +
-                    ' prR=(' + referenceBasis.right.x.toFixed(2) + ',' + referenceBasis.right.y.toFixed(2) + ')');
+                    (shipRollAngle * 180 / Math.PI).toFixed(1) + '° rightDot=' + sideAgreement.toFixed(3) +
+                    ' newR=(' + basis.right.x.toFixed(2) + ',' + basis.right.y.toFixed(2) + ',' + basis.right.z.toFixed(2) + ')' +
+                    ' prR=(' + referenceBasis.right.x.toFixed(2) + ',' + referenceBasis.right.y.toFixed(2) + ',' + referenceBasis.right.z.toFixed(2) + ')');
                 return {
                     forward: basis.forward,
                     right: scaleVec(basis.right, -1),
