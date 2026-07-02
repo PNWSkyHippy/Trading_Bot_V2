@@ -4380,10 +4380,14 @@
                 buildWorldUpBasis(shipForward, shipRight),
                 shipRollAngle
             );
-            const stabilized = keepBasisSameHemisphere(basis, priorBasis);
-            shipForward = stabilized.forward;
-            shipRight = stabilized.right;
-            shipDown = stabilized.down;
+            // No keepBasisSameHemisphere here: at large roll angles the rolled right vector
+            // naturally crosses hemispheres, causing the check to fire and corrupt shipRight
+            // permanently. buildWorldUpBasis is deterministic for non-singular (horizontal)
+            // flight and its own hint mechanism handles the vertical singularity correctly
+            // as long as shipRight is not being corrupted by spurious flips.
+            shipForward = basis.forward;
+            shipRight = basis.right;
+            shipDown = basis.down;
         }
 
         function repairBuilderBasis() {
@@ -4444,7 +4448,7 @@
             return { forward: f, right: r, down: d };
         }
 
-        function keepBasisSameHemisphere(basis, referenceBasis) {
+        function keepBasisSameHemisphere(basis, referenceBasis, quiet = false) {
             if (!basis || !referenceBasis) return basis;
             // Only check the right vector. Down is derived from forward+right so if right is
             // correct, down must be too. Including down in the sum caused false positives when
@@ -4452,7 +4456,7 @@
             // though right hadn't flipped, triggering a spurious inversion every frame.
             const sideAgreement = dot(basis.right, referenceBasis.right);
             if (sideAgreement < 0) {
-                console.warn('[FLIP] keepBasisSameHemisphere flipped roll=' +
+                if (!quiet) console.warn('[FLIP] keepBasisSameHemisphere flipped roll=' +
                     (shipRollAngle * 180 / Math.PI).toFixed(1) + '° rightDot=' + sideAgreement.toFixed(3) +
                     ' newR=(' + basis.right.x.toFixed(2) + ',' + basis.right.y.toFixed(2) + ',' + basis.right.z.toFixed(2) + ')' +
                     ' prR=(' + referenceBasis.right.x.toFixed(2) + ',' + referenceBasis.right.y.toFixed(2) + ',' + referenceBasis.right.z.toFixed(2) + ')');
@@ -7982,7 +7986,7 @@
         function blendFlightBasis(worldBasis, branchBasis, blend) {
             const b = Math.max(0, Math.min(1, blend));
             if (b <= 0.001 || !branchBasis) return worldBasis;
-            const alignedBranchBasis = keepBasisSameHemisphere(branchBasis, worldBasis);
+            const alignedBranchBasis = keepBasisSameHemisphere(branchBasis, worldBasis, true);
             return normalizedBasis(
                 normalize(addVec(scaleVec(worldBasis.forward, 1 - b), scaleVec(alignedBranchBasis.forward, b))),
                 addVec(scaleVec(worldBasis.right, 1 - b), scaleVec(alignedBranchBasis.right, b)),
