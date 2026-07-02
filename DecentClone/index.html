@@ -8664,40 +8664,23 @@
             const ctx = getBranchFlightContext();
             const segmentAxes = ctx.active && ctx.allowVerticalPitch;
             if (yawAmount) {
-                // Use the world-aligned down axis (buildWorldUpBasis.down) for flat-tunnel yaw
-                // so the yaw axis stays in the same reference frame as the pitch axis
-                // (buildWorldUpBasis.right) and doesn't tilt with ship roll. This keeps yaw
-                // and pitch consistent at any roll angle and avoids cross-coupling during barrel
-                // rolls. For branch / vertical segments, keep using shipDown (body-space).
-                // At the vertical singularity buildWorldUpBasis falls back via the shipRight
-                // hint, so this is safe when forward ≈ WORLD_UP.
-                const yawAxis = segmentAxes ? shipDown : buildWorldUpBasis(shipForward, shipRight).down;
-                shipForward = rotateVector(shipForward, yawAxis, yawAmount);
+                // Full body-space yaw: rotate around shipDown (the ship's local down axis).
+                // This keeps yaw matched to the camera at all roll angles so pressing right
+                // always turns right on screen — no cross-coupling during barrel rolls.
+                // repairBasis guarantees shipDown is always perpendicular to shipForward.
+                shipForward = rotateVector(shipForward, shipDown, yawAmount);
                 if (segmentAxes) {
-                    shipRight = rotateVector(shipRight, yawAxis, yawAmount);
+                    shipRight = rotateVector(shipRight, shipDown, yawAmount);
                 }
             }
             if (pitchAmount) {
-                // Use cross(forward, WORLD_UP) as pitch axis for normal flight (identical
-                // to the original behaviour). Fall back to shipRight only at the vertical
-                // singularity (|cross| < 0.1) where WORLD_UP is degenerate — this gives
-                // a smooth nose-over-tail 180° instead of a random kick sideways.
-                // Using shipRight everywhere would break barrel-roll pitch.
-                let pitchAxis;
+                // Full body-space pitch: rotate around shipRight (the ship's local right axis).
+                // Consistent with body-space yaw so controls never cross-couple during roll.
+                // At the vertical singularity shipRight is already valid (repairBasis built it
+                // from the shipRight hint via buildWorldUpBasis), so no special case needed.
+                shipForward = rotateVector(shipForward, shipRight, pitchAmount);
                 if (segmentAxes) {
-                    pitchAxis = shipRight;
-                } else {
-                    const wx = shipForward.y * WORLD_UP.z - shipForward.z * WORLD_UP.y;
-                    const wy = shipForward.z * WORLD_UP.x - shipForward.x * WORLD_UP.z;
-                    const wz = shipForward.x * WORLD_UP.y - shipForward.y * WORLD_UP.x;
-                    const wlen = Math.hypot(wx, wy, wz);
-                    pitchAxis = wlen > 0.1
-                        ? { x: wx / wlen, y: wy / wlen, z: wz / wlen }
-                        : shipRight;
-                }
-                shipForward = rotateVector(shipForward, pitchAxis, pitchAmount);
-                if (segmentAxes) {
-                    shipDown = rotateVector(shipDown, pitchAxis, pitchAmount);
+                    shipDown = rotateVector(shipDown, shipRight, pitchAmount);
                 }
             }
             if (rollAmount) {
