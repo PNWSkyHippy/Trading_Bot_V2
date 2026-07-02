@@ -4376,11 +4376,8 @@
                 shipDown = stabilized.down;
                 return;
             }
-            // vertFix3: avoid degenerate world-up basis in repairBasis when nose is near-vertical
             const basis = applyPlayerRollToBasis(
-                isVerticalTunnelForward(shipForward)
-                    ? buildStableBasisFromHints(shipForward, shipRight, shipDown)
-                    : buildWorldUpBasis(shipForward, shipRight),
+                buildWorldUpBasis(shipForward, shipRight),
                 shipRollAngle
             );
             const stabilized = keepBasisSameHemisphere(basis, priorBasis);
@@ -4464,9 +4461,6 @@
         function forceCockpitBasisFromNose(resetRoll = false) {
             if (resetRoll) shipRollAngle = 0;
             const ctx = getBranchFlightContext();
-            // vertFix10: also use stable basis when ship nose is vertical, even if the
-            // segment boundary hasn't flagged ctx.active yet — buildWorldUpBasis degenerates
-            // (cross(forward,WORLD_UP)→0) and snaps controls to a wrong world-axis orientation.
             const base = (ctx.active && ctx.allowVerticalPitch) || isVerticalTunnelForward(shipForward)
                 ? buildStableBasisFromHints(
                     shipForward,
@@ -4482,8 +4476,6 @@
         }
 
         function cockpitBasisLooksFlipped() {
-            // vertFix4: world-up comparison is meaningless at vertical angles — inverted is valid 6DOF.
-            if (isVerticalTunnelForward(shipForward)) return false;
             const levelBasis = buildWorldUpBasis(shipForward, shipRight);
             const rightAgreement = dot(shipRight, levelBasis.right);
             const downAgreement = dot(shipDown, levelBasis.down);
@@ -4491,8 +4483,6 @@
         }
 
         function cockpitBasisLooksSeverelyFlipped() {
-            // vertFix4: same guard as cockpitBasisLooksFlipped.
-            if (isVerticalTunnelForward(shipForward)) return false;
             const levelBasis = buildWorldUpBasis(shipForward, shipRight);
             const rightAgreement = dot(shipRight, levelBasis.right);
             const downAgreement = dot(shipDown, levelBasis.down);
@@ -7604,39 +7594,15 @@
                 return { end, dir };
             }
 
-            // junctionGeomFix1: external stubs must start at the tube WALL, not the axis center.
-            // Compute wall-surface points so punchBodyJoinMouth gets a non-zero wallPoint
-            // and addAutoBranchMouth starts outside the existing tube.
-            const origP0 = copyVec(p0);
-            const origP3 = copyVec(p3);
-            let sourceWallPoint = null;
-            let targetWallPoint = null;
-
             if (pair.sourceSegmentIndex !== null && pair.sourceSegmentIndex !== undefined) {
-                const aSeg = pair.sourceSegmentRef || builder.segments[pair.sourceSegmentIndex];
-                if (aSeg) {
-                    const approachDir = normalize({ x: origP3.x - origP0.x, y: origP3.y - origP0.y, z: origP3.z - origP0.z });
-                    if (Math.hypot(approachDir.x, approachDir.y, approachDir.z) > 0.01) {
-                        const tubeR = aSeg.radius || builder.radius;
-                        sourceWallPoint = addVec(origP0, scaleVec(approachDir, tubeR));
-                    }
-                }
-                const mouth = addAutoBranchMouth(sourceWallPoint || p0, origP3, pair.a.right, pair.a.down);
+                const mouth = addAutoBranchMouth(p0, p3, pair.a.right, pair.a.down);
                 if (mouth) {
                     p0 = mouth.end;
                     aOutward = mouth.dir;
                 }
             }
             if (pair.targetSegmentIndex !== null && pair.targetSegmentIndex !== undefined) {
-                const bSeg = pair.targetSegmentRef || builder.segments[pair.targetSegmentIndex];
-                if (bSeg) {
-                    const approachDir = normalize({ x: origP0.x - origP3.x, y: origP0.y - origP3.y, z: origP0.z - origP3.z });
-                    if (Math.hypot(approachDir.x, approachDir.y, approachDir.z) > 0.01) {
-                        const tubeR = bSeg.radius || builder.radius;
-                        targetWallPoint = addVec(origP3, scaleVec(approachDir, tubeR));
-                    }
-                }
-                const mouth = addAutoBranchMouth(targetWallPoint || p3, origP0, pair.b.right, pair.b.down);
+                const mouth = addAutoBranchMouth(p3, p0, pair.b.right, pair.b.down);
                 if (mouth) {
                     p3 = mouth.end;
                     bOutward = scaleVec(mouth.dir, -1);
@@ -7723,7 +7689,7 @@
                     pair.sourceSegmentRef,
                     pair.sourceSegmentIndex,
                     pair.sourceSegmentT,
-                    sourceWallPoint || pair.a.point,
+                    pair.a.point,
                     joinRadius
                 );
             const targetPunched = pair.targetSegmentIndex !== null && pair.targetSegmentIndex !== undefined
@@ -7731,7 +7697,7 @@
                     pair.targetSegmentRef,
                     pair.targetSegmentIndex,
                     pair.targetSegmentT,
-                    targetWallPoint || pair.b.point,
+                    pair.b.point,
                     joinRadius
                 );
             const punched = sourcePunched || targetPunched;
@@ -7871,20 +7837,11 @@
                     const thrustDir = thrustMag > 0.01 ? scaleVec(lastThrustVector, 1 / thrustMag) : null;
                     let directedHandoff = null;
                     let touchingHandoff = null;
-                    // vertFix9: track best non-branchMouth candidate for loop/U-turn fallback.
-                    // At the peak of a loop every candidate has thrustAlignment ≈ -1 and the
-                    // -0.25 gate rejects them all, leaving no handoff and snapping the ship back.
-                    // Real tunnel continuations are never branchMouth; stubs always are — so the
-                    // branchMouth guard keeps the junctionFix1 oscillation fix intact.
-                    let loopFallback = null;
-                    let loopFallbackAlignment = -Infinity;
                     for (const candidate of candidates) {
                         if (candidate.index === preferred.index) continue;
                         const candidateRadius = candidate.seg.radius || builder.radius;
-                        // junctionFix1: use same 0.72 threshold as tunnelSegmentsConnected so
-                        // hand-built junctions whose endpoints are slightly off still qualify.
-                        const touchesFrom = distanceSq(candidate.seg.from, preferredEnd) <= Math.pow(radius * 0.72, 2);
-                        const touchesTo = distanceSq(candidate.seg.to, preferredEnd) <= Math.pow(radius * 0.72, 2);
+                        const touchesFrom = distanceSq(candidate.seg.from, preferredEnd) <= Math.pow(radius * 0.65, 2);
+                        const touchesTo = distanceSq(candidate.seg.to, preferredEnd) <= Math.pow(radius * 0.65, 2);
                         const gapFrom = distanceSq(candidate.seg.from, preferredEnd);
                         const gapTo = distanceSq(candidate.seg.to, preferredEnd);
                         const looseFrom = gapFrom <= Math.pow(radius * 0.9, 2);
@@ -7897,38 +7854,24 @@
                             (handoffFrom && candidate.t <= 0.28) ||
                             (handoffTo && candidate.t >= 0.72);
                         if (!candidateAtHandoffEnd) continue;
+                        if (thrustDir) {
+                            const exitVector = normalize(handoffFrom
+                                ? { x: candidate.seg.to.x - preferredEnd.x, y: candidate.seg.to.y - preferredEnd.y, z: candidate.seg.to.z - preferredEnd.z }
+                                : { x: candidate.seg.from.x - preferredEnd.x, y: candidate.seg.from.y - preferredEnd.y, z: candidate.seg.from.z - preferredEnd.z });
+                            if (dot(exitVector, thrustDir) < 0.18) continue;
+                        }
                         const preferredExit = preferred.t >= 0.5 ? preferred.seg.forward : scaleVec(preferred.seg.forward, -1);
                         const candidateEntry = handoffFrom ? candidate.seg.forward : scaleVec(candidate.seg.forward, -1);
                         if (!touchesFrom && !touchesTo && dot(preferredExit, candidateEntry) < 0.72) continue;
-                        // junctionFix1: compute exitVector unconditionally so we can separate
-                        // perpendicular tunnels (dot≈0, allowed) from backward stubs (dot<-0.25,
-                        // excluded) — prevents oscillation between inbound and outbound stubs.
-                        const exitVector = normalize(handoffFrom
-                            ? { x: candidate.seg.to.x - preferredEnd.x, y: candidate.seg.to.y - preferredEnd.y, z: candidate.seg.to.z - preferredEnd.z }
-                            : { x: candidate.seg.from.x - preferredEnd.x, y: candidate.seg.from.y - preferredEnd.y, z: candidate.seg.from.z - preferredEnd.z });
-                        const thrustAlignment = thrustDir ? dot(exitVector, thrustDir) : 1;
-                        if (thrustAlignment > -0.25) {
-                            if (!touchingHandoff || candidate.dist2 < touchingHandoff.dist2) {
-                                touchingHandoff = candidate;
-                            }
+                        if (!touchingHandoff || candidate.dist2 < touchingHandoff.dist2) {
+                            touchingHandoff = candidate;
                         }
-                        // vertFix9: track best non-stub candidate for loop-peak fallback.
-                        if (!candidate.seg.branchMouth && thrustAlignment > loopFallbackAlignment) {
-                            loopFallbackAlignment = thrustAlignment;
-                            loopFallback = candidate;
-                        }
-                        if (thrustAlignment < 0.18) continue;
                         if (!directedHandoff || candidate.dist2 < directedHandoff.dist2) {
                             directedHandoff = candidate;
                         }
                     }
                     if (directedHandoff) return directedHandoff;
-                    // junctionFix1: return any physically-touching candidate at the junction even
-                    // without thrust alignment — containment in the new segment will center the ship.
-                    if (touchingHandoff) return touchingHandoff;
-                    // vertFix9: loop peak / tight U-turn — all real tunnel candidates were behind
-                    // the thrust direction.  Use the least-negative one so the ship can cross over.
-                    if (loopFallback) return loopFallback;
+                    if (touchingHandoff && touchingHandoff.dist2 < preferred.dist2) return touchingHandoff;
                     if (preferredStillUsable) return preferred;
                 }
             }
@@ -8194,11 +8137,7 @@
                 const branchRight = normalize(seg.right || builder.right);
                 const branchDown = normalize(seg.down || builder.down);
                 ctx.branchBasis = { forward: branchForward, right: branchRight, down: branchDown };
-                // vertFix7: don't blend the view to the tunnel's fixed basis outside junctions.
-                // syncViewToShip already uses buildStableBasisFromHints when shipForward is
-                // vertical — force-blending to branchBasis snaps the view on entry and
-                // disconnects controls from the ship frame while the ship is still turning.
-                ctx.blend = ctx.nearJunction ? 0.85 : 0;
+                ctx.blend = ctx.nearJunction ? 0.85 : 1.0;
                 ctx.turnSpeedMult = Math.max(ctx.turnSpeedMult, BRANCH_FLIGHT_TURN_SPEED_MULT);
             }
 
@@ -8235,24 +8174,15 @@
             if (
                 wallHit.active &&
                 priorSeg &&
-                !priorSeg.branchMouth &&
                 nearest.index !== priorSegmentIndex &&
                 tunnelSegmentsConnected(priorSeg, nearest.seg)
             ) {
-                // junctionFix2: at a multi-tunnel junction the player is intentionally
-                // transitioning — don't re-lock to the incoming segment or the ship
-                // gets caged by the old tunnel's containment axis.
-                // junctionFix3: skip when priorSeg is a branchMouth/stub — those have
-                // radial axes that would push the ship sideways past the junction.
-                const jCtx = getBranchFlightContext();
-                if (!jCtx.nearJunction) {
-                    const priorLocal = shipSegmentLocal(ship, priorSeg);
-                    const priorRadius = priorSeg.radius || builder.radius;
-                    if (priorLocal.radialDist <= priorRadius * 1.18) {
-                        seg = priorSeg;
-                        nearest.seg = priorSeg;
-                        nearest.index = priorSegmentIndex;
-                    }
+                const priorLocal = shipSegmentLocal(ship, priorSeg);
+                const priorRadius = priorSeg.radius || builder.radius;
+                if (priorLocal.radialDist <= priorRadius * 1.18) {
+                    seg = priorSeg;
+                    nearest.seg = priorSeg;
+                    nearest.index = priorSegmentIndex;
                 }
             }
             const rawSegRadius = seg.radius || builder.radius;
@@ -8309,10 +8239,8 @@
                 shipSegmentIndex = candidateSegmentIndex;
                 wallHit.lastRadius = segRadius;
                 wallHit.stuckCount = Math.max(0, wallHit.stuckCount - 1);
-                // vertFix6: use the severe threshold (>135°) here, same as the auto-leveler,
-                // so intentional barrel rolls after wall grazes don't get force-reset.
                 if (wallHit.last && performance.now() - wallHit.last < 900) {
-                    forceCockpitBasisFromNose(cockpitBasisLooksSeverelyFlipped());
+                    forceCockpitBasisFromNose(cockpitBasisLooksFlipped());
                 }
                 return;
             }
@@ -8667,15 +8595,7 @@
 
         function syncViewToShip() {
             const ctx = getBranchFlightContext();
-            // vertFix1: avoid degenerate world-up basis when nose is near-vertical.
-            // Un-roll the hints first so applyPlayerRollToBasis below rolls exactly once.
-            const worldBasis = isVerticalTunnelForward(shipForward)
-                ? buildStableBasisFromHints(
-                    shipForward,
-                    shipRollAngle ? rotateVector(shipRight, shipForward, -shipRollAngle) : shipRight,
-                    shipRollAngle ? rotateVector(shipDown,  shipForward, -shipRollAngle) : shipDown
-                )
-                : buildWorldUpBasis(shipForward, shipRight);
+            const worldBasis = buildWorldUpBasis(shipForward, shipRight);
             const basis = blendFlightBasis(worldBasis, ctx.branchBasis, ctx.blend);
             const rolled = applyPlayerRollToBasis(basis, shipRollAngle);
             viewForward = rolled.forward;
@@ -8735,15 +8655,9 @@
 
         function rotateShip(pitchAmount, yawAmount, rollAmount) {
             const ctx = getBranchFlightContext();
-            // vertFix2: also use ship axes when nose is near-vertical to avoid world-up yaw collapse
-            const segmentAxes = (ctx.active && ctx.allowVerticalPitch) || isVerticalTunnelForward(shipForward);
+            const segmentAxes = ctx.active && ctx.allowVerticalPitch;
             if (yawAmount) {
-                // vertFix8b: only invert the yaw axis (-shipDown) when the nose is genuinely
-                // vertical.  Using -shipDown for flat junctions (segmentAxes=true but horizontal)
-                // flips yaw relative to WORLD_UP because shipDown≈-WORLD_UP there, making
-                // right→left for the whole flat tunnel.  For flat segments keep original shipDown.
-                const inVertYaw = isVerticalTunnelForward(shipForward);
-                const yawAxis = inVertYaw ? scaleVec(shipDown, -1) : (segmentAxes ? shipDown : WORLD_UP);
+                const yawAxis = segmentAxes ? shipDown : WORLD_UP;
                 shipForward = rotateVector(shipForward, yawAxis, yawAmount);
                 if (segmentAxes) {
                     shipRight = rotateVector(shipRight, yawAxis, yawAmount);
@@ -15843,7 +15757,7 @@
                 // rollFix1: don't correct wall-induced drift during a deliberate barrel roll;
                 // the player intentionally rolled past 60° so leave them alone.
                 Math.abs(shipRollAngle) < Math.PI / 3;
-            // vertFix5: never auto-level when aimed into a vertical shaft — inverted is valid 6DOF there.
+            // never auto-level when aimed into a vertical shaft — inverted is valid 6DOF there.
             const inVerticalFlight = isVerticalTunnelForward(shipForward);
             // rollFix1: don't auto-level during a deliberate barrel roll (>60° accumulated roll).
             const inBarrelRoll = Math.abs(shipRollAngle) > Math.PI / 3;
