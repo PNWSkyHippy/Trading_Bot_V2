@@ -8667,16 +8667,26 @@
                 }
             }
             if (pitchAmount) {
-                // Always use shipRight as pitch axis (same as segmentAxes path).
-                // buildWorldUpBasis.right equals shipRight in level flight, but at the
-                // vertical singularity (|forward × WORLD_UP| ≈ 0) it jumps to a random
-                // fallback direction, corrupting shipDown for the next few frames and
-                // causing a persistent control flip after nose-over-tail 180°.
-                // shipRight is maintained across frames and also carries the barrel-roll
-                // angle, so pitch feels correct at any roll.
-                shipForward = rotateVector(shipForward, shipRight, pitchAmount);
+                // Use cross(forward, WORLD_UP) as pitch axis for normal flight (identical
+                // to the original behaviour). Fall back to shipRight only at the vertical
+                // singularity (|cross| < 0.1) where WORLD_UP is degenerate — this gives
+                // a smooth nose-over-tail 180° instead of a random kick sideways.
+                // Using shipRight everywhere would break barrel-roll pitch.
+                let pitchAxis;
                 if (segmentAxes) {
-                    shipDown = rotateVector(shipDown, shipRight, pitchAmount);
+                    pitchAxis = shipRight;
+                } else {
+                    const wx = shipForward.y * WORLD_UP.z - shipForward.z * WORLD_UP.y;
+                    const wy = shipForward.z * WORLD_UP.x - shipForward.x * WORLD_UP.z;
+                    const wz = shipForward.x * WORLD_UP.y - shipForward.y * WORLD_UP.x;
+                    const wlen = Math.hypot(wx, wy, wz);
+                    pitchAxis = wlen > 0.1
+                        ? { x: wx / wlen, y: wy / wlen, z: wz / wlen }
+                        : shipRight;
+                }
+                shipForward = rotateVector(shipForward, pitchAxis, pitchAmount);
+                if (segmentAxes) {
+                    shipDown = rotateVector(shipDown, pitchAxis, pitchAmount);
                 }
             }
             if (rollAmount) {
