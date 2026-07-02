@@ -8657,10 +8657,13 @@
             const ctx = getBranchFlightContext();
             const segmentAxes = ctx.active && ctx.allowVerticalPitch;
             if (yawAmount) {
-                const yawAxis = segmentAxes ? shipDown : WORLD_UP;
-                shipForward = rotateVector(shipForward, yawAxis, yawAmount);
+                // shipDown is the local yaw axis for all cases: for a +Z tunnel
+                // buildWorldUpBasis gives shipRight=-X and shipDown=-Y, so rotating
+                // forward around shipDown moves it toward -X = screen right (correct).
+                // WORLD_UP (+Y) would move forward toward +X = screen left (backwards).
+                shipForward = rotateVector(shipForward, shipDown, yawAmount);
                 if (segmentAxes) {
-                    shipRight = rotateVector(shipRight, yawAxis, yawAmount);
+                    shipRight = rotateVector(shipRight, shipDown, yawAmount);
                 }
             }
             if (pitchAmount) {
