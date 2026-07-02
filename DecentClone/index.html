@@ -8667,12 +8667,16 @@
                 }
             }
             if (pitchAmount) {
-                const pitchAxis = segmentAxes
-                    ? shipRight
-                    : buildWorldUpBasis(shipForward, shipRight).right;
-                shipForward = rotateVector(shipForward, pitchAxis, pitchAmount);
+                // Always use shipRight as pitch axis (same as segmentAxes path).
+                // buildWorldUpBasis.right equals shipRight in level flight, but at the
+                // vertical singularity (|forward × WORLD_UP| ≈ 0) it jumps to a random
+                // fallback direction, corrupting shipDown for the next few frames and
+                // causing a persistent control flip after nose-over-tail 180°.
+                // shipRight is maintained across frames and also carries the barrel-roll
+                // angle, so pitch feels correct at any roll.
+                shipForward = rotateVector(shipForward, shipRight, pitchAmount);
                 if (segmentAxes) {
-                    shipDown = rotateVector(shipDown, pitchAxis, pitchAmount);
+                    shipDown = rotateVector(shipDown, shipRight, pitchAmount);
                 }
             }
             if (rollAmount) {
