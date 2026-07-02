@@ -8738,12 +8738,12 @@
             // vertFix2: also use ship axes when nose is near-vertical to avoid world-up yaw collapse
             const segmentAxes = (ctx.active && ctx.allowVerticalPitch) || isVerticalTunnelForward(shipForward);
             if (yawAmount) {
-                // vertFix8: yaw must rotate around the ship's LOCAL UP (-shipDown), not shipDown.
-                // shipDown ≈ -WORLD_UP for a ship that pitched up from horizontal, so using
-                // shipDown as the axis inverts the yaw direction the instant the vertical
-                // threshold is crossed (left/right flip).  -shipDown is the correct 6DOF yaw
-                // axis and stays consistent with WORLD_UP-based yaw before the threshold.
-                const yawAxis = segmentAxes ? scaleVec(shipDown, -1) : WORLD_UP;
+                // vertFix8b: only invert the yaw axis (-shipDown) when the nose is genuinely
+                // vertical.  Using -shipDown for flat junctions (segmentAxes=true but horizontal)
+                // flips yaw relative to WORLD_UP because shipDown≈-WORLD_UP there, making
+                // right→left for the whole flat tunnel.  For flat segments keep original shipDown.
+                const inVertYaw = isVerticalTunnelForward(shipForward);
+                const yawAxis = inVertYaw ? scaleVec(shipDown, -1) : (segmentAxes ? shipDown : WORLD_UP);
                 shipForward = rotateVector(shipForward, yawAxis, yawAmount);
                 if (segmentAxes) {
                     shipRight = rotateVector(shipRight, yawAxis, yawAmount);
