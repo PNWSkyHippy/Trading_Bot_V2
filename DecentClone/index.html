@@ -8657,13 +8657,17 @@
             const ctx = getBranchFlightContext();
             const segmentAxes = ctx.active && ctx.allowVerticalPitch;
             if (yawAmount) {
-                // shipDown is the local yaw axis for all cases: for a +Z tunnel
-                // buildWorldUpBasis gives shipRight=-X and shipDown=-Y, so rotating
-                // forward around shipDown moves it toward -X = screen right (correct).
-                // WORLD_UP (+Y) would move forward toward +X = screen left (backwards).
-                shipForward = rotateVector(shipForward, shipDown, yawAmount);
+                // Use the world-aligned down axis (buildWorldUpBasis.down) for flat-tunnel yaw
+                // so the yaw axis stays in the same reference frame as the pitch axis
+                // (buildWorldUpBasis.right) and doesn't tilt with ship roll. This keeps yaw
+                // and pitch consistent at any roll angle and avoids cross-coupling during barrel
+                // rolls. For branch / vertical segments, keep using shipDown (body-space).
+                // At the vertical singularity buildWorldUpBasis falls back via the shipRight
+                // hint, so this is safe when forward ≈ WORLD_UP.
+                const yawAxis = segmentAxes ? shipDown : buildWorldUpBasis(shipForward, shipRight).down;
+                shipForward = rotateVector(shipForward, yawAxis, yawAmount);
                 if (segmentAxes) {
-                    shipRight = rotateVector(shipRight, shipDown, yawAmount);
+                    shipRight = rotateVector(shipRight, yawAxis, yawAmount);
                 }
             }
             if (pitchAmount) {
