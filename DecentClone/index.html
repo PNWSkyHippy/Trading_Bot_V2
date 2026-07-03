@@ -8790,8 +8790,23 @@
                 if (shipRollAngle > Math.PI) shipRollAngle -= Math.PI * 2;
                 if (shipRollAngle < -Math.PI) shipRollAngle += Math.PI * 2;
             }
+            const _preRepairRight = { x: shipRight.x, y: shipRight.y, z: shipRight.z };
+            const _preRepairDown = { x: shipDown.x, y: shipDown.y, z: shipDown.z };
             repairBasis({ branchContext: ctx });
             syncViewToShip();
+            if (isVerticalTunnelForward(shipForward)) {
+                const _rAgree = dot(shipRight, _preRepairRight);
+                const _dAgree = dot(shipDown, _preRepairDown);
+                if (_rAgree < 0.5 || _dAgree < 0.5) {
+                    console.warn('[POLE-DEBUG] basis jump segmentAxes=' + segmentAxes +
+                        ' ctx.active=' + ctx.active + ' allowVerticalPitch=' + ctx.allowVerticalPitch +
+                        ' verticalSegment=' + ctx.verticalSegment + ' nearJunction=' + ctx.nearJunction +
+                        ' rAgree=' + _rAgree.toFixed(3) + ' dAgree=' + _dAgree.toFixed(3) +
+                        ' fwd=(' + shipForward.x.toFixed(2) + ',' + shipForward.y.toFixed(2) + ',' + shipForward.z.toFixed(2) + ')' +
+                        ' preR=(' + _preRepairRight.x.toFixed(2) + ',' + _preRepairRight.y.toFixed(2) + ',' + _preRepairRight.z.toFixed(2) + ')' +
+                        ' postR=(' + shipRight.x.toFixed(2) + ',' + shipRight.y.toFixed(2) + ',' + shipRight.z.toFixed(2) + ')');
+                }
+            }
 
             // Telemetry only; the actual camera uses the cockpit basis above.
             pitch += pitchAmount;
