@@ -8260,11 +8260,14 @@
                 shipSegmentIndex = candidateSegmentIndex;
                 wallHit.lastRadius = segRadius;
                 wallHit.stuckCount = Math.max(0, wallHit.stuckCount - 1);
-                if (wallHit.last && performance.now() - wallHit.last < 900) {
+                const wallBasisNow = performance.now();
+                const canResetWallBasis = wallBasisNow >= (wallHit.cockpitResetCooldownUntil || 0);
+                if (wallHit.last && wallBasisNow - wallHit.last < 900 && canResetWallBasis) {
                     const _flipped = cockpitBasisLooksFlipped();
                     if (shipRollAngle) console.warn('[WALL-BASIS] containShipInTunnel forceBasis roll=' +
                         (shipRollAngle * 180 / Math.PI).toFixed(1) + '° flipped=' + _flipped);
                     forceCockpitBasisFromNose(_flipped);
+                    wallHit.cockpitResetCooldownUntil = wallBasisNow + 900;
                 }
                 return;
             }
