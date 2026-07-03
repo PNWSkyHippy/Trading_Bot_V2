@@ -8041,7 +8041,22 @@
         function blendFlightBasis(worldBasis, branchBasis, blend) {
             const b = Math.max(0, Math.min(1, blend));
             if (b <= 0.001 || !branchBasis) return worldBasis;
-            const alignedBranchBasis = keepBasisSameHemisphere(branchBasis, worldBasis, true);
+            // A corridor can legitimately be flown against its authored direction (half of any
+            // closed loop is). Blending the ship's forward with the corridor's OPPOSITE forward
+            // makes the vectors cancel and, past 50% weight, reverses the view outright — the
+            // "keeps flipping my direction at the steep spot" trap: the flipped view reverses
+            // the player's forward input, which un-flips the blend, which flips it again.
+            // Reverse the corridor frame (180 deg yaw: forward and right negate, down kept) to
+            // match the ship's travel direction before blending; keepBasisSameHemisphere below
+            // then settles right/down to the nearest hemisphere as before.
+            const branchTravel = dot(branchBasis.forward, worldBasis.forward) < 0
+                ? {
+                    forward: scaleVec(branchBasis.forward, -1),
+                    right: scaleVec(branchBasis.right, -1),
+                    down: branchBasis.down
+                }
+                : branchBasis;
+            const alignedBranchBasis = keepBasisSameHemisphere(branchTravel, worldBasis, true);
             return normalizedBasis(
                 normalize(addVec(scaleVec(worldBasis.forward, 1 - b), scaleVec(alignedBranchBasis.forward, b))),
                 addVec(scaleVec(worldBasis.right, 1 - b), scaleVec(alignedBranchBasis.right, b)),
@@ -8318,7 +8333,7 @@
                 const canResetWallBasis = wallBasisNow >= (wallHit.cockpitResetCooldownUntil || 0);
                 if (wallHit.last && wallBasisNow - wallHit.last < 900 && canResetWallBasis) {
                     const _flipped = cockpitBasisLooksFlipped();
-                    if (shipRollAngle) console.warn('[WALL-BASIS] containShipInTunnel forceBasis roll=' +
+                    console.warn('[WALL-BASIS] containShipInTunnel forceBasis roll=' +
                         (shipRollAngle * 180 / Math.PI).toFixed(1) + '° flipped=' + _flipped);
                     forceCockpitBasisFromNose(_flipped);
                     wallHit.cockpitResetCooldownUntil = wallBasisNow + 900;
@@ -8330,6 +8345,13 @@
             if (local.radialDist > segRadiusHard * 0.98 || wallHit.stuckCount >= 4) {
                 const escapeNormal = radialContainmentNormal(ship, seg, local);
                 const inset = Math.max(8, radius * 0.28);
+                console.warn('[CONTAIN-ESCAPE] seg=' + candidateSegmentIndex +
+                    ' prior=' + priorSegmentIndex +
+                    ' dist=' + local.radialDist.toFixed(1) + '/' + segRadiusHard.toFixed(1) +
+                    ' z=' + local.localZ.toFixed(1) + '/' + local.length.toFixed(1) +
+                    ' stuck=' + wallHit.stuckCount +
+                    ' fwdDotAxis=' + dot(shipForward, local.forward).toFixed(2) +
+                    ' vert=' + (branchCtx.verticalSegment ? 1 : 0));
                 posX = local.onAxis.x + escapeNormal.x * inset;
                 posY = local.onAxis.y + escapeNormal.y * inset;
                 posZ = local.onAxis.z + escapeNormal.z * inset;
@@ -8352,6 +8374,20 @@
             posX = corrected.x;
             posY = corrected.y;
             posZ = corrected.z;
+            // Telemetry: a sustained streak of per-frame corrections means containment is
+            // fighting the player's motion (the stuck/ping-pong report), not a passing scrape.
+            const pushNow = performance.now();
+            wallHit.pushStreak = (pushNow - (wallHit.last || 0) < 150) ? (wallHit.pushStreak || 0) + 1 : 1;
+            if (wallHit.pushStreak === 45 || wallHit.pushStreak % 180 === 0) {
+                console.warn('[CONTAIN-PUSH] streak=' + wallHit.pushStreak +
+                    ' seg=' + candidateSegmentIndex + ' prior=' + priorSegmentIndex +
+                    ' push=' + push.toFixed(1) + ' dist=' + dist.toFixed(1) + '/' + radius.toFixed(1) +
+                    ' z=' + local.localZ.toFixed(1) + '/' + local.length.toFixed(1) +
+                    ' fwdDotAxis=' + dot(shipForward, local.forward).toFixed(2) +
+                    ' normDotFwd=' + dot(normal, shipForward).toFixed(2) +
+                    ' vert=' + (branchCtx.verticalSegment ? 1 : 0) +
+                    ' relax=' + branchCtx.containRelax.toFixed(2));
+            }
 
             shipSegmentIndex = priorSegmentIndex ?? candidateSegmentIndex;
             wallHit.stuckCount = Math.max(0, wallHit.stuckCount - 1);
