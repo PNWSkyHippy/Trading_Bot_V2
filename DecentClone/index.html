@@ -4483,24 +4483,37 @@
         function forceCockpitBasisFromNose(resetRoll = false) {
             if (resetRoll) shipRollAngle = 0;
             const ctx = getBranchFlightContext();
-            // shipRight/shipDown are the already-rolled vectors from last frame. Unroll them by
-            // -shipRollAngle before using as hints, since applyPlayerRollToBasis below re-applies
-            // the full roll — otherwise roll compounds every time this fires (e.g. repeatedly while
-            // scraping a tunnel wall), causing runaway spin and inverted controls (same root cause
-            // as the branch/tunnel repairBasis fix in 42ca99a23).
-            const unrolledHint = resetRoll
-                ? { right: shipRight, down: shipDown }
-                : applyPlayerRollToBasis(
+            const inVertical = (ctx.active && ctx.allowVerticalPitch) || isVerticalTunnelForward(shipForward);
+            let base;
+            if (resetRoll) {
+                // resetRoll means the caller detected the current basis is corrupted/flipped —
+                // buildStableBasisFromHints just projects a hint orthogonal to forward and keeps
+                // its sign, so reusing the already-flipped shipRight/shipDown as a hint here would
+                // reconstruct the same flipped basis every time, making the "reset" a no-op that
+                // never actually un-flips (this is why [WALL-BASIS] kept firing flipped=true).
+                // Rebuild from a reference that's independent of the ship's current orientation:
+                // the branch/segment basis if available, else a fixed neutral world-up hint.
+                base = inVertical && ctx.branchBasis
+                    ? ctx.branchBasis
+                    : buildWorldUpBasis(shipForward, { x: 0, y: 0, z: 1 });
+            } else {
+                // shipRight/shipDown are the already-rolled vectors from last frame. Unroll them by
+                // -shipRollAngle before using as hints, since applyPlayerRollToBasis below re-applies
+                // the full roll — otherwise roll compounds every time this fires (e.g. repeatedly while
+                // scraping a tunnel wall), causing runaway spin and inverted controls (same root cause
+                // as the branch/tunnel repairBasis fix in 42ca99a23).
+                const unrolledHint = applyPlayerRollToBasis(
                     { forward: shipForward, right: shipRight, down: shipDown },
                     -shipRollAngle
                 );
-            const base = (ctx.active && ctx.allowVerticalPitch) || isVerticalTunnelForward(shipForward)
-                ? buildStableBasisFromHints(
-                    shipForward,
-                    unrolledHint.right || ctx.branchBasis?.right,
-                    unrolledHint.down || ctx.branchBasis?.down
-                )
-                : buildWorldUpBasis(shipForward, unrolledHint.right);
+                base = inVertical
+                    ? buildStableBasisFromHints(
+                        shipForward,
+                        unrolledHint.right || ctx.branchBasis?.right,
+                        unrolledHint.down || ctx.branchBasis?.down
+                    )
+                    : buildWorldUpBasis(shipForward, unrolledHint.right);
+            }
             const basis = applyPlayerRollToBasis(base, shipRollAngle);
             shipForward = basis.forward;
             shipRight = basis.right;
@@ -4508,15 +4521,27 @@
             syncViewToShip();
         }
 
+        function cockpitFlipReferenceBasis() {
+            // Inside a branch/vertical corridor the branch-relative basis is *supposed* to
+            // disagree with world-up (same rationale as the AUTO-LEVEL guard below) — comparing
+            // against buildWorldUpBasis there is a permanent false positive, which made the
+            // wall-hit reset loop forever with flipped=true and never actually settle.
+            const ctx = getBranchFlightContext();
+            if (ctx.active && ctx.allowVerticalPitch && ctx.branchBasis) {
+                return ctx.branchBasis;
+            }
+            return buildWorldUpBasis(shipForward, shipRight);
+        }
+
         function cockpitBasisLooksFlipped() {
-            const levelBasis = buildWorldUpBasis(shipForward, shipRight);
+            const levelBasis = cockpitFlipReferenceBasis();
             const rightAgreement = dot(shipRight, levelBasis.right);
             const downAgreement = dot(shipDown, levelBasis.down);
             return rightAgreement < -0.25 || downAgreement < -0.25;
         }
 
         function cockpitBasisLooksSeverelyFlipped() {
-            const levelBasis = buildWorldUpBasis(shipForward, shipRight);
+            const levelBasis = cockpitFlipReferenceBasis();
             const rightAgreement = dot(shipRight, levelBasis.right);
             const downAgreement = dot(shipDown, levelBasis.down);
             return rightAgreement < -0.72 || downAgreement < -0.72;
