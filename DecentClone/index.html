@@ -4364,32 +4364,35 @@
             // Descent-like needs orientation to be body-continuous, with AUTO-LEVEL (guarded,
             // in the input loop) as the only thing that re-anchors to the horizon.
             //
-            // shipRight/shipDown already have last frame's roll baked in, but shipRollAngle
-            // is the TOTAL accumulated roll, not a per-frame delta. Feeding the already-rolled
-            // vector in as the hint and then re-applying the full roll on top compounds the
-            // roll every single frame, causing runaway spin in tunnels. Unroll the hint first
-            // so the roll is applied exactly once per frame, not accumulated.
-            const unrolledRight = shipRollAngle && shipRight
-                ? rotateVector(shipRight, shipForward, -shipRollAngle)
-                : shipRight;
-            const unrolledDown = shipRollAngle && shipDown
-                ? rotateVector(shipDown, shipForward, -shipRollAngle)
-                : shipDown;
+            // ROLL CONVENTION: the stored shipRight/shipDown are the UNROLLED attitude — roll
+            // lives only in shipRollAngle and is applied by consumers (syncViewToShip,
+            // rolledShipBasis for thrust axes, rotateShip's body-axis derivation). The previous
+            // convention (roll baked into the stored vectors, unrolled/re-rolled here every
+            // frame) silently froze roll: unrolling by the NEW total angle while the vectors
+            // carried the OLD total counter-rotated the base by the per-frame delta, so
+            // shipRollAngle grew but the visible roll never accumulated — barrel roll tilted
+            // ~5 deg (one frame of input lag) and snapped back. With unrolled storage this
+            // repair is a pure orthonormalization, no roll bookkeeping at all.
             const basis = buildStableBasisFromHints(
                 shipForward,
-                unrolledRight || ctx.branchBasis?.right || builder.right,
-                unrolledDown || ctx.branchBasis?.down || builder.down
+                shipRight || ctx.branchBasis?.right || builder.right,
+                shipDown || ctx.branchBasis?.down || builder.down
             );
             shipForward = basis.forward;
             shipRight = basis.right;
             shipDown = basis.down;
-            if (shipRollAngle) {
-                shipRight = rotateVector(shipRight, shipForward, shipRollAngle);
-                shipDown = rotateVector(shipDown, shipForward, shipRollAngle);
-            }
-            // No keepBasisSameHemisphere here: at large roll angles the rolled right vector
-            // naturally crosses hemispheres relative to the previous frame, and the check was
-            // corrupting shipRight permanently instead of catching a real singularity flip.
+            // No keepBasisSameHemisphere here: it was corrupting shipRight permanently instead
+            // of catching a real singularity flip.
+        }
+
+        // Body axes with the player's roll applied — what the pilot physically experiences.
+        // Use for thrust/strafe directions, snap views, and steering intent; the stored
+        // shipRight/shipDown are the unrolled attitude (see repairBasis).
+        function rolledShipBasis() {
+            return applyPlayerRollToBasis(
+                { forward: shipForward, right: shipRight, down: shipDown },
+                shipRollAngle
+            );
         }
 
         function repairBuilderBasis() {
@@ -4492,27 +4495,19 @@
                     ? buildStableBasisFromHints(shipForward, ctx.branchBasis.right, ctx.branchBasis.down)
                     : buildWorldUpBasis(shipForward, { x: 0, y: 0, z: 1 });
             } else {
-                // shipRight/shipDown are the already-rolled vectors from last frame. Unroll them by
-                // -shipRollAngle before using as hints, since applyPlayerRollToBasis below re-applies
-                // the full roll — otherwise roll compounds every time this fires (e.g. repeatedly while
-                // scraping a tunnel wall), causing runaway spin and inverted controls (same root cause
-                // as the branch/tunnel repairBasis fix in 42ca99a23).
-                const unrolledHint = applyPlayerRollToBasis(
-                    { forward: shipForward, right: shipRight, down: shipDown },
-                    -shipRollAngle
+                // The stored shipRight/shipDown are the unrolled attitude (see repairBasis),
+                // so they can be used as hints directly — no roll bookkeeping needed here.
+                base = buildStableBasisFromHints(
+                    shipForward,
+                    shipRight || ctx.branchBasis?.right,
+                    shipDown || ctx.branchBasis?.down
                 );
-                base = inVertical
-                    ? buildStableBasisFromHints(
-                        shipForward,
-                        unrolledHint.right || ctx.branchBasis?.right,
-                        unrolledHint.down || ctx.branchBasis?.down
-                    )
-                    : buildWorldUpBasis(shipForward, unrolledHint.right);
             }
-            const basis = applyPlayerRollToBasis(base, shipRollAngle);
-            shipForward = basis.forward;
-            shipRight = basis.right;
-            shipDown = basis.down;
+            // Assign the unrolled base directly: roll lives in shipRollAngle and is applied by
+            // consumers (syncViewToShip below, rolledShipBasis), never baked into storage.
+            shipForward = base.forward;
+            shipRight = base.right;
+            shipDown = base.down;
             syncViewToShip();
         }
 
@@ -4535,17 +4530,9 @@
         }
 
         function unrolledShipRightDown() {
-            // shipRight/shipDown carry the player's intentional roll baked in. A legitimate
-            // large roll (e.g. lining up with a branch while backing out of a junction) can
-            // exceed 90-100 degrees, which by itself makes the rolled vectors disagree strongly
-            // with any unrolled reference basis — that's not a corrupted basis, just roll. Unroll
-            // before comparing so the flip check reflects genuine basis corruption, not roll.
-            if (!shipRollAngle) return { right: shipRight, down: shipDown };
-            const unrolled = applyPlayerRollToBasis(
-                { forward: shipForward, right: shipRight, down: shipDown },
-                -shipRollAngle
-            );
-            return { right: unrolled.right, down: unrolled.down };
+            // The stored shipRight/shipDown ARE the unrolled attitude now (see repairBasis) —
+            // roll lives only in shipRollAngle. Kept as a named accessor for the detectors.
+            return { right: shipRight, down: shipDown };
         }
 
         function cockpitBasisLooksFlipped() {
@@ -8153,6 +8140,9 @@
                 const endpoint = nearest.t < 0.5 ? seg.from : seg.to;
                 const junctionBranches = collectJunctionBranches(endpoint, radius, seg);
                 if (junctionBranches.length > 1) {
+                    // Steering intent comes from body-relative input (screen right), so match
+                    // it against the rolled body right, not the stored unrolled attitude.
+                    const bodyRight = rolledShipBasis().right;
                     const noseUpBlend = Math.max(0, intentPitch);
                     const noseUpDir = normalize(addVec(
                         scaleVec(shipForward, 0.55),
@@ -8163,7 +8153,7 @@
                         thrustMag > 0.04
                             ? scaleVec(lastThrustVector, 0.42 / thrustMag)
                             : { x: 0, y: 0, z: 0 },
-                        scaleVec(shipRight, (intentYaw + strafeIntent) * 0.38),
+                        scaleVec(bodyRight, (intentYaw + strafeIntent) * 0.38),
                         scaleVec(WORLD_UP, noseUpBlend * 0.34)
                     ));
                     let bestBranch = null;
@@ -8190,7 +8180,7 @@
                             const horizIntent = strafeIntent + intentYaw * 0.85;
                             if (Math.abs(horizIntent) > 0.06) {
                                 const wantRight = horizIntent > 0;
-                                const branchRight = dot(branchFlat, shipRight) > 0.05;
+                                const branchRight = dot(branchFlat, bodyRight) > 0.05;
                                 if (wantRight === branchRight) score += BRANCH_FLIGHT_HORIZ_STEER_BOOST;
                             }
                             score += Math.abs(dot(steerFlat, branchFlat)) * 0.14;
@@ -8691,36 +8681,12 @@
 
         function syncViewToShip() {
             const ctx = getBranchFlightContext();
-            // buildWorldUpBasis's right vector is cross(forward, WORLD_UP), which genuinely
-            // reverses sign as forward sweeps through the pole — this ran unconditionally every
-            // frame regardless of the repairBasis/cockpitFlipReferenceBasis vertical-awareness
-            // fixes, so the camera (and therefore felt controls) still flipped mid-pitch even
-            // after shipRight/shipDown themselves became continuous. Use the already-continuous
-            // ship basis directly when near vertical instead of rebuilding via WORLD_UP.
-            // shipRight/shipDown already carry shipRollAngle baked in, and roll gets applied
-            // again below — buildStableBasisFromHints preserves the hint's direction (unlike
-            // buildWorldUpBasis, which rebuilds from WORLD_UP and ignores roll in the hint), so
-            // feeding the rolled vectors here doubled the roll in the view basis whenever the
-            // nose was near vertical. At ~90 deg of barrel roll the camera was off by an extra
-            // 90 deg; at 180 deg the steering read fully reversed until auto-level or a wall
-            // reset wound shipRollAngle back down. Unroll the hints first, same as repairBasis
-            // and forceCockpitBasisFromNose. (Previously masked by the flip-detector false
-            // positive that kept force-resetting shipRollAngle to 0 near junctions.)
             // Fully continuous 6DOF (matches repairBasis): never rebuild the view basis from
             // WORLD_UP. buildWorldUpBasis's right flips sign when forward crosses the vertical
             // pole, so the camera snapped to the mirrored convention after a 180 deg nose-over
-            // even once the ship basis itself was continuous.
-            let hintRight = shipRight;
-            let hintDown = shipDown;
-            if (shipRollAngle) {
-                const unrolled = applyPlayerRollToBasis(
-                    { forward: shipForward, right: shipRight, down: shipDown },
-                    -shipRollAngle
-                );
-                hintRight = unrolled.right;
-                hintDown = unrolled.down;
-            }
-            const worldBasis = buildStableBasisFromHints(shipForward, hintRight, hintDown);
+            // even once the ship basis itself was continuous. The stored shipRight/shipDown are
+            // the unrolled attitude (see repairBasis) — roll is applied exactly once, below.
+            const worldBasis = buildStableBasisFromHints(shipForward, shipRight, shipDown);
             const basis = blendFlightBasis(worldBasis, ctx.branchBasis, ctx.blend);
             const rolled = applyPlayerRollToBasis(basis, shipRollAngle);
             viewForward = rolled.forward;
@@ -8736,43 +8702,50 @@
         }
 
         function setSnapView(mode) {
+            // Snap views are relative to the pilot's BODY frame (rolled), not the stored
+            // unrolled attitude — looking "left" while rolled 90 deg should look along the
+            // rolled wing.
+            const body = rolledShipBasis();
             if (mode === 'front') {
                 syncViewToShip();
             } else if (mode === 'left') {
                 setViewBasis(
-                    { x: -shipRight.x, y: -shipRight.y, z: -shipRight.z },
-                    { ...shipForward },
-                    { ...shipDown }
+                    { x: -body.right.x, y: -body.right.y, z: -body.right.z },
+                    { ...body.forward },
+                    { ...body.down }
                 );
             } else if (mode === 'right') {
                 setViewBasis(
-                    { ...shipRight },
-                    { x: -shipForward.x, y: -shipForward.y, z: -shipForward.z },
-                    { ...shipDown }
+                    { ...body.right },
+                    { x: -body.forward.x, y: -body.forward.y, z: -body.forward.z },
+                    { ...body.down }
                 );
             } else if (mode === 'rear') {
                 setViewBasis(
-                    { x: -shipForward.x, y: -shipForward.y, z: -shipForward.z },
-                    { x: -shipRight.x, y: -shipRight.y, z: -shipRight.z },
-                    { ...shipDown }
+                    { x: -body.forward.x, y: -body.forward.y, z: -body.forward.z },
+                    { x: -body.right.x, y: -body.right.y, z: -body.right.z },
+                    { ...body.down }
                 );
             } else if (mode === 'up') {
                 setViewBasis(
-                    { x: -shipDown.x, y: -shipDown.y, z: -shipDown.z },
-                    { ...shipRight },
-                    { ...shipForward }
+                    { x: -body.down.x, y: -body.down.y, z: -body.down.z },
+                    { ...body.right },
+                    { ...body.forward }
                 );
             } else if (mode === 'down') {
                 setViewBasis(
-                    { ...shipDown },
-                    { ...shipRight },
-                    { x: -shipForward.x, y: -shipForward.y, z: -shipForward.z }
+                    { ...body.down },
+                    { ...body.right },
+                    { x: -body.forward.x, y: -body.forward.y, z: -body.forward.z }
                 );
             }
         }
 
         function repairViewBasis() {
-            const basis = buildWorldUpBasis(viewForward, viewRight);
+            // Pure orthonormalization, preserving the requested orientation. Rebuilding from
+            // WORLD_UP here re-leveled snap views, wiping the roll/inversion component out of
+            // body-relative side/rear/up/down views.
+            const basis = buildStableBasisFromHints(viewForward, viewRight, viewDown);
             viewForward = basis.forward;
             viewRight = basis.right;
             viewDown = basis.down;
@@ -8786,19 +8759,23 @@
             // now that repairBasis is hint-continuous everywhere, the stale vectors would
             // become the hints, so keep the full frame rigid through every rotation.
             const segmentAxes = (ctx.active && ctx.allowVerticalPitch) || isVerticalTunnelForward(shipForward);
+            // Rotate around the BODY (rolled) axes so pressing right always turns right on
+            // screen at any roll angle — no cross-coupling during barrel rolls. The stored
+            // frame is the unrolled attitude (see repairBasis), so derive the body axes by
+            // applying shipRollAngle, rotate the whole stored frame rigidly around them, and
+            // the roll stays factored out of storage.
+            const body = rolledShipBasis();
             if (yawAmount) {
-                // Full body-space yaw: rotate around shipDown (the ship's local down axis).
-                // This keeps yaw matched to the camera at all roll angles so pressing right
-                // always turns right on screen — no cross-coupling during barrel rolls.
-                // repairBasis guarantees shipDown is always perpendicular to shipForward.
-                shipForward = rotateVector(shipForward, shipDown, yawAmount);
-                shipRight = rotateVector(shipRight, shipDown, yawAmount);
+                shipForward = rotateVector(shipForward, body.down, yawAmount);
+                shipRight = rotateVector(shipRight, body.down, yawAmount);
+                shipDown = rotateVector(shipDown, body.down, yawAmount);
             }
             if (pitchAmount) {
-                // Full body-space pitch: rotate around shipRight (the ship's local right axis).
-                // Consistent with body-space yaw so controls never cross-couple during roll.
-                shipForward = rotateVector(shipForward, shipRight, pitchAmount);
-                shipDown = rotateVector(shipDown, shipRight, pitchAmount);
+                // body.right may have moved if yaw also fired this frame, but per-frame input
+                // angles are small; repairBasis re-orthonormalizes below.
+                shipForward = rotateVector(shipForward, body.right, pitchAmount);
+                shipRight = rotateVector(shipRight, body.right, pitchAmount);
+                shipDown = rotateVector(shipDown, body.right, pitchAmount);
             }
             if (rollAmount) {
                 shipRollAngle += rollAmount;
@@ -8849,7 +8826,10 @@
         }
 
         function localToWorld(x, y, z) {
-            return basisLocalToWorld(shipRight, shipDown, shipForward, x, y, z);
+            // Thrust/strafe must follow the BODY (rolled) axes — the stored ship vectors are
+            // the unrolled attitude (see repairBasis).
+            const body = rolledShipBasis();
+            return basisLocalToWorld(body.right, body.down, body.forward, x, y, z);
         }
 
         function viewLocalToWorld(x, y, z) {
