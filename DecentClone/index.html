@@ -8688,7 +8688,15 @@
 
         function syncViewToShip() {
             const ctx = getBranchFlightContext();
-            const worldBasis = buildWorldUpBasis(shipForward, shipRight);
+            // buildWorldUpBasis's right vector is cross(forward, WORLD_UP), which genuinely
+            // reverses sign as forward sweeps through the pole — this ran unconditionally every
+            // frame regardless of the repairBasis/cockpitFlipReferenceBasis vertical-awareness
+            // fixes, so the camera (and therefore felt controls) still flipped mid-pitch even
+            // after shipRight/shipDown themselves became continuous. Use the already-continuous
+            // ship basis directly when near vertical instead of rebuilding via WORLD_UP.
+            const worldBasis = isVerticalTunnelForward(shipForward)
+                ? buildStableBasisFromHints(shipForward, shipRight, shipDown)
+                : buildWorldUpBasis(shipForward, shipRight);
             const basis = blendFlightBasis(worldBasis, ctx.branchBasis, ctx.blend);
             const rolled = applyPlayerRollToBasis(basis, shipRollAngle);
             viewForward = rolled.forward;
