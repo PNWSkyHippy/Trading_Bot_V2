@@ -156,34 +156,17 @@ def _is_breakout_trade(trade: dict) -> bool:
 
 
 def _stock_market_open() -> bool:
-    try:
-        from zoneinfo import ZoneInfo
-    except ImportError:
-        from backports.zoneinfo import ZoneInfo
+    from core.market_calendar import is_us_equity_regular_session_now
 
-    now_et  = datetime.now(ZoneInfo("America/New_York"))
-    weekday = now_et.weekday()
-    hour    = now_et.hour
-    minute  = now_et.minute
-
-    if weekday > 4:
-        return False
-
-    after_open   = hour > 9 or (hour == 9 and minute >= 30)
-    before_close = hour < 16
-    return after_open and before_close
+    return is_us_equity_regular_session_now()
 
 
 def _approaching_eod() -> bool:
     """Returns True if it's time to close all stock positions (15:45 ET)."""
-    try:
-        from zoneinfo import ZoneInfo
-    except ImportError:
-        from backports.zoneinfo import ZoneInfo
+    from core.market_calendar import EASTERN, is_us_equity_market_holiday
 
-    now_et  = datetime.now(ZoneInfo("America/New_York"))
-    weekday = now_et.weekday()
-    if weekday > 4:
+    now_et = datetime.now(EASTERN)
+    if now_et.weekday() > 4 or is_us_equity_market_holiday(now_et.date()):
         return False
 
     at_or_after = (

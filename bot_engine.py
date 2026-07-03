@@ -157,23 +157,14 @@ def setup_logging(verbose: bool) -> logging.Logger:
 
 
 def _is_market_open() -> bool:
-    try:
-        from zoneinfo import ZoneInfo
-    except ImportError:
-        from backports.zoneinfo import ZoneInfo
+    from core.market_calendar import is_us_equity_regular_session_now
 
-    now_et  = datetime.now(ZoneInfo("America/New_York"))
-    weekday = now_et.weekday()
-    hour    = now_et.hour
-    minute  = now_et.minute
-
-    if weekday > 4:
-        return False
-
-    after_open  = hour > 10 or (hour == 10 and minute >= 0)
-    before_close= hour < 15 or (hour == 15 and minute < 45)
-
-    return after_open and before_close
+    return is_us_equity_regular_session_now(
+        open_hour=10,
+        open_minute=0,
+        close_hour=15,
+        close_minute=45,
+    )
 
 
 def _et_now_str() -> str:

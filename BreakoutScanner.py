@@ -718,6 +718,11 @@ class ConfigManager:
         if now.strftime("%A") not in self.config.get("run_days", []):
             return False
         if asset_type == AssetType.STOCK:
+            from core.market_calendar import EASTERN, is_us_equity_market_holiday
+
+            now_et = now.astimezone(EASTERN) if now.tzinfo else datetime.now(EASTERN)
+            if is_us_equity_market_holiday(now_et.date()):
+                return False
             oh, om = map(int, self.config.get("stock_market_open",  "06:30").split(":"))
             ch, cm = map(int, self.config.get("stock_market_close", "13:00").split(":"))
             return dt_time(oh, om) <= now.time() <= dt_time(ch, cm)

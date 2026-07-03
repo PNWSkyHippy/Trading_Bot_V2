@@ -56,20 +56,14 @@ logger = logging.getLogger(__name__)
 
 def _stock_entries_allowed_now() -> bool:
     """Stocks may open during regular hours, but not after the EOD close window."""
-    now_et = datetime.now(ZoneInfo("America/New_York"))
+    from core.market_calendar import is_us_equity_regular_session_now
 
-    if now_et.weekday() > 4:
-        return False
-
-    after_open = (
-        now_et.hour > 9 or
-        (now_et.hour == 9 and now_et.minute >= 30)
+    return is_us_equity_regular_session_now(
+        open_hour=9,
+        open_minute=30,
+        close_hour=15,
+        close_minute=45,
     )
-    before_eod_close = (
-        now_et.hour < 15 or
-        (now_et.hour == 15 and now_et.minute < 45)
-    )
-    return after_open and before_eod_close
 
 
 class AlpacaExecutor:
