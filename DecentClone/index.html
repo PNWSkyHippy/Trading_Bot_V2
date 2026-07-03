@@ -1720,15 +1720,7 @@
             if (Math.hypot(right.x, right.y, right.z) < 0.001) {
                 right = buildWorldUpBasis(f, shipRight).right;
             }
-            let down = normalize(cross(f, right));
-            // cross(f, right) has no memory of which hemisphere "down" belongs in — if a
-            // large single-frame rotation leaves right's projection valid but on the side
-            // that makes cross(f,right) land opposite of the continuously-tracked downHint,
-            // this silently flips "down" 180 deg while "right" looks perfectly stable.
-            if (downHint && dot(down, downHint) < 0) {
-                right = { x: -right.x, y: -right.y, z: -right.z };
-                down = { x: -down.x, y: -down.y, z: -down.z };
-            }
+            const down = normalize(cross(f, right));
             return { forward: f, right, down };
         }
 
