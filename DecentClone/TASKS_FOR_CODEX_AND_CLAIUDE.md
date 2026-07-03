@@ -5,30 +5,33 @@ flight/render path and keep map saves backward-compatible.
 
 ## Highest Priority Bugs
 
-### 1. Straight Up / Straight Down Tunnel Flight Control
+### 1. Multi-Outlet Junction Entrances
 
-Vertical tunnel runs are now easy to build with the 3D tool, but flying into
-straight-up or straight-down tunnels quickly breaks control orientation:
+Auto-connect now creates a good branch from an existing tunnel to a new tunnel,
+but a larger intersection still appears to expose only one usable entrance
+direction instead of all valid outlets.
 
-- Pitch/yaw/strafe directions feel reversed or crossed.
-- Ship can lose useful forward/up reference and becomes hard to steer.
-- Fix likely belongs in tunnel-frame/orientation math, not in builder geometry.
-- Goal: full 6DOF flight must remain stable through vertical shafts, loops, and
-  sharp 3D changes without camera/ship axes flipping.
+- Test case: build a 6-way intersection with forward/back/left/right/up/down
+  outlets, then add another branch into the same junction.
+- Current risk: the new branch is enterable from the direction it was created
+  from, but not necessarily from every other outlet at that junction.
+- Goal: junction generation should create all appropriate branch openings and
+  collision/entry links for every connected outlet.
+- Alternate acceptable fix: loosen side-passage entry rules so the player does
+  not have to steer exactly through a narrow orange directional portal to enter
+  a valid connected passage.
 
-### 2. Branch / Auto-Connect Junctions Are Not Reliably Enterable
+### 2. Straight Up / Straight Down Tunnel Flight Control Polish
 
-Auto-connect often creates geometry that visually touches a tunnel but does not
-produce a clean flyable entrance:
+Claude fixed the major 6DOF reversal problem. The ship no longer reverses
+controls when nosing over 180 degrees, barrel rolling, vertical climbing, or
+cresting 360-degree loops.
 
-- Branch line may pass through the existing tunnel and end outside it.
-- Auto-connect from outside into an existing tunnel can cut a big notch.
-- Starting from the tunnel outward looks cleaner but still may not create an
-  enterable opening.
-- Goal: click an existing tunnel, draw/build a branch, and have the code create
-  a clean junction opening/connector object automatically.
-
-Treat manual angle tweaking as a fallback, not the main workflow.
+- Remaining issue: motion/control can feel a little jittery, likely from guard
+  checks added to prevent orientation flips.
+- Goal: smooth out the jitter without reintroducing reversed controls or camera
+  attitude flips.
+- Keep this as polish unless flight becomes unstable again.
 
 ### 3. ABC Existing-Tunnel Move Tool Stability
 
@@ -60,6 +63,10 @@ that appears when clicking tunnel pieces.
 
 ## Builder Features To Keep / Already Working
 
+- Major 6DOF control reversal is fixed through vertical climbs, barrel rolls,
+  nose-over past 180 degrees, and 360-degree loop peaks.
+- Auto-connect from an existing tunnel to a new branch now creates a proper
+  branch in the tested simple case.
 - Enemy ship sprite loading and scaling is working.
 - Enemy AI chase/targetability is working well enough for now.
 - Tunnel opacity/neighbor visibility is much improved and acceptable for now.
