@@ -131,6 +131,15 @@ MAX_CLOSE_ATTEMPTS = 8
 # on repeated failures and gives TWS/Alpaca time to recover from transient errors.
 MIN_CLOSE_RETRY_SEC = 60   # wait at least 60s between failed close attempts
 
+# Missing Kraken exchange stops are retried with backoff. Software stop-loss
+# checks still run every monitor pass while the exchange stop is absent.
+KRAKEN_STOP_RESTORE_BASE_RETRY_SEC = int(
+    getattr(config, "KRAKEN_STOP_RESTORE_BASE_RETRY_SEC", 60)
+)
+KRAKEN_STOP_RESTORE_MAX_RETRY_SEC = int(
+    getattr(config, "KRAKEN_STOP_RESTORE_MAX_RETRY_SEC", 15 * 60)
+)
+
 
 def _is_breakout_trade(trade: dict) -> bool:
     scanner_strategies = {"breakout_scanner", "funding_scanner", "gap_scanner"}
@@ -492,6 +501,8 @@ class PositionMonitor:
     def _mark_kraken_stop_unprotected(
         self, trade: dict, trade_id: str, symbol: str, old_stop_id: str, new_sl: float
     ) -> None:
+        existing = self._db.get_state(f"kraken_stop_unprotected_{trade_id}", default={})
+        attempts = int(existing.get("attempts", 0) or 0) if isinstance(existing, dict) else 0
         self._db.update_trade_order_ids(trade_id, stop_order_id="")
         trade["stop_order_id"] = ""
         self._db.set_state(
@@ -500,11 +511,81 @@ class PositionMonitor:
                 "symbol": symbol,
                 "cancelled_stop_order_id": old_stop_id,
                 "target_stop_loss": round(float(new_sl), 6),
+                "attempts": attempts,
+                "last_attempt_ts": existing.get("last_attempt_ts") if isinstance(existing, dict) else 0,
             },
         )
         logger.error(
             f"[STOP UNPROTECTED] {symbol}: cleared stale stop id {old_stop_id}; "
             f"software monitor will enforce SL ${new_sl:.6f}"
+        )
+
+    def _maybe_restore_missing_kraken_stop(
+        self, trade: Dict, trade_id: str, symbol: str, direction: str
+    ) -> None:
+        if trade.get("asset_class") != "crypto":
+            return
+        if trade.get("stop_order_id"):
+            return
+
+        try:
+            stop_loss = round(float(trade.get("stop_loss") or 0), 6)
+            qty = float(trade.get("quantity") or 0)
+        except (TypeError, ValueError):
+            return
+        if stop_loss <= 0 or qty <= 0:
+            return
+
+        state_key = f"kraken_stop_unprotected_{trade_id}"
+        state = self._db.get_state(state_key, default={})
+        if not isinstance(state, dict):
+            state = {}
+
+        attempts = int(state.get("attempts", 0) or 0)
+        last_attempt = float(state.get("last_attempt_ts", 0) or 0)
+        retry_after = min(
+            KRAKEN_STOP_RESTORE_MAX_RETRY_SEC,
+            KRAKEN_STOP_RESTORE_BASE_RETRY_SEC * (2 ** min(attempts, 4)),
+        )
+        now_ts = time.time()
+        if last_attempt and now_ts - last_attempt < retry_after:
+            return
+
+        stop_side = _scanner_stop_side(direction)
+        try:
+            kraken_ex = self._get_executor().kraken
+            if kraken_ex is None:
+                return
+            new_stop_id = kraken_ex.place_stop_order(symbol, qty, stop_side, stop_loss)
+            if new_stop_id:
+                self._db.update_trade_order_ids(trade_id, stop_order_id=new_stop_id)
+                trade["stop_order_id"] = new_stop_id
+                self._db.set_state(state_key, 0)
+                logger.warning(
+                    f"[STOP RESTORED] {symbol}: restored missing Kraken stop "
+                    f"@ ${stop_loss:.6f} (order {new_stop_id})"
+                )
+                return
+        except Exception as exc:
+            state["last_error"] = str(exc)
+
+        state.update(
+            {
+                "symbol": symbol,
+                "target_stop_loss": stop_loss,
+                "attempts": attempts + 1,
+                "last_attempt_ts": now_ts,
+                "next_retry_sec": min(
+                    KRAKEN_STOP_RESTORE_MAX_RETRY_SEC,
+                    KRAKEN_STOP_RESTORE_BASE_RETRY_SEC * (2 ** min(attempts + 1, 4)),
+                ),
+            }
+        )
+        self._db.set_state(state_key, state)
+        logger.error(
+            f"[STOP RESTORE FAILED] {symbol}: missing Kraken stop remains; "
+            f"software monitor will enforce SL ${stop_loss:.6f}; "
+            f"retry in {state['next_retry_sec']}s"
         )
 
     def _attempt_close(self, trade: Dict, current_price: float,
@@ -1727,6 +1808,8 @@ class PositionMonitor:
                     return
             except Exception as _rec_err:
                 logger.debug(f"Reconciliation check error for {symbol}: {_rec_err}")
+
+        self._maybe_restore_missing_kraken_stop(trade, trade_id, symbol, direction)
 
         if PM_DEBUG:
             logger.info(f"[PM-DBG] ⑤ {symbol} — checking SL/TP exits")
