@@ -4502,8 +4502,12 @@
                 // never actually un-flips (this is why [WALL-BASIS] kept firing flipped=true).
                 // Rebuild from a reference that's independent of the ship's current orientation:
                 // the branch/segment basis if available, else a fixed neutral world-up hint.
+                // Keep the ship's own forward, though — assigning ctx.branchBasis wholesale
+                // replaced shipForward with the corridor's axis, physically snapping the nose
+                // (a visible forced ~180 flip when flying the corridor tail-first, e.g. at a
+                // hill crest). Only right/down are being repaired; the nose is not corrupted.
                 base = inVertical && ctx.branchBasis
-                    ? ctx.branchBasis
+                    ? buildStableBasisFromHints(shipForward, ctx.branchBasis.right, ctx.branchBasis.down)
                     : buildWorldUpBasis(shipForward, { x: 0, y: 0, z: 1 });
             } else {
                 // shipRight/shipDown are the already-rolled vectors from last frame. Unroll them by
@@ -4546,7 +4550,19 @@
             // fall back to the ship's own current basis so the check can't false-positive here.
             const inVertical = (ctx.active && ctx.allowVerticalPitch) || isVerticalTunnelForward(shipForward);
             if (inVertical) {
-                return ctx.branchBasis || { forward: shipForward, right: shipRight, down: shipDown };
+                // Never compare against ctx.branchBasis: the player's orientation inside a
+                // branch/vertical corridor is free — flying it nose-first or tail-first, rolled
+                // or not, are all legitimate, so the unrolled ship right disagreeing with the
+                // corridor's right convention is NOT corruption. Comparing against branchBasis
+                // made flipped=true fire repeatedly at hill crests (every 900ms wall-reset
+                // cooldown), and each firing force-snapped the ship onto the branch axis —
+                // the "stuck in an auto-flip loop at the crest" bug. Near the singularity there
+                // is no trustworthy absolute reference; return the ship's own basis so the
+                // detector is inert here. Must be the UNROLLED own basis: the detectors compare
+                // unrolled ship vectors against this reference, so returning the rolled vectors
+                // would itself read as a flip at >104 deg of roll (cos(roll) < -0.25).
+                const own = unrolledShipRightDown();
+                return { forward: shipForward, right: own.right, down: own.down };
             }
             return buildWorldUpBasis(shipForward, shipRight);
         }
