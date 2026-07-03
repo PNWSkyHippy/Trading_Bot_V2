@@ -1119,6 +1119,7 @@
         const BRANCH_FLIGHT_JUNCTION_APPROACH_T = 0.55;
         const BRANCH_JUNCTION_CONTAIN_GRACE_MS = 2500;
         const BRANCH_JUNCTION_CONTAIN_RELAX_FRAC = 0.14;
+        const VERTICAL_SEGMENT_CONTAIN_RELAX_FRAC = 0.10;
         const BRANCH_FLIGHT_TURN_SPEED_MULT = 1.85;
         const BRANCH_FLIGHT_PIVOT_TURN_MULT = 3.6;
         const BRANCH_FLIGHT_BASIS_BLEND = 0.24;
@@ -8073,6 +8074,12 @@
             } else {
                 branchJunctionActive = false;
             }
+            // Steep vertical shafts are harder to keep centered in than straight/junction flight,
+            // so give them a persistent containment cushion instead of only relaxing briefly near
+            // a junction — otherwise the tunnel walls feel like they're fighting a steep climb.
+            if (ctx.verticalSegment) {
+                ctx.containRelax = Math.max(ctx.containRelax, VERTICAL_SEGMENT_CONTAIN_RELAX_FRAC);
+            }
 
             const thrustMag = Math.hypot(lastThrustVector.x, lastThrustVector.y, lastThrustVector.z);
             const strafeIntent =
@@ -8318,8 +8325,13 @@
                 (isOpenSegmentEnd(seg, 'from') && local.localZ < mouthPad);
             const boostScrape = (boostingForward || thrustMag > 1.25) && !atOpenExit;
             if (boostScrape) {
-                mouseInput.pitch *= 0.72;
-                mouseInput.yaw *= 0.72;
+                // Don't damp steering input while climbing a vertical shaft — that's exactly when
+                // the player needs full pitch/yaw authority to correct off a wall, and damping it
+                // here made steep climbs feel like the collision system was fighting the ship.
+                if (!branchCtx.allowVerticalPitch) {
+                    mouseInput.pitch *= 0.72;
+                    mouseInput.yaw *= 0.72;
+                }
                 if (boostingForward && push > 18) {
                     wallHit.lockedSegmentIndex = nearest.index;
                     wallHit.lockUntil = performance.now() + 70;
