@@ -584,10 +584,21 @@ class CandleManager:
 
         while not self._refresh_stop.is_set():
             t0 = time.time()
-            ok = fail = 0
+            ok = fail = skipped_stock = 0
+            try:
+                from core.market_calendar import is_us_equity_regular_session_now
+
+                stock_refresh_open = is_us_equity_regular_session_now()
+            except Exception as e:
+                logger.debug(f"[CandleManager] Market calendar unavailable; refreshing stocks normally: {e}")
+                stock_refresh_open = True
+
             for symbol, asset_class in self._refresh_symbols:
                 if self._refresh_stop.is_set():
                     break
+                if asset_class == "stock" and not stock_refresh_open:
+                    skipped_stock += len(self._refresh_tfs.get(asset_class, ["1h"]))
+                    continue
                 if symbol in _CRYPTO_BLACKLIST and asset_class == "crypto":
                     continue
                 tfs = self._refresh_tfs.get(asset_class, ["1h"])
@@ -605,10 +616,17 @@ class CandleManager:
                     time.sleep(0.1)
 
             elapsed = time.time() - t0
-            logger.info(
-                f"[CandleManager] Refresh complete — "
-                f"{ok} ok / {fail} failed in {elapsed:.1f}s"
-            )
+            if skipped_stock:
+                logger.info(
+                    f"[CandleManager] Refresh complete — "
+                    f"{ok} ok / {fail} failed / {skipped_stock} stock skipped "
+                    f"(market closed) in {elapsed:.1f}s"
+                )
+            else:
+                logger.info(
+                    f"[CandleManager] Refresh complete — "
+                    f"{ok} ok / {fail} failed in {elapsed:.1f}s"
+                )
 
             # Once per 24 hours: purge stale (symbol, timeframe) entries
             now = time.time()
