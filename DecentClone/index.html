@@ -8714,8 +8714,27 @@
             // fixes, so the camera (and therefore felt controls) still flipped mid-pitch even
             // after shipRight/shipDown themselves became continuous. Use the already-continuous
             // ship basis directly when near vertical instead of rebuilding via WORLD_UP.
+            // shipRight/shipDown already carry shipRollAngle baked in, and roll gets applied
+            // again below — buildStableBasisFromHints preserves the hint's direction (unlike
+            // buildWorldUpBasis, which rebuilds from WORLD_UP and ignores roll in the hint), so
+            // feeding the rolled vectors here doubled the roll in the view basis whenever the
+            // nose was near vertical. At ~90 deg of barrel roll the camera was off by an extra
+            // 90 deg; at 180 deg the steering read fully reversed until auto-level or a wall
+            // reset wound shipRollAngle back down. Unroll the hints first, same as repairBasis
+            // and forceCockpitBasisFromNose. (Previously masked by the flip-detector false
+            // positive that kept force-resetting shipRollAngle to 0 near junctions.)
+            let vertHintRight = shipRight;
+            let vertHintDown = shipDown;
+            if (shipRollAngle && isVerticalTunnelForward(shipForward)) {
+                const unrolled = applyPlayerRollToBasis(
+                    { forward: shipForward, right: shipRight, down: shipDown },
+                    -shipRollAngle
+                );
+                vertHintRight = unrolled.right;
+                vertHintDown = unrolled.down;
+            }
             const worldBasis = isVerticalTunnelForward(shipForward)
-                ? buildStableBasisFromHints(shipForward, shipRight, shipDown)
+                ? buildStableBasisFromHints(shipForward, vertHintRight, vertHintDown)
                 : buildWorldUpBasis(shipForward, shipRight);
             const basis = blendFlightBasis(worldBasis, ctx.branchBasis, ctx.blend);
             const rolled = applyPlayerRollToBasis(basis, shipRollAngle);
