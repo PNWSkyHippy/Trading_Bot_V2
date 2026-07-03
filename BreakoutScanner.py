@@ -141,7 +141,9 @@ MASSIVE_BASE        = "https://api.massive.com"
 try:
     import keyring as _keyring
     from cryptography.fernet import Fernet as _Fernet, InvalidToken as _InvalidToken
-    _scanner_fernet_raw = _keyring.get_password("trading_bot_v2", "fernet_key")
+    _scanner_fernet_raw = os.getenv("TRADING_BOT_FERNET_KEY")
+    if not _scanner_fernet_raw:
+        _scanner_fernet_raw = _keyring.get_password("trading_bot_v2", "fernet_key")
     _SCANNER_BASE_KEY   = _scanner_fernet_raw.encode() if _scanner_fernet_raw else None
 except Exception:
     _SCANNER_BASE_KEY   = None
@@ -207,8 +209,8 @@ def _decrypt_cfg(val: str) -> str:
     if not _SCANNER_BASE_KEY:
         raise RuntimeError(
             "Encrypted key found in scanner_config.json but the Fernet key is "
-            "not in Windows Credential Manager.  "
-            "Run: python Scripts\\store_fernet_key.py"
+            "not in TRADING_BOT_FERNET_KEY or the OS credential store.  "
+            "Set TRADING_BOT_FERNET_KEY in .env, or run: python Scripts\\store_fernet_key.py"
         )
     try:
         return _Fernet(_SCANNER_BASE_KEY).decrypt(val.encode()).decode().strip()
@@ -248,8 +250,8 @@ def _db_fallback(scanner_key: str) -> str:
             return enc[6:]
         if not _SCANNER_BASE_KEY:
             logger.warning(
-                f"[CONFIG] DB has '{service}/{key_name}' but Fernet key not in keyring — "
-                "run Scripts/setup_encryption.py"
+                f"[CONFIG] DB has '{service}/{key_name}' but Fernet key not in "
+                "TRADING_BOT_FERNET_KEY or keyring — run Scripts/setup_encryption.py"
             )
             return ""
         return _Fernet(_SCANNER_BASE_KEY).decrypt(enc.encode()).decode().strip()
