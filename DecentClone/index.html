@@ -7621,6 +7621,32 @@
                 return true;
             }
 
+            // Auto-pick body junction spots: the mapper's click only identifies WHICH tunnel
+            // to bust into — not the exact spot. Project the opposite end of the connector
+            // onto the clicked segment's axis and punch there, so the junction always lands
+            // at the closest, best-aligned point regardless of where on the tunnel the click
+            // hit (near/far side, off-center, next to an endpoint, etc.).
+            const autoJoinSpot = (seg, towardPoint) => {
+                const local = shipSegmentLocal(towardPoint, seg);
+                const t = Math.max(0.12, Math.min(0.88, local.localZ / Math.max(1, local.length)));
+                return { t, point: pointOnSegment(seg, t) };
+            };
+            const origA = copyVec(pair.a.point);
+            const origB = copyVec(pair.b.point);
+            if (pair.sourceSegmentRef && pair.sourceSegmentIndex !== null && pair.sourceSegmentIndex !== undefined) {
+                const spot = autoJoinSpot(pair.sourceSegmentRef, origB);
+                pair.a.point = spot.point;
+                pair.sourceSegmentT = spot.t;
+                pair.a.segmentT = spot.t;
+            }
+            if (pair.targetSegmentRef && pair.targetSegmentIndex !== null && pair.targetSegmentIndex !== undefined) {
+                const spot = autoJoinSpot(pair.targetSegmentRef, origA);
+                pair.b.point = spot.point;
+                pair.targetSegmentT = spot.t;
+                pair.b.segmentT = spot.t;
+            }
+            pair.dist = distanceSq(pair.a.point, pair.b.point);
+
             const distance = Math.sqrt(pair.dist);
             const minJoinDist = Math.max(mapMinSegmentLength(), builder.radius * 0.25);
             if (distance < minJoinDist) {
