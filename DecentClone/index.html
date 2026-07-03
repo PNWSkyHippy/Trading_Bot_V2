@@ -8756,7 +8756,15 @@
 
         function rotateShip(pitchAmount, yawAmount, rollAmount) {
             const ctx = getBranchFlightContext();
-            const segmentAxes = ctx.active && ctx.allowVerticalPitch;
+            // ctx.allowVerticalPitch reflects the *tunnel segment's* geometry, not the ship's
+            // actual orientation (same gap as repairBasis/cockpitFlipReferenceBasis/
+            // syncViewToShip above). Over a real loop, once the ship flies past the segment's
+            // classified "vertical" zone — even though its nose is still pointed near-vertical —
+            // this flipped back to false, so shipRight/shipDown stopped rotating along with
+            // shipForward during yaw/pitch here, and repairBasis had to reconstruct them from
+            // stale hints on the next frame. That's what produced the persistent inverted
+            // left/right and up/down on the backside of a loop after cresting.
+            const segmentAxes = (ctx.active && ctx.allowVerticalPitch) || isVerticalTunnelForward(shipForward);
             if (yawAmount) {
                 // Full body-space yaw: rotate around shipDown (the ship's local down axis).
                 // This keeps yaw matched to the camera at all roll angles so pressing right
