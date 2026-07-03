@@ -4355,10 +4355,22 @@
             };
             const ctx = options.branchContext || getBranchFlightContext();
             if (ctx.active && ctx.allowVerticalPitch && (ctx.verticalSegment || ctx.pivotMode || ctx.steerBranch)) {
+                // shipRight/shipDown already have last frame's roll baked in, but shipRollAngle
+                // is the TOTAL accumulated roll, not a per-frame delta. Feeding the already-rolled
+                // vector in as the hint and then re-applying the full roll on top compounds the
+                // roll every single frame, causing runaway spin in tunnels. Unroll the hint first
+                // (mirrors buildWorldUpBasis, which always starts from a fresh roll-free reference)
+                // so the roll is applied exactly once per frame, not accumulated.
+                const unrolledRight = shipRollAngle && shipRight
+                    ? rotateVector(shipRight, shipForward, -shipRollAngle)
+                    : shipRight;
+                const unrolledDown = shipRollAngle && shipDown
+                    ? rotateVector(shipDown, shipForward, -shipRollAngle)
+                    : shipDown;
                 const basis = buildStableBasisFromHints(
                     shipForward,
-                    shipRight || ctx.branchBasis?.right || builder.right,
-                    shipDown || ctx.branchBasis?.down || builder.down
+                    unrolledRight || ctx.branchBasis?.right || builder.right,
+                    unrolledDown || ctx.branchBasis?.down || builder.down
                 );
                 shipForward = basis.forward;
                 shipRight = basis.right;
@@ -4368,12 +4380,10 @@
                     shipRight = rotateVector(shipRight, shipForward, shipRollAngle);
                     shipDown = rotateVector(shipDown, shipForward, shipRollAngle);
                 }
-                const stabilized = keepBasisSameHemisphere(
-                    { forward: shipForward, right: shipRight, down: shipDown },
-                    priorBasis
-                );
-                shipRight = stabilized.right;
-                shipDown = stabilized.down;
+                // No keepBasisSameHemisphere here: same reasoning as the standard path (see
+                // below) — at large roll angles the rolled right vector naturally crosses
+                // hemispheres relative to the previous frame, and the check was corrupting
+                // shipRight permanently instead of catching a real singularity flip.
                 return;
             }
             const basis = applyPlayerRollToBasis(
