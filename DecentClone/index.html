@@ -1720,7 +1720,15 @@
             if (Math.hypot(right.x, right.y, right.z) < 0.001) {
                 right = buildWorldUpBasis(f, shipRight).right;
             }
-            const down = normalize(cross(f, right));
+            let down = normalize(cross(f, right));
+            // cross(f, right) has no memory of which hemisphere "down" belongs in — if a
+            // large single-frame rotation leaves right's projection valid but on the side
+            // that makes cross(f,right) land opposite of the continuously-tracked downHint,
+            // this silently flips "down" 180 deg while "right" looks perfectly stable.
+            if (downHint && dot(down, downHint) < 0) {
+                right = { x: -right.x, y: -right.y, z: -right.z };
+                down = { x: -down.x, y: -down.y, z: -down.z };
+            }
             return { forward: f, right, down };
         }
 
@@ -4567,18 +4575,22 @@
 
         function cockpitBasisLooksFlipped() {
             const levelBasis = cockpitFlipReferenceBasis();
-            const { right, down } = unrolledShipRightDown();
+            const { right } = unrolledShipRightDown();
+            // Only check right, same reasoning as keepBasisSameHemisphere above: down can lag
+            // behind right for a frame or two after body-space yaw, which made this fire a false
+            // positive even when right (the reliable indicator) still agreed. That false trigger
+            // fed into forceCockpitBasisFromNose(true), which overwrites BOTH right and down from
+            // ctx.branchBasis wholesale — importing branchBasis's handedness onto a down that was
+            // actually still correct, which is what caused down to flip while right stayed put.
             const rightAgreement = dot(right, levelBasis.right);
-            const downAgreement = dot(down, levelBasis.down);
-            return rightAgreement < -0.25 || downAgreement < -0.25;
+            return rightAgreement < -0.25;
         }
 
         function cockpitBasisLooksSeverelyFlipped() {
             const levelBasis = cockpitFlipReferenceBasis();
-            const { right, down } = unrolledShipRightDown();
+            const { right } = unrolledShipRightDown();
             const rightAgreement = dot(right, levelBasis.right);
-            const downAgreement = dot(down, levelBasis.down);
-            return rightAgreement < -0.72 || downAgreement < -0.72;
+            return rightAgreement < -0.72;
         }
 
         function builderBasisAfter(pitchDeg = 0, yawDeg = 0, bendVector = null) {
