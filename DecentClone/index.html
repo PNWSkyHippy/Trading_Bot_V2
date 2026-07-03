@@ -4482,13 +4482,24 @@
         function forceCockpitBasisFromNose(resetRoll = false) {
             if (resetRoll) shipRollAngle = 0;
             const ctx = getBranchFlightContext();
+            // shipRight/shipDown are the already-rolled vectors from last frame. Unroll them by
+            // -shipRollAngle before using as hints, since applyPlayerRollToBasis below re-applies
+            // the full roll — otherwise roll compounds every time this fires (e.g. repeatedly while
+            // scraping a tunnel wall), causing runaway spin and inverted controls (same root cause
+            // as the branch/tunnel repairBasis fix in 42ca99a23).
+            const unrolledHint = resetRoll
+                ? { right: shipRight, down: shipDown }
+                : applyPlayerRollToBasis(
+                    { forward: shipForward, right: shipRight, down: shipDown },
+                    -shipRollAngle
+                );
             const base = (ctx.active && ctx.allowVerticalPitch) || isVerticalTunnelForward(shipForward)
                 ? buildStableBasisFromHints(
                     shipForward,
-                    shipRight || ctx.branchBasis?.right,
-                    shipDown || ctx.branchBasis?.down
+                    unrolledHint.right || ctx.branchBasis?.right,
+                    unrolledHint.down || ctx.branchBasis?.down
                 )
-                : buildWorldUpBasis(shipForward, shipRight);
+                : buildWorldUpBasis(shipForward, unrolledHint.right);
             const basis = applyPlayerRollToBasis(base, shipRollAngle);
             shipForward = basis.forward;
             shipRight = basis.right;
