@@ -4551,17 +4551,33 @@
             return buildWorldUpBasis(shipForward, shipRight);
         }
 
+        function unrolledShipRightDown() {
+            // shipRight/shipDown carry the player's intentional roll baked in. A legitimate
+            // large roll (e.g. lining up with a branch while backing out of a junction) can
+            // exceed 90-100 degrees, which by itself makes the rolled vectors disagree strongly
+            // with any unrolled reference basis — that's not a corrupted basis, just roll. Unroll
+            // before comparing so the flip check reflects genuine basis corruption, not roll.
+            if (!shipRollAngle) return { right: shipRight, down: shipDown };
+            const unrolled = applyPlayerRollToBasis(
+                { forward: shipForward, right: shipRight, down: shipDown },
+                -shipRollAngle
+            );
+            return { right: unrolled.right, down: unrolled.down };
+        }
+
         function cockpitBasisLooksFlipped() {
             const levelBasis = cockpitFlipReferenceBasis();
-            const rightAgreement = dot(shipRight, levelBasis.right);
-            const downAgreement = dot(shipDown, levelBasis.down);
+            const { right, down } = unrolledShipRightDown();
+            const rightAgreement = dot(right, levelBasis.right);
+            const downAgreement = dot(down, levelBasis.down);
             return rightAgreement < -0.25 || downAgreement < -0.25;
         }
 
         function cockpitBasisLooksSeverelyFlipped() {
             const levelBasis = cockpitFlipReferenceBasis();
-            const rightAgreement = dot(shipRight, levelBasis.right);
-            const downAgreement = dot(shipDown, levelBasis.down);
+            const { right, down } = unrolledShipRightDown();
+            const rightAgreement = dot(right, levelBasis.right);
+            const downAgreement = dot(down, levelBasis.down);
             return rightAgreement < -0.72 || downAgreement < -0.72;
         }
 
