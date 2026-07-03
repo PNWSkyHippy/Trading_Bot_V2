@@ -39,7 +39,7 @@ logger = logging.getLogger(__name__)
 # DB path — data/ folder next to this package
 # ---------------------------------------------------------------------------
 _HERE       = os.path.dirname(os.path.abspath(__file__))
-_DEFAULT_DB = os.path.normpath(os.path.join(_HERE, '..', '..', 'data', 'candle_store.db'))
+_DEFAULT_DB = os.path.normpath(os.path.join(_HERE, '..', 'data', 'candle_store.db'))
 
 # Bars-per-day estimates for freshness checking
 _BARS_PER_DAY = {
