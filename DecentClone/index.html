@@ -4355,7 +4355,16 @@
                 down: copyVec(shipDown)
             };
             const ctx = options.branchContext || getBranchFlightContext();
-            if (ctx.active && ctx.allowVerticalPitch && (ctx.verticalSegment || ctx.pivotMode || ctx.steerBranch)) {
+            // ctx.allowVerticalPitch reflects the *tunnel segment's* geometry, not the ship's
+            // actual orientation — pitching nose-up while standing still in an ordinary segment
+            // never sets it. But buildWorldUpBasis(shipForward, shipRight) below builds right as
+            // cross(forward, WORLD_UP), which genuinely reverses direction as forward sweeps
+            // through the pole (not just numerically noisy — it flips sign exactly at the
+            // crossing). That's what looked like "controls reverse halfway through the flip".
+            // isVerticalTunnelForward(shipForward) catches that case too so this frame goes
+            // through the continuous buildStableBasisFromHints path instead.
+            if ((ctx.active && ctx.allowVerticalPitch && (ctx.verticalSegment || ctx.pivotMode || ctx.steerBranch))
+                || isVerticalTunnelForward(shipForward)) {
                 // shipRight/shipDown already have last frame's roll baked in, but shipRollAngle
                 // is the TOTAL accumulated roll, not a per-frame delta. Feeding the already-rolled
                 // vector in as the hint and then re-applying the full roll on top compounds the
@@ -4527,8 +4536,17 @@
             // against buildWorldUpBasis there is a permanent false positive, which made the
             // wall-hit reset loop forever with flipped=true and never actually settle.
             const ctx = getBranchFlightContext();
-            if (ctx.active && ctx.allowVerticalPitch && ctx.branchBasis) {
-                return ctx.branchBasis;
+            // isVerticalTunnelForward(shipForward) catches the same singularity outside of a
+            // recognized branch segment too — e.g. the crest of a vertical loop, where forward
+            // momentarily points near world-up/down even in an ordinary tunnel segment. There,
+            // buildWorldUpBasis(shipForward, ...) is singular: cross(forward, WORLD_UP) collapses
+            // toward zero length and its direction becomes noise-sensitive frame to frame, which
+            // was falsely flagging a flip and firing forceCockpitBasisFromNose right at the crest
+            // (the "controls flipped backwards" report). With no branchBasis to compare against,
+            // fall back to the ship's own current basis so the check can't false-positive here.
+            const inVertical = (ctx.active && ctx.allowVerticalPitch) || isVerticalTunnelForward(shipForward);
+            if (inVertical) {
+                return ctx.branchBasis || { forward: shipForward, right: shipRight, down: shipDown };
             }
             return buildWorldUpBasis(shipForward, shipRight);
         }
