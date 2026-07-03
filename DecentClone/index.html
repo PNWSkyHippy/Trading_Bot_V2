@@ -4355,59 +4355,41 @@
                 down: copyVec(shipDown)
             };
             const ctx = options.branchContext || getBranchFlightContext();
-            // ctx.allowVerticalPitch reflects the *tunnel segment's* geometry, not the ship's
-            // actual orientation — pitching nose-up while standing still in an ordinary segment
-            // never sets it. But buildWorldUpBasis(shipForward, shipRight) below builds right as
-            // cross(forward, WORLD_UP), which genuinely reverses direction as forward sweeps
-            // through the pole (not just numerically noisy — it flips sign exactly at the
-            // crossing). That's what looked like "controls reverse halfway through the flip".
-            // isVerticalTunnelForward(shipForward) catches that case too so this frame goes
-            // through the continuous buildStableBasisFromHints path instead.
-            if ((ctx.active && ctx.allowVerticalPitch && (ctx.verticalSegment || ctx.pivotMode || ctx.steerBranch))
-                || isVerticalTunnelForward(shipForward)) {
-                // shipRight/shipDown already have last frame's roll baked in, but shipRollAngle
-                // is the TOTAL accumulated roll, not a per-frame delta. Feeding the already-rolled
-                // vector in as the hint and then re-applying the full roll on top compounds the
-                // roll every single frame, causing runaway spin in tunnels. Unroll the hint first
-                // (mirrors buildWorldUpBasis, which always starts from a fresh roll-free reference)
-                // so the roll is applied exactly once per frame, not accumulated.
-                const unrolledRight = shipRollAngle && shipRight
-                    ? rotateVector(shipRight, shipForward, -shipRollAngle)
-                    : shipRight;
-                const unrolledDown = shipRollAngle && shipDown
-                    ? rotateVector(shipDown, shipForward, -shipRollAngle)
-                    : shipDown;
-                const basis = buildStableBasisFromHints(
-                    shipForward,
-                    unrolledRight || ctx.branchBasis?.right || builder.right,
-                    unrolledDown || ctx.branchBasis?.down || builder.down
-                );
-                shipForward = basis.forward;
-                shipRight = basis.right;
-                shipDown = basis.down;
-                // branchFlightFix2: no world-up horizon lock while branch flight is active
-                if (shipRollAngle) {
-                    shipRight = rotateVector(shipRight, shipForward, shipRollAngle);
-                    shipDown = rotateVector(shipDown, shipForward, shipRollAngle);
-                }
-                // No keepBasisSameHemisphere here: same reasoning as the standard path (see
-                // below) — at large roll angles the rolled right vector naturally crosses
-                // hemispheres relative to the previous frame, and the check was corrupting
-                // shipRight permanently instead of catching a real singularity flip.
-                return;
-            }
-            const basis = applyPlayerRollToBasis(
-                buildWorldUpBasis(shipForward, shipRight),
-                shipRollAngle
+            // Fully continuous 6DOF: never rebuild right/down from WORLD_UP here. The old
+            // standard path used buildWorldUpBasis for non-vertical flight, whose right vector
+            // (cross(forward, WORLD_UP)-based) reverses sign whenever forward crosses the
+            // vertical pole — so pitching the nose over 180 deg snapped shipRight to the
+            // mirrored convention the moment forward left the vertical zone, reversing all
+            // steering. A world-up-locked basis cannot represent inverted flight at all; a
+            // Descent-like needs orientation to be body-continuous, with AUTO-LEVEL (guarded,
+            // in the input loop) as the only thing that re-anchors to the horizon.
+            //
+            // shipRight/shipDown already have last frame's roll baked in, but shipRollAngle
+            // is the TOTAL accumulated roll, not a per-frame delta. Feeding the already-rolled
+            // vector in as the hint and then re-applying the full roll on top compounds the
+            // roll every single frame, causing runaway spin in tunnels. Unroll the hint first
+            // so the roll is applied exactly once per frame, not accumulated.
+            const unrolledRight = shipRollAngle && shipRight
+                ? rotateVector(shipRight, shipForward, -shipRollAngle)
+                : shipRight;
+            const unrolledDown = shipRollAngle && shipDown
+                ? rotateVector(shipDown, shipForward, -shipRollAngle)
+                : shipDown;
+            const basis = buildStableBasisFromHints(
+                shipForward,
+                unrolledRight || ctx.branchBasis?.right || builder.right,
+                unrolledDown || ctx.branchBasis?.down || builder.down
             );
-            // No keepBasisSameHemisphere here: at large roll angles the rolled right vector
-            // naturally crosses hemispheres, causing the check to fire and corrupt shipRight
-            // permanently. buildWorldUpBasis is deterministic for non-singular (horizontal)
-            // flight and its own hint mechanism handles the vertical singularity correctly
-            // as long as shipRight is not being corrupted by spurious flips.
             shipForward = basis.forward;
             shipRight = basis.right;
             shipDown = basis.down;
+            if (shipRollAngle) {
+                shipRight = rotateVector(shipRight, shipForward, shipRollAngle);
+                shipDown = rotateVector(shipDown, shipForward, shipRollAngle);
+            }
+            // No keepBasisSameHemisphere here: at large roll angles the rolled right vector
+            // naturally crosses hemispheres relative to the previous frame, and the check was
+            // corrupting shipRight permanently instead of catching a real singularity flip.
         }
 
         function repairBuilderBasis() {
@@ -4535,36 +4517,21 @@
         }
 
         function cockpitFlipReferenceBasis() {
-            // Inside a branch/vertical corridor the branch-relative basis is *supposed* to
-            // disagree with world-up (same rationale as the AUTO-LEVEL guard below) — comparing
-            // against buildWorldUpBasis there is a permanent false positive, which made the
-            // wall-hit reset loop forever with flipped=true and never actually settle.
-            const ctx = getBranchFlightContext();
-            // isVerticalTunnelForward(shipForward) catches the same singularity outside of a
-            // recognized branch segment too — e.g. the crest of a vertical loop, where forward
-            // momentarily points near world-up/down even in an ordinary tunnel segment. There,
-            // buildWorldUpBasis(shipForward, ...) is singular: cross(forward, WORLD_UP) collapses
-            // toward zero length and its direction becomes noise-sensitive frame to frame, which
-            // was falsely flagging a flip and firing forceCockpitBasisFromNose right at the crest
-            // (the "controls flipped backwards" report). With no branchBasis to compare against,
-            // fall back to the ship's own current basis so the check can't false-positive here.
-            const inVertical = (ctx.active && ctx.allowVerticalPitch) || isVerticalTunnelForward(shipForward);
-            if (inVertical) {
-                // Never compare against ctx.branchBasis: the player's orientation inside a
-                // branch/vertical corridor is free — flying it nose-first or tail-first, rolled
-                // or not, are all legitimate, so the unrolled ship right disagreeing with the
-                // corridor's right convention is NOT corruption. Comparing against branchBasis
-                // made flipped=true fire repeatedly at hill crests (every 900ms wall-reset
-                // cooldown), and each firing force-snapped the ship onto the branch axis —
-                // the "stuck in an auto-flip loop at the crest" bug. Near the singularity there
-                // is no trustworthy absolute reference; return the ship's own basis so the
-                // detector is inert here. Must be the UNROLLED own basis: the detectors compare
-                // unrolled ship vectors against this reference, so returning the rolled vectors
-                // would itself read as a flip at >104 deg of roll (cos(roll) < -0.25).
-                const own = unrolledShipRightDown();
-                return { forward: shipForward, right: own.right, down: own.down };
-            }
-            return buildWorldUpBasis(shipForward, shipRight);
+            // Fully continuous 6DOF: every orientation is legal — inverted horizontal flight,
+            // tail-first through a branch corridor, rolled at a crest. There is no absolute
+            // reference the ship's basis is required to agree with anymore, so the flip
+            // detectors have nothing meaningful to compare against:
+            //  - ctx.branchBasis fired falsely when flying a corridor against its convention
+            //    (the crest auto-flip loop);
+            //  - buildWorldUpBasis fired falsely at the vertical singularity, and under the
+            //    continuous scheme it would also fire for legitimate inverted flight after a
+            //    180 deg nose-over, force-snapping the player right-side-up.
+            // Return the ship's own UNROLLED basis so the detectors are permanently inert
+            // (unrolled because they compare unrolled ship vectors — a rolled reference would
+            // itself read as a flip past 104 deg of roll). Wall-scrape roll drift is still
+            // handled by AUTO-LEVEL's shouldResetForWallRoll arm, which doesn't use this.
+            const own = unrolledShipRightDown();
+            return { forward: shipForward, right: own.right, down: own.down };
         }
 
         function unrolledShipRightDown() {
@@ -8739,19 +8706,21 @@
             // reset wound shipRollAngle back down. Unroll the hints first, same as repairBasis
             // and forceCockpitBasisFromNose. (Previously masked by the flip-detector false
             // positive that kept force-resetting shipRollAngle to 0 near junctions.)
-            let vertHintRight = shipRight;
-            let vertHintDown = shipDown;
-            if (shipRollAngle && isVerticalTunnelForward(shipForward)) {
+            // Fully continuous 6DOF (matches repairBasis): never rebuild the view basis from
+            // WORLD_UP. buildWorldUpBasis's right flips sign when forward crosses the vertical
+            // pole, so the camera snapped to the mirrored convention after a 180 deg nose-over
+            // even once the ship basis itself was continuous.
+            let hintRight = shipRight;
+            let hintDown = shipDown;
+            if (shipRollAngle) {
                 const unrolled = applyPlayerRollToBasis(
                     { forward: shipForward, right: shipRight, down: shipDown },
                     -shipRollAngle
                 );
-                vertHintRight = unrolled.right;
-                vertHintDown = unrolled.down;
+                hintRight = unrolled.right;
+                hintDown = unrolled.down;
             }
-            const worldBasis = isVerticalTunnelForward(shipForward)
-                ? buildStableBasisFromHints(shipForward, vertHintRight, vertHintDown)
-                : buildWorldUpBasis(shipForward, shipRight);
+            const worldBasis = buildStableBasisFromHints(shipForward, hintRight, hintDown);
             const basis = blendFlightBasis(worldBasis, ctx.branchBasis, ctx.blend);
             const rolled = applyPlayerRollToBasis(basis, shipRollAngle);
             viewForward = rolled.forward;
@@ -8811,14 +8780,11 @@
 
         function rotateShip(pitchAmount, yawAmount, rollAmount) {
             const ctx = getBranchFlightContext();
-            // ctx.allowVerticalPitch reflects the *tunnel segment's* geometry, not the ship's
-            // actual orientation (same gap as repairBasis/cockpitFlipReferenceBasis/
-            // syncViewToShip above). Over a real loop, once the ship flies past the segment's
-            // classified "vertical" zone — even though its nose is still pointed near-vertical —
-            // this flipped back to false, so shipRight/shipDown stopped rotating along with
-            // shipForward during yaw/pitch here, and repairBasis had to reconstruct them from
-            // stale hints on the next frame. That's what produced the persistent inverted
-            // left/right and up/down on the backside of a loop after cresting.
+            // Fully continuous 6DOF: always rotate the whole frame together. The old
+            // segmentAxes gate only rotated right/down alongside forward inside vertical
+            // segments (elsewhere the world-up rebuild in repairBasis discarded them anyway);
+            // now that repairBasis is hint-continuous everywhere, the stale vectors would
+            // become the hints, so keep the full frame rigid through every rotation.
             const segmentAxes = (ctx.active && ctx.allowVerticalPitch) || isVerticalTunnelForward(shipForward);
             if (yawAmount) {
                 // Full body-space yaw: rotate around shipDown (the ship's local down axis).
@@ -8826,19 +8792,13 @@
                 // always turns right on screen — no cross-coupling during barrel rolls.
                 // repairBasis guarantees shipDown is always perpendicular to shipForward.
                 shipForward = rotateVector(shipForward, shipDown, yawAmount);
-                if (segmentAxes) {
-                    shipRight = rotateVector(shipRight, shipDown, yawAmount);
-                }
+                shipRight = rotateVector(shipRight, shipDown, yawAmount);
             }
             if (pitchAmount) {
                 // Full body-space pitch: rotate around shipRight (the ship's local right axis).
                 // Consistent with body-space yaw so controls never cross-couple during roll.
-                // At the vertical singularity shipRight is already valid (repairBasis built it
-                // from the shipRight hint via buildWorldUpBasis), so no special case needed.
                 shipForward = rotateVector(shipForward, shipRight, pitchAmount);
-                if (segmentAxes) {
-                    shipDown = rotateVector(shipDown, shipRight, pitchAmount);
-                }
+                shipDown = rotateVector(shipDown, shipRight, pitchAmount);
             }
             if (rollAmount) {
                 shipRollAngle += rollAmount;
