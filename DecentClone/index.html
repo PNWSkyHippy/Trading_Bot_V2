@@ -6723,7 +6723,14 @@
                 const dist = distanceSq(anchorLike.point, endpoint.point);
                 if (!best || dist < best.dist) best = { endpoint, dist };
             }
-            const threshold = sameSegmentOnly ? Infinity : Math.max(builder.radius * 1.35, 150);
+            // The same-segment threshold must be bounded too. It was Infinity, which hijacked
+            // every BODY click on a segment with any open end: clicking mid-tunnel silently
+            // resolved to that far-away endpoint instead of falling through to
+            // bodyEndpointFromAnchor, so no junction was punched where the user clicked and the
+            // connector routed from the segment's end — often slicing through the tunnel body
+            // (the "branch passes through the tunnel / junction not enterable" reports). A
+            // click near an endpoint still snaps to it; a mid-body click now body-joins.
+            const threshold = Math.max(builder.radius * 1.35, 150);
             return best && best.dist <= threshold * threshold ? best.endpoint : null;
         }
 
