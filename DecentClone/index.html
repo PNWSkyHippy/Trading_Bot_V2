@@ -1088,6 +1088,9 @@
          */
         const PORTAL_ACTIVATE_RANGE = 100;
         const PORTAL_FLIGHT_DISC_SCALE = 0.58;
+        const PORTAL_DOOR_RADIUS_MIN = 34;
+        const PORTAL_DOOR_RADIUS_MAX = 90;
+        const PORTAL_DOOR_RADIUS_SCALE = 0.18;
         const PORTAL_TRANSIT_DURATION_MS = 1000;
         /*
          * Audio: procedural Web Audio for engine/laser/wall/boost; portal uses file first.
@@ -5694,7 +5697,9 @@
                     label: portal.label,
                     entry: portal.entry,
                     exit: portal.exit,
-                    oneWay: portalIsOneWay(portal)
+                    oneWay: portalIsOneWay(portal),
+                    door: !!portal.door,
+                    hidden: !!portal.hidden
                 })),
                 targets: builder.targets.map(target => ({
                     id: target.id,
@@ -6074,7 +6079,9 @@
             return {
                 ...portal,
                 oneWay,
-                bidirectional: !oneWay
+                bidirectional: !oneWay,
+                door: !!portal.door,
+                hidden: !!portal.hidden
             };
         }
 
@@ -6096,7 +6103,9 @@
                     label: portal.label || `Portal ${cleaned.length + 1}`,
                     entry,
                     exit,
-                    oneWay: portalIsOneWay(portal)
+                    oneWay: portalIsOneWay(portal),
+                    door: !!portal.door,
+                    hidden: !!portal.hidden
                 }));
             }
             return cleaned;
@@ -7112,7 +7121,9 @@
                 label: `Portal ${builder.portals.length + 1}`,
                 entry,
                 exit,
-                oneWay: false
+                oneWay: false,
+                door: false,
+                hidden: false
             }));
             mapMouse.joinMode = 'tunnel';
             mapMouse.destination = null;
@@ -7125,8 +7136,19 @@
             return true;
         }
 
-        function portalFlightDiscRadius(frame) {
-            return (frame.radius || builder.radius) * PORTAL_FLIGHT_DISC_SCALE;
+        function portalDisplayRadius(frame, portal = null) {
+            const base = frame.radius || builder.radius;
+            if (portal?.door) {
+                return Math.max(
+                    PORTAL_DOOR_RADIUS_MIN,
+                    Math.min(PORTAL_DOOR_RADIUS_MAX, base * PORTAL_DOOR_RADIUS_SCALE)
+                );
+            }
+            return base;
+        }
+
+        function portalFlightDiscRadius(frame, portal = null) {
+            return portalDisplayRadius(frame, portal) * PORTAL_FLIGHT_DISC_SCALE;
         }
 
         function shipWithinPortalActivateRange(ship, frame) {
@@ -7147,8 +7169,8 @@
             return inside;
         }
 
-        function projectPortalDiscFlightScreen(frame, centerX, centerY, fov) {
-            const visualRadius = portalFlightDiscRadius(frame);
+        function projectPortalDiscFlightScreen(frame, centerX, centerY, fov, portal = null) {
+            const visualRadius = portalFlightDiscRadius(frame, portal);
             const sides = 16;
             const points = [];
             for (let i = 0; i < sides; i++) {
@@ -7169,13 +7191,14 @@
             const ship = { x: posX, y: posY, z: posZ };
             let best = null;
             for (const portal of builder.portals) {
+                if (portal.hidden) continue;
                 const pairs = [{ from: portal.entry, to: portal.exit, forwardOnly: portalIsOneWay(portal) }];
                 if (portalIsBidirectional(portal)) {
                     pairs.push({ from: portal.exit, to: portal.entry, forwardOnly: false });
                 }
                 for (const pair of pairs) {
                     if (!shipWithinPortalActivateRange(ship, pair.from)) continue;
-                    const poly = projectPortalDiscFlightScreen(pair.from, centerX, centerY, fov);
+                    const poly = projectPortalDiscFlightScreen(pair.from, centerX, centerY, fov, portal);
                     if (!poly) continue;
                     let cx = 0;
                     let cy = 0;
@@ -7488,14 +7511,15 @@
             ctx.restore();
         }
 
-        function drawMapPortalDisc(frame, centerX, centerY, fov, stroke, fill, lineWidth = 2) {
-            const sides = 18;
+        function drawMapPortalDisc(frame, centerX, centerY, fov, stroke, fill, lineWidth = 2, portal = null) {
+            const sides = portal?.door ? 4 : 18;
+            const displayRadius = portalDisplayRadius(frame, portal);
             const points = [];
             for (let i = 0; i < sides; i++) {
                 const a = (i / sides) * Math.PI * 2;
                 const ringPoint = addVec(
-                    addVec(frame.point, scaleVec(frame.right, Math.cos(a) * frame.radius)),
-                    scaleVec(frame.down, Math.sin(a) * frame.radius)
+                    addVec(frame.point, scaleVec(frame.right, Math.cos(a) * displayRadius)),
+                    scaleVec(frame.down, Math.sin(a) * displayRadius)
                 );
                 const projected = projectMapPoint(ringPoint, centerX, centerY, fov);
                 if (!projected) return null;
@@ -7554,18 +7578,20 @@
                     centerX,
                     centerY,
                     fov,
-                    selected ? '#ff8cff' : (oneWay ? '#ff9a40' : '#b44dff'),
-                    selected ? 0.42 : (oneWay ? 0.34 : 0.28),
-                    selected ? 3 : 2
+                    selected ? '#ff8cff' : (portal.hidden ? '#5c4668' : (oneWay ? '#ff9a40' : '#b44dff')),
+                    selected ? 0.42 : (portal.hidden ? 0.16 : (oneWay ? 0.34 : 0.28)),
+                    selected ? 3 : (portal.door ? 3 : 2),
+                    portal
                 );
                 drawMapPortalDisc(
                     portal.exit,
                     centerX,
                     centerY,
                     fov,
-                    selected ? '#9fd4ff' : (oneWay ? '#5a6a8c' : '#5a8cff'),
-                    selected ? 0.38 : (oneWay ? 0.16 : 0.24),
-                    selected ? 3 : 2
+                    selected ? '#9fd4ff' : (portal.hidden ? '#344456' : (oneWay ? '#5a6a8c' : '#5a8cff')),
+                    selected ? 0.38 : (portal.hidden ? 0.12 : (oneWay ? 0.16 : 0.24)),
+                    selected ? 3 : (portal.door ? 3 : 2),
+                    portal
                 );
                 const previewPts = [portal.entry.point, portal.exit.point];
                 for (let i = 1; i < previewPts.length; i++) {
@@ -7599,6 +7625,7 @@
 
         function renderPortalGatewaysFlight(centerX, centerY, fov, texturedSegmentIndices = null, forwardPathSet = null) {
             for (const portal of builder.portals) {
+                if (portal.hidden) continue;
                 const oneWay = portalIsOneWay(portal);
                 const sides = [
                     [portal.entry, oneWay ? '#ff9a40' : '#c96bff', oneWay ? 0.28 : 0.22, true],
@@ -7614,8 +7641,8 @@
                     for (let i = 0; i < sidesCount; i++) {
                         const a = (i / sidesCount) * Math.PI * 2;
                         const ringPoint = addVec(
-                            addVec(frame.point, scaleVec(frame.right, Math.cos(a) * frame.radius)),
-                            scaleVec(frame.down, Math.sin(a) * frame.radius)
+                            addVec(frame.point, scaleVec(frame.right, Math.cos(a) * portalDisplayRadius(frame, portal))),
+                            scaleVec(frame.down, Math.sin(a) * portalDisplayRadius(frame, portal))
                         );
                         const projected = projectPoint(ringPoint, centerX, centerY, fov);
                         if (!projected) {
@@ -7643,7 +7670,7 @@
                         const center = projectPoint(frame.point, centerX, centerY, fov);
                         if (center) {
                             const tip = projectPoint(
-                                addVec(frame.point, scaleVec(frame.forward, frame.radius * 0.55)),
+                                addVec(frame.point, scaleVec(frame.forward, portalDisplayRadius(frame, portal) * 0.55)),
                                 centerX,
                                 centerY,
                                 fov
@@ -10579,15 +10606,18 @@
             return true;
         }
 
-        function applyPortalEdit(portalId, label, oneWay) {
+        function applyPortalEdit(portalId, label, oneWay, door = false, hidden = false) {
             const portal = findPortalById(portalId);
             if (!portal) return false;
             portal.label = (label || portal.label || 'Portal').trim() || portal.label;
             portal.oneWay = !!oneWay;
             portal.bidirectional = !portal.oneWay;
+            portal.door = !!door;
+            portal.hidden = !!hidden;
             saveTunnelMap();
-            const modeText = portal.oneWay ? 'one-way entry→exit' : 'two-way';
-            keyboardStatus.innerText = `portal updated (${modeText})`;
+            const modeText = portal.oneWay ? 'one-way entry->exit' : 'two-way';
+            const markerText = portal.hidden ? 'hidden' : (portal.door ? 'door' : 'disc');
+            keyboardStatus.innerText = `portal updated (${modeText}, ${markerText})`;
             return true;
         }
 
@@ -10673,8 +10703,24 @@
                     ? 'Direction: entry (purple) → exit (blue) — ONE-WAY'
                     : 'Direction: entry ↔ exit — two-way return';
             });
-            oneWayRow.append(oneWayCheck, ' One-way (forward only: entry → exit)');
+            oneWayRow.append(oneWayCheck, ' One-way (forward only: entry -> exit)');
             joinEditDialog.appendChild(oneWayRow);
+
+            const doorRow = document.createElement('label');
+            doorRow.className = 'hint';
+            const doorCheck = document.createElement('input');
+            doorCheck.type = 'checkbox';
+            doorCheck.checked = !!portal.door;
+            doorRow.append(doorCheck, ' Door marker (small clickable doorway)');
+            joinEditDialog.appendChild(doorRow);
+
+            const hiddenRow = document.createElement('label');
+            hiddenRow.className = 'hint';
+            const hiddenCheck = document.createElement('input');
+            hiddenCheck.type = 'checkbox';
+            hiddenCheck.checked = !!portal.hidden;
+            hiddenRow.append(hiddenCheck, ' Hidden in flight');
+            joinEditDialog.appendChild(hiddenRow);
 
             const actions = document.createElement('div');
             actions.className = 'join-actions';
@@ -10682,7 +10728,7 @@
             applyBtn.type = 'button';
             applyBtn.textContent = 'Apply';
             applyBtn.addEventListener('click', () => {
-                applyPortalEdit(portalId, labelInput.value, oneWayCheck.checked);
+                applyPortalEdit(portalId, labelInput.value, oneWayCheck.checked, doorCheck.checked, hiddenCheck.checked);
                 closePortalEditDialog();
             });
             const cancelBtn = document.createElement('button');
@@ -10999,8 +11045,8 @@
                     for (let i = 0; i < ringSides; i++) {
                         const a = (i / ringSides) * Math.PI * 2;
                         const ringPoint = addVec(
-                            addVec(side.frame.point, scaleVec(side.frame.right, Math.cos(a) * side.frame.radius)),
-                            scaleVec(side.frame.down, Math.sin(a) * side.frame.radius)
+                            addVec(side.frame.point, scaleVec(side.frame.right, Math.cos(a) * portalDisplayRadius(side.frame, portal))),
+                            scaleVec(side.frame.down, Math.sin(a) * portalDisplayRadius(side.frame, portal))
                         );
                         const projected = projectMapPoint(ringPoint, centerX, centerY, fov);
                         if (!projected) {
@@ -11014,7 +11060,7 @@
                     if (!center) continue;
                     const screenRadius = Math.max(
                         32,
-                        side.frame.radius * (fov / Math.max(center.z, 48)) * 0.62
+                        portalDisplayRadius(side.frame, portal) * (fov / Math.max(center.z, 48)) * 0.62
                     ) + MAP_PORTAL_PICK_PAD;
                     const onDisc = pointInPolygon(screenX, screenY, ring) ||
                         Math.hypot(screenX - center.x, screenY - center.y) <= screenRadius;
@@ -11029,7 +11075,7 @@
                             portalSide: side.portalSide,
                             dist,
                             weighted,
-                            radius: side.frame.radius
+                            radius: portalDisplayRadius(side.frame, portal)
                         };
                     }
                 }
