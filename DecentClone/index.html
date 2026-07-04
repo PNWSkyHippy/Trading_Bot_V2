@@ -1326,6 +1326,8 @@
             seg.wallTextureId = storedTextureId(seg.wallTextureId, defaultWallTextureId || DEFAULT_WALL_TEXTURE_ID);
             seg.ribColor = normalizeHexColor(seg.ribColor, defaultRibColor || DEFAULT_RIB_COLOR);
             seg.wallOpaque = seg.wallOpaque !== false;
+            seg.capStart = !!seg.capStart;
+            seg.capEnd = !!seg.capEnd;
             return seg;
         }
 
@@ -5680,7 +5682,9 @@
                     generated: !!seg.generated,
                     wallTextureId: seg.wallTextureId || defaultWallTextureId,
                     ribColor: seg.ribColor || defaultRibColor,
-                    wallOpaque: seg.wallOpaque !== false
+                    wallOpaque: seg.wallOpaque !== false,
+                    capStart: !!seg.capStart,
+                    capEnd: !!seg.capEnd
                 })),
                 portals: builder.portals.map(portal => ({
                     id: portal.id,
@@ -8444,6 +8448,28 @@
             const dist = local.radialDist;
             wallHit.active = false;
             wallHit.intensity *= 0.88;
+            const capInset = Math.max(10, Math.min(42, segRadius * 0.08));
+            let cappedZ = null;
+            if (seg.capStart && local.localZ < capInset) cappedZ = capInset;
+            if (seg.capEnd && local.localZ > local.length - capInset) cappedZ = local.length - capInset;
+            if (cappedZ !== null && dist <= segRadius * 0.98) {
+                const cappedAxis = addVec(seg.from, scaleVec(local.forward, cappedZ));
+                const radial = {
+                    x: ship.x - local.onAxis.x,
+                    y: ship.y - local.onAxis.y,
+                    z: ship.z - local.onAxis.z
+                };
+                posX = cappedAxis.x + radial.x;
+                posY = cappedAxis.y + radial.y;
+                posZ = cappedAxis.z + radial.z;
+                shipSegmentIndex = candidateSegmentIndex;
+                wallHit.active = true;
+                wallHit.intensity = Math.max(wallHit.intensity, 0.45);
+                wallHit.last = performance.now();
+                wallHit.lastRadius = segRadius;
+                applyShieldWallDrain(Math.abs(local.localZ - cappedZ), false);
+                return;
+            }
             if (dist <= radius) {
                 shipSegmentIndex = candidateSegmentIndex;
                 wallHit.lastRadius = segRadius;
@@ -10249,14 +10275,20 @@
                 normalizeHexColor(builder.segments[index]?.ribColor, defaultRibColor || DEFAULT_RIB_COLOR)
             )));
             const selectedWallOpaque = new Set(indices.map(index => segmentWallOpaque(builder.segments[index])));
+            const selectedCapStart = new Set(indices.map(index => !!builder.segments[index]?.capStart));
+            const selectedCapEnd = new Set(indices.map(index => !!builder.segments[index]?.capEnd));
             const selectedRadii = new Set(indices.map(index => Math.round(segmentRadiusAt(builder.segments[index]))));
             const mixedTexture = selectedTextureIds.size > 1;
             const mixedRibColor = selectedRibColors.size > 1;
             const mixedWallOpaque = selectedWallOpaque.size > 1;
+            const mixedCapStart = selectedCapStart.size > 1;
+            const mixedCapEnd = selectedCapEnd.size > 1;
             const mixedRadius = selectedRadii.size > 1;
             const currentTextureId = mixedTexture ? '' : [...selectedTextureIds][0];
             const currentRibColor = mixedRibColor ? defaultRibColor : [...selectedRibColors][0];
             const currentWallOpaque = mixedWallOpaque ? true : [...selectedWallOpaque][0];
+            const currentCapStart = mixedCapStart ? false : [...selectedCapStart][0];
+            const currentCapEnd = mixedCapEnd ? false : [...selectedCapEnd][0];
             const currentRadius = mixedRadius ? builder.radius : [...selectedRadii][0];
             const radiusMin = Math.round(clampMapSegmentRadius(builder.radius * MAP_RADIUS_MIN_FRAC));
             const radiusMax = Math.round(clampMapSegmentRadius(builder.radius * MAP_RADIUS_MAX_FRAC));
@@ -10336,6 +10368,34 @@
             opacityRow.append(opacityCheck, ' Opaque tunnel walls (blocks neighboring tunnels)');
             joinEditDialog.appendChild(opacityRow);
 
+            const capStartRow = document.createElement('label');
+            capStartRow.className = 'hint';
+            const capStartCheck = document.createElement('input');
+            capStartCheck.type = 'checkbox';
+            capStartCheck.checked = currentCapStart;
+            capStartCheck.indeterminate = mixedCapStart;
+            let capStartTouched = false;
+            capStartCheck.addEventListener('change', () => {
+                capStartTouched = true;
+                capStartCheck.indeterminate = false;
+            });
+            capStartRow.append(capStartCheck, ' Cap start end');
+            joinEditDialog.appendChild(capStartRow);
+
+            const capEndRow = document.createElement('label');
+            capEndRow.className = 'hint';
+            const capEndCheck = document.createElement('input');
+            capEndCheck.type = 'checkbox';
+            capEndCheck.checked = currentCapEnd;
+            capEndCheck.indeterminate = mixedCapEnd;
+            let capEndTouched = false;
+            capEndCheck.addEventListener('change', () => {
+                capEndTouched = true;
+                capEndCheck.indeterminate = false;
+            });
+            capEndRow.append(capEndCheck, ' Cap far end');
+            joinEditDialog.appendChild(capEndRow);
+
             const radiusRow = document.createElement('div');
             radiusRow.className = 'join-grid';
             const radiusTitle = document.createElement('div');
@@ -10356,9 +10416,9 @@
             const currentInfo = document.createElement('div');
             currentInfo.className = 'hint';
             currentInfo.style.color = '#9bdcff';
-            currentInfo.textContent = mixedTexture || mixedRibColor || mixedWallOpaque || mixedRadius
-                ? `Current: ${mixedTexture ? 'mixed textures' : currentTextureId}, ${mixedRibColor ? 'mixed rib colors' : currentRibColor}, ${mixedWallOpaque ? 'mixed wall opacity' : (currentWallOpaque ? 'opaque' : 'see-through')}, ${mixedRadius ? 'mixed widths' : `radius ${currentRadius}`}`
-                : `Current: ${currentTextureId}, ribs ${currentRibColor}, ${currentWallOpaque ? 'opaque' : 'see-through'}, radius ${currentRadius}`;
+            currentInfo.textContent = mixedTexture || mixedRibColor || mixedWallOpaque || mixedCapStart || mixedCapEnd || mixedRadius
+                ? `Current: ${mixedTexture ? 'mixed textures' : currentTextureId}, ${mixedRibColor ? 'mixed rib colors' : currentRibColor}, ${mixedWallOpaque ? 'mixed wall opacity' : (currentWallOpaque ? 'opaque' : 'see-through')}, ${mixedCapStart || mixedCapEnd ? 'mixed caps' : `${currentCapStart ? 'start cap' : 'start open'}, ${currentCapEnd ? 'end cap' : 'end open'}`}, ${mixedRadius ? 'mixed widths' : `radius ${currentRadius}`}`
+                : `Current: ${currentTextureId}, ribs ${currentRibColor}, ${currentWallOpaque ? 'opaque' : 'see-through'}, ${currentCapStart ? 'start cap' : 'start open'}, ${currentCapEnd ? 'end cap' : 'end open'}, radius ${currentRadius}`;
             joinEditDialog.appendChild(currentInfo);
 
             const defaultRow = document.createElement('label');
@@ -10401,6 +10461,8 @@
                     : null;
                 const ribColor = normalizeHexColor(colorInput.value, defaultRibColor);
                 const wallOpaque = !!opacityCheck.checked;
+                const capStart = !!capStartCheck.checked;
+                const capEnd = !!capEndCheck.checked;
                 const radius = readRadiusInput();
                 if (radius === null) {
                     keyboardStatus.innerText = 'invalid tunnel radius';
@@ -10412,6 +10474,8 @@
                     if (replacingTexture) seg.wallTextureId = textureId;
                     seg.ribColor = ribColor;
                     seg.wallOpaque = wallOpaque;
+                    if (!mixedCapStart || capStartTouched) seg.capStart = capStart;
+                    if (!mixedCapEnd || capEndTouched) seg.capEnd = capEnd;
                     normalizeSegmentRadius(seg, radius);
                 }
                 if (defaultCheck.checked) {
@@ -13492,7 +13556,13 @@
             ctx.restore();
         }
 
+        function segmentEndCapped(seg, endKind) {
+            if (!seg) return false;
+            return endKind === 'from' ? !!seg.capStart : !!seg.capEnd;
+        }
+
         function isSegmentEndpointOpen(seg, endKind) {
+            if (segmentEndCapped(seg, endKind)) return false;
             const thresholdSq = Math.pow((seg.radius || builder.radius) * 0.74, 2);
             const point = endKind === 'from' ? seg.from : seg.to;
             for (const other of builder.segments) {
@@ -14709,6 +14779,41 @@
             ];
         }
 
+        function renderCappedTunnelEnds(centerX, centerY, fov, coverageSegments = null) {
+            if (!TUNNEL_TEXTURE_ENABLED) return;
+            const segments = coverageSegments || collectVisibleTunnelSegments(TUNNEL_COVERAGE_MAX_SEGMENTS, { coverageMode: true });
+            const jobs = [];
+            for (const entry of segments) {
+                const { index, seg } = entry;
+                if (!seg?.capStart && !seg?.capEnd) continue;
+                const isBranchMouth = isBranchMouthSegment(seg);
+                const palette = mapMouse.selection.has(index) || mapMouse.anchor?.segmentIndex === index
+                    ? 'selected'
+                    : isBranchMouth ? 'branch' : 'main';
+                const sides = TUNNEL_TEXTURE_MODE === 'vector'
+                    ? TUNNEL_TEXTURE_VECTOR_SIDES_NEAR
+                    : TUNNEL_TEXTURE_SIDES;
+                for (const end of [
+                    { enabled: !!seg.capStart, z: 0, reverse: true },
+                    { enabled: !!seg.capEnd, z: seg.length || builder.length, reverse: false }
+                ]) {
+                    if (!end.enabled) continue;
+                    const cap = buildTunnelCrossSectionPolygon(seg, end.z, sides, true, end.reverse);
+                    jobs.push({
+                        avgZ: panelAvgCameraZ(cap),
+                        draw: () => fillSolidTunnelCap(cap, centerX, centerY, fov, seg, {
+                            allowPartial: true,
+                            forceDraw: true,
+                            mouthOpen: false,
+                            fillColor: vectorStyleBaseFill(palette)
+                        })
+                    });
+                }
+            }
+            jobs.sort((a, b) => b.avgZ - a.avgZ);
+            for (const job of jobs) job.draw();
+        }
+
         function renderTunnelWallTexture(centerX, centerY, fov, coverageSegments = null, streakSegments = null) {
             if (!tunnelWallsReady() || mapView) return;
             if (TUNNEL_TEXTURE_MODE === 'webgl') {
@@ -14904,6 +15009,7 @@
                 }
             }
             renderTunnelWallTexture(centerX, centerY, fov, coverageSegments, streakSegments);
+            renderCappedTunnelEnds(centerX, centerY, fov, coverageSegments);
         }
 
         function renderBuilderWorld(centerX, centerY, fov) {
