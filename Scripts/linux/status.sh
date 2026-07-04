@@ -6,6 +6,7 @@ SERVICES=(
   web-dashboard.service
   breakout-scanner.service
   ibkr-watchdog.service
+  astral-drift.service
 )
 
 echo "== systemd service state =="

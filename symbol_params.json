@@ -6,5 +6,13 @@
         "won": true
       }
     ]
+  },
+  "UAL": {
+    "history": [
+      {
+        "pnl_pct": 0.1392,
+        "won": true
+      }
+    ]
   }
 }

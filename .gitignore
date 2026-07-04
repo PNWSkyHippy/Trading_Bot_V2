@@ -2,7 +2,14 @@
 signals_log.csv
 DecentClone/mykey.txt
 DecentClone/mykey.txt.pub
+data/daily_scan_results.json
+reports/
+signals_log.csv
+watchlist/
+junk*
 data/junk.ps1
+docs/
+symbol_params.json
 logs/bot.log
 *.log
 .archon/

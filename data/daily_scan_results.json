@@ -1,13 +1,17 @@
 {
-  "generated": "2026-06-24T13:31:00.461579",
+  "generated": "2026-07-02T13:33:24.774461",
   "valid_until": "next_market_close",
-  "stocks": [
-    "UAL",
-    "WELL",
-    "EA"
-  ],
+  "stocks": [],
   "crypto": [
-    "LAB/USD",
-    "RAIN/USD"
+    "ETH/USD",
+    "ZEC/USD",
+    "GRAM/USD",
+    "TRX/USD",
+    "SUI/USD",
+    "XMR/USD",
+    "SOL/USD",
+    "XRP/USD",
+    "HBAR/USD",
+    "M/USD"
   ]
 }

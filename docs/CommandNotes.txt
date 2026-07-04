@@ -1,5 +1,18 @@
 tmux new -s trading
 Useful keys inside tmux:
+Ctrlo         roate panes in window forward
+Alt-o         rotate panes backwords
+Ctrl+b  :     Enter tmux command line
+Ctrl-b  ;     Move to prev active panel
+Ctrl+b  o     Move to next pane
+Ctrl+b  q     dislay pane index
+Ctrl+b  x     Kill current pane
+Ctrl+b  z     Toggle zom curent pane
+Pg up + up    Chang to pane
+  down left 
+  right
+Ctrl+b  f     Seach current window
+Ctrl+b  m     mark current pane 
 Ctrl+b  %     split pane left/right
 Ctrl+b  "     split pane top/bottom
 Ctrl+b  c     new window
