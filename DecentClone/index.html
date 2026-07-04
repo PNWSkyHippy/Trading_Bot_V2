@@ -8530,7 +8530,27 @@
             );
             const local = shipSegmentLocal(ship, seg);
             if (segmentIsChamber(seg)) {
-                segRadius = Math.max(24, chamberProfileRadius(seg, local.localZ, 1));
+                const chamber = chamberDistanceState(ship, seg);
+                const chamberLimit = Math.max(24, chamber.radius - TUNNEL_SAFE_MARGIN);
+                wallHit.active = false;
+                wallHit.intensity *= 0.88;
+                if (chamber.dist <= chamberLimit) {
+                    shipSegmentIndex = nearest.index;
+                    wallHit.lastRadius = chamber.radius;
+                    wallHit.stuckCount = Math.max(0, wallHit.stuckCount - 1);
+                    return;
+                }
+                const corrected = addVec(chamber.center, scaleVec(chamber.normal, chamberLimit));
+                posX = corrected.x;
+                posY = corrected.y;
+                posZ = corrected.z;
+                shipSegmentIndex = nearest.index;
+                wallHit.active = true;
+                wallHit.intensity = Math.max(wallHit.intensity, 0.3);
+                wallHit.last = performance.now();
+                wallHit.lastRadius = chamber.radius;
+                wallHit.stuckCount = Math.min(12, (wallHit.stuckCount || 0) + 1);
+                return;
             }
             const mouthPad = Math.max(20, segRadius * 0.16);
             const exitingForward = dot(lastThrustVector, local.forward) > 0.12 ||
@@ -13820,7 +13840,26 @@
             const half = Math.max(1, length * 0.5);
             const centerOffset = Math.max(-1, Math.min(1, (localZ - half) / half));
             const sphereProfile = Math.sqrt(Math.max(0, 1 - centerOffset * centerOffset));
-            return base * Math.max(0.24, sphereProfile);
+            return base * Math.max(0.08, sphereProfile);
+        }
+
+        function chamberCenterPoint(seg) {
+            return pointOnSegment(seg, 0.5);
+        }
+
+        function chamberDistanceState(ship, seg) {
+            const center = chamberCenterPoint(seg);
+            const delta = {
+                x: ship.x - center.x,
+                y: ship.y - center.y,
+                z: ship.z - center.z
+            };
+            const dist = Math.hypot(delta.x, delta.y, delta.z);
+            const radius = seg.radius || builder.radius;
+            const normal = dist > 0.001
+                ? { x: delta.x / dist, y: delta.y / dist, z: delta.z / dist }
+                : normalize(seg.down || builder.down);
+            return { center, delta, dist, radius, normal };
         }
 
         function shipSegmentLocal(ship, seg) {
@@ -13854,6 +13893,13 @@
 
         function shipInsideAnyTunnelTube(ship, mouthPad = 24) {
             for (const seg of builder.segments) {
+                if (segmentIsChamber(seg)) {
+                    const chamber = chamberDistanceState(ship, seg);
+                    if (chamber.dist <= chamber.radius * 1.06 + mouthPad) {
+                        return true;
+                    }
+                    continue;
+                }
                 const local = shipSegmentLocal(ship, seg);
                 const radius = chamberProfileRadius(seg, local.localZ, 1);
                 if (
@@ -15049,12 +15095,33 @@
                     const cap = buildTunnelCrossSectionPolygon(seg, end.z, sides, true, end.reverse);
                     jobs.push({
                         avgZ: panelAvgCameraZ(cap),
-                        draw: () => fillSolidTunnelCap(cap, centerX, centerY, fov, seg, {
-                            allowPartial: true,
-                            forceDraw: true,
-                            mouthOpen: false,
-                            fillColor: vectorStyleBaseFill(palette)
-                        })
+                        draw: () => {
+                            if (segmentIsChamber(seg)) {
+                                const drew = TUNNEL_TEXTURE_MODE === 'vector'
+                                    ? drawVectorWallPanel(cap, centerX, centerY, fov, palette, seg, {
+                                        allowPartial: true,
+                                        forceDraw: true,
+                                        mouthOpen: false,
+                                        solidFillOnly: false,
+                                        panelSide: 0,
+                                        panelSides: sides,
+                                        nearShipRing: true
+                                    })
+                                    : drawTexturedWallPanel(cap, centerX, centerY, fov, palette, seg, {
+                                        allowPartial: true,
+                                        forceDraw: true,
+                                        mouthOpen: false,
+                                        solidOnly: false
+                                    });
+                                if (drew) return;
+                            }
+                            fillSolidTunnelCap(cap, centerX, centerY, fov, seg, {
+                                allowPartial: true,
+                                forceDraw: true,
+                                mouthOpen: false,
+                                fillColor: vectorStyleBaseFill(palette)
+                            });
+                        }
                     });
                 }
             }
