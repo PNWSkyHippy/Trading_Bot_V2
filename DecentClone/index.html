@@ -1068,7 +1068,7 @@
         const MAP_JOIN_COLINEAR_DOT = 0.992;
         // mapBuildFix2: clamp tube radius + junction continuity — avoids narrow/wide WebGL gaps
         const MAP_RADIUS_MIN_FRAC = 0.72;
-        const MAP_RADIUS_MAX_FRAC = 1.08;
+        const MAP_RADIUS_MAX_FRAC = 1.60;
         const MAP_JUNCTION_RADIUS_SNAP = 0.55;
         // mapBuildFix3: auto-repair rib gaps — mirrors manual delete+Y-rejoin at bad junctions
         const MAP_RIB_JUNCTION_SNAP = 0.55;
@@ -10195,12 +10195,17 @@
                 normalizeHexColor(builder.segments[index]?.ribColor, defaultRibColor || DEFAULT_RIB_COLOR)
             )));
             const selectedWallOpaque = new Set(indices.map(index => segmentWallOpaque(builder.segments[index])));
+            const selectedRadii = new Set(indices.map(index => Math.round(segmentRadiusAt(builder.segments[index]))));
             const mixedTexture = selectedTextureIds.size > 1;
             const mixedRibColor = selectedRibColors.size > 1;
             const mixedWallOpaque = selectedWallOpaque.size > 1;
+            const mixedRadius = selectedRadii.size > 1;
             const currentTextureId = mixedTexture ? '' : [...selectedTextureIds][0];
             const currentRibColor = mixedRibColor ? defaultRibColor : [...selectedRibColors][0];
             const currentWallOpaque = mixedWallOpaque ? true : [...selectedWallOpaque][0];
+            const currentRadius = mixedRadius ? builder.radius : [...selectedRadii][0];
+            const radiusMin = Math.round(clampMapSegmentRadius(builder.radius * MAP_RADIUS_MIN_FRAC));
+            const radiusMax = Math.round(clampMapSegmentRadius(builder.radius * MAP_RADIUS_MAX_FRAC));
             joinEditDialog.innerHTML = '';
             joinEditDialog.dataset.mode = 'segment-style';
 
@@ -10214,8 +10219,8 @@
             const hint = document.createElement('div');
             hint.className = 'hint';
             hint.textContent =
-                'Choose the wall texture and rib color for selected tunnel sections. ' +
-                'Set Default makes new sections use this texture/color until changed again.';
+                'Choose the wall texture, rib color, opacity, and tunnel width for selected sections. ' +
+                'Set Default makes new sections use these values until changed again.';
             joinEditDialog.appendChild(hint);
 
             const textureRow = document.createElement('div');
@@ -10277,12 +10282,29 @@
             opacityRow.append(opacityCheck, ' Opaque tunnel walls (blocks neighboring tunnels)');
             joinEditDialog.appendChild(opacityRow);
 
+            const radiusRow = document.createElement('div');
+            radiusRow.className = 'join-grid';
+            const radiusTitle = document.createElement('div');
+            radiusTitle.style.gridColumn = '1 / -1';
+            radiusTitle.style.color = '#00ffcc';
+            radiusTitle.textContent = 'Tunnel Width';
+            const radiusLabel = document.createElement('label');
+            radiusLabel.textContent = 'Radius';
+            const radiusInput = document.createElement('input');
+            radiusInput.type = 'number';
+            radiusInput.step = '5';
+            radiusInput.min = String(radiusMin);
+            radiusInput.max = String(radiusMax);
+            radiusInput.value = String(Math.round(currentRadius));
+            radiusRow.append(radiusTitle, radiusLabel, radiusInput);
+            joinEditDialog.appendChild(radiusRow);
+
             const currentInfo = document.createElement('div');
             currentInfo.className = 'hint';
             currentInfo.style.color = '#9bdcff';
-            currentInfo.textContent = mixedTexture || mixedRibColor || mixedWallOpaque
-                ? `Current: ${mixedTexture ? 'mixed textures' : currentTextureId}, ${mixedRibColor ? 'mixed rib colors' : currentRibColor}, ${mixedWallOpaque ? 'mixed wall opacity' : (currentWallOpaque ? 'opaque' : 'see-through')}`
-                : `Current: ${currentTextureId}, ribs ${currentRibColor}, ${currentWallOpaque ? 'opaque' : 'see-through'}`;
+            currentInfo.textContent = mixedTexture || mixedRibColor || mixedWallOpaque || mixedRadius
+                ? `Current: ${mixedTexture ? 'mixed textures' : currentTextureId}, ${mixedRibColor ? 'mixed rib colors' : currentRibColor}, ${mixedWallOpaque ? 'mixed wall opacity' : (currentWallOpaque ? 'opaque' : 'see-through')}, ${mixedRadius ? 'mixed widths' : `radius ${currentRadius}`}`
+                : `Current: ${currentTextureId}, ribs ${currentRibColor}, ${currentWallOpaque ? 'opaque' : 'see-through'}, radius ${currentRadius}`;
             joinEditDialog.appendChild(currentInfo);
 
             const defaultRow = document.createElement('label');
@@ -10292,6 +10314,26 @@
             defaultCheck.checked = false;
             defaultRow.append(defaultCheck, ' Set as default for newly built sections');
             joinEditDialog.appendChild(defaultRow);
+
+            function readRadiusInput() {
+                const rawRadius = Number(radiusInput.value);
+                if (!Number.isFinite(rawRadius) || rawRadius <= 0) return null;
+                return clampMapSegmentRadius(rawRadius);
+            }
+
+            function applyRadiusOnly(targetIndices, makeDefault = false) {
+                const radius = readRadiusInput();
+                if (radius === null) {
+                    keyboardStatus.innerText = 'invalid tunnel radius';
+                    return;
+                }
+                for (const index of targetIndices) {
+                    normalizeSegmentRadius(builder.segments[index], radius);
+                }
+                if (makeDefault) builder.radius = radius;
+                applyMapGeometryChange(`radius ${Math.round(radius)} applied to ${targetIndices.length} segment(s)`);
+                closeJoinEditDialog();
+            }
 
             const actions = document.createElement('div');
             actions.className = 'join-actions';
@@ -10305,31 +10347,42 @@
                     : null;
                 const ribColor = normalizeHexColor(colorInput.value, defaultRibColor);
                 const wallOpaque = !!opacityCheck.checked;
+                const radius = readRadiusInput();
+                if (radius === null) {
+                    keyboardStatus.innerText = 'invalid tunnel radius';
+                    return;
+                }
                 for (const index of indices) {
                     const seg = builder.segments[index];
                     if (!seg) continue;
                     if (replacingTexture) seg.wallTextureId = textureId;
                     seg.ribColor = ribColor;
                     seg.wallOpaque = wallOpaque;
+                    normalizeSegmentRadius(seg, radius);
                 }
                 if (defaultCheck.checked) {
                     if (replacingTexture) defaultWallTextureId = textureId;
                     defaultRibColor = ribColor;
                     defaultWallOpaque = wallOpaque;
+                    builder.radius = radius;
                 }
-                invalidateTunnelSegmentCache();
-                saveTunnelMap();
-                keyboardStatus.innerText = `styled ${indices.length} segment(s)`;
+                applyMapGeometryChange(`styled ${indices.length} segment(s), radius ${Math.round(radius)}`);
                 closeJoinEditDialog();
+            });
+            const equalizeAllBtn = document.createElement('button');
+            equalizeAllBtn.type = 'button';
+            equalizeAllBtn.textContent = 'Equalize All Width';
+            equalizeAllBtn.addEventListener('click', () => {
+                applyRadiusOnly(builder.segments.map((_, index) => index), true);
             });
             const cancelBtn = document.createElement('button');
             cancelBtn.type = 'button';
             cancelBtn.textContent = 'Cancel';
             cancelBtn.addEventListener('click', closeJoinEditDialog);
-            actions.append(applyBtn, cancelBtn);
+            actions.append(applyBtn, equalizeAllBtn, cancelBtn);
             joinEditDialog.appendChild(actions);
             joinEditDialog.style.display = 'block';
-            wireDialogInputFocus(textureSelect, colorInput);
+            wireDialogInputFocus(textureSelect, colorInput, radiusInput);
             return true;
         }
 
