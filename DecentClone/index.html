@@ -1119,7 +1119,7 @@
         const BRANCH_FLIGHT_JUNCTION_APPROACH_T = 0.55;
         const BRANCH_JUNCTION_CONTAIN_GRACE_MS = 2500;
         const BRANCH_JUNCTION_CONTAIN_RELAX_FRAC = 0.14;
-        const VERTICAL_SEGMENT_CONTAIN_RELAX_FRAC = 0.10;
+        const VERTICAL_SEGMENT_CONTAIN_RELAX_FRAC = 0.18;
         const BRANCH_FLIGHT_TURN_SPEED_MULT = 1.85;
         const BRANCH_FLIGHT_PIVOT_TURN_MULT = 3.6;
         const BRANCH_FLIGHT_BASIS_BLEND = 0.24;
@@ -5969,7 +5969,7 @@
         function snapShipToTunnelCenterline(force = false) {
             if (!builder.segments.length) return false;
             const ship = { x: posX, y: posY, z: posZ };
-            const nearest = nearestTunnelPoint(ship, shipSegmentIndex);
+            const nearest = nearestTunnelPoint(ship, shipSegmentIndex, { preferContaining: true });
             if (!nearest) return false;
             const seg = nearest.seg;
             const local = shipSegmentLocal(ship, seg);
@@ -7885,9 +7885,10 @@
             saveTunnelMap();
         }
 
-        function nearestTunnelPoint(point, preferredIndex = null) {
+        function nearestTunnelPoint(point, preferredIndex = null, options = {}) {
             let best = null;
             let preferred = null;
+            let bestContaining = null;
             const candidates = [];
             for (let i = 0; i < builder.segments.length; i++) {
                 const seg = builder.segments[i];
@@ -7910,6 +7911,21 @@
                 if (!best || dist2 < best.dist2) {
                     best = candidate;
                 }
+                if (options.preferContaining) {
+                    // Track the tube that CONTAINS the point with the largest margin. Raw
+                    // nearest-axis picks the arm you're leaving at a junction (its axis is
+                    // still closest) even when you're validly inside the trunk or another
+                    // arm's mouth — containment then pushes you back into the old arm, which
+                    // made junction turns feel one-way (arm-to-arm turns impossible).
+                    const rad = seg.radius || builder.radius;
+                    const margin = rad - Math.sqrt(dist2);
+                    if (margin >= 0 && (!bestContaining || margin > bestContaining.margin)) {
+                        bestContaining = { ...candidate, margin };
+                    }
+                }
+            }
+            if (bestContaining && (!best || bestContaining.index !== best.index)) {
+                best = bestContaining;
             }
             if (preferred && best) {
                 const now = performance.now();
@@ -8121,7 +8137,7 @@
             }
 
             const ship = { x: posX, y: posY, z: posZ };
-            const nearest = nearestTunnelPoint(ship, shipSegmentIndex);
+            const nearest = nearestTunnelPoint(ship, shipSegmentIndex, { preferContaining: true });
             if (!nearest) {
                 branchFlightContext = ctx;
                 return ctx;
@@ -8364,7 +8380,12 @@
                 wallHit.stuckCount = Math.max(0, wallHit.stuckCount - 1);
                 const wallBasisNow = performance.now();
                 const canResetWallBasis = wallBasisNow >= (wallHit.cockpitResetCooldownUntil || 0);
-                if (wallHit.last && wallBasisNow - wallHit.last < 900 && canResetWallBasis) {
+                if (
+                    wallHit.last &&
+                    wallBasisNow - wallHit.last < 900 &&
+                    canResetWallBasis &&
+                    !branchCtx.allowVerticalPitch
+                ) {
                     const _flipped = cockpitBasisLooksFlipped();
                     console.warn('[WALL-BASIS] containShipInTunnel forceBasis roll=' +
                         (shipRollAngle * 180 / Math.PI).toFixed(1) + '° flipped=' + _flipped);
@@ -8375,7 +8396,12 @@
             }
 
             const segRadiusHard = segRadius;
-            if (local.radialDist > segRadiusHard * 0.98 || wallHit.stuckCount >= 4) {
+            const hardEscapeNeeded = local.radialDist > segRadiusHard * 0.98 || wallHit.stuckCount >= 4;
+            const verticalSoftContain =
+                branchCtx.allowVerticalPitch &&
+                local.radialDist <= segRadiusHard * 1.08 &&
+                wallHit.stuckCount < 8;
+            if (hardEscapeNeeded && !verticalSoftContain) {
                 const escapeNormal = radialContainmentNormal(ship, seg, local);
                 const inset = Math.max(8, radius * 0.28);
                 console.warn('[CONTAIN-ESCAPE] seg=' + candidateSegmentIndex +
@@ -8393,7 +8419,12 @@
                 wallHit.active = false;
                 wallHit.intensity = 0;
                 wallHit.lastRadius = segRadius;
-                forceCockpitBasisFromNose(true);
+                if (!branchCtx.allowVerticalPitch) {
+                    forceCockpitBasisFromNose(true);
+                } else {
+                    repairBasis({ branchContext: branchCtx });
+                    syncViewToShip();
+                }
                 return;
             }
 
