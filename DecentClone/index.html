@@ -1813,6 +1813,31 @@
             target[15] = 1;
             return target;
         }
+
+        function mat4ChamberModel(seg, out = null) {
+            const r = normalize(seg.right || builder.right);
+            const d = normalize(seg.down || builder.down);
+            const f = normalize(seg.forward || builder.forward);
+            const center = pointOnSegment(seg, 0.5);
+            const target = out || new Float32Array(16);
+            target[0] = r.x;
+            target[1] = r.y;
+            target[2] = r.z;
+            target[3] = 0;
+            target[4] = d.x;
+            target[5] = d.y;
+            target[6] = d.z;
+            target[7] = 0;
+            target[8] = f.x;
+            target[9] = f.y;
+            target[10] = f.z;
+            target[11] = 0;
+            target[12] = center.x;
+            target[13] = center.y;
+            target[14] = center.z;
+            target[15] = 1;
+            return target;
+        }
         
        function buildCylinderGpuMesh(span, radialSegments, tubularSegments) {
             // 1. FORCE the incoming span length to 400 immediately
@@ -1877,38 +1902,37 @@
             return mesh;
         }
 
-        function buildProfiledCylinderGpuMesh(seg, zStart, span, radialSegments, tubularSegments, index = null) {
-            span = Math.max(1, span);
-            tubularSegments = Math.max(18, Math.min(220, tubularSegments || 120));
-            const radiusBucket = Math.max(1, Math.round((seg.radius || builder.radius) / 8) * 8);
-            const lengthBucket = Math.max(1, Math.round((seg.length || builder.length) / 8) * 8);
-            const startBucket = Math.round(zStart / 8) * 8;
-            const spanBucket = Math.max(8, Math.round(span / 8) * 8);
-            const key = `${TUNNEL_WEBGL_MESH_CACHE_VERSION}|chamber|${startBucket}|${spanBucket}|${radiusBucket}|${lengthBucket}|${radialSegments}|${tubularSegments}`;
+        function buildChamberSphereGpuMesh(seg, radialSegments, latSegments, index = null) {
+            radialSegments = Math.max(16, Math.min(64, radialSegments || 32));
+            latSegments = Math.max(12, Math.min(48, latSegments || 24));
+            const radius = (seg.radius || builder.radius) * TUNNEL_TEXTURE_PANEL_OVERLAP;
+            const radiusBucket = Math.max(1, Math.round(radius / 8) * 8);
+            const key = `${TUNNEL_WEBGL_MESH_CACHE_VERSION}|chamberSphere|${radiusBucket}|${radialSegments}|${latSegments}`;
             if (tunnelWebGL.meshCache.has(key)) return tunnelWebGL.meshCache.get(key);
 
             const vertices = [];
             const texCoords = [];
             const indices = [];
 
-            for (let j = 0; j <= tubularSegments; j++) {
-                const v = j / tubularSegments;
-                const localZ = zStart + v * span;
-                const radius = segmentPanelRadiusAt(seg, localZ, false, index);
+            for (let j = 0; j <= latSegments; j++) {
+                const v = j / latSegments;
+                const phi = v * Math.PI;
+                const ring = Math.sin(phi) * radius;
+                const z = Math.cos(phi) * radius;
                 for (let i = 0; i <= radialSegments; i++) {
                     const u = i / radialSegments;
                     const theta = u * Math.PI * 2.0;
-                    vertices.push(Math.cos(theta) * radius, Math.sin(theta) * radius, v * span);
-                    texCoords.push(u, v);
+                    vertices.push(Math.cos(theta) * ring, Math.sin(theta) * ring, z);
+                    texCoords.push(u, v * 1.6);
                 }
             }
 
-            for (let j = 0; j < tubularSegments; j++) {
+            for (let j = 0; j < latSegments; j++) {
                 for (let i = 0; i < radialSegments; i++) {
                     const first = j * (radialSegments + 1) + i;
                     const second = first + radialSegments + 1;
-                    indices.push(first, first + 1, second);
-                    indices.push(second, first + 1, second + 1);
+                    indices.push(first, second, first + 1);
+                    indices.push(second, second + 1, first + 1);
                 }
             }
 
@@ -2213,9 +2237,11 @@
                 const tubularSegs = webglBucketTubularSegments(span);
                 const chamber = segmentIsChamber(seg);
                 const mesh = chamber
-                    ? buildProfiledCylinderGpuMesh(seg, zStart, span, TUNNEL_WEBGL_RADIAL_SEGMENTS, tubularSegs * 3, index)
+                    ? buildChamberSphereGpuMesh(seg, TUNNEL_WEBGL_RADIAL_SEGMENTS * 2, Math.max(18, tubularSegs), index)
                     : buildCylinderGpuMesh(span, TUNNEL_WEBGL_RADIAL_SEGMENTS, tubularSegs * 3);
-                const model = mat4SegmentModel(seg, zStart, span, chamber ? 1 : radius, tunnelWebGL.modelScratch);
+                const model = chamber
+                    ? mat4ChamberModel(seg, tunnelWebGL.modelScratch)
+                    : mat4SegmentModel(seg, zStart, span, radius, tunnelWebGL.modelScratch);
                 gl.uniformMatrix4fv(tunnelWebGL.uModel, false, model);
                 gl.uniform1f(tunnelWebGL.uAlpha, segmentWallAlpha(seg, 1));
                 const segmentTexture = getWebGLTextureForSegment(seg);
