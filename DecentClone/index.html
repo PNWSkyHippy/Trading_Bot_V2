@@ -8572,7 +8572,7 @@
             }
             if (key === '0') {
                 if (mapView) {
-                    snapMapCameraToPoint({ x: posX, y: posY, z: posZ }, builder.radius, 'ship');
+                    frameMapCameraOnTunnel();
                     return true;
                 }
                 return recoverShipToTunnel();
@@ -8621,7 +8621,7 @@
                 mapView = !mapView;
                 clearKeyboardState();
                 if (mapView) {
-                    frameMapCameraOnTunnel();
+                    snapMapCameraToPoint({ x: posX, y: posY, z: posZ }, builder.radius, 'ship');
                 } else {
                     rebuildTunnelSentries();
                 }
