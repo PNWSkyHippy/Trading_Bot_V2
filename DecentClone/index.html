@@ -7237,6 +7237,18 @@
         function portalVisualPoint(frame, portal = null) {
             if (!portal?.door) return frame.point;
             const seg = Number.isInteger(frame.segmentIndex) ? builder.segments[frame.segmentIndex] : null;
+            if (segmentIsChamber(seg)) {
+                const center = chamberCenterPoint(seg);
+                const fromCenter = normalize({
+                    x: frame.point.x - center.x,
+                    y: frame.point.y - center.y,
+                    z: frame.point.z - center.z
+                });
+                const dir = Math.hypot(fromCenter.x, fromCenter.y, fromCenter.z) > 0.01
+                    ? fromCenter
+                    : normalize(frame.right || builder.right);
+                return addVec(center, scaleVec(dir, (seg.radius || builder.radius) * 0.92));
+            }
             const frameRadius = seg
                 ? chamberProfileRadius(seg, (frame.segmentT ?? 0.5) * (seg.length || builder.length), 1)
                 : (frame.radius || builder.radius);
@@ -7262,7 +7274,11 @@
         }
 
         function shipWithinPortalActivateRange(ship, frame, portal = null) {
-            return Math.sqrt(distanceSq(ship, portalVisualPoint(frame, portal))) <= PORTAL_ACTIVATE_RANGE;
+            const seg = Number.isInteger(frame.segmentIndex) ? builder.segments[frame.segmentIndex] : null;
+            const range = segmentIsChamber(seg)
+                ? Math.max(PORTAL_ACTIVATE_RANGE, (seg.radius || builder.radius) * 0.28)
+                : PORTAL_ACTIVATE_RANGE;
+            return Math.sqrt(distanceSq(ship, portalVisualPoint(frame, portal))) <= range;
         }
 
         function pointInPolygon(x, y, points) {
@@ -16610,7 +16626,11 @@
 
             const forward = localToWorld(0, 0, 1);
             const right = localToWorld(1, 0, 0);
-            const up = localToWorld(0, -1, 0);
+            let up = localToWorld(0, -1, 0);
+            const chamberNearest = nearestTunnelPoint({ x: posX, y: posY, z: posZ }, shipSegmentIndex, { preferContaining: true });
+            if (segmentIsChamber(chamberNearest?.seg)) {
+                up = normalize(scaleVec(chamberNearest.seg.down || builder.down, -1));
+            }
 
             function thrust(vec, amount) {
                 posX += vec.x * amount;
