@@ -1282,14 +1282,25 @@
             return textureLibrary.walls.find(item => item.id === safeId) || textureLibrary.walls[0];
         }
 
+        function preservedTextureId(id, group, fallback) {
+            const raw = String(id || '').trim();
+            return raw || fallback;
+        }
+
+        function textureEntryOrFallback(id, group, fallback) {
+            const raw = String(id || '').trim();
+            const library = textureLibrary[group] || [];
+            return library.find(item => item.id === raw)
+                || library.find(item => item.id === fallback)
+                || library[0];
+        }
+
         function getSentryTextureEntry(id) {
-            const safeId = sanitizeTextureId(id, 'ai', 'wire_star_destroyer');
-            return textureLibrary.ai.find(item => item.id === safeId) || textureLibrary.ai[0];
+            return textureEntryOrFallback(id, 'ai', 'wire_star_destroyer');
         }
 
         function getEffectTextureEntry(id) {
-            const safeId = sanitizeTextureId(id, 'effects', 'orange_laser');
-            return textureLibrary.effects.find(item => item.id === safeId) || textureLibrary.effects[0];
+            return textureEntryOrFallback(id, 'effects', 'orange_laser');
         }
 
         const textureImageCache = new Map();
@@ -6424,6 +6435,7 @@
             mapMouse.destination = null;
             mapMouse.midpoint = null;
             syncBuilderTargetsFromGeometry();
+            const portalSyncCount = syncPortalFramesToSegments();
             rebuildTunnelStars();
             rebuildTunnelTargets();
             invalidateTunnelSegmentCache();
@@ -6437,6 +6449,7 @@
             if (cleanup.ribRepair?.basisFixed) extras.push(`${cleanup.ribRepair.basisFixed} basis fixed`);
             if (cleanup.ribRepair?.gapsRemaining) extras.push(`${cleanup.ribRepair.gapsRemaining} rib hints`);
             if (cleanup.ribRepair?.radiiFixed) extras.push(`${cleanup.ribRepair.radiiFixed} junction radii synced`);
+            if (portalSyncCount) extras.push(`${portalSyncCount} portal frame${portalSyncCount === 1 ? '' : 's'} synced`);
             if (cleanup.branchNormalized) extras.push(`${cleanup.branchNormalized} branch flags cleared`);
             if (cleanup.autogenSplit) extras.push(`${cleanup.autogenSplit} autogen split`);
             keyboardStatus.innerText = extras.length
@@ -6954,6 +6967,46 @@
 
         function portalRadiusForSegment(seg) {
             return Math.max(44, (seg?.radius || builder.radius) * 0.54);
+        }
+
+        function syncPortalFrameToSegment(frame) {
+            if (!frame || frame.segmentIndex === null || frame.segmentIndex === undefined) return false;
+            const seg = builder.segments[frame.segmentIndex];
+            if (!seg) return false;
+            const segLen = seg.length || Math.hypot(seg.to.x - seg.from.x, seg.to.y - seg.from.y, seg.to.z - seg.from.z) || 1;
+            let t = Number.isFinite(frame.segmentT) ? frame.segmentT : null;
+            if (t === null) {
+                const fromDelta = {
+                    x: frame.point.x - seg.from.x,
+                    y: frame.point.y - seg.from.y,
+                    z: frame.point.z - seg.from.z
+                };
+                t = dot(fromDelta, seg.forward) / segLen;
+            }
+            t = Math.max(0, Math.min(1, t));
+            const forwardSign = dot(frame.forward || seg.forward, seg.forward) < 0 ? -1 : 1;
+            const nextPoint = pointOnSegment(seg, t);
+            const nextRadius = portalRadiusForSegment(seg);
+            const changed = distanceSq(frame.point, nextPoint) > 0.01
+                || Math.abs((frame.radius || 0) - nextRadius) > 0.01
+                || dot(frame.right || seg.right, seg.right) < 0.999
+                || dot(frame.down || seg.down, seg.down) < 0.999;
+            frame.point = nextPoint;
+            frame.right = copyVec(seg.right);
+            frame.down = copyVec(seg.down);
+            frame.forward = normalize(scaleVec(seg.forward, forwardSign));
+            frame.radius = nextRadius;
+            frame.segmentT = t;
+            return changed;
+        }
+
+        function syncPortalFramesToSegments() {
+            let changed = 0;
+            for (const portal of builder.portals) {
+                if (syncPortalFrameToSegment(portal.entry)) changed++;
+                if (syncPortalFrameToSegment(portal.exit)) changed++;
+            }
+            return changed;
         }
 
         function portalFrameFromAnchorLike(anchorLike, outwardSign = 1) {
@@ -11718,8 +11771,8 @@
                     id: raw.id || makeSentryId(),
                     label: raw.label || '',
                     mode: raw.mode === 'patrol' ? 'patrol' : 'guard',
-                    shipTextureId: sanitizeTextureId(raw.shipTextureId, 'ai', 'wire_star_destroyer'),
-                    effectTextureId: sanitizeTextureId(raw.effectTextureId, 'effects', 'orange_laser'),
+                    shipTextureId: preservedTextureId(raw.shipTextureId, 'ai', 'wire_star_destroyer'),
+                    effectTextureId: preservedTextureId(raw.effectTextureId, 'effects', 'orange_laser'),
                     spawn: {
                         point: copyVec(raw.spawn.point),
                         right: normalize(copyVec(raw.spawn.right)),
@@ -11941,8 +11994,8 @@
                 id: makeSentryId(),
                 label,
                 mode: 'guard',
-                shipTextureId: sanitizeTextureId(options.shipTextureId, 'ai', 'wire_star_destroyer'),
-                effectTextureId: sanitizeTextureId(options.effectTextureId, 'effects', 'orange_laser'),
+                shipTextureId: preservedTextureId(options.shipTextureId, 'ai', 'wire_star_destroyer'),
+                effectTextureId: preservedTextureId(options.effectTextureId, 'effects', 'orange_laser'),
                 spawn: {
                     point: copyVec(snapped.point),
                     right: snapped.right,
@@ -12111,8 +12164,8 @@
             if (!sentry) return false;
             sentry.label = (label || '').trim();
             sentry.mode = mode === 'patrol' ? 'patrol' : 'guard';
-            sentry.shipTextureId = sanitizeTextureId(shipTextureId, 'ai', 'wire_star_destroyer');
-            sentry.effectTextureId = sanitizeTextureId(effectTextureId, 'effects', 'orange_laser');
+            sentry.shipTextureId = preservedTextureId(shipTextureId, 'ai', 'wire_star_destroyer');
+            sentry.effectTextureId = preservedTextureId(effectTextureId, 'effects', 'orange_laser');
             if (sentry.mode === 'patrol') {
                 sentry.path = (pathStages || []).map(stage => ({
                     point: copyVec(stage.point),
@@ -12217,7 +12270,14 @@
                 option.textContent = entry.label;
                 shipSelect.appendChild(option);
             }
-            shipSelect.value = sanitizeTextureId(sentry.shipTextureId, 'ai', 'wire_star_destroyer');
+            const currentShipTextureId = preservedTextureId(sentry.shipTextureId, 'ai', 'wire_star_destroyer');
+            if (!textureLibrary.ai.some(entry => entry.id === currentShipTextureId)) {
+                const storedOption = document.createElement('option');
+                storedOption.value = currentShipTextureId;
+                storedOption.textContent = `Stored ship: ${currentShipTextureId}`;
+                shipSelect.appendChild(storedOption);
+            }
+            shipSelect.value = currentShipTextureId;
             const effectLabel = document.createElement('label');
             effectLabel.textContent = 'Fire';
             const effectSelect = document.createElement('select');
@@ -12227,7 +12287,14 @@
                 option.textContent = entry.label;
                 effectSelect.appendChild(option);
             }
-            effectSelect.value = sanitizeTextureId(sentry.effectTextureId, 'effects', 'orange_laser');
+            const currentEffectTextureId = preservedTextureId(sentry.effectTextureId, 'effects', 'orange_laser');
+            if (!textureLibrary.effects.some(entry => entry.id === currentEffectTextureId)) {
+                const storedOption = document.createElement('option');
+                storedOption.value = currentEffectTextureId;
+                storedOption.textContent = `Stored fire: ${currentEffectTextureId}`;
+                effectSelect.appendChild(storedOption);
+            }
+            effectSelect.value = currentEffectTextureId;
             styleRow.append(styleTitle, shipLabel, shipSelect, effectLabel, effectSelect);
             joinEditDialog.appendChild(styleRow);
 
