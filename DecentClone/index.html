@@ -4095,6 +4095,9 @@
                     const kind = mapMouse.gizmoTarget?.kind;
                     if (kind === 'anchor' || kind === 'destination') {
                         applyMapGeometryChange(`moved ${kind} with XYZ gizmo`);
+                    } else if (kind === 'segmentCenter') {
+                        applyMapGeometryChange('moved selected segment(s) with XYZ gizmo');
+                        setXyzGizmoTarget('segmentCenter');
                     } else if (kind === 'midpoint') {
                         keyboardStatus.innerText = 'moved bend point C with XYZ gizmo';
                     } else if (kind === 'selectionBend') {
@@ -9865,9 +9868,49 @@
             mapMouse.gizmoTarget = { kind, index };
         }
 
+        function selectedSegmentCenterPoint() {
+            const indices = selectedSegmentIndices();
+            if (!indices.length) return null;
+            let x = 0;
+            let y = 0;
+            let z = 0;
+            let count = 0;
+            for (const index of indices) {
+                const seg = builder.segments[index];
+                if (!seg) continue;
+                x += (seg.from.x + seg.to.x) * 0.5;
+                y += (seg.from.y + seg.to.y) * 0.5;
+                z += (seg.from.z + seg.to.z) * 0.5;
+                count++;
+            }
+            return count ? { x: x / count, y: y / count, z: z / count } : null;
+        }
+
+        function translateSelectedSegmentsTo(point) {
+            const current = selectedSegmentCenterPoint();
+            const indices = selectedSegmentIndices();
+            if (!current || !indices.length || !point) return false;
+            const delta = {
+                x: point.x - current.x,
+                y: point.y - current.y,
+                z: point.z - current.z
+            };
+            for (const index of indices) {
+                const seg = builder.segments[index];
+                if (!seg) continue;
+                seg.from = addVec(seg.from, delta);
+                seg.to = addVec(seg.to, delta);
+                normalizeSegmentFromEndpoints(seg);
+            }
+            if (mapMouse.anchor?.point) mapMouse.anchor.point = addVec(mapMouse.anchor.point, delta);
+            if (mapMouse.destination?.point) mapMouse.destination.point = addVec(mapMouse.destination.point, delta);
+            return true;
+        }
+
         function gizmoTargetPoint(target = mapMouse.gizmoTarget) {
             if (!target) return null;
             if (target.kind === 'anchor') return mapMouse.anchor?.point || null;
+            if (target.kind === 'segmentCenter') return selectedSegmentCenterPoint();
             if (target.kind === 'destination') return mapMouse.destination?.point || null;
             if (target.kind === 'midpoint') return mapMouse.midpoint?.point || null;
             if (target.kind === 'selectionBend') return selectedRangeBendPoint();
@@ -9947,6 +9990,9 @@
             if (target.kind === 'destination' && mapMouse.destination) {
                 moveConnectedTunnelNode(mapMouse.destination, point);
                 return true;
+            }
+            if (target.kind === 'segmentCenter') {
+                return translateSelectedSegmentsTo(point);
             }
             if (target.kind === 'midpoint' && mapMouse.midpoint) {
                 mapMouse.midpoint.point = copyVec(point);
@@ -10449,6 +10495,31 @@
                 closeJoinEditDialog();
             }
 
+            function makeSelectedChamber() {
+                const radius = readRadiusInput();
+                if (radius === null) {
+                    keyboardStatus.innerText = 'invalid chamber radius';
+                    return;
+                }
+                let changed = 0;
+                for (const index of indices) {
+                    const seg = builder.segments[index];
+                    if (!seg) continue;
+                    const center = pointOnSegment(seg, 0.5);
+                    const f = normalize(seg.forward || { x: seg.to.x - seg.from.x, y: seg.to.y - seg.from.y, z: seg.to.z - seg.from.z });
+                    const targetLength = Math.max(seg.length || 0, radius * 2);
+                    seg.from = addVec(center, scaleVec(f, -targetLength * 0.5));
+                    seg.to = addVec(center, scaleVec(f, targetLength * 0.5));
+                    seg.capStart = true;
+                    seg.capEnd = true;
+                    normalizeSegmentFromEndpoints(seg);
+                    normalizeSegmentRadius(seg, radius);
+                    changed++;
+                }
+                applyMapGeometryChange(`made ${changed} chamber segment(s), radius ${Math.round(radius)}`);
+                closeJoinEditDialog();
+            }
+
             const actions = document.createElement('div');
             actions.className = 'join-actions';
             const applyBtn = document.createElement('button');
@@ -10487,6 +10558,10 @@
                 applyMapGeometryChange(`styled ${indices.length} segment(s), radius ${Math.round(radius)}`);
                 closeJoinEditDialog();
             });
+            const chamberBtn = document.createElement('button');
+            chamberBtn.type = 'button';
+            chamberBtn.textContent = 'Make Chamber';
+            chamberBtn.addEventListener('click', makeSelectedChamber);
             const equalizeAllBtn = document.createElement('button');
             equalizeAllBtn.type = 'button';
             equalizeAllBtn.textContent = 'Equalize All Width';
@@ -10497,7 +10572,7 @@
             cancelBtn.type = 'button';
             cancelBtn.textContent = 'Cancel';
             cancelBtn.addEventListener('click', closeJoinEditDialog);
-            actions.append(applyBtn, equalizeAllBtn, cancelBtn);
+            actions.append(applyBtn, chamberBtn, equalizeAllBtn, cancelBtn);
             joinEditDialog.appendChild(actions);
             joinEditDialog.style.display = 'block';
             wireDialogInputFocus(textureSelect, colorInput, radiusInput);
@@ -11197,7 +11272,12 @@
                 portalId: anchor.portalId,
                 portalSide: anchor.portalSide
             };
-            setXyzGizmoTarget('anchor');
+            setXyzGizmoTarget(
+                anchor.segmentIndex !== null && anchor.segmentIndex !== undefined &&
+                    anchor.endKind !== 'start' && anchor.endKind !== 'end'
+                    ? 'segmentCenter'
+                    : 'anchor'
+            );
             mapMouse.selectedPortalId = anchor.portalId || null;
             if (!additive) {
                 mapMouse.midpoint = null;
