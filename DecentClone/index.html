@@ -1069,6 +1069,7 @@
         // mapBuildFix2: clamp tube radius + junction continuity — avoids narrow/wide WebGL gaps
         const MAP_RADIUS_MIN_FRAC = 0.72;
         const MAP_RADIUS_MAX_FRAC = 1.60;
+        const MAP_CHAMBER_MAX_RADIUS = 1200;
         const MAP_JUNCTION_RADIUS_SNAP = 0.55;
         // mapBuildFix3: auto-repair rib gaps — mirrors manual delete+Y-rejoin at bad junctions
         const MAP_RIB_JUNCTION_SNAP = 0.55;
@@ -4840,7 +4841,7 @@
                 : TUNNEL_DEFAULT_RADIUS;
             const value = Number.isFinite(radiusHint) && radiusHint > 0 ? radiusHint : base;
             const minR = Math.max(24, base * MAP_RADIUS_MIN_FRAC);
-            const maxR = base * MAP_RADIUS_MAX_FRAC;
+            const maxR = Math.max(base * MAP_RADIUS_MAX_FRAC, MAP_CHAMBER_MAX_RADIUS);
             return Math.max(minR, Math.min(maxR, value));
         }
 
@@ -10340,7 +10341,7 @@
             const radiusTitle = document.createElement('div');
             radiusTitle.style.gridColumn = '1 / -1';
             radiusTitle.style.color = '#00ffcc';
-            radiusTitle.textContent = 'Tunnel Width';
+            radiusTitle.textContent = 'Tunnel / Chamber Width';
             const radiusLabel = document.createElement('label');
             radiusLabel.textContent = 'Radius';
             const radiusInput = document.createElement('input');
