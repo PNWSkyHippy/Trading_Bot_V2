@@ -8071,19 +8071,31 @@
             const candidates = [];
             for (let i = 0; i < builder.segments.length; i++) {
                 const seg = builder.segments[i];
-                const axis = {
-                    x: seg.to.x - seg.from.x,
-                    y: seg.to.y - seg.from.y,
-                    z: seg.to.z - seg.from.z
-                };
-                const lenSq = dot(axis, axis) || 1;
-                const t = Math.max(0, Math.min(1, dot({
-                    x: point.x - seg.from.x,
-                    y: point.y - seg.from.y,
-                    z: point.z - seg.from.z
-                }, axis) / lenSq));
-                const center = pointOnSegment(seg, t);
-                const dist2 = distanceSq(point, center);
+                let center;
+                let dist2;
+                let t;
+                let containmentMargin = null;
+                if (segmentIsChamber(seg)) {
+                    center = chamberCenterPoint(seg);
+                    const chamberDist = Math.sqrt(distanceSq(point, center));
+                    dist2 = Math.pow(Math.max(0, chamberDist - (seg.radius || builder.radius)), 2);
+                    t = 0.5;
+                    containmentMargin = (seg.radius || builder.radius) - chamberDist;
+                } else {
+                    const axis = {
+                        x: seg.to.x - seg.from.x,
+                        y: seg.to.y - seg.from.y,
+                        z: seg.to.z - seg.from.z
+                    };
+                    const lenSq = dot(axis, axis) || 1;
+                    t = Math.max(0, Math.min(1, dot({
+                        x: point.x - seg.from.x,
+                        y: point.y - seg.from.y,
+                        z: point.z - seg.from.z
+                    }, axis) / lenSq));
+                    center = pointOnSegment(seg, t);
+                    dist2 = distanceSq(point, center);
+                }
                 const candidate = { seg, index: i, center, dist2, t };
                 candidates.push(candidate);
                 if (i === preferredIndex) preferred = candidate;
@@ -8091,13 +8103,11 @@
                     best = candidate;
                 }
                 if (options.preferContaining) {
-                    // Track the tube that CONTAINS the point with the largest margin. Raw
-                    // nearest-axis picks the arm you're leaving at a junction (its axis is
-                    // still closest) even when you're validly inside the trunk or another
-                    // arm's mouth — containment then pushes you back into the old arm, which
-                    // made junction turns feel one-way (arm-to-arm turns impossible).
+                    // Track the volume that CONTAINS the point with the largest margin. Tube
+                    // segments use axis distance; chamber segments use distance from the room
+                    // center so a large room wins while flying away from its construction axis.
                     const rad = seg.radius || builder.radius;
-                    const margin = rad - Math.sqrt(dist2);
+                    const margin = containmentMargin ?? (rad - Math.sqrt(dist2));
                     if (margin >= 0 && (!bestContaining || margin > bestContaining.margin)) {
                         bestContaining = { ...candidate, margin };
                     }
@@ -14099,7 +14109,9 @@
                 const seg = builder.segments[index];
                 const length = seg.length || builder.length;
                 const midZ = segmentMidCameraZ(seg);
-                const dist = Math.sqrt(distanceToSegmentSq(shipPoint, seg));
+                const dist = segmentIsChamber(seg)
+                    ? Math.max(0, chamberDistanceState(shipPoint, seg).dist - (seg.radius || builder.radius))
+                    : Math.sqrt(distanceToSegmentSq(shipPoint, seg));
                 const isShipSeg = index === shipSegmentIndex;
                 const isAdjacent = shipSegmentIndex !== null &&
                     Math.abs(index - shipSegmentIndex) <= TUNNEL_TEXTURE_SHIP_RING;
@@ -15080,6 +15092,7 @@
             for (const entry of segments) {
                 const { index, seg } = entry;
                 if (!seg?.capStart && !seg?.capEnd) continue;
+                if (segmentIsChamber(seg) && TUNNEL_TEXTURE_MODE === 'webgl') continue;
                 const isBranchMouth = isBranchMouthSegment(seg);
                 const palette = mapMouse.selection.has(index) || mapMouse.anchor?.segmentIndex === index
                     ? 'selected'
