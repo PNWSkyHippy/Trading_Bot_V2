@@ -15974,16 +15974,21 @@
                 !snapMode;
             const now = performance.now();
             const canAutoResetCockpit = now >= (wallHit.cockpitResetCooldownUntil || 0);
+            // never auto-level when aimed steeply up/down, or inside any active branch/tunnel
+            // corridor — the branch-relative basis intentionally disagrees with world-up there.
+            const autoLevelCtx = getBranchFlightContext();
+            const steepManeuver = Math.abs(dot(shipForward, WORLD_UP)) > 0.32;
+            const inVerticalFlight =
+                (autoLevelCtx.active && autoLevelCtx.allowVerticalPitch) ||
+                isVerticalTunnelForward(shipForward) ||
+                steepManeuver;
             const shouldResetForWallRoll =
+                !inVerticalFlight &&
                 (recentlyScrapedWall || wallLevelLockActive) &&
                 Math.abs(shipRollAngle) > 0.08 &&
                 // rollFix1: don't correct wall-induced drift during a deliberate barrel roll;
                 // the player intentionally rolled past 60° so leave them alone.
                 Math.abs(shipRollAngle) < Math.PI / 3;
-            // never auto-level when aimed into a vertical shaft, or inside any active branch/tunnel
-            // corridor — the branch-relative basis intentionally disagrees with world-up there.
-            const autoLevelCtx = getBranchFlightContext();
-            const inVerticalFlight = (autoLevelCtx.active && autoLevelCtx.allowVerticalPitch) || isVerticalTunnelForward(shipForward);
             // rollFix1: don't auto-level during a deliberate barrel roll (>60° accumulated roll).
             const inBarrelRoll = Math.abs(shipRollAngle) > Math.PI / 3;
             if (!inVerticalFlight && !inBarrelRoll && shouldProtectCockpit && canAutoResetCockpit && (cockpitBasisLooksSeverelyFlipped() || shouldResetForWallRoll)) {
