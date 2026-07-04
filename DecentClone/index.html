@@ -7147,12 +7147,19 @@
             return base;
         }
 
+        function portalVisualPoint(frame, portal = null) {
+            if (!portal?.door) return frame.point;
+            const seg = Number.isInteger(frame.segmentIndex) ? builder.segments[frame.segmentIndex] : null;
+            const wallRadius = (seg?.radius || frame.radius || builder.radius) * 0.92;
+            return addVec(frame.point, scaleVec(frame.right || builder.right, wallRadius));
+        }
+
         function portalFlightDiscRadius(frame, portal = null) {
             return portalDisplayRadius(frame, portal) * PORTAL_FLIGHT_DISC_SCALE;
         }
 
-        function shipWithinPortalActivateRange(ship, frame) {
-            return Math.sqrt(distanceSq(ship, frame.point)) <= PORTAL_ACTIVATE_RANGE;
+        function shipWithinPortalActivateRange(ship, frame, portal = null) {
+            return Math.sqrt(distanceSq(ship, portalVisualPoint(frame, portal))) <= PORTAL_ACTIVATE_RANGE;
         }
 
         function pointInPolygon(x, y, points) {
@@ -7171,12 +7178,13 @@
 
         function projectPortalDiscFlightScreen(frame, centerX, centerY, fov, portal = null) {
             const visualRadius = portalFlightDiscRadius(frame, portal);
+            const visualPoint = portalVisualPoint(frame, portal);
             const sides = 16;
             const points = [];
             for (let i = 0; i < sides; i++) {
                 const a = (i / sides) * Math.PI * 2;
                 const ringPoint = addVec(
-                    addVec(frame.point, scaleVec(frame.right, Math.cos(a) * visualRadius)),
+                    addVec(visualPoint, scaleVec(frame.right, Math.cos(a) * visualRadius)),
                     scaleVec(frame.down, Math.sin(a) * visualRadius)
                 );
                 const projected = projectPoint(ringPoint, centerX, centerY, fov);
@@ -7197,7 +7205,7 @@
                     pairs.push({ from: portal.exit, to: portal.entry, forwardOnly: false });
                 }
                 for (const pair of pairs) {
-                    if (!shipWithinPortalActivateRange(ship, pair.from)) continue;
+                    if (!shipWithinPortalActivateRange(ship, pair.from, portal)) continue;
                     const poly = projectPortalDiscFlightScreen(pair.from, centerX, centerY, fov, portal);
                     if (!poly) continue;
                     let cx = 0;
@@ -7249,12 +7257,13 @@
             let bestLabel = '';
             let bestCanActivate = false;
             for (const portal of builder.portals) {
+                if (portal.hidden) continue;
                 const sides = [
                     { frame: portal.entry, canActivate: true, tag: portalIsOneWay(portal) ? 'one-way' : 'two-way' },
                     { frame: portal.exit, canActivate: portalIsBidirectional(portal), tag: 'return' }
                 ];
                 for (const side of sides) {
-                    const d = Math.sqrt(distanceSq(ship, side.frame.point));
+                    const d = Math.sqrt(distanceSq(ship, portalVisualPoint(side.frame, portal)));
                     if (d < bestDist) {
                         bestDist = d;
                         bestLabel = portal.label;
@@ -7264,7 +7273,7 @@
             }
             if (bestDist <= PORTAL_ACTIVATE_RANGE) {
                 if (bestCanActivate) {
-                    return ` | portal ${Math.round(bestDist)}u — click disc to jump`;
+                    return ` | portal ${Math.round(bestDist)}u - click door/disc to jump`;
                 }
                 return ` | portal exit ${Math.round(bestDist)}u — no return (one-way)`;
             }
@@ -7514,11 +7523,12 @@
         function drawMapPortalDisc(frame, centerX, centerY, fov, stroke, fill, lineWidth = 2, portal = null) {
             const sides = portal?.door ? 4 : 18;
             const displayRadius = portalDisplayRadius(frame, portal);
+            const visualPoint = portalVisualPoint(frame, portal);
             const points = [];
             for (let i = 0; i < sides; i++) {
                 const a = (i / sides) * Math.PI * 2;
                 const ringPoint = addVec(
-                    addVec(frame.point, scaleVec(frame.right, Math.cos(a) * displayRadius)),
+                    addVec(visualPoint, scaleVec(frame.right, Math.cos(a) * displayRadius)),
                     scaleVec(frame.down, Math.sin(a) * displayRadius)
                 );
                 const projected = projectMapPoint(ringPoint, centerX, centerY, fov);
@@ -7538,7 +7548,7 @@
             ctx.lineWidth = lineWidth;
             ctx.stroke();
             ctx.restore();
-            return projectMapPoint(frame.point, centerX, centerY, fov);
+            return projectMapPoint(visualPoint, centerX, centerY, fov);
         }
 
         function drawMapPortalArrow(fromPoint, toPoint, centerX, centerY, fov, color) {
@@ -7593,7 +7603,7 @@
                     selected ? 3 : (portal.door ? 3 : 2),
                     portal
                 );
-                const previewPts = [portal.entry.point, portal.exit.point];
+                const previewPts = [portalVisualPoint(portal.entry, portal), portalVisualPoint(portal.exit, portal)];
                 for (let i = 1; i < previewPts.length; i++) {
                     const pa = projectMapPoint(previewPts[i - 1], centerX, centerY, fov);
                     const pb = projectMapPoint(previewPts[i], centerX, centerY, fov);
@@ -7608,8 +7618,8 @@
                     ctx.stroke();
                     ctx.restore();
                     if (oneWay) {
-                        drawMapPortalArrow(portal.entry.point, portal.exit.point, centerX, centerY, fov, '#ffb040');
-                        const midWorld = lerpVec(portal.entry.point, portal.exit.point, 0.52);
+                        drawMapPortalArrow(portalVisualPoint(portal.entry, portal), portalVisualPoint(portal.exit, portal), centerX, centerY, fov, '#ffb040');
+                        const midWorld = lerpVec(portalVisualPoint(portal.entry, portal), portalVisualPoint(portal.exit, portal), 0.52);
                         const midScreen = projectMapPoint(midWorld, centerX, centerY, fov);
                         if (midScreen) {
                             ctx.save();
@@ -7634,14 +7644,15 @@
                 for (const [frame, stroke, fill, showDisc] of sides) {
                     if (!showDisc) continue;
                     if (shouldSuppressOpaqueFrameOverlay(frame, texturedSegmentIndices, forwardPathSet)) continue;
-                    const cameraPoint = worldToCamera(frame.point);
+                    const visualPoint = portalVisualPoint(frame, portal);
+                    const cameraPoint = worldToCamera(visualPoint);
                     if (cameraPoint.z <= 14 || cameraPoint.z > 1500) continue;
                     const sidesCount = 16;
                     const points = [];
                     for (let i = 0; i < sidesCount; i++) {
                         const a = (i / sidesCount) * Math.PI * 2;
                         const ringPoint = addVec(
-                            addVec(frame.point, scaleVec(frame.right, Math.cos(a) * portalDisplayRadius(frame, portal))),
+                            addVec(visualPoint, scaleVec(frame.right, Math.cos(a) * portalDisplayRadius(frame, portal))),
                             scaleVec(frame.down, Math.sin(a) * portalDisplayRadius(frame, portal))
                         );
                         const projected = projectPoint(ringPoint, centerX, centerY, fov);
@@ -7667,10 +7678,10 @@
                     ctx.globalAlpha = alpha;
                     ctx.stroke();
                     if (oneWay && frame === portal.entry) {
-                        const center = projectPoint(frame.point, centerX, centerY, fov);
+                        const center = projectPoint(visualPoint, centerX, centerY, fov);
                         if (center) {
                             const tip = projectPoint(
-                                addVec(frame.point, scaleVec(frame.forward, portalDisplayRadius(frame, portal) * 0.55)),
+                                addVec(visualPoint, scaleVec(frame.forward, portalDisplayRadius(frame, portal) * 0.55)),
                                 centerX,
                                 centerY,
                                 fov
@@ -11044,8 +11055,9 @@
                     const ring = [];
                     for (let i = 0; i < ringSides; i++) {
                         const a = (i / ringSides) * Math.PI * 2;
+                        const sideVisualPoint = portalVisualPoint(side.frame, portal);
                         const ringPoint = addVec(
-                            addVec(side.frame.point, scaleVec(side.frame.right, Math.cos(a) * portalDisplayRadius(side.frame, portal))),
+                            addVec(sideVisualPoint, scaleVec(side.frame.right, Math.cos(a) * portalDisplayRadius(side.frame, portal))),
                             scaleVec(side.frame.down, Math.sin(a) * portalDisplayRadius(side.frame, portal))
                         );
                         const projected = projectMapPoint(ringPoint, centerX, centerY, fov);
@@ -11056,7 +11068,7 @@
                         ring.push(projected);
                     }
                     if (ring.length < ringSides) continue;
-                    const center = projectMapPoint(side.frame.point, centerX, centerY, fov);
+                    const center = projectMapPoint(portalVisualPoint(side.frame, portal), centerX, centerY, fov);
                     if (!center) continue;
                     const screenRadius = Math.max(
                         32,
@@ -11069,7 +11081,7 @@
                     const weighted = dist + center.z * 0.0012;
                     if (!best || weighted < best.weighted) {
                         best = {
-                            point: copyVec(side.frame.point),
+                            point: copyVec(portalVisualPoint(side.frame, portal)),
                             label: side.label,
                             portalId: portal.id,
                             portalSide: side.portalSide,
