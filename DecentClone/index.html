@@ -1331,6 +1331,7 @@
             seg.wallOpaque = seg.wallOpaque !== false;
             seg.capStart = !!seg.capStart;
             seg.capEnd = !!seg.capEnd;
+            seg.chamber = !!seg.chamber;
             return seg;
         }
 
@@ -1875,8 +1876,64 @@
             trimCylinderMeshCache();
             return mesh;
         }
- 
-    
+
+        function buildProfiledCylinderGpuMesh(seg, zStart, span, radialSegments, tubularSegments, index = null) {
+            span = Math.max(1, span);
+            tubularSegments = Math.max(18, Math.min(220, tubularSegments || 120));
+            const radiusBucket = Math.max(1, Math.round((seg.radius || builder.radius) / 8) * 8);
+            const lengthBucket = Math.max(1, Math.round((seg.length || builder.length) / 8) * 8);
+            const startBucket = Math.round(zStart / 8) * 8;
+            const spanBucket = Math.max(8, Math.round(span / 8) * 8);
+            const key = `${TUNNEL_WEBGL_MESH_CACHE_VERSION}|chamber|${startBucket}|${spanBucket}|${radiusBucket}|${lengthBucket}|${radialSegments}|${tubularSegments}`;
+            if (tunnelWebGL.meshCache.has(key)) return tunnelWebGL.meshCache.get(key);
+
+            const vertices = [];
+            const texCoords = [];
+            const indices = [];
+
+            for (let j = 0; j <= tubularSegments; j++) {
+                const v = j / tubularSegments;
+                const localZ = zStart + v * span;
+                const radius = segmentPanelRadiusAt(seg, localZ, false, index);
+                for (let i = 0; i <= radialSegments; i++) {
+                    const u = i / radialSegments;
+                    const theta = u * Math.PI * 2.0;
+                    vertices.push(Math.cos(theta) * radius, Math.sin(theta) * radius, v * span);
+                    texCoords.push(u, v);
+                }
+            }
+
+            for (let j = 0; j < tubularSegments; j++) {
+                for (let i = 0; i < radialSegments; i++) {
+                    const first = j * (radialSegments + 1) + i;
+                    const second = first + radialSegments + 1;
+                    indices.push(first, first + 1, second);
+                    indices.push(second, first + 1, second + 1);
+                }
+            }
+
+            const gl = tunnelWebGL.gl;
+            const mesh = {
+                indexCount: indices.length,
+                vertexBuffer: gl.createBuffer(),
+                texCoordBuffer: gl.createBuffer(),
+                indexBuffer: gl.createBuffer()
+            };
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vertexBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+
+            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.texCoordBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
+
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+
+            tunnelWebGL.meshCache.set(key, mesh);
+            trimCylinderMeshCache();
+            return mesh;
+        }
+
         function bindCylinderGpuMesh(mesh) {
             const gl = tunnelWebGL.gl;
             gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vertexBuffer);
@@ -2154,8 +2211,11 @@
                 const joinBoost = !fromOpen || !toOpen || webglSegmentNeedsScrapeBoost(seg, index);
                 const radius = webglTunnelDrawRadius(seg, index, joinBoost);
                 const tubularSegs = webglBucketTubularSegments(span);
-                const mesh = buildCylinderGpuMesh(span, TUNNEL_WEBGL_RADIAL_SEGMENTS, tubularSegs * 3);
-                const model = mat4SegmentModel(seg, zStart, span, radius, tunnelWebGL.modelScratch);
+                const chamber = segmentIsChamber(seg);
+                const mesh = chamber
+                    ? buildProfiledCylinderGpuMesh(seg, zStart, span, TUNNEL_WEBGL_RADIAL_SEGMENTS, tubularSegs * 3, index)
+                    : buildCylinderGpuMesh(span, TUNNEL_WEBGL_RADIAL_SEGMENTS, tubularSegs * 3);
+                const model = mat4SegmentModel(seg, zStart, span, chamber ? 1 : radius, tunnelWebGL.modelScratch);
                 gl.uniformMatrix4fv(tunnelWebGL.uModel, false, model);
                 gl.uniform1f(tunnelWebGL.uAlpha, segmentWallAlpha(seg, 1));
                 const segmentTexture = getWebGLTextureForSegment(seg);
@@ -5690,7 +5750,8 @@
                     ribColor: seg.ribColor || defaultRibColor,
                     wallOpaque: seg.wallOpaque !== false,
                     capStart: !!seg.capStart,
-                    capEnd: !!seg.capEnd
+                    capEnd: !!seg.capEnd,
+                    chamber: !!seg.chamber
                 })),
                 portals: builder.portals.map(portal => ({
                     id: portal.id,
@@ -7150,7 +7211,10 @@
         function portalVisualPoint(frame, portal = null) {
             if (!portal?.door) return frame.point;
             const seg = Number.isInteger(frame.segmentIndex) ? builder.segments[frame.segmentIndex] : null;
-            const wallRadius = (seg?.radius || frame.radius || builder.radius) * 0.92;
+            const frameRadius = seg
+                ? chamberProfileRadius(seg, (frame.segmentT ?? 0.5) * (seg.length || builder.length), 1)
+                : (frame.radius || builder.radius);
+            const wallRadius = frameRadius * 0.92;
             return addVec(frame.point, scaleVec(frame.right || builder.right, wallRadius));
         }
 
@@ -8460,11 +8524,14 @@
             const radiusMemory = wallHit.active
                 ? Math.max(rawSegRadius, priorRadius * 0.92, (wallHit.lastRadius || rawSegRadius) * 0.9)
                 : rawSegRadius;
-            const segRadius = Math.min(
+            let segRadius = Math.min(
                 Math.max(rawSegRadius, radiusMemory),
                 Math.max(rawSegRadius, priorRadius) * 1.04
             );
             const local = shipSegmentLocal(ship, seg);
+            if (segmentIsChamber(seg)) {
+                segRadius = Math.max(24, chamberProfileRadius(seg, local.localZ, 1));
+            }
             const mouthPad = Math.max(20, segRadius * 0.16);
             const exitingForward = dot(lastThrustVector, local.forward) > 0.12 ||
                 dot(shipForward, local.forward) > 0.42;
@@ -10566,6 +10633,7 @@
                     seg.to = addVec(center, scaleVec(f, targetLength * 0.5));
                     seg.capStart = true;
                     seg.capEnd = true;
+                    seg.chamber = true;
                     normalizeSegmentFromEndpoints(seg);
                     normalizeSegmentRadius(seg, radius);
                     changed++;
@@ -13737,6 +13805,24 @@
             return isBranchMouthSegment(seg) || isSegmentEndpointOpen(seg, 'to');
         }
 
+        function segmentIsChamber(seg) {
+            if (!seg) return false;
+            if (seg.chamber) return true;
+            const radius = seg.radius || builder.radius;
+            const length = seg.length || builder.length;
+            return !!seg.capStart && !!seg.capEnd && radius >= 300 && length >= radius * 1.45;
+        }
+
+        function chamberProfileRadius(seg, localZ, overlap = 1) {
+            const base = (seg.radius || builder.radius) * overlap;
+            if (!segmentIsChamber(seg)) return base;
+            const length = Math.max(1, seg.length || builder.length);
+            const half = Math.max(1, length * 0.5);
+            const centerOffset = Math.max(-1, Math.min(1, (localZ - half) / half));
+            const sphereProfile = Math.sqrt(Math.max(0, 1 - centerOffset * centerOffset));
+            return base * Math.max(0.24, sphereProfile);
+        }
+
         function shipSegmentLocal(ship, seg) {
             const length = seg.length || builder.length;
             const forward = normalize({
@@ -13769,7 +13855,7 @@
         function shipInsideAnyTunnelTube(ship, mouthPad = 24) {
             for (const seg of builder.segments) {
                 const local = shipSegmentLocal(ship, seg);
-                const radius = seg.radius || builder.radius;
+                const radius = chamberProfileRadius(seg, local.localZ, 1);
                 if (
                     local.localZ >= -mouthPad &&
                     local.localZ <= local.length + mouthPad &&
@@ -14840,11 +14926,16 @@
             return 1 + (wallRatio - 0.58) * 0.10;
         }
 
-        function segmentPanelRadius(seg, joinBoost = false, index = null) {
-            const base = (seg.radius || builder.radius) * TUNNEL_TEXTURE_PANEL_OVERLAP;
+        function segmentPanelRadiusAt(seg, localZ, joinBoost = false, index = null) {
+            const base = chamberProfileRadius(seg, localZ, TUNNEL_TEXTURE_PANEL_OVERLAP);
             let radius = joinBoost ? base * TUNNEL_SEGMENT_JOIN_RADIUS_BOOST : base;
             radius *= segmentWallProximityBoost(seg, index);
             return radius;
+        }
+
+        function segmentPanelRadius(seg, joinBoost = false, index = null) {
+            const length = seg.length || builder.length;
+            return segmentPanelRadiusAt(seg, length * 0.5, joinBoost, index);
         }
 
         function getSegmentPanelZExtent(seg) {
@@ -14883,7 +14974,7 @@
         }
 
         function buildTunnelCrossSectionPolygon(seg, localZ, sides, joinBoost = false, reverseWinding = false) {
-            const radius = segmentPanelRadius(seg, joinBoost);
+            const radius = segmentPanelRadiusAt(seg, localZ, joinBoost);
             const points = [];
             for (let side = 0; side < sides; side++) {
                 const idx = reverseWinding ? (sides - 1 - side) : side;
@@ -14926,11 +15017,13 @@
         function buildSegmentWallPanel(seg, side, sides, zA, zB, radius) {
             const a0 = (side / sides) * Math.PI * 2;
             const a1 = ((side + 1) / sides) * Math.PI * 2;
+            const rA = segmentIsChamber(seg) ? segmentPanelRadiusAt(seg, zA) : radius;
+            const rB = segmentIsChamber(seg) ? segmentPanelRadiusAt(seg, zB) : radius;
             return [
-                segmentLocalToWorld(seg, Math.cos(a0) * radius, Math.sin(a0) * radius, zA),
-                segmentLocalToWorld(seg, Math.cos(a1) * radius, Math.sin(a1) * radius, zA),
-                segmentLocalToWorld(seg, Math.cos(a1) * radius, Math.sin(a1) * radius, zB),
-                segmentLocalToWorld(seg, Math.cos(a0) * radius, Math.sin(a0) * radius, zB)
+                segmentLocalToWorld(seg, Math.cos(a0) * rA, Math.sin(a0) * rA, zA),
+                segmentLocalToWorld(seg, Math.cos(a1) * rA, Math.sin(a1) * rA, zA),
+                segmentLocalToWorld(seg, Math.cos(a1) * rB, Math.sin(a1) * rB, zB),
+                segmentLocalToWorld(seg, Math.cos(a0) * rB, Math.sin(a0) * rB, zB)
             ];
         }
 
