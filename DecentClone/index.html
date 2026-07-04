@@ -7154,6 +7154,19 @@
             return addVec(frame.point, scaleVec(frame.right || builder.right, wallRadius));
         }
 
+        function portalDoorAxes(frame, portal = null) {
+            if (!portal?.door) {
+                return {
+                    horizontal: frame.right || builder.right,
+                    vertical: frame.down || builder.down
+                };
+            }
+            return {
+                horizontal: frame.forward || builder.forward,
+                vertical: frame.down || builder.down
+            };
+        }
+
         function portalFlightDiscRadius(frame, portal = null) {
             return portalDisplayRadius(frame, portal) * PORTAL_FLIGHT_DISC_SCALE;
         }
@@ -7179,13 +7192,14 @@
         function projectPortalDiscFlightScreen(frame, centerX, centerY, fov, portal = null) {
             const visualRadius = portalFlightDiscRadius(frame, portal);
             const visualPoint = portalVisualPoint(frame, portal);
+            const axes = portalDoorAxes(frame, portal);
             const sides = 16;
             const points = [];
             for (let i = 0; i < sides; i++) {
                 const a = (i / sides) * Math.PI * 2;
                 const ringPoint = addVec(
-                    addVec(visualPoint, scaleVec(frame.right, Math.cos(a) * visualRadius)),
-                    scaleVec(frame.down, Math.sin(a) * visualRadius)
+                    addVec(visualPoint, scaleVec(axes.horizontal, Math.cos(a) * visualRadius)),
+                    scaleVec(axes.vertical, Math.sin(a) * visualRadius)
                 );
                 const projected = projectPoint(ringPoint, centerX, centerY, fov);
                 if (!projected) return null;
@@ -7524,12 +7538,13 @@
             const sides = portal?.door ? 4 : 18;
             const displayRadius = portalDisplayRadius(frame, portal);
             const visualPoint = portalVisualPoint(frame, portal);
+            const axes = portalDoorAxes(frame, portal);
             const points = [];
             for (let i = 0; i < sides; i++) {
                 const a = (i / sides) * Math.PI * 2;
                 const ringPoint = addVec(
-                    addVec(visualPoint, scaleVec(frame.right, Math.cos(a) * displayRadius)),
-                    scaleVec(frame.down, Math.sin(a) * displayRadius)
+                    addVec(visualPoint, scaleVec(axes.horizontal, Math.cos(a) * displayRadius)),
+                    scaleVec(axes.vertical, Math.sin(a) * displayRadius)
                 );
                 const projected = projectMapPoint(ringPoint, centerX, centerY, fov);
                 if (!projected) return null;
@@ -7645,6 +7660,7 @@
                     if (!showDisc) continue;
                     if (shouldSuppressOpaqueFrameOverlay(frame, texturedSegmentIndices, forwardPathSet)) continue;
                     const visualPoint = portalVisualPoint(frame, portal);
+                    const axes = portalDoorAxes(frame, portal);
                     const cameraPoint = worldToCamera(visualPoint);
                     if (cameraPoint.z <= 14 || cameraPoint.z > 1500) continue;
                     const sidesCount = 16;
@@ -7652,8 +7668,8 @@
                     for (let i = 0; i < sidesCount; i++) {
                         const a = (i / sidesCount) * Math.PI * 2;
                         const ringPoint = addVec(
-                            addVec(visualPoint, scaleVec(frame.right, Math.cos(a) * portalDisplayRadius(frame, portal))),
-                            scaleVec(frame.down, Math.sin(a) * portalDisplayRadius(frame, portal))
+                            addVec(visualPoint, scaleVec(axes.horizontal, Math.cos(a) * portalDisplayRadius(frame, portal))),
+                            scaleVec(axes.vertical, Math.sin(a) * portalDisplayRadius(frame, portal))
                         );
                         const projected = projectPoint(ringPoint, centerX, centerY, fov);
                         if (!projected) {
@@ -11056,9 +11072,10 @@
                     for (let i = 0; i < ringSides; i++) {
                         const a = (i / ringSides) * Math.PI * 2;
                         const sideVisualPoint = portalVisualPoint(side.frame, portal);
+                        const axes = portalDoorAxes(side.frame, portal);
                         const ringPoint = addVec(
-                            addVec(sideVisualPoint, scaleVec(side.frame.right, Math.cos(a) * portalDisplayRadius(side.frame, portal))),
-                            scaleVec(side.frame.down, Math.sin(a) * portalDisplayRadius(side.frame, portal))
+                            addVec(sideVisualPoint, scaleVec(axes.horizontal, Math.cos(a) * portalDisplayRadius(side.frame, portal))),
+                            scaleVec(axes.vertical, Math.sin(a) * portalDisplayRadius(side.frame, portal))
                         );
                         const projected = projectMapPoint(ringPoint, centerX, centerY, fov);
                         if (!projected) {
