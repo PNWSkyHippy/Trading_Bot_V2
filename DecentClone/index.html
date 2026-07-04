@@ -7950,6 +7950,7 @@
                 if (nearPreferredEnd) {
                     const thrustMag = Math.hypot(lastThrustVector.x, lastThrustVector.y, lastThrustVector.z);
                     const thrustDir = thrustMag > 0.01 ? scaleVec(lastThrustVector, 1 / thrustMag) : null;
+                    let openJunctionHandoff = null;
                     let directedHandoff = null;
                     let touchingHandoff = null;
                     for (const candidate of candidates) {
@@ -7959,16 +7960,30 @@
                         const touchesTo = distanceSq(candidate.seg.to, preferredEnd) <= Math.pow(radius * 0.65, 2);
                         const gapFrom = distanceSq(candidate.seg.from, preferredEnd);
                         const gapTo = distanceSq(candidate.seg.to, preferredEnd);
-                        const looseFrom = gapFrom <= Math.pow(radius * 0.9, 2);
-                        const looseTo = gapTo <= Math.pow(radius * 0.9, 2);
+                        const looseFrom = gapFrom <= Math.pow(radius * 1.1, 2);
+                        const looseTo = gapTo <= Math.pow(radius * 1.1, 2);
                         if (!touchesFrom && !touchesTo && !looseFrom && !looseTo) continue;
-                        if (candidate.dist2 > Math.pow(candidateRadius * 1.08, 2)) continue;
                         const handoffFrom = touchesFrom || looseFrom;
                         const handoffTo = touchesTo || looseTo;
                         const candidateAtHandoffEnd =
-                            (handoffFrom && candidate.t <= 0.28) ||
-                            (handoffTo && candidate.t >= 0.72);
+                            (handoffFrom && candidate.t <= 0.45) ||
+                            (handoffTo && candidate.t >= 0.55);
                         if (!candidateAtHandoffEnd) continue;
+
+                        // Multi-outlet intersections should behave like open junction space:
+                        // once the ship is physically inside any connected outlet tube, switch
+                        // to that outlet even if the thrust vector is not perfectly aligned with
+                        // the branch's authored direction. This removes the "valid tunnel acts
+                        // like a wall" feel in 4/7/12-way intersections.
+                        const insideConnectedOutlet = candidate.dist2 <= Math.pow(candidateRadius * 1.35, 2);
+                        if (insideConnectedOutlet) {
+                            const score = candidate.dist2 + Math.min(gapFrom, gapTo) * 0.08;
+                            if (!openJunctionHandoff || score < openJunctionHandoff.score) {
+                                openJunctionHandoff = { ...candidate, score };
+                            }
+                        }
+
+                        if (candidate.dist2 > Math.pow(candidateRadius * 1.08, 2)) continue;
                         if (thrustDir) {
                             const exitVector = normalize(handoffFrom
                                 ? { x: candidate.seg.to.x - preferredEnd.x, y: candidate.seg.to.y - preferredEnd.y, z: candidate.seg.to.z - preferredEnd.z }
@@ -7985,6 +8000,7 @@
                             directedHandoff = candidate;
                         }
                     }
+                    if (openJunctionHandoff) return openJunctionHandoff;
                     if (directedHandoff) return directedHandoff;
                     if (touchingHandoff && touchingHandoff.dist2 < preferred.dist2) return touchingHandoff;
                     if (preferredStillUsable) return preferred;
@@ -8002,7 +8018,7 @@
                 const bestTouchesPreferredEnd =
                     distanceSq(best.seg.from, preferredEnd) <= Math.pow(radius * 0.55, 2) ||
                     distanceSq(best.seg.to, preferredEnd) <= Math.pow(radius * 0.55, 2);
-                const bestInsideHandoffTube = best.dist2 <= Math.pow((best.seg.radius || builder.radius) * 0.95, 2);
+                const bestInsideHandoffTube = best.dist2 <= Math.pow((best.seg.radius || builder.radius) * 1.25, 2);
                 if (connectedToBest && nearPreferredEnd && bestTouchesPreferredEnd && bestInsideHandoffTube) {
                     return best;
                 }
@@ -8303,7 +8319,7 @@
             if (!builder.segments.length) return;
             const ship = { x: posX, y: posY, z: posZ };
             const priorSegmentIndex = shipSegmentIndex;
-            const nearest = nearestTunnelPoint(ship, shipSegmentIndex);
+            const nearest = nearestTunnelPoint(ship, shipSegmentIndex, { preferContaining: true });
             if (!nearest) return;
 
             let seg = nearest.seg;
