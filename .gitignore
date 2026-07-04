@@ -8,6 +8,7 @@ signals_log.csv
 watchlist/
 junk*
 data/junk.ps1
+data/candle*
 docs/
 symbol_params.json
 logs/bot.log
