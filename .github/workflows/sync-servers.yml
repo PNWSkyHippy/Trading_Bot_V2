@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  deploy-to-servers:
+  deploy-to-server:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -21,17 +21,5 @@ jobs:
           port: 22
           script: |
             cd /opt/trading_bot_v2
-            git fetch origin main
-            git reset --hard origin/main
-
-      - name: Deploy to Windows Home PC (Native SSH)
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.HOME_PC_IP }}
-          username: Linda
-          key: ${{ secrets.HOME_PC_SSH_KEY }}
-          port: 22
-          script: |
-            cd C:\Users\Linda\trading_bot_v2
             git fetch origin main
             git reset --hard origin/main
