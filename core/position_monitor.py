@@ -905,6 +905,7 @@ class PositionMonitor:
             "swing_trader",
             "mean_reversion",
             "bmr_357",          # 48-bar time stop + SMA20 midline exit; generic lifecycle stops fire too early
+            "vtmr_strategy",    # VTM-R owns EMA(5) snapback + max-hold exits; generic lifecycle stops fire too early
         }
         if strategy in TIME_STOP_EXEMPT:
             logger.debug(

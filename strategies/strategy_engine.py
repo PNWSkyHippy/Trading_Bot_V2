@@ -42,6 +42,7 @@ from strategies.rcr_mean_reversion import RCRMeanReversionStrategy
 from strategies.fels_strategy import FELSStrategy
 from strategies.sfr_structural_fakeout import SFRStrategy
 from strategies.bmr357_strategy import BMR357Strategy
+from strategies.vtmr_strategy import VTMRStrategy
 from data.database import db
 
 logger = logging.getLogger(__name__)
@@ -92,6 +93,7 @@ class StrategyEngine:
             FELSStrategy(),                          # Strategy 30 — Failed Extension Liquidity Sweep (WATCHLIST)
             SFRStrategy(),                           # Strategy 32 — Structural Fakeout Reversal (WATCHLIST) — fade ORB/prior-day false breaks
             BMR357Strategy(),                        # Strategy 33 — BB Mean Reversion 3-5-7 (INCUBATE) — BB+RSI fade, 15m crypto longs primary
+            VTMRStrategy(),                          # Strategy 34 — VTM-R/VTRT RSI(2) trend reversion (INCUBATE) — custom EMA/max-hold exits
         ]
 
         self._load_strategy_states()

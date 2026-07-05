@@ -833,6 +833,7 @@ class Backtester:
             "orb_breakout":         ("strategies.orb_breakout",         "ORBBreakout"),
             "adaptive_regime":      ("strategies.adaptive_regime",      "AdaptiveRegime"),
             "vdmr_strategy":        ("strategies.vdmr_strategy",        "VDMRStrategy"),
+            "vtmr_strategy":        ("strategies.vtmr_strategy",        "VTMRStrategy"),
             "rsi_dip_spike_v4":     ("strategies.rsi_dip_spike_v4",    "RSIDipSpikeV4Strategy"),
             "mr_02_vef":            ("strategies.mr_02_vef_strategy",   "MR02VEFStrategy"),
             "mr_03_fbs":            ("strategies.mr_03_fbs_strategy",   "MR03FBSStrategy"),
@@ -854,6 +855,7 @@ class Backtester:
             "rsi_momentum":         ("strategies.rsi_momentum",         "RSIMomentum"),
             "bollinger_breakout":   ("strategies.bollinger_breakout",   "BollingerBreakout"),
             "vdmr_strategy":        ("strategies.vdmr_strategy",        "VDMRStrategy"),
+            "vtmr_strategy":        ("strategies.vtmr_strategy",        "VTMRStrategy"),
             "vwap_momentum":        ("strategies.vwap_momentum",        "VWAPMomentum"),
             "rcr_mean_reversion":   ("strategies.rcr_mean_reversion",   "RCRMeanReversionStrategy"),
             "fels_strategy":          ("strategies.fels_strategy",          "FELSStrategy"),
@@ -1163,6 +1165,7 @@ class Backtester:
             "rsi_momentum",           # momentum trades benefit from time to develop; generic stops add noise
             "bollinger_breakout",     # squeeze expansion can take >2h; perf_time_stop kills developing trades
             "vdmr_strategy",          # 20-bar max hold on 1h; early_loss at 1 bar fires almost immediately
+            "vtmr_strategy",          # VTM-R owns EMA(5) snapback + max-hold exits; generic lifecycle stops fire too early
             "vwap_momentum",          # 90-min intent on 1h; early_loss at 1 bar fires at wrong time
             "fels_strategy",          # 16-bar max hold on 1h; generic stops fire before time stop
             "swing_trader",           # 2.5% SL / 6% TP; 8h hard stop kills developing swing trades
