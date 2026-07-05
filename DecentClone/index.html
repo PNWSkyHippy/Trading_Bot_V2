@@ -16639,7 +16639,7 @@
             }
 
             // 2. True 6DOF movement in ship-local directions.
-            const manualKeyForward = getLatchedMove('forward') || ((isKeyActive('w', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0) - (isKeyActive('s', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0));
+            const manualKeyForward = getLatchedMove('forward') || ((isKeyActive('w', THRUST_KEY_HOLD_GRACE_MS) || boosting ? 1 : 0) - (isKeyActive('s', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0));
             const keyForward = autoBoostActive
                 ? Math.max(1, manualKeyForward)
                 : manualKeyForward;

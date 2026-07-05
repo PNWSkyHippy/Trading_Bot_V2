@@ -338,7 +338,16 @@ function shoot3DLaser(startX, startY, startZ, velocityX, velocityY, velocityZ) {
     requestAnimationFrame(updateFrame);
 }
 
+## Claude Handoff - 2026-07-05 Chamber/Boost State
 
+Current repo/server state: Astral Drift lives in `DecentClone/index.html` on `main`, served by `astral-drift.service` as a static `python3 -m http.server 8127`. Recent chamber commits attempted to make detached capped rooms behave like spherical chambers, but the user reports the room is still not solved: floor/ceiling/walls in the chamber still lack useful texture, `R/F` up/down feels pinned to the floor, and trying to go up feels like collision containment/drag is slowing the ship. The latest unverified containment tweak makes chamber containment non-drag/free-flight-ish by clearing `wallHit` and only clamping beyond `radius * 1.35`, but user has not validated it yet.
 
+Known recent code areas to inspect first:
+- Chamber detection/helpers: `segmentIsChamber`, `chamberProfileRadius`, `chamberCenterPoint`, `chamberDistanceState`.
+- Flight containment: `containShipInTunnel()` chamber branch. Suspect: nearest segment/containment still chooses or behaves like tunnel in the test room, or room radius/center from saved map is not what the renderer/collision expects.
+- Movement: `updateFlightPhysics()` now makes Shift imply forward thrust so Shift alone should boost forward; inside chambers it also tries to make `R/F` use `-seg.down` as lift.
+- Rendering: WebGL chamber path now uses `buildChamberSphereGpuMesh()` and `mat4ChamberModel()`, but user still reports no texture on chamber ceiling/walls, so verify whether the browser is actually in `webgl`, `vector`, or `jpg` texture mode and whether sphere mesh is visible from inside.
+- Door/portal reach: `portalVisualPoint()` and `shipWithinPortalActivateRange()` were made chamber-aware, but user reported the exit portal was too high to activate before the latest reach changes were validated.
 
+Most likely next debug move: add a temporary HUD/status line while inside a chamber showing selected segment index, `segmentIsChamber`, chamber radius, distance from center, `shipSegmentIndex`, `TUNNEL_TEXTURE_MODE`, and whether wallHit is active. That will quickly prove whether the ship is actually in the chamber branch or still being treated like a tunnel/wall scrape.
 
