@@ -12,24 +12,26 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Deploy to Hostinger Server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: 187.127.248.52
-          username: ronh
-          key: ${{ secrets.HOSTINGER_SSH_KEY }}
-          script: |
+      - name: Deploy to Hostinger Server (Native SSH)
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HOSTINGER_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H 187.127.248.52 >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_ed25519 ronh@187.127.248.52 << 'EOF'
             cd /opt/your/Trading_Bot_V2
             git fetch origin main
             git reset --hard origin/main
+          EOF
 
-      - name: Deploy to Home PC
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.HOME_PC_IP }}
-          username: Linda
-          key: ${{ secrets.HOME_PC_SSH_KEY }}
-          script: |
+      - name: Deploy to Home PC (Native SSH)
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HOME_PC_SSH_KEY }}" > ~/.ssh/home_id
+          chmod 600 ~/.ssh/home_id
+          ssh-keyscan -p 22 -H ${{ secrets.HOME_PC_IP }} >> ~/.ssh/known_hosts
+          ssh -i ~/.ssh/id_ed25519 -p 22 Linda@${{ secrets.HOME_PC_IP }} << 'EOF'
             cd C:\Users\Linda\trading_bot_v2
             git fetch origin main
             git reset --hard origin/main
+          EOF
