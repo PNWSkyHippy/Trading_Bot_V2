@@ -13881,8 +13881,15 @@
             if (!seg) return false;
             if (seg.chamber) return true;
             const radius = seg.radius || builder.radius;
-            const length = seg.length || builder.length;
-            return !!seg.capStart && !!seg.capEnd && radius >= 300 && length >= radius * 1.45;
+            // Any both-ends-capped segment with a room-scale radius is a chamber. The old
+            // additional gate (length >= radius * 1.45) excluded exactly the segments mappers
+            // actually build as rooms — a normal-length piece with its radius cranked up and
+            // both caps set in V-config — leaving them to render as a giant-radius thin tube
+            // slice with untextured caps for floor/ceiling and slab-limited movement. A capped
+            // tube SHORTER than its radius is geometrically nonsense as a corridor; it can
+            // only be a room, so classify it as one. (Chamber containment and the sphere
+            // shell mesh are radius-based and independent of length.)
+            return !!seg.capStart && !!seg.capEnd && radius >= 300;
         }
 
         function chamberProfileRadius(seg, localZ, overlap = 1) {
