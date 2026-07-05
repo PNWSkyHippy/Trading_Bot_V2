@@ -7,6 +7,8 @@ SERVICES=(
   breakout-scanner.service
   ibkr-watchdog.service
   astral-drift.service
+  ollama.service
+  night-watch-ollama.timer
 )
 
 echo "== systemd service state =="
@@ -25,3 +27,4 @@ ss -ltnp 2>/dev/null | grep -E ':(8125|8181)\b' || true
 echo
 echo "== recent bot logs =="
 tail -n 80 logs/bot.log 2>/dev/null || true
+
