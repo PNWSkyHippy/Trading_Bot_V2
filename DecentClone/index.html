@@ -15856,22 +15856,48 @@
                 }
                 drawMapDot(seg.from, '#66d9ff', 4);
                 drawMapDot(seg.to, '#ffffff', 4);
-                const rings = Math.max(
-                    5,
-                    Math.min(24, Math.ceil(((seg.length || builder.length) / builder.length) * 5))
-                );
-                for (let r = 0; r <= rings; r++) {
-                    const t = r / rings;
-                    const center = pointOnSegment(seg, t);
-                    const radius = seg.radius || builder.radius;
-                    const top = addVec(center, scaleVec(seg.down, -radius));
-                    const bottom = addVec(center, scaleVec(seg.down, radius));
-                    const left = addVec(center, scaleVec(seg.right, -radius));
-                    const right = addVec(center, scaleVec(seg.right, radius));
-                    drawMapLine(top, right, color, 1, 0.35);
-                    drawMapLine(right, bottom, color, 1, 0.35);
-                    drawMapLine(bottom, left, color, 1, 0.35);
-                    drawMapLine(left, top, color, 1, 0.35);
+                if (segmentIsChamber(seg)) {
+                    // Chambers are spheres in-game — draw three orthogonal great circles
+                    // instead of axis rings, which rendered a room as a thin disc slice.
+                    const sphereCenter = chamberCenterPoint(seg);
+                    const sphereRadius = seg.radius || builder.radius;
+                    const fwd = normalize(seg.forward || { x: 0, y: 0, z: 1 });
+                    const circlePlanes = [
+                        [seg.right, seg.down],
+                        [fwd, seg.right],
+                        [fwd, seg.down]
+                    ];
+                    for (const [u, v] of circlePlanes) {
+                        const steps = 28;
+                        let prev = null;
+                        for (let k = 0; k <= steps; k++) {
+                            const a = (k / steps) * Math.PI * 2;
+                            const p = addVec(sphereCenter, addVec(
+                                scaleVec(u, Math.cos(a) * sphereRadius),
+                                scaleVec(v, Math.sin(a) * sphereRadius)
+                            ));
+                            if (prev) drawMapLine(prev, p, color, 1, 0.35);
+                            prev = p;
+                        }
+                    }
+                } else {
+                    const rings = Math.max(
+                        5,
+                        Math.min(24, Math.ceil(((seg.length || builder.length) / builder.length) * 5))
+                    );
+                    for (let r = 0; r <= rings; r++) {
+                        const t = r / rings;
+                        const center = pointOnSegment(seg, t);
+                        const radius = seg.radius || builder.radius;
+                        const top = addVec(center, scaleVec(seg.down, -radius));
+                        const bottom = addVec(center, scaleVec(seg.down, radius));
+                        const left = addVec(center, scaleVec(seg.right, -radius));
+                        const right = addVec(center, scaleVec(seg.right, radius));
+                        drawMapLine(top, right, color, 1, 0.35);
+                        drawMapLine(right, bottom, color, 1, 0.35);
+                        drawMapLine(bottom, left, color, 1, 0.35);
+                        drawMapLine(left, top, color, 1, 0.35);
+                    }
                 }
             }
 
