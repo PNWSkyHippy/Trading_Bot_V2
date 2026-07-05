@@ -40,6 +40,7 @@ import argparse
 import os
 import sys
 import threading
+import time
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -596,6 +597,58 @@ class Backtester:
     # Data fetching
     # -----------------------------------------------------------------------
 
+    def _normalise_ccxt_crypto_symbol(self, symbol: str) -> str:
+        s = str(symbol or "").strip().upper().replace("-", "/")
+        if s.endswith("USDT") and "/" not in s:
+            return f"{s[:-4]}/USDT"
+        if s.endswith("USD") and "/" not in s:
+            return f"{s[:-3]}/USD"
+        if "/" not in s:
+            return f"{s}/USD"
+        return s
+
+    def _fetch_history_crypto_ccxt(self, symbol: str, days: int, timeframe: str) -> Optional[pd.DataFrame]:
+        if self.ccxt is None:
+            return None
+        try:
+            exchange = self.ccxt.kraken({"enableRateLimit": True})
+            market_symbol = self._normalise_ccxt_crypto_symbol(symbol)
+            tf = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])["interval"]
+            since_ms = int((datetime.utcnow() - timedelta(days=days + 1)).timestamp() * 1000)
+            rows = []
+            fetch_since = since_ms
+            limit = 720
+            while True:
+                batch = exchange.fetch_ohlcv(market_symbol, timeframe=tf, since=fetch_since, limit=limit)
+                if not batch:
+                    break
+                rows.extend(batch)
+                next_since = int(batch[-1][0]) + 1
+                if next_since <= fetch_since:
+                    break
+                fetch_since = next_since
+                if len(batch) < limit:
+                    break
+                if len(rows) > 20000:
+                    break
+                time.sleep(max(0.0, getattr(exchange, "rateLimit", 1000) / 1000.0))
+            if not rows:
+                return None
+            df = pd.DataFrame(rows, columns=["timestamp", "open", "high", "low", "close", "volume"])
+            df = df.drop_duplicates(subset=["timestamp"]).sort_values("timestamp")
+            df["datetime"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True).dt.tz_localize(None)
+            df = df.set_index("datetime").drop(columns=["timestamp"])
+            cutoff = datetime.utcnow() - timedelta(days=days)
+            df = df[df.index >= cutoff]
+            if len(df) < 30:
+                logger.error(f"Only {len(df)} CCXT bars for {market_symbol} — need >=30")
+                return None
+            logger.info(f"  -> {len(df)} bars via Kraken/CCXT ({df.index[0].date()} - {df.index[-1].date()})")
+            return self._validate_ohlcv(df, symbol, timeframe)
+        except Exception as e:
+            logger.warning(f"CCXT crypto fetch failed for {symbol}/{timeframe}: {e}")
+            return None
+
     def fetch_history(self, symbol: str, days: int = 365,
                       timeframe: str = "1h") -> Optional[pd.DataFrame]:
         _key = (symbol, days, timeframe)
@@ -694,6 +747,16 @@ class Backtester:
             except Exception as _cs_e:
                 logger.warning(f"CandleStore load failed for {symbol}: {_cs_e}")
         days  = effective_days
+
+        ccxt_df = self._fetch_history_crypto_ccxt(symbol, days, timeframe)
+        if ccxt_df is not None and _store_covers_request(ccxt_df, days, timeframe, is_crypto=True):
+            self._candle_cache[_key] = ccxt_df
+            if _candle_store is not None:
+                try:
+                    _candle_store.save(symbol, timeframe, ccxt_df)
+                except Exception as _cs_e:
+                    logger.warning(f"CandleStore write failed: {_cs_e}")
+            return ccxt_df
 
         # Same intraday / daily split as fetch_history — period= for intraday
         # avoids the start/end boundary weirdness and +5-day over-fetch.
@@ -1661,7 +1724,14 @@ class Backtester:
                 _cfg.SIGNAL_TUNING[k] = v
                 # Tier 2: strategy_obj.params dataclass (if present and field exists)
                 params_obj = getattr(strategy_obj, "params", None)
-                if params_obj is not None and hasattr(params_obj, k):
+                if isinstance(params_obj, dict) and k in params_obj:
+                    _orig_params[k] = params_obj[k]
+                    orig_type = type(params_obj[k])
+                    try:
+                        params_obj[k] = orig_type(v)
+                    except (TypeError, ValueError):
+                        params_obj[k] = v
+                elif params_obj is not None and hasattr(params_obj, k):
                     _orig_params[k] = getattr(params_obj, k)
                     # Preserve type — cast to the field's current type to avoid
                     # accidentally passing a float where an int is expected.
@@ -1693,7 +1763,9 @@ class Backtester:
                 _cfg.SIGNAL_TUNING.update(_orig_tuning)
             if _orig_params:
                 params_obj = getattr(strategy_obj, "params", None)
-                if params_obj is not None:
+                if isinstance(params_obj, dict):
+                    params_obj.update(_orig_params)
+                elif params_obj is not None:
                     for k, v in _orig_params.items():
                         setattr(params_obj, k, v)
 

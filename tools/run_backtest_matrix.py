@@ -39,7 +39,7 @@ DEFAULT_STRATEGIES = [
     # Original core (1-11)
     "grid_bot", "dca_accumulator", "rsi_momentum", "bollinger_breakout",
     "ema_crossover", "mean_reversion", "scalp_master", "swing_trader",
-    "vwap_momentum", "hammer_reversal", "orb_breakout",
+    "vwap_momentum", "hammer_reversal", "orb_breakout", "vtmr_strategy",
     # Mid-gen (12-21)
     "ecb_strategy", "vdmr_strategy", "rsi_dip_spike_v4",
     "vwap_confirmed_orb", "bollinger_squeeze", "mr_02_vef", "mr_03_fbs",
@@ -146,6 +146,13 @@ PARAM_SWEEP_DEFS: Dict[str, Dict[str, list]] = {
         "atr_mult":   [3.0, 3.5, 4.0, 4.5, 5.0, 5.5],
         "adx_min":    [18.0, 20.0, 22.0, 25.0],
     },
+    "vtmr_strategy": {
+        "rsi_long_max":  [10, 15, 20],
+        "rsi_short_min": [80, 85, 90],
+        "adx_min":       [18.0, 20.0, 22.0, 25.0],
+        "sl_atr_mult":   [1.5, 2.0, 2.5],
+    },
+
     # map_strategy: MapParams fields
     "map_strategy": {
         "sl_mult":    [1.5, 2.0, 2.5, 3.0],
