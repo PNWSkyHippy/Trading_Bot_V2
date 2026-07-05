@@ -8334,6 +8334,13 @@
             return branches;
         }
 
+        // Hysteresis state for the corridor travel-direction reversal below. Without it, the
+        // flip toggles the instant dot(branch.forward, ship.forward) crosses 0 — and pitching
+        // into a vertical shaft holds the ship near-perpendicular to corridors, so the sign
+        // oscillated frame to frame: the view lurched sideways and snapped back ("jerks left
+        // then back to forward"). Flip only past a deadband and hold the last side inside it.
+        const branchTravelFlipState = { flipped: false };
+
         function blendFlightBasis(worldBasis, branchBasis, blend) {
             const b = Math.max(0, Math.min(1, blend));
             if (b <= 0.001 || !branchBasis) return worldBasis;
@@ -8345,7 +8352,10 @@
             // Reverse the corridor frame (180 deg yaw: forward and right negate, down kept) to
             // match the ship's travel direction before blending; keepBasisSameHemisphere below
             // then settles right/down to the nearest hemisphere as before.
-            const branchTravel = dot(branchBasis.forward, worldBasis.forward) < 0
+            const travelDot = dot(branchBasis.forward, worldBasis.forward);
+            if (travelDot < -0.15) branchTravelFlipState.flipped = true;
+            else if (travelDot > 0.15) branchTravelFlipState.flipped = false;
+            const branchTravel = branchTravelFlipState.flipped
                 ? {
                     forward: scaleVec(branchBasis.forward, -1),
                     right: scaleVec(branchBasis.right, -1),
@@ -9081,6 +9091,47 @@
             return true;
         }
 
+        // Temporal smoothing for the corridor view assist. ctx.blend is recomputed fresh from
+        // geometry every frame, so it STEPS discontinuously when segment/junction
+        // classification toggles (entering or leaving a vertical shaft), and ctx.branchBasis
+        // can swap identity between frames as the steer logic re-picks branches. Both fed the
+        // view directly, which read as the camera jerking sideways and snapping back during
+        // vertical climbs. Ease the assist strength and the corridor frame toward their
+        // targets instead. VIEW-ONLY: the ship attitude (worldBasis path) stays crisp 1:1 —
+        // this adds no input latency to aiming, it only softens the assist's pull.
+        const viewAssist = { blend: 0, basis: null, frame: -1 };
+
+        function easeViewAssist(ctx) {
+            if (viewAssist.frame === renderFrameCounter) return;
+            viewAssist.frame = renderFrameCounter;
+            const targetBlend = ctx.branchBasis ? Math.max(0, Math.min(1, ctx.blend)) : 0;
+            const rate = targetBlend > viewAssist.blend ? 0.10 : 0.07;
+            viewAssist.blend += (targetBlend - viewAssist.blend) * rate;
+            if (targetBlend === 0 && viewAssist.blend < 0.005) viewAssist.blend = 0;
+            if (ctx.branchBasis) {
+                if (!viewAssist.basis || viewAssist.blend <= 0.01) {
+                    // Assist is (nearly) invisible — snap-set the frame without easing.
+                    viewAssist.basis = {
+                        forward: copyVec(ctx.branchBasis.forward),
+                        right: copyVec(ctx.branchBasis.right),
+                        down: copyVec(ctx.branchBasis.down)
+                    };
+                } else {
+                    // Ease toward the (hemisphere-aligned) target corridor frame so branch
+                    // re-picks rotate the assist over several frames instead of snapping.
+                    const target = keepBasisSameHemisphere(ctx.branchBasis, viewAssist.basis, true);
+                    const k = 0.15;
+                    viewAssist.basis = normalizedBasis(
+                        addVec(scaleVec(viewAssist.basis.forward, 1 - k), scaleVec(target.forward, k)),
+                        addVec(scaleVec(viewAssist.basis.right, 1 - k), scaleVec(target.right, k)),
+                        addVec(scaleVec(viewAssist.basis.down, 1 - k), scaleVec(target.down, k))
+                    );
+                }
+            } else if (viewAssist.blend === 0) {
+                viewAssist.basis = null;
+            }
+        }
+
         function syncViewToShip() {
             const ctx = getBranchFlightContext();
             // Fully continuous 6DOF (matches repairBasis): never rebuild the view basis from
@@ -9089,7 +9140,8 @@
             // even once the ship basis itself was continuous. The stored shipRight/shipDown are
             // the unrolled attitude (see repairBasis) — roll is applied exactly once, below.
             const worldBasis = buildStableBasisFromHints(shipForward, shipRight, shipDown);
-            const basis = blendFlightBasis(worldBasis, ctx.branchBasis, ctx.blend);
+            easeViewAssist(ctx);
+            const basis = blendFlightBasis(worldBasis, viewAssist.basis, viewAssist.blend);
             const rolled = applyPlayerRollToBasis(basis, shipRollAngle);
             viewForward = rolled.forward;
             viewRight = rolled.right;
