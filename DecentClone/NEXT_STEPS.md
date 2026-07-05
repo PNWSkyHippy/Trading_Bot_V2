@@ -5,27 +5,6 @@
 **Status:** Playable flight prototype with in-game map editor. Independent side project (not related to the trading bot).
 
 ---
-Add Noww Not Next Week  These 4 items
-multi slect tunel section A to tunnel section B, hit join key a, all highlight fr A to B
-  once selecred texture cn be applied to all selected as one move, all can be deleted in one move, all target boxes and have
-  label and damager vs non damager tagged in one move
-
-Same goes for  multiline building select a to b ,  then select ahead fo sction 2  then ahead for section 3 etc until link with a
-    an object or some key pressed to signal sements complete. now clik eah and ay undrawn segment and addd shift\conrtl nsb click 
-    to make that sgmen  independant drag hanle. When builder drags handle it wil  only drag in the current plane  be it XY or YZ etc
-    However add the option to click the drag hanldle ad add a angle off the current plane + or _ s i f its 20deg + then dragggig will 
-    cause an arc 20 deg into Z off XY an d back again at point its finally draged to on XYonce all segmens of multi line have
-    been psotions hittinh Y geenrates tunel for the entire curved spline type line
-
-same goes for add an XYZ in space drag handle edit option to any tunel junction, or still being built line endpint so you can Drag
-  that point up and down any of the 3 planes, when done to an existing section recalculate the part connecting to it To  
-  rebuild through it as a curve not a sharp bend. Think dragging car 25 on a 50 car train to the side hich drags the rest wth  it 
-
-Same goes for build an Orbit option where you pick a spot in 3d space (hand pixk spot on crent plane, use XYZ tool to project  it
-  onto 3rd plane, the activate rbit mouse/key so that moving mouse swings you around the selected point as if tethered to it 
-  by a rope, pendulam swing around a point in space not oving spacre around my viewpoint
-
-
 
 ## What Works Today (v0.4+)
 
