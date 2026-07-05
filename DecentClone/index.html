@@ -8391,6 +8391,16 @@
             }
 
             const seg = nearest.seg;
+            // A chamber is a ROOM, not a corridor — its construction segment's axis is just
+            // scaffolding, so none of the corridor logic below applies: no vertical-segment
+            // classification, no branchBasis, no view blending. Classifying a room whose
+            // scaffold axis happened to be near-vertical as a "vertical corridor" set
+            // blend=1, welding the camera to that axis — yaw appeared dead, forward thrust
+            // ran along the invisible actual nose, and the exit door could never be faced.
+            if (segmentIsChamber(seg)) {
+                branchFlightContext = ctx;
+                return ctx;
+            }
             const local = shipSegmentLocal(ship, seg);
             const radius = seg.radius || builder.radius;
             ctx.nearJunction = isNearTunnelJunction(nearest);
