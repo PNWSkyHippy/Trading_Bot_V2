@@ -12,25 +12,26 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Sync Hostinger and Home PC
-        run: |
-          # 1. Rebuild a clean runner SSH environment
-          rm -rf ~/.ssh
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          
-          # 2. Decode the pristine server key profile
-          echo "${{ secrets.HOSTINGER_SSH_KEY }}" | base64 -d > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          
-          # 3. Cache host identity keys to prevent prompts
-          ssh-keyscan -H 187.127.248.52 >> ~/.ssh/known_hosts
-          ssh-keyscan -p 22 -H ${{ secrets.HOME_PC_IP }} >> ~/.ssh/known_hosts
-          
-          # 4. Fire the deployment stream directly to Hostinger
-          echo "Deploying to Hostinger Server..."
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 ronh@187.127.248.52 "cd /opt/trading_bot_v2 && git fetch origin main && git reset --hard origin/main"
-          
-          # 5. Fire the deployment stream directly to Windows Home PC
-          echo "Deploying to Windows Home PC..."
-          ssh -o StrictHostKeyChecking=no -i ~/.ssh/id_ed25519 -p 22 Linda@${{ secrets.HOME_PC_IP }} "cd C:\Users\Linda\trading_bot_v2 && git fetch origin main && git reset --hard origin/main"
+      - name: Deploy to Hostinger Server (Native SSH)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: 187.127.248.52
+          username: ronh
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          port: 22
+          script: |
+            cd /opt/trading_bot_v2
+            git fetch origin main
+            git reset --hard origin/main
+
+      - name: Deploy to Windows Home PC (Native SSH)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HOME_PC_IP }}
+          username: Linda
+          key: ${{ secrets.HOME_PC_SSH_KEY }}
+          port: 22
+          script: |
+            cd C:\Users\Linda\trading_bot_v2
+            git fetch origin main
+            git reset --hard origin/main
