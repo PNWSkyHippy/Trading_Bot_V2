@@ -19,7 +19,7 @@ schedule==1.2.2
 pytz==2024.1
 
 # Dashboard
-streamlit==1.32.0
+streamlit==1.54.0
 plotly==5.19.0
 
 # Bot API server
@@ -28,19 +28,19 @@ uvicorn==0.34.0
 pydantic==2.10.4
 
 # AI Chat Interface
-requests==2.31.0
+requests==2.33.0
 anthropic>=0.50.0
 
 # Phase 3 — Machine Learning
-scikit-learn==1.4.0           # Random Forest ML scorer
+scikit-learn==1.5.0           # Random Forest ML scorer
 
 # Phase 3 — Backtesting
 yfinance==0.2.37              # Free historical stock data for backtesting
 
 # Reporting & Email
-Jinja2==3.1.3
+Jinja2==3.1.6
 
 # Utilities
-python-dotenv==1.0.1          # Load .env file for API keys
+python-dotenv==1.2.2          # Load .env file for API keys
 keyring>=25.0.0               # Secure credential storage in Windows Credential Manager
 cryptography>=42.0.0          # Fernet encryption for API keys in .env
