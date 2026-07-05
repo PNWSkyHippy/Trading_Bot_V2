@@ -9108,25 +9108,16 @@
             const rate = targetBlend > viewAssist.blend ? 0.10 : 0.07;
             viewAssist.blend += (targetBlend - viewAssist.blend) * rate;
             if (targetBlend === 0 && viewAssist.blend < 0.005) viewAssist.blend = 0;
+            // Only the SCALAR strength is eased. An earlier version also eased the corridor
+            // frame itself, hemisphere-aligning each step's target against the eased frame —
+            // a feedback loop: near perpendicular the alignment sign flickered every frame and
+            // the eased basis chased an alternating target, visibly shaking the camera even at
+            // a standstill. The frame is now passed through raw (kept as a reference so the
+            // eased blend can finish decaying after the corridor context disengages); frame
+            // alignment decisions happen once per frame in blendFlightBasis against the stable
+            // world basis, with hysteresis on the travel flip.
             if (ctx.branchBasis) {
-                if (!viewAssist.basis || viewAssist.blend <= 0.01) {
-                    // Assist is (nearly) invisible — snap-set the frame without easing.
-                    viewAssist.basis = {
-                        forward: copyVec(ctx.branchBasis.forward),
-                        right: copyVec(ctx.branchBasis.right),
-                        down: copyVec(ctx.branchBasis.down)
-                    };
-                } else {
-                    // Ease toward the (hemisphere-aligned) target corridor frame so branch
-                    // re-picks rotate the assist over several frames instead of snapping.
-                    const target = keepBasisSameHemisphere(ctx.branchBasis, viewAssist.basis, true);
-                    const k = 0.15;
-                    viewAssist.basis = normalizedBasis(
-                        addVec(scaleVec(viewAssist.basis.forward, 1 - k), scaleVec(target.forward, k)),
-                        addVec(scaleVec(viewAssist.basis.right, 1 - k), scaleVec(target.right, k)),
-                        addVec(scaleVec(viewAssist.basis.down, 1 - k), scaleVec(target.down, k))
-                    );
-                }
+                viewAssist.basis = ctx.branchBasis;
             } else if (viewAssist.blend === 0) {
                 viewAssist.basis = null;
             }
