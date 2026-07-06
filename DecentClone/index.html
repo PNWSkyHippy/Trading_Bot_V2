@@ -13496,8 +13496,34 @@
 
         function renderTunnelSentries(centerX, centerY, fov, texturedSegmentIndices = null, forwardPathSet = null) {
             if (!tunnelSentries.length) return;
+            // TEMP TELEMETRY: while any sentry is ENGAGED, log its full visibility verdict
+            // every ~90 frames — replicates every cull gate renderSentryDrone applies so an
+            // "enemy shooting me but invisible" report carries its own diagnosis in the
+            // console paste. Remove with the other debug logs once sentry visibility is stable.
+            const _dbgVis = !(renderFrameCounter % 90);
             for (const sentry of tunnelSentries) {
                 renderSentryDrone(sentry, centerX, centerY, fov, false, texturedSegmentIndices, forwardPathSet);
+                if (_dbgVis && sentry.engaged) {
+                    const pos = { x: sentry.x, y: sentry.y, z: sentry.z };
+                    const cam = worldToCamera(pos);
+                    const proj = projectPoint(pos, centerX, centerY, fov);
+                    const shipSeg = builder.segments[shipSegmentIndex];
+                    const shipChamber = segmentIsChamber(shipSeg);
+                    const maxZ = shipChamber
+                        ? Math.max(1500, (shipSeg.radius || builder.radius) * 2.4)
+                        : 1500;
+                    const supp = shouldSuppressOpaqueOverlay(
+                        sentryOverlaySegmentIndex(sentry), texturedSegmentIndices, forwardPathSet);
+                    console.warn('[SENTRY-VIS] id=' + sentry.id +
+                        ' active=' + sentryIsActive(sentry) +
+                        ' dist=' + Math.round(Math.sqrt(distanceSq(pos, { x: posX, y: posY, z: posZ }))) +
+                        ' camZ=' + (cam ? Math.round(cam.z) : 'null') +
+                        ' zCull=' + (cam ? (cam.z <= 12 ? 'TOO-CLOSE/BEHIND' : (cam.z > maxZ ? 'BEYOND-' + Math.round(maxZ) : 'ok')) : 'no-cam') +
+                        ' proj=' + (proj ? Math.round(proj.x) + ',' + Math.round(proj.y) : 'OFFSCREEN/BEHIND') +
+                        ' suppressedIfIdle=' + supp +
+                        ' segIdx=' + sentryOverlaySegmentIndex(sentry) +
+                        ' shipSeg=' + shipSegmentIndex + ' shipChamber=' + shipChamber);
+                }
             }
         }
 
