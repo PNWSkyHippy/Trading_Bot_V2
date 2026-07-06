@@ -37,3 +37,10 @@ else:
 
 db.set_state(key, True)
 print(f"Done {key} = true")
+
+# Clear the sticky manual-disable flag (set by Disable_Strat.py) so the
+# engine's auto-enable/auto-disable lifecycle manages the strategy again.
+if key.startswith("strategy_") and key.endswith("_enabled"):
+    manual_key = key[: -len("_enabled")] + "_manual_disable"
+    db.set_state(manual_key, False)
+    print(f"Done {manual_key} = false (manual-disable flag cleared)")

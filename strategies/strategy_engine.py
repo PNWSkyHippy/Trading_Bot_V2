@@ -43,6 +43,7 @@ from strategies.fels_strategy import FELSStrategy
 from strategies.sfr_structural_fakeout import SFRStrategy
 from strategies.bmr357_strategy import BMR357Strategy
 from strategies.vtmr_strategy import VTMRStrategy
+from strategies.vbm_strategy import VBMStrategy
 from data.database import db
 
 logger = logging.getLogger(__name__)
@@ -94,6 +95,7 @@ class StrategyEngine:
             SFRStrategy(),                           # Strategy 32 — Structural Fakeout Reversal (WATCHLIST) — fade ORB/prior-day false breaks
             BMR357Strategy(),                        # Strategy 33 — BB Mean Reversion 3-5-7 (INCUBATE) — BB+RSI fade, 15m crypto longs primary
             VTMRStrategy(),                          # Strategy 34 — VTM-R/VTRT RSI(2) trend reversion (INCUBATE) — custom EMA/max-hold exits
+            VBMStrategy(),                           # Strategy 35 — VB-M volatility breakout momentum (INCUBATE) — Donchian+ATR break, chandelier trail
         ]
 
         self._load_strategy_states()
@@ -116,6 +118,16 @@ class StrategyEngine:
             state = self._db.get_state(key, default=None)
             if state is not None:
                 strategy.enabled = _state_enabled(state)
+                # Manual disable is sticky: enforce it at load even if some
+                # other path flipped the enabled key back on (see AUTO-ENABLE).
+                if strategy.enabled and _state_enabled(self._db.get_state(
+                        f"strategy_{strategy.name}_manual_disable", default=False)):
+                    strategy.enabled = False
+                    self._db.set_state(key, False)
+                    logger.warning(
+                        f"[STRATEGY LOAD] {strategy.name}: enabled key was true "
+                        f"but manual_disable flag is set — forcing DISABLED."
+                    )
                 if getattr(strategy, "auto_disable_exempt", False):
                     logger.info(
                         f"[STRATEGY LOAD] {strategy.name}: manual DB state "
@@ -353,6 +365,21 @@ class StrategyEngine:
                 f"(win rate {stats['win_rate']:.1f}% is NOT the gate)"
             )
         elif not strategy.enabled and is_winner:
+            # A MANUAL disable must stick: auto-enable used to flip manually
+            # disabled strategies back on whenever their recent DB results read
+            # net-positive — worse, deleting a batch of losing trades from the
+            # DB erases the very evidence keeping the stats negative, so the
+            # strategy re-armed right after cleanup (vtmr, 2026-07-06: disabled,
+            # auto re-enabled, lost 8 straight, losses erased, re-enabled again).
+            # Scripts/Disable_Strat.py sets this flag; Enable_Strat.py clears it.
+            if _state_enabled(self._db.get_state(
+                    f"strategy_{strategy.name}_manual_disable", default=False)):
+                logger.info(
+                    f"[AUTO-ENABLE] '{strategy_name}' qualifies "
+                    f"(total_pnl=${total_pnl:+.2f} PF={profit_factor:.2f}) but is "
+                    f"MANUALLY disabled — leaving off. Re-enable via Enable_Strat.py."
+                )
+                return
             strategy.enabled = True
             self._save_strategy_state(strategy)
             logger.info(

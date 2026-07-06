@@ -37,3 +37,11 @@ else:
 
 db.set_state(key, False)
 print(f"Done {key} = false")
+
+# Strategy disables from this script are MANUAL — set the sticky flag so the
+# engine's AUTO-ENABLE (profitable-again) logic cannot flip it back on.
+# Cleared only by Scripts/Enable_Strat.py.
+if key.startswith("strategy_") and key.endswith("_enabled"):
+    manual_key = key[: -len("_enabled")] + "_manual_disable"
+    db.set_state(manual_key, True)
+    print(f"Done {manual_key} = true (sticky - survives auto-enable)")
