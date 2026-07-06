@@ -83,7 +83,6 @@ BOT_ENGINE_METHODS = """
             logger.error(f"Daily market scan failed: {e}", exc_info=True)
 
     def _inject_scanned_symbols(self, stock_df, crypto_df):
-        """Prepend scanned tickers to in-memory watchlists and ORB whitelist."""
         if not stock_df.empty:
             new_stocks = stock_df["Ticker"].tolist()
             existing = getattr(self, "stock_watchlist", [])
@@ -99,7 +98,6 @@ BOT_ENGINE_METHODS = """
             logger.info(f"Injected {len(new_pairs)} scanned crypto pairs into watchlist")
 
     def load_scanned_watchlists_on_boot(self):
-        """Called at startup — loads previous scan results from temp files."""
         scanned_stocks, scanned_crypto = load_watchlist_temps()
         if scanned_stocks:
             existing = getattr(self, "stock_watchlist", [])
