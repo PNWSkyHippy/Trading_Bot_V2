@@ -152,6 +152,17 @@ PARAM_SWEEP_DEFS: Dict[str, Dict[str, list]] = {
         "adx_min":       [18.0, 20.0, 22.0, 25.0],
         "sl_atr_mult":   [1.5, 2.0, 2.5],
     },
+    # VB-M: v1 baseline (entry_len=12, k=0.2, trail=2.0, no trend filter) scored
+    # PF 0.08/0.18/0.49 on 5m/15m/1h crypto — structure smaller than the 0.62%
+    # RT fee. Sweep pushes toward fee-viable geometry: longer channels (fewer,
+    # better breaks), decisive break filter, wider trails, with-trend only.
+    "vbm_strategy": {
+        "entry_len":    [20, 32, 48],
+        "breakout_k":   [0.3, 0.5],
+        "trail_k":      [2.5, 3.0],
+        "trend_filter": [True],
+        "sl_atr_mult":  [2.0],
+    },
 
     # map_strategy: MapParams fields
     "map_strategy": {

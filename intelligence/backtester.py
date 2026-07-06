@@ -925,6 +925,7 @@ class Backtester:
             "sfr_structural_fakeout": ("strategies.sfr_structural_fakeout", "SFRStrategy"),
             "tema_crossover":         ("strategies.tema_crossover",          "TEMACrossoverStrategy"),
             "bmr_357":                ("strategies.bmr357_strategy",         "BMR357Strategy"),
+            "vbm_strategy":           ("strategies.vbm_strategy",            "VBMStrategy"),
         }
         if strategy_name not in strategy_map:
             return None
@@ -1234,6 +1235,7 @@ class Backtester:
             "swing_trader",           # 2.5% SL / 6% TP; 8h hard stop kills developing swing trades
             "mean_reversion",         # no custom exit; needs time for Z-score thesis to play out
             "bmr_357",                # 48-bar time stop + midline exit; generic lifecycle stops fire too early
+            "vbm_strategy",           # VB-M owns chandelier trail + max-hold; generic stops would cut breakout runners
         })
         # ── Next-bar execution ────────────────────────────────────────────────
         # Signal generated on bar i is executed at bar i+1 open.
