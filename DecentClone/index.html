@@ -13077,11 +13077,31 @@
 
         function sentryChaseAnchor(sentry, ship) {
             const side = sentry.id && sentry.id.charCodeAt(sentry.id.length - 1) % 2 ? 1 : -1;
+            // Anchor the chase point on the side the sentry APPROACHES from — world-anchored,
+            // NOT ship-orientation-anchored. The old anchor was ship - shipForward*TRAIL_DIST
+            // (± shipRight*offset): a point behind the player's nose that rotates WITH the
+            // player, so a chasing sentry was mechanically pinned in the blind spot — the
+            // "it kills me but 360-degree sweeps never find it" reports ([SENTRY-VIS]
+            // telemetry: engaged, dist 125, camZ -110 = permanently behind the camera).
+            // Holding station along its own approach direction means turning toward the
+            // sentry now actually brings it on screen.
+            let approach = normalize({
+                x: sentry.x - ship.x,
+                y: sentry.y - ship.y,
+                z: sentry.z - ship.z
+            });
+            if (Math.hypot(approach.x, approach.y, approach.z) < 0.001) {
+                approach = scaleVec(shipForward, -1);
+            }
+            const upRef = Math.abs(dot(approach, { x: 0, y: 1, z: 0 })) > 0.92
+                ? { x: 0, y: 0, z: 1 }
+                : { x: 0, y: 1, z: 0 };
+            const lateral = normalize(cross(upRef, approach));
             const base = addVec(
                 ship,
                 addVec(
-                    scaleVec(shipForward, -SENTRY_CHASE_TRAIL_DIST),
-                    scaleVec(shipRight, SENTRY_CHASE_SIDE_OFFSET * side)
+                    scaleVec(approach, SENTRY_CHASE_TRAIL_DIST),
+                    scaleVec(lateral, SENTRY_CHASE_SIDE_OFFSET * side)
                 )
             );
             const distToPlayer = sentryDistanceToPlayer(sentry, ship);
