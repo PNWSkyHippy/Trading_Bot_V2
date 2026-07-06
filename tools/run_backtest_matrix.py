@@ -156,12 +156,16 @@ PARAM_SWEEP_DEFS: Dict[str, Dict[str, list]] = {
     # PF 0.08/0.18/0.49 on 5m/15m/1h crypto — structure smaller than the 0.62%
     # RT fee. Sweep pushes toward fee-viable geometry: longer channels (fewer,
     # better breaks), decisive break filter, wider trails, with-trend only.
+    # v2 sweep result (1h BTC/ETH 720d): monotone gradient toward fewer/bigger
+    # trades — best was the grid corner (entry_len 48, k 0.5, trail 3.0,
+    # PF 0.61, gross +$2.4k vs $7.6k fees). v3 pushes the frontier and adds
+    # 1d (turtle territory: fees amortize over multi-percent daily moves).
     "vbm_strategy": {
-        "entry_len":    [20, 32, 48],
-        "breakout_k":   [0.3, 0.5],
-        "trail_k":      [2.5, 3.0],
+        "entry_len":    [20, 55, 96],
+        "breakout_k":   [0.3, 0.6],
+        "trail_k":      [3.0, 4.0],
         "trend_filter": [True],
-        "sl_atr_mult":  [2.0],
+        "sl_atr_mult":  [2.5],
     },
 
     # map_strategy: MapParams fields
