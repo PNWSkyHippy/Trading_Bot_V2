@@ -1,0 +1,19 @@
+Project Ladder — Bot Support Scripts
+Tier 1 — Warm-up (variables, arithmetic, f-strings, input)
+#1 fee_check.py — type in a trade's entry/exit/qty, get gross P&L, fees, and net P&L printed out. Directly uses your 0.62% crypto fee hurdle knowledge.
+
+#2 position_sizer.py — input account size, risk % per trade, stop distance %; outputs max shares/contracts. Classic pre-trade calc you'd run manually anyway.
+
+#3 stop_table.py — input a symbol and entry price; prints a table of stop levels at 0.5%, 1%, 1.5%, 2%, 3% below entry.
+
+Tier 2 — Logic (functions, if/elif, while loops)
+#4 trade_validator.py — prompts for entry, stop, target; calculates risk:reward ratio; tells you PASS / FAIL based on a minimum R:R threshold you set.
+
+#5 pnl_session.py — interactive loop: keep entering closed trades (symbol, entry, exit, qty) until you type done; prints win count, loss count, total P&L, win rate %.
+
+Tier 3 — Lists & Strings (Week 4 skills)
+#6 log_parser.py — take a real line (or a few lines) from your bot's actual log file, use split() and string slicing to extract the timestamp, symbol, action, and price into clean variables.
+
+#7 trade_report.py — hardcode a list of trade tuples (symbol, entry, exit, qty), loop through, build a sorted summary table by P&L (use sorted() with a key function).
+
+#8 watchlist_scan.py — hardcode a list of [symbol, price, pct_change] rows, filter and print only the ones above a % threshold — mimics what a real scanner does.

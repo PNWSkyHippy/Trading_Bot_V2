@@ -1,0 +1,267 @@
+i dont know why it o hard for me ill see how half hour ago it had sustained  up trend for 15 miutes solid, last 2 hour 80pct up 20pct down so up trend i see one starting and ignore the indicators and go in only to have the trend 100pct reverse
+
+
+
+
+9:06 PM
+
+
+
+
+
+
+That is hard because your brain is doing a very normal pattern-completion thing: it sees recent motion and says “trend.” Markets punish that because by the time it looks obvious, a lot of the move may already be spent.
+What you’re describing is often late-trend entry / exhaustion entry:
+last 15 minutes: strong up
+last 2 hours: mostly green
+your brain: “confirmed uptrend”
+actual risk: buyers already spent, late longs crowded, pullback/reversal likely
+The fix is not “trust your gut less” in a vague way. It’s a mechanical entry rule that separates trend context from entry trigger.
+Example:
+Trend can be up, but I do not enter long after 3+ extended green candles.
+I only enter after:
+1. pullback to VWAP/EMA/support,
+2. sellers fail,
+3. next candle reclaims trigger level,
+4. stop is small and defined.
+So the uptrend is not the entry. It is only permission to look for a long.
+A rule like this would directly block the pain trade:
+No long entry if price is more than X points above VWAP/EMA
+or if the last N candles moved more than Y ATR without pullback.
+That turns “it’s going up” into “it’s going up, but entry is late, wait.”
+
+9:06 PM
+
+
+
+
+
+
+sometimes i think its just the rtcker hates me sees me take a position and turns around like a hunter to take me out
+
+
+
+
+9:08 PM
+
+
+
+
+
+
+I know that feeling. It can feel personal in a way that is almost comical: you click buy and the chart immediately says, “ah, there you are.”
+But usually it is not the market hunting you specifically. It’s that your entry point is probably where a lot of late traders are entering too. So you are joining the crowd right near the place where:
+early longs take profit
+shorts start fading the extension
+liquidity gets swept
+stops are clustered
+the move needs a pullback before continuing
+That makes it feel like the market saw you, but really you entered at a common emotional location.
+A useful mental reframe:
+If I feel urgent, I am probably late.
+If it looks obvious, I need a pullback or a trap confirmation.
+If my stop would be wide, I missed the entry.
+The “hunter” is often just liquidity mechanics plus human timing. The way to beat it is to stop entering where your emotions become obvious.
+
+9:08 PM
+
+
+
+
+
+
+yeah ive at least sttrted to notice and intervene when i do stupid stuff like lost a long so imedately go short only now the up trend is past an it goes short on me revenge trading all the way
+
+
+
+
+9:11 PM
+
+
+
+
+
+
+That awareness is a big deal. The moment you can catch “I’m about to revenge-flip” before clicking, you’ve created a gap where rules can save you.
+A good hard rule for that exact pattern:
+After any losing trade, I cannot enter the opposite direction for 10 minutes unless a full independent setup forms.
+Even better:
+After a stop-out, next trade must be same checklist from zero.
+The prior loss is not evidence.
+The opposite direction is not valid just because my first trade failed.
+Practical emergency brake:
+Loss happens.
+Hands off mouse.
+Stand up or turn chair away for 60 seconds.
+Write: “What setup exists now?”
+If the answer mentions the previous loss, no trade.
+Wait for a fresh candle close.
+Your brain wants to restore control fast. The rule has to slow the impulse down long enough for the chart to become just a chart again.
+
+9:11 PM
+
+
+
+
+
+
+to hepl out i just had coursebox ai create e 2 coure yesterday one one how to win a prop fir combine, risk managemet ccontract sizing, chart timeframe and indicattor setus, overcoming those mentl blocks so i can dril yself then has it do a coplet coure on scalp and day trading with in dpth chart aalyis readhing sections whih is a weakness
+
+
+
+
+9:14 PM
+
+
+
+
+
+
+That is honestly a smart move. You basically built yourself a training simulator for the two halves of trading:
+Prop combine survival
+Risk rules, contract sizing, max drawdown, daily loss limits, when to stop, how not to fail the account.
+
+Actual trade skill
+Reading structure, trend/pullback, scalping entries, timeframe alignment, indicator confirmation, avoiding late entries.
+
+Those are related but not the same. A trader can have decent entries and still fail a combine from sizing or revenge trading. Or have good risk control but weak chart reading and slowly bleed.
+For your specific weak spots, I’d make the courses force reps:
+Given 10 chart screenshots, mark “late entry” vs “valid pullback entry.”
+Given a losing trade, choose whether next action is wait, same direction, opposite direction, or stop for session.
+Given account size and max daily loss, calculate contract size.
+Given trend on 15m and setup on 1m/5m, decide if aligned.
+Given a big candle run, identify where not to enter.
+Given a simulated day, journal every trade before entry.
+The mental-block part should be drilled like skydiving EPs: short, repeated, automatic. After a loss, there should be a rehearsed sequence, not a negotiation.
+
+9:14 PM
+
+
+
+
+
+
+yeah that ones tricky contract size vs loss limits and VS what are we trding is it $5 q a contract? $50 a contact? Need sal enough tat the SL is ot going to be tripped by noise yet enough that sal mov = big gains  so that if charts show it goes up roughy 3 ticks a trend its dumb to have a setup wit TP 9 ticks ahead ore ccontracts that hit the same $200 goal in less movement is neeed yet yeah hows your loss win rtio and daiy liit lookibg
+
+
+
+
+9:18 PM
+
+
+
+
+
+
+Worked for 12s
+
+
+
+Yeah, that’s the hard part: contract sizing is where chart quality, stop distance, tick value, and prop rules all collide.
+The clean formula is:
+dollars_at_risk = stop_ticks × tick_value × contracts
+contracts = allowed_loss_per_trade / (stop_ticks × tick_value)
+So the setup comes first. You do not pick contracts first.
+Example using common CME values:
+/MES: 1 tick = $1.25
+/MNQ: 1 tick = $0.50
+/ES: 1 tick = $12.50
+/NQ: 1 tick = $5.00
+If your valid stop needs 12 ticks:
+/MNQ: 12 × $0.50 = $6 risk per contract
+/NQ:  12 × $5.00 = $60 risk per contract
+/MES: 12 × $1.25 = $15 risk per contract
+/ES:  12 × $12.50 = $150 risk per contract
+Then compare that to your daily loss rule. If max daily pain is $500, you probably do not want one trade risking $250-$300, because two normal losses can end the day.
+And your TP point is dead-on: if the chart usually gives 3 ticks before stalling, a 9-tick TP is fantasy unless you have a different setup. Better choices are:
+smaller target + more contracts
+or
+better setup with room for larger target
+or
+skip because reward/risk is not there
+A practical prop-combine rule might be:
+Risk 0.25%-0.5% of account per trade.
+Never risk more than 20%-25% of daily loss limit on one trade.
+Stop must be outside normal noise.
+Target must be inside what the setup normally delivers.
+Minimum planned R:R 1.5:1 or 2:1 unless win rate is proven high.
+So the checklist becomes:
+1. What instrument?
+2. What is tick value?
+3. Where is the real invalidation stop?
+4. How many ticks to stop?
+5. How many ticks to realistic target?
+6. Is R:R acceptable?
+7. How many contracts keep loss inside daily rules?
+8. If contract count is too small to matter, skip or use micros.
+Sources for tick specs: CME Micro E-mini S&P 500, CME Micro E-mini Nasdaq-100, Schwab micro futures table.
+
+9:19 PM
+
+
+
+
+
+
+yeah ive documented most i tradeijke MES MGC MNQ MYM i foget rtk 's micro what i need mosty is a reference to which to use on tradovate . ontoptep you search MES you get one choice, tradovate you get 5-10 choice MESF26 or whatevr month/year
+
+
+
+
+9:23 PM
+
+
+
+
+
+
+Yeah, Tradovate makes this confusing because you are seeing contract months, not just the instrument.
+For CME futures, the symbol is usually:
+ROOT + MONTH CODE + YEAR
+Example:
+MESM6 = Micro E-mini S&P 500, June 2026 contract
+MNQU6 = Micro Nasdaq, September 2026 contract
+MGCQ6 = Micro Gold, August 2026 contract
+Common month codes:
+F = Jan
+G = Feb
+H = Mar
+J = Apr
+K = May
+M = Jun
+N = Jul
+Q = Aug
+U = Sep
+V = Oct
+X = Nov
+Z = Dec
+For what you trade most:
+MES = Micro E-mini S&P 500
+MNQ = Micro E-mini Nasdaq
+MYM = Micro E-mini Dow
+M2K = Micro Russell 2000
+MGC = Micro Gold
+Equity index futures like MES, MNQ, MYM, M2K usually use quarterly contracts:
+H = March
+M = June
+U = September
+Z = December
+So in June 2026 you will usually see things like:
+MESM6 or MESM26 = June 2026
+MESU6 or MESU26 = September 2026
+MNQM6 / MNQU6
+MYMM6 / MYMU6
+M2KM6 / M2KU6
+Around rollover week, you may see both June and September with volume. The simple rule:
+Trade the contract with the most volume, usually the front active contract.
+Micro Gold MGC has more listed months, so you may see more choices. Same rule: pick the active/front month with volume, not just the first one alphabetically.
+Important: MESF26 would mean January 2026, which is not the normal equity-index quarterly cycle and is probably not the one you want for MES. For equity micros, expect H/M/U/Z, not usually F.
+I’d make yourself a little cheat sheet:
+MES  -> Micro S&P      -> trade H/M/U/Z active month
+MNQ  -> Micro Nasdaq   -> trade H/M/U/Z active month
+MYM  -> Micro Dow      -> trade H/M/U/Z active month
+M2K  -> Micro Russell  -> trade H/M/U/Z active month
+MGC  -> Micro Gold     -> trade active gold month by volume
+On Tradovate, if unsure, sort/search by Volume and use the highest-volume contract for that root.
+
+9:23 PM
