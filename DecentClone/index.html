@@ -13303,7 +13303,14 @@
 
         function renderSentryDrone(sentry, centerX, centerY, fov, mapMode = false, texturedSegmentIndices = null, forwardPathSet = null) {
             if (!mapMode && !sentryIsActive(sentry)) return;
-            if (!mapMode && shouldSuppressOpaqueOverlay(sentryOverlaySegmentIndex(sentry), texturedSegmentIndices, forwardPathSet)) return;
+            // An ENGAGED sentry is actively hunting/shooting the player — it must always
+            // render. The opaque-overlay suppression below is a "behind a side-tunnel wall"
+            // heuristic keyed to the forward path set; a sentry chasing the player across
+            // segment boundaries (or garrisoned in a detached door-linked room) lands in
+            // opaque off-path segments constantly, which made enemies invisible mid-combat
+            // while their fire still landed.
+            if (!mapMode && !sentry.engaged &&
+                shouldSuppressOpaqueOverlay(sentryOverlaySegmentIndex(sentry), texturedSegmentIndices, forwardPathSet)) return;
             const pos = mapMode && mapMouse.sentrySpawnMoveId === sentry.id
                 ? sentry.spawn.point
                 : { x: sentry.x, y: sentry.y, z: sentry.z };
@@ -13314,7 +13321,17 @@
                 : projectPoint(pos, centerX, centerY, fov);
             if (!projected) return;
             const z = mapMode ? cameraPoint.z : cameraPoint.z;
-            if (!mapMode && (z <= 12 || z > 1500)) return;
+            // Depth cull: 1500 suits ~120-radius tunnels, but inside a chamber the room can
+            // be far deeper (radius up to 1200 = 2400 across) — scale the cull with the room
+            // so enemies across a big room don't vanish.
+            let maxSentryZ = 1500;
+            if (!mapMode) {
+                const shipSeg = builder.segments[shipSegmentIndex];
+                if (segmentIsChamber(shipSeg)) {
+                    maxSentryZ = Math.max(1500, (shipSeg.radius || builder.radius) * 2.4);
+                }
+            }
+            if (!mapMode && (z <= 12 || z > maxSentryZ)) return;
 
             // size: world-space scale used by sentryLocalWorldPoint for the wireframe renderer.
             // In flight mode we keep it as a constant world-space value so perspective projection
@@ -14155,6 +14172,12 @@
 
         function shouldSuppressOpaqueOverlay(index, texturedSegmentIndices = null, forwardPathSet = null) {
             if (index === null || index === undefined) return false;
+            // Never suppress overlays that live in the segment the SHIP itself occupies. This
+            // check exists to avoid drawing overlays through the opaque walls of off-path side
+            // tunnels — but a detached chamber room (reached by door portal, so never on the
+            // forward path set) is opaque AND off-path while the player is INSIDE it, which
+            // made every sentry in an enemy-barracks room invisible even as they fired.
+            if (index === shipSegmentIndex) return false;
             if (!tunnelWallsReady() || !texturedSegmentIndices?.has?.(index)) return false;
             const seg = builder.segments[index];
             return !!seg && segmentWallOpaque(seg) && !isMainTrackOverlaySegment(index, forwardPathSet);
