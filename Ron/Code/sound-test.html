@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>3D Spatial Audio & Vector Light Simulation</title>
+    <style>
+        body { margin: 0; background: #111; color: #fff; font-family: sans-serif; text-align: center; overflow: hidden; }
+        canvas { display: block; margin: 20px auto; background: #000; border: 2px solid #333; cursor: crosshair; }
+        p { color: #888; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <h1>3D Spatial Audio & Light Visualizer</h1>
+    <p>Click anywhere to shoot a 3D sound/light orb. Center green dot is YOUR head (Listener).</p>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// --- 1. WEB AUDIO API INITIALIZATION ---
+let audioCtx = null;
+let listener = null;
+
+function initAudio() {
+    if (audioCtx) return;
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    listener = audioCtx.listener;
+
+    // Set listener head right at the 3D center of the universe (0, 0, 0)
+    if (listener.positionX) {
+        listener.positionX.setValueAtTime(0, audioCtx.currentTime);
+        listener.positionY.setValueAtTime(0, audioCtx.currentTime);
+        listener.positionZ.setValueAtTime(0, audioCtx.currentTime);
+    }
+}
+
+// --- 2. GAME ENGINE VARIABLES ---
+const SPEED_OF_SOUND = 343; // Meters per second
+const SCALE = 20; // 20 pixels = 1 meter in our game world
+const centerX = canvas.width / 2;
+const centerY = canvas.height / 2;
+let soundSources = [];
+
+// --- 3. PROCEDURAL SOUND GENERATOR WITH VECTOR MATH ---
+function spawnSoundSource(clickX, clickY) {
+    initAudio(); // Safe activation on user click
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+
+    // Convert screen coordinates to 3D physical world space meters
+    // Center of screen becomes (0,0,0). Z-axis handles forward/backward depth.
+    const startX = (clickX - centerX) / SCALE;
+    const startY = 0; // Keeping it eye-level flat for 2D representation
+    const startZ = (clickY - centerY) / SCALE; 
+
+    // Vector direction: force everything to fly past your head horizontally
+    const velX = startX > 0 ? -12 : 12; // Meters per second
+    const velY = 0;
+    const velZ = -2; // Slight angle depth shift
+
+    // Create Web Audio Nodes
+    const osc = audioCtx.createOscillator();
+    const panner = audioCtx.createPanner();
+    const gain = audioCtx.createGain();
+
+    // Enable HRTF (Head-Related Transfer Function) for true 3D spatial headphones
+    panner.panningModel = 'HRTF';
+    panner.distanceModel = 'inverse';
+    panner.refDistance = 1;       // Sound begins dropping at 1 meter away
+    panner.rolloffFactor = 1.5;   // Intensity scale of distance fade
+
+    // Initialize position vectors
+    panner.positionX.setValueAtTime(startX, audioCtx.currentTime);
+    panner.positionY.setValueAtTime(startY, audioCtx.currentTime);
+    panner.positionZ.setValueAtTime(startZ, audioCtx.currentTime);
+
+    // Audio routing architecture
+    osc.connect(panner);
+    panner.connect(gain);
+    gain.connect(audioCtx.destination);
+
+    // Base sound pattern: Continuous Engine/Plasma drone frequency
+    osc.type = 'sawtooth';
+    const baseFrequency = 180; 
+    osc.frequency.setValueAtTime(baseFrequency, audioCtx.currentTime);
+
+    // Smooth entry and exit volume envelope
+    const duration = 3.0; // Seconds the object lives
+    const now = audioCtx.currentTime;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.5, now + 0.2); // Fade in fast
+    gain.gain.exponentialRampToValueAtTime(0.001, now + duration); // Fade out out long
+
+    osc.start(now);
+    osc.stop(now + duration);
+
+    // Track state data for rendering and loop updates
+    soundSources.push({
+        osc, panner, gain,
+        x: startX, y: startY, z: startZ,
+        vx: velX, vy: velY, vz: velZ,
+        baseFreq: baseFrequency,
+        startTime: now,
+        endTime: now + duration
+    });
+}
+
+// --- 4. THE MAIN REAL-TIME LOOP ---
+let lastTime = performance.now();
+
+function gameLoop(nowTime) {
+    const dt = (nowTime - lastTime) / 1000; // Delta time in seconds
+    lastTime = nowTime;
+
+    // Clear Screen
+    ctx.fillStyle = '#050505';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw grid lines to help visualize coordinate space
+    ctx.strokeStyle = '#111';
+    for(let i=0; i<canvas.width; i+=40) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i,canvas.height); ctx.stroke(); }
+
+    // Draw Player Head Reference Point (Listener at 0,0,0)
+    ctx.fillStyle = '#00ff00';
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, 8, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillText("YOU (Listener)", centerX - 35, centerY - 15);
+
+    const currentTime = audioCtx ? audioCtx.currentTime : 0;
+
+    // Process sound sources
+    for (let i = soundSources.length - 1; i >= 0; i--) {
+        let src = soundSources[i];
+
+        // Clean up dead nodes
+        if (currentTime > src.endTime) {
+            src.osc.disconnect();
+            src.panner.disconnect();
+            src.gain.disconnect();
+            soundSources.splice(i, 1);
+            continue;
+        }
+
+        // Vector Math: Update physical positions over time
+        src.x += src.vx * dt;
+        src.y += src.vy * dt;
+        src.z += src.vz * dt;
+
+        // Push new position coordinates natively to browser spatial engine
+        src.panner.positionX.setValueAtTime(src.x, currentTime);
+        src.panner.positionY.setValueAtTime(src.y, currentTime);
+        src.panner.positionZ.setValueAtTime(src.z, currentTime);
+
+        // --- DYNAMIC DOPPLER MATH MANUALLY CALCULATED ---
+        // Vector pointing from player to sound source
+        const dx = src.x; 
+        const dz = src.z;
+        const distance = Math.sqrt(dx*dx + dz*dz);
+
+        // Normalized radial velocity (velocity component directly toward/away from listener)
+        // Dot product of velocity vector and normalized distance vector
+        const vxNormalized = distance > 0 ? (src.vx * dx + src.vz * dz) / distance : 0;
+
+        // Calculate Doppler frequency multiplier shift factor
+        // Positive velocity = moving away (lower pitch), Negative = moving toward (higher pitch)
+        const dopplerFactor = SPEED_OF_SOUND / (SPEED_OF_SOUND + vxNormalized);
+        src.osc.frequency.setValueAtTime(src.baseFreq * dopplerFactor, currentTime);
+
+        // --- RENDERING GRAPHICS AS LIGHT VALUE REPRESENTATION ---
+        // Translate physical meter coordinates back to flat screen canvas pixel space
+        const screenX = centerX + (src.x * SCALE);
+        const screenY = centerY + (src.z * SCALE); // Z axis acts as screen Y axis depth
+
+        // Light falloff visual: larger distance = smaller, dimmer light source glow
+        const radius = Math.max(5, 40 / (distance + 0.5));
+        const alpha = Math.max(0.1, 1 / (distance * 0.2 + 1));
+
+        // Draw light source path trace
+        ctx.strokeStyle = `rgba(0, 150, 255, ${alpha * 0.3})`;
+        ctx.beginPath();
+        ctx.moveTo(screenX, screenY);
+        ctx.lineTo(screenX - src.vx * 0.3, screenY - src.vz * 0.3);
+        ctx.stroke();
+
+        // Draw Glowing Sound/Light Orb
+        let gradient = ctx.createRadialGradient(screenX, screenY, 2, screenX, screenY, radius * 2);
+        gradient.addColorStop(0, `rgba(0, 190, 255, ${alpha})`);
+        gradient.addColorStop(0.4, `rgba(0, 100, 255, ${alpha * 0.5})`);
+        gradient.addColorStop(1, 'rgba(0, 0, 0, 0)');
+        
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius * 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    requestAnimationFrame(gameLoop);
+}
+
+// Click Trigger Connection
+canvas.addEventListener('click', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    spawnSoundSource(x, y);
+});
+
+// Start loop
+requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
