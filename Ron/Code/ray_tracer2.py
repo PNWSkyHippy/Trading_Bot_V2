@@ -2,7 +2,7 @@ import taichi as ti
 import math
 
 # 1. Initialize GPU acceleration
-ti.init(arch=ti.gpu)
+ti.init(arch=ti.cpu)
 
 # Image dimensions
 res_x, res_y = 800, 600
