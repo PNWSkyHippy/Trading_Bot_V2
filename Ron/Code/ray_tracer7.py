@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image
 
 # 1. Initialize GPU acceleration
-ti.init(arch=ti.gpu)
+ti.init(arch=ti.cpu)
 
 res_x, res_y = 800, 600
 pixels = ti.Vector.field(3, dtype=ti.f32, shape=(res_x, res_y))
