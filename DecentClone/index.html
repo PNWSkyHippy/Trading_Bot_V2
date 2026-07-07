@@ -33,6 +33,19 @@
             overflow-y: auto;
             scrollbar-color: #00ffcc rgba(0, 0, 20, 0.65);
         }
+        /* HUD display modes: full (default) / min (vitals only) / hidden.
+           Ctrl+H toggles the help portion, Alt+M toggles the whole panel —
+           shrinking the overlay also shrinks the mouse-capture area that was
+           interfering with mouse steering. */
+        body.hud-mode-min #ui-overlay .dev-section,
+        body.hud-mode-min #ui-overlay .hint,
+        body.hud-mode-min #portal-quickref,
+        body.hud-mode-min #sentry-quickref,
+        body.hud-mode-min #mode-cheatsheet,
+        body.hud-mode-min #build-stamp { display: none; }
+        body.hud-mode-hidden #ui-overlay { display: none; }
+        .hud-mode-hint { display: none; font-size: 11px; opacity: 0.7; margin: 8px 0 0; }
+        body.hud-mode-min .hud-mode-hint { display: block; }
         body.hud-banner-active #ui-overlay {
             top: 38px;
             max-height: calc(100vh - 48px);
@@ -563,6 +576,7 @@
                 <label>HULL <span id="hull-val">100</span></label>
                 <div id="hull-bar-track"><div id="hull-bar-fill"></div></div>
             </div>
+            <p class="hud-mode-hint">Ctrl+H help &middot; Alt+M hide HUD</p>
             <div class="dev-section">
                 <h4>Flight Controls</h4>
                 <div id="player-command-list" class="hud-command-list"></div>
@@ -586,6 +600,7 @@
                 <div class="hud-card"><label>Gamepad</label><span id="gamepad-val">none</span></div>
                 <div class="hud-card"><label>Build Mode</label><span id="dev-mode-val">flight</span></div>
             </div>
+            <p class="hud-mode-hint">Ctrl+H help &middot; Alt+M hide HUD</p>
             <div id="portal-quickref">
                 <b>Portal gateway</b> (3D map: press M first)<br>
                 LMB = entry A · Ctrl+LMB = exit B · <b>Shift+Y</b> = link portal<br>
@@ -3705,6 +3720,56 @@
             return true;
         }
 
+        // ── HUD display modes ────────────────────────────────────────────────
+        // The pilot panel is a pointer-events:auto element over the canvas, so a
+        // full-height panel constantly steals the mouse from steering. Three modes:
+        // 'full' (as before), 'min' (title through hull bar + a hint line), and
+        // 'hidden' (nothing on screen). Ctrl+H toggles help, Alt+M toggles the panel.
+        const HUD_MODE_STORAGE_KEY = 'astralDrift.hudMode';
+        let hudDisplayMode = 'full';
+        let hudLastVisibleMode = 'full';
+
+        function applyHudMode() {
+            document.body.classList.toggle('hud-mode-min', hudDisplayMode === 'min');
+            document.body.classList.toggle('hud-mode-hidden', hudDisplayMode === 'hidden');
+            try { localStorage.setItem(HUD_MODE_STORAGE_KEY, hudDisplayMode); } catch {}
+        }
+
+        function setHudMode(mode) {
+            hudDisplayMode = mode;
+            if (mode !== 'hidden') hudLastVisibleMode = mode;
+            applyHudMode();
+        }
+
+        function toggleHudHelp() {
+            // From hidden or min, asking for help reveals the full panel.
+            if (hudDisplayMode === 'full') setHudMode('min');
+            else setHudMode('full');
+            keyboardStatus.innerText = hudDisplayMode === 'full'
+                ? 'HUD: full help (Ctrl+H minimize, Alt+M hide)'
+                : 'HUD: vitals only (Ctrl+H help, Alt+M hide)';
+        }
+
+        function toggleHudVisible() {
+            if (hudDisplayMode === 'hidden') {
+                setHudMode(hudLastVisibleMode || 'full');
+                keyboardStatus.innerText = 'HUD restored (Ctrl+H toggles help, Alt+M hides)';
+            } else {
+                setHudMode('hidden');
+            }
+        }
+
+        (() => {
+            try {
+                const saved = localStorage.getItem(HUD_MODE_STORAGE_KEY);
+                if (saved === 'min' || saved === 'hidden' || saved === 'full') {
+                    hudDisplayMode = saved;
+                }
+                if (hudDisplayMode !== 'hidden') hudLastVisibleMode = hudDisplayMode;
+            } catch {}
+            applyHudMode();
+        })();
+
         function handleKeyDown(e) {
             if (e.astralDriftHandled) return;
             e.astralDriftHandled = true;
@@ -3731,6 +3796,27 @@
                     e.preventDefault();
                     return;
                 }
+            }
+            // HUD display hotkeys: Ctrl+H toggles the help portion (full <-> vitals-only),
+            // Alt+M toggles the entire panel (Ctrl+M is grabbed system-wide by the user's
+            // SSH client, so Alt is the modifier for the menu toggle).
+            if (key === 'h' && e.ctrlKey && !e.shiftKey && !e.altKey) {
+                toggleHudHelp();
+                e.preventDefault();
+                return;
+            }
+            if (key === 'm' && e.altKey && !e.shiftKey && !e.ctrlKey) {
+                toggleHudVisible();
+                e.preventDefault();
+                return;
+            }
+            // Reserve modifier chords for explicit hotkeys: without this guard the
+            // plain-letter bindings below are modifier-blind, so Ctrl+H fell through
+            // to the mini-map plane cycle ("rotate hub") and Alt+M toggled the map.
+            // Ctrl+Shift combos pass through — handleBuilderKey handles S/L/R with
+            // the event's modifier state explicitly.
+            if ((e.ctrlKey || e.altKey || e.metaKey) && !(e.ctrlKey && e.shiftKey)) {
+                return;
             }
             if (mapLibraryDialog.style.display === 'block' && key === 'escape') {
                 closeMapLibraryDialog();
