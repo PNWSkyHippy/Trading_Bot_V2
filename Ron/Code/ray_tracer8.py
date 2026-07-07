@@ -4,7 +4,7 @@ import numpy as np
 from PIL import Image
 
 # 1. Initialize GPU acceleration
-ti.init(arch=ti.gpu)
+ti.init(arch=ti.cpu)
 
 # Restored the reliable resolution from your stable script
 res_x, res_y = 800, 600
