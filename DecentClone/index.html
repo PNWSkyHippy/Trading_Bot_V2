@@ -3814,11 +3814,14 @@
             // plain-letter bindings below are modifier-blind, so Ctrl+H fell through
             // to the mini-map plane cycle ("rotate hub") and Alt+M toggled the map.
             // Ctrl+Shift combos pass through — handleBuilderKey handles S/L/R with
-            // the event's modifier state explicitly. preventDefault so blocked chords
-            // (and the bare Alt press itself) don't trigger browser accelerators —
-            // Alt focusing the browser menu is what made all keys go dead after Alt+M.
+            // the event's modifier state explicitly.
+            // preventDefault ONLY the bare Alt press (stops the browser moving focus
+            // to its menu, which made all keys go dead after Alt+M). Other blocked
+            // chords return untouched so browser shortcuts (Ctrl+R refresh, Alt+Tab,
+            // Ctrl+C, devtools) keep working — a blanket preventDefault here trapped
+            // keys the browser/OS legitimately own.
             if ((e.ctrlKey || e.altKey || e.metaKey) && !(e.ctrlKey && e.shiftKey)) {
-                e.preventDefault();
+                if (key === 'alt') e.preventDefault();
                 return;
             }
             if (mapLibraryDialog.style.display === 'block' && key === 'escape') {
@@ -3931,7 +3934,9 @@
             // Suppress the browser's Alt behavior: in Chrome, RELEASING Alt moves focus
             // to the browser menu button — after an Alt+M the game stopped receiving ANY
             // key events (boost, Ctrl+H, Alt+M all "dead") until the canvas was clicked.
-            if (e.key === 'Alt' || e.altKey) e.preventDefault();
+            // ONLY the bare Alt release — other keys released while Alt is held (like
+            // Tab during Alt+Tab) must pass through to the browser/OS untouched.
+            if (e.key === 'Alt') e.preventDefault();
             if (isDialogInputTarget(e.target) || isJoinEditDialogOpen() || isPilotStartDialogOpen()) return;
             const key = normalizeKey(e);
             if (mobileInputMode) {
