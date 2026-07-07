@@ -1626,6 +1626,72 @@
             tunnelVisibleSegmentsCache.frame = -1;
             tunnelVisibleSegmentsCache.coverage = null;
             tunnelVisibleSegmentsCache.streak = null;
+            junctionBubbleCache.stale = true;
+        }
+
+        // ── Junction bubbles ─────────────────────────────────────────────────
+        // Wherever segment ends meet (2-way bends, 3-way and 6-way junctions,
+        // auto-connect mouths), the tube UNION has wedge-shaped coverage gaps on
+        // the outside of the angles between arms — space that looks open on screen
+        // but that containment treats as wall ("slam into an invisible wall at a
+        // junction"). Map audit on the ACadMap4 base map found every blocked
+        // arm-pair within ~40u of a joint point. Instead of chasing per-junction
+        // geometry at build time, treat the vicinity of EVERY joint as an open
+        // sphere (the classic Descent junction-cell concept): free flight inside,
+        // normal tube containment resumes outside (the arm tubes overlap each
+        // bubble, so there is no uncovered boundary). Runtime-only — fixes
+        // hand-built, converted, and auto-connected junctions alike, old maps
+        // included, with no map rebuilding.
+        const junctionBubbleCache = { stale: true, bubbles: [] };
+
+        function getJunctionBubbles() {
+            if (!junctionBubbleCache.stale) return junctionBubbleCache.bubbles;
+            const joinTol2 = Math.pow(28, 2);
+            const pts = [];
+            for (let i = 0; i < builder.segments.length; i++) {
+                const seg = builder.segments[i];
+                if (!seg?.from || !seg?.to) continue;
+                if (segmentIsChamber(seg)) continue;   // chambers are already spherical rooms
+                const r = seg.radius || builder.radius;
+                pts.push({ p: seg.from, r, i });
+                pts.push({ p: seg.to, r, i });
+            }
+            const bubbles = [];
+            const used = new Array(pts.length).fill(false);
+            for (let i = 0; i < pts.length; i++) {
+                if (used[i]) continue;
+                const members = [pts[i]];
+                used[i] = true;
+                for (let j = i + 1; j < pts.length; j++) {
+                    if (used[j]) continue;
+                    if (distanceSq(pts[i].p, pts[j].p) <= joinTol2) {
+                        members.push(pts[j]);
+                        used[j] = true;
+                    }
+                }
+                const distinctSegs = new Set(members.map(m => m.i));
+                if (distinctSegs.size < 2) continue;   // dead end — no joint here
+                let maxR = 0;
+                for (const m of members) maxR = Math.max(maxR, m.r);
+                bubbles.push({
+                    x: pts[i].p.x, y: pts[i].p.y, z: pts[i].p.z,
+                    r: maxR * 1.12
+                });
+            }
+            junctionBubbleCache.bubbles = bubbles;
+            junctionBubbleCache.stale = false;
+            return bubbles;
+        }
+
+        function pointInJunctionBubble(p, margin = 0) {
+            const bubbles = getJunctionBubbles();
+            for (const b of bubbles) {
+                const lim = b.r - margin;
+                if (lim <= 0) continue;
+                const dx = p.x - b.x, dy = p.y - b.y, dz = p.z - b.z;
+                if (dx * dx + dy * dy + dz * dz <= lim * lim) return b;
+            }
+            return null;
         }
 
         function destroyCylinderGpuMesh(mesh) {
@@ -8573,6 +8639,15 @@
             const nearest = nearestTunnelPoint(ship, shipSegmentIndex, { preferContaining: true });
             if (!nearest) return;
 
+            // Inside a junction bubble: free flight — no wall push. See getJunctionBubbles.
+            if (pointInJunctionBubble(ship)) {
+                shipSegmentIndex = nearest.index;
+                wallHit.active = false;
+                wallHit.intensity *= 0.9;
+                wallHit.stuckCount = 0;
+                return;
+            }
+
             let seg = nearest.seg;
             const priorSeg = priorSegmentIndex !== null && priorSegmentIndex !== undefined
                 ? builder.segments[priorSegmentIndex]
@@ -14087,6 +14162,7 @@
         }
 
         function shipInsideAnyTunnelTube(ship, mouthPad = 24) {
+            if (pointInJunctionBubble(ship, -mouthPad)) return true;
             for (const seg of builder.segments) {
                 if (segmentIsChamber(seg)) {
                     const chamber = chamberDistanceState(ship, seg);
