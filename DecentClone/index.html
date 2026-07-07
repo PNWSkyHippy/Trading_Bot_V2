@@ -13093,14 +13093,34 @@
             if (Math.hypot(approach.x, approach.y, approach.z) < 0.001) {
                 approach = scaleVec(shipForward, -1);
             }
-            const upRef = Math.abs(dot(approach, { x: 0, y: 1, z: 0 })) > 0.92
+            // STICKY bearing: ease the stored anchor direction toward the live approach
+            // instead of tracking it instantly. Instant tracking is a feedback loop — the
+            // sentry moves toward its lateral offset, which rotates its bearing, which
+            // rotates the anchor, which pulls it further sideways: a perpetual orbit at
+            // TRAIL_DIST with velocity always perpendicular to the player's aim ("dodges
+            // every laser"). At 4%/tick the post settles in ~1s and drifts slowly enough
+            // to be a hittable target while still repositioning over time.
+            if (!sentry.chaseDir) {
+                sentry.chaseDir = approach;
+            } else {
+                const k = 0.04;
+                const blended = normalize(addVec(
+                    scaleVec(sentry.chaseDir, 1 - k),
+                    scaleVec(approach, k)
+                ));
+                if (Math.hypot(blended.x, blended.y, blended.z) > 0.001) {
+                    sentry.chaseDir = blended;
+                }
+            }
+            const anchorDir = sentry.chaseDir;
+            const upRef = Math.abs(dot(anchorDir, { x: 0, y: 1, z: 0 })) > 0.92
                 ? { x: 0, y: 0, z: 1 }
                 : { x: 0, y: 1, z: 0 };
-            const lateral = normalize(cross(upRef, approach));
+            const lateral = normalize(cross(upRef, anchorDir));
             const base = addVec(
                 ship,
                 addVec(
-                    scaleVec(approach, SENTRY_CHASE_TRAIL_DIST),
+                    scaleVec(anchorDir, SENTRY_CHASE_TRAIL_DIST),
                     scaleVec(lateral, SENTRY_CHASE_SIDE_OFFSET * side)
                 )
             );
