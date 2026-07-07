@@ -40,16 +40,22 @@ from strategies.base_strategy import BaseStrategy, TradeSignal
 
 
 DEFAULT_PARAMS = {
+    # Validated 2026-07-07 via matrix sweeps v1-v4 (real fees, 0.62% RT crypto):
+    # DAILY candles, long bias. Crypto broad (20 pairs, 1500d): 24/24 configs
+    # PF>1, this set PF 2.06 pooled; per-pair leaders AVAX 5.4 / XRP 4.9 /
+    # SOL 3.2. Stocks (15 syms, 720d) same params long-only: PF 2.88 WR 50%.
+    # GLM's v1 defaults (entry_len 12, k 0.2, trail 2.0, no trend filter, 5m-1h)
+    # scored PF 0.08-0.49 — structure below the crypto fee floor.
     # regime
     "ema_trend":      50,
-    "trend_filter":   False,  # v1 faithful = off; v2 iteration = on
+    "trend_filter":   True,
     "atr_period":     14,
     # breakout trigger
-    "entry_len":      12,     # bars for the Donchian high/low lookback
-    "breakout_k":     0.20,   # fraction of ATR price must exceed the channel by
+    "entry_len":      96,     # bars for the Donchian high/low lookback
+    "breakout_k":     0.60,   # fraction of ATR price must exceed the channel by
     # exit (chandelier trailing stop)
-    "trail_k":        2.0,    # trail distance in ATR
-    "sl_atr_mult":    1.5,    # initial hard stop (engine-owned structural stop)
+    "trail_k":        3.0,    # trail distance in ATR
+    "sl_atr_mult":    2.5,    # initial hard stop (engine-owned structural stop)
     "max_hold":       96,     # bars
 }
 
@@ -98,8 +104,8 @@ class VBMStrategy(BaseStrategy):
         self.params = DEFAULT_PARAMS.copy()
         self.crypto_enabled = True
         self.stock_enabled = True
-        self.crypto_candle_timeframe = "15m"
-        self.stock_candle_timeframe = "15Min"
+        self.crypto_candle_timeframe = "1d"
+        self.stock_candle_timeframe = "1Day"
         self.candle_limit = 300
         self.stop_loss_pct = 4.0
         self.take_profit_pct = 30.0          # trail owns the exit; TP is a far backstop
