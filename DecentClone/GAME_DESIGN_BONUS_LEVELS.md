@@ -1,19 +1,31 @@
-# Bonus Levels: Arcade Classics From The Inside
+# Phase Progression: Arcade Classics From The Inside
 
-**Vision (Ron, 2026-07-07):** between main levels, a rotating series of bonus
-stages that reimagine arcade classics from a first-person cockpit POV:
+**Vision (Ron, 2026-07-07, revised same day):** the game is a repeating LOOP
+of three phase types, each lap harder than the last. The arcade stages are
+not bonus rounds — they are **acts in the progression**, with shared lives
+and real stakes:
 
+```
+TUNNELS phase  →  ARCADE phase  →  DEEP SPACE phase  →  (repeat, tier+1)
+ (the core        (rotating:        (space station:
+  6DOF crawl)      Galaga →          repairs, missions —
+                   Pac-Man →         "help the mining
+                   Defender)         colony on Planet X")
+```
+
+Arcade phases, rotating one per lap:
 1. **GALAGA** — locked looking up, fighter waves swoop and dive-bomb, you can
-   only strafe left/right and shoot.
+   only strafe left/right and shoot. They shoot back. They have to.
 2. **PAC-MAN** — you ARE Pac-Man, first person inside the maze, eating dots,
    hunted by four ghosts.
 3. **DEFENDER** — side-scroller seen from inside the cockpit, flying the
    scroll lane, rescuing pods.
-4. Repeat the cycle at a higher difficulty tier. Forever.
 
-The contrast is the point: the main game is full-freedom 6DOF; each bonus
-level *removes* freedoms until it feels like the classic — then hands full
-control back when you return.
+The contrast is the point: the tunnels are full-freedom 6DOF; each arcade
+phase *removes* freedoms until it feels like the classic — then hands full
+control back. The deep space phase opens the world up wider than ever, then
+the next tunnel dive feels claustrophobic again. Rhythm: tight → locked →
+vast → tight...
 
 ---
 
@@ -32,10 +44,10 @@ control back when you return.
 - **Input gate**: each level type declares which controls pass through
   (Galaga: strafe + fire; Pac-Man: yaw + forward; Defender: fore/aft +
   lift + fire). Everything else is ignored while the mode is active.
-- **Stakes — bonus-isolated (decision)**: no lives lost, ever. Shield acts
-  as the "hit points" of the bonus run; if it empties, the run ends early
-  ("SHIP DAZED") and you keep the score earned. Bonus score flows into the
-  main score/leaderboard. A bonus level is a reward, not a punishment.
+- **Stakes — SHARED lives (Ron's call)**: these are progression acts, not
+  rewards. Shield/hull carry over; dying in an arcade phase costs a life
+  exactly like dying in the tunnels. Score flows to the main leaderboard.
+  Repairs happen at the space station between laps — that's the breather.
 - **HUD**: auto-switch to `min` HUD mode + a bonus strip (score, wave/
   objective, timer). Restore the player's HUD mode on exit.
 - **Difficulty tier**: a single integer, +1 each time the cycle repeats.
@@ -85,10 +97,12 @@ Rendered with the sentry wireframe style: three small silhouettes
 - Perfect challenge wave: +10,000. Wave-clear streak multiplier.
 - Results card: kills, accuracy, waves, bonus total → main leaderboard.
 
-### Damage (decision: enemies DO fight back, ramped)
-- Fighter body contact: shield hit + knockback (never instant death).
-- Bolts: shield damage. Shield empty → run ends early, score kept.
-- Tier 1 wave 1 is deliberately gentle — the player learns the dance.
+### Damage (Ron's call: they shoot at you — "have to be")
+- Fighter body contact: shield hit + knockback.
+- Bolts: shield damage; every wave has shooters from tier 1 (ramped counts,
+  slower bolts on the first wave so the player learns the dance).
+- Shield → hull → death costs a LIFE, same as the tunnels. Survive the
+  phase to reach the space station and repair.
 
 ### Tractor beam (decision: design for it, build later)
 The boss ship-steal + dual-ship rescue is v2. The fighter phase machine
@@ -123,12 +137,30 @@ Side-scroller from inside the cockpit.
 
 ---
 
+## Phase 4 of the loop: DEEP SPACE (sketch — needs its own design pass)
+
+The wide-open act between laps. Full 6DOF in open space.
+- **Space station**: dock to repair hull/shield (the loop's only repair
+  point — this is what makes shared lives across arcade phases fair),
+  restock, receive the next mission.
+- **Missions**: structured objectives in open space — e.g. "help the mining
+  colony on Planet X" (defend miners from raider waves), escort a convoy,
+  clear a debris field, recover cargo. One mission per lap, harder each tier.
+- **Planets/points of interest**: destinations that give the space lap
+  geography. Chambers at planetary scale could serve as landing zones.
+- Completing the mission opens the next tunnel entrance — the loop closes.
+
 ## Build plan
 
 - **P1**: framework (director, portal entry/exit, input gate, arena
-  spawn/teardown, bonus HUD strip) + Galaga dive-only waves 1–2. Playable.
-- **P2**: bolts, bosses, challenge wave, scoring polish, results card.
-- **P3**: Pac-Man. **P4**: Defender. **P5**: tier scaling + cycle loop.
+  spawn/teardown, phase HUD strip) + Galaga waves 1–2 with shooters.
+  Playable.
+- **P2**: bosses, challenge wave, scoring polish, results card.
+- **P3**: Pac-Man. **P4**: Defender.
+- **P5**: deep space phase — station, docking/repair, first mission type.
+- **P6**: the full loop: tunnels → arcade → space → repeat with tier
+  scaling; loop state machine owns which phase is live and what "done"
+  means for each.
 
-Every phase ships behind the portal — the main game is untouched until the
-player flies into the gold ring.
+Each phase ships behind its portal/gate — the current game is untouched
+until the loop logic is switched on.
