@@ -3907,8 +3907,85 @@
             }
         }
 
+        function renderGalagaHudFrame(centerX, centerY) {
+            // The arena is empty far-space with nothing to anchor on, and the
+            // camera is rotation-locked -- without a fixed screen reference the
+            // "looking up, not ahead" orientation is easy to lose track of.
+            // Draw a screen-fixed cockpit frame (never moves with the world)
+            // plus two gauges showing where the ship sits in its dodge box.
+            const w = canvas.width, h = canvas.height;
+            const margin = 22;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(0,255,204,0.28)';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(margin, margin, w - margin * 2, h - margin * 2);
+
+            // corner brackets
+            const bl = 30;
+            ctx.strokeStyle = 'rgba(0,255,204,0.65)';
+            ctx.lineWidth = 2.5;
+            const corners = [
+                [margin, margin, 1, 1], [w - margin, margin, -1, 1],
+                [margin, h - margin, 1, -1], [w - margin, h - margin, -1, -1],
+            ];
+            for (const [cx, cy, dx, dy] of corners) {
+                ctx.beginPath();
+                ctx.moveTo(cx, cy + bl * dy);
+                ctx.lineTo(cx, cy);
+                ctx.lineTo(cx + bl * dx, cy);
+                ctx.stroke();
+            }
+
+            // horizontal strafe gauge (X) along the bottom
+            const gaugeW = 220;
+            const gx0 = centerX - gaugeW / 2, gy = h - margin - 26;
+            ctx.strokeStyle = 'rgba(0,255,204,0.4)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(gx0, gy); ctx.lineTo(gx0 + gaugeW, gy);
+            ctx.stroke();
+            const xFrac = Math.max(-1, Math.min(1, (posX - GALAGA.ORIGIN.x) / GALAGA.STRAFE_LIMIT));
+            const markerX = gx0 + (xFrac * 0.5 + 0.5) * gaugeW;
+            ctx.fillStyle = '#00ffcc';
+            ctx.beginPath();
+            ctx.arc(markerX, gy, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.font = '11px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = 'rgba(0,255,204,0.55)';
+            ctx.fillText('◄ STRAFE ►', centerX, gy + 16);
+
+            // vertical strafe gauge (Z) along the right side
+            const gaugeH = 160;
+            const gyy0 = centerY - gaugeH / 2, gxx = w - margin - 26;
+            ctx.beginPath();
+            ctx.moveTo(gxx, gyy0); ctx.lineTo(gxx, gyy0 + gaugeH);
+            ctx.stroke();
+            const zFrac = Math.max(-1, Math.min(1, (posZ - GALAGA.ORIGIN.z) / GALAGA.VSTRAFE_LIMIT));
+            const markerY = gyy0 + (zFrac * 0.5 + 0.5) * gaugeH;
+            ctx.fillStyle = '#00ffcc';
+            ctx.beginPath();
+            ctx.arc(gxx, markerY, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.save();
+            ctx.translate(gxx + 16, centerY);
+            ctx.rotate(Math.PI / 2);
+            ctx.fillStyle = 'rgba(0,255,204,0.55)';
+            ctx.textAlign = 'center';
+            ctx.fillText('▲ UP · DOWN ▼', 0, 0);
+            ctx.restore();
+
+            // orientation callout
+            ctx.font = '11px monospace';
+            ctx.fillStyle = 'rgba(0,255,204,0.5)';
+            ctx.textAlign = 'left';
+            ctx.fillText('BORESIGHT LOCKED — VIEW: UP', margin + 6, h - margin - 8);
+            ctx.restore();
+        }
+
         function renderGalagaPhase(centerX, centerY, fov) {
             if (!galagaPhase.active) return;
+            renderGalagaHudFrame(centerX, centerY);
             for (const f of galagaPhase.fighters) renderGalagaFighter(f, centerX, centerY, fov);
             ctx.fillStyle = '#ff3344';
             for (const bolt of galagaPhase.bolts) {
