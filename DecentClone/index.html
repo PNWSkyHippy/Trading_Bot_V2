@@ -14488,7 +14488,7 @@
         }
 
         function renderMovementStreaks(centerX, centerY, fov) {
-            if (mapView || builderMode || portalTransit.active) return;
+            if (mapView || builderMode || portalTransit.active || galagaPhase.active) return;
 
             const forward = Math.max(0, lastForwardAmount);
             const boost = boostingForward && forward > 0.01;
