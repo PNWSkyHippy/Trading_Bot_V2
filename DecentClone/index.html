@@ -3500,10 +3500,16 @@
             HULL_DMG: 12,
             INTRO_MS: 2600,
             RESULTS_MS: 4200,
+            BOSS_HP: 14,                          // wave 3: boss fight, hits to kill
+            BOSS_HIT_R: 70,
+            BOSS_COLLIDE_R: 90,
+            BOSS_SCORE: 500,
+            BOSS_BURST_MS: 1600,
         };
         const GALAGA_SPRITE_PATHS = {
             bee: 'Textures/galaga/frog_6343523.png',
             butterfly: 'Textures/galaga/monster_1236383.png',
+            boss: 'Textures/galaga/owl_10104238.png',
         };
         const galagaSpriteImages = {};
         for (const key in GALAGA_SPRITE_PATHS) {
@@ -3599,16 +3605,40 @@
                     diveT: 0, divePath: null,
                 };
             };
+            const mkBoss = () => {
+                const slot = { x: O.x, y: O.y - GALAGA.FORM_DIST - 380, z: O.z };
+                const spawn = { x: O.x, y: O.y - 200, z: O.z + 750 };
+                const c1 = { x: O.x + 300, y: O.y - 900, z: O.z - 200 };
+                const c2 = { x: slot.x - 200, y: slot.y - 220, z: slot.z + 150 };
+                return {
+                    type: 'boss', slot, hp: GALAGA.BOSS_HP,
+                    phase: 'entry', t: 0, tRate: 1 / 220,
+                    p0: spawn, p1: c1, p2: c2, p3: slot,
+                    pos: { ...spawn },
+                    boltsLeft: 0, diveT: 0, divePath: null,
+                    nextBurstAt: 0,
+                };
+            };
             let order = 0;
-            for (let col = 0; col < 8; col++) fighters.push(mkFighter('bee', col, 0, order++));
-            for (let col = 0; col < 8; col++) {
-                fighters.push(mkFighter(n >= 2 ? 'butterfly' : 'bee', col, 1, order++));
+            if (n >= 3) {
+                // wave 3: boss fight -- a thinner escort line plus the boss itself.
+                // Goal is to bring down the boss; escorts are a distraction, not a
+                // clear condition (galagaKillFighter ends the wave the instant the
+                // boss dies, even with escorts still up).
+                for (let col = 1; col < 7; col++) fighters.push(mkFighter('butterfly', col, 0, order++));
+                fighters.push(mkBoss());
+            } else {
+                for (let col = 0; col < 8; col++) fighters.push(mkFighter('bee', col, 0, order++));
+                for (let col = 0; col < 8; col++) {
+                    fighters.push(mkFighter(n >= 2 ? 'butterfly' : 'bee', col, 1, order++));
+                }
             }
             galagaPhase.fighters = fighters;
-            galagaPhase.nextDiveAt = performance.now() + (n >= 2 ? 2200 : 2800);
+            galagaPhase.nextDiveAt = performance.now() + (n >= 3 ? 1900 : n >= 2 ? 2200 : 2800);
         }
 
-        function galagaFireBolt(fighter) {
+        function galagaFireBolt(fighter, spread) {
+            spread = spread || { x: 0, z: 0 };
             const ship = { x: posX, y: posY, z: posZ };
             // lead the player's strafe drift: estimate time-to-close from the
             // dominant axis (fighter -> ship), then predict where the ship's
@@ -3618,10 +3648,10 @@
             const timeToImpact = distToShip / GALAGA.BOLT_SPEED;
             const leadX = Math.max(GALAGA.ORIGIN.x - GALAGA.STRAFE_LIMIT,
                 Math.min(GALAGA.ORIGIN.x + GALAGA.STRAFE_LIMIT,
-                    ship.x + galagaPhase.shipVelX * timeToImpact * 0.6));
+                    ship.x + galagaPhase.shipVelX * timeToImpact * 0.6 + spread.x));
             const leadZ = Math.max(GALAGA.ORIGIN.z - GALAGA.VSTRAFE_LIMIT,
                 Math.min(GALAGA.ORIGIN.z + GALAGA.VSTRAFE_LIMIT,
-                    ship.z + galagaPhase.shipVelZ * timeToImpact * 0.6));
+                    ship.z + galagaPhase.shipVelZ * timeToImpact * 0.6 + spread.z));
             const aim = { x: leadX, y: ship.y, z: leadZ };
             const d = normalize({ x: aim.x - fighter.pos.x, y: aim.y - fighter.pos.y, z: aim.z - fighter.pos.z });
             galagaPhase.bolts.push({
@@ -3629,6 +3659,12 @@
                 vx: d.x * GALAGA.BOLT_SPEED, vy: d.y * GALAGA.BOLT_SPEED, vz: d.z * GALAGA.BOLT_SPEED,
                 life: 0,
             });
+        }
+
+        function galagaBossBurst(fighter) {
+            galagaFireBolt(fighter, { x: -100, z: 0 });
+            galagaFireBolt(fighter, { x: 0, z: 0 });
+            galagaFireBolt(fighter, { x: 100, z: 0 });
         }
 
         function galagaApplyPlayerHit(mult = 1) {
@@ -3650,22 +3686,31 @@
         function galagaKillFighter(index, diving) {
             const f = galagaPhase.fighters[index];
             if (!f) return;
-            const base = f.type === 'butterfly' ? 80 : 50;
+            const isBoss = f.type === 'boss';
+            const base = isBoss ? GALAGA.BOSS_SCORE : f.type === 'butterfly' ? 80 : 50;
             const pts = diving ? base * 2 : base;
             galagaPhase.score += pts;
             galagaPhase.kills += 1;
             addTargetScore(pts);
             spawnTargetParticles(f.pos, { x: 1, y: 0, z: 0 }, { x: 0, y: 0, z: 1 },
-                f.type === 'butterfly' ? '#ff5588' : '#ffcc33', 26, 3.4, 30);
-            playSfx('target_explosion', { intensity: 0.7, worldPos: f.pos });
+                isBoss ? '#ff2244' : f.type === 'butterfly' ? '#ff5588' : '#ffcc33',
+                isBoss ? 60 : 26, isBoss ? 5.5 : 3.4, isBoss ? 70 : 30);
+            playSfx('target_explosion', { intensity: isBoss ? 1.4 : 0.7, worldPos: f.pos });
             galagaPhase.fighters.splice(index, 1);
+            if (isBoss) {
+                // boss down wins the wave outright -- escorts don't need clearing.
+                galagaPhase.fighters = [];
+                galagaPhase.state = 'results';
+                galagaPhase.stateUntil = performance.now() + GALAGA.RESULTS_MS;
+            }
         }
 
         function checkLaserGalagaHits(laserPoint) {
             if (!galagaPhase.active || galagaPhase.state !== 'play') return;
             for (let i = galagaPhase.fighters.length - 1; i >= 0; i--) {
                 const f = galagaPhase.fighters[i];
-                if (distanceSq(laserPoint, f.pos) <= GALAGA.FIGHTER_HIT_R * GALAGA.FIGHTER_HIT_R) {
+                const hitR = f.type === 'boss' ? GALAGA.BOSS_HIT_R : GALAGA.FIGHTER_HIT_R;
+                if (distanceSq(laserPoint, f.pos) <= hitR * hitR) {
                     f.hp -= 1;
                     if (f.hp <= 0) galagaKillFighter(i, f.phase === 'dive');
                     return;
@@ -3733,13 +3778,18 @@
                     f.pos = cubicPoint(f.p0, f.p1, f.p2, f.p3, f.t);
                     if (f.t >= 1) { f.phase = 'formation'; f.t = 0; }
                 } else if (f.phase === 'formation') {
-                    // breathing sway around the slot
+                    // breathing sway around the slot -- boss sways wider, feels bigger
+                    const swayMult = f.type === 'boss' ? 2.4 : 1;
                     f.t += 0.02;
                     f.pos = {
-                        x: f.slot.x + Math.sin(f.t + f.slot.z * 0.01) * 18,
+                        x: f.slot.x + Math.sin(f.t + f.slot.z * 0.01) * 18 * swayMult,
                         y: f.slot.y + Math.sin(f.t * 0.7) * 8,
-                        z: f.slot.z + Math.cos(f.t * 0.9) * 12,
+                        z: f.slot.z + Math.cos(f.t * 0.9) * 12 * swayMult,
                     };
+                    if (f.type === 'boss' && now >= f.nextBurstAt) {
+                        galagaBossBurst(f);
+                        f.nextBurstAt = now + GALAGA.BOSS_BURST_MS;
+                    }
                 } else if (f.phase === 'dive') {
                     f.diveT = Math.min(1, f.diveT + 1 / 150);
                     f.pos = cubicPoint(f.divePath.p0, f.divePath.p1, f.divePath.p2, f.divePath.p3, f.diveT);
@@ -3750,8 +3800,14 @@
                         galagaFireBolt(f);
                     }
                     // collision with player
-                    if (distanceSq(f.pos, ship) <= GALAGA.COLLIDE_R * GALAGA.COLLIDE_R) {
-                        galagaApplyPlayerHit(2);
+                    const collideR = f.type === 'boss' ? GALAGA.BOSS_COLLIDE_R : GALAGA.COLLIDE_R;
+                    if (distanceSq(f.pos, ship) <= collideR * collideR) {
+                        galagaApplyPlayerHit(f.type === 'boss' ? 3 : 2);
+                        if (f.type === 'boss') {
+                            // ramming doesn't one-shot the boss -- it just recoils
+                            f.phase = 'formation'; f.t = 0;
+                            continue;
+                        }
                         galagaKillFighter(i, true);
                         continue;
                     }
@@ -3802,9 +3858,11 @@
                 if (bolt.life > 420) galagaPhase.bolts.splice(i, 1);
             }
 
-            // wave cleared?
+            // wave cleared? (wave 3 is the boss fight -- galagaKillFighter ends
+            // it the instant the boss dies, this is just the fallback if every
+            // escort + the boss all happen to clear out at once)
             if (!galagaPhase.fighters.length) {
-                if (galagaPhase.wave >= 2) {
+                if (galagaPhase.wave >= 3) {
                     galagaPhase.state = 'results';
                     galagaPhase.stateUntil = now + GALAGA.RESULTS_MS;
                 } else {
@@ -3817,28 +3875,36 @@
         function renderGalagaFighter(f, centerX, centerY, fov) {
             const p = projectPoint(f.pos, centerX, centerY, fov);
             if (!p || p.z <= 8) return;
-            const s = Math.max(3, 30 * (fov / Math.max(80, p.z)));
+            const isBoss = f.type === 'boss';
+            const s = Math.max(3, 30 * (fov / Math.max(80, p.z))) * (isBoss ? 1.9 : 1);
+            const size = s * 2.1;
             const sprite = galagaSpriteImages[f.type];
             if (sprite && sprite.complete && sprite.naturalWidth > 0) {
-                const size = s * 2.1;
                 ctx.drawImage(sprite, p.x - size / 2, p.y - size / 2, size, size);
-                return;
+            } else {
+                ctx.strokeStyle = isBoss ? '#ff2244' : f.type === 'butterfly' ? '#ff5588' : '#ffcc33';
+                ctx.lineWidth = Math.max(1, s * 0.09);
+                ctx.beginPath();
+                // body diamond
+                ctx.moveTo(p.x, p.y - s * 0.7);
+                ctx.lineTo(p.x + s * 0.42, p.y);
+                ctx.lineTo(p.x, p.y + s * 0.7);
+                ctx.lineTo(p.x - s * 0.42, p.y);
+                ctx.closePath();
+                // wings
+                ctx.moveTo(p.x - s * 0.42, p.y);
+                ctx.lineTo(p.x - s, p.y - s * 0.45);
+                ctx.moveTo(p.x + s * 0.42, p.y);
+                ctx.lineTo(p.x + s, p.y - s * 0.45);
+                ctx.stroke();
             }
-            ctx.strokeStyle = f.type === 'butterfly' ? '#ff5588' : '#ffcc33';
-            ctx.lineWidth = Math.max(1, s * 0.09);
-            ctx.beginPath();
-            // body diamond
-            ctx.moveTo(p.x, p.y - s * 0.7);
-            ctx.lineTo(p.x + s * 0.42, p.y);
-            ctx.lineTo(p.x, p.y + s * 0.7);
-            ctx.lineTo(p.x - s * 0.42, p.y);
-            ctx.closePath();
-            // wings
-            ctx.moveTo(p.x - s * 0.42, p.y);
-            ctx.lineTo(p.x - s, p.y - s * 0.45);
-            ctx.moveTo(p.x + s * 0.42, p.y);
-            ctx.lineTo(p.x + s, p.y - s * 0.45);
-            ctx.stroke();
+            if (isBoss) {
+                const barW = 90, barY = p.y - size / 2 - 16;
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.fillRect(p.x - barW / 2, barY, barW, 7);
+                ctx.fillStyle = '#ff2244';
+                ctx.fillRect(p.x - barW / 2, barY, barW * Math.max(0, f.hp / GALAGA.BOSS_HP), 7);
+            }
         }
 
         function renderGalagaPhase(centerX, centerY, fov) {
@@ -3854,12 +3920,13 @@
                 ctx.fill();
             }
             // phase HUD strip
+            const bossUp = galagaPhase.fighters.some(f => f.type === 'boss');
             ctx.save();
             ctx.font = '16px monospace';
             ctx.textAlign = 'center';
-            ctx.fillStyle = '#00ffcc';
+            ctx.fillStyle = bossUp ? '#ff4466' : '#00ffcc';
             ctx.fillText(
-                `GALAGA PHASE  ·  WAVE ${Math.max(1, galagaPhase.wave)}  ·  +${galagaPhase.score}`,
+                `GALAGA PHASE  ·  WAVE ${Math.max(1, galagaPhase.wave)}${bossUp ? ' · BOSS' : ''}  ·  +${galagaPhase.score}`,
                 centerX, 30);
             if (galagaPhase.state === 'intro') {
                 ctx.font = 'bold 34px monospace';
