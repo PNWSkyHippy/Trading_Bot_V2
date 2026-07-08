@@ -3486,8 +3486,11 @@
         // ═════════════════════════════════════════════════════════════════════
         const GALAGA = {
             ORIGIN: { x: 0, y: 26000, z: 0 },   // far empty space, well off any map
-            UP: { x: 0, y: -1, z: 0 },           // arena "up" = world -y
-            STRAFE_LIMIT: 600,
+            UP: { x: 0, y: -1, z: 0 },           // arena "up" = world -y (boresight, locked)
+            STRAFE_LIMIT: 600,                   // local right (world +x)
+            VSTRAFE_LIMIT: 420,                  // local down (world +z) -- vertical dodge range
+            STRAFE_SPEED: 14,                    // key-driven strafe units/frame
+            MOUSE_STRAFE_SENS: 1.1,               // world units per pixel of mouse delta
             FORM_DIST: 700,                      // formation height above player
             FIGHTER_HIT_R: 30,
             BOLT_SPEED: 5.5,
@@ -3498,12 +3501,24 @@
             INTRO_MS: 2600,
             RESULTS_MS: 4200,
         };
+        const GALAGA_SPRITE_PATHS = {
+            bee: 'Textures/galaga/frog_6343523.png',
+            butterfly: 'Textures/galaga/monster_1236383.png',
+        };
+        const galagaSpriteImages = {};
+        for (const key in GALAGA_SPRITE_PATHS) {
+            const img = new Image();
+            img.src = GALAGA_SPRITE_PATHS[key];
+            galagaSpriteImages[key] = img;
+        }
         const galagaPhase = {
             active: false, state: 'idle', stateUntil: 0,
             wave: 0, score: 0, kills: 0, shots: 0,
             fighters: [], bolts: [],
             saved: null, nextDiveAt: 0,
             lastShipX: null, shipVelX: 0,
+            lastShipZ: null, shipVelZ: 0,
+            mouseDX: 0, mouseDZ: 0,
         };
 
         function galagaBasis() {
@@ -3604,7 +3619,10 @@
             const leadX = Math.max(GALAGA.ORIGIN.x - GALAGA.STRAFE_LIMIT,
                 Math.min(GALAGA.ORIGIN.x + GALAGA.STRAFE_LIMIT,
                     ship.x + galagaPhase.shipVelX * timeToImpact * 0.6));
-            const aim = { x: leadX, y: ship.y, z: ship.z };
+            const leadZ = Math.max(GALAGA.ORIGIN.z - GALAGA.VSTRAFE_LIMIT,
+                Math.min(GALAGA.ORIGIN.z + GALAGA.VSTRAFE_LIMIT,
+                    ship.z + galagaPhase.shipVelZ * timeToImpact * 0.6));
+            const aim = { x: leadX, y: ship.y, z: leadZ };
             const d = normalize({ x: aim.x - fighter.pos.x, y: aim.y - fighter.pos.y, z: aim.z - fighter.pos.z });
             galagaPhase.bolts.push({
                 x: fighter.pos.x, y: fighter.pos.y, z: fighter.pos.z,
@@ -3661,22 +3679,36 @@
             const now = performance.now();
             const O = GALAGA.ORIGIN;
 
-            // Lock the flight frame every tick: basis fixed looking up, position
-            // pinned to the strafe line (normal thrust ran before this — keep only
-            // its x component, clamp, and zero the rest).
+            // Lock the flight frame every tick: basis fixed looking up, forward/
+            // back (world y) pinned. Left/right (x) and up/down (z) are a free
+            // 2D dodge plane driven by keys + mouse drag (rotation is locked so
+            // the drag is repurposed as translation instead of look).
             const b = galagaBasis();
             shipForward = b.forward; shipRight = b.right; shipDown = b.down;
             shipRollAngle = 0;
+
+            const keyStrafeX = (isKeyActive('d', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0) -
+                (isKeyActive('a', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0);
+            const keyStrafeZ = (isKeyActive('f', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0) -
+                (isKeyActive('r', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0);
+            posX += keyStrafeX * GALAGA.STRAFE_SPEED + galagaPhase.mouseDX;
+            posZ += keyStrafeZ * GALAGA.STRAFE_SPEED + galagaPhase.mouseDZ;
+            galagaPhase.mouseDX = 0;
+            galagaPhase.mouseDZ = 0;
             posX = Math.max(O.x - GALAGA.STRAFE_LIMIT, Math.min(O.x + GALAGA.STRAFE_LIMIT, posX));
-            posY = O.y; posZ = O.z;
+            posZ = Math.max(O.z - GALAGA.VSTRAFE_LIMIT, Math.min(O.z + GALAGA.VSTRAFE_LIMIT, posZ));
+            posY = O.y;
             syncViewToShip();
 
-            // track strafe velocity for bolt lead-aim (ema-smoothed)
+            // track strafe velocity (both axes) for bolt lead-aim (ema-smoothed)
             if (galagaPhase.lastShipX !== null) {
-                const instVel = posX - galagaPhase.lastShipX;
-                galagaPhase.shipVelX = galagaPhase.shipVelX * 0.7 + instVel * 0.3;
+                const instVelX = posX - galagaPhase.lastShipX;
+                galagaPhase.shipVelX = galagaPhase.shipVelX * 0.7 + instVelX * 0.3;
+                const instVelZ = posZ - galagaPhase.lastShipZ;
+                galagaPhase.shipVelZ = galagaPhase.shipVelZ * 0.7 + instVelZ * 0.3;
             }
             galagaPhase.lastShipX = posX;
+            galagaPhase.lastShipZ = posZ;
 
             if (galagaPhase.state === 'intro') {
                 if (now >= galagaPhase.stateUntil) {
@@ -3746,11 +3778,12 @@
                     f.diveT = 0;
                     f.nextBoltT = 0.30;
                     const targetX = posX + (Math.random() - 0.5) * 220;
+                    const targetZ = posZ + (Math.random() - 0.5) * 220;
                     f.divePath = {
                         p0: { ...f.pos },
                         p1: { x: f.pos.x + (Math.random() - 0.5) * 500, y: f.pos.y + 150, z: f.pos.z - 250 },
-                        p2: { x: targetX, y: O.y - 180, z: O.z + 60 },
-                        p3: { x: targetX + (Math.random() - 0.5) * 300, y: O.y + 260, z: O.z + 140 },
+                        p2: { x: targetX, y: O.y - 180, z: targetZ },
+                        p3: { x: targetX + (Math.random() - 0.5) * 300, y: O.y + 260, z: targetZ + (Math.random() - 0.5) * 200 },
                     };
                 }
                 galagaPhase.nextDiveAt = now + (galagaPhase.wave >= 2 ? 2100 : 2700);
@@ -3785,6 +3818,12 @@
             const p = projectPoint(f.pos, centerX, centerY, fov);
             if (!p || p.z <= 8) return;
             const s = Math.max(3, 30 * (fov / Math.max(80, p.z)));
+            const sprite = galagaSpriteImages[f.type];
+            if (sprite && sprite.complete && sprite.naturalWidth > 0) {
+                const size = s * 2.1;
+                ctx.drawImage(sprite, p.x - size / 2, p.y - size / 2, size, size);
+                return;
+            }
             ctx.strokeStyle = f.type === 'butterfly' ? '#ff5588' : '#ffcc33';
             ctx.lineWidth = Math.max(1, s * 0.09);
             ctx.beginPath();
@@ -3828,7 +3867,7 @@
                 ctx.fillText('GALAGA PHASE', centerX, centerY - 40);
                 ctx.font = '16px monospace';
                 ctx.fillStyle = '#00ffcc';
-                ctx.fillText('A / D strafe  ·  V fire  ·  survive the waves', centerX, centerY);
+                ctx.fillText('A/D R/F or mouse-drag to dodge  ·  V/RMB fire  ·  survive the waves', centerX, centerY);
             } else if (galagaPhase.state === 'results') {
                 ctx.font = 'bold 30px monospace';
                 ctx.fillStyle = '#ffcc33';
@@ -4913,6 +4952,14 @@
                 mapMouse.hoverEditPoint = finalizeEditPlanePoint(raw, planeOrigin, mapMouse.editPlane);
             }
             if (!mouseInput.steer) return;
+            if (galagaPhase.active) {
+                // rotation is locked in this phase -- repurpose the drag as
+                // strafe translation instead (left-drag steers, matches the
+                // regular flight scheme where LMB=steer / RMB=fire).
+                galagaPhase.mouseDX += e.movementX * GALAGA.MOUSE_STRAFE_SENS;
+                galagaPhase.mouseDZ += e.movementY * GALAGA.MOUSE_STRAFE_SENS;
+                return;
+            }
             mouseInput.yaw += e.movementX * MOUSE_SENSITIVITY;
             mouseInput.pitch += -e.movementY * MOUSE_SENSITIVITY;
         });
