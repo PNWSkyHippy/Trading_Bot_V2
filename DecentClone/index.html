@@ -3503,6 +3503,7 @@
             wave: 0, score: 0, kills: 0, shots: 0,
             fighters: [], bolts: [],
             saved: null, nextDiveAt: 0,
+            lastShipX: null, shipVelX: 0,
         };
 
         function galagaBasis() {
@@ -3594,8 +3595,16 @@
 
         function galagaFireBolt(fighter) {
             const ship = { x: posX, y: posY, z: posZ };
-            // lead the player's strafe drift a little
-            const aim = { x: ship.x, y: ship.y, z: ship.z };
+            // lead the player's strafe drift: estimate time-to-close from the
+            // dominant axis (fighter -> ship), then predict where the ship's
+            // strafe velocity carries it by the time the bolt arrives.
+            const distToShip = Math.max(1, Math.hypot(
+                ship.x - fighter.pos.x, ship.y - fighter.pos.y, ship.z - fighter.pos.z));
+            const timeToImpact = distToShip / GALAGA.BOLT_SPEED;
+            const leadX = Math.max(GALAGA.ORIGIN.x - GALAGA.STRAFE_LIMIT,
+                Math.min(GALAGA.ORIGIN.x + GALAGA.STRAFE_LIMIT,
+                    ship.x + galagaPhase.shipVelX * timeToImpact * 0.6));
+            const aim = { x: leadX, y: ship.y, z: ship.z };
             const d = normalize({ x: aim.x - fighter.pos.x, y: aim.y - fighter.pos.y, z: aim.z - fighter.pos.z });
             galagaPhase.bolts.push({
                 x: fighter.pos.x, y: fighter.pos.y, z: fighter.pos.z,
@@ -3661,6 +3670,13 @@
             posX = Math.max(O.x - GALAGA.STRAFE_LIMIT, Math.min(O.x + GALAGA.STRAFE_LIMIT, posX));
             posY = O.y; posZ = O.z;
             syncViewToShip();
+
+            // track strafe velocity for bolt lead-aim (ema-smoothed)
+            if (galagaPhase.lastShipX !== null) {
+                const instVel = posX - galagaPhase.lastShipX;
+                galagaPhase.shipVelX = galagaPhase.shipVelX * 0.7 + instVel * 0.3;
+            }
+            galagaPhase.lastShipX = posX;
 
             if (galagaPhase.state === 'intro') {
                 if (now >= galagaPhase.stateUntil) {
