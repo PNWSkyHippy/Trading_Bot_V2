@@ -1,0 +1,13 @@
+import pandas as pd
+import sqlite3
+
+# 1. Load your CSV file into a Pandas DataFrame
+df = pd.read_csv('CashHistory.csv')
+
+# 2. Connect to SQLite (creates practice.db if it doesn't exist)
+with sqlite3.connect('CshHistory.db') as conn:
+    # 3. Dump the data into a new SQL table called 'sales_records'
+    # if_exists='replace' overwrites the table if it already exists
+    df.to_sql('sales_records', conn, if_exists='replace', index=False)
+
+print("CSV data successfully loaded into SQLite table!")
