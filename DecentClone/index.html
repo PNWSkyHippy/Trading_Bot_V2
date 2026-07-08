@@ -3689,8 +3689,8 @@
 
             const keyStrafeX = (isKeyActive('d', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0) -
                 (isKeyActive('a', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0);
-            const keyStrafeZ = (isKeyActive('f', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0) -
-                (isKeyActive('r', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0);
+            const keyStrafeZ = (isKeyActive('s', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0) -
+                (isKeyActive('w', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0);
             posX += keyStrafeX * GALAGA.STRAFE_SPEED + galagaPhase.mouseDX;
             posZ += keyStrafeZ * GALAGA.STRAFE_SPEED + galagaPhase.mouseDZ;
             galagaPhase.mouseDX = 0;
@@ -3867,7 +3867,7 @@
                 ctx.fillText('GALAGA PHASE', centerX, centerY - 40);
                 ctx.font = '16px monospace';
                 ctx.fillStyle = '#00ffcc';
-                ctx.fillText('A/D R/F or mouse-drag to dodge  ·  V/RMB fire  ·  survive the waves', centerX, centerY);
+                ctx.fillText('WASD or mouse-drag to dodge  ·  V/RMB fire  ·  survive the waves', centerX, centerY);
             } else if (galagaPhase.state === 'results') {
                 ctx.font = 'bold 30px monospace';
                 ctx.fillStyle = '#ffcc33';
