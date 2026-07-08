@@ -3476,6 +3476,354 @@
             }
         }
 
+        // ═════════════════════════════════════════════════════════════════════
+        // GALAGA PHASE (P1) — first arcade act of the phase-progression loop.
+        // See GAME_DESIGN_BONUS_LEVELS.md. Camera locked looking "up", player
+        // strafes a ±STRAFE_LIMIT line and fires; fighter waves swoop in on
+        // bezier paths, park in formation, and peel off into dives, shooting.
+        // Shared lives: bolt/collision damage runs the same shield→hull→death
+        // path as sentries. Dev trigger: Ctrl+Shift+G toggles the phase.
+        // ═════════════════════════════════════════════════════════════════════
+        const GALAGA = {
+            ORIGIN: { x: 0, y: 26000, z: 0 },   // far empty space, well off any map
+            UP: { x: 0, y: -1, z: 0 },           // arena "up" = world -y
+            STRAFE_LIMIT: 600,
+            FORM_DIST: 700,                      // formation height above player
+            FIGHTER_HIT_R: 30,
+            BOLT_SPEED: 5.5,
+            BOLT_HIT_R: 34,
+            COLLIDE_R: 46,
+            SHIELD_DMG: 14,
+            HULL_DMG: 12,
+            INTRO_MS: 2600,
+            RESULTS_MS: 4200,
+        };
+        const galagaPhase = {
+            active: false, state: 'idle', stateUntil: 0,
+            wave: 0, score: 0, kills: 0, shots: 0,
+            fighters: [], bolts: [],
+            saved: null, nextDiveAt: 0,
+        };
+
+        function galagaBasis() {
+            return { forward: { ...GALAGA.UP }, right: { x: 1, y: 0, z: 0 }, down: { x: 0, y: 0, z: 1 } };
+        }
+
+        function startGalagaPhase() {
+            if (galagaPhase.active) return;
+            galagaPhase.saved = {
+                x: posX, y: posY, z: posZ,
+                f: { ...shipForward }, r: { ...shipRight }, d: { ...shipDown },
+                roll: shipRollAngle, segIdx: shipSegmentIndex, hud: hudDisplayMode,
+            };
+            const O = GALAGA.ORIGIN;
+            posX = O.x; posY = O.y; posZ = O.z;
+            const b = galagaBasis();
+            shipForward = b.forward; shipRight = b.right; shipDown = b.down;
+            shipRollAngle = 0;
+            galagaPhase.active = true;
+            galagaPhase.state = 'intro';
+            galagaPhase.stateUntil = performance.now() + GALAGA.INTRO_MS;
+            galagaPhase.wave = 0;
+            galagaPhase.score = 0;
+            galagaPhase.kills = 0;
+            galagaPhase.shots = 0;
+            galagaPhase.fighters = [];
+            galagaPhase.bolts = [];
+            setHudMode('min');
+            playSfx('portal_whoosh', { worldPos: { x: posX, y: posY, z: posZ } });
+        }
+
+        function endGalagaPhase(restorePosition = true) {
+            if (!galagaPhase.active) return;
+            galagaPhase.active = false;
+            galagaPhase.state = 'idle';
+            galagaPhase.fighters = [];
+            galagaPhase.bolts = [];
+            const s = galagaPhase.saved;
+            if (s) {
+                if (restorePosition) {
+                    posX = s.x; posY = s.y; posZ = s.z;
+                    shipForward = { ...s.f }; shipRight = { ...s.r }; shipDown = { ...s.d };
+                    shipRollAngle = s.roll;
+                    shipSegmentIndex = s.segIdx;
+                }
+                setHudMode(s.hud || 'full');
+            }
+            galagaPhase.saved = null;
+            keyboardStatus.innerText =
+                `GALAGA phase over — score +${galagaPhase.score} (${galagaPhase.kills} kills)`;
+        }
+
+        function toggleGalagaPhase() {
+            if (galagaPhase.active) endGalagaPhase(true);
+            else startGalagaPhase();
+        }
+
+        function galagaSpawnWave(n) {
+            const O = GALAGA.ORIGIN;
+            const fighters = [];
+            const mkFighter = (type, col, row, order) => {
+                const slot = {
+                    x: O.x + (col - 3.5) * 100,
+                    y: O.y - GALAGA.FORM_DIST - row * 120,
+                    z: O.z - 60 + row * 120,
+                };
+                const side = (order % 2) ? 1 : -1;
+                const spawn = { x: O.x + side * 1400, y: O.y - 300 - row * 90, z: O.z + side * 300 };
+                const c1 = { x: O.x + side * 700, y: O.y - 950, z: O.z - 350 };
+                const c2 = { x: slot.x + side * 180, y: slot.y - 160, z: slot.z + 120 };
+                return {
+                    type, slot, hp: type === 'butterfly' ? 1 : 1,
+                    phase: 'entry', t: 0,
+                    tRate: 1 / (140 + order * 14),   // frames to finish entry, staggered
+                    p0: spawn, p1: c1, p2: c2, p3: slot,
+                    pos: { ...spawn },
+                    boltsLeft: type === 'butterfly' ? 2 : 1,
+                    diveT: 0, divePath: null,
+                };
+            };
+            let order = 0;
+            for (let col = 0; col < 8; col++) fighters.push(mkFighter('bee', col, 0, order++));
+            for (let col = 0; col < 8; col++) {
+                fighters.push(mkFighter(n >= 2 ? 'butterfly' : 'bee', col, 1, order++));
+            }
+            galagaPhase.fighters = fighters;
+            galagaPhase.nextDiveAt = performance.now() + (n >= 2 ? 2200 : 2800);
+        }
+
+        function galagaFireBolt(fighter) {
+            const ship = { x: posX, y: posY, z: posZ };
+            // lead the player's strafe drift a little
+            const aim = { x: ship.x, y: ship.y, z: ship.z };
+            const d = normalize({ x: aim.x - fighter.pos.x, y: aim.y - fighter.pos.y, z: aim.z - fighter.pos.z });
+            galagaPhase.bolts.push({
+                x: fighter.pos.x, y: fighter.pos.y, z: fighter.pos.z,
+                vx: d.x * GALAGA.BOLT_SPEED, vy: d.y * GALAGA.BOLT_SPEED, vz: d.z * GALAGA.BOLT_SPEED,
+                life: 0,
+            });
+        }
+
+        function galagaApplyPlayerHit(mult = 1) {
+            if (gameOverState.active) return;
+            shieldHitFlashUntil = performance.now() + 320;
+            if (!shieldsBreached && shieldCurrent > 0) {
+                shieldCurrent = Math.max(0, shieldCurrent - GALAGA.SHIELD_DMG * mult);
+                if (shieldCurrent <= 0) {
+                    shieldFlashUntil = performance.now() + 1600;
+                    shieldsBreached = true;
+                }
+                return;
+            }
+            hullCurrent = Math.max(0, hullCurrent - GALAGA.HULL_DMG * mult);
+            hullFlashUntil = performance.now() + 900;
+            if (hullCurrent <= 0) triggerGameOver();
+        }
+
+        function galagaKillFighter(index, diving) {
+            const f = galagaPhase.fighters[index];
+            if (!f) return;
+            const base = f.type === 'butterfly' ? 80 : 50;
+            const pts = diving ? base * 2 : base;
+            galagaPhase.score += pts;
+            galagaPhase.kills += 1;
+            addTargetScore(pts);
+            spawnTargetParticles(f.pos, { x: 1, y: 0, z: 0 }, { x: 0, y: 0, z: 1 },
+                f.type === 'butterfly' ? '#ff5588' : '#ffcc33', 26, 3.4, 30);
+            playSfx('target_explosion', { intensity: 0.7, worldPos: f.pos });
+            galagaPhase.fighters.splice(index, 1);
+        }
+
+        function checkLaserGalagaHits(laserPoint) {
+            if (!galagaPhase.active || galagaPhase.state !== 'play') return;
+            for (let i = galagaPhase.fighters.length - 1; i >= 0; i--) {
+                const f = galagaPhase.fighters[i];
+                if (distanceSq(laserPoint, f.pos) <= GALAGA.FIGHTER_HIT_R * GALAGA.FIGHTER_HIT_R) {
+                    f.hp -= 1;
+                    if (f.hp <= 0) galagaKillFighter(i, f.phase === 'dive');
+                    return;
+                }
+            }
+        }
+
+        function tickGalagaPhase() {
+            if (!galagaPhase.active) return;
+            if (gameOverState.active) { endGalagaPhase(false); return; }
+            const now = performance.now();
+            const O = GALAGA.ORIGIN;
+
+            // Lock the flight frame every tick: basis fixed looking up, position
+            // pinned to the strafe line (normal thrust ran before this — keep only
+            // its x component, clamp, and zero the rest).
+            const b = galagaBasis();
+            shipForward = b.forward; shipRight = b.right; shipDown = b.down;
+            shipRollAngle = 0;
+            posX = Math.max(O.x - GALAGA.STRAFE_LIMIT, Math.min(O.x + GALAGA.STRAFE_LIMIT, posX));
+            posY = O.y; posZ = O.z;
+            syncViewToShip();
+
+            if (galagaPhase.state === 'intro') {
+                if (now >= galagaPhase.stateUntil) {
+                    galagaPhase.wave = 1;
+                    galagaSpawnWave(1);
+                    galagaPhase.state = 'play';
+                }
+                return;
+            }
+            if (galagaPhase.state === 'results') {
+                if (now >= galagaPhase.stateUntil) endGalagaPhase(true);
+                return;
+            }
+            if (galagaPhase.state !== 'play') return;
+
+            // fighters
+            const ship = { x: posX, y: posY, z: posZ };
+            for (let i = galagaPhase.fighters.length - 1; i >= 0; i--) {
+                const f = galagaPhase.fighters[i];
+                if (f.phase === 'entry') {
+                    f.t = Math.min(1, f.t + f.tRate);
+                    f.pos = cubicPoint(f.p0, f.p1, f.p2, f.p3, f.t);
+                    if (f.t >= 1) { f.phase = 'formation'; f.t = 0; }
+                } else if (f.phase === 'formation') {
+                    // breathing sway around the slot
+                    f.t += 0.02;
+                    f.pos = {
+                        x: f.slot.x + Math.sin(f.t + f.slot.z * 0.01) * 18,
+                        y: f.slot.y + Math.sin(f.t * 0.7) * 8,
+                        z: f.slot.z + Math.cos(f.t * 0.9) * 12,
+                    };
+                } else if (f.phase === 'dive') {
+                    f.diveT = Math.min(1, f.diveT + 1 / 150);
+                    f.pos = cubicPoint(f.divePath.p0, f.divePath.p1, f.divePath.p2, f.divePath.p3, f.diveT);
+                    // release bolts partway down
+                    if (f.boltsLeft > 0 && f.diveT >= f.nextBoltT) {
+                        f.boltsLeft -= 1;
+                        f.nextBoltT += 0.28;
+                        galagaFireBolt(f);
+                    }
+                    // collision with player
+                    if (distanceSq(f.pos, ship) <= GALAGA.COLLIDE_R * GALAGA.COLLIDE_R) {
+                        galagaApplyPlayerHit(2);
+                        galagaKillFighter(i, true);
+                        continue;
+                    }
+                    if (f.diveT >= 1) {
+                        // recover: re-enter from above back to the slot
+                        f.phase = 'entry'; f.t = 0;
+                        f.p0 = { x: f.slot.x, y: O.y - 1500, z: O.z + 500 };
+                        f.p1 = { x: f.slot.x + 250, y: O.y - 1250, z: O.z + 220 };
+                        f.p2 = { x: f.slot.x - 120, y: f.slot.y - 140, z: f.slot.z + 90 };
+                        f.p3 = f.slot;
+                        f.boltsLeft = f.type === 'butterfly' ? 2 : 1;
+                    }
+                }
+            }
+
+            // dive director: peel formation fighters off on a schedule
+            if (now >= galagaPhase.nextDiveAt) {
+                const candidates = galagaPhase.fighters.filter(f => f.phase === 'formation');
+                const diveCount = galagaPhase.wave >= 2 ? 2 : 1;
+                for (let k = 0; k < Math.min(diveCount, candidates.length); k++) {
+                    const f = candidates[Math.floor(Math.random() * candidates.length)];
+                    if (f.phase !== 'formation') continue;
+                    f.phase = 'dive';
+                    f.diveT = 0;
+                    f.nextBoltT = 0.30;
+                    const targetX = posX + (Math.random() - 0.5) * 220;
+                    f.divePath = {
+                        p0: { ...f.pos },
+                        p1: { x: f.pos.x + (Math.random() - 0.5) * 500, y: f.pos.y + 150, z: f.pos.z - 250 },
+                        p2: { x: targetX, y: O.y - 180, z: O.z + 60 },
+                        p3: { x: targetX + (Math.random() - 0.5) * 300, y: O.y + 260, z: O.z + 140 },
+                    };
+                }
+                galagaPhase.nextDiveAt = now + (galagaPhase.wave >= 2 ? 2100 : 2700);
+            }
+
+            // bolts
+            for (let i = galagaPhase.bolts.length - 1; i >= 0; i--) {
+                const bolt = galagaPhase.bolts[i];
+                bolt.x += bolt.vx; bolt.y += bolt.vy; bolt.z += bolt.vz;
+                bolt.life += 1;
+                if (distanceSq(bolt, ship) <= GALAGA.BOLT_HIT_R * GALAGA.BOLT_HIT_R) {
+                    galagaApplyPlayerHit(1);
+                    galagaPhase.bolts.splice(i, 1);
+                    continue;
+                }
+                if (bolt.life > 420) galagaPhase.bolts.splice(i, 1);
+            }
+
+            // wave cleared?
+            if (!galagaPhase.fighters.length) {
+                if (galagaPhase.wave >= 2) {
+                    galagaPhase.state = 'results';
+                    galagaPhase.stateUntil = now + GALAGA.RESULTS_MS;
+                } else {
+                    galagaPhase.wave += 1;
+                    galagaSpawnWave(galagaPhase.wave);
+                }
+            }
+        }
+
+        function renderGalagaFighter(f, centerX, centerY, fov) {
+            const p = projectPoint(f.pos, centerX, centerY, fov);
+            if (!p || p.z <= 8) return;
+            const s = Math.max(3, 30 * (fov / Math.max(80, p.z)));
+            ctx.strokeStyle = f.type === 'butterfly' ? '#ff5588' : '#ffcc33';
+            ctx.lineWidth = Math.max(1, s * 0.09);
+            ctx.beginPath();
+            // body diamond
+            ctx.moveTo(p.x, p.y - s * 0.7);
+            ctx.lineTo(p.x + s * 0.42, p.y);
+            ctx.lineTo(p.x, p.y + s * 0.7);
+            ctx.lineTo(p.x - s * 0.42, p.y);
+            ctx.closePath();
+            // wings
+            ctx.moveTo(p.x - s * 0.42, p.y);
+            ctx.lineTo(p.x - s, p.y - s * 0.45);
+            ctx.moveTo(p.x + s * 0.42, p.y);
+            ctx.lineTo(p.x + s, p.y - s * 0.45);
+            ctx.stroke();
+        }
+
+        function renderGalagaPhase(centerX, centerY, fov) {
+            if (!galagaPhase.active) return;
+            for (const f of galagaPhase.fighters) renderGalagaFighter(f, centerX, centerY, fov);
+            ctx.fillStyle = '#ff3344';
+            for (const bolt of galagaPhase.bolts) {
+                const p = projectPoint(bolt, centerX, centerY, fov);
+                if (!p || p.z <= 8) continue;
+                const r = Math.max(2, 8 * (fov / Math.max(80, p.z)));
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            // phase HUD strip
+            ctx.save();
+            ctx.font = '16px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#00ffcc';
+            ctx.fillText(
+                `GALAGA PHASE  ·  WAVE ${Math.max(1, galagaPhase.wave)}  ·  +${galagaPhase.score}`,
+                centerX, 30);
+            if (galagaPhase.state === 'intro') {
+                ctx.font = 'bold 34px monospace';
+                ctx.fillStyle = '#ffcc33';
+                ctx.fillText('GALAGA PHASE', centerX, centerY - 40);
+                ctx.font = '16px monospace';
+                ctx.fillStyle = '#00ffcc';
+                ctx.fillText('A / D strafe  ·  V fire  ·  survive the waves', centerX, centerY);
+            } else if (galagaPhase.state === 'results') {
+                ctx.font = 'bold 30px monospace';
+                ctx.fillStyle = '#ffcc33';
+                ctx.fillText('PHASE CLEAR', centerX, centerY - 40);
+                ctx.font = '16px monospace';
+                ctx.fillStyle = '#00ffcc';
+                ctx.fillText(`score +${galagaPhase.score}   kills ${galagaPhase.kills}`, centerX, centerY);
+            }
+            ctx.restore();
+        }
+
         function triggerGameOver() {
             if (gameOverState.active) return;
             spawnTargetParticles(
@@ -3829,6 +4177,13 @@
             }
             if (key === 'm' && e.altKey && !e.shiftKey && !e.ctrlKey) {
                 toggleHudVisible();
+                e.preventDefault();
+                return;
+            }
+            // Dev trigger for the Galaga phase (P1) — replaced by a portal entry
+            // once the loop state machine exists (see GAME_DESIGN_BONUS_LEVELS.md).
+            if (key === 'g' && e.ctrlKey && e.shiftKey && !e.altKey) {
+                toggleGalagaPhase();
                 e.preventDefault();
                 return;
             }
@@ -17047,6 +17402,7 @@
             tickTargetRegen();
             tickSentryRegen();
             checkTargetFlyThroughCollisions();
+            tickGalagaPhase();
 
             // 4. Fire Dual Lasers on V Key (Stops hardware circuit locking)
             if ((isKeyActive('v') || gamepad.fire || mouseInput.fire) && (!window.lastShot || Date.now() - window.lastShot > 150)) {
@@ -17151,6 +17507,7 @@
                     l.life++;
                     checkLaserTargetHits(l);
                     checkLaserSentryHits(l);
+                    checkLaserGalagaHits(l);
                     const laserProjection = projectPoint(l, centerX, centerY, fov);
 
                     // Delete old lasers that go too far
@@ -17165,6 +17522,7 @@
 
                 renderTunnelTargets(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderTunnelSentries(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
+                renderGalagaPhase(centerX, centerY, fov);
                 renderLaserAimCrosshair(centerX, centerY, fov);
                 updateAndRenderParticles(centerX, centerY, fov);
                 renderPortalGatewaysFlight(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
