@@ -3597,13 +3597,26 @@
                 };
                 const side = (order % 2) ? 1 : -1;
                 const spawn = { x: O.x + side * 1400, y: O.y - 300 - row * 90, z: O.z + side * 300 };
-                const c1 = { x: O.x + side * 700, y: O.y - 950, z: O.z - 350 };
-                const c2 = { x: slot.x + side * 180, y: slot.y - 160, z: slot.z + 120 };
+                // swarm pass: swing in close to the player's own depth plane and
+                // sweep across before peeling back out to formation -- like real
+                // Galaga's entrance, not a straight beeline into the grid
+                const swarmPoint = {
+                    x: O.x - side * (220 + (order % 8) * 40),
+                    y: O.y - 70,
+                    z: O.z + (order % 2 ? 140 : -140),
+                };
+                const a1 = { x: O.x + side * 700, y: O.y - 380, z: O.z - 200 };
+                const a2 = { x: swarmPoint.x + side * 320, y: O.y - 160, z: swarmPoint.z };
+                const b1 = { x: swarmPoint.x - side * 260, y: slot.y + 320, z: swarmPoint.z + 100 };
+                const b2 = { x: slot.x + side * 180, y: slot.y - 160, z: slot.z + 120 };
                 return {
                     type, slot, hp: type === 'butterfly' ? 1 : 1,
-                    phase: 'entry', t: 0,
-                    tRate: 1 / (140 + order * 14),   // frames to finish entry, staggered
-                    p0: spawn, p1: c1, p2: c2, p3: slot,
+                    phase: 'entry', entrySeg: 0, t: 0,
+                    tRate: 1 / (70 + order * 7),   // per-segment frames, staggered
+                    entryPaths: [
+                        { p0: spawn, p1: a1, p2: a2, p3: swarmPoint },
+                        { p0: swarmPoint, p1: b1, p2: b2, p3: slot },
+                    ],
                     pos: { ...spawn },
                     boltsLeft: type === 'butterfly' ? 2 : 1,
                     diveT: 0, divePath: null,
@@ -3616,8 +3629,8 @@
                 const c2 = { x: slot.x - 200, y: slot.y - 220, z: slot.z + 150 };
                 return {
                     type: 'boss', slot, hp: GALAGA.BOSS_HP,
-                    phase: 'entry', t: 0, tRate: 1 / 220,
-                    p0: spawn, p1: c1, p2: c2, p3: slot,
+                    phase: 'entry', entrySeg: 0, t: 0, tRate: 1 / 220,
+                    entryPaths: [{ p0: spawn, p1: c1, p2: c2, p3: slot }],
                     pos: { ...spawn },
                     boltsLeft: 0, diveT: 0, divePath: null,
                     nextBurstAt: 0,
@@ -3791,8 +3804,16 @@
                 const f = galagaPhase.fighters[i];
                 if (f.phase === 'entry') {
                     f.t = Math.min(1, f.t + f.tRate);
-                    f.pos = cubicPoint(f.p0, f.p1, f.p2, f.p3, f.t);
-                    if (f.t >= 1) { f.phase = 'formation'; f.t = 0; }
+                    const path = f.entryPaths[f.entrySeg];
+                    f.pos = cubicPoint(path.p0, path.p1, path.p2, path.p3, f.t);
+                    if (f.t >= 1) {
+                        if (f.entrySeg < f.entryPaths.length - 1) {
+                            f.entrySeg += 1;
+                            f.t = 0;
+                        } else {
+                            f.phase = 'formation'; f.t = 0;
+                        }
+                    }
                 } else if (f.phase === 'formation') {
                     // breathing sway around the slot -- boss sways wider, feels bigger
                     const swayMult = f.type === 'boss' ? 2.4 : 1;
@@ -3834,12 +3855,15 @@
                         }
                     }
                     if (f.diveT >= 1) {
-                        // recover: re-enter from above back to the slot
-                        f.phase = 'entry'; f.t = 0;
-                        f.p0 = { x: f.slot.x, y: O.y - 1500, z: O.z + 500 };
-                        f.p1 = { x: f.slot.x + 250, y: O.y - 1250, z: O.z + 220 };
-                        f.p2 = { x: f.slot.x - 120, y: f.slot.y - 140, z: f.slot.z + 90 };
-                        f.p3 = f.slot;
+                        // recover: re-enter from above back to the slot -- a
+                        // single-segment path, no swarm pass (already fought)
+                        f.phase = 'entry'; f.entrySeg = 0; f.t = 0;
+                        f.entryPaths = [{
+                            p0: { x: f.slot.x, y: O.y - 1500, z: O.z + 500 },
+                            p1: { x: f.slot.x + 250, y: O.y - 1250, z: O.z + 220 },
+                            p2: { x: f.slot.x - 120, y: f.slot.y - 140, z: f.slot.z + 90 },
+                            p3: f.slot,
+                        }];
                         f.boltsLeft = f.type === 'butterfly' ? 2 : 1;
                     }
                 }
