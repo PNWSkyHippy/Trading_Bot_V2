@@ -17624,8 +17624,14 @@
             thrust(forward, forwardAmount * currentSpeed);
             thrust(right, strafeAmount * strafeSpeed);
             thrust(up, liftAmount * strafeSpeed);
-            containShipInTunnel();
-            const branchHud = getBranchFlightContext();
+            // Galaga pins position to GALAGA.ORIGIN every tick (tickGalagaPhase
+            // below), far outside any real tunnel geometry -- containment
+            // against a "nearest" segment that's actually thousands of units
+            // away was fighting that lock and dropping input entirely (first
+            // reproduced via keyboard strafe, the only thing that drives the
+            // thrust() calls above during Galaga).
+            if (!galagaPhase.active) containShipInTunnel();
+            const branchHud = galagaPhase.active ? { active: false } : getBranchFlightContext();
             if (branchHud.active) {
                 const tags = ['branch flight'];
                 if (branchHud.pivotMode) tags.push('pivot');
