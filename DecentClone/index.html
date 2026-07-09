@@ -4242,7 +4242,11 @@
                         ctx.stroke();
                         ctx.restore();
                         const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.02);
-                        const r = Math.min(50, Math.max(8, 24 * (fov / Math.max(8, tp.z))));
+                        // honest hitbox: same world-space radius the catch
+                        // check actually uses, projected to screen -- was
+                        // previously an unrelated cosmetic size, so the ring
+                        // you saw didn't match what could actually catch you
+                        const r = GALAGA.BOSS_TRACTOR_CATCH_R * (fov / Math.max(8, tp.z));
                         ctx.save();
                         ctx.strokeStyle = `rgba(255,180,0,${0.5 + pulse * 0.5})`;
                         ctx.lineWidth = 3;
