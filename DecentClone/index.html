@@ -3843,11 +3843,19 @@
                 (isKeyActive('a', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0);
             const keyStrafeZ = (isKeyActive('s', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0) -
                 (isKeyActive('w', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0);
-            // snared by the boss's tractor beam -- held in place, no dodging out
+            // snared by the boss's tractor beam -- held in place, no dodging out.
+            // the general 6DOF thrust() calls upstream of this tick still nudge
+            // posX/posZ every frame regardless of snare state, so it's not enough
+            // to just skip the strafe add below -- re-pin to the catch point the
+            // same way posY is hard-pinned to O.y a few lines down, or the ship
+            // (and the boss/beam it's holding position relative to) keeps drifting
             const snared = galagaPhase.snaredUntil && now < galagaPhase.snaredUntil;
             if (!snared) {
                 posX += keyStrafeX * GALAGA.STRAFE_SPEED + galagaPhase.mouseDX;
                 posZ += keyStrafeZ * GALAGA.STRAFE_SPEED + galagaPhase.mouseDZ;
+            } else if (galagaPhase.tractor) {
+                posX = galagaPhase.tractor.x;
+                posZ = galagaPhase.tractor.z;
             }
             galagaPhase.mouseDX = 0;
             galagaPhase.mouseDZ = 0;
