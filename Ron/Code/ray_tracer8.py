@@ -152,9 +152,18 @@ def render(c_pos: ti.types.vector(3, ti.f32), c_lookat: ti.types.vector(3, ti.f3
                     ray_orig = hit_point + ray_dir * 0.002 
                     
                 else:
-                    # Sphere Shading channel
-                 
-                 
+                    # Sphere Shading channel -- Taichi needs a single ternary
+                    # expression here, not an if/elif/else block, or the
+                    # branch-local assignments don't merge back into scope
+                    obj_center = planet_pos if hit_obj == 0 else (m1_pos if hit_obj == 1 else m2_pos)
+                    obj_radius = planet_rad if hit_obj == 0 else (0.4 if hit_obj == 1 else 0.22)
+                    obj_refl = planet_refl if hit_obj == 0 else 0.5
+
+                    hit_point = ray_orig + t_closest * ray_dir
+                    normal = (hit_point - obj_center).normalized()
+                    base_color = sample_texture(normal) if hit_obj == 0 else ti.Vector([0.6, 0.6, 0.65])
+                    refl = obj_refl
+
                     light_dir = (sun_pos - hit_point).normalized()
                     light_dist = (sun_pos - hit_point).norm()
                     
@@ -212,10 +221,18 @@ while gui.running:
     # Advance clock timeline
     time_clock += 0.015
 
-    # Moon 1 Math Track (Outer wide trail)
+    # Moon 1 Math Track (Outer wide trail) -- moon 2's position is derived
+    # from this one inside the kernel, so only moon 1 needs packing here
     m1_radius = 3.2
     m1_x = planet_pos.x + math.sin(time_clock) * m1_radius
     m1_z = planet_pos.z + math.cos(time_clock) * m1_radius
     m1_y = planet_pos.y + math.sin(time_clock * 0.5) * 0.3
-    
+
     # Pack the position data into a single vector argument
+    moons_packed_vec = ti.Vector([m1_x, m1_y, m1_z])
+    sun_pos_vec = ti.Vector([15.0, 8.0, 2.0])
+
+    render(c_pos_vec, c_target_vec, moons_packed_vec, sun_pos_vec)
+
+    gui.set_image(pixels)
+    gui.show()

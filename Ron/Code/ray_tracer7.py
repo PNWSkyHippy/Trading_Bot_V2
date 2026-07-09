@@ -180,7 +180,7 @@ def render(c_pos: ti.types.vector(3, ti.f32), c_lookat: ti.types.vector(3, ti.f3
                         if 0.0 < hit_sphere(shadow_orig, light_dir, planet_pos, planet_rad) < light_dist: shadow_hit = True
                     
                     illumination = ti.Vector([0.02, 0.02, 0.04])
-                    if not shadow_hit:
+                    ifqq not shadow_hit:
                         illumination += star_color * ti.max(normal.dot(light_dir), 0.0)
                     
                     final_color += base_color * illumination * reflection_throughput * (1.0 - obj_refl)
