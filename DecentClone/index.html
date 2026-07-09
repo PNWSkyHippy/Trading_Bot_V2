@@ -3495,10 +3495,10 @@
             MOUSE_STRAFE_SENS: 1.1,               // world units per pixel of mouse delta
             FORM_DIST: 700,                      // formation height above player
             FIGHTER_HIT_R: 30,
-            BOLT_SPEED: 13,
+            BOLT_SPEED: 20,
             BOLT_HIT_R: 34,
             COLLIDE_R: 50,
-            DIVE_RATE: 1 / 22,                   // ~0.37s per dive at 60fps -- real Galaga swoop speed
+            DIVE_RATE: 1 / 14,                   // ~0.23s per dive at 60fps -- faster, snappier swoop
             DIVE_Y_GATE: 280,                    // how close (in depth) a diver must be to register a hit -- widened for the faster dive so collision frames aren't skipped between ticks
             SHIELD_DMG: 14,
             HULL_DMG: 12,
@@ -3534,8 +3534,8 @@
             // on phase or position. Ported from the reference clone's
             // enemy_shoots(): a random enemy every 1000ms, no dive required
             // -- it's what makes camping in a corner unsafe.
-            SNIPER_MS: 1000,
-            SNIPER_SPEED: 10,
+            SNIPER_MS: 1600,                     // fewer ambient shots, but each one moves fast
+            SNIPER_SPEED: 20,
             WAVE_DIVE: {
                 1: { squadSize: 1, minMs: 3200, maxMs: 5400 },
                 2: { squadSize: 2, minMs: 1400, maxMs: 3200 },
@@ -3650,7 +3650,7 @@
                 return {
                     type, slot, hp: type === 'butterfly' ? 1 : 1,
                     phase: 'entry', entrySeg: 0, t: 0,
-                    tRate: 1 / (70 + order * 7),   // per-segment frames, staggered
+                    tRate: 1 / (40 + order * 4),   // per-segment frames, staggered -- faster swarm-in
                     entryPaths: [
                         { p0: spawn, p1: a1, p2: a2, p3: swarmPoint },
                         { p0: swarmPoint, p1: b1, p2: b2, p3: slot },
