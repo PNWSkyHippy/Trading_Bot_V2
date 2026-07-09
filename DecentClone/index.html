@@ -3528,6 +3528,14 @@
             // per-wave dive-squad sizing + gap range -- wide min/max makes the
             // pacing sporadic (bursts and lulls) instead of a metronome, and
             // wave 1 stays gentle/solo so it reads as an easy intro level
+            // ambient sniper -- once a second, ANY escort (formation, entry,
+            // even one arcing back off-arena after a dive) can loose a shot
+            // straight at wherever the player is right now, no restriction
+            // on phase or position. Ported from the reference clone's
+            // enemy_shoots(): a random enemy every 1000ms, no dive required
+            // -- it's what makes camping in a corner unsafe.
+            SNIPER_MS: 1000,
+            SNIPER_SPEED: 10,
             WAVE_DIVE: {
                 1: { squadSize: 1, minMs: 3200, maxMs: 5400 },
                 2: { squadSize: 2, minMs: 1400, maxMs: 3200 },
@@ -3582,6 +3590,7 @@
             galagaPhase.bolts = [];
             galagaPhase.tractor = null;
             galagaPhase.snaredUntil = 0;
+            galagaPhase.nextSniperAt = 0;
             setHudMode('min');
             playSfx('portal_whoosh', { worldPos: { x: posX, y: posY, z: posZ } });
         }
@@ -3594,6 +3603,7 @@
             galagaPhase.bolts = [];
             galagaPhase.tractor = null;
             galagaPhase.snaredUntil = 0;
+            galagaPhase.nextSniperAt = 0;
             const s = galagaPhase.saved;
             if (s) {
                 if (restorePosition) {
@@ -4012,6 +4022,20 @@
                         galagaPhase.snaredUntil = 0;
                     }
                 }
+            }
+
+            // ambient sniper -- once a second, any escort (formation, entry,
+            // recovering from a dive, wherever it happens to be) can loose a
+            // shot straight at the player's current spot. No phase or
+            // position gate, so it's not just the diving squad that's a
+            // threat -- there's no safe corner to camp in.
+            if (now >= galagaPhase.nextSniperAt) {
+                const snipers = galagaPhase.fighters.filter(f => f.type !== 'boss');
+                if (snipers.length) {
+                    galagaFireBolt(snipers[Math.floor(Math.random() * snipers.length)],
+                        { x: 0, z: 0 }, { speed: GALAGA.SNIPER_SPEED });
+                }
+                galagaPhase.nextSniperAt = now + GALAGA.SNIPER_MS;
             }
 
             // bolts
