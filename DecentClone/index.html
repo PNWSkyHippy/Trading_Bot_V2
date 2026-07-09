@@ -3504,11 +3504,18 @@
             HULL_DMG: 12,
             INTRO_MS: 2600,
             RESULTS_MS: 4200,
-            BOSS_HP: 14,                          // wave 3: boss fight, hits to kill
+            BOSS_HP: 280,                          // wave 3: boss fight, hits to kill -- a real war of attrition
             BOSS_HIT_R: 70,
             BOSS_COLLIDE_R: 90,
             BOSS_SCORE: 500,
-            BOSS_BURST_MS: 1600,
+            BOSS_LASER_MS: 950,                   // heavy aimed laser, roughly once a second
+            BOSS_LASER_SPEED: 16,
+            BOSS_LASER_DMG_MULT: 1.6,
+            BOSS_LASER_HIT_R: 46,
+            BOSS_MISSILE_MS: 10000,               // slow, hard-hitting missile every ~10s
+            BOSS_MISSILE_SPEED: 6,
+            BOSS_MISSILE_DMG_MULT: 4,
+            BOSS_MISSILE_HIT_R: 70,
         };
         const GALAGA_SPRITE_PATHS = {
             bee: 'Textures/galaga/ship_12190390.png',
@@ -3633,7 +3640,7 @@
                     entryPaths: [{ p0: spawn, p1: c1, p2: c2, p3: slot }],
                     pos: { ...spawn },
                     boltsLeft: 0, diveT: 0, divePath: null,
-                    nextBurstAt: 0,
+                    nextLaserAt: 0, nextMissileAt: 0,
                 };
             };
             let order = 0;
@@ -3654,8 +3661,10 @@
             galagaPhase.nextDiveAt = performance.now() + (n >= 3 ? 1900 : n >= 2 ? 2200 : 2800);
         }
 
-        function galagaFireBolt(fighter, spread) {
+        function galagaFireBolt(fighter, spread, opts) {
             spread = spread || { x: 0, z: 0 };
+            opts = opts || {};
+            const speed = opts.speed || GALAGA.BOLT_SPEED;
             const ship = { x: posX, y: posY, z: posZ };
             // lead the player's strafe drift: estimate time-to-close from the
             // dominant axis (fighter -> ship), then predict where the ship's
@@ -3665,7 +3674,7 @@
             // cap the lead horizon -- distToShip includes the huge depth gap to
             // formation, so an uncapped timeToImpact wildly over-extrapolates
             // strafe drift and the aim point saturates off the edge of the box
-            const timeToImpact = Math.min(distToShip / GALAGA.BOLT_SPEED, 40);
+            const timeToImpact = Math.min(distToShip / speed, 40);
             const leadX = Math.max(GALAGA.ORIGIN.x - GALAGA.STRAFE_LIMIT,
                 Math.min(GALAGA.ORIGIN.x + GALAGA.STRAFE_LIMIT,
                     ship.x + galagaPhase.shipVelX * timeToImpact * 0.6 + spread.x));
@@ -3676,8 +3685,11 @@
             const d = normalize({ x: aim.x - fighter.pos.x, y: aim.y - fighter.pos.y, z: aim.z - fighter.pos.z });
             galagaPhase.bolts.push({
                 x: fighter.pos.x, y: fighter.pos.y, z: fighter.pos.z,
-                vx: d.x * GALAGA.BOLT_SPEED, vy: d.y * GALAGA.BOLT_SPEED, vz: d.z * GALAGA.BOLT_SPEED,
+                vx: d.x * speed, vy: d.y * speed, vz: d.z * speed,
                 life: 0,
+                kind: opts.kind || 'bolt',
+                mult: opts.mult || 1,
+                hitR: opts.hitR || GALAGA.BOLT_HIT_R,
             });
         }
 
@@ -3685,6 +3697,24 @@
             galagaFireBolt(fighter, { x: -100, z: 0 });
             galagaFireBolt(fighter, { x: 0, z: 0 });
             galagaFireBolt(fighter, { x: 100, z: 0 });
+        }
+
+        function galagaBossLaser(fighter) {
+            galagaFireBolt(fighter, { x: 0, z: 0 }, {
+                speed: GALAGA.BOSS_LASER_SPEED,
+                mult: GALAGA.BOSS_LASER_DMG_MULT,
+                hitR: GALAGA.BOSS_LASER_HIT_R,
+                kind: 'laser',
+            });
+        }
+
+        function galagaBossMissile(fighter) {
+            galagaFireBolt(fighter, { x: 0, z: 0 }, {
+                speed: GALAGA.BOSS_MISSILE_SPEED,
+                mult: GALAGA.BOSS_MISSILE_DMG_MULT,
+                hitR: GALAGA.BOSS_MISSILE_HIT_R,
+                kind: 'missile',
+            });
         }
 
         function galagaApplyPlayerHit(mult = 1) {
@@ -3823,9 +3853,15 @@
                         y: f.slot.y + Math.sin(f.t * 0.7) * 8,
                         z: f.slot.z + Math.cos(f.t * 0.9) * 12 * swayMult,
                     };
-                    if (f.type === 'boss' && now >= f.nextBurstAt) {
-                        galagaBossBurst(f);
-                        f.nextBurstAt = now + GALAGA.BOSS_BURST_MS;
+                    if (f.type === 'boss') {
+                        if (now >= f.nextLaserAt) {
+                            galagaBossLaser(f);
+                            f.nextLaserAt = now + GALAGA.BOSS_LASER_MS;
+                        }
+                        if (now >= f.nextMissileAt) {
+                            galagaBossMissile(f);
+                            f.nextMissileAt = now + GALAGA.BOSS_MISSILE_MS;
+                        }
                     }
                 } else if (f.phase === 'dive') {
                     f.diveT = Math.min(1, f.diveT + GALAGA.DIVE_RATE);
@@ -3875,7 +3911,7 @@
             // the pattern repeats and the player can learn/read it instead of
             // every dive re-aiming wherever they happen to be standing.
             if (now >= galagaPhase.nextDiveAt) {
-                const candidates = galagaPhase.fighters.filter(f => f.phase === 'formation');
+                const candidates = galagaPhase.fighters.filter(f => f.phase === 'formation' && f.type !== 'boss');
                 const squadSize = Math.min(candidates.length, galagaPhase.wave >= 2 ? 3 : 2);
                 const squad = candidates
                     .sort(() => Math.random() - 0.5)
@@ -3909,8 +3945,9 @@
                 const bolt = galagaPhase.bolts[i];
                 bolt.x += bolt.vx; bolt.y += bolt.vy; bolt.z += bolt.vz;
                 bolt.life += 1;
-                if (distanceSq(bolt, ship) <= GALAGA.BOLT_HIT_R * GALAGA.BOLT_HIT_R) {
-                    galagaApplyPlayerHit(1);
+                const hitR = bolt.hitR || GALAGA.BOLT_HIT_R;
+                if (distanceSq(bolt, ship) <= hitR * hitR) {
+                    galagaApplyPlayerHit(bolt.mult || 1);
                     galagaPhase.bolts.splice(i, 1);
                     continue;
                 }
@@ -4046,14 +4083,16 @@
             if (!galagaPhase.active) return;
             renderGalagaHudFrame(centerX, centerY);
             for (const f of galagaPhase.fighters) renderGalagaFighter(f, centerX, centerY, fov);
-            ctx.fillStyle = '#ff3344';
             for (const bolt of galagaPhase.bolts) {
                 const p = projectPoint(bolt, centerX, centerY, fov);
                 if (!p || p.z <= 8) continue;
                 // let it balloon as it closes in instead of freezing at a fixed
                 // size a few frames before it vanishes (old floor of 80 stalled
                 // the growth well before the near-clip cull at z<=8)
-                const r = Math.min(240, Math.max(2, 8 * (fov / Math.max(8, p.z))));
+                const baseR = bolt.kind === 'missile' ? 14 : bolt.kind === 'laser' ? 10 : 8;
+                const cap = bolt.kind === 'missile' ? 320 : 240;
+                const r = Math.min(cap, Math.max(2, baseR * (fov / Math.max(8, p.z))));
+                ctx.fillStyle = bolt.kind === 'missile' ? '#ff8800' : bolt.kind === 'laser' ? '#ff0044' : '#ff3344';
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
                 ctx.fill();
