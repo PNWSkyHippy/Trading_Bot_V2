@@ -3712,15 +3712,24 @@
 
         function checkLaserGalagaHits(laserPoint) {
             if (!galagaPhase.active || galagaPhase.state !== 'play') return;
-            for (let i = galagaPhase.fighters.length - 1; i >= 0; i--) {
+            // pick whichever fighter the shot is actually closest to, not just
+            // the first one found in array order -- the boss's bigger hit
+            // radius otherwise steals hits meant for a nearby escort whenever
+            // it happens to be checked first
+            let bestIndex = -1, bestDistSq = Infinity;
+            for (let i = 0; i < galagaPhase.fighters.length; i++) {
                 const f = galagaPhase.fighters[i];
                 const hitR = f.type === 'boss' ? GALAGA.BOSS_HIT_R : GALAGA.FIGHTER_HIT_R;
-                if (distanceSq(laserPoint, f.pos) <= hitR * hitR) {
-                    f.hp -= 1;
-                    if (f.hp <= 0) galagaKillFighter(i, f.phase === 'dive');
-                    return;
+                const dSq = distanceSq(laserPoint, f.pos);
+                if (dSq <= hitR * hitR && dSq < bestDistSq) {
+                    bestDistSq = dSq;
+                    bestIndex = i;
                 }
             }
+            if (bestIndex === -1) return;
+            const f = galagaPhase.fighters[bestIndex];
+            f.hp -= 1;
+            if (f.hp <= 0) galagaKillFighter(bestIndex, f.phase === 'dive');
         }
 
         function tickGalagaPhase() {
@@ -4005,7 +4014,10 @@
             for (const bolt of galagaPhase.bolts) {
                 const p = projectPoint(bolt, centerX, centerY, fov);
                 if (!p || p.z <= 8) continue;
-                const r = Math.max(2, 8 * (fov / Math.max(80, p.z)));
+                // let it balloon as it closes in instead of freezing at a fixed
+                // size a few frames before it vanishes (old floor of 80 stalled
+                // the growth well before the near-clip cull at z<=8)
+                const r = Math.min(240, Math.max(2, 8 * (fov / Math.max(8, p.z))));
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
                 ctx.fill();
