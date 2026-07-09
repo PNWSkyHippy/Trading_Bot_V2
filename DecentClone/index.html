@@ -3512,10 +3512,19 @@
             BOSS_LASER_SPEED: 16,
             BOSS_LASER_DMG_MULT: 1.6,
             BOSS_LASER_HIT_R: 46,
-            BOSS_MISSILE_MS: 10000,               // slow, hard-hitting missile every ~10s
             BOSS_MISSILE_SPEED: 6,
             BOSS_MISSILE_DMG_MULT: 4,
             BOSS_MISSILE_HIT_R: 70,
+            // missile and tractor beam share one "special attack" timer --
+            // boss rolls one or the other each time it comes up, so it's
+            // never spamming both at once
+            BOSS_SPECIAL_MIN_MS: 8000,
+            BOSS_SPECIAL_MAX_MS: 13000,
+            BOSS_TRACTOR_TELEGRAPH_MS: 900,       // warning window -- the beam is dodgeable if you move off the targeted spot
+            BOSS_TRACTOR_SNARE_MS: 2400,          // how long you're held once caught
+            BOSS_TRACTOR_CATCH_R: 130,            // dodge-plane radius of the beam lock
+            BOSS_TRACTOR_TICK_MS: 300,            // damage tick interval while snared -- point-blank fire while you're stuck
+            BOSS_TRACTOR_TICK_MULT: 1.2,
         };
         const GALAGA_SPRITE_PATHS = {
             bee: 'Textures/galaga/ship_12190390.png',
@@ -3563,6 +3572,8 @@
             galagaPhase.shots = 0;
             galagaPhase.fighters = [];
             galagaPhase.bolts = [];
+            galagaPhase.tractor = null;
+            galagaPhase.snaredUntil = 0;
             setHudMode('min');
             playSfx('portal_whoosh', { worldPos: { x: posX, y: posY, z: posZ } });
         }
@@ -3573,6 +3584,8 @@
             galagaPhase.state = 'idle';
             galagaPhase.fighters = [];
             galagaPhase.bolts = [];
+            galagaPhase.tractor = null;
+            galagaPhase.snaredUntil = 0;
             const s = galagaPhase.saved;
             if (s) {
                 if (restorePosition) {
@@ -3640,7 +3653,8 @@
                     entryPaths: [{ p0: spawn, p1: c1, p2: c2, p3: slot }],
                     pos: { ...spawn },
                     boltsLeft: 0, diveT: 0, divePath: null,
-                    nextLaserAt: 0, nextMissileAt: 0,
+                    nextLaserAt: 0,
+                    nextSpecialAt: performance.now() + GALAGA.BOSS_SPECIAL_MIN_MS,
                 };
             };
             let order = 0;
@@ -3715,6 +3729,18 @@
                 hitR: GALAGA.BOSS_MISSILE_HIT_R,
                 kind: 'missile',
             });
+        }
+
+        function galagaBossTractor(fighter, ship) {
+            // targets wherever the player is *right now* -- telegraphed, so
+            // it's dodgeable, but if you're still standing on the spot when
+            // it locks you're snared and eat point-blank fire until it lets go
+            galagaPhase.tractor = {
+                x: ship.x, z: ship.z,
+                state: 'telegraph',
+                readyAt: performance.now() + GALAGA.BOSS_TRACTOR_TELEGRAPH_MS,
+                until: 0, nextTickAt: 0,
+            };
         }
 
         function galagaApplyPlayerHit(mult = 1) {
@@ -3795,8 +3821,12 @@
                 (isKeyActive('a', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0);
             const keyStrafeZ = (isKeyActive('s', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0) -
                 (isKeyActive('w', THRUST_KEY_HOLD_GRACE_MS) ? 1 : 0);
-            posX += keyStrafeX * GALAGA.STRAFE_SPEED + galagaPhase.mouseDX;
-            posZ += keyStrafeZ * GALAGA.STRAFE_SPEED + galagaPhase.mouseDZ;
+            // snared by the boss's tractor beam -- held in place, no dodging out
+            const snared = galagaPhase.snaredUntil && now < galagaPhase.snaredUntil;
+            if (!snared) {
+                posX += keyStrafeX * GALAGA.STRAFE_SPEED + galagaPhase.mouseDX;
+                posZ += keyStrafeZ * GALAGA.STRAFE_SPEED + galagaPhase.mouseDZ;
+            }
             galagaPhase.mouseDX = 0;
             galagaPhase.mouseDZ = 0;
             posX = Math.max(O.x - GALAGA.STRAFE_LIMIT, Math.min(O.x + GALAGA.STRAFE_LIMIT, posX));
@@ -3858,9 +3888,12 @@
                             galagaBossLaser(f);
                             f.nextLaserAt = now + GALAGA.BOSS_LASER_MS;
                         }
-                        if (now >= f.nextMissileAt) {
-                            galagaBossMissile(f);
-                            f.nextMissileAt = now + GALAGA.BOSS_MISSILE_MS;
+                        // missile or tractor beam, never both at once
+                        if (now >= f.nextSpecialAt && !galagaPhase.tractor) {
+                            if (Math.random() < 0.5) galagaBossMissile(f);
+                            else galagaBossTractor(f, ship);
+                            f.nextSpecialAt = now + GALAGA.BOSS_SPECIAL_MIN_MS +
+                                Math.random() * (GALAGA.BOSS_SPECIAL_MAX_MS - GALAGA.BOSS_SPECIAL_MIN_MS);
                         }
                     }
                 } else if (f.phase === 'dive') {
@@ -3938,6 +3971,34 @@
                     };
                 });
                 galagaPhase.nextDiveAt = now + (galagaPhase.wave >= 2 ? 1900 : 2500);
+            }
+
+            // tractor beam: telegraphs at a fixed dodge-plane point (where the
+            // player was standing when it fired); if you're still inside the
+            // catch radius when it locks, you're snared and eat point-blank
+            // fire until it lets go
+            if (galagaPhase.tractor) {
+                const t = galagaPhase.tractor;
+                if (t.state === 'telegraph' && now >= t.readyAt) {
+                    const dx = ship.x - t.x, dz = ship.z - t.z;
+                    if (dx * dx + dz * dz <= GALAGA.BOSS_TRACTOR_CATCH_R * GALAGA.BOSS_TRACTOR_CATCH_R) {
+                        t.state = 'active';
+                        t.until = now + GALAGA.BOSS_TRACTOR_SNARE_MS;
+                        t.nextTickAt = now;
+                        galagaPhase.snaredUntil = t.until;
+                    } else {
+                        galagaPhase.tractor = null;
+                    }
+                } else if (t.state === 'active') {
+                    if (now >= t.nextTickAt) {
+                        galagaApplyPlayerHit(GALAGA.BOSS_TRACTOR_TICK_MULT);
+                        t.nextTickAt = now + GALAGA.BOSS_TRACTOR_TICK_MS;
+                    }
+                    if (now >= t.until) {
+                        galagaPhase.tractor = null;
+                        galagaPhase.snaredUntil = 0;
+                    }
+                }
             }
 
             // bolts
@@ -4097,6 +4158,49 @@
                 ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
                 ctx.fill();
             }
+            // tractor beam telegraph / lock
+            if (galagaPhase.tractor) {
+                const t = galagaPhase.tractor;
+                const boss = galagaPhase.fighters.find(f => f.type === 'boss');
+                const targetPt = { x: t.x, y: posY, z: t.z };
+                const tp = projectPoint(targetPt, centerX, centerY, fov);
+                if (tp && tp.z > 8) {
+                    if (t.state === 'telegraph') {
+                        const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.02);
+                        const r = Math.min(140, Math.max(10, 60 * (fov / Math.max(8, tp.z))));
+                        ctx.save();
+                        ctx.strokeStyle = `rgba(255,180,0,${0.5 + pulse * 0.5})`;
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.arc(tp.x, tp.y, r, 0, Math.PI * 2);
+                        ctx.stroke();
+                        ctx.restore();
+                    } else if (t.state === 'active') {
+                        if (boss) {
+                            const bp = projectPoint(boss.pos, centerX, centerY, fov);
+                            if (bp && bp.z > 8) {
+                                ctx.save();
+                                ctx.strokeStyle = 'rgba(255,60,0,0.8)';
+                                ctx.lineWidth = 10;
+                                ctx.beginPath();
+                                ctx.moveTo(bp.x, bp.y);
+                                ctx.lineTo(tp.x, tp.y);
+                                ctx.stroke();
+                                ctx.restore();
+                            }
+                        }
+                    }
+                }
+                if (t.state === 'active') {
+                    ctx.save();
+                    ctx.font = 'bold 22px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#ff4400';
+                    ctx.fillText('SNARED', centerX, centerY - 60);
+                    ctx.restore();
+                }
+            }
+
             // phase HUD strip
             const bossUp = galagaPhase.fighters.some(f => f.type === 'boss');
             ctx.save();
