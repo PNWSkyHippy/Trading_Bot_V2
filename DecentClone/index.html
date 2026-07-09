@@ -4078,6 +4078,13 @@
 
         function continueAfterShipDestroyed() {
             if (livesRemaining <= 0) return restartAfterDeath();
+            gameOverState.active = false;
+            gameOverState.rank = null;
+            gameOverState.entryId = null;
+            if (gameOverOverlay) {
+                gameOverOverlay.style.display = 'none';
+                gameOverOverlay.innerHTML = '';
+            }
             resetPlayerCombatState();
             placeShipAtTunnelStart();
             wallHit.stuckCount = 0;
@@ -4116,6 +4123,13 @@
         }
 
         function restartAfterDeath() {
+            gameOverState.active = false;
+            gameOverState.rank = null;
+            gameOverState.entryId = null;
+            if (gameOverOverlay) {
+                gameOverOverlay.style.display = 'none';
+                gameOverOverlay.innerHTML = '';
+            }
             livesRemaining = STARTING_LIVES;
             savePlayerProfile();
             updatePlayerHud();
