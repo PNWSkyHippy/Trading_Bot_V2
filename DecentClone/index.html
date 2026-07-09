@@ -3222,7 +3222,9 @@
             if (isPlayerUnderActiveSentryFire()) return;
             if (shieldCurrent < SHIELD_MAX) {
                 shieldCurrent = Math.min(SHIELD_MAX, shieldCurrent + SHIELD_REGEN_PER_SEC * dt);
-                if (shieldCurrent >= SHIELD_MAX) {
+                // any charge at all should absorb hits again -- don't make the
+                // player wait for a full 100% recharge before shields matter
+                if (shieldCurrent > 0) {
                     shieldsBreached = false;
                 }
             }
