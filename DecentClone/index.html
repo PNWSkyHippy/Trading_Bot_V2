@@ -3525,6 +3525,14 @@
             BOSS_TRACTOR_CATCH_R: 130,            // dodge-plane radius of the beam lock
             BOSS_TRACTOR_TICK_MS: 300,            // damage tick interval while snared -- point-blank fire while you're stuck
             BOSS_TRACTOR_TICK_MULT: 1.2,
+            // per-wave dive-squad sizing + gap range -- wide min/max makes the
+            // pacing sporadic (bursts and lulls) instead of a metronome, and
+            // wave 1 stays gentle/solo so it reads as an easy intro level
+            WAVE_DIVE: {
+                1: { squadSize: 1, minMs: 3200, maxMs: 5400 },
+                2: { squadSize: 2, minMs: 1400, maxMs: 3200 },
+                3: { squadSize: 3, minMs: 900, maxMs: 2100 },
+            },
         };
         const GALAGA_SPRITE_PATHS = {
             bee: 'Textures/galaga/ship_12190390.png',
@@ -3672,7 +3680,11 @@
                 }
             }
             galagaPhase.fighters = fighters;
-            galagaPhase.nextDiveAt = performance.now() + (n >= 3 ? 1900 : n >= 2 ? 2200 : 2800);
+            const waveCfg = GALAGA.WAVE_DIVE[Math.min(3, Math.max(1, n))];
+            // extra grace on top of the normal gap so the entry swarm has
+            // time to finish sweeping in before the first dive of the wave
+            galagaPhase.nextDiveAt = performance.now() + 600 +
+                waveCfg.minMs + Math.random() * (waveCfg.maxMs - waveCfg.minMs);
         }
 
         function galagaFireBolt(fighter, spread, opts) {
@@ -3944,8 +3956,9 @@
             // the pattern repeats and the player can learn/read it instead of
             // every dive re-aiming wherever they happen to be standing.
             if (now >= galagaPhase.nextDiveAt) {
+                const waveCfg = GALAGA.WAVE_DIVE[Math.min(3, Math.max(1, galagaPhase.wave))];
                 const candidates = galagaPhase.fighters.filter(f => f.phase === 'formation' && f.type !== 'boss');
-                const squadSize = Math.min(candidates.length, galagaPhase.wave >= 2 ? 3 : 2);
+                const squadSize = Math.min(candidates.length, waveCfg.squadSize);
                 const squad = candidates
                     .sort(() => Math.random() - 0.5)
                     .slice(0, squadSize)
@@ -3970,7 +3983,7 @@
                         p3: { x: targetX - sweepDir * 300, y: O.y + 260, z: targetZ + (Math.random() - 0.5) * 200 },
                     };
                 });
-                galagaPhase.nextDiveAt = now + (galagaPhase.wave >= 2 ? 1900 : 2500);
+                galagaPhase.nextDiveAt = now + waveCfg.minMs + Math.random() * (waveCfg.maxMs - waveCfg.minMs);
             }
 
             // tractor beam: telegraphs at a fixed dodge-plane point (where the
