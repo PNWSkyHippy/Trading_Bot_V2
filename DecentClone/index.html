@@ -3493,9 +3493,11 @@
             MOUSE_STRAFE_SENS: 1.1,               // world units per pixel of mouse delta
             FORM_DIST: 700,                      // formation height above player
             FIGHTER_HIT_R: 30,
-            BOLT_SPEED: 5.5,
+            BOLT_SPEED: 10,
             BOLT_HIT_R: 34,
-            COLLIDE_R: 46,
+            COLLIDE_R: 50,
+            DIVE_RATE: 1 / 75,                   // ~1.25s per dive at 60fps -- fast, reflex dodge
+            DIVE_Y_GATE: 200,                    // how close (in depth) a diver must be to register a hit
             SHIELD_DMG: 14,
             HULL_DMG: 12,
             INTRO_MS: 2600,
@@ -3645,7 +3647,10 @@
             // strafe velocity carries it by the time the bolt arrives.
             const distToShip = Math.max(1, Math.hypot(
                 ship.x - fighter.pos.x, ship.y - fighter.pos.y, ship.z - fighter.pos.z));
-            const timeToImpact = distToShip / GALAGA.BOLT_SPEED;
+            // cap the lead horizon -- distToShip includes the huge depth gap to
+            // formation, so an uncapped timeToImpact wildly over-extrapolates
+            // strafe drift and the aim point saturates off the edge of the box
+            const timeToImpact = Math.min(distToShip / GALAGA.BOLT_SPEED, 40);
             const leadX = Math.max(GALAGA.ORIGIN.x - GALAGA.STRAFE_LIMIT,
                 Math.min(GALAGA.ORIGIN.x + GALAGA.STRAFE_LIMIT,
                     ship.x + galagaPhase.shipVelX * timeToImpact * 0.6 + spread.x));
@@ -3791,7 +3796,7 @@
                         f.nextBurstAt = now + GALAGA.BOSS_BURST_MS;
                     }
                 } else if (f.phase === 'dive') {
-                    f.diveT = Math.min(1, f.diveT + 1 / 150);
+                    f.diveT = Math.min(1, f.diveT + GALAGA.DIVE_RATE);
                     f.pos = cubicPoint(f.divePath.p0, f.divePath.p1, f.divePath.p2, f.divePath.p3, f.diveT);
                     // release bolts partway down
                     if (f.boltsLeft > 0 && f.diveT >= f.nextBoltT) {
@@ -3799,17 +3804,23 @@
                         f.nextBoltT += 0.28;
                         galagaFireBolt(f);
                     }
-                    // collision with player
+                    // collision with player -- checked in the dodge plane (X/Z)
+                    // only while the diver is near the ship's depth (Y). Y is
+                    // just approach distance, not something the player steers,
+                    // so it must gate the check rather than count toward it.
                     const collideR = f.type === 'boss' ? GALAGA.BOSS_COLLIDE_R : GALAGA.COLLIDE_R;
-                    if (distanceSq(f.pos, ship) <= collideR * collideR) {
-                        galagaApplyPlayerHit(f.type === 'boss' ? 3 : 2);
-                        if (f.type === 'boss') {
-                            // ramming doesn't one-shot the boss -- it just recoils
-                            f.phase = 'formation'; f.t = 0;
+                    if (Math.abs(f.pos.y - ship.y) <= GALAGA.DIVE_Y_GATE) {
+                        const dx = f.pos.x - ship.x, dz = f.pos.z - ship.z;
+                        if (dx * dx + dz * dz <= collideR * collideR) {
+                            galagaApplyPlayerHit(f.type === 'boss' ? 3 : 2);
+                            if (f.type === 'boss') {
+                                // ramming doesn't one-shot the boss -- it just recoils
+                                f.phase = 'formation'; f.t = 0;
+                                continue;
+                            }
+                            galagaKillFighter(i, true);
                             continue;
                         }
-                        galagaKillFighter(i, true);
-                        continue;
                     }
                     if (f.diveT >= 1) {
                         // recover: re-enter from above back to the slot
@@ -3838,7 +3849,10 @@
                     f.divePath = {
                         p0: { ...f.pos },
                         p1: { x: f.pos.x + (Math.random() - 0.5) * 500, y: f.pos.y + 150, z: f.pos.z - 250 },
-                        p2: { x: targetX, y: O.y - 180, z: targetZ },
+                        // p2 is the actual impact point -- lands right on the ship's
+                        // depth plane at the aimed target, so the collision gate
+                        // (DIVE_Y_GATE) reliably catches it if you're still there
+                        p2: { x: targetX, y: O.y, z: targetZ },
                         p3: { x: targetX + (Math.random() - 0.5) * 300, y: O.y + 260, z: targetZ + (Math.random() - 0.5) * 200 },
                     };
                 }
