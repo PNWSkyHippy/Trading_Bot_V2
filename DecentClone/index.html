@@ -3504,7 +3504,7 @@
             HULL_DMG: 12,
             INTRO_MS: 2600,
             RESULTS_MS: 4200,
-            BOSS_HP: 280,                          // wave 3: boss fight, hits to kill -- a real war of attrition
+            BOSS_HP: 550,                          // wave 3: boss fight, hits to kill -- long enough to actually see its attacks
             BOSS_HIT_R: 70,
             BOSS_COLLIDE_R: 90,
             BOSS_SCORE: 500,
@@ -3520,11 +3520,11 @@
             // never spamming both at once
             BOSS_SPECIAL_MIN_MS: 8000,
             BOSS_SPECIAL_MAX_MS: 13000,
-            BOSS_TRACTOR_TELEGRAPH_MS: 900,       // warning window -- the beam is dodgeable if you move off the targeted spot
-            BOSS_TRACTOR_SNARE_MS: 2400,          // how long you're held once caught
+            BOSS_TRACTOR_TELEGRAPH_MS: 1400,      // warning window -- funnel visibly grows out from the boss, dodgeable if you move off the targeted spot
+            BOSS_TRACTOR_SNARE_MS: 2800,          // how long you're held once caught
             BOSS_TRACTOR_CATCH_R: 130,            // dodge-plane radius of the beam lock
             BOSS_TRACTOR_TICK_MS: 300,            // damage tick interval while snared -- point-blank fire while you're stuck
-            BOSS_TRACTOR_TICK_MULT: 1.2,
+            BOSS_TRACTOR_TICK_MULT: 1.8,
             // per-wave dive-squad sizing + gap range -- wide min/max makes the
             // pacing sporadic (bursts and lulls) instead of a metronome, and
             // wave 1 stays gentle/solo so it reads as an easy intro level
@@ -4202,9 +4202,47 @@
                 const targetPt = { x: t.x, y: posY, z: t.z };
                 const tp = projectPoint(targetPt, centerX, centerY, fov);
                 if (tp && tp.z > 8) {
-                    if (t.state === 'telegraph') {
+                    // wavy funnel, narrow at the boss and widening toward the
+                    // target -- capped at ~1/4 screen width so it visibly
+                    // reads as a cone you can step out of, not a wall
+                    const bp = boss ? projectPoint(boss.pos, centerX, centerY, fov) : null;
+                    const maxHalfWidth = w * 0.125;
+                    const time = performance.now() * 0.006;
+                    if (t.state === 'telegraph' && bp && bp.z > 8) {
+                        // grows from the boss out to the target over the
+                        // telegraph window -- slow enough to actually dodge
+                        const progress = Math.max(0, Math.min(1,
+                            1 - (t.readyAt - performance.now()) / GALAGA.BOSS_TRACTOR_TELEGRAPH_MS));
+                        const curX = bp.x + (tp.x - bp.x) * progress;
+                        const curY = bp.y + (tp.y - bp.y) * progress;
+                        const dx = curX - bp.x, dy = curY - bp.y;
+                        const len = Math.max(1, Math.hypot(dx, dy));
+                        const nx = -dy / len, ny = dx / len;
+                        const segs = 10;
+                        ctx.save();
+                        ctx.fillStyle = 'rgba(255,140,0,0.20)';
+                        ctx.strokeStyle = `rgba(255,180,40,${0.55 + 0.3 * Math.sin(time * 3)})`;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(bp.x, bp.y);
+                        for (let i = 1; i <= segs; i++) {
+                            const s = i / segs;
+                            const wob = Math.sin(time * 4 + s * 9) * 8 * s;
+                            const wgt = maxHalfWidth * progress * s;
+                            ctx.lineTo(bp.x + dx * s + nx * (wgt + wob), bp.y + dy * s + ny * (wgt + wob));
+                        }
+                        for (let i = segs; i >= 1; i--) {
+                            const s = i / segs;
+                            const wob = Math.sin(time * 4 + s * 9 + Math.PI) * 8 * s;
+                            const wgt = maxHalfWidth * progress * s;
+                            ctx.lineTo(bp.x + dx * s - nx * (wgt + wob), bp.y + dy * s - ny * (wgt + wob));
+                        }
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.stroke();
+                        ctx.restore();
                         const pulse = 0.5 + 0.5 * Math.sin(performance.now() * 0.02);
-                        const r = Math.min(140, Math.max(10, 60 * (fov / Math.max(8, tp.z))));
+                        const r = Math.min(50, Math.max(8, 24 * (fov / Math.max(8, tp.z))));
                         ctx.save();
                         ctx.strokeStyle = `rgba(255,180,0,${0.5 + pulse * 0.5})`;
                         ctx.lineWidth = 3;
@@ -4212,20 +4250,33 @@
                         ctx.arc(tp.x, tp.y, r, 0, Math.PI * 2);
                         ctx.stroke();
                         ctx.restore();
-                    } else if (t.state === 'active') {
-                        if (boss) {
-                            const bp = projectPoint(boss.pos, centerX, centerY, fov);
-                            if (bp && bp.z > 8) {
-                                ctx.save();
-                                ctx.strokeStyle = 'rgba(255,60,0,0.8)';
-                                ctx.lineWidth = 10;
-                                ctx.beginPath();
-                                ctx.moveTo(bp.x, bp.y);
-                                ctx.lineTo(tp.x, tp.y);
-                                ctx.stroke();
-                                ctx.restore();
-                            }
+                    } else if (t.state === 'active' && bp && bp.z > 8) {
+                        const dx = tp.x - bp.x, dy = tp.y - bp.y;
+                        const len = Math.max(1, Math.hypot(dx, dy));
+                        const nx = -dy / len, ny = dx / len;
+                        const segs = 10;
+                        ctx.save();
+                        ctx.fillStyle = 'rgba(255,70,0,0.35)';
+                        ctx.strokeStyle = 'rgba(255,90,0,0.9)';
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(bp.x, bp.y);
+                        for (let i = 1; i <= segs; i++) {
+                            const s = i / segs;
+                            const wob = Math.sin(time * 6 + s * 11) * 10 * s;
+                            const wgt = maxHalfWidth * s;
+                            ctx.lineTo(bp.x + dx * s + nx * (wgt + wob), bp.y + dy * s + ny * (wgt + wob));
                         }
+                        for (let i = segs; i >= 1; i--) {
+                            const s = i / segs;
+                            const wob = Math.sin(time * 6 + s * 11 + Math.PI) * 10 * s;
+                            const wgt = maxHalfWidth * s;
+                            ctx.lineTo(bp.x + dx * s - nx * (wgt + wob), bp.y + dy * s - ny * (wgt + wob));
+                        }
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.stroke();
+                        ctx.restore();
                     }
                 }
                 if (t.state === 'active') {
