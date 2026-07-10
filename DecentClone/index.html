@@ -4187,6 +4187,7 @@
 
         function renderGalagaPhase(centerX, centerY, fov) {
             if (!galagaPhase.active) return;
+            const w = canvas.width;
             renderGalagaHudFrame(centerX, centerY);
             for (const f of galagaPhase.fighters) renderGalagaFighter(f, centerX, centerY, fov);
             for (const bolt of galagaPhase.bolts) {
@@ -4207,7 +4208,13 @@
             if (galagaPhase.tractor) {
                 const t = galagaPhase.tractor;
                 const boss = galagaPhase.fighters.find(f => f.type === 'boss');
-                const targetPt = { x: t.x, y: posY, z: t.z };
+                // t.x/t.z were captured as the ship's own position when the
+                // tractor was cast, so plugging them in at posY (the ship's
+                // own depth) puts targetPt exactly on top of the camera --
+                // worldToCamera's delta is ~(0,0,0), so projectPoint's z<=5
+                // near-clip rejects it on every single call. Push the marker
+                // out in front along the dodge plane so it actually projects.
+                const targetPt = { x: t.x, y: posY - 220, z: t.z };
                 const tp = projectPoint(targetPt, centerX, centerY, fov);
                 if (tp && tp.z > 8) {
                     // wavy funnel, narrow at the boss and widening toward the
