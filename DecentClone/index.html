@@ -857,6 +857,7 @@
             ['Shift+drag', 'temporarily snap B/C to 50u grid'],
             ['Gizmo solid X/Y/Z', 'axes lying in selected edit plane'],
             ['Gizmo dashed axis ⟂', 'world axis normal to selected plane'],
+            ['Near-depth gizmo axis', 'drag mouse vertically; jump protection active'],
             ['Alt+drag / MMB', 'orbit camera around A/B/C'],
             ['Mouse wheel', 'zoom map camera'],
             ['Space', 'free orbit after snap'],
@@ -1054,6 +1055,8 @@
         const MINI_MAP_DRAG_PAN_MULT = 8;
         const XYZ_GIZMO_WORLD_LEN = 130;
         const XYZ_GIZMO_PICK_PX = 12;
+        const XYZ_GIZMO_MIN_PROJECTED_PX = 14;
+        const XYZ_GIZMO_MAX_DRAG_WORLD = 2500;
         /*
          * Map/editor mouse state.
          *
@@ -1088,6 +1091,7 @@
             gizmoStartMouse: null,
             gizmoStartPoint: null,
             dragStartMouse: null,
+            dragStartPoint: null,
             selectionBendPoint: null,
             selectionPath: null,
             selectionChainPoints: null,
@@ -5182,6 +5186,7 @@
                     if (mapMouse.destination && pickMapMarker(canvasX, canvasY, mapMouse.destination.point, 14)) {
                         setXyzGizmoTarget('destination');
                         mapMouse.dragTarget = 'destination';
+                        mapMouse.dragStartPoint = copyVec(mapMouse.destination.point);
                         mapMouse.dragMoved = false;
                         e.preventDefault();
                         return;
@@ -5189,6 +5194,7 @@
                     if (mapMouse.midpoint && pickMapMarker(canvasX, canvasY, mapMouse.midpoint.point, 12)) {
                         setXyzGizmoTarget('midpoint');
                         mapMouse.dragTarget = 'midpoint';
+                        mapMouse.dragStartPoint = copyVec(mapMouse.midpoint.point);
                         mapMouse.dragMoved = false;
                         e.preventDefault();
                         return;
@@ -5197,6 +5203,7 @@
                     if (selectionBend && pickMapMarker(canvasX, canvasY, selectionBend, 12)) {
                         setXyzGizmoTarget('selectionBend');
                         mapMouse.dragTarget = 'selectionBend';
+                        mapMouse.dragStartPoint = copyVec(selectionBend);
                         mapMouse.dragMoved = false;
                         e.preventDefault();
                         return;
@@ -5325,6 +5332,7 @@
                 mapMouse.gizmoStartMouse = null;
                 mapMouse.gizmoStartPoint = null;
                 mapMouse.dragStartMouse = null;
+                mapMouse.dragStartPoint = null;
             }
             if (e.button === 1) {
                 mapMouse.orbiting = false;
@@ -5387,12 +5395,32 @@
                         if (originScreen && axisEndScreen) {
                             const sx = axisEndScreen.x - originScreen.x;
                             const sy = axisEndScreen.y - originScreen.y;
-                            const screenLen = Math.hypot(sx, sy) || 1;
-                            const ux = sx / screenLen;
-                            const uy = sy / screenLen;
+                            const screenLen = Math.hypot(sx, sy);
                             const px = canvasX - startMouse.x;
                             const py = canvasY - startMouse.y;
-                            const worldDelta = ((px * ux + py * uy) / screenLen) * XYZ_GIZMO_WORLD_LEN;
+                            const stableUnitsPerPixel = Math.max(
+                                0.35,
+                                Math.min(10, (mapCamera.distance / fov) * 1.8)
+                            );
+                            let worldDelta;
+                            if (screenLen >= XYZ_GIZMO_MIN_PROJECTED_PX) {
+                                const ux = sx / screenLen;
+                                const uy = sy / screenLen;
+                                const projectedPixels = px * ux + py * uy;
+                                const projectedScale = XYZ_GIZMO_WORLD_LEN / screenLen;
+                                worldDelta = projectedPixels * Math.min(projectedScale, stableUnitsPerPixel);
+                            } else {
+                                // An axis aimed nearly into the camera projects to only a few
+                                // pixels. Dividing by that tiny line used to launch points many
+                                // thousands of units away. AutoCAD-style depth fallback: drag
+                                // vertically with a stable camera-distance-derived scale.
+                                worldDelta = -py * stableUnitsPerPixel;
+                            }
+                            const maxDragWorld = Math.max(
+                                250,
+                                Math.min(XYZ_GIZMO_MAX_DRAG_WORLD, mapCamera.distance * 1.25)
+                            );
+                            worldDelta = Math.max(-maxDragWorld, Math.min(maxDragWorld, worldDelta));
                             const next = addVec(startPoint, scaleVec(axisVector(axis), worldDelta));
                             if (shouldSnapMapGrid()) {
                                 next[axis] = Math.round(next[axis] / MAP_EDIT_GRID_SPACING) * MAP_EDIT_GRID_SPACING;
@@ -5400,7 +5428,8 @@
                             if (applyXyzGizmoPoint(next)) {
                                 mapMouse.dragMoved = true;
                                 keyboardStatus.innerText =
-                                    `WORLD ${axis.toUpperCase()} ${formatMapCoord(next[axis])} | ${formatMapPoint(next)}`;
+                                    `WORLD ${axis.toUpperCase()} ${formatMapCoord(next[axis])} | ${formatMapPoint(next)}` +
+                                    (screenLen < XYZ_GIZMO_MIN_PROJECTED_PX ? ' | depth drag: vertical mouse' : '');
                             }
                         }
                     }
@@ -5418,9 +5447,10 @@
                             return;
                         }
                     }
-                    const origin = getEditPlaneOrigin(mapMouse.dragTarget);
+                    const origin = mapMouse.dragStartPoint || getEditPlaneOrigin(mapMouse.dragTarget);
                     const raw = mapScreenToAxisPlane(canvasX, canvasY, origin, mapMouse.editPlane);
-                    const point = finalizeEditPlanePoint(raw, origin, mapMouse.editPlane);
+                    const stableRaw = stabilizeDirectMapDragPoint(raw, origin);
+                    const point = finalizeEditPlanePoint(stableRaw, origin, mapMouse.editPlane);
                     if (dragRouteDraftPoint(point)) {
                         mapMouse.dragMoved = true;
                         keyboardStatus.innerText =
@@ -5430,9 +5460,10 @@
                     e.preventDefault();
                     return;
                 }
-                const origin = getEditPlaneOrigin(mapMouse.dragTarget);
+                const origin = mapMouse.dragStartPoint || getEditPlaneOrigin(mapMouse.dragTarget);
                 const raw = mapScreenToAxisPlane(canvasX, canvasY, origin, mapMouse.editPlane);
-                const point = finalizeEditPlanePoint(raw, origin, mapMouse.editPlane);
+                const stableRaw = stabilizeDirectMapDragPoint(raw, origin);
+                const point = finalizeEditPlanePoint(stableRaw, origin, mapMouse.editPlane);
                 if (point) {
                     if (mapMouse.dragTarget === 'destination' && mapMouse.destination) {
                         mapMouse.destination.point = copyVec(point);
@@ -10507,6 +10538,23 @@
             return copyVec(point);
         }
 
+        function stabilizeDirectMapDragPoint(point, dragStartPoint) {
+            if (!point || !dragStartPoint) return point;
+            const delta = {
+                x: point.x - dragStartPoint.x,
+                y: point.y - dragStartPoint.y,
+                z: point.z - dragStartPoint.z
+            };
+            const distance = Math.hypot(delta.x, delta.y, delta.z);
+            const maxDistance = Math.max(
+                250,
+                Math.min(XYZ_GIZMO_MAX_DRAG_WORLD, mapCamera.distance * 1.25)
+            );
+            if (!Number.isFinite(distance)) return null;
+            if (distance <= maxDistance || distance < 1e-9) return point;
+            return addVec(dragStartPoint, scaleVec(delta, maxDistance / distance));
+        }
+
         function getHandlePlaneNormal(planeName, point) {
             return normalize(getEditPlaneSpec(planeName || mapMouse.editPlane, point || mapCamera.target).normal);
         }
@@ -10765,6 +10813,7 @@
                 setXyzGizmoTarget(pickedRoutePoint.kind === 'handle' ? 'routeHandle' : 'routeNode', pickedRoutePoint.index);
                 mapMouse.dragTarget = pickedRoutePoint.kind === 'handle' ? 'routeHandle' : 'routeNode';
                 mapMouse.routeDragIndex = pickedRoutePoint.index;
+                mapMouse.dragStartPoint = copyVec(pickedRoutePoint.point);
                 mapMouse.dragMoved = false;
                 keyboardStatus.innerText =
                     `drag route ${pickedRoutePoint.kind} ${pickedRoutePoint.index + 1} on ${mapMouse.editPlane.toUpperCase()}`;
@@ -11123,7 +11172,10 @@
             ));
             const planeNormal = normalize(spec.normal);
             const denom = dot(rayWorld, planeNormal);
-            if (Math.abs(denom) < 0.001) return null;
+            // Near-parallel camera rays intersect an edit plane arbitrarily far
+            // away. Reject them instead of letting a one-pixel drag launch a
+            // spline point thousands of world units into the distance.
+            if (Math.abs(denom) < 0.02) return null;
             const t = dot({
                 x: planeOrigin.x - basis.cameraPos.x,
                 y: planeOrigin.y - basis.cameraPos.y,

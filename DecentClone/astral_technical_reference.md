@@ -239,7 +239,12 @@ and corners choose diagonal views while preserving the current plane. Separate
 `XY`, `YZ`, and `XZ` buttons beneath the cube change only the locked work plane
 and preserve the camera orientation. On the XYZ
 gizmo, axes in the current plane are solid; the perpendicular world axis is
-dashed and labeled with `⟂`.
+dashed and labeled with `⟂`. A world axis aimed nearly into the camera uses a
+bounded vertical-mouse depth fallback instead of dividing by its tiny projected
+screen length; this prevents accidental multi-thousand-unit point jumps. Direct
+route/midpoint/range C dragging freezes its plane origin for the duration of the
+drag, rejects near-parallel ray intersections, and bounds movement around that
+starting C position.
 
 The route system uses:
 

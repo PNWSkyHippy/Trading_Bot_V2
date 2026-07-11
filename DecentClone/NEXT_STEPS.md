@@ -84,6 +84,7 @@ Esc cancels portal mode before linking. **Del** removes a selected portal.
 - `Z/X` or mouse wheel: zoom.
 - Orientation cube: the cube rotates with the map camera. Click a face for front/back/left/right/top/bottom orthographic views; click a beveled edge or corner for a 45-degree diagonal view. Face clicks select and lock the corresponding XY/YZ/XZ plane; diagonal clicks preserve the current edit plane. The separate `XY`, `YZ`, and `XZ` buttons beneath the cube change/lock only the work plane without moving the camera.
 - XYZ gizmo: solid labeled axes lie in the selected edit plane. The dashed axis labeled `⟂` is perpendicular to that plane; all axes remain true world X/Y/Z directions as the camera rotates.
+- When an axis points nearly into the camera, its screen projection is too short for stable along-line dragging. The gizmo automatically switches that axis to controlled vertical-mouse depth movement and limits accidental extreme jumps; the HUD reports `depth drag: vertical mouse`. Direct dragging of spline C handles also rejects near-parallel camera/plane intersections and stays bounded around the C point's position at drag start.
 - Map camera: arrows orbit; `W/S`, `A/D`, `P` or `R`/`F` pan; `Alt+drag` or middle-drag orbits around the current pivot.
 - Selection: `LMB` sets A; `Ctrl+LMB` sets B; `Ctrl+Shift+LMB` sets C; `Alt+Shift+LMB` selects a tunnel range or sets a free orbit anchor on empty space.
 - `Shift+LMB` multi-selects targets/tunnel pieces. `V` edits selected tunnel style or selected target batch.
