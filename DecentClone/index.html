@@ -1032,6 +1032,7 @@
         const ANDROID_PULSE_KEYUP_MS = 250;
         const mouseInput = { yaw: 0, pitch: 0, fire: false, steer: false };
         let physicalShiftHeld = false;
+        const physicalKeysHeld = new Set();
         const latchedMove = { forward: 0, strafe: 0, lift: 0 };
         const latchedMoveUntil = { forward: 0, strafe: 0, lift: 0 };
         const mapCamera = {
@@ -4619,16 +4620,28 @@
             autoBoostTurbo = false;
         }
 
-        function restorePhysicalShiftState() {
-            if (!physicalShiftHeld) return;
-            keys.shift = true;
-            lastKeyDown.shift = performance.now();
+        function restorePhysicalControlState() {
+            const restorable = [
+                'w', 'a', 's', 'd', 'r', 'f', 'q', 'e', 'v', 'c', 'shift', ' ',
+                'arrowup', 'arrowdown', 'arrowleft', 'arrowright'
+            ];
+            const now = performance.now();
+            for (const key of restorable) {
+                if (!physicalKeysHeld.has(key)) continue;
+                keys[key] = true;
+                lastKeyDown[key] = now;
+            }
         }
 
         function syncShiftFromPointerEvent(event) {
             physicalShiftHeld = !!event?.shiftKey;
             keys.shift = physicalShiftHeld;
-            if (physicalShiftHeld) lastKeyDown.shift = performance.now();
+            if (physicalShiftHeld) {
+                physicalKeysHeld.add('shift');
+                lastKeyDown.shift = performance.now();
+            } else {
+                physicalKeysHeld.delete('shift');
+            }
         }
 
         function autoBoostLabel() {
@@ -4722,7 +4735,12 @@
         function handleKeyDown(e) {
             if (e.astralDriftHandled) return;
             e.astralDriftHandled = true;
-            if (e.key === 'Shift' || e.shiftKey) physicalShiftHeld = true;
+            const physicalKey = normalizeKey(e);
+            physicalKeysHeld.add(physicalKey);
+            if (e.key === 'Shift' || e.shiftKey) {
+                physicalShiftHeld = true;
+                physicalKeysHeld.add('shift');
+            }
             if (isDialogInputTarget(e.target)) {
                 const dialogKey = normalizeKey(e);
                 if (dialogKey === 'escape' && isJoinEditDialogOpen()) {
@@ -4893,7 +4911,9 @@
         function handleKeyUp(e) {
             if (e.astralDriftHandledUp) return;
             e.astralDriftHandledUp = true;
+            physicalKeysHeld.delete(normalizeKey(e));
             physicalShiftHeld = e.key === 'Shift' ? false : !!e.shiftKey;
+            if (!physicalShiftHeld) physicalKeysHeld.delete('shift');
             // Suppress the browser's Alt behavior: in Chrome, RELEASING Alt moves focus
             // to the browser menu button — after an Alt+M the game stopped receiving ANY
             // key events (boost, Ctrl+H, Alt+M all "dead") until the canvas was clicked.
@@ -4949,10 +4969,15 @@
         document.addEventListener('keyup', handleKeyUp, { capture: true });
         window.addEventListener('blur', () => {
             physicalShiftHeld = false;
+            physicalKeysHeld.clear();
             clearKeyboardState();
         });
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState !== 'visible') clearKeyboardState();
+            if (document.visibilityState !== 'visible') {
+                physicalShiftHeld = false;
+                physicalKeysHeld.clear();
+                clearKeyboardState();
+            }
         });
         function pointInMiniMapHud(x, y) {
             const b = miniMapHud.bounds;
@@ -10133,7 +10158,7 @@
             if (key === 'm') {
                 mapView = !mapView;
                 clearKeyboardState();
-                restorePhysicalShiftState();
+                restorePhysicalControlState();
                 if (mapView) {
                     snapMapCameraToPoint({ x: posX, y: posY, z: posZ }, builder.radius, 'ship');
                 } else {
@@ -11709,7 +11734,7 @@
             joinEditDialog.innerHTML = '';
             joinEditDialog.dataset.mode = '';
             clearKeyboardState(true);
-            restorePhysicalShiftState();
+            restorePhysicalControlState();
             focusGameSurface();
         }
 
