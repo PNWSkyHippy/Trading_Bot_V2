@@ -325,6 +325,9 @@
             z-index: 2;
             background: rgba(0, 0, 20, 0.96);
             padding-bottom: 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         #portal-quickref {
             color: #d7a8ff;
@@ -685,10 +688,15 @@
         const pilotStartBtn = document.getElementById('pilot-start-btn');
         const changePilotBtn = document.getElementById('change-pilot-btn');
         const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1';
+        const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
-        buildStamp.textContent =
-            `BUILD: ${BUILD_ID} | ${RUNNING_FROM_FILE ? 'file:// (use start_astral.bat for HD textures)' : 'local server'}`;
+        function updateBuildStamp(status) {
+            const shortStatus = status || (RUNNING_FROM_FILE ? 'file mode' : 'local server');
+            buildStamp.textContent = `BUILD: ${BUILD_LABEL} | ${shortStatus}`;
+            buildStamp.title = `Full diagnostic build:\n${BUILD_ID}\n\nStatus: ${shortStatus}`;
+        }
+        updateBuildStamp(RUNNING_FROM_FILE ? 'file mode · use start_astral.bat for HD textures' : 'local server');
         console.info(`Astral Drift ${BUILD_ID} loaded from`, window.location.href);
         canvas.tabIndex = 0;
         canvas.setAttribute('aria-label', 'Astral Drift flight canvas');
@@ -1514,7 +1522,7 @@
                             ? `rock walls: procedural (use start_astral.bat → ${ASTRAL_LOCAL_URL})`
                             : 'rock walls: procedural (JPG load failed — check Textures/Rock1-060/*.jpg)')
                         : 'rock walls: loading…';
-            buildStamp.textContent = `BUILD: ${BUILD_ID} | ${label}`;
+            updateBuildStamp(label);
         }
 
         function activateProceduralTunnelWallTextures() {
@@ -18323,7 +18331,7 @@
                 ctx.fillText(`Engine error: ${err.message}`, 20, 42);
                 ctx.fillStyle = '#8ca3a0';
                 ctx.font = '13px monospace';
-                ctx.fillText('Hard refresh after updating index.html. Ctrl+Shiftt+K = new map, Ctrl+Shift+L = load library.', 20, 72);
+                ctx.fillText('Hard refresh after updating index.html. Ctrl+Shift+S = save map, Ctrl+Shift+L = load library.', 20, 72);
                 keyboardStatus.innerText = `engine error: ${err.message}`;
             }
 
@@ -18333,8 +18341,7 @@
         async function initGame() {
             const bootstrap = await bootstrapMapStorageFromDataFolder();
             if (bootstrap.loaded) {
-                buildStamp.textContent =
-                    `BUILD: ${BUILD_ID} | loaded maps from ${bootstrap.path || 'data/'}`;
+                updateBuildStamp(`maps: ${bootstrap.path || 'data/'}`);
             }
             if (!loadTunnelMap()) {
                 createDefaultTunnelMap();
