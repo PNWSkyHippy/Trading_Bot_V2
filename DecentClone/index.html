@@ -1031,6 +1031,7 @@
         const MOBILE_THRUST_LATCH_MS = 12000;
         const ANDROID_PULSE_KEYUP_MS = 250;
         const mouseInput = { yaw: 0, pitch: 0, fire: false, steer: false };
+        let physicalShiftHeld = false;
         const latchedMove = { forward: 0, strafe: 0, lift: 0 };
         const latchedMoveUntil = { forward: 0, strafe: 0, lift: 0 };
         const mapCamera = {
@@ -4618,6 +4619,18 @@
             autoBoostTurbo = false;
         }
 
+        function restorePhysicalShiftState() {
+            if (!physicalShiftHeld) return;
+            keys.shift = true;
+            lastKeyDown.shift = performance.now();
+        }
+
+        function syncShiftFromPointerEvent(event) {
+            physicalShiftHeld = !!event?.shiftKey;
+            keys.shift = physicalShiftHeld;
+            if (physicalShiftHeld) lastKeyDown.shift = performance.now();
+        }
+
         function autoBoostLabel() {
             return autoBoostTurbo ? 'AutoBoost turbo' : 'AutoCruise';
         }
@@ -4709,6 +4722,7 @@
         function handleKeyDown(e) {
             if (e.astralDriftHandled) return;
             e.astralDriftHandled = true;
+            if (e.key === 'Shift' || e.shiftKey) physicalShiftHeld = true;
             if (isDialogInputTarget(e.target)) {
                 const dialogKey = normalizeKey(e);
                 if (dialogKey === 'escape' && isJoinEditDialogOpen()) {
@@ -4879,6 +4893,7 @@
         function handleKeyUp(e) {
             if (e.astralDriftHandledUp) return;
             e.astralDriftHandledUp = true;
+            physicalShiftHeld = e.key === 'Shift' ? false : !!e.shiftKey;
             // Suppress the browser's Alt behavior: in Chrome, RELEASING Alt moves focus
             // to the browser menu button — after an Alt+M the game stopped receiving ANY
             // key events (boost, Ctrl+H, Alt+M all "dead") until the canvas was clicked.
@@ -4932,7 +4947,10 @@
         window.addEventListener('keyup', handleKeyUp, { capture: true });
         document.addEventListener('keydown', handleKeyDown, { capture: true });
         document.addEventListener('keyup', handleKeyUp, { capture: true });
-        window.addEventListener('blur', clearKeyboardState);
+        window.addEventListener('blur', () => {
+            physicalShiftHeld = false;
+            clearKeyboardState();
+        });
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState !== 'visible') clearKeyboardState();
         });
@@ -4994,6 +5012,7 @@
             return true;
         }
         canvas.addEventListener('pointerdown', (e) => {
+            syncShiftFromPointerEvent(e);
             if (e.pointerType === 'touch') mobileInputMode = true;
             if (!isJoinEditDialogOpen() && !isMapLibraryDialogOpen() && !isPilotStartDialogOpen()) focusGameSurface();
         });
@@ -5003,6 +5022,7 @@
         }, { passive: true });
         canvas.addEventListener('contextmenu', (e) => e.preventDefault());
         canvas.addEventListener('mousedown', (e) => {
+            syncShiftFromPointerEvent(e);
             if (!isJoinEditDialogOpen() && !isMapLibraryDialogOpen() && !isPilotStartDialogOpen()) {
                 focusGameSurface();
             }
@@ -5358,6 +5378,7 @@
             if (e.button === 2) mouseInput.fire = false;
         });
         canvas.addEventListener('mousemove', (e) => {
+            syncShiftFromPointerEvent(e);
             if (miniMapHud.dragging && !mapView) {
                 const dx = e.clientX - miniMapHud.lastX;
                 const dy = e.clientY - miniMapHud.lastY;
@@ -10112,6 +10133,7 @@
             if (key === 'm') {
                 mapView = !mapView;
                 clearKeyboardState();
+                restorePhysicalShiftState();
                 if (mapView) {
                     snapMapCameraToPoint({ x: posX, y: posY, z: posZ }, builder.radius, 'ship');
                 } else {
@@ -11687,6 +11709,7 @@
             joinEditDialog.innerHTML = '';
             joinEditDialog.dataset.mode = '';
             clearKeyboardState(true);
+            restorePhysicalShiftState();
             focusGameSurface();
         }
 
