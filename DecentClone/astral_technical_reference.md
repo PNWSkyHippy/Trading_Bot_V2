@@ -137,6 +137,11 @@ older maps are treated as `true`, so old maps load as dense opaque tunnels. To
 make a special see-through section, select one or more tunnel sections in the 3D
 map, press `V`, and uncheck `Opaque tunnel walls`.
 
+Builder-selected segments can also be converted with **Make Chamber**. Chambers
+render as fully textured 360-degree spherical rooms and use chamber-aware
+containment for free flight in every direction. Door-marked portals connect
+these rooms to the tunnel network for quest rooms, loot, traps, or guarded areas.
+
 ## Flight Flow
 
 The main flight function is `updateFlightPhysics()`.
@@ -202,6 +207,8 @@ Builder mode and map mode are different:
 
 - `B`: builder cursor mode.
 - `M`: full 3D map editor.
+- `Ctrl+H`: toggle full help versus the compact vitals HUD.
+- `Alt+M`: hide or restore the full HUD panel so it does not intercept mouse steering.
 
 The full map editor is where most CAD-style tools live.
 
@@ -219,6 +226,18 @@ Multi-route edit:
 3. Drag route handles if needed.
 4. Click a route line to edit its C-handle angle.
 5. Press `Y` to generate the whole route.
+
+Map persistence uses `Ctrl+Shift+S` to save a named map and `Ctrl+Shift+L` to
+open the map library. `Esc` cancels the active portal/sentry mode or clears
+current selections and route/orbit drafts. The authoritative complete control
+list is kept in the in-game mode cheat sheet and `NEXT_STEPS.md`.
+
+The lower-right orientation cube is camera-relative and uses the same map-camera
+basis as the grid and XYZ gizmo. Face clicks choose front/back/left/right/top/
+bottom orthographic views and lock the corresponding edit plane. Beveled edges
+and corners choose diagonal views while preserving the current plane. On the XYZ
+gizmo, axes in the current plane are solid; the perpendicular world axis is
+dashed and labeled with `⟂`.
 
 The route system uses:
 
@@ -330,10 +349,3 @@ Spy-vs-Spy gadgets:
 - Add deploy key handling near combat input.
 - Add effects to the simulation loop.
 - Add visible particles in render/update particle helpers.
-
-XYZ gizmo:
-
-- Reuse `mapMouse.dragTarget` and `mapMouse.routeDragIndex` where possible.
-- Add hit-testing near map picking helpers.
-- Draw arms inside `renderMapOverlay()`.
-- For existing tunnel endpoints, finish by calling `applyMapGeometryChange()`.

@@ -3,29 +3,9 @@
 Use `DecentClone/index.html` as the source of truth. Preserve the existing
 flight/render path and keep map saves backward-compatible.
 
-## Highest Priority Bugs
+## Remaining Priority Bugs
 
-### 1. Multi-Outlet Junction Entrances
-
-Auto-connect now creates a good branch from an existing tunnel to a new tunnel,
-but a larger intersection still appears to expose only one usable entrance
-direction instead of all valid outlets.
-
-- Test case: build a 6-way intersection with forward/back/left/right/up/down
-  outlets, then add another branch into the same junction.
-- Current risk: the new branch is enterable from the direction it was created
-  from, but not necessarily from every other outlet at that junction.
-- Goal: junction generation should create all appropriate branch openings and
-  collision/entry links for every connected outlet.
-- Alternate acceptable fix: loosen side-passage entry rules so the player does
-  not have to steer exactly through a narrow orange directional portal to enter
-  a valid connected passage.
-
-### 2. Straight Up / Straight Down Tunnel Flight Control Polish
-
-Claude fixed the major 6DOF reversal problem. The ship no longer reverses
-controls when nosing over 180 degrees, barrel rolling, vertical climbing, or
-cresting 360-degree loops.
+### 1. General Flight-Control Jitter Polish
 
 - Remaining issue: motion/control can feel a little jittery, likely from guard
   checks added to prevent orientation flips.
@@ -33,11 +13,14 @@ cresting 360-degree loops.
   attitude flips.
 - Keep this as polish unless flight becomes unstable again.
 
-### 3. ABC Existing-Tunnel Move Tool Stability
+### 2. ABC Existing-Tunnel Move Tool Stability
 
-ABC move mode mostly works now and the old leftover-artifact trail was improved,
-but it still needs hardening:
+ABC move mode mostly works, but modifying/refitting a selected tunnel section
+still leaves artifact tunnel pieces behind. This remains an active verified bug:
 
+- Remove every obsolete segment created by the pre-move tunnel path after a refit.
+- Rebuild the affected connected range without leaving duplicate, disconnected,
+  or partially overlapping tunnel geometry.
 - After using the 3D tool a few times, the gizmo can become inactive and stop
   moving the selected item.
 - It has previously relinked a tunnel run to a far-off tunnel unexpectedly.
@@ -52,7 +35,7 @@ Preferred edit model:
 - Refit the selected run smoothly between start/end instead of making jagged
   per-segment kinks.
 
-### 4. 3D Gizmo Axis Consistency
+### 3. 3D Gizmo Axis Consistency
 
 The 3D move tool axis labels/directions do not always match the X/Y/Z grid panel
 that appears when clicking tunnel pieces.
@@ -67,6 +50,10 @@ that appears when clicking tunnel pieces.
   nose-over past 180 degrees, and 360-degree loop peaks.
 - Auto-connect from an existing tunnel to a new branch now creates a proper
   branch in the tested simple case.
+- Multi-outlet junction traversal is fixed: an eight-way intersection can be entered through any connected outlet at full speed without collision or routing errors.
+- Vertical 90-degree climbs/descents and orientation transitions are fixed; controls no longer reverse or trap the ship in an orientation loop.
+- Builder-created spherical chambers are fully flyable in 360 degrees, including vertical `R/F` movement, with textures correctly covering walls, floor, and ceiling.
+- Portals can be marked as doorways into chambers for loot, quest items, traps, and guarded rooms.
 - Enemy ship sprite loading and scaling is working.
 - Enemy AI chase/targetability is working well enough for now.
 - Tunnel opacity/neighbor visibility is much improved and acceptable for now.
@@ -80,6 +67,11 @@ that appears when clicking tunnel pieces.
   - `Y` renders routes, including free-floating routes.
 - Plane-locked creation is working well.
 - XYZ gizmo works well on draft segment nodes/handles.
+- Selected A-to-B tunnel ranges can be deleted with `Del`; middle-C reshaping/refitting exists but still leaves artifact tunnel pieces and is not complete.
+- Route C handles support numeric out-of-plane angles.
+- Wall, enemy-ship, and weapon-effect texture libraries are loaded from the texture manifest and selectable in builder dialogs.
+- Target-box multi-select and batch editing are working.
+- Free orbit anchors are working.
 - HUD map no longer shows all sentries/enemies by default.
 
 ## Medium Priority Builder Improvements
@@ -96,8 +88,6 @@ Add an optional way to click/drag the yellow build handle freely in 3D:
 
 Existing range selection should grow into safer CAD-style operations:
 
-- Delete selected A-to-B connected tunnel range.
-- Move/refit selected connected run.
 - Later: copy/cut/resize selected connected run.
 
 Texture/rib-color range apply through `V` already works; keep it.
@@ -106,7 +96,7 @@ Texture/rib-color range apply through `V` already works; keep it.
 
 ### Cache Rooms, Hidden Doors, And Quest Rooms
 
-Add side rooms/caves that can be connected by visible or hidden doors:
+Doorway portals and fully flyable spherical chambers now provide the room foundation. Expand their gameplay content:
 
 - Some doors clearly marked.
 - Some doors found by scanner while stopped/not moving.
@@ -123,15 +113,6 @@ Player gadgets are still back-burner:
 - Nanobot slick.
 - EMT/EMP bomb.
 - Developer god mode with unlimited gadget use for testing.
-
-## Documentation Backlog
-
-Write `astral_technical_reference.md` later:
-
-- Explain architecture for a new programmer.
-- Flow-chart game loop, builder mode, map geometry, rendering, controls, and
-  save/load path.
-- Comment complex code, but do not bury simple code in noisy comments.
 
 ## Required Safety Rules For Code Edits
 

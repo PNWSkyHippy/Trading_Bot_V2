@@ -720,6 +720,8 @@
         resizeCanvas();
 
         const flightCheats = [
+            ['Ctrl+H', 'toggle help vs compact vitals HUD'],
+            ['Alt+M', 'hide / restore the entire HUD panel'],
             ['W / S', 'fly forward / backward'],
             ['A / D', 'strafe left / right'],
             ['R / F', 'strafe up / down'],
@@ -733,6 +735,9 @@
             ['Hold C', 'free-look turret'],
             ['1-6', 'snap view'],
             ['H', 'cycle HUD map plane'],
+            ['K', 'reset cockpit controls/orientation'],
+            ['0', 'recover ship to nearest tunnel'],
+            ['R after death', 'continue with a life / restart game'],
             ['B / M', 'builder cursor / 3D map (M for portals)'],
         ];
         const portalCheats = [
@@ -753,6 +758,7 @@
             ['Esc', 'cancel sentry / patrol draft'],
         ];
         const builderCheats = [
+            ['Ctrl+H / Alt+M', 'toggle help / hide entire HUD'],
             ['T', 'add straight tunnel'],
             ['Q / E', 'rotate bend/branch plane'],
             ['I / K', 'bend with / against spoke'],
@@ -769,15 +775,18 @@
             ['G', 'prune disconnected strays'],
             ['Y', 'join tunnel A→B (optional bend C)'],
             ['Shift+Y', 'link portal A→B (no tube)'],
+            ['N / Shift+N', 'route mode / pause route drawing'],
             ['8', 'toggle portal vs tunnel mode'],
+            ['7', 'toggle AI sentry placement mode'],
+            ['Esc', 'cancel mode or clear selections/draft'],
             ['Ctrl+Shift+S', 'save named map'],
             ['Ctrl+Shift+L', 'load saved map'],
-            ['Ctrl+Shift+K', 'new clean map'],
             ['M', 'open 3D map']
         ];
         const combatCheats = [
             ['V / RMB', 'fire at sentries (10% per hit, 10 hits = kill)'],
             ['Ctrl+Shift+R', 'developer repair hull/shields'],
+            ['Ctrl+Shift+G', 'developer toggle Galaga stage'],
             ['Sentries', 'guard spot or patrol; dead = 5 min respawn'],
             ['Orange bolts', 'sentry fire drains shields — shoot first'],
         ];
@@ -803,10 +812,12 @@
             'Clean mistakes: Del deletes selected segment/range, U undoes the last placed segment, G prunes disconnected strays.',
         ];
         const mapCheats = [
+            ['Ctrl+H / Alt+M', 'toggle help / hide entire HUD'],
             ['LMB point', 'select A (no camera jump)'],
             ['Ctrl+LMB', 'set join target B on edit plane'],
             ['Shift+Ctrl+LMB', 'set optional bend point C'],
             ['Dbl-RMB / Alt+LMB', 'snap camera to tunnel'],
+            ['Ctrl+Alt+LMB object', 'set object as tethered orbit anchor'],
             ['LMB target box', 'edit target label / explosive'],
             ['Shift+LMB target', 'multi-select target boxes'],
             ['Alt+Shift target', 'select target range if no tunnel hit'],
@@ -837,11 +848,16 @@
             ['F', 'pan down'],
             ['Z / X', 'zoom in / out'],
             ['0', 'frame whole tunnel'],
-            ['Cube XY/YZ/ZX', 'snap view + lock edit plane'],
-            ['\\', 'toggle edit-plane lock'],
-            [', / .', 'toggle grid overlay / snap'],
-            ['Shift+drag', 'snap B/C to 50u grid'],
+            ['Cube face', 'front/back/left/right/top/bottom view + plane lock'],
+            ['Cube edge/corner', '45° diagonal view; preserve edit plane'],
+            [', (comma)', 'show / hide active-plane grid'],
+            ['. (period)', 'toggle 50u grid snapping'],
+            ['\\ (backslash)', 'lock / unlock active XY/YZ/ZX plane'],
+            ['Shift+drag', 'temporarily snap B/C to 50u grid'],
+            ['Gizmo solid X/Y/Z', 'axes lying in selected edit plane'],
+            ['Gizmo dashed axis ⟂', 'world axis normal to selected plane'],
             ['Alt+drag / MMB', 'orbit camera around A/B/C'],
+            ['Mouse wheel', 'zoom map camera'],
             ['Space', 'free orbit after snap'],
             ['Del', 'delete anchored segment'],
             ['C', 'cycle selected pipe kind'],
@@ -853,11 +869,12 @@
             ['7', 'toggle AI SENTRY mode'],
             ['Ctrl+LMB (sentry)', 'place sentry spawn'],
             ['Click sentry', 'edit guard/patrol / linger times'],
+            ['Shift+drag sentry', 'move sentry spawn along tunnel'],
+            ['Esc', 'cancel mode or clear selections/draft/orbit anchor'],
             ['Note', 'point B = Ctrl+LMB, not B key'],
             ['Coords', 'HUD XYZ in 1 decimal; grid snap = integers @ 50u'],
             ['Ctrl+Shift+S', 'save named map'],
             ['Ctrl+Shift+L', 'load saved map'],
-            ['Ctrl+Shift+K', "new defeault map"], 
             ['B', 'toggle builder cursor'],
             ['M', 'return to cockpit']
         ];
@@ -1014,6 +1031,14 @@
             bounds: null,
             buttons: []
         };
+        const ORIENTATION_CUBE_FACES = [
+            { name: 'FRONT', plane: 'xy', normal: { x: 0, y: 0, z: -1 }, corners: [[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1]] },
+            { name: 'BACK', plane: 'xy', normal: { x: 0, y: 0, z: 1 }, corners: [[1,-1,1],[-1,-1,1],[-1,1,1],[1,1,1]] },
+            { name: 'RIGHT', plane: 'yz', normal: { x: 1, y: 0, z: 0 }, corners: [[1,-1,-1],[1,-1,1],[1,1,1],[1,1,-1]] },
+            { name: 'LEFT', plane: 'yz', normal: { x: -1, y: 0, z: 0 }, corners: [[-1,-1,1],[-1,-1,-1],[-1,1,-1],[-1,1,1]] },
+            { name: 'TOP', plane: 'zx', normal: { x: 0, y: -1, z: 0 }, corners: [[-1,-1,1],[1,-1,1],[1,-1,-1],[-1,-1,-1]] },
+            { name: 'BOTTOM', plane: 'zx', normal: { x: 0, y: 1, z: 0 }, corners: [[-1,1,-1],[1,1,-1],[1,1,1],[-1,1,1]] }
+        ];
         const miniMapHud = {
             visible: true,
             plane: 'xz',
@@ -4896,26 +4921,44 @@
         }
         function orientationCubeHit(x, y) {
             if (!mapView || !orientationCube.buttons.length) return null;
-            return orientationCube.buttons.find(btn => (
-                x >= btn.x && x <= btn.x + btn.w &&
-                y >= btn.y && y <= btn.y + btn.h
-            )) || null;
+            const pointInPolygon = (points) => {
+                let inside = false;
+                for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+                    const a = points[i];
+                    const b = points[j];
+                    if (((a.y > y) !== (b.y > y)) &&
+                        (x < (b.x - a.x) * (y - a.y) / ((b.y - a.y) || 1e-9) + a.x)) inside = !inside;
+                }
+                return inside;
+            };
+            return orientationCube.buttons.find(btn => {
+                if (btn.points) return pointInPolygon(btn.points);
+                return Math.hypot(x - btn.x, y - btn.y) <= btn.radius;
+            }) || null;
+        }
+        function snapMapCameraToDirection(backDirection, label, plane = null) {
+            const back = normalize(backDirection);
+            mapCamera.yaw = Math.atan2(back.x, back.z);
+            mapCamera.pitch = Math.asin(Math.max(-1, Math.min(1, back.y)));
+            mapCamera.snappedPlane = plane;
+            if (plane) {
+                mapMouse.editPlane = plane;
+                mapMouse.planeLocked = true;
+            }
+            keyboardStatus.innerText = plane
+                ? `${label} VIEW | PLANE: ${plane.toUpperCase()} (locked)`
+                : `${label} DIAGONAL VIEW | PLANE: ${mapMouse.editPlane.toUpperCase()} preserved`;
+            return true;
         }
         function snapMapCameraToPlane(plane) {
             const views = {
-                xy: { yaw: Math.PI, pitch: 0 },
-                yz: { yaw: Math.PI / 2, pitch: 0 },
-                zx: { yaw: Math.PI, pitch: -Math.PI / 2 + 0.001 }
+                xy: { back: { x: 0, y: 0, z: -1 }, label: 'FRONT' },
+                yz: { back: { x: 1, y: 0, z: 0 }, label: 'RIGHT' },
+                zx: { back: { x: 0, y: -1, z: 0 }, label: 'TOP' }
             };
             const view = views[plane];
             if (!view) return false;
-            mapCamera.yaw = view.yaw;
-            mapCamera.pitch = view.pitch;
-            mapCamera.snappedPlane = plane;
-            mapMouse.editPlane = plane;
-            mapMouse.planeLocked = true;
-            keyboardStatus.innerText = `PLANE: ${plane.toUpperCase()} (locked)`;
-            return true;
+            return snapMapCameraToDirection(view.back, view.label, plane);
         }
         function releaseMapPlaneSnap() {
             if (!mapCamera.snappedPlane) return false;
@@ -4977,7 +5020,7 @@
             if (mapView && e.button === 0) {
                 const cubeHit = orientationCubeHit(canvasX, canvasY);
                 if (cubeHit) {
-                    snapMapCameraToPlane(cubeHit.plane);
+                    snapMapCameraToDirection(cubeHit.back, cubeHit.label, cubeHit.plane || null);
                     e.preventDefault();
                     return;
                 }
@@ -16797,15 +16840,11 @@
                 orientationCube.buttons = [];
                 return;
             }
-            const size = 132;
+            const size = 174;
             const x0 = canvas.width - size - 18;
             const y0 = canvas.height - size - 18;
             orientationCube.bounds = { x: x0, y: y0, w: size, h: size };
-            orientationCube.buttons = [
-                { plane: 'xy', label: 'XY', x: x0 + 12, y: y0 + 92, w: 32, h: 24 },
-                { plane: 'yz', label: 'YZ', x: x0 + 50, y: y0 + 92, w: 32, h: 24 },
-                { plane: 'zx', label: 'ZX', x: x0 + 88, y: y0 + 92, w: 32, h: 24 }
-            ];
+            orientationCube.buttons = [];
 
             ctx.save();
             ctx.fillStyle = 'rgba(0, 8, 18, 0.82)';
@@ -16814,55 +16853,125 @@
             ctx.fillRect(x0, y0, size, size);
             ctx.strokeRect(x0 + 0.5, y0 + 0.5, size - 1, size - 1);
 
-            const cx = x0 + 64;
-            const cy = y0 + 56;
-            const axis = [
-                { label: 'X', color: '#ff5c74', end: { x: cx + 42, y: cy + 8 } },
-                { label: 'Y', color: '#44ff88', end: { x: cx - 10, y: cy - 42 } },
-                { label: 'Z', color: '#66d9ff', end: { x: cx - 34, y: cy + 30 } }
-            ];
-            for (const a of axis) {
-                ctx.strokeStyle = a.color;
-                ctx.fillStyle = a.color;
-                ctx.lineWidth = 3;
+            const cx = x0 + size * 0.5;
+            const cy = y0 + 76;
+            const cubeScale = 34;
+            const basis = getMapCameraBasis();
+            const cameraBack = normalize(scaleVec(basis.forward, -1));
+            const projectCubePoint = (raw) => {
+                const v = { x: raw[0], y: raw[1], z: raw[2] };
+                return {
+                    x: cx + dot(v, basis.right) * cubeScale,
+                    y: cy + dot(v, basis.down) * cubeScale
+                };
+            };
+            const faceNormalForCoord = (axis, sign) => {
+                const n = { x: 0, y: 0, z: 0 };
+                n[axis] = sign;
+                return n;
+            };
+            const faceNameForNormal = (n) => ORIENTATION_CUBE_FACES.find(face =>
+                face.normal.x === n.x && face.normal.y === n.y && face.normal.z === n.z)?.name || '';
+
+            const visibleFaces = ORIENTATION_CUBE_FACES
+                .map(face => ({ ...face, facing: dot(face.normal, cameraBack) }))
+                .filter(face => face.facing > -0.001)
+                .sort((a, b) => a.facing - b.facing);
+            for (const face of visibleFaces) {
+                const points = face.corners.map(projectCubePoint);
+                const active = face.plane === mapMouse.editPlane;
+                ctx.fillStyle = active ? 'rgba(0,255,204,0.23)' : 'rgba(40,80,110,0.30)';
+                ctx.strokeStyle = active ? 'rgba(0,255,204,0.95)' : 'rgba(180,220,255,0.62)';
+                ctx.lineWidth = active ? 2 : 1;
                 ctx.beginPath();
-                ctx.moveTo(cx, cy);
-                ctx.lineTo(a.end.x, a.end.y);
+                ctx.moveTo(points[0].x, points[0].y);
+                for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+                ctx.closePath();
+                ctx.fill();
                 ctx.stroke();
-                ctx.font = 'bold 13px monospace';
-                ctx.fillText(a.label, a.end.x + 4, a.end.y + 4);
+                const center = points.reduce((sum, p) => ({ x: sum.x + p.x / 4, y: sum.y + p.y / 4 }), { x: 0, y: 0 });
+                ctx.fillStyle = active ? '#ffffff' : '#a9cddd';
+                ctx.font = 'bold 9px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(face.name, center.x, center.y + 3);
+                orientationCube.buttons.push({
+                    kind: 'face', points, back: face.normal, plane: face.plane, label: face.name
+                });
             }
 
-            ctx.strokeStyle = 'rgba(255,255,255,0.45)';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(cx - 22, cy - 22, 44, 44);
-            ctx.strokeRect(cx - 9, cy - 34, 44, 44);
-            ctx.beginPath();
-            ctx.moveTo(cx - 22, cy - 22);
-            ctx.lineTo(cx - 9, cy - 34);
-            ctx.moveTo(cx + 22, cy - 22);
-            ctx.lineTo(cx + 35, cy - 34);
-            ctx.moveTo(cx + 22, cy + 22);
-            ctx.lineTo(cx + 35, cy + 10);
-            ctx.moveTo(cx - 22, cy + 22);
-            ctx.lineTo(cx - 9, cy + 10);
-            ctx.stroke();
+            const vertices = [];
+            for (const x of [-1, 1]) for (const y of [-1, 1]) for (const z of [-1, 1]) vertices.push({ x, y, z });
+            const normalParts = (v) => [
+                faceNormalForCoord('x', v.x), faceNormalForCoord('y', v.y), faceNormalForCoord('z', v.z)
+            ];
+            for (let i = 0; i < vertices.length; i++) {
+                for (let j = i + 1; j < vertices.length; j++) {
+                    const a = vertices[i];
+                    const b = vertices[j];
+                    const changed = ['x', 'y', 'z'].filter(axis => a[axis] !== b[axis]);
+                    if (changed.length !== 1) continue;
+                    const fixedAxes = ['x', 'y', 'z'].filter(axis => axis !== changed[0]);
+                    const normals = fixedAxes.map(axis => faceNormalForCoord(axis, a[axis]));
+                    if (Math.max(...normals.map(n => dot(n, cameraBack))) < -0.02) continue;
+                    const pa = projectCubePoint([a.x, a.y, a.z]);
+                    const pb = projectCubePoint([b.x, b.y, b.z]);
+                    const mid = { x: (pa.x + pb.x) * 0.5, y: (pa.y + pb.y) * 0.5 };
+                    const back = normalize(addVec(normals[0], normals[1]));
+                    const label = `${faceNameForNormal(normals[0])}/${faceNameForNormal(normals[1])}`;
+                    ctx.strokeStyle = 'rgba(255,196,80,0.78)';
+                    ctx.lineWidth = 5;
+                    ctx.beginPath();
+                    ctx.moveTo(pa.x, pa.y);
+                    ctx.lineTo(pb.x, pb.y);
+                    ctx.stroke();
+                    orientationCube.buttons.unshift({ kind: 'edge', x: mid.x, y: mid.y, radius: 8, back, label });
+                }
+            }
+            for (const vertex of vertices) {
+                const normals = normalParts(vertex);
+                if (Math.max(...normals.map(n => dot(n, cameraBack))) < -0.02) continue;
+                const p = projectCubePoint([vertex.x, vertex.y, vertex.z]);
+                const back = normalize(addVec(addVec(normals[0], normals[1]), normals[2]));
+                const label = normals.map(faceNameForNormal).join('/');
+                ctx.fillStyle = 'rgba(255,220,100,0.95)';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 4.5, 0, Math.PI * 2);
+                ctx.fill();
+                orientationCube.buttons.unshift({ kind: 'corner', x: p.x, y: p.y, radius: 9, back, label });
+            }
 
-            for (const btn of orientationCube.buttons) {
-                const active = btn.plane === mapMouse.editPlane;
-                ctx.fillStyle = active ? 'rgba(0,255,204,0.28)' : 'rgba(0,255,204,0.10)';
-                ctx.strokeStyle = active ? 'rgba(0,255,204,0.95)' : 'rgba(0,255,204,0.65)';
-                ctx.lineWidth = active ? 2 : 1;
-                ctx.fillRect(btn.x, btn.y, btn.w, btn.h);
-                ctx.strokeRect(btn.x + 0.5, btn.y + 0.5, btn.w - 1, btn.h - 1);
-                ctx.fillStyle = active ? '#ffffff' : '#00ffcc';
-                ctx.font = 'bold 12px monospace';
-                ctx.fillText(btn.label, btn.x + 7, btn.y + 16);
+            const axisOrigin = { x: x0 + 28, y: y0 + 132 };
+            const axes = [
+                { key: 'x', label: 'X', color: '#ff5c74' },
+                { key: 'y', label: 'Y', color: '#44ff88' },
+                { key: 'z', label: 'Z', color: '#66d9ff' }
+            ];
+            for (const axis of axes) {
+                const v = axisVector(axis.key);
+                const end = {
+                    x: axisOrigin.x + dot(v, basis.right) * 22,
+                    y: axisOrigin.y + dot(v, basis.down) * 22
+                };
+                ctx.strokeStyle = axis.color;
+                ctx.fillStyle = axis.color;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(axisOrigin.x, axisOrigin.y);
+                ctx.lineTo(end.x, end.y);
+                ctx.stroke();
+                ctx.font = 'bold 11px monospace';
+                ctx.textAlign = 'left';
+                ctx.fillText(axis.label, end.x + 3, end.y + 3);
             }
 
             ctx.fillStyle = '#8ca3a0';
-            ctx.font = '10px monospace';
-            ctx.fillText(`PLANE: ${mapMouse.editPlane.toUpperCase()}${mapMouse.planeLocked ? ' lock' : ''}`, x0 + 22, y0 + 126);
+            ctx.font = '9px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillText('click face / edge / corner', cx, y0 + 151);
+            ctx.fillStyle = '#00ffcc';
+            ctx.font = 'bold 10px monospace';
+            ctx.fillText(`PLANE ${mapMouse.editPlane.toUpperCase()}${mapMouse.planeLocked ? ' LOCK' : ''}`, cx, y0 + 166);
+            ctx.textAlign = 'left';
             ctx.restore();
         }
 
@@ -16872,10 +16981,13 @@
             const origin = projectMapPoint(point, centerX, centerY, fov);
             if (!origin) return;
             const axes = [
-                { key: 'x', label: 'WX', color: '#ff5c74' },
-                { key: 'y', label: 'WY', color: '#44ff88' },
-                { key: 'z', label: 'WZ', color: '#66d9ff' }
+                { key: 'x', label: 'X', color: '#ff5c74' },
+                { key: 'y', label: 'Y', color: '#44ff88' },
+                { key: 'z', label: 'Z', color: '#66d9ff' }
             ];
+            const planeAxes = mapMouse.editPlane === 'xy' ? new Set(['x', 'y'])
+                : mapMouse.editPlane === 'yz' ? new Set(['y', 'z'])
+                : new Set(['z', 'x']);
             ctx.save();
             ctx.globalAlpha = 0.96;
             ctx.lineCap = 'round';
@@ -16889,16 +17001,27 @@
                 ctx.lineWidth = active ? 6 : 4;
                 ctx.shadowColor = axis.color;
                 ctx.shadowBlur = active ? 12 : 6;
+                const inPlane = planeAxes.has(axis.key);
+                ctx.setLineDash(inPlane ? [] : [7, 5]);
                 ctx.beginPath();
                 ctx.moveTo(origin.x, origin.y);
                 ctx.lineTo(end.x, end.y);
                 ctx.stroke();
+                ctx.setLineDash([]);
                 ctx.shadowBlur = 0;
                 ctx.beginPath();
                 ctx.arc(end.x, end.y, active ? 8 : 6, 0, Math.PI * 2);
                 ctx.fill();
-                ctx.font = 'bold 13px monospace';
-                ctx.fillText(axis.label, end.x + 7, end.y + 5);
+                const label = inPlane ? axis.label : `${axis.label} ⟂`;
+                ctx.font = 'bold 14px monospace';
+                const labelWidth = ctx.measureText(label).width;
+                ctx.fillStyle = 'rgba(0,8,18,0.88)';
+                ctx.fillRect(end.x + 5, end.y - 12, labelWidth + 8, 19);
+                ctx.strokeStyle = axis.color;
+                ctx.lineWidth = 1;
+                ctx.strokeRect(end.x + 5.5, end.y - 11.5, labelWidth + 7, 18);
+                ctx.fillStyle = axis.color;
+                ctx.fillText(label, end.x + 9, end.y + 3);
             }
             ctx.fillStyle = '#ffffff';
             ctx.shadowColor = '#ffffff';

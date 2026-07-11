@@ -10,10 +10,10 @@ They do not share maps automatically.
 ## Move maps to localhost (recommended)
 
 1. Open the game the way you originally saved (usually double-click `index.html`).
-2. Press **Shift+R** → **Export Library Backup**.
+2. Press **Ctrl+Shift+L** to open the map library, then choose **Export Library Backup**.
 3. Save the downloaded `astral-drift-maps-YYYY-MM-DD.json`.
 4. Either:
-   - **Import:** run `start_astral.bat`, press **Shift+R** → **Import Library Backup**, pick the JSON file, or
+   - **Import:** run `start_astral.bat`, press **Ctrl+Shift+L** → **Import Library Backup**, pick the JSON file, or
    - **Auto-load:** copy/rename that file to `data/map_library_bundle.json` in this folder, then restart via `start_astral.bat`.
 
 ## Optional bootstrap files

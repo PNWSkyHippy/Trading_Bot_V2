@@ -1,7 +1,23 @@
 # Phase Progression: Arcade Classics From The Inside
 
-**Vision (Ron, 2026-07-07, revised same day):** the game is a repeating LOOP
-of three phase types, each lap harder than the last. The arcade stages are
+## Implementation status (2026-07-11)
+
+- **GALAGA 1 of 10 is implemented and playable** inside `index.html`: restricted arcade movement, intro/play/results flow, three enemy waves, bees, butterflies, a boss, enemy fire, shared shield/hull damage, scoring, sprites, and boss special attacks.
+- **GALAGA levels 2–10 remain to be designed and implemented.** The existing first stage is the foundation for the nine additional Galaga stages.
+- **PAC-MAN levels 1–10 are not implemented.**
+- **DEFENDER levels 1–10 are not implemented.**
+- Challenge-wave behavior, the deep-space phase, station/repair missions, and the complete tunnels → arcade → deep-space progression loop remain future work.
+
+The complete campaign contains **90 levels** arranged as 30 three-level chapters:
+
+- 30 tunnel levels.
+- 30 rotating arcade levels: 10 Galaga, 10 Pac-Man, and 10 Defender.
+- 30 space-exploration levels with a station for repairs, buying items, and receiving quests.
+
+The first Galaga stage is the only completed arcade stage so far.
+
+**Vision (Ron, 2026-07-07, campaign sequence clarified 2026-07-11):** the game is a repeating LOOP
+of three level types, each chapter harder than the last. The arcade stages are
 not bonus rounds — they are **acts in the progression**, with shared lives
 and real stakes:
 
@@ -20,6 +36,33 @@ Arcade phases, rotating one per lap:
    hunted by four ghosts.
 3. **DEFENDER** — side-scroller seen from inside the cockpit, flying the
    scroll lane, rescuing pods.
+
+## Campaign sequence
+
+Each numbered chapter contains exactly three levels:
+
+1. A tunnel level.
+2. The next arcade level in the repeating Galaga → Pac-Man → Defender rotation.
+3. A space-exploration level with a station for repairs, item purchases, and quests.
+
+The opening sequence is:
+
+| Campaign level | Content |
+|---:|---|
+| 1 | Tunnel 1 |
+| 2 | Galaga 1 |
+| 3 | Space 1 |
+| 4 | Tunnel 2 |
+| 5 | Pac-Man 1 |
+| 6 | Space 2 |
+| 7 | Tunnel 3 |
+| 8 | Defender 1 |
+| 9 | Space 3 |
+| 10 | Tunnel 4 |
+| 11 | Galaga 2 |
+| 12 | Space 4 |
+
+That pattern continues through Tunnel 30, the tenth level of the appropriate arcade family, and Space 30. The final totals are 30 tunnel + 30 arcade + 30 space levels.
 
 The contrast is the point: the tunnels are full-freedom 6DOF; each arcade
 phase *removes* freedoms until it feels like the classic — then hands full
@@ -137,7 +180,7 @@ Side-scroller from inside the cockpit.
 
 ---
 
-## Phase 4 of the loop: DEEP SPACE (sketch — needs its own design pass)
+## Third level of every chapter: DEEP SPACE (sketch — needs its own design pass)
 
 The wide-open act between laps. Full 6DOF in open space.
 - **Space station**: dock to repair hull/shield (the loop's only repair
@@ -150,17 +193,14 @@ The wide-open act between laps. Full 6DOF in open space.
   geography. Chambers at planetary scale could serve as landing zones.
 - Completing the mission opens the next tunnel entrance — the loop closes.
 
-## Build plan
+## Remaining build plan
 
-- **P1**: framework (director, portal entry/exit, input gate, arena
-  spawn/teardown, phase HUD strip) + Galaga waves 1–2 with shooters.
-  Playable.
-- **P2**: bosses, challenge wave, scoring polish, results card.
-- **P3**: Pac-Man. **P4**: Defender.
-- **P5**: deep space phase — station, docking/repair, first mission type.
-- **P6**: the full loop: tunnels → arcade → space → repeat with tier
-  scaling; loop state machine owns which phase is live and what "done"
-  means for each.
+- **P1 — substantially complete in Galaga level 1**: arcade-mode state, input gate, restricted arena play, phase HUD, three waves with shooters, boss, scoring, and results flow. Portal-driven entry/exit and reusable cross-game director structure still need verification before calling the shared framework complete.
+- **P2**: Galaga levels 2–10, including challenge-wave progression and additional difficulty/content design.
+- **P3**: Pac-Man levels 1–10.
+- **P4**: Defender levels 1–10.
+- **P5**: 30 deep-space levels — station, docking/repair, item shop, quests, and escalating exploration missions.
+- **P6**: the full 90-level campaign: tunnel → rotating arcade → space, repeated for 30 chapters with difficulty scaling; the campaign state machine owns the current chapter, arcade-family level number, and completion state.
 
 Each phase ships behind its portal/gate — the current game is untouched
 until the loop logic is switched on.

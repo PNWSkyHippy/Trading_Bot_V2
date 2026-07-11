@@ -5,64 +5,25 @@ Use `index.html` as the current source of truth. Preserve the existing flight/re
 ## Already Done
 
 - Tunnel range selection exists: click segment A, `Alt+Shift+LMB` segment B, then `V` applies one texture/rib color to all selected tunnel segments.
+- Selected tunnel ranges can be deleted with `Del`.
+- Selected connected tunnel ranges can be reshaped/refit with a middle C bend and the XYZ gizmo, but obsolete artifact tunnel pieces are still left behind.
 - Target box multi-select exists: `Shift+LMB` target boxes, click one selected target to edit all, `Del` deletes selected target boxes.
 - Free orbit anchor exists: `Alt+Shift+LMB` empty space on the active plane sets a yellow ORBIT anchor, then `Alt+drag` or middle-drag can orbit around it.
+- Multi-segment draft route mode exists: `N` starts a route, each segment has a C handle, `U` undoes route steps, and `Y` generates the route in chunked tunnel segments.
+- Route points default to the active XY/YZ/ZX plane and can be pulled off-plane with the XYZ gizmo.
+- Route C handles have editable numeric angles.
+- The XYZ transform gizmo works on route nodes/handles, join points, portal endpoints, target boxes, sentries, and selected tunnel-range bends.
 
 ## Build Next
 
-### 1. Multi-Segment Draft Route
-
-Current builder only has A, B, and optional C midpoint for one join. Add a draft route mode:
-
-- A route is an ordered list of nodes.
-- Each segment is `node[i] -> node[i+1]`.
-- Each segment owns its own C handle:
-  - `handle.point`
-  - `handle.angleDeg`
-  - `handle.plane`
-- Draw all route segments live before generation.
-- `Y` should generate the whole route into tunnel segments in one operation.
-- Keep generated segments chunked near `mapAutogenTargetLength()`, not long stretched mega-segments.
-
-### 2. Plane-Locked Point Creation
-
-When adding a new route node:
-
-- Default to the current active plane (`mapMouse.editPlane`).
-- If the first point is `{x, y, z}`, the next point should keep the fixed axis from that plane until the user drags it off-plane with the XYZ tool.
-- Examples:
-  - XY plane keeps Z constant.
-  - YZ plane keeps X constant.
-  - ZX plane keeps Y constant.
-
-### 3. C Handle Angle
-
-For each C handle, add a numeric angle field:
-
-- Positive angle pushes the handle out of the active plane in one direction.
-- Negative angle pushes the handle the opposite way.
-- The generated route should arc through that adjusted handle.
-- Keep the handle draggable on the active plane plus editable numerically.
-
-### 4. XYZ Transform Gizmo
-
-Add a small CAD-style gizmo for selected route nodes, C handles, existing tunnel endpoints, portal discs, and target boxes:
-
-- X axis drag moves only X.
-- Y axis drag moves only Y.
-- Z axis drag moves only Z.
-- The gizmo should show red/green/blue or labeled X/Y/Z arms.
-- Dragging an existing tunnel endpoint should recompute adjacent segment basis/length and smooth neighbor continuity instead of creating a kink.
-
-### 5. Existing Tunnel Range Operations
+### 1. Existing Tunnel Range Operations
 
 Expand current range selection:
 
-- Delete selected A-to-B connected tunnel range.
-- Apply texture/rib color to range already works through `V`; keep that.
+- Fix ABC/middle-C range refitting so it removes the old path completely and leaves no duplicate, disconnected, or overlapping artifact tunnel pieces.
 - Later: copy/cut/move/resize selected connected run.
 
-### 6. Target Batch Operations
+### 2. Target Batch Operations
 
 Expand current target batch selection:
 
