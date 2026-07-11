@@ -50,6 +50,58 @@ To ensure immediate playability, the first prototype will be built as a lightwei
 *   Voidvector
 *   Dream Velocity
 
+## 8. Release Modes, Custom Maps, And Competitive Integrity
+
+Astral Drift should preserve the freedom of classic save-file editing and
+player-created levels without allowing modified JSON to impersonate an official
+competitive run. Encrypting browser map/save files is not sufficient because a
+client-side decryption key and the running JavaScript can always be inspected or
+modified.
+
+### Builder / Developer Edition
+
+Keep the full creative toolchain:
+
+* Map and builder modes.
+* JSON library import/export.
+* DXF conversion and custom-map loading.
+* Developer repair/testing shortcuts.
+* Editable saves and custom content.
+
+### Public Player Edition
+
+Official play should hide or disable builder tools, developer shortcuts, and raw
+map import from the normal player UI. Official maps should be distributed with a
+map ID, version, and digital signature created using a private signing key that
+is never shipped in the browser. The game contains only the public verification
+key.
+
+If an official map is edited, its signature no longer validates. The game should
+still allow it in custom mode, but visibly label the session:
+
+```text
+CUSTOM / MODIFIED MAP
+Official achievements and leaderboard submission disabled
+```
+
+### Leaderboards
+
+A signed map alone cannot make a browser run trustworthy because players can
+modify JavaScript or runtime state. Official leaderboard runs should also use a
+server-issued session token and server-side validation of map/build version,
+score constraints, completion time, and replay/event data. Impossible movement,
+damage, firing, item, currency, or scoring patterns should invalidate the run.
+
+Maintain separate categories:
+
+* **Official mode:** signed maps, achievements, and validated leaderboard.
+* **Custom mode:** imported/modified maps with a separate community leaderboard
+  or no competitive submission.
+* **Builder edition:** unrestricted creation, DXF workflow, testing, and modding.
+
+This is intentionally a trust boundary, not an attempt to prevent players from
+experimenting with their own offline maps and saves.
+
 ---
 
 ### 📝 Notes For Future Codex Reference

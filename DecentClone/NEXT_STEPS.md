@@ -165,6 +165,8 @@ Next gameplay work:
 - Enemy archetypes: sentry, patrol, swarm, sniper, hunter.
 - Physics biomes: gravity wells, fluid drag, rotating habitat sections.
 - WebXR / Three.js renderer layer (keep this canvas build as the feel lab).
+- Release/content trust boundary: builder edition remains fully editable; public official mode verifies digitally signed map ID/version packages and labels changed/imported content as `CUSTOM / MODIFIED`.
+- Competitive integrity: official leaderboard submissions require a server-issued run token plus server-side validation of build/map version, timing, score constraints, and replay/event data. Keep custom-map results separate.
 
 ---
 
