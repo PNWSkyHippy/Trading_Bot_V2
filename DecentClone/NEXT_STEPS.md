@@ -82,7 +82,7 @@ Esc cancels portal mode before linking. **Del** removes a selected portal.
 - `.` (period): toggle 50-unit grid snapping; holding `Shift` while dragging temporarily snaps to the grid.
 - `\\` (backslash): lock or unlock the active XY/YZ/ZX edit plane. Forward slash `/` has no current binding.
 - `Z/X` or mouse wheel: zoom.
-- Orientation cube: the cube rotates with the map camera. Click a face for front/back/left/right/top/bottom orthographic views; click a beveled edge or corner for a 45-degree diagonal view. Face clicks select and lock the corresponding XY/YZ/ZX plane; diagonal clicks preserve the current edit plane.
+- Orientation cube: the cube rotates with the map camera. Click a face for front/back/left/right/top/bottom orthographic views; click a beveled edge or corner for a 45-degree diagonal view. Face clicks select and lock the corresponding XY/YZ/XZ plane; diagonal clicks preserve the current edit plane. The separate `XY`, `YZ`, and `XZ` buttons beneath the cube change/lock only the work plane without moving the camera.
 - XYZ gizmo: solid labeled axes lie in the selected edit plane. The dashed axis labeled `⟂` is perpendicular to that plane; all axes remain true world X/Y/Z directions as the camera rotates.
 - Map camera: arrows orbit; `W/S`, `A/D`, `P` or `R`/`F` pan; `Alt+drag` or middle-drag orbits around the current pivot.
 - Selection: `LMB` sets A; `Ctrl+LMB` sets B; `Ctrl+Shift+LMB` sets C; `Alt+Shift+LMB` selects a tunnel range or sets a free orbit anchor on empty space.

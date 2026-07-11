@@ -235,7 +235,9 @@ list is kept in the in-game mode cheat sheet and `NEXT_STEPS.md`.
 The lower-right orientation cube is camera-relative and uses the same map-camera
 basis as the grid and XYZ gizmo. Face clicks choose front/back/left/right/top/
 bottom orthographic views and lock the corresponding edit plane. Beveled edges
-and corners choose diagonal views while preserving the current plane. On the XYZ
+and corners choose diagonal views while preserving the current plane. Separate
+`XY`, `YZ`, and `XZ` buttons beneath the cube change only the locked work plane
+and preserve the camera orientation. On the XYZ
 gizmo, axes in the current plane are solid; the perpendicular world axis is
 dashed and labeled with `⟂`.
 

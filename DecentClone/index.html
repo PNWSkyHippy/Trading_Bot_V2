@@ -850,6 +850,7 @@
             ['0', 'frame whole tunnel'],
             ['Cube face', 'front/back/left/right/top/bottom view + plane lock'],
             ['Cube edge/corner', '45° diagonal view; preserve edit plane'],
+            ['XY / YZ / XZ buttons', 'change work plane; preserve camera view'],
             [', (comma)', 'show / hide active-plane grid'],
             ['. (period)', 'toggle 50u grid snapping'],
             ['\\ (backslash)', 'lock / unlock active XY/YZ/ZX plane'],
@@ -5020,7 +5021,13 @@
             if (mapView && e.button === 0) {
                 const cubeHit = orientationCubeHit(canvasX, canvasY);
                 if (cubeHit) {
-                    snapMapCameraToDirection(cubeHit.back, cubeHit.label, cubeHit.plane || null);
+                    if (cubeHit.action === 'selectPlane') {
+                        mapMouse.editPlane = cubeHit.plane;
+                        mapMouse.planeLocked = true;
+                        keyboardStatus.innerText = `EDIT PLANE: ${cubeHit.plane.toUpperCase()} (camera preserved)`;
+                    } else {
+                        snapMapCameraToDirection(cubeHit.back, cubeHit.label, cubeHit.plane || null);
+                    }
                     e.preventDefault();
                     return;
                 }
@@ -16840,7 +16847,7 @@
                 orientationCube.buttons = [];
                 return;
             }
-            const size = 174;
+            const size = 210;
             const x0 = canvas.width - size - 18;
             const y0 = canvas.height - size - 18;
             orientationCube.bounds = { x: x0, y: y0, w: size, h: size };
@@ -16940,7 +16947,7 @@
                 orientationCube.buttons.unshift({ kind: 'corner', x: p.x, y: p.y, radius: 9, back, label });
             }
 
-            const axisOrigin = { x: x0 + 28, y: y0 + 132 };
+            const axisOrigin = { x: x0 + 30, y: y0 + 132 };
             const axes = [
                 { key: 'x', label: 'X', color: '#ff5c74' },
                 { key: 'y', label: 'Y', color: '#44ff88' },
@@ -16964,13 +16971,50 @@
                 ctx.fillText(axis.label, end.x + 3, end.y + 3);
             }
 
+            const planeButtons = [
+                { plane: 'xy', label: 'XY' },
+                { plane: 'yz', label: 'YZ' },
+                { plane: 'zx', label: 'XZ' }
+            ];
+            const planeButtonW = 46;
+            const planeButtonH = 23;
+            const planeGap = 8;
+            const planeRowW = planeButtons.length * planeButtonW + (planeButtons.length - 1) * planeGap;
+            const planeStartX = x0 + (size - planeRowW) * 0.5;
+            const planeY = y0 + 148;
+            planeButtons.forEach((btn, index) => {
+                const bx = planeStartX + index * (planeButtonW + planeGap);
+                const active = btn.plane === mapMouse.editPlane;
+                ctx.fillStyle = active ? 'rgba(0,255,204,0.32)' : 'rgba(0,255,204,0.10)';
+                ctx.strokeStyle = active ? '#ffffff' : 'rgba(0,255,204,0.72)';
+                ctx.lineWidth = active ? 2 : 1;
+                ctx.fillRect(bx, planeY, planeButtonW, planeButtonH);
+                ctx.strokeRect(bx + 0.5, planeY + 0.5, planeButtonW - 1, planeButtonH - 1);
+                ctx.fillStyle = active ? '#ffffff' : '#00ffcc';
+                ctx.font = 'bold 12px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText(btn.label, bx + planeButtonW * 0.5, planeY + 16);
+                orientationCube.buttons.push({
+                    kind: 'plane',
+                    action: 'selectPlane',
+                    plane: btn.plane,
+                    label: `${btn.label} EDIT PLANE`,
+                    points: [
+                        { x: bx, y: planeY },
+                        { x: bx + planeButtonW, y: planeY },
+                        { x: bx + planeButtonW, y: planeY + planeButtonH },
+                        { x: bx, y: planeY + planeButtonH }
+                    ]
+                });
+            });
+
             ctx.fillStyle = '#8ca3a0';
             ctx.font = '9px monospace';
             ctx.textAlign = 'center';
-            ctx.fillText('click face / edge / corner', cx, y0 + 151);
+            ctx.fillText('cube=view  buttons=work plane', cx, y0 + 187);
             ctx.fillStyle = '#00ffcc';
             ctx.font = 'bold 10px monospace';
-            ctx.fillText(`PLANE ${mapMouse.editPlane.toUpperCase()}${mapMouse.planeLocked ? ' LOCK' : ''}`, cx, y0 + 166);
+            ctx.fillText(`PLANE ${mapMouse.editPlane.toUpperCase()}${mapMouse.planeLocked ? ' LOCK' : ''}`, cx, y0 + 202);
             ctx.textAlign = 'left';
             ctx.restore();
         }
