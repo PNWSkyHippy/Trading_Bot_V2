@@ -227,6 +227,19 @@ Multi-route edit:
 4. Click a route line to edit its C-handle angle.
 5. Press `Y` to generate the whole route.
 
+Corkscrew route generator:
+
+1. Select a tunnel endpoint A.
+2. Press `Alt+N` and enter diameter, pitch, turns, axis, and direction.
+3. Create the editable preview.
+4. Inspect or adjust its normal route nodes and quadratic C handles.
+5. Press `Y` to build it through the existing route chunking pipeline.
+
+The generator supports fractional turns, taper, variable pitch, reverse/S helix,
+and compatible fit-to-B routes. It intentionally has no bank/roll setting because
+the tunnel has no intrinsic up direction. Generated data is a normal
+`mapMouse.routeDraft`; no map-save schema extension is required.
+
 Map persistence uses `Ctrl+Shift+S` to save a named map and `Ctrl+Shift+L` to
 open the map library. `Esc` cancels the active portal/sentry mode or clears
 current selections and route/orbit drafts. The authoritative complete control

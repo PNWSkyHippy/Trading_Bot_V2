@@ -76,6 +76,7 @@ Esc cancels portal mode before linking. **Del** removes a selected portal.
 - `U`: undo segment or route edit. `Del`/`Backspace`: delete selected segment/range. `G`: prune disconnected segments. `C`: cycle selected pipe kind.
 - `Y`: build A→B tunnel/route. `Shift+Y`: create portal. `8`: portal/tunnel mode. `7`: sentry mode.
 - `N`: route mode. `Shift+N`: pause/resume route drawing. `Esc`: cancel the active mode or clear selections, route draft, and orbit anchor.
+- `Alt+N`: open the corkscrew/helix generator. Select endpoint A first; optionally select B for compatible fit-to-endpoint routes. The tool creates a paused editable N-route preview, and `Y` builds it.
 - `Ctrl+Shift+S`: save named map. `Ctrl+Shift+L`: open map library.
 - `0`: frame the whole tunnel. `9`: focus anchor/B/ship. `Space`: release snapped plane for free orbit.
 - `,` (comma): show or hide the active-plane grid.
@@ -85,6 +86,24 @@ Esc cancels portal mode before linking. **Del** removes a selected portal.
 - Orientation cube: the cube rotates with the map camera. Click a face for front/back/left/right/top/bottom orthographic views; click a beveled edge or corner for a 45-degree diagonal view. Face clicks select and lock the corresponding XY/YZ/XZ plane; diagonal clicks preserve the current edit plane. The separate `XY`, `YZ`, and `XZ` buttons beneath the cube change/lock only the work plane without moving the camera.
 - XYZ gizmo: solid labeled axes lie in the selected edit plane. The dashed axis labeled `⟂` is perpendicular to that plane; all axes remain true world X/Y/Z directions as the camera rotates.
 - When an axis points nearly into the camera, its screen projection is too short for stable along-line dragging. The gizmo automatically switches that axis to controlled vertical-mouse depth movement and limits accidental extreme jumps; the HUD reports `depth drag: vertical mouse`. Direct dragging of spline C handles also rejects near-parallel camera/plane intersections and stays bounded around the C point's position at drag start.
+
+### Corkscrew / Helix Route Generator
+
+Press `Alt+N` in map or builder mode. The generator supports:
+
+- Tunnel outside-to-outside diameter or centerline-path diameter.
+- Starting and ending diameter for tapered corkscrews.
+- Starting and ending rise/fall per turn for variable pitch.
+- Positive climb or negative descent.
+- Fractional turn counts such as `0.5`, `2`, or `4.4`.
+- Clockwise/counterclockwise rotation.
+- World X/Y/Z axis or the normal of the current edit plane.
+- Start-angle offset and 4–48 editable route points per turn.
+- Smooth tangent alignment to a selected tunnel endpoint A.
+- Optional S/reverse helix with handedness reversal halfway.
+- Optional fit to selected B for whole-turn routes or S/reverse routes.
+
+The tool does not generate bank/roll because tunnels have no fixed up/down and the ship controls its own roll. It creates an ordinary paused N-route preview; adjust any node/C handle, then press `Y` to build normal tunnel geometry.
 - Map camera: arrows orbit; `W/S`, `A/D`, `P` or `R`/`F` pan; `Alt+drag` or middle-drag orbits around the current pivot.
 - Selection: `LMB` sets A; `Ctrl+LMB` sets B; `Ctrl+Shift+LMB` sets C; `Alt+Shift+LMB` selects a tunnel range or sets a free orbit anchor on empty space.
 - `Shift+LMB` multi-selects targets/tunnel pieces. `V` edits selected tunnel style or selected target batch.

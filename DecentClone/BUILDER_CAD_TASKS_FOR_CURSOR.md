@@ -13,6 +13,7 @@ Use `index.html` as the current source of truth. Preserve the existing flight/re
 - Route points default to the active XY/YZ/ZX plane and can be pulled off-plane with the XYZ gizmo.
 - Route C handles have editable numeric angles.
 - The XYZ transform gizmo works on route nodes/handles, join points, portal endpoints, target boxes, sentries, and selected tunnel-range bends.
+- `Alt+N` generates editable corkscrew/helix N-routes with fractional turns, taper, variable pitch, direction/axis controls, optional reverse helix, and compatible fit-to-B behavior.
 
 ## Build Next
 

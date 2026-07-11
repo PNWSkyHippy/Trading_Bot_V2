@@ -784,6 +784,7 @@
             ['Y', 'join tunnel A→B (optional bend C)'],
             ['Shift+Y', 'link portal A→B (no tube)'],
             ['N / Shift+N', 'route mode / pause route drawing'],
+            ['Alt+N', 'corkscrew/helix editable route generator'],
             ['8', 'toggle portal vs tunnel mode'],
             ['7', 'toggle AI sentry placement mode'],
             ['Esc', 'cancel mode or clear selections/draft'],
@@ -811,6 +812,7 @@
             'Build a normal tunnel: select an endpoint, set bend plane with Q/E, set bend angle with [ or ], then press T or I/K/J/L.',
             'Create a branch: select the source endpoint, press O or Shift+O, then select that new stub later to continue the branch.',
             'Connect two tunnel endpoints: LMB sets A, Ctrl+LMB sets B, optional Shift+Ctrl+LMB sets curve handle C, then press Y.',
+            'Create a corkscrew: select endpoint A, press Alt+N, enter diameter/pitch/turns/axis, create the editable preview, inspect or adjust it, then press Y.',
             'Create a portal: in map mode press 8 for portal mode, LMB sets entry A, Ctrl+LMB sets exit B, then Shift+Y links them.',
             'Edit textures/ring colors: in 3D map, click the first tunnel section, Alt+Shift+LMB the ending tunnel section, then press V.',
             'Delete tunnel sections: select one section or a tunnel range, then press Del/Backspace.',
@@ -840,6 +842,7 @@
             ['V', 'texture/rib color selected tunnel range'],
             ['Del', 'delete selected tunnel range'],
             ['N', 'toggle multi-node draft route'],
+            ['Alt+N', 'corkscrew/helix editable route generator'],
             ['Route LMB', 'set first/add route nodes'],
             ['Shift+N route', 'pause/resume adding route nodes'],
             ['U route', 'undo last route draft edit'],
@@ -4747,6 +4750,11 @@
             // once the loop state machine exists (see GAME_DESIGN_BONUS_LEVELS.md).
             if (key === 'g' && e.ctrlKey && e.shiftKey && !e.altKey) {
                 toggleGalagaPhase();
+                e.preventDefault();
+                return;
+            }
+            if (key === 'n' && e.altKey && !e.shiftKey && !e.ctrlKey && (mapView || builderMode)) {
+                openHelixGeneratorDialog();
                 e.preventDefault();
                 return;
             }
@@ -10714,6 +10722,149 @@
             return appendRouteDraftNode(node);
         }
 
+        function helixAxisVector(axisMode) {
+            if (axisMode === 'x') return { x: 1, y: 0, z: 0 };
+            if (axisMode === 'y') return { x: 0, y: 1, z: 0 };
+            if (axisMode === 'z') return { x: 0, y: 0, z: 1 };
+            return getEditPlaneSpec(mapMouse.editPlane, mapMouse.anchor?.point || mapCamera.target).normal;
+        }
+
+        function helixStartTangent(axis) {
+            const endpoint = endpointBasisFromAnchor(mapMouse.anchor);
+            const preferred = endpoint?.forward || builder.forward || getMapCameraBasis().right;
+            const projected = addVec(preferred, scaleVec(axis, -dot(preferred, axis)));
+            if (Math.hypot(projected.x, projected.y, projected.z) > 0.001) return normalize(projected);
+            const fallback = Math.abs(axis.y) < 0.9 ? { x: 0, y: 1, z: 0 } : { x: 1, y: 0, z: 0 };
+            return normalize(cross(axis, fallback));
+        }
+
+        function generateHelixRouteDraft(options) {
+            const startAnchor = mapMouse.anchor;
+            const start = copyVec(startAnchor?.point || builder.cursor || mapCamera.target);
+            let axis = normalize(helixAxisVector(options.axisMode));
+            let pitchStart = options.pitchStart;
+            let pitchEnd = options.pitchEnd;
+            let diameterEnd = options.diameterEnd;
+            if (options.fitToB) {
+                const target = mapMouse.destination?.point;
+                if (!target) throw new Error('Fit to B requires a selected target B');
+                const delta = {
+                    x: target.x - start.x,
+                    y: target.y - start.y,
+                    z: target.z - start.z
+                };
+                const distance = Math.hypot(delta.x, delta.y, delta.z);
+                if (distance < 1) throw new Error('Target B is too close to A');
+                if (!options.reverse && Math.abs(options.turns - Math.round(options.turns)) > 0.001) {
+                    throw new Error('Fit to B requires whole turns unless S/reverse helix is enabled');
+                }
+                axis = scaleVec(delta, 1 / distance);
+                pitchStart = distance / options.turns;
+                pitchEnd = pitchStart;
+                diameterEnd = options.diameterStart;
+            }
+            const tunnelRadius = Math.max(1, Number(builder.radius) || TUNNEL_DEFAULT_RADIUS);
+            const radiusFromDiameter = diameter => options.diameterMode === 'outside'
+                ? diameter * 0.5 - tunnelRadius
+                : diameter * 0.5;
+            const radiusStart = radiusFromDiameter(options.diameterStart);
+            const radiusEnd = radiusFromDiameter(diameterEnd);
+            if (radiusStart < tunnelRadius * 1.05 || radiusEnd < tunnelRadius * 1.05) {
+                throw new Error(`Diameter is too small: helix centerline radius must exceed the ${Math.round(tunnelRadius)}u tunnel radius`);
+            }
+            const segmentCount = Math.max(4, Math.ceil(options.turns * options.pointsPerTurn));
+            if (segmentCount > 600) throw new Error('Corkscrew preview exceeds 600 route segments');
+            const directionSign = options.direction === 'cw' ? -1 : 1;
+            const tangent = helixStartTangent(axis);
+            let tangentBasis = scaleVec(tangent, directionSign);
+            let radialBasis = normalize(cross(tangentBasis, axis));
+            const startAngle = options.startAngleDeg * Math.PI / 180;
+            const rotatedRadial = addVec(
+                scaleVec(radialBasis, Math.cos(startAngle)),
+                scaleVec(tangentBasis, Math.sin(startAngle))
+            );
+            const rotatedTangent = addVec(
+                scaleVec(tangentBasis, Math.cos(startAngle)),
+                scaleVec(radialBasis, -Math.sin(startAngle))
+            );
+            radialBasis = normalize(rotatedRadial);
+            tangentBasis = normalize(rotatedTangent);
+            const center = addVec(start, scaleVec(radialBasis, -radiusStart));
+            const pointAt = progress => {
+                const p = Math.max(0, Math.min(1, progress));
+                const phaseTurns = options.reverse
+                    ? options.turns * 0.5 * Math.sin(Math.PI * p)
+                    : options.turns * p;
+                const angle = directionSign * Math.PI * 2 * phaseTurns;
+                const radius = radiusStart + (radiusEnd - radiusStart) * p;
+                const axial = options.turns * (
+                    pitchStart * p + 0.5 * (pitchEnd - pitchStart) * p * p
+                );
+                const radial = addVec(
+                    scaleVec(radialBasis, Math.cos(angle)),
+                    scaleVec(tangentBasis, Math.sin(angle))
+                );
+                return addVec(addVec(center, scaleVec(radial, radius)), scaleVec(axis, axial));
+            };
+            const points = [];
+            for (let i = 0; i <= segmentCount; i++) points.push(pointAt(i / segmentCount));
+            if (options.fitToB && mapMouse.destination?.point) {
+                points[points.length - 1] = copyVec(mapMouse.destination.point);
+            }
+            const nodes = points.map((point, index) => {
+                if (index === 0 && startAnchor) {
+                    const node = routeNodeFromAnchor(startAnchor);
+                    node.point = copyVec(point);
+                    node.label = 'helix start A';
+                    return node;
+                }
+                return makePlaneLockedPointRecord(
+                    point,
+                    index === points.length - 1 ? 'helix end' : `helix node ${index + 1}`,
+                    mapMouse.editPlane,
+                    { freePoint: true }
+                );
+            });
+            const handles = [];
+            for (let i = 0; i < segmentCount; i++) {
+                const mid = pointAt((i + 0.5) / segmentCount);
+                const a = points[i];
+                const b = points[i + 1];
+                const control = {
+                    x: mid.x * 2 - (a.x + b.x) * 0.5,
+                    y: mid.y * 2 - (a.y + b.y) * 0.5,
+                    z: mid.z * 2 - (a.z + b.z) * 0.5
+                };
+                handles.push(makePlaneLockedPointRecord(
+                    control,
+                    `helix C${i + 1}`,
+                    mapMouse.editPlane,
+                    { angleDeg: 0, freePoint: true }
+                ));
+            }
+            mapMouse.routeDraft = {
+                nodes,
+                handles,
+                activeSegmentIndex: handles.length ? 0 : null,
+                history: [],
+                drawPaused: true,
+                generator: 'helix'
+            };
+            mapMouse.destination = null;
+            mapMouse.midpoint = null;
+            mapMouse.joinMode = 'tunnel';
+            mapMouse.routeDragIndex = null;
+            setXyzGizmoTarget('routeNode', nodes.length - 1);
+            const totalRise = options.turns * (pitchStart + pitchEnd) * 0.5;
+            const overlapWarning = Math.min(Math.abs(pitchStart), Math.abs(pitchEnd)) < tunnelRadius * 2
+                ? ' | WARNING: adjacent coils may overlap'
+                : '';
+            const status =
+                `HELIX PREVIEW: ${options.turns} turns, ${nodes.length} nodes, rise ${Math.round(totalRise)}u${overlapWarning} | Y builds`;
+            keyboardStatus.innerText = status;
+            return status;
+        }
+
         function routeHandleAdjustedPoint(segmentIndex) {
             const draft = mapMouse.routeDraft;
             if (!draft || segmentIndex < 0 || segmentIndex >= draft.handles.length) return null;
@@ -12161,6 +12312,168 @@
             joinEditDialog.appendChild(actions);
             joinEditDialog.style.display = 'block';
             wireDialogInputFocus(labelInput);
+        }
+
+        function openHelixGeneratorDialog() {
+            if (!mapView && !builderMode) {
+                keyboardStatus.innerText = 'open map/builder mode before creating a corkscrew';
+                return true;
+            }
+            joinEditDialog.innerHTML = '';
+            joinEditDialog.dataset.mode = 'helix-generator';
+            const title = document.createElement('h3');
+            title.textContent = 'Corkscrew / Helix Route Generator';
+            title.style.color = '#00ffcc';
+            joinEditDialog.appendChild(title);
+            const hint = document.createElement('div');
+            hint.className = 'hint';
+            hint.textContent = mapMouse.anchor
+                ? 'Starts at selected A and aligns its first tangent to that tunnel endpoint. Creates an editable paused N-route preview; press Y afterward to build.'
+                : 'No endpoint A selected: starts at the builder cursor. Select a tunnel endpoint first for a smooth attached entrance.';
+            joinEditDialog.appendChild(hint);
+
+            const grid = document.createElement('div');
+            grid.className = 'join-grid';
+            const inputs = {};
+            const addNumber = (key, label, value, step, min, max) => {
+                const labelNode = document.createElement('label');
+                labelNode.textContent = label;
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.value = String(value);
+                input.step = String(step);
+                if (min !== null) input.min = String(min);
+                if (max !== null) input.max = String(max);
+                inputs[key] = input;
+                grid.append(labelNode, input);
+                return input;
+            };
+            const defaultOutside = Math.max(800, Math.round(builder.radius * 7));
+            addNumber('diameterStart', 'Outside diameter', defaultOutside, 10, builder.radius * 4.1, 50000);
+            addNumber('diameterEnd', 'Ending diameter', defaultOutside, 10, builder.radius * 4.1, 50000);
+            addNumber('pitchStart', 'Rise/fall per turn', Math.round(builder.radius * 3), 10, -50000, 50000);
+            addNumber('pitchEnd', 'Ending rise/turn', Math.round(builder.radius * 3), 10, -50000, 50000);
+            addNumber('turns', 'Turns (fractions OK)', 1, 0.1, 0.1, 50);
+            addNumber('startAngleDeg', 'Start angle degrees', 0, 5, -360, 360);
+            addNumber('pointsPerTurn', 'Route points / turn', 12, 1, 4, 48);
+
+            const addSelect = (key, label, choices, selected) => {
+                const labelNode = document.createElement('label');
+                labelNode.textContent = label;
+                const select = document.createElement('select');
+                for (const [value, text] of choices) {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = text;
+                    select.appendChild(option);
+                }
+                select.value = selected;
+                inputs[key] = select;
+                grid.append(labelNode, select);
+                return select;
+            };
+            addSelect('diameterMode', 'Diameter measures', [
+                ['outside', 'Tunnel outside-to-outside'],
+                ['centerline', 'Centerline path diameter']
+            ], 'outside');
+            addSelect('axisMode', 'Corkscrew axis', [
+                ['plane', `Normal to active ${mapMouse.editPlane.toUpperCase()} plane`],
+                ['x', 'World X'], ['y', 'World Y'], ['z', 'World Z']
+            ], 'plane');
+            addSelect('direction', 'Rotation', [
+                ['cw', 'Clockwise'], ['ccw', 'Counterclockwise']
+            ], 'cw');
+            joinEditDialog.appendChild(grid);
+
+            const reverseRow = document.createElement('label');
+            reverseRow.className = 'hint';
+            const reverseCheck = document.createElement('input');
+            reverseCheck.type = 'checkbox';
+            reverseRow.append(reverseCheck, ' S/reverse helix: smoothly reverse handedness halfway');
+            joinEditDialog.appendChild(reverseRow);
+
+            const fitRow = document.createElement('label');
+            fitRow.className = 'hint';
+            const fitCheck = document.createElement('input');
+            fitCheck.type = 'checkbox';
+            fitCheck.disabled = !mapMouse.destination?.point;
+            fitRow.append(
+                fitCheck,
+                mapMouse.destination?.point
+                    ? ' Fit axis and total rise to selected B (whole turns, or S/reverse)'
+                    : ' Fit to B unavailable — set target B before opening this tool'
+            );
+            joinEditDialog.appendChild(fitRow);
+
+            const info = document.createElement('div');
+            info.className = 'hint';
+            info.style.color = '#ffcf70';
+            const updateInfo = () => {
+                const turns = Number(inputs.turns.value) || 0;
+                const pitchA = Number(inputs.pitchStart.value) || 0;
+                const pitchB = Number(inputs.pitchEnd.value) || 0;
+                const points = Math.ceil(turns * (Number(inputs.pointsPerTurn.value) || 0));
+                info.textContent =
+                    `Preview: ${points} spline sections · total rise/fall ${Math.round(turns * (pitchA + pitchB) * 0.5)}u · tunnel radius ${Math.round(builder.radius)}u`;
+            };
+            joinEditDialog.appendChild(info);
+            for (const input of Object.values(inputs)) input.addEventListener('input', updateInfo);
+            reverseCheck.addEventListener('change', updateInfo);
+            fitCheck.addEventListener('change', updateInfo);
+            updateInfo();
+
+            const actions = document.createElement('div');
+            actions.className = 'join-actions';
+            const previewBtn = document.createElement('button');
+            previewBtn.type = 'button';
+            previewBtn.textContent = 'Create Editable Preview';
+            previewBtn.addEventListener('click', () => {
+                if (mapMouse.routeDraft && !window.confirm('Replace the current route draft with this corkscrew preview?')) {
+                    return;
+                }
+                const options = {
+                    diameterStart: Number(inputs.diameterStart.value),
+                    diameterEnd: Number(inputs.diameterEnd.value),
+                    pitchStart: Number(inputs.pitchStart.value),
+                    pitchEnd: Number(inputs.pitchEnd.value),
+                    turns: Number(inputs.turns.value),
+                    startAngleDeg: Number(inputs.startAngleDeg.value),
+                    pointsPerTurn: Math.round(Number(inputs.pointsPerTurn.value)),
+                    diameterMode: inputs.diameterMode.value,
+                    axisMode: inputs.axisMode.value,
+                    direction: inputs.direction.value,
+                    reverse: reverseCheck.checked,
+                    fitToB: fitCheck.checked
+                };
+                if (Object.entries(options).some(([key, value]) =>
+                    !['diameterMode', 'axisMode', 'direction', 'reverse', 'fitToB'].includes(key) && !Number.isFinite(value))) {
+                    keyboardStatus.innerText = 'helix generator: all numeric fields must be valid';
+                    return;
+                }
+                if (options.turns < 0.1 || options.pointsPerTurn < 4 || options.pointsPerTurn > 48) {
+                    keyboardStatus.innerText = 'helix generator: turns >= 0.1 and points/turn must be 4–48';
+                    return;
+                }
+                try {
+                    const status = generateHelixRouteDraft(options);
+                    closeJoinEditDialog();
+                    keyboardStatus.innerText = status;
+                } catch (error) {
+                    keyboardStatus.innerText = `helix generator: ${error.message}`;
+                    info.textContent = error.message;
+                    info.style.color = '#ff6688';
+                }
+            });
+            const cancelBtn = document.createElement('button');
+            cancelBtn.type = 'button';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.addEventListener('click', closeJoinEditDialog);
+            actions.append(previewBtn, cancelBtn);
+            joinEditDialog.appendChild(actions);
+            joinEditDialog.style.display = 'block';
+            wireDialogInputFocus(inputs.diameterStart, inputs.diameterEnd, inputs.pitchStart, inputs.pitchEnd,
+                inputs.turns, inputs.startAngleDeg, inputs.pointsPerTurn);
+            return true;
         }
 
         function openRouteSegmentEditDialog(segmentIndex) {
