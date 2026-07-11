@@ -241,7 +241,9 @@ the tunnel has no intrinsic up direction. Generated data is a normal
 `mapMouse.routeDraft`; no map-save schema extension is required.
 
 Map persistence uses `Ctrl+Shift+S` to save a named map and `Ctrl+Shift+L` to
-open the map library. `Esc` cancels the active portal/sentry mode or clears
+open the map library. The save prompt defaults to the currently loaded name so
+Enter updates that map; autosave-only work defaults to a new timestamp name.
+`Esc` cancels the active portal/sentry mode or clears
 current selections and route/orbit drafts. The authoritative complete control
 list is kept in the in-game mode cheat sheet and `NEXT_STEPS.md`.
 

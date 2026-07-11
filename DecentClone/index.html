@@ -788,7 +788,7 @@
             ['8', 'toggle portal vs tunnel mode'],
             ['7', 'toggle AI sentry placement mode'],
             ['Esc', 'cancel mode or clear selections/draft'],
-            ['Ctrl+Shift+S', 'save named map'],
+            ['Ctrl+Shift+S', 'save/update current named map'],
             ['Ctrl+Shift+L', 'load saved map'],
             ['M', 'open 3D map']
         ];
@@ -818,7 +818,7 @@
             'Delete tunnel sections: select one section or a tunnel range, then press Del/Backspace.',
             'Edit target boxes: Shift+LMB selects target boxes, Alt+Shift selects a target-box range only when no tunnel is under the cursor, then press V.',
             'Place sentries: press M, then 7 for sentry tools, Ctrl+LMB places a spawn, click a sentry to edit guard or patrol behavior.',
-            'Save/load maps: Ctrl+Shift+S saves the current map; Ctrl+Shift+L opens the local map library.',
+            'Save/load maps: Ctrl+Shift+S defaults to the current map name for quick update/overwrite; Ctrl+Shift+L opens the local map library.',
             'Clean mistakes: Del deletes selected segment/range, U undoes the last placed segment, G prunes disconnected strays.',
         ];
         const mapCheats = [
@@ -886,7 +886,7 @@
             ['Esc', 'cancel mode or clear selections/draft/orbit anchor'],
             ['Note', 'point B = Ctrl+LMB, not B key'],
             ['Coords', 'HUD XYZ in 1 decimal; grid snap = integers @ 50u'],
-            ['Ctrl+Shift+S', 'save named map'],
+            ['Ctrl+Shift+S', 'save/update current named map'],
             ['Ctrl+Shift+L', 'load saved map'],
             ['B', 'toggle builder cursor'],
             ['M', 'return to cockpit']
@@ -939,15 +939,17 @@
 
         function updateCheatsheet() {
             const mode = mapView ? 'map' : builderMode ? 'builder' : 'flight';
-            if (modeCheatsheet.dataset.mode === mode) return;
+            const mapIdentity = currentMapStatusText();
+            if (modeCheatsheet.dataset.mode === mode && modeCheatsheet.dataset.mapIdentity === mapIdentity) return;
             modeCheatsheet.dataset.mode = mode;
+            modeCheatsheet.dataset.mapIdentity = mapIdentity;
             modeCheatsheet.innerHTML = '';
             renderBuilderProcedures();
             renderCommandRows(playerCommandList, flightCheats.slice(0, 9));
             renderCommandRows(playerActionList, playerActionCheats);
             if (playerHudPanel) playerHudPanel.classList.toggle('active', mode === 'flight');
             if (developerHudPanel) developerHudPanel.classList.toggle('active', mode !== 'flight');
-            if (devModeVal) devModeVal.textContent = mode;
+            if (devModeVal) devModeVal.textContent = `${mode} | MAP: ${mapIdentity}`;
             if (mapView) {
                 renderCheatsheetSection('3D map movement', mapCheats);
                 renderCheatsheetSection('builder tools', builderCheats);
@@ -1122,6 +1124,40 @@
         const TUNNEL_MAP_STORAGE_KEY = 'astral-drift-tunnel-map-v2';
         const TUNNEL_MAP_LIBRARY_KEY = `${TUNNEL_MAP_STORAGE_KEY}:library`;
         const TUNNEL_MAP_NAMED_PREFIX = `${TUNNEL_MAP_STORAGE_KEY}:named:`;
+        const TUNNEL_CURRENT_MAP_KEY = `${TUNNEL_MAP_STORAGE_KEY}:current-name`;
+        let currentNamedMapId = null;
+        let currentNamedMapName = '';
+        let currentNamedMapDirty = true;
+        try {
+            const currentMapState = JSON.parse(localStorage.getItem(TUNNEL_CURRENT_MAP_KEY) || 'null');
+            if (currentMapState?.id && currentMapState?.name) {
+                currentNamedMapId = String(currentMapState.id);
+                currentNamedMapName = String(currentMapState.name);
+                currentNamedMapDirty = currentMapState.dirty !== false;
+            }
+        } catch {}
+
+        function persistCurrentMapIdentity() {
+            try {
+                localStorage.setItem(TUNNEL_CURRENT_MAP_KEY, JSON.stringify({
+                    id: currentNamedMapId,
+                    name: currentNamedMapName,
+                    dirty: currentNamedMapDirty
+                }));
+            } catch {}
+        }
+
+        function setCurrentMapIdentity(id, name, dirty = false) {
+            currentNamedMapId = id || null;
+            currentNamedMapName = name ? String(name) : '';
+            currentNamedMapDirty = !!dirty;
+            persistCurrentMapIdentity();
+        }
+
+        function currentMapStatusText() {
+            if (!currentNamedMapId || !currentNamedMapName) return 'AUTOSAVE ONLY · NOT NAMED';
+            return `"${currentNamedMapName}" · ${currentNamedMapDirty ? 'UNSAVED CHANGES' : 'SAVED'}`;
+        }
         const MAP_LIBRARY_BUNDLE_VERSION = 1;
         const MAP_DATA_BOOTSTRAP_FILES = [
             'data/map_library_bundle.json',
@@ -7039,9 +7075,13 @@
             };
         }
 
-        function saveTunnelMap() {
+        function saveTunnelMap(options = {}) {
             try {
                 localStorage.setItem(TUNNEL_MAP_STORAGE_KEY, JSON.stringify(serializeTunnelMap()));
+                if (options.markDirty !== false) {
+                    currentNamedMapDirty = true;
+                    persistCurrentMapIdentity();
+                }
                 keyboardStatus.innerText = `map saved (${builder.segments.length} segs)`;
             } catch (err) {
                 keyboardStatus.innerText = `map save failed: ${err.message}`;
@@ -7459,7 +7499,7 @@
             resetPlayerCombatState();
             invalidateTunnelSegmentCache();
             placeShipOnLoadedMap(map);
-            saveTunnelMap();
+            saveTunnelMap({ markDirty: false });
             frameMapCameraOnTunnel();
             keyboardStatus.innerText = message;
             return true;
@@ -7467,7 +7507,7 @@
 
         function saveNamedTunnelMap() {
             clearKeyboardState();
-            const defaultName = `Map ${new Date().toLocaleString()}`;
+            const defaultName = currentNamedMapName || `Map ${new Date().toLocaleString()}`;
             const name = (window.prompt('Save tunnel map as:', defaultName) || '').trim();
             clearKeyboardState();
             focusGameSurface();
@@ -7494,6 +7534,7 @@
                 : [entry, ...library];
             saveMapLibrary(nextLibrary);
             saveTunnelMap();
+            setCurrentMapIdentity(id, name, false);
             keyboardStatus.innerText =
                 `saved "${name}" (${builder.segments.length} segs) — Export Library Backup before switching file:// ↔ localhost`;
             return true;
@@ -7512,6 +7553,8 @@
                 const map = raw ? JSON.parse(raw) : null;
                 if (!applyTunnelMap(map, `loaded "${name}"`)) {
                     keyboardStatus.innerText = `load failed: ${name}`;
+                } else {
+                    setCurrentMapIdentity(id, name, false);
                 }
             } catch (err) {
                 keyboardStatus.innerText = `load failed: ${err.message}`;
@@ -7562,6 +7605,7 @@
                     savedAt: new Date().toISOString(),
                     segmentCount: builder.segments.length
                 }, ...loadMapLibrary()]);
+                setCurrentMapIdentity(id, importName, false);
                 keyboardStatus.innerText = `imported "${importName}" (${builder.segments.length} segs)`;
                 return true;
             } catch (err) {
@@ -7597,6 +7641,7 @@
             const library = loadMapLibrary().filter(item => item.id !== id);
             localStorage.removeItem(namedMapKey(id));
             saveMapLibrary(library);
+            if (currentNamedMapId === id) setCurrentMapIdentity(null, '', true);
             keyboardStatus.innerText = `deleted saved map "${name}"`;
             showMapLibraryDialog();
         }
@@ -7613,7 +7658,7 @@
 
             const originInfo = document.createElement('div');
             originInfo.className = 'map-library-meta';
-            originInfo.textContent = `Storage origin: ${originLabel} | ${library.length} saved map(s)`;
+            originInfo.textContent = `Current: ${currentMapStatusText()} | Storage: ${originLabel} | ${library.length} saved map(s)`;
             mapLibraryDialog.appendChild(originInfo);
 
             const originWarn = document.createElement('div');
@@ -9263,6 +9308,9 @@
             try {
                 const raw = localStorage.getItem(TUNNEL_MAP_STORAGE_KEY);
                 if (!raw) return false;
+                if (currentNamedMapId && !loadMapLibrary().some(item => item.id === currentNamedMapId)) {
+                    setCurrentMapIdentity(null, '', true);
+                }
                 const map = JSON.parse(raw);
                 return applyTunnelMap(map, `autosave loaded (${map.segments.length} segs)`);
             } catch {
@@ -9271,6 +9319,7 @@
         }
 
         function createDefaultTunnelMap() {
+            setCurrentMapIdentity(null, '', true);
             builder.segments = [];
             builder.portals = [];
             builder.targets = [];
@@ -17537,6 +17586,7 @@
             const focusPoint = getMapEditFocusPoint();
             const snapActive = shouldSnapMapGrid();
             const statusLines = [
+                `MAP: ${currentMapStatusText()}`,
                 `PLANE: ${mapMouse.editPlane.toUpperCase()} (${mapMouse.planeLocked ? 'LOCKED' : 'free'}) | ` +
                     `grid ${mapGrid.visible ? 'ON' : 'off'} | snap ${snapActive ? 'ON' : mapGrid.snapEnabled ? 'toggle' : 'off'} | ` +
                     `world XYZ ${formatMapPoint(focusPoint)}`,

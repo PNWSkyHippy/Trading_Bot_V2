@@ -77,7 +77,7 @@ Esc cancels portal mode before linking. **Del** removes a selected portal.
 - `Y`: build A→B tunnel/route. `Shift+Y`: create portal. `8`: portal/tunnel mode. `7`: sentry mode.
 - `N`: route mode. `Shift+N`: pause/resume route drawing. `Esc`: cancel the active mode or clear selections, route draft, and orbit anchor.
 - `Alt+N`: open the corkscrew/helix generator. Select endpoint A first; optionally select B for compatible fit-to-endpoint routes. The tool creates a paused editable N-route preview, and `Y` builds it.
-- `Ctrl+Shift+S`: save named map. `Ctrl+Shift+L`: open map library.
+- `Ctrl+Shift+S`: save/update the named map. The prompt defaults to the currently loaded map name for quick overwrite; autosave-only work receives a new timestamp name. `Ctrl+Shift+L`: open map library.
 - `0`: frame the whole tunnel. `9`: focus anchor/B/ship. `Space`: release snapped plane for free orbit.
 - `,` (comma): show or hide the active-plane grid.
 - `.` (period): toggle 50-unit grid snapping; holding `Shift` while dragging temporarily snaps to the grid.
