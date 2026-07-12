@@ -1733,6 +1733,7 @@
             tunnelVisibleSegmentsCache.coverage = null;
             tunnelVisibleSegmentsCache.streak = null;
             junctionBubbleCache.stale = true;
+            tunnelTopologyCache.stale = true;
         }
 
         // ── Junction bubbles ─────────────────────────────────────────────────
@@ -1749,6 +1750,47 @@
         // hand-built, converted, and auto-connected junctions alike, old maps
         // included, with no map rebuilding.
         const junctionBubbleCache = { stale: true, bubbles: [] };
+        const tunnelTopologyCache = { stale: true, neighbors: [] };
+
+        function getTunnelTopologyNeighbors() {
+            if (!tunnelTopologyCache.stale) return tunnelTopologyCache.neighbors;
+            const neighbors = builder.segments.map(() => new Set());
+            for (let i = 0; i < builder.segments.length; i++) {
+                for (let j = i + 1; j < builder.segments.length; j++) {
+                    if (!tunnelSegmentsConnected(builder.segments[i], builder.segments[j])) continue;
+                    neighbors[i].add(j);
+                    neighbors[j].add(i);
+                }
+            }
+            tunnelTopologyCache.neighbors = neighbors;
+            tunnelTopologyCache.stale = false;
+            return neighbors;
+        }
+
+        function tunnelTopologyNeighborhood(startIndex, maxHops = 2) {
+            const result = new Set();
+            if (!Number.isInteger(startIndex) || startIndex < 0 || startIndex >= builder.segments.length) return result;
+            const neighbors = getTunnelTopologyNeighbors();
+            let frontier = [startIndex];
+            result.add(startIndex);
+            for (let hop = 0; hop < maxHops && frontier.length; hop++) {
+                const next = [];
+                for (const index of frontier) {
+                    for (const neighbor of neighbors[index] || []) {
+                        if (result.has(neighbor)) continue;
+                        result.add(neighbor);
+                        next.push(neighbor);
+                    }
+                }
+                frontier = next;
+            }
+            return result;
+        }
+
+        function segmentsWithinTopologyHops(aIndex, bIndex, maxHops = 2) {
+            if (aIndex === bIndex && Number.isInteger(aIndex)) return true;
+            return tunnelTopologyNeighborhood(aIndex, maxHops).has(bIndex);
+        }
 
         function getJunctionBubbles() {
             if (!junctionBubbleCache.stale) return junctionBubbleCache.bubbles;
@@ -13992,6 +14034,7 @@
         function checkLaserSentryHits(laserPoint) {
             for (const sentry of tunnelSentries) {
                 if (!sentryIsActive(sentry)) continue;
+                if (!sentryCorridorVisibleToPlayer(sentry)) continue;
                 if (laserSentryHitQuality(sentry, laserPoint) === 'hit') {
                     return handleSentryLaserHit(sentry);
                 }
@@ -14607,6 +14650,7 @@
         function sentryCanSeePlayer(sentry, ship) {
             const dist = sentryDistanceToPlayer(sentry, ship);
             if (!Number.isFinite(dist) || dist > SENTRY_DETECT_RANGE) return false;
+            if (!sentryCorridorVisibleToPlayer(sentry)) return false;
             if (sentry.engaged) return true;
             if (sentryIsGuardMode(sentry)) return true;
             if (dist <= 100) return true;
@@ -14625,6 +14669,7 @@
             let newlyAlerted = 0;
             for (const sentry of tunnelSentries) {
                 if (!sentryIsActive(sentry)) continue;
+                if (!sentryCorridorVisibleToPlayer(sentry)) continue;
                 const dx = sentry.x - sourceSentry.x;
                 const dy = sentry.y - sourceSentry.y;
                 const dz = sentry.z - sourceSentry.z;
@@ -14799,7 +14844,7 @@
                 moveSentryToward(sentry, chaseAnchor, chaseSpeed, dt);
                 sentryFaceToward(sentry, ship);
                 const fireCooldown = SENTRY_FIRE_COOLDOWN_ENGAGED_MS;
-                if (dist <= SENTRY_FIRE_RANGE && now - sentry.lastFireAt >= fireCooldown) {
+                if (seesPlayer && dist <= SENTRY_FIRE_RANGE && now - sentry.lastFireAt >= fireCooldown) {
                     fireSentryBeam(sentry, ship);
                     sentry.lastFireAt = now;
                 }
@@ -14844,6 +14889,7 @@
                 createdAt: now
             });
             sentryMuzzleFlashes.push({
+                sentryId: sentry.id,
                 x: sentry.x,
                 y: sentry.y,
                 z: sentry.z,
@@ -14859,6 +14905,7 @@
         function applySentryBeamImpact(beam, beamSentry, ship) {
             if (beam.damageApplied) return;
             beam.damageApplied = true;
+            if (!beamSentry || !sentryCorridorVisibleToPlayer(beamSentry)) return;
             applySentryDamageToPlayer(beamSentry);
             spawnTargetParticles(
                 { x: ship.x, y: ship.y, z: ship.z },
@@ -14966,13 +15013,7 @@
 
         function renderSentryDrone(sentry, centerX, centerY, fov, mapMode = false, texturedSegmentIndices = null, forwardPathSet = null) {
             if (!mapMode && !sentryIsActive(sentry)) return;
-            // An ENGAGED sentry is actively hunting/shooting the player — it must always
-            // render. The opaque-overlay suppression below is a "behind a side-tunnel wall"
-            // heuristic keyed to the forward path set; a sentry chasing the player across
-            // segment boundaries (or garrisoned in a detached door-linked room) lands in
-            // opaque off-path segments constantly, which made enemies invisible mid-combat
-            // while their fire still landed.
-            if (!mapMode && !sentry.engaged &&
+            if (!mapMode &&
                 shouldSuppressOpaqueOverlay(sentryOverlaySegmentIndex(sentry), texturedSegmentIndices, forwardPathSet)) return;
             const pos = mapMode && mapMouse.sentrySpawnMoveId === sentry.id
                 ? sentry.spawn.point
@@ -15190,9 +15231,13 @@
             }
         }
 
-        function renderSentryMuzzleFlashes(centerX, centerY, fov) {
+        function renderSentryMuzzleFlashes(centerX, centerY, fov, texturedSegmentIndices = null, forwardPathSet = null) {
             if (!sentryMuzzleFlashes.length) return;
             for (const flash of sentryMuzzleFlashes) {
+                const source = flash.sentryId ? findRuntimeSentryById(flash.sentryId) : null;
+                if (source && shouldSuppressOpaqueOverlay(
+                    sentryOverlaySegmentIndex(source), texturedSegmentIndices, forwardPathSet
+                )) continue;
                 const pp = projectPoint(flash, centerX, centerY, fov);
                 if (!pp) continue;
                 const lifeFrac = flash.life / flash.maxLife;
@@ -15217,7 +15262,7 @@
             }
         }
 
-        function renderSentryBeams(centerX, centerY, fov) {
+        function renderSentryBeams(centerX, centerY, fov, texturedSegmentIndices = null, forwardPathSet = null) {
             if (!sentryBeams.length) return;
             ctx.save();
             ctx.globalCompositeOperation = 'source-over';
@@ -15226,6 +15271,9 @@
 
             for (const beam of sentryBeams) {
                 const beamSentry = beam.sentryId ? findRuntimeSentryById(beam.sentryId) : null;
+                if (beamSentry && shouldSuppressOpaqueOverlay(
+                    sentryOverlaySegmentIndex(beamSentry), texturedSegmentIndices, forwardPathSet
+                )) continue;
                 const effectEntry = getEffectTextureEntry(beamSentry?.effectTextureId);
                 const beamColor = normalizeHexColor(effectEntry.color, '#ff5500');
                 const fromCam = worldToCamera(beam.from);
@@ -15549,16 +15597,11 @@
 
             const forward = Math.max(0, lastForwardAmount);
             const boost = boostingForward && forward > 0.01;
-            const cruise = !boost && forward > 0.04;
-            if (!boost && !cruise) return;
+            if (!boost) return;
 
             const t = performance.now() * 0.001;
-            const speed = boost
-                ? Math.min(1, 0.45 + forward * 0.55)
-                : Math.min(1, forward * 0.9);
-            const lineCount = boost
-                ? Math.min(MOVEMENT_STREAK_MAX_LINES, MOVEMENT_STREAK_BOOST_MIN + Math.round(speed * 6))
-                : Math.min(MOVEMENT_STREAK_MAX_LINES, MOVEMENT_STREAK_CRUISE_MIN + Math.round(speed * 4));
+            const speed = Math.min(1, 0.45 + forward * 0.55);
+            const lineCount = Math.min(MOVEMENT_STREAK_MAX_LINES, MOVEMENT_STREAK_BOOST_MIN + Math.round(speed * 6));
 
             const heading = getForwardScreenHeading(centerX, centerY, fov);
             const baseAngle = heading ? heading.angle : -Math.PI / 2;
@@ -15599,7 +15642,7 @@
                 const angleOffset = Math.abs((u - 0.5) * spread);
                 const peripheralFactor = 1 - Math.min(0.22, (angleOffset / spread) * 0.2);
                 ctx.globalAlpha = alphaBase * (0.58 + v * 0.42) * speed * peripheralFactor;
-                ctx.strokeStyle = boost && w > 0.7 ? '#b8fff4' : (boost ? '#00ffcc' : (w > 0.55 ? '#66ffdd' : '#00ffcc'));
+                ctx.strokeStyle = w > 0.7 ? '#e8ffff' : '#79dfff';
                 ctx.lineWidth = widthBase * (0.7 + w * 0.5);
                 ctx.beginPath();
                 ctx.moveTo(x0, y0);
@@ -15783,8 +15826,7 @@
                 dist: segmentDistanceToShip(seg, index),
                 midZ: segmentMidCameraZ(seg),
                 isShipSeg: index === shipSegmentIndex,
-                isAdjacent: shipSegmentIndex !== null &&
-                    Math.abs(index - shipSegmentIndex) <= TUNNEL_TEXTURE_SHIP_RING,
+                isAdjacent: segmentsWithinTopologyHops(shipSegmentIndex, index, TUNNEL_TEXTURE_SHIP_RING),
                 isMouth: isSegmentMouthOpen(seg),
                 isForwardPath: !!flags.isForwardPath,
                 isCoveragePreload: !!flags.isCoveragePreload
@@ -15856,8 +15898,8 @@
         function isMainTrackOverlaySegment(index, forwardPathSet = null) {
             if (index === null || index === undefined || index < 0) return false;
             if (index === shipSegmentIndex) return true;
-            if (shipSegmentIndex !== null && Math.abs(index - shipSegmentIndex) <= TUNNEL_TEXTURE_SHIP_RING) return true;
-            return false;
+            if (forwardPathSet?.has?.(index)) return true;
+            return segmentsWithinTopologyHops(shipSegmentIndex, index, TUNNEL_TEXTURE_SHIP_RING);
         }
 
         function shouldSuppressOpaqueOverlay(index, texturedSegmentIndices = null, forwardPathSet = null) {
@@ -15868,9 +15910,28 @@
             // forward path set) is opaque AND off-path while the player is INSIDE it, which
             // made every sentry in an enemy-barracks room invisible even as they fired.
             if (index === shipSegmentIndex) return false;
-            if (!tunnelWallsReady() || !texturedSegmentIndices?.has?.(index)) return false;
+            if (!tunnelWallsReady()) return false;
             const seg = builder.segments[index];
-            return !!seg && segmentWallOpaque(seg) && !isMainTrackOverlaySegment(index, forwardPathSet);
+            if (!seg || isMainTrackOverlaySegment(index, forwardPathSet)) return false;
+            const shipSeg = builder.segments[shipSegmentIndex];
+            // Off-route content is visible only for an intentionally glass-to-glass
+            // view. Either opaque shell blocks targets, enemies, portals, and fire.
+            return segmentWallOpaque(shipSeg) || segmentWallOpaque(seg);
+        }
+
+        function segmentVisibleFromShipRoute(index, maxHops = 5) {
+            if (!Number.isInteger(index) || index < 0 || index >= builder.segments.length) return false;
+            if (!Number.isInteger(shipSegmentIndex) || !builder.segments[shipSegmentIndex]) return true;
+            if (segmentsWithinTopologyHops(shipSegmentIndex, index, maxHops)) return true;
+            const shipSeg = builder.segments[shipSegmentIndex];
+            const targetSeg = builder.segments[index];
+            // Preserve deliberate glass-tunnel views: off-route content is exposed only
+            // when both the player's shell and the target shell are non-opaque.
+            return !segmentWallOpaque(shipSeg) && !segmentWallOpaque(targetSeg);
+        }
+
+        function sentryCorridorVisibleToPlayer(sentry) {
+            return segmentVisibleFromShipRoute(sentryOverlaySegmentIndex(sentry));
         }
 
         function overlaySegmentIndexForPoint(point, preferredIndex = null) {
@@ -15918,6 +15979,7 @@
             const maxCameraZ = coverageMode ? TUNNEL_COVERAGE_MAX_CAMERA_Z : TUNNEL_TEXTURE_MAX_CAMERA_Z;
             const forwardIndices = collectForwardPathSegmentIndices(TUNNEL_FORWARD_LOOKAHEAD);
             const forwardSet = new Set(forwardIndices);
+            const topologyNearSet = tunnelTopologyNeighborhood(shipSegmentIndex, TUNNEL_TEXTURE_SHIP_RING);
             const candidates = [];
             const shipPoint = { x: posX, y: posY, z: posZ };
             for (let index = 0; index < builder.segments.length; index++) {
@@ -15928,8 +15990,7 @@
                     ? Math.max(0, chamberDistanceState(shipPoint, seg).dist - (seg.radius || builder.radius))
                     : Math.sqrt(distanceToSegmentSq(shipPoint, seg));
                 const isShipSeg = index === shipSegmentIndex;
-                const isAdjacent = shipSegmentIndex !== null &&
-                    Math.abs(index - shipSegmentIndex) <= TUNNEL_TEXTURE_SHIP_RING;
+                const isAdjacent = topologyNearSet.has(index);
                 const isForwardPath = forwardSet.has(index);
                 const isCoveragePreload = coverageMode && midZ > 0 && midZ < TUNNEL_COVERAGE_PRELOAD_MAX_Z;
                 const isMouth = isSegmentMouthOpen(seg);
@@ -15977,8 +16038,7 @@
                             segmentMidCameraZ(builder.segments[ringIndex]) < TUNNEL_COVERAGE_PRELOAD_MAX_Z
                     }));
                 }
-                for (let di = -TUNNEL_TEXTURE_SHIP_RING; di <= TUNNEL_TEXTURE_SHIP_RING; di++) {
-                    const ringIndex = shipSegmentIndex + di;
+                for (const ringIndex of topologyNearSet) {
                     if (ringIndex < 0 || ringIndex >= builder.segments.length || seen.has(ringIndex)) continue;
                     seen.add(ringIndex);
                     picked.unshift(makeTunnelSegmentEntry(ringIndex, {
@@ -16826,7 +16886,7 @@
 
         function webglSegmentNeedsScrapeBoost(seg, index) {
             if (shipSegmentIndex === null || index === null || index === undefined) return false;
-            if (Math.abs(index - shipSegmentIndex) > 2) return false;
+            if (!segmentsWithinTopologyHops(shipSegmentIndex, index, 2)) return false;
             const ship = { x: posX, y: posY, z: posZ };
             const local = shipSegmentLocal(ship, seg);
             const radius = seg.radius || builder.radius;
@@ -16983,7 +17043,7 @@
                 const entry = segments[segRank];
                 const { index, seg, midZ, isMouth, isShipSeg, isForwardPath, isCoveragePreload } = entry;
                 const nearShipRing = isShipSeg ||
-                    (shipSegmentIndex === null ? false : Math.abs(index - shipSegmentIndex) <= TUNNEL_TEXTURE_SHIP_RING) ||
+                    segmentsWithinTopologyHops(shipSegmentIndex, index, TUNNEL_TEXTURE_SHIP_RING) ||
                     isMouth ||
                     isForwardPath;
                 const forceDrawCoverage = isShipSeg || isForwardPath || isCoveragePreload || nearShipRing;
@@ -18724,8 +18784,8 @@
                 updateAndRenderParticles(centerX, centerY, fov);
                 renderPortalGatewaysFlight(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderPortalTransitVfx(centerX, centerY);
-                renderSentryBeams(centerX, centerY, fov);
-                renderSentryMuzzleFlashes(centerX, centerY, fov);
+                renderSentryBeams(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
+                renderSentryMuzzleFlashes(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
 
                 // Update Flight Telemetry Interface
                 document.getElementById('pos-val').innerText =

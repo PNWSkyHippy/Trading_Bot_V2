@@ -76,7 +76,9 @@ that appears when clicking tunnel pieces.
 - Portals can be marked as doorways into chambers for loot, quest items, traps, and guarded rooms.
 - Enemy ship sprite loading and scaling is working.
 - Enemy AI chase/targetability is working well enough for now.
-- Tunnel opacity/neighbor visibility is much improved and acceptable for now.
+- Tunnel opacity/neighbor visibility now uses connected-route topology rather than
+  imported segment array order. Opaque shells hide adjacent routes, sentries, and
+  weapons; deliberately non-opaque sections retain the authored glass-tunnel view.
 - AutoBoost exists and is liked, but `;`/semicolon behavior should stay watched
   because it previously stopped the ship when pressed during W/Shift movement.
 - Multi-segment route mode exists:
@@ -93,6 +95,9 @@ that appears when clicking tunnel pieces.
 - Target-box multi-select and batch editing are working.
 - Free orbit anchors are working.
 - HUD map no longer shows all sentries/enemies by default.
+- **Pending HUD exploration map:** at the start of a level, show only the player
+  dot. Reveal and retain tunnel/map geometry only as the player travels through it;
+  do not expose unexplored routes or the complete level layout.
 
 ## Medium Priority Builder Improvements
 
