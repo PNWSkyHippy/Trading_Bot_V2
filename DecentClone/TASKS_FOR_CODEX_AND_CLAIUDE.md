@@ -119,6 +119,11 @@ Texture/rib-color range apply through `V` already works; keep it.
 
 ## Gameplay / Map Ideas Backlog
 
+- Galaga combat difficulty has level-aware interpolation for levels 1–10. The
+  original commented values are level 1 and the current hard settings are level
+  10. The campaign director still needs to call `startGalagaPhase(level)` with the
+  correct arcade-family level number.
+
 ### Cache Rooms, Hidden Doors, And Quest Rooms
 
 Doorway portals and fully flyable spherical chambers now provide the room foundation. Expand their gameplay content:

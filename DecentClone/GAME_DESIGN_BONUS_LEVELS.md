@@ -197,6 +197,10 @@ The wide-open act between laps. Full 6DOF in open space.
 
 - **P1 — substantially complete in Galaga level 1**: arcade-mode state, input gate, restricted arena play, phase HUD, three waves with shooters, boss, scoring, and results flow. Portal-driven entry/exit and reusable cross-game director structure still need verification before calling the shared framework complete.
 - **P2**: Galaga levels 2–10, including challenge-wave progression and additional difficulty/content design.
+  Core combat tuning now scales automatically from the original level-1 values to
+  Linda's hard-boss settings at level 10: enemy bolt speed/hit radius and damage,
+  boss HP, laser speed/damage, and missile speed/damage. `startGalagaPhase(level)`
+  accepts levels 1–10; the future campaign director should pass the Galaga level.
 - **P3**: Pac-Man levels 1–10.
 - **P4**: Defender levels 1–10.
 - **P5**: 30 deep-space levels — station, docking/repair, item shop, quests, and escalating exploration missions.

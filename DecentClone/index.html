@@ -3663,6 +3663,22 @@
                 3: { squadSize: 3, minMs: 900, maxMs: 2100 },
             },
         };
+        const GALAGA_LEVEL_1 = {
+            BOLT_SPEED: 20, BOLT_HIT_R: 34, SHIELD_DMG: 14, HULL_DMG: 12,
+            BOSS_HP: 550, BOSS_LASER_SPEED: 16, BOSS_LASER_DMG_MULT: 1.6,
+            BOSS_MISSILE_SPEED: 6, BOSS_MISSILE_DMG_MULT: 4,
+        };
+
+        function galagaDifficulty(level = galagaPhase?.level || 1) {
+            const clampedLevel = Math.max(1, Math.min(10, Math.round(Number(level) || 1)));
+            const t = (clampedLevel - 1) / 9;
+            const scaled = {};
+            for (const key of Object.keys(GALAGA_LEVEL_1)) {
+                const value = GALAGA_LEVEL_1[key] + (GALAGA[key] - GALAGA_LEVEL_1[key]) * t;
+                scaled[key] = key.includes('MULT') ? value : Math.round(value);
+            }
+            return { level: clampedLevel, ...scaled };
+        }
         const GALAGA_SPRITE_PATHS = {
             bee: 'Textures/galaga/enemy1.png',
             butterfly: 'Textures/galaga/enemy2.png',
@@ -3676,6 +3692,7 @@
         }
         const galagaPhase = {
             active: false, state: 'idle', stateUntil: 0,
+            level: 1,
             wave: 0, score: 0, kills: 0, shots: 0,
             fighters: [], bolts: [],
             saved: null, nextDiveAt: 0,
@@ -3688,7 +3705,7 @@
             return { forward: { ...GALAGA.UP }, right: { x: 1, y: 0, z: 0 }, down: { x: 0, y: 0, z: 1 } };
         }
 
-        function startGalagaPhase() {
+        function startGalagaPhase(level = 1) {
             if (galagaPhase.active) return;
             galagaPhase.saved = {
                 x: posX, y: posY, z: posZ,
@@ -3701,6 +3718,7 @@
             shipForward = b.forward; shipRight = b.right; shipDown = b.down;
             shipRollAngle = 0;
             galagaPhase.active = true;
+            galagaPhase.level = galagaDifficulty(level).level;
             galagaPhase.state = 'intro';
             galagaPhase.stateUntil = performance.now() + GALAGA.INTRO_MS;
             galagaPhase.wave = 0;
@@ -3782,12 +3800,13 @@
                 };
             };
             const mkBoss = () => {
+                const tuning = galagaDifficulty();
                 const slot = { x: O.x, y: O.y - GALAGA.FORM_DIST - 380, z: O.z };
                 const spawn = { x: O.x, y: O.y - 200, z: O.z + 750 };
                 const c1 = { x: O.x + 300, y: O.y - 900, z: O.z - 200 };
                 const c2 = { x: slot.x - 200, y: slot.y - 220, z: slot.z + 150 };
                 return {
-                    type: 'boss', slot, hp: GALAGA.BOSS_HP,
+                    type: 'boss', slot, hp: tuning.BOSS_HP, maxHp: tuning.BOSS_HP,
                     phase: 'entry', entrySeg: 0, t: 0, tRate: 1 / 220,
                     entryPaths: [{ p0: spawn, p1: c1, p2: c2, p3: slot }],
                     pos: { ...spawn },
@@ -3821,7 +3840,7 @@
         function galagaFireBolt(fighter, spread, opts) {
             spread = spread || { x: 0, z: 0 };
             opts = opts || {};
-            const speed = opts.speed || GALAGA.BOLT_SPEED;
+            const speed = opts.speed || galagaDifficulty().BOLT_SPEED;
             const ship = { x: posX, y: posY, z: posZ };
             // lead the player's strafe drift: estimate time-to-close from the
             // dominant axis (fighter -> ship), then predict where the ship's
@@ -3846,7 +3865,7 @@
                 life: 0,
                 kind: opts.kind || 'bolt',
                 mult: opts.mult || 1,
-                hitR: opts.hitR || GALAGA.BOLT_HIT_R,
+                hitR: opts.hitR || galagaDifficulty().BOLT_HIT_R,
             });
         }
 
@@ -3857,18 +3876,20 @@
         }
 
         function galagaBossLaser(fighter) {
+            const tuning = galagaDifficulty();
             galagaFireBolt(fighter, { x: 0, z: 0 }, {
-                speed: GALAGA.BOSS_LASER_SPEED,
-                mult: GALAGA.BOSS_LASER_DMG_MULT,
+                speed: tuning.BOSS_LASER_SPEED,
+                mult: tuning.BOSS_LASER_DMG_MULT,
                 hitR: GALAGA.BOSS_LASER_HIT_R,
                 kind: 'laser',
             });
         }
 
         function galagaBossMissile(fighter) {
+            const tuning = galagaDifficulty();
             galagaFireBolt(fighter, { x: 0, z: 0 }, {
-                speed: GALAGA.BOSS_MISSILE_SPEED,
-                mult: GALAGA.BOSS_MISSILE_DMG_MULT,
+                speed: tuning.BOSS_MISSILE_SPEED,
+                mult: tuning.BOSS_MISSILE_DMG_MULT,
                 hitR: GALAGA.BOSS_MISSILE_HIT_R,
                 kind: 'missile',
             });
@@ -3887,17 +3908,18 @@
         }
 
         function galagaApplyPlayerHit(mult = 1) {
+            const tuning = galagaDifficulty();
             if (gameOverState.active) return;
             shieldHitFlashUntil = performance.now() + 320;
             if (!shieldsBreached && shieldCurrent > 0) {
-                shieldCurrent = Math.max(0, shieldCurrent - GALAGA.SHIELD_DMG * mult);
+                shieldCurrent = Math.max(0, shieldCurrent - tuning.SHIELD_DMG * mult);
                 if (shieldCurrent <= 0) {
                     shieldFlashUntil = performance.now() + 1600;
                     shieldsBreached = true;
                 }
                 return;
             }
-            hullCurrent = Math.max(0, hullCurrent - GALAGA.HULL_DMG * mult);
+            hullCurrent = Math.max(0, hullCurrent - tuning.HULL_DMG * mult);
             hullFlashUntil = performance.now() + 900;
             if (hullCurrent <= 0) triggerGameOver();
         }
@@ -4226,7 +4248,7 @@
                 ctx.fillStyle = 'rgba(0,0,0,0.5)';
                 ctx.fillRect(p.x - barW / 2, barY, barW, 7);
                 ctx.fillStyle = '#ff2244';
-                ctx.fillRect(p.x - barW / 2, barY, barW * Math.max(0, f.hp / GALAGA.BOSS_HP), 7);
+                ctx.fillRect(p.x - barW / 2, barY, barW * Math.max(0, f.hp / (f.maxHp || GALAGA.BOSS_HP)), 7);
             }
         }
 
