@@ -1280,7 +1280,6 @@
         const MOVEMENT_STREAK_MAX_LINES = 12;
         const MOVEMENT_STREAK_BOOST_MIN = 6;
         const MOVEMENT_STREAK_CRUISE_MIN = 4;
-        const MOVEMENT_STREAK_CLEAR_CONE_FRAC = 0.15;
         const MOVEMENT_STREAK_STAR_SKIP = 2;
         const MOVEMENT_STREAK_STAR_MAX_PER_SEGMENT = 6;
         const WALL_MOTION_BOOST_SCROLL_MULT = 3.8;
@@ -15567,7 +15566,10 @@
             }
 
             const moving = boost || forward > 0.04;
-            const clearRadius = Math.min(canvas.width, canvas.height) * MOVEMENT_STREAK_CLEAR_CONE_FRAC * 0.5;
+            // Keep only a tiny reticle-sized gap. The former large circular clear cone
+            // left the base wall texture unstreaked in the center while its surroundings
+            // moved, reading as a zoomed/misaligned texture disc during flight.
+            const clearRadius = 18;
             const distFromCenter = Math.hypot(screenX - centerX, screenY - centerY);
             if (moving && distFromCenter >= clearRadius) {
                 const lengthFactor = boost ? 0.78 : 0.9;
@@ -15650,7 +15652,7 @@
             const spread = boost ? Math.PI * 1.05 : Math.PI * 0.78;
             const diagonal = Math.hypot(canvas.width, canvas.height);
             const halfExtent = diagonal * 0.5;
-            const clearRadius = Math.min(canvas.width, canvas.height) * MOVEMENT_STREAK_CLEAR_CONE_FRAC * 0.5;
+            const clearRadius = 18;
             const alphaBase = boost ? 0.88 : 0.48;
             const widthBase = boost ? 2.4 : 1.28;
             const animRate = boost ? 3.4 : 1.55;
@@ -18510,27 +18512,41 @@
 
             const x = screen.x;
             const y = screen.y;
-            const radius = 7;
-            const arm = 5;
-            const gap = 2.5;
+            const radius = 10;
+            const arm = 8;
+            const gap = 4;
 
             ctx.save();
-            ctx.globalAlpha = 0.72;
-            ctx.strokeStyle = 'rgba(80, 255, 210, 0.62)';
-            ctx.lineWidth = 1;
+            ctx.lineCap = 'round';
+            const drawSight = () => {
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.moveTo(x - radius - arm, y);
+                ctx.lineTo(x - gap, y);
+                ctx.moveTo(x + gap, y);
+                ctx.lineTo(x + radius + arm, y);
+                ctx.moveTo(x, y - radius - arm);
+                ctx.lineTo(x, y - gap);
+                ctx.moveTo(x, y + gap);
+                ctx.lineTo(x, y + radius + arm);
+                ctx.stroke();
+            };
+            // Dark under-stroke keeps the sight legible over pale fire, walls, and stars.
+            ctx.globalAlpha = 0.92;
+            ctx.strokeStyle = '#240000';
+            ctx.lineWidth = 6;
+            drawSight();
+            ctx.globalAlpha = 1;
+            ctx.strokeStyle = '#ff2020';
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 7;
+            ctx.lineWidth = 3;
+            drawSight();
+            ctx.shadowBlur = 0;
+            ctx.fillStyle = '#fff4f4';
             ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.moveTo(x - radius - arm, y);
-            ctx.lineTo(x - gap, y);
-            ctx.moveTo(x + gap, y);
-            ctx.lineTo(x + radius + arm, y);
-            ctx.moveTo(x, y - radius - arm);
-            ctx.lineTo(x, y - gap);
-            ctx.moveTo(x, y + gap);
-            ctx.lineTo(x, y + radius + arm);
-            ctx.stroke();
+            ctx.arc(x, y, 2.25, 0, Math.PI * 2);
+            ctx.fill();
             ctx.restore();
         }
 
