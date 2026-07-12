@@ -226,14 +226,27 @@ class RiskManager:
         _is_bmr = (strategy_name == "bmr_357")
         if _is_bmr:
             # BMR-357 cluster strategy: bypass global 30-slot cap, use own 100-slot pool.
-            # Still enforce daily loss + consecutive loss circuit breakers.
+            # Still enforce the global halt flag + daily loss/consecutive-loss circuit
+            # breakers, and route any breach through _halt_trading() so a BMR-357
+            # blowout halts every other strategy too (previously invisible — a
+            # strategy-specific exemption was silently stripping a system-wide
+            # circuit breaker).
+            self._refresh_session()
+            if self._session.get("trading_halted"):
+                reason = self._session.get("halt_reason", "Trading halted")
+                return TradeApproval(approved=False, reason=reason)
             pnl_today  = self._session.get("pnl_today", 0.0)
             _start_cap = self._get_or_lock_starting_capital()
             _max_loss  = _start_cap * (config.MAX_DAILY_LOSS_PCT / 100)
             if pnl_today <= -_max_loss:
+                self._halt_trading(
+                    f"Daily loss limit reached: ${abs(pnl_today):.2f} "
+                    f"({abs(pnl_today / _start_cap * 100):.1f}%)"
+                )
                 return TradeApproval(approved=False,
                     reason=f"{config.MAX_DAILY_LOSS_PCT:.0f}% daily loss ceiling reached.")
             if self._session.get("consecutive_losses", 0) >= config.MAX_CONSECUTIVE_LOSSES:
+                self._halt_trading(f"{config.MAX_CONSECUTIVE_LOSSES} consecutive losing trades")
                 return TradeApproval(approved=False,
                     reason=f"{config.MAX_CONSECUTIVE_LOSSES} consecutive losses. Trading halted.")
             _open_bmr = [t for t in db.get_open_trades()

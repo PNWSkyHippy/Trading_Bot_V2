@@ -471,6 +471,7 @@ class TradeExecutor:
                     broker_name            = "alpaca",
                     structural_stop_price  = structural_stop_hint,
                     bypass_win_cooldown    = bypass_win_cooldown,
+                    strategy_name          = signal.indicators.get("strategy_name"),
                 )
                 if not approval.approved:
                     logger.info(
