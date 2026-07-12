@@ -16017,6 +16017,11 @@
             const shipPoint = { x: posX, y: posY, z: posZ };
             for (let index = 0; index < builder.segments.length; index++) {
                 const seg = builder.segments[index];
+                // Door-portal chambers are intentionally detached from physical tunnel
+                // topology. Do not reveal their spherical shells merely because they are
+                // nearby in world space; they become visible after portal entry. Preserve
+                // an explicitly authored glass-to-glass view when both shells are clear.
+                if (segmentIsChamber(seg) && !segmentVisibleFromShipRoute(index)) continue;
                 const length = seg.length || builder.length;
                 const midZ = segmentMidCameraZ(seg);
                 const dist = segmentIsChamber(seg)
