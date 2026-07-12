@@ -21,6 +21,7 @@
 
 import uuid
 import time
+import json
 import logging
 import threading
 from datetime import datetime
@@ -397,6 +398,22 @@ class TradeExecutor:
             f"Attempting to execute signal: {signal.symbol} {signal.direction}"
         )
 
+        # ── Unresolved-order symbol block ───────────────────────────────────
+        # A prior Kraken order for this symbol had a final fill state that
+        # could not be confirmed (see _handle_unresolved_kraken_order). That
+        # marker persists in the DB independently of the global trading halt
+        # so this specific symbol stays blocked even if the halt is later
+        # cleared without this symbol actually being reconciled.
+        if signal.asset_class == "crypto":
+            _unresolved = self._db.get_state(f"kraken_unresolved_symbol_{signal.symbol}")
+            if _unresolved:
+                logger.critical(
+                    f"[KRAKEN UNRESOLVED BLOCK] {signal.symbol}: entries "
+                    f"blocked — order {_unresolved.get('order_id')} requires "
+                    f"manual reconciliation before new positions can open here"
+                )
+                return None
+
         if signal.asset_class == "stock" and not _stock_entries_allowed_now():
             logger.info(
                 f"Trade rejected for {signal.symbol}: stock entries closed "
@@ -518,19 +535,66 @@ class TradeExecutor:
             )
             return None
 
+        # ── Live Kraken fill confirmation ──────────────────────────────────
+        # _submit()'s crypto branch scales the submitted qty down for
+        # leveraged shorts (see KRAKEN_SHORT_LEVERAGE scaling below) — the
+        # only trustworthy record of what was actually bought/sold is
+        # broker_result["filled_qty"] as reported by Kraken itself.
+        # Scoped to live Kraken only: paper fills and Alpaca/IBKR pending
+        # orders have their own separate (unmodified) handling.
+        _is_live_kraken = (
+            signal.asset_class == "crypto"
+            and broker_name_hint == "kraken"
+            and not getattr(config, "KRAKEN_PAPER_MODE", False)
+        )
+        if _is_live_kraken and broker_result.get("resolution_failed"):
+            # KrakenExecutor already wrote a durable JSONL record and logged
+            # CRITICAL — but that log/file is supplementary evidence, not a
+            # system-level response. The true final state is unknown (could
+            # be zero, could be a live, possibly-unprotected position) and
+            # must not be guessed at: persist DB state, protect any confirmed
+            # minimum exposure, and halt everything until a human reconciles.
+            self._handle_unresolved_kraken_order(signal, approval, broker_result)
+            return None
+        if _is_live_kraken and float(broker_result.get("filled_qty") or 0) <= 0:
+            logger.warning(
+                f"[KRAKEN GHOST GUARD] {signal.symbol}: order confirmed with "
+                f"filled_qty=0 (status={broker_result.get('status')!r}) — no "
+                f"position opened, skipping DB record"
+            )
+            return None
+
         entry_price = broker_result.get("filled_avg_price") or signal.current_price
         if entry_price == 0:
             entry_price = signal.current_price
 
-        # Recalculate quantity from actual fill price.
-        # approval.quantity was sized using signal.current_price which can be stale
-        # or from a bad feed (e.g. $0.05 instead of $42.79). Using the real fill
-        # price ensures quantity × fill_price == position_value and prevents
-        # phantom PNL on close (e.g. 39,952 qty × $1.14 = $45k on a $2k position).
-        if entry_price > 0 and approval.position_value > 0:
+        if _is_live_kraken:
+            # Live Kraken: broker_result["filled_qty"] is the confirmed
+            # base-asset amount actually bought/sold — this is what was
+            # really sent to Kraken (post leverage-scaling for shorts, see
+            # _submit()), not the pre-scaling approval.quantity/position_value.
+            # Trusting the reconstructed position_value/entry_price formula
+            # here would silently record the full unscaled size for a
+            # leveraged short even though only a fraction was really opened.
+            actual_quantity = round(float(broker_result.get("filled_qty", 0)), 8)
+        elif entry_price > 0 and approval.position_value > 0:
+            # Recalculate quantity from actual fill price.
+            # approval.quantity was sized using signal.current_price which can be stale
+            # or from a bad feed (e.g. $0.05 instead of $42.79). Using the real fill
+            # price ensures quantity × fill_price == position_value and prevents
+            # phantom PNL on close (e.g. 39,952 qty × $1.14 = $45k on a $2k position).
             actual_quantity = round(approval.position_value / entry_price, 6)
         else:
             actual_quantity = approval.quantity
+
+        # Position dollar value must reflect what was actually committed, not
+        # the pre-scaling approved amount — otherwise a leveraged short's
+        # capital-ledger bookkeeping and DB record overstate the real
+        # position by the same factor the quantity was scaled down.
+        open_position_value = (
+            round(actual_quantity * entry_price, 4) if _is_live_kraken
+            else approval.position_value
+        )
 
         tp_pct = (custom_tp or config.DEFAULT_TAKE_PROFIT_PCT) / 100
 
@@ -641,6 +705,13 @@ class TradeExecutor:
         # (e.g. paper fill or legacy code path).
         broker_name = broker_result.get("actual_broker") or self._get_broker_name(signal)
 
+        # Leverage actually used for this fill (0 = spot). Persisted so any
+        # later stop replacement (position_monitor.py ratchet/restore) or
+        # provisional emergency stop preserves the same close semantics —
+        # leverage/reduceOnly can't be safely re-derived after the fact,
+        # since exchange_capabilities' leverage limits can change over time.
+        _kraken_leverage = int(broker_result.get("leverage") or 0) if signal.asset_class == "crypto" else 0
+
         trade_record = {
             "trade_id":        trade_id,
             "symbol":          signal.symbol,
@@ -654,11 +725,14 @@ class TradeExecutor:
                 "timeframe",
                 "5Min" if signal.asset_class == "stock" else "5m"
             ),
-            "position_value":  approval.position_value,
+            "position_value":  open_position_value,
             "stop_loss":       round(stop_loss, 6),
             "take_profit":     round(take_profit, 6),
             "signal_score":    signal.score,
-            "indicators":      signal.indicators,
+            "indicators": (
+                {**signal.indicators, "kraken_leverage": _kraken_leverage}
+                if signal.asset_class == "crypto" else signal.indicators
+            ),
             "broker":          broker_name,
             "broker_order_id": broker_result.get("broker_order_id")
         }
@@ -668,7 +742,7 @@ class TradeExecutor:
             alert_manager.trade_opened({
                 "symbol": signal.symbol, "direction": signal.direction,
                 "entry_price": entry_price, "stop_loss": stop_loss,
-                "take_profit": take_profit, "position_value": approval.position_value,
+                "take_profit": take_profit, "position_value": open_position_value,
                 "strategy_name": signal.indicators.get("strategy_name", "unknown")
             })
         except Exception:
@@ -688,8 +762,8 @@ class TradeExecutor:
             if not isinstance(bal, dict):
                 logger.debug(f"Broker balance update on open skipped: get_broker_balance returned {type(bal).__name__} for {broker_name}")
             else:
-                new_invested  = bal.get("invested",  0.0) + approval.position_value
-                new_available = max(0.0, bal.get("available", 0.0) - approval.position_value)
+                new_invested  = bal.get("invested",  0.0) + open_position_value
+                new_available = max(0.0, bal.get("available", 0.0) - open_position_value)
                 broker_manager.update_broker_balance(
                     broker_name, bal.get("balance", 0.0),
                     new_invested, new_available
@@ -699,11 +773,13 @@ class TradeExecutor:
 
         # ── Place real stop order on Kraken (live + paper) ────────────────
         # In paper mode this stores a fake order ID for tracking logic parity.
-        # In live mode this places an actual stop-market order on Kraken.
+        # In live mode this places an actual stop order on Kraken, preserving
+        # the same leverage/reduceOnly close semantics the entry used.
         if signal.asset_class == "crypto" and broker_name in ("kraken", "paper"):
             stop_side = "buy" if signal.direction == "short" else "sell"
             stop_order_id = self.kraken.place_stop_order(
-                signal.symbol, actual_quantity, stop_side, round(stop_loss, 6)
+                signal.symbol, actual_quantity, stop_side, round(stop_loss, 6),
+                leverage=_kraken_leverage,
             )
             if stop_order_id:
                 self._db.update_trade_order_ids(trade_id, stop_order_id=stop_order_id)
@@ -714,6 +790,245 @@ class TradeExecutor:
                 )
 
         return trade_id
+
+    def _persist_unresolved_markers(self, symbol: str, order_id: Optional[str],
+                                    marker: Dict) -> None:
+        """
+        Persist both the symbol-keyed and order-ID-keyed unresolved markers.
+
+        The symbol-keyed marker is the safety-critical one — it is what
+        blocks new entries for this symbol independently of the global halt
+        (see the guard at the top of _execute_signal_inner), so if a later
+        manual_resume() clears the halt without this specific order being
+        reconciled, this symbol must still stay blocked. It is therefore
+        always written FIRST, and each key's write is attempted
+        independently — one failing must never suppress the other.
+
+        Prefers a single DB transaction, reusing the exact same private
+        _conn() primitive data/database.py's own set_state() is built on, so
+        a mid-write failure can never leave one marker committed and the
+        other silently missing (true atomicity: both keys commit together or
+        neither does). Falls back to two fully independent set_state() calls
+        — symbol first — when the injected db_ref doesn't expose a
+        transaction primitive (e.g. a test double) or the atomic attempt
+        itself raises.
+        """
+        symbol_key = f"kraken_unresolved_symbol_{symbol}"
+        order_key  = f"kraken_unresolved_order_{order_id}"
+
+        if hasattr(self._db, "_conn"):
+            try:
+                with self._db._conn() as conn:
+                    _now = datetime.now().isoformat()
+                    conn.execute(
+                        "INSERT OR REPLACE INTO bot_state (key, value, updated) "
+                        "VALUES (?, ?, ?)",
+                        (symbol_key, json.dumps(marker), _now),
+                    )
+                    conn.execute(
+                        "INSERT OR REPLACE INTO bot_state (key, value, updated) "
+                        "VALUES (?, ?, ?)",
+                        (order_key, json.dumps(marker), _now),
+                    )
+                return
+            except Exception as _atomic_err:
+                logger.critical(
+                    f"[KRAKEN UNRESOLVED] {symbol}: atomic marker transaction "
+                    f"failed ({_atomic_err}) — falling back to independent "
+                    f"per-key writes, symbol marker first"
+                )
+
+        try:
+            self._db.set_state(symbol_key, marker)
+        except Exception as _sym_err:
+            logger.critical(
+                f"[KRAKEN UNRESOLVED] {symbol}: FAILED to persist the SYMBOL "
+                f"reconciliation marker: {_sym_err} — this symbol may NOT "
+                f"stay blocked if the global halt is later cleared, treat as "
+                f"highest-priority manual intervention"
+            )
+        try:
+            self._db.set_state(order_key, marker)
+        except Exception as _ord_err:
+            logger.critical(
+                f"[KRAKEN UNRESOLVED] {symbol}: FAILED to persist the "
+                f"order-ID reconciliation marker ({order_id}): {_ord_err}"
+            )
+
+    def _handle_unresolved_kraken_order(
+        self, signal, approval: TradeApproval, broker_result: Dict
+    ) -> None:
+        """
+        Fail-closed handling for a Kraken order whose final fill state
+        KrakenExecutor could not confirm (resolution_failed=True). The true
+        outcome is unknown — it could be a clean zero-fill, or a live,
+        possibly-unprotected position at Kraken. Never guessed at:
+
+          0. Idempotency: if this exact order ID has already been handled,
+             do not create a second provisional trade or a second emergency
+             stop for the same confirmed exposure — just re-assert the halt.
+          1. Persist a durable DB bot_state marker, keyed both by the Kraken
+             order ID and by symbol (see _persist_unresolved_markers) — this
+             DB record is the system's actual state store; the
+             KrakenExecutor JSONL log is supplementary evidence only, not
+             something anything else consumes.
+          2. If a positive confirmed-minimum quantity is known, open a
+             clearly marked provisional DB trade and place an emergency stop
+             — preserving the same leverage/reduceOnly close semantics as a
+             normal entry stop — for exactly that confirmed quantity. Never
+             more, and never guessing at any unconfirmed remainder.
+          3. Invoke the public global risk halt (which also fires the
+             existing critical trading-halted alert) so every strategy,
+             including BMR-357, rejects new entries until a human
+             reconciles this order.
+
+        Each step is independently best-effort (wrapped so a failure in one
+        cannot suppress the others) — manual_halt() is always attempted last,
+        regardless of whether the marker/provisional-trade steps succeeded.
+        """
+        order_id       = broker_result.get("broker_order_id")
+        last_known_qty = float(broker_result.get("filled_qty") or 0)
+        last_known_px  = float(broker_result.get("filled_avg_price") or 0)
+        leverage       = int(broker_result.get("leverage") or 0)
+        status         = broker_result.get("status")
+        symbol         = signal.symbol
+        now_iso        = datetime.now().isoformat()
+
+        order_key = f"kraken_unresolved_order_{order_id}"
+        try:
+            already_handled = self._db.get_state(order_key)
+        except Exception:
+            already_handled = None
+        if already_handled:
+            logger.critical(
+                f"[KRAKEN UNRESOLVED] {symbol}: order {order_id} already has "
+                f"an unresolved marker — skipping duplicate provisional "
+                f"trade/stop (idempotent no-op); re-asserting halt in case "
+                f"it was cleared without this order being reconciled"
+            )
+            self._risk_manager.manual_halt(
+                f"Kraken order unresolved for {symbol} (order_id={order_id}): "
+                f"manual reconciliation required before trading can resume "
+                f"(duplicate resolution attempt detected)."
+            )
+            return
+
+        marker = {
+            "symbol":                  symbol,
+            "side":                    "sell" if signal.direction == "short" else "buy",
+            "requested_qty":           approval.quantity,
+            "last_known_filled_qty":   last_known_qty,
+            "last_known_avg_price":    last_known_px,
+            "leverage":                leverage,
+            "status":                  status,
+            "timestamp":               now_iso,
+            "reconciliation_required": True,
+            "order_id":                order_id,
+        }
+        self._persist_unresolved_markers(symbol, order_id, marker)
+
+        halt_reason = (
+            f"Kraken order unresolved for {symbol} (order_id={order_id}): "
+            f"final fill state could not be confirmed after cancel + "
+            f"follow-up fetch. Manual reconciliation required before "
+            f"trading can resume."
+        )
+
+        if last_known_qty > 0:
+            # A confirmed minimum position exists. It must be tracked and
+            # protected — not silently discarded just because the rest of
+            # the order's outcome is unknown.
+            try:
+                entry_price = last_known_px or signal.current_price
+                strategy_sl_pct = (
+                    signal.indicators.get("custom_stop_loss_pct")
+                    or config.DEFAULT_STOP_LOSS_PCT
+                ) / 100
+                strategy_tp_pct = (
+                    signal.indicators.get("custom_take_profit_pct")
+                    or config.DEFAULT_TAKE_PROFIT_PCT
+                ) / 100
+                if signal.direction == "long":
+                    stop_loss   = entry_price * (1 - strategy_sl_pct)
+                    take_profit = entry_price * (1 + strategy_tp_pct)
+                else:
+                    stop_loss   = entry_price * (1 + strategy_sl_pct)
+                    take_profit = entry_price * (1 - strategy_tp_pct)
+
+                provisional_trade_id = f"UNRESOLVED-{str(uuid.uuid4())[:8]}"
+                provisional_record = {
+                    "trade_id":        provisional_trade_id,
+                    "symbol":          symbol,
+                    "asset_class":     "crypto",
+                    "direction":       signal.direction,
+                    "entry_time":      now_iso,
+                    "entry_price":     round(entry_price, 6),
+                    "quantity":        last_known_qty,
+                    "strategy_name":   signal.indicators.get("strategy_name", "original"),
+                    "entry_timeframe": signal.indicators.get("timeframe", "5m"),
+                    "position_value":  round(last_known_qty * entry_price, 4),
+                    "stop_loss":       round(stop_loss, 6),
+                    "take_profit":     round(take_profit, 6),
+                    "signal_score":    signal.score,
+                    "indicators": {
+                        **signal.indicators,
+                        "kraken_provisional_unresolved": True,
+                        "kraken_unresolved_order_id":    order_id,
+                        "kraken_leverage":                leverage,
+                    },
+                    "broker":          "kraken",
+                    "broker_order_id": order_id,
+                }
+                self._db.open_trade(provisional_record)
+                logger.critical(
+                    f"[KRAKEN UNRESOLVED] {symbol}: provisional trade "
+                    f"{provisional_trade_id} opened for confirmed minimum "
+                    f"{last_known_qty} @ ${entry_price:.6f} — treat as "
+                    f"requiring reconciliation, not a normal position"
+                )
+
+                # Emergency stop MUST preserve the same leverage/reduceOnly
+                # close semantics as a normal entry stop for this position —
+                # a returned order ID alone does not prove the stop actually
+                # protects a leveraged short (see place_stop_order()).
+                stop_side = "buy" if signal.direction == "short" else "sell"
+                try:
+                    stop_order_id = self.kraken.place_stop_order(
+                        symbol, last_known_qty, stop_side, round(stop_loss, 6),
+                        leverage=leverage,
+                    )
+                except Exception as _stop_err:
+                    stop_order_id = None
+                    logger.critical(
+                        f"[KRAKEN UNRESOLVED] {symbol}: emergency stop "
+                        f"placement raised: {_stop_err}"
+                    )
+                if stop_order_id:
+                    self._db.update_trade_order_ids(
+                        provisional_trade_id, stop_order_id=stop_order_id
+                    )
+                else:
+                    logger.critical(
+                        f"[KRAKEN UNRESOLVED] {symbol}: emergency stop "
+                        f"placement FAILED for provisional trade "
+                        f"{provisional_trade_id} — confirmed {last_known_qty} "
+                        f"is UNPROTECTED, treat as highest-priority "
+                        f"manual reconciliation"
+                    )
+
+                halt_reason += (
+                    f" A provisional trade ({provisional_trade_id}) was "
+                    f"opened for the confirmed minimum {last_known_qty} units."
+                )
+            except Exception as _prov_err:
+                logger.critical(
+                    f"[KRAKEN UNRESOLVED] {symbol}: FAILED to create "
+                    f"provisional protective trade: {_prov_err} — confirmed "
+                    f"{last_known_qty} may be completely untracked and "
+                    f"unprotected, treat as highest-priority reconciliation"
+                )
+
+        self._risk_manager.manual_halt(halt_reason)
 
     def close_trade(self, trade: Dict, current_price: float,
                     exit_reason: str) -> bool:

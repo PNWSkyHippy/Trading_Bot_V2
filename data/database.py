@@ -104,7 +104,9 @@ class Database:
                     mae_pct          REAL DEFAULT 0,
                     partial_pnl      REAL DEFAULT 0,
                     partial_fees_paid REAL DEFAULT 0,
-                    partial_exit_count INTEGER DEFAULT 0
+                    partial_exit_count INTEGER DEFAULT 0,
+                    stop_order_id    TEXT,
+                    tp_order_id      TEXT
                 );
 
                 -- Realized partial exits for positions that continue running.
@@ -363,6 +365,8 @@ class Database:
                 "ALTER TABLE trades ADD COLUMN partial_pnl      REAL    DEFAULT 0",
                 "ALTER TABLE trades ADD COLUMN partial_fees_paid REAL   DEFAULT 0",
                 "ALTER TABLE trades ADD COLUMN partial_exit_count INTEGER DEFAULT 0",
+                "ALTER TABLE trades ADD COLUMN stop_order_id    TEXT",
+                "ALTER TABLE trades ADD COLUMN tp_order_id      TEXT",
                 "ALTER TABLE session_state ADD COLUMN starting_capital_today REAL DEFAULT 0",
             ]
             for sql in migrations:

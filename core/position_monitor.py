@@ -372,9 +372,12 @@ class PositionMonitor:
             stop_loss = float(trade.get("stop_loss") or 0)
             qty = float(trade.get("quantity") or 0)
             if stop_loss > 0 and qty > 0:
+                _leverage = int(
+                    _json.loads(trade.get("indicators_json") or "{}").get("kraken_leverage", 0)
+                )
                 stop_id = self._get_executor().kraken.place_stop_order(
                     trade["symbol"], qty, _scanner_stop_side(trade["direction"]),
-                    round(stop_loss, 6)
+                    round(stop_loss, 6), leverage=_leverage
                 )
                 if stop_id:
                     self._db.update_trade_order_ids(trade_id, stop_order_id=stop_id)
@@ -458,8 +461,12 @@ class PositionMonitor:
             qty         = float(trade.get("quantity") or 0)
             old_stop_id = trade.get("stop_order_id", "")
             stop_side   = "buy" if direction == "short" else "sell"
+            _leverage   = int(
+                _json.loads(trade.get("indicators_json") or "{}").get("kraken_leverage", 0)
+            )
             new_stop_id = kraken_ex.update_stop_order(
-                symbol, old_stop_id, qty, stop_side, round(new_sl, 6)
+                symbol, old_stop_id, qty, stop_side, round(new_sl, 6),
+                leverage=_leverage,
             )
             if new_stop_id:
                 self._db.update_trade_order_ids(trade_id, stop_order_id=new_stop_id)
@@ -539,7 +546,12 @@ class PositionMonitor:
             kraken_ex = self._get_executor().kraken
             if kraken_ex is None:
                 return
-            new_stop_id = kraken_ex.place_stop_order(symbol, qty, stop_side, stop_loss)
+            _leverage = int(
+                _json.loads(trade.get("indicators_json") or "{}").get("kraken_leverage", 0)
+            )
+            new_stop_id = kraken_ex.place_stop_order(
+                symbol, qty, stop_side, stop_loss, leverage=_leverage
+            )
             if new_stop_id:
                 self._db.update_trade_order_ids(trade_id, stop_order_id=new_stop_id)
                 trade["stop_order_id"] = new_stop_id
@@ -2340,8 +2352,12 @@ class PositionMonitor:
                         kraken_ex      = self._get_executor().kraken
                         old_stop_id    = trade.get("stop_order_id", "")
                         stop_side      = "buy" if direction == "short" else "sell"
+                        _leverage      = int(
+                            _json.loads(trade.get("indicators_json") or "{}").get("kraken_leverage", 0)
+                        )
                         new_stop_id    = kraken_ex.update_stop_order(
-                            symbol, old_stop_id, qty, stop_side, new_sl
+                            symbol, old_stop_id, qty, stop_side, new_sl,
+                            leverage=_leverage,
                         )
                         if new_stop_id:
                             self._db.update_trade_order_ids(
