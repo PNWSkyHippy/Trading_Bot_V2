@@ -5,7 +5,7 @@ flight/render path and keep map saves backward-compatible.
 
 ## Remaining Priority Bugs
 
-### Vertical Two-Way Spline Handoff — Fix Pending Flight Verification
+### Vertical Two-Way Spline Handoff — Major Fix Verified
 
 `CorkScrew1` reproduced a jerky cockpit toss near world position
 `(-1350, -3348, 9567)`, where join-curve segment 431 meets segment 389.
@@ -18,8 +18,12 @@ were a multi-outlet steering choice.
 
 The runtime fix preserves the ship's current roll frame across two-piece curved
 handoffs and blends only toward the next centerline direction. True intersections
-with three or more outlets retain normal branch-selection assistance. Re-test
-this exact location at cruise and full boost before marking resolved.
+with three or more outlets retain normal branch-selection assistance.
+
+Flight verification on 2026-07-11 passed repeatedly in both directions through
+the same location: the jerking/tossing did not recur. One pass may have included
+a single barely noticeable perspective adjustment of roughly 15 degrees. Keep
+that as low-priority transition polish, but the disruptive bug is resolved.
 
 ### 1. General Flight-Control Jitter Polish
 
