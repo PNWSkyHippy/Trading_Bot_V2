@@ -1948,7 +1948,8 @@ class PositionMonitor:
 
         # ── 5. EARLY LOSS IDENTIFICATION (30 min) ────────────────────────
         # Skip for ORB — it needs time to develop past the opening range
-        if strategy != "orb_breakout":
+        EARLY_LOSS_LIFECYCLE_EXEMPT = {"vtmr_strategy", "bmr_357"}
+        if strategy != "orb_breakout" and strategy not in EARLY_LOSS_LIFECYCLE_EXEMPT:
             early_exit = self._check_early_loss(
                 trade, current_price, pnl_pct, age_seconds
             )
@@ -2058,6 +2059,8 @@ class PositionMonitor:
                         self._db.update_trade_levels(
                             trade_id, stop_loss=new_sl, take_profit=new_tp
                         )
+                        trade["stop_loss"] = new_sl
+                        trade["take_profit"] = new_tp
                         self._db.set_state(f"momentum_ext_{trade_id}", ext_count + 1)
                         self._db.increment_tp_hit_count(trade_id)
                         logger.info(
