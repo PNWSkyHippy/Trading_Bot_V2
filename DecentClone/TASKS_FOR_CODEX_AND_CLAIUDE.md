@@ -5,6 +5,22 @@ flight/render path and keep map saves backward-compatible.
 
 ## Remaining Priority Bugs
 
+### Vertical Two-Way Spline Handoff — Fix Pending Flight Verification
+
+`CorkScrew1` reproduced a jerky cockpit toss near world position
+`(-1350, -3348, 9567)`, where join-curve segment 431 meets segment 389.
+This is the crest where flight changes from climbing upward to nosing over and
+traveling backward/downward relative to world-up.
+The centerlines have zero gap and are covered by the junction bubble, but their
+stored right/down frames differ by roughly 30 degrees. Two-way junction flight
+assist was blending that roll discontinuity into the cockpit as though the seam
+were a multi-outlet steering choice.
+
+The runtime fix preserves the ship's current roll frame across two-piece curved
+handoffs and blends only toward the next centerline direction. True intersections
+with three or more outlets retain normal branch-selection assistance. Re-test
+this exact location at cruise and full boost before marking resolved.
+
 ### 1. General Flight-Control Jitter Polish
 
 - Remaining issue: motion/control can feel a little jittery, likely from guard

@@ -9650,6 +9650,7 @@
                 allowVerticalPitch: false,
                 steerBranch: null,
                 branchBasis: null,
+                twoWayJunction: false,
                 blend: 0,
                 turnSpeedMult: 1,
                 containRelax: 0
@@ -9737,6 +9738,7 @@
                 const endpoint = nearest.t < 0.5 ? seg.from : seg.to;
                 const junctionBranches = collectJunctionBranches(endpoint, radius, seg);
                 if (junctionBranches.length > 1) {
+                    ctx.twoWayJunction = junctionBranches.length === 2;
                     // Steering intent comes from body-relative input (screen right), so match
                     // it against the rolled body right, not the stored unrolled attitude.
                     const bodyRight = rolledShipBasis().right;
@@ -9791,9 +9793,23 @@
                         ctx.steerBranch = bestBranch;
                         const branchSeg = bestBranch.seg;
                         const branchForward = normalize(bestBranch.forward);
-                        const branchRight = normalize(branchSeg.right || cross(branchSeg.down || builder.down, branchForward));
-                        const branchDown = normalize(branchSeg.down || cross(branchForward, branchRight));
-                        ctx.branchBasis = { forward: branchForward, right: branchRight, down: branchDown };
+                        if (ctx.twoWayJunction) {
+                            // A two-piece curve is a continuation, not a steering choice. Its
+                            // independently generated halves can meet with different stored
+                            // right/down roll frames (Corkscrew1 reproduced ~30° at one seam).
+                            // Preserve the pilot's current roll and transport that frame onto
+                            // the next centerline direction; otherwise branch assist itself
+                            // throws the cockpit sideways inside an already-open junction bubble.
+                            ctx.branchBasis = buildStableBasisFromHints(
+                                branchForward,
+                                shipRight,
+                                shipDown
+                            );
+                        } else {
+                            const branchRight = normalize(branchSeg.right || cross(branchSeg.down || builder.down, branchForward));
+                            const branchDown = normalize(branchSeg.down || cross(branchForward, branchRight));
+                            ctx.branchBasis = { forward: branchForward, right: branchRight, down: branchDown };
+                        }
                         ctx.blend = BRANCH_FLIGHT_BASIS_BLEND *
                             Math.min(1, (bestScore - BRANCH_FLIGHT_STEER_MIN_DOT) / 0.72);
                         if (bestBranch.vertical && intentPitch > 0.04 &&
@@ -9806,9 +9822,13 @@
 
             if (ctx.verticalSegment && !ctx.branchBasis) {
                 const branchForward = normalize(local.forward);
-                const branchRight = normalize(seg.right || builder.right);
-                const branchDown = normalize(seg.down || builder.down);
-                ctx.branchBasis = { forward: branchForward, right: branchRight, down: branchDown };
+                ctx.branchBasis = ctx.nearJunction
+                    ? buildStableBasisFromHints(branchForward, shipRight, shipDown)
+                    : {
+                        forward: branchForward,
+                        right: normalize(seg.right || builder.right),
+                        down: normalize(seg.down || builder.down)
+                    };
                 ctx.blend = ctx.nearJunction ? 0.85 : 1.0;
                 ctx.turnSpeedMult = Math.max(ctx.turnSpeedMult, BRANCH_FLIGHT_TURN_SPEED_MULT);
             }
