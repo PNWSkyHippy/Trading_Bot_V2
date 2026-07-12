@@ -607,6 +607,7 @@ class BotEngine:
             # ── Pass 1: Close DB-tracked stock trades ─────────────────────
             open_trades  = _db.get_open_trades()
             stock_trades = [t for t in open_trades if t.get("asset_class") == "stock"]
+            db_symbols   = {t["symbol"] for t in stock_trades}
 
             for trade in stock_trades:
                 if trade.get("is_overnight"):
@@ -640,7 +641,6 @@ class BotEngine:
                     config.ALPACA_BASE_URL
                 )
                 alpaca_positions = api.list_positions()
-                db_symbols = {t["symbol"] for t in stock_trades}
 
                 for pos in alpaca_positions:
                     sym = pos.symbol
