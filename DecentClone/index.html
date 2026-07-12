@@ -15934,6 +15934,39 @@
             return segmentVisibleFromShipRoute(sentryOverlaySegmentIndex(sentry));
         }
 
+        function pointVisibleThroughCurrentTunnel(point, apertureScale = 0.96) {
+            if (!point || !Number.isInteger(shipSegmentIndex)) return true;
+            const seg = builder.segments[shipSegmentIndex];
+            if (!seg || !segmentWallOpaque(seg) || segmentIsChamber(seg)) return true;
+            const ship = { x: posX, y: posY, z: posZ };
+            const shipLocal = shipSegmentLocal(ship, seg);
+            const targetLocal = shipSegmentLocal(point, seg);
+            const lateral = p => {
+                const rel = { x: p.x - seg.from.x, y: p.y - seg.from.y, z: p.z - seg.from.z };
+                return { x: dot(rel, seg.right), y: dot(rel, seg.down) };
+            };
+            const shipSide = lateral(ship);
+            const targetSide = lateral(point);
+            const radius = (seg.radius || builder.radius) * apertureScale;
+            const radialAt = t => Math.hypot(
+                shipSide.x + (targetSide.x - shipSide.x) * t,
+                shipSide.y + (targetSide.y - shipSide.y) * t
+            );
+            const dz = targetLocal.localZ - shipLocal.localZ;
+
+            // A point whose projection stays inside this cylinder is directly visible.
+            if (targetLocal.localZ >= 0 && targetLocal.localZ <= shipLocal.length) {
+                return radialAt(1) <= radius;
+            }
+            if (Math.abs(dz) < 0.0001) return false;
+            const exitZ = targetLocal.localZ < 0 ? 0 : shipLocal.length;
+            const tExit = (exitZ - shipLocal.localZ) / dz;
+            if (tExit < 0 || tExit > 1) return false;
+            // The sightline must pass through the circular tunnel mouth. At a sharp bend
+            // it instead intersects the opaque side wall, hiding future ribs and targets.
+            return radialAt(tExit) <= radius;
+        }
+
         function overlaySegmentIndexForPoint(point, preferredIndex = null) {
             if (Number.isInteger(preferredIndex) && preferredIndex >= 0 && preferredIndex < builder.segments.length) {
                 return preferredIndex;
@@ -18287,6 +18320,7 @@
 
                 for (const t of ribTimes) {
                     const ribCenter = pointOnSegment(seg, t);
+                    if (!pointVisibleThroughCurrentTunnel(ribCenter)) continue;
                     const cameraPoint = worldToCamera(ribCenter);
                     if (cameraPoint.z <= 18 || cameraPoint.z > 1250) continue;
 
@@ -18332,7 +18366,7 @@
                 target.segmentIndex !== null &&
                 target.segmentIndex !== undefined &&
                 shipSegmentIndex !== null &&
-                Math.abs(target.segmentIndex - shipSegmentIndex) <= 3
+                segmentsWithinTopologyHops(shipSegmentIndex, target.segmentIndex, 3)
             ) {
                 return { right: viewRight, down: viewDown };
             }
@@ -18344,6 +18378,7 @@
             for (const target of tunnelTargets) {
                 if (!targetIsActive(target)) continue;
                 if (shouldSuppressOpaqueOverlay(target.segmentIndex, texturedSegmentIndices, forwardPathSet)) continue;
+                if (!pointVisibleThroughCurrentTunnel(target.point)) continue;
                 const cameraPoint = worldToCamera(target.point);
                 if (cameraPoint.z <= 16 || cameraPoint.z > 1500) continue;
                 const half = target.size / 2;
