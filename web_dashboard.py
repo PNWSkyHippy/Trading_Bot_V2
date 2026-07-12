@@ -74,6 +74,7 @@ except Exception:
 # Activated when a JWT token is posted to /api/tradovate_token.
 # Falls back to yfinance silently when not active.
 _tradovate_feed = None
+_tradovate_feed_lock = threading.Lock()   # guards create/recreate of _tradovate_feed
 try:
     from core.tradovate_feed import TradovateFeed, init_feed as _tv_init_feed
     import logging as _logging
@@ -324,7 +325,20 @@ def _verify_password(password: str, stored: str) -> bool:
 def _auth_check(username: str, password: str) -> bool:
     users = _load_users()
     rec   = users.get(username)
-    return bool(rec and _verify_password(password, rec.get("hash", "")))
+    if not rec:
+        return False
+    stored = rec.get("hash", "")
+    ok = _verify_password(password, stored)
+    if ok and stored.startswith("sha256:"):
+        # Legacy pre-pbkdf2 hash (only reachable via migrated accounts) — now that
+        # we have the plaintext password in hand, transparently upgrade it so this
+        # weak hash (CodeQL py/weak-sensitive-data-hashing) is never used again.
+        try:
+            users[username]["hash"] = _hash_password(password)
+            _save_users(users)
+        except Exception:
+            pass  # upgrade is best-effort; login still succeeds either way
+    return ok
 
 
 def _is_admin(username: str) -> bool:
@@ -1929,34 +1943,37 @@ def _chart_bars_tradovate(symbol: str, timeframe: str, limit: int):
     # Dynamically subscribe if this timeframe wasn't pre-registered.
     # Prefer a known numeric contract ID; fall back to REST lookup; last resort string name.
     # Tradovate's md/getChart WS accepts both numeric IDs and string contract names.
-    if sub_name not in _tradovate_feed._subscriptions:
-        sym_id = TRADOVATE_SYMBOL_IDS.get(base_name)
-        if sym_id is None:
-            # Try REST lookup first (may fail with 401 if token has limited ACL)
-            looked_up = _tradovate_feed.lookup_symbol_id(base_name)
-            if looked_up:
-                TRADOVATE_SYMBOL_IDS[base_name] = looked_up
-                sym_id = looked_up
-                import logging as _lg
-                _lg.getLogger(__name__).info(
-                    "Tradovate: REST lookup %s → id=%d (cached)", base_name, looked_up)
-            else:
-                # Fall back to string contract name — the live WS accepts both formats
-                sym_id = base_name
-                import logging as _lg
-                _lg.getLogger(__name__).info(
-                    "Tradovate: using string name %s (REST lookup unavailable)", base_name)
-        _tradovate_feed.subscribe(sub_name, symbol_id=sym_id,
-                                  element_size=element_size)
-        # Send the subscription immediately if already authenticated
-        if _tradovate_feed._authenticated and _tradovate_feed._ws:
-            try:
-                _tradovate_feed._send_one_subscription(
-                    _tradovate_feed._ws, sub_name,
-                    _tradovate_feed._subscriptions[sub_name]
-                )
-            except Exception:
-                pass  # will be sent on next reconnect
+    # Locked so concurrent chart requests for the same new symbol/timeframe
+    # can't both pass the check-then-act and double-subscribe over the WS.
+    with _tradovate_feed_lock:
+        if sub_name not in _tradovate_feed._subscriptions:
+            sym_id = TRADOVATE_SYMBOL_IDS.get(base_name)
+            if sym_id is None:
+                # Try REST lookup first (may fail with 401 if token has limited ACL)
+                looked_up = _tradovate_feed.lookup_symbol_id(base_name)
+                if looked_up:
+                    TRADOVATE_SYMBOL_IDS[base_name] = looked_up
+                    sym_id = looked_up
+                    import logging as _lg
+                    _lg.getLogger(__name__).info(
+                        "Tradovate: REST lookup %s → id=%d (cached)", base_name, looked_up)
+                else:
+                    # Fall back to string contract name — the live WS accepts both formats
+                    sym_id = base_name
+                    import logging as _lg
+                    _lg.getLogger(__name__).info(
+                        "Tradovate: using string name %s (REST lookup unavailable)", base_name)
+            _tradovate_feed.subscribe(sub_name, symbol_id=sym_id,
+                                      element_size=element_size)
+            # Send the subscription immediately if already authenticated
+            if _tradovate_feed._authenticated and _tradovate_feed._ws:
+                try:
+                    _tradovate_feed._send_one_subscription(
+                        _tradovate_feed._ws, sub_name,
+                        _tradovate_feed._subscriptions[sub_name]
+                    )
+                except Exception:
+                    pass  # will be sent on next reconnect
 
     bars = _tradovate_feed.get_bars(sub_name)
     return bars[-limit:] if bars else []
@@ -2943,11 +2960,11 @@ def chat_with_bot(message):
 
 # Module-level Chronos pipeline cache — load once, reuse across all calls.
 # Lock prevents double-load race condition under ThreadingHTTPServer.
-# None = not yet attempted; pipeline object = ready; "failed" string = gave up.
+# None = not yet loaded; pipeline object = ready.
 import threading as _threading
-_CHRONOS_PIPELINE      = None
-_CHRONOS_LOAD_ATTEMPTED = False
-_CHRONOS_LOCK          = _threading.Lock()
+_CHRONOS_PIPELINE  = None
+_CHRONOS_LOAD_DONE = False   # True only once the load attempt has fully finished
+_CHRONOS_LOCK      = _threading.Lock()
 
 
 def _load_chronos_pipeline():
@@ -2961,35 +2978,37 @@ def _load_chronos_pipeline():
       - torch_dtype → dtype (torch_dtype deprecated in newer transformers).
       - Suppress the spurious lm_head.weight warning (known Chronos checkpoint quirk).
     """
-    global _CHRONOS_PIPELINE, _CHRONOS_LOAD_ATTEMPTED
-    # Fast path — no lock needed once flag is set
-    if _CHRONOS_LOAD_ATTEMPTED:
+    global _CHRONOS_PIPELINE, _CHRONOS_LOAD_DONE
+    # Fast path — no lock needed once the load has actually finished
+    if _CHRONOS_LOAD_DONE:
         return _CHRONOS_PIPELINE
 
-    # Slow path — acquire lock so only one thread does the load
+    # Slow path — hold the lock for the whole load so concurrent callers block
+    # here and get the real pipeline instead of racing ahead on a stale None.
     with _CHRONOS_LOCK:
-        if _CHRONOS_LOAD_ATTEMPTED:          # re-check inside lock
+        if _CHRONOS_LOAD_DONE:               # re-check inside lock
             return _CHRONOS_PIPELINE
-        _CHRONOS_LOAD_ATTEMPTED = True
 
-    _log = logging.getLogger("dashboard.chronos")
-    try:
-        import warnings
-        import torch
-        from chronos import ChronosPipeline
+        _log = logging.getLogger("dashboard.chronos")
+        try:
+            import warnings
+            import torch
+            from chronos import ChronosPipeline
 
-        with warnings.catch_warnings():
-            warnings.filterwarnings("ignore", message=".*torch_dtype.*deprecated.*")
-            warnings.filterwarnings("ignore", message=".*lm_head.weight.*")
-            warnings.filterwarnings("ignore", message=".*newly initialized.*")
-            _CHRONOS_PIPELINE = ChronosPipeline.from_pretrained(
-                "amazon/chronos-t5-base",
-                dtype=torch.float32,   # removed device_map — CPU is default, avoids meta-tensor crash
-            )
-        _log.info("[Chronos] model loaded successfully (amazon/chronos-t5-base)")
-    except Exception as e:
-        _log.warning(f"[Chronos] model load failed, will use heuristic fallback: {e}")
-        _CHRONOS_PIPELINE = None
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", message=".*torch_dtype.*deprecated.*")
+                warnings.filterwarnings("ignore", message=".*lm_head.weight.*")
+                warnings.filterwarnings("ignore", message=".*newly initialized.*")
+                _CHRONOS_PIPELINE = ChronosPipeline.from_pretrained(
+                    "amazon/chronos-t5-base",
+                    dtype=torch.float32,   # removed device_map — CPU is default, avoids meta-tensor crash
+                )
+            _log.info("[Chronos] model loaded successfully (amazon/chronos-t5-base)")
+        except Exception as e:
+            _log.warning(f"[Chronos] model load failed, will use heuristic fallback: {e}")
+            _CHRONOS_PIPELINE = None
+        finally:
+            _CHRONOS_LOAD_DONE = True
 
     return _CHRONOS_PIPELINE
 
@@ -4349,7 +4368,15 @@ class Handler(BaseHTTPRequestHandler):
             # resolution so static analysers can trace the guard (CodeQL CWE-022).
             # The .resolve() + .is_relative_to() check below is the primary defence;
             # this pre-check makes the intent explicit.
-            if "\x00" in rel_path or ".." in rel_path.replace("\\", "/").split("/"):
+            _norm = rel_path.replace("\\", "/")
+            # Also reject drive-letter ("C:/...") and UNC ("//server/share/...")
+            # forms before any resolution: pathlib's `/` operator treats an
+            # absolute/anchored RHS as a full replacement of the base path, and
+            # merely calling .resolve()/.exists() on a UNC path can make Windows
+            # attempt an outbound SMB connection (forced-authentication risk) even
+            # though is_relative_to() would ultimately reject the result.
+            if ("\x00" in rel_path or ".." in _norm.split("/")
+                    or _norm.startswith("//") or re.match(r"^[A-Za-z]:", _norm)):
                 self._json(404, {"error": "not found"})
                 return
             html_root = HTML_ROOT.resolve()
@@ -4387,8 +4414,10 @@ class Handler(BaseHTTPRequestHandler):
 
         global _tradovate_feed, _tradovate_available
 
-        # ── Tradovate debug (no auth needed) ─────────────────────────────────
+        # ── Tradovate debug ───────────────────────────────────────────────────
         if path == "/api/tradovate_debug":
+            if not self._authed():
+                return self._json(401, {"error": "Unauthorized"})
             from core.tradovate_feed import _bar_cache, _cache_lock
             snap = {}
             if _tradovate_feed is not None:
@@ -4422,6 +4451,8 @@ class Handler(BaseHTTPRequestHandler):
 
         # ── Tradovate real-time feed token ────────────────────────────────────
         if path == "/api/tradovate_token":
+            if not self._authed():
+                return self._json(401, {"error": "Unauthorized"})
             if not _tradovate_available:
                 return self._json(503, {"ok": False, "error": "tradovate_feed module not available"})
             token = data.get("token", "").strip()
@@ -4451,36 +4482,40 @@ class Handler(BaseHTTPRequestHandler):
                 "Tradovate token inject: use_live=%s", _use_live
             )
 
-            if _tradovate_feed is None:
-                from core.tradovate_feed import init_feed as _tv_init_feed
-                # init_feed pre-subscribes MESM6 + MNQM6 (1/3/5m each)
-                _tradovate_feed = _tv_init_feed(token=token, use_live=_use_live)
-            else:
-                # If the user switched accounts (demo↔live), recreate the feed
-                # with the correct WS URL rather than reusing the old one
-                from core.tradovate_feed import WS_URL_LIVE, WS_URL_DEMO
-                _needed_url = WS_URL_LIVE if _use_live else WS_URL_DEMO
-                if _tradovate_feed._ws_url != _needed_url:
-                    # Different endpoint — spin up a fresh feed instance
-                    _tradovate_feed.stop()
-                    import time as _time; _time.sleep(0.3)
-                    from core.tradovate_feed import init_feed as _tv_init_feed2
-                    _tradovate_feed = _tv_init_feed2(token=token, use_live=_use_live)
+            # Lock guards create/recreate of the module-level feed so two
+            # concurrent token posts can't each construct their own feed and
+            # leak the loser's WebSocket/thread (TOCTOU on `_tradovate_feed is None`).
+            with _tradovate_feed_lock:
+                if _tradovate_feed is None:
+                    from core.tradovate_feed import init_feed as _tv_init_feed
+                    # init_feed pre-subscribes MESM6 + MNQM6 (1/3/5m each)
+                    _tradovate_feed = _tv_init_feed(token=token, use_live=_use_live)
                 else:
-                    # Same endpoint — reset auth and restart
-                    _tradovate_feed.reset_auth(token)
+                    # If the user switched accounts (demo↔live), recreate the feed
+                    # with the correct WS URL rather than reusing the old one
+                    from core.tradovate_feed import WS_URL_LIVE, WS_URL_DEMO
+                    _needed_url = WS_URL_LIVE if _use_live else WS_URL_DEMO
+                    if _tradovate_feed._ws_url != _needed_url:
+                        # Different endpoint — spin up a fresh feed instance
+                        _tradovate_feed.stop()
+                        import time as _time; _time.sleep(0.3)
+                        from core.tradovate_feed import init_feed as _tv_init_feed2
+                        _tradovate_feed = _tv_init_feed2(token=token, use_live=_use_live)
+                    else:
+                        # Same endpoint — reset auth and restart
+                        _tradovate_feed.reset_auth(token)
 
-                    # Ensure MNQM6 subscriptions exist
-                    for _mnq_name, _mnq_es in [("MNQM6", 5), ("MNQM6_1", 1), ("MNQM6_3", 3)]:
-                        if _mnq_name not in _tradovate_feed._subscriptions:
-                            _tradovate_feed.subscribe(_mnq_name, symbol_id="MNQM6",
-                                                      element_size=_mnq_es)
+                        # Ensure MNQM6 subscriptions exist
+                        for _mnq_name, _mnq_es in [("MNQM6", 5), ("MNQM6_1", 1), ("MNQM6_3", 3)]:
+                            if _mnq_name not in _tradovate_feed._subscriptions:
+                                _tradovate_feed.subscribe(_mnq_name, symbol_id="MNQM6",
+                                                          element_size=_mnq_es)
 
-                    # Stop and restart so new token takes effect
-                    _tradovate_feed.stop()
-                    import time as _time; _time.sleep(0.3)
-                    _tradovate_feed._authenticated = False
-                    _tradovate_feed.start()
+                        # Stop and restart so new token takes effect
+                        _tradovate_feed.stop()
+                        import time as _time; _time.sleep(0.3)
+                        _tradovate_feed._authenticated = False
+                        _tradovate_feed.start()
 
             # Pre-resolve contract IDs for all symbols in the map (background thread)
             # so the first chart request always has a numeric ID ready.
@@ -4506,6 +4541,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True, "message": "Tradovate feed started"})
 
         if path == "/api/tradovate_stop":
+            if not self._authed():
+                return self._json(401, {"error": "Unauthorized"})
             # Called by the frontend when the indicator is toggled off or the
             # futures chart tab is closed — prevents zombie reconnect loops.
             if _tradovate_feed is not None:
@@ -4816,8 +4853,10 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as _e:
                 return self._json(500, {"ok": False, "error": str(_e)})
 
-        # ── Optimizer routes (no separate auth needed — dashboard access implies auth) ──
+        # ── Optimizer routes ─────────────────────────────────────────────────
         if path == "/api/optimize/cancel":
+            if not self._authed():
+                return self._json(401, {"error": "Unauthorized"})
             was_running = _opt_running.is_set()
             _opt_cancel.set()
             # Kill the subprocess if one is running
@@ -4830,6 +4869,8 @@ class Handler(BaseHTTPRequestHandler):
                                     "message": "Cancel signal sent to optimizer"})
 
         if path == "/api/optimize":
+            if not self._authed():
+                return self._json(401, {"error": "Unauthorized"})
             _opt_cancel.clear()   # reset cancel flag so new run starts clean
             if _opt_running.is_set():
                 return self._json(200, {"ok": False, "error": "Optimizer already running — cancel first", "results": []})
@@ -4891,6 +4932,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, _chronos_predict(data))
 
         if path == "/api/backtest":
+            if _bt_running.is_set():
+                return self._json(200, {"ok": False, "error": "Backtest already running — cancel first", "results": []})
             ok, msg, details = run_backtest_api(data)
             return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
 
