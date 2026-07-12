@@ -779,7 +779,7 @@
             ['Del', 'delete anchored segment'],
             ['C', 'cycle selected pipe kind'],
             ['Shift+LMB target', 'toggle one target box in the selection'],
-            ['Alt+Shift+LMB target', 'select all targets along connected path A→B'],
+            ['Shift+LMB target, then Alt+Shift', 'start/finish target path selection'],
             ['V with target(s)', 'edit one or batch edit selected target boxes'],
             ['G', 'prune disconnected strays'],
             ['Y', 'join tunnel A→B (optional bend C)'],
@@ -817,7 +817,7 @@
             'Create a portal: in map mode press 8 for portal mode, LMB sets entry A, Ctrl+LMB sets exit B, then Shift+Y links them.',
             'Edit textures/ring colors: in 3D map, click the first tunnel section, Alt+Shift+LMB the ending tunnel section, then press V.',
             'Delete tunnel sections: select one section or a tunnel range, then press Del/Backspace.',
-            'Edit target boxes: Shift+LMB toggles individual boxes; Alt+Shift+LMB two boxes selects every target along their connected tunnel path; then press V.',
+            'Edit target boxes: Shift+LMB selects the first box; with a target selection active, Alt+Shift+LMB the ending box selects every target along that connected path; then press V.',
             'Place sentries: press M, then 7 for sentry tools, Ctrl+LMB places a spawn, click a sentry to edit guard or patrol behavior.',
             'Save/load maps: Ctrl+Shift+S defaults to the current map name for quick update/overwrite; Ctrl+Shift+L opens the local map library.',
             'Clean mistakes: Del deletes selected segment/range, U undoes the last placed segment, G prunes disconnected strays.',
@@ -831,7 +831,7 @@
             ['Dbl-RMB / Alt+LMB', 'snap camera to tunnel'],
             ['Ctrl+Alt+LMB object', 'set object as tethered orbit anchor'],
             ['Shift+LMB target', 'toggle one target box in the selection'],
-            ['Alt+Shift+LMB target', 'select targets along connected path A→B'],
+            ['Shift target, then Alt+Shift target', 'start/finish target path selection'],
             ['V with target(s)', 'edit selected target boxes'],
             ['9 (number nine)', 'center camera on A, B, or ship'],
             ['LMB-drag B / C marker', 'move that visible point on the edit plane'],
@@ -5329,12 +5329,11 @@
                     return;
                 }
                 if (mapMouse.joinMode !== 'sentry') {
-                    // Targets are mounted on tunnels, so target-range picking must win
-                    // before the broader tunnel-range hit test. Previously Alt+Shift
-                    // always selected the tunnel underneath and target ranges were
-                    // effectively unreachable.
+                    // Targets are mounted on tunnels. Only give Alt+Shift to a target
+                    // range after Shift+LMB has explicitly started target selection;
+                    // otherwise Alt+Shift remains the tunnel-range endpoint command.
                     const preTargetHit = pickMapTarget(canvasX, canvasY, !(e.shiftKey || e.altKey));
-                    if (preTargetHit && e.altKey && e.shiftKey) {
+                    if (preTargetHit && e.altKey && e.shiftKey && mapMouse.targetSelection.size > 0) {
                         selectTargetRangeTo(preTargetHit.id);
                         e.preventDefault();
                         return;
