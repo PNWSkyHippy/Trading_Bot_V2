@@ -590,7 +590,7 @@
                 <label>HULL <span id="hull-val">100</span></label>
                 <div id="hull-bar-track"><div id="hull-bar-fill"></div></div>
             </div>
-            <p class="hud-mode-hint">Ctrl+H help &middot; Alt+M hide HUD</p>
+            <p class="hud-mode-hint">Ctrl+H help &middot; Alt+M hide panel &middot; Shift+H hide map</p>
             <div class="dev-section">
                 <h4>Flight Controls</h4>
                 <div id="player-command-list" class="hud-command-list"></div>
@@ -614,7 +614,7 @@
                 <div class="hud-card"><label>Gamepad</label><span id="gamepad-val">none</span></div>
                 <div class="hud-card"><label>Build Mode</label><span id="dev-mode-val">flight</span></div>
             </div>
-            <p class="hud-mode-hint">Ctrl+H help &middot; Alt+M hide HUD</p>
+            <p class="hud-mode-hint">Ctrl+H help &middot; Alt+M hide panel &middot; Shift+H hide map</p>
             <div id="portal-quickref">
                 <b>Portal gateway</b> (3D map: press M first)<br>
                 LMB = entry A · Ctrl+LMB = exit B · <b>Shift+Y</b> = link portal<br>
@@ -637,7 +637,7 @@
         </section>
     </div>
 
-    <div id="hud-mode-btn" title="HUD: click to cycle full / vitals / hidden (Ctrl+H, Alt+M)">&#9776;</div>
+    <div id="hud-mode-btn" title="Left panel: click to cycle full / compact / hidden (Ctrl+H, Alt+M). Shift+H toggles the map.">&#9776;</div>
     <canvas id="webgl-canvas"></canvas>
     <!-- NATIVE CANVAS ELEMENT (sprites, HUD lines, map overlay) -->
     <canvas id="fallback-canvas"></canvas>
@@ -728,8 +728,9 @@
         resizeCanvas();
 
         const flightCheats = [
-            ['Ctrl+H', 'toggle help vs compact vitals HUD'],
-            ['Alt+M', 'hide / restore the entire HUD panel'],
+            ['Ctrl+H', 'show full help / compact the left panel'],
+            ['Alt+M', 'hide / restore the entire left panel'],
+            ['Shift+H', 'hide / restore the upper-right HUD map'],
             ['W / S', 'fly forward / backward'],
             ['A / D', 'strafe left / right'],
             ['R / F', 'strafe up / down'],
@@ -766,7 +767,8 @@
             ['Esc', 'cancel sentry / patrol draft'],
         ];
         const builderCheats = [
-            ['Ctrl+H / Alt+M', 'toggle help / hide entire HUD'],
+            ['Ctrl+H / Alt+M', 'compact help / hide the left panel'],
+            ['Shift+H', 'hide / restore the upper-right HUD map'],
             ['T', 'add straight tunnel'],
             ['Q / E', 'rotate bend/branch plane'],
             ['I / K', 'bend with / against spoke'],
@@ -776,10 +778,9 @@
             ['U', 'undo last segment'],
             ['Del', 'delete anchored segment'],
             ['C', 'cycle selected pipe kind'],
-            ['LMB target box', 'edit label / explosive red damage'],
-            ['Shift+LMB target', 'multi-select target boxes'],
-            ['Alt+Shift target', 'select target range A→B when no tunnel is under cursor'],
-            ['V with targets', 'batch edit selected target boxes'],
+            ['Shift+LMB target', 'toggle one target box in the selection'],
+            ['Alt+Shift+LMB target', 'select all targets along connected path A→B'],
+            ['V with target(s)', 'edit one or batch edit selected target boxes'],
             ['G', 'prune disconnected strays'],
             ['Y', 'join tunnel A→B (optional bend C)'],
             ['Shift+Y', 'link portal A→B (no tube)'],
@@ -816,24 +817,24 @@
             'Create a portal: in map mode press 8 for portal mode, LMB sets entry A, Ctrl+LMB sets exit B, then Shift+Y links them.',
             'Edit textures/ring colors: in 3D map, click the first tunnel section, Alt+Shift+LMB the ending tunnel section, then press V.',
             'Delete tunnel sections: select one section or a tunnel range, then press Del/Backspace.',
-            'Edit target boxes: Shift+LMB selects target boxes, Alt+Shift selects a target-box range only when no tunnel is under the cursor, then press V.',
+            'Edit target boxes: Shift+LMB toggles individual boxes; Alt+Shift+LMB two boxes selects every target along their connected tunnel path; then press V.',
             'Place sentries: press M, then 7 for sentry tools, Ctrl+LMB places a spawn, click a sentry to edit guard or patrol behavior.',
             'Save/load maps: Ctrl+Shift+S defaults to the current map name for quick update/overwrite; Ctrl+Shift+L opens the local map library.',
             'Clean mistakes: Del deletes selected segment/range, U undoes the last placed segment, G prunes disconnected strays.',
         ];
         const mapCheats = [
-            ['Ctrl+H / Alt+M', 'toggle help / hide entire HUD'],
+            ['Ctrl+H / Alt+M', 'compact help / hide the left panel'],
+            ['Shift+H', 'hide / restore the upper-right HUD map'],
             ['LMB point', 'select A (no camera jump)'],
             ['Ctrl+LMB', 'set join target B on edit plane'],
             ['Shift+Ctrl+LMB', 'set optional bend point C'],
             ['Dbl-RMB / Alt+LMB', 'snap camera to tunnel'],
             ['Ctrl+Alt+LMB object', 'set object as tethered orbit anchor'],
-            ['LMB target box', 'edit target label / explosive'],
-            ['Shift+LMB target', 'multi-select target boxes'],
-            ['Alt+Shift target', 'select target range if no tunnel hit'],
-            ['V with targets', 'batch edit selected target boxes'],
-            ['9', 'snap to anchor, B, or ship'],
-            ['Drag B / C', 'move point on active edit plane'],
+            ['Shift+LMB target', 'toggle one target box in the selection'],
+            ['Alt+Shift+LMB target', 'select targets along connected path A→B'],
+            ['V with target(s)', 'edit selected target boxes'],
+            ['9 (number nine)', 'center camera on A, B, or ship'],
+            ['LMB-drag B / C marker', 'move that visible point on the edit plane'],
             ['Click blue join line', 'edit A/B/C coordinates'],
             ['LMB endpoint', 'activate build endpoint'],
             ['LMB tunnel', 'select tunnel section A'],
@@ -841,13 +842,14 @@
             ['Alt+Shift+LMB tunnel', 'select tunnel range A→B'],
             ['V', 'texture/rib color selected tunnel range'],
             ['Del', 'delete selected tunnel range'],
-            ['N', 'toggle multi-node draft route'],
+            ['N', 'start/cancel multi-node spline tunnel draft'],
             ['Alt+N', 'corkscrew/helix editable route generator'],
-            ['Route LMB', 'set first/add route nodes'],
-            ['Shift+N route', 'pause/resume adding route nodes'],
-            ['U route', 'undo last route draft edit'],
-            ['Ctrl+drag R node', 'snap route node to tunnel/portal'],
-            ['Route line click', 'edit C handle / angle'],
+            ['N, then LMB', 'start a draft path and place its R1/R2/... nodes'],
+            ['Shift+N while drafting', 'pause/resume adding spline nodes'],
+            ['U while route active', 'undo the last draft node/handle change'],
+            ['Ctrl+drag R node', 'snap spline node to tunnel/portal'],
+            ['Click draft curve', 'edit that span C handle / angle'],
+            ['Y while drafting', 'build tunnel pieces from the preview path'],
             ['Alt+Shift empty', 'set free orbit anchor'],
             ['Drag LMB (empty)', 'orbit view only'],
             ['Ctrl+Alt+drag', 'tether orbit object'],
@@ -863,15 +865,15 @@
             ['Cube edge/corner', '45° diagonal view; preserve edit plane'],
             ['XY / YZ / XZ buttons', 'change work plane; preserve camera view'],
             [', (comma)', 'show / hide active-plane grid'],
-            ['. (period)', 'toggle 50u grid snapping'],
-            ['\\ (backslash)', 'lock / unlock active XY/YZ/ZX plane'],
+            ['. (period)', 'snap free placed/dragged points to 50u grid; anchors stay on tunnels'],
+            ['\\ (backslash)', 'force current plane; unlocked permits fallback if edge-on'],
             ['Shift+drag', 'temporarily snap B/C to 50u grid'],
             ['Gizmo solid X/Y/Z', 'axes lying in selected edit plane'],
             ['Gizmo dashed axis ⟂', 'world axis normal to selected plane'],
             ['Near-depth gizmo axis', 'drag mouse vertically; jump protection active'],
             ['Alt+drag / MMB', 'orbit camera around A/B/C'],
             ['Mouse wheel', 'zoom map camera'],
-            ['Space', 'free orbit after snap'],
+            ['Space', 'leave a cube-face snapped view and resume free orbit'],
             ['Del', 'delete anchored segment'],
             ['C', 'cycle selected pipe kind'],
             ['G', 'prune disconnected strays'],
@@ -1057,7 +1059,10 @@
             { name: 'BOTTOM', plane: 'zx', normal: { x: 0, y: 1, z: 0 }, corners: [[-1,1,-1],[1,1,-1],[1,1,1],[-1,1,1]] }
         ];
         const miniMapHud = {
-            visible: true,
+            visible: (() => {
+                try { return localStorage.getItem('astralDrift.miniMapVisible') !== 'false'; }
+                catch { return true; }
+            })(),
             plane: 'xz',
             panX: 0,
             panY: 0,
@@ -4811,6 +4816,13 @@
             }
         }
 
+        function toggleMiniMapHud() {
+            miniMapHud.visible = !miniMapHud.visible;
+            miniMapHud.bounds = null;
+            try { localStorage.setItem('astralDrift.miniMapVisible', String(miniMapHud.visible)); } catch {}
+            keyboardStatus.innerText = `upper-right HUD map ${miniMapHud.visible ? 'shown' : 'hidden'} (Shift+H)`;
+        }
+
         (() => {
             try {
                 const saved = localStorage.getItem(HUD_MODE_STORAGE_KEY);
@@ -4870,6 +4882,11 @@
             // SSH client, so Alt is the modifier for the menu toggle).
             if (key === 'h' && e.ctrlKey && !e.shiftKey && !e.altKey) {
                 toggleHudHelp();
+                e.preventDefault();
+                return;
+            }
+            if (key === 'h' && e.shiftKey && !e.ctrlKey && !e.altKey) {
+                toggleMiniMapHud();
                 e.preventDefault();
                 return;
             }
@@ -5312,6 +5329,21 @@
                     return;
                 }
                 if (mapMouse.joinMode !== 'sentry') {
+                    // Targets are mounted on tunnels, so target-range picking must win
+                    // before the broader tunnel-range hit test. Previously Alt+Shift
+                    // always selected the tunnel underneath and target ranges were
+                    // effectively unreachable.
+                    const preTargetHit = pickMapTarget(canvasX, canvasY, !(e.shiftKey || e.altKey));
+                    if (preTargetHit && e.altKey && e.shiftKey) {
+                        selectTargetRangeTo(preTargetHit.id);
+                        e.preventDefault();
+                        return;
+                    }
+                    if (preTargetHit && e.shiftKey) {
+                        toggleTargetSelection(preTargetHit.id);
+                        e.preventDefault();
+                        return;
+                    }
                     if (e.altKey && e.shiftKey) {
                         const tunnelRangeHit = pickMapTunnel(canvasX, canvasY, 140);
                         if (
@@ -5332,17 +5364,6 @@
                             e.preventDefault();
                             return;
                         }
-                    }
-                    const preTargetHit = pickMapTarget(canvasX, canvasY, !(e.shiftKey || e.altKey));
-                    if (preTargetHit && e.altKey && e.shiftKey) {
-                        selectTargetRangeTo(preTargetHit.id);
-                        e.preventDefault();
-                        return;
-                    }
-                    if (preTargetHit && e.shiftKey) {
-                        toggleTargetSelection(preTargetHit.id);
-                        e.preventDefault();
-                        return;
                     }
                     if (mapMouse.destination && pickMapMarker(canvasX, canvasY, mapMouse.destination.point, 14)) {
                         setXyzGizmoTarget('destination');
@@ -17375,7 +17396,7 @@
             ctx.strokeRect(x0 + 0.5, y0 + 0.5, boxW - 1, boxH - 1);
             ctx.fillStyle = '#00ffcc';
             ctx.font = '12px monospace';
-            ctx.fillText(`HUD MAP ${miniMapHud.plane.toUpperCase()}  H cycle  wheel zoom`, x0 + 10, y0 + 17);
+            ctx.fillText(`HUD MAP ${miniMapHud.plane.toUpperCase()}  H cycle  Shift+H hide`, x0 + 10, y0 + 17);
 
             for (const seg of builder.segments) {
                 const a = mapHudPoint(seg.from);
