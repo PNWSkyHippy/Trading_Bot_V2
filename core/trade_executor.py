@@ -22,6 +22,7 @@
 import uuid
 import time
 import json
+import math
 import logging
 import threading
 from datetime import datetime
@@ -50,6 +51,7 @@ from reporting.alerts import alert_manager
 from core.risk_manager import risk_manager, TradeApproval
 from core.kraken_executor import KrakenExecutor
 from core.exchange_capabilities import exchange_capabilities
+from core.broker_manager import broker_manager as shared_broker_manager
 from data.database import db
 
 logger = logging.getLogger(__name__)
@@ -344,6 +346,11 @@ class TradeExecutor:
     def __init__(self, db_ref=None, risk_manager_ref=None, broker_manager_ref=None):
         self._db           = db_ref or db
         self._risk_manager = risk_manager_ref or risk_manager
+        self._broker_manager = (
+            broker_manager_ref
+            if broker_manager_ref is not None
+            else shared_broker_manager
+        )
 
         self.alpaca = None
         try:
@@ -414,6 +421,25 @@ class TradeExecutor:
                 )
                 return None
 
+        if signal.asset_class == "stock":
+            try:
+                _ibkr_reconciliation = self._db.get_state(
+                    f"ibkr_reconciliation_symbol_{signal.symbol}"
+                )
+            except Exception as exc:
+                logger.error(
+                    f"[IBKR RECONCILIATION BLOCK] {signal.symbol}: could not "
+                    f"verify reconciliation state ({exc}); rejecting entry"
+                )
+                return None
+            if _ibkr_reconciliation:
+                logger.critical(
+                    f"[IBKR RECONCILIATION BLOCK] {signal.symbol}: new entries "
+                    "remain blocked until the persisted incident is explicitly "
+                    "reconciled and cleared"
+                )
+                return None
+
         if signal.asset_class == "stock" and not _stock_entries_allowed_now():
             logger.info(
                 f"Trade rejected for {signal.symbol}: stock entries closed "
@@ -421,74 +447,55 @@ class TradeExecutor:
             )
             return None
 
-        # ── Short eligibility check ───────────────────────────────────────
-        # Before doing any expensive approval work, verify the broker actually
-        # allows shorting this symbol. Kraken only supports margin on certain
-        # pairs; Alpaca requires easy_to_borrow. Fails-open on API errors so
-        # a temporary outage does not block all shorts.
-        if signal.direction == "short":
-            _broker_for_cap = self._get_broker_name(signal)
-            _paper_short = (
-                signal.asset_class == "crypto"
-                and _broker_for_cap == "kraken"
-                and getattr(config, "KRAKEN_PAPER_MODE", False)
+        # Resolve once before any broker-specific eligibility checks. This
+        # exact name is carried through risk approval and submission unless
+        # orchestration explicitly begins a separately approved fallback.
+        broker_name_hint = self._select_entry_broker(signal)
+        if broker_name_hint is None:
+            logger.info(
+                f"Trade rejected for {signal.symbol}: no enabled broker "
+                "is eligible for new entries"
             )
-            if _paper_short:
-                logger.info(
-                    f"[PAPER SHORT] {signal.symbol}: skipping live Kraken "
-                    "margin-eligibility check"
-                )
-            elif not exchange_capabilities.can_short(signal.symbol, _broker_for_cap):
-                logger.info(
-                    f"[SHORT BLOCKED] {signal.symbol} on {_broker_for_cap}: "
-                    f"not margin-eligible — short signal dropped"
-                )
-                return None
+            return None
+
+        if not self._entry_preconditions_pass(signal, broker_name_hint):
+            return None
 
         custom_sl  = signal.indicators.get("custom_stop_loss_pct")
         custom_tp  = signal.indicators.get("custom_take_profit_pct")
         custom_pos = signal.indicators.get("custom_position_pct")
         bypass_win_cooldown = bool(signal.indicators.get("bypass_win_cooldown", False))
 
-        # Pass broker name and structural stop directly as explicit args —
-        # no shared mutable state, no race condition between threaded scans.
-        broker_name_hint      = self._get_broker_name(signal)
+        # Resolve the broker once for this approval/submission attempt. The
+        # selected name is immutable until orchestration explicitly starts a
+        # new fallback attempt with a fresh approval.
         structural_stop_hint  = signal.indicators.get("structural_stop_price")
-        approval = self._risk_manager.approve_trade(
-            symbol                 = signal.symbol,
-            entry_price            = signal.current_price,
-            signal_score           = signal.score,
-            direction              = signal.direction,
-            custom_stop_loss_pct   = custom_sl,
-            custom_take_profit_pct = custom_tp,
-            custom_position_pct    = custom_pos,
-            broker_name            = broker_name_hint,
-            structural_stop_price  = structural_stop_hint,
-            bypass_win_cooldown    = bypass_win_cooldown,
-            strategy_name          = signal.indicators.get("strategy_name"),
+        approval = self._approve_for_broker(
+            signal, broker_name_hint, custom_sl, custom_tp, custom_pos,
+            structural_stop_hint, bypass_win_cooldown,
         )
         if not approval.approved:
-            # If IBKR was selected but has $0 cash (drained paper account or
-            # gateway down), automatically retry with Alpaca before giving up.
-            if (broker_name_hint == "ibkr"
-                    and "No available cash on ibkr" in (approval.reason or "")
-                    and signal.asset_class == "stock"):
+            # A broker-specific IBKR cash failure may start a separate Alpaca
+            # attempt. General risk rejections must never be bypassed by
+            # switching brokers.
+            if (broker_name_hint == "ibkr" and
+                    self._approval_allows_alpaca_fallback(approval)):
                 logger.warning(
-                    f"IBKR has $0 cash for {signal.symbol} — retrying with Alpaca"
+                    f"IBKR cannot fund {signal.symbol} — starting a new "
+                    "Alpaca approval attempt"
                 )
                 broker_name_hint = "alpaca"
-                approval = self._risk_manager.approve_trade(
-                    symbol                 = signal.symbol,
-                    entry_price            = signal.current_price,
-                    signal_score           = signal.score,
-                    direction              = signal.direction,
-                    custom_stop_loss_pct   = custom_sl,
-                    custom_take_profit_pct = custom_tp,
-                    custom_position_pct    = custom_pos,
-                    broker_name            = "alpaca",
-                    structural_stop_price  = structural_stop_hint,
-                    bypass_win_cooldown    = bypass_win_cooldown,
-                    strategy_name          = signal.indicators.get("strategy_name"),
+                if not self._entry_enabled("alpaca"):
+                    logger.info(
+                        f"Trade rejected for {signal.symbol}: Alpaca new "
+                        "entries are disabled"
+                    )
+                    return None
+                if not self._entry_preconditions_pass(signal, "alpaca"):
+                    return None
+                approval = self._approve_for_broker(
+                    signal, broker_name_hint, custom_sl, custom_tp, custom_pos,
+                    structural_stop_hint, bypass_win_cooldown,
                 )
                 if not approval.approved:
                     logger.info(
@@ -502,12 +509,11 @@ class TradeExecutor:
 
         # Settlement tracker only applies to IBKR cash account trades.
         # Alpaca paper has margin buying power — no settlement restriction needed.
-        _broker_hint = self._get_broker_name(signal)
         if (signal.asset_class == "stock" and
-                self._ibkr is not None and
+                broker_name_hint == "ibkr" and
                 settlement_tracker is not None and
                 getattr(config, "CASH_ACCOUNT_MODE", True) and
-                "ibkr" in _broker_hint.lower()):
+                self._ibkr is not None):
             allowed, reason, available = settlement_tracker.can_open_trade(
                 approval.position_value
             )
@@ -519,6 +525,54 @@ class TradeExecutor:
 
         trade_id     = str(uuid.uuid4())[:12]
         broker_result = self._submit(signal, approval, broker_name_hint)
+
+        # _submit() never changes brokers. Only an explicit, proven
+        # no-exposure IBKR result may start a new Alpaca attempt, including a
+        # completely fresh Alpaca risk approval.
+        if (broker_name_hint == "ibkr" and
+                self._ibkr_result_allows_alpaca_fallback(broker_result)):
+            if not self._entry_enabled("alpaca"):
+                logger.warning(
+                    f"IBKR created no exposure for {signal.symbol}, but "
+                    "Alpaca new entries are disabled"
+                )
+                return None
+
+            if not self._entry_preconditions_pass(signal, "alpaca"):
+                return None
+            alpaca_approval = self._approve_for_broker(
+                signal, "alpaca", custom_sl, custom_tp, custom_pos,
+                structural_stop_hint, bypass_win_cooldown,
+            )
+            if not alpaca_approval.approved:
+                logger.info(
+                    f"Trade rejected for {signal.symbol} (Alpaca fallback): "
+                    f"{alpaca_approval.reason}"
+                )
+                return None
+            broker_name_hint = "alpaca"
+            approval = alpaca_approval
+            broker_result = self._submit(signal, approval, broker_name_hint)
+
+        # IBKR has broker-specific result semantics. Classify it before the
+        # generic ghost guard or normal trade sizing can guess at exposure.
+        if broker_name_hint == "ibkr":
+            ibkr_disposition = self._classify_ibkr_result(broker_result)
+            if ibkr_disposition == "definitive_zero":
+                logger.warning(
+                    f"[IBKR NO EXPOSURE] {signal.symbol}: status="
+                    f"{self._ibkr_status(broker_result)!r}; no DB trade created"
+                )
+                return None
+            if ibkr_disposition in (
+                "reconcile_zero", "reconcile_partial", "reconcile_invalid",
+            ):
+                self._handle_ibkr_reconciliation_required(
+                    signal, approval, broker_result,
+                    has_confirmed_exposure=(ibkr_disposition == "reconcile_partial"),
+                )
+                return None
+
         if not broker_result:
             logger.error(f"Order submission failed for {signal.symbol}")
             return None
@@ -526,7 +580,7 @@ class TradeExecutor:
         # Alpaca returns status=pending_new or accepted with filled_qty=0 — these are
         # valid in-flight orders that WILL fill. Only block hard failure statuses.
         # IBKR rejected orders return filled_qty=0 with status=cancelled/rejected.
-        _status = broker_result.get("status", "")
+        _status = str(broker_result.get("status", "")).lower()
         _HARD_FAIL_STATUSES = {"rejected", "cancelled", "expired", "done_for_day"}
         if _status in _HARD_FAIL_STATUSES:
             logger.warning(
@@ -568,7 +622,12 @@ class TradeExecutor:
         if entry_price == 0:
             entry_price = signal.current_price
 
-        if _is_live_kraken:
+        _is_confirmed_ibkr_fill = (
+            broker_name_hint == "ibkr"
+            and self._classify_ibkr_result(broker_result) == "confirmed_full"
+        )
+
+        if _is_live_kraken or _is_confirmed_ibkr_fill:
             # Live Kraken: broker_result["filled_qty"] is the confirmed
             # base-asset amount actually bought/sold — this is what was
             # really sent to Kraken (post leverage-scaling for shorts, see
@@ -592,7 +651,8 @@ class TradeExecutor:
         # capital-ledger bookkeeping and DB record overstate the real
         # position by the same factor the quantity was scaled down.
         open_position_value = (
-            round(actual_quantity * entry_price, 4) if _is_live_kraken
+            round(actual_quantity * entry_price, 4)
+            if (_is_live_kraken or _is_confirmed_ibkr_fill)
             else approval.position_value
         )
 
@@ -701,9 +761,9 @@ class TradeExecutor:
                          else entry_price * (1 + strategy_sl_pct))
 
         # Use the broker that actually filled the order (tagged in _submit).
-        # Fallback to _get_broker_name() only if the result has no tag
-        # (e.g. paper fill or legacy code path).
-        broker_name = broker_result.get("actual_broker") or self._get_broker_name(signal)
+        # Paper fills have no tag, so retain the immutable broker selected and
+        # approved for this attempt; never re-run routing after submission.
+        broker_name = broker_result.get("actual_broker") or broker_name_hint
 
         # Leverage actually used for this fill (0 = spot). Persisted so any
         # later stop replacement (position_monitor.py ratchet/restore) or
@@ -771,14 +831,13 @@ class TradeExecutor:
 
         # ── Update broker available cash (deduct position value) ──────────
         try:
-            from core.broker_manager import broker_manager
-            bal = broker_manager.get_broker_balance(broker_name)
+            bal = self._broker_manager.get_broker_balance(broker_name)
             if not isinstance(bal, dict):
                 logger.debug(f"Broker balance update on open skipped: get_broker_balance returned {type(bal).__name__} for {broker_name}")
             else:
                 new_invested  = bal.get("invested",  0.0) + open_position_value
                 new_available = max(0.0, bal.get("available", 0.0) - open_position_value)
-                broker_manager.update_broker_balance(
+                self._broker_manager.update_broker_balance(
                     broker_name, bal.get("balance", 0.0),
                     new_invested, new_available
                 )
@@ -1302,9 +1361,8 @@ class TradeExecutor:
 
         # ── Restore broker available cash (return position value + PnL) ────
         try:
-            from core.broker_manager import broker_manager
             close_broker = trade.get("broker", broker)
-            bal = broker_manager.get_broker_balance(close_broker)
+            bal = self._broker_manager.get_broker_balance(close_broker)
             if not isinstance(bal, dict):
                 logger.debug(f"Broker balance update on close skipped: get_broker_balance returned {type(bal).__name__} for {close_broker}")
             else:
@@ -1312,7 +1370,7 @@ class TradeExecutor:
                 new_invested  = max(0.0, bal.get("invested",  0.0) - trade.get("position_value", 0.0))
                 new_available = bal.get("available", 0.0) + returned
                 new_balance   = bal.get("balance",  0.0) + pnl
-                broker_manager.update_broker_balance(
+                self._broker_manager.update_broker_balance(
                     close_broker, new_balance, new_invested, new_available
                 )
         except Exception as _bm_err:
@@ -1432,11 +1490,10 @@ class TradeExecutor:
             )
 
         try:
-            from core.broker_manager import broker_manager
-            bal = broker_manager.get_broker_balance(broker)
+            bal = self._broker_manager.get_broker_balance(broker)
             if isinstance(bal, dict):
                 returned = partial_value + pnl
-                broker_manager.update_broker_balance(
+                self._broker_manager.update_broker_balance(
                     broker,
                     bal.get("balance", 0.0) + pnl,
                     max(0.0, bal.get("invested", 0.0) - partial_value),
@@ -1474,48 +1531,65 @@ class TradeExecutor:
         self,
         signal,
         approval: TradeApproval,
-        broker_name_hint: Optional[str] = None,
+        broker_name_hint: str,
     ) -> Optional[Dict]:
+        """Submit to exactly one pre-approved broker; never fall back here."""
         side   = "buy" if signal.direction == "long" else "sell"
 
         if signal.asset_class == "stock":
-            # IBKR_TRADE_ENABLED must be explicitly True before any live order is routed.
-            # IBKR_ENABLED alone only keeps the executor alive for the broker panel display.
-            ibkr_trade_ok = (
-                broker_name_hint != "alpaca"
-                and self._ibkr is not None
-                and getattr(config, "IBKR_TRADE_ENABLED", False)
-            )
-            if ibkr_trade_ok:
-                if self._ibkr.is_available():
-                    logger.info(f"Routing {signal.symbol} to IBKR (cash account, LIVE)")
-                    result = self._ibkr.submit_order(
-                        signal.symbol, approval.quantity, side,
-                        approval.stop_loss, approval.take_profit
+            if broker_name_hint == "ibkr":
+                if not self._entry_enabled("ibkr") or self._ibkr is None:
+                    logger.error(
+                        f"IBKR submission blocked for {signal.symbol}: new "
+                        "entries are no longer eligible"
                     )
-                    if result is not None and result.get("filled_qty", 0) > 0:
-                        result["actual_broker"] = "ibkr"
-                        return result
+                    return {
+                        "status": "not_submitted",
+                        "filled_qty": 0.0,
+                        "filled_avg_price": 0.0,
+                        "safe_to_fallback": True,
+                        "order_submitted": False,
+                        "broker_order_id": None,
+                        "child_orders": {},
+                        "actual_broker": "ibkr",
+                    }
+                if not self._ibkr.is_available():
                     logger.warning(
-                        f"IBKR order failed/unfilled for {signal.symbol} — "
-                        f"falling back to Alpaca (status={result.get('status') if result else 'None'})"
+                        f"IBKR became unavailable before submission for "
+                        f"{signal.symbol}; no order was submitted"
                     )
-                else:
-                    logger.warning(
-                        f"IBKR unreachable — falling back to Alpaca for {signal.symbol}"
-                    )
-            elif broker_name_hint != "alpaca" and not getattr(config, "IBKR_TRADE_ENABLED", False):
-                logger.info(
-                    f"Routing {signal.symbol} to Alpaca (IBKR_TRADE_ENABLED=False — display-only mode)"
+                    return {
+                        "status": "not_submitted",
+                        "filled_qty": 0.0,
+                        "filled_avg_price": 0.0,
+                        "safe_to_fallback": True,
+                        "order_submitted": False,
+                        "broker_order_id": None,
+                        "child_orders": {},
+                        "actual_broker": "ibkr",
+                    }
+                logger.info(f"Routing {signal.symbol} to IBKR (cash account, LIVE)")
+                result = self._ibkr.submit_order(
+                    signal.symbol, approval.quantity, side,
+                    approval.stop_loss, approval.take_profit
                 )
-            else:
-                logger.info(f"Routing {signal.symbol} to Alpaca")
-            if self.alpaca is None:
+                if result is not None:
+                    result["actual_broker"] = "ibkr"
+                return result
+
+            if broker_name_hint != "alpaca":
                 logger.error(
-                    f"Stock order rejected for {signal.symbol}: Alpaca credentials "
-                    "are not configured and IBKR did not fill the order"
+                    f"Stock submission rejected for {signal.symbol}: "
+                    f"unsupported selected broker {broker_name_hint!r}"
                 )
                 return None
+            if not self._entry_enabled("alpaca") or self.alpaca is None:
+                logger.error(
+                    f"Stock order rejected for {signal.symbol}: Alpaca new "
+                    "entries are disabled or credentials are not configured"
+                )
+                return None
+            logger.info(f"Routing {signal.symbol} to Alpaca")
             result = self.alpaca.submit_order(
                 signal.symbol, approval.quantity, side,
                 approval.stop_loss, approval.take_profit
@@ -1526,8 +1600,14 @@ class TradeExecutor:
 
         elif signal.asset_class == "crypto":
             # Kraken is the default crypto executor — Coinbase API is deprecated.
-            if not config.KRAKEN_ENABLED:
+            if broker_name_hint == "paper":
                 return self._paper_fill(signal, approval)
+            if broker_name_hint != "kraken" or not self._entry_enabled("kraken"):
+                logger.error(
+                    f"Crypto submission rejected for {signal.symbol}: selected "
+                    f"broker {broker_name_hint!r} is not enabled for new entries"
+                )
+                return None
 
             qty      = approval.quantity
             leverage = 0   # 0 = spot (no margin params sent)
@@ -1581,14 +1661,311 @@ class TradeExecutor:
             "filled_avg_price": signal.current_price,
         }
 
-    def _get_broker_name(self, signal) -> str:
-        exchange = signal.indicators.get("exchange", "").lower()
+    def _entry_enabled(self, broker_name: str) -> bool:
+        """Return whether a broker may receive a new entry order.
+
+        IBKR is intentionally not registered/synchronized by BrokerManager in
+        Patch 1, so its entry gate is the explicit config/executor policy.
+        The synthetic paper broker likewise has no persisted registration.
+        Existing-position close/cancel/protection paths do not call this gate.
+        """
+        if broker_name == "ibkr":
+            return bool(
+                getattr(config, "IBKR_ENABLED", False)
+                and getattr(config, "IBKR_TRADE_ENABLED", False)
+                and self._ibkr is not None
+            )
+        if broker_name == "paper":
+            return not getattr(config, "KRAKEN_ENABLED", False)
+        info = self._broker_manager.get_broker(broker_name)
+        return bool(info and info.get("enabled"))
+
+    def _select_entry_broker(self, signal) -> Optional[str]:
+        """Select one broker before approval; submission receives this name."""
         if signal.asset_class == "stock":
-            if self._ibkr is not None and self._ibkr.is_available():
+            if (self._entry_enabled("ibkr") and
+                    self._ibkr.is_available()):
                 return "ibkr"
-            return "alpaca"
+            return "alpaca" if self._entry_enabled("alpaca") else None
         if signal.asset_class == "crypto":
-            return "kraken" if config.KRAKEN_ENABLED else "paper"
+            if getattr(config, "KRAKEN_ENABLED", False):
+                return "kraken" if self._entry_enabled("kraken") else None
+            return "paper" if self._entry_enabled("paper") else None
+        return None
+
+    def _get_broker_name(self, signal) -> Optional[str]:
+        """Compatibility wrapper for callers/tests; entries use one selection."""
+        return self._select_entry_broker(signal)
+
+    def _entry_preconditions_pass(self, signal, broker_name: str) -> bool:
+        """Run broker-specific checks once for each separately selected attempt."""
+        if signal.direction != "short":
+            return True
+        paper_kraken_short = (
+            signal.asset_class == "crypto"
+            and broker_name == "kraken"
+            and getattr(config, "KRAKEN_PAPER_MODE", False)
+        )
+        if paper_kraken_short:
+            logger.info(
+                f"[PAPER SHORT] {signal.symbol}: skipping live Kraken "
+                "margin-eligibility check"
+            )
+            return True
+        if not exchange_capabilities.can_short(signal.symbol, broker_name):
+            logger.info(
+                f"[SHORT BLOCKED] {signal.symbol} on {broker_name}: "
+                "not margin-eligible — entry attempt dropped"
+            )
+            return False
+        return True
+
+    def _approve_for_broker(
+        self, signal, broker_name: str, custom_sl, custom_tp, custom_pos,
+        structural_stop_hint, bypass_win_cooldown,
+    ) -> TradeApproval:
+        return self._risk_manager.approve_trade(
+            symbol=signal.symbol,
+            entry_price=signal.current_price,
+            signal_score=signal.score,
+            direction=signal.direction,
+            custom_stop_loss_pct=custom_sl,
+            custom_take_profit_pct=custom_tp,
+            custom_position_pct=custom_pos,
+            broker_name=broker_name,
+            structural_stop_price=structural_stop_hint,
+            bypass_win_cooldown=bypass_win_cooldown,
+            strategy_name=signal.indicators.get("strategy_name"),
+        )
+
+    @staticmethod
+    def _approval_allows_alpaca_fallback(approval: TradeApproval) -> bool:
+        reason = approval.reason or ""
+        return any(reason.startswith(prefix) for prefix in (
+            "No available cash on ibkr",
+            "Insufficient cash on ibkr",
+            "Broker balance unavailable for ibkr",
+        ))
+
+    @staticmethod
+    def _ibkr_result_allows_alpaca_fallback(result: Optional[Dict]) -> bool:
+        if not isinstance(result, dict):
+            return False
+        if result.get("safe_to_fallback") is not True:
+            return False
+        try:
+            filled_qty = float(result.get("filled_qty"))
+            filled_price = float(result.get("filled_avg_price"))
+        except (TypeError, ValueError):
+            return False
+        if not math.isfinite(filled_qty) or filled_qty != 0.0:
+            return False
+        if not math.isfinite(filled_price) or filled_price != 0.0:
+            return False
+        if str(result.get("status") or "").strip().lower() not in {
+            "not_submitted", "definitive_no_exposure",
+        }:
+            return False
+        if result.get("order_submitted") is not False:
+            return False
+        if result.get("broker_order_id") is not None:
+            return False
+        child_orders = result.get("child_orders")
+        if not isinstance(child_orders, dict):
+            return False
+        for child in child_orders.values():
+            if not isinstance(child, dict):
+                return False
+            status = str(child.get("status") or "").strip().lower()
+            if child.get("submitted") is True or child.get("order_submitted") is True:
+                return False
+            if child.get("transmit") is True:
+                return False
+            if status not in {"", "not_submitted"}:
+                return False
+        return True
+
+    @staticmethod
+    def _ibkr_status(result: Optional[Dict]) -> str:
+        if not isinstance(result, dict):
+            return "missing_result"
+        return str(result.get("status") or "unknown").strip().lower()
+
+    @classmethod
+    def _classify_ibkr_result(cls, result: Optional[Dict]) -> str:
+        """Classify IBKR exposure before any generic trade persistence."""
+        if cls._ibkr_result_allows_alpaca_fallback(result):
+            return "proven_pre_submit_zero"
+        if not isinstance(result, dict):
+            return "reconcile_zero"
+
+        status = cls._ibkr_status(result)
+        valid, filled_qty, _filled_price, _error = cls._validated_ibkr_fill_values(result)
+        if not valid:
+            return "reconcile_invalid"
+
+        if status == "filled" and filled_qty > 0:
+            return "confirmed_full"
+        if filled_qty > 0:
+            return "reconcile_partial"
+        if status in {"rejected", "cancelled", "canceled", "expired"}:
+            return "definitive_zero"
+        return "reconcile_zero"
+
+    @staticmethod
+    def _validated_ibkr_fill_values(result: Dict):
+        try:
+            filled_qty = float(result.get("filled_qty"))
+            filled_price = float(result.get("filled_avg_price"))
+        except (TypeError, ValueError):
+            return False, None, None, "malformed fill quantity or average price"
+        if not math.isfinite(filled_qty) or filled_qty < 0:
+            return False, None, None, "filled quantity is non-finite or negative"
+        if not math.isfinite(filled_price) or filled_price < 0:
+            return False, None, None, "filled average price is non-finite or negative"
+        if filled_qty > 0 and filled_price <= 0:
+            return False, None, None, "positive fill has no positive average price"
+        return True, filled_qty, filled_price, None
+
+    def _persist_ibkr_reconciliation_markers(
+        self, symbol: str, marker_id: str, marker: Dict,
+    ) -> None:
+        """Persist a marker pair atomically, or symbol-first for test doubles."""
+        symbol_key = f"ibkr_reconciliation_symbol_{symbol}"
+        order_key = f"ibkr_reconciliation_order_{marker_id}"
+        if hasattr(self._db, "_conn"):
+            try:
+                with self._db._conn() as conn:
+                    now_iso = datetime.now().isoformat()
+                    for key in (symbol_key, order_key):
+                        conn.execute(
+                            "INSERT OR REPLACE INTO bot_state (key, value, updated) "
+                            "VALUES (?, ?, ?)",
+                            (key, json.dumps(marker), now_iso),
+                        )
+                return
+            except Exception as exc:
+                logger.critical(
+                    f"[IBKR RECONCILIATION] atomic marker persistence failed "
+                    f"for {symbol}: {exc}; using symbol-first fallback"
+                )
+        for key in (symbol_key, order_key):
+            try:
+                self._db.set_state(key, marker)
+            except Exception as exc:
+                logger.critical(
+                    f"[IBKR RECONCILIATION] failed to persist {key}: {exc}"
+                )
+
+    def _handle_ibkr_reconciliation_required(
+        self, signal, approval: TradeApproval, result: Optional[Dict],
+        has_confirmed_exposure: bool,
+    ) -> None:
+        """Persist IBKR ambiguity/partial exposure exactly and halt globally.
+
+        IBKR bracket children may already protect confirmed exposure. Their
+        identifiers and observed states are retained for reconciliation; this
+        handler does not place duplicate protection or infer child behavior.
+        """
+        result = result if isinstance(result, dict) else {}
+        order_id = result.get("broker_order_id")
+        status = self._ibkr_status(result)
+        valid_fill, filled_qty, filled_price, validation_error = (
+            self._validated_ibkr_fill_values(result)
+        )
+        if not valid_fill:
+            filled_qty = None
+            filled_price = None
+            has_confirmed_exposure = False
+
+        if order_id is not None:
+            marker_id = str(order_id)
+            try:
+                already_handled = self._db.get_state(
+                    f"ibkr_reconciliation_order_{marker_id}"
+                )
+            except Exception:
+                already_handled = None
+            if already_handled:
+                reason = (
+                    f"IBKR order {order_id} for {signal.symbol} remains "
+                    "unreconciled; duplicate handling suppressed."
+                )
+                logger.critical(reason)
+                self._risk_manager.manual_halt(reason)
+                return
+        else:
+            marker_id = result.get("reconciliation_incident_id")
+            if not marker_id:
+                marker_id = f"unknown-{uuid.uuid4().hex[:12]}"
+                result["reconciliation_incident_id"] = marker_id
+        marker = {
+            "broker": "ibkr",
+            "symbol": signal.symbol,
+            "direction": signal.direction,
+            "order_id": order_id,
+            "status": status,
+            "requested_qty": result.get("requested_qty", approval.quantity),
+            "confirmed_filled_qty": filled_qty,
+            "confirmed_filled_avg_price": filled_price,
+            "fill_validation_error": validation_error,
+            "incident_id": marker_id,
+            "order_submitted": result.get("order_submitted"),
+            "child_orders": result.get("child_orders", {}),
+            "reconciliation_required": True,
+            "timestamp": datetime.now().isoformat(),
+        }
+        self._persist_ibkr_reconciliation_markers(signal.symbol, marker_id, marker)
+
+        provisional_id = None
+        if has_confirmed_exposure and filled_qty is not None and filled_qty > 0:
+            if filled_price > 0:
+                provisional_id = f"IBKR-RECON-{marker_id}"
+                provisional_record = {
+                    "trade_id": provisional_id,
+                    "symbol": signal.symbol,
+                    "asset_class": "stock",
+                    "direction": signal.direction,
+                    "entry_time": marker["timestamp"],
+                    "entry_price": round(filled_price, 6),
+                    "quantity": filled_qty,
+                    "strategy_name": signal.indicators.get("strategy_name", "original"),
+                    "entry_timeframe": signal.indicators.get("timeframe", "5Min"),
+                    "position_value": round(filled_qty * filled_price, 4),
+                    "stop_loss": round(approval.stop_loss, 6),
+                    "take_profit": round(approval.take_profit, 6),
+                    "signal_score": signal.score,
+                    "indicators": {
+                        **signal.indicators,
+                        "ibkr_provisional_reconciliation": True,
+                        "ibkr_parent_status": status,
+                        "ibkr_child_orders": marker["child_orders"],
+                    },
+                    "broker": "ibkr",
+                    "broker_order_id": order_id,
+                }
+                try:
+                    self._db.open_trade(provisional_record)
+                except Exception as exc:
+                    logger.critical(
+                        f"[IBKR RECONCILIATION] failed to persist confirmed "
+                        f"partial exposure for {signal.symbol}: {exc}"
+                    )
+            else:
+                logger.critical(
+                    f"[IBKR RECONCILIATION] {signal.symbol}: confirmed quantity "
+                    f"{filled_qty} has no confirmed average price; refusing to "
+                    "guess a normal trade value"
+                )
+
+        reason = (
+            f"IBKR order requires reconciliation for {signal.symbol} "
+            f"(order_id={order_id}, status={status}, confirmed_qty={filled_qty})."
+        )
+        if provisional_id:
+            reason += f" Confirmed exposure tracked as {provisional_id}."
+        logger.critical(reason)
+        self._risk_manager.manual_halt(reason)
 
     def get_account_value(self) -> float:
         try:

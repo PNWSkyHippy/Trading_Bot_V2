@@ -41,7 +41,7 @@ from core.breakout_receiver import breakout_receiver
 from core.risk_manager import RiskManager
 from core.trade_executor import TradeExecutor
 from core.position_monitor import PositionMonitor
-from core.broker_manager import BrokerManager
+from core.broker_manager import broker_manager
 from data.database import Database
 from scanners.market_scanner import MarketScanner
 from strategies.strategy_engine import StrategyEngine
@@ -188,7 +188,7 @@ class BotEngine:
 
         self.db                = Database(config.DB_PATH)
         self.risk_manager      = RiskManager()
-        self.broker_manager    = BrokerManager()
+        self.broker_manager    = broker_manager
         self.trade_executor    = TradeExecutor()
         self.position_monitor  = PositionMonitor()
         self.strategy_engine   = StrategyEngine()

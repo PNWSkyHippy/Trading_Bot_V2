@@ -203,8 +203,21 @@ class IBKRExecutor:
         self._ensure_event_loop()
         if not self._ensure_connected():
             logger.error(f"IBKR submit_order: cannot connect for {symbol}")
-            return None
+            return {
+                "broker_order_id": None,
+                "status": "not_submitted",
+                "filled_qty": 0.0,
+                "filled_avg_price": 0.0,
+                "manual_sl_tp": False,
+                "requested_qty": float(qty),
+                "order_submitted": False,
+                "child_orders": {},
+                "safe_to_fallback": True,
+            }
 
+        parent_submitted = False
+        parent_id = None
+        child_orders = {}
         try:
             from ib_insync import Stock, MarketOrder, StopOrder, LimitOrder
 
@@ -222,6 +235,7 @@ class IBKRExecutor:
                 orderId       = ib.client.getReqId(),
                 orderRef      = "54321",   # automated API order (IBKR required differentiation)
             )
+            parent_id = str(parent.orderId)
 
             sl_action = "SELL" if action == "BUY" else "BUY"
             stop = StopOrder(
@@ -244,15 +258,47 @@ class IBKRExecutor:
                 orderRef      = "54321",
             )
 
+            child_orders = {
+                "stop": {
+                    "order_id": str(stop.orderId),
+                    "status": "not_submitted",
+                    "parent_id": str(parent.orderId),
+                    "transmit": bool(stop.transmit),
+                },
+                "take_profit": {
+                    "order_id": str(tp.orderId),
+                    "status": "not_submitted",
+                    "parent_id": str(parent.orderId),
+                    "transmit": bool(tp.transmit),
+                },
+            }
+
             parent_trade = ib.placeOrder(contract, parent)
-            ib.placeOrder(contract, stop)
-            ib.placeOrder(contract, tp)
+            parent_submitted = True
+            stop_trade = ib.placeOrder(contract, stop)
+            child_orders["stop"]["status"] = getattr(
+                stop_trade.orderStatus, "status", None
+            )
+            tp_trade = ib.placeOrder(contract, tp)
+            child_orders["take_profit"]["status"] = getattr(
+                tp_trade.orderStatus, "status", None
+            )
 
             # Wait for fill (up to 10 seconds)
             for _ in range(20):
                 ib.sleep(0.5)
                 if parent_trade.orderStatus.status in ("Filled", "PartiallyFilled"):
                     break
+
+            # ib_insync Trade objects update in place while we wait; snapshot
+            # the latest observed child states alongside the parent result.
+            child_orders["stop"]["status"] = getattr(
+                stop_trade.orderStatus, "status", child_orders["stop"]["status"]
+            )
+            child_orders["take_profit"]["status"] = getattr(
+                tp_trade.orderStatus, "status",
+                child_orders["take_profit"]["status"],
+            )
 
             status       = parent_trade.orderStatus.status
             filled_qty   = parent_trade.orderStatus.filled or 0
@@ -270,12 +316,31 @@ class IBKRExecutor:
                 "status":           status.lower(),
                 "filled_qty":       float(filled_qty),
                 "filled_avg_price": float(filled_price),
-                "manual_sl_tp":     False
+                "manual_sl_tp":     False,
+                "requested_qty": float(shares),
+                "order_submitted": True,
+                "child_orders": child_orders,
+                # A returned IBKR order is never an automatic cross-broker
+                # fallback candidate, even when status/filled appear zero.
+                # Rejected, canceled, pending and partial results require
+                # broker reconciliation before another broker may submit.
+                "safe_to_fallback": False,
             }
 
         except Exception as e:
             logger.error(f"IBKR order failed for {symbol}: {e}")
-            return None
+            # The exception may have happened after placeOrder(). Exposure is
+            # therefore uncertain and must never trigger an Alpaca order.
+            return {
+                "broker_order_id": parent_id,
+                "status": "submission_uncertain",
+                "filled_qty": 0.0,
+                "filled_avg_price": 0.0,
+                "manual_sl_tp": False,
+                "order_submitted": parent_submitted,
+                "child_orders": child_orders,
+                "safe_to_fallback": False,
+            }
 
     def cancel_all_orders(self, symbol: str) -> int:
         """
