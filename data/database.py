@@ -15,6 +15,7 @@
 import sqlite3
 import json
 import logging
+import math
 from datetime import datetime, date
 from typing import Optional, List, Dict, Any
 from contextlib import contextmanager
@@ -402,15 +403,22 @@ class Database:
 
     # --- TRADES --------------------------------------------------------
 
-    def open_trade(self, trade: Dict[str, Any]):
+    def open_trade(self, trade: Dict[str, Any]) -> Dict[str, Any]:
+        """Insert a trade without ever replacing an existing lifecycle row.
+
+        Returns a small result object whose ``status`` is one of ``inserted``,
+        ``idempotent``, ``existing_processed``, or ``conflict``.
+        """
         with self._conn() as conn:
-            conn.execute("""
-                INSERT OR REPLACE INTO trades
+            cursor = conn.execute("""
+                INSERT INTO trades
                     (trade_id, symbol, asset_class, direction, status,
                      entry_time, entry_price, quantity, position_value,
                      stop_loss, take_profit, signal_score,
-                     indicators_json, broker, strategy_name, entry_timeframe)
-                VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     indicators_json, broker, broker_order_id,
+                     strategy_name, entry_timeframe)
+                VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(trade_id) DO NOTHING
             """, (
                 trade["trade_id"], trade["symbol"], trade["asset_class"],
                 trade["direction"], trade["entry_time"], trade["entry_price"],
@@ -419,10 +427,45 @@ class Database:
                 trade.get("signal_score"),
                 json.dumps(trade.get("indicators", {})),
                 trade.get("broker", "alpaca"),
+                (str(trade["broker_order_id"])
+                 if trade.get("broker_order_id") is not None else None),
                 trade.get("strategy_name", "original"),
                 trade.get("entry_timeframe", "5Min"),
             ))
-        logger.info(f"Trade opened: {trade['symbol']} @ {trade['entry_price']}")
+            if cursor.rowcount == 1:
+                result = {"status": "inserted", "trade_id": trade["trade_id"]}
+            else:
+                row = conn.execute(
+                    "SELECT * FROM trades WHERE trade_id = ?", (trade["trade_id"],)
+                ).fetchone()
+                existing = dict(row)
+                conflicts = []
+                for field in ("symbol", "asset_class", "direction", "broker", "broker_order_id"):
+                    incoming = trade.get(field, "alpaca" if field == "broker" else None)
+                    if field == "broker_order_id" and incoming is not None:
+                        incoming = str(incoming)
+                    if existing.get(field) != incoming:
+                        conflicts.append(field)
+                for field in ("entry_price",):
+                    if not math.isclose(float(existing[field]), float(trade[field]), rel_tol=1e-9, abs_tol=1e-9):
+                        conflicts.append(field)
+                if conflicts:
+                    result = {
+                        "status": "conflict", "trade_id": trade["trade_id"],
+                        "conflicting_fields": conflicts,
+                    }
+                elif existing["status"] != "open" or int(existing.get("partial_exit_count") or 0) > 0:
+                    result = {"status": "existing_processed", "trade_id": trade["trade_id"]}
+                elif not math.isclose(float(existing["quantity"]), float(trade["quantity"]), rel_tol=1e-9, abs_tol=1e-9):
+                    result = {
+                        "status": "conflict", "trade_id": trade["trade_id"],
+                        "conflicting_fields": ["quantity"],
+                    }
+                else:
+                    result = {"status": "idempotent", "trade_id": trade["trade_id"]}
+        if result["status"] == "inserted":
+            logger.info(f"Trade opened: {trade['symbol']} @ {trade['entry_price']}")
+        return result
 
     def close_trade(self, trade_id: str, exit_price: float,
                     exit_reason: str, pnl: float, pnl_pct: float,

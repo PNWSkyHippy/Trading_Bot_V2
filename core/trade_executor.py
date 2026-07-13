@@ -736,7 +736,21 @@ class TradeExecutor:
             "broker":          broker_name,
             "broker_order_id": broker_result.get("broker_order_id")
         }
-        self._db.open_trade(trade_record)
+        open_result = self._db.open_trade(trade_record)
+        if isinstance(open_result, dict):
+            open_status = open_result.get("status")
+            if open_status == "conflict":
+                self._handle_trade_identity_conflict(
+                    signal, broker_result, trade_record, open_result, _kraken_leverage
+                )
+                return None
+            if open_status in ("idempotent", "existing_processed"):
+                logger.warning(
+                    "Trade persistence replay for %s (%s): %s; skipping "
+                    "duplicate alerts, balance changes, and stop placement",
+                    signal.symbol, trade_id, open_status,
+                )
+                return trade_id
 
         try:
             alert_manager.trade_opened({
@@ -790,6 +804,49 @@ class TradeExecutor:
                 )
 
         return trade_id
+
+    def _handle_trade_identity_conflict(self, signal, broker_result: Dict,
+                                        trade_record: Dict, result: Dict,
+                                        kraken_leverage: int = 0) -> None:
+        """Fail closed when a filled broker order cannot claim its DB identity."""
+        order_id = broker_result.get("broker_order_id")
+        marker = {
+            "symbol": signal.symbol,
+            "trade_id": trade_record["trade_id"],
+            "broker_order_id": order_id,
+            "broker": trade_record.get("broker"),
+            "filled_qty": broker_result.get("filled_qty"),
+            "filled_avg_price": broker_result.get("filled_avg_price"),
+            "conflicting_fields": result.get("conflicting_fields", []),
+            "timestamp": datetime.now().isoformat(),
+            "reconciliation_required": True,
+            "reason": "trade_identity_conflict",
+        }
+        key = f"trade_identity_conflict_{trade_record['trade_id']}"
+        try:
+            self._db.set_state(key, marker)
+        except Exception as exc:
+            logger.critical("Failed to persist %s: %s", key, exc)
+
+        if (signal.asset_class == "crypto" and
+                trade_record.get("broker") == "kraken" and
+                float(broker_result.get("filled_qty") or 0) > 0):
+            stop_side = "buy" if signal.direction == "short" else "sell"
+            try:
+                self.kraken.place_stop_order(
+                    signal.symbol, float(broker_result["filled_qty"]), stop_side,
+                    trade_record["stop_loss"], leverage=kraken_leverage,
+                )
+            except Exception as exc:
+                logger.critical("Emergency stop failed after identity conflict: %s", exc)
+
+        reason = (
+            f"Trade identity conflict for {signal.symbol}, trade_id="
+            f"{trade_record['trade_id']}, broker_order_id={order_id}; "
+            "manual reconciliation required"
+        )
+        logger.critical(reason)
+        self._risk_manager.manual_halt(reason)
 
     def _persist_unresolved_markers(self, symbol: str, order_id: Optional[str],
                                     marker: Dict) -> None:
