@@ -687,7 +687,7 @@
         const pilotNameInput = document.getElementById('pilot-name-input');
         const pilotStartBtn = document.getElementById('pilot-start-btn');
         const changePilotBtn = document.getElementById('change-pilot-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -1310,6 +1310,7 @@
                     ao: TUNNEL_TEXTURE_PATHS.ao
                 }
             ],
+            doorFrames: [],
             ai: [
                 { id: 'wire_star_destroyer', label: 'Wire Star Destroyer', path: '' }
             ],
@@ -1381,6 +1382,7 @@
                 .then(manifest => {
                     if (!manifest) return;
                     mergeTextureLibrary('walls', manifest.walls);
+                    mergeTextureLibrary('doorFrames', manifest.doorFrames);
                     mergeTextureLibrary('ai', manifest.ai);
                     mergeTextureLibrary('effects', manifest.effects);
                     defaultWallTextureId = sanitizeTextureId(
@@ -1395,6 +1397,11 @@
         function getWallTextureEntry(id) {
             const safeId = sanitizeTextureId(id, 'walls', defaultWallTextureId || DEFAULT_WALL_TEXTURE_ID);
             return textureLibrary.walls.find(item => item.id === safeId) || textureLibrary.walls[0];
+        }
+
+        function getDoorFrameEntry(id) {
+            const raw = String(id || '').trim().toLowerCase();
+            return (textureLibrary.doorFrames || []).find(item => item.id === raw) || null;
         }
 
         function preservedTextureId(id, group, fallback) {
@@ -1437,7 +1444,16 @@
 
         function ensureSegmentStyle(seg) {
             if (!seg) return seg;
-            seg.wallTextureId = storedTextureId(seg.wallTextureId, defaultWallTextureId || DEFAULT_WALL_TEXTURE_ID);
+            const rawWallTextureId = String(seg.wallTextureId || '').trim().toLowerCase();
+            if (rawWallTextureId === 'hexdoorcyan' || rawWallTextureId === 'hexdooramber') {
+                seg.entranceFrameId = rawWallTextureId;
+                seg.entranceFrameEnd = seg.entranceFrameEnd === 'end' ? 'end' : 'start';
+                seg.wallTextureId = defaultWallTextureId || DEFAULT_WALL_TEXTURE_ID;
+            } else {
+                seg.wallTextureId = storedTextureId(seg.wallTextureId, defaultWallTextureId || DEFAULT_WALL_TEXTURE_ID);
+            }
+            seg.entranceFrameId = String(seg.entranceFrameId || '').trim().toLowerCase();
+            seg.entranceFrameEnd = seg.entranceFrameEnd === 'end' ? 'end' : 'start';
             seg.ribColor = normalizeHexColor(seg.ribColor, defaultRibColor || DEFAULT_RIB_COLOR);
             seg.wallOpaque = seg.wallOpaque !== false;
             seg.capStart = !!seg.capStart;
@@ -1653,6 +1669,8 @@
         const TUNNEL_WEBGL_SHIP_AHEAD_Z = 440;
         const TUNNEL_WEBGL_AXIS_LEASH = 88;
         const TUNNEL_WEBGL_INTERIOR_NEAR_PAD = 6.0;
+        const TUNNEL_DOOR_FRAME_SCALE = 1.72;
+        const TUNNEL_DOOR_FRAME_INSET = 4.0;
         let renderFrameCounter = 0;
         const tunnelVisibleSegmentsCache = { frame: -1, coverage: null, streak: null };
         const tunnelWebGL = {
@@ -1680,6 +1698,7 @@
             textureSource: 'pending',
             scroll: 0,
             meshCache: new Map(),
+            doorFrameMesh: null,
             mvpScratch: new Float32Array(16),
             viewScratch: new Float32Array(16),
             modelScratch: new Float32Array(16),
@@ -2058,6 +2077,34 @@
             target[15] = 1;
             return target;
         }
+
+        function mat4DoorFrameModel(seg, endKind = 'start', out = null) {
+            const r = normalize(seg.right || builder.right);
+            const d = normalize(seg.down || builder.down);
+            const f = normalize(seg.forward || builder.forward);
+            const radius = (seg.radius || builder.radius) * TUNNEL_DOOR_FRAME_SCALE;
+            const endpoint = endKind === 'end' ? seg.to : seg.from;
+            const insetDirection = endKind === 'end' ? -1 : 1;
+            const center = addVec(endpoint, scaleVec(f, TUNNEL_DOOR_FRAME_INSET * insetDirection));
+            const target = out || new Float32Array(16);
+            target[0] = r.x * radius;
+            target[1] = r.y * radius;
+            target[2] = r.z * radius;
+            target[3] = 0;
+            target[4] = d.x * radius;
+            target[5] = d.y * radius;
+            target[6] = d.z * radius;
+            target[7] = 0;
+            target[8] = f.x;
+            target[9] = f.y;
+            target[10] = f.z;
+            target[11] = 0;
+            target[12] = center.x;
+            target[13] = center.y;
+            target[14] = center.z;
+            target[15] = 1;
+            return target;
+        }
         
        function buildCylinderGpuMesh(span, radialSegments, tubularSegments) {
             // 1. FORCE the incoming span length to 400 immediately
@@ -2178,6 +2225,38 @@
             return mesh;
         }
 
+        function buildDoorFrameGpuMesh() {
+            if (tunnelWebGL.doorFrameMesh) return tunnelWebGL.doorFrameMesh;
+            const gl = tunnelWebGL.gl;
+            const vertices = new Float32Array([
+                -1, -1, 0,
+                 1, -1, 0,
+                 1,  1, 0,
+                -1,  1, 0
+            ]);
+            const texCoords = new Float32Array([
+                0, 0,
+                1, 0,
+                1, 1,
+                0, 1
+            ]);
+            const indices = new Uint16Array([0, 1, 2, 0, 2, 3]);
+            const mesh = {
+                indexCount: indices.length,
+                vertexBuffer: gl.createBuffer(),
+                texCoordBuffer: gl.createBuffer(),
+                indexBuffer: gl.createBuffer()
+            };
+            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vertexBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.texCoordBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, texCoords, gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, gl.STATIC_DRAW);
+            tunnelWebGL.doorFrameMesh = mesh;
+            return mesh;
+        }
+
         function bindCylinderGpuMesh(mesh) {
             const gl = tunnelWebGL.gl;
             gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vertexBuffer);
@@ -2274,6 +2353,53 @@
                 const image = new Image();
                 image.onload = () => configureWebGLTexture(placeholder, image, entry);
                 image.onerror = () => console.warn(`Astral Drift: failed to load wall texture ${entry.path}`);
+                image.src = entry.path;
+            }
+            return placeholder;
+        }
+
+        function configureWebGLDoorFrameTexture(texture, image) {
+            const gl = tunnelWebGL.gl;
+            if (!gl || !texture) return;
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, image);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        }
+
+        function getWebGLDoorFrameTexture(entry) {
+            const gl = tunnelWebGL.gl;
+            if (!gl || !entry?.path) return null;
+            const cacheKey = `door:${entry.id}`;
+            const cached = tunnelWebGL.textureCache.get(cacheKey);
+            if (cached) return cached;
+
+            const placeholder = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, placeholder);
+            gl.texImage2D(
+                gl.TEXTURE_2D,
+                0,
+                gl.RGBA,
+                1,
+                1,
+                0,
+                gl.RGBA,
+                gl.UNSIGNED_BYTE,
+                new Uint8Array([0, 0, 0, 0])
+            );
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            tunnelWebGL.textureCache.set(cacheKey, placeholder);
+
+            if (!RUNNING_FROM_FILE && !tunnelWebGL.textureLoading.has(cacheKey)) {
+                tunnelWebGL.textureLoading.add(cacheKey);
+                const image = new Image();
+                image.onload = () => configureWebGLDoorFrameTexture(placeholder, image);
+                image.onerror = () => console.warn(`Astral Drift: failed to load doorway frame ${entry.path}`);
                 image.src = entry.path;
             }
             return placeholder;
@@ -2407,6 +2533,49 @@
             tunnelWebGL.canvas.style.pointerEvents = 'none';
         }
 
+        function renderDoorFramesWebGL(drawList) {
+            const gl = tunnelWebGL.gl;
+            const jobs = [];
+            for (const { seg } of drawList) {
+                const entry = getDoorFrameEntry(seg?.entranceFrameId);
+                if (!entry) continue;
+                const endKind = seg.entranceFrameEnd === 'end' ? 'end' : 'start';
+                const endpoint = endKind === 'end' ? seg.to : seg.from;
+                const insetDirection = endKind === 'end' ? -1 : 1;
+                const center = addVec(
+                    endpoint,
+                    scaleVec(seg.forward || builder.forward, TUNNEL_DOOR_FRAME_INSET * insetDirection)
+                );
+                const cameraZ = worldToCamera(center).z;
+                if (cameraZ <= TUNNEL_WEBGL_CAM_NEAR || cameraZ > 3000) continue;
+                jobs.push({ seg, entry, endKind, cameraZ });
+            }
+            if (!jobs.length) return 0;
+
+            jobs.sort((a, b) => b.cameraZ - a.cameraZ);
+            const mesh = buildDoorFrameGpuMesh();
+            let drawn = 0;
+            gl.depthMask(false);
+            try {
+                for (const job of jobs) {
+                    const texture = getWebGLDoorFrameTexture(job.entry);
+                    if (!texture) continue;
+                    const model = mat4DoorFrameModel(job.seg, job.endKind, tunnelWebGL.modelScratch);
+                    gl.uniformMatrix4fv(tunnelWebGL.uModel, false, model);
+                    gl.uniform1f(tunnelWebGL.uAlpha, 1);
+                    gl.uniform2f(tunnelWebGL.uTileScale, 1, 1);
+                    gl.uniform1f(tunnelWebGL.uOffset, 0);
+                    gl.bindTexture(gl.TEXTURE_2D, texture);
+                    bindCylinderGpuMesh(mesh);
+                    gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_SHORT, 0);
+                    drawn += 1;
+                }
+            } finally {
+                gl.depthMask(true);
+            }
+            return drawn;
+        }
+
         function renderTunnelWebGL(fov, coverageSegments) {
             if (!tunnelWebGL.ready || mapView || builderMode) {
                 updateWebGLCanvasVisibility();
@@ -2489,6 +2658,8 @@
                 gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_SHORT, 0);
                 tunnelWebGL.lastDrawCount += 1;
             }
+
+            tunnelWebGL.lastDrawCount += renderDoorFramesWebGL(drawList);
 
             if (tunnelWebGL.lastDrawCount === 0) {
                 tunnelWebGL.zeroDrawFrames += 1;
@@ -7000,6 +7171,8 @@
                 length,
                 radius: tubeRadius,
                 wallTextureId: defaultWallTextureId,
+                entranceFrameId: '',
+                entranceFrameEnd: 'start',
                 ribColor: defaultRibColor,
                 wallOpaque: defaultWallOpaque,
                 forward: f,
@@ -7127,6 +7300,8 @@
                     branchMouth: !!seg.branchMouth,
                     generated: !!seg.generated,
                     wallTextureId: seg.wallTextureId || defaultWallTextureId,
+                    entranceFrameId: seg.entranceFrameId || '',
+                    entranceFrameEnd: seg.entranceFrameEnd === 'end' ? 'end' : 'start',
                     ribColor: seg.ribColor || defaultRibColor,
                     wallOpaque: seg.wallOpaque !== false,
                     capStart: !!seg.capStart,
@@ -12125,6 +12300,12 @@
             const selectedTextureIds = new Set(indices.map(index => (
                 storedTextureId(builder.segments[index]?.wallTextureId, defaultWallTextureId || DEFAULT_WALL_TEXTURE_ID)
             )));
+            const selectedFrameIds = new Set(indices.map(index => (
+                String(builder.segments[index]?.entranceFrameId || '').trim().toLowerCase()
+            )));
+            const selectedFrameEnds = new Set(indices.map(index => (
+                builder.segments[index]?.entranceFrameEnd === 'end' ? 'end' : 'start'
+            )));
             const selectedRibColors = new Set(indices.map(index => (
                 normalizeHexColor(builder.segments[index]?.ribColor, defaultRibColor || DEFAULT_RIB_COLOR)
             )));
@@ -12133,12 +12314,16 @@
             const selectedCapEnd = new Set(indices.map(index => !!builder.segments[index]?.capEnd));
             const selectedRadii = new Set(indices.map(index => Math.round(segmentRadiusAt(builder.segments[index]))));
             const mixedTexture = selectedTextureIds.size > 1;
+            const mixedFrame = selectedFrameIds.size > 1;
+            const mixedFrameEnd = selectedFrameEnds.size > 1;
             const mixedRibColor = selectedRibColors.size > 1;
             const mixedWallOpaque = selectedWallOpaque.size > 1;
             const mixedCapStart = selectedCapStart.size > 1;
             const mixedCapEnd = selectedCapEnd.size > 1;
             const mixedRadius = selectedRadii.size > 1;
             const currentTextureId = mixedTexture ? '' : [...selectedTextureIds][0];
+            const currentFrameId = mixedFrame ? '' : [...selectedFrameIds][0];
+            const currentFrameEnd = mixedFrameEnd ? 'start' : [...selectedFrameEnds][0];
             const currentRibColor = mixedRibColor ? defaultRibColor : [...selectedRibColors][0];
             const currentWallOpaque = mixedWallOpaque ? true : [...selectedWallOpaque][0];
             const currentCapStart = mixedCapStart ? false : [...selectedCapStart][0];
@@ -12195,6 +12380,58 @@
             textureSelect.value = mixedTexture ? '__mixed__' : currentTextureId;
             textureRow.append(textureSelectLabel, textureSelect);
             joinEditDialog.appendChild(textureRow);
+
+            const frameRow = document.createElement('div');
+            frameRow.className = 'join-grid';
+            const frameTitle = document.createElement('div');
+            frameTitle.style.gridColumn = '1 / -1';
+            frameTitle.style.color = '#00ffcc';
+            frameTitle.textContent = 'Entrance Frame (optional)';
+            const frameLabel = document.createElement('label');
+            frameLabel.textContent = 'Frame';
+            const frameSelect = document.createElement('select');
+            if (mixedFrame) {
+                const mixedOption = document.createElement('option');
+                mixedOption.value = '__mixed__';
+                mixedOption.textContent = 'Mixed frames - choose to replace all';
+                frameSelect.appendChild(mixedOption);
+            }
+            const noFrameOption = document.createElement('option');
+            noFrameOption.value = '';
+            noFrameOption.textContent = 'None';
+            frameSelect.appendChild(noFrameOption);
+            for (const entry of textureLibrary.doorFrames || []) {
+                const option = document.createElement('option');
+                option.value = entry.id;
+                option.textContent = entry.label;
+                frameSelect.appendChild(option);
+            }
+            if (!mixedFrame && currentFrameId && !getDoorFrameEntry(currentFrameId)) {
+                const missingOption = document.createElement('option');
+                missingOption.value = currentFrameId;
+                missingOption.textContent = `Stored frame: ${currentFrameId}`;
+                frameSelect.appendChild(missingOption);
+            }
+            frameSelect.value = mixedFrame ? '__mixed__' : currentFrameId;
+
+            const frameEndLabel = document.createElement('label');
+            frameEndLabel.textContent = 'Position';
+            const frameEndSelect = document.createElement('select');
+            if (mixedFrameEnd) {
+                const mixedOption = document.createElement('option');
+                mixedOption.value = '__mixed__';
+                mixedOption.textContent = 'Mixed positions - keep each';
+                frameEndSelect.appendChild(mixedOption);
+            }
+            for (const [value, label] of [['start', 'Start mouth'], ['end', 'End mouth']]) {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = label;
+                frameEndSelect.appendChild(option);
+            }
+            frameEndSelect.value = mixedFrameEnd ? '__mixed__' : currentFrameEnd;
+            frameRow.append(frameTitle, frameLabel, frameSelect, frameEndLabel, frameEndSelect);
+            joinEditDialog.appendChild(frameRow);
 
             const colorRow = document.createElement('div');
             colorRow.className = 'join-grid';
@@ -12270,9 +12507,9 @@
             const currentInfo = document.createElement('div');
             currentInfo.className = 'hint';
             currentInfo.style.color = '#9bdcff';
-            currentInfo.textContent = mixedTexture || mixedRibColor || mixedWallOpaque || mixedCapStart || mixedCapEnd || mixedRadius
+            currentInfo.textContent = mixedTexture || mixedFrame || mixedFrameEnd || mixedRibColor || mixedWallOpaque || mixedCapStart || mixedCapEnd || mixedRadius
                 ? `Current: ${mixedTexture ? 'mixed textures' : currentTextureId}, ${mixedRibColor ? 'mixed rib colors' : currentRibColor}, ${mixedWallOpaque ? 'mixed wall opacity' : (currentWallOpaque ? 'opaque' : 'see-through')}, ${mixedCapStart || mixedCapEnd ? 'mixed caps' : `${currentCapStart ? 'start cap' : 'start open'}, ${currentCapEnd ? 'end cap' : 'end open'}`}, ${mixedRadius ? 'mixed widths' : `radius ${currentRadius}`}`
-                : `Current: ${currentTextureId}, ribs ${currentRibColor}, ${currentWallOpaque ? 'opaque' : 'see-through'}, ${currentCapStart ? 'start cap' : 'start open'}, ${currentCapEnd ? 'end cap' : 'end open'}, radius ${currentRadius}`;
+                : `Current: ${currentTextureId}, frame ${currentFrameId || 'none'} at ${currentFrameEnd}, ribs ${currentRibColor}, ${currentWallOpaque ? 'opaque' : 'see-through'}, ${currentCapStart ? 'start cap' : 'start open'}, ${currentCapEnd ? 'end cap' : 'end open'}, radius ${currentRadius}`;
             joinEditDialog.appendChild(currentInfo);
 
             const defaultRow = document.createElement('label');
@@ -12336,6 +12573,8 @@
             applyBtn.textContent = 'Apply';
             applyBtn.addEventListener('click', () => {
                 const replacingTexture = textureSelect.value !== '__mixed__';
+                const replacingFrame = frameSelect.value !== '__mixed__';
+                const replacingFrameEnd = frameEndSelect.value !== '__mixed__';
                 const textureId = replacingTexture
                     ? sanitizeTextureId(textureSelect.value, 'walls', defaultWallTextureId)
                     : null;
@@ -12352,6 +12591,10 @@
                     const seg = builder.segments[index];
                     if (!seg) continue;
                     if (replacingTexture) seg.wallTextureId = textureId;
+                    if (replacingFrame) {
+                        seg.entranceFrameId = getDoorFrameEntry(frameSelect.value) ? frameSelect.value : '';
+                    }
+                    if (replacingFrameEnd) seg.entranceFrameEnd = frameEndSelect.value === 'end' ? 'end' : 'start';
                     seg.ribColor = ribColor;
                     seg.wallOpaque = wallOpaque;
                     if (!mixedCapStart || capStartTouched) seg.capStart = capStart;
@@ -12384,7 +12627,7 @@
             actions.append(applyBtn, chamberBtn, equalizeAllBtn, cancelBtn);
             joinEditDialog.appendChild(actions);
             joinEditDialog.style.display = 'block';
-            wireDialogInputFocus(textureSelect, colorInput, radiusInput);
+            wireDialogInputFocus(textureSelect, frameSelect, frameEndSelect, colorInput, radiusInput);
             return true;
         }
 

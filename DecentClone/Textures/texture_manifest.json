@@ -38,18 +38,6 @@
       "path": "Textures/WallTextures/tunnel_glass_underwater_scenic.jpg",
       "mapping": "section"
     },
-    {
-      "id": "hexdoorcyan",
-      "label": "Hex Door Cyan",
-      "path": "Textures/WallTextures/doorway_hex_frame_cyan.jpg",
-      "mapping": "section"
-    },
-    {
-      "id": "hexdooramber",
-      "label": "Hex Door Amber",
-      "path": "Textures/WallTextures/doorway_hex_frame_amber.jpg",
-      "mapping": "section"
-    },
      {
       "id": "CloudySky",
       "label": "CloudySky",
@@ -151,6 +139,18 @@
       "id": "metal010_bar_1",
       "label": "Normal Map Metal 010 Bar Alt - not color",
       "path": "Textures/WallTextures/metall010-new-tileable-bar-nm-1.jpeg"
+    }
+  ],
+  "doorFrames": [
+    {
+      "id": "hexdoorcyan",
+      "label": "Hex Door Cyan",
+      "path": "Textures/WallTextures/doorway_hex_frame_cyan.png"
+    },
+    {
+      "id": "hexdooramber",
+      "label": "Hex Door Amber",
+      "path": "Textures/WallTextures/doorway_hex_frame_amber.png"
     }
   ],
   "ai": [
