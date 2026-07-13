@@ -463,9 +463,10 @@ class Alert:
 def classify_signal(signal: BreakoutSignal) -> dict:
     score     = signal.confidence
     direction = signal_direction(signal).upper()   # explicit direction wins; momentum fallback only
-    if "strong" in signal.pattern_detected:
+    pattern   = (signal.pattern_detected or "").lower()
+    if "strong" in pattern:
         stage = "CONFIRMED"
-    elif "early" in signal.pattern_detected:
+    elif "early" in pattern:
         stage = "EARLY"
     else:
         stage = "WATCHLIST"
@@ -537,21 +538,27 @@ def _save_csv(rows: List[dict]):
         w.writeheader()
         w.writerows(rows)
 
+def _is_dead_or_fading(r: dict) -> bool:
+    # momentum (set by update_signal_tracking) is the field that actually
+    # carries DEAD/FADING — Phase is always "ALERTED" once a row is logged,
+    # so pruning on Phase alone never matched anything.
+    return (r.get("Phase", "").upper() in ("DEAD", "FADING")
+            or r.get("momentum", "").upper() in ("DEAD", "FADING"))
+
 def _prune_csv(rows: List[dict]) -> List[dict]:
     cutoff = datetime.now() - timedelta(hours=CSV_PRUNE_AGE)
     kept = []
     for r in rows:
-        phase = r.get("Phase","").upper()
         try:
             ts = datetime.strptime(r["Date"] + " " + r["Time"], "%Y-%m-%d %H:%M:%S")
         except Exception:
             kept.append(r); continue
-        if phase in ("DEAD","FADING") and ts < cutoff:
+        if _is_dead_or_fading(r) and ts < cutoff:
             continue
         kept.append(r)
     if len(kept) > CSV_MAX_ROWS:
-        dead   = [r for r in kept if r.get("Phase","").upper() in ("DEAD","FADING")]
-        live   = [r for r in kept if r.get("Phase","").upper() not in ("DEAD","FADING")]
+        dead   = [r for r in kept if _is_dead_or_fading(r)]
+        live   = [r for r in kept if not _is_dead_or_fading(r)]
         remove = len(kept) - CSV_MAX_ROWS
         dead   = dead[remove:]
         kept   = live + dead
@@ -1297,8 +1304,9 @@ class BreakoutDetector:
         if sc == 0.0:
             return None
         sym     = pd.symbol
+        gate    = self.config.get("watchlist_min_score", 0.55)
         pattern = ("early_breakout_strong" if sc > 0.75 else
-                   "early_breakout"         if sc > 0.55 else "watchlist")
+                   "early_breakout"         if sc >= gate else "watchlist")
         pat_dir = getattr(pd, "_pattern_dir", None)
         if pat_dir in ("long", "short"):
             direction = pat_dir
@@ -1385,7 +1393,12 @@ class WatchlistManager:
             # Volume gate: require above-average volume on the breakout move
             if sig.volume_history and pd.volume:
                 try:
-                    hist_avg = sum(sig.volume_history) / len(sig.volume_history) if sig.volume_history else 0
+                    # Exclude the most recent bar from the baseline, matching
+                    # BreakoutDetector._vol_spike()'s convention — otherwise the
+                    # breakout bar's own already-elevated volume gets folded into
+                    # its own average, diluting the ratio and weakening the gate.
+                    baseline  = sig.volume_history[:-1] or sig.volume_history
+                    hist_avg  = sum(baseline) / len(baseline) if baseline else 0
                     vol_ratio = pd.volume / hist_avg if hist_avg > 0 else 1.0
                     if vol_ratio < vol_min:
                         logger.info(
@@ -1758,6 +1771,10 @@ class MarketScanner:
         self._log_injected_watchlists()
         self.escalation      = EscalationTracker(self.config)
         self.alert_system    = AlertSystem(self.config, detector=self.detector)
+        # AlertSystem owns the only BreakoutSender instance; MarketScanner never
+        # had its own, so gap-confirm (_check_gap_pending) crashed with
+        # AttributeError and volume-surge payloads were silently dropped.
+        self.bot_sender      = self.alert_system.bot_sender
         self.trading         = TradingEngine(self.config)
         self.running         = False
         self.gui             = None
@@ -1959,7 +1976,7 @@ class MarketScanner:
         self._check_gap_pending(pd)
 
         # Volume surge check -- accumulates per-tick volume, fires at 3x avg
-        asset_class = "stock" if broker == "alpaca" else "crypto"
+        asset_class = "stock" if broker.upper() == "ALPACA" else "crypto"
         vol_payload = self.vol_surge.update_from_pricedata(pd, asset_class)
         if vol_payload and hasattr(self, "bot_sender"):
             self.bot_sender.send_raw_payload(vol_payload)
