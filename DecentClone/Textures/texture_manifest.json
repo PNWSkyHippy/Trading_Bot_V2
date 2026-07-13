@@ -11,44 +11,44 @@
      {  
       "id": "glassclouds",
       "label": "Glass in Clouds",
-      "path": "Textures/WallTextures/tunnel_glass_clouds.png",
-      "normal": "Textures/WallTextures/tunnel_glass_clouds.png",
-      "ao": "Textures/WallTextures/tunnel_glass_clouds.png"
+      "path": "Textures/WallTextures/tunnel_glass_clouds.jpg",
+      "normal": "Textures/WallTextures/tunnel_glass_clouds.jpg",
+      "ao": "Textures/WallTextures/tunnel_glass_clouds.jpg"
     },   
     {
       "id": "scenicglassclouds",
       "label": "Scbenic Glass in Clouds",
-      "path": "Textures/WallTextures/tunnel_glass_clouds_scenic.png",
-      "normal": "Textures/WallTextures/tunnel_glass_clouds_scenic.png",
-      "ao": "Textures/WallTextures/tunnel_glass_clouds_scenic.png"
+      "path": "Textures/WallTextures/tunnel_glass_clouds_scenic.jpg",
+      "normal": "Textures/WallTextures/tunnel_glass_clouds_scenic.jpg",
+      "ao": "Textures/WallTextures/tunnel_glass_clouds_scenic.jpg"
     },
      {
       "id": "GlassUnderWater",
       "label": "Glass Undewater",
-      "path": "Textures/WallTextures/tunnel_glass_underwater.png",
-      "normal": "Textures/WallTextures/tunnel_glass_underwater.png",
-      "ao": "Textures/WallTextures/tunnel_glass_underwater.png"
+      "path": "Textures/WallTextures/tunnel_glass_underwater.jpg",
+      "normal": "Textures/WallTextures/tunnel_glass_underwater.jpg",
+      "ao": "Textures/WallTextures/tunnel_glass_underwater.jpg"
     },
     {
       "id": "GlassUnWrtScenic",
       "label": "Glass Underater Scenic",
-      "path": "Textures/WallTextures/tunnel_glass_underwater_scenic.png",
-      "normal": "Textures/WallTextures/tunnel_glass_underwater_scenic.png",
-      "ao": "Textures/WallTextures/tunnel_glass_underwater_scenic.png"
+      "path": "Textures/WallTextures/tunnel_glass_underwater_scenic.jpg",
+      "normal": "Textures/WallTextures/tunnel_glass_underwater_scenic.jpg",
+      "ao": "Textures/WallTextures/tunnel_glass_underwater_scenic.jpg"
     },
     {
       "id": "HexDoorCyan",
       "label": "Hex Door  Cyan",
-      "path": "Textures/WallTextures/doorway_hex_frame_cyan.png",
-      "normal": "Textures/WallTextures/doorway_hex_frame_cyan.png",
-      "roughness": "Textures/WallTextures/doorway_hex_frame_cyan.png"
+      "path": "Textures/WallTextures/doorway_hex_frame_cyan.j[g",
+      "normal": "Textures/WallTextures/doorway_hex_frame_cyan.jpg",
+      "roughness": "Textures/WallTextures/doorway_hex_frame_cyan.jpg"
     },
     {
       "id": "HexDoorAmber",
       "label": "Hex Door Amber",
-      "path": "Textures/WallTextures/doorway_hex_frame_amber.png,
-      "normal": "Textures/WallTextures/doorway_hex_frame_amber.png",
-      "roughness": "Textures/WallTextures/doorway_hex_frame_amber.png"
+      "path": "Textures/WallTextures/doorway_hex_frame_amber.jpg",
+      "normal": "Textures/WallTextures/doorway_hex_frame_amber.jpg",
+      "roughness": "Textures/WallTextures/doorway_hex_frame_amber.jpg"
     },
     {
       "id": "onyx013",
