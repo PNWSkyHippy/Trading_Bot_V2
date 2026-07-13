@@ -355,9 +355,6 @@ DEFAULT_CONFIG = {
     "email_from":          "",
     "email_to":            "",
     "email_password":      "",
-    "enable_auto_trade":          False,
-    "auto_trade_without_confirm": False,
-    "broker":                     "alpaca",
     "alpaca_api_key":    "",
     "alpaca_secret_key": "",
     "alpaca_base_url":   "https://paper-api.alpaca.markets",
@@ -366,10 +363,6 @@ DEFAULT_CONFIG = {
     "kraken_api_key":    "",
     "kraken_api_secret": "",
     "massive_api_key":   "",
-    "default_trade_amount_usd": 1000,
-    "max_position_size_usd":    5000,
-    "stop_loss_percent":        3,
-    "take_profit_percent":      6,
     "run_days":      ["Monday","Tuesday","Wednesday","Thursday","Friday"],
     "exclude_dates": [],
     "alert_sound_frequency":   800,
@@ -1686,76 +1679,6 @@ class AlertSystem:
                 logger.error(f"Alert error: {e}")
 
 # =============================================================================
-# TRADING ENGINE
-# =============================================================================
-
-class TradingEngine:
-    def __init__(self, config: ConfigManager):
-        self.config          = config
-        self.alpaca_api      = None
-        self.crypto_exchange = None
-        self._init_brokers()
-
-    def _init_brokers(self):
-        if ALPACA_AVAILABLE and self.config.get("broker") == "alpaca":
-            try:
-                self.alpaca_api = tradeapi.REST(
-                    self.config.get("alpaca_api_key"), self.config.get("alpaca_secret_key"),
-                    self.config.get("alpaca_base_url"), api_version="v2",
-                )
-            except Exception as e:
-                logger.error("Alpaca trading init failed (%s)", type(e).__name__)
-        if CCXT_AVAILABLE:
-            for name, kw in [
-                ("kraken",   {"apiKey": self.config.get("kraken_api_key"),
-                              "secret": self.config.get("kraken_api_secret"),
-                              "enableRateLimit": True}),
-                ("coinbase", {"apiKey": self.config.get("coinbase_api_key"),
-                              "secret": self.config.get("coinbase_api_secret"),
-                              "enableRateLimit": True}),
-            ]:
-                try:
-                    self.crypto_exchange = getattr(ccxt, name)(kw)
-                    break
-                except Exception:
-                    continue
-
-    def can_auto_trade(self):       return self.config.get("enable_auto_trade", False)
-    def should_confirm_trade(self): return not self.config.get("auto_trade_without_confirm", False)
-
-    def execute_signal(self, signal: BreakoutSignal) -> dict:
-        if not self.can_auto_trade():   return {"status": "disabled"}
-        if self.should_confirm_trade(): return {"status": "confirmation_required"}
-        amount    = self.config.get("default_trade_amount_usd", 1000)
-        direction = signal_direction(signal)   # "long" or "short"
-        if signal.asset_type == AssetType.STOCK:
-            if not self.alpaca_api: return {"error": "no alpaca"}
-            side = "buy" if direction == "long" else "sell"
-            try:
-                o = self.alpaca_api.submit_order(
-                    symbol=signal.symbol, notional=amount,
-                    side=side, type="market", time_in_force="day")
-                return {"success": True, "order_id": o.id, "side": side}
-            except Exception as e:
-                return {"error": str(e)}
-        else:
-            if not self.crypto_exchange: return {"error": "no exchange"}
-            if direction == "short":
-                # Most spot crypto exchanges don't support native short selling.
-                # Return a clear error rather than silently sending a buy.
-                supports_short = getattr(self.crypto_exchange, "has", {}).get("createShortOrder", False)
-                if not supports_short:
-                    return {"error": f"Broker does not support short orders for {signal.symbol}"}
-            side = "buy" if direction == "long" else "sell"
-            try:
-                qty = amount / signal.current_price
-                o   = self.crypto_exchange.create_order(
-                    signal.symbol, "market", side, qty)
-                return {"success": True, "order_id": o.get("id"), "side": side}
-            except Exception as e:
-                return {"error": str(e)}
-
-# =============================================================================
 # MAIN SCANNER
 # =============================================================================
 
@@ -1775,7 +1698,6 @@ class MarketScanner:
         # had its own, so gap-confirm (_check_gap_pending) crashed with
         # AttributeError and volume-surge payloads were silently dropped.
         self.bot_sender      = self.alert_system.bot_sender
-        self.trading         = TradingEngine(self.config)
         self.running         = False
         self.gui             = None
         self.latest_movers:        List[PriceData]     = []
@@ -2501,11 +2423,6 @@ class ScannerGUI:
         tk.Scale(bf, from_=0, to=1, resolution=0.01, orient="horizontal",
                  label="Volume", variable=self.volume_var,
                  bg="#1a1a2e", fg="#ffffff", length=120).pack(side="left", padx=10)
-        self.auto_trade_var = tk.BooleanVar(value=False)
-        tk.Checkbutton(bf, text="Auto-Trade", variable=self.auto_trade_var,
-                       command=self._toggle_auto_trade,
-                       bg="#1a1a2e", fg="#ffffff", selectcolor="#16213e",
-                       font=("Helvetica",13)).pack(side="left", padx=15)
 
         lf = tk.Frame(self.root, bg="#1a1a2e")
         lf.pack(fill="x", padx=20, pady=2)
@@ -2952,9 +2869,6 @@ class ScannerGUI:
         self.start_btn.config(state="normal")
         self.stop_btn.config(state="disabled")
         self.status_label.config(text="Status: Stopped", fg="#ffffff")
-
-    def _toggle_auto_trade(self):
-        self.scanner.config.set("enable_auto_trade", self.auto_trade_var.get())
 
     def _open_db_panel(self):
         import subprocess, sys
