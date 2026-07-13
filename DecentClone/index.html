@@ -687,7 +687,7 @@
         const pilotNameInput = document.getElementById('pilot-name-input');
         const pilotStartBtn = document.getElementById('pilot-start-btn');
         const changePilotBtn = document.getElementById('change-pilot-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -1358,7 +1358,8 @@
                 path,
                 normal: String(raw.normal || '').trim(),
                 ao: String(raw.ao || '').trim(),
-                color: String(raw.color || '').trim()
+                color: String(raw.color || '').trim(),
+                mapping: String(raw.mapping || '').toLowerCase() === 'section' ? 'section' : 'tile'
             };
         }
 
@@ -1668,6 +1669,7 @@
             uViewport: null,
             uCamNear: null,
             uOffset: null,
+            uTileScale: null,
             uAlpha: null,
             uSampler: null,
             posLoc: null,
@@ -2211,14 +2213,22 @@
             return scratch;
         }
 
-        function configureWebGLTexture(texture, image) {
+        function textureUsesSectionMapping(entry) {
+            return entry?.mapping === 'section';
+        }
+
+        function configureWebGLTexture(texture, image, entry = null) {
             const gl = tunnelWebGL.gl;
             if (!gl || !texture) return;
             const uploadImage = prepareRepeatableTextureImage(image);
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, uploadImage);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
-            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+            gl.texParameteri(
+                gl.TEXTURE_2D,
+                gl.TEXTURE_WRAP_T,
+                textureUsesSectionMapping(entry) ? gl.CLAMP_TO_EDGE : gl.REPEAT
+            );
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
         }
@@ -2230,10 +2240,10 @@
             setTunnelTextureStatus(source);
         }
 
-        function getWebGLTextureForSegment(seg) {
+        function getWebGLTextureForSegment(seg, suppliedEntry = null) {
             const gl = tunnelWebGL.gl;
             if (!gl) return tunnelWebGL.texture;
-            const entry = getWallTextureEntry(seg?.wallTextureId);
+            const entry = suppliedEntry || getWallTextureEntry(seg?.wallTextureId);
             if (!entry || entry.id === DEFAULT_WALL_TEXTURE_ID || !entry.path) {
                 return tunnelWebGL.texture;
             }
@@ -2262,7 +2272,7 @@
             if (!RUNNING_FROM_FILE && !tunnelWebGL.textureLoading.has(entry.id)) {
                 tunnelWebGL.textureLoading.add(entry.id);
                 const image = new Image();
-                image.onload = () => configureWebGLTexture(placeholder, image);
+                image.onload = () => configureWebGLTexture(placeholder, image, entry);
                 image.onerror = () => console.warn(`Astral Drift: failed to load wall texture ${entry.path}`);
                 image.src = entry.path;
             }
@@ -2363,7 +2373,7 @@
                 '}'
             ].join('\n');
             // GLSL requires float literals (6.0), not JS number strings ("6") — see proposed_index.html
-            const fsSource = `precision mediump float; varying vec2 vTexCoord; uniform sampler2D uSampler; uniform float uOffset; uniform float uAlpha; void main() { vec2 tiledCoord = vec2(vTexCoord.x * ${TUNNEL_WEBGL_TILE_U.toFixed(1)}, (vTexCoord.y + uOffset) * ${TUNNEL_WEBGL_TILE_V.toFixed(1)}); vec4 tex = texture2D(uSampler, tiledCoord); gl_FragColor = vec4(tex.rgb, tex.a * uAlpha); }`;
+            const fsSource = 'precision mediump float; varying vec2 vTexCoord; uniform sampler2D uSampler; uniform vec2 uTileScale; uniform float uOffset; uniform float uAlpha; void main() { vec2 mappedCoord = vec2(vTexCoord.x * uTileScale.x, (vTexCoord.y + uOffset) * uTileScale.y); vec4 tex = texture2D(uSampler, mappedCoord); gl_FragColor = vec4(tex.rgb, tex.a * uAlpha); }';
 
             const program = webglCreateProgram(gl, vsSource, fsSource);
             if (!program) return false;
@@ -2378,6 +2388,7 @@
             tunnelWebGL.uViewport = gl.getUniformLocation(program, 'uViewport');
             tunnelWebGL.uCamNear = gl.getUniformLocation(program, 'uCamNear');
             tunnelWebGL.uOffset = gl.getUniformLocation(program, 'uOffset');
+            tunnelWebGL.uTileScale = gl.getUniformLocation(program, 'uTileScale');
             tunnelWebGL.uAlpha = gl.getUniformLocation(program, 'uAlpha');
             tunnelWebGL.uSampler = gl.getUniformLocation(program, 'uSampler');
             tunnelWebGL.posLoc = gl.getAttribLocation(program, 'aPosition');
@@ -2438,7 +2449,6 @@
             gl.uniform1f(tunnelWebGL.uCamNear, TUNNEL_WEBGL_CAM_NEAR);
             gl.activeTexture(gl.TEXTURE0);
             gl.uniform1i(tunnelWebGL.uSampler, 0);
-            gl.uniform1f(tunnelWebGL.uOffset, tunnelWebGL.scroll);
 
             const drawList = collectWebGLTunnelDrawList(coverageSegments);
             tunnelWebGL.lastDrawCount = 0;
@@ -2462,7 +2472,15 @@
                     : mat4SegmentModel(seg, zStart, span, radius, tunnelWebGL.modelScratch);
                 gl.uniformMatrix4fv(tunnelWebGL.uModel, false, model);
                 gl.uniform1f(tunnelWebGL.uAlpha, segmentWallAlpha(seg, 1));
-                const segmentTexture = getWebGLTextureForSegment(seg);
+                const textureEntry = getWallTextureEntry(seg?.wallTextureId);
+                const sectionMapping = textureUsesSectionMapping(textureEntry);
+                gl.uniform2f(
+                    tunnelWebGL.uTileScale,
+                    sectionMapping ? 1 : TUNNEL_WEBGL_TILE_U,
+                    sectionMapping ? 1 : TUNNEL_WEBGL_TILE_V
+                );
+                gl.uniform1f(tunnelWebGL.uOffset, sectionMapping ? 0 : tunnelWebGL.scroll);
+                const segmentTexture = getWebGLTextureForSegment(seg, textureEntry);
                 if (segmentTexture !== activeTexture) {
                     gl.bindTexture(gl.TEXTURE_2D, segmentTexture || tunnelWebGL.texture);
                     activeTexture = segmentTexture;

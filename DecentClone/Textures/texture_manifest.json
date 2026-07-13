@@ -2,53 +2,95 @@
   "defaultWallTextureId": "rock060",
   "walls": [
     {
+      "id": "rock060",
+      "label": "Rock 060",
+      "path": "Textures/WallTextures/Rock060_1K-JPG_Color.jpg",
+      "normal": "Textures/WallTextures/Rock060_1K-JPG_NormalGL.jpg",
+      "ao": "Textures/WallTextures/Rock060_1K-JPG_AmbientOcclusion.jpg"
+    },
+    {
       "id": "blackgloss",
       "label": "Black Gloss",
       "path": "Textures/WallTextures/tunnel_black_gloss.jpg",
-      "normal": "Textures/WallTextures/tunnel_black_gloss.jpg",
-      "ao": "Textures/WallTextures/tunnel_black_gloss.jpg"
+      "mapping": "section"
     },
-     {  
+    {
       "id": "glassclouds",
       "label": "Glass in Clouds",
       "path": "Textures/WallTextures/tunnel_glass_clouds.jpg",
-      "normal": "Textures/WallTextures/tunnel_glass_clouds.jpg",
-      "ao": "Textures/WallTextures/tunnel_glass_clouds.jpg"
-    },   
+      "mapping": "section"
+    },
     {
       "id": "scenicglassclouds",
-      "label": "Scbenic Glass in Clouds",
+      "label": "Scenic Glass in Clouds",
       "path": "Textures/WallTextures/tunnel_glass_clouds_scenic.jpg",
-      "normal": "Textures/WallTextures/tunnel_glass_clouds_scenic.jpg",
-      "ao": "Textures/WallTextures/tunnel_glass_clouds_scenic.jpg"
+      "mapping": "section"
     },
-     {
-      "id": "GlassUnderWater",
-      "label": "Glass Undewater",
+    {
+      "id": "glassunderwater",
+      "label": "Glass Underwater",
       "path": "Textures/WallTextures/tunnel_glass_underwater.jpg",
-      "normal": "Textures/WallTextures/tunnel_glass_underwater.jpg",
-      "ao": "Textures/WallTextures/tunnel_glass_underwater.jpg"
+      "mapping": "section"
     },
     {
-      "id": "GlassUnWrtScenic",
-      "label": "Glass Underater Scenic",
+      "id": "glassunderwaterscenic",
+      "label": "Glass Underwater Scenic",
       "path": "Textures/WallTextures/tunnel_glass_underwater_scenic.jpg",
-      "normal": "Textures/WallTextures/tunnel_glass_underwater_scenic.jpg",
-      "ao": "Textures/WallTextures/tunnel_glass_underwater_scenic.jpg"
+      "mapping": "section"
     },
     {
-      "id": "HexDoorCyan",
-      "label": "Hex Door  Cyan",
-      "path": "Textures/WallTextures/doorway_hex_frame_cyan.j[g",
-      "normal": "Textures/WallTextures/doorway_hex_frame_cyan.jpg",
-      "roughness": "Textures/WallTextures/doorway_hex_frame_cyan.jpg"
+      "id": "hexdoorcyan",
+      "label": "Hex Door Cyan",
+      "path": "Textures/WallTextures/doorway_hex_frame_cyan.jpg",
+      "mapping": "section"
     },
     {
-      "id": "HexDoorAmber",
+      "id": "hexdooramber",
       "label": "Hex Door Amber",
       "path": "Textures/WallTextures/doorway_hex_frame_amber.jpg",
-      "normal": "Textures/WallTextures/doorway_hex_frame_amber.jpg",
-      "roughness": "Textures/WallTextures/doorway_hex_frame_amber.jpg"
+      "mapping": "section"
+    },
+     {
+      "id": "CloudySky",
+      "label": "CloudySky",
+      "path": "Textures/WallTextures/cloudy3.jpg",
+      "normal": "Textures/WallTextures/cloudy3.jpg",
+      "ao": "Textures/WallTextures/cloudy3.jpg"
+    },   
+    {
+      "id": "Sunrise2",
+      "label": "Sunrise2",
+      "path": "Textures/WallTextures/sunrise.jpg",
+      "normal": "Textures/WallTextures/sunise.jpg",
+      "ao": "Textures/WallTextures/sunrise.jpg"
+    },
+     {
+      "id": "leopard",
+      "label": "leopard",
+      "path": "Textures/WallTextures/leopard_128.jpg",
+      "normal": "Textures/WallTextures/leopard_128.jpg",
+      "ao": "Textures/WallTextures/leopard_128.jpg"
+    },
+    {
+      "id": "Sunrise",
+      "label": "Sunrise",
+      "path": "Textures/WallTextures/layered.jpg",
+      "normal": "Textures/WallTextures/layered.jpg",
+      "ao": "Textures/WallTextures/layered.jpg"
+    },
+    {
+      "id": "onyx003",
+      "label": "Shiny Onyx 003",
+      "path": "Textures/WallTextures/Onyx003_2K-JPG_Color.jpg",
+      "normal": "Textures/WallTextures/Onyx003_2K-JPG_NormalGL.jpg",
+      "roughness": "Textures/WallTextures/Onyx003_2K-JPG_Roughness.jpg"
+    },
+    {
+      "id": "onyx010",
+      "label": "Shiny Onyx 010",
+      "path": "Textures/WallTextures/Onyx010_2K-JPG_Color.jpg",
+      "normal": "Textures/WallTextures/Onyx010_2K-JPG_NormalGL.jpg",
+      "roughness": "Textures/WallTextures/Onyx010_2K-JPG_Roughness.jpg"
     },
     {
       "id": "onyx013",
