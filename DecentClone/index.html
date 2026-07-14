@@ -687,7 +687,7 @@
         const pilotNameInput = document.getElementById('pilot-name-input');
         const pilotStartBtn = document.getElementById('pilot-start-btn');
         const changePilotBtn = document.getElementById('change-pilot-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -792,6 +792,7 @@
             ['Ctrl+Shift+S', 'save/update current named map'],
             ['Ctrl+Shift+L', 'load saved map'],
             ['Alt+T', 'toggle saved map style: textured / TRON wireframe'],
+            ['Shift+9', 'move ship to selected tunnel point'],
             ['M', 'open 3D map']
         ];
         const combatCheats = [
@@ -835,6 +836,7 @@
             ['Shift target, then Alt+Shift target', 'start/finish target path selection'],
             ['V with target(s)', 'edit selected target boxes'],
             ['9 (number nine)', 'center camera on A, B, or ship'],
+            ['Shift+9', 'place ship at selected A tunnel point'],
             ['LMB-drag B / C marker', 'move that visible point on the edit plane'],
             ['Click blue join line', 'edit A/B/C coordinates'],
             ['LMB endpoint', 'activate build endpoint'],
@@ -10486,6 +10488,7 @@
                 return recoverShipToTunnel();
             }
             if (key === '9') {
+                if (mapView && event?.shiftKey) return relocateShipToMapSelection();
                 if (mapView) return focusMapCameraOnSelection();
                 return false;
             }
@@ -10685,6 +10688,63 @@
             latchedMove.strafe = 0;
             latchedMove.lift = 0;
             keyboardStatus.innerText = 'ship recovered to nearest tunnel — hull unchanged';
+            return true;
+        }
+
+        function relocateShipToMapSelection() {
+            if (!mapView || !mapMouse.anchor) {
+                keyboardStatus.innerText = 'select a tunnel point A, then press Shift+9';
+                return true;
+            }
+            const index = mapMouse.anchor.segmentIndex;
+            const seg = Number.isInteger(index) ? builder.segments[index] : null;
+            if (!seg) {
+                keyboardStatus.innerText = 'Shift+9 needs point A on a tunnel section';
+                return true;
+            }
+
+            const local = shipSegmentLocal(mapMouse.anchor.point, seg);
+            const length = Math.max(1, local.length || seg.length || builder.length);
+            const inset = Math.min(length * 0.25, Math.max(12, (seg.radius || builder.radius) * 0.12));
+            const safeZ = length <= inset * 2
+                ? length * 0.5
+                : Math.max(inset, Math.min(length - inset, local.localZ));
+            const spawn = addVec(seg.from, scaleVec(seg.forward, safeZ));
+
+            posX = spawn.x;
+            posY = spawn.y;
+            posZ = spawn.z;
+            shipForward = copyVec(seg.forward);
+            shipRight = copyVec(seg.right);
+            shipDown = copyVec(seg.down);
+            shipSegmentIndex = index;
+            tunnelCoreLatX = 0;
+            tunnelCoreLatY = 0;
+            shipRollAngle = 0;
+            wallHit.stuckCount = 0;
+            wallHit.active = false;
+            wallHit.intensity = 0;
+            wallHit.lockedSegmentIndex = null;
+            wallHit.lockUntil = 0;
+            wallHit.levelLockUntil = 0;
+            wallHit.pushStreak = 0;
+            branchTravelFlipState.flipped = false;
+            viewAssist.blend = 0;
+            viewAssist.basis = null;
+            latchedMove.forward = 0;
+            latchedMove.strafe = 0;
+            latchedMove.lift = 0;
+            autoBoostActive = false;
+            autoBoostTurbo = false;
+            mouseInput.pitch = 0;
+            mouseInput.yaw = 0;
+            mouseInput.fire = false;
+            repairBasis();
+            syncViewToShip();
+            containShipInTunnel();
+            snapMapCameraToPoint(spawn, seg.radius || builder.radius, 'relocated ship');
+            keyboardStatus.innerText =
+                `ship placed at ${mapMouse.anchor.label || `segment ${index + 1}`} — press M to test fly`;
             return true;
         }
 
