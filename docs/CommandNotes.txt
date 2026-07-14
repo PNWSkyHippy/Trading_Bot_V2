@@ -1,3 +1,6 @@
+Invoke-RestMethod -Uri "http://127.0.0.1:8765/health" | ConvertTo-Json -Depth 5
+venv312\Scripts\python.exe ninjatrader_bridge\ninja_futures_scanner.py
+
 tmux new -s trading
 Useful keys inside tmux:
 Ctrl-b  :     opens command line, type set -g mouse on
