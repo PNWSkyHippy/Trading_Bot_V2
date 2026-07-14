@@ -1,5 +1,11 @@
-1. clear_stuck_trades.py          ← clear the flags
-2. Restart the bot                ← let it retry closes through the broker
-3. Only if broker closes fail →
+1. Check for Kraken reconciliation markers. Reconcile actual live fills first.
+   Never manually clear kraken_partial_reconcile_*, kraken_full_reconcile_*,
+   or kraken_unresolved_symbol_* markers.
+2. clear_stuck_trades.py          ← clear eligible flags; marked trades are skipped
+3. Restart the bot                ← let it retry closes through the broker
+4. Only if broker closes fail →
    force_close_stuck_stocks.py    ← nuclear option for stocks
-   force_close_paper_trades.py    ← nuclear option for crypto
+   force_close_paper_trades.py    ← crypto; reconciliation holds are skipped
+
+If a utility prints "SKIPPED reconciliation hold", do not change that trade's
+close flags or DB status until Kraken fills have been reconciled.

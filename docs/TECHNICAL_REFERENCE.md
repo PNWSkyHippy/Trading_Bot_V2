@@ -636,6 +636,10 @@ if previous instance holds a clientId for ~60s after disconnect.
 ### STUCK Trades
 **Cause:** MAX_CLOSE_ATTEMPTS exceeded (8 attempts, 4 minutes)
 **Symptoms:** Dashboard shows ⚠️ STUCK, bot skips the trade on every monitor cycle
+**Kraken safety:** If a trade has an active `kraken_partial_reconcile_*`,
+`kraken_full_reconcile_*`, or `kraken_unresolved_symbol_*` marker, the recovery
+utilities skip it without changing its close flags or DB trade status. Reconcile
+the actual Kraken fills first. Never manually clear those reconciliation markers.
 **Fix:**
 ```powershell
 python Scripts\clear_stuck_trades.py   # clears flags, bot retries on next cycle
@@ -681,17 +685,18 @@ All in `Scripts/` directory. Run from project root with venv active.
 |--------|---------|
 | `reset_gridbot_stats.py` | Clear grid_bot win/loss records, force enable. Run after infrastructure failures corrupt the win rate. |
 | `force_close_stuck_stocks.py` | Emergency: close all stuck stock trades in DB at entry price (pnl=$0). Use `--commit` flag to execute. |
-| `force_close_paper_trades.py` | Emergency: close stuck crypto paper trades. |
-| `clear_stuck_trades.py` | Reset STUCK flags so position monitor retries closes. Run first before force-close scripts. |
+| `force_close_paper_trades.py` | Emergency: close stuck crypto paper trades that have no active Kraken reconciliation marker. Marker-bearing trades are skipped. |
+| `clear_stuck_trades.py` | Reset STUCK flags so position monitor retries closes. Marker-bearing Kraken trades are skipped. Run first before force-close scripts. |
 | `check_open_trades.py` | Diagnostic: show all open trades in DB with broker and strategy. |
 | `apply_backtest_strategy_changes.py` | Apply enable/disable changes from backtest results to DB. |
 
 **Correct order for STUCK trade recovery:**
 ```
-1. python Scripts\clear_stuck_trades.py    ← clear flags
-2. Restart bot                              ← let it retry via IBKR/Alpaca
-3. If still stuck: python Scripts\force_close_stuck_stocks.py --commit
-4. Close remaining positions manually in Alpaca paper dashboard
+1. Check for Kraken reconciliation markers; reconcile live fills before recovery.
+2. python Scripts\clear_stuck_trades.py    ← clear eligible flags
+3. Restart bot                              ← let it retry via the broker
+4. If still stuck: use the asset-appropriate force-close utility
+5. Never clear a Kraken reconciliation marker with a recovery utility
 ```
 
 ---
@@ -719,6 +724,8 @@ python Scripts\reset_gridbot_stats.py   # if win rate was corrupted
 # Restart bot
 # Close ghost positions in Alpaca paper dashboard when market opens
 ```
+If a script prints `SKIPPED reconciliation hold`, stop and reconcile that trade
+against Kraken's actual fills before changing its marker, close flags, or DB status.
 
 ### Grid_bot auto-disabled
 ```powershell
