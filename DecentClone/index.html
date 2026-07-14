@@ -1276,6 +1276,7 @@
         const TUNNEL_TEXTURE_MAX_SEGMENTS = 14;
         const TUNNEL_COVERAGE_MAX_SEGMENTS = 44;
         const TUNNEL_FORWARD_LOOKAHEAD = 14;
+        const TUNNEL_COVERAGE_FORWARD_LOOKAHEAD = 48;
         const TUNNEL_TEXTURE_VECTOR_STREAK_MAX_Z = 1050;
         const TUNNEL_TEXTURE_DETAIL_NEAR_COUNT = 5;
         const TUNNEL_TEXTURE_SHIP_RING = 2;
@@ -16435,7 +16436,9 @@
         function collectVisibleTunnelSegmentsUncached(maxSegments = TUNNEL_TEXTURE_MAX_SEGMENTS, options = {}) {
             const coverageMode = !!options.coverageMode;
             const maxCameraZ = coverageMode ? TUNNEL_COVERAGE_MAX_CAMERA_Z : TUNNEL_TEXTURE_MAX_CAMERA_Z;
-            const forwardIndices = collectForwardPathSegmentIndices(TUNNEL_FORWARD_LOOKAHEAD);
+            const forwardIndices = collectForwardPathSegmentIndices(
+                coverageMode ? TUNNEL_COVERAGE_FORWARD_LOOKAHEAD : TUNNEL_FORWARD_LOOKAHEAD
+            );
             const forwardSet = new Set(forwardIndices);
             const topologyNearSet = tunnelTopologyNeighborhood(
                 shipSegmentIndex,
