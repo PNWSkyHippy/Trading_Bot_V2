@@ -1790,6 +1790,7 @@
             tunnelVisibleSegmentsCache.streak = null;
             junctionBubbleCache.stale = true;
             tunnelTopologyCache.stale = true;
+            junctionMouthCache.stale = true;
         }
 
         // ── Junction bubbles ─────────────────────────────────────────────────
@@ -1807,6 +1808,7 @@
         // included, with no map rebuilding.
         const junctionBubbleCache = { stale: true, bubbles: [] };
         const tunnelTopologyCache = { stale: true, neighbors: [] };
+        const junctionMouthCache = { stale: true, mouths: [] };
 
         function getTunnelTopologyNeighbors() {
             if (!tunnelTopologyCache.stale) return tunnelTopologyCache.neighbors;
@@ -7260,6 +7262,7 @@
         }
 
         function collectJunctionMouths() {
+            if (!junctionMouthCache.stale) return junctionMouthCache.mouths;
             const candidates = [];
             const thresholdSq = Math.pow(builder.radius * 0.74, 2);
             for (let i = 0; i < builder.segments.length; i++) {
@@ -7334,6 +7337,8 @@
                 cluster.segmentIndices = [...(cluster.segmentIndices || [])];
                 cluster.segmentIndex = cluster.segmentIndices[0];
             }
+            junctionMouthCache.mouths = clusters;
+            junctionMouthCache.stale = false;
             return clusters;
         }
 
@@ -7815,6 +7820,11 @@
         function applyTunnelMap(map, message = 'map loaded') {
             if (!map || !Array.isArray(map.segments) || map.segments.length < 1) return false;
             builder.segments = map.segments;
+            // Invalidate now, before builder.radius/targets/etc. are set up below and
+            // before the conditional syncBuilderTargetsFromGeometry() a few lines down
+            // -- otherwise that read (and any other geometry read in this setup block)
+            // could return the PREVIOUS map's cached junction mouths/topology.
+            invalidateTunnelSegmentCache();
             builder.cursor = map.cursor || copyVec(builder.segments[builder.segments.length - 1].to);
             builder.forward = normalize(map.forward || builder.segments[builder.segments.length - 1].forward);
             builder.right = normalize(map.right || { x: 1, y: 0, z: 0 });
@@ -7851,11 +7861,14 @@
             clearSelectedRangeBend();
             repairBuilderBasis();
             sanitizeMapSegments();
+            // sanitizeMapSegments() can further mutate builder.segments (repair tiny/
+            // duplicate spans) after the invalidation above, so invalidate again before
+            // rebuildTunnelTargets() below consumes junction-mouth data.
+            invalidateTunnelSegmentCache();
             rebuildTunnelStars();
             rebuildTunnelTargets();
             rebuildTunnelSentries();
             resetPlayerCombatState();
-            invalidateTunnelSegmentCache();
             updateWebGLCanvasVisibility();
             placeShipOnLoadedMap(map);
             saveTunnelMap({ markDirty: false });
@@ -8155,6 +8168,7 @@
          */
         function applyMapGeometryChange(message) {
             const cleanup = sanitizeMapSegments();
+            invalidateTunnelSegmentCache();
             repairBuilderCursorToLastSegment();
             mapMouse.destination = null;
             mapMouse.midpoint = null;
@@ -8162,7 +8176,6 @@
             const portalSyncCount = syncPortalFramesToSegments();
             rebuildTunnelStars();
             rebuildTunnelTargets();
-            invalidateTunnelSegmentCache();
             saveTunnelMap();
             const extras = [];
             if (cleanup.removed) extras.push(`${cleanup.removed} short removed`);
@@ -9733,6 +9746,7 @@
             builder.down = down;
             repairBuilderBasis();
             rebuildTunnelStars();
+            invalidateTunnelSegmentCache();
             rebuildTunnelTargets();
             rebuildTunnelSentries();
             saveTunnelMap();
@@ -18673,7 +18687,11 @@
         }
 
         function renderBranchMouths(centerX, centerY, fov, texturedSegmentIndices = null, forwardPathSet = null) {
-            const mouths = collectJunctionMouths();
+            // Slice: collectJunctionMouths() now returns the shared cache array by
+            // reference, and this function appends frame-local branch-mouth entries
+            // below — mutating the cache in place would leak duplicates into every
+            // subsequent frame's read.
+            const mouths = collectJunctionMouths().slice();
             for (let segmentIndex = 0; segmentIndex < builder.segments.length; segmentIndex++) {
                 const seg = builder.segments[segmentIndex];
                 const mouthInset = Math.min(36, Math.max(12, (seg.length || builder.length) * 0.18));

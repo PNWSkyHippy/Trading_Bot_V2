@@ -216,8 +216,29 @@ These changes are small enough to review together and should be completed first.
 - [ ] **AD-C02 — Add a spatial index.** Use a uniform grid, BVH, or similar structure for nearest-
   tunnel, containment, portal, target, sentry, and visibility queries. Rebuild incrementally or on a
   geometry revision, not per query.
-- [ ] **AD-C03 — Cache topology and junction work by geometry revision.** Avoid repeated endpoint
-  comparisons and branch-mouth reconstruction. Verify every builder mutation invalidates the cache.
+- [x] **AD-C03 — Cache topology and junction work by geometry revision.** `collectJunctionMouths()`
+  now uses the same stale-flag cache pattern as `getJunctionBubbles()`/`getTunnelTopologyNeighbors()`,
+  invalidated via `invalidateTunnelSegmentCache()`. `renderBranchMouths()` was mutating the returned
+  array in place (pushing frame-local entries) — fixed to `.slice()` first, since that array is now
+  the shared cache. `createDefaultTunnelMap()` was missing invalidation entirely (both its mutation
+  sites); `applyTunnelMap()` and `applyMapGeometryChange()` invalidated too late, after auto-target
+  generation had already consumed junction-mouth data via `rebuildTunnelTargets() ->
+  syncBuilderTargetsFromGeometry() -> generateAutoTargetPlacements() -> collectJunctionMouths()` — all
+  three call sites reordered to invalidate before that chain runs; `applyTunnelMap()` needed two
+  invalidation points since it mutates `builder.segments` at assignment and again via
+  `sanitizeMapSegments()`, with a target-sync consumer in between.
+
+  Measured on a 718-segment/714-target dense test map, ~15s flight windows:
+
+  | | textured before | textured after | TRON before | TRON after |
+  |---|---|---|---|---|
+  | `collectJunctionMouths` avg ms/call | 12.71 | 0.0016 | 14.15 | 0.0024 |
+  | `collectJunctionMouths` total ms (window) | 3,964.4 | 0.5 | 4,343.1 | 1.3 |
+
+  Cache-invalidation correctness verified manually in-browser: one builder-mode edit mid-flight
+  produced exactly one rebuild (not zero, not per-frame), mouth count survived unchanged for a
+  same-topology edit, and repeated pure-flight windows showed zero rebuilds. `collectVisibleTunnelSegmentsUncached`
+  (~5.5-6.3ms avg, hundreds of calls/window) is the next-largest cost — AD-C01's target.
 - [ ] **AD-C04 — Cull/decimate the HUD map.** Do not draw the entire discovered map every frame at
   every zoom. Preserve the planned exploration/fog-of-war behavior.
 - [ ] **AD-C05 — Remove avoidable hot-loop allocation.** Reuse draw lists, sets, scratch vectors,
