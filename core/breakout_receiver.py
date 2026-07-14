@@ -523,7 +523,7 @@ class BreakoutReceiver:
 
             return ChecklistResult.ok(f"{sym} still moving (drift={drift_pct:+.2f}%)")
         except Exception as e:
-            return ChecklistResult.fail(f"Price re-verify exception: {e}")
+            return ChecklistResult.fail(f"Price re-verify failed")
 
  
     def _check_concurrent_breakouts(self, p: Dict) -> ChecklistResult:
@@ -1392,7 +1392,7 @@ class BreakoutReceiver:
                 "accepted": False,
                 "execution_eligible": True,
                 "failure_class": "injection_exception",
-                "reason": f"Injection exception: {e}",
+                "reason": f"Injection failed",
                 "trade_id": None,
                 "checklist": checklist,
             }
