@@ -668,6 +668,9 @@
         const canvas = document.getElementById('fallback-canvas');
         const ctx = canvas.getContext('2d', { alpha: true });
         const keyboardStatus = document.getElementById('keyboard-val');
+        const positionStatus = document.getElementById('pos-val');
+        const gamepadStatus = document.getElementById('gamepad-val');
+        const viewModeStatus = document.getElementById('view-mode-val');
         const modeCheatsheet = document.getElementById('mode-cheatsheet');
         const mapLibraryDialog = document.getElementById('map-library-dialog');
         const mapLibraryFileInput = document.getElementById('map-library-file-input');
@@ -687,7 +690,7 @@
         const pilotNameInput = document.getElementById('pilot-name-input');
         const pilotStartBtn = document.getElementById('pilot-start-btn');
         const changePilotBtn = document.getElementById('change-pilot-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -1172,9 +1175,6 @@
             'data/map_library_bundle.json',
             'data/map_library.json'
         ];
-        // Placeholder left by an early AutoBoost experiment. The real AutoBoost
-        // implementation should live near the input/thrust logic in updateFlightPhysics().
-        const autoost = false;
         const TUNNEL_DEFAULT_RADIUS = 120;
         // mapBuildFix1: min tube length + spacing on T-placed and Y-autogen paths
         const MAP_MIN_SEGMENT_LENGTH = 42;
@@ -1661,7 +1661,7 @@
         const TUNNEL_WEBGL_RADIAL_SEGMENTS = 20;
         const TUNNEL_WEBGL_TILE_U = 6.0;
         const TUNNEL_WEBGL_TILE_V = 15.0;
-        const TUNNEL_WEBGL_MESH_CACHE_VERSION = 'tunnelPolishFix1';
+        const TUNNEL_WEBGL_MESH_CACHE_VERSION = 'unitSpanMesh1';
         const TUNNEL_WEBGL_CAM_NEAR = 4.0;
         const TUNNEL_WEBGL_SCROLL_RATE = 0.0025;
         const TUNNEL_WEBGL_BOOST_SCROLL_RATE = 0.006;
@@ -2047,9 +2047,12 @@
             target[5] = d.y * radius;
             target[6] = d.z * radius;
             target[7] = 0;
-            target[8] = f.x;
-            target[9] = f.y;
-            target[10] = f.z;
+            // Cylinder meshes use a unit-length local Z axis. Scaling the forward
+            // basis here preserves the exact requested section length while allowing
+            // every section with the same detail level to share one GPU mesh.
+            target[8] = f.x * span;
+            target[9] = f.y * span;
+            target[10] = f.z * span;
             target[11] = 0;
             target[12] = ox;
             target[13] = oy;
@@ -2111,19 +2114,11 @@
             return target;
         }
         
-       function buildCylinderGpuMesh(span, radialSegments, tubularSegments) {
-            // 1. FORCE the incoming span length to 400 immediately
-            span = 400.0;
-    
-            // 2. FORCE the longitudinal geometry segments to a high density
-            tubularSegments = 150;
-
-            const spanBucket = Math.max(8, Math.round(span / 8) * 8);
-            const key = `${TUNNEL_WEBGL_MESH_CACHE_VERSION}|${spanBucket}|${radialSegments}|${tubularSegments}`;
-    
-            // 3. CRITICAL OVERRIDE: Comment out or delete the cache return line!
-            // This stops the engine from pulling the old, short 120-unit tunnel mesh from memory.
-            /* if (tunnelWebGL.meshCache.has(key)) return tunnelWebGL.meshCache.get(key); */
+        function buildCylinderGpuMesh(span, radialSegments, tubularSegments) {
+            radialSegments = Math.max(8, Math.min(64, Math.round(radialSegments || TUNNEL_WEBGL_RADIAL_SEGMENTS)));
+            tubularSegments = Math.max(6, Math.min(72, Math.round(tubularSegments || webglBucketTubularSegments(span))));
+            const key = `${TUNNEL_WEBGL_MESH_CACHE_VERSION}|cylinder|${radialSegments}|${tubularSegments}`;
+            if (tunnelWebGL.meshCache.has(key)) return tunnelWebGL.meshCache.get(key);
 
             const vertices = [];
             const texCoords = [];
@@ -2131,7 +2126,7 @@
 
             for (let j = 0; j <= tubularSegments; j++) {
                 const v = j / tubularSegments;
-                const z = v * span; // Scales out to 400 safely
+                const z = v;
         
                 for (let i = 0; i <= radialSegments; i++) {
                     const u = i / radialSegments;
@@ -2168,7 +2163,6 @@
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
             gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
 
-            // Save our new, long configuration back to the memory slot
             tunnelWebGL.meshCache.set(key, mesh);
             trimCylinderMeshCache();
             return mesh;
@@ -4287,6 +4281,7 @@
                         const dx = f.pos.x - ship.x, dz = f.pos.z - ship.z;
                         if (dx * dx + dz * dz <= collideR * collideR) {
                             galagaApplyPlayerHit(f.type === 'boss' ? 3 : 2);
+                            if (!galagaPhase.active) return;
                             if (f.type === 'boss') {
                                 // ramming doesn't one-shot the boss -- it just recoils
                                 f.phase = 'formation'; f.t = 0;
@@ -4366,6 +4361,7 @@
                 } else if (t.state === 'active') {
                     if (now >= t.nextTickAt) {
                         galagaApplyPlayerHit(GALAGA.BOSS_TRACTOR_TICK_MULT);
+                        if (!galagaPhase.active) return;
                         t.nextTickAt = now + GALAGA.BOSS_TRACTOR_TICK_MS;
                     }
                     if (now >= t.until) {
@@ -4399,6 +4395,7 @@
                 const hitR = bolt.hitR || GALAGA.BOLT_HIT_R;
                 if (distanceSq(bolt, ship) <= hitR * hitR) {
                     galagaApplyPlayerHit(bolt.mult || 1);
+                    if (!galagaPhase.active) return;
                     galagaPhase.bolts.splice(i, 1);
                     continue;
                 }
@@ -4692,6 +4689,10 @@
                 56
             );
             playSfx('target_explosion', { intensity: 1.2, worldPos: getPlayerWorldPos() });
+            // A game-over tick returns before Galaga can clean itself up. End the
+            // bonus state now, without restoring its saved flight position; the
+            // normal respawn/restart path below owns final ship placement.
+            if (galagaPhase.active) endGalagaPhase(false);
             livesRemaining = Math.max(0, livesRemaining - 1);
             savePlayerProfile();
             updatePlayerHud();
@@ -5045,11 +5046,6 @@
             if (e.astralDriftHandled) return;
             e.astralDriftHandled = true;
             const physicalKey = normalizeKey(e);
-            physicalKeysHeld.add(physicalKey);
-            if (e.key === 'Shift' || e.shiftKey) {
-                physicalShiftHeld = true;
-                physicalKeysHeld.add('shift');
-            }
             if (isDialogInputTarget(e.target)) {
                 const dialogKey = normalizeKey(e);
                 if (dialogKey === 'escape' && isJoinEditDialogOpen()) {
@@ -5065,6 +5061,17 @@
                     e.preventDefault();
                 }
                 return;
+            }
+            // Ctrl/Alt/Meta letters are commands, never restorable flight input.
+            // Recording them here used to let a later clear/restore resurrect a
+            // shortcut such as Ctrl+Shift+S as reverse thrust.
+            const commandChord = e.ctrlKey || e.altKey || e.metaKey;
+            if (!commandChord || physicalKey === 'shift') {
+                physicalKeysHeld.add(physicalKey);
+            }
+            if (e.key === 'Shift' || e.shiftKey) {
+                physicalShiftHeld = true;
+                physicalKeysHeld.add('shift');
             }
             focusGameSurface();
             const key = normalizeKey(e);
@@ -7884,12 +7891,11 @@
         }
 
         function exportCurrentTunnelMap() {
-            exportMapJson(JSON.stringify(serializeTunnelMap()), 'current');
-            return true;
+            return exportMapJson(JSON.stringify(serializeTunnelMap()), 'current');
         }
 
         function exportNamedTunnelMap(id, name) {
-            exportMapJson(localStorage.getItem(namedMapKey(id)), name);
+            return exportMapJson(localStorage.getItem(namedMapKey(id)), name);
         }
 
         function importTunnelMapFromJson(raw, name = null) {
@@ -18909,8 +18915,13 @@
          *
          * AutoBoost belongs in step 3, where keyForward and boosting are decided.
          */
+        let currentGamepadInput = {
+            connected: false, name: 'none', yaw: 0, pitch: 0, roll: 0,
+            forward: 0, strafe: 0, lift: 0, boost: false, fire: false
+        };
+        let lastShotAt = 0;
+
         function updateFlightPhysics(frameScale = 1) {
-            tickSentryRegen();
             if (gameOverState.active) {
                 mouseInput.pitch = 0;
                 mouseInput.yaw = 0;
@@ -18923,7 +18934,7 @@
                 updateEngineHum(0, false, 0);
                 return;
             }
-            const gamepad = readGamepadInput();
+            const gamepad = currentGamepadInput = readGamepadInput();
             if (mapView) {
                 updateMapCameraControls();
                 mouseInput.pitch = 0;
@@ -19036,13 +19047,6 @@
                     ? 'cockpit auto-leveled after wall scrape'
                     : 'cockpit auto-leveled';
             }
-            // DEBUG: log roll state every ~30 frames while rolling
-            if (rollInput && !(renderFrameCounter % 30)) {
-                console.log('[ROLL] angle=' + (shipRollAngle * 180 / Math.PI).toFixed(1) +
-                    '° down=(' + shipDown.x.toFixed(2) + ',' + shipDown.y.toFixed(2) + ',' + shipDown.z.toFixed(2) + ')' +
-                    ' vR=(' + viewRight.x.toFixed(2) + ',' + viewRight.y.toFixed(2) + ')' +
-                    ' scrape=' + recentlyScrapedWall + ' lkLock=' + wallLevelLockActive);
-            }
             mouseInput.pitch = 0;
             mouseInput.yaw = 0;
 
@@ -19116,7 +19120,8 @@
             tickGalagaPhase(frameScale);
 
             // 4. Fire Dual Lasers on V Key (Stops hardware circuit locking)
-            if ((isKeyActive('v') || gamepad.fire || mouseInput.fire) && (!window.lastShot || Date.now() - window.lastShot > 150)) {
+            const shotNow = performance.now();
+            if ((isKeyActive('v') || gamepad.fire || mouseInput.fire) && shotNow - lastShotAt > 150) {
                 const aimLocalToWorld = (freelook || snapMode) ? viewLocalToWorld : localToWorld;
                 const muzzleLeft = aimLocalToWorld(-18, -8, 14);
                 const muzzleRight = aimLocalToWorld(18, -8, 14);
@@ -19130,7 +19135,7 @@
                     vx: laserVel.x, vy: laserVel.y, vz: laserVel.z, life: 0
                 });
         
-                window.lastShot = Date.now();
+                lastShotAt = shotNow;
                 const shipVelocity = {
                     x: forward.x * forwardAmount * currentSpeed + right.x * strafeAmount * strafeSpeed + up.x * liftAmount * strafeSpeed,
                     y: forward.y * forwardAmount * currentSpeed + right.y * strafeAmount * strafeSpeed + up.y * liftAmount * strafeSpeed,
@@ -19251,26 +19256,28 @@
                 renderSentryBeams(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderSentryMuzzleFlashes(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
 
-                // Update Flight Telemetry Interface
-                document.getElementById('pos-val').innerText =
-                    `${Math.round(posX)}, ${Math.round(posY)}, ${Math.round(posZ)} ` +
-                    `| yaw ${Math.round(yaw * 57.3)} pitch ${Math.round(pitch * 57.3)} roll ${Math.round(roll * 57.3)}`;
-                const pad = readGamepadInput();
-                document.getElementById('gamepad-val').innerText = pad.connected ? pad.name : 'none';
-                const viewLabel =
-                    isKeyActive('1') ? 'snap front' :
-                    isKeyActive('2') ? 'snap left' :
-                    isKeyActive('3') ? 'snap right' :
-                    isKeyActive('4') ? 'snap rear' :
-                    isKeyActive('5') ? 'snap up' :
-                    isKeyActive('6') ? 'snap down' :
-                    isKeyActive('c') ? 'turret freelook' :
-                    'nose locked';
-                const autoBoostText = autoBoostActive ? ` ${autoBoostLabel().toUpperCase()}` : '';
-                document.getElementById('view-mode-val').innerText =
-                    `${viewLabel} | ${tunnelVisualMode === 'wireframe' ? 'TRON' : 'TEXTURED'} | builder ${builderMode ? 'ON' : 'off'} ` +
-                    `map ${mapView ? 'ON' : 'off'} bend ${builder.bendDeg}/${builder.bendRollDeg} segs ${builder.segments.length} portals ${builder.portals.length} sentries ${tunnelSentries.length}` +
-                    `${autoBoostText}${wallHit.active ? ' WALL' : ''}${shieldCurrent <= 0 ? ' SHIELD DEPLETED' : ''}${hullCurrent <= 25 ? ' HULL CRITICAL' : ''}${getPortalProximityHint()}`;
+                // Text telemetry is human-readable at 10 Hz; rebuilding it at the
+                // display refresh rate only creates DOM/layout and garbage pressure.
+                if (!(renderFrameCounter % 6)) {
+                    positionStatus.innerText =
+                        `${Math.round(posX)}, ${Math.round(posY)}, ${Math.round(posZ)} ` +
+                        `| yaw ${Math.round(yaw * 57.3)} pitch ${Math.round(pitch * 57.3)} roll ${Math.round(roll * 57.3)}`;
+                    gamepadStatus.innerText = currentGamepadInput.connected ? currentGamepadInput.name : 'none';
+                    const viewLabel =
+                        isKeyActive('1') ? 'snap front' :
+                        isKeyActive('2') ? 'snap left' :
+                        isKeyActive('3') ? 'snap right' :
+                        isKeyActive('4') ? 'snap rear' :
+                        isKeyActive('5') ? 'snap up' :
+                        isKeyActive('6') ? 'snap down' :
+                        isKeyActive('c') ? 'turret freelook' :
+                        'nose locked';
+                    const autoBoostText = autoBoostActive ? ` ${autoBoostLabel().toUpperCase()}` : '';
+                    viewModeStatus.innerText =
+                        `${viewLabel} | ${tunnelVisualMode === 'wireframe' ? 'TRON' : 'TEXTURED'} | builder ${builderMode ? 'ON' : 'off'} ` +
+                        `map ${mapView ? 'ON' : 'off'} bend ${builder.bendDeg}/${builder.bendRollDeg} segs ${builder.segments.length} portals ${builder.portals.length} sentries ${tunnelSentries.length}` +
+                        `${autoBoostText}${wallHit.active ? ' WALL' : ''}${shieldCurrent <= 0 ? ' SHIELD DEPLETED' : ''}${hullCurrent <= 25 ? ' HULL CRITICAL' : ''}${getPortalProximityHint()}`;
+                }
 
                 updateShieldHud();
                 updateHullHud();
@@ -19288,6 +19295,9 @@
                 ctx.font = '13px monospace';
                 ctx.fillText('Hard refresh after updating index.html. Ctrl+Shift+S = save map, Ctrl+Shift+L = load library.', 20, 72);
                 keyboardStatus.innerText = `engine error: ${err.message}`;
+                // Do not schedule another frame into the same deterministic error.
+                // The on-canvas instruction above gives the explicit recovery path.
+                return;
             }
 
             requestAnimationFrame(renderEngineLoop);
