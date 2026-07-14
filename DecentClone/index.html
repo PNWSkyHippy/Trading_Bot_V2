@@ -687,7 +687,7 @@
         const pilotNameInput = document.getElementById('pilot-name-input');
         const pilotStartBtn = document.getElementById('pilot-start-btn');
         const changePilotBtn = document.getElementById('change-pilot-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -791,6 +791,7 @@
             ['Esc', 'cancel mode or clear selections/draft'],
             ['Ctrl+Shift+S', 'save/update current named map'],
             ['Ctrl+Shift+L', 'load saved map'],
+            ['Alt+T', 'toggle saved map style: textured / TRON wireframe'],
             ['M', 'open 3D map']
         ];
         const combatCheats = [
@@ -841,6 +842,7 @@
             ['Shift+LMB tunnel', 'add/remove one tunnel section'],
             ['Alt+Shift+LMB tunnel', 'select tunnel range A→B'],
             ['V', 'texture/rib color selected tunnel range'],
+            ['Alt+T', 'toggle saved map style: textured / TRON wireframe'],
             ['Del', 'delete selected tunnel range'],
             ['N', 'start/cancel multi-node spline tunnel draft'],
             ['Alt+N', 'corkscrew/helix editable route generator'],
@@ -1321,6 +1323,7 @@
         let defaultWallTextureId = DEFAULT_WALL_TEXTURE_ID;
         let defaultRibColor = DEFAULT_RIB_COLOR;
         let defaultWallOpaque = DEFAULT_WALL_OPAQUE;
+        let tunnelVisualMode = 'textured';
         const tunnelWallTextures = {
             color: null,
             normal: null,
@@ -1558,7 +1561,7 @@
         }
 
         function tunnelWallsReady() {
-            return TUNNEL_TEXTURE_ENABLED && (
+            return tunnelVisualMode === 'textured' && TUNNEL_TEXTURE_ENABLED && (
                 TUNNEL_TEXTURE_MODE === 'vector' ||
                 (TUNNEL_TEXTURE_MODE === 'webgl' && tunnelWebGL.ready) ||
                 tunnelWallTextures.ready
@@ -2528,7 +2531,8 @@
 
         function updateWebGLCanvasVisibility() {
             if (!tunnelWebGL.canvas) return;
-            const show = TUNNEL_TEXTURE_MODE === 'webgl' && tunnelWebGL.ready && !mapView && !builderMode;
+            const show = tunnelVisualMode === 'textured' &&
+                TUNNEL_TEXTURE_MODE === 'webgl' && tunnelWebGL.ready && !mapView && !builderMode;
             tunnelWebGL.canvas.style.visibility = show ? 'visible' : 'hidden';
             tunnelWebGL.canvas.style.pointerEvents = 'none';
         }
@@ -4140,7 +4144,7 @@
         }
 
         function checkLaserGalagaHits(laserPoint) {
-            if (!galagaPhase.active || galagaPhase.state !== 'play') return;
+            if (!galagaPhase.active || galagaPhase.state !== 'play') return false;
             // pick whichever fighter the shot is actually closest to, not just
             // the first one found in array order -- the boss's bigger hit
             // radius otherwise steals hits meant for a nearby escort whenever
@@ -4155,13 +4159,14 @@
                     bestIndex = i;
                 }
             }
-            if (bestIndex === -1) return;
+            if (bestIndex === -1) return false;
             const f = galagaPhase.fighters[bestIndex];
             f.hp -= 1;
             if (f.hp <= 0) galagaKillFighter(bestIndex, f.phase === 'dive');
+            return true;
         }
 
-        function tickGalagaPhase() {
+        function tickGalagaPhase(frameScale = 1) {
             if (!galagaPhase.active) return;
             if (gameOverState.active) { endGalagaPhase(false); return; }
             const now = performance.now();
@@ -4187,8 +4192,8 @@
             // (and the boss/beam it's holding position relative to) keeps drifting
             const snared = galagaPhase.snaredUntil && now < galagaPhase.snaredUntil;
             if (!snared) {
-                posX += keyStrafeX * GALAGA.STRAFE_SPEED + galagaPhase.mouseDX;
-                posZ += keyStrafeZ * GALAGA.STRAFE_SPEED + galagaPhase.mouseDZ;
+                posX += keyStrafeX * GALAGA.STRAFE_SPEED * frameScale + galagaPhase.mouseDX;
+                posZ += keyStrafeZ * GALAGA.STRAFE_SPEED * frameScale + galagaPhase.mouseDZ;
             } else if (galagaPhase.tractor) {
                 posX = galagaPhase.tractor.x;
                 posZ = galagaPhase.tractor.z;
@@ -4202,9 +4207,9 @@
 
             // track strafe velocity (both axes) for bolt lead-aim (ema-smoothed)
             if (galagaPhase.lastShipX !== null) {
-                const instVelX = posX - galagaPhase.lastShipX;
+                const instVelX = (posX - galagaPhase.lastShipX) / Math.max(0.001, frameScale);
                 galagaPhase.shipVelX = galagaPhase.shipVelX * 0.7 + instVelX * 0.3;
-                const instVelZ = posZ - galagaPhase.lastShipZ;
+                const instVelZ = (posZ - galagaPhase.lastShipZ) / Math.max(0.001, frameScale);
                 galagaPhase.shipVelZ = galagaPhase.shipVelZ * 0.7 + instVelZ * 0.3;
             }
             galagaPhase.lastShipX = posX;
@@ -4229,7 +4234,7 @@
             for (let i = galagaPhase.fighters.length - 1; i >= 0; i--) {
                 const f = galagaPhase.fighters[i];
                 if (f.phase === 'entry') {
-                    f.t = Math.min(1, f.t + f.tRate);
+                    f.t = Math.min(1, f.t + f.tRate * frameScale);
                     const path = f.entryPaths[f.entrySeg];
                     f.pos = cubicPoint(path.p0, path.p1, path.p2, path.p3, f.t);
                     if (f.t >= 1) {
@@ -4243,7 +4248,7 @@
                 } else if (f.phase === 'formation') {
                     // breathing sway around the slot -- boss sways wider, feels bigger
                     const swayMult = f.type === 'boss' ? 2.4 : 1;
-                    f.t += 0.02;
+                    f.t += 0.02 * frameScale;
                     f.pos = {
                         x: f.slot.x + Math.sin(f.t + f.slot.z * 0.01) * 18 * swayMult,
                         y: f.slot.y + Math.sin(f.t * 0.7) * 8,
@@ -4263,7 +4268,7 @@
                         }
                     }
                 } else if (f.phase === 'dive') {
-                    f.diveT = Math.min(1, f.diveT + GALAGA.DIVE_RATE);
+                    f.diveT = Math.min(1, f.diveT + GALAGA.DIVE_RATE * frameScale);
                     f.pos = cubicPoint(f.divePath.p0, f.divePath.p1, f.divePath.p2, f.divePath.p3, f.diveT);
                     // release bolts partway down
                     if (f.boltsLeft > 0 && f.diveT >= f.nextBoltT) {
@@ -4385,8 +4390,10 @@
             // bolts
             for (let i = galagaPhase.bolts.length - 1; i >= 0; i--) {
                 const bolt = galagaPhase.bolts[i];
-                bolt.x += bolt.vx; bolt.y += bolt.vy; bolt.z += bolt.vz;
-                bolt.life += 1;
+                bolt.x += bolt.vx * frameScale;
+                bolt.y += bolt.vy * frameScale;
+                bolt.z += bolt.vz * frameScale;
+                bolt.life += frameScale;
                 const hitR = bolt.hitR || GALAGA.BOLT_HIT_R;
                 if (distanceSq(bolt, ship) <= hitR * hitR) {
                     galagaApplyPlayerHit(bolt.mult || 1);
@@ -5092,6 +5099,11 @@
             }
             if (key === 'n' && e.altKey && !e.shiftKey && !e.ctrlKey && (mapView || builderMode)) {
                 openHelixGeneratorDialog();
+                e.preventDefault();
+                return;
+            }
+            if (key === 't' && e.altKey && !e.shiftKey && !e.ctrlKey && (mapView || builderMode)) {
+                toggleTunnelVisualMode();
                 e.preventDefault();
                 return;
             }
@@ -7284,6 +7296,7 @@
 
         function serializeTunnelMap() {
             return {
+                tunnelVisualMode,
                 defaultWallTextureId,
                 defaultRibColor,
                 defaultWallOpaque,
@@ -7362,6 +7375,16 @@
             } catch (err) {
                 keyboardStatus.innerText = `map save failed: ${err.message}`;
             }
+        }
+
+        function toggleTunnelVisualMode() {
+            tunnelVisualMode = tunnelVisualMode === 'wireframe' ? 'textured' : 'wireframe';
+            updateWebGLCanvasVisibility();
+            saveTunnelMap();
+            keyboardStatus.innerText = tunnelVisualMode === 'wireframe'
+                ? 'map style: TRON WIREFRAME (saved with this map)'
+                : 'map style: TEXTURED (saved with this map)';
+            return true;
         }
 
         function loadMapLibrary() {
@@ -7741,6 +7764,7 @@
             builder.bendDeg = map.bendDeg || builder.bendDeg;
             builder.bendRollDeg = map.bendRollDeg || 0;
             builder.radius = clampMapSegmentRadius(map.radius || builder.radius);
+            tunnelVisualMode = map.tunnelVisualMode === 'wireframe' ? 'wireframe' : 'textured';
             defaultWallTextureId = sanitizeTextureId(map.defaultWallTextureId, 'walls', defaultWallTextureId || DEFAULT_WALL_TEXTURE_ID);
             defaultRibColor = normalizeHexColor(map.defaultRibColor, defaultRibColor || DEFAULT_RIB_COLOR);
             defaultWallOpaque = map.defaultWallOpaque !== false;
@@ -7774,6 +7798,7 @@
             rebuildTunnelSentries();
             resetPlayerCombatState();
             invalidateTunnelSegmentCache();
+            updateWebGLCanvasVisibility();
             placeShipOnLoadedMap(map);
             saveTunnelMap({ markDirty: false });
             frameMapCameraOnTunnel();
@@ -13793,16 +13818,17 @@
             }
         }
 
-        function updateAndRenderParticles(centerX, centerY, fov) {
+        function updateAndRenderParticles(centerX, centerY, fov, frameScale = 1) {
             for (let i = vfxParticles.length - 1; i >= 0; i--) {
                 const p = vfxParticles[i];
-                p.x += p.vx;
-                p.y += p.vy;
-                p.z += p.vz;
-                p.vx *= 0.96;
-                p.vy *= 0.96;
-                p.vz *= 0.96;
-                p.life += 1;
+                p.x += p.vx * frameScale;
+                p.y += p.vy * frameScale;
+                p.z += p.vz * frameScale;
+                const damping = Math.pow(0.96, frameScale);
+                p.vx *= damping;
+                p.vy *= damping;
+                p.vz *= damping;
+                p.life += frameScale;
                 if (p.life > p.maxLife) {
                     vfxParticles.splice(i, 1);
                     continue;
@@ -15224,7 +15250,7 @@
             return !mapView && !portalTransit.active && !gameOverState.active;
         }
 
-        function tickSentries() {
+        function tickSentries(frameScale = 1) {
             if (!flightSentryAiActive()) return;
             const now = performance.now();
             if (!tickSentries.lastAt) tickSentries.lastAt = now;
@@ -15247,7 +15273,7 @@
                     beam.from = getSentryBeamOrigin(beamSentry);
                 }
                 beam.to = liveShip;
-                beam.life += 1;
+                beam.life += frameScale;
                 const travelT = beam.life / beam.maxLife;
                 if (!beam.damageApplied && travelT >= 1) {
                     applySentryBeamImpact(beam, beamSentry, liveShip);
@@ -15255,7 +15281,7 @@
                 if (beam.life > beam.maxLife + 4) sentryBeams.splice(i, 1);
             }
             for (let i = sentryMuzzleFlashes.length - 1; i >= 0; i--) {
-                sentryMuzzleFlashes[i].life += 1;
+                sentryMuzzleFlashes[i].life += frameScale;
                 if (sentryMuzzleFlashes[i].life > sentryMuzzleFlashes[i].maxLife) {
                     sentryMuzzleFlashes.splice(i, 1);
                 }
@@ -18823,7 +18849,7 @@
          *
          * AutoBoost belongs in step 3, where keyForward and boosting are decided.
          */
-        function updateFlightPhysics() {
+        function updateFlightPhysics(frameScale = 1) {
             tickSentryRegen();
             if (gameOverState.active) {
                 mouseInput.pitch = 0;
@@ -18897,22 +18923,22 @@
             if (snapMode) {
                 setSnapView(snapMode);
                 if (rollInput) {
-                    rotateShip(0, 0, rollInput * turnSpeed);
+                    rotateShip(0, 0, rollInput * turnSpeed * frameScale);
                 }
             } else if (freelook) {
                 rotateView(
-                    (INVERT_PITCH ? -pitchInput : pitchInput) * turnSpeed + mousePitch,
-                    yawInput * turnSpeed + mouseYaw,
+                    (INVERT_PITCH ? -pitchInput : pitchInput) * turnSpeed * frameScale + mousePitch,
+                    yawInput * turnSpeed * frameScale + mouseYaw,
                     0
                 );
                 if (rollInput) {
-                    rotateShip(0, 0, rollInput * turnSpeed);
+                    rotateShip(0, 0, rollInput * turnSpeed * frameScale);
                 }
             } else {
                 rotateShip(
-                    (INVERT_PITCH ? -pitchInput : pitchInput) * turnSpeed + mousePitch,
-                    yawInput * turnSpeed + mouseYaw,
-                    rollInput * turnSpeed
+                    (INVERT_PITCH ? -pitchInput : pitchInput) * turnSpeed * frameScale + mousePitch,
+                    yawInput * turnSpeed * frameScale + mouseYaw,
+                    rollInput * turnSpeed * frameScale
                 );
                 syncViewToShip();
             }
@@ -18996,16 +19022,26 @@
                 addVec(scaleVec(forward, forwardAmount), scaleVec(right, strafeAmount)),
                 scaleVec(up, liftAmount)
             );
-            thrust(forward, forwardAmount * currentSpeed);
-            thrust(right, strafeAmount * strafeSpeed);
-            thrust(up, liftAmount * strafeSpeed);
+            // Keep collision checks at roughly the original 60 Hz distance even
+            // when a textured frame takes longer. A single large dt-scaled leap
+            // could otherwise pass through a wall or a target box.
+            const movementSteps = Math.max(1, Math.ceil(frameScale));
+            const movementStepScale = frameScale / movementSteps;
+            for (let step = 0; step < movementSteps; step++) {
+                thrust(forward, forwardAmount * currentSpeed * movementStepScale);
+                thrust(right, strafeAmount * strafeSpeed * movementStepScale);
+                thrust(up, liftAmount * strafeSpeed * movementStepScale);
+                if (!galagaPhase.active) {
+                    containShipInTunnel();
+                    checkTargetFlyThroughCollisions();
+                }
+            }
             // Galaga pins position to GALAGA.ORIGIN every tick (tickGalagaPhase
             // below), far outside any real tunnel geometry -- containment
             // against a "nearest" segment that's actually thousands of units
             // away was fighting that lock and dropping input entirely (first
             // reproduced via keyboard strafe, the only thing that drives the
             // thrust() calls above during Galaga).
-            if (!galagaPhase.active) containShipInTunnel();
             const branchHud = galagaPhase.active ? { active: false } : getBranchFlightContext();
             if (branchHud.active) {
                 const tags = ['branch flight'];
@@ -19017,8 +19053,7 @@
             tickShieldRegen();
             tickTargetRegen();
             tickSentryRegen();
-            checkTargetFlyThroughCollisions();
-            tickGalagaPhase();
+            tickGalagaPhase(frameScale);
 
             // 4. Fire Dual Lasers on V Key (Stops hardware circuit locking)
             if ((isKeyActive('v') || gamepad.fire || mouseInput.fire) && (!window.lastShot || Date.now() - window.lastShot > 150)) {
@@ -19068,15 +19103,17 @@
                 if (!renderEngineLoop.lastSpatialAt) renderEngineLoop.lastSpatialAt = spatialNow;
                 const spatialDt = Math.min(0.05, (spatialNow - renderEngineLoop.lastSpatialAt) / 1000);
                 renderEngineLoop.lastSpatialAt = spatialNow;
+                const frameScale = spatialDt > 0 ? spatialDt * 60 : 1;
                 updateSpatialListener(spatialDt);
                 renderFrameCounter += 1;
-                updateFlightPhysics();
+                updateFlightPhysics(frameScale);
                 updateCheatsheet();
                 updatePortalTransit();
-                tickSentries();
+                tickSentries(frameScale);
 
                 updateWebGLCanvasVisibility();
                 const webglTunnelActive =
+                    tunnelVisualMode === 'textured' &&
                     TUNNEL_TEXTURE_MODE === 'webgl' && tunnelWebGL.ready && !mapView && !builderMode;
                 if (webglTunnelActive) {
                     ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -19117,13 +19154,21 @@
                 ctx.fillStyle = '#ff00ff'; // Bright retro plasma violet
                 for (let i = lasers.length - 1; i >= 0; i--) {
                     let l = lasers[i];
-                    l.x += l.vx;
-                    l.y += l.vy;
-                    l.z += l.vz;
-                    l.life++;
-                    checkLaserTargetHits(l);
-                    checkLaserSentryHits(l);
-                    checkLaserGalagaHits(l);
+                    const laserSteps = Math.max(1, Math.ceil(frameScale));
+                    const laserStepScale = frameScale / laserSteps;
+                    let laserHit = false;
+                    for (let step = 0; step < laserSteps; step++) {
+                        l.x += l.vx * laserStepScale;
+                        l.y += l.vy * laserStepScale;
+                        l.z += l.vz * laserStepScale;
+                        laserHit = checkLaserTargetHits(l) || checkLaserSentryHits(l) || checkLaserGalagaHits(l);
+                        if (laserHit) break;
+                    }
+                    l.life += frameScale;
+                    if (laserHit) {
+                        lasers.splice(i, 1);
+                        continue;
+                    }
                     const laserProjection = projectPoint(l, centerX, centerY, fov);
 
                     // Delete old lasers that go too far
@@ -19140,7 +19185,7 @@
                 renderTunnelSentries(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderGalagaPhase(centerX, centerY, fov);
                 renderLaserAimCrosshair(centerX, centerY, fov);
-                updateAndRenderParticles(centerX, centerY, fov);
+                updateAndRenderParticles(centerX, centerY, fov, frameScale);
                 renderPortalGatewaysFlight(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderPortalTransitVfx(centerX, centerY);
                 renderSentryBeams(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
@@ -19163,7 +19208,7 @@
                     'nose locked';
                 const autoBoostText = autoBoostActive ? ` ${autoBoostLabel().toUpperCase()}` : '';
                 document.getElementById('view-mode-val').innerText =
-                    `${viewLabel} | builder ${builderMode ? 'ON' : 'off'} ` +
+                    `${viewLabel} | ${tunnelVisualMode === 'wireframe' ? 'TRON' : 'TEXTURED'} | builder ${builderMode ? 'ON' : 'off'} ` +
                     `map ${mapView ? 'ON' : 'off'} bend ${builder.bendDeg}/${builder.bendRollDeg} segs ${builder.segments.length} portals ${builder.portals.length} sentries ${tunnelSentries.length}` +
                     `${autoBoostText}${wallHit.active ? ' WALL' : ''}${shieldCurrent <= 0 ? ' SHIELD DEPLETED' : ''}${hullCurrent <= 25 ? ' HULL CRITICAL' : ''}${getPortalProximityHint()}`;
 
