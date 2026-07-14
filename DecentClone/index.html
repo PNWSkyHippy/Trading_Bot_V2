@@ -16441,6 +16441,15 @@
                 const isShipSeg = index === shipSegmentIndex;
                 const isAdjacent = topologyNearSet.has(index);
                 const isForwardPath = forwardSet.has(index);
+                // Array order is not tunnel topology. Imported maps, branches, and
+                // later builder edits can put a physically nearby but disconnected
+                // segment next to the current segment in builder.segments. Opaque
+                // off-route geometry must not enter either render path merely because
+                // it is nearby in world space; that reveals/overlays other tunnels.
+                // Deliberate glass-to-glass views remain available.
+                const shipSeg = builder.segments[shipSegmentIndex];
+                const glassToGlass = shipSeg && !segmentWallOpaque(shipSeg) && !segmentWallOpaque(seg);
+                if (!isShipSeg && !isAdjacent && !isForwardPath && !glassToGlass) continue;
                 const isCoveragePreload = coverageMode && midZ > 0 && midZ < TUNNEL_COVERAGE_PRELOAD_MAX_Z;
                 const isMouth = isSegmentMouthOpen(seg);
                 const keepForForward = isForwardPath || isCoveragePreload;
@@ -16559,9 +16568,6 @@
 
             if (shipSegmentIndex !== null && shipSegmentIndex >= 0) {
                 addIndex(shipSegmentIndex, { isForwardPath: true });
-                for (let di = -TUNNEL_WEBGL_BEHIND_SEGMENTS; di <= TUNNEL_WEBGL_AHEAD_SEGMENTS; di++) {
-                    addIndex(shipSegmentIndex + di, { isForwardPath: di >= 0 });
-                }
             }
 
             for (const entry of coverage) {
@@ -16569,14 +16575,6 @@
                     isForwardPath: entry.isForwardPath,
                     isCoveragePreload: entry.isCoveragePreload
                 });
-            }
-
-            for (let index = 0; index < builder.segments.length; index++) {
-                if (seen.has(index)) continue;
-                const axialDist = segmentAxialContainmentDistance(ship, builder.segments[index]);
-                if (axialDist === 0 || axialDist < TUNNEL_WEBGL_AXIS_LEASH) {
-                    addIndex(index);
-                }
             }
 
             entries.sort((a, b) => {
