@@ -75,18 +75,136 @@ These changes are small enough to review together and should be completed first.
 
 ## Batch B — deterministic timing, collision, and pause behavior
 
-- [~] **AD-B01 — Introduce a fixed simulation timestep.** Movement, projectiles, Galaga actors,
-  particles, and sentry-beam lifetimes now use `frameScale`, so the old wholly frame-dependent claim
-  is stale. The current frame cap can still discard long stalls and the code mixes elapsed-time and
-  scaled-frame clocks. Use an accumulator with bounded catch-up steps; interpolate only rendering.
-- [ ] **AD-B02 — Use one monotonic simulation clock.** Convert remaining combat cooldowns, regen,
-  state deadlines, and animation lifetimes from mixed `Date.now()`, `performance.now()`, and implicit
-  frames to explicit milliseconds or simulation seconds.
-- [ ] **AD-B03 — Make collision subdivision distance-based.** Current substeps derive from
-  `frameScale`, not actual world distance traveled. Subdivide using velocity/distance and tunnel
-  radius, then add swept tests for thin target/portal geometry.
-- [ ] **AD-B04 — Pause cleanly on hidden tabs and focus loss.** Stop accumulating simulation time,
-  clear transient input, and reset the clock on resume so returning to the tab cannot jump the ship.
+- [~] **AD-B01 — Introduce a fixed simulation timestep.** Implemented: `sim-timing.js` adds a
+  DOM-free `advanceAccumulator()` (fixed `SIMULATION_STEP_SEC = 1/60`, frame time clamped to
+  `SIMULATION_MAX_FRAME_SEC = 0.25s`, catch-up capped at `SIMULATION_MAX_CATCHUP_STEPS = 8` with
+  backlog dropped beyond the cap, plus a `1e-9`s epsilon so float dust from rates that don't divide
+  evenly against 1/60 — e.g. 144Hz — can't cost or gain a whole step). `renderEngineLoop()` now
+  calls the extracted, unit-tested `AstralSimTiming.frameSteps()` (wraps `advanceAccumulator()` with
+  the suspend check) instead of inlining that branch, and runs `tickSimulation()` a variable number
+  of times per rendered frame instead of scaling one call by `frameScale`. Simulation and rendering
+  are separated (`tickLasers`/`renderLasers`, `updateParticles`/`renderParticles`,
+  `updatePortalTransit()` storing `portalTransit.elapsedMs` once for the two render-only readers).
+  Regression-tested in `sim-timing.test.js`: 30/60/144Hz each produce **exactly** 120 steps over 2s
+  (hard equality, not approximate), and a 5s stall capped at exactly 8 steps with the accumulator
+  zeroed, followed by a next-frame check proving the dropped backlog is not inherited (next frame
+  runs exactly 1 step). **Fixed in review:** `renderEngineLoop()`'s first-call initialization seeded
+  `accumulatorSec` with a whole `SIMULATION_STEP_SEC` instead of `0`. Since that same first call
+  always measures a `rawFrameDt` of exactly 0 (`lastSpatialAt` is set to `spatialNow` on the same
+  call that seeds the accumulator), the seeded step fired for free before any real time had elapsed
+  — an application-style startup (zero-delta first render, then 120 real frames at a steady 60Hz)
+  produced 121 steps instead of 120. Now seeded at `0`; a dedicated regression test models exactly
+  that startup sequence and asserts exactly 120. Remaining: render-side interpolation between the
+  last two simulated states
+  was not implemented, so motion is a series of fixed 60Hz steps rather than smoothed on very high
+  refresh-rate displays. A browser smoke test (steady 60fps play, a deliberate stall/breakpoint, and
+  a high-refresh-rate display if available) remains.
+
+- [x] **AD-B02 — Use one monotonic simulation clock.** A pause-aware `simClockMs` (index.html, next
+  to `simulationSuspended`) advances only inside `tickSimulation()`, by exactly one fixed step per
+  call — never by wall-clock time. Every gameplay deadline/cooldown/regen timer that was previously
+  measured against `performance.now()` now reads `simClockMs` instead (35 call sites converted; full
+  inventory of all 65 original `performance.now()` sites below). `tickShieldRegen()`'s own
+  `lastShieldTickAt`-based wall-clock delta was removed entirely (it's called exactly once per fixed
+  step, so `dt` is just the fixed step). `tickSentries()`'s independent wall-clock delta was likewise
+  replaced by `frameScale * SIMULATION_STEP_SEC`. `Date.now()` remains only for random ID generation
+  (map/target/sentry/portal IDs) — not a timing concern, left untouched.
+
+  **Converted (gameplay deadlines, now on `simClockMs`) — 35 sites:** shield regen tick;
+  Galaga `stateUntil` (intro + results), `nextSpecialAt`, `nextDiveAt`, boss tractor `readyAt` and
+  its render-side progress read (`renderGalagaPhase`'s telegraph-cone `progress`, which reads
+  `t.readyAt` and must stay on the same clock or the visual would desync from the actual deadline
+  while paused), and the single `now` at the top of `tickGalagaPhase()` (every internal Galaga
+  deadline check reads that one local, so converting it converts all of them); portal transit
+  `startTime`, `updatePortalTransit()`'s elapsed/phase calc (now stores `portalTransit.elapsedMs`
+  once, consumed by `getPortalTransitFovStretch()`/`renderPortalTransitVfx()` instead of each
+  re-deriving it — two `performance.now()` call sites were removed entirely, not converted, by this
+  refactor), portal re-trigger cooldown (`lastPortalTransit.at`, including the click-handler read in
+  `tryActivatePortalOnClick()` — safe because `simClockMs` just holds whatever it was as of the most
+  recent tick regardless of when the click fires); wall-hit `last`/`lockUntil`/`levelLockUntil`/
+  `cockpitResetCooldownUntil`/`pushStreak` timing and the two reads that gate auto-level
+  (`recentlyScrapedWall`, `wallLevelLockActive`) in `updateFlightPhysics()`; branch-junction entry
+  grace (`branchJunctionEnteredAt`/`junctionAge`); target `destroyedAt` + `tickTargetRegen()`; sentry
+  `destroyedAt` + `tickSentryRegen()`; sentry `lastSeenAt` (laser hit + AI tick), `lastFireAt`,
+  `lingerUntil`, beam `createdAt`; laser fire cooldown (`shotNow`/`lastShotAt`).
+
+  **Intentionally left on `performance.now()`/`Date.now()` — 28 + 6 sites, classified:**
+  - *Audio*: spatial listener velocity sampling (`lastListenerSampleAt`) — doppler/panning smoothing
+    against real device audio timing, not gameplay state.
+  - *Cosmetic HUD flash* (8 sites: `shieldFlashUntil`, `shieldHitFlashUntil`, `hullFlashUntil`, set
+    in `applyShieldWallDrain`/`applyShieldExplosiveDamage`/`applySentryDamageToPlayer`/
+    `galagaApplyPlayerHit`, read in `updateShieldHud`/`updateHullHud`): purely a CSS box-shadow pulse
+    duration on a HUD bar. Setter and reader are both consistently wall-clock (not a mix), gate no
+    subsequent gameplay decision, and rendering itself is throttled/paused with the tab anyway.
+  - *Render-only decorative animation phase* (5 sites): Galaga tractor-beam cone wobble and catch-ring
+    pulse (`time`, `pulse` in `renderGalagaPhase` — distinct from the `progress` read next to them,
+    which *was* converted), wall-texture scroll phase (`computeWallMotionState`), movement-streak
+    phase (`renderMovementStreaks`), builder cursor marker pulse. All purely cosmetic wiggle with no
+    gameplay deadline behind them.
+  - *Input/UI timing* (12 sites): physical-key hold-grace and mobile thrust-latch bookkeeping
+    (`lastKeyDown`, `restorePhysicalControlState`, `getLatchedMove`/`latchedMoveUntil`,
+    `isKeyActive`'s grace check), builder-command repeat-debounce (`lastBuilderAt`/
+    `lastBuilderCommandAt`), map/builder double-click gesture detection (`mapMouse.lastRmb`). These
+    measure real human input duration/gesture timing, not simulation state; input is already cleared
+    on suspend (`clearKeyboardState()`), so nothing here can silently advance a cooldown while paused.
+  - *Render-loop timing plumbing* (2 sites): `renderEngineLoop`'s own `spatialNow`/`lastSpatialAt`
+    wall-clock sample that the accumulator is built from, and the matching reset in
+    `resumeSimulationOnFocusVisible()`. These must stay on real wall-clock time by construction —
+    converting them would be circular (they're what `simClockMs` derives its step count *from*).
+  - *ID generation* (6 `Date.now()` sites): map/target/sentry/portal ID salting
+    (`` `${Date.now()}-${Math.random()...}` `` style). Not a timing concern at all.
+
+- [~] **AD-B03 — Make collision subdivision distance-based.** Ship movement substeps and laser
+  substeps are computed from actual per-tick travel distance vs.
+  `AstralSimTiming.COLLISION_MAX_STEP_DISTANCE` (20 units, chosen below the smallest hit-test radius
+  in the file, moved into `sim-timing.js` so the test below reads the same constant index.html uses
+  rather than a second copy that could drift) via `distanceSubsteps()`, capped at 8 substeps, instead
+  of `Math.ceil(frameScale)`. Regression-tested for boundary crossing, extreme-distance cap, and
+  non-positive-distance safety, **plus** a test that computes the actual greatest reachable per-tick
+  displacement in `updateFlightPhysics()`: keyboard and gamepad input stack additively (not
+  exclusively) on each axis, so `forwardAmount`/`strafeAmount`/`liftAmount` each max out at 2 (±1
+  keyboard + ±1 gamepad), against `currentSpeed`/`strafeSpeed` maxed at 14/7 (full boost, no wall
+  drag) — `hypot(2*14, 2*7, 2*7)` ≈ 34.29 units/tick. That resolves to **2 substeps**, well under the
+  8-substep cap (documented in the test: cap is not reached, ~21% of the cap's distance budget).
+  Remaining: true swept tests (ray/capsule vs. thin target/portal geometry) were not implemented --
+  substep count reduces tunneling risk but does not eliminate it the way a full sweep would. A
+  browser smoke test with boost through a tightly-packed target/sentry cluster remains.
+
+- [x] **AD-B04 — Pause cleanly on hidden tabs and focus loss.** `simulationSuspended` now stops the
+  accumulator from advancing (`AstralSimTiming.frameSteps()` returns `{steps: 0, accumulatorSec: 0}`
+  whenever suspended, unconditionally) while the tab is hidden or the window is blurred; on
+  focus/visibility return, `resumeSimulationOnFocusVisible()` resets both the accumulator and
+  `renderEngineLoop.lastSpatialAt` before simulation resumes, so no catch-up burst can occur.
+  Combined with AD-B02 (every gameplay deadline now reads `simClockMs`, which only advances inside
+  `tickSimulation()`), zero simulation steps for the whole suspension window is sufficient to prove
+  portal transit cannot finish, Galaga states/attacks cannot expire or advance, targets/sentries
+  cannot regenerate, weapon/sentry cooldowns cannot advance, and wall locks cannot expire while
+  suspended — `tickSimulation()` is the only place any of that state changes. Regression-tested in
+  `sim-timing.test.js`: 5 simulated seconds of suspension (300 frames at 60Hz) produce exactly 0
+  steps and the accumulator stays at exactly 0 throughout; a representative post-resume frame then
+  runs exactly 1 step, contrasted against a sanity check showing what a multi-step burst would look
+  like without the reset. Existing transient-input clearing (`clearKeyboardState()`) and
+  `updateEngineHum(0, false, 0)` on suspend are preserved/added.
+
+  **Fixed in review (two issues):**
+  1. `simulationSuspended` was hardcoded to `false` at declaration. A page opened already
+     hidden/unfocused (background tab, unfocused window) never fires a `blur`/`visibilitychange`
+     event to react to — those only fire on a *transition*, not on matching the initial state — so it
+     would incorrectly start simulating despite never having been visible/focused. Now seeded from
+     `document.visibilityState !== 'visible' || !document.hasFocus()`. Not independently testable in
+     this Node harness (no DOM to read those properties from), but the mechanism it feeds — zero
+     steps from frame 1 when starting suspended, with no dependency on a prior transition — is
+     tested.
+  2. The resume comment overclaimed that resetting `lastSpatialAt`/`accumulatorSec` "guarantees the
+     next frame advances by exactly one step." It doesn't — it guarantees no catch-up burst; the
+     actual step count on the literal next `requestAnimationFrame` still depends on real browser
+     scheduling, which this fix cannot control. Comment corrected to state only what's actually
+     guaranteed.
+
+  A browser smoke test (switch tabs / alt-tab mid-flight during an active portal transit or Galaga
+  phase, return, confirm no jump and no skipped state; separately, open the page in an already
+  backgrounded/unfocused tab and confirm no simulation progress before it's first foregrounded)
+  remains.
 - [ ] **AD-B05 — Add a real pause/settings state.** It must pause simulation without corrupting map,
   Galaga, portal, input, audio, or save state.
 
