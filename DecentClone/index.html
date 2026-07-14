@@ -654,7 +654,6 @@
         </div>
     </div>
 
-    <script src="sim-timing.js"></script>
     <script>
         /*
          * Astral Drift is intentionally a one-file browser game. Almost every
@@ -1024,11 +1023,6 @@
         const SENTRY_HEALTH_MAX = 100;
         const SENTRY_DAMAGE_PER_HIT = 10;
         const SENTRY_HIT_RADIUS = 28;
-        // Collision substep sizing lives in sim-timing.js as
-        // AstralSimTiming.COLLISION_MAX_STEP_DISTANCE so the regression test
-        // that proves the real max-speed case stays under the substep cap
-        // (AD-B03) reads the same constant this file uses, instead of a
-        // second copy that could silently drift out of sync.
         const SCORE_FLY_THROUGH_FULL = 100;
         const SCORE_FLY_THROUGH_PARTIAL = 40;
         const SCORE_LASER_HIT = 150;
@@ -1050,26 +1044,6 @@
         const mouseInput = { yaw: 0, pitch: 0, fire: false, steer: false };
         let physicalShiftHeld = false;
         const physicalKeysHeld = new Set();
-        // True while the tab is hidden or the window has lost focus. The fixed-
-        // step accumulator stops advancing while this is true so an idle tab
-        // cannot build up a catch-up burst that jumps the ship on return
-        // (AD-B04). Seeded from the actual current document state, not a
-        // hardcoded false -- a page that is opened already hidden/unfocused
-        // (background tab, unfocused window) gets no blur/visibilitychange
-        // event to react to, since those only fire on a *transition*. Without
-        // this, such a page would start simulating despite never having been
-        // visible/focused.
-        let simulationSuspended = document.visibilityState !== 'visible' || !document.hasFocus();
-        // Pause-aware simulation clock (milliseconds). Advances only inside
-        // tickSimulation(), i.e. only by completed fixed steps -- never by raw
-        // wall-clock time. Gameplay deadlines/cooldowns compare against this,
-        // not performance.now(), so they cannot progress while the loop is
-        // suspended (AD-B02/AD-B04). Render-only animation, audio
-        // spatialization, profiling, and input-hold timing intentionally keep
-        // using performance.now()/Date.now() -- see the full call-site
-        // inventory and rationale for every remaining occurrence in
-        // ASTRAL_DRIFT_UNIFIED_AUDIT_TASKS.md under AD-B02.
-        let simClockMs = 0;
         const latchedMove = { forward: 0, strafe: 0, lift: 0 };
         const latchedMoveUntil = { forward: 0, strafe: 0, lift: 0 };
         const mapCamera = {
@@ -3406,6 +3380,7 @@
         let shieldFlashUntil = 0;
         let shieldHitFlashUntil = 0;
         let hullFlashUntil = 0;
+        let lastShieldTickAt = performance.now();
         const shieldBarFill = document.getElementById('shield-bar-fill');
         const shieldVal = document.getElementById('shield-val');
         const shieldLowWarn = document.getElementById('shield-low-warn');
@@ -3556,10 +3531,9 @@
         }
 
         function tickShieldRegen() {
-            // Called exactly once per fixed simulation step (from tickSimulation
-            // via updateFlightPhysics), so dt is the fixed step itself -- no
-            // independent wall-clock delta needed (AD-B02).
-            const dt = AstralSimTiming.SIMULATION_STEP_SEC;
+            const now = performance.now();
+            const dt = Math.min(0.05, (now - lastShieldTickAt) / 1000);
+            lastShieldTickAt = now;
             if (mapView || wallHit.active || gameOverState.active) return;
             if (isPlayerUnderActiveSentryFire()) return;
             if (shieldCurrent < SHIELD_MAX) {
@@ -3941,7 +3915,7 @@
             galagaPhase.active = true;
             galagaPhase.level = galagaDifficulty(level).level;
             galagaPhase.state = 'intro';
-            galagaPhase.stateUntil = simClockMs + GALAGA.INTRO_MS;
+            galagaPhase.stateUntil = performance.now() + GALAGA.INTRO_MS;
             galagaPhase.wave = 0;
             galagaPhase.score = 0;
             galagaPhase.kills = 0;
@@ -4033,7 +4007,7 @@
                     pos: { ...spawn },
                     boltsLeft: 0, diveT: 0, divePath: null,
                     nextLaserAt: 0,
-                    nextSpecialAt: simClockMs + GALAGA.BOSS_SPECIAL_MIN_MS,
+                    nextSpecialAt: performance.now() + GALAGA.BOSS_SPECIAL_MIN_MS,
                 };
             };
             let order = 0;
@@ -4054,7 +4028,7 @@
             const waveCfg = GALAGA.WAVE_DIVE[Math.min(3, Math.max(1, n))];
             // extra grace on top of the normal gap so the entry swarm has
             // time to finish sweeping in before the first dive of the wave
-            galagaPhase.nextDiveAt = simClockMs + 600 +
+            galagaPhase.nextDiveAt = performance.now() + 600 +
                 waveCfg.minMs + Math.random() * (waveCfg.maxMs - waveCfg.minMs);
         }
 
@@ -4123,7 +4097,7 @@
             galagaPhase.tractor = {
                 x: ship.x, z: ship.z,
                 state: 'telegraph',
-                readyAt: simClockMs + GALAGA.BOSS_TRACTOR_TELEGRAPH_MS,
+                readyAt: performance.now() + GALAGA.BOSS_TRACTOR_TELEGRAPH_MS,
                 until: 0, nextTickAt: 0,
             };
         }
@@ -4163,7 +4137,7 @@
                 // boss down wins the wave outright -- escorts don't need clearing.
                 galagaPhase.fighters = [];
                 galagaPhase.state = 'results';
-                galagaPhase.stateUntil = simClockMs + GALAGA.RESULTS_MS;
+                galagaPhase.stateUntil = performance.now() + GALAGA.RESULTS_MS;
             }
         }
 
@@ -4193,10 +4167,7 @@
         function tickGalagaPhase(frameScale = 1) {
             if (!galagaPhase.active) return;
             if (gameOverState.active) { endGalagaPhase(false); return; }
-            // Every deadline this function reads/writes (stateUntil, nextDiveAt,
-            // nextSpecialAt, tractor readyAt/until, etc.) is on the pause-aware
-            // simulation clock, not wall time (AD-B02/AD-B04).
-            const now = simClockMs;
+            const now = performance.now();
             const O = GALAGA.ORIGIN;
 
             // Lock the flight frame every tick: basis fixed looking up, forward/
@@ -4598,12 +4569,9 @@
                     const time = performance.now() * 0.006;
                     if (t.state === 'telegraph' && bp && bp.z > 8) {
                         // grows from the boss out to the target over the
-                        // telegraph window -- slow enough to actually dodge.
-                        // t.readyAt is on the simulation clock (AD-B02), so this
-                        // reads simClockMs, not performance.now(), to stay in
-                        // sync (and correctly freeze while paused).
+                        // telegraph window -- slow enough to actually dodge
                         const progress = Math.max(0, Math.min(1,
-                            1 - (t.readyAt - simClockMs) / GALAGA.BOSS_TRACTOR_TELEGRAPH_MS));
+                            1 - (t.readyAt - performance.now()) / GALAGA.BOSS_TRACTOR_TELEGRAPH_MS));
                         const curX = bp.x + (tp.x - bp.x) * progress;
                         const curY = bp.y + (tp.y - bp.y) * progress;
                         const dx = curX - bp.x, dy = curY - bp.y;
@@ -5327,33 +5295,16 @@
         window.addEventListener('keyup', handleKeyUp, { capture: true });
         document.addEventListener('keydown', handleKeyDown, { capture: true });
         document.addEventListener('keyup', handleKeyUp, { capture: true });
-        function suspendSimulationForHiddenOrBlur() {
-            simulationSuspended = true;
+        window.addEventListener('blur', () => {
             physicalShiftHeld = false;
             physicalKeysHeld.clear();
             clearKeyboardState();
-            updateEngineHum(0, false, 0);
-        }
-        function resumeSimulationOnFocusVisible() {
-            if (document.visibilityState !== 'visible' || !document.hasFocus()) return;
-            simulationSuspended = false;
-            // Reset the clock and drop any leftover accumulator so the next
-            // frame's elapsed-time measurement starts from now, not from
-            // whenever the tab was last visible/focused -- this is what
-            // prevents a catch-up burst covering the entire hidden/unfocused
-            // duration. It does not guarantee the very next requestAnimationFrame
-            // runs exactly one step; that still depends on the real gap between
-            // now and whenever the browser schedules the next frame.
-            renderEngineLoop.lastSpatialAt = performance.now();
-            renderEngineLoop.accumulatorSec = 0;
-        }
-        window.addEventListener('blur', suspendSimulationForHiddenOrBlur);
-        window.addEventListener('focus', resumeSimulationOnFocusVisible);
+        });
         document.addEventListener('visibilitychange', () => {
             if (document.visibilityState !== 'visible') {
-                suspendSimulationForHiddenOrBlur();
-            } else {
-                resumeSimulationOnFocusVisible();
+                physicalShiftHeld = false;
+                physicalKeysHeld.clear();
+                clearKeyboardState();
             }
         });
         function pointInMiniMapHud(x, y) {
@@ -8989,11 +8940,7 @@
 
         function tryActivatePortalOnClick(screenX, screenY) {
             if (portalTransit.active) return false;
-            // Portal re-trigger cooldown is gameplay state, so it's measured on
-            // the simulation clock even though this fires from a click handler
-            // (AD-B02): simClockMs simply holds whatever it was as of the most
-            // recently completed tick.
-            const now = simClockMs;
+            const now = performance.now();
             if (now - lastPortalTransit.at < portalTransit.durationMs + 200) return false;
             const hit = pickFlightPortalClick(
                 screenX,
@@ -9098,8 +9045,7 @@
             playPortalWhoosh();
             portalTransit.active = true;
             portalTransit.phase = 'enter';
-            portalTransit.startTime = simClockMs;
-            portalTransit.elapsedMs = 0;
+            portalTransit.startTime = performance.now();
             portalTransit.durationMs = PORTAL_TRANSIT_DURATION_MS;
             portalTransit.fromFrame = fromFrame;
             portalTransit.toFrame = toFrame;
@@ -9124,10 +9070,10 @@
                 wallHit.active = false;
                 wallHit.intensity = 0;
                 wallHit.stuckCount = 0;
-                wallHit.levelLockUntil = simClockMs + 900;
+                wallHit.levelLockUntil = performance.now() + 900;
                 shieldCurrent = SHIELD_MAX;
             }
-            lastPortalTransit = { id: portalTransit.portalId, at: simClockMs };
+            lastPortalTransit = { id: portalTransit.portalId, at: performance.now() };
             portalTransit.active = false;
             portalTransit.phase = 'idle';
             portalTransit.pendingTeleport = null;
@@ -9140,13 +9086,7 @@
 
         function updatePortalTransit() {
             if (!portalTransit.active) return;
-            // Gameplay progress lives on the simulation clock (AD-B02), and is
-            // stored once here so the two render-only readers below (FOV
-            // stretch, VFX) don't each resample a different clock -- they just
-            // read what this tick already decided (AD-B01: sim state is
-            // computed once, rendering only consumes it).
-            const elapsed = simClockMs - portalTransit.startTime;
-            portalTransit.elapsedMs = elapsed;
+            const elapsed = performance.now() - portalTransit.startTime;
             const t = elapsed / portalTransit.durationMs;
             if (t < 0.4) portalTransit.phase = 'enter';
             else if (t < 0.7) portalTransit.phase = 'peak';
@@ -9158,7 +9098,10 @@
 
         function getPortalTransitFovStretch() {
             if (!portalTransit.active) return 1;
-            const t = Math.min(1, (portalTransit.elapsedMs || 0) / portalTransit.durationMs);
+            const t = Math.min(
+                1,
+                (performance.now() - portalTransit.startTime) / portalTransit.durationMs
+            );
             if (t < 0.4) return 1 + (t / 0.4) * 0.38;
             if (t < 0.7) return 1.38 + Math.sin(((t - 0.4) / 0.3) * Math.PI) * 0.12;
             return 1.38 - ((t - 0.7) / 0.3) * 0.38;
@@ -9166,7 +9109,7 @@
 
         function renderPortalTransitVfx(centerX, centerY) {
             if (!portalTransit.active) return;
-            const elapsed = portalTransit.elapsedMs || 0;
+            const elapsed = performance.now() - portalTransit.startTime;
             const t = Math.min(1, elapsed / portalTransit.durationMs);
             const enterT = Math.min(1, t / 0.4);
             const peakT = t < 0.4 ? 0 : Math.min(1, (t - 0.4) / 0.3);
@@ -9805,7 +9748,7 @@
                 best = bestContaining;
             }
             if (preferred && best) {
-                const now = simClockMs;
+                const now = performance.now();
                 if (
                     boostingForward &&
                     wallHit.lockUntil > now &&
@@ -10074,10 +10017,10 @@
 
             if (ctx.nearJunction) {
                 if (!branchJunctionActive) {
-                    branchJunctionEnteredAt = simClockMs;
+                    branchJunctionEnteredAt = performance.now();
                     branchJunctionActive = true;
                 }
-                const junctionAge = simClockMs - branchJunctionEnteredAt;
+                const junctionAge = performance.now() - branchJunctionEnteredAt;
                 if (junctionAge < BRANCH_JUNCTION_CONTAIN_GRACE_MS) {
                     const graceT = 1 - junctionAge / BRANCH_JUNCTION_CONTAIN_GRACE_MS;
                     ctx.containRelax = BRANCH_JUNCTION_CONTAIN_RELAX_FRAC * graceT;
@@ -10294,7 +10237,7 @@
                 shipSegmentIndex = nearest.index;
                 wallHit.active = true;
                 wallHit.intensity = Math.max(wallHit.intensity, 0.3);
-                wallHit.last = simClockMs;
+                wallHit.last = performance.now();
                 wallHit.lastRadius = chamber.radius;
                 wallHit.stuckCount = Math.min(12, (wallHit.stuckCount || 0) + 1);
                 return;
@@ -10356,7 +10299,7 @@
                 shipSegmentIndex = candidateSegmentIndex;
                 wallHit.active = true;
                 wallHit.intensity = Math.max(wallHit.intensity, 0.45);
-                wallHit.last = simClockMs;
+                wallHit.last = performance.now();
                 wallHit.lastRadius = segRadius;
                 applyShieldWallDrain(Math.abs(local.localZ - cappedZ), false);
                 return;
@@ -10365,7 +10308,7 @@
                 shipSegmentIndex = candidateSegmentIndex;
                 wallHit.lastRadius = segRadius;
                 wallHit.stuckCount = Math.max(0, wallHit.stuckCount - 1);
-                const wallBasisNow = simClockMs;
+                const wallBasisNow = performance.now();
                 const canResetWallBasis = wallBasisNow >= (wallHit.cockpitResetCooldownUntil || 0);
                 if (
                     wallHit.last &&
@@ -10427,7 +10370,7 @@
             posZ = corrected.z;
             // Telemetry: a sustained streak of per-frame corrections means containment is
             // fighting the player's motion (the stuck/ping-pong report), not a passing scrape.
-            const pushNow = simClockMs;
+            const pushNow = performance.now();
             wallHit.pushStreak = (pushNow - (wallHit.last || 0) < 150) ? (wallHit.pushStreak || 0) + 1 : 1;
             if (wallHit.pushStreak === 45 || wallHit.pushStreak % 180 === 0) {
                 console.warn('[CONTAIN-PUSH] streak=' + wallHit.pushStreak +
@@ -10457,12 +10400,12 @@
                 }
                 if (boostingForward && push > 18) {
                     wallHit.lockedSegmentIndex = nearest.index;
-                    wallHit.lockUntil = simClockMs + 70;
+                    wallHit.lockUntil = performance.now() + 70;
                 }
             }
             wallHit.active = true;
             wallHit.intensity = Math.min(1, push / 60);
-            wallHit.last = simClockMs;
+            wallHit.last = performance.now();
             wallHit.levelLockUntil = Math.max(wallHit.levelLockUntil || 0, wallHit.last + 1200);
             wallHit.lastRadius = segRadius;
             applyShieldWallDrain(push, boostScrape);
@@ -13912,7 +13855,7 @@
 
         function destroyTarget(target) {
             if (!target || target.destroyedAt) return;
-            target.destroyedAt = simClockMs;
+            target.destroyedAt = performance.now();
         }
 
         function respawnTarget(target) {
@@ -13922,7 +13865,7 @@
         }
 
         function tickTargetRegen() {
-            const now = simClockMs;
+            const now = performance.now();
             for (const target of tunnelTargets) {
                 if (!target.destroyedAt) continue;
                 if (now - target.destroyedAt >= TARGET_REGEN_MS) {
@@ -13955,7 +13898,7 @@
             }
         }
 
-        function updateParticles(frameScale = 1) {
+        function updateAndRenderParticles(centerX, centerY, fov, frameScale = 1) {
             for (let i = vfxParticles.length - 1; i >= 0; i--) {
                 const p = vfxParticles[i];
                 p.x += p.vx * frameScale;
@@ -13968,12 +13911,8 @@
                 p.life += frameScale;
                 if (p.life > p.maxLife) {
                     vfxParticles.splice(i, 1);
+                    continue;
                 }
-            }
-        }
-
-        function renderParticles(centerX, centerY, fov) {
-            for (const p of vfxParticles) {
                 const projected = projectPoint(p, centerX, centerY, fov);
                 if (!projected) continue;
                 const alpha = Math.max(0, 1 - p.life / p.maxLife);
@@ -14437,7 +14376,7 @@
 
         function destroySentry(sentry) {
             if (!sentry || sentry.destroyedAt) return;
-            sentry.destroyedAt = simClockMs;
+            sentry.destroyedAt = performance.now();
             sentry.health = 0;
             sentry.engaged = false;
             playSfx('target_explosion', {
@@ -14464,7 +14403,7 @@
         }
 
         function tickSentryRegen() {
-            const now = simClockMs;
+            const now = performance.now();
             for (const sentry of tunnelSentries) {
                 if (!sentry.destroyedAt) continue;
                 if (now - sentry.destroyedAt >= SENTRY_REGEN_MS) {
@@ -14480,7 +14419,7 @@
 
         function handleSentryLaserHit(sentry) {
             if (!sentryIsActive(sentry)) return false;
-            const now = simClockMs;
+            const now = performance.now();
             sentry.engaged = true;
             sentry.patrolBroken = true;
             sentry.lastSeenAt = now;
@@ -15282,7 +15221,7 @@
 
         function tickSentryAI(sentry, ship, dt) {
             if (!sentryIsActive(sentry)) return;
-            const now = simClockMs;
+            const now = performance.now();
             const dist = sentryDistanceToPlayer(sentry, ship);
             const seesPlayer = sentryCanSeePlayer(sentry, ship);
             const wasEngaged = sentry.engaged;
@@ -15346,7 +15285,7 @@
         }
 
         function fireSentryBeam(sentry, ship) {
-            const now = simClockMs;
+            const now = performance.now();
             alertNearbySentries(sentry, ship, now);
             sentryBeams.push({
                 sentryId: sentry.id,
@@ -15393,10 +15332,10 @@
 
         function tickSentries(frameScale = 1) {
             if (!flightSentryAiActive()) return;
-            // dt is derived from the fixed simulation step, not an independent
-            // wall-clock sample -- this is the one clock every tick uses (AD-B02).
-            const dt = frameScale * AstralSimTiming.SIMULATION_STEP_SEC;
-            const now = simClockMs;
+            const now = performance.now();
+            if (!tickSentries.lastAt) tickSentries.lastAt = now;
+            const dt = Math.min(0.05, (now - tickSentries.lastAt) / 1000);
+            tickSentries.lastAt = now;
             const ship = getPlayerWorldPos();
             for (const sentry of tunnelSentries) {
                 const dist = sentryDistanceToPlayer(sentry, ship);
@@ -19042,7 +18981,7 @@
                 disableAutoBoost('AutoBoost canceled by reverse thrust');
             }
             const boosting = isKeyActive('shift', THRUST_KEY_HOLD_GRACE_MS) || gamepad.boost || (autoBoostActive && autoBoostTurbo);
-            const recentlyScrapedWall = simClockMs - wallHit.last < TUNNEL_WALL_SPEED_DRAG_MS;
+            const recentlyScrapedWall = performance.now() - wallHit.last < TUNNEL_WALL_SPEED_DRAG_MS;
             const wallDrag = recentlyScrapedWall ? (boosting ? 0.65 : 0.78) : 1;
             let currentSpeed = (boosting ? 14 : 4) * wallDrag; // Fast boost speed
             const strafeSpeed = (boosting ? 7 : 3) * wallDrag;
@@ -19092,12 +19031,12 @@
                 );
                 syncViewToShip();
             }
-            const wallLevelLockActive = simClockMs < (wallHit.levelLockUntil || 0);
+            const wallLevelLockActive = performance.now() < (wallHit.levelLockUntil || 0);
             const shouldProtectCockpit =
                 Math.abs(rollInput) < 0.001 &&
                 !freelook &&
                 !snapMode;
-            const now = simClockMs;
+            const now = performance.now();
             const canAutoResetCockpit = now >= (wallHit.cockpitResetCooldownUntil || 0);
             // never auto-level when aimed steeply up/down, or inside any active branch/tunnel
             // corridor — the branch-relative basis intentionally disagrees with world-up there.
@@ -19165,17 +19104,10 @@
                 addVec(scaleVec(forward, forwardAmount), scaleVec(right, strafeAmount)),
                 scaleVec(up, liftAmount)
             );
-            // Subdivide by how far the ship will actually travel this tick, not
-            // by frame time -- a fixed simulation step keeps frameScale constant,
-            // so a frame-based count alone would stop scaling with speed. This
-            // still catches boost/gamepad/future speed tuning that would
-            // otherwise let a single step tunnel through a wall or target (AD-B03).
-            const tickDistance = Math.hypot(
-                forwardAmount * currentSpeed,
-                strafeAmount * strafeSpeed,
-                liftAmount * strafeSpeed
-            ) * frameScale;
-            const movementSteps = AstralSimTiming.distanceSubsteps(tickDistance, AstralSimTiming.COLLISION_MAX_STEP_DISTANCE);
+            // Keep collision checks at roughly the original 60 Hz distance even
+            // when a textured frame takes longer. A single large dt-scaled leap
+            // could otherwise pass through a wall or a target box.
+            const movementSteps = Math.max(1, Math.ceil(frameScale));
             const movementStepScale = frameScale / movementSteps;
             for (let step = 0; step < movementSteps; step++) {
                 thrust(forward, forwardAmount * currentSpeed * movementStepScale);
@@ -19206,7 +19138,7 @@
             tickGalagaPhase(frameScale);
 
             // 4. Fire Dual Lasers on V Key (Stops hardware circuit locking)
-            const shotNow = simClockMs;
+            const shotNow = performance.now();
             if ((isKeyActive('v') || gamepad.fire || mouseInput.fire) && shotNow - lastShotAt > 150) {
                 const aimLocalToWorld = (freelook || snapMode) ? viewLocalToWorld : localToWorld;
                 const muzzleLeft = aimLocalToWorld(-18, -8, 14);
@@ -19240,99 +19172,27 @@
             }
         }
 
-        // Advances lasers and resolves their hits. Distance-based substeps
-        // (not frame-based) so a fast laser still can't skip clean over a
-        // target/sentry hitbox in one tick (AD-B03).
-        function tickLasers(frameScale = 1) {
-            for (let i = lasers.length - 1; i >= 0; i--) {
-                const laser = lasers[i];
-                const tickDistance = Math.hypot(laser.vx, laser.vy, laser.vz) * frameScale;
-                const laserSteps = AstralSimTiming.distanceSubsteps(tickDistance, AstralSimTiming.COLLISION_MAX_STEP_DISTANCE);
-                const laserStepScale = frameScale / laserSteps;
-                let laserHit = false;
-                for (let step = 0; step < laserSteps; step++) {
-                    laser.x += laser.vx * laserStepScale;
-                    laser.y += laser.vy * laserStepScale;
-                    laser.z += laser.vz * laserStepScale;
-                    laserHit = checkLaserTargetHits(laser) || checkLaserSentryHits(laser) || checkLaserGalagaHits(laser);
-                    if (laserHit) break;
-                }
-                laser.life += frameScale;
-                if (laserHit || laser.life > 60) {
-                    lasers.splice(i, 1);
-                }
-            }
-        }
-
-        // Read-only: draws whatever tickLasers() last computed. A laser that
-        // fails to project this frame (e.g. behind the camera) is simply
-        // skipped -- it still expires normally via its life counter above,
-        // it just isn't deleted early for a projection miss anymore.
-        function renderLasers(centerX, centerY, fov) {
-            ctx.fillStyle = '#ff00ff'; // Bright retro plasma violet
-            for (const laser of lasers) {
-                const laserProjection = projectPoint(laser, centerX, centerY, fov);
-                if (!laserProjection) continue;
-                const lSize = Math.max(1, (1 - laserProjection.z / 600) * 6);
-                ctx.fillRect(laserProjection.x, laserProjection.y, lSize, lSize);
-            }
-        }
-
-        // One fixed-size step of gameplay simulation. Called a variable
-        // number of times per rendered frame by the accumulator in
-        // renderEngineLoop() so game state advances at a constant rate
-        // regardless of display refresh rate or frame hitches (AD-B01).
-        function tickSimulation() {
-            simClockMs += AstralSimTiming.SIMULATION_STEP_SEC * 1000;
-            updateFlightPhysics(1);
-            updatePortalTransit();
-            tickSentries(1);
-            tickLasers(1);
-            updateParticles(1);
-        }
 
         /*
          * Main animation loop.
          *
-         * Browsers call this about 60 times per second. It advances simulation
-         * in fixed steps via tickSimulation(), draws the tunnel/HUD/enemies/
-         * lasers from whatever that left behind, refreshes text panels, catches
+         * Browsers call this about 60 times per second. It updates simulation,
+         * draws the tunnel/HUD/enemies/lasers, refreshes text panels, catches
          * errors on-screen, and schedules the next frame at the very bottom.
          */
         function renderEngineLoop() {
             try {
                 const spatialNow = performance.now();
-                if (!renderEngineLoop.lastSpatialAt) {
-                    renderEngineLoop.lastSpatialAt = spatialNow;
-                    // Start with no banked time. rawFrameDt below is always 0 on
-                    // this first call (lastSpatialAt was just set to spatialNow),
-                    // so seeding this with anything nonzero -- e.g. one whole
-                    // SIMULATION_STEP_SEC -- would fire an unearned simulation
-                    // step before any real time has elapsed.
-                    renderEngineLoop.accumulatorSec = 0;
-                }
-                const rawFrameDt = Math.max(0, (spatialNow - renderEngineLoop.lastSpatialAt) / 1000);
+                if (!renderEngineLoop.lastSpatialAt) renderEngineLoop.lastSpatialAt = spatialNow;
+                const spatialDt = Math.min(0.05, (spatialNow - renderEngineLoop.lastSpatialAt) / 1000);
                 renderEngineLoop.lastSpatialAt = spatialNow;
-                updateSpatialListener(Math.min(0.05, rawFrameDt));
+                const frameScale = spatialDt > 0 ? spatialDt * 60 : 1;
+                updateSpatialListener(spatialDt);
                 renderFrameCounter += 1;
-
-                // Fixed-step accumulator: simulation always advances in whole
-                // SIMULATION_STEP_SEC increments, however long this rendered
-                // frame actually took. A stall is clamped and catch-up is
-                // capped so it falls behind instead of spiraling (AD-B01).
-                // While simulationSuspended, this always returns zero steps
-                // and a zeroed accumulator -- gameplay state (including every
-                // deadline on simClockMs) cannot advance at all (AD-B04). This
-                // exact suspend/advance decision is unit-tested in
-                // sim-timing.test.js via AstralSimTiming.frameSteps().
-                const advance = AstralSimTiming.frameSteps(
-                    renderEngineLoop.accumulatorSec,
-                    rawFrameDt,
-                    simulationSuspended
-                );
-                renderEngineLoop.accumulatorSec = advance.accumulatorSec;
-                for (let step = 0; step < advance.steps; step++) tickSimulation();
+                updateFlightPhysics(frameScale);
                 updateCheatsheet();
+                updatePortalTransit();
+                tickSentries(frameScale);
 
                 updateWebGLCanvasVisibility();
                 const webglTunnelActive =
@@ -19373,13 +19233,42 @@
                 renderTunnelStarStreaksOverlay(centerX, centerY, fov, streakSegments, texturedSegmentIndices, forwardPathOverlaySet);
                 renderMovementStreaks(centerX, centerY, fov);
 
-                renderLasers(centerX, centerY, fov);
+                // Render Lasers Beams Hurling Forward into Space
+                ctx.fillStyle = '#ff00ff'; // Bright retro plasma violet
+                for (let i = lasers.length - 1; i >= 0; i--) {
+                    let l = lasers[i];
+                    const laserSteps = Math.max(1, Math.ceil(frameScale));
+                    const laserStepScale = frameScale / laserSteps;
+                    let laserHit = false;
+                    for (let step = 0; step < laserSteps; step++) {
+                        l.x += l.vx * laserStepScale;
+                        l.y += l.vy * laserStepScale;
+                        l.z += l.vz * laserStepScale;
+                        laserHit = checkLaserTargetHits(l) || checkLaserSentryHits(l) || checkLaserGalagaHits(l);
+                        if (laserHit) break;
+                    }
+                    l.life += frameScale;
+                    if (laserHit) {
+                        lasers.splice(i, 1);
+                        continue;
+                    }
+                    const laserProjection = projectPoint(l, centerX, centerY, fov);
+
+                    // Delete old lasers that go too far
+                    if (l.life > 60 || !laserProjection) {
+                        lasers.splice(i, 1);
+                        continue;
+                    }
+
+                    const lSize = Math.max(1, (1 - laserProjection.z / 600) * 6);
+                    ctx.fillRect(laserProjection.x, laserProjection.y, lSize, lSize);
+                }
 
                 renderTunnelTargets(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderTunnelSentries(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderGalagaPhase(centerX, centerY, fov);
                 renderLaserAimCrosshair(centerX, centerY, fov);
-                renderParticles(centerX, centerY, fov);
+                updateAndRenderParticles(centerX, centerY, fov, frameScale);
                 renderPortalGatewaysFlight(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderPortalTransitVfx(centerX, centerY);
                 renderSentryBeams(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
