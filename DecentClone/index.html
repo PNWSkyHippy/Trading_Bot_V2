@@ -1248,6 +1248,15 @@
         const BRANCH_FLIGHT_HORIZ_STEER_BOOST = 0.28;
         const BRANCH_FLIGHT_HORIZON_HINT = 0.10;
         const TUNNEL_OPEN_SPACE_DETACH = 1.42;
+        // Player controls are expressed per nominal 60 Hz frame. The original
+        // 4/14-unit values were tuned while the textured renderer ran far below
+        // 60 FPS; after the renderer was optimized they made cruise feel like the
+        // old boost and made boost/roll effectively uncontrollable.
+        const FLIGHT_CRUISE_SPEED = 1.2;
+        const FLIGHT_BOOST_SPEED = 4.0;
+        const FLIGHT_STRAFE_SPEED = 1.15;
+        const FLIGHT_BOOST_STRAFE_SPEED = 2.25;
+        const FLIGHT_TURN_SPEED = 0.012;
         /*
          * Tunnel wall rendering controls.
          *
@@ -3357,7 +3366,7 @@
         const SENTRY_CHASE_CRUISE_RATIO = 0.88;
         const SENTRY_CHASE_BOOST_MULT = 1.35;
         const SENTRY_PATROL_SPEED = SENTRY_PATROL_FRAME_SPEED * SENTRY_PHYSICS_FPS;
-        const SENTRY_CHASE_SPEED = 4 * SENTRY_PHYSICS_FPS * SENTRY_CHASE_CRUISE_RATIO;
+        const SENTRY_CHASE_SPEED = FLIGHT_CRUISE_SPEED * SENTRY_PHYSICS_FPS * SENTRY_CHASE_CRUISE_RATIO;
         const SENTRY_CHASE_CATCHUP_START = 90;
         const SENTRY_CHASE_CATCHUP_MAX = 1.7;
         const SENTRY_CHASE_TRAIL_DIST = 145;
@@ -5885,8 +5894,8 @@
                     orbitMapCameraAroundPivot(dx, dy);
                     return;
                 }
-                mapCamera.yaw = wrapAngle(mapCamera.yaw + dx * 0.006);
-                mapCamera.pitch = wrapAngle(mapCamera.pitch + dy * 0.006);
+                mapCamera.yaw = wrapAngle(mapCamera.yaw + dx * 0.0025);
+                mapCamera.pitch = wrapAngle(mapCamera.pitch + dy * 0.0025);
                 return;
             }
             if (mapView && !mapMouse.dragTarget && !mapMouse.orbiting) {
@@ -11732,8 +11741,8 @@
             // vertical movement swings around the current screen-right axis.
             // This feels like the camera is tethered to the pivot instead of a
             // world-up turntable locked to one plane.
-            offset = rotateVector(offset, scaleVec(basis.down, -1), dx * 0.006);
-            offset = rotateVector(offset, basis.right, dy * 0.006);
+            offset = rotateVector(offset, scaleVec(basis.down, -1), dx * 0.0025);
+            offset = rotateVector(offset, basis.right, dy * 0.0025);
             const cameraPos = addVec(pivot, offset);
             return setMapCameraFromPositionAndTarget(cameraPos, pivot);
         }
@@ -15769,10 +15778,10 @@
         }
 
         function updateMapCameraControls() {
-            const orbitSpeed = 0.035;
+            const orbitSpeed = 0.012;
             const panBoost = isKeyActive('shift') ? 2.6 : 1;
-            const panSpeed = Math.min(180, Math.max(48, 52 + mapCamera.distance * 0.004)) * panBoost;
-            const zoomStep = Math.max(28, Math.min(220, mapCamera.distance * 0.045));
+            const panSpeed = Math.min(54, Math.max(14, 15 + mapCamera.distance * 0.0012)) * panBoost;
+            const zoomStep = Math.max(8, Math.min(66, mapCamera.distance * 0.014));
             if (isKeyActive('arrowleft')) mapCamera.yaw = wrapAngle(mapCamera.yaw - orbitSpeed);
             if (isKeyActive('arrowright')) mapCamera.yaw = wrapAngle(mapCamera.yaw + orbitSpeed);
             if (isKeyActive('arrowup')) mapCamera.pitch = wrapAngle(mapCamera.pitch - orbitSpeed);
@@ -18981,14 +18990,14 @@
             const boosting = isKeyActive('shift', THRUST_KEY_HOLD_GRACE_MS) || gamepad.boost || (autoBoostActive && autoBoostTurbo);
             const recentlyScrapedWall = performance.now() - wallHit.last < TUNNEL_WALL_SPEED_DRAG_MS;
             const wallDrag = recentlyScrapedWall ? (boosting ? 0.65 : 0.78) : 1;
-            let currentSpeed = (boosting ? 14 : 4) * wallDrag; // Fast boost speed
-            const strafeSpeed = (boosting ? 7 : 3) * wallDrag;
+            let currentSpeed = (boosting ? FLIGHT_BOOST_SPEED : FLIGHT_CRUISE_SPEED) * wallDrag;
+            const strafeSpeed = (boosting ? FLIGHT_BOOST_STRAFE_SPEED : FLIGHT_STRAFE_SPEED) * wallDrag;
             const rawKeyPitch = (isKeyActive('arrowup') ? 1 : 0) - (isKeyActive('arrowdown') ? 1 : 0);
             const keyPitch = mobileInputMode ? -rawKeyPitch : rawKeyPitch;
             const keyYaw = (isKeyActive('arrowright') ? 1 : 0) - (isKeyActive('arrowleft') ? 1 : 0);
             branchSteerIntent.pitch = (INVERT_PITCH ? -mouseInput.pitch : mouseInput.pitch) + keyPitch + gamepad.pitch;
             branchSteerIntent.yaw = mouseInput.yaw + keyYaw + gamepad.yaw;
-            const turnSpeed = 0.035 * getBranchFlightContext(true).turnSpeedMult;
+            const turnSpeed = FLIGHT_TURN_SPEED * getBranchFlightContext(true).turnSpeedMult;
 
             // 1. Rotate ship orientation. W then flies along this nose vector.
             const keyRoll = (isKeyActive('e') ? 1 : 0) - (isKeyActive('q') ? 1 : 0);
@@ -19231,8 +19240,9 @@
                 renderTunnelStarStreaksOverlay(centerX, centerY, fov, streakSegments, texturedSegmentIndices, forwardPathOverlaySet);
                 renderMovementStreaks(centerX, centerY, fov);
 
-                // Render Lasers Beams Hurling Forward into Space
-                ctx.fillStyle = '#ff00ff'; // Bright retro plasma violet
+                // Render dual plasma bolts as actual streaks. A single fillRect at
+                // the bolt's latest position becomes a barely visible dot whenever
+                // a rendered frame spans several simulation frames.
                 for (let i = lasers.length - 1; i >= 0; i--) {
                     let l = lasers[i];
                     const laserSteps = Math.max(1, Math.ceil(frameScale));
@@ -19258,8 +19268,34 @@
                         continue;
                     }
 
-                    const lSize = Math.max(1, (1 - laserProjection.z / 600) * 6);
-                    ctx.fillRect(laserProjection.x, laserProjection.y, lSize, lSize);
+                    const tailProjection = projectPoint({
+                        x: l.x - l.vx * 2.4,
+                        y: l.y - l.vy * 2.4,
+                        z: l.z - l.vz * 2.4
+                    }, centerX, centerY, fov);
+                    const lSize = Math.max(2.5, (1 - laserProjection.z / 900) * 7);
+                    ctx.save();
+                    ctx.lineCap = 'round';
+                    ctx.shadowColor = '#ff00ff';
+                    ctx.shadowBlur = 12;
+                    if (tailProjection) {
+                        ctx.globalAlpha = 0.72;
+                        ctx.strokeStyle = '#ff00ff';
+                        ctx.lineWidth = Math.max(6, lSize * 1.7);
+                        ctx.beginPath();
+                        ctx.moveTo(tailProjection.x, tailProjection.y);
+                        ctx.lineTo(laserProjection.x, laserProjection.y);
+                        ctx.stroke();
+                        ctx.globalAlpha = 1;
+                        ctx.strokeStyle = '#fff0ff';
+                        ctx.lineWidth = Math.max(2.5, lSize * 0.62);
+                        ctx.stroke();
+                    }
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(laserProjection.x, laserProjection.y, lSize * 0.55, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
                 }
 
                 renderTunnelTargets(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
