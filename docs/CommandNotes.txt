@@ -1,6 +1,6 @@
-Invoke-RestMethod -Uri "http://127.0.0.1:8765/health" | ConvertTo-Json -Depth 5
-venv312\Scripts\python.exe ninjatrader_bridge\ninja_futures_scanner.py
-
+tmux
+bash Ron/Docs/boot_agents.sh
+bash Ron/Docs/run_pipeline.sh strategies/bollinger_breakout.py
 tmux new -s trading
 Useful keys inside tmux:
 Ctrl-b  :     opens command line, type set -g mouse on
@@ -19,8 +19,6 @@ Hold Ctrl+b + arrows   resize current pane
 Ctrl+b Space    rebalance/cycle layouts
 Ctrl+b z        zoom current pane
 Ctrl+b d        detach session
-
-
 
 check breakout status
 venv312\Scripts\activate; python -c "from data.database import db; print(db.get_state('breakout_scanner_enabled', default=True))"
@@ -68,3 +66,13 @@ py -3.12 -m venv venv312  #Create pythin virtual
 python -c "from core.settlement_tracker import settlement_tracker; import json; print(json.dumps(settlement_tracker.get_settlement_status(), indent=2))"
  #start famous,ai trading bot
 c:\"Program Files"\nodejs\npm.cmd preview  
+Invoke-RestMethod -Uri "http://127.0.0.1:8765/health" | ConvertTo-Json -Depth 5
+venv312\Scripts\python.exe ninjatrader_bridge\ninja_futures_scanner.py
+
+
+
+
+
+
+
+
