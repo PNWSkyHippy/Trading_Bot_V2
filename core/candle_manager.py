@@ -187,7 +187,11 @@ class CandleManager:
     def _update_registry(self, symbol: str, asset_class: str, source: str, success: bool):
         """Update both in-memory dict and DB row."""
         key = f"{symbol}|{asset_class}"
-        now = int(datetime.utcnow().timestamp())
+        # time.time() is UTC epoch seconds regardless of host timezone;
+        # datetime.utcnow().timestamp() is NOT (see F11 in the market-data
+        # caching audit — a naive datetime's .timestamp() is interpreted as
+        # host-local time, silently shifting the epoch on non-UTC hosts).
+        now = int(time.time())
 
         with self._registry_lock:
             if success:

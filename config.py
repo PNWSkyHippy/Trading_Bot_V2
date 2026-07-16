@@ -298,6 +298,36 @@ STOCK_SCAN_INTERVAL_SEC  = 60
 CRYPTO_SCAN_INTERVAL_SEC = 300
 
 # =============================================================================
+# MARKET-DATA CACHING — Patch A (agent_pipeline audit 2026-07-16)
+# =============================================================================
+# Named configuration per the audit's approval-condition requirement that no
+# threshold introduced by the caching rework be an unexplained inline constant.
+# See reports/agent_pipeline/20260716-082429/final_unified_report.md (B5, §10).
+
+# How recently the Alpaca market-calendar API must have been successfully
+# refreshed for a given trading date before that date's schedule is treated as
+# authoritative. A schedule that merely covers today's date but was fetched
+# longer ago than this window is NOT treated as fresh — entries/due-scheduling
+# are blocked for that date until a successful same-day refresh occurs.
+STOCK_CALENDAR_FRESHNESS_SEC = 12 * 3600   # 12 hours
+
+# Grace period after a bar's nominal close time before treating a missing bar
+# as a genuine data problem rather than provider publication delay.
+STOCK_CALENDAR_PUBLICATION_GRACE_SEC = 5
+
+# Rolling window (in days) the calendar authority prefetches/caches around
+# today. A date outside this range is treated as uncached, not stale.
+STOCK_CALENDAR_CACHE_DAYS_AHEAD  = 14
+STOCK_CALENDAR_CACHE_DAYS_BEHIND = 3
+
+# Minimum time between repeated external alerts (email/SMS) for the SAME
+# fail-closed gate category (e.g. "calendar authority stale", "broker position
+# snapshot failed"). Every occurrence is still logged at CRITICAL regardless of
+# this cooldown — this only throttles the externally-delivered alert so a
+# persistent failure doesn't spam email/SMS once per scan cycle.
+GATE_FAILURE_ALERT_COOLDOWN_SEC = 15 * 60   # 15 minutes
+
+# =============================================================================
 # BROKER SETTINGS
 # =============================================================================
 

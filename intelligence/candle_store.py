@@ -29,11 +29,34 @@
 import sqlite3
 import logging
 import os
+import time
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional, List, Dict
 
 logger = logging.getLogger(__name__)
+
+
+def _now_ts() -> int:
+    """
+    Current UTC epoch seconds, host-timezone-independent.
+
+    `int(datetime.utcnow().timestamp())` is a classic footgun: `datetime.utcnow()`
+    returns a naive datetime whose *fields* are UTC, but `.timestamp()` on a naive
+    datetime interprets those fields as *local* time (Python's documented
+    behavior). On any host whose local timezone isn't UTC, that combination
+    silently produces the wrong epoch, shifted by the host's UTC offset — this is
+    exactly the defect this helper exists to eliminate (see F11,
+    reports/agent_pipeline/20260716-082429/final_unified_report.md). `time.time()`
+    is defined as UTC epoch seconds regardless of host timezone and has no such
+    ambiguity.
+    """
+    return int(time.time())
+
+
+def _cutoff_ts(days: float) -> int:
+    """Epoch seconds `days` days before now, host-timezone-independent (see `_now_ts`)."""
+    return _now_ts() - int(days * 86400)
 
 # ---------------------------------------------------------------------------
 # DB path — data/ folder next to this package
@@ -156,13 +179,40 @@ class CandleStore:
                 logger.warning(f"CandleStore.save: missing column '{col}' for {symbol}/{timeframe}")
                 return 0
 
-        # DatetimeIndex → unix seconds (UTC)
+        # DatetimeIndex → unix seconds (UTC).
+        #
+        # Contract: every caller of save() must hand this method a DatetimeIndex
+        # whose values represent UTC — either tz-aware (any timezone; converted
+        # correctly below) or naive with UTC-valued fields (this is what every
+        # current fetcher produces: Alpaca stays tz-aware end-to-end; Kraken/
+        # KuCoin explicitly compute UTC via `utc=True` before stripping the tz
+        # tag).
+        #
+        # Correction to an earlier round of this audit: a naive *pandas*
+        # Timestamp's `.timestamp()` was originally assumed to interpret its
+        # fields as host-local time — by analogy with stdlib
+        # `datetime.timestamp()`, which does exactly that and is genuinely
+        # host-timezone-dependent (see the fixed `_now_ts()`/`_cutoff_ts()`
+        # helpers above, which replace real `datetime.utcnow().timestamp()`
+        # bugs elsewhere in this file). That analogy does not hold here:
+        # verified directly (pd.Timestamp(naive).value is always UTC-based
+        # nanoseconds-since-epoch, unconditionally, regardless of host `TZ` —
+        # naive pandas Timestamps are not host-local the way naive stdlib
+        # datetimes are), a naive pandas Timestamp's `.timestamp()` already
+        # treats its fields as UTC. This call site was therefore never
+        # actually host-timezone-dependent. The explicit `tz_localize("UTC")`
+        # below is kept as a defensive, self-documenting statement of the
+        # UTC-naive contract this method requires (and a guard against ever
+        # depending on this specific pandas behavior implicitly), not because
+        # it fixes an active bug at this line.
         try:
             idx = df2.index
             if hasattr(idx, 'tz') and idx.tz is not None:
                 timestamps = [int(t.timestamp()) for t in idx]
             else:
-                timestamps = [int(pd.Timestamp(t).timestamp()) for t in idx]
+                timestamps = [
+                    int(pd.Timestamp(t).tz_localize("UTC").timestamp()) for t in idx
+                ]
         except Exception as e:
             logger.error(f"CandleStore.save: timestamp conversion failed: {e}")
             return 0
@@ -236,7 +286,7 @@ class CandleStore:
         Load the most recent `days` of candles from the store.
         Returns a DataFrame with DatetimeIndex and OHLCV columns, or None if empty.
         """
-        cutoff = int((datetime.utcnow() - timedelta(days=days + 1)).timestamp())
+        cutoff = _cutoff_ts(days + 1)
 
         with self._conn() as conn:
             rows = conn.execute("""
@@ -273,7 +323,7 @@ class CandleStore:
         bar_count, last_ts, fetched_at = meta
 
         # Freshness: last bar must be within 48h of now (crypto trades 24/7)
-        now_ts = int(datetime.utcnow().timestamp())
+        now_ts = _now_ts()
         stale_after = 48 * 3600   # 48 hours
         if last_ts is not None and (now_ts - last_ts) > stale_after:
             logger.debug(f"CandleStore: {symbol}/{timeframe} stale (last bar {(now_ts-last_ts)//3600}h ago)")
@@ -282,7 +332,7 @@ class CandleStore:
         # Coverage: at least 80% of expected bars
         bars_per_day = _BARS_PER_DAY.get(timeframe, 24)
         expected     = days * bars_per_day * 0.80   # 80% threshold
-        cutoff       = int((datetime.utcnow() - timedelta(days=days + 1)).timestamp())
+        cutoff       = _cutoff_ts(days + 1)
         with self._conn() as conn:
             count = conn.execute("""
                 SELECT COUNT(*) FROM candles
@@ -309,7 +359,7 @@ class CandleStore:
                 ORDER BY symbol, timeframe
             """).fetchall()
 
-        now_ts = int(datetime.utcnow().timestamp())
+        now_ts = _now_ts()
         result = []
         for symbol, tf, bar_count, first_ts, last_ts, fetched_at in rows:
             age_h  = (now_ts - (last_ts or 0)) // 3600
@@ -331,7 +381,7 @@ class CandleStore:
         Handles symbols/timeframes that fell off the watchlist and are never refreshed.
         Returns total candle rows deleted.
         """
-        cutoff_ts = int((datetime.utcnow() - timedelta(days=max_age_days)).timestamp())
+        cutoff_ts = _cutoff_ts(max_age_days)
         with self._conn() as conn:
             stale = conn.execute("""
                 SELECT symbol, timeframe FROM candle_meta
