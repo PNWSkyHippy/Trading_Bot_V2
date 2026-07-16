@@ -21,6 +21,15 @@
   and rejected during the audit (see the report's §5, "Claims tested and
   rejected").
 
+  Data-class separation is enforced, not merely conventional: each of the
+  three dataclasses validates its own invariants in __post_init__ (raising
+  ValueError on construction with invalid data) and is additionally produced
+  by a validating factory (validate_closed_candles / validate_entry_quote /
+  HeldPositionPrice.from_broker) that returns None rather than raising when
+  the input itself is untrustworthy. Direct construction with bad data is a
+  programming error (raises); a bad *input* to a factory is an expected,
+  fail-closed outcome (returns None).
+
   This module is pure (no I/O, no network, no SQLite) and is not yet wired
   into any live fetch/scan path — Patch A is contracts and tests only.
 =============================================================
@@ -82,6 +91,10 @@ class ScanCutoff:
     """
     epoch: int
 
+    def __post_init__(self):
+        if not isinstance(self.epoch, int) or isinstance(self.epoch, bool):
+            raise ValueError(f"ScanCutoff.epoch must be an int, got {type(self.epoch)!r}")
+
     @classmethod
     def now(cls) -> "ScanCutoff":
         """Capture the current instant as a new scan's fixed cutoff.
@@ -100,8 +113,10 @@ class SessionAuthority(Protocol):
     authority entirely (validate_closed_candles falls back to a pure
     wall-clock forming-bar check with no session concept).
 
-    Implementations MUST return None to mean "cannot determine" — the
-    validator treats None as fail-closed uncertainty, not as "no constraint".
+    Implementations should return None to mean "cannot determine" — the
+    validator treats both a None return AND a raised exception from this
+    method as fail-closed uncertainty, never as "no constraint" or as a
+    crash that propagates out of the validator.
     """
 
     def expected_latest_closed_bar_open(
@@ -114,17 +129,63 @@ class SessionAuthority(Protocol):
         ...
 
 
+def _validate_closed_candle_series_fields(symbol: str, timeframe: str, df: pd.DataFrame) -> None:
+    """Shared invariant check for direct ClosedCandleSeries construction.
+    Raises ValueError — this is a programming-error guard, not a data-quality
+    gate (that's validate_closed_candles' job)."""
+    if not symbol:
+        raise ValueError("ClosedCandleSeries.symbol must be non-empty")
+    if timeframe_seconds(timeframe) is None:
+        raise ValueError(f"ClosedCandleSeries.timeframe unrecognized: {timeframe!r}")
+    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+        raise ValueError("ClosedCandleSeries.df must be a non-empty DataFrame")
+    for col in REQUIRED_OHLC_COLUMNS:
+        if col not in df.columns:
+            raise ValueError(f"ClosedCandleSeries.df missing required column {col!r}")
+
+
 @dataclass(frozen=True)
 class ClosedCandleSeries:
     """
     Persistent CLOSED-candle data for strategy analysis. Never used to supply
     entry-screening quotes or held-position protection (Ron's data-class
     separation invariant).
+
+    Direct construction enforces only structural invariants (non-empty,
+    required columns, recognized timeframe) — it does NOT re-run the full
+    closed-bar/OHLC/continuity validation. Prefer the `from_validated()`
+    factory, which runs `validate_closed_candles()` and returns None (rather
+    than raising) when the input candle data itself cannot be vouched for.
     """
     symbol: str
     timeframe: str
     df: pd.DataFrame
     validated_at: ScanCutoff
+
+    def __post_init__(self):
+        _validate_closed_candle_series_fields(self.symbol, self.timeframe, self.df)
+
+    @classmethod
+    def from_validated(
+        cls,
+        symbol: str,
+        raw_df: Optional[pd.DataFrame],
+        timeframe: str,
+        cutoff: ScanCutoff,
+        session_authority: Optional[SessionAuthority] = None,
+        publication_grace_sec: int = 0,
+    ) -> Optional["ClosedCandleSeries"]:
+        """The only sanctioned way to turn raw candle data into a
+        ClosedCandleSeries. Returns None (fail closed) if `raw_df` does not
+        pass validate_closed_candles(); never raises for bad input data."""
+        validated = validate_closed_candles(
+            raw_df, timeframe, cutoff,
+            session_authority=session_authority,
+            publication_grace_sec=publication_grace_sec,
+        )
+        if validated is None:
+            return None
+        return cls(symbol=symbol, timeframe=timeframe, df=validated, validated_at=cutoff)
 
 
 @dataclass(frozen=True)
@@ -134,12 +195,26 @@ class EntryQuoteSnapshot:
     protection, stops, trails, take-profit, reconciliation, exposure, sizing,
     or order decisions (Ron's data-class separation invariant) — use
     HeldPositionPrice for those.
+
+    Prefer the validate_entry_quote() factory function over direct
+    construction — __post_init__ enforces basic invariants (finite positive
+    price, non-negative epoch) but does not re-run freshness/age checks.
     """
     symbol: str
     price: float
     quote_epoch: int
     source: str
     scan_cutoff: ScanCutoff
+
+    def __post_init__(self):
+        if not self.symbol:
+            raise ValueError("EntryQuoteSnapshot.symbol must be non-empty")
+        if not _is_finite_positive(self.price):
+            raise ValueError(f"EntryQuoteSnapshot.price must be finite and positive, got {self.price!r}")
+        if not isinstance(self.quote_epoch, int) or self.quote_epoch < 0:
+            raise ValueError(f"EntryQuoteSnapshot.quote_epoch must be a non-negative int, got {self.quote_epoch!r}")
+        if not self.source:
+            raise ValueError("EntryQuoteSnapshot.source must be non-empty")
 
 
 @dataclass(frozen=True)
@@ -155,6 +230,32 @@ class HeldPositionPrice:
     fetched_epoch: int
     broker: str
 
+    def __post_init__(self):
+        if not self.symbol:
+            raise ValueError("HeldPositionPrice.symbol must be non-empty")
+        if not _is_finite_positive(self.price):
+            raise ValueError(f"HeldPositionPrice.price must be finite and positive, got {self.price!r}")
+        if not isinstance(self.fetched_epoch, int) or self.fetched_epoch < 0:
+            raise ValueError(f"HeldPositionPrice.fetched_epoch must be a non-negative int, got {self.fetched_epoch!r}")
+        if not self.broker:
+            raise ValueError("HeldPositionPrice.broker must be non-empty")
+
+    @classmethod
+    def from_broker(cls, symbol: str, price, fetched_epoch, broker: str) -> Optional["HeldPositionPrice"]:
+        """Fail-closed factory: returns None (never raises) for non-finite/
+        non-positive price or an unparseable timestamp. Use this at the
+        actual broker-response boundary; use the raising constructor only
+        when the caller has already validated the inputs itself."""
+        if not _is_finite_positive(price):
+            return _reject("invalid_held_position_price", symbol)
+        try:
+            fetched_epoch = int(fetched_epoch)
+        except (TypeError, ValueError):
+            return _reject("unparseable_held_position_timestamp", symbol)
+        if fetched_epoch < 0:
+            return _reject("invalid_held_position_timestamp", symbol)
+        return cls(symbol=symbol, price=float(price), fetched_epoch=fetched_epoch, broker=broker)
+
 
 def _is_finite_positive(x) -> bool:
     try:
@@ -162,6 +263,14 @@ def _is_finite_positive(x) -> bool:
     except (TypeError, ValueError):
         return False
     return math.isfinite(xf) and xf > 0
+
+
+def _is_finite(x) -> bool:
+    try:
+        xf = float(x)
+    except (TypeError, ValueError):
+        return False
+    return math.isfinite(xf)
 
 
 def _reject(reason: str, detail: str = "") -> None:
@@ -186,9 +295,14 @@ def validate_closed_candles(
     Strict, fail-closed closed-bar validator.
 
     Returns a DataFrame containing only rows this function can vouch for as
-    genuinely closed, non-malformed, and (if a session_authority is supplied)
-    matching the session-aware expected latest closed bar — or None if any
-    required property cannot be established with confidence.
+    genuinely closed (as of `cutoff`, plus `publication_grace_sec` — a bar is
+    eligible only once `cutoff >= bar_close + publication_grace_sec`, i.e.
+    grace is a delay tolerating provider publication lag AFTER close, not an
+    early admission before close), continuous (every consecutive pair spaced
+    by exactly one bar duration), self-consistently aligned, relationally
+    valid OHLC (low <= open,close <= high), and — if a session_authority is
+    supplied — matching the session-aware expected latest closed bar. Returns
+    None if any required property cannot be established with confidence.
 
     Unlike scanners.market_scanner._strip_forming_bar(), a timestamp parse
     failure or any other uncertainty returns None, not the original data.
@@ -204,24 +318,66 @@ def validate_closed_candles(
         if col not in df.columns:
             return _reject("missing_column", repr(col))
 
-    # Index must be parseable, monotonic, and unique.
+    # Index must be parseable (rejecting NaT explicitly — pd.to_datetime does
+    # not raise on an unparseable element by default, it silently produces
+    # NaT, which would otherwise slip through monotonicity/duplicate checks
+    # as a sortable-but-meaningless value).
     try:
         idx = pd.DatetimeIndex(pd.to_datetime(df.index, utc=False))
     except Exception as e:
         return _reject("index_parse_failure", str(e))
 
+    if idx.isna().any():
+        return _reject("unparseable_timestamp_nat")
+
     if idx.tz is not None:
-        idx_naive_utc_epochs = [int(t.tz_convert("UTC").timestamp()) for t in idx]
+        idx_epochs = [int(t.tz_convert("UTC").timestamp()) for t in idx]
     else:
-        idx_naive_utc_epochs = [int(t.tz_localize("UTC").timestamp()) for t in idx]
+        idx_epochs = [int(t.tz_localize("UTC").timestamp()) for t in idx]
 
     if not idx.is_monotonic_increasing or idx.has_duplicates:
         return _reject("nonmonotonic_or_duplicate_index")
 
-    # OHLC must be finite and positive; volume (if present) finite and non-negative.
+    # Continuity: every consecutive pair must be spaced by exactly one bar
+    # duration. A gap (missing bar) or overlap is a data-quality uncertainty,
+    # not something this pure validator backfills or silently tolerates —
+    # Patch A's contract is fail-closed rejection; a policy for legitimate
+    # gaps (holidays, halts) is B8's job in a later patch, layered on top of
+    # (not a replacement for) this base continuity check.
+    if len(idx_epochs) > 1:
+        diffs = {b - a for a, b in zip(idx_epochs[:-1], idx_epochs[1:])}
+        if diffs != {tf_sec}:
+            return _reject("noncontinuous_series", f"expected spacing={tf_sec}s, saw {sorted(diffs)}")
+
+    # Alignment: every bar must fall on the same modular grid as the first
+    # bar (catches a corrupted/shifted timestamp that continuity alone could
+    # miss if, hypothetically, an entire series were uniformly offset).
+    # Crypto (no session_authority) is additionally checked against the UTC
+    # epoch grid, since crypto exchanges align bars to UTC clock boundaries.
+    # Stocks (session_authority supplied) are not epoch-grid-aligned (session
+    # open is not a round UTC time) — the session-aware expected-bar check
+    # below is the authoritative alignment proof for that case instead.
+    first_epoch = idx_epochs[0]
+    if any((e - first_epoch) % tf_sec != 0 for e in idx_epochs):
+        return _reject("misaligned_series")
+    if session_authority is None and first_epoch % tf_sec != 0:
+        return _reject("misaligned_to_utc_grid")
+
+    # Relational OHLC integrity: low <= open,close <= high for every row
+    # (individually finite/positive is necessary but not sufficient — e.g.
+    # high=1, low=2 is impossible even though both values are finite/positive).
     ohlc = df[list(REQUIRED_OHLC_COLUMNS)]
     if not ohlc.map(_is_finite_positive).to_numpy().all():
         return _reject("invalid_ohlc")
+    low = df["low"]
+    high = df["high"]
+    if (low > high).any():
+        return _reject("impossible_ohlc_low_gt_high")
+    if (df["open"] < low).any() or (df["open"] > high).any():
+        return _reject("impossible_ohlc_open_outside_range")
+    if (df["close"] < low).any() or (df["close"] > high).any():
+        return _reject("impossible_ohlc_close_outside_range")
+
     if "volume" in df.columns:
         try:
             vol = df["volume"].astype(float)
@@ -231,27 +387,47 @@ def validate_closed_candles(
             return _reject("invalid_volume")
 
     # No bar may open in the future relative to cutoff.
-    if idx_naive_utc_epochs[-1] > cutoff.epoch:
+    if idx_epochs[-1] > cutoff.epoch:
         return _reject("future_bar")
 
+    # Forming-bar truncation: a bar is eligible only once
+    # cutoff >= close + publication_grace_sec — i.e. drop a trailing row
+    # while close > cutoff - grace (equivalently close + grace > cutoff).
+    # Grace is time ADDED after close to tolerate provider publication lag;
+    # it delays eligibility, it does not admit a bar early. (Two earlier
+    # drafts of this validator had the sign backwards — first admitting bars
+    # up to `grace` seconds before their true close, then a "fix" that
+    # instead admitted them up to `grace` seconds too early from the other
+    # direction. `test_publication_grace_requires_close_plus_grace_not_close_minus_grace`
+    # in Scripts/test_candle_validation.py exists specifically to catch this
+    # class of regression again.) Looped, not a single conditional check, so
+    # more than one trailing forming/not-yet-eligible row (e.g. a large grace
+    # spanning multiple bar widths) is fully handled, not just the last one.
     result = df.copy()
-    last_open_epoch = idx_naive_utc_epochs[-1]
-    last_close_epoch = last_open_epoch + tf_sec
-
-    # Drop a still-forming last bar (bar_close is still ahead of cutoff+grace).
-    if last_close_epoch > cutoff.epoch + publication_grace_sec:
+    remaining_epochs = list(idx_epochs)
+    while remaining_epochs and (remaining_epochs[-1] + tf_sec) > (cutoff.epoch - publication_grace_sec):
         result = result.iloc[:-1]
-        idx_naive_utc_epochs = idx_naive_utc_epochs[:-1]
-        if result.empty:
-            return _reject("only_bar_was_forming")
-        last_open_epoch = idx_naive_utc_epochs[-1]
+        remaining_epochs.pop()
+    if not remaining_epochs:
+        return _reject("only_bar_was_forming")
+
+    # Defensive, explicit re-check that every remaining row is eligible as of
+    # cutoff - grace — not merely inferred from the truncation loop above.
+    if any((e + tf_sec) > (cutoff.epoch - publication_grace_sec) for e in remaining_epochs):
+        return _reject("forming_bar_survived_truncation")
+
+    last_open_epoch = remaining_epochs[-1]
 
     # Session-aware check: the last remaining bar's open time must match the
-    # authority's expected latest closed bar (within the publication grace),
-    # not be stale (older than expected). Uncertainty from the authority
-    # itself propagates as a rejection here — it does not mean "no check".
+    # authority's expected latest closed bar, not be stale (older than
+    # expected) or misaligned. Uncertainty from the authority itself —
+    # whether it returns None or raises — propagates as a rejection here; it
+    # never means "no check" or an uncaught crash out of this validator.
     if session_authority is not None:
-        expected_open = session_authority.expected_latest_closed_bar_open(timeframe, cutoff)
+        try:
+            expected_open = session_authority.expected_latest_closed_bar_open(timeframe, cutoff)
+        except Exception as e:
+            return _reject("session_authority_exception", str(e))
         if expected_open is None:
             return _reject("session_authority_uncertain")
         if last_open_epoch != expected_open:
@@ -284,6 +460,8 @@ def validate_entry_quote(
         quote_epoch = int(quote_epoch)
     except (TypeError, ValueError):
         return _reject("unparseable_quote_timestamp", symbol)
+    if quote_epoch < 0:
+        return _reject("invalid_quote_timestamp", symbol)
     age = cutoff.epoch - quote_epoch
     if age < 0:
         return _reject("future_quote_timestamp", symbol)

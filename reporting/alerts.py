@@ -67,6 +67,7 @@ class AlertManager:
         self.alert_on_open   = os.getenv("ALERT_ON_TRADE_OPEN",  "true").lower() == "true"
         self.alert_on_close  = os.getenv("ALERT_ON_TRADE_CLOSE", "true").lower() == "true"
         self.alert_on_halt   = os.getenv("ALERT_ON_HALT",        "true").lower() == "true"
+        self.alert_on_gate_failure = os.getenv("ALERT_ON_GATE_FAILURE", "true").lower() == "true"
         self.alert_min_pnl   = float(os.getenv("ALERT_MIN_PNL",  "0"))
 
         # ── Digest queue ─────────────────────────────────────────────────────
@@ -192,6 +193,38 @@ class AlertManager:
         )
         # Halts always bypass the queue — you need to know immediately
         self._send_now(subject, body, sms_body=f"BOT HALTED: {reason}")
+
+    def gate_failure(self, category: str, reason: str) -> bool:
+        """
+        Send IMMEDIATE alert for a fail-closed data-authority gate failure
+        (e.g. the stock calendar authority or broker-position snapshot
+        refusing to vouch for its data) — bypasses digest queue. Distinct
+        from trading_halted(): a gate failure means "one specific safety
+        check correctly refused to answer," not necessarily that the whole
+        bot has stopped trading (other asset classes/gates may be unaffected)
+        — using trading_halted()'s wording here would overstate the scope of
+        every gate failure and could cause an operator to conflate a narrow,
+        working-as-intended safety refusal with a full trading halt.
+
+        Returns True only if the alert was actually, successfully delivered
+        (propagated from _send_now(), which never raises) — callers that
+        need retry/cooldown semantics (core/metrics.py's alert_gate_failure)
+        depend on this accurate return value rather than a try/except, since
+        this method deliberately never raises for a delivery failure.
+        """
+        if not self.alert_on_gate_failure or not self._email_configured:
+            return False
+        subject = f"[BOT] DATA GATE BLOCKED — {category}"
+        body = (
+            f"A fail-closed data-authority gate refused to proceed:\n\n"
+            f"Category: {category}\n"
+            f"Reason:   {reason}\n"
+            f"Time:     {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+            f"This is expected, safe behavior when the underlying data cannot "
+            f"be vouched for — it is not necessarily a full trading halt. "
+            f"Investigate if this persists."
+        )
+        return self._send_now(subject, body, sms_body=f"GATE BLOCKED [{category}]: {reason}")
 
     # ----------------------------------------------------------
     #  PRICE ALERTS (for your personal manual trades)
@@ -409,12 +442,25 @@ class AlertManager:
             # directly so _send() with immediate=False is only called for halts
             self._send_now(subject, body, sms_body)
 
-    def _send_now(self, subject: str, body: str, sms_body: str = None):
-        """Actually send email and SMS immediately — bypasses queue."""
+    def _send_now(self, subject: str, body: str, sms_body: str = None) -> bool:
+        """
+        Actually send email and SMS immediately — bypasses queue.
+
+        Returns True only if the email send actually succeeded (SMS is a
+        best-effort secondary channel via the same email gateway and its
+        failure alone does not flip this to False — email is the channel
+        callers depend on for a positive delivery signal). Both channels
+        deliberately catch and log their own exceptions internally rather
+        than raising, so this method's callers must use the return value to
+        detect failure, not a try/except around this call — the exceptions
+        never propagate out of this method by design (existing callers of
+        trading_halted()/etc. rely on that fire-and-forget behavior).
+        """
         if not self._email_configured:
-            return
+            return False
 
         # Send email
+        email_sent = False
         try:
             msg            = MIMEMultipart("alternative")
             msg["Subject"] = subject
@@ -426,6 +472,7 @@ class AlertManager:
                 server.login(self.email_sender, self.email_password)
                 server.sendmail(self.email_sender, self.email_recipient, msg.as_string())
             logger.info(f"Alert email sent: {subject}")
+            email_sent = True
         except Exception as e:
             logger.error(f"Alert email failed: {e}")
 
@@ -444,6 +491,8 @@ class AlertManager:
                 logger.info(f"SMS alert sent to {self.sms_recipient}")
             except Exception as e:
                 logger.error(f"SMS alert failed: {e}")
+
+        return email_sent
 
 
 # Singleton

@@ -57,14 +57,29 @@ def alert_gate_failure(category: str, reason: str, now_epoch: int = None) -> boo
     """
     Report a fail-closed gate failure (e.g. calendar authority stale, broker
     position snapshot unavailable). Always increments a counter and logs at
-    CRITICAL so the failure is never silent in the logs. Sends an external
-    alert (email/SMS via reporting.alerts.alert_manager) at most once per
-    config.GATE_FAILURE_ALERT_COOLDOWN_SEC per category, so a persistent
-    failure does not spam an alert every scan cycle.
+    CRITICAL so the failure is never silent in the logs. Sends a dedicated
+    "gate failure" alert (email/SMS via reporting.alerts.alert_manager —
+    distinct from trading_halted(), see AlertManager.gate_failure()'s
+    docstring for why) at most once per config.GATE_FAILURE_ALERT_COOLDOWN_SEC
+    per category, so a persistent failure does not spam an alert every scan
+    cycle.
 
-    Returns True if an external alert was actually sent this call (useful for
-    tests), False if it was suppressed by the cooldown or alerts aren't
-    configured.
+    Cooldown/retry semantics: the cooldown timestamp is recorded only AFTER
+    a successful delivery, never merely on attempting one. A failed send
+    (e.g. an SMTP outage) does not consume the cooldown window — the very
+    next call for that category will retry immediately rather than being
+    silently suppressed for the full cooldown period despite no alert ever
+    having actually reached anyone. (An earlier version of this function
+    recorded the cooldown timestamp before attempting delivery, which meant
+    a single failed send during, say, an email-credential outage would
+    black out every subsequent alert for that category for the entire
+    cooldown window — the operator would get zero notifications for up to
+    config.GATE_FAILURE_ALERT_COOLDOWN_SEC even though delivery never once
+    succeeded.)
+
+    Returns True if an external alert was actually, successfully sent this
+    call (useful for tests), False if it was suppressed by the cooldown, the
+    delivery attempt failed, or alerts aren't configured.
     """
     now_epoch = now_epoch if now_epoch is not None else int(time.time())
     increment(f"gate_failure.{category}")
@@ -75,12 +90,23 @@ def alert_gate_failure(category: str, reason: str, now_epoch: int = None) -> boo
         last = _last_alert_epoch.get(category)
         if last is not None and (now_epoch - last) < cooldown:
             return False
-        _last_alert_epoch[category] = now_epoch
 
     try:
         from reporting.alerts import alert_manager
-        alert_manager.trading_halted(f"{category}: {reason}")
-        return True
+        delivered = alert_manager.gate_failure(category, reason)
     except Exception as e:
-        logger.warning(f"[GATE FAILURE] alert delivery failed for {category}: {e}")
+        # gate_failure()/_send_now() are designed not to raise for a delivery
+        # failure (they catch and log internally so other alert call sites
+        # can remain fire-and-forget) — this except is a defensive backstop
+        # for an unexpected coding error, not the expected way delivery
+        # failures are detected. Treat it the same as a failed delivery.
+        logger.warning(f"[GATE FAILURE] alert delivery raised unexpectedly for {category}: {e}")
+        delivered = False
+
+    if not delivered:
         return False
+
+    # Only a successful delivery consumes the cooldown window.
+    with _lock:
+        _last_alert_epoch[category] = now_epoch
+    return True

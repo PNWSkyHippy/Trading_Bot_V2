@@ -320,6 +320,12 @@ STOCK_CALENDAR_PUBLICATION_GRACE_SEC = 5
 STOCK_CALENDAR_CACHE_DAYS_AHEAD  = 14
 STOCK_CALENDAR_CACHE_DAYS_BEHIND = 3
 
+# Maximum allowed clock skew when validating a caller-supplied `now_epoch` for
+# a calendar refresh. A refresh timestamp further in the future than this
+# tolerance relative to the actual wall clock is rejected outright (a bogus
+# or corrupted "now" must not be trusted to write cache entries).
+STOCK_CALENDAR_CLOCK_SKEW_TOLERANCE_SEC = 5
+
 # Minimum time between repeated external alerts (email/SMS) for the SAME
 # fail-closed gate category (e.g. "calendar authority stale", "broker position
 # snapshot failed"). Every occurrence is still logged at CRITICAL regardless of
