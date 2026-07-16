@@ -50,6 +50,7 @@ from core.stock_calendar_authority import (
     EASTERN,
     _session_bar_opens,
     _latest_closed_bar_open_in_session,
+    _bar_close_epoch_in_session,
 )
 
 
@@ -61,10 +62,34 @@ class _FakeCalEntry:
 
 
 class _FakeAPI:
-    def __init__(self, entries):
+    """
+    Fake Alpaca calendar client. `entries` is returned AS-IS (unfiltered,
+    "raw provider response") for a batch [start, end] call, deliberately, so
+    tests can simulate a malformed/out-of-range/duplicate/incomplete batch
+    response as configured. A TARGETED single-date call (start == end) is
+    filtered correctly by that exact date instead — simulating a real,
+    independently-behaving Alpaca single-day lookup that is not necessarily
+    subject to whatever batch-level issue a given test is simulating —
+    unless `targeted_overrides` explicitly supplies a canned response for
+    that date, used to simulate a targeted call revealing a genuine
+    inconsistency the batch response got wrong (e.g. silently truncated a
+    real trading day).
+    """
+    def __init__(self, entries, targeted_overrides=None):
         self.entries = entries
+        self.targeted_overrides = targeted_overrides or {}
+
+    @staticmethod
+    def _entry_date(entry) -> dt.date:
+        return entry.date.date() if hasattr(entry.date, "date") else entry.date
 
     def get_calendar(self, start=None, end=None):
+        start_d = dt.date.fromisoformat(start) if isinstance(start, str) else start
+        end_d = dt.date.fromisoformat(end) if isinstance(end, str) else end
+        if start_d is not None and start_d == end_d:
+            if start_d in self.targeted_overrides:
+                return self.targeted_overrides[start_d]
+            return [e for e in self.entries if self._entry_date(e) == start_d]
         return self.entries
 
 
@@ -188,15 +213,21 @@ def test_out_of_request_range_response_rejected():
 
 def test_internally_incomplete_response_rejected_not_partially_adopted():
     """The crux of the completeness rewrite: a response missing a genuine
-    trading weekday (not explained by a known fixed holiday or weekend) must
-    reject the ENTIRE refresh — not adopt a 'safe subset', and not touch any
-    previously-cached data for dates within the window."""
+    trading weekday must reject the ENTIRE refresh — not adopt a 'safe
+    subset', and not touch any previously-cached data for dates within the
+    window. This is proven the same way the production code proves it: a
+    targeted single-date follow-up call for the missing date (MON) confirms
+    it IS a trading session, contradicting the batch response — never via a
+    local holiday list."""
     metrics.reset()
-    api = _FakeAPI([
-        _FakeCalEntry(FRI_PREV, dt.time(9, 30), dt.time(16, 0)),
-        # MON (a real trading Monday, not a holiday) is missing -- incomplete.
-        _FakeCalEntry(TUE, dt.time(9, 30), dt.time(16, 0)),
-    ])
+    api = _FakeAPI(
+        [
+            _FakeCalEntry(FRI_PREV, dt.time(9, 30), dt.time(16, 0)),
+            # MON is missing from the batch -- incomplete.
+            _FakeCalEntry(TUE, dt.time(9, 30), dt.time(16, 0)),
+        ],
+        targeted_overrides={MON: [_FakeCalEntry(MON, dt.time(9, 30), dt.time(16, 0))]},
+    )
     auth = StockCalendarAuthority(api=api, days_behind=0, days_ahead=4)  # window: Jan2..Jan6
     now_epoch = _et_epoch(2026, 1, 2, 9, 0)
     with _mock_alerts() as m:
@@ -208,14 +239,39 @@ def test_internally_incomplete_response_rejected_not_partially_adopted():
     assert auth.is_confirmed_non_trading_day(MON, now_epoch) is None  # not fabricated as a holiday
 
 
+def test_missing_weekday_confirmed_non_trading_by_targeted_call_is_accepted():
+    """The other half of the targeted-call design: when the targeted
+    single-date call AGREES the missing weekday is non-trading (simulating
+    a genuine holiday Alpaca itself confirms), the refresh succeeds and that
+    date is recorded as an authoritative confirmed-closed fact — no local
+    holiday list consulted at all."""
+    metrics.reset()
+    api = _FakeAPI([
+        _FakeCalEntry(DAY_BEFORE_HOLIDAY, dt.time(9, 30), dt.time(16, 0)),
+        _FakeCalEntry(dt.date(2026, 1, 2), dt.time(9, 30), dt.time(16, 0)),
+        # NEW_YEARS_DAY (2026-01-01) is missing -- the targeted call (no
+        # override configured) will filter the same `entries` list and
+        # correctly find nothing for that date, confirming it non-trading.
+    ])
+    auth = StockCalendarAuthority(api=api, days_behind=2, days_ahead=0)  # window: Dec31..Jan2
+    now_epoch = _et_epoch(2026, 1, 2, 9, 0)
+    with _mock_alerts() as m:
+        assert auth.refresh(now_epoch=now_epoch) is True
+        m.assert_not_called()
+    assert auth.is_confirmed_non_trading_day(NEW_YEARS_DAY, now_epoch) is True
+
+
 def test_partial_response_does_not_leave_stale_data_masquerading_as_reconfirmed():
     """A rejected (incomplete) refresh must not silently 'reconfirm' stale
     previously-cached data for dates within the requested window either."""
     metrics.reset()
-    api_good = _FakeAPI([
-        _FakeCalEntry(FRI_PREV, dt.time(9, 30), dt.time(16, 0)),
-        _FakeCalEntry(MON, dt.time(9, 30), dt.time(16, 0)),
-    ])
+    api_good = _FakeAPI(
+        [
+            _FakeCalEntry(FRI_PREV, dt.time(9, 30), dt.time(16, 0)),
+            _FakeCalEntry(MON, dt.time(9, 30), dt.time(16, 0)),
+        ],
+        targeted_overrides={MON: [_FakeCalEntry(MON, dt.time(9, 30), dt.time(16, 0))]},
+    )
     auth = StockCalendarAuthority(api=api_good, freshness_sec=60, days_behind=0, days_ahead=3)
     now1 = _et_epoch(2026, 1, 2, 9, 0)
     with _mock_alerts():
@@ -224,7 +280,9 @@ def test_partial_response_does_not_leave_stale_data_masquerading_as_reconfirmed(
 
     # A later, incomplete response for an overlapping window must be
     # rejected -- and the earlier (now possibly stale) data must not be
-    # treated as "reconfirmed" by the rejected attempt.
+    # treated as "reconfirmed" by the rejected attempt. The targeted
+    # override for MON still says it's a trading day, so the omission is
+    # correctly detected as inconsistent rather than a new holiday.
     api_good.entries = [_FakeCalEntry(FRI_PREV, dt.time(9, 30), dt.time(16, 0))]  # MON now missing
     now2 = now1 + 120  # past the 60s freshness window
     with _mock_alerts() as m:
@@ -483,6 +541,39 @@ def test_fixture_latest_closed_1h_bar_partial_first_bar_closes_at_1000():
     assert _latest_closed_bar_open_in_session(open_epoch, close_epoch, 3600, cutoff_1115) == _et_epoch(2026, 1, 5, 10, 0)
 
 
+# ------------------------------------------------------------------
+# _bar_close_epoch_in_session — the authoritative per-bar close-time helper
+# bar_close_epoch()/the validator's continuity+truncation+eligibility logic
+# is built on. NEVER open_epoch + tf_sec.
+# ------------------------------------------------------------------
+
+def test_bar_close_epoch_in_session_partial_first_hourly_bar_closes_at_1000():
+    open_epoch = _et_epoch(2026, 1, 5, 9, 30)
+    close_epoch = _et_epoch(2026, 1, 5, 16, 0)
+    assert _bar_close_epoch_in_session(open_epoch, open_epoch, close_epoch, 3600) == _et_epoch(2026, 1, 5, 10, 0)
+
+
+def test_bar_close_epoch_in_session_final_full_hourly_bar_closes_at_1600():
+    open_epoch = _et_epoch(2026, 1, 5, 9, 30)
+    close_epoch = _et_epoch(2026, 1, 5, 16, 0)
+    last_bar_open = _et_epoch(2026, 1, 5, 15, 0)
+    assert _bar_close_epoch_in_session(last_bar_open, open_epoch, close_epoch, 3600) == close_epoch
+
+
+def test_bar_close_epoch_in_session_early_close_last_bar_closes_at_session_close():
+    open_epoch = _et_epoch(2026, 1, 5, 9, 30)
+    close_epoch = _et_epoch(2026, 1, 5, 13, 0)  # early close
+    last_bar_open = _et_epoch(2026, 1, 5, 12, 0)
+    assert _bar_close_epoch_in_session(last_bar_open, open_epoch, close_epoch, 3600) == close_epoch
+
+
+def test_bar_close_epoch_in_session_rejects_open_epoch_not_a_real_bar_open():
+    open_epoch = _et_epoch(2026, 1, 5, 9, 30)
+    close_epoch = _et_epoch(2026, 1, 5, 16, 0)
+    not_a_bar_open = _et_epoch(2026, 1, 5, 10, 15)  # mid-bar, not a boundary
+    assert _bar_close_epoch_in_session(not_a_bar_open, open_epoch, close_epoch, 3600) is None
+
+
 def test_expected_latest_closed_bar_1h_via_authority_uses_corrected_convention():
     api = _FakeAPI([_FakeCalEntry(MON, dt.time(9, 30), dt.time(16, 0))])
     auth = StockCalendarAuthority(api=api, freshness_sec=7200, days_behind=0, days_ahead=0)
@@ -569,6 +660,74 @@ def test_expected_latest_closed_bar_uncertain_when_unrecognized_timeframe():
     with _mock_alerts():
         assert auth.refresh(now_epoch=open_epoch) is True
     assert auth.expected_latest_closed_bar_open("bogus", ScanCutoff(epoch=open_epoch + 60)) is None
+
+
+# ------------------------------------------------------------------
+# StockCalendarAuthority.bar_close_epoch() — the public SessionAuthority
+# method the validator now consults for every pair-continuity, session-gap,
+# forming-row-truncation, and final-eligibility decision instead of
+# assuming open + tf_sec.
+# ------------------------------------------------------------------
+
+def test_bar_close_epoch_partial_first_hourly_bar_via_real_authority():
+    api = _FakeAPI([_FakeCalEntry(MON, dt.time(9, 30), dt.time(16, 0))])
+    auth = StockCalendarAuthority(api=api, freshness_sec=7200, days_behind=0, days_ahead=0)
+    open_epoch = _et_epoch(2026, 1, 5, 9, 30)
+    with _mock_alerts():
+        assert auth.refresh(now_epoch=open_epoch) is True
+    cutoff = ScanCutoff(epoch=open_epoch + 60)
+    close = auth.bar_close_epoch(open_epoch, "1h", cutoff)
+    assert close == _et_epoch(2026, 1, 5, 10, 0)
+    assert close != open_epoch + 3600  # explicitly NOT the naive open+tf_sec assumption
+
+
+def test_bar_close_epoch_final_full_hourly_bar_via_real_authority():
+    api = _FakeAPI([_FakeCalEntry(MON, dt.time(9, 30), dt.time(16, 0))])
+    auth = StockCalendarAuthority(api=api, freshness_sec=9 * 3600, days_behind=0, days_ahead=0)
+    ref_epoch = _et_epoch(2026, 1, 5, 9, 30)
+    with _mock_alerts():
+        assert auth.refresh(now_epoch=ref_epoch) is True
+    last_bar_open = _et_epoch(2026, 1, 5, 15, 0)
+    cutoff = ScanCutoff(epoch=_et_epoch(2026, 1, 5, 16, 5))
+    close = auth.bar_close_epoch(last_bar_open, "1h", cutoff)
+    assert close == _et_epoch(2026, 1, 5, 16, 0)
+    assert close == last_bar_open + 3600  # the last grid-aligned bar IS full-width
+
+
+def test_bar_close_epoch_early_close_partial_session_via_real_authority():
+    api = _FakeAPI([_FakeCalEntry(MON, dt.time(9, 30), dt.time(13, 0))])  # early close
+    auth = StockCalendarAuthority(api=api, freshness_sec=6 * 3600, days_behind=0, days_ahead=0)
+    ref_epoch = _et_epoch(2026, 1, 5, 9, 30)
+    with _mock_alerts():
+        assert auth.refresh(now_epoch=ref_epoch) is True
+    cutoff = ScanCutoff(epoch=_et_epoch(2026, 1, 5, 13, 5))
+    # Partial first bar (09:30-10:00) still closes at 10:00.
+    assert auth.bar_close_epoch(ref_epoch, "1h", cutoff) == _et_epoch(2026, 1, 5, 10, 0)
+    # The last bar (12:00-13:00) closes at the early 13:00 close, not 13:00+1h.
+    last_bar_open = _et_epoch(2026, 1, 5, 12, 0)
+    assert auth.bar_close_epoch(last_bar_open, "1h", cutoff) == _et_epoch(2026, 1, 5, 13, 0)
+
+
+def test_bar_close_epoch_daily_bar_closes_at_session_close_not_open_plus_86400():
+    api = _FakeAPI([_FakeCalEntry(MON, dt.time(9, 30), dt.time(16, 0))])
+    auth = StockCalendarAuthority(api=api, freshness_sec=9 * 3600, days_behind=0, days_ahead=0)
+    ref_epoch = _et_epoch(2026, 1, 5, 9, 30)
+    with _mock_alerts():
+        assert auth.refresh(now_epoch=ref_epoch) is True
+    daily_open_epoch = int(dt.datetime(2026, 1, 5, tzinfo=dt.timezone.utc).timestamp())
+    cutoff = ScanCutoff(epoch=_et_epoch(2026, 1, 5, 16, 5))
+    close = auth.bar_close_epoch(daily_open_epoch, "1d", cutoff)
+    assert close == _et_epoch(2026, 1, 5, 16, 0)
+    assert close != daily_open_epoch + 86400  # explicitly NOT the naive assumption
+
+
+def test_bar_close_epoch_none_when_schedule_stale_or_unrefreshed():
+    api = _FakeAPI([_FakeCalEntry(MON, dt.time(9, 30), dt.time(16, 0))])
+    auth = StockCalendarAuthority(api=api, days_behind=0, days_ahead=0)
+    open_epoch = _et_epoch(2026, 1, 5, 9, 30)
+    cutoff = ScanCutoff(epoch=open_epoch + 60)  # never refreshed
+    assert auth.bar_close_epoch(open_epoch, "1h", cutoff) is None
+    assert auth.bar_close_epoch(open_epoch, "bogus", cutoff) is None
 
 
 def test_dst_spring_forward_session_boundary():

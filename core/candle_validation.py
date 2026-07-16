@@ -26,17 +26,21 @@
   Data-class separation is enforced, not merely conventional: each of the
   three dataclasses validates its own invariants in __post_init__ (raising
   ValueError on construction with invalid data — for ClosedCandleSeries this
-  means running the FULL row-level validation battery, not just structural
-  checks, so a caller cannot construct one from continuity/alignment/OHLC-
-  invalid data by bypassing the factory) and is additionally produced by a
-  validating factory (validate_closed_candles / validate_entry_quote /
-  HeldPositionPrice.from_broker) that returns None rather than raising when
-  the input itself is untrustworthy. Direct construction with bad data is a
-  programming error (raises); a bad *input* to a factory is an expected,
-  fail-closed outcome (returns None). ClosedCandleSeries additionally stores
-  a defensive copy of its DataFrame so a caller mutating their own original
-  reference afterward cannot silently alter the wrapped, already-validated
-  data.
+  means re-running the row-level validator's structural/OHLC/timestamp
+  checks, so a caller cannot construct one from NaT, non-monotonic,
+  relationally-invalid, or future-dated data by bypassing the factory; see
+  ClosedCandleSeries's own docstring for the documented, deliberate scope
+  limit on continuity/alignment/forming-bar re-verification, which requires
+  a live session authority this pure data type does not store) and is
+  additionally produced by a validating factory (validate_closed_candles /
+  validate_entry_quote / HeldPositionPrice.from_broker) that returns None
+  rather than raising when the input itself is untrustworthy. Direct
+  construction with bad data is a programming error (raises); a bad *input*
+  to a factory is an expected, fail-closed outcome (returns None).
+  ClosedCandleSeries additionally exposes its data ONLY through a `.df`
+  property that returns a fresh independent copy on every access, so no
+  caller — whether by mutating their own original input beforehand or the
+  returned frame afterward — can alter the wrapped, already-validated data.
 
   This module is pure (no I/O, no network, no SQLite) and is not yet wired
   into any live fetch/scan path — Patch A is contracts and tests only.
@@ -187,6 +191,30 @@ class SessionAuthority(Protocol):
         """
         ...
 
+    def bar_close_epoch(
+        self, open_epoch: int, timeframe: str, cutoff: "ScanCutoff"
+    ) -> Optional[int]:
+        """
+        Return the AUTHORITATIVE close-time epoch for the bar opening at
+        `open_epoch` on `timeframe`, or None if this cannot be determined
+        (e.g. unrefreshed/stale schedule for the relevant trading date, or
+        `open_epoch` doesn't correspond to a known session).
+
+        This must NOT be approximated as `open_epoch + timeframe_seconds`:
+        a session's first intraday bar is legitimately a partial bar (e.g.
+        a 1-hour bar opening at a stock session's 09:30 ET open closes at
+        10:00, only 30 minutes later, since 09:30 isn't 60-minute-grid-
+        aligned), and a daily bar's close is the trading session's actual
+        close time (e.g. 16:00 ET, or an early-close time), never
+        `open_epoch + 86400` (its open is midnight UTC of the trading date,
+        a full calendar day before the session even begins). The validator
+        relies on this method — not a fixed-duration assumption — for pair
+        continuity, session-gap inputs, forming-row truncation, publication
+        grace, and final eligibility, so every one of those decisions
+        reflects the bar's real close time.
+        """
+        ...
+
 
 def _validate_closed_candle_series_fields(symbol: str, timeframe: str, df: pd.DataFrame) -> None:
     """Shared structural invariant check for direct ClosedCandleSeries
@@ -204,60 +232,86 @@ def _validate_closed_candle_series_fields(symbol: str, timeframe: str, df: pd.Da
             raise ValueError(f"ClosedCandleSeries.df missing required column {col!r}")
 
 
-@dataclass(frozen=True)
+@dataclass(frozen=True, init=False)
 class ClosedCandleSeries:
     """
     Persistent CLOSED-candle data for strategy analysis. Never used to supply
     entry-screening quotes or held-position protection (Ron's data-class
     separation invariant).
 
-    Construction-safety: __post_init__ re-runs the full row-level validator
-    (`_validate_rows`) against `self.df` using `self.validated_at` as the
-    cutoff, zero publication grace, and no session authority — if that
-    validation would reject the data or trim even a single row, construction
-    raises ValueError. This makes it structurally impossible to construct a
-    ClosedCandleSeries from continuity-broken, misaligned, relationally-
-    invalid-OHLC, forming, or otherwise unvalidated data, not merely
-    discouraged by convention — the only sanctioned normal-use path is the
-    `validate_closed_candles()` factory function, which already performed
-    this exact validation (with the real session_authority/grace) and hands
-    back already-known-good data, so the __post_init__ re-check there is
-    cheap and always passes; the guard exists for anyone tempted to
-    construct this type directly from raw/unvalidated data.
+    Construction-safety: __post_init__ re-runs the row-level validator
+    (`_validate_rows`) against the stored data using `self.validated_at` as
+    the cutoff and no session authority, with
+    `enforce_authority_dependent_checks=False` — if that validation would
+    reject the data (NaT, non-monotonic/duplicate index, relationally-
+    invalid or non-numeric OHLC, invalid volume, or a future-dated bar),
+    construction raises ValueError. Continuity, alignment, and forming-bar/
+    publication-grace/final-eligibility are deliberately NOT re-checked
+    here — this pure data type stores no session_authority reference to
+    re-derive them correctly, and re-deriving them incorrectly would reject
+    already-legitimately-validated data (an authority-confirmed session gap,
+    normal 1-hour stock data's partial first bar, or a daily bar whose true
+    close is the session's actual close time, not `open + 86400`). The only
+    sanctioned normal-use path is the `validate_closed_candles()` factory
+    function, which already performed the FULL validation (with the real
+    session_authority/grace) and hands back already-known-good data — the
+    guarantee that constructed data was genuinely closed, continuous, and
+    eligible is provided procedurally by that being the only reasonable
+    construction path, not by a redundant (and, for this data, unreliable)
+    self-check.
 
-    Immutability: the stored `df` is a defensive copy of whatever was passed
-    in, taken during construction — mutating the caller's original
-    DataFrame afterward cannot alter the data held by this instance.
+    Genuine immutability: the DataFrame is held in a private `_df` field,
+    never exposed directly. The public `.df` property returns a FRESH
+    defensive copy on every single access — not merely a one-time copy of
+    the caller's original input. This closes a real gap an earlier revision
+    left open: taking one defensive copy at construction time protects
+    against the CALLER's original reference being mutated afterward, but
+    does nothing to stop `series.df.iloc[0, 0] = 999` (mutating the object
+    `.df` itself returns) from silently corrupting the series' own stored
+    data for every subsequent read, since a `@dataclass(frozen=True)` only
+    blocks *rebinding* the `df` attribute, never mutating the mutable pandas
+    object it points to. Returning a fresh copy every access means no
+    caller-held reference to `.df` can ever be the same object the series
+    stores internally, so no mutation of a returned frame can reach it.
     """
     symbol: str
     timeframe: str
-    df: pd.DataFrame
     validated_at: ScanCutoff
+    _df: pd.DataFrame
+
+    def __init__(self, symbol: str, timeframe: str, df: pd.DataFrame, validated_at: ScanCutoff):
+        object.__setattr__(self, "symbol", symbol)
+        object.__setattr__(self, "timeframe", timeframe)
+        object.__setattr__(self, "validated_at", validated_at)
+        object.__setattr__(self, "_df", df)
+        self.__post_init__()
 
     def __post_init__(self):
-        _validate_closed_candle_series_fields(self.symbol, self.timeframe, self.df)
+        _validate_closed_candle_series_fields(self.symbol, self.timeframe, self._df)
         # Defensive copy BEFORE re-validating, so the re-validation itself
         # can't be fooled by a concurrent mutation of the caller's original
         # object, and so the stored df is independent of it either way.
-        object.__setattr__(self, "df", self.df.copy(deep=True))
-        # enforce_continuity_and_alignment=False: this self-check has no
-        # session_authority reference to re-derive gap legitimacy or
-        # session-relative alignment with (ClosedCandleSeries deliberately
-        # stores no authority reference, to remain a pure data contract) —
-        # re-running those two checks with session_authority=None would
-        # incorrectly reject legitimate authority-confirmed session gaps,
-        # and would ALSO incorrectly reject perfectly normal, gap-free
-        # 1-hour stock data (whose first intraday bar of a session is a
-        # partial bar, not aligned to the UTC hour grid the no-authority
-        # path assumes). Everything else — NaT, monotonic/unique, OHLC
-        # numeric/relational validity, volume, future-bar, forming-bar as of
-        # validated_at with zero grace — is still fully re-checked here.
+        object.__setattr__(self, "_df", self._df.copy(deep=True))
+        # enforce_authority_dependent_checks=False: this self-check has no
+        # session_authority reference to re-derive gap legitimacy,
+        # session-relative alignment, or true bar-close/eligibility with
+        # (ClosedCandleSeries deliberately stores no authority reference, to
+        # remain a pure data contract) — re-running those checks with
+        # session_authority=None would incorrectly reject legitimate
+        # authority-confirmed session gaps, perfectly normal gap-free 1-hour
+        # stock data (whose first intraday bar of a session is a partial bar,
+        # not aligned to the UTC hour grid the no-authority path assumes),
+        # and already-legitimately-validated daily bars (whose true close is
+        # the session's actual close time, not `open + 86400`, which the
+        # no-authority fallback would incorrectly assume). Everything else —
+        # NaT, monotonic/unique, OHLC numeric/relational validity, volume,
+        # future-bar — is still fully re-checked here.
         revalidated = _validate_rows(
-            self.df, self.timeframe, self.validated_at,
+            self._df, self.timeframe, self.validated_at,
             session_authority=None, publication_grace_sec=0,
-            enforce_continuity_and_alignment=False,
+            enforce_authority_dependent_checks=False,
         )
-        if revalidated is None or len(revalidated) != len(self.df):
+        if revalidated is None or len(revalidated) != len(self._df):
             raise ValueError(
                 "ClosedCandleSeries cannot be constructed from data that does "
                 "not pass the closed-candle validator's authority-independent "
@@ -271,6 +325,14 @@ class ClosedCandleSeries:
                 "validate_closed_candles() being the only reasonable "
                 "construction path, not by a redundant self-check.)"
             )
+
+    @property
+    def df(self) -> pd.DataFrame:
+        """A fresh, independent copy of the validated closed-candle data.
+        Every access returns a new copy — mutating the returned frame, or
+        holding onto it across time, can never affect this series' stored
+        data or any other caller's view of it."""
+        return self._df.copy(deep=True)
 
     @classmethod
     def from_validated(
@@ -418,7 +480,7 @@ def _validate_rows(
     cutoff: ScanCutoff,
     session_authority: Optional[SessionAuthority] = None,
     publication_grace_sec: int = 0,
-    enforce_continuity_and_alignment: bool = True,
+    enforce_authority_dependent_checks: bool = True,
 ) -> Optional[pd.DataFrame]:
     """
     Internal row-level validator. Returns a DataFrame containing only rows
@@ -428,20 +490,34 @@ def _validate_rows(
     `ClosedCandleSeries.__post_init__`'s construction-safety re-check (which
     needs the raw row-level result, not another wrapped instance).
 
-    `enforce_continuity_and_alignment=False` skips the continuity and
-    no-authority-alignment checks entirely (everything else — NaT, monotonic/
-    unique, OHLC numeric/relational, volume, future-bar, forming-bar — still
-    runs). This exists ONLY for `ClosedCandleSeries.__post_init__`'s self-
-    check, which re-validates already-validated data WITHOUT access to
-    whatever session_authority (if any) was originally used — re-running the
-    continuity/alignment checks with `session_authority=None` in that context
-    would incorrectly reject legitimate, authority-confirmed session gaps
-    (and, separately, would incorrectly reject perfectly normal 1-hour stock
-    data even with NO gap at all, since that data's own first intraday bar of
-    a session is a partial bar not aligned to the UTC hour grid — the
-    no-authority alignment check assumes a crypto-style continuously-epoch-
-    aligned series, which stock data legitimately is not). The public
-    `validate_closed_candles()` factory, which DOES have the real
+    `enforce_authority_dependent_checks=False` skips continuity, no-authority
+    alignment, AND forming-bar/publication-grace/final-eligibility entirely
+    (everything else — NaT, monotonic/unique, OHLC numeric/relational,
+    volume, future-bar — still runs). This exists ONLY for
+    `ClosedCandleSeries.__post_init__`'s self-check, which re-validates
+    already-validated data WITHOUT access to whatever session_authority (if
+    any) was originally used:
+
+      - Continuity/alignment: re-running these with `session_authority=None`
+        would incorrectly reject legitimate, authority-confirmed session
+        gaps (and, separately, would incorrectly reject perfectly normal
+        1-hour stock data even with NO gap at all, since that data's own
+        first intraday bar of a session is a partial bar not aligned to the
+        UTC hour grid — the no-authority alignment check assumes a
+        crypto-style continuously-epoch-aligned series, which stock data
+        legitimately is not).
+      - Forming-bar/grace/eligibility: without an authority, the only
+        available "bar close" assumption is `open + tf_sec` — correct for
+        continuous/crypto markets, but for a DAILY bar (open = midnight UTC
+        of the trading date) this assumption places the close near the
+        FOLLOWING day's midnight UTC, many hours after the real session
+        close the original factory call correctly used. Re-deriving
+        eligibility this way would reject an already-legitimately-validated
+        daily bar (and, in principle, a lone partial first intraday bar) on
+        reconstruction, even though `validate_closed_candles()` already
+        proved it eligible against the bar's real close time.
+
+    The public `validate_closed_candles()` factory, which DOES have the real
     session_authority in hand, always leaves this True.
     """
     if df is None or df.empty:
@@ -487,34 +563,62 @@ def _validate_rows(
     if numeric_df is None:
         return _reject("nonnumeric_ohlc")
 
+    # Every bar's AUTHORITATIVE close time — never assumed to be
+    # `open + tf_sec`. With a session_authority, a session's first intraday
+    # bar closes at the next UTC-grid boundary (or the session close,
+    # whichever is sooner), which for e.g. 1-hour bars is only 30 minutes
+    # after a 09:30 ET stock-session open, not a full hour; daily bars close
+    # at the session's actual close time, not `open + 86400`. Without an
+    # authority (crypto/continuous markets), `open + tf_sec` is the only
+    # available assumption and is exact for that case. Computed once up
+    # front so continuity, truncation, and final-eligibility all reason
+    # about the SAME close times, rather than each re-deriving its own.
+    bar_closes = []
+    for e in idx_epochs:
+        if session_authority is None:
+            bar_closes.append(e + tf_sec)
+            continue
+        try:
+            close = session_authority.bar_close_epoch(e, timeframe, cutoff)
+        except Exception as ex:
+            return _reject("session_authority_exception_on_close", str(ex))
+        if close is None:
+            return _reject("session_authority_uncertain_on_close", f"open={e}")
+        bar_closes.append(close)
+
     # Continuity, session-aware for stocks: every consecutive pair must
-    # either be spaced by exactly one bar duration, OR — only when a
-    # session_authority is supplied — be a gap the authority can positively
-    # confirm corresponds to a legitimate non-trading period (overnight
-    # close-to-open, weekend, holiday, early close). No authority means no
-    # exceptions are possible: every gap fails closed exactly as before
-    # (this is the crypto/continuous-market path, and also protects stocks
-    # when no authority happens to be wired in for some reason — the
-    # decision to allow session gaps is opt-in via supplying the authority,
-    # never a default).
-    if enforce_continuity_and_alignment and len(idx_epochs) > 1:
-        for a, b in zip(idx_epochs[:-1], idx_epochs[1:]):
-            gap = b - a
-            if gap == tf_sec:
+    # either have the next bar open exactly where the prior bar's
+    # AUTHORITATIVE close falls (a plain continuation — including a
+    # partial-first-bar to full-bar transition within the same session,
+    # which is NOT a session gap and must never be escalated to
+    # is_valid_session_gap), OR — only when a session_authority is
+    # supplied — be a gap the authority can positively confirm corresponds
+    # to a legitimate non-trading period (overnight close-to-open, weekend,
+    # holiday, early close). No authority means no exceptions are possible:
+    # every gap fails closed exactly as before (this is the crypto/
+    # continuous-market path, and also protects stocks when no authority
+    # happens to be wired in for some reason — the decision to allow
+    # session gaps is opt-in via supplying the authority, never a default).
+    if enforce_authority_dependent_checks and len(idx_epochs) > 1:
+        for i in range(len(idx_epochs) - 1):
+            a, b = idx_epochs[i], idx_epochs[i + 1]
+            a_close = bar_closes[i]
+            if b == a_close:
                 continue
             if session_authority is None:
                 return _reject(
                     "noncontinuous_series",
-                    f"gap {a}->{b} ({gap}s) != {tf_sec}s and no session authority to explain it",
+                    f"gap {a}->{b} (bar closes at {a_close}) and no session authority to explain it",
                 )
             try:
-                verdict = session_authority.is_valid_session_gap(a + tf_sec, b, cutoff)
+                verdict = session_authority.is_valid_session_gap(a_close, b, cutoff)
             except Exception as e:
                 return _reject("session_authority_exception_on_gap", str(e))
             if verdict is not True:
                 return _reject(
                     "unexplained_session_gap",
-                    f"gap {a}->{b} ({gap}s) not confirmed as a legitimate session boundary",
+                    f"bar closing at {a_close}, next opening at {b}, not confirmed "
+                    f"as a legitimate session boundary",
                 )
 
     # Alignment: every bar must fall on the same modular grid as the first
@@ -528,7 +632,7 @@ def _validate_rows(
     # expected-bar check below is the authoritative alignment proof for that
     # case instead.
     first_epoch = idx_epochs[0]
-    if enforce_continuity_and_alignment and session_authority is None:
+    if enforce_authority_dependent_checks and session_authority is None:
         if any((e - first_epoch) % tf_sec != 0 for e in idx_epochs):
             return _reject("misaligned_series")
         if first_epoch % tf_sec != 0:
@@ -562,6 +666,14 @@ def _validate_rows(
     if idx_epochs[-1] > cutoff.epoch:
         return _reject("future_bar")
 
+    if not enforce_authority_dependent_checks:
+        # ClosedCandleSeries.__post_init__'s self-check: cannot correctly
+        # re-derive forming-bar/grace/eligibility without the real authority
+        # (see this function's docstring) — the guarantee that the data was
+        # genuinely closed and eligible was already established by the
+        # factory that produced it.
+        return numeric_df
+
     # Forming-bar truncation: a bar is eligible only once
     # cutoff >= close + publication_grace_sec — i.e. drop a trailing row
     # while close > cutoff - grace (equivalently close + grace > cutoff).
@@ -577,15 +689,17 @@ def _validate_rows(
     # spanning multiple bar widths) is fully handled, not just the last one.
     result = numeric_df.copy()
     remaining_epochs = list(idx_epochs)
-    while remaining_epochs and (remaining_epochs[-1] + tf_sec) > (cutoff.epoch - publication_grace_sec):
+    remaining_closes = list(bar_closes)
+    while remaining_closes and remaining_closes[-1] > (cutoff.epoch - publication_grace_sec):
         result = result.iloc[:-1]
         remaining_epochs.pop()
+        remaining_closes.pop()
     if not remaining_epochs:
         return _reject("only_bar_was_forming")
 
     # Defensive, explicit re-check that every remaining row is eligible as of
     # cutoff - grace — not merely inferred from the truncation loop above.
-    if any((e + tf_sec) > (cutoff.epoch - publication_grace_sec) for e in remaining_epochs):
+    if any(c > (cutoff.epoch - publication_grace_sec) for c in remaining_closes):
         return _reject("forming_bar_survived_truncation")
 
     last_open_epoch = remaining_epochs[-1]

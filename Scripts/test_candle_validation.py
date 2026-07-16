@@ -20,9 +20,11 @@ validation.
 Runnable directly (`python Scripts/test_candle_validation.py`) or via pytest.
 """
 
+import datetime as dt
 import sys
 import time
 from pathlib import Path
+from unittest import mock
 
 import pandas as pd
 import pytest
@@ -40,6 +42,7 @@ from core.candle_validation import (
     validate_entry_quote,
     timeframe_seconds,
 )
+from core.stock_calendar_authority import StockCalendarAuthority, EASTERN
 
 # A UTC-midnight-aligned epoch, divisible by every timeframe this module
 # supports (60/300/900/1800/3600/7200/14400/86400) — used as the base for
@@ -361,12 +364,23 @@ def test_empty_or_none_df_rejects():
 
 
 class _FakeAuthority:
-    """Minimal SessionAuthority stub for testing the integration points."""
-    def __init__(self, expected_open=None, raises=None, gap_verdict=True, gap_raises=None):
+    """Minimal SessionAuthority stub for testing the integration points.
+
+    bar_close_epoch defaults to plain `open_epoch + tf_sec` (these tests
+    use uniform grid-aligned fixture data with no partial-bar concept —
+    the real partial-first-bar/daily-session-close behavior is exercised
+    end-to-end against the actual StockCalendarAuthority elsewhere in this
+    file, not against this stub)."""
+    def __init__(
+        self, expected_open=None, raises=None, gap_verdict=True, gap_raises=None,
+        close_raises=None, close_override=None,
+    ):
         self._expected_open = expected_open
         self._raises = raises
         self._gap_verdict = gap_verdict
         self._gap_raises = gap_raises
+        self._close_raises = close_raises
+        self._close_override = close_override
 
     def expected_latest_closed_bar_open(self, timeframe, cutoff):
         if self._raises is not None:
@@ -377,6 +391,13 @@ class _FakeAuthority:
         if self._gap_raises is not None:
             raise self._gap_raises
         return self._gap_verdict
+
+    def bar_close_epoch(self, open_epoch, timeframe, cutoff):
+        if self._close_raises is not None:
+            raise self._close_raises
+        if self._close_override is not None:
+            return self._close_override(open_epoch)
+        return open_epoch + timeframe_seconds(timeframe)
 
 
 def test_session_authority_match_passes():
@@ -543,11 +564,20 @@ def test_closed_candle_series_direct_construction_rejects_impossible_ohlc():
         ClosedCandleSeries(symbol="AAPL", timeframe="5m", df=bad_df, validated_at=cutoff)
 
 
-def test_closed_candle_series_direct_construction_rejects_forming_bar():
+def test_closed_candle_series_direct_construction_accepts_forming_bar_by_documented_design():
+    """Documented, deliberate scope limit (mirrors the gap-acceptance test
+    above): direct construction no longer re-derives forming-bar/grace/
+    eligibility either, since without a session authority the only
+    fallback assumption (open + tf_sec) is a fixed-duration approximation
+    that is flatly wrong for a daily bar's true close (the session's real
+    close time, not open + 86400) — re-deriving it here would reject
+    already-legitimately-validated data the factory correctly accepted.
+    The *factory* path still correctly rejects a genuinely forming bar."""
     df = _bars(1)
     cutoff = ScanCutoff(epoch=_ALIGNED_BASE + 10)  # bar hasn't closed yet
-    with pytest.raises(ValueError):
-        ClosedCandleSeries(symbol="AAPL", timeframe="5m", df=df, validated_at=cutoff)
+    series = ClosedCandleSeries(symbol="AAPL", timeframe="5m", df=df, validated_at=cutoff)
+    assert len(series.df) == 1
+    assert validate_closed_candles("AAPL", df, "5m", cutoff) is None
 
 
 def test_closed_candle_series_construction_succeeds_on_genuinely_valid_data():
@@ -567,6 +597,23 @@ def test_closed_candle_series_is_immune_to_mutation_of_callers_original_datafram
     df.iloc[0, df.columns.get_loc("close")] = 99999.0  # mutate the ORIGINAL reference
     assert series.df["close"].tolist() == original_close_values
     assert 99999.0 not in series.df["close"].tolist()
+
+
+def test_closed_candle_series_is_immune_to_mutation_of_the_returned_df_itself():
+    """The gap the earlier revision's docstring overclaimed but did not
+    actually close: mutating the DataFrame OBJECT returned by `.df` itself
+    (not the caller's pre-construction reference) must not corrupt the
+    series' own stored data or any subsequent `.df` access — each access
+    to `.df` must yield a fresh, independent copy."""
+    df = _bars(2)
+    cutoff = _cutoff_after(2)
+    series = ClosedCandleSeries(symbol="AAPL", timeframe="5m", df=df, validated_at=cutoff)
+    original_close_values = series.df["close"].tolist()
+    returned = series.df
+    returned.iloc[0, returned.columns.get_loc("close")] = 99999.0  # mutate the RETURNED frame
+    assert series.df["close"].tolist() == original_close_values
+    assert 99999.0 not in series.df["close"].tolist()
+    assert series.df is not series.df  # every access is an independent object
 
 
 def test_closed_candle_series_from_validated_factory_fails_closed_not_raises():
@@ -623,6 +670,154 @@ def test_held_position_price_from_broker_factory_succeeds_on_good_input():
     result = HeldPositionPrice.from_broker("AAPL", 123.45, 1_700_000_000, "alpaca")
     assert result is not None
     assert result.symbol == "AAPL" and result.price == 123.45 and result.broker == "alpaca"
+
+
+# ------------------------------------------------------------------
+# End-to-end validator tests against a REAL StockCalendarAuthority (not the
+# _FakeAuthority stub above, which assumes a flat open+tf_sec close and so
+# cannot exercise the actual partial-first-bar / session-close bar-close
+# conventions this revision fixes). These prove the validator's continuity,
+# forming-row truncation, publication grace, and final-eligibility checks
+# all correctly use SessionAuthority.bar_close_epoch() rather than assuming
+# every bar closes at open + timeframe_seconds.
+# ------------------------------------------------------------------
+
+class _FakeCalEntry:
+    def __init__(self, date_, open_t, close_t):
+        self.date = pd.Timestamp(date_)
+        self.open = open_t
+        self.close = close_t
+
+
+class _FakeCalendarApi:
+    def __init__(self, entries):
+        self.entries = entries
+
+    def get_calendar(self, start=None, end=None):
+        return self.entries
+
+
+def _et_epoch(y, m, d, hh, mm, ss=0):
+    return int(dt.datetime(y, m, d, hh, mm, ss, tzinfo=EASTERN).timestamp())
+
+
+def _real_stock_authority(trading_date, open_time, close_time, freshness_sec=30 * 3600):
+    """A real StockCalendarAuthority refreshed for one specific session —
+    used instead of _FakeAuthority so these tests exercise the genuine
+    partial-first-bar/session-close bar-timestamp conventions, not a
+    stubbed-out flat open+tf_sec assumption."""
+    api = _FakeCalendarApi([_FakeCalEntry(trading_date, open_time, close_time)])
+    auth = StockCalendarAuthority(api=api, freshness_sec=freshness_sec, days_behind=0, days_ahead=0)
+    now_epoch = int(dt.datetime.combine(trading_date, open_time, tzinfo=EASTERN).timestamp())
+    with mock.patch("reporting.alerts.alert_manager.gate_failure", return_value=True):
+        assert auth.refresh(now_epoch=now_epoch) is True
+    return auth
+
+
+def _hourly_bars_for_session(trading_date, open_time, close_time, num_bars=None):
+    """Real, grid-aligned 1-hour bars for a session per
+    _INTRADAY_BAR_TIMESTAMP_CONVENTION: a partial first bar, full-width
+    bars afterward, and a final bar capped at the session close."""
+    from core.stock_calendar_authority import _session_bar_opens
+    open_epoch = int(dt.datetime.combine(trading_date, open_time, tzinfo=EASTERN).timestamp())
+    close_epoch = int(dt.datetime.combine(trading_date, close_time, tzinfo=EASTERN).timestamp())
+    opens = _session_bar_opens(open_epoch, close_epoch, 3600)
+    if num_bars is not None:
+        opens = opens[:num_bars]
+    idx = pd.to_datetime(opens, unit="s", utc=True).tz_localize(None)
+    return pd.DataFrame(
+        {"open": 1.0, "high": 2.0, "low": 0.5, "close": 1.5, "volume": 100.0}, index=idx
+    )
+
+
+def test_end_to_end_0930_1000_partial_first_bar_transition_is_not_a_gap():
+    """The core bug this revision fixes: a 1-hour session's first two bars
+    (09:30-10:00 partial, then 10:00-11:00) are only 30 minutes apart, not
+    tf_sec (3600s) apart — an authoritative bar_close_epoch()-based
+    continuity check must recognize this as a plain continuation, never
+    escalate it to is_valid_session_gap (which would reject it, since both
+    bars belong to the SAME trading session)."""
+    d = dt.date(2026, 1, 5)
+    auth = _real_stock_authority(d, dt.time(9, 30), dt.time(16, 0))
+    df = _hourly_bars_for_session(d, dt.time(9, 30), dt.time(16, 0), num_bars=2)
+    cutoff = ScanCutoff(epoch=_et_epoch(2026, 1, 5, 11, 1))
+    result = validate_closed_candles("AAPL", df, "1h", cutoff, session_authority=auth)
+    assert result is not None
+    assert len(result.df) == 2
+
+
+def test_end_to_end_full_session_hourly_bars_pass_including_final_1500_1600_bar():
+    """All 7 real hourly bars of a normal 09:30-16:00 session (partial
+    first bar through the full-width 15:00-16:00 final bar) pass
+    end-to-end once every bar has genuinely closed."""
+    d = dt.date(2026, 1, 5)
+    auth = _real_stock_authority(d, dt.time(9, 30), dt.time(16, 0))
+    df = _hourly_bars_for_session(d, dt.time(9, 30), dt.time(16, 0))
+    assert len(df) == 7
+    cutoff = ScanCutoff(epoch=_et_epoch(2026, 1, 5, 16, 1))
+    result = validate_closed_candles("AAPL", df, "1h", cutoff, session_authority=auth)
+    assert result is not None
+    assert len(result.df) == 7
+
+
+def test_end_to_end_final_hourly_bar_still_forming_just_before_1600_close():
+    d = dt.date(2026, 1, 5)
+    auth = _real_stock_authority(d, dt.time(9, 30), dt.time(16, 0))
+    df = _hourly_bars_for_session(d, dt.time(9, 30), dt.time(16, 0))
+    cutoff = ScanCutoff(epoch=_et_epoch(2026, 1, 5, 15, 59, 59))
+    result = validate_closed_candles("AAPL", df, "1h", cutoff, session_authority=auth)
+    assert result is not None
+    assert len(result.df) == 6  # the 15:00-16:00 bar hasn't closed yet
+
+
+def test_end_to_end_final_hourly_bar_eligible_exactly_at_1600_close():
+    d = dt.date(2026, 1, 5)
+    auth = _real_stock_authority(d, dt.time(9, 30), dt.time(16, 0))
+    df = _hourly_bars_for_session(d, dt.time(9, 30), dt.time(16, 0))
+    cutoff = ScanCutoff(epoch=_et_epoch(2026, 1, 5, 16, 0, 0))
+    result = validate_closed_candles("AAPL", df, "1h", cutoff, session_authority=auth)
+    assert result is not None
+    assert len(result.df) == 7
+
+
+def test_end_to_end_early_close_session_hourly_bars_pass():
+    """An early-close session (09:30-13:00) has a partial first bar
+    (09:30-10:00) and a full-width final bar (12:00-13:00) — the final
+    bar's close is the session's actual (early) close time, not
+    12:00 + 1h."""
+    d = dt.date(2026, 1, 5)
+    auth = _real_stock_authority(d, dt.time(9, 30), dt.time(13, 0))
+    df = _hourly_bars_for_session(d, dt.time(9, 30), dt.time(13, 0))
+    assert len(df) == 4
+    cutoff = ScanCutoff(epoch=_et_epoch(2026, 1, 5, 13, 1))
+    result = validate_closed_candles("AAPL", df, "1h", cutoff, session_authority=auth)
+    assert result is not None
+    assert len(result.df) == 4
+
+
+def test_end_to_end_daily_bar_eligible_only_at_session_close_plus_grace():
+    """A midnight-UTC-open daily bar must become eligible only once the
+    trading session's ACTUAL close time plus grace has passed — not
+    open + 86400 (which would be many hours later, near the following
+    day's midnight UTC)."""
+    d = dt.date(2026, 1, 5)
+    auth = _real_stock_authority(d, dt.time(9, 30), dt.time(16, 0))
+    daily_open_epoch = int(dt.datetime(2026, 1, 5, tzinfo=dt.timezone.utc).timestamp())
+    idx = pd.to_datetime([daily_open_epoch], unit="s", utc=True).tz_localize(None)
+    df = pd.DataFrame({"open": 1.0, "high": 2.0, "low": 0.5, "close": 1.5, "volume": 100.0}, index=idx)
+    grace = 300
+
+    cutoff_before = ScanCutoff(epoch=_et_epoch(2026, 1, 5, 16, 4, 0))  # close+4min < close+5min grace
+    assert validate_closed_candles(
+        "AAPL", df, "1d", cutoff_before, session_authority=auth, publication_grace_sec=grace
+    ) is None
+
+    cutoff_after = ScanCutoff(epoch=_et_epoch(2026, 1, 5, 16, 5, 0))  # exactly close + grace
+    result = validate_closed_candles(
+        "AAPL", df, "1d", cutoff_after, session_authority=auth, publication_grace_sec=grace
+    )
+    assert result is not None
+    assert len(result.df) == 1
 
 
 ALL_TESTS = [v for k, v in list(globals().items()) if k.startswith("test_")]

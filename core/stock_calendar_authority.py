@@ -3,7 +3,7 @@
   STOCK CALENDAR AUTHORITY — Patch A (B5)
   reports/agent_pipeline/20260716-082429/final_unified_report.md
 
-  Wraps Alpaca's own market-calendar API (REST.get_calendar()) as the
+  Wraps Alpaca's own market-calendar API (REST.get_calendar()) as the SOLE
   authoritative source of stock session open/close times, replacing the
   hand-maintained core/market_calendar.py approximation for live-freshness
   decisions. core/market_calendar.py implements only ten fixed full-day
@@ -11,10 +11,17 @@
   early-close, emergency-closure, or publication-delay modeling, and cannot
   support the strict "session-aware expected closed bar" contract this system
   requires. Alpaca is already this system's broker of record for stock data,
-  so this introduces no new external dependency. (core.market_calendar's
-  fixed-holiday computation IS reused here, narrowly, as a completeness
-  cross-check on Alpaca's own response — see refresh() — never as an
-  authoritative session source in its own right.)
+  so this introduces no new external dependency. core.market_calendar is NOT
+  consulted anywhere in this module, including for completeness checking (an
+  earlier revision cross-checked missing weekdays against its fixed-holiday
+  list; that made this authority's correctness partially depend on a second,
+  independently-fallible, hand-maintained data source — exactly the kind of
+  approximation this class exists to replace, and it could either falsely
+  reject a genuine Alpaca response for a holiday not in the local list, or
+  falsely excuse a real Alpaca gap that happened to coincide with a listed
+  holiday. See refresh() for how missing weekdays are now confirmed instead:
+  a targeted, single-date follow-up call to Alpaca's own get_calendar(),
+  never a local table.
 
   Decided contract (B5, not an either/or option menu; revised across several
   rounds of review — see the numbered points below for what changed and why):
@@ -39,20 +46,26 @@
        every returned date must fall within the requested [start, end]
        window (otherwise: reject, "out-of-request-range"), and every weekday
        within [start, end] must be either returned as a trading session, a
-       locally-verifiable weekend, or a locally-known fixed holiday (cross-
-       checked against core.market_calendar.is_us_equity_market_holiday as a
-       completeness sanity check only) — any weekday satisfying none of
-       these is treated as an unexplained gap and the ENTIRE refresh is
-       rejected ("internally_incomplete_response"). This replaces an earlier
-       design that tried to salvage a "safe subset" from a partial response
-       by only updating the response's observed date span; that approach
-       could still silently fabricate a false "confirmed holiday" for a
-       genuine trading day omitted by a provider bug within its own observed
-       span. The current design does not try to be clever about partial
-       acceptance: an incomplete, partial, or out-of-range response is
-       rejected outright, and no previously-cached data for any date in
-       [start, end] is touched — no stale entry is silently promoted to
-       "reconfirmed", and no absent date is fabricated as a holiday.
+       locally-verifiable weekend (no data needed — every calendar computes
+       this identically), or independently confirmed non-trading by a
+       TARGETED single-date get_calendar(start=d, end=d) follow-up call to
+       Alpaca itself. If that targeted call instead confirms `d` IS a
+       trading session, the original batch response omitted a real trading
+       day (e.g. truncation/pagination) and is internally inconsistent — the
+       ENTIRE refresh is rejected ("internally_incomplete_response" or
+       "internally_inconsistent_response"). This replaces two earlier
+       designs: first, one that tried to salvage a "safe subset" from a
+       partial response by only updating its observed date span (which could
+       still silently fabricate a false "confirmed holiday" for a genuine
+       trading day within its own observed span); second, one that
+       cross-checked missing weekdays against core.market_calendar's fixed
+       local holiday list (which makes correctness depend on a second,
+       independently-fallible data source instead of on Alpaca itself). The
+       current design asks Alpaca to confirm or refute its own gap directly.
+       An incomplete, inconsistent, or out-of-range response is rejected
+       outright, and no previously-cached data for any date in [start, end]
+       is touched — no stale entry is silently promoted to "reconfirmed",
+       and no absent date is fabricated as a holiday.
     5. Only once completeness is proven does a refresh atomically replace
        AND revoke across the FULL requested [start, end] window: every date
        in that window not present in the (now-proven-complete) response is
@@ -118,7 +131,6 @@ except ImportError:  # pragma: no cover - Python <3.9 fallback
 import config
 from core import metrics
 from core.candle_validation import ScanCutoff, timeframe_seconds
-from core.market_calendar import is_us_equity_market_holiday
 
 logger = logging.getLogger(__name__)
 
@@ -153,6 +165,27 @@ def _session_bar_opens(open_epoch: int, close_epoch: int, tf_sec: int) -> List[i
         else:
             cursor = ((cursor // tf_sec) + 1) * tf_sec
     return opens
+
+
+def _bar_close_epoch_in_session(
+    open_epoch: int, session_open_epoch: int, session_close_epoch: int, tf_sec: int
+) -> Optional[int]:
+    """
+    Authoritative close-time epoch for the bar opening at `open_epoch`
+    within the session [session_open_epoch, session_close_epoch), per
+    `_INTRADAY_BAR_TIMESTAMP_CONVENTION`. NEVER `open_epoch + tf_sec` — the
+    session's first bar is a partial bar closing at the next UTC-grid
+    boundary (or the session close, if that comes first), not a full
+    `tf_sec` later. Derived from the SAME `_session_bar_opens` enumeration
+    `_latest_closed_bar_open_in_session` uses, so the two can never
+    disagree about where a given bar's close actually falls. Returns None
+    if `open_epoch` is not itself a real bar-open time within this session.
+    """
+    opens = _session_bar_opens(session_open_epoch, session_close_epoch, tf_sec)
+    if open_epoch not in opens:
+        return None
+    closes = opens[1:] + [session_close_epoch]
+    return closes[opens.index(open_epoch)]
 
 
 def _latest_closed_bar_open_in_session(
@@ -360,32 +393,58 @@ class StockCalendarAuthority:
             return False
 
         # Completeness: every weekday in [start, end] must be either a
-        # returned trading session, or a locally-known fixed holiday (a
-        # completeness cross-check only — Alpaca's response remains
-        # authoritative for actual open/close times; this never overrides
-        # what Alpaca returned, it only validates that nothing appears to be
-        # silently missing). Weekends are locally, deterministically
-        # verifiable and require no confirmation from the response at all.
-        missing_unexplained = []
+        # returned trading session, or independently confirmed non-trading
+        # by Alpaca ITSELF via a targeted single-date follow-up call — never
+        # by a separately-maintained local holiday list (see module
+        # docstring point 4). Weekends are locally, deterministically
+        # verifiable and require no confirmation at all.
+        missing_candidates = []
         d = start
         while d <= end:
-            if d not in returned_dates and d.weekday() < 5 and not is_us_equity_market_holiday(d):
-                missing_unexplained.append(d)
+            if d not in returned_dates and d.weekday() < 5:
+                missing_candidates.append(d)
             d += timedelta(days=1)
-        if missing_unexplained:
-            metrics.increment("calendar.refresh.failure")
-            metrics.alert_gate_failure(
-                "stock_calendar_authority",
-                f"response is missing {len(missing_unexplained)} weekday(s) not "
-                f"explained by a known fixed holiday: {missing_unexplained[:5]} — "
-                f"treating as an incomplete/partial response, rejecting in full",
-                now_epoch,
-            )
-            logger.error(
-                f"[StockCalendarAuthority] rejecting refresh: internally incomplete "
-                f"response, unexplained missing weekdays: {missing_unexplained[:5]}"
-            )
-            return False
+
+        for missing_date in missing_candidates:
+            try:
+                targeted = self._api.get_calendar(
+                    start=missing_date.isoformat(), end=missing_date.isoformat()
+                )
+            except Exception as e:
+                metrics.increment("calendar.refresh.failure")
+                metrics.alert_gate_failure(
+                    "stock_calendar_authority",
+                    f"targeted completeness check for {missing_date} raised: {e} — "
+                    f"original batch response is unverifiable, rejecting in full",
+                    now_epoch,
+                )
+                logger.error(
+                    f"[StockCalendarAuthority] rejecting refresh: targeted "
+                    f"completeness check for {missing_date} raised: {e}"
+                )
+                return False
+            if targeted:
+                # Alpaca itself says `missing_date` IS a trading session when
+                # asked directly — the original batch response is internally
+                # inconsistent (e.g. truncated/paginated) and untrustworthy
+                # as a whole, not merely missing one harmless entry.
+                metrics.increment("calendar.refresh.failure")
+                metrics.alert_gate_failure(
+                    "stock_calendar_authority",
+                    f"batch response omitted {missing_date} but a targeted "
+                    f"get_calendar({missing_date}) call confirms it IS a trading "
+                    f"session — original batch response is internally "
+                    f"inconsistent, rejecting in full",
+                    now_epoch,
+                )
+                logger.error(
+                    f"[StockCalendarAuthority] rejecting refresh: {missing_date} "
+                    f"omitted from batch but confirmed a trading day by a "
+                    f"targeted call"
+                )
+                return False
+            # Targeted call agrees `missing_date` is non-trading — it will be
+            # recorded as an explicit confirmed-closed date below.
 
         # Completeness proven for the full [start, end] window — apply
         # atomically across the entire window now, not a narrowed subset.
@@ -585,6 +644,47 @@ class StockCalendarAuthority:
         _, prior_window = found
         return _latest_closed_bar_open_in_session(
             prior_window.open_epoch, prior_window.close_epoch, tf_sec, prior_window.close_epoch,
+        )
+
+    def bar_close_epoch(
+        self, open_epoch: int, timeframe: str, cutoff: ScanCutoff
+    ) -> Optional[int]:
+        """
+        Implements candle_validation.SessionAuthority. Returns the
+        AUTHORITATIVE close-time epoch for the bar opening at `open_epoch`
+        on `timeframe`, or None if this cannot be determined (unrefreshed/
+        stale schedule for the relevant trading date, or an unrecognized
+        timeframe). Never approximates this as `open_epoch + tf_sec`:
+
+          - Intraday: dispatches to `_bar_close_epoch_in_session` against
+            the fresh session covering `open_epoch`'s ET calendar date,
+            which correctly returns a 30-minute close for a 1-hour bar
+            opening at a 09:30 ET session open (the session's partial first
+            bar), not a full hour later.
+          - Daily: the bar's open (per `_DAILY_BAR_TIMESTAMP_CONVENTION`) is
+            midnight UTC of the trading date, but its close is that
+            session's real close time (16:00 ET, or an early-close time) —
+            `open_epoch + 86400` would instead land near midnight UTC of
+            the FOLLOWING day, many hours after the session (and its
+            publication grace) has already elapsed.
+        """
+        tf_sec = timeframe_seconds(timeframe)
+        if tf_sec is None:
+            return None
+        if tf_sec >= 86400:
+            d = datetime.fromtimestamp(open_epoch, tz=timezone.utc).date()
+            if self._daily_bar_open_epoch(d) != open_epoch:
+                return None
+            session = self._fresh_session(d, cutoff.epoch)
+            if session is None:
+                return None
+            return session.close_epoch
+        d = self._et_date(open_epoch)
+        session = self._fresh_session(d, cutoff.epoch)
+        if session is None:
+            return None
+        return _bar_close_epoch_in_session(
+            open_epoch, session.open_epoch, session.close_epoch, tf_sec
         )
 
     def is_valid_session_gap(
