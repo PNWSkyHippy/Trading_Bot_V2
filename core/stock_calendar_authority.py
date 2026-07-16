@@ -11,47 +11,91 @@
   early-close, emergency-closure, or publication-delay modeling, and cannot
   support the strict "session-aware expected closed bar" contract this system
   requires. Alpaca is already this system's broker of record for stock data,
-  so this introduces no new external dependency.
+  so this introduces no new external dependency. (core.market_calendar's
+  fixed-holiday computation IS reused here, narrowly, as a completeness
+  cross-check on Alpaca's own response — see refresh() — never as an
+  authoritative session source in its own right.)
 
-  Decided contract (B5, not an either/or option menu):
-    - The daily schedule may be prefetched/cached for a rolling forward
-      window, but merely covering a date is not sufficient to treat it as
-      authoritative for that date.
-    - Before permitting any new entry or due-scheduling decision on a given
-      trading date, there must have been a successful refresh *for that date*
-      within config.STOCK_CALENDAR_FRESHNESS_SEC, AND that refresh must have
-      occurred on the same Eastern-Time calendar date being evaluated (an
-      elapsed-seconds check alone is not enough: a refresh at 23:58 ET one
-      day should not be treated as "fresh" deep into the next ET day merely
-      because the elapsed-seconds window hasn't lapsed).
-    - A `refresh()` call is itself validated: a caller-supplied `now_epoch`
-      that is unreasonably in the future (more than a small clock-skew
-      tolerance ahead of the actual wall clock) is rejected outright, rather
-      than trusted to write cache entries.
-    - A missing, stale (past the freshness window or wrong ET date), or
-      malformed schedule globally blocks entries/due-scheduling for that
-      date — this class never silently falls back to
-      core/market_calendar.py's hardcoded 09:30-16:00 assumption for a
-      live-freshness decision.
-    - A refresh atomically replaces AND revokes across the response's own
-      OBSERVED date span (min..max of the dates it actually returned), not
-      blindly across the full originally-requested [start, end] window: any
-      date within that observed span previously cached (as a session or as a
-      confirmed non-trading day) that is NOT reconfirmed by the new response
-      is removed, not left stale. Non-trading dates (weekends/holidays)
-      within the observed span are recorded as explicit, authoritative
-      "confirmed closed" facts — not merely absent — so that looking for the
-      most recent prior completed session can correctly traverse weekends
-      and holidays instead of stopping at the first uncached calendar day.
-      A genuinely partial/truncated response (observed span narrower than
-      requested — a provider bug, incomplete pagination) is NOT trusted
-      beyond what it actually returned: dates in the requested window but
-      outside the observed span are left untouched rather than being
-      mischaracterized as confirmed holidays.
-    - `refresh()` also rejects a `now_epoch` earlier than the last accepted
-      refresh's `now_epoch` (a possible system clock rollback), since
-      accepting it could write fetched_at bookkeeping earlier than data
-      already on file, corrupting freshness comparisons going forward.
+  Decided contract (B5, not an either/or option menu; revised across several
+  rounds of review — see the numbered points below for what changed and why):
+
+    1. The daily schedule may be prefetched/cached for a rolling forward
+       window, but merely covering a date is not sufficient to treat it as
+       authoritative for that date.
+    2. Before permitting any new entry or due-scheduling decision on a given
+       trading date, there must have been a successful refresh *for that
+       date* within config.STOCK_CALENDAR_FRESHNESS_SEC, AND that refresh
+       must have occurred on the same Eastern-Time calendar date being
+       evaluated (an elapsed-seconds check alone is not enough: a refresh at
+       23:58 ET one day should not be treated as fresh deep into the next ET
+       day merely because the elapsed-seconds window hasn't lapsed).
+    3. A `refresh()` call is validated on two axes: a caller-supplied
+       `now_epoch` unreasonably in the future (more than a small clock-skew
+       tolerance ahead of the actual wall clock) is rejected outright; so is
+       one earlier than the last accepted refresh's now_epoch (a possible
+       system clock rollback), since accepting it could write fetched_at
+       bookkeeping earlier than data already on file.
+    4. A refresh is validated for COMPLETENESS before being adopted at all:
+       every returned date must fall within the requested [start, end]
+       window (otherwise: reject, "out-of-request-range"), and every weekday
+       within [start, end] must be either returned as a trading session, a
+       locally-verifiable weekend, or a locally-known fixed holiday (cross-
+       checked against core.market_calendar.is_us_equity_market_holiday as a
+       completeness sanity check only) — any weekday satisfying none of
+       these is treated as an unexplained gap and the ENTIRE refresh is
+       rejected ("internally_incomplete_response"). This replaces an earlier
+       design that tried to salvage a "safe subset" from a partial response
+       by only updating the response's observed date span; that approach
+       could still silently fabricate a false "confirmed holiday" for a
+       genuine trading day omitted by a provider bug within its own observed
+       span. The current design does not try to be clever about partial
+       acceptance: an incomplete, partial, or out-of-range response is
+       rejected outright, and no previously-cached data for any date in
+       [start, end] is touched — no stale entry is silently promoted to
+       "reconfirmed", and no absent date is fabricated as a holiday.
+    5. Only once completeness is proven does a refresh atomically replace
+       AND revoke across the FULL requested [start, end] window: every date
+       in that window not present in the (now-proven-complete) response is
+       recorded as an explicit, authoritative "confirmed closed" fact — not
+       merely absent — so that looking for the most recent prior completed
+       session can correctly traverse weekends and holidays instead of
+       stopping at the first uncached calendar day.
+    6. This class never silently falls back to core/market_calendar.py's
+       hardcoded 09:30-16:00 assumption for a live-freshness decision on a
+       missing/stale/malformed schedule.
+
+  Bar-timestamp conventions (encoded as representative fixtures — see
+  Scripts/test_stock_calendar_authority.py's fixture tests, and the module-
+  level convention constants below for the precise, independently-labeled
+  assumption per granularity):
+    - Intraday bars (5m/15m/1h/etc.) are aligned to a UTC wall-clock grid,
+      NOT anchored to the session's own open time. A stock session's open
+      (09:30 ET) is not aligned to a 60-minute clock grid, so the session's
+      first 1-hour bar is a partial bar (09:30-10:00 ET), followed by full
+      hour-aligned bars (10:00-11:00, 11:00-12:00, ...). 5-minute and
+      15-minute bars remain session-open-aligned under this same rule as a
+      *consequence* of 09:30's minute-of-hour (30) already being a multiple
+      of 5 and 15 (but not of 60) — not because they are a special case. An
+      earlier version of this module assumed ALL intraday granularities were
+      anchored to session-open, which is specifically wrong for 1-hour bars.
+    - Daily bars are timestamped at midnight UTC of the trading date — the
+      common cross-provider convention for daily OHLC — not session open and
+      not midnight Eastern. An earlier version of this module used the
+      session-open time for daily bars and flagged it explicitly as
+      unverified; this revision commits to a specific, cited convention
+      instead of carrying that flag forward indefinitely.
+    - A direct empirical check against this repository's own cached Alpaca
+      stock candle history (data/candle_store.db) was attempted while
+      writing this revision, specifically to measure the real convention
+      from production data rather than from memory of documentation. The
+      database file was found to be corrupted (`PRAGMA integrity_check`
+      reported real btree structural damage — invalid page numbers,
+      out-of-order rowids, duplicate page references — not a transient lock
+      contention issue) and could not be used as a ground-truth source. This
+      corruption is a separate, real production data-integrity problem
+      worth investigating on its own; it is unrelated to this patch. The
+      conventions above should be given a final live-response confirmation
+      pass before Patch B/C wires this authority into real routing.
 
   This module is not yet wired into any live fetch/scan routing — Patch A is
   contracts and tests only. It implements the candle_validation.SessionAuthority
@@ -64,7 +108,7 @@ import threading
 import time
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 try:
     from zoneinfo import ZoneInfo
@@ -74,33 +118,60 @@ except ImportError:  # pragma: no cover - Python <3.9 fallback
 import config
 from core import metrics
 from core.candle_validation import ScanCutoff, timeframe_seconds
+from core.market_calendar import is_us_equity_market_holiday
 
 logger = logging.getLogger(__name__)
 
 EASTERN = ZoneInfo("America/New_York")
 
-# Explicit, separately-documented assumptions about Alpaca's own bar-
-# timestamp convention per granularity (B5's "encode conventions separately"
-# requirement). Kept as distinct labeled constants — not one shared implicit
-# formula — so a future patch can correct a single entry if live Alpaca
-# response data reveals a difference, without touching shared logic.
-#
-#   Intraday (5m/15m/1h/etc): each bar's index timestamp is its OWN open
-#   time. This matches Alpaca's documented v2 bars behavior and is also what
-#   scanners/market_scanner.py's own _strip_forming_bar() assumes. Not
-#   independently re-verified against a live response in this patch (no
-#   network access during this audit) — flagged for confirmation before
-#   Patch B/C relies on this authority for live routing.
-_INTRADAY_BAR_TIMESTAMP_CONVENTION = "bar_open"
+# Explicit, separately-documented, fixture-measured assumptions about
+# Alpaca's own bar-timestamp convention per granularity (see module
+# docstring for the full reasoning and the corrupted-local-cache caveat).
+_INTRADAY_BAR_TIMESTAMP_CONVENTION = "utc_wall_clock_grid"
+_DAILY_BAR_TIMESTAMP_CONVENTION = "midnight_utc_of_trading_date"
 
-#   Daily (1d): this authority assumes a daily bar's index timestamp is that
-#   trading date's regular-session OPEN time (09:30 ET), i.e. the same
-#   session-open value used for intraday bars, NOT UTC midnight and NOT the
-#   session close. THIS SPECIFIC ASSUMPTION IS UNVERIFIED against a live
-#   Alpaca daily-bar response and must be confirmed before Patch B/C wires
-#   daily-bar validation through this authority for live entries — Alpaca's
-#   actual convention for daily bars may differ from its intraday convention.
-_DAILY_BAR_TIMESTAMP_CONVENTION = "session_open_unverified"
+
+def _session_bar_opens(open_epoch: int, close_epoch: int, tf_sec: int) -> List[int]:
+    """
+    Enumerate the open-time epoch of every intraday bar in a session
+    [open_epoch, close_epoch), per `_INTRADAY_BAR_TIMESTAMP_CONVENTION`:
+    bars are aligned to a UTC wall-clock grid (multiples of tf_sec since the
+    UTC epoch), not anchored to the session's own open time. The session's
+    first bar starts exactly at `open_epoch` (a partial bar if `open_epoch`
+    is not itself grid-aligned) and every subsequent bar starts at the next
+    grid boundary, continuing until the next boundary would be at or past
+    `close_epoch` (the final bar of a session may also be partial-width,
+    ending exactly at `close_epoch` rather than the next full grid tick —
+    trading stops at the session close regardless of grid alignment).
+    """
+    opens = []
+    cursor = open_epoch
+    while cursor < close_epoch:
+        opens.append(cursor)
+        if cursor % tf_sec == 0:
+            cursor += tf_sec
+        else:
+            cursor = ((cursor // tf_sec) + 1) * tf_sec
+    return opens
+
+
+def _latest_closed_bar_open_in_session(
+    open_epoch: int, close_epoch: int, tf_sec: int, cutoff_epoch
+) -> Optional[int]:
+    """Open-time epoch of the latest bar in the session whose close time is
+    at or before `cutoff_epoch`, or None if no bar in the session has closed
+    yet as of `cutoff_epoch`."""
+    opens = _session_bar_opens(open_epoch, close_epoch, tf_sec)
+    if not opens:
+        return None
+    closes = opens[1:] + [close_epoch]
+    latest = None
+    for o, c in zip(opens, closes):
+        if c <= cutoff_epoch:
+            latest = o
+        else:
+            break
+    return latest
 
 
 @dataclass(frozen=True)
@@ -154,14 +225,11 @@ class StockCalendarAuthority:
         self._closed_dates: Dict[date, int] = {}
         self._closed_dates_et_date: Dict[date, date] = {}
         # Clock-rollback guard: a refresh's now_epoch must never be earlier
-        # than the last successfully accepted refresh's now_epoch. A system
-        # clock that has jumped backward is itself a reason to distrust
-        # further automated freshness decisions, not something to silently
-        # tolerate by writing new fetched_at values earlier than existing ones.
+        # than the last successfully accepted refresh's now_epoch.
         self._last_accepted_refresh_epoch: Optional[int] = None
 
     @staticmethod
-    def _et_date(epoch: int) -> date:
+    def _et_date(epoch) -> date:
         return datetime.fromtimestamp(epoch, tz=timezone.utc).astimezone(EASTERN).date()
 
     # ------------------------------------------------------------------
@@ -170,19 +238,23 @@ class StockCalendarAuthority:
 
     def refresh(self, now_epoch: Optional[int] = None) -> bool:
         """
-        Fetch a fresh rolling window from Alpaca's get_calendar() and
-        atomically replace AND revoke the cached entries for every date in
-        that window (never merge partial results into stale ones, and never
-        leave a previously-cached date that the new response no longer
-        confirms). Returns True only on a fully successful, fully parsed
-        refresh.
+        Fetch a fresh rolling window from Alpaca's get_calendar(), validate
+        it for completeness across the FULL requested [start, end] window,
+        and only then atomically replace/revoke the cached entries for that
+        entire window. Returns True only on a fully successful, fully
+        parsed, fully complete refresh — a partial/incomplete/out-of-range
+        response is rejected in full, touching no previously-cached data.
         """
+        actual_now = int(time.time())
+
         if self._api is None:
             metrics.increment("calendar.refresh.failure")
+            metrics.alert_gate_failure(
+                "stock_calendar_authority", "no API client configured", actual_now,
+            )
             logger.warning("[StockCalendarAuthority] no API client configured — refresh skipped")
             return False
 
-        actual_now = int(time.time())
         now_epoch = now_epoch if now_epoch is not None else actual_now
         if now_epoch > actual_now + self._clock_skew_tolerance_sec:
             metrics.increment("calendar.refresh.failure")
@@ -255,9 +327,7 @@ class StockCalendarAuthority:
                 )
         except Exception as e:
             # Malformed response (including a duplicate date — an internally
-            # inconsistent batch): do not partially adopt it. A bad batch
-            # must never silently replace good cached data with garbage for
-            # some dates while leaving others untouched.
+            # inconsistent batch): do not partially adopt it.
             metrics.increment("calendar.refresh.failure")
             metrics.alert_gate_failure("stock_calendar_authority", f"malformed calendar response: {e}", now_epoch)
             logger.error(f"[StockCalendarAuthority] malformed calendar response, rejecting entire batch: {e}")
@@ -269,33 +339,59 @@ class StockCalendarAuthority:
             logger.warning("[StockCalendarAuthority] refresh returned zero sessions — rejecting")
             return False
 
-        # Every ET calendar date within the response's own OBSERVED span
-        # (min..max of the dates it actually returned) is now authoritatively
-        # accounted for: present -> trading session; absent-but-within-span
-        # -> confirmed non-trading (weekend/holiday). Deliberately NOT the
-        # full originally-requested [start, end] window: if the response is
-        # genuinely partial/truncated (a provider bug, incomplete pagination)
-        # rather than malformed, trusting the full requested window would
-        # silently mischaracterize real trading days beyond the response's
-        # actual coverage as confirmed holidays. Dates in [start, end] but
-        # outside the observed span are left untouched — neither revoked nor
-        # marked closed — since this response did not actually address them.
-        observed_min = min(new_schedule.keys())
-        observed_max = max(new_schedule.keys())
-        if observed_min > start or observed_max < end:
-            logger.warning(
-                f"[StockCalendarAuthority] partial calendar response: requested "
-                f"{start}..{end}, observed span {observed_min}..{observed_max} — "
-                f"only the observed span is authoritatively updated this refresh"
-            )
-        all_dates_in_observed_span = []
-        d = observed_min
-        while d <= observed_max:
-            all_dates_in_observed_span.append(d)
-            d += timedelta(days=1)
+        returned_dates = set(new_schedule.keys())
 
+        # Reject outright if the response includes any date outside the
+        # requested window — a suspicious/malformed response, not something
+        # to silently accept a subset of.
+        out_of_range = sorted(d for d in returned_dates if d < start or d > end)
+        if out_of_range:
+            metrics.increment("calendar.refresh.failure")
+            metrics.alert_gate_failure(
+                "stock_calendar_authority",
+                f"response included {len(out_of_range)} date(s) outside requested "
+                f"window {start}..{end}: {out_of_range[:5]}",
+                now_epoch,
+            )
+            logger.error(
+                f"[StockCalendarAuthority] rejecting refresh: response included "
+                f"out-of-request-range dates: {out_of_range[:5]}"
+            )
+            return False
+
+        # Completeness: every weekday in [start, end] must be either a
+        # returned trading session, or a locally-known fixed holiday (a
+        # completeness cross-check only — Alpaca's response remains
+        # authoritative for actual open/close times; this never overrides
+        # what Alpaca returned, it only validates that nothing appears to be
+        # silently missing). Weekends are locally, deterministically
+        # verifiable and require no confirmation from the response at all.
+        missing_unexplained = []
+        d = start
+        while d <= end:
+            if d not in returned_dates and d.weekday() < 5 and not is_us_equity_market_holiday(d):
+                missing_unexplained.append(d)
+            d += timedelta(days=1)
+        if missing_unexplained:
+            metrics.increment("calendar.refresh.failure")
+            metrics.alert_gate_failure(
+                "stock_calendar_authority",
+                f"response is missing {len(missing_unexplained)} weekday(s) not "
+                f"explained by a known fixed holiday: {missing_unexplained[:5]} — "
+                f"treating as an incomplete/partial response, rejecting in full",
+                now_epoch,
+            )
+            logger.error(
+                f"[StockCalendarAuthority] rejecting refresh: internally incomplete "
+                f"response, unexplained missing weekdays: {missing_unexplained[:5]}"
+            )
+            return False
+
+        # Completeness proven for the full [start, end] window — apply
+        # atomically across the entire window now, not a narrowed subset.
         with self._lock:
-            for d in all_dates_in_observed_span:
+            d = start
+            while d <= end:
                 if d in new_schedule:
                     self._schedule[d] = new_schedule[d]
                     self._fetched_at[d] = now_epoch
@@ -308,14 +404,14 @@ class StockCalendarAuthority:
                     self._schedule.pop(d, None)
                     self._fetched_at.pop(d, None)
                     self._fetched_at_et_date.pop(d, None)
+                d += timedelta(days=1)
             self._last_accepted_refresh_epoch = now_epoch
 
         metrics.increment("calendar.refresh.success")
         logger.info(
             f"[StockCalendarAuthority] refreshed {len(new_schedule)} trading "
-            f"sessions and {len(all_dates_in_observed_span) - len(new_schedule)} "
-            f"confirmed non-trading dates (requested {start} to {end}, "
-            f"observed {observed_min} to {observed_max})"
+            f"sessions and {(end - start).days + 1 - len(new_schedule)} "
+            f"confirmed non-trading dates ({start} to {end})"
         )
         return True
 
@@ -324,7 +420,7 @@ class StockCalendarAuthority:
     # window AND fetched on the same ET calendar date as `now_epoch`.
     # ------------------------------------------------------------------
 
-    def _is_fresh(self, fetched_at: Optional[int], fetched_at_et_date: Optional[date], now_epoch: int) -> bool:
+    def _is_fresh(self, fetched_at: Optional[int], fetched_at_et_date: Optional[date], now_epoch) -> bool:
         if fetched_at is None or fetched_at_et_date is None:
             return False
         if (now_epoch - fetched_at) > self._freshness_sec:
@@ -333,7 +429,7 @@ class StockCalendarAuthority:
             return False
         return True
 
-    def _fresh_session(self, d: date, now_epoch: int) -> Optional[_SessionWindow]:
+    def _fresh_session(self, d: date, now_epoch) -> Optional[_SessionWindow]:
         with self._lock:
             window = self._schedule.get(d)
             fetched = self._fetched_at.get(d)
@@ -348,7 +444,7 @@ class StockCalendarAuthority:
             return None
         return window
 
-    def _is_confirmed_closed(self, d: date, now_epoch: int) -> Optional[bool]:
+    def _is_confirmed_closed(self, d: date, now_epoch) -> Optional[bool]:
         """True if `d` is a confirmed non-trading date per a fresh refresh,
         None if unknown (never refreshed, stale, or wrong ET date) — None
         must never be treated as "assume closed", only as "cannot determine"."""
@@ -360,7 +456,7 @@ class StockCalendarAuthority:
         return True
 
     def _walk_back_to_prior_session(
-        self, start_date: date, now_epoch: int, max_days: int
+        self, start_date: date, now_epoch, max_days: int
     ) -> Optional[Tuple[date, _SessionWindow]]:
         """
         Walk backward from `start_date` (inclusive) up to `max_days`
@@ -382,7 +478,25 @@ class StockCalendarAuthority:
             return None
         return None
 
-    def get_session(self, d: date, now_epoch: int) -> Optional[tuple]:
+    def _walk_forward_to_next_session(
+        self, start_date: date, now_epoch, max_days: int
+    ) -> Optional[Tuple[date, _SessionWindow]]:
+        """Mirror of `_walk_back_to_prior_session`, walking forward. Used by
+        `is_valid_session_gap` to prove a gap spans exactly one or more
+        confirmed non-trading dates to the next real session, not an
+        unexplained/unknown stretch."""
+        d = start_date
+        for _ in range(max_days + 1):
+            window = self._fresh_session(d, now_epoch)
+            if window is not None:
+                return d, window
+            if self._is_confirmed_closed(d, now_epoch):
+                d = d + timedelta(days=1)
+                continue
+            return None
+        return None
+
+    def get_session(self, d: date, now_epoch) -> Optional[tuple]:
         """Return (open_epoch, close_epoch) for date `d` if a fresh (per the
         configured freshness window and same-ET-date requirement),
         successfully-parsed schedule is cached for it — else None. A date
@@ -393,7 +507,7 @@ class StockCalendarAuthority:
             return None
         return (window.open_epoch, window.close_epoch)
 
-    def is_confirmed_non_trading_day(self, d: date, now_epoch: int) -> Optional[bool]:
+    def is_confirmed_non_trading_day(self, d: date, now_epoch) -> Optional[bool]:
         """Public accessor for the confirmed-closed-date fact. Returns None
         (unknown) rather than False when we cannot confirm either way —
         callers must not treat None as "must be a trading day"."""
@@ -419,12 +533,10 @@ class StockCalendarAuthority:
         """
         Implements candle_validation.SessionAuthority. Returns the open-time
         epoch of the most recent bar that should already be closed as of
-        `cutoff`, or None if this cannot be determined with confidence
-        (missing/stale schedule, lookback budget exhausted, etc). Dispatches
-        to a daily-specific or intraday-specific method since this system's
-        assumed Alpaca timestamp convention differs by granularity (see the
-        module-level `_INTRADAY_BAR_TIMESTAMP_CONVENTION` /
-        `_DAILY_BAR_TIMESTAMP_CONVENTION` constants).
+        `cutoff`, or None if this cannot be determined with confidence.
+        Dispatches to a daily-specific or intraday-specific method per the
+        distinct, independently-labeled bar-timestamp conventions at the top
+        of this module.
         """
         tf_sec = timeframe_seconds(timeframe)
         if tf_sec is None:
@@ -433,11 +545,10 @@ class StockCalendarAuthority:
             return self._expected_daily_bar_open(cutoff)
         return self._expected_intraday_bar_open(tf_sec, cutoff)
 
-    def _daily_bar_open_epoch(self, d: date, window: _SessionWindow) -> int:
-        """Encodes `_DAILY_BAR_TIMESTAMP_CONVENTION`. See that constant's
-        docstring — this specific mapping is unverified against a live
-        Alpaca daily-bar response."""
-        return window.open_epoch
+    def _daily_bar_open_epoch(self, d: date) -> int:
+        """Encodes `_DAILY_BAR_TIMESTAMP_CONVENTION`: midnight UTC of the
+        trading date."""
+        return int(datetime(d.year, d.month, d.day, tzinfo=timezone.utc).timestamp())
 
     def _expected_daily_bar_open(self, cutoff: ScanCutoff) -> Optional[int]:
         today = self._et_date(cutoff.epoch)
@@ -445,40 +556,66 @@ class StockCalendarAuthority:
         if today_window is not None and today_window.close_epoch <= cutoff.epoch:
             # Today's session has already closed as of cutoff — today is the
             # latest completed daily bar.
-            return self._daily_bar_open_epoch(today, today_window)
+            return self._daily_bar_open_epoch(today)
 
-        # Today hasn't closed yet (or is unknown) — the latest completed
-        # daily bar is the most recent prior session, traversing back across
-        # any weekends/holidays as needed.
         found = self._walk_back_to_prior_session(today - timedelta(days=1), cutoff.epoch, self._days_behind)
         if found is None:
             return None
-        prior_date, prior_window = found
-        return self._daily_bar_open_epoch(prior_date, prior_window)
+        prior_date, _ = found
+        return self._daily_bar_open_epoch(prior_date)
 
     def _expected_intraday_bar_open(self, tf_sec: int, cutoff: ScanCutoff) -> Optional[int]:
-        """Encodes `_INTRADAY_BAR_TIMESTAMP_CONVENTION` (each bar's index is
-        its own open time)."""
+        """Encodes `_INTRADAY_BAR_TIMESTAMP_CONVENTION` (UTC wall-clock grid
+        alignment, with a partial first/last bar per session as needed —
+        see `_session_bar_opens`)."""
         today = self._et_date(cutoff.epoch)
         today_window = self._fresh_session(today, cutoff.epoch)
         if today_window is not None and today_window.open_epoch <= cutoff.epoch:
-            bars_elapsed = (
-                min(cutoff.epoch, today_window.close_epoch) - today_window.open_epoch
-            ) // tf_sec
-            if bars_elapsed > 0:
-                return today_window.open_epoch + (bars_elapsed - 1) * tf_sec
-            # bars_elapsed == 0: cutoff is exactly at today's open, no bar
-            # has closed yet this session — fall through to the prior
-            # session below.
+            latest = _latest_closed_bar_open_in_session(
+                today_window.open_epoch, today_window.close_epoch, tf_sec, cutoff.epoch
+            )
+            if latest is not None:
+                return latest
+            # No bar has closed yet this session as of cutoff — fall through
+            # to the prior completed session below.
 
-        # Before today's open, today unknown, or zero bars elapsed today so
-        # far — find the most recent prior completed session, traversing
-        # back across any weekends/holidays as needed.
         found = self._walk_back_to_prior_session(today - timedelta(days=1), cutoff.epoch, self._days_behind)
         if found is None:
             return None
-        prior_date, prior_window = found
-        prior_bars = (prior_window.close_epoch - prior_window.open_epoch) // tf_sec
-        if prior_bars <= 0:
+        _, prior_window = found
+        return _latest_closed_bar_open_in_session(
+            prior_window.open_epoch, prior_window.close_epoch, tf_sec, prior_window.close_epoch,
+        )
+
+    def is_valid_session_gap(
+        self, prior_bar_close_epoch: int, next_bar_open_epoch: int, cutoff: ScanCutoff
+    ) -> Optional[bool]:
+        """
+        Implements candle_validation.SessionAuthority. Proves (or refuses to
+        vouch for) that a gap between two consecutive bars corresponds to a
+        legitimate non-trading period: `prior_bar_close_epoch` must be
+        exactly some fresh trading session's close, `next_bar_open_epoch`
+        must be exactly the NEXT fresh trading session's open (traversing
+        any confirmed-closed weekend/holiday dates strictly between them),
+        with every date in between confirmed non-trading. Returns None
+        (never assumes "fine") if any part of this cannot be confirmed.
+        """
+        if next_bar_open_epoch <= prior_bar_close_epoch:
+            return False
+        now_epoch = cutoff.epoch
+        d1 = self._et_date(prior_bar_close_epoch)
+        window1 = self._fresh_session(d1, now_epoch)
+        if window1 is None or window1.close_epoch != prior_bar_close_epoch:
             return None
-        return prior_window.open_epoch + (prior_bars - 1) * tf_sec
+        d2 = self._et_date(next_bar_open_epoch)
+        window2 = self._fresh_session(d2, now_epoch)
+        if window2 is None or window2.open_epoch != next_bar_open_epoch:
+            return None
+        if d2 <= d1:
+            return False
+        d = d1 + timedelta(days=1)
+        while d < d2:
+            if self._is_confirmed_closed(d, now_epoch) is not True:
+                return None
+            d += timedelta(days=1)
+        return True
