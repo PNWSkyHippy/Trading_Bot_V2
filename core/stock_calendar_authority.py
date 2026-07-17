@@ -77,38 +77,95 @@
        hardcoded 09:30-16:00 assumption for a live-freshness decision on a
        missing/stale/malformed schedule.
 
-  Bar-timestamp conventions (encoded as representative fixtures — see
-  Scripts/test_stock_calendar_authority.py's fixture tests, and the module-
-  level convention constants below for the precise, independently-labeled
-  assumption per granularity):
-    - Intraday bars (5m/15m/1h/etc.) are aligned to a UTC wall-clock grid,
-      NOT anchored to the session's own open time. A stock session's open
-      (09:30 ET) is not aligned to a 60-minute clock grid, so the session's
-      first 1-hour bar is a partial bar (09:30-10:00 ET), followed by full
-      hour-aligned bars (10:00-11:00, 11:00-12:00, ...). 5-minute and
-      15-minute bars remain session-open-aligned under this same rule as a
-      *consequence* of 09:30's minute-of-hour (30) already being a multiple
-      of 5 and 15 (but not of 60) — not because they are a special case. An
-      earlier version of this module assumed ALL intraday granularities were
-      anchored to session-open, which is specifically wrong for 1-hour bars.
-    - Daily bars are timestamped at midnight UTC of the trading date — the
-      common cross-provider convention for daily OHLC — not session open and
-      not midnight Eastern. An earlier version of this module used the
-      session-open time for daily bars and flagged it explicitly as
-      unverified; this revision commits to a specific, cited convention
-      instead of carrying that flag forward indefinitely.
-    - A direct empirical check against this repository's own cached Alpaca
-      stock candle history (data/candle_store.db) was attempted while
-      writing this revision, specifically to measure the real convention
-      from production data rather than from memory of documentation. The
-      database file was found to be corrupted (`PRAGMA integrity_check`
-      reported real btree structural damage — invalid page numbers,
-      out-of-order rowids, duplicate page references — not a transient lock
-      contention issue) and could not be used as a ground-truth source. This
-      corruption is a separate, real production data-integrity problem
-      worth investigating on its own; it is unrelated to this patch. The
-      conventions above should be given a final live-response confirmation
-      pass before Patch B/C wires this authority into real routing.
+  Bar-timestamp conventions — CORRECTED against live, read-only production
+  Alpaca API responses observed 2026-07-16 (AAPL, 1Hour and 1Day), after an
+  earlier revision's conventions turned out to be invented/wrong:
+    - Observed: 1Hour AAPL bars were timestamped on UTC hour boundaries from
+      08:00 through 23:00 UTC — a 15-HOUR window, not the ~6.5-hour regular
+      09:30-16:00 ET session. This is EXTENDED-HOURS data (pre-market
+      through after-hours), consistent with this codebase's actual
+      `get_bars()` call sites (`scanners/market_scanner.py`,
+      `core/candle_manager.py`, `dashboard.py`, `web_dashboard.py`), none of
+      which pass a `feed`, `start`/`end`, or any extended-hours-exclusion
+      parameter — `alpaca_trade_api`'s `get_bars()` has no such parameter at
+      all; any regular-session-only filtering in this codebase happens
+      LATER, in three specific strategy files
+      (`strategies/orb_breakout.py`, `strategies/vwap_confirmed_orb.py`,
+      `strategies/sfr_structural_fakeout.py`), each via its own
+      `df.between_time("09:30", "16:00")` call — never centrally in the
+      scanner/candle-manager/candle-store layer. An earlier revision of
+      this module invented a "partial-first-bar at regular session open"
+      convention that does not match what Alpaca actually returns.
+    - Observed: 1Day AAPL bars were timestamped at midnight
+      America/New_York (i.e. 04:00 UTC during EDT), NOT midnight UTC. An
+      earlier revision of this module asserted midnight UTC as "the common
+      cross-provider convention" without live confirmation; that assertion
+      was wrong and has been corrected below (`_daily_bar_open_epoch` now
+      uses `EASTERN`, not `timezone.utc`).
+
+  DECISION (must be made explicit here, not silently absorbed into Patch B's
+  fetch/routing code, since it changes what data non-filtering strategy
+  consumers actually see): this authority's session model (open/close from
+  Alpaca's `get_calendar()`, which only ever describes the REGULAR
+  09:30-16:00-style session) continues to describe the REGULAR session, not
+  the extended-hours window — Alpaca's calendar endpoint has no equivalent
+  authoritative source for extended-hours bounds, and hardcoding one (e.g.
+  "always 08:00-23:00 UTC") would reintroduce exactly the kind of
+  unverified, provider-behavior-dependent assumption this whole class exists
+  to replace. Patch B/C is therefore committed to option **(B): explicitly
+  filter/resample fetched bars down to canonical regular-session bars BEFORE
+  they reach validate_closed_candles()/this authority** — mirroring the same
+  `between_time("09:30", "16:00")` trim the three strategies above already
+  perform themselves, but applied centrally at the fetch boundary instead of
+  ad hoc per-strategy. This is a real, consequential behavior change for
+  every OTHER current consumer of unfiltered bars (`condition_detector.py`,
+  `claude_reviewer.py`, `chat_interface.py`, `position_monitor.py`'s exit
+  logic, `trade_executor.py`'s stop recompute) — those currently see
+  whatever Alpaca returns, extended-hours rows included, and will not once
+  Patch B/C wires in this filter. Ron must explicitly confirm this decision
+  before Patch B begins; it is documented here rather than silently
+  implemented specifically so that confirmation can happen first. The three
+  strategies that already filter themselves are unaffected either way
+  (their own filter becomes redundant, not wrong).
+
+  REMAINING UNVERIFIED ASSUMPTION (do not confuse with the two CONFIRMED
+  corrections above): this module's `_session_bar_opens`/
+  `_bar_close_epoch_in_session` still model a session's first intraday bar
+  as a PARTIAL bar anchored to the session's own open time (e.g. a 30-minute
+  09:30-10:00 ET bar for 1-hour granularity) whenever that open time isn't
+  itself grid-aligned. The live 2026-07-16 observation above is consistent
+  with this being WRONG for 1-hour bars: it describes bars on plain UTC HOUR
+  BOUNDARIES across the entire 08:00-23:00 UTC extended-hours window, with
+  no partial bar called out anywhere — including at 09:30 ET (13:30 UTC
+  during EDT / 14:30 UTC during EST), which is not a whole-hour boundary and
+  would have to be a partial bar under this module's current model. The
+  live check only confirmed the outer WINDOW bounds and the whole-hour grid
+  alignment, not whether a session-open-anchored partial bar exists inside
+  it; a live REGULAR-session-filtered response has not yet been checked.
+  This module deliberately does NOT rip out the partial-bar mechanism this
+  round (that would be a structural model change, and Patch A's charter is
+  a bug-fix/fixture-correction revision, not a redesign) — it flags this
+  honestly instead of silently continuing to assert it as confirmed. Treat
+  `_session_bar_opens`'s partial-first-bar behavior as a documented,
+  UNVERIFIED assumption pending a live regular-session-filtered check,
+  exactly like the daily convention was flagged before it was verified this
+  round — see Scripts/test_stock_calendar_authority.py's fixture tests,
+  which are now built from the ACTUAL observed raw shape (whole-UTC-hour,
+  extended-hours, no partials) rather than this module's own invented
+  session-anchored assumption, specifically so the discrepancy stays
+  visible instead of the test suite validating its own guess.
+
+  A direct empirical check against this repository's own cached Alpaca stock
+  candle history (data/candle_store.db) was ALSO attempted in an earlier
+  revision, specifically to measure the real convention from production data
+  rather than from memory of documentation. The database file was found to
+  be corrupted (`PRAGMA integrity_check` reported real btree structural
+  damage — invalid page numbers, out-of-order rowids, duplicate page
+  references — not a transient lock contention issue) and could not be used
+  as a ground-truth source; the live-response check above was the fallback
+  and is what these conventions are now actually based on. The corruption is
+  a separate, real production data-integrity problem worth investigating on
+  its own; it is unrelated to this patch.
 
   This module is not yet wired into any live fetch/scan routing — Patch A is
   contracts and tests only. It implements the candle_validation.SessionAuthority
@@ -140,7 +197,7 @@ EASTERN = ZoneInfo("America/New_York")
 # Alpaca's own bar-timestamp convention per granularity (see module
 # docstring for the full reasoning and the corrupted-local-cache caveat).
 _INTRADAY_BAR_TIMESTAMP_CONVENTION = "utc_wall_clock_grid"
-_DAILY_BAR_TIMESTAMP_CONVENTION = "midnight_utc_of_trading_date"
+_DAILY_BAR_TIMESTAMP_CONVENTION = "midnight_america_new_york_of_trading_date"
 
 
 def _session_bar_opens(open_epoch: int, close_epoch: int, tf_sec: int) -> List[int]:
@@ -269,15 +326,36 @@ class StockCalendarAuthority:
     # Refresh
     # ------------------------------------------------------------------
 
-    def refresh(self, now_epoch: Optional[int] = None) -> bool:
+    def refresh(
+        self,
+        now_epoch: Optional[int] = None,
+        days_behind: Optional[int] = None,
+        days_ahead: Optional[int] = None,
+    ) -> bool:
         """
-        Fetch a fresh rolling window from Alpaca's get_calendar(), validate
-        it for completeness across the FULL requested [start, end] window,
-        and only then atomically replace/revoke the cached entries for that
+        Fetch a fresh window from Alpaca's get_calendar(), validate it for
+        completeness across the FULL requested [start, end] window, and
+        only then atomically replace/revoke the cached entries for that
         entire window. Returns True only on a fully successful, fully
         parsed, fully complete refresh — a partial/incomplete/out-of-range
         response is rejected in full, touching no previously-cached data.
+
+        `days_behind`/`days_ahead` default to this instance's configured
+        rolling window (`config.STOCK_CALENDAR_CACHE_DAYS_BEHIND/AHEAD`) but
+        may be overridden per call — e.g. by a caller about to validate a
+        specific candle series whose oldest bar predates the configured
+        rolling window (a 300-daily-bar lookback needs ~400+ calendar days
+        of coverage, which the default rolling window may not provide for
+        every possible request). `bar_close_epoch()`/
+        `expected_latest_closed_bar_open()` require a fresh session for
+        EVERY row being validated, so the caller is responsible for ensuring
+        the refreshed window actually spans the full date range of whatever
+        series it is about to validate — this override exists so that can
+        be done explicitly, on demand, rather than only via the fixed
+        default.
         """
+        days_behind = self._days_behind if days_behind is None else days_behind
+        days_ahead = self._days_ahead if days_ahead is None else days_ahead
         actual_now = int(time.time())
 
         if self._api is None:
@@ -323,8 +401,8 @@ class StockCalendarAuthority:
             return False
 
         today = self._et_date(now_epoch)
-        start = today - timedelta(days=self._days_behind)
-        end = today + timedelta(days=self._days_ahead)
+        start = today - timedelta(days=days_behind)
+        end = today + timedelta(days=days_ahead)
 
         try:
             raw = self._api.get_calendar(
@@ -587,34 +665,51 @@ class StockCalendarAuthority:
     # ------------------------------------------------------------------
 
     def expected_latest_closed_bar_open(
-        self, timeframe: str, cutoff: ScanCutoff
+        self, timeframe: str, cutoff: ScanCutoff, publication_grace_sec: int = 0
     ) -> Optional[int]:
         """
         Implements candle_validation.SessionAuthority. Returns the open-time
-        epoch of the most recent bar that should already be closed as of
-        `cutoff`, or None if this cannot be determined with confidence.
-        Dispatches to a daily-specific or intraday-specific method per the
-        distinct, independently-labeled bar-timestamp conventions at the top
-        of this module.
+        epoch of the most recent bar that should already be closed AND past
+        `publication_grace_sec`, as of `cutoff`, or None if this cannot be
+        determined with confidence. Dispatches to a daily-specific or
+        intraday-specific method per the distinct, independently-labeled
+        bar-timestamp conventions at the top of this module.
+
+        `publication_grace_sec` MUST match whatever grace the caller applies
+        when deciding a bar is no longer "forming" (see
+        candle_validation._validate_rows's forming-row truncation) — a
+        previous revision left this method grace-unaware, so it always
+        expected the newest (not-yet-past-grace) bar to be the "latest
+        closed" one, while the validator's own truncation correctly trimmed
+        that same bar as still forming. The two disagreed on every single
+        call made during a bar's grace window, rejecting the entire series
+        each time rather than just excluding the still-forming newest row.
+        Passing the SAME threshold both places consult (`cutoff.epoch -
+        publication_grace_sec`) keeps them in agreement.
         """
         tf_sec = timeframe_seconds(timeframe)
         if tf_sec is None:
             return None
+        threshold_epoch = cutoff.epoch - publication_grace_sec
         if tf_sec >= 86400:
-            return self._expected_daily_bar_open(cutoff)
-        return self._expected_intraday_bar_open(tf_sec, cutoff)
+            return self._expected_daily_bar_open(cutoff, threshold_epoch)
+        return self._expected_intraday_bar_open(tf_sec, cutoff, threshold_epoch)
 
     def _daily_bar_open_epoch(self, d: date) -> int:
-        """Encodes `_DAILY_BAR_TIMESTAMP_CONVENTION`: midnight UTC of the
-        trading date."""
-        return int(datetime(d.year, d.month, d.day, tzinfo=timezone.utc).timestamp())
+        """Encodes `_DAILY_BAR_TIMESTAMP_CONVENTION`: midnight
+        America/New_York of the trading date (04:00 UTC during EDT, 05:00
+        UTC during EST) — confirmed against a live AAPL 1Day response on
+        2026-07-16, NOT midnight UTC (an earlier revision's unverified
+        assumption)."""
+        return int(datetime(d.year, d.month, d.day, tzinfo=EASTERN).timestamp())
 
-    def _expected_daily_bar_open(self, cutoff: ScanCutoff) -> Optional[int]:
+    def _expected_daily_bar_open(self, cutoff: ScanCutoff, threshold_epoch: Optional[float] = None) -> Optional[int]:
+        threshold_epoch = cutoff.epoch if threshold_epoch is None else threshold_epoch
         today = self._et_date(cutoff.epoch)
         today_window = self._fresh_session(today, cutoff.epoch)
-        if today_window is not None and today_window.close_epoch <= cutoff.epoch:
-            # Today's session has already closed as of cutoff — today is the
-            # latest completed daily bar.
+        if today_window is not None and today_window.close_epoch <= threshold_epoch:
+            # Today's session has already closed (past grace) as of cutoff —
+            # today is the latest completed daily bar.
             return self._daily_bar_open_epoch(today)
 
         found = self._walk_back_to_prior_session(today - timedelta(days=1), cutoff.epoch, self._days_behind)
@@ -623,20 +718,27 @@ class StockCalendarAuthority:
         prior_date, _ = found
         return self._daily_bar_open_epoch(prior_date)
 
-    def _expected_intraday_bar_open(self, tf_sec: int, cutoff: ScanCutoff) -> Optional[int]:
+    def _expected_intraday_bar_open(
+        self, tf_sec: int, cutoff: ScanCutoff, threshold_epoch: Optional[float] = None
+    ) -> Optional[int]:
         """Encodes `_INTRADAY_BAR_TIMESTAMP_CONVENTION` (UTC wall-clock grid
         alignment, with a partial first/last bar per session as needed —
-        see `_session_bar_opens`)."""
+        see `_session_bar_opens`). `threshold_epoch` (defaults to
+        `cutoff.epoch`) is the "closed as of" comparison point — pass
+        `cutoff.epoch - publication_grace_sec` to match the validator's own
+        grace-aware forming-row truncation; `cutoff.epoch` itself is still
+        used for session/ET-date lookups, which are not grace-sensitive."""
+        threshold_epoch = cutoff.epoch if threshold_epoch is None else threshold_epoch
         today = self._et_date(cutoff.epoch)
         today_window = self._fresh_session(today, cutoff.epoch)
         if today_window is not None and today_window.open_epoch <= cutoff.epoch:
             latest = _latest_closed_bar_open_in_session(
-                today_window.open_epoch, today_window.close_epoch, tf_sec, cutoff.epoch
+                today_window.open_epoch, today_window.close_epoch, tf_sec, threshold_epoch
             )
             if latest is not None:
                 return latest
-            # No bar has closed yet this session as of cutoff — fall through
-            # to the prior completed session below.
+            # No bar has closed (past grace) yet this session as of cutoff —
+            # fall through to the prior completed session below.
 
         found = self._walk_back_to_prior_session(today - timedelta(days=1), cutoff.epoch, self._days_behind)
         if found is None:
@@ -662,17 +764,17 @@ class StockCalendarAuthority:
             opening at a 09:30 ET session open (the session's partial first
             bar), not a full hour later.
           - Daily: the bar's open (per `_DAILY_BAR_TIMESTAMP_CONVENTION`) is
-            midnight UTC of the trading date, but its close is that
-            session's real close time (16:00 ET, or an early-close time) —
-            `open_epoch + 86400` would instead land near midnight UTC of
-            the FOLLOWING day, many hours after the session (and its
+            midnight America/New_York of the trading date, but its close is
+            that session's real close time (16:00 ET, or an early-close
+            time) — `open_epoch + 86400` would instead land near midnight ET
+            of the FOLLOWING day, many hours after the session (and its
             publication grace) has already elapsed.
         """
         tf_sec = timeframe_seconds(timeframe)
         if tf_sec is None:
             return None
         if tf_sec >= 86400:
-            d = datetime.fromtimestamp(open_epoch, tz=timezone.utc).date()
+            d = self._et_date(open_epoch)
             if self._daily_bar_open_epoch(d) != open_epoch:
                 return None
             session = self._fresh_session(d, cutoff.epoch)
@@ -694,11 +796,20 @@ class StockCalendarAuthority:
         Implements candle_validation.SessionAuthority. Proves (or refuses to
         vouch for) that a gap between two consecutive bars corresponds to a
         legitimate non-trading period: `prior_bar_close_epoch` must be
-        exactly some fresh trading session's close, `next_bar_open_epoch`
-        must be exactly the NEXT fresh trading session's open (traversing
-        any confirmed-closed weekend/holiday dates strictly between them),
-        with every date in between confirmed non-trading. Returns None
-        (never assumes "fine") if any part of this cannot be confirmed.
+        exactly some fresh trading session's close (true for both intraday
+        and daily bars — bar_close_epoch() always resolves to the session's
+        real close time regardless of timeframe), and `next_bar_open_epoch`
+        must be exactly the NEXT fresh trading session's open UNDER EITHER
+        bar-timestamp convention: an intraday bar's open is the session's own
+        open time (09:30 ET), but a DAILY bar's open is midnight
+        America/New_York of that date — NOT the session open — so both are
+        accepted here (a fixed, real defect: an earlier revision only
+        recognized the intraday convention, silently rejecting every
+        multi-day daily-bar series, since no two consecutive real trading
+        days are ever contiguous and every daily series must cross at least
+        one weekend). Every date strictly between the two must be confirmed
+        non-trading. Returns None (never assumes "fine") if any part of this
+        cannot be confirmed.
         """
         if next_bar_open_epoch <= prior_bar_close_epoch:
             return False
@@ -709,7 +820,9 @@ class StockCalendarAuthority:
             return None
         d2 = self._et_date(next_bar_open_epoch)
         window2 = self._fresh_session(d2, now_epoch)
-        if window2 is None or window2.open_epoch != next_bar_open_epoch:
+        if window2 is None:
+            return None
+        if next_bar_open_epoch not in (window2.open_epoch, self._daily_bar_open_epoch(d2)):
             return None
         if d2 <= d1:
             return False

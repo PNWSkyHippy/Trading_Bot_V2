@@ -382,7 +382,7 @@ class _FakeAuthority:
         self._close_raises = close_raises
         self._close_override = close_override
 
-    def expected_latest_closed_bar_open(self, timeframe, cutoff):
+    def expected_latest_closed_bar_open(self, timeframe, cutoff, publication_grace_sec=0):
         if self._raises is not None:
             raise self._raises
         return self._expected_open
@@ -796,13 +796,15 @@ def test_end_to_end_early_close_session_hourly_bars_pass():
 
 
 def test_end_to_end_daily_bar_eligible_only_at_session_close_plus_grace():
-    """A midnight-UTC-open daily bar must become eligible only once the
+    """A midnight-America/New_York-open daily bar (confirmed against a live
+    AAPL 1Day response on 2026-07-16 — NOT midnight UTC, an earlier
+    revision's unverified assumption) must become eligible only once the
     trading session's ACTUAL close time plus grace has passed — not
     open + 86400 (which would be many hours later, near the following
-    day's midnight UTC)."""
+    day's midnight ET)."""
     d = dt.date(2026, 1, 5)
     auth = _real_stock_authority(d, dt.time(9, 30), dt.time(16, 0))
-    daily_open_epoch = int(dt.datetime(2026, 1, 5, tzinfo=dt.timezone.utc).timestamp())
+    daily_open_epoch = int(dt.datetime(2026, 1, 5, tzinfo=EASTERN).timestamp())
     idx = pd.to_datetime([daily_open_epoch], unit="s", utc=True).tz_localize(None)
     df = pd.DataFrame({"open": 1.0, "high": 2.0, "low": 0.5, "close": 1.5, "volume": 100.0}, index=idx)
     grace = 300
@@ -818,6 +820,219 @@ def test_end_to_end_daily_bar_eligible_only_at_session_close_plus_grace():
     )
     assert result is not None
     assert len(result.df) == 1
+
+
+# ------------------------------------------------------------------
+# Regression: publication-grace / expected-latest-closed-bar disagreement.
+# A prior revision left expected_latest_closed_bar_open() grace-unaware, so
+# it always expected the newest (just-closed, still-in-grace) bar to be the
+# "last remaining" one — directly contradicting the truncation loop, which
+# correctly trims that same bar as still forming. This rejected the ENTIRE
+# series during every grace interval, not merely the still-forming newest
+# row.
+# ------------------------------------------------------------------
+
+def test_previous_bar_remains_valid_during_grace_window_only_newest_row_excluded():
+    d = dt.date(2026, 1, 5)
+    auth = _real_stock_authority(d, dt.time(9, 30), dt.time(16, 0))
+    df = _hourly_bars_for_session(d, dt.time(9, 30), dt.time(16, 0))
+    assert len(df) == 7
+    grace = 300  # 5 minutes
+    newest_bar_close = _et_epoch(2026, 1, 5, 16, 0)  # the 15:00-16:00 bar's close
+
+    # Between newest_bar_close and newest_bar_close + grace: the newest bar
+    # is still within its publication-grace window and must be excluded --
+    # but the series as a whole must NOT be rejected, and the PREVIOUS bar
+    # (14:00-15:00) must remain a valid last row.
+    cutoff = ScanCutoff(epoch=newest_bar_close + 120)  # 2 minutes into the grace window
+    result = validate_closed_candles(
+        "AAPL", df, "1h", cutoff, session_authority=auth, publication_grace_sec=grace
+    )
+    assert result is not None
+    assert len(result.df) == 6  # newest bar excluded, not the whole series rejected
+    last_epoch = int(pd.Timestamp(result.df.index[-1]).tz_localize("UTC").timestamp())
+    assert last_epoch == _et_epoch(2026, 1, 5, 14, 0)
+
+    # Once cutoff reaches close + grace exactly, the newest bar is included too.
+    cutoff_after_grace = ScanCutoff(epoch=newest_bar_close + grace)
+    result_after = validate_closed_candles(
+        "AAPL", df, "1h", cutoff_after_grace, session_authority=auth, publication_grace_sec=grace
+    )
+    assert result_after is not None
+    assert len(result_after.df) == 7
+
+
+def test_daily_bar_previous_day_remains_valid_during_grace_window():
+    """Same regression, daily timeframe, across a real weekend gap: while
+    MON's just-closed daily bar is still within its grace window, the
+    validator must accept a 2-row series (FRI_PREV, MON) by excluding just
+    MON's bar and keeping FRI_PREV -- not reject the whole series. This also
+    exercises the separate fixed defect where is_valid_session_gap() only
+    recognized an intraday bar's session-open time as a valid "next bar
+    open", never a daily bar's midnight-ET open — which silently broke
+    every multi-day daily series (real trading days are never contiguous)."""
+    fri = dt.date(2026, 1, 2)
+    mon = dt.date(2026, 1, 5)
+    api = _FakeCalendarApi([
+        _FakeCalEntry(fri, dt.time(9, 30), dt.time(16, 0)),
+        _FakeCalEntry(mon, dt.time(9, 30), dt.time(16, 0)),
+    ])
+    auth = StockCalendarAuthority(api=api, freshness_sec=30 * 3600, days_behind=3, days_ahead=0)
+    now_epoch = _et_epoch(2026, 1, 5, 9, 30)
+    with mock.patch("reporting.alerts.alert_manager.gate_failure", return_value=True):
+        assert auth.refresh(now_epoch=now_epoch) is True
+
+    fri_open_epoch = int(dt.datetime(2026, 1, 2, tzinfo=EASTERN).timestamp())
+    mon_open_epoch = int(dt.datetime(2026, 1, 5, tzinfo=EASTERN).timestamp())
+    idx = pd.to_datetime([fri_open_epoch, mon_open_epoch], unit="s", utc=True).tz_localize(None)
+    df = pd.DataFrame({"open": 1.0, "high": 2.0, "low": 0.5, "close": 1.5, "volume": 100.0}, index=idx)
+    grace = 300
+
+    # 2 minutes into MON's grace window: MON's bar must be excluded, but
+    # FRI_PREV must remain a valid last row -- not the whole series rejected.
+    cutoff = ScanCutoff(epoch=_et_epoch(2026, 1, 5, 16, 2))
+    result = validate_closed_candles(
+        "AAPL", df, "1d", cutoff, session_authority=auth, publication_grace_sec=grace
+    )
+    assert result is not None
+    assert len(result.df) == 1
+    assert int(pd.Timestamp(result.df.index[-1]).tz_localize("UTC").timestamp()) == fri_open_epoch
+
+    # Once cutoff reaches MON's close + grace, MON's bar is included too.
+    cutoff_after_grace = ScanCutoff(epoch=_et_epoch(2026, 1, 5, 16, 5))
+    result_after = validate_closed_candles(
+        "AAPL", df, "1d", cutoff_after_grace, session_authority=auth, publication_grace_sec=grace
+    )
+    assert result_after is not None
+    assert len(result_after.df) == 2
+
+
+# ------------------------------------------------------------------
+# Live-response-shaped fixtures (2026-07-16 read-only production check):
+# 1Hour AAPL bars are on plain UTC hour boundaries across an EXTENDED-HOURS
+# window (08:00-23:00 UTC observed), not bounded to the regular 09:30-16:00
+# ET session -- an earlier revision's fixtures invented a regular-session-
+# anchored partial-first-bar model that does not match this. See
+# core/stock_calendar_authority.py's module docstring for the full decision
+# record (Patch B/C will filter to canonical regular-session bars before
+# validation -- option B -- rather than have this authority model extended
+# hours, since Alpaca's calendar endpoint has no authoritative extended-
+# hours schedule to replace a hardcoded window with).
+# ------------------------------------------------------------------
+
+def _extended_hours_utc_grid_bars_for_date(trading_date, start_hour_utc=8, end_hour_utc=23):
+    """RAW provider-shaped 1-hour bars matching the actual observed Alpaca
+    response: plain UTC-hour-boundary timestamps spanning extended hours,
+    unfiltered -- exactly what this repo's get_bars() call sites (no feed/
+    session parameter passed anywhere) actually receive today."""
+    opens = [
+        int(dt.datetime(
+            trading_date.year, trading_date.month, trading_date.day, h, tzinfo=dt.timezone.utc
+        ).timestamp())
+        for h in range(start_hour_utc, end_hour_utc + 1)
+    ]
+    idx = pd.to_datetime(opens, unit="s", utc=True).tz_localize(None)
+    return pd.DataFrame(
+        {"open": 1.0, "high": 2.0, "low": 0.5, "close": 1.5, "volume": 100.0}, index=idx
+    )
+
+
+def test_raw_extended_hours_shaped_bars_fail_closed_against_regular_session_authority():
+    """Unfiltered, real-shaped extended-hours bars do not correspond to
+    this authority's regular-session model (which only knows regular
+    09:30-16:00 ET open/close from Alpaca's calendar) and must fail
+    closed -- never silently validate against the wrong session concept.
+    This is the concrete, testable consequence of the documented A/B
+    decision: raw provider data is NOT assumed to already be regular-
+    session-only."""
+    d = dt.date(2026, 1, 5)
+    auth = _real_stock_authority(d, dt.time(9, 30), dt.time(16, 0))
+    raw_df = _extended_hours_utc_grid_bars_for_date(d)
+    cutoff = ScanCutoff(epoch=_et_epoch(2026, 1, 5, 23, 5))
+    assert validate_closed_candles("AAPL", raw_df, "1h", cutoff, session_authority=auth) is None
+
+
+# ------------------------------------------------------------------
+# Coverage-horizon regression: STOCK_CALENDAR_CACHE_DAYS_BEHIND was 3, which
+# could not validate any series longer than a few calendar days since
+# bar_close_epoch()/expected_latest_closed_bar_open() require a fresh
+# session for every row. Bumped to 500 this round. These tests use the
+# ACTUAL configured default (no test-only override) to prove it now covers
+# realistic 300-bar daily/hourly lookbacks.
+# ------------------------------------------------------------------
+
+def _all_weekdays_in_range(start_date, end_date):
+    dates = []
+    d = start_date
+    while d <= end_date:
+        if d.weekday() < 5:
+            dates.append(d)
+        d += dt.timedelta(days=1)
+    return dates
+
+
+def test_end_to_end_300_daily_bars_validate_with_real_configured_horizon():
+    """300 daily bars (~300 trading days, ~420+ calendar days of coverage
+    needed) must validate successfully using the ACTUAL configured
+    STOCK_CALENDAR_CACHE_DAYS_BEHIND default -- not a special per-test
+    override."""
+    import config as _config
+    today = dt.date(2026, 1, 5)  # a real Monday
+    start = today - dt.timedelta(days=_config.STOCK_CALENDAR_CACHE_DAYS_BEHIND)
+    end = today + dt.timedelta(days=_config.STOCK_CALENDAR_CACHE_DAYS_AHEAD)
+    all_weekdays = _all_weekdays_in_range(start, end)
+    api = _FakeCalendarApi([
+        _FakeCalEntry(d, dt.time(9, 30), dt.time(16, 0)) for d in all_weekdays
+    ])
+    auth = StockCalendarAuthority(api=api, freshness_sec=30 * 3600)  # config default days_behind/ahead
+    now_epoch = _et_epoch(2026, 1, 5, 16, 5)
+    with mock.patch("reporting.alerts.alert_manager.gate_failure", return_value=True):
+        assert auth.refresh(now_epoch=now_epoch) is True
+
+    trading_days = [d for d in all_weekdays if d <= today]
+    last_300 = trading_days[-300:]
+    assert len(last_300) == 300
+    daily_opens = [int(dt.datetime(d.year, d.month, d.day, tzinfo=EASTERN).timestamp()) for d in last_300]
+    idx = pd.to_datetime(daily_opens, unit="s", utc=True).tz_localize(None)
+    df = pd.DataFrame(
+        {"open": 1.0, "high": 2.0, "low": 0.5, "close": 1.5, "volume": 100.0}, index=idx
+    )
+
+    cutoff = ScanCutoff(epoch=now_epoch)
+    result = validate_closed_candles("AAPL", df, "1d", cutoff, session_authority=auth)
+    assert result is not None
+    assert len(result.df) == 300
+
+
+def test_end_to_end_300_hourly_bars_validate_with_real_configured_horizon():
+    """300 hourly bars (~43 trading sessions x 7 bars/session, ~60 calendar
+    days) must validate successfully using the ACTUAL configured
+    STOCK_CALENDAR_CACHE_DAYS_BEHIND default."""
+    import config as _config
+    today = dt.date(2026, 1, 5)
+    start = today - dt.timedelta(days=_config.STOCK_CALENDAR_CACHE_DAYS_BEHIND)
+    end = today + dt.timedelta(days=_config.STOCK_CALENDAR_CACHE_DAYS_AHEAD)
+    all_weekdays = _all_weekdays_in_range(start, end)
+    api = _FakeCalendarApi([
+        _FakeCalEntry(d, dt.time(9, 30), dt.time(16, 0)) for d in all_weekdays
+    ])
+    auth = StockCalendarAuthority(api=api, freshness_sec=30 * 3600)
+    now_epoch = _et_epoch(2026, 1, 5, 16, 5)
+    with mock.patch("reporting.alerts.alert_manager.gate_failure", return_value=True):
+        assert auth.refresh(now_epoch=now_epoch) is True
+
+    trading_days = [d for d in all_weekdays if d <= today]
+    all_bars = []
+    for d in trading_days:
+        all_bars.append(_hourly_bars_for_session(d, dt.time(9, 30), dt.time(16, 0)))
+    full_df = pd.concat(all_bars)
+    df = full_df.iloc[-300:]
+    assert len(df) == 300
+
+    cutoff = ScanCutoff(epoch=now_epoch)
+    result = validate_closed_candles("AAPL", df, "1h", cutoff, session_authority=auth)
+    assert result is not None
+    assert len(result.df) == 300
 
 
 ALL_TESTS = [v for k, v in list(globals().items()) if k.startswith("test_")]

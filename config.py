@@ -317,8 +317,20 @@ STOCK_CALENDAR_PUBLICATION_GRACE_SEC = 5
 
 # Rolling window (in days) the calendar authority prefetches/caches around
 # today. A date outside this range is treated as uncached, not stale.
+#
+# STOCK_CALENDAR_CACHE_DAYS_BEHIND must cover the OLDEST bar of any series a
+# caller intends to validate: bar_close_epoch()/expected_latest_closed_bar_open()
+# require a fresh session for every row, so a strategy requesting 200-300
+# daily bars needs roughly that many TRADING days of calendar coverage —
+# ~252 trading days/year means 300 trading days is ~420-450 calendar days
+# once weekends/holidays are accounted for. An earlier default of 3 could
+# not validate any series longer than a few calendar days, which would have
+# rejected every realistic 200-300-bar daily/hourly lookback outright once
+# wired into production. 500 covers 300 trading days with margin.
+# refresh() also accepts a per-call days_behind/days_ahead override for a
+# caller validating a series whose date span exceeds even this default.
 STOCK_CALENDAR_CACHE_DAYS_AHEAD  = 14
-STOCK_CALENDAR_CACHE_DAYS_BEHIND = 3
+STOCK_CALENDAR_CACHE_DAYS_BEHIND = 500
 
 # Maximum allowed clock skew when validating a caller-supplied `now_epoch` for
 # a calendar refresh. A refresh timestamp further in the future than this

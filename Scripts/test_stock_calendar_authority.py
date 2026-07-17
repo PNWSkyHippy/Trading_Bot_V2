@@ -325,6 +325,27 @@ def test_refresh_within_clock_skew_tolerance_is_accepted():
         assert auth.refresh(now_epoch=_et_epoch(2026, 1, 5, 9, 0)) is True
 
 
+def test_refresh_accepts_per_call_days_behind_ahead_override():
+    """A caller about to validate a specific series whose date span exceeds
+    this instance's configured rolling window can widen coverage for that
+    one refresh() call via an explicit override, rather than only ever
+    relying on the fixed instance default -- the fix for a coverage-horizon
+    defect where a small default (e.g. 3 days) could not validate a
+    200-300-bar daily/hourly lookback at all."""
+    api = _FakeAPI([
+        _FakeCalEntry(FRI_PREV, dt.time(9, 30), dt.time(16, 0)),
+        _FakeCalEntry(MON, dt.time(9, 30), dt.time(16, 0)),
+    ])
+    # Instance configured with a narrow default (0 days behind) -- a bare
+    # refresh() would only cover MON itself.
+    auth = StockCalendarAuthority(api=api, days_behind=0, days_ahead=0)
+    now_epoch = _et_epoch(2026, 1, 5, 9, 0)
+    with _mock_alerts():
+        assert auth.refresh(now_epoch=now_epoch, days_behind=3, days_ahead=0) is True
+    assert auth.get_session(FRI_PREV, now_epoch) is not None
+    assert auth.get_session(MON, now_epoch) is not None
+
+
 def test_clock_rollback_between_refreshes_rejected():
     metrics.reset()
     api = _FakeAPI([_FakeCalEntry(MON, dt.time(9, 30), dt.time(16, 0))])
@@ -616,10 +637,13 @@ def test_expected_latest_closed_bar_exact_boundary_zero_bars_elapsed():
     assert expected == friday_close - 5 * 60
 
 
-def test_fixture_daily_bar_is_midnight_utc_of_trading_date_not_session_open():
-    """The corrected daily convention: midnight UTC of the trading date, not
-    the session-open time — an earlier version used session-open and
-    flagged it as unverified; this commits to a specific, cited convention."""
+def test_fixture_daily_bar_is_midnight_et_of_trading_date_not_session_open_or_midnight_utc():
+    """The CORRECTED daily convention, confirmed against a live AAPL 1Day
+    response observed 2026-07-16: midnight America/New_York of the trading
+    date (NOT the session-open time, and NOT midnight UTC either — an
+    earlier revision asserted midnight UTC as 'the common cross-provider
+    convention' without ever checking a real response, and that assertion
+    was simply wrong)."""
     api = _FakeAPI([
         _FakeCalEntry(FRI_PREV, dt.time(9, 30), dt.time(16, 0)),
         _FakeCalEntry(MON, dt.time(9, 30), dt.time(16, 0)),
@@ -629,13 +653,15 @@ def test_fixture_daily_bar_is_midnight_utc_of_trading_date_not_session_open():
     with _mock_alerts():
         assert auth.refresh(now_epoch=open_epoch) is True
 
+    midnight_et_mon = int(dt.datetime(2026, 1, 5, 0, 0, tzinfo=EASTERN).timestamp())
     midnight_utc_mon = int(dt.datetime(2026, 1, 5, 0, 0, tzinfo=dt.timezone.utc).timestamp())
     session_open_mon = open_epoch  # 09:30 ET, NOT the expected daily convention
 
     after_close = ScanCutoff(epoch=_et_epoch(2026, 1, 5, 16, 0))
     expected = auth.expected_latest_closed_bar_open("1d", after_close)
-    assert expected == midnight_utc_mon
+    assert expected == midnight_et_mon
     assert expected != session_open_mon
+    assert expected != midnight_utc_mon  # explicitly NOT the earlier wrong assumption
 
 
 def test_expected_latest_closed_bar_daily_before_close_uses_prior_day():
@@ -649,8 +675,8 @@ def test_expected_latest_closed_bar_daily_before_close_uses_prior_day():
         assert auth.refresh(now_epoch=open_epoch) is True
     cutoff = ScanCutoff(epoch=open_epoch + 60)
     expected = auth.expected_latest_closed_bar_open("1d", cutoff)
-    midnight_utc_fri = int(dt.datetime(2026, 1, 2, 0, 0, tzinfo=dt.timezone.utc).timestamp())
-    assert expected == midnight_utc_fri
+    midnight_et_fri = int(dt.datetime(2026, 1, 2, 0, 0, tzinfo=EASTERN).timestamp())
+    assert expected == midnight_et_fri
 
 
 def test_expected_latest_closed_bar_uncertain_when_unrecognized_timeframe():
@@ -714,7 +740,7 @@ def test_bar_close_epoch_daily_bar_closes_at_session_close_not_open_plus_86400()
     ref_epoch = _et_epoch(2026, 1, 5, 9, 30)
     with _mock_alerts():
         assert auth.refresh(now_epoch=ref_epoch) is True
-    daily_open_epoch = int(dt.datetime(2026, 1, 5, tzinfo=dt.timezone.utc).timestamp())
+    daily_open_epoch = int(dt.datetime(2026, 1, 5, tzinfo=EASTERN).timestamp())  # midnight ET, not UTC
     cutoff = ScanCutoff(epoch=_et_epoch(2026, 1, 5, 16, 5))
     close = auth.bar_close_epoch(daily_open_epoch, "1d", cutoff)
     assert close == _et_epoch(2026, 1, 5, 16, 0)

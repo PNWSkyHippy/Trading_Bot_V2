@@ -165,12 +165,20 @@ class SessionAuthority(Protocol):
     """
 
     def expected_latest_closed_bar_open(
-        self, timeframe: str, cutoff: "ScanCutoff"
+        self, timeframe: str, cutoff: "ScanCutoff", publication_grace_sec: int = 0
     ) -> Optional[int]:
         """Return the open-time epoch of the most recent bar that should
-        already be closed and published as of `cutoff`, or None if the
-        authority cannot determine this (e.g. stale/missing/malformed
-        calendar data) — in which case the caller must fail closed."""
+        already be closed AND past `publication_grace_sec`, as of `cutoff`,
+        or None if the authority cannot determine this (e.g. stale/missing/
+        malformed calendar data) — in which case the caller must fail
+        closed.
+
+        `publication_grace_sec` MUST be the SAME grace the caller applies to
+        its own forming-row truncation — passing 0 here while truncating
+        with a nonzero grace elsewhere makes this method expect the still-
+        forming newest bar to be "the latest closed one", which disagrees
+        with the caller's own (correctly grace-aware) truncation and
+        rejects the entire series for the whole grace window, every time."""
         ...
 
     def is_valid_session_gap(
@@ -709,9 +717,18 @@ def _validate_rows(
     # expected) or misaligned. Uncertainty from the authority itself —
     # whether it returns None or raises — propagates as a rejection here; it
     # never means "no check" or an uncaught crash out of this validator.
+    # publication_grace_sec is passed through so the authority's notion of
+    # "latest closed" agrees with the SAME grace-adjusted threshold the
+    # truncation loop above just used — passing the two different
+    # thresholds (grace-aware here, grace-unaware there) would otherwise
+    # make this check demand the newest, still-forming (and just-trimmed)
+    # bar as "expected", rejecting the whole series for the entire grace
+    # window after every bar's close.
     if session_authority is not None:
         try:
-            expected_open = session_authority.expected_latest_closed_bar_open(timeframe, cutoff)
+            expected_open = session_authority.expected_latest_closed_bar_open(
+                timeframe, cutoff, publication_grace_sec=publication_grace_sec
+            )
         except Exception as e:
             return _reject("session_authority_exception", str(e))
         if expected_open is None:
