@@ -478,9 +478,12 @@ def favorable_move_pct(direction: str, raw_move_pct: float) -> float:
     Longs:  price went up   → positive = winning.
     Shorts: price went down → negative raw becomes positive favorable.
     """
-    if str(direction).lower() == "short":
+    normalized = str(direction or "").strip().lower()
+    if normalized == "short":
         return -raw_move_pct
-    return raw_move_pct
+    if normalized == "long":
+        return raw_move_pct
+    return 0.0
 
 
 def resolved_direction(direction: str = "", momentum_score: float = 0.0) -> str:
@@ -494,9 +497,14 @@ def resolved_direction(direction: str = "", momentum_score: float = 0.0) -> str:
     if d in ("long", "short"):
         return d
     try:
-        return "short" if float(momentum_score) < -0.5 else "long"
+        momentum = float(momentum_score)
+        if momentum > 0.5:
+            return "long"
+        if momentum < -0.5:
+            return "short"
+        return ""
     except Exception:
-        return "long"
+        return ""
 
 
 def signal_direction(signal) -> str:
@@ -510,26 +518,34 @@ def signal_direction(signal) -> str:
 # CSV  (self-cleaning)
 # =============================================================================
 
-CSV_FIELDS = ["Symbol","Broker","Phase","Score","Confidence","Date","Time",
+CSV_FIELDS = ["Symbol","Broker","Direction","Phase","Score","Confidence","Date","Time",
               "EntryPrice","t_5m","t_15m","t_1h","t_4h","t_24h",
               "momentum","move_pct","best_move_pct"]
 
+_CSV_LOCK = threading.RLock()
+
 def _load_csv() -> List[dict]:
-    if not CSV_FILE.is_file():
-        return []
-    with CSV_FILE.open("r", newline="") as f:
-        rows = list(csv.DictReader(f))
-    for r in rows:
-        for col in CSV_FIELDS:
-            if col not in r:
-                r[col] = ""
-    return rows
+    with _CSV_LOCK:
+        if not CSV_FILE.is_file():
+            return []
+        with CSV_FILE.open("r", newline="") as f:
+            rows = list(csv.DictReader(f))
+        for r in rows:
+            for col in CSV_FIELDS:
+                if col not in r:
+                    r[col] = ""
+        return rows
 
 def _save_csv(rows: List[dict]):
-    with CSV_FILE.open("w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=CSV_FIELDS, extrasaction="ignore")
-        w.writeheader()
-        w.writerows(rows)
+    with _CSV_LOCK:
+        tmp_path = CSV_FILE.with_name(f"{CSV_FILE.name}.tmp")
+        with tmp_path.open("w", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=CSV_FIELDS, extrasaction="ignore")
+            w.writeheader()
+            w.writerows(rows)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, CSV_FILE)
 
 def _is_dead_or_fading(r: dict) -> bool:
     # momentum (set by update_signal_tracking) is the field that actually
@@ -560,97 +576,100 @@ def _prune_csv(rows: List[dict]) -> List[dict]:
     return kept
 
 def log_signal_to_csv(signal: BreakoutSignal):
-    rows = _load_csv()
-    rows = [r for r in rows if r.get("Symbol") != signal.symbol]
-    rows.append({
-        "Symbol":        signal.symbol,
-        "Broker":        signal.broker,
-        "Phase":         signal.phase.value.upper(),
-        "Score":         round(signal.predicted_move_pct, 2),
-        "Confidence":    round(signal.confidence * 100, 2),
-        "Date":          signal.timestamp.strftime("%Y-%m-%d"),
-        "Time":          signal.timestamp.strftime("%H:%M:%S"),
-        "EntryPrice":    signal.entry_price,
-        "t_5m": "", "t_15m": "", "t_1h": "",
-        "t_4h": "", "t_24h": "",
-        "momentum":      "",
-        "move_pct":      "",
-        "best_move_pct": "",
-    })
-    rows = _prune_csv(rows)
-    _save_csv(rows)
-
-def update_signal_tracking(scanner):
-    rows = _load_csv()
-    if not rows:
-        return
-    updated = False
-    now     = datetime.now()
-    for row in rows:
-        sym = row.get("Symbol","")
-        try:
-            if "/" in sym:
-                if not scanner.crypto_fetcher.exchange:
-                    continue
-                ticker = scanner.crypto_fetcher.exchange.fetch_ticker(sym)
-                price  = ticker["last"]
-            else:
-                h     = scanner.stock_fetcher.get_historical_data(sym)
-                price = h[-1].price if h else None
-            if not price:
-                continue
-            try:
-                ts = datetime.strptime(row["Date"]+" "+row["Time"], "%Y-%m-%d %H:%M:%S")
-            except Exception:
-                continue
-            elapsed = (now - ts).total_seconds()
-
-            def fill(col, secs):
-                nonlocal updated
-                if row.get(col,"") == "" and elapsed >= secs:
-                    row[col] = round(price, 6)
-                    updated  = True
-
-            fill("t_5m",300); fill("t_15m",900)
-            fill("t_1h",3600); fill("t_4h",14400); fill("t_24h",86400)
-
-            ep   = float(row.get("EntryPrice") or row.get("Price") or price)
-            mpct = move_pct(ep, price)
-            row["move_pct"] = round(mpct, 2)
-
-            # Direction-aware favorable move tracking
-            direction = ""
-            tracked = getattr(getattr(scanner, "escalation", None), "_tracked", {})
-            entry = tracked.get(sym)
-            if entry:
-                direction = getattr(entry.get("signal"), "direction", "") or ""
-            if not direction:
-                wl = getattr(scanner, "watchlist", None)
-                wl_sig = wl.get(sym) if (wl and hasattr(wl, "get")) else None
-                if wl_sig:
-                    direction = getattr(wl_sig, "direction", "") or ""
-            fav = favorable_move_pct(direction, mpct)
-
-            try:
-                prev_best = float(row.get("best_move_pct") or 0)
-                if fav > prev_best:
-                    row["best_move_pct"] = round(fav, 2)
-                    updated = True
-            except Exception:
-                pass
-
-            if   fav >= 5.0:  row["momentum"] = "STRONG"
-            elif fav >= 2.0:  row["momentum"] = "MOVING"
-            elif fav >= 0.5:  row["momentum"] = "WEAK"
-            elif fav <= -3.0: row["momentum"] = "FADING"
-            else:             row["momentum"] = "DEAD"
-            updated = True
-        except Exception:
-            continue
-
-    if updated:
+    with _CSV_LOCK:
+        rows = _load_csv()
+        rows = [r for r in rows if r.get("Symbol") != signal.symbol]
+        rows.append({
+            "Symbol":        signal.symbol,
+            "Broker":        signal.broker,
+            "Direction":     signal_direction(signal).upper(),
+            "Phase":         signal.phase.value.upper(),
+            "Score":         round(signal.predicted_move_pct, 2),
+            "Confidence":    round(signal.confidence * 100, 2),
+            "Date":          signal.timestamp.strftime("%Y-%m-%d"),
+            "Time":          signal.timestamp.strftime("%H:%M:%S"),
+            "EntryPrice":    signal.entry_price,
+            "t_5m": "", "t_15m": "", "t_1h": "",
+            "t_4h": "", "t_24h": "",
+            "momentum":      "",
+            "move_pct":      "",
+            "best_move_pct": "",
+        })
         rows = _prune_csv(rows)
         _save_csv(rows)
+
+def update_signal_tracking(scanner):
+    with _CSV_LOCK:
+        rows = _load_csv()
+        if not rows:
+            return
+        updated = False
+        now     = datetime.now()
+        for row in rows:
+            sym = row.get("Symbol","")
+            try:
+                if "/" in sym:
+                    if not scanner.crypto_fetcher.exchange:
+                        continue
+                    ticker = scanner.crypto_fetcher.exchange.fetch_ticker(sym)
+                    price  = ticker["last"]
+                else:
+                    h     = scanner.stock_fetcher.get_historical_data(sym)
+                    price = h[-1].price if h else None
+                if not price:
+                    continue
+                try:
+                    ts = datetime.strptime(row["Date"]+" "+row["Time"], "%Y-%m-%d %H:%M:%S")
+                except Exception:
+                    continue
+                elapsed = (now - ts).total_seconds()
+
+                def fill(col, secs):
+                    nonlocal updated
+                    if row.get(col,"") == "" and elapsed >= secs:
+                        row[col] = round(price, 6)
+                        updated  = True
+
+                fill("t_5m",300); fill("t_15m",900)
+                fill("t_1h",3600); fill("t_4h",14400); fill("t_24h",86400)
+
+                ep   = float(row.get("EntryPrice") or row.get("Price") or price)
+                mpct = move_pct(ep, price)
+                row["move_pct"] = round(mpct, 2)
+
+                # Prefer the persisted direction so tracking remains correct after restart.
+                direction = str(row.get("Direction") or "").strip().lower()
+                tracked = getattr(getattr(scanner, "escalation", None), "_tracked", {})
+                entry = tracked.get(sym)
+                if direction not in ("long", "short") and entry:
+                    direction = getattr(entry.get("signal"), "direction", "") or ""
+                if direction not in ("long", "short"):
+                    wl = getattr(scanner, "watchlist", None)
+                    wl_sig = wl.get(sym) if (wl and hasattr(wl, "get")) else None
+                    if wl_sig:
+                        direction = getattr(wl_sig, "direction", "") or ""
+                fav = favorable_move_pct(direction, mpct)
+
+                try:
+                    prev_best = float(row.get("best_move_pct") or 0)
+                    if fav > prev_best:
+                        row["best_move_pct"] = round(fav, 2)
+                        updated = True
+                except Exception:
+                    pass
+
+                if   fav >= 5.0:  row["momentum"] = "STRONG"
+                elif fav >= 2.0:  row["momentum"] = "MOVING"
+                elif fav >= 0.5:  row["momentum"] = "WEAK"
+                elif fav <= -3.0: row["momentum"] = "FADING"
+                else:             row["momentum"] = "DEAD"
+                updated = True
+            except Exception:
+                continue
+
+        if updated:
+            rows = _prune_csv(rows)
+            _save_csv(rows)
 
 # =============================================================================
 # CONFIGURATION MANAGER
@@ -661,53 +680,62 @@ class ConfigManager:
         path = Path(config_path)
         self.config_path = path if path.is_absolute() else BASE_DIR / path
         self.config      = {}
+        self._lock       = threading.RLock()
         self.load()
 
     def load(self):
-        if os.path.exists(self.config_path):
-            with open(self.config_path, "r") as f:
-                stored = json.load(f)
-            merged = DEFAULT_CONFIG.copy()
-            merged.update(stored)
-            # Decrypt any Fernet-encrypted sensitive keys in-place,
-            # then fall back to the bot DB for any that are still blank.
-            for key in _SCANNER_SENSITIVE_KEYS:
-                if key in merged and merged[key]:
-                    try:
-                        merged[key] = _decrypt_cfg(str(merged[key]))
-                    except RuntimeError as e:
-                        logger.error(f"[CONFIG] Key decrypt failed for '{key}': {e}")
-                        merged[key] = ""   # blank it out — safer than crashing
-                # If still blank after decryption attempt, try the bot DB
-                if not merged.get(key):
-                    db_val = _db_fallback(key)
-                    if db_val:
-                        merged[key] = db_val
-                        logger.info(f"[CONFIG] '{key}' loaded from bot DB (scanner_config blank).")
-            self.config = merged
-            logger.info(f"Config loaded from {self.config_path}")
-        else:
-            self.config = DEFAULT_CONFIG.copy()
-            self.save()
-            logger.info(f"Default config created at {self.config_path}")
+        with self._lock:
+            if os.path.exists(self.config_path):
+                with open(self.config_path, "r") as f:
+                    stored = json.load(f)
+                merged = DEFAULT_CONFIG.copy()
+                merged.update(stored)
+                # Decrypt sensitive values, then use the bot DB only for blanks.
+                for key in _SCANNER_SENSITIVE_KEYS:
+                    if key in merged and merged[key]:
+                        try:
+                            merged[key] = _decrypt_cfg(str(merged[key]))
+                        except RuntimeError as e:
+                            logger.error(f"[CONFIG] Key decrypt failed for '{key}': {e}")
+                            merged[key] = ""
+                    if not merged.get(key):
+                        db_val = _db_fallback(key)
+                        if db_val:
+                            merged[key] = db_val
+                            logger.info(
+                                f"[CONFIG] '{key}' loaded from bot DB (scanner_config blank)."
+                            )
+                self.config = merged
+                logger.info(f"Config loaded from {self.config_path}")
+            else:
+                self.config = DEFAULT_CONFIG.copy()
+                self.save()
+                logger.info(f"Default config created at {self.config_path}")
 
     def save(self):
         # Re-encrypt sensitive keys before writing so secrets are never stored plaintext.
         # Keys that were originally encrypted and whose Fernet key is unavailable
         # are preserved as-is (already ciphertext) rather than written as plaintext.
-        to_write = dict(self.config)
-        for key in _SCANNER_SENSITIVE_KEYS:
-            if key in to_write and to_write[key]:
-                to_write[key] = _encrypt_cfg(str(to_write[key]))
-        with open(self.config_path, "w") as f:
-            json.dump(to_write, f, indent=2)
+        with self._lock:
+            to_write = dict(self.config)
+            for key in _SCANNER_SENSITIVE_KEYS:
+                if key in to_write and to_write[key]:
+                    to_write[key] = _encrypt_cfg(str(to_write[key]))
+            tmp_path = self.config_path.with_name(f"{self.config_path.name}.tmp")
+            with tmp_path.open("w") as f:
+                json.dump(to_write, f, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+            os.replace(tmp_path, self.config_path)
 
     def get(self, key: str, default=None):
-        return self.config.get(key, default)
+        with self._lock:
+            return self.config.get(key, default)
 
     def set(self, key: str, value: Any):
-        self.config[key] = value
-        self.save()
+        with self._lock:
+            self.config[key] = value
+            self.save()
 
     def is_market_open(self, asset_type: AssetType) -> bool:
         now = datetime.now()
@@ -845,7 +873,9 @@ class StockDataFetcher:
                 logger.error(f"Alpaca snapshot error: {e}")
         if not stocks and YFINANCE_AVAILABLE:
             stocks = self._yfinance_movers()
-        stocks.sort(key=lambda x: x.daily_change_pct, reverse=True)
+        # Rank by movement magnitude so large decliners are not discarded before
+        # the direction-aware breakout detector can evaluate them.
+        stocks.sort(key=lambda x: abs(x.daily_change_pct), reverse=True)
         injected = set(load_injected_stock_symbols())
         pinned = [s for s in stocks if s.symbol in injected]
         others = [s for s in stocks if s.symbol not in injected]
@@ -1146,19 +1176,45 @@ class BreakoutDetector:
         self.config         = config
         self.price_history  = {}
         self.volume_history = {}
+        self._history_rows  = {}
         self.history_length = 200
 
     def update_history(self, pd: PriceData):
-        s = pd.symbol
-        if s not in self.price_history:
-            self.price_history[s]  = deque(maxlen=self.history_length)
-            self.volume_history[s] = deque(maxlen=self.history_length)
-        price = self._num(pd.price, 0.0)
-        volume = self._num(pd.volume, 0.0)
-        if price <= 0:
-            return
-        self.price_history[s].append(price)
-        self.volume_history[s].append(volume)
+        self.merge_history([pd])
+
+    @staticmethod
+    def _history_timestamp(pd: PriceData) -> Optional[datetime]:
+        ts = getattr(pd, "timestamp", None)
+        if not isinstance(ts, datetime):
+            return None
+        if ts.tzinfo is None:
+            return ts.replace(tzinfo=timezone.utc)
+        return ts.astimezone(timezone.utc)
+
+    def merge_history(self, bars: List[PriceData]):
+        """Merge overlapping snapshots by timestamp instead of replaying bars."""
+        touched = set()
+        for pd in bars:
+            s = str(getattr(pd, "symbol", "") or "").strip()
+            ts = self._history_timestamp(pd)
+            price = self._num(getattr(pd, "price", None), 0.0)
+            volume = self._num(getattr(pd, "volume", None), 0.0)
+            if not s or ts is None or price <= 0:
+                continue
+            rows = self._history_rows.setdefault(s, {})
+            rows[ts] = (price, volume)
+            touched.add(s)
+
+        for s in touched:
+            ordered = sorted(self._history_rows[s].items(), key=lambda item: item[0])
+            ordered = ordered[-self.history_length:]
+            self._history_rows[s] = dict(ordered)
+            self.price_history[s] = deque(
+                (values[0] for _, values in ordered), maxlen=self.history_length
+            )
+            self.volume_history[s] = deque(
+                (values[1] for _, values in ordered), maxlen=self.history_length
+            )
 
     def _num(self, value, default: float = 0.0) -> float:
         try:
@@ -1175,27 +1231,38 @@ class BreakoutDetector:
             return 0.0
         prices  = [self._num(x, 0.0) for x in self.price_history[s]]
         volumes = [self._num(x, 0.0) for x in self.volume_history[s]]
+        momentum = self._momentum(prices)
+        pattern = None
+        direction = resolved_direction("", momentum)
+        if PATTERNS_AVAILABLE:
+            try:
+                pattern = _score_patterns(prices, volumes)
+                if (pattern.get("best_confidence", 0.0) >= 0.55
+                        and pattern.get("direction") in ("long", "short")):
+                    direction = pattern["direction"]
+                    pd._pattern = pattern.get("best_pattern")
+                    pd._pattern_dir = direction
+            except Exception:
+                pattern = None
+        if direction not in ("long", "short"):
+            return 0.0
+
         sc = 0.0
         if self._compressing(prices):          sc += 0.20
         if self._early_volume(volumes, prices): sc += 0.25
-        if self._expanding(prices):            sc += 0.20
+        if self._expanding(prices, direction): sc += 0.20
         if self._near_vwap(prices, volumes):   sc += 0.15
-        if self._momentum(prices) > 0.5:       sc += 0.15
+        if ((direction == "long" and momentum > 0.5)
+                or (direction == "short" and momentum < -0.5)):
+            sc += 0.15
         if self._not_overextended(prices):     sc += 0.05
         vs = self._vol_spike(volumes)
         if vs >= 3.0:   sc = min(1.0, sc + 0.10)
         elif vs >= 2.0: sc = min(1.0, sc + 0.05)
 
         # Chart pattern confirmation — adds up to +0.20 when a strong pattern aligns
-        if PATTERNS_AVAILABLE:
-            try:
-                pat = _score_patterns(prices, volumes)
-                if pat["best_confidence"] >= 0.55:
-                    sc = min(1.0, sc + pat["pattern_score"] * 0.20)
-                    pd._pattern     = pat["best_pattern"]
-                    pd._pattern_dir = pat["direction"]
-            except Exception:
-                pass
+        if pattern and pattern.get("best_confidence", 0.0) >= 0.55:
+            sc = min(1.0, sc + self._num(pattern.get("pattern_score"), 0.0) * 0.20)
 
         return round(sc, 3)
 
@@ -1255,9 +1322,9 @@ class BreakoutDetector:
         if len(prices) >= 200:
             data["sma200"] = round(sum(prices[-200:]) / 200, 6)
         # Structural stop — 0.3% buffer beyond current-bar wick
-        direction = getattr(pd, "_pattern_dir", None)
-        if direction not in ("long", "short"):
-            direction = "short" if self._momentum(prices) < -0.5 else "long"
+        direction = resolved_direction(
+            getattr(pd, "_pattern_dir", ""), self._momentum(prices)
+        )
         low  = data["low"]
         high = data["high"]
         if direction == "long" and low > 0:
@@ -1300,19 +1367,17 @@ class BreakoutDetector:
         gate    = self.config.get("watchlist_min_score", 0.55)
         pattern = ("early_breakout_strong" if sc > 0.75 else
                    "early_breakout"         if sc >= gate else "watchlist")
-        pat_dir = getattr(pd, "_pattern_dir", None)
-        if pat_dir in ("long", "short"):
-            direction = pat_dir
-        elif self.momentum_val(pd) < -0.5:
-            direction = "short"
-        else:
-            direction = "long"
+        direction = resolved_direction(
+            getattr(pd, "_pattern_dir", ""), self.momentum_val(pd)
+        )
+        if direction not in ("long", "short"):
+            return None
         sig = BreakoutSignal(
             symbol=sym, asset_type=pd.asset_type, current_price=pd.price,
             predicted_move_pct=sc * 100, confidence=sc,
             volume_spike=self.vol_spike(pd),
             momentum_score=self.momentum_val(pd),
-            pattern_detected=pattern, timestamp=datetime.now(),
+            pattern_detected=pattern, timestamp=datetime.now(timezone.utc),
             phase=SignalPhase.WATCHLIST, entry_price=pd.price,
             direction=direction,
         )
@@ -1324,19 +1389,21 @@ class BreakoutDetector:
     def _compressing(self, p):
         r = p[-20:]; avg = sum(r)/len(r)
         return (max(r)-min(r))/avg*100 < 2.0
-    def _expanding(self, p):
-        return (p[-1]-p[-3])/p[-3]*100 > 1.2
+    def _expanding(self, p, direction):
+        move = (p[-1]-p[-3])/p[-3]*100
+        return move > 1.2 if direction == "long" else move < -1.2
     def _early_volume(self, v, p):
         if len(v) < 2 or len(p) < 5 or p[-5] == 0: return False
         avg = sum(v[:-1])/len(v[:-1])
-        return (v[-1]/avg > 2.5 if avg>0 else False) and (p[-1]-p[-5])/p[-5]*100 < 2.0
+        move = (p[-1]-p[-5])/p[-5]*100
+        return (v[-1]/avg > 2.5 if avg>0 else False) and abs(move) < 2.0
     def _near_vwap(self, p, v):
         tv = sum(v)
         if tv==0: return False
         vwap = sum(x*y for x,y in zip(p,v))/tv
         return abs(p[-1]-vwap)/vwap*100 < 1.0
     def _not_overextended(self, p):
-        return (p[-1]-p[-10])/p[-10]*100 < 8.0
+        return abs((p[-1]-p[-10])/p[-10]*100) < 8.0
     def _momentum(self, p):
         ch = [(p[i]-p[i-1])/p[i-1]*100 for i in range(1,len(p))]
         return sum(ch[-5:])/5 if len(ch)>=5 else 0.0
@@ -1485,6 +1552,9 @@ class AlertSystem:
         self.email_last_sent: Dict[str, datetime] = {}
         self.gui              = None
         self.running          = False
+        self._lifecycle_lock  = threading.RLock()
+        self._stop_event      = threading.Event()
+        self.alert_thread     = None
         import threading as _thr
         # Bot injection sender
         self.bot_sender = BreakoutSender(self.config)
@@ -1492,13 +1562,24 @@ class AlertSystem:
         self._last_digest  = datetime.now()
 
     def start(self):
-        self.running      = True
-        self.alert_thread = threading.Thread(target=self._process_alerts, daemon=True)
-        self.alert_thread.start()
+        with self._lifecycle_lock:
+            if self.alert_thread and self.alert_thread.is_alive():
+                return
+            self._stop_event = threading.Event()
+            self.running = True
+            self.alert_thread = threading.Thread(
+                target=self._process_alerts, args=(self._stop_event,), daemon=True
+            )
+            self.alert_thread.start()
         logger.info("Alert system started")
 
     def stop(self):
-        self.running = False
+        with self._lifecycle_lock:
+            self.running = False
+            self._stop_event.set()
+            thread = self.alert_thread
+        if thread and thread is not threading.current_thread():
+            thread.join(timeout=3.0)
 
     def send_alert(self, signal: BreakoutSignal, escalation: int = 0):
         message = self._format_alert_message(signal, escalation)
@@ -1656,8 +1737,8 @@ class AlertSystem:
         except Exception as e:
             logger.error(f"Email failed: {e}")
 
-    def _process_alerts(self):
-        while self.running:
+    def _process_alerts(self, stop_event):
+        while not stop_event.is_set():
             try:
                 alert = self.alert_queue.get(timeout=1)
                 self.alert_history.append(alert)
@@ -1699,6 +1780,9 @@ class MarketScanner:
         # AttributeError and volume-surge payloads were silently dropped.
         self.bot_sender      = self.alert_system.bot_sender
         self.running         = False
+        self._lifecycle_lock = threading.RLock()
+        self._stop_event     = threading.Event()
+        self.scan_thread     = None
         self.gui             = None
         self.latest_movers:        List[PriceData]     = []
         self.latest_crypto_movers: List[PriceData]     = []
@@ -1725,25 +1809,36 @@ class MarketScanner:
         )
 
     def start(self):
-        self.running     = True
-        self.alert_system.start()
-        logger.info(
-            "[SCAN LOOP] cadence full=%ss hot=%ss bot_min_escalation=%s",
-            self.config.get("scan_interval_seconds", 30),
-            self.config.get("hot_symbol_scan_seconds", 5),
-            self.config.get("bot_min_escalation", 1),
-        )
-        self.scan_thread = threading.Thread(target=self._scan_loop, daemon=True)
-        self.scan_thread.start()
+        with self._lifecycle_lock:
+            if self.scan_thread and self.scan_thread.is_alive():
+                return
+            self._stop_event = threading.Event()
+            self.running = True
+            self.alert_system.start()
+            logger.info(
+                "[SCAN LOOP] cadence full=%ss hot=%ss bot_min_escalation=%s",
+                self.config.get("scan_interval_seconds", 30),
+                self.config.get("hot_symbol_scan_seconds", 5),
+                self.config.get("bot_min_escalation", 1),
+            )
+            self.scan_thread = threading.Thread(
+                target=self._scan_loop, args=(self._stop_event,), daemon=True
+            )
+            self.scan_thread.start()
         logger.info("Market scanner started")
 
     def stop(self):
-        self.running = False
+        with self._lifecycle_lock:
+            self.running = False
+            self._stop_event.set()
+            thread = self.scan_thread
         self.alert_system.stop()
+        if thread and thread is not threading.current_thread():
+            thread.join(timeout=5.0)
         logger.info("Scanner stopped")
 
-    def _scan_loop(self):
-        while self.running:
+    def _scan_loop(self, stop_event):
+        while not stop_event.is_set():
             try:
                 stock_open = self.config.is_market_open(AssetType.STOCK)
                 crypto_open = self.config.is_market_open(AssetType.CRYPTO)
@@ -1765,9 +1860,11 @@ class MarketScanner:
             interval = max(1, int(self.config.get("scan_interval_seconds", 30)))
             hot_interval = max(1, int(self.config.get("hot_symbol_scan_seconds", 5)))
             next_full_scan = time.time() + interval
-            while self.running and time.time() < next_full_scan:
-                time.sleep(min(hot_interval, max(0.1, next_full_scan - time.time())))
-                if self.running:
+            while not stop_event.is_set() and time.time() < next_full_scan:
+                wait_for = min(hot_interval, max(0.1, next_full_scan - time.time()))
+                if stop_event.wait(wait_for):
+                    break
+                if not stop_event.is_set():
                     self._scan_hot_symbols()
 
     def _can_alert(self, symbol: str) -> bool:
@@ -1971,8 +2068,7 @@ class MarketScanner:
                             btc_bars = self.crypto_fetcher.get_historical_data(
                                 btc_symbol, exchange=btc_exchange
                             )
-                            for h in btc_bars:
-                                self.detector.update_history(h)
+                            self.detector.merge_history(btc_bars)
                             logger.debug(
                                 f"[CRYPTO SCAN] BTC seed {btc_symbol}: "
                                 f"{len(btc_bars)} bars"
@@ -1997,8 +2093,8 @@ class MarketScanner:
                     # For CoinGecko-sourced symbols, try anyway — some pairs differ in naming
                     if broker.upper() != "COINGECKO":
                         continue
-                for h in self.crypto_fetcher.get_historical_data(pd.symbol, exchange=exc):
-                    self.detector.update_history(h)
+                history = self.crypto_fetcher.get_historical_data(pd.symbol, exchange=exc)
+                self.detector.merge_history(history)
                 logger.info(
                     f"[CRYPTO SCAN] processing {broker} {pd.symbol} "
                     f"price={pd.price} change={pd.daily_change_pct:+.2f}%"
@@ -2013,8 +2109,7 @@ class MarketScanner:
             # Seed SPY into price_history for stock market_pct_change proxy
             try:
                 spy_bars = self.stock_fetcher.get_historical_data("SPY")
-                for h in spy_bars:
-                    self.detector.update_history(h)
+                self.detector.merge_history(spy_bars)
                 logger.debug(f"[STOCK SCAN] SPY seed: {len(spy_bars)} bars")
             except Exception as e:
                 logger.debug(f"[STOCK SCAN] SPY seed failed: {e}")
@@ -2029,8 +2124,8 @@ class MarketScanner:
                         or len(sym) > 5
                         or any(c in sym for c in ["+", "=", "/"])):
                     continue
-                for h in self.stock_fetcher.get_historical_data(sym):
-                    self.detector.update_history(h)
+                history = self.stock_fetcher.get_historical_data(sym)
+                self.detector.merge_history(history)
                 logger.info(
                     f"[STOCK SCAN] processing ALPACA {sym} "
                     f"price={pd.price} change={pd.daily_change_pct:+.2f}%"
@@ -2333,6 +2428,9 @@ class ScannerGUI:
         self._gap_store:    Dict[str, dict] = {}
         self._sort_col      = "Move%"
         self._sort_desc     = True
+        self._price_refresh_lock = threading.Lock()
+        self._price_refresh_inflight = False
+        self._price_refresh_generation = 0
 
     def start(self):
         if not TKINTER_AVAILABLE:
@@ -2787,6 +2885,15 @@ class ScannerGUI:
         # ── Fetch prices in background thread, update GUI when done ──────
         import threading as _threading
 
+        with self._price_refresh_lock:
+            if self._price_refresh_inflight:
+                if self.running:
+                    self.root.after(30000, self._update_loop)
+                return
+            self._price_refresh_inflight = True
+            self._price_refresh_generation += 1
+            refresh_generation = self._price_refresh_generation
+
         def _fetch_prices():
             """Runs in background — fetches current prices, no GUI calls here."""
             now     = datetime.now()
@@ -2836,6 +2943,10 @@ class ScannerGUI:
             # ── Post results back to GUI thread safely ────────────────────
             def _apply_updates():
                 try:
+                    with self._price_refresh_lock:
+                        if (refresh_generation != self._price_refresh_generation
+                                or not self.running):
+                            return
                     for (store_key, sym), new_r in updates.items():
                         store = (self._stock_store if store_key == "stock"
                                  else self._crypto_store)
@@ -2850,7 +2961,14 @@ class ScannerGUI:
             except Exception:
                 pass
 
-        t = _threading.Thread(target=_fetch_prices, daemon=True)
+        def _fetch_prices_worker():
+            try:
+                _fetch_prices()
+            finally:
+                with self._price_refresh_lock:
+                    self._price_refresh_inflight = False
+
+        t = _threading.Thread(target=_fetch_prices_worker, daemon=True)
         t.start()
 
         if self.running:
@@ -2881,6 +2999,8 @@ class ScannerGUI:
 
     def _on_close(self):
         self.running = False
+        with self._price_refresh_lock:
+            self._price_refresh_generation += 1
         self.scanner.stop()
         self.root.destroy()
 
