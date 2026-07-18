@@ -9,6 +9,9 @@ watchlist/
 junk*
 data/junk.ps1
 data/candle*
+# SQLite temporary database files
+data/*.db-shm
+data/*.db-wal
 docs/
 symbol_params.json
 logs/bot.log
