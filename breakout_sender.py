@@ -17,6 +17,21 @@ Config keys (scanner_config.json):
     bot_min_escalation  int   minimum escalation to send (default: 1)
     bot_enabled         bool  master switch (default: true)
     bot_sender_queue_size int bounded pending-send capacity (default: 256)
+
+PATCH NOTES — 2026-07-18, Step 8 (Reconciled Safe Patch Sequence, scoped —
+see core/breakout_decision.py's own patch notes for the full rationale,
+what was deliberately left untouched, and the back-out steps). Summary of
+what changed in THIS file:
+  - should_send()'s stale-breakout guard (`bars_since > MAX_BREAKOUT_AGE_BARS`)
+    and its escalation-minimum check (`escalation < self._min_esc`) now call
+    shared functions (`is_breakout_stale`, `escalation_meets_minimum`) from
+    core.breakout_decision instead of comparing against a locally-defined
+    `MAX_BREAKOUT_AGE_BARS` class constant — same value (3 bars), same
+    semantics, single source of truth shared with
+    core/breakout_receiver.py's _check_momentum_phase() and receive_signal().
+  - The liquidity filter (MIN_USD_VOLUME_PER_CANDLE) and the `escalation > 4`
+    upper bound are unchanged and remain sender-local — they have no
+    confirmed duplicate elsewhere.
 """
 
 import logging
@@ -29,6 +44,12 @@ import threading
 import time
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
+
+from core.breakout_decision import (
+    is_breakout_stale,
+    escalation_meets_minimum,
+    MAX_BREAKOUT_AGE_BARS,
+)
 
 try:
     import requests
@@ -153,11 +174,6 @@ class BreakoutSender:
                 logger.warning("[SENDER] Bot injection disabled by %s", reason)
                 self._last_disabled_log = now
 
-    # Maximum bars since breakout was first detected before we stop sending.
-    # On 5m candles: 3 bars = 15 minutes. Signals older than this are stale
-    # — the breakout has already played out and entering now is chasing the tail.
-    MAX_BREAKOUT_AGE_BARS = 3
-
     # Minimum average USD volume per candle to accept a signal.
     # Filters out illiquid micro-caps where one seller can cliff-drop the price
     # with no liquidity to absorb the move (e.g. KULA, SUNDOG).
@@ -172,7 +188,7 @@ class BreakoutSender:
             escalation = int(escalation)
         except (TypeError, ValueError):
             return False
-        if escalation < self._min_esc or escalation > 4:
+        if not escalation_meets_minimum(escalation, self._min_esc) or escalation > 4:
             return False
 
         # Liquidity filter — reject illiquid tokens where price can cliff-drop
@@ -204,10 +220,10 @@ class BreakoutSender:
         # Stale breakout guard — drop signals where the breakout started too long ago.
         # bars_since_breakout is incremented by EscalationTracker on every scan cycle.
         bars_since = getattr(signal, "bars_since_breakout", 0)
-        if bars_since > self.MAX_BREAKOUT_AGE_BARS:
+        if is_breakout_stale(bars_since):
             logger.info(
                 f"[SENDER] {signal.symbol} breakout is {bars_since} bars old "
-                f"(max {self.MAX_BREAKOUT_AGE_BARS}) — stale signal, dropping send"
+                f"(max {MAX_BREAKOUT_AGE_BARS}) — stale signal, dropping send"
             )
             return False
 

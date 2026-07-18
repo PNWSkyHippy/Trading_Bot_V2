@@ -10,6 +10,21 @@ v2.2 additions:
     scanner fetchers directly
   - Normalizes broker names and preserves both preferred_broker + source_broker
   - Blacklist rejections now return the same structured response shape
+
+PATCH NOTES — 2026-07-18, Step 8 (Reconciled Safe Patch Sequence, scoped —
+see core/breakout_decision.py's own patch notes for the full rationale,
+what was deliberately left untouched, and the back-out steps). Summary of
+what changed in THIS file:
+  - `ChecklistResult` is now imported from core.breakout_decision instead
+    of being defined here (identical class, one definition).
+  - The `min_escalation` gate in receive_signal() and the bars-since-
+    breakout staleness check in _check_momentum_phase() now call shared
+    functions (`escalation_meets_minimum`, `is_breakout_stale`) from
+    core.breakout_decision instead of comparing against locally-inlined
+    thresholds — same values (3 bars), same semantics, single source of
+    truth shared with breakout_sender.py's should_send().
+  - No other check's logic, DB access, network call, side effect, or
+    ordering changed.
 """
 
 import json
@@ -27,6 +42,12 @@ from core.trade_executor import TradeExecutor
 from core.event_identity import (
     hash_breakout_payload,
     derive_client_order_id,
+)
+from core.breakout_decision import (
+    ChecklistResult,
+    MAX_BREAKOUT_AGE_BARS,
+    is_breakout_stale,
+    escalation_meets_minimum,
 )
 
 logger = logging.getLogger(__name__)
@@ -97,32 +118,6 @@ BROKER_ALIASES = {
     "ibkr": "ibkr",
     "alpaca_markets": "alpaca",
 }
-
-
-class ChecklistResult:
-    PASS = "PASS"
-    FAIL = "FAIL"
-    SKIP = "SKIP"
-
-    def __init__(self, status: str, reason: str):
-        self.status = status
-        self.passed = (status == self.PASS)
-        self.reason = reason
-
-    @classmethod
-    def ok(cls, reason: str) -> "ChecklistResult":
-        return cls(cls.PASS, reason)
-
-    @classmethod
-    def fail(cls, reason: str) -> "ChecklistResult":
-        return cls(cls.FAIL, reason)
-
-    @classmethod
-    def skip(cls, reason: str) -> "ChecklistResult":
-        return cls(cls.SKIP, reason)
-
-    def __repr__(self):
-        return f"[{self.status}] {self.reason}"
 
 
 class BreakoutReceiver:
@@ -277,7 +272,7 @@ class BreakoutReceiver:
             self._finalize_event(event_id, result, None)
             return result
 
-        if min_escalation is not None and esc < min_escalation:
+        if not escalation_meets_minimum(esc, min_escalation):
             reason = f"Escalation {esc} below minimum {min_escalation}"
             logger.info(f"[BREAKOUT RECV] {sym} rejected — {reason}")
             result = {
@@ -917,17 +912,19 @@ class BreakoutReceiver:
         dist_pct    = p.get("distance_from_breakout_pct")
         rsi         = p.get("rsi")
 
-        MAX_BARS_SINCE    = 3    # reverted: 2 was too tight, scanner was silent — 3 bars = 15m on 5m
+        # MAX_BARS_SINCE reverted: 2 was too tight, scanner was silent — 3 bars = 15m on 5m.
+        # Sourced from core.breakout_decision so this and breakout_sender.py's
+        # stale-breakout guard can never drift apart on the same threshold.
         MAX_DIST_FROM_LVL = 6.0  # reverted: 2.0% killed nearly all signals — 6.0% is the proven working cap
         RSI_EXHAUST_LONG  = 78
         RSI_EXHAUST_SHORT = 22
 
         if bars_since is not None:
             bars_since = int(bars_since)
-            if bars_since > MAX_BARS_SINCE:
+            if is_breakout_stale(bars_since):
                 return ChecklistResult.fail(
                     f"Move is {bars_since} bars old — too late to enter "
-                    f"(max {MAX_BARS_SINCE} bars from breakout level)"
+                    f"(max {MAX_BREAKOUT_AGE_BARS} bars from breakout level)"
                 )
         else:
             # bars_since missing from payload — rely on candle direction check below
