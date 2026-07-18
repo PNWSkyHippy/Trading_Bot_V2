@@ -31,6 +31,51 @@
   from the SQLite cache via CandleStore (WAL mode, safe for concurrent reads).
   Eliminates the ccxt thread-safety issue in position_monitor.
 =============================================================
+
+  PATCH NOTES — 2026-07-18, Step 6b (Reconciled Safe Patch Sequence,
+  reports/agent_pipeline/20260717-085541/final_unified_report.md §6 item 6,
+  narrow slice only — NOT the full Patch B data contract). Spec:
+  reports/agent_pipeline/20260716-082429/final_unified_report.md §13.
+
+  Bug: Alpaca's native 1Hour stock bars are plain UTC-hour-boundary,
+  extended-hours buckets, not anchored to the 09:30 ET regular-session
+  open — a genuine 09:30-10:00 ET partial opening bar can never be
+  recovered by slicing already-1h-aggregated data (per-trade detail is
+  gone by the time Alpaca returns 1Hour bars).
+
+  Fix, applied by agent (Ron reviewing before commit):
+    - _fetch_alpaca() now branches: for the "1h" timeframe specifically,
+      delegates to the new _fetch_alpaca_session_hourly() instead of
+      calling get_bars(..., "1Hour", ...) directly. Every other timeframe
+      (5Min/15Min/1Day, and all of crypto which never routes through
+      Alpaca) is untouched — same single get_bars() call as before.
+    - New method _fetch_alpaca_session_hourly(api, symbol, limit): fetches
+      native 30Min bars, filters each trading day to its regular session
+      via core.stock_calendar_authority.get_authority(), and resamples
+      into session-anchored hourly buckets via the new
+      resample_30m_to_session_hourly() (see that module's own patch
+      notes). If the calendar authority can't confirm a date's session
+      (stale/unrefreshed), that date falls back to its raw, unfiltered
+      30Min bars rather than being dropped (logged via logger.warning) —
+      "degraded, not dark." Only the resampled 1Hour result is cached
+      under the existing timeframe key; raw 30Min bars are not separately
+      cached.
+
+  Explicitly NOT touched: the broader Option B extended-hours-filtering
+  decision for other timeframes/consumers — see
+  core/stock_calendar_authority.py's own patch notes and module docstring.
+
+  Tests: Scripts/test_candle_manager_session_hourly_resample.py (new,
+  5/5 passing, includes a dedicated test proving non-1h timeframes never
+  call get_calendar()). Full existing regression suite re-run with zero
+  regressions.
+
+  To back out: remove the "1h" branch and _fetch_alpaca_session_hourly()
+  from _fetch_alpaca() below, restoring the single unconditional
+  get_bars(..., tf_alpaca, ...) call for all stock timeframes. Also revert
+  the corresponding change in core/stock_calendar_authority.py. No other
+  files were touched by this patch.
+=============================================================
 """
 
 import logging
@@ -275,6 +320,8 @@ class CandleManager:
                 base_url=config.ALPACA_BASE_URL
             )
             tf_alpaca = _alpaca_tf(_normalise_tf(timeframe))
+            if _normalise_tf(timeframe) == "1h":
+                return self._fetch_alpaca_session_hourly(api, symbol, limit)
             bars = api.get_bars(symbol, tf_alpaca, limit=limit + 1, adjustment="raw").df
             if bars.empty:
                 return None
@@ -285,6 +332,66 @@ class CandleManager:
         except Exception as e:
             logger.debug(f"[CandleManager] Alpaca fetch failed for {symbol}/{timeframe}: {e}")
             return None
+
+    def _fetch_alpaca_session_hourly(self, api, symbol: str, limit: int) -> Optional[pd.DataFrame]:
+        """
+        1-hour stock bars can't be sliced from Alpaca's native 1Hour endpoint
+        into a genuine 09:30-10:00 ET partial opening bar — by the time
+        Alpaca returns 1Hour data, the underlying trades are already
+        aggregated into whole-UTC-hour extended-hours buckets (see
+        core/stock_calendar_authority.py module docstring, live-checked
+        2026-07-16). Instead: fetch native 30Min bars, filter each trading
+        day to its regular session via StockCalendarAuthority, and resample
+        into session-anchored hourly buckets ourselves.
+
+        If the calendar authority can't confirm a given date's session
+        (stale/not-yet-refreshed schedule), that date falls back to its raw,
+        unfiltered 30Min bars rather than being dropped — degraded data
+        beats no data for a live exit check, and downstream validation
+        already fails closed independently on stale/wrong session data.
+        """
+        import time as _time
+        from core.stock_calendar_authority import get_authority, resample_30m_to_session_hourly
+
+        authority = get_authority(api)
+        # ~13 30Min bars per regular session. Overfetch generously so the
+        # post-resample result still has >= `limit` hourly bars.
+        raw_limit = max(limit * 2 + 20, 60)
+        raw = api.get_bars(symbol, "30Min", limit=raw_limit, adjustment="raw").df
+        if raw.empty:
+            return None
+        raw.columns = [c.lower() for c in raw.columns]
+        if len(raw) > 1:
+            raw = raw.iloc[:-1]   # drop forming bar
+        raw.index = (
+            raw.index.tz_localize(None) if raw.index.tz is None
+            else raw.index.tz_convert("UTC").tz_localize(None)
+        )
+
+        dates = sorted({ts.date() for ts in raw.index})
+        chunks = []
+        now_epoch = int(_time.time())
+        for d in dates:
+            day_raw = raw[raw.index.date == d]
+            window = authority.get_session(d, now_epoch)
+            if window is None:
+                if authority.refresh(now_epoch=now_epoch):
+                    window = authority.get_session(d, now_epoch)
+            if window is None:
+                logger.warning(
+                    f"[CandleManager] StockCalendarAuthority has no confirmed "
+                    f"session for {symbol} {d} — using unfiltered 30Min bars "
+                    f"for that date instead of session-resampled hourly bars"
+                )
+                chunks.append(day_raw)
+                continue
+            open_epoch, close_epoch = window
+            chunks.append(resample_30m_to_session_hourly(day_raw, open_epoch, close_epoch))
+
+        if not chunks:
+            return None
+        out = pd.concat(chunks).sort_index()
+        return out.tail(limit) if len(out) > limit else out
 
     def _fetch_yfinance(self, symbol: str, timeframe: str, limit: int) -> Optional[pd.DataFrame]:
         """Fetch from yfinance with semaphore + exponential backoff retry."""

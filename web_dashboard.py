@@ -70,6 +70,8 @@ try:
 except Exception:
     monitor = None
 
+from core.strategy_registry import STRATEGY_MODULES as _STRATEGY_MODULES
+
 # ── Tradovate real-time feed (optional) ──────────────────────────────────────
 # Activated when a JWT token is posted to /api/tradovate_token.
 # Falls back to yfinance silently when not active.
@@ -1071,24 +1073,26 @@ def get_manual_trade_config():
     }
 
 
-# Cancel flag — set by POST /api/backtest/cancel, checked in the inner run loop.
-# Cleared at the start of every new run so stale signals don't bleed through.
-_bt_cancel = threading.Event()
+# Per-run cancel context (intelligence.backtester.BacktestRunContext) — backtester
+# parity patch step 2 (reports/agent_pipeline/20260717-085541/final_unified_report.md
+# §6 item 2). Previously a bare module-global threading.Event was cleared
+# unconditionally at the start of every new run, so a second run starting while
+# a first was in flight could silently erase the first run's cancel signal.
+# _bt_lock makes the "is one already running?" check-and-set atomic (closes a
+# TOCTOU race between concurrent /api/backtest requests), and _bt_current_run
+# lets /api/backtest/cancel target the actual in-flight run's own context
+# instead of a shared global.
+_bt_lock = threading.Lock()
 _bt_running = threading.Event()
+_bt_current_run = None  # BacktestRunContext | None
 
-BACKTEST_STRATEGIES = [
-    # Original 11
-    "adaptive_regime", "rsi_momentum", "bollinger_breakout", "ema_crossover",
-    "mean_reversion", "scalp_master", "swing_trader", "grid_bot",
-    "dca_accumulator", "vwap_momentum", "hammer_reversal", "orb_breakout",
-    # Strategies 12-21
-    "ecb_strategy", "vdmr_strategy", "rsi_dip_spike_v4",
-    "vwap_confirmed_orb", "bollinger_squeeze",
-    "mr_02_vef", "mr_03_fbs", "mr_04_fvg",
-    # Strategies 22-27 (incubate / new)
-    "btc_v6_chandelier", "rsi_dip_simple", "pll_cycle",
-    "kds_mean_reversion", "ema_ribbon_breakout", "rcr_mean_reversion",
-]
+# Canonical list — see core/strategy_registry.py. Was previously a
+# hand-maintained list missing 12 strategies backtester.py could already
+# run (sfr_structural_fakeout, bmr_357, vbm_strategy, tema_crossover,
+# pll_cycle_martingale, pll_conservative_eth_1h, td_day_trader_v3,
+# td_gridbot_adx15, td_rsi_dip_spike_v4c, td_v6_bnb_adx, td_btc_v11,
+# td_f40d_adx) — report 20260717-085541 item 10.
+BACKTEST_STRATEGIES = sorted(_STRATEGY_MODULES.keys())
 
 
 def _parse_backtest_days(raw):
@@ -1139,28 +1143,13 @@ def get_strategy_optimizer_params(strategy_name: str) -> list:
     Skips string/bool fields (not optimizable numerically).
     Generates sensible default ranges from the dataclass default values.
     """
-    STRATEGY_MAP = {
-        "rsi_momentum":       ("strategies.rsi_momentum",       "RSIMomentum"),
-        "bollinger_breakout": ("strategies.bollinger_breakout",  "BollingerBreakout"),
-        "bollinger_squeeze":  ("strategies.bollinger_squeeze",   "BollingerSqueeze"),
-        "ema_crossover":      ("strategies.ema_crossover",       "EMACrossover"),
-        "mean_reversion":     ("strategies.mean_reversion",      "MeanReversion"),
-        "scalp_master":       ("strategies.scalp_master",        "ScalpMaster"),
-        "swing_trader":       ("strategies.swing_trader",        "SwingTrader"),
-        "grid_bot":           ("strategies.grid_bot",            "GridBot"),
-        "dca_accumulator":    ("strategies.dca_accumulator",     "DCAAccumulator"),
-        "vwap_momentum":      ("strategies.vwap_momentum",       "VWAPMomentum"),
-        "vwap_confirmed_orb": ("strategies.vwap_confirmed_orb",  "VwapConfirmedOrb"),
-        "hammer_reversal":    ("strategies.hammer_reversal",     "HammerReversal"),
-        "orb_breakout":       ("strategies.orb_breakout",        "ORBBreakout"),
-        "adaptive_regime":    ("strategies.adaptive_regime",     "AdaptiveRegime"),
-        "ecb_strategy":       ("strategies.ecb_strategy",        "ECBStrategy"),
-        "vdmr_strategy":      ("strategies.vdmr_strategy",       "VDMRStrategy"),
-        "rsi_dip_spike_v4":   ("strategies.rsi_dip_spike_v4",   "RSIDipSpikeV4Strategy"),
-        "mr_02_vef":          ("strategies.mr_02_vef_strategy",  "MR02VEFStrategy"),
-        "mr_03_fbs":          ("strategies.mr_03_fbs_strategy",  "MR03FBSStrategy"),
-        "mr_04_fvg":          ("strategies.mr_04_fvg_strategy",  "MR04FVGStrategy"),
-    }
+    # Canonical registry — see core/strategy_registry.py. Was previously a
+    # third, independently-typed, smaller copy (20 entries) missing 6
+    # strategies present in the dashboard's own BACKTEST_STRATEGIES list
+    # (report 20260717-085541 item 10). Non-optimizable strategies (no
+    # dataclass `params`) already no-op safely below, so widening this map
+    # to the full registry carries no behavior risk.
+    STRATEGY_MAP = _STRATEGY_MODULES
     if strategy_name not in STRATEGY_MAP:
         return []
     try:
@@ -1536,14 +1525,15 @@ def run_backtest_api(payload):
     if not symbols:
         return False, "No symbols selected for backtest.", {}
 
-    # Clear any stale cancel signals from a previous run
-    _bt_cancel.clear()
-    _bt_running.set()
-    try:
-        from intelligence.backtester import clear_cancel
-        clear_cancel()
-    except Exception:
-        pass
+    global _bt_current_run
+    from intelligence.backtester import BacktestRunContext
+
+    with _bt_lock:
+        if _bt_running.is_set():
+            return False, "Backtest already running — cancel first", {}
+        run_ctx = BacktestRunContext()
+        _bt_current_run = run_ctx
+        _bt_running.set()
 
     results = []
     skipped = 0
@@ -1551,10 +1541,10 @@ def run_backtest_api(payload):
     try:
         bt = Backtester(starting_capital=capital)
         for strat in strategies:
-            if _bt_cancel.is_set():
+            if run_ctx.is_cancelled():
                 break
             for sym in symbols:
-                if _bt_cancel.is_set():
+                if run_ctx.is_cancelled():
                     break
                 try:
                     if strat == "original_scorer":
@@ -1565,6 +1555,7 @@ def run_backtest_api(payload):
                             initial_stop_mode=initial_stop_mode, trail_mode=trail_mode,
                             entry_mode_filter=entry_mode_filter,
                             entry_side_filter=entry_side_filter,
+                            run_ctx=run_ctx,
                         )
                     else:
                         result = bt.run_strategy(
@@ -1574,6 +1565,7 @@ def run_backtest_api(payload):
                             initial_stop_mode=initial_stop_mode, trail_mode=trail_mode,
                             entry_mode_filter=entry_mode_filter,
                             entry_side_filter=entry_side_filter,
+                            run_ctx=run_ctx,
                         )
                     if result and getattr(result, "total_trades", 0) > 0:
                         results.append(_backtest_result_payload(result))
@@ -1582,14 +1574,16 @@ def run_backtest_api(payload):
                 except Exception as _exc:
                     if type(_exc).__name__ == "_BacktestCancelled":
                         # Inner-loop cancel checkpoint fired — treat as cancelled
-                        _bt_cancel.set()
+                        run_ctx.cancel()
                         break
                     skipped += 1
 
-        was_cancelled = _bt_cancel.is_set()
+        was_cancelled = run_ctx.is_cancelled()
     finally:
         _bt_running.clear()
-        _bt_cancel.clear()
+        with _bt_lock:
+            if _bt_current_run is run_ctx:
+                _bt_current_run = None
 
     if not results:
         if was_cancelled:
@@ -4919,10 +4913,13 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/backtest/cancel":
             running = _bt_running.is_set()
-            _bt_cancel.set()
+            with _bt_lock:
+                ctx = _bt_current_run
+            if ctx is not None:
+                ctx.cancel()
             try:
                 from intelligence.backtester import request_cancel
-                request_cancel()
+                request_cancel()  # also cancel the shared default context, for any CLI-triggered run
             except Exception:
                 pass
             msg = "Cancel signal sent — waiting for next backtest checkpoint." if running else "Cancel signal set; no active backtest was marked running."

@@ -223,6 +223,12 @@ class BMR357Strategy(BaseStrategy):
         self.reviewer_exempt         = True
         self.ml_exempt               = True
         self.time_stop_profile       = "strategy_defined"
+        # Backtester parity patch step 4 (reports/agent_pipeline/20260717-085541/
+        # final_unified_report.md §6 item 4): declares to intelligence/backtester.py
+        # that this strategy needs a timestamp-aligned historical BTC window
+        # injected per bar during replay, instead of reading the live
+        # candle_manager singleton (see _btc_momentum_active below).
+        self.requires_historical_btc_context = True
         self._health_interval_sec    = max(
             30.0,
             float(getattr(config, "BMR357_HEALTH_LOG_INTERVAL_SEC", 300.0)),
@@ -292,8 +298,19 @@ class BMR357Strategy(BaseStrategy):
         min_move = float(getattr(config, "BMR_BTC_MOMENTUM_THRESHOLD", p.min_btc_move_pct))
 
         try:
-            btc_df = candles if symbol.upper() == "BTC/USD" else None
-            if btc_df is None:
+            if getattr(self, "_backtest_mode_btc_context_enabled", False):
+                # Backtest replay: intelligence/backtester.py injects a
+                # timestamp-aligned historical BTC window per bar (see
+                # requires_historical_btc_context above). Once this flag is
+                # set, never fall through to the live candle_manager
+                # singleton below — even if the injected window is missing
+                # for this bar, fail the gate closed. Silently reading live
+                # state here is exactly what made backtest results vary with
+                # wall-clock time (cold vs. warm candle_manager cache).
+                btc_df = getattr(self, "_backtest_btc_context", None)
+            elif symbol.upper() == "BTC/USD":
+                btc_df = candles
+            else:
                 from core.candle_manager import candle_manager
                 btc_df = candle_manager.get("BTC/USD", self.crypto_candle_timeframe, limit=3)
             if btc_df is None or len(btc_df) < 2:

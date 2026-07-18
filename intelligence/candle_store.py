@@ -24,6 +24,37 @@
     ok    = store.has_data("BTC/USD","1h",90)# quick freshness check
     store.delete("BTC/USD", "1h")            # remove from store
 =============================================================
+
+  PATCH NOTES — 2026-07-18, Step 6a (Reconciled Safe Patch Sequence,
+  reports/agent_pipeline/20260717-085541/final_unified_report.md §6 item 6;
+  fix spec reconstructed from reports/agent_pipeline/20260716-082429/
+  final_unified_report.md §14 after the original working-tree fix was lost
+  — commit bbabe2d4 ("Add Patch A market-data caching contracts",
+  2026-07-16 11:36:48) touched this file for an unrelated F11 timezone fix
+  without carrying the retention fix forward).
+
+  Bug: save()'s prune step deleted every cached row older than the
+  *incoming batch's own oldest row* (first_ts). A routine short
+  incremental refresh (e.g. a 300-bar hourly top-up) would silently erase
+  most of a much longer existing backtest-window cache on every save,
+  because the batch's own first_ts is always recent.
+
+  Fix, applied by agent (Ron reviewing before commit):
+    - Added _RETENTION_DAYS (per-timeframe, mirrors intelligence/
+      backtester.py's TF_CONFIG max_days + 1-day buffer) and
+      _DEFAULT_RETENTION_DAYS, just below _BARS_PER_DAY.
+    - save()'s prune query now measures the retention cutoff back from the
+      NEWEST bar now on file for that symbol/timeframe (a fresh
+      SELECT MAX(ts) query), not from the incoming batch's oldest row.
+
+  Tests: Scripts/test_candle_store_incremental_retention.py (new, 3/3
+  passing). Full existing regression suite re-run with zero regressions.
+
+  To back out: remove _RETENTION_DAYS/_DEFAULT_RETENTION_DAYS and revert
+  save()'s prune block to `DELETE ... WHERE ts < ?` keyed on the batch's
+  own first_ts (the original, buggy behavior — do not restore without also
+  reintroducing the bug this patch fixes). No other files were touched by
+  this patch.
 """
 
 import sqlite3
@@ -72,6 +103,19 @@ _BARS_PER_DAY = {
     '4h':    6,
     '1d':    1,
 }
+
+# Per-timeframe retention horizon for save()'s pruning step. Mirrors each
+# timeframe's max fetchable backtest window (intelligence/backtester.py
+# TF_CONFIG max_days) plus a one-day buffer, so a routine incremental
+# refresh never prunes bars a backtest could legitimately still request.
+_RETENTION_DAYS = {
+    '5m':    59,
+    '15m':   60,
+    '1h':   730,
+    '4h':  1000,   # no TF_CONFIG entry for 4h; generous fixed horizon
+    '1d':  3651,
+}
+_DEFAULT_RETENTION_DAYS = 730
 
 # ---------------------------------------------------------------------------
 # Singleton
@@ -256,12 +300,24 @@ class CandleStore:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, rows)
 
-            # Prune bars older than the oldest bar in this batch.
-            # Prevents unbounded growth — each save keeps exactly the current window.
+            # Prune bars older than the retention horizon, measured back from
+            # the newest bar now on file (not the oldest bar of *this*
+            # incoming batch). Pruning relative to the batch's own first_ts
+            # is wrong: a routine short incremental refresh (e.g. a 300-bar
+            # hourly top-up) has a recent first_ts, which would delete most
+            # of an existing, much longer backtest-window cache on every
+            # save. Retention is a fixed horizon from "now" (the latest bar
+            # on file), independent of how much a given save happens to add.
+            newest_ts_row = conn.execute("""
+                SELECT MAX(ts) FROM candles WHERE symbol = ? AND timeframe = ?
+            """, (symbol, timeframe)).fetchone()
+            newest_ts = newest_ts_row[0] if newest_ts_row and newest_ts_row[0] is not None else last_ts
+            retention_days = _RETENTION_DAYS.get(timeframe, _DEFAULT_RETENTION_DAYS)
+            retention_cutoff = newest_ts - int(retention_days * 86400)
             conn.execute("""
                 DELETE FROM candles
                 WHERE symbol = ? AND timeframe = ? AND ts < ?
-            """, (symbol, timeframe, first_ts))
+            """, (symbol, timeframe, retention_cutoff))
 
             # Update meta with actual DB counts after pruning
             actual = conn.execute("""

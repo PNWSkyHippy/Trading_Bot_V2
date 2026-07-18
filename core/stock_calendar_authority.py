@@ -171,6 +171,48 @@
   contracts and tests only. It implements the candle_validation.SessionAuthority
   protocol so Patch B/C can consume it directly once ready.
 =============================================================
+
+  PATCH NOTES — 2026-07-18, Step 6b (Reconciled Safe Patch Sequence,
+  reports/agent_pipeline/20260717-085541/final_unified_report.md §6 item 6,
+  narrow slice only — NOT the full Patch B data contract).
+
+  Added, uncommitted, applied by agent (Ron reviewing before commit):
+    - resample_30m_to_session_hourly(df_30m, open_epoch, close_epoch):
+      new module-level function. Aggregates 30-minute bars into
+      session-anchored hourly buckets using the same _session_bar_opens
+      boundary math already unit-tested in
+      Scripts/test_stock_calendar_authority.py, so the fetch side and the
+      validator side can never disagree about where an hour starts.
+    - get_authority(api=None): new module-level singleton accessor
+      (_authority_instance / _authority_lock), mirroring
+      intelligence/candle_store.py's get_store() pattern. First caller's
+      `api` wins; later calls ignore the argument and return the existing
+      instance.
+
+  Why: Alpaca's native 1Hour stock bars are plain UTC-hour-boundary,
+  extended-hours buckets — NOT anchored to the 09:30 ET regular-session
+  open — so a genuine 09:30-10:00 ET partial opening bar can never be
+  recovered by slicing already-1h-aggregated data (the underlying trades
+  are gone). See core/candle_manager.py's _fetch_alpaca_session_hourly,
+  which is the caller of both functions added here.
+
+  Explicitly NOT touched by this patch (still pending Ron's confirmation,
+  per the "Decided contract" section above and this module's own prior
+  notes): the broader Option B extended-hours-filtering decision for
+  5m/15m/1d timeframes, and the 5 other live consumers
+  (condition_detector.py, claude_reviewer.py, chat_interface.py,
+  position_monitor.py exit logic, trade_executor.py stop recompute) that
+  still see unfiltered extended-hours data.
+
+  Tests: Scripts/test_candle_manager_session_hourly_resample.py (new,
+  5/5 passing). Full existing regression suite re-run with zero
+  regressions (Scripts/test_stock_calendar_authority.py 43/43 still pass).
+
+  To back out: delete resample_30m_to_session_hourly() and get_authority()
+  (plus the _authority_instance/_authority_lock globals immediately above
+  them) from this file, and revert the corresponding change in
+  core/candle_manager.py (_fetch_alpaca_session_hourly + its call site in
+  _fetch_alpaca). No other files were touched by this patch.
 """
 
 import logging
@@ -262,6 +304,56 @@ def _latest_closed_bar_open_in_session(
         else:
             break
     return latest
+
+
+def resample_30m_to_session_hourly(df_30m, open_epoch: int, close_epoch: int):
+    """
+    Aggregate 30-minute bars already filtered to the regular session
+    [open_epoch, close_epoch) into session-anchored hourly bars using the
+    SAME bucket boundaries _session_bar_opens computes (09:30-10:00
+    partial, then clock-aligned hours, partial final bar at close) — so
+    live-fetched bars and the validator's expectations can never disagree
+    about where an hour starts. df_30m must be tz-naive-UTC indexed
+    (candle_manager's existing contract for cached/returned OHLCV frames).
+    """
+    import pandas as pd
+
+    opens = _session_bar_opens(open_epoch, close_epoch, 3600)
+    closes = opens[1:] + [close_epoch]
+    idx_epoch = (df_30m.index.view("int64") // 10**9)
+    rows = []
+    for bo, bc in zip(opens, closes):
+        mask = (idx_epoch >= bo) & (idx_epoch < bc)
+        chunk = df_30m.loc[mask]
+        if chunk.empty:
+            continue
+        rows.append({
+            "datetime": pd.Timestamp(bo, unit="s"),
+            "open": chunk["open"].iloc[0],
+            "high": chunk["high"].max(),
+            "low": chunk["low"].min(),
+            "close": chunk["close"].iloc[-1],
+            "volume": chunk["volume"].sum() if "volume" in chunk else 0.0,
+        })
+    if not rows:
+        return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+    return pd.DataFrame(rows).set_index("datetime")
+
+
+_authority_instance: Optional["StockCalendarAuthority"] = None
+_authority_lock = threading.Lock()
+
+
+def get_authority(api=None) -> "StockCalendarAuthority":
+    """Shared StockCalendarAuthority singleton. `api` is only used on the
+    first call (to construct the instance); later calls ignore it and
+    return the already-constructed instance — mirrors CandleStore's
+    get_store() pattern in intelligence/candle_store.py."""
+    global _authority_instance
+    with _authority_lock:
+        if _authority_instance is None:
+            _authority_instance = StockCalendarAuthority(api=api)
+        return _authority_instance
 
 
 @dataclass(frozen=True)

@@ -62,6 +62,12 @@ import pandas as pd
 import config
 from data.database import db
 from core.risk_manager import risk_manager
+from core.strategy_registry import (
+    TIME_STOP_EXEMPT,
+    EARLY_LOSS_MIN_PCT,
+    PERF_CHECK_2HR_MIN_PCT,
+    PERF_CHECK_5HR_MIN_PCT,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -81,10 +87,12 @@ PM_DEBUG = False
 # NOTE: grid_bot trades are EXEMPT from all time stops (see _check_performance_time_stop)
 # Grid strategies need time to oscillate — time stops kill them prematurely.
 PERF_CHECK_2HR_SEC     = 2 * 60 * 60    # 2 hours — free up capital if going nowhere
-PERF_CHECK_2HR_MIN_PCT = 0.2            # need at least 0.2% profit by 2hr
+# PERF_CHECK_2HR_MIN_PCT: need at least 0.2% profit by 2hr — canonical value
+# now lives in core/strategy_registry.py (imported above) so backtester.py
+# can share it instead of re-declaring its own copy.
 
 PERF_CHECK_5HR_SEC     = 5 * 60 * 60    # 5 hours — too slow for a day trade
-PERF_CHECK_5HR_MIN_PCT = 1.0            # need at least 1.0% profit by 5hr
+# PERF_CHECK_5HR_MIN_PCT: need at least 1.0% profit by 5hr — see import above.
 
 # Legacy aliases — kept so any external references don't break during migration
 PERF_CHECK_1HR_SEC     = PERF_CHECK_2HR_SEC
@@ -97,7 +105,9 @@ HARD_TIME_STOP_SEC     = 8 * 60 * 60    # 8 hours — hard kill (was 3.5hr)
 # Early loss check: if trade is negative AND worsening at 30 minutes, kill it.
 # Catches trades where thesis was wrong from the start.
 EARLY_LOSS_CHECK_SEC   = 30 * 60        # 30 minutes (was 20min — too tight)
-EARLY_LOSS_MIN_PCT     = -0.5           # if worse than -0.5% AND still falling (was -0.3%)
+# EARLY_LOSS_MIN_PCT: if worse than -0.5% AND still falling — see import above
+# (was -0.3%; note config.EARLY_LOSS_MIN_PCT is a stale, unrelated -0.3
+# leftover that nothing here reads).
 
 # Breakout fast-fail: real breakouts move immediately. If flat or negative at
 # 10 minutes (2 bars on 5m), the setup failed — take the tiny loss and move on.
@@ -890,35 +900,14 @@ class PositionMonitor:
         # MR mean-reversion 1h strategies: 24/36/48-bar holds are intentional;
         # the 8hr generic stop would cut trades before the thesis plays out.
         # ── Opus live-vs-paper audit 2026-05-29 ──────────────────────────────
-        # This set MUST mirror intelligence/backtester.py TIME_STOP_EXEMPT.
-        # Previously live exempted only 6 strategies while the backtester
-        # exempted ~30. Result: ~16 strategies were backtested WITHOUT generic
-        # 30m/2h/5h/8h stops (they ran to their own thesis), but traded LIVE
-        # WITH those stops firing early — so live exit-reason distributions and
-        # expectancy did not match the backtest the params were tuned on. Keep
-        # the two lists identical or the divergence returns.
-        TIME_STOP_EXEMPT = {
-            "grid_bot", "dca_accumulator",
-            "rsi_dip_spike_v4",
-            "hammer_reversal",
-            "mr_02_vef", "mr_03_fbs",
-            "pll_cycle", "pll_cycle_martingale",
-            "scalp_master",
-            "rsi_dip_simple", "breakout_scanner",
-            "rcr_mean_reversion", "funding_scanner",
-            "btc_v6_chandelier",
-            "orb_breakout",
-            "vwap_confirmed_orb",
-            "ema_crossover",
-            "rsi_momentum",
-            "bollinger_breakout",
-            "vwap_momentum",
-            "fels_strategy",
-            "swing_trader",
-            "mean_reversion",
-            "bmr_357",          # 48-bar time stop + SMA20 midline exit; generic lifecycle stops fire too early
-            "vtmr_strategy",    # VTM-R owns EMA(5) snapback + max-hold exits; generic lifecycle stops fire too early
-        }
+        # This set MUST mirror intelligence/backtester.py's exempt set — both
+        # now import TIME_STOP_EXEMPT from core/strategy_registry.py (see
+        # import at top of file) instead of each declaring their own copy,
+        # so the two can no longer drift apart independently. Previously live
+        # exempted only 6 strategies while the backtester exempted ~30, then
+        # later drifted again the other direction (backtester exempted 11
+        # strategies live did not) — both were instances of the same root
+        # cause: two hand-maintained literals with no shared source.
         if strategy in TIME_STOP_EXEMPT:
             logger.debug(
                 f"[TIME STOP EXEMPT] {symbol}: strategy={strategy} "

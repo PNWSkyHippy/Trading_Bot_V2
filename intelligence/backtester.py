@@ -41,6 +41,7 @@ import os
 import sys
 import threading
 import time
+import uuid
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -56,6 +57,14 @@ if _root_dir not in sys.path:
     sys.path.insert(0, _root_dir)
 
 import config
+from core.strategy_registry import (
+    STRATEGY_MODULES,
+    TIME_STOP_EXEMPT as _CANONICAL_TIME_STOP_EXEMPT,
+    EARLY_LOSS_MIN_PCT as _CANONICAL_EARLY_LOSS_PCT,
+    PERF_CHECK_2HR_MIN_PCT as _CANONICAL_PERF_2HR_PCT,
+    PERF_CHECK_5HR_MIN_PCT as _CANONICAL_PERF_5HR_PCT,
+)
+from intelligence.backtest_ledger import RunLedger
 
 logger = logging.getLogger(__name__)
 
@@ -118,9 +127,14 @@ STOP_TWO_BAR  = "two_bar"    # N-bar trailing stop (Pine Script port)
 MAX_OPEN_POSITIONS = 5
 
 # ---------------------------------------------------------------------------
-# Cancel flag — set by web_dashboard via request_cancel(); checked inside the
-# _simulate bar loop every CHECK_CANCEL_EVERY bars so a long run stops within
-# a few seconds rather than waiting for the whole symbol to finish.
+# Cancel/progress state — per-run context object (report 20260717-085541 §6
+# step 2). Callers that need concurrency isolation (web_dashboard's threaded
+# HTTP server, where two /api/backtest requests can be in flight at once)
+# construct their own BacktestRunContext and pass it through run()/
+# run_strategy()/run_all(). Callers that don't pass one (CLI scripts,
+# intelligence/optimizer.py, intelligence/opt_worker.py — all single-process,
+# single-threaded, no concurrent-run exposure) fall back to a shared default
+# context, preserving the pre-patch module-global behavior exactly.
 # ---------------------------------------------------------------------------
 
 class _BacktestCancelled(Exception):
@@ -128,16 +142,41 @@ class _BacktestCancelled(Exception):
     Intentionally NOT a subclass of OSError / InterruptedError so it cannot
     interfere with Python's own signal handling or server socket machinery."""
 
-_cancel_event = threading.Event()
+
+class BacktestRunContext:
+    """Isolated cancel state for one backtest run. Two contexts never share
+    an underlying Event, so cancelling/clearing one run cannot bleed into a
+    concurrently-running one (the bug this patch closes)."""
+
+    def __init__(self, run_id: str = None):
+        self.id = run_id or uuid.uuid4().hex
+        self._cancel_event = threading.Event()
+
+    def is_cancelled(self) -> bool:
+        return self._cancel_event.is_set()
+
+    def cancel(self):
+        self._cancel_event.set()
+
+    def clear(self):
+        self._cancel_event.clear()
+
+
 CHECK_CANCEL_EVERY = 50   # bars between cancel checks — higher = less sleep() syscall overhead
 
+# Shared fallback context for callers that don't pass their own run_ctx.
+_default_run_ctx = BacktestRunContext(run_id="default")
+
 def request_cancel():
-    """Signal the running backtest to stop at the next cancel checkpoint."""
-    _cancel_event.set()
+    """Signal the running backtest to stop at the next cancel checkpoint.
+    Cancels the default context only — callers using their own
+    BacktestRunContext (web_dashboard) call ctx.cancel() directly instead."""
+    _default_run_ctx.cancel()
 
 def clear_cancel():
-    """Reset the cancel flag — call at the start of every new backtest run."""
-    _cancel_event.clear()
+    """Reset the default context's cancel flag — call at the start of every
+    new backtest run that doesn't supply its own BacktestRunContext."""
+    _default_run_ctx.clear()
 
 
 # ===========================================================================
@@ -880,53 +919,11 @@ class Backtester:
     # -----------------------------------------------------------------------
 
     def _load_strategy(self, strategy_name: str):
-        strategy_map = {
-            "rsi_momentum":         ("strategies.rsi_momentum",         "RSIMomentum"),
-            "bollinger_breakout":   ("strategies.bollinger_breakout",   "BollingerBreakout"),
-            "bollinger_squeeze":    ("strategies.bollinger_squeeze",    "BollingerSqueeze"),
-            "ema_crossover":        ("strategies.ema_crossover",        "EMACrossover"),
-            "mean_reversion":       ("strategies.mean_reversion",       "MeanReversion"),
-            "scalp_master":         ("strategies.scalp_master",         "ScalpMaster"),
-            "swing_trader":         ("strategies.swing_trader",         "SwingTrader"),
-            "grid_bot":             ("strategies.grid_bot",             "GridBot"),
-            "dca_accumulator":      ("strategies.dca_accumulator",      "DCAAccumulator"),
-            "vwap_momentum":        ("strategies.vwap_momentum",        "VWAPMomentum"),
-            "vwap_confirmed_orb":   ("strategies.vwap_confirmed_orb",  "VwapConfirmedOrb"),
-            "hammer_reversal":      ("strategies.hammer_reversal",      "HammerReversal"),
-            "orb_breakout":         ("strategies.orb_breakout",         "ORBBreakout"),
-            "adaptive_regime":      ("strategies.adaptive_regime",      "AdaptiveRegime"),
-            "vdmr_strategy":        ("strategies.vdmr_strategy",        "VDMRStrategy"),
-            "vtmr_strategy":        ("strategies.vtmr_strategy",        "VTMRStrategy"),
-            "rsi_dip_spike_v4":     ("strategies.rsi_dip_spike_v4",    "RSIDipSpikeV4Strategy"),
-            "mr_02_vef":            ("strategies.mr_02_vef_strategy",   "MR02VEFStrategy"),
-            "mr_03_fbs":            ("strategies.mr_03_fbs_strategy",   "MR03FBSStrategy"),
-            "mr_04_fvg":            ("strategies.mr_04_fvg_strategy",   "MR04FVGStrategy"),
-            "btc_v6_chandelier":    ("strategies.btc_v6_chandelier",    "BTCV6ChandelierStrategy"),
-            "rsi_dip_simple":       ("strategies.rsi_dip_simple",       "RSIDipSimpleStrategy"),
-            "pll_cycle":            ("strategies.pll_cycle",            "PLLCycleStrategy"),
-            "pll_cycle_martingale": ("strategies.pll_cycle",            "PLLCycleMartingaleStrategy"),
-            "pll_conservative_eth_1h": ("strategies.pll_cycle",          "PLLConservativeETHStrategy"),
-            "td_day_trader_v3":     ("strategies.traderdev_day_trader_v3", "TraderDevDayTraderV3Strategy"),
-            "td_gridbot_adx15":     ("strategies.traderdev_gridbot_adx15", "TraderDevGridBotADX15"),
-            "td_rsi_dip_spike_v4c": ("strategies.traderdev_rsi_dip_spike_v4c", "TraderDevRSIDipSpikeV4CStrategy"),
-            "td_v6_bnb_adx":        ("strategies.traderdev_v6_bnb_adx", "TraderDevV6BNBADXStrategy"),
-            "td_btc_v11":           ("strategies.traderdev_btc_v11", "TraderDevBTCV11Strategy"),
-            "td_f40d_adx":          ("strategies.traderdev_f40d_adx", "TraderDevF40DADXStrategy"),
-            "kds_mean_reversion":   ("strategies.kds_mean_reversion",   "KDSMeanReversionStrategy"),
-            "ema_ribbon_breakout":  ("strategies.ema_ribbon_breakout",  "EMARibbonBreakoutStrategy"),
-            "ema_crossover":        ("strategies.ema_crossover",        "EMACrossover"),
-            "rsi_momentum":         ("strategies.rsi_momentum",         "RSIMomentum"),
-            "bollinger_breakout":   ("strategies.bollinger_breakout",   "BollingerBreakout"),
-            "vdmr_strategy":        ("strategies.vdmr_strategy",        "VDMRStrategy"),
-            "vtmr_strategy":        ("strategies.vtmr_strategy",        "VTMRStrategy"),
-            "vwap_momentum":        ("strategies.vwap_momentum",        "VWAPMomentum"),
-            "rcr_mean_reversion":   ("strategies.rcr_mean_reversion",   "RCRMeanReversionStrategy"),
-            "fels_strategy":          ("strategies.fels_strategy",          "FELSStrategy"),
-            "sfr_structural_fakeout": ("strategies.sfr_structural_fakeout", "SFRStrategy"),
-            "tema_crossover":         ("strategies.tema_crossover",          "TEMACrossoverStrategy"),
-            "bmr_357":                ("strategies.bmr357_strategy",         "BMR357Strategy"),
-            "vbm_strategy":           ("strategies.vbm_strategy",            "VBMStrategy"),
-        }
+        # Canonical registry — see core/strategy_registry.py. Was previously
+        # a locally-declared dict with 6 exact-duplicate key redeclarations
+        # and no `ecb_strategy` entry (present in the dashboard/optimizer
+        # lists but silently unbacktestable). Report 20260717-085541 item 10.
+        strategy_map = STRATEGY_MODULES
         if strategy_name not in strategy_map:
             return None
         import importlib
@@ -1037,7 +1034,18 @@ class Backtester:
         # low/high, so we know the stop was touched — fill at the stop level,
         # not the close (which may be far from where the stop was hit).
         if reason == "stop_loss":
-            exit_price = trade["current_sl"]
+            # Lifecycle-correctness patch (report §6 item 5): a bar that
+            # opens through the stop (gap) would still book at the nominal
+            # stop level without this — unrealistic given only OHLC is
+            # available. Fill at whichever is worse for the position: the
+            # bar's open, or the nominal stop. Same-bar SL-vs-TP conflict
+            # priority (SL wins, decided in _check_exit_standard/_two_bar)
+            # is unchanged — this only corrects the fill *price*.
+            _bar_open = float(df.iloc[idx]["open"])
+            exit_price = (
+                min(_bar_open, trade["current_sl"]) if d == "long"
+                else max(_bar_open, trade["current_sl"])
+            )
         elif reason == "take_profit":
             # Opus 2026-05-29: TP is a resting limit order live — it fills AT the
             # TP level, not the bar close. _check_exit_* confirmed the TP was
@@ -1098,12 +1106,22 @@ class Backtester:
                   trail_mode:        str = "auto",
                   entry_mode_filter: str = "all",
                   entry_side_filter: str = "all",
-                  skip_equity_curve: bool = False) -> BacktestResult:
+                  skip_equity_curve: bool = False,
+                  run_ctx: "BacktestRunContext" = None,
+                  ledger: "RunLedger" = None,
+                  btc_context_df: pd.DataFrame = None) -> BacktestResult:
         """
         commission_pct / slippage_pct: per-leg friction (%).
         None → use config defaults for the asset class.
         Pass 0.0 for both to reproduce friction-free (optimistic) results.
+
+        ledger: optional RunLedger (intelligence/backtest_ledger.py, report
+        20260717-085541 §6 item 3). Shadow-only — records signal/decision/
+        order/fill/level_mutation/mfe_mae/exit events but never influences
+        the simulation. None (the default) costs nothing beyond an `if
+        ledger` check at each event site.
         """
+        run_ctx = run_ctx or _default_run_ctx
  
 
         cfg = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
@@ -1195,48 +1213,35 @@ class Backtester:
         HARD_STOP_BARS  = max(1, round(8.0 * bph))   # 8 hr
         STALE_ADX_BARS  = max(1, round(3.0 * bph))   # 3 hr (ADX staleness)
 
-        # Exact mirrors of position_monitor constant values
-        EARLY_LOSS_PCT   = -0.5   # EARLY_LOSS_MIN_PCT
-        PERF_2HR_PCT     =  0.2   # PERF_CHECK_2HR_MIN_PCT
-        PERF_5HR_PCT     =  1.0   # PERF_CHECK_5HR_MIN_PCT
-        # grid_bot and dca_accumulator are exempt from time stops in live —
-        # mirror that here so backtest results are comparable to live.
-        TIME_STOP_EXEMPT = frozenset({
-            "grid_bot", "dca_accumulator",
-            "rsi_dip_spike_v4", "td_rsi_dip_spike_v4c", "adaptive_regime",
-            # strategies with their own tiered or cycle-based exit logic;
-            # generic 30m/2h/5h/8h stops must not fire before the strategy
-            # thesis plays out
-            "hammer_reversal",
-            "mr_02_vef",
-            "pll_cycle",
-            "pll_cycle_martingale",
-            "bollinger_squeeze",      # 8.5% TP target on 1h needs time; 30m/2h stops kill it
-            "scalp_master",           # tight SL/TP exit on 5m bars; generic 2h/8h stops irrelevant
-            "rsi_dip_simple",         # RSI exit + 72-bar max hold; generic 30m/2h/8h stops fire too early
-            "mr_03_fbs",              # 36-bar time stop is primary exit; generic stops fire before thesis
-            "mr_04_fvg",              # 48-bar time stop is primary exit; FVG fill needs time
-            "kds_mean_reversion",     # EMA-reversion exit + 72-bar safety net; daily bars make 8h stop irrelevant
-            "rcr_mean_reversion",     # SMA cross exit + 10-bar time stop; generic 30m/2h stops fire first
-            "btc_v6_chandelier",      # chandelier trailing stop; generic lifecycle stops create double-trailing
-            "td_v6_bnb_adx",           # TraderDev BNB V6 lane; chandelier trailing stop
-            "td_btc_v11",              # TraderDev V11 lane; long/short chandelier exits
-            "td_f40d_adx",             # TraderDev envelope expansion strategy has own flip/sideways exits
-            "ema_ribbon_breakout",    # chandelier trailing stop; same as btc_v6_chandelier
-            "orb_breakout",           # 3R target on 15m can take 8h+; hard_stop_bars kills valid trades
-            "vwap_confirmed_orb",     # 2R target on 5m can take 2-4h; perf_time_stop fires before target
-            "ema_crossover",          # trend-following; 8h hard stop is inappropriate for multi-session holds
-            "rsi_momentum",           # momentum trades benefit from time to develop; generic stops add noise
-            "bollinger_breakout",     # squeeze expansion can take >2h; perf_time_stop kills developing trades
-            "vdmr_strategy",          # 20-bar max hold on 1h; early_loss at 1 bar fires almost immediately
-            "vtmr_strategy",          # VTM-R owns EMA(5) snapback + max-hold exits; generic lifecycle stops fire too early
-            "vwap_momentum",          # 90-min intent on 1h; early_loss at 1 bar fires at wrong time
-            "fels_strategy",          # 16-bar max hold on 1h; generic stops fire before time stop
-            "swing_trader",           # 2.5% SL / 6% TP; 8h hard stop kills developing swing trades
-            "mean_reversion",         # no custom exit; needs time for Z-score thesis to play out
-            "bmr_357",                # 48-bar time stop + midline exit; generic lifecycle stops fire too early
-            "vbm_strategy",           # VB-M owns chandelier trail + max-hold; generic stops would cut breakout runners
-        })
+        # Canonical values — see core/strategy_registry.py. Previously these
+        # were separate literals here, commented "exact mirrors of
+        # position_monitor constant values" / "mirror that here so backtest
+        # results are comparable to live" but never actually verified to
+        # match; TIME_STOP_EXEMPT in particular had drifted to exempt 11
+        # strategies live does not exempt (report 20260717-085541 item 5,
+        # third bullet — a recurrence of a drift a prior audit's own code
+        # comment tried to prevent). Both files now import the same set.
+        EARLY_LOSS_PCT   = _CANONICAL_EARLY_LOSS_PCT
+        PERF_2HR_PCT     = _CANONICAL_PERF_2HR_PCT
+        PERF_5HR_PCT     = _CANONICAL_PERF_5HR_PCT
+        TIME_STOP_EXEMPT = _CANONICAL_TIME_STOP_EXEMPT
+
+        # Asset-class-aware performance-time-stop floors (report §6 item 5,
+        # mirrors core/position_monitor.py's fee-hurdle floor, Opus audit
+        # 2026-05-29). A flat floor booked a guaranteed net loss on crypto
+        # (round-trip fee ~0.62% > the old 0.2%/1.0% floors) and truncated
+        # winners that just needed more time — raise the floor above the
+        # asset's own fee hurdle, and on crypto only cut when genuinely
+        # negative at the 2hr mark; on stocks the fee hurdle is negligible
+        # so PERF_2HR_PCT/PERF_5HR_PCT already dominate via max().
+        if asset_class == "crypto":
+            _perf_hurdle = getattr(config, "FEE_RT_CRYPTO_PCT", 0.62)
+            PERF_FLOOR_2HR = 0.0
+            PERF_FLOOR_5HR = round(_perf_hurdle + 0.40, 2)
+        else:
+            _perf_hurdle = getattr(config, "FEE_RT_STOCK_PCT", 0.02)
+            PERF_FLOOR_2HR = max(PERF_2HR_PCT, round(_perf_hurdle + 0.10, 2))
+            PERF_FLOOR_5HR = max(PERF_5HR_PCT, round(_perf_hurdle + 0.30, 2))
         # ── Next-bar execution ────────────────────────────────────────────────
         # Signal generated on bar i is executed at bar i+1 open.
         # This eliminates the "signal and fill on the same close" lookahead bias.
@@ -1261,7 +1266,7 @@ class Backtester:
             # The sleep(0) yields the GIL so the web server threads stay
             # responsive while the optimizer hammers many backtests.
             if i % CHECK_CANCEL_EVERY == 0:
-                if _cancel_event.is_set():
+                if run_ctx.is_cancelled():
                     raise _BacktestCancelled()
                 import time as _time; _time.sleep(0)  # yield GIL — sleep(0) releases instantly, no Windows timer overhead
 
@@ -1288,13 +1293,22 @@ class Backtester:
                 entry_p    = open_price
                 already_in = any(t["symbol"] == symbol for t in open_trades)
 
+                if ledger is not None:
+                    ledger.record(
+                        _ps["trade_id"], symbol, strategy_name, "order", i,
+                        str(df.index[i]), direction=_ps["direction"],
+                        attempted_price=entry_p, already_in=already_in,
+                    )
+
                 if not already_in and entry_p > 0:
                     pos_val  = capital * max_position_pct
                     if pos_val >= 1.0:
                         qty = pos_val / entry_p
+                        _sl_source = "percent"
 
                         if _initial == "two_bar":
                             _sl = two_bar_engine.initial_stop(df, i, _ps["direction"])
+                            _sl_source = "two_bar_structural"
                         else:
                             # signal_structural always prefers the ATR-based stop;
                             # percent_or_structural (legacy) also uses it when present;
@@ -1306,8 +1320,10 @@ class Backtester:
                             if struct_sl and struct_sl > 0:
                                 if _ps["direction"] == "long"  and struct_sl < entry_p:
                                     _sl = struct_sl
+                                    _sl_source = "signal_structural"
                                 elif _ps["direction"] == "short" and struct_sl > entry_p:
                                     _sl = struct_sl
+                                    _sl_source = "signal_structural"
                                 else:
                                     _sl = (entry_p * (1 - _ps["sl_pct"])
                                            if _ps["direction"] == "long"
@@ -1319,6 +1335,27 @@ class Backtester:
                         _tp = (entry_p * (1 + _ps["tp_pct"])
                                if _ps["direction"] == "long"
                                else entry_p * (1 - _ps["tp_pct"]))
+
+                        # Pre-trade daily-budget position-value clamp
+                        # (report §6 item 5, mirrors core/risk_manager.py's
+                        # approve_trade daily-budget constraint). Shrinks
+                        # position size proportionally to the loss budget
+                        # remaining today, rather than the all-or-nothing
+                        # halt already enforced via `trading_halted` below —
+                        # a live-equivalent gradual-scale-down, not a
+                        # duplicate of the circuit breaker.
+                        _effective_sl_pct = (
+                            abs(entry_p - _sl) / entry_p if entry_p > 0 else 0.0
+                        )
+                        if _effective_sl_pct > 0:
+                            _today_start_cap = capital - daily_pnl
+                            _max_daily_loss = _today_start_cap * max_daily_loss_pct
+                            _remaining_loss_budget = _max_daily_loss + daily_pnl
+                            _risk_amount = pos_val * _effective_sl_pct
+                            if (_risk_amount > _remaining_loss_budget
+                                    and _remaining_loss_budget > 0):
+                                pos_val = _remaining_loss_budget / _effective_sl_pct
+                                qty     = pos_val / entry_p
 
                         open_trades.append({
                             "symbol":         symbol,
@@ -1334,7 +1371,18 @@ class Backtester:
                             "current_sl":     _sl,
                             "current_tp":     _tp,
                             "entry_metadata": _ps["meta"],
+                            "trade_id":       _ps["trade_id"],
                         })
+
+                        if ledger is not None:
+                            ledger.record(
+                                _ps["trade_id"], symbol, strategy_name, "fill", i,
+                                str(df.index[i]), direction=_ps["direction"],
+                                entry_price=entry_p, quantity=qty,
+                                position_value=pos_val,
+                                initial_stop_loss=_sl, initial_stop_source=_sl_source,
+                                initial_take_profit=_tp,
+                            )
             else:
                 pending_signal = None   # discard: halted or max positions
 
@@ -1358,6 +1406,7 @@ class Backtester:
 
                 # 1b. Standard SL / TP or two-bar trailing stop
                 if exit_reason is None:
+                    _prev_sl = trade["current_sl"]
                     if _trail == "two_bar":
                         exit_reason = self._check_exit_two_bar(
                             trade, df, i, default_tp_pct, two_bar_engine
@@ -1365,6 +1414,13 @@ class Backtester:
                     else:
                         exit_reason = self._check_exit_standard(
                             trade, row, trailing_gap_pct, default_tp_pct
+                        )
+                    if ledger is not None and trade["current_sl"] != _prev_sl:
+                        ledger.record(
+                            trade["trade_id"], symbol, strategy_name,
+                            "level_mutation", i, str(df.index[i]),
+                            reason="trailing_stop_advance",
+                            prev_stop_loss=_prev_sl, new_stop_loss=trade["current_sl"],
                         )
 
                 # 1c. Strategy-specific exit hook (adaptive_regime EMA/BB/RSI,
@@ -1405,27 +1461,66 @@ class Backtester:
                 else:
                     _pnl_pct = 0.0
 
-                _time_exempt = strategy_name in TIME_STOP_EXEMPT
+                if ledger is not None:
+                    _prev_mfe = trade.get("_mfe_pct", 0.0)
+                    _prev_mae = trade.get("_mae_pct", 0.0)
+                    _new_mfe  = max(_prev_mfe, _pnl_pct)
+                    _new_mae  = min(_prev_mae, _pnl_pct)
+                    if _new_mfe != _prev_mfe or _new_mae != _prev_mae:
+                        trade["_mfe_pct"] = _new_mfe
+                        trade["_mae_pct"] = _new_mae
+                        ledger.record(
+                            trade["trade_id"], symbol, strategy_name,
+                            "mfe_mae", i, str(df.index[i]),
+                            pnl_pct=round(_pnl_pct, 4),
+                            mfe_pct=round(_new_mfe, 4), mae_pct=round(_new_mae, 4),
+                        )
 
-                # 1e. Early loss (30 min, -0.5%) — exempt strategies skip
+                _time_exempt = strategy_name in TIME_STOP_EXEMPT
+                # Live's position_monitor.py also carries a hardcoded
+                # EARLY_LOSS_LIFECYCLE_EXEMPT = {"vtmr_strategy", "bmr_357"}
+                # union with an explicit orb_breakout check as a second,
+                # independent exemption layer. Both are already members of
+                # TIME_STOP_EXEMPT (core/strategy_registry.py) today, so the
+                # net exempt set is currently identical — but that's
+                # incidental, not structural; if either set ever drifts
+                # this equivalence silently breaks.
+
+                # 1e. Early loss — live-equivalent one-shot latch + 3-bar
+                # confirmation (report §6 item 5), not a per-bar re-check.
+                # Live checks exactly once, in the 30-60min wall-clock
+                # window, latched via a DB flag; at bar granularity the
+                # first bar crossing EARLY_LOSS_BARS is that one check.
                 if (exit_reason is None and time_stops_on
                         and not _time_exempt
-                        and _bars_held >= EARLY_LOSS_BARS
-                        and _pnl_pct < EARLY_LOSS_PCT):
-                    exit_reason = "early_loss"
+                        and not trade.get("_early_loss_checked", False)
+                        and _bars_held >= EARLY_LOSS_BARS):
+                    trade["_early_loss_checked"] = True
+                    if _pnl_pct < EARLY_LOSS_PCT:
+                        _recent = df["close"].iloc[max(0, i - 2): i + 1].values
+                        if len(_recent) < 3:
+                            exit_reason = "early_loss_no_data"
+                        else:
+                            c0, c1, c2 = _recent[0], _recent[1], _recent[2]
+                            still_wrong = (
+                                (trade["direction"] == "long"  and c2 < c1 < c0)
+                                or (trade["direction"] == "short" and c2 > c1 > c0)
+                            )
+                            if still_wrong:
+                                exit_reason = "early_loss"
 
-                # 1f. Performance time stop 1 (2hr, < 0.2%)
+                # 1f. Performance time stop 1 (2hr) — asset-class-aware floor
                 if (exit_reason is None and time_stops_on
                         and not _time_exempt
                         and _bars_held >= PERF_2HR_BARS
-                        and _pnl_pct < PERF_2HR_PCT):
+                        and _pnl_pct < PERF_FLOOR_2HR):
                     exit_reason = "perf_time_stop_1hr"   # DB-compat reason code
 
-                # 1g. Performance time stop 2 (5hr, < 1.0%)
+                # 1g. Performance time stop 2 (5hr) — asset-class-aware floor
                 if (exit_reason is None and time_stops_on
                         and not _time_exempt
                         and _bars_held >= PERF_5HR_BARS
-                        and _pnl_pct < PERF_5HR_PCT):
+                        and _pnl_pct < PERF_FLOOR_5HR):
                     exit_reason = "perf_time_stop_3hr"   # DB-compat reason code
 
                 # 1h. Hard time stop (8hr — grid_bot / dca_accumulator EXEMPT)
@@ -1472,6 +1567,15 @@ class Backtester:
                         if bt_trade.position_value else 0, 2
                     )
                     closed_trades.append(bt_trade)
+                    if ledger is not None:
+                        ledger.record(
+                            trade["trade_id"], symbol, strategy_name, "exit", i,
+                            str(df.index[i]), exit_reason=exit_reason,
+                            exit_price=bt_trade.exit_price, fees=bt_trade.fees,
+                            pnl=bt_trade.pnl, pnl_pct=bt_trade.pnl_pct,
+                            mfe_pct=round(trade.get("_mfe_pct", 0.0), 4),
+                            mae_pct=round(trade.get("_mae_pct", 0.0), 4),
+                        )
                     capital   += pnl
                     daily_pnl += pnl
                     if pnl <= 0:
@@ -1533,6 +1637,15 @@ class Backtester:
 
             if strategy_obj is not None:
                 try:
+                    # Backtester parity patch step 4 (report §6 item 4): strategies
+                    # that declare requires_historical_btc_context (bmr_357) must
+                    # see a timestamp-aligned historical BTC window instead of
+                    # reaching into the live candle_manager singleton. Sliced
+                    # by timestamp (not position) so it can never leak future
+                    # bars, and re-injected every bar since the window advances
+                    # with the simulation clock.
+                    if btc_context_df is not None:
+                        strategy_obj._backtest_btc_context = btc_context_df.loc[:df.index[i]].tail(3)
                     if _all_sigs is not None and hasattr(strategy_obj, '_analyze_from_precomputed'):
                         # Fast O(1) path: look up signal from precomputed signals df
                         signal = strategy_obj._analyze_from_precomputed(symbol, i, _all_sigs, df)
@@ -1558,10 +1671,23 @@ class Backtester:
             if signal_direction == "none":
                 continue
 
+            _sig_trade_id = f"{symbol}:{strategy_name}:{i}"
+            if ledger is not None:
+                ledger.record(
+                    _sig_trade_id, symbol, strategy_name, "signal", i,
+                    str(df.index[i]), direction=signal_direction,
+                    score=signal_score, sl_pct=sl_pct, tp_pct=tp_pct,
+                )
+
             # Block re-entry in EITHER direction while a position is open.
             # Same check fires again at execution time (trade may have closed).
             already_in = any(t["symbol"] == symbol for t in open_trades)
             if already_in:
+                if ledger is not None:
+                    ledger.record(
+                        _sig_trade_id, symbol, strategy_name, "decision", i,
+                        str(df.index[i]), accepted=False, reject_reason="already_in",
+                    )
                 continue
 
             # ── Mode filter (adaptive_regime --mode trend|mean_rev) ──────────
@@ -1570,11 +1696,27 @@ class Backtester:
             if entry_mode_filter != "all":
                 _sig_mode = signal_meta.get("adaptive_exit_mode", "")
                 if _sig_mode != entry_mode_filter:
+                    if ledger is not None:
+                        ledger.record(
+                            _sig_trade_id, symbol, strategy_name, "decision", i,
+                            str(df.index[i]), accepted=False, reject_reason="mode_filter",
+                        )
                     continue
 
             # ── Side filter (--side long|short) ──────────────────────────────
             if entry_side_filter != "all" and signal_direction != entry_side_filter:
+                if ledger is not None:
+                    ledger.record(
+                        _sig_trade_id, symbol, strategy_name, "decision", i,
+                        str(df.index[i]), accepted=False, reject_reason="side_filter",
+                    )
                 continue
+
+            if ledger is not None:
+                ledger.record(
+                    _sig_trade_id, symbol, strategy_name, "decision", i,
+                    str(df.index[i]), accepted=True, reject_reason=None,
+                )
 
             # Queue signal — will execute at bar i+1 open
             pending_signal = {
@@ -1583,6 +1725,7 @@ class Backtester:
                 "sl_pct":    sl_pct,
                 "tp_pct":    tp_pct,
                 "meta":      signal_meta,
+                "trade_id":  _sig_trade_id,
             }
 
         # --- Close any remaining open trades at end of data ---
@@ -1602,6 +1745,15 @@ class Backtester:
                 if bt_trade.position_value else 0, 2
             )
             closed_trades.append(bt_trade)
+            if ledger is not None:
+                ledger.record(
+                    trade["trade_id"], symbol, strategy_name, "exit",
+                    len(df) - 1, str(df.index[-1]), exit_reason="backtest_end",
+                    exit_price=bt_trade.exit_price, fees=bt_trade.fees,
+                    pnl=bt_trade.pnl, pnl_pct=bt_trade.pnl_pct,
+                    mfe_pct=round(trade.get("_mfe_pct", 0.0), 4),
+                    mae_pct=round(trade.get("_mae_pct", 0.0), 4),
+                )
             capital += pnl
 
         _diagnostics = {}
@@ -1637,15 +1789,18 @@ class Backtester:
             initial_stop_mode: str = "auto",
             trail_mode:        str = "auto",
             entry_mode_filter: str = "all",
-            entry_side_filter: str = "all") -> Optional[BacktestResult]:
-        if _cancel_event.is_set():          # gate: skip before fetch starts
+            entry_side_filter: str = "all",
+            run_ctx: "BacktestRunContext" = None,
+            ledger: "RunLedger" = None) -> Optional[BacktestResult]:
+        run_ctx = run_ctx or _default_run_ctx
+        if run_ctx.is_cancelled():          # gate: skip before fetch starts
             return None
         capital = starting_capital or self.starting_capital
         if asset_class == "crypto":
             df = self.fetch_history_crypto(symbol, days, timeframe)
         else:
             df = self.fetch_history(symbol, days, timeframe)
-        if _cancel_event.is_set():          # gate: skip simulate if cancelled during fetch
+        if run_ctx.is_cancelled():          # gate: skip simulate if cancelled during fetch
             return None
         if df is None or len(df) < 30:
             return None
@@ -1658,7 +1813,9 @@ class Backtester:
                                   initial_stop_mode=initial_stop_mode,
                                   trail_mode=trail_mode,
                                   entry_mode_filter=entry_mode_filter,
-                                  entry_side_filter=entry_side_filter)
+                                  entry_side_filter=entry_side_filter,
+                                  run_ctx=run_ctx,
+                                  ledger=ledger)
         except _BacktestCancelled:
             logger.info(f"[BACKTESTER] run() cancelled for {symbol}")
             return None
@@ -1677,15 +1834,18 @@ class Backtester:
                      entry_mode_filter: str = "all",
                      entry_side_filter: str = "all",
                      param_overrides: dict = None,
-                     skip_equity_curve: bool = False) -> Optional[BacktestResult]:
-        if _cancel_event.is_set():
+                     skip_equity_curve: bool = False,
+                     run_ctx: "BacktestRunContext" = None,
+                     ledger: "RunLedger" = None) -> Optional[BacktestResult]:
+        run_ctx = run_ctx or _default_run_ctx
+        if run_ctx.is_cancelled():
             return None
         capital = starting_capital or self.starting_capital
         if asset_class == "crypto":
             df = self.fetch_history_crypto(symbol, days, timeframe)
         else:
             df = self.fetch_history(symbol, days, timeframe)
-        if _cancel_event.is_set():
+        if run_ctx.is_cancelled():
             return None
         if df is None or len(df) < 30:
             return None
@@ -1703,6 +1863,25 @@ class Backtester:
         except Exception as e:
             logger.error(f"Failed to load strategy {strategy_name}: {e}")
             return None
+
+        # Backtester parity patch step 4 (report §6 item 4): strategies that
+        # declare requires_historical_btc_context (bmr_357) must never reach
+        # into the live candle_manager singleton during replay. Once this
+        # condition holds we set the mode flag unconditionally — even if the
+        # fetch below fails, the strategy must fail its BTC gate closed
+        # rather than silently falling through to live state.
+        _btc_context_df = None
+        if (
+            asset_class == "crypto"
+            and getattr(strategy_obj, "requires_historical_btc_context", False)
+            and symbol.upper() != "BTC/USD"
+        ):
+            strategy_obj._backtest_mode_btc_context_enabled = True
+            try:
+                _btc_context_df = self.fetch_history_crypto("BTC/USD", days, timeframe)
+            except Exception as e:
+                logger.debug(f"BTC historical context fetch failed for {strategy_name}/{symbol}: {e}")
+                _btc_context_df = None
 
         # Temporarily patch config.SIGNAL_TUNING AND strategy_obj.params for
         # param sweep runs, restoring original values after regardless of
@@ -1755,6 +1934,9 @@ class Backtester:
                 entry_mode_filter=entry_mode_filter,
                 entry_side_filter=entry_side_filter,
                 skip_equity_curve=skip_equity_curve,
+                run_ctx=run_ctx,
+                ledger=ledger,
+                btc_context_df=_btc_context_df,
             )
         except _BacktestCancelled:
             logger.info(f"[BACKTESTER] run_strategy() cancelled for {symbol}/{strategy_name}")
@@ -1782,11 +1964,15 @@ class Backtester:
                 initial_stop_mode: str = "auto",
                 trail_mode:        str = "auto",
                 entry_mode_filter: str = "all",
-                entry_side_filter: str = "all") -> List[BacktestResult]:
-        clear_cancel()   # fresh run: ensure any stale cancel flag is cleared
+                entry_side_filter: str = "all",
+                run_ctx: "BacktestRunContext" = None,
+                ledger: "RunLedger" = None) -> List[BacktestResult]:
+        run_ctx = run_ctx or _default_run_ctx
+        if run_ctx is _default_run_ctx:
+            clear_cancel()   # fresh run on the shared default: clear any stale cancel flag
         results = []
         for sym in symbols:
-            if _cancel_event.is_set():
+            if run_ctx.is_cancelled():
                 logger.info("[BACKTESTER] run_all() cancelled before starting next symbol")
                 break
             try:
@@ -1799,7 +1985,9 @@ class Backtester:
                                           initial_stop_mode=initial_stop_mode,
                                           trail_mode=trail_mode,
                                           entry_mode_filter=entry_mode_filter,
-                                          entry_side_filter=entry_side_filter)
+                                          entry_side_filter=entry_side_filter,
+                                          run_ctx=run_ctx,
+                                          ledger=ledger)
                 else:
                     r = self.run(sym, days, starting_capital, timeframe, asset_class,
                                  stop_mode, two_bar_lookback,
@@ -1808,7 +1996,9 @@ class Backtester:
                                  initial_stop_mode=initial_stop_mode,
                                  trail_mode=trail_mode,
                                  entry_mode_filter=entry_mode_filter,
-                                 entry_side_filter=entry_side_filter)
+                                 entry_side_filter=entry_side_filter,
+                                 run_ctx=run_ctx,
+                                 ledger=ledger)
                 if r:
                     results.append(r)
             except _BacktestCancelled:
