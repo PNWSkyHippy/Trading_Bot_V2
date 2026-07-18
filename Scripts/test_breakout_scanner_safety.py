@@ -155,7 +155,8 @@ class BreakoutScannerSafetyTests(unittest.TestCase):
 
     def test_alert_start_is_idempotent_and_stop_joins(self):
         class _Sender:
-            pass
+            def close(self, *_args, **_kwargs):
+                pass
 
         with patch.object(scanner, "BreakoutSender", return_value=_Sender()):
             alerts = scanner.AlertSystem(_Config())

@@ -1580,6 +1580,7 @@ class AlertSystem:
             thread = self.alert_thread
         if thread and thread is not threading.current_thread():
             thread.join(timeout=3.0)
+        self.bot_sender.close(drain=True, timeout=5.0)
 
     def send_alert(self, signal: BreakoutSignal, escalation: int = 0):
         message = self._format_alert_message(signal, escalation)
