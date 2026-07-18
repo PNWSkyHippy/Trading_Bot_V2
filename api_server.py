@@ -27,7 +27,7 @@ from typing import Optional
 import uvicorn
 from fastapi import FastAPI, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 import config
 from core.breakout_receiver import breakout_receiver
@@ -65,6 +65,9 @@ def verify_api_key(x_api_key: str = Header(None)) -> bool:
 # ── Request models ──────────────────────────────────────────────────────────
 
 class BreakoutSignalPayload(BaseModel):
+    event_id:        str                 # stable id minted once per semantic
+                                          # source event; reused on every
+                                          # delivery attempt of that event
     symbol:          str
     broker:          str
     direction:       str                # "long" | "short"
@@ -101,6 +104,14 @@ class BreakoutSignalPayload(BaseModel):
     avg_volume:      Optional[float]    = None
     vol_mult:        Optional[float]    = None
 
+    @field_validator("event_id")
+    @classmethod
+    def _event_id_not_blank(cls, v: str) -> str:
+        v = (v or "").strip()
+        if not v:
+            raise ValueError("event_id must be a non-empty stable identifier")
+        return v
+
 
 class ControlPayload(BaseModel):
     command: str
@@ -125,17 +136,17 @@ def receive_breakout_signal(
 ):
     verify_api_key(x_api_key)
 
-    # Only accept escalation level 2+ (>5% move) to avoid noise
+    # Only accept escalation level 2+ (>5% move) to avoid noise. This check
+    # now runs BEHIND the receiver's durable event claim (min_escalation is
+    # passed through) so a replayed request for a rejected event returns the
+    # same stored response instead of re-deriving it from live config, which
+    # could drift between delivery attempts.
     MIN_ESCALATION = getattr(config, "BREAKOUT_MIN_ESCALATION", 2)
-    if payload.escalation < MIN_ESCALATION:
-        return {
-            "accepted": False,
-            "reason":   f"Escalation {payload.escalation} below minimum {MIN_ESCALATION}",
-            "trade_id": None,
-        }
 
     try:
-        return breakout_receiver.receive_signal(payload.dict())
+        return breakout_receiver.receive_signal(
+            payload.model_dump(), min_escalation=MIN_ESCALATION
+        )
     except Exception:
         logger.exception("Breakout signal processing failed")
         raise HTTPException(status_code=500, detail="Signal processing failed")

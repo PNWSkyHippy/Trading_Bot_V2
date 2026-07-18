@@ -63,7 +63,8 @@ class KrakenExecutor:
 
     def submit_order(self, symbol: str, qty: float, side: str,
                      stop_loss: float, take_profit: float,
-                     leverage: int = 0) -> Optional[Dict]:
+                     leverage: int = 0,
+                     client_order_id: Optional[int] = None) -> Optional[Dict]:
         """
         Submit a market order to Kraken.
 
@@ -72,6 +73,11 @@ class KrakenExecutor:
           N > 1       — margin order at N× leverage; ccxt sends leverage in params
                         Required for short (sell) orders on Kraken; optional for
                         leveraged longs.
+
+        client_order_id: Kraken's userref — a 32-bit integer, already derived
+        by the caller (core.event_identity.derive_kraken_userref). Not a
+        string like Alpaca/IBKR client identity; passed pre-converted so this
+        module has no dependency on event_identity's hashing internals.
 
         qty is the notional amount in base currency AFTER any scaling the caller
         has already applied (trade_executor scales qty down for margin trades so
@@ -111,6 +117,8 @@ class KrakenExecutor:
             params = {}
             if leverage > 1:
                 params["leverage"] = leverage
+            if client_order_id is not None:
+                params["userref"] = client_order_id
 
             order    = self.exchange.create_market_order(
                 ccxt_symbol, side, qty, params=params
@@ -436,6 +444,50 @@ class KrakenExecutor:
             return None
         except Exception as e:
             logger.debug(f"get_open_position error for {symbol}: {e}")
+            return None
+
+    def find_order_by_userref(self, userref: int, symbol: Optional[str] = None) -> Optional[Dict]:
+        """
+        Best-effort reconciliation lookup by Kraken userref (our deterministic
+        client-order identity — see core.event_identity.derive_kraken_userref).
+
+        LIMITATION (flagged, not fully resolved): ccxt's generic
+        fetch_open_orders()/fetch_closed_orders() do not expose a userref
+        filter parameter on this exchange integration, so this scans the
+        raw 'info' of each returned order for a matching userref instead of
+        querying Kraken's native QueryOrders-by-userref endpoint directly.
+        This is correct but not necessarily complete — Kraken's closed-order
+        history has retention/pagination limits ccxt's default call does not
+        page through. Treat a miss here as "not found in the scanned
+        window", not as definitive proof the order doesn't exist.
+        """
+        if self.paper:
+            return None
+        try:
+            ccxt_symbol = symbol.replace("-", "/") if symbol else None
+            candidates = []
+            try:
+                candidates += self.exchange.fetch_open_orders(ccxt_symbol) or []
+            except Exception as e:
+                logger.debug(f"find_order_by_userref: fetch_open_orders failed: {e}")
+            try:
+                candidates += self.exchange.fetch_closed_orders(ccxt_symbol, limit=50) or []
+            except Exception as e:
+                logger.debug(f"find_order_by_userref: fetch_closed_orders failed: {e}")
+
+            for o in candidates:
+                info = o.get("info") or {}
+                raw_userref = info.get("userref")
+                if raw_userref is not None and int(raw_userref) == int(userref):
+                    return {
+                        "broker_order_id":  o.get("id"),
+                        "status":           o.get("status"),
+                        "filled_qty":       float(o.get("filled") or 0),
+                        "filled_avg_price": float(o.get("average") or o.get("price") or 0),
+                    }
+            return None
+        except Exception as e:
+            logger.warning(f"find_order_by_userref({userref}) failed: {e}")
             return None
 
     def get_recent_closed_order(self, symbol: str,

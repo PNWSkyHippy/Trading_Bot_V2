@@ -12,6 +12,7 @@ v2.2 additions:
   - Blacklist rejections now return the same structured response shape
 """
 
+import json
 import logging
 import threading
 import time
@@ -23,6 +24,10 @@ from core.scanner_controls import is_scanner_enabled
 from data.database import db
 from core.risk_manager import risk_manager
 from core.trade_executor import TradeExecutor
+from core.event_identity import (
+    hash_breakout_payload,
+    derive_client_order_id,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +155,8 @@ class BreakoutReceiver:
     # Public entry
     # ──────────────────────────────────────────────────────────────────────
 
-    def receive_signal(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+    def receive_signal(self, payload: Dict[str, Any],
+                       min_escalation: Optional[int] = None) -> Dict[str, Any]:
         # Each API request owns its payload copy. Checklist scratch state must
         # never live on the shared receiver instance where concurrent requests
         # can overwrite one another.
@@ -160,12 +166,107 @@ class BreakoutReceiver:
         esc            = payload.get("escalation", 0)
         ts_in          = payload.get("timestamp", "")
         signal_age_sec = self._signal_age(ts_in)
+        signal_source  = payload.get("signal_source", "breakout_scanner")
 
-        if not self._is_receiver_enabled(payload):
-            signal_source = payload.get("signal_source", "breakout_scanner")
-            reason = f"{signal_source} disabled by bot_state"
+        event_id = payload.get("event_id")
+        if not event_id or not str(event_id).strip():
+            reason = "event_id is required for durable delivery"
             logger.warning(f"[BREAKOUT RECV] {sym} rejected — {reason}")
             return {
+                "accepted": False,
+                "execution_eligible": False,
+                "failure_class": "missing_event_id",
+                "reason": reason,
+                "trade_id": None,
+                "checklist": {},
+            }
+        event_id = str(event_id).strip()
+
+        try:
+            payload_hash = hash_breakout_payload(payload)
+        except ValueError as e:
+            reason = f"Payload rejected before hashing: {e}"
+            logger.warning(f"[BREAKOUT RECV] {sym} rejected — {reason}")
+            return {
+                "accepted": False,
+                "execution_eligible": False,
+                "failure_class": "invalid_payload",
+                "reason": reason,
+                "trade_id": None,
+                "checklist": {},
+            }
+
+        client_order_id = derive_client_order_id(event_id)
+
+        # ── Durable atomic claim — MUST happen before any checklist/policy
+        # execution (including the disabled-scanner and duplicate-symbol
+        # checks below), so every rejection reason becomes part of the
+        # replayable stored response for this event_id.
+        claim = db.claim_breakout_event(
+            event_id, payload_hash, sym, str(direction), signal_source,
+            client_order_id,
+        )
+
+        if claim["status"] == "conflict":
+            reason = (
+                f"event_id {event_id} was already claimed with a different "
+                "payload — refusing to process as a new or replayed event"
+            )
+            logger.warning(f"[BREAKOUT RECV] {sym} rejected — {reason}")
+            return {
+                "accepted": False,
+                "execution_eligible": False,
+                "failure_class": "event_conflict",
+                "reason": reason,
+                "trade_id": None,
+                "checklist": {},
+            }
+
+        if claim["status"] == "replay_in_progress":
+            reason = (
+                f"event_id {event_id} is still {claim['state']} from a "
+                "prior delivery attempt — failing closed, not resubmitting"
+            )
+            logger.warning(f"[BREAKOUT RECV] {sym} rejected — {reason}")
+            return {
+                "accepted": False,
+                "execution_eligible": False,
+                "failure_class": "event_in_progress",
+                "reason": reason,
+                "trade_id": None,
+                "checklist": {},
+            }
+
+        if claim["status"] == "replay_terminal":
+            logger.info(
+                f"[BREAKOUT RECV] {sym} event_id={event_id} replay of "
+                f"terminal state {claim['state']} — returning stored response"
+            )
+            stored = claim.get("response_json")
+            if stored:
+                try:
+                    return json.loads(stored)
+                except Exception:
+                    logger.error(
+                        f"[BREAKOUT RECV] event_id={event_id}: stored "
+                        "response_json could not be parsed — returning a "
+                        "minimal safe replay marker instead of reprocessing"
+                    )
+            return {
+                "accepted":           claim["state"] == "ACCEPTED",
+                "execution_eligible": False,
+                "failure_class":      None if claim["state"] == "ACCEPTED" else "checklist_rejected",
+                "reason":             f"Replay of terminal event ({claim['state']})",
+                "trade_id":           claim.get("trade_id"),
+                "checklist":          {},
+            }
+
+        # claim["status"] == "claimed" — brand new event_id, proceed.
+
+        if not self._is_receiver_enabled(payload):
+            reason = f"{signal_source} disabled by bot_state"
+            logger.warning(f"[BREAKOUT RECV] {sym} rejected — {reason}")
+            result = {
                 "accepted": False,
                 "execution_eligible": False,
                 "failure_class": "breakout_disabled",
@@ -173,16 +274,34 @@ class BreakoutReceiver:
                 "trade_id": None,
                 "checklist": {},
             }
+            self._finalize_event(event_id, result, None)
+            return result
+
+        if min_escalation is not None and esc < min_escalation:
+            reason = f"Escalation {esc} below minimum {min_escalation}"
+            logger.info(f"[BREAKOUT RECV] {sym} rejected — {reason}")
+            result = {
+                "accepted": False,
+                "execution_eligible": False,
+                "failure_class": "escalation_below_minimum",
+                "reason": reason,
+                "trade_id": None,
+                "checklist": {},
+            }
+            self._finalize_event(event_id, result, None)
+            return result
 
         # ── Duplicate-signal race guard ──────────────────────────────────────
         # Prevents two signals for the same symbol arriving within the same
         # second from both passing _check_no_open_position before the first
-        # trade is committed to the DB.
+        # trade is committed to the DB. This is a fast in-process check —
+        # the durable claim above is what actually makes cross-process /
+        # cross-restart submission safe.
         with self._pending_lock:
             if sym in self._pending_symbols:
                 reason = f"Duplicate signal rejected — {sym} already being processed"
                 logger.warning(f"[BREAKOUT RECV] {reason}")
-                return {
+                result = {
                     "accepted": False,
                     "execution_eligible": False,
                     "failure_class": "duplicate_signal",
@@ -190,14 +309,18 @@ class BreakoutReceiver:
                     "trade_id": None,
                     "checklist": {},
                 }
+                self._finalize_event(event_id, result, None)
+                return result
             self._pending_symbols.add(sym)
         try:
-            result = self._receive_signal_inner(payload, sym, direction, esc,
-                                                ts_in, signal_age_sec)
+            result = self._receive_signal_inner(
+                payload, sym, direction, esc, ts_in, signal_age_sec,
+                event_id, client_order_id,
+            )
+            disposition = result.pop("_broker_disposition", None)
             # Log rejected breakout/gap signals to scanner_alerts (opened trades
             # are already logged inside _inject_signal; only log rejections here)
             if not result.get("accepted"):
-                signal_source = payload.get("signal_source", "breakout_scanner")
                 if signal_source in ("breakout_scanner", "gap_scanner"):
                     try:
                         from data.database import db as _db
@@ -219,7 +342,24 @@ class BreakoutReceiver:
                         })
                     except Exception as _e:
                         logger.debug("[BREAKOUT RECV] rejected signal DB log failed: %s", _e)
+            self._finalize_event(event_id, result, disposition)
             return result
+        except Exception:
+            # Broker call may or may not have happened before this exception —
+            # never assume no exposure. Leave the event in whatever state the
+            # DB has (CLAIMED or SUBMITTING); it will be picked up by
+            # reconciliation / fail closed on any replay, never silently lost.
+            try:
+                db.finish_breakout_event(
+                    event_id, "SUBMISSION_UNKNOWN",
+                    last_error="Unhandled exception during signal processing",
+                )
+            except Exception:
+                logger.exception(
+                    f"[BREAKOUT RECV] event_id={event_id}: failed to persist "
+                    "SUBMISSION_UNKNOWN after unhandled exception"
+                )
+            raise
         finally:
             with self._pending_lock:
                 self._pending_symbols.discard(sym)
@@ -231,6 +371,45 @@ class BreakoutReceiver:
                     BreakoutReceiver._slots_reserved.discard(sym)
                     BreakoutReceiver._slots_used = max(0, BreakoutReceiver._slots_used - 1)
 
+    def _finalize_event(self, event_id: str, result: Dict[str, Any],
+                        disposition: Optional[str]) -> None:
+        """
+        Persist the terminal (or SUBMISSION_UNKNOWN) state and, for terminal
+        states, the exact response body future replays of this event_id must
+        return. Never called for claim["status"] in
+        ("conflict", "replay_in_progress", "replay_terminal") — those never
+        reach a fresh claim in the first place.
+        """
+        try:
+            if disposition == "submission_unknown":
+                db.finish_breakout_event(
+                    event_id, "SUBMISSION_UNKNOWN",
+                    last_error=result.get("reason"),
+                )
+                return
+
+            resp_json = json.dumps(result)
+            if disposition == "accepted" or (result.get("accepted") and result.get("trade_id")):
+                db.finish_breakout_event(
+                    event_id, "ACCEPTED", response_json=resp_json,
+                    broker_order_id=result.get("broker_order_id"),
+                    trade_id=result.get("trade_id"),
+                )
+            else:
+                # Any provably-no-exposure terminal outcome — rejected before
+                # submission, or rejected/zero-fill after a broker call that
+                # definitively proved no exposure was created.
+                db.finish_breakout_event(
+                    event_id, "PRE_SUBMISSION_REJECTED", response_json=resp_json,
+                    last_error=result.get("reason"),
+                )
+        except Exception:
+            logger.exception(
+                f"[BREAKOUT RECV] event_id={event_id}: failed to persist "
+                "terminal event state — treat as SUBMISSION_UNKNOWN until "
+                "manually reconciled"
+            )
+
     def _receive_signal_inner(
         self,
         payload: Dict[str, Any],
@@ -239,6 +418,8 @@ class BreakoutReceiver:
         esc: int,
         ts_in: str,
         signal_age_sec: float,
+        event_id: str,
+        client_order_id: str,
     ) -> Dict[str, Any]:
 
         broker_hint   = self._normalize_broker_name(payload.get("broker", ""))
@@ -345,6 +526,8 @@ class BreakoutReceiver:
                     drift["live_price"],
                     drift["drift_pct"],
                     signal_age_sec,
+                    event_id,
+                    client_order_id,
                 )
                 if flip_result is not None:
                     return flip_result
@@ -364,7 +547,7 @@ class BreakoutReceiver:
             f"[BREAKOUT RECV] CHECKLIST PASSED {sym} — "
             f"soft: {soft_passes} pass / {soft_skips} skip (advisory only)"
         )
-        return self._inject_signal(payload, checklist_summary)
+        return self._inject_signal(payload, checklist_summary, event_id, client_order_id)
 
     # ──────────────────────────────────────────────────────────────────────
     # Checklist
@@ -1068,6 +1251,8 @@ class BreakoutReceiver:
         live_price: float,
         drift_pct: float,
         signal_age_sec: float,
+        event_id: str,
+        client_order_id: str,
     ) -> Optional[Dict[str, Any]]:
         sym      = payload.get("symbol", "?")
         orig_dir = payload.get("direction", "long")
@@ -1176,13 +1361,14 @@ class BreakoutReceiver:
             f"injecting {flipped.upper()} "
             f"soft: {soft_passes} pass / {soft_skips} skip (advisory only)"
         )
-        return self._inject_signal(p, checklist_summary)
+        return self._inject_signal(p, checklist_summary, event_id, client_order_id)
 
     # ──────────────────────────────────────────────────────────────────────
     # Injection
     # ──────────────────────────────────────────────────────────────────────
 
-    def _inject_signal(self, p: Dict, checklist: dict) -> Dict:
+    def _inject_signal(self, p: Dict, checklist: dict, event_id: str,
+                       client_order_id: str) -> Dict:
         if not self._executor:
             logger.error("[BREAKOUT RECV] Executor not set")
             return {
@@ -1191,6 +1377,7 @@ class BreakoutReceiver:
                 "reason": "Executor not configured",
                 "trade_id": None,
                 "checklist": checklist,
+                "_broker_disposition": "pre_submission_rejected",
             }
 
         try:
@@ -1328,6 +1515,8 @@ class BreakoutReceiver:
                     "custom_stop_loss_pct":       custom_stop,
                     "custom_take_profit_pct":     custom_tp,
                     "bypass_win_cooldown":        p.get("bypass_win_cooldown", False),
+                    "event_id":                   event_id,
+                    "client_order_id":            client_order_id,
                 },
             )
 
@@ -1337,7 +1526,14 @@ class BreakoutReceiver:
                 f"preferred_broker={broker_hint} source_broker={source_broker}"
             )
 
-            trade_id = self._executor.execute_signal(signal)
+            # Commit CLAIMED -> SUBMITTING before any broker call, so a crash
+            # or timeout after this point is visible as SUBMITTING/
+            # SUBMISSION_UNKNOWN on restart rather than looking untouched.
+            db.mark_breakout_event_submitting(event_id)
+
+            disposition = {"outcome": "pre_submission_rejected"}
+            trade_id = self._executor.execute_signal(signal, disposition_out=disposition)
+            broker_outcome = disposition.get("outcome", "submission_unknown")
 
             if trade_id:
                 logger.info(f"[BREAKOUT RECV] EXECUTED {sym} -> trade_id={trade_id}")
@@ -1376,16 +1572,41 @@ class BreakoutReceiver:
                     "reason": "Signal executed",
                     "trade_id": trade_id,
                     "checklist": checklist,
+                    "_broker_disposition": "accepted",
                 }
 
-            logger.warning(f"[BREAKOUT RECV] Executor rejected {sym}")
+            # trade_id is falsy — this does NOT by itself prove no exposure
+            # exists. Trust the executor's disposition classification
+            # (default-then-narrowed inside execute_signal): only
+            # "pre_submission_rejected"/"rejected_no_exposure" are safe to
+            # report as a clean rejection; anything else (including the
+            # "submission_unknown" default that survives an unrecognized
+            # broker result) must fail closed as unresolved exposure.
+            if broker_outcome in ("pre_submission_rejected", "rejected_no_exposure"):
+                logger.warning(f"[BREAKOUT RECV] Executor rejected {sym} — no exposure")
+                return {
+                    "accepted": False,
+                    "execution_eligible": True,
+                    "failure_class": "checklist_rejected",
+                    "reason": "Executor rejected (risk manager or broker)",
+                    "trade_id": None,
+                    "checklist": checklist,
+                    "_broker_disposition": "pre_submission_rejected",
+                }
+
+            logger.error(
+                f"[BREAKOUT RECV] {sym} broker outcome unknown "
+                f"(disposition={broker_outcome}) — no trade_id returned but "
+                "exposure cannot be ruled out; leaving event SUBMISSION_UNKNOWN"
+            )
             return {
                 "accepted": False,
                 "execution_eligible": True,
-                "failure_class": "checklist_rejected",
-                "reason": "Executor rejected (risk manager or broker)",
+                "failure_class": "submission_unknown",
+                "reason": "Broker submission outcome unknown — reconciliation required",
                 "trade_id": None,
                 "checklist": checklist,
+                "_broker_disposition": "submission_unknown",
             }
 
         except Exception as e:
@@ -1400,6 +1621,7 @@ class BreakoutReceiver:
                 "reason": f"Injection failed",
                 "trade_id": None,
                 "checklist": checklist,
+                "_broker_disposition": "submission_unknown",
             }
 
     # ──────────────────────────────────────────────────────────────────────

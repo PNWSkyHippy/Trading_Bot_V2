@@ -342,6 +342,33 @@ class Database:
                     ON log_events(strategy_name);
                 CREATE INDEX IF NOT EXISTS idx_log_events_decision
                     ON log_events(decision);
+
+                -- Durable receiver event identity / atomic claim / broker
+                -- submission state for breakout signals. One row per
+                -- semantic source event (event_id is minted once by the
+                -- sender and reused for every delivery attempt of that
+                -- event). Never age-deleted while unresolved.
+                CREATE TABLE IF NOT EXISTS breakout_event_execution (
+                    event_id            TEXT PRIMARY KEY,
+                    payload_sha256      TEXT NOT NULL,
+                    symbol              TEXT NOT NULL,
+                    direction           TEXT NOT NULL,
+                    signal_source       TEXT NOT NULL,
+                    state               TEXT NOT NULL,
+                    client_order_id     TEXT NOT NULL UNIQUE,
+                    broker_order_id     TEXT,
+                    trade_id            TEXT,
+                    response_json       TEXT,
+                    last_error          TEXT,
+                    created_at_utc      TEXT NOT NULL,
+                    updated_at_utc      TEXT NOT NULL,
+                    terminal_at_utc     TEXT
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_bee_state
+                    ON breakout_event_execution(state);
+                CREATE INDEX IF NOT EXISTS idx_bee_symbol
+                    ON breakout_event_execution(symbol);
             """)
             # Column migrations for existing databases (ALTER TABLE ignores if already present)
             for sql in [
@@ -368,6 +395,7 @@ class Database:
                 "ALTER TABLE trades ADD COLUMN partial_exit_count INTEGER DEFAULT 0",
                 "ALTER TABLE trades ADD COLUMN stop_order_id    TEXT",
                 "ALTER TABLE trades ADD COLUMN tp_order_id      TEXT",
+                "ALTER TABLE trades ADD COLUMN event_id         TEXT",
                 "ALTER TABLE session_state ADD COLUMN starting_capital_today REAL DEFAULT 0",
             ]
             for sql in migrations:
@@ -375,6 +403,15 @@ class Database:
                     conn.execute(sql)
                 except Exception:
                     pass
+
+            # Partial unique index: only enforced where event_id is set, so
+            # the many pre-existing/non-breakout trades with NULL event_id
+            # never collide. IF NOT EXISTS makes this naturally idempotent —
+            # no try/except needed.
+            conn.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_trades_event_id "
+                "ON trades(event_id) WHERE event_id IS NOT NULL"
+            )
 
         logger.info("Database initialized successfully.")
 
@@ -416,8 +453,8 @@ class Database:
                      entry_time, entry_price, quantity, position_value,
                      stop_loss, take_profit, signal_score,
                      indicators_json, broker, broker_order_id,
-                     strategy_name, entry_timeframe)
-                VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                     strategy_name, entry_timeframe, event_id)
+                VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(trade_id) DO NOTHING
             """, (
                 trade["trade_id"], trade["symbol"], trade["asset_class"],
@@ -431,6 +468,7 @@ class Database:
                  if trade.get("broker_order_id") is not None else None),
                 trade.get("strategy_name", "original"),
                 trade.get("entry_timeframe", "5Min"),
+                trade.get("event_id"),
             ))
             if cursor.rowcount == 1:
                 result = {"status": "inserted", "trade_id": trade["trade_id"]}
@@ -466,6 +504,140 @@ class Database:
         if result["status"] == "inserted":
             logger.info(f"Trade opened: {trade['symbol']} @ {trade['entry_price']}")
         return result
+
+    # --- BREAKOUT EVENT EXECUTION IDENTITY -----------------------------
+    #
+    # Durable, cross-process, cross-restart identity for a single semantic
+    # breakout signal event. Mirrors open_trade()'s ON CONFLICT DO NOTHING
+    # + inspect-existing-row-in-the-same-transaction pattern so a claim is
+    # atomic even under concurrent callers / multiple Database instances
+    # sharing the same sqlite file (WAL + busy_timeout serializes writers).
+
+    _BEE_NONTERMINAL_STATES = ("CLAIMED", "SUBMITTING", "SUBMISSION_UNKNOWN")
+    _BEE_TERMINAL_STATES    = ("ACCEPTED", "PRE_SUBMISSION_REJECTED")
+
+    def claim_breakout_event(self, event_id: str, payload_sha256: str,
+                             symbol: str, direction: str, signal_source: str,
+                             client_order_id: str) -> Dict[str, Any]:
+        """
+        Atomically claim an event_id.
+
+        Returns one of:
+          {"status": "claimed", ...}                         -- new event, caller must process it
+          {"status": "replay_terminal", "state":, "response_json":, ...}
+                                                               -- same id/same hash, already finished
+          {"status": "replay_in_progress", "state":, ...}     -- same id/same hash, not yet finished
+                                                               -- (CLAIMED/SUBMITTING/SUBMISSION_UNKNOWN);
+                                                               -- caller must fail closed, never resubmit
+          {"status": "conflict", ...}                         -- same id, different payload hash
+        """
+        now = datetime.utcnow().isoformat()
+        with self._conn() as conn:
+            cursor = conn.execute("""
+                INSERT INTO breakout_event_execution
+                    (event_id, payload_sha256, symbol, direction, signal_source,
+                     state, client_order_id, created_at_utc, updated_at_utc)
+                VALUES (?, ?, ?, ?, ?, 'CLAIMED', ?, ?, ?)
+                ON CONFLICT(event_id) DO NOTHING
+            """, (event_id, payload_sha256, symbol, direction, signal_source,
+                  client_order_id, now, now))
+
+            if cursor.rowcount == 1:
+                return {"status": "claimed", "event_id": event_id,
+                        "client_order_id": client_order_id}
+
+            row = conn.execute(
+                "SELECT * FROM breakout_event_execution WHERE event_id = ?",
+                (event_id,)
+            ).fetchone()
+            existing = dict(row)
+
+            if existing["payload_sha256"] != payload_sha256:
+                return {
+                    "status": "conflict", "event_id": event_id,
+                    "existing_payload_sha256": existing["payload_sha256"],
+                    "incoming_payload_sha256": payload_sha256,
+                }
+
+            if existing["state"] in self._BEE_NONTERMINAL_STATES:
+                return {
+                    "status": "replay_in_progress", "event_id": event_id,
+                    "state": existing["state"],
+                }
+
+            return {
+                "status": "replay_terminal", "event_id": event_id,
+                "state": existing["state"],
+                "response_json": existing["response_json"],
+                "trade_id": existing["trade_id"],
+                "broker_order_id": existing["broker_order_id"],
+                "client_order_id": existing["client_order_id"],
+            }
+
+    def mark_breakout_event_submitting(self, event_id: str) -> bool:
+        """Conditional CLAIMED -> SUBMITTING transition, committed before any broker call."""
+        now = datetime.utcnow().isoformat()
+        with self._conn() as conn:
+            cursor = conn.execute(
+                "UPDATE breakout_event_execution SET state='SUBMITTING', "
+                "updated_at_utc=? WHERE event_id=? AND state='CLAIMED'",
+                (now, event_id),
+            )
+            return cursor.rowcount == 1
+
+    def finish_breakout_event(self, event_id: str, new_state: str,
+                              response_json: Optional[str] = None,
+                              broker_order_id: Optional[str] = None,
+                              trade_id: Optional[str] = None,
+                              last_error: Optional[str] = None) -> bool:
+        """
+        Conditional transition into a new state, storing the response that
+        will be replayed for future duplicate deliveries of this event.
+        Allowed from any non-terminal state (CLAIMED/SUBMITTING/
+        SUBMISSION_UNKNOWN) since a retry loop can move straight from
+        CLAIMED to a terminal state (e.g. pre-submission rejection) without
+        ever reaching SUBMITTING.
+        """
+        if new_state not in (
+            "ACCEPTED", "PRE_SUBMISSION_REJECTED", "SUBMISSION_UNKNOWN",
+            "SUBMITTING", "CLAIMED",
+        ):
+            raise ValueError(f"Unknown breakout event state: {new_state!r}")
+
+        now = datetime.utcnow().isoformat()
+        terminal_at = now if new_state in self._BEE_TERMINAL_STATES else None
+        with self._conn() as conn:
+            cursor = conn.execute(
+                "UPDATE breakout_event_execution SET state=?, "
+                "response_json=COALESCE(?, response_json), "
+                "broker_order_id=COALESCE(?, broker_order_id), "
+                "trade_id=COALESCE(?, trade_id), "
+                "last_error=COALESCE(?, last_error), "
+                "updated_at_utc=?, "
+                "terminal_at_utc=COALESCE(?, terminal_at_utc) "
+                "WHERE event_id=? AND state IN "
+                "('CLAIMED','SUBMITTING','SUBMISSION_UNKNOWN')",
+                (new_state, response_json, broker_order_id, trade_id,
+                 last_error, now, terminal_at, event_id),
+            )
+            return cursor.rowcount == 1
+
+    def get_breakout_event(self, event_id: str) -> Optional[Dict[str, Any]]:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM breakout_event_execution WHERE event_id = ?",
+                (event_id,)
+            ).fetchone()
+            return dict(row) if row else None
+
+    def get_unresolved_breakout_events(self) -> List[Dict[str, Any]]:
+        """Events left in SUBMITTING/SUBMISSION_UNKNOWN — reconciliation candidates."""
+        with self._conn() as conn:
+            rows = conn.execute(
+                "SELECT * FROM breakout_event_execution "
+                "WHERE state IN ('SUBMITTING','SUBMISSION_UNKNOWN')"
+            ).fetchall()
+            return [dict(r) for r in rows]
 
     def close_trade(self, trade_id: str, exit_price: float,
                     exit_reason: str, pnl: float, pnl_pct: float,
@@ -622,6 +794,13 @@ class Database:
                     "UPDATE trades SET take_profit=? WHERE trade_id=?",
                     (take_profit, trade_id)
                 )
+
+    def get_trade(self, trade_id: str) -> Optional[Dict[str, Any]]:
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT * FROM trades WHERE trade_id = ?", (trade_id,)
+            ).fetchone()
+            return dict(row) if row else None
 
     def get_open_trades(self) -> List[Dict]:
         with self._conn() as conn:

@@ -194,12 +194,43 @@ class IBKRExecutor:
             return True
         return self._establish_connection()
 
+    def find_order_by_ref(self, order_ref: str) -> Optional[Dict]:
+        """
+        Reconciliation lookup by orderRef (our deterministic client-order
+        identity). Scans currently-open trades and this session's completed
+        trades list — ib_insync does not expose a server-side orderRef filter,
+        so this is a client-side scan of whatever the persistent connection
+        already knows about, not a fresh historical query. A restart that
+        drops the connection loses ib_insync's own in-memory trade list, so a
+        miss here does not prove the order was never submitted.
+        """
+        if not self._ib or not self._ib.isConnected():
+            if not self._ensure_connected():
+                return None
+        try:
+            all_trades = list(self._ib.trades()) + list(self._ib.openTrades())
+            for t in all_trades:
+                if getattr(t.order, "orderRef", None) == order_ref:
+                    status = getattr(t.orderStatus, "status", None)
+                    return {
+                        "broker_order_id":  str(t.order.orderId),
+                        "status":           status,
+                        "filled_qty":       float(getattr(t.orderStatus, "filled", 0) or 0),
+                        "filled_avg_price": float(getattr(t.orderStatus, "avgFillPrice", 0) or 0),
+                    }
+            return None
+        except Exception as e:
+            logger.warning(f"find_order_by_ref({order_ref}) failed: {e}")
+            return None
+
     def submit_order(self, symbol: str, qty: float, side: str,
-                     stop_loss: float, take_profit: float) -> Optional[Dict]:
+                     stop_loss: float, take_profit: float,
+                     client_order_id: Optional[str] = None) -> Optional[Dict]:
         """
         Submit a bracket order to IBKR.
         Uses persistent connection — no connect/disconnect cycle.
         """
+        order_ref = client_order_id or "54321"
         self._ensure_event_loop()
         if not self._ensure_connected():
             logger.error(f"IBKR submit_order: cannot connect for {symbol}")
@@ -233,7 +264,7 @@ class IBKRExecutor:
                 totalQuantity = shares,
                 transmit      = False,
                 orderId       = ib.client.getReqId(),
-                orderRef      = "54321",   # automated API order (IBKR required differentiation)
+                orderRef      = order_ref,   # automated API order (IBKR required differentiation)
             )
             parent_id = str(parent.orderId)
 
@@ -245,7 +276,7 @@ class IBKRExecutor:
                 parentId      = parent.orderId,
                 transmit      = False,
                 orderId       = ib.client.getReqId(),
-                orderRef      = "54321",
+                orderRef      = order_ref,
             )
 
             tp = LimitOrder(
@@ -255,7 +286,7 @@ class IBKRExecutor:
                 parentId      = parent.orderId,
                 transmit      = True,
                 orderId       = ib.client.getReqId(),
-                orderRef      = "54321",
+                orderRef      = order_ref,
             )
 
             child_orders = {

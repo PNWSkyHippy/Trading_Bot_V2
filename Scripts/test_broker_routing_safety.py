@@ -196,8 +196,8 @@ class FakeStockBroker:
     def is_available(self):
         return self.available
 
-    def submit_order(self, *args):
-        self.submit_calls.append(args)
+    def submit_order(self, *args, **kwargs):
+        self.submit_calls.append((args, kwargs))
         return dict(self.result) if isinstance(self.result, dict) else self.result
 
     def close_position(self, symbol):
@@ -359,7 +359,7 @@ def test_ambiguous_pending_partial_rejected_or_canceled_never_falls_back():
         ibkr = FakeStockBroker(result=result)
         # FakeStockBroker uses its default fill for None, so override submit.
         if result is None:
-            ibkr.submit_order = lambda *_args: None
+            ibkr.submit_order = lambda *_args, **_kwargs: None
         alpaca = FakeStockBroker()
         executor = make_executor(manager, risk, ibkr, alpaca)
         with Patch(config, "IBKR_ENABLED", True), Patch(config, "IBKR_TRADE_ENABLED", True):

@@ -52,6 +52,7 @@ from core.risk_manager import risk_manager, TradeApproval
 from core.kraken_executor import KrakenExecutor
 from core.exchange_capabilities import exchange_capabilities
 from core.broker_manager import broker_manager as shared_broker_manager
+from core.event_identity import derive_kraken_userref
 from data.database import db
 
 logger = logging.getLogger(__name__)
@@ -85,14 +86,16 @@ class AlpacaExecutor:
         )
 
     def submit_order(self, symbol: str, qty: float, side: str,
-                     stop_loss: float, take_profit: float) -> Optional[Dict]:
+                     stop_loss: float, take_profit: float,
+                     client_order_id: Optional[str] = None) -> Optional[Dict]:
         """
         Submit a stock order to Alpaca.
         Short tickers (1-2 chars) use plain market order — Alpaca silently
         rejects bracket orders for these, causing ghost trades.
         """
         if len(symbol) <= 2:
-            return self._submit_plain_market(symbol, qty, side, stop_loss, take_profit)
+            return self._submit_plain_market(symbol, qty, side, stop_loss, take_profit,
+                                              client_order_id=client_order_id)
 
         try:
             order = self.api.submit_order(
@@ -103,7 +106,8 @@ class AlpacaExecutor:
                 time_in_force = "day",
                 order_class   = "bracket",
                 stop_loss     = {"stop_price": str(round(stop_loss, 2))},
-                take_profit   = {"limit_price": str(round(take_profit, 2))}
+                take_profit   = {"limit_price": str(round(take_profit, 2))},
+                client_order_id = client_order_id,
             )
             logger.info(
                 f"Alpaca bracket order submitted: {symbol} {side} {qty} shares | "
@@ -119,10 +123,12 @@ class AlpacaExecutor:
         except Exception as e:
             logger.error(f"Alpaca bracket order failed for {symbol}: {e}")
             logger.warning(f"Falling back to plain market order for {symbol}")
-            return self._submit_plain_market(symbol, qty, side, stop_loss, take_profit)
+            return self._submit_plain_market(symbol, qty, side, stop_loss, take_profit,
+                                              client_order_id=client_order_id)
 
     def _submit_plain_market(self, symbol: str, qty: float, side: str,
-                             stop_loss: float, take_profit: float) -> Optional[Dict]:
+                             stop_loss: float, take_profit: float,
+                             client_order_id: Optional[str] = None) -> Optional[Dict]:
         """Plain market order — used for short tickers or as bracket fallback."""
         try:
             order = self.api.submit_order(
@@ -130,7 +136,8 @@ class AlpacaExecutor:
                 qty           = int(qty) if qty >= 1 else qty,
                 side          = side,
                 type          = "market",
-                time_in_force = "day"
+                time_in_force = "day",
+                client_order_id = client_order_id,
             )
             logger.info(
                 f"[SHORT TICKER] Alpaca plain market order: {symbol} {side} "
@@ -383,7 +390,17 @@ class TradeExecutor:
                     f"falling back to Alpaca for stocks"
                 )
 
-    def execute_signal(self, signal) -> Optional[str]:
+    def execute_signal(self, signal, disposition_out: Optional[dict] = None) -> Optional[str]:
+        # disposition_out, if provided, is mutated in place with at least an
+        # "outcome" key classifying the broker-exposure result of this call:
+        # "pre_submission_rejected" | "rejected_no_exposure" | "accepted" |
+        # "submission_unknown". Defaults to "pre_submission_rejected" and is
+        # only ever narrowed — never widen a known-safe outcome back into
+        # ambiguity. This is additive/optional: existing callers that don't
+        # pass it are unaffected.
+        if disposition_out is not None:
+            disposition_out["outcome"] = "pre_submission_rejected"
+
         # ── Race-condition guard: block duplicate entries within same scan cycle ──
         with _pending_lock:
             if signal.symbol in _pending_symbols:
@@ -395,12 +412,12 @@ class TradeExecutor:
             _pending_symbols.add(signal.symbol)
 
         try:
-            return self._execute_signal_inner(signal)
+            return self._execute_signal_inner(signal, disposition_out=disposition_out)
         finally:
             with _pending_lock:
                 _pending_symbols.discard(signal.symbol)
 
-    def _execute_signal_inner(self, signal) -> Optional[str]:
+    def _execute_signal_inner(self, signal, disposition_out: Optional[dict] = None) -> Optional[str]:
         logger.info(
             f"Attempting to execute signal: {signal.symbol} {signal.direction}"
         )
@@ -524,6 +541,11 @@ class TradeExecutor:
                 return None
 
         trade_id     = str(uuid.uuid4())[:12]
+        # From here on, exposure may exist even if this function later
+        # returns None — never let disposition_out fall back to
+        # "pre_submission_rejected" without an explicit, proven reason.
+        if disposition_out is not None:
+            disposition_out["outcome"] = "submission_unknown"
         broker_result = self._submit(signal, approval, broker_name_hint)
 
         # _submit() never changes brokers. Only an explicit, proven
@@ -531,6 +553,11 @@ class TradeExecutor:
         # completely fresh Alpaca risk approval.
         if (broker_name_hint == "ibkr" and
                 self._ibkr_result_allows_alpaca_fallback(broker_result)):
+            # IBKR's result already proved no exposure was created there —
+            # safe to narrow back until the Alpaca attempt reaches its own
+            # _submit() call.
+            if disposition_out is not None:
+                disposition_out["outcome"] = "rejected_no_exposure"
             if not self._entry_enabled("alpaca"):
                 logger.warning(
                     f"IBKR created no exposure for {signal.symbol}, but "
@@ -552,6 +579,8 @@ class TradeExecutor:
                 return None
             broker_name_hint = "alpaca"
             approval = alpaca_approval
+            if disposition_out is not None:
+                disposition_out["outcome"] = "submission_unknown"
             broker_result = self._submit(signal, approval, broker_name_hint)
 
         # IBKR has broker-specific result semantics. Classify it before the
@@ -563,10 +592,15 @@ class TradeExecutor:
                     f"[IBKR NO EXPOSURE] {signal.symbol}: status="
                     f"{self._ibkr_status(broker_result)!r}; no DB trade created"
                 )
+                if disposition_out is not None:
+                    disposition_out["outcome"] = "rejected_no_exposure"
                 return None
             if ibkr_disposition in (
                 "reconcile_zero", "reconcile_partial", "reconcile_invalid",
             ):
+                # Not provably zero exposure — reconcile_partial/invalid may
+                # have created a live position; reconcile_zero is merely
+                # unconfirmed, not proven zero. Stays submission_unknown.
                 self._handle_ibkr_reconciliation_required(
                     signal, approval, broker_result,
                     has_confirmed_exposure=(ibkr_disposition == "reconcile_partial"),
@@ -574,7 +608,15 @@ class TradeExecutor:
                 return None
 
         if not broker_result:
-            logger.error(f"Order submission failed for {signal.symbol}")
+            # A generic None/falsy broker_result is NOT proof of no exposure —
+            # the request may have reached the broker and the response was
+            # simply lost (network error, timeout, etc). Stays
+            # submission_unknown so replay/reconciliation logic, not this
+            # return value, is what future callers rely on.
+            logger.error(
+                f"Order submission failed for {signal.symbol} — outcome "
+                "unknown, exposure cannot be ruled out"
+            )
             return None
         # Ghost trade guard: block definitively-rejected orders from creating DB records.
         # Alpaca returns status=pending_new or accepted with filled_qty=0 — these are
@@ -587,6 +629,8 @@ class TradeExecutor:
                 f"[GHOST GUARD] {signal.symbol}: order status='{_status}' — "
                 f"definitively rejected, skipping DB record"
             )
+            if disposition_out is not None:
+                disposition_out["outcome"] = "rejected_no_exposure"
             return None
 
         # ── Live Kraken fill confirmation ──────────────────────────────────
@@ -616,6 +660,8 @@ class TradeExecutor:
                 f"filled_qty=0 (status={broker_result.get('status')!r}) — no "
                 f"position opened, skipping DB record"
             )
+            if disposition_out is not None:
+                disposition_out["outcome"] = "rejected_no_exposure"
             return None
 
         entry_price = broker_result.get("filled_avg_price") or signal.current_price
@@ -794,12 +840,18 @@ class TradeExecutor:
                 if signal.asset_class == "crypto" else signal.indicators
             ),
             "broker":          broker_name,
-            "broker_order_id": broker_result.get("broker_order_id")
+            "broker_order_id": broker_result.get("broker_order_id"),
+            "event_id":        signal.indicators.get("event_id"),
         }
         open_result = self._db.open_trade(trade_record)
         if isinstance(open_result, dict):
             open_status = open_result.get("status")
             if open_status == "conflict":
+                # The broker order filled — exposure exists — but this
+                # process could not durably claim the trade row. Exposure is
+                # real and confirmed here even though this call returns None.
+                if disposition_out is not None:
+                    disposition_out["outcome"] = "accepted"
                 self._handle_trade_identity_conflict(
                     signal, broker_result, trade_record, open_result, _kraken_leverage
                 )
@@ -810,6 +862,8 @@ class TradeExecutor:
                     "duplicate alerts, balance changes, and stop placement",
                     signal.symbol, trade_id, open_status,
                 )
+                if disposition_out is not None:
+                    disposition_out["outcome"] = "accepted"
                 return trade_id
 
         try:
@@ -862,7 +916,107 @@ class TradeExecutor:
                     f"| order_id={stop_order_id}"
                 )
 
+        if disposition_out is not None:
+            disposition_out["outcome"] = "accepted"
         return trade_id
+
+    def reconcile_unresolved_breakout_events(self) -> Dict[str, int]:
+        """
+        Startup/replay reconciliation for requirement #10: for every
+        breakout_event_execution row still SUBMITTING or SUBMISSION_UNKNOWN
+        (crash or timeout happened after we may have contacted a broker),
+        query each broker by the deterministic client identity instead of
+        ever resubmitting. A found order proves exposure and moves the event
+        to ACCEPTED; a miss leaves it exactly as-is — still blocked/unknown.
+
+        Does NOT reconstruct a full trades row from a bare broker order (that
+        would require re-deriving stop/TP/position-sizing blind, which is a
+        separate and riskier problem). If a matching broker order is found
+        with no corresponding trades.event_id row, this logs CRITICAL and
+        records broker_order_id on the event so a human can reconcile the
+        trades table — this is the flagged residual gap, not a silent one.
+
+        Returns counts: {"checked", "confirmed_accepted", "still_unresolved"}.
+        """
+        events = self._db.get_unresolved_breakout_events()
+        counts = {"checked": 0, "confirmed_accepted": 0, "still_unresolved": 0}
+
+        for ev in events:
+            counts["checked"] += 1
+            event_id         = ev["event_id"]
+            client_order_id  = ev["client_order_id"]
+            symbol           = ev["symbol"]
+            found = None
+            found_broker = None
+
+            if self.alpaca is not None:
+                try:
+                    order = self.alpaca.api.get_order_by_client_order_id(client_order_id)
+                    if order is not None:
+                        found = {
+                            "broker_order_id":  order.id,
+                            "status":           order.status,
+                            "filled_qty":       float(order.filled_qty or 0),
+                            "filled_avg_price": float(order.filled_avg_price or 0),
+                        }
+                        found_broker = "alpaca"
+                except Exception as e:
+                    logger.debug(f"[RECONCILE] {event_id}: alpaca lookup miss/error: {e}")
+
+            if found is None and self._ibkr is not None:
+                try:
+                    found = self._ibkr.find_order_by_ref(client_order_id)
+                    if found is not None:
+                        found_broker = "ibkr"
+                except Exception as e:
+                    logger.debug(f"[RECONCILE] {event_id}: ibkr lookup miss/error: {e}")
+
+            if found is None:
+                try:
+                    userref = derive_kraken_userref(event_id)
+                    found = self.kraken.find_order_by_userref(userref, symbol=symbol)
+                    if found is not None:
+                        found_broker = "kraken"
+                except Exception as e:
+                    logger.debug(f"[RECONCILE] {event_id}: kraken lookup miss/error: {e}")
+
+            if found is None:
+                logger.warning(
+                    f"[RECONCILE] {event_id} ({symbol}) still unresolved after "
+                    f"broker lookup across alpaca/ibkr/kraken — leaving "
+                    f"{ev['state']}, will not resubmit"
+                )
+                counts["still_unresolved"] += 1
+                continue
+
+            existing_trade = None
+            try:
+                existing_trade = self._db.get_trade(ev.get("trade_id")) if ev.get("trade_id") else None
+            except Exception:
+                existing_trade = None
+
+            if existing_trade is None:
+                logger.critical(
+                    f"[RECONCILE] {event_id} ({symbol}): confirmed {found_broker} "
+                    f"order {found.get('broker_order_id')} (status="
+                    f"{found.get('status')}) with NO matching trades row — "
+                    "exposure exists but is not represented in the trades "
+                    "table. Manual reconciliation required."
+                )
+
+            self._db.finish_breakout_event(
+                event_id, "ACCEPTED",
+                broker_order_id=found.get("broker_order_id"),
+                last_error=(
+                    None if existing_trade is not None else
+                    f"Reconciled to {found_broker} order with no trades row — "
+                    "manual reconciliation required"
+                ),
+            )
+            counts["confirmed_accepted"] += 1
+
+        logger.info(f"[RECONCILE] breakout event reconciliation complete: {counts}")
+        return counts
 
     def _handle_trade_identity_conflict(self, signal, broker_result: Dict,
                                         trade_record: Dict, result: Dict,
@@ -1535,6 +1689,12 @@ class TradeExecutor:
     ) -> Optional[Dict]:
         """Submit to exactly one pre-approved broker; never fall back here."""
         side   = "buy" if signal.direction == "long" else "sell"
+        # Deterministic broker-native idempotency key, derived once by the
+        # caller (breakout_receiver._inject_signal) from event_id and carried
+        # through Signal.indicators. None for callers that don't set it
+        # (e.g. non-breakout scanner paths) — brokers treat that as "no
+        # client id supplied," matching pre-patch behavior exactly.
+        client_order_id = signal.indicators.get("client_order_id")
 
         if signal.asset_class == "stock":
             if broker_name_hint == "ibkr":
@@ -1571,7 +1731,8 @@ class TradeExecutor:
                 logger.info(f"Routing {signal.symbol} to IBKR (cash account, LIVE)")
                 result = self._ibkr.submit_order(
                     signal.symbol, approval.quantity, side,
-                    approval.stop_loss, approval.take_profit
+                    approval.stop_loss, approval.take_profit,
+                    client_order_id=client_order_id,
                 )
                 if result is not None:
                     result["actual_broker"] = "ibkr"
@@ -1592,7 +1753,8 @@ class TradeExecutor:
             logger.info(f"Routing {signal.symbol} to Alpaca")
             result = self.alpaca.submit_order(
                 signal.symbol, approval.quantity, side,
-                approval.stop_loss, approval.take_profit
+                approval.stop_loss, approval.take_profit,
+                client_order_id=client_order_id,
             )
             if result is not None:
                 result["actual_broker"] = "alpaca"         # record which broker filled
@@ -1643,10 +1805,16 @@ class TradeExecutor:
                     "with no live Kraken leverage params"
                 )
 
+            _event_id_for_kraken = signal.indicators.get("event_id")
+            kraken_userref = (
+                derive_kraken_userref(_event_id_for_kraken)
+                if _event_id_for_kraken else None
+            )
             return self.kraken.submit_order(
                 signal.symbol, qty, side,
                 approval.stop_loss, approval.take_profit,
-                leverage=leverage
+                leverage=leverage,
+                client_order_id=kraken_userref,
             )
 
     def _paper_fill(self, signal, approval: TradeApproval) -> Dict:
