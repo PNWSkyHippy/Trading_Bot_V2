@@ -133,7 +133,6 @@ class BreakoutReceiver:
     def __init__(self):
         self._executor: Optional[TradeExecutor] = None
         self._scanner_ref = None
-        self._drift_state: Dict[str, Any] = {}
         self._pending_lock  = threading.Lock()
         self._pending_symbols: set = set()  # symbols mid-processing (race guard)
 
@@ -152,7 +151,10 @@ class BreakoutReceiver:
     # ──────────────────────────────────────────────────────────────────────
 
     def receive_signal(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        self._drift_state = {}   # wipe state from any previous call
+        # Each API request owns its payload copy. Checklist scratch state must
+        # never live on the shared receiver instance where concurrent requests
+        # can overwrite one another.
+        payload        = dict(payload)
         sym            = payload.get("symbol", "?")
         direction      = payload.get("direction", "?")
         esc            = payload.get("escalation", 0)
@@ -336,8 +338,7 @@ class BreakoutReceiver:
         if not hard_passed:
             failed = next(r for r in hard_results if r.status == ChecklistResult.FAIL)
 
-            drift = self._drift_state
-            self._drift_state = {}   # consume regardless of outcome
+            drift = payload.pop("_drift_state", {})
             if drift:
                 flip_result = self._try_direction_flip(
                     payload,
@@ -509,13 +510,17 @@ class BreakoutReceiver:
             drift_pct = ((current - ref_price) / ref_price) * 100
 
             if direction == "long" and drift_pct < -PRICE_DRIFT_MAX_PCT:
-                self._drift_state = {"live_price": current, "drift_pct": drift_pct}
+                p["_drift_state"] = {
+                    "live_price": current, "drift_pct": drift_pct,
+                }
                 return ChecklistResult.fail(
                     f"{sym} reversed {drift_pct:.2f}% from signal price "
                     f"(limit -{PRICE_DRIFT_MAX_PCT}%)"
                 )
             if direction == "short" and drift_pct > PRICE_DRIFT_MAX_PCT:
-                self._drift_state = {"live_price": current, "drift_pct": drift_pct}
+                p["_drift_state"] = {
+                    "live_price": current, "drift_pct": drift_pct,
+                }
                 return ChecklistResult.fail(
                     f"{sym} reversed +{drift_pct:.2f}% from signal price "
                     f"(limit +{PRICE_DRIFT_MAX_PCT}%)"
