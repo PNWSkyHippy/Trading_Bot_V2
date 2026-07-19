@@ -682,6 +682,17 @@ class BreakoutReceiver:
         ref_price = float(p.get("current_price") or p.get("entry_price", 0))
         direction = p.get("direction", "long")
 
+        if asset == "crypto":
+            source_broker = self._normalize_broker_name(
+                p.get("source_broker", "")
+            )
+            broker_hint = self._normalize_broker_name(p.get("broker", ""))
+            if source_broker and source_broker not in EXECUTION_BROKERS:
+                return ChecklistResult.fail(
+                    f"{sym} source venue {source_broker} is not execution-capable; "
+                    f"cannot verify identity for {broker_hint or 'crypto broker'}"
+                )
+
         if not self._scanner_ref:
             return ChecklistResult.fail(
                 "Price re-verify impossible — scanner not wired to receiver"
@@ -1647,12 +1658,16 @@ class BreakoutReceiver:
 
     def _fetch_live_price_from_scanner(self, p: Dict) -> Optional[float]:
         """
-        Re-verify live price using whatever scanner hooks are actually available.
+        Re-verify live price without crossing crypto venue identities.
 
         Order:
-          1. scanner.get_current_price(...) if defined
-          2. stock_fetcher.get_historical_data(...)[-1].price for stocks
-          3. crypto_fetcher specific exchange(s).fetch_ticker(symbol) for crypto
+          1. stocks: scanner.get_current_price(), then stock history fallback
+          2. crypto: exact source exchange, then exact execution exchange
+          3. crypto without venue metadata: generic scanner hook as legacy fallback
+
+        A generic crypto lookup is intentionally not used when the payload names a
+        source/execution venue.  The main scanner checks CoinGecko first, where a
+        ticker can identify a different asset from the Kraken/Coinbase instrument.
         """
         scanner = self._scanner_ref
         if not scanner:
@@ -1663,18 +1678,16 @@ class BreakoutReceiver:
         broker_hint  = self._normalize_broker_name(p.get("broker", ""))
         source_broker= self._normalize_broker_name(p.get("source_broker", ""))
 
-        # 1) Direct scanner hook if present
-        get_price = getattr(scanner, "get_current_price", None)
-        if callable(get_price):
-            try:
-                px = get_price(sym, asset_class)
-                if px:
-                    return float(px)
-            except Exception:
-                pass
-
-        # 2) Stock fallback
+        # Stocks have a single instrument identity in the scanner abstraction.
         if asset_class == "stock":
+            get_price = getattr(scanner, "get_current_price", None)
+            if callable(get_price):
+                try:
+                    px = get_price(sym, asset_class)
+                    if px:
+                        return float(px)
+                except Exception:
+                    pass
             try:
                 sf = getattr(scanner, "stock_fetcher", None)
                 if sf and hasattr(sf, "get_historical_data"):
@@ -1687,18 +1700,23 @@ class BreakoutReceiver:
                 pass
             return None
 
-        # 3) Crypto fallback through scanner crypto fetcher / exchanges
+        # Crypto must be checked on the venue that produced the signal.  The
+        # receiver is wired to MarketScanner in production (crypto_scanner), but
+        # tests/legacy wiring may provide BreakoutScanner (crypto_fetcher).
         try:
-            cf = getattr(scanner, "crypto_fetcher", None)
+            cf = (
+                getattr(scanner, "crypto_scanner", None)
+                or getattr(scanner, "crypto_fetcher", None)
+            )
             if not cf:
-                return None
+                cf = scanner
 
             exchanges = getattr(cf, "exchanges", {}) or {}
             primary   = getattr(cf, "exchange", None)
             primary_name = self._normalize_broker_name(getattr(cf, "exchange_name", ""))
 
             candidate_names = []
-            for name in (source_broker, broker_hint, primary_name):
+            for name in (source_broker, broker_hint):
                 if name and name not in candidate_names:
                     candidate_names.append(name)
 
@@ -1720,13 +1738,28 @@ class BreakoutReceiver:
                 except Exception:
                     continue
 
-            # Primary exchange blind fallback
+            # A payload with venue metadata must never fall through to another
+            # venue merely because the exact venue lookup failed.
+            if candidate_names:
+                return None
+
+            # Legacy payload without venue metadata: use the primary exchange,
+            # then the scanner's generic hook if necessary.
             if primary:
                 try:
                     ticker = primary.fetch_ticker(sym)
                     last = ticker.get("last") or ticker.get("close")
                     if last:
                         return float(last)
+                except Exception:
+                    pass
+
+            get_price = getattr(scanner, "get_current_price", None)
+            if callable(get_price):
+                try:
+                    px = get_price(sym, asset_class)
+                    if px:
+                        return float(px)
                 except Exception:
                     pass
 

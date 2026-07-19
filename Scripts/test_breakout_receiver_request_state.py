@@ -19,6 +19,56 @@ from core.breakout_receiver import BreakoutReceiver, ChecklistResult
 
 
 class BreakoutReceiverRequestStateTests(unittest.TestCase):
+    def test_crypto_reverify_uses_exact_source_exchange_not_generic_ticker(self):
+        class FakeExchange:
+            symbols = ["ESPORTS/USD"]
+
+            def fetch_ticker(self, _symbol):
+                return {"last": 0.0204}
+
+        class FakeCryptoScanner:
+            exchanges = {"KRAKEN": FakeExchange()}
+            exchange = None
+            exchange_name = "KRAKEN"
+
+        class FakeMarketScanner:
+            crypto_scanner = FakeCryptoScanner()
+            generic_calls = 0
+
+            def get_current_price(self, _symbol, _asset_class):
+                self.generic_calls += 1
+                return 0.000028  # Same ticker, different CoinGecko asset.
+
+        scanner = FakeMarketScanner()
+        receiver = BreakoutReceiver()
+        receiver._scanner_ref = scanner
+        payload = {
+            "symbol": "ESPORTS/USD",
+            "asset_class": "crypto",
+            "broker": "kraken",
+            "source_broker": "kraken",
+        }
+
+        self.assertEqual(0.0204, receiver._fetch_live_price_from_scanner(payload))
+        self.assertEqual(0, scanner.generic_calls)
+
+    def test_non_execution_crypto_source_fails_identity_check(self):
+        receiver = BreakoutReceiver()
+        receiver._scanner_ref = object()
+        payload = {
+            "symbol": "TOKEN/USD",
+            "asset_class": "crypto",
+            "broker": "kraken",
+            "source_broker": "coingecko",
+            "direction": "long",
+            "current_price": 1.0,
+        }
+
+        result = receiver._check_price_still_moving(payload)
+
+        self.assertEqual(ChecklistResult.FAIL, result.status)
+        self.assertIn("cannot verify identity", result.reason)
+
     def test_concurrent_price_drift_state_stays_on_its_own_payload(self):
         receiver = BreakoutReceiver()
         receiver._scanner_ref = object()
