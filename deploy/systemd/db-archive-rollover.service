@@ -1,0 +1,15 @@
+[Unit]
+Description=Trading Bot V2 monthly DB archive rollover (Scripts/archive_db_rollover.py)
+# Runs standalone via the timer unit below; not part of the always-on bot
+# services and not started at boot on its own.
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/trading_bot_v2
+Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/opt/trading_bot_v2/.env
+# --execute is required deliberately -- the script defaults to --dry-run,
+# so a bad timer/unit edit fails safe instead of silently deleting data.
+ExecStart=/usr/bin/python3 /opt/trading_bot_v2/Scripts/archive_db_rollover.py --execute
+TimeoutStartSec=1800
