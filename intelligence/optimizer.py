@@ -263,17 +263,20 @@ class StrategyOptimizer:
         return composite, stats
 
     def _run_combo(self, strategy_name: str, symbols: List[str],
-                   params: Dict, run_kwargs: Dict) -> List:
+                   params: Dict, run_kwargs: Dict, metric: str) -> List:
         """Run one parameter combo across every symbol in the basket."""
         results = []
         for sym in symbols:
             try:
+                call_kwargs = dict(run_kwargs)
+                call_kwargs["skip_equity_curve"] = metric != "sharpe"
                 r = self.bt.run_strategy(
                     symbol             = sym,
                     strategy_name      = strategy_name,
                     param_overrides    = params,
-                    skip_equity_curve  = True,   # optimizer doesn't need equity curves
-                    **run_kwargs,
+                    # Sharpe is derived from the equity series. Other current
+                    # optimizer metrics only need trades/capital summaries.
+                    **call_kwargs,
                 )
             except Exception as exc:
                 logger.warning(f"[OPTIMIZER] {sym} with {params} failed: {exc}")
@@ -361,7 +364,9 @@ class StrategyOptimizer:
             if key in seen_combos:
                 return None   # signal: skip duplicate
             seen_combos.add(key)
-            sym_results = self._run_combo(strategy_name, symbols, params, run_kwargs)
+            sym_results = self._run_combo(
+                strategy_name, symbols, params, run_kwargs, metric
+            )
             opt_result  = self._build_opt_result(params, sym_results, symbols,
                                                   metric, minimize)
             all_results.append(opt_result)

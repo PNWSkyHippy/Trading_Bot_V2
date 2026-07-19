@@ -68,6 +68,11 @@ from intelligence.backtest_ledger import RunLedger
 
 logger = logging.getLogger(__name__)
 
+# SIGNAL_TUNING is legacy process-global state. Parameter overrides must be
+# serialized until every strategy consumes immutable run-local parameters.
+_PARAM_OVERRIDE_LOCK = threading.RLock()
+_MISSING_TUNING = object()
+
 # ---------------------------------------------------------------------------
 # Persistent candle store — checked before yfinance on every fetch
 # ---------------------------------------------------------------------------
@@ -86,7 +91,7 @@ TF_CONFIG = {
     # annualise_crypto= crypto 365-day calendar, 24h/day
     # bars_per_day    = stock session bars (used for intraday time-stop mapping)
     "5m":  {"interval": "5m",  "max_days": 58,   "bars_per_day": 78,  "annualise": 252 * 78,  "annualise_crypto": 365 * 288},
-    "15m": {"interval": "15m", "max_days": 59,   "bars_per_day": 96,  "annualise": 252 * 96,  "annualise_crypto": 365 * 96},
+    "15m": {"interval": "15m", "max_days": 59,   "bars_per_day": 26,  "annualise": 252 * 26,  "annualise_crypto": 365 * 96},
     "1h":  {"interval": "1h",  "max_days": 729,  "bars_per_day": 7,   "annualise": 252 * 7,   "annualise_crypto": 365 * 24},
     "1d":  {"interval": "1d",  "max_days": 3650, "bars_per_day": 1,   "annualise": 252,        "annualise_crypto": 365},
 }
@@ -518,7 +523,18 @@ class Backtester:
 
     def is_cached(self, symbol: str, days: int, timeframe: str) -> bool:
         """Return True if candles for this symbol are already in memory."""
-        return (symbol, days, timeframe) in self._candle_cache
+        value = self._candle_cache.get((symbol, days, timeframe))
+        return isinstance(value, pd.DataFrame) and not value.empty
+
+    def _resolve_starting_capital(self, starting_capital: float = None) -> float:
+        value = self.starting_capital if starting_capital is None else starting_capital
+        try:
+            value = float(value)
+        except (TypeError, ValueError, OverflowError) as exc:
+            raise ValueError("starting_capital must be a finite positive number") from exc
+        if not np.isfinite(value) or value <= 0:
+            raise ValueError("starting_capital must be a finite positive number")
+        return value
 
     # -----------------------------------------------------------------------
     # Data quality validation
@@ -692,7 +708,15 @@ class Backtester:
                       timeframe: str = "1h") -> Optional[pd.DataFrame]:
         _key = (symbol, days, timeframe)
         if _key in self._candle_cache:
-            return self._candle_cache[_key]
+            cached_value = self._candle_cache.get(_key)
+            cached = (
+                self._validate_ohlcv(cached_value.copy(), symbol, timeframe)
+                if isinstance(cached_value, pd.DataFrame) else None
+            )
+            if cached is not None:
+                self._candle_cache[_key] = cached
+                return cached
+            self._candle_cache.pop(_key, None)
         cfg   = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
         tf    = cfg["interval"]
         max_d = cfg["max_days"]
@@ -702,9 +726,15 @@ class Backtester:
             try:
                 df = _candle_store.load(symbol, timeframe, days)
                 if _store_covers_request(df, days, timeframe, is_crypto=False):
-                    logger.info(f"CandleStore hit: {symbol}/{timeframe}/{days}d ({len(df):,} bars)")
-                    self._candle_cache[_key] = df
-                    return df
+                    validated = self._validate_ohlcv(df.copy(), symbol, timeframe)
+                    if validated is not None:
+                        logger.info(f"CandleStore hit: {symbol}/{timeframe}/{days}d ({len(validated):,} bars)")
+                        self._candle_cache[_key] = validated
+                        return validated
+                    logger.warning(
+                        "CandleStore integrity rejection: %s/%s/%sd",
+                        symbol, timeframe, days,
+                    )
                 if df is not None:
                     logger.info(
                         "CandleStore short hit skipped: %s/%s/%sd (%s bars)",
@@ -748,6 +778,8 @@ class Backtester:
                 return None
             logger.info(f"  -> {len(df)} bars  ({df.index[0].date()} - {df.index[-1].date()})")
             df = self._validate_ohlcv(df, symbol, timeframe)
+            if df is None:
+                return None
             self._candle_cache[_key] = df
             # Save to persistent store so future runs skip the network
             if _candle_store is not None:
@@ -764,7 +796,15 @@ class Backtester:
                               timeframe: str = "1h") -> Optional[pd.DataFrame]:
         _key = (symbol, days, timeframe)
         if _key in self._candle_cache:
-            return self._candle_cache[_key]
+            cached_value = self._candle_cache.get(_key)
+            cached = (
+                self._validate_ohlcv(cached_value.copy(), symbol, timeframe)
+                if isinstance(cached_value, pd.DataFrame) else None
+            )
+            if cached is not None:
+                self._candle_cache[_key] = cached
+                return cached
+            self._candle_cache.pop(_key, None)
         yf_symbol = symbol.replace("/", "-")
         cfg   = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
         tf    = cfg["interval"]
@@ -775,9 +815,15 @@ class Backtester:
             try:
                 df = _candle_store.load(symbol, timeframe, days)
                 if _store_covers_request(df, days, timeframe, is_crypto=True):
-                    logger.info(f"CandleStore hit: {symbol}/{timeframe}/{days}d ({len(df):,} bars)")
-                    self._candle_cache[_key] = df
-                    return df
+                    validated = self._validate_ohlcv(df.copy(), symbol, timeframe)
+                    if validated is not None:
+                        logger.info(f"CandleStore hit: {symbol}/{timeframe}/{days}d ({len(validated):,} bars)")
+                        self._candle_cache[_key] = validated
+                        return validated
+                    logger.warning(
+                        "CandleStore integrity rejection: %s/%s/%sd",
+                        symbol, timeframe, days,
+                    )
                 if df is not None:
                     logger.info(
                         "CandleStore short hit skipped: %s/%s/%sd (%s bars)",
@@ -829,6 +875,8 @@ class Backtester:
                 return None
             logger.info(f"  -> {len(df)} bars  ({df.index[0].date()} - {df.index[-1].date()})")
             df = self._validate_ohlcv(df, symbol, timeframe)
+            if df is None:
+                return None
             self._candle_cache[_key] = df
             # Save to persistent store so future runs skip the network
             if _candle_store is not None:
@@ -1616,9 +1664,9 @@ class Backtester:
                 equity_curve.append(EquityPoint(
                     bar_index  = i,
                     timestamp  = str(df.index[i]),
-                    equity     = round(mtm_capital, 2),
-                    drawdown   = round(drawdown_pct, 4),
-                    daily_ret  = round(bar_ret, 4),
+                    equity     = mtm_capital,
+                    drawdown   = drawdown_pct,
+                    daily_ret  = bar_ret,
                 ))
 
             # ── Step 3: Signal generation → queue for NEXT bar entry ─────────
@@ -1668,7 +1716,12 @@ class Backtester:
             else:
                 signal_direction, signal_score, _ = self._score_bar(df, i)
 
-            if signal_direction == "none":
+            if signal_direction not in {"long", "short"}:
+                if signal_direction != "none":
+                    logger.warning(
+                        "[BACKTESTER] rejected invalid direction %r from %s/%s",
+                        signal_direction, strategy_name, symbol,
+                    )
                 continue
 
             _sig_trade_id = f"{symbol}:{strategy_name}:{i}"
@@ -1756,6 +1809,24 @@ class Backtester:
                 )
             capital += pnl
 
+        if not skip_equity_curve:
+            peak_equity = max(peak_equity, capital)
+            drawdown_pct = (
+                (capital - peak_equity) / peak_equity * 100
+                if peak_equity > 0 else 0.0
+            )
+            previous = equity_curve[-1].equity if equity_curve else starting_capital
+            terminal_return = (
+                (capital - previous) / previous * 100 if previous > 0 else 0.0
+            )
+            equity_curve.append(EquityPoint(
+                bar_index=len(df),
+                timestamp=str(df.index[-1]),
+                equity=capital,
+                drawdown=drawdown_pct,
+                daily_ret=terminal_return,
+            ))
+
         _diagnostics = {}
         if strategy_obj is not None and hasattr(strategy_obj, "get_diagnostics"):
             _diagnostics = strategy_obj.get_diagnostics()
@@ -1795,7 +1866,7 @@ class Backtester:
         run_ctx = run_ctx or _default_run_ctx
         if run_ctx.is_cancelled():          # gate: skip before fetch starts
             return None
-        capital = starting_capital or self.starting_capital
+        capital = self._resolve_starting_capital(starting_capital)
         if asset_class == "crypto":
             df = self.fetch_history_crypto(symbol, days, timeframe)
         else:
@@ -1840,7 +1911,7 @@ class Backtester:
         run_ctx = run_ctx or _default_run_ctx
         if run_ctx.is_cancelled():
             return None
-        capital = starting_capital or self.starting_capital
+        capital = self._resolve_starting_capital(starting_capital)
         if asset_class == "crypto":
             df = self.fetch_history_crypto(symbol, days, timeframe)
         else:
@@ -1896,33 +1967,38 @@ class Backtester:
         #      directly; the original value is stashed for restore.
         _orig_tuning = {}
         _orig_params = {}
-        if param_overrides:
-            import config as _cfg
-            for k, v in param_overrides.items():
-                # Tier 1: SIGNAL_TUNING
-                if k in _cfg.SIGNAL_TUNING:
-                    _orig_tuning[k] = _cfg.SIGNAL_TUNING[k]
-                _cfg.SIGNAL_TUNING[k] = v
-                # Tier 2: strategy_obj.params dataclass (if present and field exists)
-                params_obj = getattr(strategy_obj, "params", None)
-                if isinstance(params_obj, dict) and k in params_obj:
-                    _orig_params[k] = params_obj[k]
-                    orig_type = type(params_obj[k])
-                    try:
-                        params_obj[k] = orig_type(v)
-                    except (TypeError, ValueError):
-                        params_obj[k] = v
-                elif params_obj is not None and hasattr(params_obj, k):
-                    _orig_params[k] = getattr(params_obj, k)
-                    # Preserve type — cast to the field's current type to avoid
-                    # accidentally passing a float where an int is expected.
-                    orig_type = type(getattr(params_obj, k))
-                    try:
-                        setattr(params_obj, k, orig_type(v))
-                    except (TypeError, ValueError):
-                        setattr(params_obj, k, v)
-
+        _override_lock_held = False
         try:
+            if param_overrides:
+                import config as _cfg
+                _PARAM_OVERRIDE_LOCK.acquire()
+                _override_lock_held = True
+                for k, v in param_overrides.items():
+                    # Record missing keys explicitly so finally can remove
+                    # them instead of leaking optimizer state to later runs.
+                    _orig_tuning[k] = _cfg.SIGNAL_TUNING.get(
+                        k, _MISSING_TUNING
+                    )
+                    _cfg.SIGNAL_TUNING[k] = v
+                    # Tier 2: strategy_obj.params dataclass (if present and field exists)
+                    params_obj = getattr(strategy_obj, "params", None)
+                    if isinstance(params_obj, dict) and k in params_obj:
+                        _orig_params[k] = params_obj[k]
+                        orig_type = type(params_obj[k])
+                        try:
+                            params_obj[k] = orig_type(v)
+                        except (TypeError, ValueError):
+                            params_obj[k] = v
+                    elif params_obj is not None and hasattr(params_obj, k):
+                        _orig_params[k] = getattr(params_obj, k)
+                        # Preserve type — cast to the field's current type to avoid
+                        # accidentally passing a float where an int is expected.
+                        orig_type = type(getattr(params_obj, k))
+                        try:
+                            setattr(params_obj, k, orig_type(v))
+                        except (TypeError, ValueError):
+                            setattr(params_obj, k, v)
+
             return self._simulate(
                 symbol, df, strategy_name, strategy_obj, capital, timeframe,
                 stop_mode, two_bar_lookback,
@@ -1944,7 +2020,11 @@ class Backtester:
         finally:
             if _orig_tuning:
                 import config as _cfg
-                _cfg.SIGNAL_TUNING.update(_orig_tuning)
+                for k, original in _orig_tuning.items():
+                    if original is _MISSING_TUNING:
+                        _cfg.SIGNAL_TUNING.pop(k, None)
+                    else:
+                        _cfg.SIGNAL_TUNING[k] = original
             if _orig_params:
                 params_obj = getattr(strategy_obj, "params", None)
                 if isinstance(params_obj, dict):
@@ -1952,6 +2032,8 @@ class Backtester:
                 elif params_obj is not None:
                     for k, v in _orig_params.items():
                         setattr(params_obj, k, v)
+            if _override_lock_held:
+                _PARAM_OVERRIDE_LOCK.release()
 
     def run_all(self, symbols: List[str], strategy_name: str = None,
                 days: int = 365, starting_capital: float = None,
@@ -2048,8 +2130,15 @@ class Backtester:
             if dstd > 0 else 0.0
         )
         total_ret_pct = (end_cap - start_cap) / start_cap * 100 if start_cap else 0.0
+        periods = max(len(df) - 1, 1)
+        years = periods / annualise_factor if annualise_factor > 0 else 0.0
+        growth = end_cap / start_cap if start_cap > 0 else 0.0
+        cagr_pct = (
+            (growth ** (1.0 / years) - 1.0) * 100
+            if years > 0 and growth > 0 else 0.0
+        )
         calmar = (
-            abs(total_ret_pct / max_dd)
+            cagr_pct / abs(max_dd)
             if max_dd < 0 else 0.0
         )
         return BacktestResult(
