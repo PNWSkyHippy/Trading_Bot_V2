@@ -743,6 +743,7 @@
             [';', 'toggle AutoBoost / AutoCruise'],
             ['V / RMB', 'fire (10% dmg/hit vs sentries)'],
             ['Hold LMB', 'mouse steer'],
+            ['` (backtick)', 'capture / release mouse steering (Esc also releases)'],
             ['Shift+S @ junction', 'free-steer pivot / U-turn'],
             ['Hold C', 'free-look turret'],
             ['1-6', 'snap view'],
@@ -4805,7 +4806,7 @@
             ';',
             '0', '1', '2', '3', '4', '5', '6', ' ',
             'b', 'g', 'h', 'm', 't', 'i', 'j', 'k', 'l', 'o', 'u', 'p', 'x', 'y', 'z', '7', '8', '9', '[', ']',
-            'delete', 'backspace', 'escape',
+            'delete', 'backspace', 'escape', '`',
             'arrowup', 'arrowdown', 'arrowleft', 'arrowright'
         ]);
         const keyCodeMap = {
@@ -4888,6 +4889,57 @@
             }
             keyboardStatus.innerText = 'focused';
         }
+
+        function mouseSteeringCaptured() {
+            return document.pointerLockElement === canvas;
+        }
+
+        function releaseMouseSteeringCapture(message = '') {
+            if (!mouseSteeringCaptured()) return false;
+            document.exitPointerLock?.();
+            if (message) keyboardStatus.innerText = message;
+            return true;
+        }
+
+        function toggleMouseSteeringCapture() {
+            if (mouseSteeringCaptured()) {
+                releaseMouseSteeringCapture('mouse released — ` recaptures');
+                return true;
+            }
+            if (mapView || builderMode || isJoinEditDialogOpen() || isMapLibraryDialogOpen() || isPilotStartDialogOpen()) {
+                keyboardStatus.innerText = 'mouse capture is available in flight mode';
+                return false;
+            }
+            if (!canvas.requestPointerLock) {
+                keyboardStatus.innerText = 'browser does not support mouse capture';
+                return false;
+            }
+            try {
+                const request = canvas.requestPointerLock();
+                if (request?.catch) {
+                    request.catch(() => {
+                        keyboardStatus.innerText = 'mouse capture blocked — click the game, then press `';
+                    });
+                }
+                return true;
+            } catch {
+                keyboardStatus.innerText = 'mouse capture blocked — click the game, then press `';
+                return false;
+            }
+        }
+
+        document.addEventListener('pointerlockchange', () => {
+            const captured = mouseSteeringCaptured();
+            mouseInput.steer = captured;
+            keyboardStatus.innerText = captured
+                ? 'MOUSE CAPTURED — move to steer · ` or Esc releases'
+                : 'mouse released — hold LMB to steer or press ` to capture';
+            if (captured) focusGameSurface();
+        });
+        document.addEventListener('pointerlockerror', () => {
+            mouseInput.steer = false;
+            keyboardStatus.innerText = 'mouse capture failed — click the game and try ` again';
+        });
 
         function normalizeKey(e) {
             const key = (e.key || '').toLowerCase();
@@ -5092,6 +5144,11 @@
             }
             focusGameSurface();
             const key = normalizeKey(e);
+            if (key === '`' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+                toggleMouseSteeringCapture();
+                e.preventDefault();
+                return;
+            }
             if (key === 'r' && e.ctrlKey && e.shiftKey) {
                 if (developerRepairPlayer()) {
                     e.preventDefault();
@@ -5745,7 +5802,7 @@
                 mapMouse.orbiting = false;
                 mapMouse.orbitAroundPivot = false;
             }
-            if (e.button === 0) mouseInput.steer = false;
+            if (e.button === 0 && !mouseSteeringCaptured()) mouseInput.steer = false;
             if (e.button === 2) mouseInput.fire = false;
         });
         canvas.addEventListener('mousemove', (e) => {
@@ -10560,11 +10617,15 @@
             }
             if (key === 'b') {
                 builderMode = !builderMode;
-                if (builderMode) snapBuilderCursorToShip();
+                if (builderMode) {
+                    releaseMouseSteeringCapture('mouse released for builder mode');
+                    snapBuilderCursorToShip();
+                }
                 return true;
             }
             if (key === 'm') {
                 mapView = !mapView;
+                if (mapView) releaseMouseSteeringCapture('mouse released for map mode');
                 clearKeyboardState();
                 restorePhysicalControlState();
                 if (mapView) {
