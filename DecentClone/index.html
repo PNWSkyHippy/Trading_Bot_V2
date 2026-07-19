@@ -1780,7 +1780,6 @@
             junctionBubbleCache.stale = true;
             tunnelTopologyCache.stale = true;
             junctionMouthCache.stale = true;
-            tunnelSightlinePathCache.clear();
         }
 
         // ── Junction bubbles ─────────────────────────────────────────────────
@@ -1799,7 +1798,6 @@
         const junctionBubbleCache = { stale: true, bubbles: [] };
         const tunnelTopologyCache = { stale: true, neighbors: [] };
         const junctionMouthCache = { stale: true, mouths: [] };
-        const tunnelSightlinePathCache = new Map();
 
         function getTunnelTopologyNeighbors() {
             if (!tunnelTopologyCache.stale) return tunnelTopologyCache.neighbors;
@@ -1834,41 +1832,6 @@
                 frontier = next;
             }
             return result;
-        }
-
-        function tunnelTopologyPath(startIndex, endIndex, maxHops = TUNNEL_COVERAGE_TOPOLOGY_HOPS) {
-            if (!Number.isInteger(startIndex) || !Number.isInteger(endIndex)) return null;
-            if (startIndex === endIndex) return [startIndex];
-            const cacheKey = `${startIndex}:${endIndex}:${maxHops}`;
-            if (tunnelSightlinePathCache.has(cacheKey)) return tunnelSightlinePathCache.get(cacheKey);
-
-            const neighbors = getTunnelTopologyNeighbors();
-            const parent = new Map([[startIndex, null]]);
-            let frontier = [startIndex];
-            for (let hop = 0; hop < maxHops && frontier.length; hop++) {
-                const next = [];
-                for (const index of frontier) {
-                    for (const neighbor of neighbors[index] || []) {
-                        if (parent.has(neighbor)) continue;
-                        parent.set(neighbor, index);
-                        if (neighbor === endIndex) {
-                            const path = [endIndex];
-                            let cursor = index;
-                            while (cursor !== null) {
-                                path.push(cursor);
-                                cursor = parent.get(cursor);
-                            }
-                            path.reverse();
-                            tunnelSightlinePathCache.set(cacheKey, path);
-                            return path;
-                        }
-                        next.push(neighbor);
-                    }
-                }
-                frontier = next;
-            }
-            tunnelSightlinePathCache.set(cacheKey, null);
-            return null;
         }
 
         function segmentsWithinTopologyHops(aIndex, bIndex, maxHops = 2) {
@@ -16029,7 +15992,6 @@
             for (const entry of visible) {
                 const { index, seg } = entry;
                 if (segmentWallOpaque(seg)) continue;
-                if (shouldSuppressOpaqueOverlay(index, texturedSegmentIndices, forwardPathSet)) continue;
                 const isBranchMouth = isBranchMouthSegment(seg);
                 const palette = mapMouse.selection.has(index) || mapMouse.anchor?.segmentIndex === index
                     ? 'selected'
@@ -16038,12 +16000,8 @@
                 let starDrawn = 0;
                 for (let si = 0; si < stars.length && starDrawn < MOVEMENT_STREAK_STAR_MAX_PER_SEGMENT; si += MOVEMENT_STREAK_STAR_SKIP) {
                     const s = stars[si];
-                    const worldStar = segmentLocalToWorld(seg, s.x, s.y, s.z);
-                    const cameraStar = worldToCamera(worldStar);
-                    if (cameraStar.z <= 10 || cameraStar.z > 1600) continue;
-                    if (!pointVisibleThroughCurrentTunnel(worldStar, index)) continue;
                     drawTunnelStarOverlay(
-                        worldStar,
+                        segmentLocalToWorld(seg, s.x, s.y, s.z),
                         centerX,
                         centerY,
                         fov,
@@ -16402,7 +16360,7 @@
             return segmentVisibleFromShipRoute(sentryOverlaySegmentIndex(sentry));
         }
 
-        function pointVisibleThroughCurrentTunnel(point, preferredIndex = null, apertureScale = 0.96) {
+        function pointVisibleThroughCurrentTunnel(point, apertureScale = 0.96) {
             if (!point || !Number.isInteger(shipSegmentIndex)) return true;
             const seg = builder.segments[shipSegmentIndex];
             if (!seg || !segmentWallOpaque(seg) || segmentIsChamber(seg)) return true;
@@ -16422,67 +16380,17 @@
             );
             const dz = targetLocal.localZ - shipLocal.localZ;
 
-            // First prove that the ray leaves the current segment through its mouth,
-            // rather than through the opaque side wall.
+            // A point whose projection stays inside this cylinder is directly visible.
             if (targetLocal.localZ >= 0 && targetLocal.localZ <= shipLocal.length) {
-                if (radialAt(1) > radius) return false;
-            } else {
-                if (Math.abs(dz) < 0.0001) return false;
-                const exitZ = targetLocal.localZ < 0 ? 0 : shipLocal.length;
-                const tExit = (exitZ - shipLocal.localZ) / dz;
-                if (tExit < 0 || tExit > 1 || radialAt(tExit) > radius) return false;
+                return radialAt(1) <= radius;
             }
-
-            const targetIndex = overlaySegmentIndexForPoint(point, preferredIndex);
-            if (!Number.isInteger(targetIndex)) return true;
-            const path = tunnelTopologyPath(shipSegmentIndex, targetIndex);
-            if (!path) return false;
-
-            // A ray can clear the current mouth and still cut through the outside wall
-            // of the next bend. Canvas overlays have no access to WebGL's depth buffer,
-            // so sample the complete connected route and draw only while the sightline
-            // remains inside the union of its tunnel tubes/junction bubbles.
-            const dx = point.x - ship.x;
-            const dy = point.y - ship.y;
-            const dzWorld = point.z - ship.z;
-            const distance = Math.hypot(dx, dy, dzWorld);
-            const sampleSpacing = Math.max(24, (seg.radius || builder.radius) * 0.24);
-            const samples = Math.max(2, Math.min(72, Math.ceil(distance / sampleSpacing)));
-            for (let sampleIndex = 1; sampleIndex < samples; sampleIndex++) {
-                const t = sampleIndex / samples;
-                const sample = {
-                    x: ship.x + dx * t,
-                    y: ship.y + dy * t,
-                    z: ship.z + dzWorld * t
-                };
-                if (pointInJunctionBubble(sample, 4)) continue;
-
-                let insideRoute = false;
-                for (const routeIndex of path) {
-                    const routeSeg = builder.segments[routeIndex];
-                    if (!routeSeg) continue;
-                    if (segmentIsChamber(routeSeg)) {
-                        const chamber = chamberDistanceState(sample, routeSeg);
-                        if (chamber.dist <= chamber.radius * apertureScale) {
-                            insideRoute = true;
-                            break;
-                        }
-                        continue;
-                    }
-                    const local = shipSegmentLocal(sample, routeSeg);
-                    const seamPad = Math.min(18, (routeSeg.radius || builder.radius) * 0.08);
-                    if (
-                        local.localZ >= -seamPad &&
-                        local.localZ <= local.length + seamPad &&
-                        local.radialDist <= (routeSeg.radius || builder.radius) * apertureScale
-                    ) {
-                        insideRoute = true;
-                        break;
-                    }
-                }
-                if (!insideRoute) return false;
-            }
-            return true;
+            if (Math.abs(dz) < 0.0001) return false;
+            const exitZ = targetLocal.localZ < 0 ? 0 : shipLocal.length;
+            const tExit = (exitZ - shipLocal.localZ) / dz;
+            if (tExit < 0 || tExit > 1) return false;
+            // The sightline must pass through the circular tunnel mouth. At a sharp bend
+            // it instead intersects the opaque side wall, hiding future ribs and targets.
+            return radialAt(tExit) <= radius;
         }
 
         function overlaySegmentIndexForPoint(point, preferredIndex = null) {
@@ -18774,7 +18682,6 @@
                 const mouthCenter = addVec(mouth.point, scaleVec(mouth.forward, Math.max(8, mouth.radius * 0.06)));
                 const cameraPoint = worldToCamera(mouthCenter);
                 if (cameraPoint.z <= 18 || cameraPoint.z > 1350) continue;
-                if (!sourceIndices.some(index => pointVisibleThroughCurrentTunnel(mouthCenter, index))) continue;
 
                 const radius = mouth.radius * (mouth.branch ? 0.96 : 0.88);
                 const sides = 10;
@@ -18856,9 +18763,9 @@
 
                 for (const t of ribTimes) {
                     const ribCenter = pointOnSegment(seg, t);
+                    if (!pointVisibleThroughCurrentTunnel(ribCenter)) continue;
                     const cameraPoint = worldToCamera(ribCenter);
                     if (cameraPoint.z <= 18 || cameraPoint.z > 1250) continue;
-                    if (!pointVisibleThroughCurrentTunnel(ribCenter, segIndex)) continue;
 
                     const radius = (seg.radius || builder.radius) * 0.98;
                     const sides = segmentHasWallCover ? 12 : 10;
@@ -18914,9 +18821,9 @@
             for (const target of tunnelTargets) {
                 if (!targetIsActive(target)) continue;
                 if (shouldSuppressOpaqueOverlay(target.segmentIndex, texturedSegmentIndices, forwardPathSet)) continue;
+                if (!pointVisibleThroughCurrentTunnel(target.point)) continue;
                 const cameraPoint = worldToCamera(target.point);
                 if (cameraPoint.z <= 16 || cameraPoint.z > 1500) continue;
-                if (!pointVisibleThroughCurrentTunnel(target.point, target.segmentIndex)) continue;
                 const half = target.size / 2;
                 const hudBasis = targetHudRenderBasis(target);
                 const corners = [
