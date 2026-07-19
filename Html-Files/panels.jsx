@@ -998,7 +998,7 @@ function BacktestCharts({ row }) {
 }
 
 function BacktesterPanel() {
-  const [form, setForm] = useS({ asset: 'Stocks', strategy: 'ALL strategies', tf: '1h', cap: '100000.00', symbol: 'ALL', duration: '90d (3mo)', mode: 'standard', lookback: '2', side: 'all', entry_mode: 'all', initial_stop: 'auto', trail: 'auto', commission: '', slippage: '' });
+  const [form, setForm] = useS({ asset: 'Stocks', strategy: 'ALL strategies', behavior_profile: 'isolated_v1', tf: '1h', cap: '100000.00', symbol: 'ALL', duration: '90d (3mo)', mode: 'standard', lookback: '2', side: 'all', entry_mode: 'all', initial_stop: 'auto', trail: 'auto', commission: '', slippage: '' });
   const [running, setRunning] = useS(false);
   const [cancelling, setCancelling] = useS(false);
   const [result, setResult] = useS(null);
@@ -1010,6 +1010,10 @@ function BacktesterPanel() {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const assetClasses = btConfig?.asset_classes || MOCK.ASSET_CLASSES.filter(a => a !== 'Both');
   const strategies = btConfig?.strategies || MOCK.STRATEGIES;
+  const behaviorProfiles = btConfig?.behavior_profiles || [
+    { value: 'isolated_v1', label: 'Legacy baseline (isolated_v1)' },
+    { value: 'live_parity_v2', label: 'Live parity (live_parity_v2)' },
+  ];
   const timeframes = btConfig?.timeframes || MOCK.TIMEFRAMES;
   const durations = btConfig?.durations || MOCK.DURATIONS;
   const symbolOptions = btConfig?.symbols?.[form.asset] || ['ALL', ...(form.asset === 'Crypto' ? ['BTC/USD', 'ETH/USD'] : ['AAPL', 'MSFT'])];
@@ -1060,7 +1064,7 @@ function BacktesterPanel() {
     const trailLabel = form.trail !== 'auto'        ? ` · trail:${form.trail}`           : '';
     const stopLabel2 = form.initial_stop !== 'auto' ? ` · init-stop:${form.initial_stop}`: '';
     setRunLog([
-      `Queued ${form.symbol} / ${form.strategy} / ${form.tf} / ${form.duration}${sideLabel}${modeLabel}${trailLabel}${stopLabel2}`,
+      `Queued ${form.symbol} / ${form.strategy} / ${form.tf} / ${form.duration} / ${form.behavior_profile}${sideLabel}${modeLabel}${trailLabel}${stopLabel2}`,
       'Sending request to backtest engine...',
     ]);
     setMsg('Running backtest...');
@@ -1122,6 +1126,19 @@ function BacktesterPanel() {
         <div className="field" style={{ justifyContent: 'flex-end', flexDirection: 'row', gap: 8 }}>
           <button className="btn primary full" onClick={run} disabled={running} style={{ flex: 1 }}>{running ? <><Icon name="cpu" size={13} /> Running…</> : <><Icon name="play" size={13} /> Run Backtest</>}</button>
           {running && <button className="btn danger" onClick={cancel} disabled={cancelling} style={{ whiteSpace: 'nowrap' }}>{cancelling ? 'Cancelling…' : <><Icon name="x" size={13} /> Cancel</>}</button>}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginBottom: 12, padding: '10px 12px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
+        <div className="field" style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <label style={{ whiteSpace: 'nowrap' }}>Behavior Profile:</label>
+          <select className="select input" style={{ minWidth: 245 }} value={form.behavior_profile} onChange={e => set('behavior_profile', e.target.value)}>
+            {behaviorProfiles.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+          </select>
+        </div>
+        <div style={{ fontSize: 11, color: 'var(--text-2)' }}>
+          {form.behavior_profile === 'live_parity_v2'
+            ? 'Uses the reviewed live-lifecycle corrections. Compare against the legacy baseline before trusting a change.'
+            : 'Preserves the trusted historical baseline for comparison.'}
         </div>
       </div>
       <div style={{ display: 'flex', gap: 18, alignItems: 'center', marginBottom: 12, padding: '10px 12px', background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius-sm)' }}>
@@ -1196,7 +1213,7 @@ function BacktesterPanel() {
             <div>
               <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 4 }}>Backtest Results · {form.duration}</h3>
               <div className="panel-sub" style={{ margin: 0 }}>
-                {form.asset} {form.symbol}, {form.tf} candles, {stopLabel} · {detailRows.length} detailed run(s)
+                {form.asset} {form.symbol}, {form.tf} candles, {stopLabel}, {form.behavior_profile} · {detailRows.length} detailed run(s)
               </div>
             </div>
             <button className="btn ghost sm" onClick={() => exportCsv('backtest-results.csv', backtestColumns, detailRows)}>

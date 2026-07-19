@@ -1225,6 +1225,18 @@ def get_backtest_config():
     return {
         "asset_classes": ["Stocks", "Crypto"],
         "strategies": ["ALL strategies", *BACKTEST_STRATEGIES],
+        "behavior_profiles": [
+            {
+                "value": "isolated_v1",
+                "label": "Legacy baseline (isolated_v1)",
+                "description": "Preserves trusted historical backtest behavior.",
+            },
+            {
+                "value": "live_parity_v2",
+                "label": "Live parity (live_parity_v2)",
+                "description": "Applies the reviewed P1-A lifecycle corrections.",
+            },
+        ],
         "timeframes": ["5m", "1h", "1d"],
         "durations": ["30d", "60d", "90d (3mo)", "180d (6mo)", "365d (1y)", "730d (2y)"],
         "symbols": {
@@ -1265,6 +1277,7 @@ def _backtest_result_payload(result):
         "symbol": getattr(result, "symbol", ""),
         "strategy": getattr(result, "strategy_name", ""),
         "timeframe": getattr(result, "timeframe", ""),
+        "behavior_profile": getattr(result, "behavior_profile", "isolated_v1"),
         "stop_mode": stop_mode,
         "stop": "2-Bar" if str(stop_mode).lower() in ("two_bar", "trailing") else "Standard",
         "start_date": start_date,
@@ -1487,7 +1500,7 @@ def run_optimize_api(payload):
 
 def run_backtest_api(payload):
     try:
-        from intelligence.backtester import Backtester
+        from intelligence.backtester import Backtester, _resolve_behavior_profile
         import config as cfg
     except Exception as exc:
         return False, f"Backtester unavailable: {exc}", {}
@@ -1504,6 +1517,12 @@ def run_backtest_api(payload):
     entry_mode_filter = str(payload.get("entry_mode")   or "all").strip().lower()
     initial_stop_mode = str(payload.get("initial_stop") or "auto").strip().lower()
     trail_mode        = str(payload.get("trail")        or "auto").strip().lower()
+    try:
+        behavior_profile = _resolve_behavior_profile(
+            str(payload.get("behavior_profile") or "isolated_v1")
+        )
+    except (TypeError, ValueError) as exc:
+        return False, str(exc), {"cancelled": False}
     _commission_raw   = payload.get("commission")
     _slippage_raw     = payload.get("slippage")
     commission_pct    = float(_commission_raw) if _commission_raw not in (None, "", "default") else None
@@ -1555,6 +1574,7 @@ def run_backtest_api(payload):
                             initial_stop_mode=initial_stop_mode, trail_mode=trail_mode,
                             entry_mode_filter=entry_mode_filter,
                             entry_side_filter=entry_side_filter,
+                            behavior_profile=behavior_profile,
                             run_ctx=run_ctx,
                         )
                     else:
@@ -1565,6 +1585,7 @@ def run_backtest_api(payload):
                             initial_stop_mode=initial_stop_mode, trail_mode=trail_mode,
                             entry_mode_filter=entry_mode_filter,
                             entry_side_filter=entry_side_filter,
+                            behavior_profile=behavior_profile,
                             run_ctx=run_ctx,
                         )
                     if result and getattr(result, "total_trades", 0) > 0:
