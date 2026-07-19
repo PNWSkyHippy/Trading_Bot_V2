@@ -45,7 +45,7 @@ DEFAULT_STRATEGIES = [
     "vwap_confirmed_orb", "bollinger_squeeze", "mr_02_vef", "mr_03_fbs",
     "mr_04_fvg", "adaptive_regime",
     # Phase 2 new / overhauled (22-30)
-    "btc_v6_chandelier", "rsi_dip_simple", "pll_cycle",
+    "btc_v6_chandelier", "rsi_dip_simple", "pll_cycle", "bmr_357",
     "kds_mean_reversion", "ema_ribbon_breakout", "rcr_mean_reversion",
     "cbae_strategy", "rare_strategy", "fels_strategy", "map_strategy",
     # pll_cycle_martingale excluded — permanently disabled in DB
@@ -94,6 +94,13 @@ PARAM_SWEEP_DEFS: Dict[str, Dict[str, list]] = {
         "bb_breakout_period": [15, 20, 25],
         "bb_breakout_std":    [1.8, 2.0, 2.2, 2.5],
         "bb_adx_min":         [22, 25, 28, 30],
+    },
+    "bmr_357": {
+        "bb_len": [15, 20, 25],
+        "bb_std":    [ 2.0, 2.25, 2.5],
+        "rsi_len":         [7, 14, 21],
+        "rsi_long":         [30 35, 40],
+        "rsi_short":         [60, 65, 70],
     },
     "ema_crossover": {
         "ema_fast_period": [5, 7, 9, 12],
