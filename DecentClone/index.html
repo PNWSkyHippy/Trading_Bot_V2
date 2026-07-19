@@ -18682,6 +18682,11 @@
                 const mouthCenter = addVec(mouth.point, scaleVec(mouth.forward, Math.max(8, mouth.radius * 0.06)));
                 const cameraPoint = worldToCamera(mouthCenter);
                 if (cameraPoint.z <= 18 || cameraPoint.z > 1350) continue;
+                // Branch mouths are a 2D overlay drawn after the WebGL walls. Keep
+                // them from appearing through the opaque side of the ship's current
+                // tunnel; this is the same inexpensive aperture test used by ribs
+                // and target boxes, not the costly multi-segment sampler.
+                if (!pointVisibleThroughCurrentTunnel(mouthCenter)) continue;
 
                 const radius = mouth.radius * (mouth.branch ? 0.96 : 0.88);
                 const sides = 10;
