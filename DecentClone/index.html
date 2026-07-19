@@ -2500,18 +2500,18 @@
                 '  float cy = dot(delta, uDown);',
                 '  float cz = dot(delta, uForward);',
                 '  vTexCoord = aTexCoord;',
-                '  if (cz <= uCamNear) {',
-                '    gl_Position = vec4(3.0, 3.0, 3.0, 1.0);',
-                '    return;',
-                '  }',
-                '  float safeCz = max(cz, uCamNear + 0.5);',
-                '  float sx = (cx / safeCz) * uFocal;',
-                '  float sy = (cy / safeCz) * uFocal;',
-                '  float ndcX = sx / (uViewport.x * 0.5);',
-                '  float ndcY = -sy / (uViewport.y * 0.5);',
                 '  float farZ = 8600.0;',
-                '  float ndcZ = (farZ + uCamNear - 2.0 * cz) / (farZ - uCamNear);',
-                '  gl_Position = vec4(ndcX, ndcY, ndcZ, 1.0);',
+                // Use homogeneous perspective coordinates and let WebGL clip whole
+                // triangles at the near plane. Moving each behind-camera vertex to
+                // an arbitrary offscreen point stretched mixed near-plane triangles
+                // across the viewport, producing the direction-dependent black discs
+                // seen at segment handoffs. The old depth expression also mapped the
+                // far plane to -1 and the near plane to +1 while using LEQUAL, so far
+                // and adjacent tunnel shells could overwrite the wall around the ship.
+                '  float clipX = (cx * uFocal) / (uViewport.x * 0.5);',
+                '  float clipY = -(cy * uFocal) / (uViewport.y * 0.5);',
+                '  float clipZ = ((farZ + uCamNear) * cz - (2.0 * farZ * uCamNear)) / (farZ - uCamNear);',
+                '  gl_Position = vec4(clipX, clipY, clipZ, cz);',
                 '}'
             ].join('\n');
             // GLSL requires float literals (6.0), not JS number strings ("6") — see proposed_index.html
