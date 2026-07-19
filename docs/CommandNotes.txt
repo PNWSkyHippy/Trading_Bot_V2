@@ -2,15 +2,12 @@ python Scripts/archive_db_rollover.py --execute --no-service-control --db-path /
 --db-path/--archive-dir/--backup-dir override the production locations everywhere in the script (reads, writes, deletes, VACUUM) — the real trading_bot.db is never opened. --no-service-control skips the systemctl calls, which would otherwise pointlessly try to stop the real bot services.
 Open /tmp/test_rollover.db and /tmp/test_archives/trading_bot<YEAR>.db in a SQLite browser afterward and check: row counts moved, nothing eligible left behind, trade_partials/ai_signal_reviews landed in the same yearly file as their parent trade, bot_state/api_keys/non-terminal breakout_event_execution untouched
 
-mkdir -p /tmp/test_archives /tmp/test_backups
-cp "/mnt/c/Users/Linda/Trading_Bot_V2/data/trading_bot.db" /tmp/test_rollover.db
 
-cd /mnt/c/Users/Linda/Trading_Bot_V2/Ron/integration_repo
-python3 Scripts/archive_db_rollover.py --execute --no-service-control \
-  --db-path /tmp/test_rollover.db \
-  --archive-dir /tmp/test_archives \
-  --backup-dir /tmp/test_backups
+New-Item -ItemType Directory -Force -Path C:\tmp\test_archives, C:\tmp\test_backups | Out-Null
+Copy-Item "C:\Users\Linda\Trading_Bot_V2\data\trading_bot.db" C:\tmp\test_rollover.db
 
+  cd C:\Users\Linda\Trading_Bot_V2\Ron\integration_repo
+  python Scripts\archive_db_rollover.py --execute --no-service-control --db-path C:\tmp\test_rollover.db --archive-dir C:\tmp\test_archives --backup-dir C:\tmp\test_backups
 
 C:\users\linda\trading_bot_v2\ninjatrader_bridge
 python .\ninja_futures_scanner.py
