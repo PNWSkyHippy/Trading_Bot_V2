@@ -50,6 +50,7 @@ from core.breakout_decision import (
     is_breakout_stale,
     escalation_meets_minimum,
 )
+from core.crypto_quote import live_ticker_reference
 
 logger = logging.getLogger(__name__)
 
@@ -1732,9 +1733,9 @@ class BreakoutReceiver:
                     if symbols and sym not in symbols:
                         continue
                     ticker = exc.fetch_ticker(sym)
-                    last = ticker.get("last") or ticker.get("close")
-                    if last:
-                        return float(last)
+                    live_price = live_ticker_reference(ticker)
+                    if live_price is not None:
+                        return live_price
                 except Exception:
                     continue
 
@@ -1748,9 +1749,9 @@ class BreakoutReceiver:
             if primary:
                 try:
                     ticker = primary.fetch_ticker(sym)
-                    last = ticker.get("last") or ticker.get("close")
-                    if last:
-                        return float(last)
+                    live_price = live_ticker_reference(ticker)
+                    if live_price is not None:
+                        return live_price
                 except Exception:
                     pass
 

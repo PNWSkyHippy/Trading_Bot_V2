@@ -49,6 +49,7 @@ from datetime import time as dt_time
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from breakout_sender import BreakoutSender
+from core.crypto_quote import live_ticker_reference
 from scanners.gap_watchlist import GapWatchlist, GapSetup
 from scanners.catalyst_checker import CatalystChecker
 from scanners.volume_surge_scanner import VolumeSurgeTracker
@@ -1033,12 +1034,15 @@ class CryptoDataFetcher:
                     if sym in seen_symbols:
                         continue
                     try:
+                        live_price = live_ticker_reference(t)
+                        if live_price is None:
+                            continue
                         chg = t.get("percentage", 0) or 0
                         if chg == 0: continue
-                        op  = t["open"] if t.get("open") else t["last"] / (1 + chg/100)
+                        op  = t["open"] if t.get("open") else live_price / (1 + chg/100)
                         pd_obj = PriceData(
-                            sym, t["last"], op,
-                            t.get("high") or t["last"], t.get("low") or t["last"],
+                            sym, live_price, op,
+                            t.get("high") or live_price, t.get("low") or live_price,
                             t.get("quoteVolume") or t.get("baseVolume", 0),
                             datetime.now(), AssetType.CRYPTO,
                         )
@@ -1086,14 +1090,17 @@ class CryptoDataFetcher:
                     continue
                 try:
                     ticker = exc.fetch_ticker(symbol)
-                    last = ticker.get("last") or ticker.get("close")
-                    if not last:
+                    live_price = live_ticker_reference(ticker)
+                    if live_price is None:
                         continue
                     chg = ticker.get("percentage", 0) or 0
-                    op = ticker.get("open") or (last / (1 + chg / 100) if chg else last)
+                    op = ticker.get("open") or (
+                        live_price / (1 + chg / 100) if chg else live_price
+                    )
                     pd_obj = PriceData(
-                        symbol, last, op,
-                        ticker.get("high") or last, ticker.get("low") or last,
+                        symbol, live_price, op,
+                        ticker.get("high") or live_price,
+                        ticker.get("low") or live_price,
                         ticker.get("quoteVolume") or ticker.get("baseVolume", 0),
                         datetime.now(), AssetType.CRYPTO,
                     )
@@ -1944,14 +1951,17 @@ class MarketScanner:
             return pd
 
         ticker = exc.fetch_ticker(symbol)
-        last = ticker.get("last") or ticker.get("close")
-        if not last:
+        live_price = live_ticker_reference(ticker)
+        if live_price is None:
             return None
         chg = ticker.get("percentage", 0) or 0
-        op = ticker.get("open") or (last / (1 + chg / 100) if chg else last)
+        op = ticker.get("open") or (
+            live_price / (1 + chg / 100) if chg else live_price
+        )
         pd = PriceData(
-            symbol, float(last), float(op),
-            float(ticker.get("high") or last), float(ticker.get("low") or last),
+            symbol, float(live_price), float(op),
+            float(ticker.get("high") or live_price),
+            float(ticker.get("low") or live_price),
             float(ticker.get("quoteVolume") or ticker.get("baseVolume") or 0),
             datetime.now(), AssetType.CRYPTO,
         )

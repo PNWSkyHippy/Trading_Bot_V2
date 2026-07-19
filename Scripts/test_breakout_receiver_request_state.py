@@ -24,7 +24,7 @@ class BreakoutReceiverRequestStateTests(unittest.TestCase):
             symbols = ["ESPORTS/USD"]
 
             def fetch_ticker(self, _symbol):
-                return {"last": 0.0204}
+                return {"last": 0.0100, "bid": 0.0203, "ask": 0.0205}
 
         class FakeCryptoScanner:
             exchanges = {"KRAKEN": FakeExchange()}
