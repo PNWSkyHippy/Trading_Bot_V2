@@ -231,6 +231,12 @@ PARAM_SWEEP_DEFS: Dict[str, Dict[str, list]] = {
         "tp_atr_mult":    [2.0, 2.5, 3.0, 3.5],
         "max_bars_hold":  [16, 20, 24, 32],
     },
+    "sfr_structural_fakeout": {
+        "atr_len":          [7, 14, 21],
+        "sl_atr_buffer":    [0.15, 0.20, 0.25],
+        "tp_range_frac":    [.6, .7, .75, .8, .9],
+        "vol_spike_min":    [1,1.1,1.2,1.3, 1.4],
+    },
     # cbae_strategy: CBAEParams fields
     "cbae_strategy": {
         "extreme_thresh": [4.0, 5.0, 6.0, 7.0],
