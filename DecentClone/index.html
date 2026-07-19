@@ -743,7 +743,7 @@
             [';', 'toggle AutoBoost / AutoCruise'],
             ['V / RMB', 'fire (10% dmg/hit vs sentries)'],
             ['Hold LMB', 'mouse steer'],
-            ['` (backtick)', 'capture / release mouse steering (Esc also releases)'],
+            ['` / ~ (tilde key)', 'capture / release mouse steering (Esc also releases)'],
             ['Shift+S @ junction', 'free-steer pivot / U-turn'],
             ['Hold C', 'free-look turret'],
             ['1-6', 'snap view'],
@@ -4806,7 +4806,7 @@
             ';',
             '0', '1', '2', '3', '4', '5', '6', ' ',
             'b', 'g', 'h', 'm', 't', 'i', 'j', 'k', 'l', 'o', 'u', 'p', 'x', 'y', 'z', '7', '8', '9', '[', ']',
-            'delete', 'backspace', 'escape', '`',
+            'delete', 'backspace', 'escape', '`', '~',
             'arrowup', 'arrowdown', 'arrowleft', 'arrowright'
         ]);
         const keyCodeMap = {
@@ -4903,7 +4903,7 @@
 
         function toggleMouseSteeringCapture() {
             if (mouseSteeringCaptured()) {
-                releaseMouseSteeringCapture('mouse released — ` recaptures');
+                releaseMouseSteeringCapture('mouse released — tilde key recaptures');
                 return true;
             }
             if (mapView || builderMode || isJoinEditDialogOpen() || isMapLibraryDialogOpen() || isPilotStartDialogOpen()) {
@@ -4918,12 +4918,12 @@
                 const request = canvas.requestPointerLock();
                 if (request?.catch) {
                     request.catch(() => {
-                        keyboardStatus.innerText = 'mouse capture blocked — click the game, then press `';
+                        keyboardStatus.innerText = 'mouse capture blocked — click the game, then press the tilde key';
                     });
                 }
                 return true;
             } catch {
-                keyboardStatus.innerText = 'mouse capture blocked — click the game, then press `';
+                keyboardStatus.innerText = 'mouse capture blocked — click the game, then press the tilde key';
                 return false;
             }
         }
@@ -4932,8 +4932,8 @@
             const captured = mouseSteeringCaptured();
             mouseInput.steer = captured;
             keyboardStatus.innerText = captured
-                ? 'MOUSE CAPTURED — move to steer · ` or Esc releases'
-                : 'mouse released — hold LMB to steer or press ` to capture';
+                ? 'MOUSE CAPTURED — move to steer · tilde key or Esc releases'
+                : 'mouse released — hold LMB to steer or press the tilde key to capture';
             if (captured) focusGameSurface();
         });
         document.addEventListener('pointerlockerror', () => {
@@ -5144,7 +5144,7 @@
             }
             focusGameSurface();
             const key = normalizeKey(e);
-            if (key === '`' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+            if ((key === '`' || key === '~') && !e.ctrlKey && !e.altKey && !e.metaKey) {
                 toggleMouseSteeringCapture();
                 e.preventDefault();
                 return;
