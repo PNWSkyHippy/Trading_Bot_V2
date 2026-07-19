@@ -38,6 +38,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
 
+from core.event_identity import ensure_breakout_event_identity
+
 import pandas as pd
 
 from scanners.base_scanner import BaseEventScanner
@@ -764,7 +766,7 @@ class GapScanner(BaseEventScanner):
 
         now_utc = self.utc_now()
 
-        return {
+        payload = {
             "symbol":                 setup.symbol,
             "asset_class":            setup.asset_class,
             "direction":              setup.direction,
@@ -789,6 +791,12 @@ class GapScanner(BaseEventScanner):
             "reason":                 reason,
             "bars_since_breakout":    0,
         }
+        return ensure_breakout_event_identity(
+            payload,
+            producer="gap_scanner",
+            source_event_key=setup.registered_at,
+            child_key=f"{setup.gap_type}:confirmed",
+        )
 
     # ------------------------------------------------------------------
     # Helpers

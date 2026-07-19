@@ -25,6 +25,7 @@ from core.scanner_controls import (
     is_scanner_enabled,
     scanner_source_from_runtime_name,
 )
+from core.event_identity import ensure_breakout_event_identity
 
 logger = logging.getLogger(__name__)
 
@@ -105,6 +106,21 @@ class BaseEventScanner:
         if self._receiver is None:
             logger.warning("[%s] push_signal called but no receiver wired", self.name)
             return {"accepted": False, "reason": "no_receiver_wired"}
+
+        try:
+            payload = ensure_breakout_event_identity(payload)
+        except (TypeError, ValueError) as exc:
+            logger.error(
+                "[%s] Signal identity rejected for %s: %s",
+                self.name, payload.get("symbol", "?"), exc,
+            )
+            return {
+                "accepted": False,
+                "execution_eligible": False,
+                "failure_class": "missing_event_identity",
+                "reason": str(exc),
+                "trade_id": None,
+            }
 
         sym = payload.get("symbol", "?")
         self.signals_fired += 1

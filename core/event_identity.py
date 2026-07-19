@@ -12,6 +12,7 @@ so both can import it without a circular import.
 import hashlib
 import json
 import math
+from datetime import datetime, timezone
 from typing import Any, Dict
 
 # Receiver scratch / identity fields that must never affect the payload hash.
@@ -19,6 +20,99 @@ from typing import Any, Dict
 # scratch state the receiver attaches during checklist processing and pops
 # before this point, but is excluded here too as defense in depth.
 _HASH_EXCLUDED_FIELDS = {"event_id", "_drift_state"}
+
+
+def _identity_component(value: Any, field: str) -> str:
+    """Return a stable, non-empty text component for producer identity."""
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            raise ValueError(f"{field} datetime must be timezone-aware")
+        value = value.astimezone(timezone.utc).isoformat()
+    text = str(value or "").strip()
+    if not text:
+        raise ValueError(f"{field} is required for breakout event identity")
+    return text
+
+
+def derive_breakout_event_ids(
+    producer: str,
+    source_event_key: Any,
+    symbol: str,
+    direction: str,
+    child_key: Any = None,
+) -> tuple[str, str]:
+    """
+    Derive a stable semantic root ID and delivery/event ID.
+
+    ``source_event_key`` is owned by the producer that first recognizes the
+    event (for example the original signal timestamp, closed-bar timestamp,
+    or persisted setup registration time).  Mutable enrichment, send time,
+    price and retry count are deliberately excluded.
+
+    Escalations are child events because their payloads change.  Reusing the
+    root ID for changed payloads would correctly trip the receiver's conflict
+    hash.  The child key makes each escalation distinct while every retry of
+    that escalation derives the same ID.
+    """
+    components = (
+        _identity_component(producer, "producer").lower(),
+        _identity_component(symbol, "symbol").upper(),
+        _identity_component(direction, "direction").lower(),
+        _identity_component(source_event_key, "source_event_key"),
+    )
+    root_blob = "\x1f".join(components).encode("utf-8")
+    root_id = "boevt-" + hashlib.sha256(root_blob).hexdigest()[:32]
+    if child_key is None:
+        return root_id, root_id
+    child = _identity_component(child_key, "child_key")
+    child_blob = f"{root_id}\x1f{child}".encode("utf-8")
+    event_id = root_id + "-" + hashlib.sha256(child_blob).hexdigest()[:12]
+    return root_id, event_id
+
+
+def ensure_breakout_event_identity(
+    payload: Dict[str, Any],
+    *,
+    producer: str | None = None,
+    source_event_key: Any = None,
+    child_key: Any = None,
+) -> Dict[str, Any]:
+    """Populate stable identity on a producer-owned payload copy.
+
+    Existing non-blank IDs are preserved.  This function never invents a
+    transport-time UUID.  Callers without a producer-owned semantic key fail
+    closed instead of turning retries into new trades.
+    """
+    result = dict(payload)
+    existing = str(result.get("event_id") or "").strip()
+    if existing:
+        result["event_id"] = existing
+        root = str(result.get("root_event_id") or existing).strip()
+        result["root_event_id"] = root
+        return result
+
+    producer_name = producer or result.get("signal_source")
+    key = source_event_key
+    if key is None:
+        key = result.get("source_event_key")
+    if key is None:
+        key = result.get("source_timestamp")
+    if key is None:
+        key = result.get("timestamp")
+    if child_key is None and result.get("escalation") is not None:
+        child_key = f"escalation:{result['escalation']}"
+
+    root_id, event_id = derive_breakout_event_ids(
+        producer_name,
+        key,
+        result.get("symbol"),
+        result.get("direction"),
+        child_key,
+    )
+    result["source_event_key"] = _identity_component(key, "source_event_key")
+    result["root_event_id"] = root_id
+    result["event_id"] = event_id
+    return result
 
 
 def _validate_finite(value: Any, path: str) -> None:

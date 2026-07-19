@@ -49,6 +49,8 @@ from datetime import datetime, timezone
 from typing import Optional, Dict, Deque
 from dataclasses import dataclass, field
 
+from core.event_identity import ensure_breakout_event_identity
+
 logger = logging.getLogger(__name__)
 
 
@@ -172,7 +174,7 @@ class VolumeSurgeTracker:
 
         now_utc = datetime.now(timezone.utc)
 
-        return {
+        payload = {
             "symbol":                symbol,
             "asset_class":           asset_class,
             "direction":             direction,
@@ -199,6 +201,12 @@ class VolumeSurgeTracker:
             "vol_mult":              round(vol_ratio, 3),
             "intraday_move_pct":     round(move_pct, 3),
         }
+        return ensure_breakout_event_identity(
+            payload,
+            producer="volume_surge",
+            source_event_key=f"minute:{tick_min}",
+            child_key="volume-surge",
+        )
 
     def update(
         self,
@@ -269,7 +277,7 @@ class VolumeSurgeTracker:
 
         now_utc = datetime.now(timezone.utc)
 
-        return {
+        payload = {
             "symbol":                symbol,
             "asset_class":           asset_class,
             "direction":             direction,
@@ -296,6 +304,12 @@ class VolumeSurgeTracker:
             "vol_mult":              round(vol_ratio, 3),
             "bar_move_pct":          round(move_pct, 3),
         }
+        return ensure_breakout_event_identity(
+            payload,
+            producer="volume_surge",
+            source_event_key=bar_time,
+            child_key="volume-surge",
+        )
 
     def reset_symbol(self, symbol: str) -> None:
         """Clear history for a symbol (e.g. at midnight reset)."""

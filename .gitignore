@@ -12,6 +12,7 @@ data/candle*
 # SQLite temporary database files
 data/*.db-shm
 data/*.db-wal
+data/breakout_sender_outbox/
 docs/
 symbol_params.json
 logs/bot.log

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 import threading
 import time
 import unittest
@@ -72,11 +73,14 @@ def _signal(**overrides):
 
 class BreakoutSenderSafetyTests(unittest.TestCase):
     def _sender(self, **config):
+        outbox = tempfile.TemporaryDirectory(prefix="breakout-sender-test-")
+        self.addCleanup(outbox.cleanup)
         values = {
             "bot_api_key": "test-key",
             "bot_enabled": True,
             "bot_min_escalation": 1,
             "bot_sender_queue_size": 8,
+            "bot_sender_outbox_dir": outbox.name,
         }
         values.update(config)
         instance = sender_module.BreakoutSender(values)
@@ -154,19 +158,56 @@ class BreakoutSenderSafetyTests(unittest.TestCase):
         self.assertEqual(1, sum(results))
         self.assertEqual(1, len(calls))
 
-    def test_timeout_is_not_retried_without_receiver_idempotency(self):
+    def test_timeout_retries_reuse_exact_event_identity(self):
         instance = self._sender()
         attempts = 0
+        event_ids = []
 
-        def timeout(*_args, **_kwargs):
+        def timeout(*_args, **kwargs):
             nonlocal attempts
             attempts += 1
+            event_ids.append(kwargs["json"]["event_id"])
             raise sender_module.requests.exceptions.Timeout()
 
         instance._session.post = timeout
         self.assertTrue(instance._reserve_and_enqueue(_payload()))
         instance._queue.join()
-        self.assertEqual(1, attempts)
+        self.assertEqual(3, attempts)
+        self.assertEqual(1, len(set(event_ids)))
+        self.assertEqual(1, len(list(instance._outbox_dir.glob("*.json"))))
+
+    def test_pending_outbox_restarts_with_same_event_id(self):
+        outbox = tempfile.TemporaryDirectory(prefix="breakout-restart-test-")
+        self.addCleanup(outbox.cleanup)
+        config = {
+            "bot_api_key": "test-key",
+            "bot_enabled": True,
+            "bot_min_escalation": 1,
+            "bot_sender_queue_size": 8,
+            "bot_sender_retry_attempts": 1,
+            "bot_sender_outbox_dir": outbox.name,
+        }
+        first = sender_module.BreakoutSender(config)
+        first._session.post = lambda *_a, **_kw: (_ for _ in ()).throw(
+            sender_module.requests.exceptions.Timeout()
+        )
+        self.assertTrue(first._reserve_and_enqueue(_payload()))
+        first._queue.join()
+        records = list(Path(outbox.name).glob("*.json"))
+        self.assertEqual(1, len(records))
+        persisted_id = __import__("json").loads(
+            records[0].read_text(encoding="utf-8")
+        )["event_id"]
+        first.close(True, 1.0)
+
+        # Keep restored work queued until the fake transport is installed.
+        with patch.object(sender_module.threading.Thread, "start", lambda _self: None):
+            second = sender_module.BreakoutSender(config)
+        restored = second._queue.get_nowait()
+        self.assertEqual(persisted_id, restored["event_id"])
+        second._queue.task_done()
+        second._worker = None
+        second.close(False, 0.0)
 
     def test_raw_payload_is_copied_before_worker_uses_it(self):
         instance = self._sender()

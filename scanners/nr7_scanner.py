@@ -35,6 +35,7 @@ from datetime import datetime, timezone
 from typing import Optional, List
 
 from scanners.base_scanner import BaseEventScanner
+from core.event_identity import ensure_breakout_event_identity
 
 try:
     import yfinance as yf
@@ -239,6 +240,12 @@ class NR7Scanner(BaseEventScanner):
             "ma_fast":               round(ma_fast, 4),
             "ma_slow":               round(ma_slow, 4),
         }
+        payload = ensure_breakout_event_identity(
+            payload,
+            producer="nr7_scanner",
+            source_event_key=f"{asset_class}:{now_utc.date().isoformat()}",
+            child_key="daily-nr7",
+        )
 
         result = self.push_signal(payload)
         if result.get("accepted"):

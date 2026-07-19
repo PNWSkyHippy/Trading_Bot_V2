@@ -29,6 +29,7 @@ import alpaca_trade_api as tradeapi
 import ccxt
 
 import config
+from core.event_identity import ensure_breakout_event_identity
 from core.inverse_etf_mapper import map_signal, is_leveraged_etf
 from core.stop_engine import stop_engine as _stop_engine
 from strategies.strategy_engine import strategy_engine
@@ -657,6 +658,7 @@ class MarketScanner:
     def schedule_reentry(
         self, symbol: str, exit_price: float, direction: str
     ) -> None:
+        source_event_key = datetime.now(timezone.utc).isoformat()
         with self._pending_lock:
             if symbol in self._pending_reentry:
                 logger.info(f"[REENTRY] {symbol}: already pending — skipped duplicate")
@@ -665,7 +667,7 @@ class MarketScanner:
         t = threading.Timer(
             WIN_REENTRY_DELAY_SEC,
             self._safe_reentry_scan,
-            args=[symbol, exit_price, direction],
+            args=[symbol, exit_price, direction, source_event_key],
         )
         t.daemon = True
         t.start()
@@ -675,17 +677,21 @@ class MarketScanner:
         )
 
     def _safe_reentry_scan(
-        self, symbol: str, exit_price: float, direction: str
+        self, symbol: str, exit_price: float, direction: str,
+        source_event_key: str,
     ) -> None:
         with self._pending_lock:
             self._pending_reentry.discard(symbol)
         try:
-            self._do_reentry_scan(symbol, exit_price, direction)
+            self._do_reentry_scan(
+                symbol, exit_price, direction, source_event_key
+            )
         except Exception as e:
             logger.error(f"[REENTRY] {symbol}: scan failed: {e}", exc_info=True)
 
     def _do_reentry_scan(
-        self, symbol: str, exit_price: float, direction: str
+        self, symbol: str, exit_price: float, direction: str,
+        source_event_key: Optional[str] = None,
     ) -> None:
         if not self._receiver_ref:
             logger.warning("[REENTRY] No receiver wired — skipping")
@@ -734,6 +740,12 @@ class MarketScanner:
             "bars_since_breakout":         1,
             "distance_from_breakout_pct":  abs(drift_pct),
         }
+        payload = ensure_breakout_event_identity(
+            payload,
+            producer="market_reentry",
+            source_event_key=source_event_key or payload["timestamp"],
+            child_key="reentry",
+        )
 
         logger.info(
             f"[REENTRY] Injecting {symbol} {direction} @ ${current_price:.4f} "

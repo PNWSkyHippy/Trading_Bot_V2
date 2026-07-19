@@ -37,7 +37,9 @@ what changed in THIS file:
 import logging
 import json
 import copy
+import hashlib
 import math
+import os
 import queue
 from pathlib import Path
 import threading
@@ -50,6 +52,7 @@ from core.breakout_decision import (
     escalation_meets_minimum,
     MAX_BREAKOUT_AGE_BARS,
 )
+from core.event_identity import ensure_breakout_event_identity
 
 try:
     import requests
@@ -63,8 +66,10 @@ DEFAULT_BOT_URL        = "http://localhost:8181"
 DEFAULT_MIN_ESCALATION = 1
 SEND_TIMEOUT_SEC       = 5
 DEFAULT_QUEUE_SIZE     = 256
+DEFAULT_RETRY_ATTEMPTS = 3
 BASE_DIR               = Path(__file__).resolve().parent
 SCANNER_CONFIG_PATH    = BASE_DIR / "scanner_config.json"
+DEFAULT_OUTBOX_DIR     = BASE_DIR / "data" / "breakout_sender_outbox"
 
 
 class BreakoutSender:
@@ -87,15 +92,25 @@ class BreakoutSender:
         self._last_disabled_log = 0.0
         self._state_lock = threading.RLock()
         try:
+            retry_attempts = int(
+                config.get("bot_sender_retry_attempts", DEFAULT_RETRY_ATTEMPTS)
+            )
+        except (TypeError, ValueError, OverflowError):
+            retry_attempts = DEFAULT_RETRY_ATTEMPTS
+        self._retry_attempts = max(1, min(retry_attempts, 5))
+        try:
             queue_size = int(config.get("bot_sender_queue_size", DEFAULT_QUEUE_SIZE))
         except (TypeError, ValueError, OverflowError):
             queue_size = DEFAULT_QUEUE_SIZE
         self._queue = queue.Queue(maxsize=max(1, queue_size))
+        configured_outbox = config.get("bot_sender_outbox_dir")
+        self._outbox_dir = Path(configured_outbox) if configured_outbox else DEFAULT_OUTBOX_DIR
         self._stop_event = threading.Event()
         self._closed = False
         self._worker = None
 
         if self._session is not None:
+            self._restore_pending_outbox()
             self._worker = threading.Thread(
                 target=self._worker_loop,
                 daemon=True,
@@ -332,7 +347,7 @@ class BreakoutSender:
         sig_ts = getattr(signal, "timestamp", None)
         source_ts = self._aware_iso(sig_ts)
 
-        return {
+        payload = {
             # Identity
             "symbol":        signal.symbol,
             "broker":        broker,
@@ -383,6 +398,15 @@ class BreakoutSender:
             "bars_since_breakout":        getattr(signal, "bars_since_breakout",        None),
             "distance_from_breakout_pct": getattr(signal, "distance_from_breakout_pct", None),
         }
+        # The signal timestamp is the immutable recognition time shared by
+        # every escalation of this breakout.  Each escalation is a child
+        # event because its payload changes; retries reuse the same child ID.
+        return ensure_breakout_event_identity(
+            payload,
+            producer="breakout_scanner",
+            source_event_key=source_ts,
+            child_key=f"escalation:{escalation}",
+        )
 
     def _to_float(self, value) -> Optional[float]:
         return self._finite_float(value)
@@ -493,6 +517,8 @@ class BreakoutSender:
         direction = str(normalized.get("direction") or "").strip().lower()
         asset_class = str(normalized.get("asset_class") or "").strip().lower()
         source = str(normalized.get("signal_source") or "").strip().lower()
+        event_id = str(normalized.get("event_id") or "").strip()
+        root_event_id = str(normalized.get("root_event_id") or "").strip()
         broker = str(normalized.get("broker") or "").strip().lower()
         aliases = {
             "krakenpro": "kraken", "coinbasepro": "coinbase",
@@ -501,6 +527,8 @@ class BreakoutSender:
         }
         broker = aliases.get(broker, broker)
 
+        if not event_id or not root_event_id:
+            return None
         if not symbol or direction not in {"long", "short"}:
             return None
         if asset_class not in {"stock", "crypto"} or not source:
@@ -588,18 +616,89 @@ class BreakoutSender:
             "source_broker": str(
                 normalized.get("source_broker") or broker
             ).strip().lower(),
+            "event_id": event_id,
+            "root_event_id": root_event_id,
             "escalation": escalation,
         })
         return normalized
 
     def _dedup_key(self, payload: dict) -> tuple:
-        return (
-            payload["signal_source"], payload["broker"], payload["symbol"],
-            payload["direction"], payload["escalation"],
-            payload.get("source_timestamp") or payload["timestamp"],
-        )
+        return (payload["event_id"],)
+
+    def _outbox_path(self, event_id: str) -> Path:
+        digest = hashlib.sha256(event_id.encode("utf-8")).hexdigest()
+        return self._outbox_dir / f"{digest}.json"
+
+    def _persist_pending(self, payload: dict) -> bool:
+        """Atomically persist before queueing so restart recovery is safe."""
+        try:
+            self._outbox_dir.mkdir(parents=True, exist_ok=True)
+            target = self._outbox_path(payload["event_id"])
+            temporary = target.with_suffix(
+                f".{threading.get_ident()}.tmp"
+            )
+            with open(temporary, "w", encoding="utf-8") as handle:
+                json.dump(payload, handle, sort_keys=True, allow_nan=False)
+                handle.flush()
+                os.fsync(handle.fileno())
+            temporary.replace(target)
+            return True
+        except Exception as exc:
+            logger.error(
+                "[SENDER] OUTBOX WRITE FAILED %s event_id=%s (%s)",
+                payload.get("symbol", "?"), payload.get("event_id"),
+                type(exc).__name__,
+            )
+            return False
+
+    def _remove_pending(self, event_id: str) -> None:
+        try:
+            self._outbox_path(event_id).unlink(missing_ok=True)
+        except Exception as exc:
+            logger.error(
+                "[SENDER] OUTBOX CLEANUP FAILED event_id=%s (%s)",
+                event_id, type(exc).__name__,
+            )
+
+    def _restore_pending_outbox(self) -> None:
+        """Load durable, previously unconfirmed deliveries before worker start."""
+        if not self._outbox_dir.exists():
+            return
+        restored = 0
+        for path in sorted(self._outbox_dir.glob("*.json")):
+            try:
+                with open(path, "r", encoding="utf-8") as handle:
+                    payload = json.load(handle)
+                normalized = self._validate_payload(payload)
+                if normalized is None:
+                    logger.error("[SENDER] invalid outbox record quarantined: %s", path)
+                    path.rename(path.with_suffix(".invalid"))
+                    continue
+                self._queue.put_nowait(normalized)
+                restored += 1
+            except queue.Full:
+                logger.warning(
+                    "[SENDER] outbox restore paused at queue capacity=%s",
+                    self._queue.maxsize,
+                )
+                break
+            except Exception as exc:
+                logger.error(
+                    "[SENDER] outbox restore failed for %s (%s)",
+                    path, type(exc).__name__,
+                )
+        if restored:
+            logger.warning("[SENDER] restored %s pending durable delivery item(s)", restored)
 
     def _reserve_and_enqueue(self, payload: dict) -> bool:
+        try:
+            payload = ensure_breakout_event_identity(payload)
+        except (TypeError, ValueError):
+            logger.warning(
+                "[SENDER] INVALID IDENTITY %s — producer event key unavailable",
+                payload.get("symbol", "?") if isinstance(payload, dict) else "?",
+            )
+            return False
         normalized = self._validate_payload(payload)
         if normalized is None:
             logger.warning(
@@ -619,7 +718,11 @@ class BreakoutSender:
                 if sent_at >= cutoff
             }
             if self._last_sent.get(key, 0.0) >= cutoff:
+                # A duplicate reservation did not create a new event. Keep the
+                # existing outbox record for the already-queued delivery.
                 logger.debug("[SENDER] duplicate suppressed: %s", key)
+                return False
+            if not self._persist_pending(normalized):
                 return False
             self._last_sent[key] = now
             try:
@@ -644,6 +747,14 @@ class BreakoutSender:
         if not isinstance(payload, dict):
             return
         frozen = copy.deepcopy(payload)
+        try:
+            frozen = ensure_breakout_event_identity(frozen)
+        except (TypeError, ValueError):
+            logger.warning(
+                "[SENDER] RAW REJECTED %s — stable producer identity unavailable",
+                frozen.get("symbol", "?"),
+            )
+            return
         sym = frozen.get("symbol", "?")
         logger.info(
             f"[SENDER] RAW QUEUE {sym} source={frozen.get('signal_source','?')} "
@@ -663,7 +774,7 @@ class BreakoutSender:
                 self._queue.task_done()
 
     def _send_once(self, payload: dict):
-        """Worker-owned POST. No retry until receiver idempotency is durable."""
+        """Worker-owned POST with bounded retries of the same durable ID."""
         if not self.ready:
             logger.warning(
                 "[SENDER] NOT ATTEMPTED %s — injection disabled before POST",
@@ -675,32 +786,43 @@ class BreakoutSender:
         sym     = payload.get("symbol", "?")
         esc     = payload.get("escalation", 0)
 
-        try:
-            resp = self._session.post(
-                url, json=payload, headers=headers, timeout=SEND_TIMEOUT_SEC,
-            )
-        except requests.exceptions.Timeout:
+        resp = None
+        for attempt in range(1, self._retry_attempts + 1):
+            try:
+                resp = self._session.post(
+                    url, json=payload, headers=headers, timeout=SEND_TIMEOUT_SEC,
+                )
+                break
+            except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
+                logger.warning(
+                    "[SENDER] DELIVERY UNCONFIRMED %s esc=%s event_id=%s "
+                    "attempt=%s/%s (%s)",
+                    sym, esc, payload.get("event_id"), attempt,
+                    self._retry_attempts, type(exc).__name__,
+                )
+                if attempt < self._retry_attempts:
+                    time.sleep(min(0.25 * attempt, 0.75))
+            except Exception as exc:
+                logger.warning(
+                    "[SENDER] SEND ERROR %s esc=%s (%s)", sym, esc,
+                    type(exc).__name__,
+                )
+                return
+        if resp is None:
             logger.error(
-                "[SENDER] DELIVERY UNKNOWN %s esc=%s — timeout; not retrying "
-                "without receiver idempotency",
-                sym, esc,
-            )
-            return
-        except requests.exceptions.ConnectionError:
-            logger.warning(
-                "[SENDER] NOT CONFIRMED %s esc=%s — connection error; no retry",
-                sym, esc,
-            )
-            return
-        except Exception as exc:
-            logger.warning(
-                "[SENDER] SEND ERROR %s esc=%s (%s)", sym, esc,
-                type(exc).__name__,
+                "[SENDER] DELIVERY UNRESOLVED %s esc=%s event_id=%s",
+                sym, esc, payload.get("event_id"),
             )
             return
 
         if resp.status_code != 200:
             logger.warning("[SENDER] HTTP %s for %s esc=%s", resp.status_code, sym, esc)
+            if resp.status_code in {400, 409, 422}:
+                # Payload/conflict failures are terminal for this exact
+                # event. Keep 401/403 and other operational responses in the
+                # outbox because fixing credentials/config can make them
+                # deliverable without changing identity.
+                self._remove_pending(payload["event_id"])
             return
         try:
             result = resp.json()
@@ -710,6 +832,11 @@ class BreakoutSender:
         if not isinstance(result, dict):
             logger.error("[SENDER] INVALID RESPONSE %s esc=%s — JSON is not an object", sym, esc)
             return
+
+
+        # Every well-formed 200 receiver response is terminal and replayable,
+        # whether policy accepted or rejected the event.
+        self._remove_pending(payload["event_id"])
 
         fc = result.get("failure_class")
         if result.get("accepted"):

@@ -68,6 +68,8 @@ class BreakoutSignalPayload(BaseModel):
     event_id:        str                 # stable id minted once per semantic
                                           # source event; reused on every
                                           # delivery attempt of that event
+    root_event_id:   Optional[str] = None # groups escalation child events
+    source_event_key: Optional[str] = None # producer-owned immutable key
     symbol:          str
     broker:          str
     direction:       str                # "long" | "short"

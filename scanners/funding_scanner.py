@@ -40,6 +40,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict
 
 from scanners.base_scanner import BaseEventScanner
+from core.event_identity import ensure_breakout_event_identity
 
 try:
     import requests as _requests
@@ -353,6 +354,18 @@ class FundingScanner(BaseEventScanner):
             "funding_threshold":     FUNDING_SHORT_THRESHOLD * 100 if direction == "short"
                                      else FUNDING_LONG_THRESHOLD * 100,
         }
+        funding_window = now_utc.replace(
+            hour=(now_utc.hour // 8) * 8,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        payload = ensure_breakout_event_identity(
+            payload,
+            producer="funding_scanner",
+            source_event_key=funding_window,
+            child_key="funding-extreme",
+        )
 
         result = self.push_signal(payload)
         if result.get("accepted"):
