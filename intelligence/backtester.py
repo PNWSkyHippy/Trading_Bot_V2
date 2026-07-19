@@ -45,6 +45,7 @@ import uuid
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, field
 
@@ -60,6 +61,7 @@ import config
 from core.strategy_registry import (
     STRATEGY_MODULES,
     TIME_STOP_EXEMPT as _CANONICAL_TIME_STOP_EXEMPT,
+    EARLY_LOSS_LIFECYCLE_EXEMPT as _CANONICAL_EARLY_LOSS_EXEMPT,
     EARLY_LOSS_MIN_PCT as _CANONICAL_EARLY_LOSS_PCT,
     PERF_CHECK_2HR_MIN_PCT as _CANONICAL_PERF_2HR_PCT,
     PERF_CHECK_5HR_MIN_PCT as _CANONICAL_PERF_5HR_PCT,
@@ -72,6 +74,46 @@ logger = logging.getLogger(__name__)
 # serialized until every strategy consumes immutable run-local parameters.
 _PARAM_OVERRIDE_LOCK = threading.RLock()
 _MISSING_TUNING = object()
+_PACIFIC = ZoneInfo("America/Los_Angeles")
+BEHAVIOR_ISOLATED_V1 = "isolated_v1"
+BEHAVIOR_LIVE_PARITY_V2 = "live_parity_v2"
+BEHAVIOR_PROFILES = frozenset({BEHAVIOR_ISOLATED_V1, BEHAVIOR_LIVE_PARITY_V2})
+
+
+def _signal_meets_min_confidence(score) -> bool:
+    """Return whether a replay signal satisfies the live risk threshold."""
+    threshold = config.SIGNAL_TUNING.get(
+        "min_signal_confidence", config.MIN_SIGNAL_CONFIDENCE
+    )
+    try:
+        value = float(score)
+        threshold = float(threshold)
+    except (TypeError, ValueError, OverflowError):
+        return False
+    return bool(np.isfinite(value) and np.isfinite(threshold) and value >= threshold)
+
+
+def _consecutive_loss_halt_reached(losses: int) -> bool:
+    """Mirror RiskManager's configured same-session loss breaker."""
+    return losses >= config.MAX_CONSECUTIVE_LOSSES
+
+
+def _live_session_date(timestamp) -> str:
+    """Map a candle timestamp to RiskManager's verified Hostinger calendar day."""
+    value = pd.Timestamp(timestamp)
+    if value.tzinfo is None:
+        # CandleStore reconstructs epoch timestamps as UTC-naive values.
+        value = value.tz_localize("UTC")
+    return value.tz_convert(_PACIFIC).date().isoformat()
+
+
+def _resolve_behavior_profile(value: str) -> str:
+    profile = str(value or "").strip().lower()
+    if profile not in BEHAVIOR_PROFILES:
+        raise ValueError(
+            f"behavior_profile must be one of {sorted(BEHAVIOR_PROFILES)}"
+        )
+    return profile
 
 # ---------------------------------------------------------------------------
 # Persistent candle store — checked before yfinance on every fetch
@@ -257,6 +299,7 @@ class BacktestResult:
     slippage_pct:      float = 0.0         # per-leg slippage used
     initial_stop_mode: str   = "auto"      # "auto"|"percent"|"signal_structural"|"two_bar"
     trail_mode:        str   = "auto"      # "auto"|"percent"|"two_bar"|"none"
+    behavior_profile:  str   = BEHAVIOR_ISOLATED_V1
     trades:            List[BacktestTrade] = field(default_factory=list)
     equity_curve:      List[EquityPoint]   = field(default_factory=list)
     diagnostics:       dict                = field(default_factory=dict)  # adaptive_regime only
@@ -416,16 +459,11 @@ def _bt_pivot_break(df: pd.DataFrame, bar_idx: int,
     return None
 
 
-def _bt_stale_adx(df: pd.DataFrame, bar_idx: int,
-                  trade: Dict) -> Optional[str]:
-    """
-    Stale-trend exit — mirrors position_monitor._check_stale_adx().
-    If ADX has fallen below 25 the trend has likely ended; adverse DI
-    cross triggers even sooner.
-    """
+def _compute_adx_di_50(df: pd.DataFrame, bar_idx: int) -> Optional[Tuple[float, float, float]]:
+    """Return live-equivalent ADX/DMP/DMN from exactly 50 bars ending at bar_idx."""
     try:
         import pandas_ta as _ta
-        window = df.iloc[max(0, bar_idx - 50): bar_idx + 1]
+        window = df.iloc[max(0, bar_idx - 49): bar_idx + 1]
         if len(window) < 20:
             return None
         adx_df = _ta.adx(
@@ -441,9 +479,28 @@ def _bt_stale_adx(df: pd.DataFrame, bar_idx: int,
         dmn_col = [c for c in adx_df.columns if c.startswith("DMN_")]
         if not (adx_col and dmp_col and dmn_col):
             return None
-        adx_v = float(adx_df[adx_col[0]].iloc[-1])
-        dmp_v = float(adx_df[dmp_col[0]].iloc[-1])
-        dmn_v = float(adx_df[dmn_col[0]].iloc[-1])
+        values = (
+            float(adx_df[adx_col[0]].iloc[-1]),
+            float(adx_df[dmp_col[0]].iloc[-1]),
+            float(adx_df[dmn_col[0]].iloc[-1]),
+        )
+        return values if np.isfinite(values).all() else None
+    except Exception:
+        return None
+
+
+def _bt_stale_adx(df: pd.DataFrame, bar_idx: int,
+                  trade: Dict) -> Optional[str]:
+    """
+    Stale-trend exit — mirrors position_monitor._check_stale_adx().
+    If ADX has fallen below 25 the trend has likely ended; adverse DI
+    cross triggers even sooner.
+    """
+    try:
+        values = _compute_adx_di_50(df, bar_idx)
+        if values is None:
+            return None
+        adx_v, dmp_v, dmn_v = values
         if adx_v < 25.0:           # ADX_STALE_THRESHOLD
             return "stale_adx"
         if trade["direction"] == "long"  and dmn_v > dmp_v:
@@ -521,9 +578,19 @@ class Backtester:
             logger.warning(f"TechnicalAnalysis not loaded — default scorer unavailable: {e}")
             self.ta = None
 
-    def is_cached(self, symbol: str, days: int, timeframe: str) -> bool:
+    def _candle_cache_key(self, symbol: str, days: int, timeframe: str,
+                          behavior_profile: str = BEHAVIOR_ISOLATED_V1):
+        profile = _resolve_behavior_profile(behavior_profile)
+        # Retain the historical three-tuple for isolated_v1 callers/tests.
+        return ((symbol, days, timeframe) if profile == BEHAVIOR_ISOLATED_V1
+                else (symbol, days, timeframe, profile))
+
+    def is_cached(self, symbol: str, days: int, timeframe: str,
+                  behavior_profile: str = BEHAVIOR_ISOLATED_V1) -> bool:
         """Return True if candles for this symbol are already in memory."""
-        value = self._candle_cache.get((symbol, days, timeframe))
+        value = self._candle_cache.get(
+            self._candle_cache_key(symbol, days, timeframe, behavior_profile)
+        )
         return isinstance(value, pd.DataFrame) and not value.empty
 
     def _resolve_starting_capital(self, starting_capital: float = None) -> float:
@@ -541,7 +608,9 @@ class Backtester:
     # -----------------------------------------------------------------------
 
     def _validate_ohlcv(self, df: pd.DataFrame, symbol: str,
-                        timeframe: str = "1h") -> Optional[pd.DataFrame]:
+                        timeframe: str = "1h",
+                        behavior_profile: str = BEHAVIOR_ISOLATED_V1
+                        ) -> Optional[pd.DataFrame]:
         """
         Validate and lightly clean an OHLCV dataframe before simulation.
 
@@ -561,6 +630,7 @@ class Backtester:
               >= 60 % of that drop within 5 bars
            c. More than 2 % of bars are integrity violators
         """
+        behavior_profile = _resolve_behavior_profile(behavior_profile)
         date_span = ""
         try:
             date_span = f" ({df.index[0].date()} - {df.index[-1].date()})"
@@ -617,6 +687,14 @@ class Backtester:
                 f"({bad_frac:.1%}) — high < body or low > body"
             )
             return None
+        if (behavior_profile == BEHAVIOR_LIVE_PARITY_V2
+                and bad_candle.any()):
+            logger.warning(
+                "[DATA QUALITY QUARANTINE] %s | %s%s | removed %s "
+                "integrity-invalid row(s)",
+                symbol, timeframe, date_span, int(bad_candle.sum()),
+            )
+            df = df.loc[~bad_candle].copy()
 
         # 6. Corruption heuristics (intraday focus: 5m / 1h)
         closes = df["close"].values
@@ -662,7 +740,8 @@ class Backtester:
             return f"{s}/USD"
         return s
 
-    def _fetch_history_crypto_ccxt(self, symbol: str, days: int, timeframe: str) -> Optional[pd.DataFrame]:
+    def _fetch_history_crypto_ccxt(self, symbol: str, days: int,
+                                   timeframe: str) -> Optional[pd.DataFrame]:
         if self.ccxt is None:
             return None
         try:
@@ -699,18 +778,23 @@ class Backtester:
                 logger.error(f"Only {len(df)} CCXT bars for {market_symbol} — need >=30")
                 return None
             logger.info(f"  -> {len(df)} bars via Kraken/CCXT ({df.index[0].date()} - {df.index[-1].date()})")
-            return self._validate_ohlcv(df, symbol, timeframe)
+            return df
         except Exception as e:
             logger.warning(f"CCXT crypto fetch failed for {symbol}/{timeframe}: {e}")
             return None
 
     def fetch_history(self, symbol: str, days: int = 365,
-                      timeframe: str = "1h") -> Optional[pd.DataFrame]:
-        _key = (symbol, days, timeframe)
+                      timeframe: str = "1h",
+                      behavior_profile: str = BEHAVIOR_ISOLATED_V1
+                      ) -> Optional[pd.DataFrame]:
+        behavior_profile = _resolve_behavior_profile(behavior_profile)
+        _key = self._candle_cache_key(symbol, days, timeframe, behavior_profile)
         if _key in self._candle_cache:
             cached_value = self._candle_cache.get(_key)
             cached = (
-                self._validate_ohlcv(cached_value.copy(), symbol, timeframe)
+                self._validate_ohlcv(
+                    cached_value.copy(), symbol, timeframe, behavior_profile
+                )
                 if isinstance(cached_value, pd.DataFrame) else None
             )
             if cached is not None:
@@ -726,7 +810,9 @@ class Backtester:
             try:
                 df = _candle_store.load(symbol, timeframe, days)
                 if _store_covers_request(df, days, timeframe, is_crypto=False):
-                    validated = self._validate_ohlcv(df.copy(), symbol, timeframe)
+                    validated = self._validate_ohlcv(
+                        df.copy(), symbol, timeframe, behavior_profile
+                    )
                     if validated is not None:
                         logger.info(f"CandleStore hit: {symbol}/{timeframe}/{days}d ({len(validated):,} bars)")
                         self._candle_cache[_key] = validated
@@ -777,14 +863,21 @@ class Backtester:
                 logger.error(f"Only {len(df)} bars for {symbol} — need >=30")
                 return None
             logger.info(f"  -> {len(df)} bars  ({df.index[0].date()} - {df.index[-1].date()})")
-            df = self._validate_ohlcv(df, symbol, timeframe)
+            raw_df = df.copy()
+            df = self._validate_ohlcv(
+                df, symbol, timeframe, behavior_profile
+            )
             if df is None:
                 return None
             self._candle_cache[_key] = df
             # Save to persistent store so future runs skip the network
             if _candle_store is not None:
                 try:
-                    _candle_store.save(symbol, timeframe, df)
+                    baseline_df = self._validate_ohlcv(
+                        raw_df, symbol, timeframe, BEHAVIOR_ISOLATED_V1
+                    )
+                    if baseline_df is not None:
+                        _candle_store.save(symbol, timeframe, baseline_df)
                 except Exception as _cs_e:
                     logger.warning(f"CandleStore write failed: {_cs_e}")
             return df
@@ -793,12 +886,17 @@ class Backtester:
             return None
 
     def fetch_history_crypto(self, symbol: str, days: int = 30,
-                              timeframe: str = "1h") -> Optional[pd.DataFrame]:
-        _key = (symbol, days, timeframe)
+                              timeframe: str = "1h",
+                              behavior_profile: str = BEHAVIOR_ISOLATED_V1
+                              ) -> Optional[pd.DataFrame]:
+        behavior_profile = _resolve_behavior_profile(behavior_profile)
+        _key = self._candle_cache_key(symbol, days, timeframe, behavior_profile)
         if _key in self._candle_cache:
             cached_value = self._candle_cache.get(_key)
             cached = (
-                self._validate_ohlcv(cached_value.copy(), symbol, timeframe)
+                self._validate_ohlcv(
+                    cached_value.copy(), symbol, timeframe, behavior_profile
+                )
                 if isinstance(cached_value, pd.DataFrame) else None
             )
             if cached is not None:
@@ -815,7 +913,9 @@ class Backtester:
             try:
                 df = _candle_store.load(symbol, timeframe, days)
                 if _store_covers_request(df, days, timeframe, is_crypto=True):
-                    validated = self._validate_ohlcv(df.copy(), symbol, timeframe)
+                    validated = self._validate_ohlcv(
+                        df.copy(), symbol, timeframe, behavior_profile
+                    )
                     if validated is not None:
                         logger.info(f"CandleStore hit: {symbol}/{timeframe}/{days}d ({len(validated):,} bars)")
                         self._candle_cache[_key] = validated
@@ -833,12 +933,22 @@ class Backtester:
                 logger.warning(f"CandleStore load failed for {symbol}: {_cs_e}")
         days  = effective_days
 
-        ccxt_df = self._fetch_history_crypto_ccxt(symbol, days, timeframe)
+        ccxt_raw = self._fetch_history_crypto_ccxt(symbol, days, timeframe)
+        ccxt_df = (
+            self._validate_ohlcv(
+                ccxt_raw.copy(), symbol, timeframe, behavior_profile
+            ) if ccxt_raw is not None else None
+        )
         if ccxt_df is not None and _store_covers_request(ccxt_df, days, timeframe, is_crypto=True):
             self._candle_cache[_key] = ccxt_df
             if _candle_store is not None:
                 try:
-                    _candle_store.save(symbol, timeframe, ccxt_df)
+                    baseline_df = self._validate_ohlcv(
+                        ccxt_raw.copy(), symbol, timeframe,
+                        BEHAVIOR_ISOLATED_V1,
+                    )
+                    if baseline_df is not None:
+                        _candle_store.save(symbol, timeframe, baseline_df)
                 except Exception as _cs_e:
                     logger.warning(f"CandleStore write failed: {_cs_e}")
             return ccxt_df
@@ -874,14 +984,21 @@ class Backtester:
                 logger.error(f"Only {len(df)} bars for {yf_symbol} — need >=30")
                 return None
             logger.info(f"  -> {len(df)} bars  ({df.index[0].date()} - {df.index[-1].date()})")
-            df = self._validate_ohlcv(df, symbol, timeframe)
+            raw_df = df.copy()
+            df = self._validate_ohlcv(
+                df, symbol, timeframe, behavior_profile
+            )
             if df is None:
                 return None
             self._candle_cache[_key] = df
             # Save to persistent store so future runs skip the network
             if _candle_store is not None:
                 try:
-                    _candle_store.save(symbol, timeframe, df)
+                    baseline_df = self._validate_ohlcv(
+                        raw_df, symbol, timeframe, BEHAVIOR_ISOLATED_V1
+                    )
+                    if baseline_df is not None:
+                        _candle_store.save(symbol, timeframe, baseline_df)
                 except Exception as _cs_e:
                     logger.warning(f"CandleStore write failed: {_cs_e}")
             return df
@@ -893,7 +1010,9 @@ class Backtester:
     # Default signal scorer
     # -----------------------------------------------------------------------
 
-    def _score_bar(self, df: pd.DataFrame, idx: int) -> Tuple[str, float, Dict]:
+    def _score_bar(self, df: pd.DataFrame, idx: int,
+                   behavior_profile: str = BEHAVIOR_ISOLATED_V1
+                   ) -> Tuple[str, float, Dict]:
         if self.ta is None:
             return "none", 0.0, {}
         window = df.iloc[max(0, idx - 120): idx + 1]
@@ -931,8 +1050,12 @@ class Backtester:
         ls = ss = 0.0
         if   rsi < 38:  ls += 2.0
         elif rsi < 44:  ls += 1.0
-        elif rsi > 62:  ss += 1.0
-        elif rsi > 66:  ss += 2.0
+        elif behavior_profile == BEHAVIOR_LIVE_PARITY_V2 and rsi > 66:
+            ss += 2.0
+        elif rsi > 62:
+            ss += 1.0
+        elif rsi > 66:  # isolated_v1: retained unreachable legacy branch
+            ss += 2.0
         if   macd_hist > 0 and macd_prev < 0:  ls += 2.5
         elif macd_hist > 0 and macd_prev > 0:  ls += 1.0
         elif macd_hist < 0 and macd_prev > 0:  ss += 2.5
@@ -985,7 +1108,8 @@ class Backtester:
 
     def _check_exit_standard(self, trade: Dict, row: pd.Series,
                               trailing_gap_pct: float,
-                              take_profit_pct:  float) -> Optional[str]:
+                              take_profit_pct:  float,
+                              apply_trail: bool = True) -> Optional[str]:
         """
         Standard fixed % stop with symmetric trailing for both directions.
 
@@ -1012,9 +1136,10 @@ class Backtester:
             if tp_hit:
                 return "take_profit"
             # Trail: advance stop only if it raises the floor
-            new_sl = price * (1 - trailing_gap_pct)
-            if new_sl > sl:
-                trade["current_sl"] = new_sl
+            if apply_trail:
+                new_sl = price * (1 - trailing_gap_pct)
+                if new_sl > sl:
+                    trade["current_sl"] = new_sl
         else:
             sl_hit = high >= sl
             tp_hit = low  <= tp
@@ -1023,9 +1148,10 @@ class Backtester:
             if tp_hit:
                 return "take_profit"
             # Trail: advance stop only if it lowers the ceiling
-            new_sl = price * (1 + trailing_gap_pct)
-            if new_sl < sl:
-                trade["current_sl"] = new_sl
+            if apply_trail:
+                new_sl = price * (1 + trailing_gap_pct)
+                if new_sl < sl:
+                    trade["current_sl"] = new_sl
 
         return None
 
@@ -1157,7 +1283,8 @@ class Backtester:
                   skip_equity_curve: bool = False,
                   run_ctx: "BacktestRunContext" = None,
                   ledger: "RunLedger" = None,
-                  btc_context_df: pd.DataFrame = None) -> BacktestResult:
+                  btc_context_df: pd.DataFrame = None,
+                  behavior_profile: str = BEHAVIOR_ISOLATED_V1) -> BacktestResult:
         """
         commission_pct / slippage_pct: per-leg friction (%).
         None → use config defaults for the asset class.
@@ -1170,7 +1297,8 @@ class Backtester:
         ledger` check at each event site.
         """
         run_ctx = run_ctx or _default_run_ctx
- 
+        behavior_profile = _resolve_behavior_profile(behavior_profile)
+        live_parity = behavior_profile == BEHAVIOR_LIVE_PARITY_V2
 
         cfg = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])
         # Crypto trades 365d × 24h — use crypto-specific factor so Sharpe/Sortino
@@ -1273,6 +1401,7 @@ class Backtester:
         PERF_2HR_PCT     = _CANONICAL_PERF_2HR_PCT
         PERF_5HR_PCT     = _CANONICAL_PERF_5HR_PCT
         TIME_STOP_EXEMPT = _CANONICAL_TIME_STOP_EXEMPT
+        EARLY_LOSS_EXEMPT = _CANONICAL_EARLY_LOSS_EXEMPT
 
         # Asset-class-aware performance-time-stop floors (report §6 item 5,
         # mirrors core/position_monitor.py's fee-hurdle floor, Opus audit
@@ -1319,7 +1448,10 @@ class Backtester:
                 import time as _time; _time.sleep(0)  # yield GIL — sleep(0) releases instantly, no Windows timer overhead
 
             row          = df.iloc[i]
-            current_date = str(df.index[i])[:10]
+            current_date = (
+                _live_session_date(df.index[i])
+                if live_parity else str(df.index[i])[:10]
+            )
             price        = float(row["close"])
             open_price   = float(row["open"])
 
@@ -1461,7 +1593,10 @@ class Backtester:
                         )
                     else:
                         exit_reason = self._check_exit_standard(
-                            trade, row, trailing_gap_pct, default_tp_pct
+                            trade, row, trailing_gap_pct, default_tp_pct,
+                            apply_trail=(
+                                _trail == "percent" or not live_parity
+                            ),
                         )
                     if ledger is not None and trade["current_sl"] != _prev_sl:
                         ledger.record(
@@ -1525,14 +1660,10 @@ class Backtester:
                         )
 
                 _time_exempt = strategy_name in TIME_STOP_EXEMPT
-                # Live's position_monitor.py also carries a hardcoded
-                # EARLY_LOSS_LIFECYCLE_EXEMPT = {"vtmr_strategy", "bmr_357"}
-                # union with an explicit orb_breakout check as a second,
-                # independent exemption layer. Both are already members of
-                # TIME_STOP_EXEMPT (core/strategy_registry.py) today, so the
-                # net exempt set is currently identical — but that's
-                # incidental, not structural; if either set ever drifts
-                # this equivalence silently breaks.
+                _early_loss_exempt = (
+                    strategy_name in EARLY_LOSS_EXEMPT
+                    if live_parity else _time_exempt
+                )
 
                 # 1e. Early loss — live-equivalent one-shot latch + 3-bar
                 # confirmation (report §6 item 5), not a per-bar re-check.
@@ -1540,7 +1671,7 @@ class Backtester:
                 # window, latched via a DB flag; at bar granularity the
                 # first bar crossing EARLY_LOSS_BARS is that one check.
                 if (exit_reason is None and time_stops_on
-                        and not _time_exempt
+                        and not _early_loss_exempt
                         and not trade.get("_early_loss_checked", False)
                         and _bars_held >= EARLY_LOSS_BARS):
                     trade["_early_loss_checked"] = True
@@ -1591,11 +1722,12 @@ class Backtester:
                     exit_reason = _bt_pivot_break(df, i, trade, pivot_bars)
 
                 # 1j. Stale ADX/DI exit (fires after 3hr of holding)
-                # Skip on large datasets (>2000 bars) — pandas_ta ADX
-                # computed every bar is too slow for long 15m/1h runs.
                 if (exit_reason is None and time_stops_on
                         and _bars_held >= STALE_ADX_BARS
-                        and len(df) < 2000):
+                        and (live_parity or len(df) < 2000)):
+                    # The window is bounded at exactly 50 rows, matching live,
+                    # so this remains O(N)
+                    # while preserving live's fresh-window Wilder ADX math.
                     exit_reason = _bt_stale_adx(df, i, trade)
 
                 if exit_reason:
@@ -1630,6 +1762,9 @@ class Backtester:
                         consecutive_losses += 1
                     else:
                         consecutive_losses = 0
+                    if (live_parity
+                            and _consecutive_loss_halt_reached(consecutive_losses)):
+                        trading_halted = True
                     start_cap = capital - daily_pnl
                     if (start_cap > 0 and
                             daily_pnl / start_cap <= -max_daily_loss_pct):
@@ -1714,7 +1849,9 @@ class Backtester:
                 except Exception as e:
                     logger.debug(f"{strategy_name} analyze error bar {i}: {e}")
             else:
-                signal_direction, signal_score, _ = self._score_bar(df, i)
+                signal_direction, signal_score, _ = self._score_bar(
+                    df, i, behavior_profile
+                )
 
             if signal_direction not in {"long", "short"}:
                 if signal_direction != "none":
@@ -1731,6 +1868,16 @@ class Backtester:
                     str(df.index[i]), direction=signal_direction,
                     score=signal_score, sl_pct=sl_pct, tp_pct=tp_pct,
                 )
+
+            if live_parity and not _signal_meets_min_confidence(signal_score):
+                if ledger is not None:
+                    ledger.record(
+                        _sig_trade_id, symbol, strategy_name, "decision", i,
+                        str(df.index[i]), accepted=False,
+                        reject_reason="min_signal_confidence",
+                    )
+                continue
+            signal_score = float(signal_score)
 
             # Block re-entry in EITHER direction while a position is open.
             # Same check fires again at execution time (trade may have closed).
@@ -1842,6 +1989,7 @@ class Backtester:
             slippage_pct       = slippage_pct,
             initial_stop_mode  = _initial,
             trail_mode         = _trail,
+            behavior_profile   = behavior_profile,
             diagnostics        = _diagnostics,
         )
 
@@ -1861,6 +2009,7 @@ class Backtester:
             trail_mode:        str = "auto",
             entry_mode_filter: str = "all",
             entry_side_filter: str = "all",
+            behavior_profile: str = BEHAVIOR_ISOLATED_V1,
             run_ctx: "BacktestRunContext" = None,
             ledger: "RunLedger" = None) -> Optional[BacktestResult]:
         run_ctx = run_ctx or _default_run_ctx
@@ -1868,9 +2017,11 @@ class Backtester:
             return None
         capital = self._resolve_starting_capital(starting_capital)
         if asset_class == "crypto":
-            df = self.fetch_history_crypto(symbol, days, timeframe)
+            df = self.fetch_history_crypto(
+                symbol, days, timeframe, behavior_profile
+            )
         else:
-            df = self.fetch_history(symbol, days, timeframe)
+            df = self.fetch_history(symbol, days, timeframe, behavior_profile)
         if run_ctx.is_cancelled():          # gate: skip simulate if cancelled during fetch
             return None
         if df is None or len(df) < 30:
@@ -1885,6 +2036,7 @@ class Backtester:
                                   trail_mode=trail_mode,
                                   entry_mode_filter=entry_mode_filter,
                                   entry_side_filter=entry_side_filter,
+                                  behavior_profile=behavior_profile,
                                   run_ctx=run_ctx,
                                   ledger=ledger)
         except _BacktestCancelled:
@@ -1906,6 +2058,7 @@ class Backtester:
                      entry_side_filter: str = "all",
                      param_overrides: dict = None,
                      skip_equity_curve: bool = False,
+                     behavior_profile: str = BEHAVIOR_ISOLATED_V1,
                      run_ctx: "BacktestRunContext" = None,
                      ledger: "RunLedger" = None) -> Optional[BacktestResult]:
         run_ctx = run_ctx or _default_run_ctx
@@ -1913,9 +2066,11 @@ class Backtester:
             return None
         capital = self._resolve_starting_capital(starting_capital)
         if asset_class == "crypto":
-            df = self.fetch_history_crypto(symbol, days, timeframe)
+            df = self.fetch_history_crypto(
+                symbol, days, timeframe, behavior_profile
+            )
         else:
-            df = self.fetch_history(symbol, days, timeframe)
+            df = self.fetch_history(symbol, days, timeframe, behavior_profile)
         if run_ctx.is_cancelled():
             return None
         if df is None or len(df) < 30:
@@ -1949,7 +2104,9 @@ class Backtester:
         ):
             strategy_obj._backtest_mode_btc_context_enabled = True
             try:
-                _btc_context_df = self.fetch_history_crypto("BTC/USD", days, timeframe)
+                _btc_context_df = self.fetch_history_crypto(
+                    "BTC/USD", days, timeframe, behavior_profile
+                )
             except Exception as e:
                 logger.debug(f"BTC historical context fetch failed for {strategy_name}/{symbol}: {e}")
                 _btc_context_df = None
@@ -2013,6 +2170,7 @@ class Backtester:
                 run_ctx=run_ctx,
                 ledger=ledger,
                 btc_context_df=_btc_context_df,
+                behavior_profile=behavior_profile,
             )
         except _BacktestCancelled:
             logger.info(f"[BACKTESTER] run_strategy() cancelled for {symbol}/{strategy_name}")
@@ -2047,6 +2205,7 @@ class Backtester:
                 trail_mode:        str = "auto",
                 entry_mode_filter: str = "all",
                 entry_side_filter: str = "all",
+                behavior_profile: str = BEHAVIOR_ISOLATED_V1,
                 run_ctx: "BacktestRunContext" = None,
                 ledger: "RunLedger" = None) -> List[BacktestResult]:
         run_ctx = run_ctx or _default_run_ctx
@@ -2068,6 +2227,7 @@ class Backtester:
                                           trail_mode=trail_mode,
                                           entry_mode_filter=entry_mode_filter,
                                           entry_side_filter=entry_side_filter,
+                                          behavior_profile=behavior_profile,
                                           run_ctx=run_ctx,
                                           ledger=ledger)
                 else:
@@ -2079,6 +2239,7 @@ class Backtester:
                                  trail_mode=trail_mode,
                                  entry_mode_filter=entry_mode_filter,
                                  entry_side_filter=entry_side_filter,
+                                 behavior_profile=behavior_profile,
                                  run_ctx=run_ctx,
                                  ledger=ledger)
                 if r:
@@ -2103,6 +2264,7 @@ class Backtester:
                           slippage_pct:   float = 0.0,
                           initial_stop_mode: str = "auto",
                           trail_mode:        str = "auto",
+                          behavior_profile:  str = BEHAVIOR_ISOLATED_V1,
                           diagnostics:       dict = None) -> BacktestResult:
         wins   = [t for t in trades if t.pnl > 0]
         losses = [t for t in trades if t.pnl <= 0]
@@ -2171,6 +2333,7 @@ class Backtester:
             slippage_pct       = slippage_pct,
             initial_stop_mode  = initial_stop_mode,
             trail_mode         = trail_mode,
+            behavior_profile   = behavior_profile,
             trades             = trades,
             equity_curve       = equity_curve,
             diagnostics        = diagnostics or {},
@@ -2216,6 +2379,7 @@ class Backtester:
         print(f"  Stop Mode: {stop_label}")
         print(sep)
         print(f"  Period          : {result.start_date} -> {result.end_date}")
+        print(f"  Behavior Profile: {result.behavior_profile}")
         print(f"  Starting Capital: ${result.starting_capital:>12,.2f}")
         print(f"  Ending Capital  : ${result.ending_capital:>12,.2f}")
         print(f"  Total Return    : {result.total_return_pct:>+.2f}%")
@@ -2775,6 +2939,13 @@ if __name__ == "__main__":
                         choices=["auto", "percent", "two_bar", "none"],
                         help=("Trail engine: auto=use --stop default | "
                               "two_bar=N-bar trail | percent=%% ratchet | none=no trail"))
+    parser.add_argument(
+        "--behavior-profile",
+        default=BEHAVIOR_ISOLATED_V1,
+        choices=sorted(BEHAVIOR_PROFILES),
+        help=("isolated_v1 preserves trusted historical baselines; "
+              "live_parity_v2 enables reviewed P1-A lifecycle corrections"),
+    )
     args = parser.parse_args()
 
     # Friction override: --no-fees forces both to 0.0
@@ -2804,6 +2975,7 @@ if __name__ == "__main__":
             trail_mode        = args.trail_stop,
             entry_mode_filter = args.mode,
             entry_side_filter = args.side,
+            behavior_profile  = args.behavior_profile,
         )
         for r in results:
             backtester.print_report(r)
@@ -2829,6 +3001,7 @@ if __name__ == "__main__":
                 trail_mode        = args.trail_stop,
                 entry_mode_filter = args.mode,
                 entry_side_filter = args.side,
+                behavior_profile  = args.behavior_profile,
             )
         else:
             result = backtester.run(
@@ -2842,6 +3015,7 @@ if __name__ == "__main__":
                 trail_mode        = args.trail_stop,
                 entry_mode_filter = args.mode,
                 entry_side_filter = args.side,
+                behavior_profile  = args.behavior_profile,
             )
 
         if result:

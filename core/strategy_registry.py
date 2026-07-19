@@ -116,6 +116,16 @@ TIME_STOP_EXEMPT: FrozenSet[str] = frozenset({
     "vtmr_strategy",
 })
 
+# Early-loss is a separate 30-minute lifecycle guard.  Live historically
+# expressed this as a two-member literal plus a separate ORB exclusion; keep
+# the effective three-member policy canonical so replay cannot accidentally
+# inherit the much broader TIME_STOP_EXEMPT set again.
+EARLY_LOSS_LIFECYCLE_EXEMPT: FrozenSet[str] = frozenset({
+    "vtmr_strategy",
+    "bmr_357",
+    "orb_breakout",
+})
+
 # ---------------------------------------------------------------------------
 # Lifecycle threshold constants — canonical values match
 # core/position_monitor.py's live module-level constants (not config.py's

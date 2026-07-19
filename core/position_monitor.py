@@ -64,6 +64,7 @@ from data.database import db
 from core.risk_manager import risk_manager
 from core.strategy_registry import (
     TIME_STOP_EXEMPT,
+    EARLY_LOSS_LIFECYCLE_EXEMPT,
     EARLY_LOSS_MIN_PCT,
     PERF_CHECK_2HR_MIN_PCT,
     PERF_CHECK_5HR_MIN_PCT,
@@ -1948,9 +1949,8 @@ class PositionMonitor:
             return
 
         # ── 5. EARLY LOSS IDENTIFICATION (30 min) ────────────────────────
-        # Skip for ORB — it needs time to develop past the opening range
-        EARLY_LOSS_LIFECYCLE_EXEMPT = {"vtmr_strategy", "bmr_357"}
-        if strategy != "orb_breakout" and strategy not in EARLY_LOSS_LIFECYCLE_EXEMPT:
+        # This guard is intentionally narrower than TIME_STOP_EXEMPT.
+        if strategy not in EARLY_LOSS_LIFECYCLE_EXEMPT:
             early_exit = self._check_early_loss(
                 trade, current_price, pnl_pct, age_seconds
             )
