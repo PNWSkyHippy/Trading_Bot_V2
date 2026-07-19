@@ -1078,7 +1078,16 @@
             dragging: false,
             lastX: 0,
             lastY: 0,
-            bounds: null
+            bounds: null,
+            exploredIntervals: new Map(),
+            explorationStorageId: '',
+            lastExploreSegmentIndex: null,
+            lastExploreT: null,
+            lastExplorePoint: null,
+            explorationDirty: false,
+            lastExplorationSaveAt: 0,
+            segmentKeys: [],
+            segmentKeysStale: true
         };
         const MINI_MAP_DRAG_PAN_MULT = 8;
         const XYZ_GIZMO_WORLD_LEN = 130;
@@ -1138,6 +1147,7 @@
         const TUNNEL_MAP_LIBRARY_KEY = `${TUNNEL_MAP_STORAGE_KEY}:library`;
         const TUNNEL_MAP_NAMED_PREFIX = `${TUNNEL_MAP_STORAGE_KEY}:named:`;
         const TUNNEL_CURRENT_MAP_KEY = `${TUNNEL_MAP_STORAGE_KEY}:current-name`;
+        const MINI_MAP_EXPLORATION_PREFIX = 'astral-drift-hud-exploration-v1:';
         let currentNamedMapId = null;
         let currentNamedMapName = '';
         let currentNamedMapDirty = true;
@@ -1165,6 +1175,7 @@
             currentNamedMapName = name ? String(name) : '';
             currentNamedMapDirty = !!dirty;
             persistCurrentMapIdentity();
+            loadMiniMapExploration();
         }
 
         function currentMapStatusText() {
@@ -1781,6 +1792,7 @@
             junctionBubbleCache.stale = true;
             tunnelTopologyCache.stale = true;
             junctionMouthCache.stale = true;
+            miniMapHud.segmentKeysStale = true;
         }
 
         // ── Junction bubbles ─────────────────────────────────────────────────
@@ -4890,6 +4902,128 @@
             keyboardStatus.innerText = 'focused';
         }
 
+        function miniMapSegmentExplorationKey(seg) {
+            if (!seg?.from || !seg?.to) return '';
+            const coord = value => Number(value || 0).toFixed(2);
+            return [
+                coord(seg.from.x), coord(seg.from.y), coord(seg.from.z),
+                coord(seg.to.x), coord(seg.to.y), coord(seg.to.z),
+                coord(seg.radius || builder.radius)
+            ].join(',');
+        }
+
+        function rebuildMiniMapSegmentKeys() {
+            miniMapHud.segmentKeys = builder.segments.map(miniMapSegmentExplorationKey);
+            miniMapHud.segmentKeysStale = false;
+        }
+
+        function miniMapSegmentKey(index) {
+            if (miniMapHud.segmentKeysStale || miniMapHud.segmentKeys.length !== builder.segments.length) {
+                rebuildMiniMapSegmentKeys();
+            }
+            return miniMapHud.segmentKeys[index] || '';
+        }
+
+        function miniMapTextHash(text) {
+            let hash = 2166136261;
+            for (let i = 0; i < text.length; i++) {
+                hash ^= text.charCodeAt(i);
+                hash = Math.imul(hash, 16777619);
+            }
+            return (hash >>> 0).toString(36);
+        }
+
+        function currentMiniMapExplorationStorageId() {
+            if (currentNamedMapId) return `named:${currentNamedMapId}`;
+            if (!builder.segments.length) return 'autosave:empty';
+            const first = miniMapSegmentKey(0);
+            const last = miniMapSegmentKey(builder.segments.length - 1);
+            return `autosave:${miniMapTextHash(`${builder.segments.length}|${first}|${last}`)}`;
+        }
+
+        function persistMiniMapExploration(force = false) {
+            if (!miniMapHud.explorationDirty && !force) return;
+            const now = performance.now();
+            if (!force && now - miniMapHud.lastExplorationSaveAt < 1000) return;
+            const storageId = miniMapHud.explorationStorageId || currentMiniMapExplorationStorageId();
+            if (!storageId) return;
+            const segments = {};
+            for (const [key, interval] of miniMapHud.exploredIntervals) {
+                segments[key] = [interval.min, interval.max];
+            }
+            try {
+                localStorage.setItem(
+                    `${MINI_MAP_EXPLORATION_PREFIX}${storageId}`,
+                    JSON.stringify({ version: 1, segments })
+                );
+                miniMapHud.explorationDirty = false;
+                miniMapHud.lastExplorationSaveAt = now;
+            } catch (err) {
+                console.warn('Astral Drift: HUD exploration save failed', err);
+            }
+        }
+
+        function loadMiniMapExploration() {
+            if (miniMapHud.explorationStorageId) persistMiniMapExploration(true);
+            const storageId = currentMiniMapExplorationStorageId();
+            const explored = new Map();
+            try {
+                const raw = localStorage.getItem(`${MINI_MAP_EXPLORATION_PREFIX}${storageId}`);
+                const parsed = raw ? JSON.parse(raw) : null;
+                if (parsed?.version === 1 && parsed.segments && typeof parsed.segments === 'object') {
+                    for (const [key, value] of Object.entries(parsed.segments)) {
+                        if (!Array.isArray(value) || value.length < 2) continue;
+                        const min = Math.max(0, Math.min(1, Number(value[0])));
+                        const max = Math.max(0, Math.min(1, Number(value[1])));
+                        if (!Number.isFinite(min) || !Number.isFinite(max)) continue;
+                        explored.set(key, { min: Math.min(min, max), max: Math.max(min, max) });
+                    }
+                }
+            } catch (err) {
+                console.warn('Astral Drift: HUD exploration load failed', err);
+            }
+            miniMapHud.exploredIntervals = explored;
+            miniMapHud.explorationStorageId = storageId;
+            miniMapHud.lastExploreSegmentIndex = null;
+            miniMapHud.lastExploreT = null;
+            miniMapHud.lastExplorePoint = null;
+            miniMapHud.explorationDirty = false;
+            miniMapHud.lastExplorationSaveAt = performance.now();
+        }
+
+        function updateMiniMapExploration() {
+            if (mapView || builderMode || !Number.isInteger(shipSegmentIndex)) return;
+            const seg = builder.segments[shipSegmentIndex];
+            if (!seg) return;
+            const ship = { x: posX, y: posY, z: posZ };
+            const local = shipSegmentLocal(ship, seg);
+            const t = Math.max(0, Math.min(1, local.localZ / Math.max(1, local.length)));
+            const key = miniMapSegmentKey(shipSegmentIndex);
+            if (!key) return;
+
+            const sameSegment = miniMapHud.lastExploreSegmentIndex === shipSegmentIndex;
+            const previousT = sameSegment && Number.isFinite(miniMapHud.lastExploreT)
+                ? miniMapHud.lastExploreT
+                : t;
+            const priorPoint = miniMapHud.lastExplorePoint;
+            const moved = priorPoint
+                ? Math.hypot(ship.x - priorPoint.x, ship.y - priorPoint.y, ship.z - priorPoint.z)
+                : 0;
+            const current = miniMapHud.exploredIntervals.get(key) || { min: t, max: t };
+            const nextMin = moved > 0.25 ? Math.min(current.min, previousT, t) : current.min;
+            const nextMax = moved > 0.25 ? Math.max(current.max, previousT, t) : current.max;
+            if (!miniMapHud.exploredIntervals.has(key) || nextMin !== current.min || nextMax !== current.max) {
+                miniMapHud.exploredIntervals.set(key, { min: nextMin, max: nextMax });
+                miniMapHud.explorationDirty = true;
+            }
+            miniMapHud.lastExploreSegmentIndex = shipSegmentIndex;
+            miniMapHud.lastExploreT = t;
+            miniMapHud.lastExplorePoint = ship;
+            persistMiniMapExploration(false);
+        }
+
+        window.addEventListener('beforeunload', () => persistMiniMapExploration(true));
+
         function mouseSteeringCaptured() {
             return document.pointerLockElement === canvas;
         }
@@ -7894,6 +8028,7 @@
             resetPlayerCombatState();
             updateWebGLCanvasVisibility();
             placeShipOnLoadedMap(map);
+            loadMiniMapExploration();
             saveTunnelMap({ markDirty: false });
             frameMapCameraOnTunnel();
             keyboardStatus.innerText = message;
@@ -9764,6 +9899,7 @@
             invalidateTunnelSegmentCache();
             rebuildTunnelTargets();
             rebuildTunnelSentries();
+            loadMiniMapExploration();
             saveTunnelMap();
         }
 
@@ -17810,6 +17946,9 @@
         }
 
         function renderMiniMapHud() {
+            // Exploration continues even when the pilot hides the HUD with Shift+H;
+            // visibility is presentation state, not gameplay/progress state.
+            if (!mapView && builder.segments.length) updateMiniMapExploration();
             if (!miniMapHud.visible || mapView || !builder.segments.length) {
                 miniMapHud.bounds = null;
                 return;
@@ -17861,11 +18000,26 @@
             ctx.strokeRect(x0 + 0.5, y0 + 0.5, boxW - 1, boxH - 1);
             ctx.fillStyle = '#00ffcc';
             ctx.font = '12px monospace';
-            ctx.fillText(`HUD MAP ${miniMapHud.plane.toUpperCase()}  H cycle  Shift+H hide`, x0 + 10, y0 + 17);
+            const exploredLength = builder.segments.reduce((total, seg, index) => {
+                if (builderMode) return total + 1;
+                const interval = miniMapHud.exploredIntervals.get(miniMapSegmentKey(index));
+                return total + (interval ? Math.max(0, interval.max - interval.min) : 0);
+            }, 0);
+            const exploredPct = Math.min(100, Math.round((exploredLength / Math.max(1, builder.segments.length)) * 100));
+            ctx.fillText(
+                `HUD MAP ${miniMapHud.plane.toUpperCase()}  ${builderMode ? 'DEV FULL' : `EXPLORED ${exploredPct}%`}`,
+                x0 + 10,
+                y0 + 17
+            );
 
-            for (const seg of builder.segments) {
-                const a = mapHudPoint(seg.from);
-                const b = mapHudPoint(seg.to);
+            for (let index = 0; index < builder.segments.length; index++) {
+                const seg = builder.segments[index];
+                const interval = builderMode
+                    ? { min: 0, max: 1 }
+                    : miniMapHud.exploredIntervals.get(miniMapSegmentKey(index));
+                if (!interval || interval.max - interval.min < 0.001) continue;
+                const a = mapHudPoint(pointOnSegment(seg, interval.min));
+                const b = mapHudPoint(pointOnSegment(seg, interval.max));
                 const isBranchMouth = isBranchMouthSegment(seg);
                 ctx.strokeStyle = isBranchMouth ? '#ffaa00' : '#44ff88';
                 ctx.lineWidth = isBranchMouth ? 3 : 2;
@@ -17885,6 +18039,12 @@
             for (const sentry of tunnelSentries) {
                 if (!sentryIsActive(sentry)) continue;
                 if (!revealSentriesOnHud && !sentry.engaged) continue;
+                const sentrySegmentIndex = sentryOverlaySegmentIndex(sentry);
+                if (
+                    !builderMode &&
+                    (!Number.isInteger(sentrySegmentIndex) ||
+                        !miniMapHud.exploredIntervals.has(miniMapSegmentKey(sentrySegmentIndex)))
+                ) continue;
                 const sentryPoint = mapHudPoint({ x: sentry.x, y: sentry.y, z: sentry.z });
                 const spawnPoint = mapHudPoint(sentry.spawn.point);
                 if (sentry.engaged) {
