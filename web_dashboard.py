@@ -1556,6 +1556,7 @@ def run_backtest_api(payload):
 
     results = []
     skipped = 0
+    failures = []
     was_cancelled = False
     try:
         bt = Backtester(starting_capital=capital)
@@ -1592,12 +1593,19 @@ def run_backtest_api(payload):
                         results.append(_backtest_result_payload(result))
                     else:
                         skipped += 1
+                        failures.append(
+                            f"{strat}/{sym}: "
+                            f"{getattr(bt, 'last_failure_reason', '') or 'no trades matched'}"
+                        )
                 except Exception as _exc:
                     if type(_exc).__name__ == "_BacktestCancelled":
                         # Inner-loop cancel checkpoint fired — treat as cancelled
                         run_ctx.cancel()
                         break
                     skipped += 1
+                    failure = f"{strat}/{sym}: {type(_exc).__name__}: {_exc}"
+                    failures.append(failure)
+                    logger.exception("Backtest run failed: %s", failure)
 
         was_cancelled = run_ctx.is_cancelled()
     finally:
@@ -1613,10 +1621,15 @@ def run_backtest_api(payload):
                 "requested_runs": len(symbols) * len(strategies),
                 "cancelled": True,
             }
-        return False, f"No results; {skipped} run(s) had insufficient data or no trades.", {
+        first_failure = failures[0] if failures else "no diagnostic was recorded"
+        return False, (
+            f"No results; {skipped} run(s) were skipped. "
+            f"First reason: {first_failure}"
+        ), {
             "skipped": skipped,
             "requested_runs": len(symbols) * len(strategies),
             "cancelled": False,
+            "failures": failures[:100],
         }
 
     total_trades = sum(r["totalTrades"] for r in results)
@@ -1643,6 +1656,7 @@ def run_backtest_api(payload):
         "skipped": skipped,
         "requested_runs": len(symbols) * len(strategies),
         "cancelled": was_cancelled,
+        "failures": failures[:100],
     }
 
 

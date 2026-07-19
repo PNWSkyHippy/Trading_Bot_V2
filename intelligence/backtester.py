@@ -44,7 +44,7 @@ import time
 import uuid
 import pandas as pd
 import numpy as np
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 from typing import List, Dict, Optional, Tuple
 from dataclasses import dataclass, field
@@ -558,6 +558,7 @@ class Backtester:
     def __init__(self, starting_capital: float = 10_000.0):
         self.starting_capital = starting_capital
         self._candle_cache: dict = {}  # (symbol, days, timeframe) -> DataFrame
+        self.last_failure_reason = ""
 
         try:
             import yfinance as yf
@@ -744,44 +745,102 @@ class Backtester:
                                    timeframe: str) -> Optional[pd.DataFrame]:
         if self.ccxt is None:
             return None
-        try:
-            exchange = self.ccxt.kraken({"enableRateLimit": True})
-            market_symbol = self._normalise_ccxt_crypto_symbol(symbol)
-            tf = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])["interval"]
-            since_ms = int((datetime.utcnow() - timedelta(days=days + 1)).timestamp() * 1000)
+        market_symbol = self._normalise_ccxt_crypto_symbol(symbol)
+        tf = TF_CONFIG.get(timeframe, TF_CONFIG["1h"])["interval"]
+        now_utc = datetime.now(timezone.utc)
+        since_ms = int((now_utc - timedelta(days=days + 1)).timestamp() * 1000)
+
+        # Kraken's public OHLC endpoint exposes only its most recent ~720
+        # candles even when an older ``since`` is supplied. For requests
+        # longer than that window, start with exchanges whose public APIs
+        # permit genuine historical pagination, then retain Kraken as the
+        # execution-venue fallback for short/recent windows.
+        exchange_names = (
+            ("kraken", "binanceus", "bitfinex")
+            if days <= 30 else
+            ("binanceus", "bitfinex", "kraken")
+        )
+        best_partial = None
+
+        for exchange_name in exchange_names:
+            exchange_factory = getattr(self.ccxt, exchange_name, None)
+            if exchange_factory is None:
+                continue
+            try:
+                exchange = exchange_factory({"enableRateLimit": True})
+            except Exception as exc:
+                logger.info(
+                    "CCXT %s unavailable for %s: %s",
+                    exchange_name, market_symbol, exc,
+                )
+                continue
+
             rows = []
             fetch_since = since_ms
             limit = 720
-            while True:
-                batch = exchange.fetch_ohlcv(market_symbol, timeframe=tf, since=fetch_since, limit=limit)
-                if not batch:
-                    break
-                rows.extend(batch)
-                next_since = int(batch[-1][0]) + 1
-                if next_since <= fetch_since:
-                    break
-                fetch_since = next_since
-                if len(batch) < limit:
-                    break
-                if len(rows) > 20000:
-                    break
-                time.sleep(max(0.0, getattr(exchange, "rateLimit", 1000) / 1000.0))
+            try:
+                while True:
+                    batch = exchange.fetch_ohlcv(
+                        market_symbol, timeframe=tf,
+                        since=fetch_since, limit=limit,
+                    )
+                    if not batch:
+                        break
+                    rows.extend(batch)
+                    next_since = int(batch[-1][0]) + 1
+                    if next_since <= fetch_since:
+                        break
+                    fetch_since = next_since
+                    if len(batch) < limit or len(rows) > 20000:
+                        break
+                    time.sleep(max(
+                        0.0, getattr(exchange, "rateLimit", 1000) / 1000.0
+                    ))
+            except Exception as exc:
+                logger.info(
+                    "CCXT %s fetch failed for %s/%s: %s",
+                    exchange_name, market_symbol, timeframe, exc,
+                )
+                continue
+
             if not rows:
-                return None
-            df = pd.DataFrame(rows, columns=["timestamp", "open", "high", "low", "close", "volume"])
+                continue
+            df = pd.DataFrame(
+                rows,
+                columns=["timestamp", "open", "high", "low", "close", "volume"],
+            )
             df = df.drop_duplicates(subset=["timestamp"]).sort_values("timestamp")
-            df["datetime"] = pd.to_datetime(df["timestamp"], unit="ms", utc=True).dt.tz_localize(None)
+            df["datetime"] = pd.to_datetime(
+                df["timestamp"], unit="ms", utc=True
+            ).dt.tz_localize(None)
             df = df.set_index("datetime").drop(columns=["timestamp"])
-            cutoff = datetime.utcnow() - timedelta(days=days)
-            df = df[df.index >= cutoff]
+            cutoff = now_utc.replace(tzinfo=None) - timedelta(days=days)
+            df = df[(df.index >= cutoff) & (df.index <= now_utc.replace(tzinfo=None))]
             if len(df) < 30:
-                logger.error(f"Only {len(df)} CCXT bars for {market_symbol} — need >=30")
-                return None
-            logger.info(f"  -> {len(df)} bars via Kraken/CCXT ({df.index[0].date()} - {df.index[-1].date()})")
-            return df
-        except Exception as e:
-            logger.warning(f"CCXT crypto fetch failed for {symbol}/{timeframe}: {e}")
-            return None
+                continue
+
+            if _store_covers_request(df, days, timeframe, is_crypto=True):
+                logger.info(
+                    "  -> %s bars via %s/CCXT (%s - %s)",
+                    len(df), exchange_name, df.index[0].date(), df.index[-1].date(),
+                )
+                return df
+
+            logger.info(
+                "CCXT %s returned only partial coverage for %s/%s/%sd "
+                "(%s bars, %s - %s)",
+                exchange_name, market_symbol, timeframe, days, len(df),
+                df.index[0].date(), df.index[-1].date(),
+            )
+            if best_partial is None or len(df) > len(best_partial):
+                best_partial = df
+
+        if best_partial is not None:
+            logger.warning(
+                "No CCXT source covered %sd for %s/%s; best source had %s bars",
+                days, market_symbol, timeframe, len(best_partial),
+            )
+        return best_partial
 
     def fetch_history(self, symbol: str, days: int = 365,
                       timeframe: str = "1h",
@@ -2062,6 +2121,7 @@ class Backtester:
                      run_ctx: "BacktestRunContext" = None,
                      ledger: "RunLedger" = None) -> Optional[BacktestResult]:
         run_ctx = run_ctx or _default_run_ctx
+        self.last_failure_reason = ""
         if run_ctx.is_cancelled():
             return None
         capital = self._resolve_starting_capital(starting_capital)
@@ -2074,11 +2134,16 @@ class Backtester:
         if run_ctx.is_cancelled():
             return None
         if df is None or len(df) < 30:
+            self.last_failure_reason = (
+                f"historical data unavailable or insufficient for "
+                f"{symbol}/{timeframe}/{days}d"
+            )
             return None
         try:
             strategy_obj = self._load_strategy(strategy_name)
             if strategy_obj is None:
                 logger.error(f"Unknown strategy: {strategy_name}")
+                self.last_failure_reason = f"unknown strategy: {strategy_name}"
                 return None
             if (
                 strategy_name == "grid_bot"

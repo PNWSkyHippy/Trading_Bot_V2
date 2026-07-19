@@ -44,10 +44,19 @@ class _FakeBacktester:
         )
 
 
-def _run(payload):
+class _NoDataBacktester:
+    def __init__(self, starting_capital=100000):
+        self.starting_capital = starting_capital
+        self.last_failure_reason = "historical data unavailable for requested window"
+
+    def run_strategy(self, symbol, strategy_name, *args, **kwargs):
+        return None
+
+
+def _run(payload, backtester_cls=_FakeBacktester):
     original = backtester_module.Backtester
     _FakeBacktester.calls.clear()
-    backtester_module.Backtester = _FakeBacktester
+    backtester_module.Backtester = backtester_cls
     try:
         return web_dashboard.run_backtest_api(payload)
     finally:
@@ -92,6 +101,21 @@ def test_api_rejects_unknown_profile_before_starting_a_run():
     assert "behavior_profile must be one of" in message
     assert details == {"cancelled": False}
     assert not _FakeBacktester.calls
+
+
+def test_api_reports_data_failure_instead_of_misleading_empty_result():
+    ok, message, details = _run({
+        "asset": "Crypto", "symbol": "ETH/USD",
+        "strategy": "bmr_357", "duration": "365d",
+        "timeframe": "1h", "behavior_profile": "live_parity_v2",
+    }, _NoDataBacktester)
+    assert not ok
+    assert "No results" in message
+    assert "historical data unavailable" in message
+    assert details["skipped"] == 1
+    assert details["failures"] == [
+        "bmr_357/ETH/USD: historical data unavailable for requested window"
+    ]
 
 
 def test_panel_defaults_to_legacy_and_exposes_both_choices():
