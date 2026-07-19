@@ -1284,7 +1284,7 @@
         // detail streaks. Two hops produced a circular black cutoff that followed
         // the ship and jumped forward at every segment handoff whenever the
         // directional look-ahead could not follow a sharp bend.
-        const TUNNEL_COVERAGE_TOPOLOGY_HOPS = 48;
+        const TUNNEL_COVERAGE_TOPOLOGY_HOPS = 14;
         const TUNNEL_TEXTURE_LOD_NEAR_Z = 900;
         const TUNNEL_TEXTURE_DETAIL_MAX_Z = 1150;
         const TUNNEL_TEXTURE_SOLID_ONLY_Z = 1050;
@@ -16259,11 +16259,12 @@
             };
         }
 
-        function findNextForwardSegmentIndex(exitPoint, travelDir, seen) {
+        function findNextForwardSegmentIndex(exitPoint, travelDir, seen, candidateIndices = null) {
             const radius = builder.radius;
             const dir = normalize(travelDir);
             let best = null;
-            for (let i = 0; i < builder.segments.length; i++) {
+            const candidates = candidateIndices || builder.segments.keys();
+            for (const i of candidates) {
                 if (seen.has(i)) continue;
                 const seg = builder.segments[i];
                 const segRadius = seg.radius || radius;
@@ -16296,6 +16297,7 @@
                 return indices;
             }
             const seen = new Set([shipSegmentIndex]);
+            const topologyNeighbors = getTunnelTopologyNeighbors();
             const ship = { x: posX, y: posY, z: posZ };
             const currentSeg = builder.segments[shipSegmentIndex];
             const local = shipSegmentLocal(ship, currentSeg);
@@ -16310,11 +16312,22 @@
                 exitPoint = currentSeg.to;
                 travelDir = currentSeg.forward;
             }
+            let currentIndex = shipSegmentIndex;
             for (let step = 0; step < maxAhead; step++) {
-                const next = findNextForwardSegmentIndex(exitPoint, travelDir, seen);
+                // The old implementation rescanned every segment in the map for
+                // every look-ahead hop. On a 1,000-section map, 48 hops meant about
+                // 48,000 candidate checks per rendered frame. The topology graph is
+                // already cached, so only inspect the few sections joined here.
+                const next = findNextForwardSegmentIndex(
+                    exitPoint,
+                    travelDir,
+                    seen,
+                    topologyNeighbors[currentIndex]
+                );
                 if (!next) break;
                 indices.push(next.index);
                 seen.add(next.index);
+                currentIndex = next.index;
                 exitPoint = next.exitPoint;
                 travelDir = next.segTravel;
             }
