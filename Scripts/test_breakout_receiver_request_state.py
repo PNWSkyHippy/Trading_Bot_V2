@@ -54,6 +54,33 @@ class BreakoutReceiverRequestStateTests(unittest.TestCase):
         self.assertEqual(10.0, payloads[1]["_drift_state"]["drift_pct"])
         self.assertFalse(hasattr(receiver, "_drift_state"))
 
+    def test_null_optional_flip_telemetry_does_not_crash_receiver(self):
+        receiver = BreakoutReceiver.__new__(BreakoutReceiver)
+        receiver._run_checklist = lambda _payload, _age: (
+            [ChecklistResult.fail("expected test rejection")], []
+        )
+        payload = {
+            "symbol": "KGEN/USD",
+            "direction": "long",
+            "volume_spike": 3.02,
+            "momentum_score": None,
+            "candle_open": 0.20,
+            "distance_from_breakout_pct": None,
+        }
+
+        result = receiver._try_direction_flip(
+            payload=payload,
+            live_price=0.1895,
+            drift_pct=-3.33,
+            signal_age_sec=5.0,
+            event_id="evt-kgen-null-momentum",
+            client_order_id="bo-kgen-null-momentum",
+        )
+
+        self.assertIsNotNone(result)
+        self.assertFalse(result["accepted"])
+        self.assertEqual("flip_checklist_rejected", result["failure_class"])
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

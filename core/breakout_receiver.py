@@ -29,6 +29,7 @@ what changed in THIS file:
 
 import json
 import logging
+import math
 import threading
 import time
 from datetime import datetime, timezone, date
@@ -51,6 +52,17 @@ from core.breakout_decision import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _optional_finite_float(value: Any, default: Optional[float] = 0.0) -> Optional[float]:
+    """Coerce optional scanner telemetry without letting bad data crash a request."""
+    if value is None:
+        return default
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError):
+        return default
+    return number if math.isfinite(number) else default
 
 # ── Tuning constants ────────────────────────────────────────────────────────
 SIGNAL_TTL_SEC          = 60
@@ -1258,19 +1270,19 @@ class BreakoutReceiver:
         # Evaluate 3 flip criteria (require 2/3)
         criteria_met = 0
 
-        vol = float(payload.get("volume_spike", 0))
+        vol = _optional_finite_float(payload.get("volume_spike"), 0.0)
         c1  = vol >= VOLUME_SPIKE_MIN
         if c1:
             criteria_met += 1
 
-        momentum = float(payload.get("momentum_score", 0))
+        momentum = _optional_finite_float(payload.get("momentum_score"), 0.0)
         c2 = (momentum < 0) if orig_dir == "long" else (momentum > 0)
         if c2:
             criteria_met += 1
 
-        candle_open = payload.get("candle_open")
+        candle_open = _optional_finite_float(payload.get("candle_open"), None)
         if candle_open is not None:
-            co = float(candle_open)
+            co = candle_open
             c3 = (live_price < co) if orig_dir == "long" else (live_price > co)
         else:
             c3 = False
@@ -1282,7 +1294,7 @@ class BreakoutReceiver:
             f"criteria={criteria_met}/3  "
             f"vol={vol:.2f}x>={VOLUME_SPIKE_MIN}:{c1}  "
             f"momentum={momentum:.3f} reversed:{c2}  "
-            f"candle_open={f'{float(candle_open):.4f}' if candle_open is not None else 'N/A'}  "
+            f"candle_open={f'{candle_open:.4f}' if candle_open is not None else 'N/A'}  "
             f"live={live_price:.4f} body_confirms:{c3}"
         )
 
@@ -1302,7 +1314,11 @@ class BreakoutReceiver:
 
         dist = payload.get("distance_from_breakout_pct")
         if dist is not None:
-            p["distance_from_breakout_pct"] = -float(dist)
+            dist_value = _optional_finite_float(dist, None)
+            if dist_value is not None:
+                p["distance_from_breakout_pct"] = -dist_value
+            else:
+                p["distance_from_breakout_pct"] = None
 
         p["structural_stop_price"] = None  # old side's stop is now on the wrong side
 
