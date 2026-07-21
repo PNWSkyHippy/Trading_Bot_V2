@@ -581,6 +581,13 @@ class BotEngine:
         thread.start()
 
     def _run_daily_scan(self):
+        self._run_singleton_job(
+            "daily-scan",
+            self._do_daily_scan,
+            heartbeat_label="Daily scan",
+        )
+
+    def _do_daily_scan(self):
         try:
             self.logger.info("[DAILY SCAN] Running post-market daily scan...")
             run_daily_scan(top_n=10)
