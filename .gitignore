@@ -2,6 +2,8 @@
 signals_log.csv
 DecentClone/mykey.txt
 DecentClone/mykey.txt.pub
+DecentClone/data/exploration_secret.key
+DecentClone/data/exploration.db
 data/daily_scan_results.json
 reports/
 signals_log.csv

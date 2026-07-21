@@ -1148,6 +1148,23 @@
         const TUNNEL_MAP_NAMED_PREFIX = `${TUNNEL_MAP_STORAGE_KEY}:named:`;
         const TUNNEL_CURRENT_MAP_KEY = `${TUNNEL_MAP_STORAGE_KEY}:current-name`;
         const MINI_MAP_EXPLORATION_PREFIX = 'astral-drift-hud-exploration-v1:';
+        const ASTRAL_PLAYER_ID_KEY = 'astral-drift-player-id';
+        // Exploration API runs as its own service (exploration_api.py), separate
+        // from the static file server on 8127 — same host, port 8128.
+        const EXPLORATION_API_BASE = `${window.location.protocol}//${window.location.hostname}:8128`;
+
+        function getOrCreatePlayerId() {
+            try {
+                let id = localStorage.getItem(ASTRAL_PLAYER_ID_KEY);
+                if (id) return id;
+                id = (crypto.randomUUID ? crypto.randomUUID() : `p-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+                localStorage.setItem(ASTRAL_PLAYER_ID_KEY, id);
+                return id;
+            } catch (err) {
+                return 'anonymous';
+            }
+        }
+        const ASTRAL_PLAYER_ID = getOrCreatePlayerId();
         let currentNamedMapId = null;
         let currentNamedMapName = '';
         let currentNamedMapDirty = true;
@@ -4961,6 +4978,47 @@
             } catch (err) {
                 console.warn('Astral Drift: HUD exploration save failed', err);
             }
+            syncMiniMapExplorationToServer(storageId, segments);
+        }
+
+        // Server sync is best-effort: the game must stay fully playable if the
+        // exploration API is unreachable (down, blocked, offline dev server).
+        // localStorage above is already the source of truth for THIS browser;
+        // the server just adds cross-session/cross-device durability with
+        // tamper-evident storage on top.
+        function syncMiniMapExplorationToServer(storageId, segments) {
+            if (!storageId || !Object.keys(segments).length) return;
+            fetch(`${EXPLORATION_API_BASE}/exploration/${encodeURIComponent(ASTRAL_PLAYER_ID)}/${encodeURIComponent(storageId)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ segments }),
+                keepalive: true
+            }).catch(() => { /* offline/unreachable — local save already succeeded */ });
+        }
+
+        function pullMiniMapExplorationFromServer(storageId) {
+            if (!storageId) return;
+            fetch(`${EXPLORATION_API_BASE}/exploration/${encodeURIComponent(ASTRAL_PLAYER_ID)}/${encodeURIComponent(storageId)}`)
+                .then(res => (res.ok ? res.json() : null))
+                .then(data => {
+                    if (!data || !data.segments || miniMapHud.explorationStorageId !== storageId) return;
+                    let changed = false;
+                    for (const [key, value] of Object.entries(data.segments)) {
+                        if (!Array.isArray(value) || value.length < 2) continue;
+                        const min = Math.max(0, Math.min(1, Number(value[0])));
+                        const max = Math.max(0, Math.min(1, Number(value[1])));
+                        if (!Number.isFinite(min) || !Number.isFinite(max)) continue;
+                        const current = miniMapHud.exploredIntervals.get(key);
+                        const nextMin = current ? Math.min(current.min, min) : min;
+                        const nextMax = current ? Math.max(current.max, max) : max;
+                        if (!current || nextMin !== current.min || nextMax !== current.max) {
+                            miniMapHud.exploredIntervals.set(key, { min: nextMin, max: nextMax });
+                            changed = true;
+                        }
+                    }
+                    if (changed) miniMapHud.explorationDirty = true;
+                })
+                .catch(() => { /* offline/unreachable — local cache stands as-is */ });
         }
 
         function loadMiniMapExploration() {
@@ -4989,6 +5047,7 @@
             miniMapHud.lastExplorePoint = null;
             miniMapHud.explorationDirty = false;
             miniMapHud.lastExplorationSaveAt = performance.now();
+            pullMiniMapExplorationFromServer(storageId);
         }
 
         function updateMiniMapExploration() {
