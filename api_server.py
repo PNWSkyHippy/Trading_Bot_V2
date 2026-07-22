@@ -151,7 +151,7 @@ def receive_breakout_signal(
         )
     except Exception:
         logger.exception("Breakout signal processing failed")
-        raise HTTPException(status_code=500, detail="Signal processing failed")
+        raise HTTPException(status_code=500, detail="Signal processing failed") from None
 
 
 @app.get("/api/open_positions")
