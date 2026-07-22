@@ -113,6 +113,13 @@ def _is_breakout_scanner_payload(p: Dict[str, Any]) -> bool:
         or p.get("source") == "breakout_scanner"
     )
 
+def _uses_breakout_reopen_profile(p: Dict[str, Any]) -> bool:
+    """Return whether a scanner-origin signal may use the narrow advisory band."""
+    return (
+        _is_breakout_scanner_payload(p)
+        and bool(getattr(config, "BREAKOUT_REOPEN_PROFILE_ENABLED", False))
+    )
+
 REQUIRED_FIELDS = [
     "symbol", "asset_class", "direction",
     "entry_price", "current_price",
@@ -711,21 +718,31 @@ class BreakoutReceiver:
 
             drift_pct = ((current - ref_price) / ref_price) * 100
 
-            if direction == "long" and drift_pct < -PRICE_DRIFT_MAX_PCT:
+            drift_limit = PRICE_DRIFT_MAX_PCT
+            if _uses_breakout_reopen_profile(p):
+                drift_limit = max(drift_limit, float(getattr(
+                    config, "BREAKOUT_REOPEN_PRICE_DRIFT_MAX_PCT", PRICE_DRIFT_MAX_PCT
+                )))
+            adverse_drift = (
+                (direction == "long" and drift_pct < -drift_limit)
+                or (direction == "short" and drift_pct > drift_limit)
+            )
+            if adverse_drift:
                 p["_drift_state"] = {
                     "live_price": current, "drift_pct": drift_pct,
                 }
                 return ChecklistResult.fail(
-                    f"{sym} reversed {drift_pct:.2f}% from signal price "
-                    f"(limit -{PRICE_DRIFT_MAX_PCT}%)"
+                    f"{sym} reversed {drift_pct:+.2f}% from signal price "
+                    f"(limit +/-{drift_limit:.2f}%)"
                 )
-            if direction == "short" and drift_pct > PRICE_DRIFT_MAX_PCT:
-                p["_drift_state"] = {
-                    "live_price": current, "drift_pct": drift_pct,
-                }
-                return ChecklistResult.fail(
-                    f"{sym} reversed +{drift_pct:.2f}% from signal price "
-                    f"(limit +{PRICE_DRIFT_MAX_PCT}%)"
+            legacy_adverse = (
+                (direction == "long" and drift_pct < -PRICE_DRIFT_MAX_PCT)
+                or (direction == "short" and drift_pct > PRICE_DRIFT_MAX_PCT)
+            )
+            if legacy_adverse and _uses_breakout_reopen_profile(p):
+                return ChecklistResult.skip(
+                    f"Price drift {drift_pct:+.2f}% exceeds legacy +/-{PRICE_DRIFT_MAX_PCT:.2f}% "
+                    f"but is within breakout re-open +/-{drift_limit:.2f}% advisory band"
                 )
 
             return ChecklistResult.ok(f"{sym} still moving (drift={drift_pct:+.2f}%)")
@@ -807,15 +824,17 @@ class BreakoutReceiver:
                 return ChecklistResult.skip(
                     f"Volume spike {vol:.2f}x (gap fill — low volume expected on reversal)"
                 )
-            esc = int(p.get("escalation") or 0)
-            move = abs(float(p.get("move_pct") or 0))
-            if _is_breakout_scanner_payload(p) and (esc >= 2 or move >= 5.0):
+            advisory_min = float(getattr(
+                config, "BREAKOUT_REOPEN_VOLUME_ADVISORY_MIN", VOLUME_SPIKE_MIN
+            ))
+            if _uses_breakout_reopen_profile(p) and vol >= advisory_min:
                 return ChecklistResult.skip(
-                    f"Volume spike {vol:.2f}x below {VOLUME_SPIKE_MIN}x, "
-                    f"but breakout is already escalated/moving — advisory only"
+                    f"Volume spike {vol:.2f}x below legacy {VOLUME_SPIKE_MIN}x but above "
+                    f"breakout re-open {advisory_min:.2f}x — advisory only"
                 )
             return ChecklistResult.fail(
-                f"Volume spike {vol:.2f}x below minimum {VOLUME_SPIKE_MIN}x"
+                f"Volume spike {vol:.2f}x below minimum "
+                f"{advisory_min if _uses_breakout_reopen_profile(p) else VOLUME_SPIKE_MIN:.2f}x"
             )
         return ChecklistResult.ok(f"Volume elevated {vol:.2f}x")
 
@@ -876,18 +895,28 @@ class BreakoutReceiver:
             return ChecklistResult.fail("Doji candle — no body (fakeout risk)")
 
         direction = p.get("direction", "long")
+        max_ratio = WICK_BODY_MAX_RATIO
+        if _uses_breakout_reopen_profile(p):
+            max_ratio = max(max_ratio, float(getattr(
+                config, "BREAKOUT_REOPEN_WICK_BODY_MAX_RATIO", WICK_BODY_MAX_RATIO
+            )))
         if direction == "long":
             wick = h - max(o, c)
-            if wick > body * WICK_BODY_MAX_RATIO:
+            if wick > body * max_ratio:
                 return ChecklistResult.fail(
-                    f"Upper wick {wick:.4f} > {WICK_BODY_MAX_RATIO}x body {body:.4f}"
+                    f"Upper wick {wick:.4f} > {max_ratio}x body {body:.4f}"
                 )
         else:
             wick = min(o, c) - l
-            if wick > body * WICK_BODY_MAX_RATIO:
+            if wick > body * max_ratio:
                 return ChecklistResult.fail(
-                    f"Lower wick {wick:.4f} > {WICK_BODY_MAX_RATIO}x body {body:.4f}"
+                    f"Lower wick {wick:.4f} > {max_ratio}x body {body:.4f}"
                 )
+        if wick > body * WICK_BODY_MAX_RATIO and _uses_breakout_reopen_profile(p):
+            return ChecklistResult.skip(
+                f"Wick {wick:.4f} exceeds legacy {WICK_BODY_MAX_RATIO}x body but is within "
+                f"breakout re-open {max_ratio}x advisory band"
+            )
         return ChecklistResult.ok("Candle body valid")
 
     def _check_not_gap_trap(self, p: Dict) -> ChecklistResult:
@@ -935,11 +964,16 @@ class BreakoutReceiver:
         bars_since  = p.get("bars_since_breakout")
         dist_pct    = p.get("distance_from_breakout_pct")
         rsi         = p.get("rsi")
+        distance_advisory = None
 
         # MAX_BARS_SINCE reverted: 2 was too tight, scanner was silent — 3 bars = 15m on 5m.
         # Sourced from core.breakout_decision so this and breakout_sender.py's
         # stale-breakout guard can never drift apart on the same threshold.
-        MAX_DIST_FROM_LVL = 6.0  # reverted: 2.0% killed nearly all signals — 6.0% is the proven working cap
+        max_dist_from_level = 6.0
+        if _uses_breakout_reopen_profile(p):
+            max_dist_from_level = max(max_dist_from_level, float(getattr(
+                config, "BREAKOUT_REOPEN_MAX_DISTANCE_FROM_LEVEL_PCT", max_dist_from_level
+            )))
         RSI_EXHAUST_LONG  = 78
         RSI_EXHAUST_SHORT = 22
 
@@ -960,10 +994,15 @@ class BreakoutReceiver:
 
         if dist_pct is not None:
             dist = abs(float(dist_pct))
-            if dist > MAX_DIST_FROM_LVL:
+            if dist > max_dist_from_level:
                 return ChecklistResult.fail(
                     f"Price already {dist:.1f}% from breakout level — chasing "
-                    f"(max {MAX_DIST_FROM_LVL}% allowed)"
+                    f"(max {max_dist_from_level}% allowed)"
+                )
+            if dist > 6.0 and _uses_breakout_reopen_profile(p):
+                distance_advisory = (
+                    f"Price {dist:.1f}% from breakout level exceeds legacy 6.0% but is within "
+                    f"breakout re-open {max_dist_from_level:.1f}% advisory band"
                 )
 
         if rsi is not None:
@@ -1019,6 +1058,8 @@ class BreakoutReceiver:
             except Exception:
                 pass   # candle_manager unavailable — skip check, don't block signal
 
+        if distance_advisory:
+            return ChecklistResult.skip(distance_advisory)
         return ChecklistResult.ok(
             f"Momentum phase OK: bars_since={bars_since} dist={dist_pct}% rsi={rsi}"
         )

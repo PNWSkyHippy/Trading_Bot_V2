@@ -626,3 +626,13 @@ ALERT_DIGEST_HOURS = 1   # Change to 2 or 3 to reduce email further
 BOT_API_KEY           = _db_key("trading_bot", "bot_api_key", "pyd9pocfRHu0JxiiOQWQzuns5qdiikpRy8v5Vd3G0h4")
 BOT_API_PORT          = 8181
 BREAKOUT_MIN_ESCALATION = 1   # 0-3; only inject escalation >= this
+
+# ── Breakout Scanner receiver re-open profile ──────────────────────────────
+# These only relax *borderline* entry vetoes for signals produced by
+# BreakoutScanner. Set BREAKOUT_REOPEN_PROFILE_ENABLED=False for the prior,
+# stricter receiver behavior without changing the universal safety checks.
+BREAKOUT_REOPEN_PROFILE_ENABLED = True
+BREAKOUT_REOPEN_VOLUME_ADVISORY_MIN = 0.80
+BREAKOUT_REOPEN_PRICE_DRIFT_MAX_PCT = 1.00
+BREAKOUT_REOPEN_WICK_BODY_MAX_RATIO = 4.00
+BREAKOUT_REOPEN_MAX_DISTANCE_FROM_LEVEL_PCT = 8.00
