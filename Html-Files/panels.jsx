@@ -2022,26 +2022,11 @@ function OptimizerPanel() {
 // ============ Chat with Bot ============
 const CHAT_LOCAL_COMMANDS = {
   'list commands': [
-    'Available bot commands:',
-    '  status               — capital, P&L, open positions',
-    '  positions            — list open positions with P&L',
-    '  performance          — win rate and P&L summary for today',
-    '  trades today         — count of closed trades today',
-    '  pause trading        — halt new trade entries',
-    '  resume trading       — re-enable trade entries',
-    '  restart bot          — restart the bot engine',
-    '  ml status            — ML scorer stage and progress',
-    '  list commands        — show this help (no AI call)',
-    '  list commands auto   — compact quick-reference (no AI call)',
-    '',
-    'Tip: plain English also works — the bot understands natural language.',
+    'Commands: status, positions, performance, trades today',
+    'pause trading, resume trading, restart bot, ml status',
+    'enable emt, disable emt, show scanners',
   ].join('\n'),
-  'list commands auto': [
-    'Quick-reference (no AI):',
-    '  status · positions · performance · trades today',
-    '  pause trading · resume trading · restart bot',
-    '  ml status · list commands · list commands auto',
-  ].join('\n'),
+  'list commands auto': 'status | positions | performance | enable emt | disable emt',
 };
 
 function ChatPanel() {
@@ -2051,7 +2036,9 @@ function ChatPanel() {
   const [input, setInput] = useS('');
   const [thinking, setThinking] = useS(false);
   const endRef = useR(null);
-  useE(() => endRef.current?.scrollIntoView({ block: 'nearest' }), [msgs, thinking]);
+  useE(() => {
+    endRef.current?.scrollIntoView({ block: 'nearest' });
+  }, [msgs, thinking]);
   const send = async () => {
     if (!input.trim() || thinking) return;
     const q = input.trim();

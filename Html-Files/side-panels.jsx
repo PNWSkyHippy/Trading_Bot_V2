@@ -726,32 +726,167 @@ function QuickControlsPanel() {
   );
 }
 
-// ===== PowerShell Workspace =====
+// ===== Shell Workspace =====
 function TerminalPanel() {
   const [busy, setBusy] = uS(false);
   const [msg, setMsg] = uS('');
   const [copied, setCopied] = uS('');
+  const [sshCommand, setSshCommand] = uS('ssh ronh@187.127.248.52');
+  const [sessionId, setSessionId] = uS('');
+  const [termReady, setTermReady] = uS(false);
+  const [fallbackOut, setFallbackOut] = uS('');
+  const [fallbackInput, setFallbackInput] = uS('');
+  const termHostRef = uR(null);
+  const termRef = uR(null);
+  const pollRef = uR(null);
+  const sessionRef = uR('');
   const commands = [
-    { label: 'Watch bot log', cmd: 'Get-Content .//logs//bot.log -Tail 80 -Wait' },
-    { label: 'Find errors', cmd: 'Select-String -Path .//logs//*.log -Pattern "ERROR|Traceback|Exception|DEGEN|FOREST|BOBBOB|PTB|ASSET|MATH|SPY"' },
-    { label: 'Find scanner errors', cmd: 'Select-String -Path *.log -Pattern "SPY|ESCALATE 2"' },
-    { label: 'Recent scanner log', cmd: 'Get-Content .//scanner.log -Tail 120' },
-    { label: 'Compile dashboard bridge', cmd: 'python -m py_compile .//web_dashboard.py' },
-    { label: 'Run dashboard bridge', cmd: 'python .//web_dashboard.py' },
-    { label: 'Run bot engine', cmd: 'python .//bot_engine.py' },
+    { label: 'SSH to Hostinger', cmd: 'ssh ronh@187.127.248.52' },
+    { label: 'EMT status', cmd: 'systemctl status emt-scanner.service' },
+    { label: 'EMT logs', cmd: 'journalctl -u emt-scanner.service -n 80 --no-pager' },
+    { label: 'Dashboard logs', cmd: 'journalctl -u web-dashboard.service -n 80 --no-pager' },
+    { label: 'Bot logs', cmd: 'journalctl -u trading-bot.service -n 80 --no-pager' },
+    { label: 'Restart EMT', cmd: 'sudo systemctl restart emt-scanner.service' },
   ];
+
+  const writeTerm = (text) => {
+    if (!text) return;
+    if (termRef.current) termRef.current.write(text);
+    else setFallbackOut(out => (out + text).slice(-24000));
+  };
+
+  const stopPolling = () => {
+    if (pollRef.current) clearInterval(pollRef.current);
+    pollRef.current = null;
+  };
+
+  const pollTerminal = async (id) => {
+    try {
+      const data = await apiCall(`/api/terminal/poll?id=${encodeURIComponent(id)}`);
+      if (data.output) writeTerm(data.output);
+      if (data.closed) {
+        stopPolling();
+        setSessionId('');
+        sessionRef.current = '';
+        setMsg('Web terminal closed.');
+      }
+    } catch (e) {
+      stopPolling();
+      setMsg(`Terminal poll failed: ${e.message}`);
+    }
+  };
+
+  const startWebTerminal = async () => {
+    setBusy(true);
+    setMsg('Starting web terminal...');
+    try {
+      if (!termRef.current && window.Terminal && termHostRef.current) {
+        const term = new window.Terminal({
+          cursorBlink: true,
+          convertEol: true,
+          fontFamily: 'Consolas, monospace',
+          fontSize: 12,
+          theme: { background: '#05070a', foreground: '#d1d5db' },
+        });
+        term.open(termHostRef.current);
+        term.onData(data => {
+          const id = sessionRef.current;
+          if (!id) return;
+          apiCall('/api/terminal/input', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id, data }),
+          }).catch(() => {});
+        });
+        termRef.current = term;
+        setTermReady(true);
+      }
+      const data = await apiCall('/api/terminal/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind: 'hostinger' }),
+      });
+      const id = data.session_id;
+      setSessionId(id);
+      sessionRef.current = id;
+      setMsg(data.message || 'Web terminal ready.');
+      writeTerm(data.output || '');
+      stopPolling();
+      pollRef.current = setInterval(() => pollTerminal(id), 700);
+    } catch (e) {
+      setMsg(`Web terminal failed: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const stopWebTerminal = async () => {
+    const id = sessionRef.current;
+    stopPolling();
+    if (!id) return;
+    setBusy(true);
+    try {
+      await apiCall('/api/terminal/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      setSessionId('');
+      sessionRef.current = '';
+      setMsg('Web terminal stopped.');
+    } catch (e) {
+      setMsg(`Stop failed: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  uE(() => () => {
+    stopPolling();
+    const id = sessionRef.current;
+    if (id) {
+      apiCall('/api/terminal/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      }).catch(() => {});
+    }
+    try { termRef.current?.dispose(); } catch {}
+  }, []);
+
   const openShell = async () => {
     setBusy(true);
-    setMsg('Opening PowerShell...');
+    setMsg('Opening local shell...');
     try {
       const data = await apiCall('/api/control', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'open_terminal' }),
       });
-      setMsg(data.message || 'PowerShell opened.');
+      setMsg(data.message || 'Local shell opened.');
     } catch (e) {
-      setMsg(`PowerShell failed: ${e.message}`);
+      setMsg(`Shell failed: ${e.message}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openHostinger = async () => {
+    setBusy(true);
+    setMsg('Opening Hostinger SSH...');
+    try {
+      const data = await apiCall('/api/control', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'open_hostinger_terminal' }),
+      });
+      if (data.command) setSshCommand(data.command);
+      setMsg(data.message || `Use: ${data.command || sshCommand}`);
+      if (data.platform && data.platform !== 'win32' && data.command) {
+        try { await navigator.clipboard.writeText(data.command); setCopied('Hostinger SSH'); } catch {}
+      }
+    } catch (e) {
+      setMsg(`Hostinger SSH failed: ${e.message}`);
     } finally {
       setBusy(false);
     }
@@ -767,25 +902,67 @@ function TerminalPanel() {
     }
   };
 
+  const sendFallbackInput = async () => {
+    const id = sessionRef.current;
+    if (!id || !fallbackInput) return;
+    const line = fallbackInput + '\n';
+    setFallbackInput('');
+    try {
+      await apiCall('/api/terminal/input', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, data: line }),
+      });
+    } catch (e) {
+      setMsg(`Input failed: ${e.message}`);
+    }
+  };
+
   return (
-    <div style={{ padding: 14 }}>
-      <div className="banner info" style={{ marginBottom: 12 }}>
+    <div style={{ padding: 14, display: 'flex', flexDirection: 'column', height: '100%', gap: 10 }}>
+      <div className="banner info">
         <Icon name="terminal" size={14} />
-        <span>Opens a normal PowerShell in the trading bot folder. Your $PROFILE can handle the venv.</span>
+        <span>Embedded Hostinger terminal runs inside this panel when the dashboard backend is on Linux. Local shell buttons stay as fallback.</span>
       </div>
 
-      <button className="btn primary full" onClick={openShell} disabled={busy} style={{ marginBottom: 12 }}>
-        <Icon name="terminal" size={13} />{busy ? 'Opening...' : 'Open PowerShell'}
-      </button>
-      {msg && <div style={{ marginBottom: 14, fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8 }}>
+        <button className="btn primary" onClick={startWebTerminal} disabled={busy || !!sessionId}>
+          <Icon name="terminal" size={13} />{sessionId ? 'Web Terminal On' : 'Start Web Terminal'}
+        </button>
+        <button className="btn ghost" onClick={openHostinger} disabled={busy}>
+          <Icon name="terminal" size={13} />Hostinger SSH
+        </button>
+        <button className="btn ghost" onClick={stopWebTerminal} disabled={busy || !sessionId} title="Stop web terminal">
+          Stop
+        </button>
+      </div>
+      {msg && <div style={{ fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
 
-      <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 12, marginBottom: 12 }}>
-        <h3 style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+      <div style={{ minHeight: 190, flex: 1, border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', background: '#05070a' }}>
+        <div ref={termHostRef} style={{ height: '100%', width: '100%', display: window.Terminal ? 'block' : 'none' }} />
+        {!window.Terminal && (
+          <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <pre style={{ flex: 1, margin: 0, padding: 10, overflow: 'auto', color: '#d1d5db', fontSize: 12, whiteSpace: 'pre-wrap' }}>{fallbackOut || 'xterm.js not loaded. Fallback terminal output will appear here.'}</pre>
+            <div style={{ display: 'flex', gap: 6, padding: 8, borderTop: '1px solid var(--border)' }}>
+              <input className="input" style={{ flex: 1 }} value={fallbackInput} onChange={e => setFallbackInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') sendFallbackInput(); }} placeholder="Command..." />
+              <button className="btn ghost sm" onClick={sendFallbackInput}>Send</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+        <button className="btn ghost" onClick={openShell} disabled={busy}><Icon name="terminal" size={13} />Local Shell</button>
+        <button className="btn ghost" onClick={() => copyCommand(sshCommand, 'Hostinger SSH')}><Icon name="copy" size={12} />Copy SSH</button>
+      </div>
+
+      <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 10 }}>
+        <h3 style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
           <Icon name="copy" size={13} />Command Shortcuts
         </h3>
-        <div style={{ display: 'grid', gap: 8 }}>
+        <div style={{ display: 'grid', gap: 6 }}>
           {commands.map(item => (
-            <div key={item.label} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center', padding: 8, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-1)' }}>
+            <div key={item.label} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center', padding: 7, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-1)' }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 11, color: 'var(--text-1)', fontWeight: 700, marginBottom: 3 }}>{item.label}</div>
                 <code style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11, color: 'var(--text-2)' }}>{item.cmd}</code>
@@ -796,11 +973,7 @@ function TerminalPanel() {
             </div>
           ))}
         </div>
-        {copied && <div style={{ marginTop: 10, fontSize: 11, color: copied === 'Copy failed' ? 'var(--red)' : 'var(--green)' }}>{copied === 'Copy failed' ? copied : `${copied} copied`}</div>}
-      </div>
-
-      <div style={{ fontSize: 11, lineHeight: 1.6, color: 'var(--text-2)' }}>
-        This panel only launches a local shell and copies helper commands; commands still run inside PowerShell where you can see and stop them.
+        {copied && <div style={{ marginTop: 8, fontSize: 11, color: copied === 'Copy failed' ? 'var(--red)' : 'var(--green)' }}>{copied === 'Copy failed' ? copied : `${copied} copied`}</div>}
       </div>
     </div>
   );
