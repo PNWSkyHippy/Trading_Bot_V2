@@ -4272,6 +4272,23 @@ def build_snapshot():
         }
 
 
+def _clean_header_token(value: str, max_len: int = 255) -> str:
+    value = str(value or "").replace("\r", "").replace("\n", "").strip()[:max_len]
+    return value if re.fullmatch(r"[A-Za-z0-9._~!$&'()*+,;=:%\[\]-]+", value) else ""
+
+
+def _same_origin_cors_value(origin: str, host: str) -> str:
+    origin = str(origin or "").replace("\r", "").replace("\n", "").strip()
+    host = _clean_header_token(host)
+    if not origin or not host:
+        return ""
+    parsed = urlparse(origin)
+    if parsed.scheme not in ("http", "https"):
+        return ""
+    if _clean_header_token(parsed.netloc) != host:
+        return ""
+    return f"{parsed.scheme}://{host}"
+
 def load_entry_html(prefer_modular=True):
     modular = HTML_ROOT / "Trading Dashboard.html"
     stage3 = HTML_ROOT / "index.html"
@@ -4282,13 +4299,13 @@ def load_entry_html(prefer_modular=True):
 
 class Handler(BaseHTTPRequestHandler):
     def _cors_headers(self):
-        origin = self.headers.get("Origin", "")
-        if origin:
-            parsed = urlparse(origin)
-            host = self.headers.get("Host", "")
-            if parsed.netloc == host:
-                self.send_header("Access-Control-Allow-Origin", origin)
-                self.send_header("Vary", "Origin")
+        cors_origin = _same_origin_cors_value(
+            self.headers.get("Origin", ""),
+            self.headers.get("Host", ""),
+        )
+        if cors_origin:
+            self.send_header("Access-Control-Allow-Origin", cors_origin)
+            self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Requested-With")
 
