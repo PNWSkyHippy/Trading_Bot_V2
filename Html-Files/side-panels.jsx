@@ -728,18 +728,21 @@ function QuickControlsPanel() {
 
 // ===== Shell Workspace =====
 function TerminalPanel() {
+  const savedFont = Number(localStorage.getItem('tbot.terminal.fontSize') || 14);
   const [busy, setBusy] = uS(false);
   const [msg, setMsg] = uS('');
   const [copied, setCopied] = uS('');
   const [sshCommand, setSshCommand] = uS('ssh ronh@187.127.248.52');
   const [sessionId, setSessionId] = uS('');
-  const [termReady, setTermReady] = uS(false);
+  const [fontSize, setFontSizeState] = uS(Number.isFinite(savedFont) ? Math.min(24, Math.max(10, savedFont)) : 14);
   const [fallbackOut, setFallbackOut] = uS('');
   const [fallbackInput, setFallbackInput] = uS('');
+  const termWrapRef = uR(null);
   const termHostRef = uR(null);
   const termRef = uR(null);
   const pollRef = uR(null);
   const sessionRef = uR('');
+  const fontSizeRef = uR(fontSize);
   const commands = [
     { label: 'SSH to Hostinger', cmd: 'ssh ronh@187.127.248.52' },
     { label: 'EMT status', cmd: 'systemctl status emt-scanner.service' },
@@ -758,6 +761,50 @@ function TerminalPanel() {
   const stopPolling = () => {
     if (pollRef.current) clearInterval(pollRef.current);
     pollRef.current = null;
+  };
+
+  const sendTerminalData = async (data) => {
+    const id = sessionRef.current;
+    if (!id) return;
+    try {
+      await apiCall('/api/terminal/input', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, data }),
+      });
+    } catch (e) {
+      setMsg(`Input failed: ${e.message}`);
+    }
+  };
+
+  const fitTerminal = async () => {
+    const term = termRef.current;
+    const wrap = termWrapRef.current;
+    if (!term || !wrap) return;
+    const rect = wrap.getBoundingClientRect();
+    const fs = fontSizeRef.current || 14;
+    const cols = Math.max(20, Math.min(240, Math.floor((rect.width - 18) / Math.max(6, fs * 0.62))));
+    const rows = Math.max(5, Math.min(80, Math.floor((rect.height - 18) / Math.max(12, fs * 1.45))));
+    try { term.resize(cols, rows); } catch {}
+    const id = sessionRef.current;
+    if (id) {
+      apiCall('/api/terminal/resize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, cols, rows }),
+      }).catch(() => {});
+    }
+  };
+
+  const setFontSize = (next) => {
+    const size = Math.min(24, Math.max(10, Number(next) || 14));
+    fontSizeRef.current = size;
+    setFontSizeState(size);
+    localStorage.setItem('tbot.terminal.fontSize', String(size));
+    if (termRef.current) {
+      termRef.current.options.fontSize = size;
+      setTimeout(fitTerminal, 30);
+    }
   };
 
   const pollTerminal = async (id) => {
@@ -784,22 +831,14 @@ function TerminalPanel() {
         const term = new window.Terminal({
           cursorBlink: true,
           convertEol: true,
-          fontFamily: 'Consolas, monospace',
-          fontSize: 12,
+          fontFamily: 'Consolas, "Cascadia Mono", monospace',
+          fontSize,
+          scrollback: 5000,
           theme: { background: '#05070a', foreground: '#d1d5db' },
         });
         term.open(termHostRef.current);
-        term.onData(data => {
-          const id = sessionRef.current;
-          if (!id) return;
-          apiCall('/api/terminal/input', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id, data }),
-          }).catch(() => {});
-        });
+        term.onData(data => sendTerminalData(data));
         termRef.current = term;
-        setTermReady(true);
       }
       const data = await apiCall('/api/terminal/start', {
         method: 'POST',
@@ -809,10 +848,11 @@ function TerminalPanel() {
       const id = data.session_id;
       setSessionId(id);
       sessionRef.current = id;
-      setMsg(data.message || 'Web terminal ready.');
+      setMsg('Web terminal ready. Ctrl-C works here; use Stop if a process ignores it.');
       writeTerm(data.output || '');
       stopPolling();
       pollRef.current = setInterval(() => pollTerminal(id), 700);
+      setTimeout(() => { fitTerminal(); termRef.current?.focus?.(); }, 80);
     } catch (e) {
       setMsg(`Web terminal failed: ${e.message}`);
     } finally {
@@ -841,6 +881,19 @@ function TerminalPanel() {
     }
   };
 
+  uE(() => {
+    fontSizeRef.current = fontSize;
+  }, [fontSize]);
+
+  uE(() => {
+    const node = termWrapRef.current;
+    if (!node || !window.ResizeObserver) return;
+    const ro = new ResizeObserver(() => fitTerminal());
+    ro.observe(node);
+    window.addEventListener('resize', fitTerminal);
+    return () => { ro.disconnect(); window.removeEventListener('resize', fitTerminal); };
+  }, []);
+
   uE(() => () => {
     stopPolling();
     const id = sessionRef.current;
@@ -853,6 +906,16 @@ function TerminalPanel() {
     }
     try { termRef.current?.dispose(); } catch {}
   }, []);
+
+  const handleTerminalKeyDown = (e) => {
+    if (!sessionRef.current) return;
+    if (e.ctrlKey && !e.shiftKey && !e.altKey) {
+      const key = e.key.toLowerCase();
+      if (key === 'c') { e.preventDefault(); sendTerminalData('\x03'); return; }
+      if (key === 'd') { e.preventDefault(); sendTerminalData('\x04'); return; }
+      if (key === 'l') { e.preventDefault(); sendTerminalData('\x0c'); return; }
+    }
+  };
 
   const openShell = async () => {
     setBusy(true);
@@ -907,42 +970,39 @@ function TerminalPanel() {
     if (!id || !fallbackInput) return;
     const line = fallbackInput + '\n';
     setFallbackInput('');
-    try {
-      await apiCall('/api/terminal/input', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, data: line }),
-      });
-    } catch (e) {
-      setMsg(`Input failed: ${e.message}`);
-    }
+    await sendTerminalData(line);
   };
 
   return (
-    <div style={{ padding: 14, display: 'flex', flexDirection: 'column', height: '100%', gap: 10 }}>
-      <div className="banner info">
+    <div style={{ padding: 10, display: 'flex', flexDirection: 'column', height: '100%', gap: 8, minHeight: 0 }}>
+      <div className="banner info" style={{ padding: 8 }}>
         <Icon name="terminal" size={14} />
-        <span>Embedded Hostinger terminal runs inside this panel when the dashboard backend is on Linux. Local shell buttons stay as fallback.</span>
+        <span>Embedded Hostinger terminal. Ctrl-C sends interrupt; Stop kills the session if needed.</span>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto auto auto auto', gap: 6, alignItems: 'center' }}>
         <button className="btn primary" onClick={startWebTerminal} disabled={busy || !!sessionId}>
           <Icon name="terminal" size={13} />{sessionId ? 'Web Terminal On' : 'Start Web Terminal'}
         </button>
-        <button className="btn ghost" onClick={openHostinger} disabled={busy}>
-          <Icon name="terminal" size={13} />Hostinger SSH
-        </button>
-        <button className="btn ghost" onClick={stopWebTerminal} disabled={busy || !sessionId} title="Stop web terminal">
-          Stop
-        </button>
+        <button className="btn ghost" onClick={stopWebTerminal} disabled={busy || !sessionId} title="Stop web terminal">Stop</button>
+        <button className="btn ghost" onClick={fitTerminal} title="Fit terminal to window">Fit</button>
+        <button className="btn ghost" onClick={() => setFontSize(fontSize - 1)} title="Smaller font">A-</button>
+        <button className="btn ghost" onClick={() => setFontSize(fontSize + 1)} title="Larger font">A+</button>
+        <div style={{ fontSize: 11, color: 'var(--text-2)', whiteSpace: 'nowrap' }}>{fontSize}px</div>
       </div>
       {msg && <div style={{ fontSize: 11, color: 'var(--text-2)' }}>{msg}</div>}
 
-      <div style={{ minHeight: 190, flex: 1, border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', background: '#05070a' }}>
+      <div
+        ref={termWrapRef}
+        tabIndex={0}
+        onKeyDown={handleTerminalKeyDown}
+        onClick={() => termRef.current?.focus?.()}
+        style={{ minHeight: 280, flex: '1 1 auto', border: '1px solid var(--border)', borderRadius: 6, overflow: 'hidden', background: '#05070a', minWidth: 0 }}
+      >
         <div ref={termHostRef} style={{ height: '100%', width: '100%', display: window.Terminal ? 'block' : 'none' }} />
         {!window.Terminal && (
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <pre style={{ flex: 1, margin: 0, padding: 10, overflow: 'auto', color: '#d1d5db', fontSize: 12, whiteSpace: 'pre-wrap' }}>{fallbackOut || 'xterm.js not loaded. Fallback terminal output will appear here.'}</pre>
+            <pre style={{ flex: 1, margin: 0, padding: 10, overflow: 'auto', color: '#d1d5db', fontSize, whiteSpace: 'pre-wrap' }}>{fallbackOut || 'xterm.js not loaded. Fallback terminal output will appear here.'}</pre>
             <div style={{ display: 'flex', gap: 6, padding: 8, borderTop: '1px solid var(--border)' }}>
               <input className="input" style={{ flex: 1 }} value={fallbackInput} onChange={e => setFallbackInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') sendFallbackInput(); }} placeholder="Command..." />
               <button className="btn ghost sm" onClick={sendFallbackInput}>Send</button>
@@ -951,16 +1011,15 @@ function TerminalPanel() {
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6 }}>
+        <button className="btn ghost" onClick={openHostinger} disabled={busy}><Icon name="terminal" size={13} />Hostinger SSH</button>
         <button className="btn ghost" onClick={openShell} disabled={busy}><Icon name="terminal" size={13} />Local Shell</button>
         <button className="btn ghost" onClick={() => copyCommand(sshCommand, 'Hostinger SSH')}><Icon name="copy" size={12} />Copy SSH</button>
       </div>
 
-      <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 10 }}>
-        <h3 style={{ fontSize: 11, fontWeight: 700, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <Icon name="copy" size={13} />Command Shortcuts
-        </h3>
-        <div style={{ display: 'grid', gap: 6 }}>
+      <details style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 8 }}>
+        <summary style={{ cursor: 'pointer', fontSize: 11, fontWeight: 700, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Command Shortcuts</summary>
+        <div style={{ display: 'grid', gap: 6, marginTop: 8 }}>
           {commands.map(item => (
             <div key={item.label} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 8, alignItems: 'center', padding: 7, border: '1px solid var(--border)', borderRadius: 6, background: 'var(--bg-1)' }}>
               <div style={{ minWidth: 0 }}>
@@ -974,11 +1033,10 @@ function TerminalPanel() {
           ))}
         </div>
         {copied && <div style={{ marginTop: 8, fontSize: 11, color: copied === 'Copy failed' ? 'var(--red)' : 'var(--green)' }}>{copied === 'Copy failed' ? copied : `${copied} copied`}</div>}
-      </div>
+      </details>
     </div>
   );
 }
-
 // ===== DB Browser Panel =====
 const QUICK_QUERIES_DB = [
   { label: 'Open Today',       view: 'trades' },

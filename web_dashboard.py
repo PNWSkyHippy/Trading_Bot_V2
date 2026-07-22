@@ -996,6 +996,24 @@ def _terminal_start(kind: str = "hostinger", username: str = ""):
         return False, {"error": f"Failed to start terminal: {exc}"}
 
 
+def _terminal_resize(session_id: str, cols: int, rows: int, username: str = ""):
+    session = _terminal_get(session_id, username)
+    if not session:
+        return False, {"error": "Terminal session not found."}
+    try:
+        if sys.platform == "win32":
+            return True, {"ok": True}
+        import fcntl
+        import struct
+        import termios
+        cols = max(20, min(240, int(cols or 80)))
+        rows = max(5, min(80, int(rows or 24)))
+        fcntl.ioctl(int(session["fd"]), termios.TIOCSWINSZ, struct.pack("HHHH", rows, cols, 0, 0))
+        session["last_access"] = time.time()
+        return True, {"ok": True, "cols": cols, "rows": rows}
+    except Exception as exc:
+        return False, {"error": f"Terminal resize failed: {exc}"}
+
 def _terminal_input(session_id: str, data: str, username: str = ""):
     session = _terminal_get(session_id, username)
     if not session:
@@ -5220,6 +5238,12 @@ class Handler(BaseHTTPRequestHandler):
             if not _is_admin(self._current_user()):
                 return self._json(403, {"error": "Admin only"})
             ok, payload = _terminal_input(str(data.get("id") or ""), str(data.get("data") or ""), self._current_user())
+            return self._json(200 if ok else 404, {"ok": ok, **payload})
+
+        if path == "/api/terminal/resize":
+            if not _is_admin(self._current_user()):
+                return self._json(403, {"error": "Admin only"})
+            ok, payload = _terminal_resize(str(data.get("id") or ""), int(data.get("cols") or 80), int(data.get("rows") or 24), self._current_user())
             return self._json(200 if ok else 404, {"ok": ok, **payload})
 
         if path == "/api/terminal/stop":
