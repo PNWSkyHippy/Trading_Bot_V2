@@ -45,12 +45,24 @@ DB_PATH = Path(os.environ.get("WEB_DASHBOARD_DB_PATH", str(_default_db_path)))
 BOT_SCRIPT = ROOT / "bot_engine.py"
 BOT_PYTHON = ROOT / "venv312" / "Scripts" / "python.exe"
 WEB_DASHBOARD_PORT = 8125
+HOSTINGER_SSH_TARGET = os.environ.get("HOSTINGER_SSH_TARGET", "ronh@187.127.248.52")
+MAX_POST_BYTES = int(os.environ.get("WEB_DASHBOARD_MAX_POST_BYTES", "1048576"))
+TERMINAL_IDLE_SECONDS = int(os.environ.get("WEB_TERMINAL_IDLE_SECONDS", "900"))
+TERMINAL_MAX_INPUT_BYTES = int(os.environ.get("WEB_TERMINAL_MAX_INPUT_BYTES", "8192"))
+RECOVERY_TOKEN_MAX_CHARS = int(os.environ.get("WEB_RECOVERY_TOKEN_MAX_CHARS", "128"))
+PASSWORD_MAX_CHARS = int(os.environ.get("WEB_PASSWORD_MAX_CHARS", "256"))
 
 risk_manager = None
 db = None
 monitor = None
 _close_lock = threading.Lock()
 _close_requests = {}
+_terminal_sessions = {}
+_terminal_lock = threading.Lock()
+_login_failures = {}
+_login_lock = threading.Lock()
+_recovery_failures = {}
+_recovery_lock = threading.Lock()
 
 try:
     from data.database import db as _db
@@ -343,6 +355,58 @@ def _auth_check(username: str, password: str) -> bool:
     return ok
 
 
+
+def _login_throttle_key(username: str, ip: str) -> str:
+    return f"{str(ip or 'unknown')}:{str(username or '').lower()}"
+
+
+def _login_retry_after(username: str, ip: str) -> int:
+    """Return seconds to wait when repeated login failures trip the throttle."""
+    now = time.time()
+    key = _login_throttle_key(username, ip)
+    with _login_lock:
+        failures = [t for t in _login_failures.get(key, []) if now - t < 300]
+        _login_failures[key] = failures
+        if len(failures) < 5:
+            return 0
+        oldest = min(failures)
+        return max(1, int(300 - (now - oldest)))
+
+
+def _record_login_attempt(username: str, ip: str, ok: bool) -> None:
+    key = _login_throttle_key(username, ip)
+    now = time.time()
+    with _login_lock:
+        if ok:
+            _login_failures.pop(key, None)
+            return
+        failures = [t for t in _login_failures.get(key, []) if now - t < 300]
+        failures.append(now)
+        _login_failures[key] = failures[-10:]
+
+def _recovery_retry_after(ip: str) -> int:
+    """Return seconds to wait when repeated recovery failures trip the throttle."""
+    now = time.time()
+    key = str(ip or "unknown")
+    with _recovery_lock:
+        failures = [t for t in _recovery_failures.get(key, []) if now - t < 900]
+        _recovery_failures[key] = failures
+        if len(failures) < 5:
+            return 0
+        oldest = min(failures)
+        return max(1, int(900 - (now - oldest)))
+
+
+def _record_recovery_attempt(ip: str, ok: bool) -> None:
+    key = str(ip or "unknown")
+    now = time.time()
+    with _recovery_lock:
+        if ok:
+            _recovery_failures.pop(key, None)
+            return
+        failures = [t for t in _recovery_failures.get(key, []) if now - t < 900]
+        failures.append(now)
+        _recovery_failures[key] = failures[-10:]
 def _is_admin(username: str) -> bool:
     users = _load_users()
     return users.get(username, {}).get("role") == "admin"
@@ -746,7 +810,7 @@ def start_bot_process():
 
 
 def open_project_terminal():
-    """Open an interactive PowerShell rooted in the trading bot workspace."""
+    """Open an interactive local shell rooted in the trading bot workspace."""
     try:
         if sys.platform == "win32":
             CREATE_NEW_CONSOLE = 0x00000010
@@ -773,13 +837,202 @@ def open_project_terminal():
             )
             return True, "PowerShell opened in the trading bot workspace."
 
-        shell = os.environ.get("SHELL", "/bin/sh")
-        subprocess.Popen([shell], cwd=str(ROOT))
-        return True, "Shell opened in the trading bot workspace."
+        return True, f"Server is {sys.platform}; use SSH from your PC for an interactive shell."
     except Exception as exc:
-        return False, f"Failed to open PowerShell: {exc}"
+        return False, f"Failed to open terminal: {exc}"
 
 
+def open_hostinger_terminal():
+    """Open a Windows PowerShell SSH session to Hostinger when possible."""
+    command = f"ssh {HOSTINGER_SSH_TARGET}"
+    try:
+        if sys.platform == "win32":
+            CREATE_NEW_CONSOLE = 0x00000010
+            ps_command = (
+                "$Host.UI.RawUI.WindowTitle = 'Hostinger SSH'; "
+                "Write-Host 'Opening Hostinger SSH...' -ForegroundColor Cyan; "
+                f"{command}"
+            )
+            subprocess.Popen(
+                [
+                    "powershell.exe",
+                    "-ExecutionPolicy",
+                    "Bypass",
+                    "-NoExit",
+                    "-Command",
+                    ps_command,
+                ],
+                cwd=str(ROOT),
+                creationflags=CREATE_NEW_CONSOLE,
+            )
+            return True, f"PowerShell SSH opened: {command}", command
+        return True, f"Dashboard is running on {sys.platform}; copy this on your PC: {command}", command
+    except Exception as exc:
+        return False, f"Failed to open Hostinger SSH: {exc}", command
+
+def _terminal_enabled() -> bool:
+    return str(os.environ.get("WEB_TERMINAL_ENABLED", "true")).strip().lower() not in {
+        "0", "false", "no", "off", "disabled"
+    }
+
+
+def _terminal_close_session(session: dict) -> None:
+    if not session:
+        return
+    try:
+        proc = session.get("proc")
+        if proc and proc.poll() is None:
+            proc.terminate()
+    except Exception:
+        pass
+    try:
+        os.close(int(session.get("fd")))
+    except Exception:
+        pass
+
+
+def _terminal_prune_locked() -> None:
+    now = time.time()
+    stale_ids = []
+    for session_id, session in list(_terminal_sessions.items()):
+        proc = session.get("proc")
+        idle = now - float(session.get("last_access", now))
+        if idle > TERMINAL_IDLE_SECONDS or (proc and proc.poll() is not None):
+            stale_ids.append(session_id)
+    for session_id in stale_ids:
+        session = _terminal_sessions.pop(session_id, None)
+        _terminal_close_session(session)
+
+
+def _terminal_get(session_id: str, username: str | None = None):
+    with _terminal_lock:
+        _terminal_prune_locked()
+        session = _terminal_sessions.get(str(session_id or ""))
+        if not session:
+            return None
+        if username is not None and session.get("owner") != username:
+            return None
+        return session
+
+
+def _terminal_read(session: dict) -> str:
+    if not session:
+        return ""
+    if sys.platform == "win32":
+        return ""
+    try:
+        import errno
+        import select
+        output = []
+        fd = int(session["fd"])
+        while True:
+            ready, _, _ = select.select([fd], [], [], 0)
+            if not ready:
+                break
+            try:
+                chunk = os.read(fd, 65536)
+            except OSError as exc:
+                if exc.errno in (errno.EIO, errno.EAGAIN):
+                    break
+                raise
+            if not chunk:
+                break
+            output.append(chunk.decode("utf-8", errors="replace"))
+        session["last_access"] = time.time()
+        return "".join(output)
+    except Exception as exc:
+        return f"\r\n[terminal read error: {exc}]\r\n"
+
+
+def _terminal_start(kind: str = "hostinger", username: str = ""):
+    if not _terminal_enabled():
+        return False, {"error": "Web terminal disabled by WEB_TERMINAL_ENABLED"}
+    if sys.platform == "win32":
+        return False, {
+            "error": "Embedded PTY terminal is available on Linux/Hostinger only. Use Hostinger SSH button on Windows.",
+            "command": f"ssh {HOSTINGER_SSH_TARGET}",
+        }
+    try:
+        import fcntl
+        import pty
+        owner = str(username or "")
+        with _terminal_lock:
+            _terminal_prune_locked()
+            existing = [sid for sid, s in _terminal_sessions.items() if s.get("owner") == owner]
+            if existing:
+                return False, {"error": "A web terminal is already open for this user. Stop it first."}
+            if len(_terminal_sessions) >= 3:
+                return False, {"error": "Too many web terminal sessions are already open."}
+
+        master_fd, slave_fd = pty.openpty()
+        flags = fcntl.fcntl(master_fd, fcntl.F_GETFL)
+        fcntl.fcntl(master_fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
+        shell = os.environ.get("SHELL", "/bin/bash") or "/bin/bash"
+        command = f"cd {str(ROOT)!r}; exec {shell} -l"
+        proc = subprocess.Popen(
+            ["/bin/bash", "-lc", command],
+            stdin=slave_fd,
+            stdout=slave_fd,
+            stderr=slave_fd,
+            cwd=str(ROOT),
+            close_fds=True,
+            env={**os.environ, "TERM": "xterm-256color"},
+        )
+        os.close(slave_fd)
+        session_id = secrets.token_urlsafe(32)
+        with _terminal_lock:
+            _terminal_sessions[session_id] = {
+                "id": session_id,
+                "fd": master_fd,
+                "proc": proc,
+                "created": time.time(),
+                "last_access": time.time(),
+                "kind": str(kind or "hostinger")[:32],
+                "owner": owner,
+            }
+            session = _terminal_sessions[session_id]
+        return True, {"session_id": session_id, "message": "Web terminal started.", "output": _terminal_read(session)}
+    except Exception as exc:
+        return False, {"error": f"Failed to start terminal: {exc}"}
+
+
+def _terminal_input(session_id: str, data: str, username: str = ""):
+    session = _terminal_get(session_id, username)
+    if not session:
+        return False, {"error": "Terminal session not found."}
+    try:
+        raw = str(data or "").encode("utf-8", errors="replace")
+        if len(raw) > TERMINAL_MAX_INPUT_BYTES:
+            return False, {"error": "Terminal input chunk too large."}
+        os.write(int(session["fd"]), raw)
+        session["last_access"] = time.time()
+        return True, {"ok": True}
+    except Exception as exc:
+        return False, {"error": f"Terminal input failed: {exc}"}
+
+
+def _terminal_poll(session_id: str, username: str = ""):
+    session = _terminal_get(session_id, username)
+    if not session:
+        return False, {"error": "Terminal session not found.", "closed": True}
+    proc = session["proc"]
+    output = _terminal_read(session)
+    closed = proc.poll() is not None
+    if closed:
+        with _terminal_lock:
+            session = _terminal_sessions.pop(session_id, None)
+        _terminal_close_session(session)
+    return True, {"output": output, "closed": closed}
+
+
+def _terminal_stop(session_id: str, username: str = ""):
+    session = _terminal_get(session_id, username)
+    if not session:
+        return True, {"ok": True, "message": "Terminal already closed."}
+    with _terminal_lock:
+        session = _terminal_sessions.pop(session_id, None)
+    _terminal_close_session(session)
+    return True, {"ok": True, "message": "Terminal closed."}
 def stop_bot_process():
     """Stop bot_engine.py process(es)."""
     try:
@@ -3567,6 +3820,10 @@ _QUICK_SQL = {
         SELECT 'scanner', 'volume_surge',
                COALESCE((SELECT value FROM bot_state WHERE key='scanner_volume_surge_enabled'),'true'),
                'scanner_volume_surge_enabled'
+        UNION ALL
+        SELECT 'scanner', 'emt',
+               COALESCE((SELECT value FROM bot_state WHERE key='scanner_emt_enabled'),'true'),
+               'scanner_emt_enabled'
     ) ORDER BY kind,name""",
     "Daily P&L":       """SELECT trade_date,daily_pnl,daily_pnl_pct,total_trades,winning_trades,losing_trades,win_rate,largest_win,largest_loss,starting_capital,ending_capital FROM daily_summaries ORDER BY trade_date DESC LIMIT 60""",
     "Yesterday Closed":"""SELECT rowid,trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','-1 day','localtime') ORDER BY exit_time DESC""",
@@ -3995,9 +4252,15 @@ def load_entry_html(prefer_modular=True):
 
 class Handler(BaseHTTPRequestHandler):
     def _cors_headers(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
+        origin = self.headers.get("Origin", "")
+        if origin:
+            parsed = urlparse(origin)
+            host = self.headers.get("Host", "")
+            if parsed.netloc == host:
+                self.send_header("Access-Control-Allow-Origin", origin)
+                self.send_header("Vary", "Origin")
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, X-Requested-With")
 
     # ── Auth helpers ──────────────────────────────────────────────────────────
 
@@ -4116,6 +4379,13 @@ class Handler(BaseHTTPRequestHandler):
         if not self._authed() and not _static:
                 return self._redirect(f"/login?next={quote(self.path, safe='/?=&')}")
         # ── End auth gate ─────────────────────────────────────────────────────
+
+        if path == "/api/terminal/poll":
+            if not _is_admin(self._current_user()):
+                return self._json(403, {"error": "Admin only"})
+            params = parse_qs(parsed.query)
+            ok, payload = _terminal_poll((params.get("id") or [""])[0], self._current_user())
+            return self._json(200 if ok else 404, {"ok": ok, **payload})
 
         if path == "/api/snapshot":
             return self._json(200, build_snapshot())
@@ -4437,9 +4707,17 @@ class Handler(BaseHTTPRequestHandler):
         parsed = urlparse(self.path)
         path = parsed.path
 
-        length = int(self.headers.get("Content-Length", "0"))
-        body_raw = self.rfile.read(length).decode("utf-8") if length else "{}"
-        data = json.loads(body_raw or "{}")
+        try:
+            length = int(self.headers.get("Content-Length", "0"))
+        except ValueError:
+            return self._json(400, {"error": "Invalid Content-Length"})
+        if length > MAX_POST_BYTES:
+            return self._json(413, {"error": "Request body too large"})
+        try:
+            body_raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+            data = json.loads(body_raw or "{}")
+        except json.JSONDecodeError:
+            return self._json(400, {"error": "Invalid JSON"})
 
         global _tradovate_feed, _tradovate_available
 
@@ -4614,9 +4892,15 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/auth/login":
             username = data.get("username", "").strip()
             password = data.get("password", "")
+            ip = self.client_address[0] if self.client_address else "unknown"
             if _needs_setup():
                 return self._json(403, {"ok": False, "message": "Complete first-time setup first."})
-            if _auth_check(username, password):
+            retry_after = _login_retry_after(username, ip)
+            if retry_after:
+                return self._json(429, {"ok": False, "message": f"Too many login attempts. Try again in {retry_after}s."})
+            ok_login = _auth_check(username, password)
+            _record_login_attempt(username, ip, ok_login)
+            if ok_login:
                 token = _new_session(username)
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
@@ -4633,10 +4917,21 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/auth/recover":
             tok_in   = data.get("token", "").strip()
             password = data.get("password", "")
-            if not secrets.compare_digest(tok_in, _RECOVERY_TOKEN):
+            ip = self.client_address[0] if self.client_address else "unknown"
+            retry_after = _recovery_retry_after(ip)
+            if retry_after:
+                return self._json(429, {"ok": False, "message": f"Too many recovery attempts. Try again in {retry_after}s."})
+            if not tok_in or len(tok_in) > RECOVERY_TOKEN_MAX_CHARS:
+                _record_recovery_attempt(ip, False)
                 return self._json(401, {"ok": False, "message": "Invalid or expired recovery token."})
             if len(password) < 8:
                 return self._json(400, {"ok": False, "message": "Password must be at least 8 characters."})
+            if len(password) > PASSWORD_MAX_CHARS:
+                return self._json(400, {"ok": False, "message": "Password is too long."})
+            recovery_ok = secrets.compare_digest(tok_in, _RECOVERY_TOKEN)
+            _record_recovery_attempt(ip, recovery_ok)
+            if not recovery_ok:
+                return self._json(401, {"ok": False, "message": "Invalid or expired recovery token."})
             users = _load_users()
             if not users:
                 users = {}
@@ -4915,6 +5210,24 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(401, {"error": "Unauthorized"})
         # ── End auth gate ─────────────────────────────────────────────────────
 
+        if path == "/api/terminal/start":
+            if not _is_admin(self._current_user()):
+                return self._json(403, {"error": "Admin only"})
+            ok, payload = _terminal_start(str(data.get("kind") or "hostinger"), self._current_user())
+            return self._json(200 if ok else 400, {"ok": ok, **payload})
+
+        if path == "/api/terminal/input":
+            if not _is_admin(self._current_user()):
+                return self._json(403, {"error": "Admin only"})
+            ok, payload = _terminal_input(str(data.get("id") or ""), str(data.get("data") or ""), self._current_user())
+            return self._json(200 if ok else 404, {"ok": ok, **payload})
+
+        if path == "/api/terminal/stop":
+            if not _is_admin(self._current_user()):
+                return self._json(403, {"error": "Admin only"})
+            ok, payload = _terminal_stop(str(data.get("id") or ""), self._current_user())
+            return self._json(200 if ok else 404, {"ok": ok, **payload})
+
         if path == "/api/trades/manual":
             ok, msg, details = open_manual_trade(data)
             return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
@@ -5156,8 +5469,18 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(200, {"ok": True, "message": "Scan refresh request received."})
 
         if action == "open_terminal":
+            if not _is_admin(self._current_user()):
+                return self._json(403, {"error": "Admin only"})
             ok, msg = open_project_terminal()
-            return self._json(200 if ok else 400, {"ok": ok, "message": msg})
+            return self._json(200 if ok else 400, {"ok": ok, "message": msg, "platform": sys.platform})
+
+        if action == "open_hostinger_terminal":
+            if not _is_admin(self._current_user()):
+                return self._json(403, {"error": "Admin only"})
+            ok, msg, command = open_hostinger_terminal()
+            return self._json(200 if ok else 400, {
+                "ok": ok, "message": msg, "command": command, "platform": sys.platform
+            })
 
         if action == "close_position":
             position_id = data.get("position_id")
