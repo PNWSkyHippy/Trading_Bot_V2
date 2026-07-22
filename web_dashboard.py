@@ -2699,9 +2699,11 @@ def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
         # feed the EMT strategy is evaluating, not a slower external fallback.
         if symbol == "ES" and broker not in ("ibkr", "yfinance"):
             ninja_bars = _scanner_bars_for_chart(symbol, timeframe, limit)
-            if ninja_bars:
+            min_emt_bars = int(os.environ.get("WEB_DASHBOARD_MIN_EMT_CHART_BARS", "20"))
+            if len(ninja_bars) >= min_emt_bars:
                 return {"bars": ninja_bars, "markers": [], "open_positions": [],
-                        "symbol": symbol, "timeframe": timeframe, "source": "ninja_emt_cache"}
+                        "symbol": symbol, "timeframe": timeframe, "source": "ninja_emt_cache",
+                        "feed_label": "EMT 610-tick"}
 
         # Try Tradovate WebSocket cache first (real-time, ~0 delay).
         # Always attempted unless user explicitly chose ibkr or yfinance in the toolbar.
