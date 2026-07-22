@@ -1,0 +1,20 @@
+[Unit]
+Description=EMT NinjaTrader signal receiver and Tradovate executor
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ronh
+Group=ronh
+WorkingDirectory=/opt/trading_bot_v2
+EnvironmentFile=/opt/trading_bot_v2/.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/trading_bot_v2/venv312/bin/python /opt/trading_bot_v2/ninjatrader_bridge/ninja_futures_scanner.py
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
