@@ -371,6 +371,10 @@ def make_handler(state):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=os.path.join(ROOT, "ninja_futures_config.json"))
+    parser.add_argument(
+        "--no-dashboard", action="store_true",
+        help="run only the HTTP receiver (recommended for systemd)",
+    )
     args = parser.parse_args()
     config = load_config(args.config)
     if os.name == "nt":
@@ -381,6 +385,19 @@ def main():
         print("WARNING: NINJA_BRIDGE_SECRET should be a 32+ character random value.")
     state = MarketState(config)
     server = ThreadingHTTPServer((config["listen_host"], int(config["listen_port"])), make_handler(state))
+    if args.no_dashboard:
+        print(
+            f"EMT receiver listening on {config['listen_host']}:{config['listen_port']} "
+            f"in {state.emt.snapshot()['execution_mode'].upper()} mode",
+            flush=True,
+        )
+        try:
+            server.serve_forever()
+        except KeyboardInterrupt:
+            pass
+        finally:
+            server.server_close()
+        return
     threading.Thread(target=server.serve_forever, name="ninja-receiver", daemon=True).start()
     try:
         dashboard(state)
