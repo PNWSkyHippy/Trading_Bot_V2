@@ -54,6 +54,7 @@ class MarketState:
         self.assessment_lock = threading.Lock()
         self.assessment_rows = None
         self.assessment_created_at = 0.0
+        self.last_emt_status_log = 0.0
         emt_settings = dict(config.get("emt", {}))
         execution_mode = os.getenv("EMT_EXECUTION_MODE", "paper").strip().lower()
         if execution_mode not in ("paper", "live"):
@@ -96,11 +97,27 @@ class MarketState:
     def add_emt(self, bar):
         if str(bar.get("bar_type", "")).lower() != "tick":
             raise ValueError("EMT accepts tick bars only")
-        self.emt.on_tick_bar(
+        events = self.emt.on_tick_bar(
             bar,
             complete=bool(bar.get("complete", False)),
             historical=bool(bar.get("historical", False)),
         )
+        now = time.time()
+        for event in events:
+            print(
+                f"EMT EVENT · {event.kind} · {event.direction or ''} · "
+                f"{event.price:.2f} · {event.message}",
+                flush=True,
+            )
+        if now - self.last_emt_status_log >= 30:
+            snap = self.emt.snapshot()
+            print(
+                f"EMT STATUS · {snap.get('phase')} · "
+                f"{snap.get('status_message')} · tick bars {snap.get('tick_bars')} · "
+                f"trades {snap.get('trades_this_session')}",
+                flush=True,
+            )
+            self.last_emt_status_log = now
 
     def snapshot(self):
         with self.lock:
@@ -326,6 +343,10 @@ def make_handler(state):
             }
             if self.path == "/snapshot":
                 body["contracts"] = current_assessments(state)
+                bars, received = state.snapshot()
+                body["bars"] = bars
+                body["last_received"] = {k: round(time.time() - v, 1) for k, v in received.items()}
+                body["emt_overlay"] = state.emt.chart_overlay()
                 body["generated_at"] = datetime.now(timezone.utc).isoformat()
             else:
                 body["symbols"] = list(state.bars)

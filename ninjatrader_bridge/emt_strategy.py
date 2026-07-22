@@ -109,11 +109,35 @@ def _ema_last(values: Iterable[float], period: int) -> Optional[float]:
     return result
 
 
+def _sma_last(values: Iterable[float], period: int) -> Optional[float]:
+    values = list(values)
+    if len(values) < period:
+        return None
+    return sum(float(value) for value in values[-period:]) / float(period)
+
+
+def _true_ranges(bars: Iterable[dict]) -> List[float]:
+    result: List[float] = []
+    previous_close: Optional[float] = None
+    for bar in bars:
+        high = float(bar["high"])
+        low = float(bar["low"])
+        if previous_close is None:
+            tr = high - low
+        else:
+            tr = max(
+                high - low,
+                abs(high - previous_close),
+                abs(low - previous_close),
+            )
+        result.append(tr)
+        previous_close = float(bar["close"])
+    return result
 class EMTStrategyEngine:
     """Stateful EMT evaluator for one configured futures contract."""
 
     def __init__(self, settings: dict, contract: dict, root_dir: str,
-                 executor=None):
+                 executor=None, db_mirror=None):
         self.settings = dict(settings or {})
         self.contract = dict(contract or {})
         self.root_dir = root_dir
@@ -139,10 +163,15 @@ class EMTStrategyEngine:
         self.tick_value = _finite_number(self.contract.get("tick_value", 12.50))
         self.point_value = self.tick_value / self.tick_size
         self.ema_period = int(self.settings.get("keltner_ema_period", 20))
+        self.atr_period = int(self.settings.get("keltner_atr_period", 10))
+        self.atr_mult = _finite_number(self.settings.get("keltner_atr_multiplier", 1.5))
         self.quantity = int(self.settings.get("contracts", 1))
         self.stop_points = _finite_number(self.settings.get("stop_points", 2.0))
         self.target_points = _finite_number(self.settings.get("target_points", 2.0))
         self.max_trades = int(self.settings.get("max_trades_per_session", 12))
+        self.db_timezone = ZoneInfo(str(
+            self.settings.get("db_timezone", "America/Los_Angeles")
+        ))
         self.retrace_tolerance = (
             int(self.settings.get("retrace_tolerance_ticks", 1)) * self.tick_size
         )
@@ -170,6 +199,9 @@ class EMTStrategyEngine:
             str(self.settings.get("ledger_path")
                 or self.settings.get("paper_ledger_path", "emt_trades.jsonl")),
         )
+        self.mirror_to_bot_db = bool(self.settings.get("mirror_to_bot_db", False))
+        self.control_state_key = str(self.settings.get("control_state_key") or "").strip()
+        self.db_mirror = db_mirror
 
         if self.quantity < 1 or self.ema_period < 2:
             raise ValueError("contracts must be >= 1 and keltner_ema_period >= 2")
@@ -186,6 +218,14 @@ class EMTStrategyEngine:
         self._event_counter = 0
         self._last_broker_check = 0.0
         self.last_execution_error: Optional[str] = None
+        if self.mirror_to_bot_db and self.db_mirror is None:
+            try:
+                from data.database import db as bot_db
+                self.db_mirror = bot_db
+            except Exception as exc:
+                self.last_execution_error = (
+                    f"DB mirror unavailable: {type(exc).__name__}: {exc}"
+                )
         self._reset_session(None)
 
     @staticmethod
@@ -230,13 +270,117 @@ class EMTStrategyEngine:
         )
         self.events.append(event)
 
+    def _status_message(self, stamp_et: Optional[datetime] = None) -> str:
+        stamp_et = stamp_et or datetime.now(self.market_tz)
+        start, range_end, trade_end = self._session_times(stamp_et)
+        phase_text = {
+            "BUILDING_RANGE": "Building opening range",
+            "WARMING": "Warming Keltner data",
+            "WAIT_BREAKOUT": "Waiting for breakout",
+            "WAIT_RETRACE": "Breakout seen; waiting for retracement",
+            "RETRACE_TOUCHED": "Retracement touched; waiting for confirmation",
+            "IN_TRADE": "Trade active",
+            "SESSION_DONE": "Trade window complete",
+            "EXECUTION_HALTED": "Execution halted",
+        }.get(self.phase, self.phase)
+        bits = [phase_text]
+        if self.opening_low is not None and self.opening_high is not None:
+            bits.append(f"OR {self.opening_low:.2f}-{self.opening_high:.2f}")
+        else:
+            bits.append(f"OR window {start.strftime('%H:%M')}-{range_end.strftime('%H:%M')} ET")
+        if self.support_level is not None or self.resistance_level is not None:
+            bits.append(f"S/R {self.support_level if self.support_level is not None else '--'}/{self.resistance_level if self.resistance_level is not None else '--'}")
+        if self.direction:
+            bits.append(f"bias {self.direction.upper()}")
+        bits.append(f"trades {self.trades_this_session}/{self.max_trades}")
+        bits.append(f"ends {trade_end.strftime('%H:%M')} ET")
+        return " | ".join(str(x) for x in bits)
+
+    def _state_signature(self) -> tuple:
+        return (
+            self.phase,
+            self.direction,
+            None if self.opening_high is None else round(float(self.opening_high), 2),
+            None if self.opening_low is None else round(float(self.opening_low), 2),
+            None if self.support_level is None else round(float(self.support_level), 2),
+            None if self.resistance_level is None else round(float(self.resistance_level), 2),
+            None if self.active_trade is None else self.active_trade.trade_id,
+            self.trades_this_session,
+        )
+
+    def _emit_if_state_changed(self, stamp: datetime, old_signature: tuple, price: float = 0.0) -> None:
+        if self._state_signature() == old_signature:
+            return
+        kind = "STATUS"
+        if self.phase == "WAIT_BREAKOUT":
+            kind = "WAIT_BREAKOUT"
+        elif self.phase == "WAIT_RETRACE":
+            kind = "WAIT_RETRACE"
+        elif self.phase == "RETRACE_TOUCHED":
+            kind = "WAIT_CONFIRMATION"
+        elif self.phase == "BUILDING_RANGE":
+            kind = "BUILDING_RANGE"
+        elif self.phase == "IN_TRADE":
+            kind = "IN_TRADE"
+        elif self.phase == "SESSION_DONE":
+            kind = "SESSION_DONE"
+        self._emit(stamp, 1, kind, self.direction or "", float(price or self.last_live_price or 0.0), self._status_message(stamp.astimezone(self.market_tz)))
+
+    def _keltner_points(self, limit: int = 400) -> dict:
+        bars = list(self.tick_bars)[-limit:]
+        closes = [float(b["close"]) for b in bars]
+        trs = _true_ranges(bars)
+        mid, upper, lower = [], [], []
+        for idx, bar in enumerate(bars):
+            t = int(_parse_timestamp(bar["time"], self.source_timezone).timestamp())
+            m = _ema_last(closes[:idx + 1], self.ema_period)
+            a = _sma_last(trs[:idx + 1], self.atr_period)
+            if m is None or a is None:
+                continue
+            band = a * self.atr_mult
+            mid.append({"time": t, "value": round(m, 6)})
+            upper.append({"time": t, "value": round(m + band, 6)})
+            lower.append({"time": t, "value": round(m - band, 6)})
+        return {"mid": mid, "upper": upper, "lower": lower}
+
+    def chart_overlay(self) -> dict:
+        with self.lock:
+            bars = []
+            for bar in list(self.tick_bars)[-600:]:
+                try:
+                    bars.append({
+                        "time": int(_parse_timestamp(bar["time"], self.source_timezone).timestamp()),
+                        "open": float(bar["open"]),
+                        "high": float(bar["high"]),
+                        "low": float(bar["low"]),
+                        "close": float(bar["close"]),
+                        "volume": float(bar.get("volume", 0) or 0),
+                    })
+                except Exception:
+                    continue
+            return {
+                "status_message": self._status_message(),
+                "phase": self.phase,
+                "direction": self.direction,
+                "support_level": self.support_level,
+                "resistance_level": self.resistance_level,
+                "opening_high": self.opening_high,
+                "opening_low": self.opening_low,
+                "breakout_extreme": self.breakout_extreme,
+                "last_live_price": self.last_live_price,
+                "keltner": self._keltner_points(),
+                "tick_bars_data": bars,
+                "events": [asdict(event) for event in list(self.events)[-30:]],
+            }
     def on_minute_bar(self, raw_bar: dict, historical: bool = False) -> None:
+        self._refresh_runtime_enabled()
         if not self.enabled:
             return
         bar = _clean_bar(raw_bar, self.source_timezone)
         stamp_et = bar["dt"].astimezone(self.market_tz)
         with self.lock:
             self._ensure_session(stamp_et)
+            old_signature = self._state_signature()
             self._upsert(self.minute_bars, bar)
             start, range_end, _ = self._session_times(stamp_et)
             if start <= stamp_et < range_end:
@@ -255,6 +399,8 @@ class EMTStrategyEngine:
                 if self.phase == "BUILDING_RANGE":
                     self.phase = "WAIT_BREAKOUT"
 
+            self._emit_if_state_changed(bar["dt"], old_signature, bar["close"])
+
     @staticmethod
     def _upsert(values: Deque[dict], bar: dict) -> None:
         rows = {item["time"]: item for item in values}
@@ -265,7 +411,8 @@ class EMTStrategyEngine:
 
     def on_tick_bar(self, raw_bar: dict, complete: bool,
                     historical: bool = False) -> List[EMTEvent]:
-        if not self.enabled:
+        self._refresh_runtime_enabled()
+        if not self.enabled and self.active_trade is None:
             return []
         bar = _clean_bar(raw_bar, self.source_timezone)
         root_symbol = str(raw_bar.get("symbol", "")).split()[0].upper()
@@ -283,10 +430,12 @@ class EMTStrategyEngine:
                 self.last_tick_received = datetime.now(timezone.utc).timestamp()
                 return []
             self._ensure_session(stamp_et)
+            old_signature = self._state_signature()
             if complete:
                 self._upsert(self.tick_bars, bar)
             self.last_tick_received = datetime.now(timezone.utc).timestamp()
             self._evaluate(bar, stamp_et, complete)
+            self._emit_if_state_changed(bar["dt"], old_signature, bar["close"])
             return list(self.events)[before:]
 
     def _midline(self, current_close: float, complete: bool) -> Optional[float]:
@@ -517,6 +666,7 @@ class EMTStrategyEngine:
         self.trades_this_session += 1
         self.phase = "IN_TRADE"
         self._write_ledger("OPEN", trade)
+        self._mirror_open_trade(trade)
         self._emit(
             stamp_et.astimezone(timezone.utc), 3,
             "PAPER_ENTRY" if self.paper_only else "LIVE_ENTRY",
@@ -572,6 +722,7 @@ class EMTStrategyEngine:
         trade.pnl = None  # Exact broker fill and fees are not inferred.
         self.closed_trades.append(trade)
         self._write_ledger("CLOSE", trade)
+        self._mirror_close_trade(trade)
         self._emit(
             stamp_et.astimezone(timezone.utc), 0, "LIVE_EXIT",
             trade.direction, observed_price,
@@ -620,6 +771,7 @@ class EMTStrategyEngine:
         trade.pnl = round(points * self.point_value * trade.quantity, 2)
         self.closed_trades.append(trade)
         self._write_ledger("CLOSE", trade)
+        self._mirror_close_trade(trade)
         self._emit(
             stamp_et.astimezone(timezone.utc), 0, "PAPER_EXIT", trade.direction, price,
             f"PAPER EXIT {reason} | P&L ${trade.pnl:.2f}",
@@ -634,6 +786,19 @@ class EMTStrategyEngine:
         self.retrace_seen = False
         self.retrace_touched = False
 
+    def _refresh_runtime_enabled(self) -> None:
+        if not self.control_state_key or self.db_mirror is None:
+            return
+        try:
+            raw = self.db_mirror.get_state(self.control_state_key, default=self.enabled)
+            self.enabled = str(raw).strip().lower() not in {
+                "0", "false", "no", "off", "disabled"
+            }
+        except Exception as exc:
+            self.last_execution_error = (
+                f"DB control read failed: {type(exc).__name__}: {exc}"
+            )
+
     def _write_ledger(self, action: str, trade: PaperTrade) -> None:
         directory = os.path.dirname(self.ledger_path)
         if directory:
@@ -641,6 +806,97 @@ class EMTStrategyEngine:
         record = {"action": action, **asdict(trade)}
         with open(self.ledger_path, "a", encoding="utf-8") as handle:
             handle.write(json.dumps(record, sort_keys=True) + "\n")
+
+    def _db_time(self, value: Optional[str]) -> Optional[str]:
+        if not value:
+            return None
+        stamp = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if stamp.tzinfo is None:
+            stamp = stamp.replace(tzinfo=timezone.utc)
+        return stamp.astimezone(self.db_timezone).replace(tzinfo=None).isoformat()
+
+    def _db_position_value(self, trade: PaperTrade) -> float:
+        mode = str(self.settings.get("db_position_value_mode", "risk")).lower()
+        if mode == "notional":
+            return round(trade.entry_price * self.point_value * trade.quantity, 2)
+        return round(self.stop_points * self.point_value * trade.quantity, 2)
+
+    def _db_payload(self, trade: PaperTrade) -> dict:
+        position_value = self._db_position_value(trade)
+        notional_value = round(trade.entry_price * self.point_value * trade.quantity, 2)
+        indicators = {
+            "strategy_name": "emt",
+            "signal_source": "emt",
+            "root_symbol": self.symbol,
+            "broker_symbol": self.broker_symbol,
+            "execution_mode": trade.execution_mode,
+            "entry_bar_time": trade.entry_bar_time,
+            "tick_size": self.tick_size,
+            "tick_value": self.tick_value,
+            "point_value": self.point_value,
+            "stop_points": self.stop_points,
+            "target_points": self.target_points,
+            "notional_value": notional_value,
+            "position_value_mode": str(
+                self.settings.get("db_position_value_mode", "risk")
+            ).lower(),
+        }
+        return {
+            "trade_id": trade.trade_id,
+            "symbol": self.broker_symbol,
+            "asset_class": "future",
+            "direction": trade.direction,
+            "entry_time": self._db_time(trade.entry_time),
+            "entry_price": trade.entry_price,
+            "quantity": trade.quantity,
+            "position_value": position_value,
+            "stop_loss": trade.stop_price,
+            "take_profit": trade.target_price,
+            "signal_score": 1.0,
+            "indicators": indicators,
+            "broker": "paper_emt" if trade.execution_mode == "paper" else "tradovate",
+            "broker_order_id": (
+                str(trade.broker_strategy_id)
+                if trade.broker_strategy_id is not None else None
+            ),
+            "strategy_name": "emt",
+            "entry_timeframe": f"{int(self.settings.get('tick_bar_value', 610))}Tick",
+            "event_id": trade.trade_id,
+        }
+
+    def _mirror_open_trade(self, trade: PaperTrade) -> None:
+        if not self.mirror_to_bot_db or self.db_mirror is None:
+            return
+        try:
+            result = self.db_mirror.open_trade(self._db_payload(trade))
+            if result.get("status") == "conflict":
+                self.last_execution_error = (
+                    f"DB mirror conflict for {trade.trade_id}: "
+                    f"{result.get('conflicting_fields')}"
+                )
+        except Exception as exc:
+            self.last_execution_error = (
+                f"DB mirror open failed: {type(exc).__name__}: {exc}"
+            )
+
+    def _mirror_close_trade(self, trade: PaperTrade) -> None:
+        if not self.mirror_to_bot_db or self.db_mirror is None:
+            return
+        try:
+            pnl = float(trade.pnl or 0.0)
+            position_value = self._db_position_value(trade)
+            pnl_pct = (pnl / position_value * 100.0) if position_value else 0.0
+            self.db_mirror.close_trade(
+                trade.trade_id,
+                float(trade.exit_price or trade.entry_price),
+                str(trade.exit_reason or "emt_closed"),
+                round(pnl, 2),
+                round(pnl_pct, 4),
+            )
+        except Exception as exc:
+            self.last_execution_error = (
+                f"DB mirror close failed: {type(exc).__name__}: {exc}"
+            )
 
     def snapshot(self) -> dict:
         with self.lock:
@@ -664,5 +920,9 @@ class EMTStrategyEngine:
                 "last_closed_trade": (
                     None if not self.closed_trades else asdict(self.closed_trades[-1])
                 ),
-                "events": [asdict(event) for event in list(self.events)[-10:]],
+                "status_message": self._status_message(),
+                "last_live_price": self.last_live_price,
+                "breakout_extreme": self.breakout_extreme,
+                "keltner": self._keltner_points(),
+                "events": [asdict(event) for event in list(self.events)[-30:]],
             }

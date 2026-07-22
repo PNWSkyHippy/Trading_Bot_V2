@@ -17,6 +17,8 @@ from datetime import date, datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlparse
+from typing import Optional
+from zoneinfo import ZoneInfo
 
 try:
     from chart_patterns import PatternDetector as _PatternDetector
@@ -2047,6 +2049,87 @@ def get_candles(symbol, asset_class, timeframe="5 Min", limit=100):
 
 
 # ---------------------------------------------------------------------------
+def _scanner_snapshot(timeout: float = 1.5) -> dict:
+    try:
+        import urllib.request
+        with urllib.request.urlopen("http://127.0.0.1:8765/snapshot", timeout=timeout) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except Exception as exc:
+        return {"ok": False, "error": f"scanner snapshot unavailable: {type(exc).__name__}: {exc}"}
+
+
+def _parse_chart_time(value) -> Optional[int]:
+    try:
+        if isinstance(value, (int, float)):
+            return int(value)
+        stamp = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        if stamp.tzinfo is None:
+            stamp = stamp.replace(tzinfo=ZoneInfo("America/Los_Angeles"))
+        return int(stamp.timestamp())
+    except Exception:
+        return None
+
+
+def _scanner_bars_for_chart(symbol: str, timeframe: str, limit: int) -> list:
+    snap = _scanner_snapshot()
+    if not snap.get("ok"):
+        return []
+    symbol = symbol.upper()
+    # For EMT testing, ES chart intentionally shows the 610-tick EMT bars,
+    # not broker/yfinance minute bars. Later this can be controlled by an EMT
+    # overlay toggle, but for now ES == strategy feed.
+    if symbol == "ES":
+        raw = (((snap.get("emt_overlay") or {}).get("tick_bars_data")) or [])
+    else:
+        raw = ((snap.get("bars") or {}).get(symbol) or [])
+    rows = []
+    for bar in raw:
+        ts = _parse_chart_time(bar.get("time"))
+        if not ts:
+            continue
+        try:
+            rows.append({
+                "time": ts,
+                "open": float(bar.get("open") or 0),
+                "high": float(bar.get("high") or 0),
+                "low": float(bar.get("low") or 0),
+                "close": float(bar.get("close") or 0),
+                "volume": float(bar.get("volume") or 0),
+            })
+        except Exception:
+            continue
+    rows = [b for b in rows if min(b["open"], b["high"], b["low"], b["close"]) > 0]
+    rows.sort(key=lambda b: b["time"])
+    if symbol == "ES":
+        return rows[-limit:]
+    size = {"1m": 1, "2m": 2, "3m": 3, "5m": 5, "15m": 15, "30m": 30, "1h": 60}.get(str(timeframe), 1)
+    if size > 1:
+        bucketed = {}
+        for bar in rows:
+            bucket = bar["time"] - (bar["time"] % (size * 60))
+            item = bucketed.setdefault(bucket, {"time": bucket, "open": bar["open"], "high": bar["high"], "low": bar["low"], "close": bar["close"], "volume": 0})
+            item["high"] = max(item["high"], bar["high"])
+            item["low"] = min(item["low"], bar["low"])
+            item["close"] = bar["close"]
+            item["volume"] += bar.get("volume", 0) or 0
+        rows = [bucketed[k] for k in sorted(bucketed)]
+    return rows[-limit:]
+
+
+def get_emt_status() -> dict:
+    snap = _scanner_snapshot()
+    if not snap.get("ok"):
+        return snap
+    emt = snap.get("emt") or {}
+    overlay = snap.get("emt_overlay") or {}
+    return {
+        "ok": True,
+        "bridge": snap.get("bridge") or {},
+        "emt": emt,
+        "overlay": overlay,
+        "generated_at": snap.get("generated_at"),
+    }
+
 # Chart panel data — OHLCV bars + bot trade markers
 # ---------------------------------------------------------------------------
 
@@ -2612,6 +2695,14 @@ def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
 
     # Futures: Tradovate real-time feed (if token active) → IBKR → yfinance
     if is_futures:
+        # Prefer the Ninja/EMT scanner cache for ES so the chart shows the same
+        # feed the EMT strategy is evaluating, not a slower external fallback.
+        if symbol == "ES" and broker not in ("ibkr", "yfinance"):
+            ninja_bars = _scanner_bars_for_chart(symbol, timeframe, limit)
+            if ninja_bars:
+                return {"bars": ninja_bars, "markers": [], "open_positions": [],
+                        "symbol": symbol, "timeframe": timeframe, "source": "ninja_emt_cache"}
+
         # Try Tradovate WebSocket cache first (real-time, ~0 delay).
         # Always attempted unless user explicitly chose ibkr or yfinance in the toolbar.
         force_yfinance  = broker == 'yfinance'
@@ -4447,6 +4538,9 @@ class Handler(BaseHTTPRequestHandler):
                 "sort_dir": sort_dir,
                 "db_path": str(DB_PATH),
             })
+
+        if path == "/api/emt/status":
+            return self._json(200, get_emt_status())
 
         if path == "/api/chart":
             params = parse_qs(parsed.query)

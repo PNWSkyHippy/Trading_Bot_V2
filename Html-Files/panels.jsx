@@ -1,4 +1,4 @@
-﻿// Trading Bot Dashboard panels
+// Trading Bot Dashboard panels
 const { useState: useS, useEffect: useE, useRef: useR, useMemo: useM, useCallback: useC } = React;
 
 // Format helpers
@@ -2655,6 +2655,7 @@ function ChartPanel({ defaultSymbol }) {
   const [patternMsg, setPatternMsg]           = useS('');
   const [hoverPattern, setHoverPattern]       = useS(null);
   const [focusedPatternId, setFocusedPatternId] = useS(null);
+  const [emtStatus, setEmtStatus] = useS(null);
 
   // ── Chronos AI ────────────────────────────────────────────────────────────
   const [chronosActive,  setChronosActive]  = useS(false);
@@ -2691,6 +2692,7 @@ function ChartPanel({ defaultSymbol }) {
   const cleanBarsRef = useR([]);
   const patternDrawingsRef = useR([]);
   const focusedPatternIdRef = useR(null);
+  const emtStatusRef = useR(null);
   const chartSeriesTypeRef = useR('candles'); // tracks what type candleRef.current actually is
   const isLiveUpdateRef = useR(false); // true when bars changed via live poll (not full reload)
   const savedRangeRef = useR(null);   // visible time range saved before setData() so we can restore it
@@ -2833,6 +2835,7 @@ function ChartPanel({ defaultSymbol }) {
   useE(() => { drawingsHiddenRef.current = drawingsHidden; }, [drawingsHidden]);
   useE(() => { patternDrawingsRef.current = patternDrawings; }, [patternDrawings]);
   useE(() => { focusedPatternIdRef.current = focusedPatternId; }, [focusedPatternId]);
+  useE(() => { emtStatusRef.current = emtStatus; }, [emtStatus]);
   useE(() => { marksRef.current = marks; }, [marks]);
   useE(() => { openPositionsRef.current = openPositions; }, [openPositions]);
   useE(() => {
@@ -3603,6 +3606,52 @@ function ChartPanel({ defaultSymbol }) {
       }))
     ].forEach(drawTradeFill);
 
+    const emt = emtStatusRef.current;
+    if (emt?.ok && symbol === 'ES') {
+      const overlay = emt.overlay || {};
+      const status = overlay.status_message || emt.emt?.status_message || emt.emt?.phase || 'EMT';
+      const phase = overlay.phase || emt.emt?.phase || '';
+      const drawH = (price, color, label) => {
+        const y = series.priceToCoordinate(Number(price || 0));
+        if (y === null || y === undefined) return;
+        ctx.save();
+        ctx.strokeStyle = color; ctx.lineWidth = 1.25; ctx.setLineDash([6, 4]);
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        ctx.setLineDash([]); ctx.font = "bold 10px JetBrains Mono, monospace";
+        ctx.fillStyle = color; ctx.textAlign = "right"; ctx.fillText(label, w - 8, y - 4);
+        ctx.restore();
+      };
+      const drawLine = (pts, color, width = 1) => {
+        if (!Array.isArray(pts) || pts.length < 2) return;
+        ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash([3, 3]);
+        ctx.beginPath(); let started = false;
+        pts.forEach(p => {
+          const xy = toXY({ time: p.time, price: p.value });
+          if (!xy) return;
+          if (!started) { ctx.moveTo(xy.x, xy.y); started = true; }
+          else ctx.lineTo(xy.x, xy.y);
+        });
+        if (started) ctx.stroke();
+        ctx.restore();
+      };
+      drawLine(overlay.keltner?.upper, "#f59e0b99", 1);
+      drawLine(overlay.keltner?.mid, "#38bdf8cc", 1.5);
+      drawLine(overlay.keltner?.lower, "#f59e0b99", 1);
+      drawH(overlay.opening_high, "#a78bfa", "OR high");
+      drawH(overlay.opening_low, "#a78bfa", "OR low");
+      drawH(overlay.resistance_level, "#f97316", "EMT resistance");
+      drawH(overlay.support_level, "#22c55e", "EMT support");
+      ctx.save();
+      ctx.font = "bold 11px JetBrains Mono, monospace";
+      const badge = `EMT ${phase} · ${status}`;
+      const label = badge.length > 110 ? badge.slice(0, 107) + "…" : badge;
+      const bw = Math.min(w - 16, ctx.measureText(label).width + 18);
+      ctx.fillStyle = "rgba(13,17,23,.88)"; ctx.strokeStyle = "#38bdf888"; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect(w - bw - 8, 8, bw, 26, 5); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#d1d5db"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+      ctx.fillText(label, w - 16, 21);
+      ctx.restore();
+    }
     if (drawingsHiddenRef.current) return;
 
     const drawOne = (d, isDraft = false) => {
@@ -3856,7 +3905,7 @@ function ChartPanel({ defaultSymbol }) {
       try { chart.timeScale().unsubscribeVisibleLogicalRangeChange(handler); } catch (_) {}
       try { ro?.disconnect(); } catch (_) {}
     };
-  }, [drawOverlay, drawings, draftDrawing, drawingsHidden, bars, marks, openPositions, tf, patternDrawings, focusedPatternId]);
+  }, [drawOverlay, drawings, draftDrawing, drawingsHidden, bars, marks, openPositions, tf, patternDrawings, focusedPatternId, emtStatus]);
 
   // Which lower panels have at least one visible indicator assigned to them.
   // Declared here (before the lazy-init useEffect) so Babel's var-hoisting
@@ -4061,6 +4110,17 @@ function ChartPanel({ defaultSymbol }) {
       window.removeEventListener('blur', onWindowBlur);
     };
   }, []);
+  useE(() => {
+    if (symbol !== "ES") { setEmtStatus(null); return; }
+    let cancelled = false;
+    const load = () => panelApi("/api/emt/status")
+      .then(d => { if (!cancelled) setEmtStatus(d); })
+      .catch(() => { if (!cancelled) setEmtStatus(null); });
+    load();
+    const t = setInterval(load, 5000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [symbol]);
+
 
   // ── Chronos: fetch prediction whenever active + bars change ──────────────
   useE(() => {
