@@ -35,12 +35,14 @@ class TradovateExecutor:
 
     def __init__(self, *, access_token: str, account_id: int,
                  account_spec: str, environment: str = "demo",
-                 timeout_seconds: float = 8.0):
+                 timeout_seconds: float = 8.0,
+                 credentials: Optional[dict] = None):
         environment = str(environment).strip().lower()
         if environment not in ("demo", "live"):
             raise ValueError("Tradovate environment must be 'demo' or 'live'")
-        if not str(access_token).strip():
-            raise ValueError("Tradovate access token is required")
+        credentials = dict(credentials or {})
+        if not str(access_token).strip() and not credentials:
+            raise ValueError("Tradovate access token or API credentials are required")
         if int(account_id) <= 0 or not str(account_spec).strip():
             raise ValueError("Tradovate account id and account spec are required")
         self.access_token = str(access_token).strip()
@@ -48,12 +50,15 @@ class TradovateExecutor:
         self.account_spec = str(account_spec).strip()
         self.environment = environment
         self.timeout_seconds = float(timeout_seconds)
+        self.credentials = credentials
         self.base_url = (
             "https://live.tradovateapi.com/v1"
             if environment == "live"
             else "https://demo.tradovateapi.com/v1"
         )
         self._lock = threading.RLock()
+        if not self.access_token:
+            self.authenticate()
 
     @classmethod
     def from_env(cls, settings: dict) -> "TradovateExecutor":
@@ -66,16 +71,67 @@ class TradovateExecutor:
                 "live Tradovate execution requires "
                 "EMT_LIVE_TRADING=I_UNDERSTAND_LIVE_ORDERS"
             )
+        credential_names = {
+            "name": "TRADOVATE_USERNAME",
+            "password": "TRADOVATE_PASSWORD",
+            "appId": "TRADOVATE_APP_ID",
+            "appVersion": "TRADOVATE_APP_VERSION",
+            "cid": "TRADOVATE_CID",
+            "sec": "TRADOVATE_SEC",
+            "deviceId": "TRADOVATE_DEVICE_ID",
+        }
+        credentials = {
+            field: os.getenv(env_name, "").strip()
+            for field, env_name in credential_names.items()
+        }
+        required = ("name", "password", "cid", "sec", "deviceId")
+        if any(credentials.values()) and any(not credentials[name] for name in required):
+            raise ValueError(
+                "Tradovate API credentials are partial; username, password, "
+                "cid, sec, and device id are all required"
+            )
+        credentials["appId"] = credentials["appId"] or "EMT Hostinger"
+        credentials["appVersion"] = credentials["appVersion"] or "1.0"
+        if not all(credentials[name] for name in required):
+            credentials = {}
         return cls(
             access_token=os.getenv("TRADOVATE_ACCESS_TOKEN", ""),
             account_id=int(os.getenv("TRADOVATE_ACCOUNT_ID", "0")),
             account_spec=os.getenv("TRADOVATE_ACCOUNT_SPEC", ""),
             environment=environment,
             timeout_seconds=float(settings.get("broker_timeout_seconds", 8.0)),
+            credentials=credentials,
         )
 
+    def authenticate(self) -> None:
+        """Acquire a fresh token from official Tradovate API credentials."""
+        if not self.credentials:
+            raise TradovateExecutionError(
+                "access token expired and no Tradovate API credentials are configured"
+            )
+        data = json.dumps(self.credentials).encode("utf-8")
+        request = urllib.request.Request(
+            self.base_url + "/auth/accesstokenrequest",
+            data=data,
+            method="POST",
+            headers={"Accept": "application/json", "Content-Type": "application/json"},
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+                result = json.loads(response.read())
+        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError,
+                OSError, json.JSONDecodeError) as exc:
+            raise TradovateExecutionError(f"Tradovate authentication failed: {exc}") from exc
+        error = result.get("errorText")
+        token = str(result.get("accessToken") or "").strip()
+        if error or not token:
+            raise TradovateExecutionError(
+                f"Tradovate authentication rejected: {error or 'missing access token'}"
+            )
+        self.access_token = token
+
     def _request(self, path: str, body: Optional[dict] = None,
-                 query: Optional[dict] = None):
+                 query: Optional[dict] = None, _allow_reauth: bool = True):
         url = self.base_url + path
         if query:
             url += "?" + urllib.parse.urlencode(query)
@@ -95,6 +151,14 @@ class TradovateExecutor:
                 payload = response.read()
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")[:500]
+            if exc.code == 401 and _allow_reauth and self.credentials:
+                # A 401 proves the request was not authorized/accepted, so one
+                # credential refresh and retry cannot duplicate an order.
+                with self._lock:
+                    self.authenticate()
+                return self._request(
+                    path, body=body, query=query, _allow_reauth=False
+                )
             raise TradovateExecutionError(
                 f"Tradovate HTTP {exc.code} for {path}: {detail}"
             ) from exc

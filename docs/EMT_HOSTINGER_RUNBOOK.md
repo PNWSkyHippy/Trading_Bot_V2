@@ -25,14 +25,23 @@ Add these to `/opt/trading_bot_v2/.env` and keep the file mode at `600`:
 EMT_EXECUTION_MODE=paper
 EMT_LIVE_TRADING=DISABLED
 TRADOVATE_ENVIRONMENT=demo
-TRADOVATE_ACCESS_TOKEN=<api access token>
+TRADOVATE_ACCESS_TOKEN=
+TRADOVATE_USERNAME=<Tradovate login>
+TRADOVATE_PASSWORD=<Tradovate password>
+TRADOVATE_APP_ID=EMT Hostinger
+TRADOVATE_APP_VERSION=1.0
+TRADOVATE_CID=<API key client id>
+TRADOVATE_SEC=<API key secret>
+TRADOVATE_DEVICE_ID=<stable UUID for this Hostinger installation>
 TRADOVATE_ACCOUNT_ID=<numeric account id>
 TRADOVATE_ACCOUNT_SPEC=<account name>
 NINJA_BRIDGE_SECRET=<same long random value used by both Ninja bridges>
 ```
 
-Use a Tradovate API token with the appropriate account and API subscription;
-do not copy credentials into JSON, Python, C#, Git, or systemd unit files.
+Use official Tradovate API-key credentials with the appropriate account and
+API subscription. The service acquires a fresh access token at startup and may
+re-authenticate once after a confirmed 401. Do not copy credentials into JSON,
+Python, C#, Git, or systemd unit files.
 
 ## Install and start
 

@@ -1,6 +1,7 @@
 import copy
 import tempfile
 import unittest
+from unittest import mock
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
@@ -111,6 +112,30 @@ class EMTLiveTests(unittest.TestCase):
         engine.on_tick_bar(bar(stamp(9, 45), 98.0), True, False)
         engine.on_tick_bar(bar(stamp(9, 45, 1), 98.35), False, False)
         engine.on_tick_bar(bar(stamp(9, 45, 2), 97.75), False, False)
+
+    def test_api_credentials_acquire_token_for_unattended_startup(self):
+        class Response:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_args):
+                return False
+
+            def read(self):
+                return b'{"accessToken":"fresh-token","userStatus":"Active"}'
+
+        credentials = {
+            "name": "user", "password": "password", "appId": "EMT",
+            "appVersion": "1.0", "cid": "123", "sec": "secret",
+            "deviceId": "123e4567-e89b-12d3-a456-426614174000",
+        }
+        with mock.patch("urllib.request.urlopen", return_value=Response()) as opened:
+            executor = TradovateExecutor(
+                access_token="", account_id=123, account_spec="SIM123",
+                environment="demo", credentials=credentials,
+            )
+        self.assertEqual(executor.access_token, "fresh-token")
+        self.assertIn("/auth/accesstokenrequest", opened.call_args.args[0].full_url)
 
     def test_tradovate_payload_uses_eight_tick_server_bracket(self):
         executor = RecordingTradovate()
