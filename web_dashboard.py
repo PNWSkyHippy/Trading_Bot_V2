@@ -969,6 +969,17 @@ def _terminal_start(kind: str = "hostinger", username: str = ""):
         fcntl.fcntl(master_fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
         shell = os.environ.get("SHELL", "/bin/bash") or "/bin/bash"
         command = f"cd {str(ROOT)!r}; exec {shell} -l"
+        def _setup_child_pty():
+            # Make the child shell a session leader with the PTY slave as its
+            # controlling terminal. Without this, Ctrl-C can echo as ^C but fail
+            # to deliver SIGINT to the foreground process (tail -f, journalctl -f).
+            os.setsid()
+            try:
+                import termios
+                fcntl.ioctl(slave_fd, termios.TIOCSCTTY, 0)
+            except Exception:
+                pass
+
         proc = subprocess.Popen(
             ["/bin/bash", "-lc", command],
             stdin=slave_fd,
@@ -977,6 +988,7 @@ def _terminal_start(kind: str = "hostinger", username: str = ""):
             cwd=str(ROOT),
             close_fds=True,
             env={**os.environ, "TERM": "xterm-256color"},
+            preexec_fn=_setup_child_pty,
         )
         os.close(slave_fd)
         session_id = secrets.token_urlsafe(32)
