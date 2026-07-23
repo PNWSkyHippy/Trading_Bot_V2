@@ -211,6 +211,8 @@ class EMTStrategyEngine:
         self.lock = threading.RLock()
         self.minute_bars: Deque[dict] = deque(maxlen=2000)
         self.tick_bars: Deque[dict] = deque(maxlen=2000)
+        self._keltner_cache_key: Optional[tuple] = None
+        self._keltner_cache_value: Optional[dict] = None
         self.events: Deque[EMTEvent] = deque(maxlen=100)
         self.closed_trades: Deque[PaperTrade] = deque(maxlen=100)
         self.active_trade: Optional[PaperTrade] = None
@@ -381,6 +383,13 @@ class EMTStrategyEngine:
         # between polls. Pull in extra warmup history so the seed has fully
         # decayed by the time a bar enters the returned window, then only
         # emit the last `limit` points.
+        cache_key = (
+            limit,
+            len(self.tick_bars),
+            self.tick_bars[-1]["time"] if self.tick_bars else None,
+        )
+        if cache_key == self._keltner_cache_key:
+            return self._keltner_cache_value
         warmup = max(self.ema_period, self.atr_period) * 10
         bars = list(self.tick_bars)[-(limit + warmup):]
         closes = [float(b["close"]) for b in bars]
@@ -399,7 +408,10 @@ class EMTStrategyEngine:
             mid.append({"time": t, "value": round(m, 6)})
             upper.append({"time": t, "value": round(m + band, 6)})
             lower.append({"time": t, "value": round(m - band, 6)})
-        return {"mid": mid, "upper": upper, "lower": lower}
+        result = {"mid": mid, "upper": upper, "lower": lower}
+        self._keltner_cache_key = cache_key
+        self._keltner_cache_value = result
+        return result
 
     def chart_overlay(self) -> dict:
         with self.lock:
