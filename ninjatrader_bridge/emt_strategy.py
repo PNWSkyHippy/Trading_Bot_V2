@@ -249,13 +249,25 @@ class EMTStrategyEngine:
         self.trades_this_session = 0
 
     def _session_times(self, stamp_et: datetime):
-        start = datetime.combine(stamp_et.date(), self.range_start, tzinfo=self.market_tz)
+        # Anchor on the session's own start date, not the bar's calendar date.
+        # Overnight sessions (e.g. 22:01 ET range start with an 8h trade
+        # window) cross midnight ET; re-deriving the window from stamp_et's
+        # date would silently roll the window forward mid-session.
+        anchor = self.session_date if self.session_date is not None else stamp_et.date()
+        start = datetime.combine(anchor, self.range_start, tzinfo=self.market_tz)
         range_end = start + timedelta(minutes=self.range_minutes)
         trade_end = range_end + timedelta(minutes=self.trade_window_minutes)
         return start, range_end, trade_end
 
     def _ensure_session(self, stamp_et: datetime) -> None:
-        if self.session_date != stamp_et.date():
+        if self.session_date is None:
+            self._reset_session(stamp_et.date())
+            return
+        # Only start a new session once the current one's trade window has
+        # actually elapsed -- not merely when the ET calendar date rolls over,
+        # which happens mid-window for any session spanning midnight ET.
+        _, _, trade_end = self._session_times(stamp_et)
+        if stamp_et >= trade_end:
             self._reset_session(stamp_et.date())
 
     def _emit(self, stamp: datetime, level: int, kind: str, direction: str,
@@ -275,6 +287,7 @@ class EMTStrategyEngine:
         start, range_end, trade_end = self._session_times(stamp_et)
         phase_text = {
             "BUILDING_RANGE": "Building opening range",
+            "RANGE_DATA_MISSED": "Opening range data missing (no 1-minute bars received) — no trades this session",
             "WARMING": "Warming Keltner data",
             "WAIT_BREAKOUT": "Waiting for breakout",
             "WAIT_RETRACE": "Breakout seen; waiting for retracement",
@@ -327,11 +340,23 @@ class EMTStrategyEngine:
         self._emit(stamp, 1, kind, self.direction or "", float(price or self.last_live_price or 0.0), self._status_message(stamp.astimezone(self.market_tz)))
 
     def _keltner_points(self, limit: int = 400) -> dict:
-        bars = list(self.tick_bars)[-limit:]
+        # _ema_last() reseeds at closes[0] of whatever slice it's given, and
+        # that seed's influence only decays to ~0 after several dozen bars.
+        # Slicing straight to the last `limit` bars would make closes[0] --
+        # and therefore every point's value -- shift each time the window
+        # rolls forward by one bar, which reads as the whole line jittering
+        # between polls. Pull in extra warmup history so the seed has fully
+        # decayed by the time a bar enters the returned window, then only
+        # emit the last `limit` points.
+        warmup = max(self.ema_period, self.atr_period) * 10
+        bars = list(self.tick_bars)[-(limit + warmup):]
         closes = [float(b["close"]) for b in bars]
         trs = _true_ranges(bars)
         mid, upper, lower = [], [], []
+        start_idx = max(0, len(bars) - limit)
         for idx, bar in enumerate(bars):
+            if idx < start_idx:
+                continue
             t = int(_parse_timestamp(bar["time"], self.source_timezone).timestamp())
             m = _ema_last(closes[:idx + 1], self.ema_period)
             a = _sma_last(trs[:idx + 1], self.atr_period)
@@ -446,6 +471,11 @@ class EMTStrategyEngine:
 
     def _evaluate(self, bar: dict, stamp_et: datetime, complete: bool) -> None:
         start, range_end, trade_end = self._session_times(stamp_et)
+        # Captured before being overwritten below: RETRACE_TOUCHED needs the
+        # prior tick's price (not this one's) to tell whether price is still
+        # moving away from the Keltner midline.
+        previous_live_price = self.last_live_price
+        self.last_live_price = bar["close"]
         # Broker strategies remain active outside the entry window. Keep
         # reconciling them so a completed overnight/server-side bracket cannot
         # leave stale in-memory state or permit a duplicate next session.
@@ -453,19 +483,40 @@ class EMTStrategyEngine:
             self._update_trade_extreme(bar)
             self._reconcile_live_trade(bar, stamp_et)
             return
-        if stamp_et < range_end or self.opening_high is None or self.opening_low is None:
+        if stamp_et < range_end:
             self.phase = "BUILDING_RANGE"
+            return
+        if stamp_et >= trade_end:
+            # Check this before RANGE_DATA_MISSED: _ensure_session() can roll
+            # straight into a brand-new session for a stale/late bar whose
+            # own trade window has already elapsed too (opening_high/low get
+            # reset to None in the process). SESSION_DONE is the accurate
+            # terminal state for "the window is over" regardless of whether
+            # the range was ever captured, so it must take priority.
+            if self.active_trade is not None and self.paper_only:
+                self._close_trade(bar["close"], stamp_et, "trade_window_end")
+            self.phase = "SESSION_DONE"
+            return
+        if self.opening_high is None or self.opening_low is None:
+            # The opening-range window has already closed but on_minute_bar()
+            # never received a single 1-minute bar inside [start, range_end)
+            # (e.g. the bridge/tunnel was down through the whole window).
+            # opening_high/low can only ever be set from bars inside that
+            # window, so BUILDING_RANGE would otherwise persist for the rest
+            # of the session -- surface the real reason instead of looking
+            # like it is still about to finish.
+            if self.phase != "RANGE_DATA_MISSED":
+                self.phase = "RANGE_DATA_MISSED"
+                self._emit(
+                    bar["dt"], 1, "RANGE_DATA_MISSED", self.direction or "", bar["close"],
+                    "Opening range window closed with no 1-minute bar data received; "
+                    "no trades this session",
+                )
             return
         if self.resistance_level is None:
             self.resistance_level = self.opening_high
             self.support_level = self.opening_low
             self.phase = "WAIT_BREAKOUT"
-
-        if stamp_et >= trade_end:
-            if self.active_trade is not None and self.paper_only:
-                self._close_trade(bar["close"], stamp_et, "trade_window_end")
-            self.phase = "SESSION_DONE"
-            return
         if stamp_et < start or self.trades_this_session >= self.max_trades:
             return
 
@@ -497,7 +548,7 @@ class EMTStrategyEngine:
             return
 
         if self.phase == "RETRACE_TOUCHED":
-            previous = self.last_live_price
+            previous = previous_live_price
             away = (
                 self.direction == "short"
                 and price <= midline - self.confirmation_distance

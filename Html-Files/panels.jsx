@@ -2693,6 +2693,7 @@ function ChartPanel({ defaultSymbol }) {
   const patternDrawingsRef = useR([]);
   const focusedPatternIdRef = useR(null);
   const emtStatusRef = useR(null);
+  const symbolRef = useR(symbol);
   const chartSeriesTypeRef = useR('candles'); // tracks what type candleRef.current actually is
   const isLiveUpdateRef = useR(false); // true when bars changed via live poll (not full reload)
   const savedRangeRef = useR(null);   // visible time range saved before setData() so we can restore it
@@ -2836,6 +2837,7 @@ function ChartPanel({ defaultSymbol }) {
   useE(() => { patternDrawingsRef.current = patternDrawings; }, [patternDrawings]);
   useE(() => { focusedPatternIdRef.current = focusedPatternId; }, [focusedPatternId]);
   useE(() => { emtStatusRef.current = emtStatus; }, [emtStatus]);
+  useE(() => { symbolRef.current = symbol; }, [symbol]);
   useE(() => { marksRef.current = marks; }, [marks]);
   useE(() => { openPositionsRef.current = openPositions; }, [openPositions]);
   useE(() => {
@@ -2938,6 +2940,7 @@ function ChartPanel({ defaultSymbol }) {
           const newBars = d.bars || [];
           const latest = newBars[newBars.length - 1];
           if (!latest) return;
+          let needsResync = false;
           setBars(prev => {
             if (!prev.length) return prev;
             const last = prev[prev.length - 1];
@@ -2946,15 +2949,46 @@ function ChartPanel({ defaultSymbol }) {
               last.high  === latest.high  &&
               last.low   === latest.low;
             if (same) return prev;                                    // no change → no re-render
+            // Server's recent bars no longer connect to what we're showing --
+            // e.g. the backing service restarted and reset its bar cache, or
+            // more bars closed between polls than this 3-bar window covers.
+            // Patching just the last bar would leave a stale/disconnected
+            // chart on screen, so fall back to a full resync instead.
+            const overlaps = newBars.some(b => b.time === last.time);
+            const gapped = !overlaps && newBars[0].time > last.time;
+            if (latest.time < last.time || gapped) {
+              needsResync = true;
+              return prev;
+            }
             isLiveUpdateRef.current = true;                           // chart effect: skip full redraw
             if (latest.time > last.time) return [...prev, latest];   // new bar appended
             return [...prev.slice(0, -1), latest];                   // current bar updated
           });
+          if (needsResync) {
+            const limit = chartLimitForTf(tf);
+            panelApi(`/api/chart?symbol=${encodeURIComponent(symbol)}&timeframe=${tf}&limit=${limit}&broker=${broker}`)
+              .then(full => {
+                setBars(full.bars || []);
+                setMarks(full.markers || []);
+                setOpenPositions(full.open_positions || []);
+              })
+              .catch(() => {});
+          }
         })
         .catch(() => {});
     };
     const t = setInterval(fetchLatest, 20000);
-    return () => clearInterval(t);
+    // Background tabs get throttled by the browser (setInterval can stretch to
+    // 60s+), so bars can go stale for minutes while minimized. Force an
+    // immediate refresh the moment the tab regains focus.
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchLatest(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
   }, [symbol, tf, broker]);
 
   // Load symbol list once
@@ -3607,10 +3641,11 @@ function ChartPanel({ defaultSymbol }) {
     ].forEach(drawTradeFill);
 
     const emt = emtStatusRef.current;
-    if (emt?.ok && symbol === 'ES') {
+    if (emt?.ok && symbolRef.current === 'ES') {
       const overlay = emt.overlay || {};
       const status = overlay.status_message || emt.emt?.status_message || emt.emt?.phase || 'EMT';
       const phase = overlay.phase || emt.emt?.phase || '';
+      const usedLabelYs = [];
       const drawH = (price, color, label) => {
         const y = series.priceToCoordinate(Number(price || 0));
         if (y === null || y === undefined) return;
@@ -3618,7 +3653,11 @@ function ChartPanel({ defaultSymbol }) {
         ctx.strokeStyle = color; ctx.lineWidth = 1.25; ctx.setLineDash([6, 4]);
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
         ctx.setLineDash([]); ctx.font = "bold 10px JetBrains Mono, monospace";
-        ctx.fillStyle = color; ctx.textAlign = "right"; ctx.fillText(label, w - 8, y - 4);
+        // Nudge the label up in 12px steps if it would overlap a label already drawn nearby
+        let labelY = y - 4;
+        while (usedLabelYs.some(uy => Math.abs(uy - labelY) < 11)) labelY -= 12;
+        usedLabelYs.push(labelY);
+        ctx.fillStyle = color; ctx.textAlign = "right"; ctx.fillText(label, w - 8, labelY);
         ctx.restore();
       };
       const drawLine = (pts, color, width = 1) => {
@@ -3641,6 +3680,22 @@ function ChartPanel({ defaultSymbol }) {
       drawH(overlay.opening_low, "#a78bfa", "OR low");
       drawH(overlay.resistance_level, "#f97316", "EMT resistance");
       drawH(overlay.support_level, "#22c55e", "EMT support");
+      // Live tick price — updates every EMT poll (5s), independent of whether the
+      // current 610-tick bar has closed yet. The candle itself only advances when
+      // a bar closes, which can take several minutes in thin volume; this line
+      // shows the feed is still alive even when the last candle looks frozen.
+      if (overlay.last_live_price) {
+        const yLive = series.priceToCoordinate(Number(overlay.last_live_price));
+        if (yLive !== null && yLive !== undefined) {
+          ctx.save();
+          ctx.strokeStyle = "#e5e7ebcc"; ctx.lineWidth = 1; ctx.setLineDash([]);
+          ctx.beginPath(); ctx.moveTo(0, yLive); ctx.lineTo(w, yLive); ctx.stroke();
+          ctx.font = "bold 10px JetBrains Mono, monospace";
+          ctx.fillStyle = "#e5e7eb"; ctx.textAlign = "left";
+          ctx.fillText(`LIVE ${Number(overlay.last_live_price).toFixed(2)}`, 8, yLive - 4);
+          ctx.restore();
+        }
+      }
       ctx.save();
       ctx.font = "bold 11px JetBrains Mono, monospace";
       const badge = `EMT ${phase} · ${status}`;
@@ -4118,7 +4173,15 @@ function ChartPanel({ defaultSymbol }) {
       .catch(() => { if (!cancelled) setEmtStatus(null); });
     load();
     const t = setInterval(load, 5000);
-    return () => { cancelled = true; clearInterval(t); };
+    const onVisible = () => { if (document.visibilityState === 'visible') load(); };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
+    };
   }, [symbol]);
 
 
@@ -4286,16 +4349,26 @@ function ChartPanel({ defaultSymbol }) {
           )}
         </div>
 
-        {/* Timeframe buttons */}
-        <div style={{ display:'flex', gap:2 }}>
-          {TFS.map(t => (
-            <button key={t}
-              className={cls('btn', t === tf ? 'primary' : 'ghost', 'sm')}
-              style={{ padding:'2px 7px', fontSize:11, minWidth:32 }}
-              onClick={() => setTf(t)}
-            >{t}</button>
-          ))}
-        </div>
+        {/* Timeframe buttons -- ES always serves 610-tick bars server-side
+            (see _scanner_bars_for_chart in web_dashboard.py), so the tf
+            buttons are inert for it. Lock the control instead of letting
+            the user click a timeframe that silently does nothing. */}
+        {symbol === 'ES' ? (
+          <div
+            title="ES always shows 610-tick bars (a new bar every 610 trades, not on a clock). Switch symbol to change timeframe."
+            style={{ padding:'2px 8px', fontSize:11, minWidth:32, color:'var(--text-2)', border:'1px solid #2a3347', borderRadius:4 }}
+          >610-tick (fixed)</div>
+        ) : (
+          <div style={{ display:'flex', gap:2 }}>
+            {TFS.map(t => (
+              <button key={t}
+                className={cls('btn', t === tf ? 'primary' : 'ghost', 'sm')}
+                style={{ padding:'2px 7px', fontSize:11, minWidth:32 }}
+                onClick={() => setTf(t)}
+              >{t}</button>
+            ))}
+          </div>
+        )}
 
         <div style={{ width:1, height:16, background:'#2a3347', margin:'0 2px' }} />
 

@@ -32,6 +32,26 @@ def bar(time_text, close, high=None, low=None, volume=610, **extra):
     }
 
 
+class FakeMirrorDB:
+    def __init__(self):
+        self.opened = []
+        self.closed = []
+
+    def open_trade(self, trade):
+        self.opened.append(trade)
+        return {"status": "inserted", "trade_id": trade["trade_id"]}
+
+    def close_trade(self, trade_id, exit_price, exit_reason, pnl, pnl_pct, fees_paid=0.0):
+        self.closed.append({
+            "trade_id": trade_id,
+            "exit_price": exit_price,
+            "exit_reason": exit_reason,
+            "pnl": pnl,
+            "pnl_pct": pnl_pct,
+            "fees_paid": fees_paid,
+        })
+
+
 class EMTStrategyTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -193,6 +213,46 @@ class EMTStrategyTests(unittest.TestCase):
         self.assertEqual(self.engine.phase, "SESSION_DONE")
         self.assertIsNone(self.engine.active_trade)
 
+    def test_db_mirror_records_emt_open_and_close_for_dashboard_tables(self):
+        mirror = FakeMirrorDB()
+        settings = dict(self.settings, mirror_to_bot_db=True, broker_symbol="ESU6")
+        engine = EMTStrategyEngine(settings, self.contract, self.temp.name, db_mirror=mirror)
+
+        for minute in range(30, 45):
+            engine.on_minute_bar(
+                bar(stamp(9, minute), 100.0,
+                    high=101.0 if minute == 35 else 100.5,
+                    low=99.0 if minute == 40 else 99.5, volume=100),
+                historical=True,
+            )
+        start = datetime(2026, 7, 20, 9, 40, tzinfo=ET)
+        for index in range(8):
+            engine.on_tick_bar(
+                bar((start + timedelta(seconds=index)).isoformat(), 98.5),
+                complete=True, historical=True,
+            )
+        engine.on_tick_bar(bar(stamp(9, 45), 98.0), complete=True, historical=False)
+        engine.on_tick_bar(bar(stamp(9, 45, 1), 98.35), complete=False, historical=False)
+        engine.on_tick_bar(bar(stamp(9, 45, 2), 97.75), complete=False, historical=False)
+        engine.on_tick_bar(
+            bar(stamp(9, 46), 95.75, high=97.75, low=95.75),
+            complete=False, historical=False,
+        )
+
+        self.assertEqual(len(mirror.opened), 1)
+        opened = mirror.opened[0]
+        self.assertEqual(opened["strategy_name"], "emt")
+        self.assertEqual(opened["asset_class"], "future")
+        self.assertEqual(opened["broker"], "paper_emt")
+        self.assertEqual(opened["symbol"], "ESU6")
+        self.assertEqual(opened["position_value"], 100.0)
+        self.assertEqual(opened["entry_timeframe"], "610Tick")
+        self.assertEqual(opened["indicators"]["point_value"], 50.0)
+        self.assertEqual(len(mirror.closed), 1)
+        self.assertEqual(mirror.closed[0]["exit_reason"], "take_profit")
+        self.assertEqual(mirror.closed[0]["pnl"], 100.0)
+        self.assertEqual(mirror.closed[0]["pnl_pct"], 100.0)
+
     def test_malformed_ohlc_is_rejected(self):
         bad = bar(stamp(9, 45), 100.0, high=99.0, low=98.0)
         with self.assertRaises(ValueError):
@@ -213,6 +273,59 @@ class EMTStrategyTests(unittest.TestCase):
             for line in Path(self.temp.name, "ledger.jsonl").read_text().splitlines()
         ]
         self.assertEqual([record["action"] for record in records], ["OPEN", "CLOSE"])
+
+    def test_range_data_missed_when_window_closes_without_minute_bars(self):
+        # No seed_opening_range() call: on_minute_bar() never fires, so
+        # opening_high/opening_low stay None once the range window closes.
+        self.engine.on_tick_bar(
+            bar(stamp(9, 46), 100.0), complete=True, historical=False
+        )
+        self.assertEqual(self.engine.phase, "RANGE_DATA_MISSED")
+        self.assertIn("RANGE_DATA_MISSED", [event.kind for event in self.engine.events])
+
+    def test_range_data_missed_stays_building_range_before_window_closes(self):
+        self.engine.on_tick_bar(
+            bar(stamp(9, 40), 100.0), complete=True, historical=False
+        )
+        self.assertEqual(self.engine.phase, "BUILDING_RANGE")
+
+    def test_session_done_takes_priority_over_range_data_missed_on_stale_bar(self):
+        # A late bar can make _ensure_session() roll straight into a new
+        # session whose own trade window has already elapsed too (wiping
+        # opening_high/low back to None in the process). SESSION_DONE must
+        # win over RANGE_DATA_MISSED in that case.
+        self.seed_opening_range()
+        self.seed_tick_history()
+        self.engine.on_tick_bar(
+            bar(stamp(10, 46), 98.0), complete=True, historical=False
+        )
+        self.assertEqual(self.engine.phase, "SESSION_DONE")
+
+    def test_keltner_points_stable_when_window_rolls_forward(self):
+        start = datetime(2026, 7, 20, 9, 45, tzinfo=ET)
+        prices = [100.0 + (index % 7) * 0.3 for index in range(150)]
+        for index, price in enumerate(prices):
+            self.engine.on_tick_bar(
+                bar((start + timedelta(seconds=index)).isoformat(), price),
+                complete=True,
+                historical=True,
+            )
+        first = self.engine._keltner_points(limit=10)
+        first_by_time = {point["time"]: point["value"] for point in first["mid"]}
+
+        for index, price in enumerate(prices[:5], start=150):
+            self.engine.on_tick_bar(
+                bar((start + timedelta(seconds=index)).isoformat(), price),
+                complete=True,
+                historical=True,
+            )
+        second = self.engine._keltner_points(limit=10)
+        second_by_time = {point["time"]: point["value"] for point in second["mid"]}
+
+        shared_times = set(first_by_time) & set(second_by_time)
+        self.assertTrue(shared_times)
+        for shared_time in shared_times:
+            self.assertEqual(first_by_time[shared_time], second_by_time[shared_time])
 
 
 if __name__ == "__main__":

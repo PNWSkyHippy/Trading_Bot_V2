@@ -2684,6 +2684,57 @@ def _calc_fib_levels(bars):
     }
 
 
+_CONTRACT_SUFFIX_RE = re.compile(r'^([A-Z]{1,3})[FGHJKMNQUVXZ]\d{1,2}$')
+
+
+def _contract_root(sym):
+    # Futures trades are stored under their full contract code (e.g. "ESU6"),
+    # while the chart is keyed by root symbol ("ES"). Strip a trailing
+    # month-code+year only when the whole string matches that pattern, so
+    # stock tickers (e.g. "BAC") are never mistaken for a contract of "BA".
+    m = _CONTRACT_SUFFIX_RE.match(sym)
+    return m.group(1) if m else sym
+
+
+def _trade_markers_for_symbol(symbol):
+    markers = []
+    try:
+        if db:
+            trades = db.get_all_closed_trades(limit=500)
+            for t in trades:
+                if _contract_root((t.get('symbol') or '').upper()) != symbol:
+                    continue
+                entry_time = t.get('entry_time')
+                if entry_time:
+                    try:
+                        et = datetime.fromisoformat(entry_time)
+                        markers.append({
+                            'time': int(et.timestamp()), 'type': 'entry',
+                            'direction': t.get('direction', 'long'),
+                            'price': float(t.get('entry_price', 0)),
+                            'pnl': 0,
+                        })
+                    except Exception:
+                        pass
+                exit_time = t.get('exit_time')
+                exit_price = t.get('exit_price')
+                if exit_time and exit_price:
+                    try:
+                        xt = datetime.fromisoformat(exit_time)
+                        pnl = float(t.get('pnl', 0) or 0)
+                        markers.append({
+                            'time': int(xt.timestamp()), 'type': 'exit',
+                            'direction': t.get('direction', 'long'),
+                            'price': float(exit_price), 'pnl': pnl,
+                        })
+                    except Exception:
+                        pass
+    except Exception:
+        pass
+    markers.sort(key=lambda m: m['time'])
+    return markers
+
+
 def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
     symbol = symbol.upper().strip()
     is_crypto = '/' in symbol
@@ -2701,7 +2752,7 @@ def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
             ninja_bars = _scanner_bars_for_chart(symbol, timeframe, limit)
             min_emt_bars = int(os.environ.get("WEB_DASHBOARD_MIN_EMT_CHART_BARS", "20"))
             if len(ninja_bars) >= min_emt_bars:
-                return {"bars": ninja_bars, "markers": [], "open_positions": [],
+                return {"bars": ninja_bars, "markers": _trade_markers_for_symbol(symbol), "open_positions": [],
                         "symbol": symbol, "timeframe": timeframe, "source": "ninja_emt_cache",
                         "feed_label": "EMT 610-tick"}
 
@@ -2800,42 +2851,7 @@ def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
     bars = deduped
 
     # Trade markers for this symbol
-    markers = []
-    try:
-        if db:
-            trades = db.get_all_closed_trades(limit=500)
-            for t in trades:
-                if (t.get('symbol') or '').upper() != symbol:
-                    continue
-                entry_time = t.get('entry_time')
-                if entry_time:
-                    try:
-                        et = datetime.fromisoformat(entry_time)
-                        markers.append({
-                            'time': int(et.timestamp()), 'type': 'entry',
-                            'direction': t.get('direction', 'long'),
-                            'price': float(t.get('entry_price', 0)),
-                            'pnl': 0,
-                        })
-                    except Exception:
-                        pass
-                exit_time = t.get('exit_time')
-                exit_price = t.get('exit_price')
-                if exit_time and exit_price:
-                    try:
-                        xt = datetime.fromisoformat(exit_time)
-                        pnl = float(t.get('pnl', 0) or 0)
-                        markers.append({
-                            'time': int(xt.timestamp()), 'type': 'exit',
-                            'direction': t.get('direction', 'long'),
-                            'price': float(exit_price), 'pnl': pnl,
-                        })
-                    except Exception:
-                        pass
-    except Exception:
-        pass
-
-    markers.sort(key=lambda m: m['time'])
+    markers = _trade_markers_for_symbol(symbol)
 
     open_positions = []
     try:
