@@ -1,8 +1,16 @@
 param(
     [string]$SshTarget = "ronh@187.127.248.52",
-    [int]$LocalPort = 8765,
+    [int]$LocalPort = 8766,
     [int]$RemotePort = 8765
 )
+# LocalPort used to be 8765, the same port the local scanner
+# (start_local_scanner.bat) binds directly. Only one of the two could ever
+# actually be listening at a time; whichever process won the race locked the
+# other out completely (confirmed in logs/emt_tunnel.log: the supervisor
+# repeatedly found 8765 already held by the local scanner and just backed
+# off). The tunnel now forwards local 8766 -> the VPS's own 8765 so both can
+# run at once. NinjaScript now posts to both 127.0.0.1:8765 (local) and
+# 127.0.0.1:8766 (this tunnel) independently.
 
 $ErrorActionPreference = "Stop"
 $logDirectory = Join-Path (Split-Path $PSScriptRoot -Parent) "logs"
