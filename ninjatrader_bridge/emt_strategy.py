@@ -268,8 +268,13 @@ class EMTStrategyEngine:
         # Only start a new session once the current one's trade window has
         # actually elapsed -- not merely when the ET calendar date rolls over,
         # which happens mid-window for any session spanning midnight ET.
+        # Also require the calendar date to have actually advanced: once
+        # trade_end has passed for *today*, re-anchoring to stamp_et.date()
+        # (still today) would immediately produce another already-expired
+        # session, so every subsequent tick would reset -> re-expire in a
+        # loop, wiping state and re-emitting SESSION_DONE on every tick.
         _, _, trade_end = self._session_times(stamp_et)
-        if stamp_et >= trade_end:
+        if stamp_et >= trade_end and stamp_et.date() != self.session_date:
             self._reset_session(stamp_et.date())
 
     def _advance_stale_range_phase(self, stamp_et: datetime) -> None:
