@@ -85,6 +85,7 @@ while ($true) {
     $arguments = @(
         "-N",
         "-T",
+        "-i", "C:\Users\Linda\.ssh\emt_tunnel_key",
         "-o", "BatchMode=yes",
         "-o", "ExitOnForwardFailure=yes",
         "-o", "ServerAliveInterval=30",
