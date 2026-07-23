@@ -55,6 +55,7 @@ class MarketState:
         self.assessment_rows = None
         self.assessment_created_at = 0.0
         self.last_emt_status_log = 0.0
+        self.last_emt_watch_log = 0.0
         emt_settings = dict(config.get("emt", {}))
         execution_mode = os.getenv("EMT_EXECUTION_MODE", "paper").strip().lower()
         if execution_mode not in ("paper", "live"):
@@ -131,6 +132,20 @@ class MarketState:
                 "subscriptions": int(value.get("subscriptions") or 0),
                 "reported_time": str(value.get("time") or ""),
             }
+
+    def touch_bridge(self, value=None):
+        """Mark the Ninja bridge alive when any authenticated payload arrives."""
+        value = value or {}
+        with self.lock:
+            self.last_heartbeat = time.time()
+            if not self.heartbeat_details:
+                self.heartbeat_details = {
+                    "source": str(value.get("source") or "ninjatrader"),
+                    "subscriptions": int(value.get("subscriptions") or 0),
+                    "reported_time": str(value.get("time") or ""),
+                }
+            elif value.get("time"):
+                self.heartbeat_details["reported_time"] = str(value.get("time"))
 
     def bridge_status(self):
         with self.lock:
@@ -330,6 +345,25 @@ def dashboard(state):
         time.sleep(2)
 
 
+def emt_watchdog(state):
+    while True:
+        time.sleep(60)
+        try:
+            bridge = state.bridge_status()
+            emt = state.emt.snapshot()
+            age = bridge.get("age_seconds")
+            age_text = "--" if age is None else f"{age:.0f}s"
+            bridge_text = "ALIVE" if bridge.get("alive") else "STALE"
+            print(
+                f"EMT WATCH · bridge {bridge_text} · heartbeat age {age_text} · "
+                f"phase {emt.get('phase')} · tick bars {emt.get('tick_bars')} · "
+                f"{emt.get('status_message')}",
+                flush=True,
+            )
+        except Exception as exc:
+            print(f"EMT WATCH ERROR · {type(exc).__name__}: {exc}", flush=True)
+
+
 def make_handler(state):
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):
@@ -374,8 +408,10 @@ def make_handler(state):
                 if self.path == "/ingest/heartbeat":
                     state.heartbeat(value)
                 elif self.path == "/ingest/emt/bar":
+                    state.touch_bridge(value)
                     state.add_emt(value)
                 else:
+                    state.touch_bridge(value)
                     state.add(value)
                 try:
                     self.send_response(204); self.end_headers()
@@ -406,6 +442,7 @@ def main():
         print("WARNING: NINJA_BRIDGE_SECRET should be a 32+ character random value.")
     state = MarketState(config)
     server = ThreadingHTTPServer((config["listen_host"], int(config["listen_port"])), make_handler(state))
+    threading.Thread(target=emt_watchdog, args=(state,), name="emt-watchdog", daemon=True).start()
     if args.no_dashboard:
         print(
             f"EMT receiver listening on {config['listen_host']}:{config['listen_port']} "
