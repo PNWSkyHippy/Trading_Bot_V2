@@ -270,6 +270,39 @@ class EMTStrategyEngine:
         if stamp_et >= trade_end:
             self._reset_session(stamp_et.date())
 
+    def _advance_stale_range_phase(self, stamp_et: datetime) -> None:
+        # Historical-flagged tick bars skip _evaluate() entirely (see
+        # on_tick_bar) so replayed/backfill data can never arm or open a
+        # trade. But that also means, if a live tick bar never happens to
+        # land after the opening-range window closes (e.g. a transport gap
+        # around the window, or a stretch where every tick bar received
+        # happens to be historical-flagged), self.phase has no other path
+        # out of its BUILDING_RANGE default -- it would sit there
+        # indefinitely even with hours of tick data proving the window is
+        # long over. This mirrors the passive, non-trade-opening half of
+        # _evaluate()'s phase bookkeeping (RANGE_DATA_MISSED / SESSION_DONE
+        # / opening_high-and-low-present -> WAIT_BREAKOUT) so that bookkeeping
+        # runs regardless of whether the triggering bar was historical.
+        if self.phase != "BUILDING_RANGE" or self.active_trade is not None:
+            return
+        _, range_end, trade_end = self._session_times(stamp_et)
+        if stamp_et < range_end:
+            return
+        if stamp_et >= trade_end:
+            self.phase = "SESSION_DONE"
+            return
+        if self.opening_high is None or self.opening_low is None:
+            self.phase = "RANGE_DATA_MISSED"
+            self._emit(
+                stamp_et, 1, "RANGE_DATA_MISSED", self.direction or "", 0.0,
+                "Opening range window closed with no 1-minute bar data received; "
+                "no trades this session",
+            )
+            return
+        self.resistance_level = self.opening_high
+        self.support_level = self.opening_low
+        self.phase = "WAIT_BREAKOUT"
+
     def _emit(self, stamp: datetime, level: int, kind: str, direction: str,
               price: float, message: str) -> None:
         event = EMTEvent(
@@ -450,9 +483,12 @@ class EMTStrategyEngine:
             before = len(self.events)
             stamp_et = bar["dt"].astimezone(self.market_tz)
             if historical:
+                old_signature = self._state_signature()
                 if complete:
                     self._upsert(self.tick_bars, bar)
                 self.last_tick_received = datetime.now(timezone.utc).timestamp()
+                self._advance_stale_range_phase(stamp_et)
+                self._emit_if_state_changed(bar["dt"], old_signature, bar["close"])
                 return []
             self._ensure_session(stamp_et)
             old_signature = self._state_signature()
