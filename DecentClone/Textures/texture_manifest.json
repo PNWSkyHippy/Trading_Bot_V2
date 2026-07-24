@@ -8,6 +8,12 @@
       "normal": "Textures/WallTextures/Rock060_1K-JPG_NormalGL.jpg",
       "ao": "Textures/WallTextures/Rock060_1K-JPG_AmbientOcclusion.jpg"
     },
+     {
+      "id": "phptpgUnderwater",
+      "label": "Photo Undrwater",
+      "path": "Textures/WallTextures/PhotogUnderwater.png",
+      "mapping": "section"
+    },
     {
       "id": "blackgloss",
       "label": "Black Gloss",
