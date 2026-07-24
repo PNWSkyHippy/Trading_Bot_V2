@@ -100,15 +100,15 @@ except Exception:
     _tradovate_available = False
 
 # Map dashboard symbol → Tradovate front-month contract name
-# Format: ROOT → ROOT + MONTH_CODE + YEAR_CODE  (M6 = June 2026)
-# Update month code each quarterly rollover: M6→U6 (Sep), U6→Z6 (Dec), Z6→H7 (Mar)
+# Format: ROOT → ROOT + MONTH_CODE + YEAR_CODE  (U6 = September 2026)
+# Update month code each quarterly rollover: U6→Z6 (Dec), Z6→H7 (Mar), H7→M7 (Jun)
 TRADOVATE_SYMBOL_MAP = {
     # ── CME Equity Index Micros & Minis ──────────────────────────────────
-    "MES":  "MESM6",   "ES":  "ESM6",
-    "MNQ":  "MNQM6",   "NQ":  "NQM6",
-    "M2K":  "M2KM6",   "RTY": "RTYM6",
+    "MES":  "MESU6",   "ES":  "ESU6",
+    "MNQ":  "MNQU6",   "NQ":  "NQU6",
+    "M2K":  "M2KU6",   "RTY": "RTYU6",
     # ── CBOT Equity ──────────────────────────────────────────────────────
-    "MYM":  "MYMM6",   "YM":  "YMM6",
+    "MYM":  "MYMU6",   "YM":  "YMU6",
     # ── NYMEX Energy ─────────────────────────────────────────────────────
     "MCL":  "MCLM6",   "CL":  "CLN6",   # CL front-month is July (N6) in late May
     "NG":   "NGN6",    "MNG": "MNGN6",
