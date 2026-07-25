@@ -142,5 +142,35 @@
     "db_timezone": "America/Los_Angeles",
     "db_position_value_mode": "risk",
     "control_state_key": "scanner_emt_enabled"
+  },
+  "eat": {
+    "enabled": true,
+    "paper_only": true,
+    "symbol": "MNQ",
+    "instrument": "MNQ 09-26",
+    "broker_symbol": "MNQU6",
+    "source_timezone": "America/Los_Angeles",
+    "market_timezone": "America/Los_Angeles",
+    "primary_box_minutes": 5,
+    "fallback_box_minutes": 15,
+    "min_box_ticks": 100,
+    "max_box_ticks": 250,
+    "buffer_ticks": 30,
+    "tp1_ticks": 100,
+    "runner_trail_ticks": 30,
+    "wick_stop_lookback_minutes": 20,
+    "trade_window_minutes": 60,
+    "contracts": 1,
+    "max_trades_per_session": 12,
+    "allow_reentry": true,
+    "sessions": [
+      {"name": "ny", "start": "05:00"},
+      {"name": "tokyo", "start": "14:30"},
+      {"name": "london", "standard_start": "22:30", "dst_start": "23:30"}
+    ],
+    "ledger_path": "eat_trades.jsonl",
+    "mirror_to_bot_db": true,
+    "db_timezone": "America/Los_Angeles",
+    "control_state_key": "scanner_eat_enabled"
   }
 }

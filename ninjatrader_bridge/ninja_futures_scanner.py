@@ -13,10 +13,12 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from dotenv import load_dotenv
 
 try:
+    from .eat_strategy import EATStrategyEngine
     from .emt_strategy import EMTStrategyEngine
     from .futures_signal_engine import assess_confluence
     from .tradovate_executor import TradovateExecutor
 except ImportError:  # direct script execution
+    from eat_strategy import EATStrategyEngine
     from emt_strategy import EMTStrategyEngine
     from futures_signal_engine import assess_confluence
     from tradovate_executor import TradovateExecutor
@@ -56,6 +58,7 @@ class MarketState:
         self.assessment_created_at = 0.0
         self.last_emt_status_log = 0.0
         self.last_emt_watch_log = 0.0
+        self.last_eat_status_log = 0.0
         emt_settings = dict(config.get("emt", {}))
         execution_mode = os.getenv("EMT_EXECUTION_MODE", "paper").strip().lower()
         if execution_mode not in ("paper", "live"):
@@ -71,6 +74,19 @@ class MarketState:
             config.get("contracts", {}).get(emt_symbol, {}),
             ROOT,
             executor=executor,
+        )
+        eat_settings = dict(config.get("eat", {}))
+        eat_execution_mode = os.getenv("EAT_EXECUTION_MODE", "paper").strip().lower()
+        if eat_execution_mode != "paper":
+            raise ValueError(
+                "EAT_EXECUTION_MODE must be paper; live routing is not implemented yet"
+            )
+        eat_settings["paper_only"] = True
+        eat_symbol = str(eat_settings.get("symbol", "MNQ")).upper()
+        self.eat = EATStrategyEngine(
+            eat_settings,
+            config.get("contracts", {}).get(eat_symbol, {}),
+            ROOT,
         )
 
     @staticmethod
@@ -94,6 +110,26 @@ class MarketState:
             self.last_received[symbol] = time.time()
         if symbol == self.emt.symbol:
             self.emt.on_minute_bar(clean, historical=bool(bar.get("historical", False)))
+        if symbol == self.eat.symbol:
+            events = self.eat.on_minute_bar(
+                clean, historical=bool(bar.get("historical", False))
+            )
+            now = time.time()
+            for event in events:
+                print(
+                    f"EAT EVENT · {event.kind} · {event.direction or ''} · "
+                    f"{event.price:.2f} · {event.message}",
+                    flush=True,
+                )
+            if now - self.last_eat_status_log >= 30:
+                snap = self.eat.snapshot()
+                print(
+                    f"EAT STATUS · {snap.get('phase')} · "
+                    f"{snap.get('status_message')} · trades "
+                    f"{snap.get('trades_this_session')}",
+                    flush=True,
+                )
+                self.last_eat_status_log = now
 
     def add_emt(self, bar):
         if str(bar.get("bar_type", "")).lower() != "tick":
@@ -318,10 +354,16 @@ def dashboard(state):
             f"subscriptions {bridge.get('subscriptions', 0)}\n"
         )
         emt = state.emt.snapshot()
+        eat = state.eat.snapshot()
         print(
             f"EMT {emt['execution_mode'].upper()} · {emt['symbol']} · {emt['phase']} · "
             f"OR {emt['opening_low']}/{emt['opening_high']} · "
             f"610t bars {emt['tick_bars']} · trades {emt['trades_this_session']}\n"
+        )
+        print(
+            f"EAT {eat['execution_mode'].upper()} · {eat['symbol']} · {eat['phase']} · "
+            f"box {eat['inner_low']}/{eat['inner_high']} · "
+            f"trades {eat['trades_this_session']}\n"
         )
         print(f"{'SYMBOL':<8} {'BARS':>5} {'AGE':>7} {'STATE':<8} {'SCORE':>5} {'TREND':<7} {'T-SCR':>5}  DETAILS")
         print("-" * 150)
@@ -351,6 +393,7 @@ def emt_watchdog(state):
         try:
             bridge = state.bridge_status()
             emt = state.emt.snapshot()
+            eat = state.eat.snapshot()
             age = bridge.get("age_seconds")
             age_text = "--" if age is None else f"{age:.0f}s"
             bridge_text = "ALIVE" if bridge.get("alive") else "STALE"
@@ -358,6 +401,11 @@ def emt_watchdog(state):
                 f"EMT WATCH · bridge {bridge_text} · heartbeat age {age_text} · "
                 f"phase {emt.get('phase')} · tick bars {emt.get('tick_bars')} · "
                 f"{emt.get('status_message')}",
+                flush=True,
+            )
+            print(
+                f"EAT WATCH · bridge {bridge_text} · heartbeat age {age_text} · "
+                f"phase {eat.get('phase')} · {eat.get('status_message')}",
                 flush=True,
             )
         except Exception as exc:
@@ -374,6 +422,7 @@ def make_handler(state):
                 "ok": True,
                 "bridge": state.bridge_status(),
                 "emt": state.emt.snapshot(),
+                "eat": state.eat.snapshot(),
             }
             if self.path == "/snapshot":
                 body["contracts"] = current_assessments(state)
@@ -381,6 +430,7 @@ def make_handler(state):
                 body["bars"] = bars
                 body["last_received"] = {k: round(time.time() - v, 1) for k, v in received.items()}
                 body["emt_overlay"] = state.emt.chart_overlay()
+                body["eat_overlay"] = state.eat.chart_overlay()
                 body["generated_at"] = datetime.now(timezone.utc).isoformat()
             else:
                 body["symbols"] = list(state.bars)
