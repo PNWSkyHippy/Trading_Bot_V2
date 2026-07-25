@@ -3645,6 +3645,24 @@ function ChartPanel({ defaultSymbol }) {
       const overlay = emt.overlay || {};
       const status = overlay.status_message || emt.emt?.status_message || emt.emt?.phase || 'EMT';
       const phase = overlay.phase || emt.emt?.phase || '';
+      const visibleTimes = (cleanBarsRef.current || [])
+        .map(b => Number(b.time))
+        .filter(Number.isFinite);
+      const firstVisibleTime = visibleTimes.length ? visibleTimes[0] : null;
+      const lastVisibleTime = visibleTimes.length ? visibleTimes[visibleTimes.length - 1] : null;
+      const cleanOverlayLine = (pts) => {
+        if (!Array.isArray(pts)) return [];
+        const byTime = new Map();
+        pts.forEach(p => {
+          const time = Number(p?.time);
+          const value = Number(p?.value);
+          if (!Number.isFinite(time) || !Number.isFinite(value)) return;
+          if (firstVisibleTime !== null && time < firstVisibleTime) return;
+          if (lastVisibleTime !== null && time > lastVisibleTime) return;
+          byTime.set(time, { time, value });
+        });
+        return Array.from(byTime.values()).sort((a, b) => a.time - b.time);
+      };
       const usedLabelYs = [];
       const drawH = (price, color, label) => {
         const y = series.priceToCoordinate(Number(price || 0));
@@ -3661,10 +3679,11 @@ function ChartPanel({ defaultSymbol }) {
         ctx.restore();
       };
       const drawLine = (pts, color, width = 1) => {
-        if (!Array.isArray(pts) || pts.length < 2) return;
+        const line = cleanOverlayLine(pts);
+        if (line.length < 2) return;
         ctx.save(); ctx.strokeStyle = color; ctx.lineWidth = width; ctx.setLineDash([3, 3]);
         ctx.beginPath(); let started = false;
-        pts.forEach(p => {
+        line.forEach(p => {
           const xy = toXY({ time: p.time, price: p.value });
           if (!xy) return;
           if (!started) { ctx.moveTo(xy.x, xy.y); started = true; }
