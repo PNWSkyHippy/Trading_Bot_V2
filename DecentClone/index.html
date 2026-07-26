@@ -692,7 +692,7 @@
         const pilotNameInput = document.getElementById('pilot-name-input');
         const pilotStartBtn = document.getElementById('pilot-start-btn');
         const changePilotBtn = document.getElementById('change-pilot-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -787,7 +787,7 @@
             ['Del', 'delete anchored segment'],
             ['C', 'cycle selected pipe kind'],
             ['Shift+LMB target', 'toggle one target box in the selection'],
-            ['Shift+LMB target, then Alt+Shift', 'start/finish target path selection'],
+            ['Shift+LMB target, then Ctrl+Shift target', 'start/finish target path selection'],
             ['V with target(s)', 'edit one or batch edit selected target boxes'],
             ['G', 'prune disconnected strays'],
             ['Y', 'join tunnel A→B (optional bend C)'],
@@ -828,7 +828,7 @@
             'Create a portal: in map mode press 8 for portal mode, LMB sets entry A, Ctrl+LMB sets exit B, then Shift+Y links them.',
             'Edit textures/ring colors: in 3D map, click the first tunnel section, Alt+Shift+LMB the ending tunnel section, then press V.',
             'Delete tunnel sections: select one section or a tunnel range, then press Del/Backspace.',
-            'Edit target boxes: Shift+LMB selects the first box; with a target selection active, Alt+Shift+LMB the ending box selects every target along that connected path; then press V.',
+            'Edit target boxes: Shift+LMB selects the first box; with a target selection active, Ctrl+Shift+LMB the ending box selects every target along that connected path; then press V.',
             'Place sentries: press M, then 7 for sentry tools, Ctrl+LMB places a spawn, click a sentry to edit guard or patrol behavior.',
             'Save/load maps: Ctrl+Shift+S defaults to the current map name for quick update/overwrite; Ctrl+Shift+L opens the local map library.',
             'Clean mistakes: Del deletes selected segment/range, U undoes the last placed segment, G prunes disconnected strays.',
@@ -842,7 +842,7 @@
             ['Dbl-RMB / Alt+LMB', 'snap camera to tunnel'],
             ['Ctrl+Alt+LMB object', 'set object as tethered orbit anchor'],
             ['Shift+LMB target', 'toggle one target box in the selection'],
-            ['Shift target, then Alt+Shift target', 'start/finish target path selection'],
+            ['Shift target, then Ctrl+Shift target', 'start/finish target path selection'],
             ['V with target(s)', 'edit selected target boxes'],
             ['9 (number nine)', 'center camera on A, B, or ship'],
             ['Shift+9', 'place ship at selected A tunnel point'],
@@ -5890,16 +5890,20 @@
                     return;
                 }
                 if (mapMouse.joinMode !== 'sentry') {
-                    // Targets are mounted on tunnels. Only give Alt+Shift to a target
-                    // range after Shift+LMB has explicitly started target selection;
-                    // otherwise Alt+Shift remains the tunnel-range endpoint command.
+                    // Alt+Shift belongs exclusively to tunnel range selection.
+                    // Target paths use Ctrl+Shift on the ending target after a
+                    // plain Shift-click has established the start target.
                     const preTargetHit = pickMapTarget(canvasX, canvasY, true);
-                    if (preTargetHit && e.altKey && e.shiftKey && mapMouse.targetSelection.size > 0) {
-                        selectTargetRangeTo(preTargetHit.id);
+                    if (preTargetHit && e.ctrlKey && e.shiftKey && !e.altKey) {
+                        if (mapMouse.targetSelection.size > 0) {
+                            selectTargetRangeTo(preTargetHit.id);
+                        } else {
+                            keyboardStatus.innerText = 'Shift-click a start target first, then Ctrl+Shift-click the ending target';
+                        }
                         e.preventDefault();
                         return;
                     }
-                    if (preTargetHit && e.shiftKey) {
+                    if (preTargetHit && e.shiftKey && !e.ctrlKey && !e.altKey) {
                         toggleTargetSelection(preTargetHit.id);
                         e.preventDefault();
                         return;
@@ -15136,7 +15140,7 @@
                 mapMouse.selectedRocketCacheId = null;
                 mapMouse.selection.clear();
                 mapMouse.anchor = null;
-                keyboardStatus.innerText = 'target range start set — Alt+Shift+LMB another target box to select between';
+                keyboardStatus.innerText = 'target range start set — Ctrl+Shift+LMB another target box to select between';
                 return true;
             }
             const startId = (
@@ -15198,7 +15202,7 @@
             keyboardStatus.innerText =
                 `${mapMouse.targetSelection.size} target box(es) selected` +
                 (mapMouse.targetRangeStartId
-                    ? ' — Alt+Shift-click an ending box for a path, or press V to edit'
+                    ? ' — Ctrl+Shift-click an ending box for a path, or press V to edit'
                     : '');
             return true;
         }
@@ -19652,7 +19656,6 @@
                 else if (target.branch) strokeColor = TARGET_BRANCH_COLOR;
                 else if (target.junction) strokeColor = TARGET_JUNCTION_COLOR;
                 const selectedTarget = mapMouse.targetSelection.has(target.id);
-                if (selectedTarget) strokeColor = '#ffe95c';
                 if (selectedTarget) {
                     const projectedCorners = corners
                         .map(point => projectMapPoint(point, centerX, centerY, fov))
