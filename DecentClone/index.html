@@ -692,7 +692,7 @@
         const pilotNameInput = document.getElementById('pilot-name-input');
         const pilotStartBtn = document.getElementById('pilot-start-btn');
         const changePilotBtn = document.getElementById('change-pilot-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -5403,6 +5403,12 @@
             }
         })();
 
+        function clearEscapeKeyState() {
+            physicalKeysHeld.delete('escape');
+            keys.escape = false;
+            lastKeyDown.escape = 0;
+        }
+
         function handleKeyDown(e) {
             if (e.astralDriftHandled) return;
             e.astralDriftHandled = true;
@@ -5428,9 +5434,7 @@
             // Chrome is tearing down mouse capture; repeated focus/lock transitions
             // could leave the WebGL surface black until a reload.
             if (physicalKey === 'escape' && !mapView && !builderMode) {
-                physicalKeysHeld.delete('escape');
-                keys.escape = false;
-                lastKeyDown.escape = 0;
+                clearEscapeKeyState();
                 mouseInput.yaw = 0;
                 mouseInput.pitch = 0;
                 mouseInput.fire = false;
@@ -5510,6 +5514,11 @@
                 if (key === 'alt') e.preventDefault();
                 return;
             }
+            // Every map-mode Escape is a one-shot cancel command. Clear its
+            // physical/key state before evaluating what it should cancel so a
+            // second press with nothing selected cannot fall through as a held
+            // gameplay key.
+            if (key === 'escape') clearEscapeKeyState();
             if (mapLibraryDialog.style.display === 'block' && key === 'escape') {
                 closeMapLibraryDialog();
                 e.preventDefault();
@@ -5561,6 +5570,11 @@
                 mapMouse.gizmoTarget = null;
                 clearMapOrbitAnchor();
                 keyboardStatus.innerText = 'builder selections cleared';
+                e.preventDefault();
+                return;
+            }
+            if (key === 'escape' && (mapView || builderMode)) {
+                keyboardStatus.innerText = 'map: nothing else to cancel';
                 e.preventDefault();
                 return;
             }
