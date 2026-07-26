@@ -579,6 +579,7 @@
                 <div class="hud-card"><label>Pilot</label><span id="player-name-val">Pilot</span></div>
                 <div class="hud-card"><label>Lives</label><span id="lives-val">5</span></div>
                 <div class="hud-card"><label>Score</label><span id="score-val">0</span></div>
+                <div class="hud-card"><label>Rockets</label><span id="rocket-val">10 loaded · 0 packs</span></div>
                 <div class="hud-card"><label>Status</label><span id="keyboard-val">tap screen</span></div>
             </div>
             <div id="shield-row">
@@ -682,6 +683,7 @@
         const developerHudPanel = document.getElementById('developer-hud-panel');
         const playerNameVal = document.getElementById('player-name-val');
         const livesVal = document.getElementById('lives-val');
+        const rocketVal = document.getElementById('rocket-val');
         const devModeVal = document.getElementById('dev-mode-val');
         const playerCommandList = document.getElementById('player-command-list');
         const playerActionList = document.getElementById('player-action-list');
@@ -690,7 +692,7 @@
         const pilotNameInput = document.getElementById('pilot-name-input');
         const pilotStartBtn = document.getElementById('pilot-start-btn');
         const changePilotBtn = document.getElementById('change-pilot-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -801,6 +803,7 @@
         ];
         const combatCheats = [
             ['V / RMB', 'fire at sentries (10% per hit, 10 hits = kill)'],
+            ['X', 'launch rocket (10 loaded; cache packs auto-reload)'],
             ['Ctrl+Shift+R', 'developer repair hull/shields'],
             ['Ctrl+Shift+G', 'developer toggle Galaga stage'],
             ['Sentries', 'guard spot or patrol; dead = 5 min respawn'],
@@ -811,7 +814,7 @@
             ['Fly through portal', 'ignore portal without clicking'],
             ['Blue target boxes', 'shoot or fly through for points'],
             ['Red target boxes', 'avoid or shoot before contact'],
-            ['Caches', 'fly into loot cache to collect when added'],
+            ['Rocket caches', 'fly through the orange crate to collect a 10-rocket reload pack'],
             ['Buttons', 'click or fly close to activate when added'],
         ];
         const builderProcedures = [
@@ -1019,6 +1022,21 @@
         const lastBuilderCommandAt = {};
         const lasers = []; // Tracks your active blaster shots
         const vfxParticles = [];
+        const rockets = [];
+        const rocketBlastClouds = [];
+        const rocketScorches = [];
+        const rocketCaches = [];
+        const rocketCollectedCacheIds = new Set();
+        const ROCKET_MAGAZINE_SIZE = 10;
+        const ROCKET_MAX_RESERVE_PACKS = 6;
+        const ROCKET_SPEED = 12.5;
+        const ROCKET_MAX_LIFE = 210;
+        const ROCKET_DIRECT_HIT_RADIUS = 34;
+        const ROCKET_BLAST_RADIUS = 145;
+        const ROCKET_CONCUSSION_RADIUS = 300;
+        const rocketInventory = { loaded: ROCKET_MAGAZINE_SIZE, reservePacks: 0 };
+        const rocketConcussion = { startedAt: 0, until: 0, duration: 0, intensity: 0, seed: 0 };
+        let rocketCacheGeometryDirty = true;
         const TARGET_REGEN_MS = 300000;
         const SENTRY_REGEN_MS = TARGET_REGEN_MS;
         const SENTRY_HEALTH_MAX = 100;
@@ -1807,6 +1825,7 @@
             tunnelVisibleSegmentsCache.coverage = null;
             tunnelVisibleSegmentsCache.streak = null;
             junctionBubbleCache.stale = true;
+            rocketCacheGeometryDirty = true;
             tunnelTopologyCache.stale = true;
             junctionMouthCache.stale = true;
             miniMapHud.segmentKeysStale = true;
@@ -2044,6 +2063,24 @@
 
         function getFlightCameraFrame() {
             // syncViewToShip already applies branch blend + roll; do not re-blend or world-up-lock here.
+            const now = performance.now();
+            if (rocketConcussion.until > now && rocketConcussion.duration > 0) {
+                const elapsed = now - rocketConcussion.startedAt;
+                const decay = Math.max(0, Math.min(1, (rocketConcussion.until - now) / rocketConcussion.duration));
+                const kick = rocketConcussion.intensity * decay * decay;
+                const sway = Math.sin(elapsed * 0.071 + rocketConcussion.seed) * kick;
+                const buck = Math.sin(elapsed * 0.113 + rocketConcussion.seed * 1.7) * kick;
+                const rollKick = Math.sin(elapsed * 0.087 + rocketConcussion.seed * 0.6) * kick * 0.11;
+                return {
+                    eye: addVec(
+                        { x: posX, y: posY, z: posZ },
+                        addVec(scaleVec(viewRight, sway * 9), scaleVec(viewDown, buck * 6))
+                    ),
+                    right: rotateVector(viewRight, viewForward, rollKick),
+                    down: rotateVector(viewDown, viewForward, rollKick),
+                    forward: viewForward
+                };
+            }
             return {
                 eye: { x: posX, y: posY, z: posZ },
                 right: viewRight,
@@ -5440,6 +5477,19 @@
                 mapMouse.gizmoTarget = null;
                 clearMapOrbitAnchor();
                 keyboardStatus.innerText = 'builder selections cleared';
+                e.preventDefault();
+                return;
+            }
+            if (
+                key === 'x' &&
+                !mapView &&
+                !builderMode &&
+                !e.ctrlKey &&
+                !e.altKey &&
+                !e.metaKey &&
+                !e.repeat
+            ) {
+                fireRocket();
                 e.preventDefault();
                 return;
             }
@@ -14175,7 +14225,7 @@
                 p.x += p.vx * frameScale;
                 p.y += p.vy * frameScale;
                 p.z += p.vz * frameScale;
-                const damping = Math.pow(0.96, frameScale);
+                const damping = Math.pow(p.kind === 'smoke' || p.kind === 'gas' ? 0.985 : 0.96, frameScale);
                 p.vx *= damping;
                 p.vy *= damping;
                 p.vz *= damping;
@@ -14187,12 +14237,617 @@
                 const projected = projectPoint(p, centerX, centerY, fov);
                 if (!projected) continue;
                 const alpha = Math.max(0, 1 - p.life / p.maxLife);
-                ctx.globalAlpha = alpha;
-                ctx.fillStyle = p.color;
-                const size = Math.max(1, p.size * (1 - projected.z / 900));
-                ctx.fillRect(projected.x - size * 0.5, projected.y - size * 0.5, size, size);
+                if (p.kind === 'smoke' || p.kind === 'gas') {
+                    const worldSize = p.size + (p.growth || 0) * p.life;
+                    const size = Math.max(2, worldSize * fov / Math.max(45, projected.z));
+                    const gradient = ctx.createRadialGradient(
+                        projected.x - size * 0.18,
+                        projected.y - size * 0.18,
+                        size * 0.08,
+                        projected.x,
+                        projected.y,
+                        size
+                    );
+                    const core = p.kind === 'gas' ? 'rgba(255,208,92,' : 'rgba(112,120,124,';
+                    const edge = p.kind === 'gas' ? 'rgba(95,50,20,' : 'rgba(24,28,30,';
+                    gradient.addColorStop(0, `${core}${Math.min(0.82, alpha * 0.86)})`);
+                    gradient.addColorStop(0.48, `${p.color || edge}${Math.min(0.62, alpha * 0.64)})`);
+                    gradient.addColorStop(1, `${edge}0)`);
+                    ctx.globalAlpha = Math.min(1, alpha * 1.15);
+                    ctx.fillStyle = gradient;
+                    ctx.beginPath();
+                    ctx.arc(projected.x, projected.y, size, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    ctx.globalAlpha = alpha;
+                    ctx.fillStyle = p.color;
+                    const size = Math.max(1, p.size * (1 - projected.z / 900));
+                    ctx.fillRect(projected.x - size * 0.5, projected.y - size * 0.5, size, size);
+                }
                 ctx.globalAlpha = 1;
             }
+        }
+
+        function updateRocketHud() {
+            if (!rocketVal) return;
+            rocketVal.textContent =
+                `${rocketInventory.loaded} loaded · ${rocketInventory.reservePacks} ` +
+                `pack${rocketInventory.reservePacks === 1 ? '' : 's'}`;
+            rocketVal.style.color = rocketInventory.loaded > 0
+                ? '#ffd78a'
+                : rocketInventory.reservePacks > 0 ? '#ff9d48' : '#ff6677';
+        }
+
+        function rocketWorldPoint(rocket) {
+            return { x: rocket.x, y: rocket.y, z: rocket.z };
+        }
+
+        function fireRocket() {
+            if (gameOverState.active || portalTransit.active || mapView || builderMode) return false;
+            if (rocketInventory.loaded <= 0) {
+                if (rocketInventory.reservePacks <= 0) {
+                    keyboardStatus.innerText = 'ROCKETS EMPTY — find an orange rocket cache';
+                    updateRocketHud();
+                    return false;
+                }
+                rocketInventory.reservePacks -= 1;
+                rocketInventory.loaded = ROCKET_MAGAZINE_SIZE;
+                keyboardStatus.innerText = 'rocket rack reloaded: 10 rounds';
+            }
+
+            const snapAiming =
+                isKeyActive('c') ||
+                isKeyActive('1') || isKeyActive('2') || isKeyActive('3') ||
+                isKeyActive('4') || isKeyActive('5') || isKeyActive('6');
+            const aimForward = normalize(snapAiming ? viewForward : shipForward);
+            const aimRight = normalize(snapAiming ? viewRight : shipRight);
+            const aimDown = normalize(snapAiming ? viewDown : shipDown);
+            const muzzle = addVec(
+                { x: posX, y: posY, z: posZ },
+                addVec(scaleVec(aimForward, 24), scaleVec(aimDown, 2))
+            );
+            rockets.push({
+                x: muzzle.x,
+                y: muzzle.y,
+                z: muzzle.z,
+                forward: aimForward,
+                right: aimRight,
+                down: aimDown,
+                phase: Math.random() * Math.PI * 2,
+                age: 0,
+                smokeClock: 0,
+                segmentIndex: shipSegmentIndex
+            });
+            rocketInventory.loaded -= 1;
+            updateRocketHud();
+            keyboardStatus.innerText =
+                `ROCKET AWAY — ${rocketInventory.loaded} loaded` +
+                (rocketInventory.loaded === 0 && rocketInventory.reservePacks > 0
+                    ? ' · next launch auto-reloads'
+                    : '');
+            playSfx('boost', { worldPos: muzzle, intensity: 0.55 });
+            return true;
+        }
+
+        function spawnRocketSmoke(rocket) {
+            const tail = addVec(rocketWorldPoint(rocket), scaleVec(rocket.forward, -10));
+            const drift = 0.22 + Math.random() * 0.28;
+            vfxParticles.push({
+                x: tail.x + (Math.random() - 0.5) * 2.5,
+                y: tail.y + (Math.random() - 0.5) * 2.5,
+                z: tail.z + (Math.random() - 0.5) * 2.5,
+                vx: -rocket.forward.x * drift + (Math.random() - 0.5) * 0.18,
+                vy: -rocket.forward.y * drift + (Math.random() - 0.5) * 0.18,
+                vz: -rocket.forward.z * drift + (Math.random() - 0.5) * 0.18,
+                life: 0,
+                maxLife: 52 + Math.random() * 34,
+                kind: 'smoke',
+                color: 'rgba(80,88,92,',
+                size: 5 + Math.random() * 4,
+                growth: 0.16 + Math.random() * 0.1
+            });
+        }
+
+        function rocketDirectEnemyHit(point) {
+            for (const target of tunnelTargets) {
+                if (!targetIsActive(target)) continue;
+                const hitRadius = Math.max(ROCKET_DIRECT_HIT_RADIUS, (target.size || 48) * 0.62);
+                if (distanceSq(point, target.point) <= hitRadius * hitRadius) return true;
+            }
+            for (const sentry of tunnelSentries) {
+                if (!sentryIsActive(sentry)) continue;
+                if (distanceSq(point, sentry) <= ROCKET_DIRECT_HIT_RADIUS * ROCKET_DIRECT_HIT_RADIUS) return true;
+            }
+            if (galagaPhase.active && galagaPhase.state === 'play') {
+                for (const fighter of galagaPhase.fighters) {
+                    const hitRadius = fighter.type === 'boss' ? GALAGA.BOSS_HIT_R : GALAGA.FIGHTER_HIT_R;
+                    if (distanceSq(point, fighter.pos) <= Math.pow(hitRadius + 10, 2)) return true;
+                }
+            }
+            return false;
+        }
+
+        function rocketWallImpact(rocket) {
+            if (!builder.segments.length || galagaPhase.active) return false;
+            const point = rocketWorldPoint(rocket);
+            const nearest = nearestTunnelPoint(point, rocket.segmentIndex, { preferContaining: true });
+            if (!nearest?.seg) return false;
+            rocket.segmentIndex = nearest.index;
+            const seg = nearest.seg;
+            if (segmentIsChamber(seg)) {
+                const chamber = chamberDistanceState(point, seg);
+                return chamber.dist >= chamber.radius * 0.94;
+            }
+            const local = shipSegmentLocal(point, seg);
+            if (local.localZ >= 0 && local.localZ <= local.length) {
+                const radius = chamberProfileRadius(seg, local.localZ, 1);
+                return local.radialDist >= radius * 0.93;
+            }
+            if (local.localZ < 0 && seg.capStart && local.localZ > -ROCKET_SPEED * 1.6) return true;
+            if (local.localZ > local.length && seg.capEnd && local.localZ < local.length + ROCKET_SPEED * 1.6) return true;
+            return false;
+        }
+
+        function addRocketScorch(origin, preferredSegmentIndex = null) {
+            if (!builder.segments.length || galagaPhase.active) return;
+            const nearest = nearestTunnelPoint(origin, preferredSegmentIndex, { preferContaining: true });
+            if (!nearest?.seg) return;
+            const seg = nearest.seg;
+            let surface;
+            let normal;
+            if (segmentIsChamber(seg)) {
+                const chamber = chamberDistanceState(origin, seg);
+                normal = chamber.normal;
+                surface = addVec(chamber.center, scaleVec(normal, chamber.radius * 0.985));
+            } else {
+                const local = shipSegmentLocal(origin, seg);
+                const radial = {
+                    x: origin.x - local.onAxis.x,
+                    y: origin.y - local.onAxis.y,
+                    z: origin.z - local.onAxis.z
+                };
+                normal = Math.hypot(radial.x, radial.y, radial.z) > 0.01
+                    ? normalize(radial)
+                    : normalize(seg.down || builder.down);
+                const radius = chamberProfileRadius(seg, Math.max(0, Math.min(local.length, local.localZ)), 1);
+                surface = addVec(local.onAxis, scaleVec(normal, radius * 0.985));
+            }
+            if (Math.sqrt(distanceSq(origin, surface)) > ROCKET_BLAST_RADIUS * 1.35) return;
+            rocketScorches.push({
+                point: surface,
+                normal,
+                segmentIndex: nearest.index,
+                radius: 34 + Math.random() * 22,
+                seed: Math.random() * 1000
+            });
+            if (rocketScorches.length > 48) rocketScorches.shift();
+        }
+
+        function triggerRocketConcussion(origin) {
+            const dist = Math.sqrt(distanceSq(origin, { x: posX, y: posY, z: posZ }));
+            if (dist >= ROCKET_CONCUSSION_RADIUS) return;
+            const proximity = 1 - dist / ROCKET_CONCUSSION_RADIUS;
+            const intensity = Math.min(1, 0.16 + proximity * proximity * 0.92);
+            const now = performance.now();
+            const duration = 620 + intensity * 720;
+            if (intensity < rocketConcussion.intensity && rocketConcussion.until > now) return;
+            rocketConcussion.startedAt = now;
+            rocketConcussion.until = now + duration;
+            rocketConcussion.duration = duration;
+            rocketConcussion.intensity = intensity;
+            rocketConcussion.seed = Math.random() * Math.PI * 2;
+        }
+
+        function obliterateRocketEnemies(origin) {
+            const blastSq = ROCKET_BLAST_RADIUS * ROCKET_BLAST_RADIUS;
+            let kills = 0;
+            for (const target of tunnelTargets) {
+                if (!targetIsActive(target) || distanceSq(origin, target.point) > blastSq) continue;
+                destroyTarget(target);
+                spawnTargetParticles(target.point, target.right, target.down, '#ff9a24', 46, 5.4, 58);
+                addTargetScore(SCORE_LASER_HIT);
+                kills += 1;
+            }
+            for (const sentry of tunnelSentries) {
+                if (!sentryIsActive(sentry) || distanceSq(origin, sentry) > blastSq) continue;
+                destroySentry(sentry);
+                spawnTargetParticles(
+                    { x: sentry.x, y: sentry.y, z: sentry.z },
+                    sentry.right,
+                    sentry.down,
+                    '#fff0a0',
+                    68,
+                    6.8,
+                    70
+                );
+                kills += 1;
+            }
+            if (galagaPhase.active && galagaPhase.state === 'play') {
+                let bossIndex = -1;
+                for (let i = 0; i < galagaPhase.fighters.length; i++) {
+                    const fighter = galagaPhase.fighters[i];
+                    if (fighter.type === 'boss' && distanceSq(origin, fighter.pos) <= blastSq) {
+                        bossIndex = i;
+                        break;
+                    }
+                }
+                if (bossIndex >= 0) {
+                    galagaKillFighter(bossIndex, true);
+                    kills += 1;
+                } else {
+                    for (let i = galagaPhase.fighters.length - 1; i >= 0; i--) {
+                        if (distanceSq(origin, galagaPhase.fighters[i].pos) > blastSq) continue;
+                        galagaKillFighter(i, true);
+                        kills += 1;
+                    }
+                }
+            }
+            if (kills > 0) {
+                keyboardStatus.innerText = kills === 1
+                    ? 'ENEMY OBLITERATED'
+                    : `${kills} ENEMIES OBLITERATED`;
+            }
+        }
+
+        function spawnRocketBlastCloud(origin) {
+            const now = performance.now();
+            for (let i = 0; i < 8; i++) {
+                const dir = normalize({
+                    x: Math.random() - 0.5,
+                    y: Math.random() - 0.5,
+                    z: Math.random() - 0.5
+                });
+                rocketBlastClouds.push({
+                    point: addVec(origin, scaleVec(dir, Math.random() * 16)),
+                    bornAt: now + i * 12,
+                    duration: 760 + Math.random() * 440,
+                    maxRadius: 48 + Math.random() * 72,
+                    seed: Math.random() * 1000
+                });
+            }
+            const frame = getFlightCameraFrame();
+            spawnTargetParticles(origin, frame.right, frame.down, '#ffcf55', 86, 7.2, 72);
+            for (let i = 0; i < 22; i++) {
+                const dir = normalize({
+                    x: Math.random() - 0.5,
+                    y: Math.random() - 0.5,
+                    z: Math.random() - 0.5
+                });
+                vfxParticles.push({
+                    x: origin.x,
+                    y: origin.y,
+                    z: origin.z,
+                    vx: dir.x * (0.4 + Math.random() * 1.8),
+                    vy: dir.y * (0.4 + Math.random() * 1.8),
+                    vz: dir.z * (0.4 + Math.random() * 1.8),
+                    life: 0,
+                    maxLife: 64 + Math.random() * 50,
+                    kind: 'gas',
+                    color: 'rgba(165,86,30,',
+                    size: 12 + Math.random() * 10,
+                    growth: 0.28 + Math.random() * 0.24
+                });
+            }
+        }
+
+        function explodeRocket(rocket) {
+            const origin = rocketWorldPoint(rocket);
+            spawnRocketBlastCloud(origin);
+            obliterateRocketEnemies(origin);
+            addRocketScorch(origin, rocket.segmentIndex);
+            triggerRocketConcussion(origin);
+            playSfx('target_explosion', { intensity: 1.8, worldPos: origin });
+        }
+
+        function renderRocketBlastClouds(centerX, centerY, fov) {
+            const now = performance.now();
+            ctx.save();
+            ctx.globalCompositeOperation = 'screen';
+            for (let i = rocketBlastClouds.length - 1; i >= 0; i--) {
+                const cloud = rocketBlastClouds[i];
+                const age = now - cloud.bornAt;
+                if (age < 0) continue;
+                if (age > cloud.duration) {
+                    rocketBlastClouds.splice(i, 1);
+                    continue;
+                }
+                const projected = projectPoint(cloud.point, centerX, centerY, fov);
+                if (!projected) continue;
+                const t = Math.max(0, Math.min(1, age / cloud.duration));
+                const worldRadius = cloud.maxRadius * (0.16 + 0.84 * Math.sin(t * Math.PI * 0.5));
+                const radius = Math.max(3, worldRadius * fov / Math.max(38, projected.z));
+                const alpha = Math.pow(1 - t, 1.35);
+                const wobbleX = Math.sin(cloud.seed + t * 11) * radius * 0.11;
+                const wobbleY = Math.cos(cloud.seed * 1.3 + t * 9) * radius * 0.09;
+                const gradient = ctx.createRadialGradient(
+                    projected.x + wobbleX - radius * 0.18,
+                    projected.y + wobbleY - radius * 0.18,
+                    radius * 0.06,
+                    projected.x + wobbleX,
+                    projected.y + wobbleY,
+                    radius
+                );
+                gradient.addColorStop(0, `rgba(255,255,224,${alpha * 0.95})`);
+                gradient.addColorStop(0.18, `rgba(255,197,62,${alpha * 0.9})`);
+                gradient.addColorStop(0.52, `rgba(255,83,24,${alpha * 0.66})`);
+                gradient.addColorStop(0.78, `rgba(92,50,32,${alpha * 0.42})`);
+                gradient.addColorStop(1, 'rgba(15,18,20,0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(projected.x + wobbleX, projected.y + wobbleY, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+        }
+
+        function renderRocketScorches(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet) {
+            ctx.save();
+            ctx.globalCompositeOperation = 'source-over';
+            for (const scorch of rocketScorches) {
+                if (shouldSuppressOpaqueOverlay(
+                    scorch.segmentIndex,
+                    texturedSegmentIndices,
+                    forwardPathOverlaySet
+                )) continue;
+                const projected = projectPoint(scorch.point, centerX, centerY, fov);
+                if (!projected) continue;
+                const radius = Math.max(4, Math.min(150, scorch.radius * fov / Math.max(35, projected.z)));
+                const gradient = ctx.createRadialGradient(
+                    projected.x,
+                    projected.y,
+                    radius * 0.1,
+                    projected.x,
+                    projected.y,
+                    radius
+                );
+                gradient.addColorStop(0, 'rgba(4,3,2,0.94)');
+                gradient.addColorStop(0.46, 'rgba(28,12,5,0.82)');
+                gradient.addColorStop(0.72, 'rgba(114,42,10,0.44)');
+                gradient.addColorStop(1, 'rgba(25,8,2,0)');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                for (let step = 0; step <= 22; step++) {
+                    const a = step / 22 * Math.PI * 2;
+                    const jag = 0.82 + Math.sin(scorch.seed + step * 2.37) * 0.13 +
+                        Math.sin(scorch.seed * 0.7 + step * 4.11) * 0.06;
+                    const x = projected.x + Math.cos(a) * radius * jag;
+                    const y = projected.y + Math.sin(a) * radius * jag * 0.72;
+                    if (step === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                }
+                ctx.closePath();
+                ctx.fill();
+                ctx.globalAlpha = 0.5;
+                ctx.strokeStyle = '#d1571a';
+                ctx.lineWidth = Math.max(1, radius * 0.08);
+                for (let ring = 0; ring < 3; ring++) {
+                    ctx.beginPath();
+                    ctx.ellipse(
+                        projected.x + Math.sin(scorch.seed + ring) * radius * 0.08,
+                        projected.y + Math.cos(scorch.seed * 1.4 + ring) * radius * 0.05,
+                        radius * (0.35 + ring * 0.18),
+                        radius * (0.18 + ring * 0.11),
+                        Math.sin(scorch.seed) * 0.7,
+                        0,
+                        Math.PI * 2
+                    );
+                    ctx.stroke();
+                }
+                ctx.globalAlpha = 1;
+            }
+            ctx.restore();
+        }
+
+        function renderRocketBody(rocket, centerX, centerY, fov) {
+            const center = rocketWorldPoint(rocket);
+            const nose = addVec(center, scaleVec(rocket.forward, 10));
+            const tail = addVec(center, scaleVec(rocket.forward, -10));
+            const finLeft = addVec(addVec(center, scaleVec(rocket.forward, -5)), scaleVec(rocket.right, -5.5));
+            const finRight = addVec(addVec(center, scaleVec(rocket.forward, -5)), scaleVec(rocket.right, 5.5));
+            const pCenter = projectPoint(center, centerX, centerY, fov);
+            const pNose = projectPoint(nose, centerX, centerY, fov);
+            const pTail = projectPoint(tail, centerX, centerY, fov);
+            const pLeft = projectPoint(finLeft, centerX, centerY, fov);
+            const pRight = projectPoint(finRight, centerX, centerY, fov);
+            if (!pCenter || !pNose || !pTail) return;
+            const width = Math.max(2.5, Math.min(15, 5.5 * fov / Math.max(70, pCenter.z)));
+            ctx.save();
+            ctx.lineCap = 'round';
+            ctx.shadowColor = '#ff7a22';
+            ctx.shadowBlur = 14;
+            ctx.strokeStyle = '#ffb12e';
+            ctx.lineWidth = width * 1.75;
+            ctx.beginPath();
+            ctx.moveTo(pTail.x, pTail.y);
+            ctx.lineTo(pNose.x, pNose.y);
+            ctx.stroke();
+            ctx.shadowColor = '#eaffff';
+            ctx.shadowBlur = 7;
+            ctx.strokeStyle = '#d9eef2';
+            ctx.lineWidth = width;
+            ctx.stroke();
+            ctx.strokeStyle = '#667b84';
+            ctx.lineWidth = Math.max(1, width * 0.22);
+            ctx.stroke();
+            if (pLeft && pRight) {
+                ctx.shadowBlur = 3;
+                ctx.fillStyle = '#e34924';
+                ctx.beginPath();
+                ctx.moveTo(pTail.x, pTail.y);
+                ctx.lineTo(pLeft.x, pLeft.y);
+                ctx.lineTo(pRight.x, pRight.y);
+                ctx.closePath();
+                ctx.fill();
+            }
+            const flameTail = projectPoint(addVec(tail, scaleVec(rocket.forward, -9)), centerX, centerY, fov);
+            if (flameTail) {
+                ctx.shadowColor = '#ff4b13';
+                ctx.shadowBlur = 18;
+                ctx.strokeStyle = '#fff2a8';
+                ctx.lineWidth = Math.max(2, width * 0.7);
+                ctx.beginPath();
+                ctx.moveTo(pTail.x, pTail.y);
+                ctx.lineTo(flameTail.x, flameTail.y);
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function updateAndRenderRockets(centerX, centerY, fov, frameScale = 1) {
+            for (let i = rockets.length - 1; i >= 0; i--) {
+                const rocket = rockets[i];
+                const steps = Math.max(1, Math.ceil(frameScale * 1.4));
+                const stepScale = frameScale / steps;
+                let detonated = false;
+                for (let step = 0; step < steps; step++) {
+                    rocket.age += stepScale;
+                    const wobble = Math.sin(rocket.phase + rocket.age * 0.31) * 0.34;
+                    const swap = Math.cos(rocket.phase * 1.7 + rocket.age * 0.23) * 0.26;
+                    rocket.x += (
+                        rocket.forward.x * ROCKET_SPEED +
+                        rocket.right.x * wobble +
+                        rocket.down.x * swap
+                    ) * stepScale;
+                    rocket.y += (
+                        rocket.forward.y * ROCKET_SPEED +
+                        rocket.right.y * wobble +
+                        rocket.down.y * swap
+                    ) * stepScale;
+                    rocket.z += (
+                        rocket.forward.z * ROCKET_SPEED +
+                        rocket.right.z * wobble +
+                        rocket.down.z * swap
+                    ) * stepScale;
+                    rocket.smokeClock += stepScale;
+                    if (rocket.smokeClock >= 1.4) {
+                        rocket.smokeClock = 0;
+                        spawnRocketSmoke(rocket);
+                    }
+                    const point = rocketWorldPoint(rocket);
+                    if (
+                        rocketDirectEnemyHit(point) ||
+                        rocketWallImpact(rocket) ||
+                        rocket.age >= ROCKET_MAX_LIFE
+                    ) {
+                        explodeRocket(rocket);
+                        rockets.splice(i, 1);
+                        detonated = true;
+                        break;
+                    }
+                }
+                if (!detonated) renderRocketBody(rocket, centerX, centerY, fov);
+            }
+        }
+
+        function rocketCacheId(seg, index) {
+            const coord = p => `${Math.round(p.x / 10)},${Math.round(p.y / 10)},${Math.round(p.z / 10)}`;
+            return `rocket-cache-${index}-${coord(seg.from)}-${coord(seg.to)}`;
+        }
+
+        function rebuildRocketCaches() {
+            rocketCaches.length = 0;
+            if (!builder.segments.length) {
+                rocketCacheGeometryDirty = false;
+                return;
+            }
+            const firstIndex = Math.min(4, builder.segments.length - 1);
+            for (let index = firstIndex; index < builder.segments.length; index += 9) {
+                const seg = builder.segments[index];
+                if (!seg) continue;
+                const id = rocketCacheId(seg, index);
+                if (rocketCollectedCacheIds.has(id)) continue;
+                const radius = seg.radius || builder.radius;
+                const center = pointOnSegment(seg, 0.55);
+                const point = addVec(
+                    center,
+                    addVec(
+                        scaleVec(seg.right || builder.right, Math.min(34, radius * 0.28)),
+                        scaleVec(seg.down || builder.down, Math.min(18, radius * 0.14))
+                    )
+                );
+                rocketCaches.push({
+                    id,
+                    point,
+                    right: normalize(seg.right || builder.right),
+                    down: normalize(seg.down || builder.down),
+                    forward: normalize(seg.forward || {
+                        x: seg.to.x - seg.from.x,
+                        y: seg.to.y - seg.from.y,
+                        z: seg.to.z - seg.from.z
+                    }),
+                    segmentIndex: index,
+                    phase: Math.random() * Math.PI * 2
+                });
+            }
+            rocketCacheGeometryDirty = false;
+        }
+
+        function ensureRocketCaches() {
+            if (rocketCacheGeometryDirty) rebuildRocketCaches();
+        }
+
+        function checkRocketCachePickups() {
+            if (mapView || builderMode || portalTransit.active || rocketInventory.reservePacks >= ROCKET_MAX_RESERVE_PACKS) {
+                return;
+            }
+            const ship = { x: posX, y: posY, z: posZ };
+            for (let i = rocketCaches.length - 1; i >= 0; i--) {
+                const cache = rocketCaches[i];
+                if (distanceSq(ship, cache.point) > 34 * 34) continue;
+                rocketInventory.reservePacks = Math.min(
+                    ROCKET_MAX_RESERVE_PACKS,
+                    rocketInventory.reservePacks + 1
+                );
+                rocketCollectedCacheIds.add(cache.id);
+                rocketCaches.splice(i, 1);
+                spawnTargetParticles(cache.point, cache.right, cache.down, '#ffb632', 42, 4.5, 48);
+                playSfx('target_chime', { worldPos: cache.point });
+                keyboardStatus.innerText =
+                    `ROCKET CACHE +10 — ${rocketInventory.reservePacks} reserve ` +
+                    `pack${rocketInventory.reservePacks === 1 ? '' : 's'}`;
+                updateRocketHud();
+            }
+        }
+
+        function renderRocketCaches(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet) {
+            ensureRocketCaches();
+            const now = performance.now();
+            ctx.save();
+            for (const cache of rocketCaches) {
+                if (shouldSuppressOpaqueOverlay(
+                    cache.segmentIndex,
+                    texturedSegmentIndices,
+                    forwardPathOverlaySet
+                )) continue;
+                const projected = projectPoint(cache.point, centerX, centerY, fov);
+                if (!projected) continue;
+                const size = Math.max(7, Math.min(42, 22 * fov / Math.max(65, projected.z)));
+                const spin = now * 0.0022 + cache.phase;
+                const squish = 0.4 + Math.abs(Math.cos(spin)) * 0.6;
+                ctx.save();
+                ctx.translate(projected.x, projected.y);
+                ctx.rotate(spin * 0.25);
+                ctx.shadowColor = '#ff9d22';
+                ctx.shadowBlur = 18;
+                ctx.fillStyle = '#4c2a12';
+                ctx.strokeStyle = '#ffad32';
+                ctx.lineWidth = Math.max(1.5, size * 0.09);
+                ctx.beginPath();
+                ctx.moveTo(0, -size);
+                ctx.lineTo(size * squish, 0);
+                ctx.lineTo(0, size);
+                ctx.lineTo(-size * squish, 0);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.fillStyle = '#fff0a8';
+                ctx.font = `bold ${Math.max(8, size * 0.7)}px monospace`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('10', 0, 1);
+                ctx.restore();
+            }
+            ctx.restore();
         }
 
         function handleTargetFlyThrough(target, containment) {
@@ -19439,6 +20094,8 @@
                     checkTargetFlyThroughCollisions();
                 }
             }
+            ensureRocketCaches();
+            checkRocketCachePickups();
             // Galaga pins position to GALAGA.ORIGIN every tick (tickGalagaPhase
             // below), far outside any real tunnel geometry -- containment
             // against a "nearest" segment that's actually thousands of units
@@ -19553,6 +20210,8 @@
                 ctx.setTransform(1, 0, 0, 1, 0, 0);
                 renderTunnelStarStreaksOverlay(centerX, centerY, fov, streakSegments, texturedSegmentIndices, forwardPathOverlaySet);
                 renderMovementStreaks(centerX, centerY, fov);
+                renderRocketScorches(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
+                renderRocketCaches(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
 
                 // Render dual plasma bolts as actual streaks. A single fillRect at
                 // the bolt's latest position becomes a barely visible dot whenever
@@ -19612,11 +20271,13 @@
                     ctx.restore();
                 }
 
+                updateAndRenderRockets(centerX, centerY, fov, frameScale);
                 renderTunnelTargets(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderTunnelSentries(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderGalagaPhase(centerX, centerY, fov);
                 renderLaserAimCrosshair(centerX, centerY, fov);
                 updateAndRenderParticles(centerX, centerY, fov, frameScale);
+                renderRocketBlastClouds(centerX, centerY, fov);
                 renderPortalGatewaysFlight(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderPortalTransitVfx(centerX, centerY);
                 renderSentryBeams(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
@@ -19649,6 +20310,7 @@
                 updateHullHud();
                 updateScoreHud();
                 updatePlayerHud();
+                updateRocketHud();
                 renderMapOverlay();
             } catch (err) {
                 console.error('Astral Drift engine error:', err);
@@ -19678,6 +20340,7 @@
                 createDefaultTunnelMap();
             }
             rebuildTunnelSentries();
+            rebuildRocketCaches();
             if (shipSegmentIndex === null || shipSegmentIndex < 0) {
                 placeShipAtTunnelStart();
             } else {
@@ -19685,6 +20348,7 @@
                 snapShipToTunnelCenterline(false);
             }
             updateCheatsheet();
+            updateRocketHud();
             showPilotStart(false);
             renderEngineLoop();
         }
