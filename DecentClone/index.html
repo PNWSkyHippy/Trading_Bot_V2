@@ -692,7 +692,7 @@
         const pilotNameInput = document.getElementById('pilot-name-input');
         const pilotStartBtn = document.getElementById('pilot-start-btn');
         const changePilotBtn = document.getElementById('change-pilot-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -775,6 +775,8 @@
         const builderCheats = [
             ['Ctrl+H / Alt+M', 'compact help / hide the left panel'],
             ['Shift+H', 'hide / restore the upper-right HUD map'],
+            ['6', 'toggle ROCKET CACHE placement mode'],
+            ['Ctrl+LMB tunnel', 'place a 10-rocket cache while cache mode is active'],
             ['T', 'add straight tunnel'],
             ['Q / E', 'rotate bend/branch plane'],
             ['I / K', 'bend with / against spoke'],
@@ -1029,6 +1031,7 @@
         const rocketCollectedCacheIds = new Set();
         const ROCKET_MAGAZINE_SIZE = 10;
         const ROCKET_MAX_RESERVE_PACKS = 6;
+        const ROCKET_CACHE_MAX_COUNT = 20;
         const ROCKET_SPEED = 12.5;
         const ROCKET_MAX_LIFE = 210;
         const ROCKET_DIRECT_HIT_RADIUS = 34;
@@ -1131,6 +1134,7 @@
             joinMode: 'tunnel',
             selectedPortalId: null,
             selectedSentryId: null,
+            selectedRocketCacheId: null,
             sentryPathDraft: null,
             sentrySpawnMoveId: null,
             dragSentryId: null,
@@ -1153,6 +1157,7 @@
             dragMoved: false,
             selection: new Set(),
             targetSelection: new Set(),
+            targetRangeStartId: null,
             lastX: 0,
             lastY: 0,
             lastRmb: null
@@ -2804,6 +2809,7 @@
             portals: [],
             targets: [],
             sentries: [],
+            rocketCaches: [],
             ribGapHints: []
         };
         let lastPortalTransit = { id: null, at: 0 };
@@ -5457,6 +5463,13 @@
                 e.preventDefault();
                 return;
             }
+            if (key === 'escape' && mapMouse.joinMode === 'rocketCache' && (mapView || builderMode)) {
+                mapMouse.joinMode = 'tunnel';
+                mapMouse.selectedRocketCacheId = null;
+                keyboardStatus.innerText = 'rocket cache placement canceled';
+                e.preventDefault();
+                return;
+            }
             if (key === 'escape' && (mapView || builderMode) && (
                 mapMouse.selection.size ||
                 mapMouse.targetSelection.size ||
@@ -5469,6 +5482,7 @@
                 mapMouse.selection.clear();
                 clearSelectedRangeBend();
                 mapMouse.targetSelection.clear();
+                mapMouse.targetRangeStartId = null;
                 mapMouse.anchor = null;
                 mapMouse.destination = null;
                 mapMouse.midpoint = null;
@@ -5504,7 +5518,7 @@
                     return;
                 }
             }
-            const builderKeys = ['0', '7', '8', '9', 'b', 'c', 'e', 'g', 'h', 'm', 'n', 'q', 'r', 't', 'i', 'j', 'k', 'l', 'o', 'u', 'y', '[', ']', 'delete', 'backspace'];
+            const builderKeys = ['0', '6', '7', '8', '9', 'b', 'c', 'e', 'g', 'h', 'm', 'n', 'q', 'r', 't', 'i', 'j', 'k', 'l', 'o', 'u', 'y', '[', ']', 'delete', 'backspace'];
             if (builderKeys.includes(key)) {
                 const lastBuilderAt = lastBuilderCommandAt[key] || 0;
                 if (performance.now() - lastBuilderAt < 140) {
@@ -5521,7 +5535,7 @@
                 if ((builderMode || mapView) && (key === 'q' || key === 'e')) {
                     keys[key] = false;
                 }
-                if (key !== 'h' && key !== ' ') {
+                if (!['h', ' ', '6', '7', '8'].includes(key)) {
                     keyboardStatus.innerText = `builder=${builderMode ? 'on' : 'off'} map=${mapView ? 'on' : 'off'} bend=${builder.bendDeg}/${builder.bendRollDeg} segs=${builder.segments.length}`;
                 }
                 e.preventDefault();
@@ -5854,11 +5868,32 @@
                     e.preventDefault();
                     return;
                 }
+                const rocketCacheHit = pickMapRocketCache(canvasX, canvasY);
+                if (rocketCacheHit && !e.ctrlKey) {
+                    mapMouse.selectedRocketCacheId = rocketCacheHit.id;
+                    mapMouse.selectedPortalId = null;
+                    mapMouse.selectedSentryId = null;
+                    mapMouse.targetSelection.clear();
+                    mapMouse.targetRangeStartId = null;
+                    mapMouse.selection.clear();
+                    mapMouse.anchor = null;
+                    mapMouse.destination = null;
+                    keyboardStatus.innerText = 'rocket cache selected — Delete removes it';
+                    e.preventDefault();
+                    return;
+                }
+                if (mapMouse.joinMode === 'rocketCache' && e.ctrlKey) {
+                    const cacheTunnelHit = pickMapTunnel(canvasX, canvasY, 140);
+                    if (cacheTunnelHit) placeRocketCache(cacheTunnelHit.point);
+                    else keyboardStatus.innerText = 'rocket cache: Ctrl+click nearer a tunnel';
+                    e.preventDefault();
+                    return;
+                }
                 if (mapMouse.joinMode !== 'sentry') {
                     // Targets are mounted on tunnels. Only give Alt+Shift to a target
                     // range after Shift+LMB has explicitly started target selection;
                     // otherwise Alt+Shift remains the tunnel-range endpoint command.
-                    const preTargetHit = pickMapTarget(canvasX, canvasY, !(e.shiftKey || e.altKey));
+                    const preTargetHit = pickMapTarget(canvasX, canvasY, true);
                     if (preTargetHit && e.altKey && e.shiftKey && mapMouse.targetSelection.size > 0) {
                         selectTargetRangeTo(preTargetHit.id);
                         e.preventDefault();
@@ -7671,6 +7706,14 @@
                     junction: !!target.junction,
                     segmentIndex: target.segmentIndex
                 })),
+                rocketCaches: builder.rocketCaches.map(cache => ({
+                    id: cache.id,
+                    point: cache.point,
+                    right: cache.right,
+                    down: cache.down,
+                    forward: cache.forward,
+                    segmentIndex: cache.segmentIndex
+                })),
                 sentries: builder.sentries.map(sentry => ({
                     id: sentry.id,
                     label: sentry.label || '',
@@ -8113,6 +8156,7 @@
             if (!builder.targets.length) {
                 syncBuilderTargetsFromGeometry();
             }
+            builder.rocketCaches = sanitizeRocketCacheList(map.rocketCaches);
             builder.sentries = sanitizeSentryList(map.sentries);
             mapMouse.anchor = null;
             mapMouse.destination = null;
@@ -8120,10 +8164,13 @@
             mapMouse.joinMode = 'tunnel';
             mapMouse.selectedPortalId = null;
             mapMouse.selectedSentryId = null;
+            mapMouse.selectedRocketCacheId = null;
             mapMouse.sentryPathDraft = null;
             mapMouse.sentrySpawnMoveId = null;
             mapMouse.dragSentryId = null;
             mapMouse.selection.clear();
+            mapMouse.targetSelection.clear();
+            mapMouse.targetRangeStartId = null;
             clearSelectedRangeBend();
             repairBuilderBasis();
             sanitizeMapSegments();
@@ -8134,6 +8181,8 @@
             rebuildTunnelStars();
             rebuildTunnelTargets();
             rebuildTunnelSentries();
+            rocketCollectedCacheIds.clear();
+            rebuildRocketCaches();
             resetPlayerCombatState();
             updateWebGLCanvasVisibility();
             placeShipOnLoadedMap(map);
@@ -8463,6 +8512,7 @@
 
         function deleteAnchoredSegment() {
             if (mapView || builderMode) {
+                if (deleteSelectedRocketCache()) return true;
                 if (deleteSelectedPortal()) return true;
             }
             if (mapMouse.targetSelection.size > 0) {
@@ -8470,6 +8520,7 @@
                 const removedCount = selectedTargets.size;
                 builder.targets = builder.targets.filter(target => !selectedTargets.has(target.id));
                 mapMouse.targetSelection.clear();
+                mapMouse.targetRangeStartId = null;
                 mapMouse.selection.clear();
                 rebuildTunnelTargets();
                 saveTunnelMap();
@@ -9962,6 +10013,7 @@
             builder.portals = [];
             builder.targets = [];
             builder.sentries = [];
+            builder.rocketCaches = [];
             let cursor = { x: 0, y: 0, z: -80 };
             let forward = { x: 0, y: 0, z: 1 };
             let right = { x: 1, y: 0, z: 0 };
@@ -10902,6 +10954,9 @@
             }
             if (key === '8') {
                 return startPortalLinkMode();
+            }
+            if (key === '6') {
+                return startRocketCacheEditMode();
             }
             if (key === '7') {
                 return startSentryEditMode();
@@ -13906,6 +13961,7 @@
 
         function setMapAnchor(anchor, additive = false) {
             if (!anchor) return false;
+            mapMouse.selectedRocketCacheId = null;
             if (!additive) {
                 mapMouse.selection.clear();
                 mapMouse.selectionBendPoint = null;
@@ -14055,6 +14111,13 @@
             return `target-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
         }
 
+        function uniqueTargetId(requestedId, usedIds) {
+            let id = requestedId || makeTargetId();
+            while (usedIds.has(id)) id = makeTargetId();
+            usedIds.add(id);
+            return id;
+        }
+
         function findTargetById(targetId) {
             return builder.targets.find(target => target.id === targetId) || null;
         }
@@ -14096,8 +14159,9 @@
             return placements;
         }
 
-        function matchExistingTarget(placement, existingTargets) {
+        function matchExistingTarget(placement, existingTargets, usedIds = null) {
             return existingTargets.find(existing => {
+                if (usedIds?.has(existing.id)) return false;
                 if (placement.segmentIndex !== null && existing.segmentIndex === placement.segmentIndex) {
                     if (!!placement.junction === !!existing.junction && !!placement.branch === !!existing.branch) {
                         return true;
@@ -14111,10 +14175,12 @@
             const placements = generateAutoTargetPlacements();
             const previous = builder.targets.slice();
             const next = [];
+            const usedIds = new Set();
             for (const placement of placements) {
-                const matched = matchExistingTarget(placement, previous);
+                const matched = matchExistingTarget(placement, previous, usedIds);
+                const id = uniqueTargetId(matched?.id, usedIds);
                 next.push({
-                    id: matched?.id || makeTargetId(),
+                    id,
                     label: matched?.label || '',
                     explosive: !!matched?.explosive,
                     point: copyVec(placement.point),
@@ -14132,10 +14198,11 @@
         function sanitizeTargetList(targets) {
             if (!Array.isArray(targets)) return [];
             const cleaned = [];
+            const usedIds = new Set();
             for (const raw of targets) {
                 if (!raw?.point || !raw?.right || !raw?.down) continue;
                 cleaned.push({
-                    id: raw.id || makeTargetId(),
+                    id: uniqueTargetId(raw.id, usedIds),
                     label: raw.label || '',
                     explosive: !!raw.explosive,
                     point: copyVec(raw.point),
@@ -14739,47 +14806,156 @@
             }
         }
 
-        function rocketCacheId(seg, index) {
-            const coord = p => `${Math.round(p.x / 10)},${Math.round(p.y / 10)},${Math.round(p.z / 10)}`;
-            return `rocket-cache-${index}-${coord(seg.from)}-${coord(seg.to)}`;
+        function makeRocketCacheId() {
+            return `rocket-cache-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+        }
+
+        function sanitizeRocketCacheList(caches) {
+            if (!Array.isArray(caches)) return [];
+            const cleaned = [];
+            const usedIds = new Set();
+            for (const raw of caches) {
+                if (!raw?.point) continue;
+                let id = raw.id || makeRocketCacheId();
+                while (usedIds.has(id)) id = makeRocketCacheId();
+                usedIds.add(id);
+                const segmentIndex = Number.isInteger(raw.segmentIndex)
+                    ? raw.segmentIndex
+                    : null;
+                const seg = segmentIndex !== null ? builder.segments[segmentIndex] : null;
+                cleaned.push({
+                    id,
+                    point: copyVec(raw.point),
+                    right: normalize(copyVec(raw.right || seg?.right || builder.right)),
+                    down: normalize(copyVec(raw.down || seg?.down || builder.down)),
+                    forward: normalize(copyVec(raw.forward || seg?.forward || builder.forward)),
+                    segmentIndex
+                });
+            }
+            return cleaned.slice(0, ROCKET_CACHE_MAX_COUNT);
         }
 
         function rebuildRocketCaches() {
             rocketCaches.length = 0;
-            if (!builder.segments.length) {
-                rocketCacheGeometryDirty = false;
-                return;
-            }
-            const firstIndex = Math.min(4, builder.segments.length - 1);
-            for (let index = firstIndex; index < builder.segments.length; index += 9) {
-                const seg = builder.segments[index];
-                if (!seg) continue;
-                const id = rocketCacheId(seg, index);
-                if (rocketCollectedCacheIds.has(id)) continue;
-                const radius = seg.radius || builder.radius;
-                const center = pointOnSegment(seg, 0.55);
-                const point = addVec(
-                    center,
-                    addVec(
-                        scaleVec(seg.right || builder.right, Math.min(34, radius * 0.28)),
-                        scaleVec(seg.down || builder.down, Math.min(18, radius * 0.14))
-                    )
-                );
+            for (const saved of builder.rocketCaches) {
+                if (rocketCollectedCacheIds.has(saved.id)) continue;
                 rocketCaches.push({
-                    id,
-                    point,
-                    right: normalize(seg.right || builder.right),
-                    down: normalize(seg.down || builder.down),
-                    forward: normalize(seg.forward || {
-                        x: seg.to.x - seg.from.x,
-                        y: seg.to.y - seg.from.y,
-                        z: seg.to.z - seg.from.z
-                    }),
-                    segmentIndex: index,
+                    id: saved.id,
+                    point: copyVec(saved.point),
+                    right: copyVec(saved.right),
+                    down: copyVec(saved.down),
+                    forward: copyVec(saved.forward),
+                    segmentIndex: saved.segmentIndex,
                     phase: Math.random() * Math.PI * 2
                 });
             }
             rocketCacheGeometryDirty = false;
+        }
+
+        function startRocketCacheEditMode() {
+            if (!mapView && !builderMode) {
+                keyboardStatus.innerText = 'open the 3D map (M) before placing rocket caches';
+                return true;
+            }
+            const entering = mapMouse.joinMode !== 'rocketCache';
+            if (entering && !mapView) {
+                mapView = true;
+                frameMapCameraOnTunnel();
+                focusGameSurface();
+            }
+            mapMouse.joinMode = entering ? 'rocketCache' : 'tunnel';
+            mapMouse.selectedRocketCacheId = null;
+            mapMouse.selectedSentryId = null;
+            mapMouse.selectedPortalId = null;
+            mapMouse.sentryPathDraft = null;
+            mapMouse.sentrySpawnMoveId = null;
+            keyboardStatus.innerText = entering
+                ? `ROCKET CACHE MODE — Ctrl+LMB tunnel to place (${builder.rocketCaches.length}/${ROCKET_CACHE_MAX_COUNT})`
+                : 'TUNNEL MODE — rocket cache placement off';
+            return true;
+        }
+
+        function placeRocketCache(point) {
+            if (builder.rocketCaches.length >= ROCKET_CACHE_MAX_COUNT) {
+                keyboardStatus.innerText = `rocket cache limit reached (${ROCKET_CACHE_MAX_COUNT})`;
+                return true;
+            }
+            const snapped = snapPointToTunnelCenterline(point);
+            if (!snapped) {
+                keyboardStatus.innerText = 'rocket cache placement failed — click nearer a tunnel';
+                return true;
+            }
+            const cache = {
+                id: makeRocketCacheId(),
+                point: copyVec(snapped.point),
+                right: copyVec(snapped.right),
+                down: copyVec(snapped.down),
+                forward: copyVec(snapped.forward),
+                segmentIndex: snapped.segmentIndex
+            };
+            builder.rocketCaches.push(cache);
+            mapMouse.selectedRocketCacheId = cache.id;
+            mapMouse.selectedPortalId = null;
+            mapMouse.selectedSentryId = null;
+            mapMouse.targetSelection.clear();
+            mapMouse.targetRangeStartId = null;
+            mapMouse.selection.clear();
+            mapMouse.anchor = null;
+            rocketCacheGeometryDirty = true;
+            rebuildRocketCaches();
+            saveTunnelMap();
+            keyboardStatus.innerText =
+                `rocket cache placed (${builder.rocketCaches.length}/${ROCKET_CACHE_MAX_COUNT}) — carries 10`;
+            return true;
+        }
+
+        function deleteSelectedRocketCache() {
+            const id = mapMouse.selectedRocketCacheId;
+            if (!id) return false;
+            const before = builder.rocketCaches.length;
+            builder.rocketCaches = builder.rocketCaches.filter(cache => cache.id !== id);
+            if (builder.rocketCaches.length === before) return false;
+            mapMouse.selectedRocketCacheId = null;
+            rocketCollectedCacheIds.delete(id);
+            rocketCacheGeometryDirty = true;
+            rebuildRocketCaches();
+            saveTunnelMap();
+            keyboardStatus.innerText = 'rocket cache deleted';
+            return true;
+        }
+
+        function pickMapRocketCache(screenX, screenY) {
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const fov = 520;
+            let best = null;
+            for (const cache of builder.rocketCaches) {
+                const projected = projectMapPoint(cache.point, centerX, centerY, fov);
+                if (!projected) continue;
+                const dist = Math.hypot(screenX - projected.x, screenY - projected.y);
+                if (dist <= 15 && (!best || dist < best.dist)) best = { cache, dist };
+            }
+            return best?.cache || null;
+        }
+
+        function renderRocketCachesMap(centerX, centerY, fov) {
+            for (const cache of builder.rocketCaches) {
+                const selected = mapMouse.selectedRocketCacheId === cache.id;
+                const projected = drawMapDot(cache.point, selected ? '#ffe95c' : '#ff9d22', selected ? 11 : 8);
+                if (!projected) continue;
+                ctx.save();
+                ctx.fillStyle = selected ? '#fff2a8' : '#ffc36a';
+                ctx.font = `${selected ? 'bold ' : ''}11px monospace`;
+                ctx.fillText('ROCKETS x10', projected.x + 11, projected.y - 7);
+                if (selected) {
+                    ctx.strokeStyle = '#ffe95c';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(projected.x, projected.y, 16, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
         }
 
         function ensureRocketCaches() {
@@ -14956,12 +15132,19 @@
                 .filter(index => index >= 0);
             if (!selected.length) {
                 mapMouse.targetSelection = new Set([targetId]);
+                mapMouse.targetRangeStartId = targetId;
+                mapMouse.selectedRocketCacheId = null;
                 mapMouse.selection.clear();
                 mapMouse.anchor = null;
                 keyboardStatus.innerText = 'target range start set — Alt+Shift+LMB another target box to select between';
                 return true;
             }
-            const startId = [...mapMouse.targetSelection][mapMouse.targetSelection.size - 1];
+            const startId = (
+                mapMouse.targetRangeStartId &&
+                mapMouse.targetSelection.has(mapMouse.targetRangeStartId)
+            )
+                ? mapMouse.targetRangeStartId
+                : [...mapMouse.targetSelection][mapMouse.targetSelection.size - 1];
             const startSegmentIndex = targetSegmentIndexById(startId);
             const endSegmentIndex = targetSegmentIndexById(targetId);
             let selectedTargets;
@@ -14988,6 +15171,7 @@
                 return true;
             }
             mapMouse.targetSelection = new Set(selectedTargets.map(target => target.id));
+            mapMouse.selectedRocketCacheId = null;
             mapMouse.selection.clear();
             mapMouse.anchor = null;
             keyboardStatus.innerText =
@@ -14998,15 +15182,24 @@
         function toggleTargetSelection(targetId) {
             const target = findTargetById(targetId) || findRuntimeTargetById(targetId);
             if (!target) return false;
+            mapMouse.selectedRocketCacheId = null;
             if (mapMouse.targetSelection.has(target.id)) {
                 mapMouse.targetSelection.delete(target.id);
+                if (mapMouse.targetRangeStartId === target.id) {
+                    mapMouse.targetRangeStartId =
+                        [...mapMouse.targetSelection][mapMouse.targetSelection.size - 1] || null;
+                }
             } else {
                 mapMouse.targetSelection.add(target.id);
+                mapMouse.targetRangeStartId = target.id;
             }
             mapMouse.selection.clear();
             mapMouse.anchor = null;
             keyboardStatus.innerText =
-                `${mapMouse.targetSelection.size} target box(es) selected — click one and press Apply to batch edit, Del deletes selected`;
+                `${mapMouse.targetSelection.size} target box(es) selected` +
+                (mapMouse.targetRangeStartId
+                    ? ' — Alt+Shift-click an ending box for a path, or press V to edit'
+                    : '');
             return true;
         }
 
@@ -19445,6 +19638,7 @@
                 }
             }
             renderPortalGatewaysMap(centerX, centerY, fov);
+            renderRocketCachesMap(centerX, centerY, fov);
             for (const target of tunnelTargets) {
                 const half = target.size / 2;
                 const corners = [
