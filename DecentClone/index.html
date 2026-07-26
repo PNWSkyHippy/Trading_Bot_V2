@@ -561,6 +561,61 @@
             cursor: pointer;
             margin-top: 12px;
         }
+        #inventory-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: 55;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            background: rgba(0, 0, 10, 0.76);
+            font-family: monospace;
+            color: #d7fff8;
+            pointer-events: auto;
+        }
+        #inventory-card {
+            width: min(520px, calc(100vw - 32px));
+            max-height: min(720px, calc(100vh - 32px));
+            overflow: auto;
+            background: rgba(2, 10, 20, 0.98);
+            border: 1px solid #ffad32;
+            border-radius: 8px;
+            box-shadow: 0 18px 55px rgba(0, 0, 0, 0.68);
+            padding: 18px;
+        }
+        #inventory-card h2 {
+            margin: 0 0 6px;
+            color: #ffbd55;
+            letter-spacing: 0.08em;
+        }
+        .inventory-row {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto auto;
+            gap: 10px;
+            align-items: center;
+            border-top: 1px solid rgba(255, 173, 50, 0.24);
+            padding: 11px 0;
+        }
+        .inventory-row strong { color: #fff0b8; }
+        .inventory-count { color: #ffbd55; font-weight: bold; }
+        #inventory-card button {
+            color: #fff5cf;
+            background: rgba(255, 173, 50, 0.16);
+            border: 1px solid rgba(255, 173, 50, 0.65);
+            border-radius: 4px;
+            padding: 7px 11px;
+            font-family: monospace;
+            cursor: pointer;
+        }
+        #inventory-card button:disabled {
+            cursor: default;
+            opacity: 0.42;
+        }
+        #inventory-actions {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 12px;
+        }
         @keyframes shield-pulse {
             from { opacity: 0.62; }
             to { opacity: 1; }
@@ -602,6 +657,7 @@
             </div>
             <p class="hint">
                 Press <b>B</b> for builder cursor, <b>M</b> for full 3D map/developer tools.
+                <button id="inventory-btn" class="small-action" type="button">Inventory (I)</button>
                 <button id="change-pilot-btn" class="small-action" type="button">Change Pilot</button>
             </p>
         </section>
@@ -646,6 +702,9 @@
     <input type="file" id="map-library-file-input" accept=".json,application/json" hidden>
     <div id="join-edit-dialog" aria-live="polite"></div>
     <div id="game-over-overlay" aria-live="polite"></div>
+    <div id="inventory-overlay" aria-live="polite">
+        <div id="inventory-card"></div>
+    </div>
     <div id="pilot-start-overlay" aria-live="polite">
         <div id="pilot-start-card">
             <h2>ASTRAL DRIFT</h2>
@@ -692,7 +751,10 @@
         const pilotNameInput = document.getElementById('pilot-name-input');
         const pilotStartBtn = document.getElementById('pilot-start-btn');
         const changePilotBtn = document.getElementById('change-pilot-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1';
+        const inventoryOverlay = document.getElementById('inventory-overlay');
+        const inventoryCard = document.getElementById('inventory-card');
+        const inventoryBtn = document.getElementById('inventory-btn');
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -751,6 +813,7 @@
             ['1-6', 'snap view'],
             ['H', 'cycle HUD map plane'],
             ['K', 'reset cockpit controls/orientation'],
+            ['I', 'open ship inventory / use carried items'],
             ['0', 'recover ship to nearest tunnel'],
             ['R after death', 'continue with a life / restart game'],
             ['B / M', 'builder cursor / 3D map (M for portals)'],
@@ -775,8 +838,9 @@
         const builderCheats = [
             ['Ctrl+H / Alt+M', 'compact help / hide the left panel'],
             ['Shift+H', 'hide / restore the upper-right HUD map'],
-            ['6', 'toggle ROCKET CACHE placement mode'],
-            ['Ctrl+LMB tunnel', 'place a 10-rocket cache while cache mode is active'],
+            ['6', 'toggle LOOT placement mode'],
+            ['Ctrl+LMB tunnel', 'place loot while loot mode is active'],
+            ['Click loot + V', 'edit item, quantity, and respawn timer'],
             ['T', 'add straight tunnel'],
             ['Q / E', 'rotate bend/branch plane'],
             ['I / K', 'bend with / against spoke'],
@@ -789,6 +853,7 @@
             ['Shift+LMB target', 'toggle one target box in the selection'],
             ['Shift+LMB target, then Ctrl+Shift target', 'start/finish target path selection'],
             ['V with target(s)', 'edit one or batch edit selected target boxes'],
+            ['V with tunnel range', 'style it or convert it to a rectangular room'],
             ['G', 'prune disconnected strays'],
             ['Y', 'join tunnel A→B (optional bend C)'],
             ['Shift+Y', 'link portal A→B (no tube)'],
@@ -805,7 +870,7 @@
         ];
         const combatCheats = [
             ['V / RMB', 'fire at sentries (10% per hit, 10 hits = kill)'],
-            ['X', 'launch rocket (10 loaded; cache packs auto-reload)'],
+            ['X', 'launch rocket (10 loaded; inventory packs auto-reload)'],
             ['Ctrl+Shift+R', 'developer repair hull/shields'],
             ['Ctrl+Shift+G', 'developer toggle Galaga stage'],
             ['Sentries', 'guard spot or patrol; dead = 5 min respawn'],
@@ -816,7 +881,7 @@
             ['Fly through portal', 'ignore portal without clicking'],
             ['Blue target boxes', 'shoot or fly through for points'],
             ['Red target boxes', 'avoid or shoot before contact'],
-            ['Rocket caches', 'fly through the orange crate to collect a 10-rocket reload pack'],
+            ['Loot caches', 'fly through a cache to add its contents to ship inventory'],
             ['Buttons', 'click or fly close to activate when added'],
         ];
         const builderProcedures = [
@@ -830,6 +895,8 @@
             'Delete tunnel sections: select one section or a tunnel range, then press Del/Backspace.',
             'Edit target boxes: Shift+LMB selects the first box; with a target selection active, Ctrl+Shift+LMB the ending box selects every target along that connected path; then press V.',
             'Place sentries: press M, then 7 for sentry tools, Ctrl+LMB places a spawn, click a sentry to edit guard or patrol behavior.',
+            'Place loot: press M, then 6, Ctrl+LMB a tunnel or room, click the cache and press V to set its item, quantity, and respawn time.',
+            'Build a room: create and range-select 2-5 detached sections, press V, enter room width/length/height and cap choices, then choose Make Rectangular Room.',
             'Save/load maps: Ctrl+Shift+S defaults to the current map name for quick update/overwrite; Ctrl+Shift+L opens the local map library.',
             'Clean mistakes: Del deletes selected segment/range, U undoes the last placed segment, G prunes disconnected strays.',
         ];
@@ -1029,15 +1096,74 @@
         const rocketScorches = [];
         const rocketCaches = [];
         const rocketCollectedCacheIds = new Set();
+        const rocketCacheRespawnAt = new Map();
         const ROCKET_MAGAZINE_SIZE = 10;
-        const ROCKET_MAX_RESERVE_PACKS = 6;
+        const ROCKET_MAX_RESERVE_PACKS = 99;
         const ROCKET_CACHE_MAX_COUNT = 20;
+        const LOOT_RESPAWN_DEFAULT_SECONDS = 300;
+        const LOOT_RESPAWN_MAX_SECONDS = 86400;
+        const LOOT_ITEM_DEFS = Object.freeze({
+            rocketPack: {
+                label: 'Rocket Reload Pack',
+                shortLabel: 'ROCKETS',
+                description: 'Loads 10 ship rockets.',
+                maxStack: ROCKET_MAX_RESERVE_PACKS,
+                color: '#ffad32',
+                usable: true
+            },
+            smokeBomb: {
+                label: 'Smoke Bomb',
+                shortLabel: 'SMOKE',
+                description: 'Reserved for the ship-upgrade/equipment system.',
+                maxStack: 99,
+                color: '#b8c4ca',
+                usable: false
+            },
+            empBomb: {
+                label: 'EMP Bomb',
+                shortLabel: 'EMP',
+                description: 'Reserved for the ship-upgrade/equipment system.',
+                maxStack: 99,
+                color: '#55ccff',
+                usable: false
+            }
+        });
         const ROCKET_SPEED = 12.5;
         const ROCKET_MAX_LIFE = 210;
         const ROCKET_DIRECT_HIT_RADIUS = 34;
         const ROCKET_BLAST_RADIUS = 145;
         const ROCKET_CONCUSSION_RADIUS = 300;
-        const rocketInventory = { loaded: ROCKET_MAGAZINE_SIZE, reservePacks: 0 };
+        const shipInventory = {
+            rocketLoaded: ROCKET_MAGAZINE_SIZE,
+            items: {
+                rocketPack: 0,
+                smokeBomb: 0,
+                empBomb: 0
+            }
+        };
+        // Compatibility facade for the rocket code while inventory becomes a
+        // general ship system instead of a weapon-local counter.
+        const rocketInventory = {};
+        Object.defineProperties(rocketInventory, {
+            loaded: {
+                get: () => shipInventory.rocketLoaded,
+                set: value => {
+                    shipInventory.rocketLoaded = Math.max(
+                        0,
+                        Math.min(ROCKET_MAGAZINE_SIZE, Math.round(Number(value) || 0))
+                    );
+                }
+            },
+            reservePacks: {
+                get: () => shipInventory.items.rocketPack,
+                set: value => {
+                    shipInventory.items.rocketPack = Math.max(
+                        0,
+                        Math.min(ROCKET_MAX_RESERVE_PACKS, Math.round(Number(value) || 0))
+                    );
+                }
+            }
+        });
         const rocketConcussion = { startedAt: 0, until: 0, duration: 0, intensity: 0, seed: 0 };
         let rocketCacheGeometryDirty = true;
         const TARGET_REGEN_MS = 300000;
@@ -1237,6 +1363,8 @@
         const MAP_RADIUS_MIN_FRAC = 0.72;
         const MAP_RADIUS_MAX_FRAC = 1.60;
         const MAP_CHAMBER_MAX_RADIUS = 1200;
+        const MAP_ROOM_MIN_DIMENSION = 120;
+        const MAP_ROOM_MAX_DIMENSION = 5000;
         const MAP_JUNCTION_RADIUS_SNAP = 0.55;
         // mapBuildFix3: auto-repair rib gaps — mirrors manual delete+Y-rejoin at bad junctions
         const MAP_RIB_JUNCTION_SNAP = 0.55;
@@ -1531,6 +1659,19 @@
             seg.capStart = !!seg.capStart;
             seg.capEnd = !!seg.capEnd;
             seg.chamber = !!seg.chamber;
+            seg.rectRoom = !!seg.rectRoom || seg.kind === 'rect-room';
+            if (seg.rectRoom) {
+                seg.chamber = false;
+                seg.kind = 'rect-room';
+                seg.roomWidth = Math.max(
+                    MAP_ROOM_MIN_DIMENSION,
+                    Math.min(MAP_ROOM_MAX_DIMENSION, Number(seg.roomWidth) || (seg.radius || builder.radius) * 2)
+                );
+                seg.roomHeight = Math.max(
+                    MAP_ROOM_MIN_DIMENSION,
+                    Math.min(MAP_ROOM_MAX_DIMENSION, Number(seg.roomHeight) || (seg.radius || builder.radius) * 2)
+                );
+            }
             return seg;
         }
 
@@ -1949,7 +2090,7 @@
             for (let i = 0; i < builder.segments.length; i++) {
                 const seg = builder.segments[i];
                 if (!seg?.from || !seg?.to) continue;
-                if (segmentIsChamber(seg)) continue;   // chambers are already spherical rooms
+                if (segmentIsChamber(seg) || segmentIsRectRoom(seg)) continue; // rooms already cover their volume
                 const r = seg.radius || builder.radius;
                 pts.push({ p: seg.from, r, i });
                 pts.push({ p: seg.to, r, i });
@@ -2224,6 +2365,31 @@
             return target;
         }
 
+        function mat4RectRoomModel(seg, out = null) {
+            const dims = rectRoomDimensions(seg);
+            const r = normalize(seg.right || builder.right);
+            const d = normalize(seg.down || builder.down);
+            const f = normalize(seg.forward || builder.forward);
+            const target = out || new Float32Array(16);
+            target[0] = r.x * dims.width;
+            target[1] = r.y * dims.width;
+            target[2] = r.z * dims.width;
+            target[3] = 0;
+            target[4] = d.x * dims.height;
+            target[5] = d.y * dims.height;
+            target[6] = d.z * dims.height;
+            target[7] = 0;
+            target[8] = f.x * dims.length;
+            target[9] = f.y * dims.length;
+            target[10] = f.z * dims.length;
+            target[11] = 0;
+            target[12] = seg.from.x;
+            target[13] = seg.from.y;
+            target[14] = seg.from.z;
+            target[15] = 1;
+            return target;
+        }
+
         function mat4DoorFrameModel(seg, endKind = 'start', out = null) {
             const r = normalize(seg.right || builder.right);
             const d = normalize(seg.down || builder.down);
@@ -2357,6 +2523,51 @@
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
             gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
 
+            tunnelWebGL.meshCache.set(key, mesh);
+            trimCylinderMeshCache();
+            return mesh;
+        }
+
+        function buildRectRoomGpuMesh(seg) {
+            const key =
+                `${TUNNEL_WEBGL_MESH_CACHE_VERSION}|rectRoom|` +
+                `${seg.capStart ? 1 : 0}|${seg.capEnd ? 1 : 0}`;
+            if (tunnelWebGL.meshCache.has(key)) return tunnelWebGL.meshCache.get(key);
+
+            const vertices = [];
+            const texCoords = [];
+            const indices = [];
+            const addFace = (a, b, c, d) => {
+                const base = vertices.length / 3;
+                for (const point of [a, b, c, d]) vertices.push(...point);
+                texCoords.push(0, 0, 1, 0, 1, 1, 0, 1);
+                indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+            };
+
+            addFace([-0.5, -0.5, 0], [-0.5, -0.5, 1], [-0.5, 0.5, 1], [-0.5, 0.5, 0]);
+            addFace([0.5, 0.5, 0], [0.5, 0.5, 1], [0.5, -0.5, 1], [0.5, -0.5, 0]);
+            addFace([0.5, -0.5, 0], [0.5, -0.5, 1], [-0.5, -0.5, 1], [-0.5, -0.5, 0]);
+            addFace([-0.5, 0.5, 0], [-0.5, 0.5, 1], [0.5, 0.5, 1], [0.5, 0.5, 0]);
+            if (seg.capStart) {
+                addFace([0.5, -0.5, 0], [-0.5, -0.5, 0], [-0.5, 0.5, 0], [0.5, 0.5, 0]);
+            }
+            if (seg.capEnd) {
+                addFace([-0.5, -0.5, 1], [0.5, -0.5, 1], [0.5, 0.5, 1], [-0.5, 0.5, 1]);
+            }
+
+            const gl = tunnelWebGL.gl;
+            const mesh = {
+                indexCount: indices.length,
+                vertexBuffer: gl.createBuffer(),
+                texCoordBuffer: gl.createBuffer(),
+                indexBuffer: gl.createBuffer()
+            };
+            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vertexBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.texCoordBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
             tunnelWebGL.meshCache.set(key, mesh);
             trimCylinderMeshCache();
             return mesh;
@@ -2771,13 +2982,18 @@
                 const joinBoost = !fromOpen || !toOpen || webglSegmentNeedsScrapeBoost(seg, index);
                 const radius = webglTunnelDrawRadius(seg, index, joinBoost);
                 const tubularSegs = webglBucketTubularSegments(span);
+                const rectRoom = segmentIsRectRoom(seg);
                 const chamber = segmentIsChamber(seg);
-                const mesh = chamber
-                    ? buildChamberSphereGpuMesh(seg, TUNNEL_WEBGL_RADIAL_SEGMENTS * 2, Math.max(18, tubularSegs), index)
-                    : buildCylinderGpuMesh(span, TUNNEL_WEBGL_RADIAL_SEGMENTS, tubularSegs * 3);
-                const model = chamber
-                    ? mat4ChamberModel(seg, tunnelWebGL.modelScratch)
-                    : mat4SegmentModel(seg, zStart, span, radius, tunnelWebGL.modelScratch);
+                const mesh = rectRoom
+                    ? buildRectRoomGpuMesh(seg)
+                    : chamber
+                        ? buildChamberSphereGpuMesh(seg, TUNNEL_WEBGL_RADIAL_SEGMENTS * 2, Math.max(18, tubularSegs), index)
+                        : buildCylinderGpuMesh(span, TUNNEL_WEBGL_RADIAL_SEGMENTS, tubularSegs * 3);
+                const model = rectRoom
+                    ? mat4RectRoomModel(seg, tunnelWebGL.modelScratch)
+                    : chamber
+                        ? mat4ChamberModel(seg, tunnelWebGL.modelScratch)
+                        : mat4SegmentModel(seg, zStart, span, radius, tunnelWebGL.modelScratch);
                 gl.uniformMatrix4fv(tunnelWebGL.uModel, false, model);
                 gl.uniform1f(tunnelWebGL.uAlpha, segmentWallAlpha(seg, 1));
                 const textureEntry = getWallTextureEntry(seg?.wallTextureId);
@@ -3533,7 +3749,162 @@
             return (name || 'Pilot').trim().slice(0, 24) || 'Pilot';
         }
 
+        function sanitizeInventoryCount(value, maxStack = 99) {
+            return Number.isFinite(Number(value))
+                ? Math.max(0, Math.min(maxStack, Math.round(Number(value))))
+                : 0;
+        }
+
+        function resetShipInventory() {
+            shipInventory.rocketLoaded = ROCKET_MAGAZINE_SIZE;
+            for (const [itemType, def] of Object.entries(LOOT_ITEM_DEFS)) {
+                shipInventory.items[itemType] = 0;
+                if (def.maxStack < 0) shipInventory.items[itemType] = 0;
+            }
+            updateRocketHud();
+        }
+
+        function loadShipInventory(rawInventory) {
+            resetShipInventory();
+            if (!rawInventory || typeof rawInventory !== 'object') return;
+            shipInventory.rocketLoaded = sanitizeInventoryCount(
+                rawInventory.rocketLoaded ?? rawInventory.loaded,
+                ROCKET_MAGAZINE_SIZE
+            );
+            const rawItems = rawInventory.items && typeof rawInventory.items === 'object'
+                ? rawInventory.items
+                : rawInventory;
+            for (const [itemType, def] of Object.entries(LOOT_ITEM_DEFS)) {
+                const legacyValue = itemType === 'rocketPack'
+                    ? rawInventory.reservePacks
+                    : undefined;
+                shipInventory.items[itemType] = sanitizeInventoryCount(
+                    rawItems[itemType] ?? legacyValue,
+                    def.maxStack
+                );
+            }
+            updateRocketHud();
+        }
+
+        function serializeShipInventory() {
+            return {
+                rocketLoaded: shipInventory.rocketLoaded,
+                items: Object.fromEntries(
+                    Object.keys(LOOT_ITEM_DEFS).map(itemType => [
+                        itemType,
+                        sanitizeInventoryCount(
+                            shipInventory.items[itemType],
+                            LOOT_ITEM_DEFS[itemType].maxStack
+                        )
+                    ])
+                )
+            };
+        }
+
+        function grantShipInventoryItem(itemType, quantity = 1) {
+            const def = LOOT_ITEM_DEFS[itemType];
+            if (!def) return 0;
+            const before = sanitizeInventoryCount(shipInventory.items[itemType], def.maxStack);
+            const requested = Math.max(0, Math.round(Number(quantity) || 0));
+            const after = Math.min(def.maxStack, before + requested);
+            shipInventory.items[itemType] = after;
+            updateRocketHud();
+            savePlayerProfile();
+            if (isInventoryOpen()) renderInventoryOverlay();
+            return after - before;
+        }
+
+        function useShipInventoryItem(itemType) {
+            const def = LOOT_ITEM_DEFS[itemType];
+            const available = sanitizeInventoryCount(shipInventory.items[itemType], def?.maxStack || 99);
+            if (!def || !def.usable || available <= 0) return false;
+            if (itemType === 'rocketPack') {
+                if (rocketInventory.loaded >= ROCKET_MAGAZINE_SIZE) {
+                    keyboardStatus.innerText = 'rocket magazine is already full';
+                    return false;
+                }
+                shipInventory.items.rocketPack = available - 1;
+                rocketInventory.loaded = ROCKET_MAGAZINE_SIZE;
+                keyboardStatus.innerText =
+                    `rocket pack loaded — ${rocketInventory.reservePacks} reserve`;
+                updateRocketHud();
+                savePlayerProfile();
+                renderInventoryOverlay();
+                return true;
+            }
+            return false;
+        }
+
+        function isInventoryOpen() {
+            return inventoryOverlay?.style.display === 'flex';
+        }
+
+        function closeInventoryOverlay() {
+            if (!inventoryOverlay) return;
+            inventoryOverlay.style.display = 'none';
+            clearKeyboardState();
+            focusGameSurface();
+        }
+
+        function renderInventoryOverlay() {
+            if (!inventoryCard) return;
+            inventoryCard.innerHTML = '';
+            const title = document.createElement('h2');
+            title.textContent = `${currentPlayerName.toUpperCase()} // SHIP INVENTORY`;
+            inventoryCard.appendChild(title);
+
+            const summary = document.createElement('p');
+            summary.className = 'hint';
+            summary.textContent =
+                `Rocket magazine: ${rocketInventory.loaded}/${ROCKET_MAGAZINE_SIZE}. ` +
+                'Inventory is saved in this pilot profile.';
+            inventoryCard.appendChild(summary);
+
+            for (const [itemType, def] of Object.entries(LOOT_ITEM_DEFS)) {
+                const row = document.createElement('div');
+                row.className = 'inventory-row';
+                const details = document.createElement('div');
+                const label = document.createElement('strong');
+                label.textContent = def.label;
+                const description = document.createElement('div');
+                description.className = 'hint';
+                description.textContent = def.description;
+                details.append(label, description);
+
+                const count = document.createElement('span');
+                count.className = 'inventory-count';
+                count.textContent = `×${shipInventory.items[itemType] || 0}`;
+
+                const useButton = document.createElement('button');
+                useButton.type = 'button';
+                useButton.textContent = def.usable ? 'Use' : 'Reserved';
+                useButton.disabled = !def.usable || !(shipInventory.items[itemType] > 0);
+                useButton.addEventListener('click', () => useShipInventoryItem(itemType));
+                row.append(details, count, useButton);
+                inventoryCard.appendChild(row);
+            }
+
+            const actions = document.createElement('div');
+            actions.id = 'inventory-actions';
+            const closeButton = document.createElement('button');
+            closeButton.type = 'button';
+            closeButton.textContent = 'Close';
+            closeButton.addEventListener('click', closeInventoryOverlay);
+            actions.appendChild(closeButton);
+            inventoryCard.appendChild(actions);
+        }
+
+        function openInventoryOverlay() {
+            if (!inventoryOverlay || mapView || builderMode) return false;
+            renderInventoryOverlay();
+            inventoryOverlay.style.display = 'flex';
+            releaseMouseSteeringCapture();
+            clearKeyboardState();
+            return true;
+        }
+
         function loadPlayerProfile() {
+            resetShipInventory();
             try {
                 const raw = localStorage.getItem(PLAYER_PROFILE_STORAGE_KEY);
                 const parsed = raw ? JSON.parse(raw) : null;
@@ -3542,17 +3913,20 @@
                     livesRemaining = Number.isFinite(parsed.lives)
                         ? Math.max(1, Math.min(99, Math.round(parsed.lives)))
                         : STARTING_LIVES;
+                    loadShipInventory(parsed.inventory || parsed.rocketInventory);
                 }
             } catch {
                 currentPlayerName = 'Pilot';
                 livesRemaining = STARTING_LIVES;
+                resetShipInventory();
             }
         }
 
         function savePlayerProfile() {
             localStorage.setItem(PLAYER_PROFILE_STORAGE_KEY, JSON.stringify({
                 name: currentPlayerName,
-                lives: livesRemaining
+                lives: livesRemaining,
+                inventory: serializeShipInventory()
             }));
         }
 
@@ -3562,7 +3936,10 @@
         }
 
         function startPilotSession(name) {
-            currentPlayerName = sanitizePilotName(name);
+            const nextPlayerName = sanitizePilotName(name);
+            const changingPilot = nextPlayerName !== currentPlayerName;
+            currentPlayerName = nextPlayerName;
+            if (changingPilot) resetShipInventory();
             livesRemaining = STARTING_LIVES;
             targetScore = 0;
             updateScoreHud();
@@ -3630,6 +4007,17 @@
         }
         if (changePilotBtn) {
             changePilotBtn.addEventListener('click', () => showPilotStart(true));
+        }
+        if (inventoryBtn) {
+            inventoryBtn.addEventListener('click', () => {
+                if (isInventoryOpen()) closeInventoryOverlay();
+                else openInventoryOverlay();
+            });
+        }
+        if (inventoryOverlay) {
+            inventoryOverlay.addEventListener('click', event => {
+                if (event.target === inventoryOverlay) closeInventoryOverlay();
+            });
         }
 
         function applyShieldWallDrain(push, boostScrape) {
@@ -5429,6 +5817,14 @@
                 }
                 return;
             }
+            if (isInventoryOpen()) {
+                const inventoryKey = normalizeKey(e);
+                if (inventoryKey === 'escape' || inventoryKey === 'i') {
+                    closeInventoryOverlay();
+                    e.preventDefault();
+                }
+                return;
+            }
             // In flight, Escape belongs to the browser's pointer-lock release.
             // Do not refocus the canvas or record Escape as a held game key while
             // Chrome is tearing down mouse capture; repeated focus/lock transitions
@@ -5588,6 +5984,19 @@
                 !e.repeat
             ) {
                 fireRocket();
+                e.preventDefault();
+                return;
+            }
+            if (
+                key === 'i' &&
+                !mapView &&
+                !builderMode &&
+                !e.ctrlKey &&
+                !e.altKey &&
+                !e.metaKey &&
+                !e.repeat
+            ) {
+                openInventoryOverlay();
                 e.preventDefault();
                 return;
             }
@@ -5962,7 +6371,7 @@
                     mapMouse.selection.clear();
                     mapMouse.anchor = null;
                     mapMouse.destination = null;
-                    keyboardStatus.innerText = 'rocket cache selected — Delete removes it';
+                    keyboardStatus.innerText = 'loot selected — V edits item/respawn · Delete removes it';
                     e.preventDefault();
                     return;
                 }
@@ -7437,7 +7846,10 @@
             const dy = seg.to.y - seg.from.y;
             const dz = seg.to.z - seg.from.z;
             const length = Math.hypot(dx, dy, dz);
-            if (!Number.isFinite(length) || length < 0.001 || length > mapMaxAutogenRouteDistance()) return false;
+            const maxLength = (seg.rectRoom || seg.kind === 'rect-room')
+                ? MAP_ROOM_MAX_DIMENSION
+                : mapMaxAutogenRouteDistance();
+            if (!Number.isFinite(length) || length < 0.001 || length > maxLength) return false;
             const forward = normalize({ x: dx, y: dy, z: dz });
             let right = seg.right || builder.right;
             right = normalize({
@@ -7567,7 +7979,7 @@
         }
 
         function makeSegmentBetween(from, to, rightHint, downHint, kind = 'join', radiusHint = null) {
-            if (routeSpanTooLarge(from, to, kind || 'segment')) return null;
+            if (kind !== 'rect-room' && routeSpanTooLarge(from, to, kind || 'segment')) return null;
             const delta = {
                 x: to.x - from.x,
                 y: to.y - from.y,
@@ -7741,7 +8153,12 @@
                 seg.branch = !!seg.branch || (seg.kind || '').startsWith('branch');
                 seg.branchMouth = isBranchMouthSegment(seg);
                 ensureSegmentStyle(seg);
-                seg.stars = makeTunnelStars(seg.length, seg.radius);
+                // Rectangular rooms render four defined walls, floor, ceiling,
+                // and optional end caps. Cylindrical wall stars would float in
+                // a ring through the room interior.
+                seg.stars = segmentIsRectRoom(seg)
+                    ? []
+                    : makeTunnelStars(seg.length, seg.radius);
                 stars.push(...seg.stars);
             }
         }
@@ -7771,7 +8188,10 @@
                     wallOpaque: seg.wallOpaque !== false,
                     capStart: !!seg.capStart,
                     capEnd: !!seg.capEnd,
-                    chamber: !!seg.chamber
+                    chamber: !!seg.chamber,
+                    rectRoom: !!seg.rectRoom,
+                    roomWidth: Number(seg.roomWidth) || undefined,
+                    roomHeight: Number(seg.roomHeight) || undefined
                 })),
                 portals: builder.portals.map(portal => ({
                     id: portal.id,
@@ -7796,6 +8216,9 @@
                 })),
                 rocketCaches: builder.rocketCaches.map(cache => ({
                     id: cache.id,
+                    itemType: cache.itemType || 'rocketPack',
+                    quantity: cache.quantity || 1,
+                    respawnSeconds: Number(cache.respawnSeconds) || 0,
                     point: cache.point,
                     right: cache.right,
                     down: cache.down,
@@ -8270,6 +8693,7 @@
             rebuildTunnelTargets();
             rebuildTunnelSentries();
             rocketCollectedCacheIds.clear();
+            rocketCacheRespawnAt.clear();
             rebuildRocketCaches();
             resetPlayerCombatState();
             updateWebGLCanvasVisibility();
@@ -9276,6 +9700,13 @@
         function portalVisualPoint(frame, portal = null) {
             if (!portal?.door) return frame.point;
             const seg = Number.isInteger(frame.segmentIndex) ? builder.segments[frame.segmentIndex] : null;
+            if (segmentIsRectRoom(seg)) {
+                const room = rectRoomDimensions(seg);
+                return addVec(
+                    frame.point,
+                    scaleVec(frame.right || seg.right || builder.right, room.halfWidth * 0.92)
+                );
+            }
             if (segmentIsChamber(seg)) {
                 const center = chamberCenterPoint(seg);
                 const fromCenter = normalize({
@@ -9314,9 +9745,17 @@
 
         function shipWithinPortalActivateRange(ship, frame, portal = null) {
             const seg = Number.isInteger(frame.segmentIndex) ? builder.segments[frame.segmentIndex] : null;
-            const range = segmentIsChamber(seg)
-                ? Math.max(PORTAL_ACTIVATE_RANGE, (seg.radius || builder.radius) * 0.28)
-                : PORTAL_ACTIVATE_RANGE;
+            const range = segmentIsRectRoom(seg)
+                ? Math.max(
+                    PORTAL_ACTIVATE_RANGE,
+                    Math.min(
+                        rectRoomDimensions(seg).halfWidth,
+                        rectRoomDimensions(seg).halfHeight
+                    ) * 0.35
+                )
+                : segmentIsChamber(seg)
+                    ? Math.max(PORTAL_ACTIVATE_RANGE, (seg.radius || builder.radius) * 0.28)
+                    : PORTAL_ACTIVATE_RANGE;
             return Math.sqrt(distanceSq(ship, portalVisualPoint(frame, portal))) <= range;
         }
 
@@ -10163,7 +10602,13 @@
                 let dist2;
                 let t;
                 let containmentMargin = null;
-                if (segmentIsChamber(seg)) {
+                if (segmentIsRectRoom(seg)) {
+                    const room = rectRoomDistanceState(point, seg);
+                    center = room.nearestPoint;
+                    dist2 = room.outsideDist * room.outsideDist;
+                    t = Math.max(0, Math.min(1, room.local.z / Math.max(1, room.length)));
+                    containmentMargin = room.margin;
+                } else if (segmentIsChamber(seg)) {
                     center = chamberCenterPoint(seg);
                     const chamberDist = Math.sqrt(distanceSq(point, center));
                     dist2 = Math.pow(Math.max(0, chamberDist - (seg.radius || builder.radius)), 2);
@@ -10454,7 +10899,7 @@
             // scaffold axis happened to be near-vertical as a "vertical corridor" set
             // blend=1, welding the camera to that axis — yaw appeared dead, forward thrust
             // ran along the invisible actual nose, and the exit door could never be faced.
-            if (segmentIsChamber(seg)) {
+            if (segmentIsChamber(seg) || segmentIsRectRoom(seg)) {
                 branchFlightContext = ctx;
                 return ctx;
             }
@@ -10676,6 +11121,65 @@
                 Math.max(rawSegRadius, priorRadius) * 1.04
             );
             const local = shipSegmentLocal(ship, seg);
+            if (segmentIsRectRoom(seg)) {
+                const room = rectRoomDistanceState(ship, seg);
+                const sideX = Math.max(8, room.halfWidth - TUNNEL_SAFE_MARGIN);
+                const sideY = Math.max(8, room.halfHeight - TUNNEL_SAFE_MARGIN);
+                const startZ = seg.capStart ? TUNNEL_SAFE_MARGIN : -Infinity;
+                const endZ = seg.capEnd ? room.length - TUNNEL_SAFE_MARGIN : Infinity;
+                const insideSides =
+                    Math.abs(room.local.x) <= sideX &&
+                    Math.abs(room.local.y) <= sideY;
+                const insideEnds = room.local.z >= startZ && room.local.z <= endZ;
+                wallHit.active = false;
+                wallHit.intensity *= 0.88;
+                if (insideSides && insideEnds) {
+                    shipSegmentIndex = nearest.index;
+                    wallHit.lastRadius = Math.max(room.halfWidth, room.halfHeight);
+                    wallHit.stuckCount = Math.max(0, wallHit.stuckCount - 1);
+                    return;
+                }
+
+                // Uncapped ends are real exits; do not pull a ship back into the room.
+                if (
+                    insideSides &&
+                    ((!seg.capStart && room.local.z < 0) ||
+                     (!seg.capEnd && room.local.z > room.length))
+                ) {
+                    shipSegmentIndex = nearest.index;
+                    wallHit.stuckCount = 0;
+                    return;
+                }
+
+                const correctedLocal = {
+                    x: Math.max(-sideX, Math.min(sideX, room.local.x)),
+                    y: Math.max(-sideY, Math.min(sideY, room.local.y)),
+                    z: Math.max(startZ, Math.min(endZ, room.local.z))
+                };
+                if (!Number.isFinite(correctedLocal.z)) correctedLocal.z = room.local.z;
+                const corrected = segmentLocalToWorld(
+                    seg,
+                    correctedLocal.x,
+                    correctedLocal.y,
+                    correctedLocal.z
+                );
+                const push = Math.max(
+                    Math.abs(room.local.x - correctedLocal.x),
+                    Math.abs(room.local.y - correctedLocal.y),
+                    Math.abs(room.local.z - correctedLocal.z)
+                );
+                posX = corrected.x;
+                posY = corrected.y;
+                posZ = corrected.z;
+                shipSegmentIndex = nearest.index;
+                wallHit.active = true;
+                wallHit.intensity = Math.max(wallHit.intensity, 0.35);
+                wallHit.last = performance.now();
+                wallHit.lastRadius = Math.max(room.halfWidth, room.halfHeight);
+                wallHit.stuckCount = Math.min(12, (wallHit.stuckCount || 0) + 1);
+                applyShieldWallDrain(push, false);
+                return;
+            }
             if (segmentIsChamber(seg)) {
                 const chamber = chamberDistanceState(ship, seg);
                 const chamberLimit = Math.max(24, chamber.radius - TUNNEL_SAFE_MARGIN);
@@ -11080,6 +11584,9 @@
             }
             if (key === 'v') {
                 if (mapView || builderMode) {
+                    if (mapMouse.selectedRocketCacheId) {
+                        return openRocketCacheEditDialog(mapMouse.selectedRocketCacheId);
+                    }
                     if (mapMouse.targetSelection.size > 0) {
                         const targetId = [...mapMouse.targetSelection][0];
                         openTargetEditDialog(targetId);
@@ -12858,6 +13365,136 @@
             return true;
         }
 
+        function replaceSelectedSegmentsWithRectRoom(indices, dimensions, caps = {}) {
+            const selected = new Set(indices);
+            const ordered = Array.isArray(mapMouse.selectionPath)
+                ? mapMouse.selectionPath.filter(index => selected.has(index))
+                : [];
+            for (const index of indices) {
+                if (!ordered.includes(index)) ordered.push(index);
+            }
+            const sourceSegments = ordered.map(index => builder.segments[index]).filter(Boolean);
+            if (!sourceSegments.length) return false;
+
+            const points = sourceSegments.flatMap(seg => [seg.from, seg.to]).filter(Boolean);
+            let farA = points[0];
+            let farB = points[points.length - 1];
+            let farDistSq = -1;
+            for (let i = 0; i < points.length; i++) {
+                for (let j = i + 1; j < points.length; j++) {
+                    const d2 = distanceSq(points[i], points[j]);
+                    if (d2 > farDistSq) {
+                        farDistSq = d2;
+                        farA = points[i];
+                        farB = points[j];
+                    }
+                }
+            }
+            const firstSeg = sourceSegments[0];
+            let forward = normalize({
+                x: farB.x - farA.x,
+                y: farB.y - farA.y,
+                z: farB.z - farA.z
+            });
+            if (dot(forward, firstSeg.forward || builder.forward) < 0) {
+                forward = scaleVec(forward, -1);
+            }
+            const center = lerpVec(farA, farB, 0.5);
+            const roomLength = Math.max(
+                MAP_ROOM_MIN_DIMENSION,
+                Math.min(MAP_ROOM_MAX_DIMENSION, Number(dimensions.length) || builder.length)
+            );
+            const roomWidth = Math.max(
+                MAP_ROOM_MIN_DIMENSION,
+                Math.min(MAP_ROOM_MAX_DIMENSION, Number(dimensions.width) || builder.radius * 4)
+            );
+            const roomHeight = Math.max(
+                MAP_ROOM_MIN_DIMENSION,
+                Math.min(MAP_ROOM_MAX_DIMENSION, Number(dimensions.height) || builder.radius * 4)
+            );
+            const from = addVec(center, scaleVec(forward, -roomLength * 0.5));
+            const to = addVec(center, scaleVec(forward, roomLength * 0.5));
+            const room = makeSegmentBetween(
+                from,
+                to,
+                firstSeg.right || builder.right,
+                firstSeg.down || builder.down,
+                'rect-room',
+                Math.max(roomWidth, roomHeight) * 0.5
+            );
+            if (!room) return false;
+            room.rectRoom = true;
+            room.chamber = false;
+            room.roomWidth = roomWidth;
+            room.roomHeight = roomHeight;
+            room.capStart = caps.start !== false;
+            room.capEnd = caps.end !== false;
+            room.wallTextureId = firstSeg.wallTextureId || defaultWallTextureId;
+            room.entranceFrameId = firstSeg.entranceFrameId || '';
+            room.entranceFrameEnd = firstSeg.entranceFrameEnd === 'end' ? 'end' : 'start';
+            room.ribColor = firstSeg.ribColor || defaultRibColor;
+            room.wallOpaque = firstSeg.wallOpaque !== false;
+            ensureSegmentStyle(room);
+
+            // Insert at the first numeric slot so every removed member can map
+            // to the room in a single forward pass, regardless of path direction.
+            const hostOldIndex = Math.min(...indices);
+            const oldToNew = new Map();
+            const nextSegments = [];
+            let roomIndex = null;
+            for (let oldIndex = 0; oldIndex < builder.segments.length; oldIndex++) {
+                if (oldIndex === hostOldIndex) {
+                    roomIndex = nextSegments.length;
+                    nextSegments.push(room);
+                    oldToNew.set(oldIndex, roomIndex);
+                } else if (selected.has(oldIndex)) {
+                    oldToNew.set(oldIndex, roomIndex);
+                } else {
+                    oldToNew.set(oldIndex, nextSegments.length);
+                    nextSegments.push(builder.segments[oldIndex]);
+                }
+            }
+            if (!Number.isInteger(roomIndex)) return false;
+
+            const remapIndex = value => Number.isInteger(value)
+                ? (oldToNew.get(value) ?? null)
+                : value;
+            for (const target of builder.targets) {
+                target.segmentIndex = remapIndex(target.segmentIndex);
+            }
+            for (const cache of builder.rocketCaches) {
+                cache.segmentIndex = remapIndex(cache.segmentIndex);
+            }
+            for (const sentry of builder.sentries) {
+                if (sentry.spawn) sentry.spawn.segmentIndex = remapIndex(sentry.spawn.segmentIndex);
+            }
+            for (const portal of builder.portals) {
+                if (portal.entry) portal.entry.segmentIndex = remapIndex(portal.entry.segmentIndex);
+                if (portal.exit) portal.exit.segmentIndex = remapIndex(portal.exit.segmentIndex);
+            }
+
+            builder.segments = nextSegments;
+            mapMouse.selection = new Set([roomIndex]);
+            mapMouse.selectionPath = [roomIndex];
+            mapMouse.anchor = {
+                point: pointOnSegment(room, 0.5),
+                label: 'rectangular room',
+                segmentIndex: roomIndex,
+                endKind: 'body',
+                segmentT: 0.5
+            };
+            mapMouse.destination = null;
+            mapMouse.midpoint = null;
+            rocketCacheGeometryDirty = true;
+            applyMapGeometryChange(
+                `made rectangular room ${Math.round(roomWidth)}w × ` +
+                `${Math.round(roomLength)}l × ${Math.round(roomHeight)}h`
+            );
+            rebuildTunnelSentries();
+            rebuildRocketCaches();
+            return true;
+        }
+
         function openSegmentStyleDialog() {
             const indices = selectedSegmentIndices();
             if (!indices.length) {
@@ -13073,6 +13710,82 @@
             radiusRow.append(radiusTitle, radiusLabel, radiusInput);
             joinEditDialog.appendChild(radiusRow);
 
+            const existingRoom = indices.length === 1 && segmentIsRectRoom(firstSeg)
+                ? firstSeg
+                : null;
+            const selectedPathLength = indices.reduce(
+                (sum, index) => sum + (builder.segments[index]?.length || 0),
+                0
+            );
+            const roomGrid = document.createElement('div');
+            roomGrid.className = 'join-grid';
+            const roomTitle = document.createElement('div');
+            roomTitle.style.gridColumn = '1 / -1';
+            roomTitle.style.color = '#ffbd55';
+            roomTitle.textContent = 'Rectangular Room Unit';
+
+            const roomWidthLabel = document.createElement('label');
+            roomWidthLabel.textContent = 'Width';
+            const roomWidthInput = document.createElement('input');
+            roomWidthInput.type = 'number';
+            roomWidthInput.min = String(MAP_ROOM_MIN_DIMENSION);
+            roomWidthInput.max = String(MAP_ROOM_MAX_DIMENSION);
+            roomWidthInput.step = '25';
+            roomWidthInput.value = String(Math.round(
+                existingRoom?.roomWidth || currentRadius * 2
+            ));
+
+            const roomLengthLabel = document.createElement('label');
+            roomLengthLabel.textContent = 'Length';
+            const roomLengthInput = document.createElement('input');
+            roomLengthInput.type = 'number';
+            roomLengthInput.min = String(MAP_ROOM_MIN_DIMENSION);
+            roomLengthInput.max = String(MAP_ROOM_MAX_DIMENSION);
+            roomLengthInput.step = '25';
+            roomLengthInput.value = String(Math.round(
+                existingRoom?.length || Math.max(MAP_ROOM_MIN_DIMENSION, selectedPathLength)
+            ));
+
+            const roomHeightLabel = document.createElement('label');
+            roomHeightLabel.textContent = 'Height';
+            const roomHeightInput = document.createElement('input');
+            roomHeightInput.type = 'number';
+            roomHeightInput.min = String(MAP_ROOM_MIN_DIMENSION);
+            roomHeightInput.max = String(MAP_ROOM_MAX_DIMENSION);
+            roomHeightInput.step = '25';
+            roomHeightInput.value = String(Math.round(
+                existingRoom?.roomHeight || currentRadius * 2
+            ));
+
+            roomGrid.append(
+                roomTitle,
+                roomWidthLabel,
+                roomWidthInput,
+                roomLengthLabel,
+                roomLengthInput,
+                roomHeightLabel,
+                roomHeightInput
+            );
+            joinEditDialog.appendChild(roomGrid);
+
+            const roomCapsRow = document.createElement('div');
+            roomCapsRow.className = 'hint';
+            const roomCapStartCheck = document.createElement('input');
+            roomCapStartCheck.type = 'checkbox';
+            roomCapStartCheck.checked = existingRoom ? !!existingRoom.capStart : true;
+            const roomCapStartText = document.createTextNode(' Cap room start ');
+            const roomCapEndCheck = document.createElement('input');
+            roomCapEndCheck.type = 'checkbox';
+            roomCapEndCheck.checked = existingRoom ? !!existingRoom.capEnd : true;
+            const roomCapEndText = document.createTextNode(' Cap room end');
+            roomCapsRow.append(
+                roomCapStartCheck,
+                roomCapStartText,
+                roomCapEndCheck,
+                roomCapEndText
+            );
+            joinEditDialog.appendChild(roomCapsRow);
+
             const currentInfo = document.createElement('div');
             currentInfo.className = 'hint';
             currentInfo.style.color = '#9bdcff';
@@ -13135,6 +13848,30 @@
                 closeJoinEditDialog();
             }
 
+            function makeSelectedRectRoom() {
+                const width = Number(roomWidthInput.value);
+                const length = Number(roomLengthInput.value);
+                const height = Number(roomHeightInput.value);
+                if (![width, length, height].every(value => (
+                    Number.isFinite(value) &&
+                    value >= MAP_ROOM_MIN_DIMENSION &&
+                    value <= MAP_ROOM_MAX_DIMENSION
+                ))) {
+                    keyboardStatus.innerText =
+                        `room dimensions must be ${MAP_ROOM_MIN_DIMENSION}-${MAP_ROOM_MAX_DIMENSION}`;
+                    return;
+                }
+                if (replaceSelectedSegmentsWithRectRoom(
+                    indices,
+                    { width, length, height },
+                    { start: roomCapStartCheck.checked, end: roomCapEndCheck.checked }
+                )) {
+                    closeJoinEditDialog();
+                } else {
+                    keyboardStatus.innerText = 'could not create rectangular room from selection';
+                }
+            }
+
             const actions = document.createElement('div');
             actions.className = 'join-actions';
             const applyBtn = document.createElement('button');
@@ -13181,8 +13918,12 @@
             });
             const chamberBtn = document.createElement('button');
             chamberBtn.type = 'button';
-            chamberBtn.textContent = 'Make Chamber';
+            chamberBtn.textContent = 'Make Sphere (Legacy)';
             chamberBtn.addEventListener('click', makeSelectedChamber);
+            const roomBtn = document.createElement('button');
+            roomBtn.type = 'button';
+            roomBtn.textContent = existingRoom ? 'Update Rectangular Room' : 'Make Rectangular Room';
+            roomBtn.addEventListener('click', makeSelectedRectRoom);
             const equalizeAllBtn = document.createElement('button');
             equalizeAllBtn.type = 'button';
             equalizeAllBtn.textContent = 'Equalize All Width';
@@ -13193,10 +13934,19 @@
             cancelBtn.type = 'button';
             cancelBtn.textContent = 'Cancel';
             cancelBtn.addEventListener('click', closeJoinEditDialog);
-            actions.append(applyBtn, chamberBtn, equalizeAllBtn, cancelBtn);
+            actions.append(applyBtn, roomBtn, chamberBtn, equalizeAllBtn, cancelBtn);
             joinEditDialog.appendChild(actions);
             joinEditDialog.style.display = 'block';
-            wireDialogInputFocus(textureSelect, frameSelect, frameEndSelect, colorInput, radiusInput);
+            wireDialogInputFocus(
+                textureSelect,
+                frameSelect,
+                frameEndSelect,
+                colorInput,
+                radiusInput,
+                roomWidthInput,
+                roomLengthInput,
+                roomHeightInput
+            );
             return true;
         }
 
@@ -14218,6 +14968,9 @@
             const placements = [];
             for (let i = 0; i < builder.segments.length; i++) {
                 const seg = builder.segments[i];
+                // Rooms start empty so their contents are authored explicitly:
+                // builder loot, sentry guards, and later maze/upgrade objects.
+                if (segmentIsRectRoom(seg)) continue;
                 const length = seg.length || builder.length;
                 if (length < 80) continue;
                 const isConnector = (seg.kind || '').startsWith('join');
@@ -14441,7 +15194,7 @@
             if (gameOverState.active || portalTransit.active || mapView || builderMode) return false;
             if (rocketInventory.loaded <= 0) {
                 if (rocketInventory.reservePacks <= 0) {
-                    keyboardStatus.innerText = 'ROCKETS EMPTY — find an orange rocket cache';
+                    keyboardStatus.innerText = 'ROCKETS EMPTY — find loot or open inventory';
                     updateRocketHud();
                     return false;
                 }
@@ -14475,6 +15228,7 @@
             });
             rocketInventory.loaded -= 1;
             updateRocketHud();
+            savePlayerProfile();
             keyboardStatus.innerText =
                 `ROCKET AWAY — ${rocketInventory.loaded} loaded` +
                 (rocketInventory.loaded === 0 && rocketInventory.reservePacks > 0
@@ -14529,6 +15283,16 @@
             if (!nearest?.seg) return false;
             rocket.segmentIndex = nearest.index;
             const seg = nearest.seg;
+            if (segmentIsRectRoom(seg)) {
+                const room = rectRoomDistanceState(point, seg);
+                const sideHit =
+                    Math.abs(room.local.x) >= room.halfWidth * 0.94 ||
+                    Math.abs(room.local.y) >= room.halfHeight * 0.94;
+                const capHit =
+                    (seg.capStart && room.local.z <= room.length * 0.015) ||
+                    (seg.capEnd && room.local.z >= room.length * 0.985);
+                return sideHit || capHit;
+            }
             if (segmentIsChamber(seg)) {
                 const chamber = chamberDistanceState(point, seg);
                 return chamber.dist >= chamber.radius * 0.94;
@@ -14550,7 +15314,55 @@
             const seg = nearest.seg;
             let surface;
             let normal;
-            if (segmentIsChamber(seg)) {
+            if (segmentIsRectRoom(seg)) {
+                const room = rectRoomDistanceState(origin, seg);
+                const candidates = [
+                    {
+                        distance: Math.abs(room.halfWidth - Math.abs(room.local.x)),
+                        normal: scaleVec(seg.right, room.local.x < 0 ? -1 : 1),
+                        local: {
+                            x: (room.local.x < 0 ? -1 : 1) * room.halfWidth * 0.985,
+                            y: Math.max(-room.halfHeight, Math.min(room.halfHeight, room.local.y)),
+                            z: Math.max(0, Math.min(room.length, room.local.z))
+                        }
+                    },
+                    {
+                        distance: Math.abs(room.halfHeight - Math.abs(room.local.y)),
+                        normal: scaleVec(seg.down, room.local.y < 0 ? -1 : 1),
+                        local: {
+                            x: Math.max(-room.halfWidth, Math.min(room.halfWidth, room.local.x)),
+                            y: (room.local.y < 0 ? -1 : 1) * room.halfHeight * 0.985,
+                            z: Math.max(0, Math.min(room.length, room.local.z))
+                        }
+                    }
+                ];
+                if (seg.capStart) {
+                    candidates.push({
+                        distance: Math.abs(room.local.z),
+                        normal: scaleVec(seg.forward, -1),
+                        local: {
+                            x: Math.max(-room.halfWidth, Math.min(room.halfWidth, room.local.x)),
+                            y: Math.max(-room.halfHeight, Math.min(room.halfHeight, room.local.y)),
+                            z: room.length * 0.015
+                        }
+                    });
+                }
+                if (seg.capEnd) {
+                    candidates.push({
+                        distance: Math.abs(room.length - room.local.z),
+                        normal: copyVec(seg.forward),
+                        local: {
+                            x: Math.max(-room.halfWidth, Math.min(room.halfWidth, room.local.x)),
+                            y: Math.max(-room.halfHeight, Math.min(room.halfHeight, room.local.y)),
+                            z: room.length * 0.985
+                        }
+                    });
+                }
+                candidates.sort((a, b) => a.distance - b.distance);
+                const hit = candidates[0];
+                normal = normalize(hit.normal);
+                surface = segmentLocalToWorld(seg, hit.local.x, hit.local.y, hit.local.z);
+            } else if (segmentIsChamber(seg)) {
                 const chamber = chamberDistanceState(origin, seg);
                 normal = chamber.normal;
                 surface = addVec(chamber.center, scaleVec(normal, chamber.radius * 0.985));
@@ -14911,8 +15723,18 @@
                     ? raw.segmentIndex
                     : null;
                 const seg = segmentIndex !== null ? builder.segments[segmentIndex] : null;
+                const itemType = LOOT_ITEM_DEFS[raw.itemType] ? raw.itemType : 'rocketPack';
                 cleaned.push({
                     id,
+                    itemType,
+                    quantity: Math.max(1, Math.min(10, Math.round(Number(raw.quantity) || 1))),
+                    respawnSeconds: Math.max(
+                        0,
+                        Math.min(
+                            LOOT_RESPAWN_MAX_SECONDS,
+                            Math.round(Number(raw.respawnSeconds) || 0)
+                        )
+                    ),
                     point: copyVec(raw.point),
                     right: normalize(copyVec(raw.right || seg?.right || builder.right)),
                     down: normalize(copyVec(raw.down || seg?.down || builder.down)),
@@ -14923,12 +15745,26 @@
             return cleaned.slice(0, ROCKET_CACHE_MAX_COUNT);
         }
 
+        function lootSpawnIsAvailable(saved, now = Date.now()) {
+            if (!rocketCollectedCacheIds.has(saved.id)) return true;
+            const respawnAt = rocketCacheRespawnAt.get(saved.id);
+            if (Number.isFinite(respawnAt) && respawnAt <= now) {
+                rocketCollectedCacheIds.delete(saved.id);
+                rocketCacheRespawnAt.delete(saved.id);
+                return true;
+            }
+            return false;
+        }
+
         function rebuildRocketCaches() {
             rocketCaches.length = 0;
             for (const saved of builder.rocketCaches) {
-                if (rocketCollectedCacheIds.has(saved.id)) continue;
+                if (!lootSpawnIsAvailable(saved)) continue;
                 rocketCaches.push({
                     id: saved.id,
+                    itemType: saved.itemType || 'rocketPack',
+                    quantity: saved.quantity || 1,
+                    respawnSeconds: Number(saved.respawnSeconds) || 0,
                     point: copyVec(saved.point),
                     right: copyVec(saved.right),
                     down: copyVec(saved.down),
@@ -14958,8 +15794,8 @@
             mapMouse.sentryPathDraft = null;
             mapMouse.sentrySpawnMoveId = null;
             keyboardStatus.innerText = entering
-                ? `ROCKET CACHE MODE — Ctrl+LMB tunnel to place (${builder.rocketCaches.length}/${ROCKET_CACHE_MAX_COUNT})`
-                : 'TUNNEL MODE — rocket cache placement off';
+                ? `LOOT MODE — Ctrl+LMB tunnel/room to place (${builder.rocketCaches.length}/${ROCKET_CACHE_MAX_COUNT})`
+                : 'TUNNEL MODE — loot placement off';
             return true;
         }
 
@@ -14975,6 +15811,9 @@
             }
             const cache = {
                 id: makeRocketCacheId(),
+                itemType: 'rocketPack',
+                quantity: 1,
+                respawnSeconds: LOOT_RESPAWN_DEFAULT_SECONDS,
                 point: copyVec(snapped.point),
                 right: copyVec(snapped.right),
                 down: copyVec(snapped.down),
@@ -14993,7 +15832,7 @@
             rebuildRocketCaches();
             saveTunnelMap();
             keyboardStatus.innerText =
-                `rocket cache placed (${builder.rocketCaches.length}/${ROCKET_CACHE_MAX_COUNT}) — carries 10`;
+                `loot placed (${builder.rocketCaches.length}/${ROCKET_CACHE_MAX_COUNT}) — V edits item/respawn`;
             return true;
         }
 
@@ -15005,10 +15844,111 @@
             if (builder.rocketCaches.length === before) return false;
             mapMouse.selectedRocketCacheId = null;
             rocketCollectedCacheIds.delete(id);
+            rocketCacheRespawnAt.delete(id);
             rocketCacheGeometryDirty = true;
             rebuildRocketCaches();
             saveTunnelMap();
-            keyboardStatus.innerText = 'rocket cache deleted';
+            keyboardStatus.innerText = 'loot spawn deleted';
+            return true;
+        }
+
+        function openRocketCacheEditDialog(cacheId) {
+            const cache = builder.rocketCaches.find(item => item.id === cacheId);
+            if (!cache) {
+                keyboardStatus.innerText = 'loot spawn not found';
+                return true;
+            }
+            joinEditDialog.innerHTML = '';
+            joinEditDialog.dataset.mode = 'loot';
+
+            const title = document.createElement('h3');
+            title.textContent = 'Loot Spawn';
+            title.style.color = '#ffad32';
+            joinEditDialog.appendChild(title);
+
+            const hint = document.createElement('div');
+            hint.className = 'hint';
+            hint.textContent =
+                'Choose what this cache grants and how long it waits before reappearing. ' +
+                'Use 0 seconds for once per map session.';
+            joinEditDialog.appendChild(hint);
+
+            const grid = document.createElement('div');
+            grid.className = 'join-grid';
+
+            const typeLabel = document.createElement('label');
+            typeLabel.textContent = 'Item';
+            const typeSelect = document.createElement('select');
+            for (const [itemType, def] of Object.entries(LOOT_ITEM_DEFS)) {
+                const option = document.createElement('option');
+                option.value = itemType;
+                option.textContent = def.usable ? def.label : `${def.label} (reserved)`;
+                typeSelect.appendChild(option);
+            }
+            typeSelect.value = LOOT_ITEM_DEFS[cache.itemType] ? cache.itemType : 'rocketPack';
+
+            const quantityLabel = document.createElement('label');
+            quantityLabel.textContent = 'Quantity';
+            const quantityInput = document.createElement('input');
+            quantityInput.type = 'number';
+            quantityInput.min = '1';
+            quantityInput.max = '10';
+            quantityInput.step = '1';
+            quantityInput.value = String(cache.quantity || 1);
+
+            const respawnLabel = document.createElement('label');
+            respawnLabel.textContent = 'Respawn sec';
+            const respawnInput = document.createElement('input');
+            respawnInput.type = 'number';
+            respawnInput.min = '0';
+            respawnInput.max = String(LOOT_RESPAWN_MAX_SECONDS);
+            respawnInput.step = '5';
+            respawnInput.value = String(Number(cache.respawnSeconds) || 0);
+
+            grid.append(
+                typeLabel,
+                typeSelect,
+                quantityLabel,
+                quantityInput,
+                respawnLabel,
+                respawnInput
+            );
+            joinEditDialog.appendChild(grid);
+
+            const actions = document.createElement('div');
+            actions.className = 'join-actions';
+            const applyButton = document.createElement('button');
+            applyButton.type = 'button';
+            applyButton.textContent = 'Apply';
+            applyButton.addEventListener('click', () => {
+                cache.itemType = LOOT_ITEM_DEFS[typeSelect.value] ? typeSelect.value : 'rocketPack';
+                cache.quantity = Math.max(1, Math.min(10, Math.round(Number(quantityInput.value) || 1)));
+                cache.respawnSeconds = Math.max(
+                    0,
+                    Math.min(
+                        LOOT_RESPAWN_MAX_SECONDS,
+                        Math.round(Number(respawnInput.value) || 0)
+                    )
+                );
+                rocketCollectedCacheIds.delete(cache.id);
+                rocketCacheRespawnAt.delete(cache.id);
+                rocketCacheGeometryDirty = true;
+                rebuildRocketCaches();
+                saveTunnelMap();
+                const def = LOOT_ITEM_DEFS[cache.itemType];
+                keyboardStatus.innerText =
+                    `${def.label} ×${cache.quantity}, respawn ` +
+                    `${cache.respawnSeconds ? `${cache.respawnSeconds}s` : 'session-only'}`;
+                closeJoinEditDialog();
+            });
+            const cancelButton = document.createElement('button');
+            cancelButton.type = 'button';
+            cancelButton.textContent = 'Cancel';
+            cancelButton.addEventListener('click', closeJoinEditDialog);
+            actions.append(applyButton, cancelButton);
+            joinEditDialog.appendChild(actions);
+            joinEditDialog.style.display = 'block';
+            wireDialogInputFocus(typeSelect, quantityInput, respawnInput);
             return true;
         }
 
@@ -15029,12 +15969,18 @@
         function renderRocketCachesMap(centerX, centerY, fov) {
             for (const cache of builder.rocketCaches) {
                 const selected = mapMouse.selectedRocketCacheId === cache.id;
-                const projected = drawMapDot(cache.point, selected ? '#ffe95c' : '#ff9d22', selected ? 11 : 8);
+                const def = LOOT_ITEM_DEFS[cache.itemType] || LOOT_ITEM_DEFS.rocketPack;
+                const projected = drawMapDot(cache.point, selected ? '#ffe95c' : def.color, selected ? 11 : 8);
                 if (!projected) continue;
                 ctx.save();
-                ctx.fillStyle = selected ? '#fff2a8' : '#ffc36a';
+                ctx.fillStyle = selected ? '#fff2a8' : def.color;
                 ctx.font = `${selected ? 'bold ' : ''}11px monospace`;
-                ctx.fillText('ROCKETS x10', projected.x + 11, projected.y - 7);
+                ctx.fillText(
+                    `${def.shortLabel} ×${cache.quantity || 1} · ` +
+                    `${cache.respawnSeconds ? `${cache.respawnSeconds}s` : 'once'}`,
+                    projected.x + 11,
+                    projected.y - 7
+                );
                 if (selected) {
                     ctx.strokeStyle = '#ffe95c';
                     ctx.lineWidth = 2;
@@ -15047,28 +15993,47 @@
         }
 
         function ensureRocketCaches() {
+            if (rocketCollectedCacheIds.size) {
+                for (const saved of builder.rocketCaches) {
+                    if (!rocketCollectedCacheIds.has(saved.id)) continue;
+                    const respawnAt = rocketCacheRespawnAt.get(saved.id);
+                    if (Number.isFinite(respawnAt) && respawnAt <= Date.now()) {
+                        rocketCollectedCacheIds.delete(saved.id);
+                        rocketCacheRespawnAt.delete(saved.id);
+                        rocketCacheGeometryDirty = true;
+                    }
+                }
+            }
             if (rocketCacheGeometryDirty) rebuildRocketCaches();
         }
 
         function checkRocketCachePickups() {
-            if (mapView || builderMode || portalTransit.active || rocketInventory.reservePacks >= ROCKET_MAX_RESERVE_PACKS) {
+            if (mapView || builderMode || portalTransit.active) {
                 return;
             }
+            ensureRocketCaches();
             const ship = { x: posX, y: posY, z: posZ };
             for (let i = rocketCaches.length - 1; i >= 0; i--) {
                 const cache = rocketCaches[i];
                 if (distanceSq(ship, cache.point) > 34 * 34) continue;
-                rocketInventory.reservePacks = Math.min(
-                    ROCKET_MAX_RESERVE_PACKS,
-                    rocketInventory.reservePacks + 1
-                );
+                const def = LOOT_ITEM_DEFS[cache.itemType] || LOOT_ITEM_DEFS.rocketPack;
+                const granted = grantShipInventoryItem(cache.itemType || 'rocketPack', cache.quantity || 1);
+                if (granted <= 0) continue;
                 rocketCollectedCacheIds.add(cache.id);
+                if (cache.respawnSeconds > 0) {
+                    rocketCacheRespawnAt.set(
+                        cache.id,
+                        Date.now() + cache.respawnSeconds * 1000
+                    );
+                } else {
+                    rocketCacheRespawnAt.delete(cache.id);
+                }
                 rocketCaches.splice(i, 1);
-                spawnTargetParticles(cache.point, cache.right, cache.down, '#ffb632', 42, 4.5, 48);
+                spawnTargetParticles(cache.point, cache.right, cache.down, def.color, 42, 4.5, 48);
                 playSfx('target_chime', { worldPos: cache.point });
                 keyboardStatus.innerText =
-                    `ROCKET CACHE +10 — ${rocketInventory.reservePacks} reserve ` +
-                    `pack${rocketInventory.reservePacks === 1 ? '' : 's'}`;
+                    `${def.label.toUpperCase()} +${granted} — inventory ` +
+                    `${shipInventory.items[cache.itemType || 'rocketPack']}`;
                 updateRocketHud();
             }
         }
@@ -15088,13 +16053,14 @@
                 const size = Math.max(7, Math.min(42, 22 * fov / Math.max(65, projected.z)));
                 const spin = now * 0.0022 + cache.phase;
                 const squish = 0.4 + Math.abs(Math.cos(spin)) * 0.6;
+                const def = LOOT_ITEM_DEFS[cache.itemType] || LOOT_ITEM_DEFS.rocketPack;
                 ctx.save();
                 ctx.translate(projected.x, projected.y);
                 ctx.rotate(spin * 0.25);
-                ctx.shadowColor = '#ff9d22';
+                ctx.shadowColor = def.color;
                 ctx.shadowBlur = 18;
                 ctx.fillStyle = '#4c2a12';
-                ctx.strokeStyle = '#ffad32';
+                ctx.strokeStyle = def.color;
                 ctx.lineWidth = Math.max(1.5, size * 0.09);
                 ctx.beginPath();
                 ctx.moveTo(0, -size);
@@ -15108,7 +16074,7 @@
                 ctx.font = `bold ${Math.max(8, size * 0.7)}px monospace`;
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText('10', 0, 1);
+                ctx.fillText(def.shortLabel.slice(0, 3), 0, 1);
                 ctx.restore();
             }
             ctx.restore();
@@ -16646,7 +17612,10 @@
             let maxSentryZ = 1500;
             if (!mapMode) {
                 const shipSeg = builder.segments[shipSegmentIndex];
-                if (segmentIsChamber(shipSeg)) {
+                if (segmentIsRectRoom(shipSeg)) {
+                    const dims = rectRoomDimensions(shipSeg);
+                    maxSentryZ = Math.max(1500, Math.max(dims.width, dims.height, dims.length) * 1.4);
+                } else if (segmentIsChamber(shipSeg)) {
                     maxSentryZ = Math.max(1500, (shipSeg.radius || builder.radius) * 2.4);
                 }
             }
@@ -17299,6 +18268,7 @@
 
         function segmentIsChamber(seg) {
             if (!seg) return false;
+            if (segmentIsRectRoom(seg)) return false;
             if (seg.chamber) return true;
             const radius = seg.radius || builder.radius;
             // Any both-ends-capped segment with a room-scale radius is a chamber. The old
@@ -17310,6 +18280,147 @@
             // only be a room, so classify it as one. (Chamber containment and the sphere
             // shell mesh are radius-based and independent of length.)
             return !!seg.capStart && !!seg.capEnd && radius >= 300;
+        }
+
+        function segmentIsRectRoom(seg) {
+            return !!seg && (!!seg.rectRoom || seg.kind === 'rect-room');
+        }
+
+        function rectRoomDimensions(seg) {
+            const length = Math.max(
+                MAP_ROOM_MIN_DIMENSION,
+                Math.min(MAP_ROOM_MAX_DIMENSION, Number(seg?.length) || builder.length)
+            );
+            const width = Math.max(
+                MAP_ROOM_MIN_DIMENSION,
+                Math.min(
+                    MAP_ROOM_MAX_DIMENSION,
+                    Number(seg?.roomWidth) || (seg?.radius || builder.radius) * 2
+                )
+            );
+            const height = Math.max(
+                MAP_ROOM_MIN_DIMENSION,
+                Math.min(
+                    MAP_ROOM_MAX_DIMENSION,
+                    Number(seg?.roomHeight) || (seg?.radius || builder.radius) * 2
+                )
+            );
+            return { width, height, length, halfWidth: width * 0.5, halfHeight: height * 0.5 };
+        }
+
+        function rectRoomLocalPoint(point, seg) {
+            const rel = {
+                x: point.x - seg.from.x,
+                y: point.y - seg.from.y,
+                z: point.z - seg.from.z
+            };
+            return {
+                x: dot(rel, seg.right),
+                y: dot(rel, seg.down),
+                z: dot(rel, seg.forward)
+            };
+        }
+
+        function rectRoomDistanceState(point, seg, padding = 0) {
+            const dims = rectRoomDimensions(seg);
+            const local = rectRoomLocalPoint(point, seg);
+            const halfWidth = Math.max(1, dims.halfWidth + padding);
+            const halfHeight = Math.max(1, dims.halfHeight + padding);
+            const minZ = -padding;
+            const maxZ = dims.length + padding;
+            const clamped = {
+                x: Math.max(-halfWidth, Math.min(halfWidth, local.x)),
+                y: Math.max(-halfHeight, Math.min(halfHeight, local.y)),
+                z: Math.max(minZ, Math.min(maxZ, local.z))
+            };
+            const outside = {
+                x: local.x - clamped.x,
+                y: local.y - clamped.y,
+                z: local.z - clamped.z
+            };
+            const outsideDist = Math.hypot(outside.x, outside.y, outside.z);
+            const inside = outsideDist <= 0.0001;
+            const margin = inside
+                ? Math.min(
+                    halfWidth - Math.abs(local.x),
+                    halfHeight - Math.abs(local.y),
+                    local.z - minZ,
+                    maxZ - local.z
+                )
+                : -outsideDist;
+            return {
+                ...dims,
+                local,
+                clamped,
+                outside,
+                outsideDist,
+                inside,
+                margin,
+                nearestPoint: segmentLocalToWorld(seg, clamped.x, clamped.y, clamped.z)
+            };
+        }
+
+        function rectRoomCorners(seg) {
+            const dims = rectRoomDimensions(seg);
+            const points = {};
+            for (const zKey of ['start', 'end']) {
+                const z = zKey === 'start' ? 0 : dims.length;
+                for (const xKey of ['left', 'right']) {
+                    const x = xKey === 'left' ? -dims.halfWidth : dims.halfWidth;
+                    for (const yKey of ['top', 'bottom']) {
+                        const y = yKey === 'top' ? -dims.halfHeight : dims.halfHeight;
+                        points[`${zKey}-${xKey}-${yKey}`] = segmentLocalToWorld(seg, x, y, z);
+                    }
+                }
+            }
+            return points;
+        }
+
+        function buildRectRoomWallPanels(seg, includeCaps = true) {
+            const c = rectRoomCorners(seg);
+            const panels = [
+                [
+                    c['start-left-top'],
+                    c['end-left-top'],
+                    c['end-left-bottom'],
+                    c['start-left-bottom']
+                ],
+                [
+                    c['start-right-bottom'],
+                    c['end-right-bottom'],
+                    c['end-right-top'],
+                    c['start-right-top']
+                ],
+                [
+                    c['start-right-top'],
+                    c['end-right-top'],
+                    c['end-left-top'],
+                    c['start-left-top']
+                ],
+                [
+                    c['start-left-bottom'],
+                    c['end-left-bottom'],
+                    c['end-right-bottom'],
+                    c['start-right-bottom']
+                ]
+            ];
+            if (includeCaps && seg.capStart) {
+                panels.push([
+                    c['start-right-top'],
+                    c['start-left-top'],
+                    c['start-left-bottom'],
+                    c['start-right-bottom']
+                ]);
+            }
+            if (includeCaps && seg.capEnd) {
+                panels.push([
+                    c['end-left-top'],
+                    c['end-right-top'],
+                    c['end-right-bottom'],
+                    c['end-left-bottom']
+                ]);
+            }
+            return panels;
         }
 
         function chamberProfileRadius(seg, localZ, overlap = 1) {
@@ -17373,6 +18484,11 @@
         function shipInsideAnyTunnelTube(ship, mouthPad = 24) {
             if (pointInJunctionBubble(ship, -mouthPad)) return true;
             for (const seg of builder.segments) {
+                if (segmentIsRectRoom(seg)) {
+                    const room = rectRoomDistanceState(ship, seg, mouthPad);
+                    if (room.inside) return true;
+                    continue;
+                }
                 if (segmentIsChamber(seg)) {
                     const chamber = chamberDistanceState(ship, seg);
                     if (chamber.dist <= chamber.radius * 1.06 + mouthPad) {
@@ -17568,7 +18684,7 @@
         function pointVisibleThroughCurrentTunnel(point, apertureScale = 0.96) {
             if (!point || !Number.isInteger(shipSegmentIndex)) return true;
             const seg = builder.segments[shipSegmentIndex];
-            if (!seg || !segmentWallOpaque(seg) || segmentIsChamber(seg)) return true;
+            if (!seg || !segmentWallOpaque(seg) || segmentIsChamber(seg) || segmentIsRectRoom(seg)) return true;
             const ship = { x: posX, y: posY, z: posZ };
             const shipLocal = shipSegmentLocal(ship, seg);
             const targetLocal = shipSegmentLocal(point, seg);
@@ -17657,12 +18773,17 @@
                 // topology. Do not reveal their spherical shells merely because they are
                 // nearby in world space; they become visible after portal entry. Preserve
                 // an explicitly authored glass-to-glass view when both shells are clear.
-                if (segmentIsChamber(seg) && !segmentVisibleFromShipRoute(index)) continue;
+                if (
+                    (segmentIsChamber(seg) || segmentIsRectRoom(seg)) &&
+                    !segmentVisibleFromShipRoute(index)
+                ) continue;
                 const length = seg.length || builder.length;
                 const midZ = segmentMidCameraZ(seg);
-                const dist = segmentIsChamber(seg)
-                    ? Math.max(0, chamberDistanceState(shipPoint, seg).dist - (seg.radius || builder.radius))
-                    : Math.sqrt(distanceToSegmentSq(shipPoint, seg));
+                const dist = segmentIsRectRoom(seg)
+                    ? rectRoomDistanceState(shipPoint, seg).outsideDist
+                    : segmentIsChamber(seg)
+                        ? Math.max(0, chamberDistanceState(shipPoint, seg).dist - (seg.radius || builder.radius))
+                        : Math.sqrt(distanceToSegmentSq(shipPoint, seg));
                 const isShipSeg = index === shipSegmentIndex;
                 const isAdjacent = topologyNearSet.has(index);
                 const isForwardPath = forwardSet.has(index);
@@ -18644,6 +19765,7 @@
             for (const entry of segments) {
                 const { index, seg } = entry;
                 if (!seg?.capStart && !seg?.capEnd) continue;
+                if (segmentIsRectRoom(seg)) continue;
                 if (segmentIsChamber(seg) && TUNNEL_TEXTURE_MODE === 'webgl') continue;
                 const isBranchMouth = isBranchMouthSegment(seg);
                 const palette = mapMouse.selection.has(index) || mapMouse.anchor?.segmentIndex === index
@@ -18753,6 +19875,38 @@
                 };
 
                 if (isVector) {
+                    if (segmentIsRectRoom(seg)) {
+                        for (const roomPanel of buildRectRoomWallPanels(seg, true)) {
+                            coverageJobs.push({
+                                avgZ: panelAvgCameraZ(roomPanel),
+                                draw: () => {
+                                    const drew = drawVectorWallPanel(
+                                        roomPanel,
+                                        centerX,
+                                        centerY,
+                                        fov,
+                                        palette,
+                                        seg,
+                                        {
+                                            ...panelOptionsBase,
+                                            panelSide: 0,
+                                            panelSides: 4,
+                                            solidFillOnly: true,
+                                            forceDraw: true
+                                        }
+                                    );
+                                    if (!drew) {
+                                        fillSolidTunnelCap(roomPanel, centerX, centerY, fov, seg, {
+                                            allowPartial: true,
+                                            forceDraw: true,
+                                            fillColor: vectorStyleBaseFill(palette)
+                                        });
+                                    }
+                                }
+                            });
+                        }
+                        continue;
+                    }
                     const skipStreakPass = !streakSet.has(index) ||
                         solidOnly ||
                         skipDetail ||
@@ -18830,6 +19984,13 @@
                         }
                     });
                 };
+
+                if (segmentIsRectRoom(seg)) {
+                    for (const roomPanel of buildRectRoomWallPanels(seg, true)) {
+                        queuePanel(roomPanel, 0);
+                    }
+                    continue;
+                }
 
                 for (let side = 0; side < sides; side++) {
                     const mainZStart = Math.max(0, zStart);
@@ -19501,7 +20662,26 @@
                 }
                 drawMapDot(seg.from, '#66d9ff', 4);
                 drawMapDot(seg.to, '#ffffff', 4);
-                if (segmentIsChamber(seg)) {
+                if (segmentIsRectRoom(seg)) {
+                    const c = rectRoomCorners(seg);
+                    const edges = [
+                        ['start-left-top', 'start-right-top'],
+                        ['start-right-top', 'start-right-bottom'],
+                        ['start-right-bottom', 'start-left-bottom'],
+                        ['start-left-bottom', 'start-left-top'],
+                        ['end-left-top', 'end-right-top'],
+                        ['end-right-top', 'end-right-bottom'],
+                        ['end-right-bottom', 'end-left-bottom'],
+                        ['end-left-bottom', 'end-left-top'],
+                        ['start-left-top', 'end-left-top'],
+                        ['start-right-top', 'end-right-top'],
+                        ['start-left-bottom', 'end-left-bottom'],
+                        ['start-right-bottom', 'end-right-bottom']
+                    ];
+                    for (const [a, b] of edges) {
+                        drawMapLine(c[a], c[b], color, 2, 0.55);
+                    }
+                } else if (segmentIsChamber(seg)) {
                     // Chambers are spheres in-game — draw three orthogonal great circles
                     // instead of axis rings, which rendered a room as a thin disc slice.
                     const sphereCenter = chamberCenterPoint(seg);
@@ -20001,14 +21181,28 @@
                     const cameraPoint = worldToCamera(ribCenter);
                     if (cameraPoint.z <= 18 || cameraPoint.z > 1250) continue;
 
-                    const radius = (seg.radius || builder.radius) * 0.98;
-                    const sides = segmentHasWallCover ? 12 : 10;
                     const points = [];
-                    for (let i = 0; i < sides; i++) {
-                        const a = (i / sides) * Math.PI * 2;
+                    const room = segmentIsRectRoom(seg) ? rectRoomDimensions(seg) : null;
+                    const circularRibSides = segmentHasWallCover ? 12 : 10;
+                    const ribOffsets = room
+                        ? [
+                            [-room.halfWidth * 0.98, -room.halfHeight * 0.98],
+                            [room.halfWidth * 0.98, -room.halfHeight * 0.98],
+                            [room.halfWidth * 0.98, room.halfHeight * 0.98],
+                            [-room.halfWidth * 0.98, room.halfHeight * 0.98]
+                        ]
+                        : Array.from(
+                            { length: circularRibSides },
+                            (_, i) => {
+                                const angle = (i / circularRibSides) * Math.PI * 2;
+                                const radius = (seg.radius || builder.radius) * 0.98;
+                                return [Math.cos(angle) * radius, Math.sin(angle) * radius];
+                            }
+                        );
+                    for (const [offsetX, offsetY] of ribOffsets) {
                         const p = addVec(
-                            addVec(ribCenter, scaleVec(seg.right, Math.cos(a) * radius)),
-                            scaleVec(seg.down, Math.sin(a) * radius)
+                            addVec(ribCenter, scaleVec(seg.right, offsetX)),
+                            scaleVec(seg.down, offsetY)
                         );
                         const projected = projectPoint(p, centerX, centerY, fov);
                         if (!projected) {
@@ -20017,7 +21211,7 @@
                         }
                         points.push(projected);
                     }
-                    if (points.length < sides) continue;
+                    if (points.length < ribOffsets.length) continue;
 
                     const alpha = segmentHasWallCover
                         ? Math.max(0.18, Math.min(0.52, 1 - cameraPoint.z / 1450))
@@ -20328,9 +21522,9 @@
             const forward = localToWorld(0, 0, 1);
             const right = localToWorld(1, 0, 0);
             let up = localToWorld(0, -1, 0);
-            const chamberNearest = nearestTunnelPoint({ x: posX, y: posY, z: posZ }, shipSegmentIndex, { preferContaining: true });
-            if (segmentIsChamber(chamberNearest?.seg)) {
-                up = normalize(scaleVec(chamberNearest.seg.down || builder.down, -1));
+            const roomNearest = nearestTunnelPoint({ x: posX, y: posY, z: posZ }, shipSegmentIndex, { preferContaining: true });
+            if (segmentIsChamber(roomNearest?.seg) || segmentIsRectRoom(roomNearest?.seg)) {
+                up = normalize(scaleVec(roomNearest.seg.down || builder.down, -1));
             }
 
             function thrust(vec, amount) {
