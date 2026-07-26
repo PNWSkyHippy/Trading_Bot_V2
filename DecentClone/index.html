@@ -692,7 +692,7 @@
         const pilotNameInput = document.getElementById('pilot-name-input');
         const pilotStartBtn = document.getElementById('pilot-start-btn');
         const changePilotBtn = document.getElementById('change-pilot-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -1806,6 +1806,55 @@
             return program;
         }
 
+        function resetWebGLResourceState() {
+            // A restored WebGL context cannot reuse buffers, textures, programs,
+            // or cached locations from the lost context.
+            tunnelWebGL.ready = false;
+            tunnelWebGL.program = null;
+            tunnelWebGL.texture = null;
+            tunnelWebGL.textureCache.clear();
+            tunnelWebGL.textureLoading.clear();
+            tunnelWebGL.meshCache.clear();
+            tunnelWebGL.doorFrameMesh = null;
+            tunnelWebGL.lastDrawCount = 0;
+            tunnelWebGL.zeroDrawFrames = 0;
+            tunnelWebGL.textureSource = 'pending';
+        }
+
+        function bindWebGLContextRecovery(webglCanvas) {
+            if (webglCanvas.dataset.contextRecoveryBound === '1') return;
+            webglCanvas.dataset.contextRecoveryBound = '1';
+            webglCanvas.addEventListener('webglcontextlost', event => {
+                // Asking the browser to restore the context is required. Until it
+                // does, switch immediately to vector walls so the screen cannot
+                // remain a black WebGL layer.
+                event.preventDefault();
+                resetWebGLResourceState();
+                webglCanvas.style.visibility = 'hidden';
+                TUNNEL_TEXTURE_MODE = 'vector';
+                tunnelWallTextures.ready = true;
+                setTunnelTextureStatus('vector');
+                keyboardStatus.innerText = 'graphics context recovering — vector walls active';
+                console.warn('Astral Drift: WebGL context lost; using vector walls while it recovers');
+            });
+            webglCanvas.addEventListener('webglcontextrestored', () => {
+                resetWebGLResourceState();
+                if (initWebGLTunnelRenderer()) {
+                    TUNNEL_TEXTURE_MODE = 'webgl';
+                    tunnelWallTextures.ready = true;
+                    updateWebGLCanvasVisibility();
+                    setTunnelTextureStatus(tunnelWebGL.textureSource === 'pending' ? 'webgl' : tunnelWebGL.textureSource);
+                    keyboardStatus.innerText = 'graphics context restored';
+                    console.info('Astral Drift: WebGL context restored');
+                } else {
+                    TUNNEL_TEXTURE_MODE = 'vector';
+                    tunnelWallTextures.ready = true;
+                    setTunnelTextureStatus('vector');
+                    keyboardStatus.innerText = 'graphics recovery failed — vector walls remain active';
+                }
+            });
+        }
+
         function mat4Multiply(a, b, out = null) {
             const target = out || new Float32Array(16);
             for (let col = 0; col < 4; col++) {
@@ -2552,6 +2601,7 @@
             tunnelWebGL.canvas = webglCanvas;
             tunnelWebGL.gl = gl;
             webglCanvas.style.pointerEvents = 'none';
+            bindWebGLContextRecovery(webglCanvas);
 
             const vsSource = [
                 'attribute vec3 aPosition;',
@@ -5371,6 +5421,20 @@
                     closeJoinEditDialog();
                     e.preventDefault();
                 }
+                return;
+            }
+            // In flight, Escape belongs to the browser's pointer-lock release.
+            // Do not refocus the canvas or record Escape as a held game key while
+            // Chrome is tearing down mouse capture; repeated focus/lock transitions
+            // could leave the WebGL surface black until a reload.
+            if (physicalKey === 'escape' && !mapView && !builderMode) {
+                physicalKeysHeld.delete('escape');
+                keys.escape = false;
+                lastKeyDown.escape = 0;
+                mouseInput.yaw = 0;
+                mouseInput.pitch = 0;
+                mouseInput.fire = false;
+                renderEngineLoop.lastSpatialAt = performance.now();
                 return;
             }
             // Ctrl/Alt/Meta letters are commands, never restorable flight input.
@@ -20515,19 +20579,41 @@
                 updatePlayerHud();
                 updateRocketHud();
                 renderMapOverlay();
+                renderEngineLoop.consecutiveErrors = 0;
             } catch (err) {
                 console.error('Astral Drift engine error:', err);
-                ctx.fillStyle = '#050510';
-                ctx.fillRect(0, 0, canvas.width, canvas.height);
-                ctx.fillStyle = '#ff6688';
-                ctx.font = '16px monospace';
-                ctx.fillText(`Engine error: ${err.message}`, 20, 42);
-                ctx.fillStyle = '#8ca3a0';
-                ctx.font = '13px monospace';
-                ctx.fillText('Hard refresh after updating index.html. Ctrl+Shift+S = save map, Ctrl+Shift+L = load library.', 20, 72);
-                keyboardStatus.innerText = `engine error: ${err.message}`;
-                // Do not schedule another frame into the same deterministic error.
-                // The on-canvas instruction above gives the explicit recovery path.
+                renderEngineLoop.consecutiveErrors = (renderEngineLoop.consecutiveErrors || 0) + 1;
+                clearKeyboardState(true);
+                renderEngineLoop.lastSpatialAt = performance.now();
+                try {
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.globalAlpha = 1;
+                    ctx.setTransform(1, 0, 0, 1, 0, 0);
+                    ctx.fillStyle = '#050510';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.fillStyle = '#ff6688';
+                    ctx.font = '16px monospace';
+                    ctx.fillText(`Engine error: ${err.message}`, 20, 42);
+                    ctx.fillStyle = '#8ca3a0';
+                    ctx.font = '13px monospace';
+                    ctx.fillText(
+                        renderEngineLoop.consecutiveErrors <= 3
+                            ? 'Recovering renderer…'
+                            : 'Renderer stopped after repeated errors. Hard refresh, then report this message.',
+                        20,
+                        72
+                    );
+                } catch (drawErr) {
+                    console.error('Astral Drift recovery drawing failed:', drawErr);
+                }
+                keyboardStatus.innerText =
+                    `engine error ${renderEngineLoop.consecutiveErrors}/3: ${err.message}`;
+                // A pointer-lock or WebGL transition can throw for one frame.
+                // Recover transient failures, but stop after repeated deterministic
+                // errors instead of spinning an exception loop forever.
+                if (renderEngineLoop.consecutiveErrors <= 3) {
+                    requestAnimationFrame(renderEngineLoop);
+                }
                 return;
             }
 
