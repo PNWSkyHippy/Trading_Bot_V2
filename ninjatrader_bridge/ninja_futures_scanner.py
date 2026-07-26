@@ -9,6 +9,7 @@ import time
 from collections import defaultdict, deque
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
 
 from dotenv import load_dotenv
 
@@ -51,7 +52,7 @@ class MarketState:
         self.last_heartbeat = None
         self.heartbeat_details = {}
         self.lock = threading.Lock()
-        # The console and GUI read the same calculations.  Keep one short-lived
+        # The console and GUI read the same calculations. Keep one short-lived
         # shared result instead of making both recalculate every symbol at once.
         self.assessment_lock = threading.Lock()
         self.assessment_rows = None
@@ -59,36 +60,329 @@ class MarketState:
         self.last_emt_status_log = 0.0
         self.last_emt_watch_log = 0.0
         self.last_eat_status_log = 0.0
-        emt_settings = dict(config.get("emt", {}))
-        execution_mode = os.getenv("EMT_EXECUTION_MODE", "paper").strip().lower()
-        if execution_mode not in ("paper", "live"):
-            raise ValueError("EMT_EXECUTION_MODE must be paper or live")
-        emt_settings["paper_only"] = execution_mode != "live"
-        emt_symbol = str(emt_settings.get("symbol", "ES")).upper()
-        executor = None
-        if execution_mode == "live":
-            executor = TradovateExecutor.from_env(emt_settings)
-            executor.verify_account()
-        self.emt = EMTStrategyEngine(
-            emt_settings,
-            config.get("contracts", {}).get(emt_symbol, {}),
-            ROOT,
-            executor=executor,
+        self.engine_lock = threading.RLock()
+        self.strategy_runtime_path = os.path.join(
+            PROJECT_ROOT, "data", "ninja_strategy_instances.json"
         )
-        eat_settings = dict(config.get("eat", {}))
-        eat_execution_mode = os.getenv("EAT_EXECUTION_MODE", "paper").strip().lower()
-        if eat_execution_mode != "paper":
+        self.strategy_runtime = {"emt": {}, "eat": {}}
+        self.emt_base_settings = dict(config.get("emt", {}))
+        self.eat_base_settings = dict(config.get("eat", {}))
+        self.emt_default_symbol = str(
+            self.emt_base_settings.get("symbol", "ES")
+        ).upper()
+        self.eat_default_symbol = str(
+            self.eat_base_settings.get("symbol", "MNQ")
+        ).upper()
+        self.emt_execution_mode = os.getenv(
+            "EMT_EXECUTION_MODE", "paper"
+        ).strip().lower()
+        if self.emt_execution_mode not in ("paper", "live"):
+            raise ValueError("EMT_EXECUTION_MODE must be paper or live")
+        self.eat_execution_mode = os.getenv(
+            "EAT_EXECUTION_MODE", "paper"
+        ).strip().lower()
+        if self.eat_execution_mode != "paper":
             raise ValueError(
                 "EAT_EXECUTION_MODE must be paper; live routing is not implemented yet"
             )
-        eat_settings["paper_only"] = True
-        eat_symbol = str(eat_settings.get("symbol", "MNQ")).upper()
-        self.eat = EATStrategyEngine(
-            eat_settings,
-            config.get("contracts", {}).get(eat_symbol, {}),
-            ROOT,
-        )
+        self.emt_engines = {}
+        self.eat_engines = {}
+        self._load_strategy_runtime()
+        self._load_initial_engines()
 
+    def _load_strategy_runtime(self):
+        try:
+            with open(self.strategy_runtime_path, encoding="utf-8") as handle:
+                payload = json.load(handle)
+            if not isinstance(payload, dict):
+                raise ValueError("runtime strategy settings must be an object")
+            for strategy in ("emt", "eat"):
+                values = payload.get(strategy, {})
+                if isinstance(values, dict):
+                    self.strategy_runtime[strategy] = {
+                        str(symbol).upper(): dict(settings)
+                        for symbol, settings in values.items()
+                        if isinstance(settings, dict)
+                    }
+        except FileNotFoundError:
+            return
+        except (OSError, ValueError, TypeError, json.JSONDecodeError) as exc:
+            print(
+                f"STRATEGY CONFIG WARNING · ignoring runtime settings · "
+                f"{type(exc).__name__}: {exc}",
+                flush=True,
+            )
+
+    def _persist_strategy_runtime(self):
+        directory = os.path.dirname(self.strategy_runtime_path)
+        os.makedirs(directory, exist_ok=True)
+        temporary = self.strategy_runtime_path + ".tmp"
+        with open(temporary, "w", encoding="utf-8") as handle:
+            json.dump(self.strategy_runtime, handle, indent=2, sort_keys=True)
+            handle.write("\n")
+        os.replace(temporary, self.strategy_runtime_path)
+
+    def _settings_for(self, strategy, symbol, overrides=None):
+        symbol = self.root_symbol(symbol)
+        contract = self.config.get("contracts", {}).get(symbol)
+        if not isinstance(contract, dict):
+            raise ValueError(f"{symbol} is not an enabled Ninja futures contract")
+        base = dict(
+            self.emt_base_settings if strategy == "emt"
+            else self.eat_base_settings
+        )
+        default_symbol = (
+            self.emt_default_symbol if strategy == "emt"
+            else self.eat_default_symbol
+        )
+        values = dict(base)
+        values.update(self.strategy_runtime.get(strategy, {}).get(symbol, {}))
+        values.update(dict(overrides or {}))
+        values["symbol"] = symbol
+        values["paper_only"] = (
+            self.emt_execution_mode != "live" if strategy == "emt" else True
+        )
+        if symbol != default_symbol:
+            if (
+                strategy == "emt"
+                and self.emt_execution_mode == "live"
+                and not (contract.get("broker_symbol") or contract.get("instrument"))
+            ):
+                raise ValueError(
+                    f"live EMT {symbol} requires broker_symbol or instrument "
+                    "in ninja_futures_config.json"
+                )
+            values["instrument"] = str(
+                contract.get("instrument")
+                or contract.get("broker_symbol")
+                or symbol
+            )
+            values["broker_symbol"] = str(
+                contract.get("broker_symbol")
+                or contract.get("instrument")
+                or symbol
+            )
+            values["control_state_key"] = (
+                f"scanner_{strategy}_{symbol.lower()}_enabled"
+            )
+            values["ledger_path"] = f"{strategy}_trades_{symbol.lower()}.jsonl"
+        return values
+
+    def _new_engine(self, strategy, symbol, overrides=None):
+        settings = self._settings_for(strategy, symbol, overrides)
+        contract = self.config.get("contracts", {}).get(symbol, {})
+        if strategy == "eat":
+            return EATStrategyEngine(settings, contract, ROOT)
+        executor = None
+        if self.emt_execution_mode == "live":
+            executor = TradovateExecutor.from_env(settings)
+            executor.verify_account()
+        return EMTStrategyEngine(settings, contract, ROOT, executor=executor)
+
+    @staticmethod
+    def _engine_replay_bar(bar, symbol):
+        return {
+            "symbol": symbol,
+            "time": str(bar.get("time")),
+            "open": float(bar.get("open")),
+            "high": float(bar.get("high")),
+            "low": float(bar.get("low")),
+            "close": float(bar.get("close")),
+            "volume": float(bar.get("volume", 0) or 0),
+        }
+
+    def _replace_engine(self, strategy, symbol, overrides=None):
+        symbol = self.root_symbol(symbol)
+        engines = self.emt_engines if strategy == "emt" else self.eat_engines
+        old = engines.get(symbol)
+        if old is not None and old.active_trade is not None:
+            raise ValueError(
+                f"cannot reconfigure {strategy.upper()} {symbol} while a trade is open"
+            )
+        settings = self._settings_for(strategy, symbol, overrides)
+        if old is not None and old.settings == settings:
+            return old
+        engine = self._new_engine(strategy, symbol, overrides)
+        with self.lock:
+            minute_bars = list(self.bars.get(symbol, ()))
+        for bar in minute_bars:
+            engine.on_minute_bar(
+                self._engine_replay_bar(bar, symbol), historical=True
+            )
+        if strategy == "emt" and old is not None:
+            for bar in list(old.tick_bars):
+                replay = self._engine_replay_bar(bar, symbol)
+                replay.update({
+                    "bar_type": "tick",
+                    "bar_value": int(settings.get("tick_bar_value", 610)),
+                })
+                engine.on_tick_bar(replay, complete=True, historical=True)
+        engines[symbol] = engine
+        if strategy == "emt" and symbol == self.emt_default_symbol:
+            self.emt = engine
+        if strategy == "eat" and symbol == self.eat_default_symbol:
+            self.eat = engine
+        return engine
+
+    def _load_initial_engines(self):
+        emt_symbols = {
+            self.emt_default_symbol,
+            *self.strategy_runtime.get("emt", {}).keys(),
+        }
+        eat_symbols = {
+            self.eat_default_symbol,
+            *self.strategy_runtime.get("eat", {}).keys(),
+        }
+        with self.engine_lock:
+            for symbol in sorted(emt_symbols):
+                self._replace_engine("emt", symbol)
+            for symbol in sorted(eat_symbols):
+                self._replace_engine("eat", symbol)
+
+    @staticmethod
+    def _clean_runtime_settings(strategy, settings):
+        if not isinstance(settings, dict):
+            raise ValueError("settings must be an object")
+        allowed = {
+            "emt": {
+                "enabled", "contracts", "opening_range_start",
+                "opening_range_minutes", "trade_window_minutes",
+                "stop_points", "target_points", "max_trades_per_session",
+            },
+            "eat": {
+                "enabled", "contracts", "primary_box_minutes",
+                "fallback_box_minutes", "min_box_ticks", "max_box_ticks",
+                "buffer_ticks", "tp1_ticks", "runner_trail_ticks",
+                "wick_stop_lookback_minutes", "trade_window_minutes",
+                "max_trades_per_session", "allow_reentry", "sessions",
+            },
+        }[strategy]
+        unknown = sorted(set(settings) - allowed)
+        if unknown:
+            raise ValueError(
+                f"unsupported {strategy.upper()} settings: {', '.join(unknown)}"
+            )
+        clean = {key: settings[key] for key in allowed if key in settings}
+        for key in ("enabled", "allow_reentry"):
+            if key in clean and not isinstance(clean[key], bool):
+                raise ValueError(f"{key} must be true or false")
+        for key in (
+            "contracts", "opening_range_minutes", "trade_window_minutes",
+            "max_trades_per_session", "primary_box_minutes",
+            "fallback_box_minutes", "min_box_ticks", "max_box_ticks",
+            "buffer_ticks", "tp1_ticks", "runner_trail_ticks",
+            "wick_stop_lookback_minutes",
+        ):
+            if key in clean:
+                clean[key] = int(clean[key])
+                if clean[key] < 1:
+                    raise ValueError(f"{key} must be at least 1")
+        for key in ("stop_points", "target_points"):
+            if key in clean:
+                clean[key] = float(clean[key])
+                if clean[key] <= 0:
+                    raise ValueError(f"{key} must be positive")
+        if "opening_range_start" in clean:
+            datetime.strptime(str(clean["opening_range_start"]), "%H:%M")
+            clean["opening_range_start"] = str(clean["opening_range_start"])
+        if "sessions" in clean:
+            sessions = clean["sessions"]
+            if not isinstance(sessions, list) or not sessions:
+                raise ValueError("sessions must be a non-empty list")
+            validated = []
+            for item in sessions:
+                if not isinstance(item, dict):
+                    raise ValueError("each session must be an object")
+                unknown_session = set(item) - {
+                    "name", "start", "standard_start", "dst_start", "enabled",
+                }
+                if unknown_session:
+                    raise ValueError(
+                        "unsupported session settings: "
+                        + ", ".join(sorted(unknown_session))
+                    )
+                name = str(item.get("name") or "").strip().lower()
+                if not name:
+                    raise ValueError("each session needs a name")
+                value = {"name": name}
+                if "enabled" in item:
+                    if not isinstance(item["enabled"], bool):
+                        raise ValueError("session enabled must be true or false")
+                    value["enabled"] = item["enabled"]
+                clock_keys = [
+                    key for key in ("start", "standard_start", "dst_start")
+                    if item.get(key) not in (None, "")
+                ]
+                if "start" not in clock_keys and not {
+                    "standard_start", "dst_start",
+                }.issubset(clock_keys):
+                    raise ValueError(
+                        f"session {name} needs start or both DST start values"
+                    )
+                for key in clock_keys:
+                    clock_value = str(item[key])
+                    datetime.strptime(clock_value, "%H:%M")
+                    value[key] = clock_value
+                validated.append(value)
+            clean["sessions"] = validated
+        return clean
+
+    def configure_strategy(self, strategy, symbol, settings):
+        strategy = str(strategy or "").strip().lower()
+        if strategy not in ("emt", "eat"):
+            raise ValueError("strategy must be EMT or EAT")
+        symbol = self.root_symbol(symbol)
+        clean = self._clean_runtime_settings(strategy, settings)
+        with self.engine_lock:
+            saved = dict(self.strategy_runtime[strategy].get(symbol, {}))
+            saved.update(clean)
+            engine = self._replace_engine(strategy, symbol, saved)
+            if "enabled" in clean and engine.control_state_key and engine.db_mirror:
+                engine.db_mirror.set_state(
+                    engine.control_state_key,
+                    "true" if bool(clean["enabled"]) else "false",
+                )
+                engine.enabled = bool(clean["enabled"])
+            self.strategy_runtime[strategy][symbol] = saved
+            self._persist_strategy_runtime()
+        print(
+            f"{strategy.upper()} CONFIG · {symbol} · "
+            f"{'enabled' if engine.enabled else 'disabled'} · "
+            f"contracts {engine.quantity}",
+            flush=True,
+        )
+        return self.strategy_status(symbol)
+
+    def strategy_status(self, symbol, strategy=None):
+        symbol = self.root_symbol(symbol)
+        if symbol not in self.config.get("contracts", {}):
+            raise ValueError(f"{symbol} is not an enabled Ninja futures contract")
+        result = {
+            "ok": True,
+            "symbol": symbol,
+            "futures_only": True,
+            "bridge": self.bridge_status(),
+            "strategies": {},
+        }
+        names = (strategy,) if strategy in ("emt", "eat") else ("emt", "eat")
+        with self.engine_lock:
+            for name in names:
+                engines = self.emt_engines if name == "emt" else self.eat_engines
+                engine = engines.get(symbol)
+                if engine is None:
+                    result["strategies"][name] = {
+                        "configured": False,
+                        "enabled": False,
+                    }
+                    continue
+                result["strategies"][name] = {
+                    "configured": True,
+                    "enabled": bool(engine.enabled),
+                    "settings": dict(engine.settings),
+                    "state": engine.snapshot(),
+                    "overlay": engine.chart_overlay(),
+                }
+        return result
     @staticmethod
     def root_symbol(symbol):
         return symbol.split()[0].upper()
@@ -108,23 +402,29 @@ class MarketState:
             self.bars[symbol].clear()
             self.bars[symbol].extend(ordered)
             self.last_received[symbol] = time.time()
-        if symbol == self.emt.symbol:
-            self.emt.on_minute_bar(clean, historical=bool(bar.get("historical", False)))
-        if symbol == self.eat.symbol:
-            events = self.eat.on_minute_bar(
+        with self.engine_lock:
+            emt = self.emt_engines.get(symbol)
+            eat = self.eat_engines.get(symbol)
+        if emt is not None:
+            emt.on_minute_bar(
+                clean, historical=bool(bar.get("historical", False))
+            )
+        if eat is not None:
+            events = eat.on_minute_bar(
                 clean, historical=bool(bar.get("historical", False))
             )
             now = time.time()
             for event in events:
                 print(
-                    f"EAT EVENT · {event.kind} · {event.direction or ''} · "
-                    f"{event.price:.2f} · {event.message}",
+                    f"EAT EVENT · {symbol} · {event.kind} · "
+                    f"{event.direction or ''} · {event.price:.2f} · "
+                    f"{event.message}",
                     flush=True,
                 )
             if now - self.last_eat_status_log >= 30:
-                snap = self.eat.snapshot()
+                snap = eat.snapshot()
                 print(
-                    f"EAT STATUS · {snap.get('phase')} · "
+                    f"EAT STATUS · {symbol} · {snap.get('phase')} · "
                     f"{snap.get('status_message')} · trades "
                     f"{snap.get('trades_this_session')}",
                     flush=True,
@@ -134,7 +434,12 @@ class MarketState:
     def add_emt(self, bar):
         if str(bar.get("bar_type", "")).lower() != "tick":
             raise ValueError("EMT accepts tick bars only")
-        events = self.emt.on_tick_bar(
+        symbol = self.root_symbol(str(bar.get("symbol", "")))
+        with self.engine_lock:
+            engine = self.emt_engines.get(symbol)
+        if engine is None:
+            return
+        events = engine.on_tick_bar(
             bar,
             complete=bool(bar.get("complete", False)),
             historical=bool(bar.get("historical", False)),
@@ -142,20 +447,21 @@ class MarketState:
         now = time.time()
         for event in events:
             print(
-                f"EMT EVENT · {event.kind} · {event.direction or ''} · "
-                f"{event.price:.2f} · {event.message}",
+                f"EMT EVENT · {symbol} · {event.kind} · "
+                f"{event.direction or ''} · {event.price:.2f} · "
+                f"{event.message}",
                 flush=True,
             )
         if now - self.last_emt_status_log >= 30:
-            snap = self.emt.snapshot()
+            snap = engine.snapshot()
             print(
-                f"EMT STATUS · {snap.get('phase')} · "
-                f"{snap.get('status_message')} · tick bars {snap.get('tick_bars')} · "
-                f"trades {snap.get('trades_this_session')}",
+                f"EMT STATUS · {symbol} · {snap.get('phase')} · "
+                f"{snap.get('status_message')} · tick bars "
+                f"{snap.get('tick_bars')} · trades "
+                f"{snap.get('trades_this_session')}",
                 flush=True,
             )
             self.last_emt_status_log = now
-
     def snapshot(self):
         with self.lock:
             return {symbol: list(values) for symbol, values in self.bars.items()}, dict(self.last_received)
@@ -414,37 +720,82 @@ def emt_watchdog(state):
 
 def make_handler(state):
     class Handler(BaseHTTPRequestHandler):
+        def _json(self, code, body):
+            payload = json.dumps(body).encode()
+            try:
+                self.send_response(code)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                self.end_headers()
+                self.wfile.write(payload)
+            except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+                return
+
         def do_GET(self):
-            if self.path not in ("/health", "/snapshot"):
+            parsed = urlparse(self.path)
+            path = parsed.path
+            if path == "/strategy/status":
+                params = parse_qs(parsed.query)
+                symbol = (params.get("symbol") or [""])[0]
+                strategy = (params.get("strategy") or [""])[0].strip().lower()
+                if not symbol:
+                    return self._json(400, {"ok": False, "error": "symbol is required"})
+                try:
+                    result = state.strategy_status(symbol, strategy or None)
+                except (ValueError, TypeError) as exc:
+                    return self._json(400, {"ok": False, "error": str(exc)})
+                return self._json(200, result)
+            if path not in ("/health", "/snapshot"):
                 self.send_error(404)
                 return
+            with state.engine_lock:
+                emt_engines = dict(state.emt_engines)
+                eat_engines = dict(state.eat_engines)
             body = {
                 "ok": True,
                 "bridge": state.bridge_status(),
                 "emt": state.emt.snapshot(),
                 "eat": state.eat.snapshot(),
+                "emt_strategies": {
+                    symbol: engine.snapshot()
+                    for symbol, engine in emt_engines.items()
+                },
+                "eat_strategies": {
+                    symbol: engine.snapshot()
+                    for symbol, engine in eat_engines.items()
+                },
             }
-            if self.path == "/snapshot":
+            if path == "/snapshot":
                 body["contracts"] = current_assessments(state)
                 bars, received = state.snapshot()
                 body["bars"] = bars
-                body["last_received"] = {k: round(time.time() - v, 1) for k, v in received.items()}
+                body["last_received"] = {
+                    key: round(time.time() - value, 1)
+                    for key, value in received.items()
+                }
+                body["emt_overlays"] = {
+                    symbol: engine.chart_overlay()
+                    for symbol, engine in emt_engines.items()
+                }
+                body["eat_overlays"] = {
+                    symbol: engine.chart_overlay()
+                    for symbol, engine in eat_engines.items()
+                }
+                # Backward-compatible aliases for existing clients.
                 body["emt_overlay"] = state.emt.chart_overlay()
                 body["eat_overlay"] = state.eat.chart_overlay()
                 body["generated_at"] = datetime.now(timezone.utc).isoformat()
             else:
                 body["symbols"] = list(state.bars)
-            payload = json.dumps(body).encode()
-            try:
-                self.send_response(200); self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(payload))); self.end_headers(); self.wfile.write(payload)
-            except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
-                # A GUI/browser poll can disappear while its response is being written.
-                # That is a client disconnect, not a scanner or NinjaTrader failure.
-                return
+            self._json(200, body)
 
         def do_POST(self):
-            if self.path not in ("/ingest/bar", "/ingest/emt/bar", "/ingest/heartbeat"):
+            parsed = urlparse(self.path)
+            path = parsed.path
+            if path not in (
+                "/ingest/bar", "/ingest/emt/bar", "/ingest/heartbeat",
+                "/strategy/config",
+            ):
                 self.send_error(404)
                 return
             try:
@@ -455,25 +806,36 @@ def make_handler(state):
                 if value.get("secret") != state.config["shared_secret"]:
                     self.send_error(403)
                     return
-                if self.path == "/ingest/heartbeat":
+                if path == "/strategy/config":
+                    result = state.configure_strategy(
+                        value.get("strategy"),
+                        value.get("symbol"),
+                        value.get("settings") or {},
+                    )
+                    self._json(200, result)
+                    return
+                if path == "/ingest/heartbeat":
                     state.heartbeat(value)
-                elif self.path == "/ingest/emt/bar":
+                elif path == "/ingest/emt/bar":
                     state.touch_bridge(value)
                     state.add_emt(value)
                 else:
                     state.touch_bridge(value)
                     state.add(value)
                 try:
-                    self.send_response(204); self.end_headers()
+                    self.send_response(204)
+                    self.end_headers()
                 except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
                     return
             except (ValueError, TypeError, json.JSONDecodeError) as exc:
-                self.send_error(400, str(exc))
+                if path == "/strategy/config":
+                    self._json(400, {"ok": False, "error": str(exc)})
+                else:
+                    self.send_error(400, str(exc))
 
         def log_message(self, _format, *_args):
             return
     return Handler
-
 
 def main():
     parser = argparse.ArgumentParser()

@@ -1010,6 +1010,7 @@ class EMTStrategyEngine:
                 "execution_mode": "paper" if self.paper_only else "live",
                 "broker_symbol": self.broker_symbol,
                 "symbol": self.symbol,
+                "contracts": self.quantity,
                 "phase": self.phase,
                 "session_date": None if self.session_date is None else str(self.session_date),
                 "opening_high": self.opening_high,

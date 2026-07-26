@@ -2070,17 +2070,19 @@ def _parse_chart_time(value) -> Optional[int]:
         return None
 
 
-def _scanner_bars_for_chart(symbol: str, timeframe: str, limit: int) -> list:
-    snap = _scanner_snapshot()
+def _scanner_bars_for_chart(
+    symbol: str, timeframe: str, limit: int, snapshot: Optional[dict] = None
+) -> list:
+    snap = snapshot or _scanner_snapshot()
     if not snap.get("ok"):
         return []
     symbol = symbol.upper()
-    # For EMT testing, ES chart intentionally shows the 610-tick EMT bars,
-    # not broker/yfinance minute bars. Later this can be controlled by an EMT
-    # overlay toggle, but for now ES == strategy feed.
-    if symbol == "ES":
-        raw = (((snap.get("emt_overlay") or {}).get("tick_bars_data")) or [])
-    else:
+    emt_state = (snap.get("emt_strategies") or {}).get(symbol) or {}
+    emt_overlay = (snap.get("emt_overlays") or {}).get(symbol) or {}
+    raw = []
+    if emt_state.get("enabled"):
+        raw = emt_overlay.get("tick_bars_data") or []
+    if not raw:
         raw = ((snap.get("bars") or {}).get(symbol) or [])
     rows = []
     for bar in raw:
@@ -2098,38 +2100,93 @@ def _scanner_bars_for_chart(symbol: str, timeframe: str, limit: int) -> list:
             })
         except Exception:
             continue
-    rows = [b for b in rows if min(b["open"], b["high"], b["low"], b["close"]) > 0]
-    rows.sort(key=lambda b: b["time"])
-    if symbol == "ES":
+    rows = [
+        bar for bar in rows
+        if min(bar["open"], bar["high"], bar["low"], bar["close"]) > 0
+    ]
+    rows.sort(key=lambda bar: bar["time"])
+    if emt_state.get("enabled") and emt_overlay.get("tick_bars_data"):
         return rows[-limit:]
-    size = {"1m": 1, "2m": 2, "3m": 3, "5m": 5, "15m": 15, "30m": 30, "1h": 60}.get(str(timeframe), 1)
+    size = {
+        "1m": 1, "2m": 2, "3m": 3, "5m": 5, "15m": 15,
+        "30m": 30, "1h": 60,
+    }.get(str(timeframe), 1)
     if size > 1:
         bucketed = {}
         for bar in rows:
             bucket = bar["time"] - (bar["time"] % (size * 60))
-            item = bucketed.setdefault(bucket, {"time": bucket, "open": bar["open"], "high": bar["high"], "low": bar["low"], "close": bar["close"], "volume": 0})
+            item = bucketed.setdefault(bucket, {
+                "time": bucket,
+                "open": bar["open"],
+                "high": bar["high"],
+                "low": bar["low"],
+                "close": bar["close"],
+                "volume": 0,
+            })
             item["high"] = max(item["high"], bar["high"])
             item["low"] = min(item["low"], bar["low"])
             item["close"] = bar["close"]
             item["volume"] += bar.get("volume", 0) or 0
-        rows = [bucketed[k] for k in sorted(bucketed)]
+        rows = [bucketed[key] for key in sorted(bucketed)]
     return rows[-limit:]
+
+def _scanner_strategy_status(symbol: str) -> dict:
+    try:
+        import urllib.parse
+        import urllib.request
+        query = urllib.parse.urlencode({"symbol": str(symbol).upper()})
+        with urllib.request.urlopen(
+            f"http://127.0.0.1:8765/strategy/status?{query}", timeout=1.5
+        ) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except Exception as exc:
+        return {
+            "ok": False,
+            "symbol": str(symbol).upper(),
+            "error": f"scanner strategy status unavailable: {type(exc).__name__}: {exc}",
+        }
+
+
+def _scanner_configure_strategy(payload: dict) -> dict:
+    secret = os.getenv("NINJA_BRIDGE_SECRET", "").strip()
+    if not secret:
+        return {"ok": False, "error": "NINJA_BRIDGE_SECRET is not configured"}
+    body = json.dumps({**dict(payload or {}), "secret": secret}).encode("utf-8")
+    try:
+        import urllib.error
+        import urllib.request
+        request = urllib.request.Request(
+            "http://127.0.0.1:8765/strategy/config",
+            data=body,
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(request, timeout=8.0) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        try:
+            result = json.loads(exc.read().decode("utf-8"))
+        except Exception:
+            result = {"error": f"scanner rejected configuration (HTTP {exc.code})"}
+        return {"ok": False, **result}
+    except Exception as exc:
+        return {
+            "ok": False,
+            "error": f"scanner configuration unavailable: {type(exc).__name__}: {exc}",
+        }
 
 
 def get_emt_status() -> dict:
-    snap = _scanner_snapshot()
-    if not snap.get("ok"):
-        return snap
-    emt = snap.get("emt") or {}
-    overlay = snap.get("emt_overlay") or {}
+    status = _scanner_strategy_status("ES")
+    emt = (status.get("strategies") or {}).get("emt") or {}
     return {
-        "ok": True,
-        "bridge": snap.get("bridge") or {},
-        "emt": emt,
-        "overlay": overlay,
-        "generated_at": snap.get("generated_at"),
+        "ok": bool(status.get("ok")),
+        "bridge": status.get("bridge") or {},
+        "emt": emt.get("state") or {},
+        "overlay": emt.get("overlay") or {},
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        **({"error": status.get("error")} if status.get("error") else {}),
     }
-
 # Chart panel data — OHLCV bars + bot trade markers
 # ---------------------------------------------------------------------------
 
@@ -2735,6 +2792,36 @@ def _trade_markers_for_symbol(symbol):
     return markers
 
 
+def _chart_open_positions_for_symbol(symbol):
+    result = []
+    try:
+        for trade in get_open_positions(enrich=False) or []:
+            trade_symbol = str(trade.get("symbol") or "").upper()
+            if _contract_root(trade_symbol) != symbol:
+                continue
+            entry_time = trade.get("entry_time")
+            entry_ts = None
+            if entry_time:
+                try:
+                    entry_ts = int(datetime.fromisoformat(entry_time).timestamp())
+                except Exception:
+                    entry_ts = None
+            result.append({
+                "trade_id": trade.get("trade_id") or trade.get("id"),
+                "symbol": trade_symbol or symbol,
+                "direction": trade.get("direction") or trade.get("side") or "long",
+                "entry_time": entry_time,
+                "entry_ts": entry_ts,
+                "entry_price": float(trade.get("entry_price") or 0),
+                "stop_loss": float(trade.get("stop_loss") or 0),
+                "take_profit": float(trade.get("take_profit") or 0),
+                "current_price": float(trade.get("current_price") or trade.get("entry_price") or 0),
+                "strategy_name": trade.get("strategy_name") or "",
+            })
+    except Exception:
+        return []
+    return result
+
 def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
     symbol = symbol.upper().strip()
     is_crypto = '/' in symbol
@@ -2746,16 +2833,31 @@ def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
 
     # Futures: Tradovate real-time feed (if token active) → IBKR → yfinance
     if is_futures:
-        # Prefer the Ninja/EMT scanner cache for ES so the chart shows the same
-        # feed the EMT strategy is evaluating, not a slower external fallback.
-        if symbol == "ES" and broker not in ("ibkr", "yfinance"):
-            ninja_bars = _scanner_bars_for_chart(symbol, timeframe, limit)
-            min_emt_bars = int(os.environ.get("WEB_DASHBOARD_MIN_EMT_CHART_BARS", "20"))
-            if len(ninja_bars) >= min_emt_bars:
-                return {"bars": ninja_bars, "markers": _trade_markers_for_symbol(symbol), "open_positions": [],
-                        "symbol": symbol, "timeframe": timeframe, "source": "ninja_emt_cache",
-                        "feed_label": "EMT 610-tick"}
-
+        # When EMT or EAT is enabled for this futures symbol, show the exact
+        # Ninja cache being evaluated by that strategy.
+        strategy_snap = _scanner_snapshot()
+        emt_state = (strategy_snap.get("emt_strategies") or {}).get(symbol) or {}
+        eat_state = (strategy_snap.get("eat_strategies") or {}).get(symbol) or {}
+        strategy_active = bool(emt_state.get("enabled") or eat_state.get("enabled"))
+        if strategy_active and broker not in ("ibkr", "yfinance"):
+            ninja_bars = _scanner_bars_for_chart(
+                symbol, timeframe, limit, snapshot=strategy_snap
+            )
+            minimum = int(os.environ.get("WEB_DASHBOARD_MIN_NINJA_CHART_BARS", "20"))
+            if len(ninja_bars) >= minimum:
+                emt_overlay = (strategy_snap.get("emt_overlays") or {}).get(symbol) or {}
+                uses_ticks = bool(
+                    emt_state.get("enabled") and emt_overlay.get("tick_bars_data")
+                )
+                return {
+                    "bars": ninja_bars,
+                    "markers": _trade_markers_for_symbol(symbol),
+                    "open_positions": _chart_open_positions_for_symbol(symbol),
+                    "symbol": symbol,
+                    "timeframe": timeframe,
+                    "source": "ninja_strategy_cache",
+                    "feed_label": "EMT 610-tick" if uses_ticks else "Ninja 1-minute",
+                }
         # Try Tradovate WebSocket cache first (real-time, ~0 delay).
         # Always attempted unless user explicitly chose ibkr or yfinance in the toolbar.
         force_yfinance  = broker == 'yfinance'
@@ -2765,7 +2867,7 @@ def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
             tv_bars = _chart_bars_tradovate(symbol, timeframe, limit)
             if tv_bars:
                 tv_bars.sort(key=lambda b: b['time'])
-                return {'bars': tv_bars[-limit:], 'markers': [], 'open_positions': [],
+                return {'bars': tv_bars[-limit:], 'markers': _trade_markers_for_symbol(symbol), 'open_positions': _chart_open_positions_for_symbol(symbol),
                         'symbol': symbol, 'timeframe': timeframe, 'source': 'tradovate_rt'}
 
         # When Tradovate is explicitly selected, skip IBKR (avoids 30s timeout)
@@ -2809,7 +2911,7 @@ def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
             if b['time'] not in seen_t:
                 seen_t.add(b['time'])
                 deduped.append(b)
-        return {'bars': deduped[-limit:], 'markers': [], 'open_positions': [],
+        return {'bars': deduped[-limit:], 'markers': _trade_markers_for_symbol(symbol), 'open_positions': _chart_open_positions_for_symbol(symbol),
                 'symbol': symbol, 'timeframe': timeframe}
 
     # Default broker by asset type
@@ -3006,8 +3108,26 @@ def get_chart_symbols():
         crypto = list(dict.fromkeys(crypto + inj.get('crypto', [])))
     except Exception:
         pass
+    strategy_contracts = set()
+    try:
+        strategy_config = json.loads(
+            (ROOT / "ninjatrader_bridge" / "ninja_futures_config.json")
+            .read_text(encoding="utf-8")
+        )
+        strategy_contracts = {
+            str(symbol).upper()
+            for symbol in (strategy_config.get("contracts") or {})
+        }
+    except Exception:
+        pass
     futures = [
-        {'symbol': sym, 'type': 'futures', 'name': meta[1], 'category': meta[2]}
+        {
+            'symbol': sym,
+            'type': 'futures',
+            'name': meta[1],
+            'category': meta[2],
+            'strategy_supported': sym in strategy_contracts,
+        }
         for sym, meta in FUTURES_META.items()
     ]
     return (
@@ -3963,6 +4083,16 @@ _QUICK_SQL = {
         SELECT 'scanner', 'emt',
                COALESCE((SELECT value FROM bot_state WHERE key='scanner_emt_enabled'),'true'),
                'scanner_emt_enabled'
+        UNION ALL
+        SELECT 'scanner', 'eat',
+               COALESCE((SELECT value FROM bot_state WHERE key='scanner_eat_enabled'),'true'),
+               'scanner_eat_enabled'
+        UNION ALL
+        SELECT 'scanner', SUBSTR(key,9,LENGTH(key)-16),
+               value, key
+        FROM bot_state
+        WHERE key GLOB 'scanner_emt_*_enabled'
+           OR key GLOB 'scanner_eat_*_enabled'
     ) ORDER BY kind,name""",
     "Daily P&L":       """SELECT trade_date,daily_pnl,daily_pnl_pct,total_trades,winning_trades,losing_trades,win_rate,largest_win,largest_loss,starting_capital,ending_capital FROM daily_summaries ORDER BY trade_date DESC LIMIT 60""",
     "Yesterday Closed":"""SELECT rowid,trade_id,symbol,direction,strategy_name,entry_time,exit_time,entry_price,exit_price,pnl,pnl_pct,exit_reason,broker FROM trades WHERE status='closed' AND DATE(exit_time)=DATE('now','-1 day','localtime') ORDER BY exit_time DESC""",
@@ -4560,6 +4690,19 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/api/emt/status":
             return self._json(200, get_emt_status())
 
+
+        if path == "/api/chart/strategy_status":
+            params = parse_qs(parsed.query)
+            symbol = (params.get("symbol") or [""])[0].strip().upper()
+            if not symbol:
+                return self._json(400, {"ok": False, "error": "symbol is required"})
+            if symbol not in FUTURES_SYMBOLS:
+                return self._json(400, {
+                    "ok": False,
+                    "error": "EMT and EAT are available only on futures charts",
+                })
+            status = _scanner_strategy_status(symbol)
+            return self._json(200 if status.get("ok") else 503, status)
         if path == "/api/chart":
             params = parse_qs(parsed.query)
             symbol    = (params.get("symbol")    or ["BTC/USD"])[0].strip()
@@ -5369,6 +5512,30 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(401, {"error": "Unauthorized"})
         # ── End auth gate ─────────────────────────────────────────────────────
 
+        if path == "/api/chart/strategy_config":
+            if not _is_admin(self._current_user()):
+                return self._json(403, {
+                    "ok": False,
+                    "error": "Admin only",
+                })
+            symbol = str(data.get("symbol") or "").strip().upper()
+            strategy = str(data.get("strategy") or "").strip().lower()
+            if symbol not in FUTURES_SYMBOLS:
+                return self._json(400, {
+                    "ok": False,
+                    "error": "EMT and EAT are available only on futures charts",
+                })
+            if strategy not in ("emt", "eat"):
+                return self._json(400, {
+                    "ok": False,
+                    "error": "strategy must be EMT or EAT",
+                })
+            result = _scanner_configure_strategy({
+                "symbol": symbol,
+                "strategy": strategy,
+                "settings": data.get("settings") or {},
+            })
+            return self._json(200 if result.get("ok") else 400, result)
         if path == "/api/terminal/start":
             if not _is_admin(self._current_user()):
                 return self._json(403, {"error": "Admin only"})

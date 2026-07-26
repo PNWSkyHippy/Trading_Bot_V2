@@ -11,6 +11,7 @@ watchlist/
 junk*
 data/junk.ps1
 data/candle*
+data/ninja_strategy_instances.json
 # SQLite temporary database files
 data/*.db-shm
 data/*.db-wal

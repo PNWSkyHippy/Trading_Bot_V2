@@ -161,8 +161,13 @@ class EATStrategyEngine:
 
         if self.quantity < 1:
             raise ValueError("EAT contracts must be >= 1")
-        if self.primary_box_minutes < 1 or self.fallback_box_minutes < 1:
-            raise ValueError("EAT box minutes must be positive")
+        if (
+            self.primary_box_minutes < 1
+            or self.fallback_box_minutes < self.primary_box_minutes
+        ):
+            raise ValueError(
+                "EAT fallback box minutes must be at least the primary box minutes"
+            )
         if self.min_box_ticks < 1 or self.max_box_ticks < self.min_box_ticks:
             raise ValueError("EAT box tick range is invalid")
         if min(self.buffer_ticks, self.tp1_ticks, self.runner_trail_ticks) < 1:
@@ -598,10 +603,14 @@ class EATStrategyEngine:
                         f"EAT {candidate['name']} session started; building box",
                     )
             if candidate is None:
-                return []
+                if self.active_trade is not None:
+                    self._check_exit(bar)
+                return list(self.events)[before:]
             if self._in_market_blackout(bar["dt"]):
                 self.phase = "MARKET_CLOSED"
-                return []
+                if self.active_trade is not None:
+                    self._check_exit(bar)
+                return list(self.events)[before:]
             if self.active_trade is not None:
                 self._check_exit(bar)
             else:
@@ -730,6 +739,7 @@ class EATStrategyEngine:
                 "execution_mode": "paper",
                 "symbol": self.symbol,
                 "broker_symbol": self.broker_symbol,
+                "contracts": self.quantity,
                 "phase": self.phase,
                 "session_key": self.session_key,
                 "session_name": self.session_name,

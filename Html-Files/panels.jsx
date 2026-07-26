@@ -2377,9 +2377,12 @@ const DEFAULT_CHART_INDICATORS = [
   { id: 'atr14', type: 'ATR', period: 14, color: '#14b8a6', place: 'lower2', visible: false },
   { id: 'vwap', type: 'VWAP', period: 1, anchor: 'session', source: 'hlc3', color: '#eab308', place: 'main', visible: false },
   { id: 'supertrend', type: 'SuperTrend', period: 10, mult: 3, color: '#22c55e', downColor: '#ef5350', place: 'main', visible: false },
+  { id: 'emt_strategy', type: 'EMT', contracts: 1, openingStart: '06:30', openingRangeMinutes: 15, tradeWindowMinutes: 60, stopPoints: 2, targetPoints: 2, color: '#38bdf8', place: 'main', visible: false },
+  { id: 'eat_strategy', type: 'EAT', contracts: 1, nyStart: '05:00', tokyoStart: '14:30', londonStandardStart: '22:30', londonDstStart: '23:30', primaryBoxMinutes: 5, fallbackBoxMinutes: 15, minBoxTicks: 100, maxBoxTicks: 250, bufferTicks: 30, tp1Ticks: 100, runnerTrailTicks: 30, tradeWindowMinutes: 60, color: '#2dd4bf', place: 'main', visible: false },
 ];
 
-const IND_TYPES = ['EMA', 'SMA', 'RSI', 'MACD', 'BB', 'ADX', 'ATR', 'VWAP', 'SuperTrend'];
+const STRATEGY_INDICATOR_TYPES = new Set(['EMT', 'EAT']);
+const IND_TYPES = ['EMA', 'SMA', 'RSI', 'MACD', 'BB', 'ADX', 'ATR', 'VWAP', 'SuperTrend', 'EMT', 'EAT'];
 const IND_PLACES = [
   ['main',   'Main'],
   ['lower1', 'Lower 1'],
@@ -2398,6 +2401,8 @@ const IND_TYPE_DEFAULTS = {
   ATR:        { period: 14, color: '#14b8a6', place: 'lower2' },
   VWAP:       { period: 1, anchor: 'session', source: 'hlc3', color: '#eab308', place: 'main' },
   SuperTrend: { period: 10, mult: 3, color: '#22c55e', downColor: '#ef5350', place: 'main' },
+  EMT:        { contracts: 1, openingStart: '06:30', openingRangeMinutes: 15, tradeWindowMinutes: 60, stopPoints: 2, targetPoints: 2, color: '#38bdf8', place: 'main' },
+  EAT:        { contracts: 1, nyStart: '05:00', tokyoStart: '14:30', londonStandardStart: '22:30', londonDstStart: '23:30', primaryBoxMinutes: 5, fallbackBoxMinutes: 15, minBoxTicks: 100, maxBoxTicks: 250, bufferTicks: 30, tp1Ticks: 100, runnerTrailTicks: 30, tradeWindowMinutes: 60, color: '#2dd4bf', place: 'main' },
 };
 const IND_PARAM_DEFS = {
   EMA:        [{ key: 'period', label: 'Period', min: 1, max: 300, fallback: 50 }],
@@ -2451,14 +2456,45 @@ const IND_PARAM_DEFS = {
     { key: 'mult', label: 'Mult', min: 0.1, max: 10, step: 0.1, fallback: 3 },
     { key: 'downColor', label: 'Down', type: 'color', fallback: '#ef5350' },
   ],
+  EMT: [
+    { key: 'contracts', label: 'Contracts', min: 1, max: 100, fallback: 1 },
+    { key: 'openingStart', label: 'Start PT', type: 'time', fallback: '06:30' },
+    { key: 'openingRangeMinutes', label: 'Range min', min: 1, max: 120, fallback: 15 },
+    { key: 'tradeWindowMinutes', label: 'Trade min', min: 1, max: 600, fallback: 60 },
+    { key: 'stopPoints', label: 'SL pts', min: 0.25, max: 100, step: 0.25, fallback: 2 },
+    { key: 'targetPoints', label: 'TP pts', min: 0.25, max: 100, step: 0.25, fallback: 2 },
+  ],
+  EAT: [
+    { key: 'contracts', label: 'Contracts', min: 1, max: 100, fallback: 1 },
+    { key: 'nyStart', label: 'NY PT', type: 'time', fallback: '05:00' },
+    { key: 'tokyoStart', label: 'Tokyo PT', type: 'time', fallback: '14:30' },
+    { key: 'londonStandardStart', label: 'London std', type: 'time', fallback: '22:30' },
+    { key: 'londonDstStart', label: 'London DST', type: 'time', fallback: '23:30' },
+    { key: 'primaryBoxMinutes', label: 'Box min', min: 1, max: 60, fallback: 5 },
+    { key: 'fallbackBoxMinutes', label: 'Fallback', min: 1, max: 60, fallback: 15 },
+    { key: 'minBoxTicks', label: 'Min ticks', min: 1, max: 2000, fallback: 100 },
+    { key: 'maxBoxTicks', label: 'Max ticks', min: 1, max: 5000, fallback: 250 },
+    { key: 'bufferTicks', label: 'Buffer', min: 1, max: 1000, fallback: 30 },
+    { key: 'tp1Ticks', label: 'TP1', min: 1, max: 2000, fallback: 100 },
+    { key: 'runnerTrailTicks', label: 'Trail', min: 1, max: 1000, fallback: 30 },
+    { key: 'tradeWindowMinutes', label: 'Trade min', min: 1, max: 600, fallback: 60 },
+  ],
 };
 const indicatorParamDefs = (type) => IND_PARAM_DEFS[type] || IND_PARAM_DEFS.EMA;
-const PRICE_OVERLAY_INDICATORS = new Set(['EMA', 'SMA', 'BB', 'VWAP', 'SuperTrend']);
+const PRICE_OVERLAY_INDICATORS = new Set(['EMA', 'SMA', 'BB', 'VWAP', 'SuperTrend', 'EMT', 'EAT']);
 const LOWER_BAND_INDICATORS = new Set(['RSI', 'MACD', 'ADX', 'ATR']);
-const indicatorPlaceOptions = (_type) => IND_PLACES;   // all indicators can go anywhere
+const indicatorPlaceOptions = (type) => STRATEGY_INDICATOR_TYPES.has(type) ? [['main', 'Main']] : IND_PLACES;
 const effectiveIndicatorPlace = (ind) => ind.place || 'main';
 const cloneIndicator = (ind) => ({ ...ind });
-const cloneDefaultIndicators = () => DEFAULT_CHART_INDICATORS.map(cloneIndicator);
+const strategyDefaultVisible = (type, symbol) => (
+  (type === 'EMT' && symbol === 'ES') || (type === 'EAT' && symbol === 'MNQ')
+);
+const cloneDefaultIndicators = (symbol = '') => DEFAULT_CHART_INDICATORS.map(ind => ({
+  ...cloneIndicator(ind),
+  visible: STRATEGY_INDICATOR_TYPES.has(ind.type)
+    ? strategyDefaultVisible(ind.type, String(symbol).toUpperCase())
+    : ind.visible,
+}));
 const isDefaultIndicator = (id) => DEFAULT_CHART_INDICATORS.some(ind => ind.id === id);
 const makeCustomIndicatorId = (list) => {
   const existing = new Set((list || []).map(ind => ind.id));
@@ -2469,9 +2505,10 @@ const makeCustomIndicatorId = (list) => {
   return `ind_${Math.random().toString(36).slice(2)}`;
 };
 
-const loadChartIndicators = () => {
+const chartIndicatorStoreKey = symbol => `chart_indicators_v3:${String(symbol || '').toUpperCase()}`;
+const loadChartIndicators = (symbol = '') => {
   try {
-    const saved = JSON.parse(localStorage.getItem('chart_indicators_v2') || 'null');
+    const saved = JSON.parse(localStorage.getItem(chartIndicatorStoreKey(symbol)) || 'null');
     if (Array.isArray(saved) && saved.length) {
       const savedIds = new Set(saved.map(ind => ind.id));
       // Merge saved with defaults — keep user settings but pull place/type from
@@ -2482,7 +2519,100 @@ const loadChartIndicators = () => {
       ];
     }
   } catch (_) {}
-  return cloneDefaultIndicators();
+  try {
+    const legacy = JSON.parse(localStorage.getItem('chart_indicators_v2') || 'null');
+    if (Array.isArray(legacy) && legacy.length) {
+      const defaults = cloneDefaultIndicators(symbol);
+      const legacyNormal = legacy.filter(ind => !STRATEGY_INDICATOR_TYPES.has(ind.type));
+      const savedIds = new Set(legacyNormal.map(ind => ind.id));
+      return [
+        ...legacyNormal.map(cloneIndicator),
+        ...defaults.filter(ind => !savedIds.has(ind.id)).map(cloneIndicator),
+      ];
+    }
+  } catch (_) {}
+  return cloneDefaultIndicators(symbol);
+};
+
+const strategyConfigFromIndicators = (list, type) => {
+  const ind = (list || []).find(item => item.type === type);
+  if (!ind) return null;
+  if (type === 'EMT') {
+    return {
+      enabled: !!ind.visible,
+      contracts: Math.max(1, Number(ind.contracts) || 1),
+      opening_range_start: ind.openingStart || '06:30',
+      opening_range_minutes: Math.max(1, Number(ind.openingRangeMinutes) || 15),
+      trade_window_minutes: Math.max(1, Number(ind.tradeWindowMinutes) || 60),
+      stop_points: Math.max(0.25, Number(ind.stopPoints) || 2),
+      target_points: Math.max(0.25, Number(ind.targetPoints) || 2),
+    };
+  }
+  return {
+    enabled: !!ind.visible,
+    contracts: Math.max(1, Number(ind.contracts) || 1),
+    primary_box_minutes: Math.max(1, Number(ind.primaryBoxMinutes) || 5),
+    fallback_box_minutes: Math.max(1, Number(ind.fallbackBoxMinutes) || 15),
+    min_box_ticks: Math.max(1, Number(ind.minBoxTicks) || 100),
+    max_box_ticks: Math.max(1, Number(ind.maxBoxTicks) || 250),
+    buffer_ticks: Math.max(1, Number(ind.bufferTicks) || 30),
+    tp1_ticks: Math.max(1, Number(ind.tp1Ticks) || 100),
+    runner_trail_ticks: Math.max(1, Number(ind.runnerTrailTicks) || 30),
+    trade_window_minutes: Math.max(1, Number(ind.tradeWindowMinutes) || 60),
+    sessions: [
+      { name: 'ny', start: ind.nyStart || '05:00' },
+      { name: 'tokyo', start: ind.tokyoStart || '14:30' },
+      {
+        name: 'london',
+        standard_start: ind.londonStandardStart || '22:30',
+        dst_start: ind.londonDstStart || '23:30',
+      },
+    ],
+  };
+};
+
+const hydrateStrategyIndicators = (list, status) => {
+  const strategies = status?.strategies || {};
+  return (list || []).map(ind => {
+    if (!STRATEGY_INDICATOR_TYPES.has(ind.type)) return ind;
+    const key = ind.type.toLowerCase();
+    const entry = strategies[key] || {};
+    if (!entry.configured) return { ...ind, visible: false };
+    const settings = entry.settings || {};
+    if (ind.type === 'EMT') {
+      return {
+        ...ind,
+        visible: !!entry.enabled,
+        contracts: Number(settings.contracts ?? ind.contracts ?? 1),
+        openingStart: settings.opening_range_start || ind.openingStart || '06:30',
+        openingRangeMinutes: Number(settings.opening_range_minutes ?? ind.openingRangeMinutes ?? 15),
+        tradeWindowMinutes: Number(settings.trade_window_minutes ?? ind.tradeWindowMinutes ?? 60),
+        stopPoints: Number(settings.stop_points ?? ind.stopPoints ?? 2),
+        targetPoints: Number(settings.target_points ?? ind.targetPoints ?? 2),
+      };
+    }
+    const sessions = Array.isArray(settings.sessions) ? settings.sessions : [];
+    const ny = sessions.find(item => String(item.name).toLowerCase() === 'ny') || {};
+    const tokyo = sessions.find(item => String(item.name).toLowerCase() === 'tokyo') || {};
+    const london = sessions.find(item => String(item.name).toLowerCase() === 'london') || {};
+    return {
+      ...ind,
+      visible: !!entry.enabled,
+      contracts: Number(settings.contracts ?? ind.contracts ?? 1),
+      nyStart: ny.start || ind.nyStart || '05:00',
+      tokyoStart: tokyo.start || ind.tokyoStart || '14:30',
+      londonStandardStart: london.standard_start || ind.londonStandardStart || '22:30',
+      londonDstStart: london.dst_start || ind.londonDstStart || '23:30',
+      primaryBoxMinutes: Number(settings.primary_box_minutes ?? ind.primaryBoxMinutes ?? 5),
+      fallbackBoxMinutes: Number(settings.fallback_box_minutes ?? ind.fallbackBoxMinutes ?? 15),
+      minBoxTicks: Number(settings.min_box_ticks ?? ind.minBoxTicks ?? 100),
+      maxBoxTicks: Number(settings.max_box_ticks ?? ind.maxBoxTicks ?? 250),
+      bufferTicks: Number(settings.buffer_ticks ?? ind.bufferTicks ?? 30),
+      tp1Ticks: Number(settings.tp1_ticks ?? ind.tp1Ticks ?? 100),
+      runnerTrailTicks: Number(settings.runner_trail_ticks ?? ind.runnerTrailTicks ?? 30),
+      tradeWindowMinutes: Number(settings.trade_window_minutes ?? ind.tradeWindowMinutes ?? 60),
+    };
+  });
 };
 
 const DRAW_TOOLS = [
@@ -2631,7 +2761,8 @@ const drawingDistance = (d, pt) => {
 };
 
 function ChartPanel({ defaultSymbol }) {
-  const [symbol, setSymbol]   = useS(defaultSymbol || 'BTC/USD');
+  const initialSymbol = defaultSymbol || 'BTC/USD';
+  const [symbol, setSymbol]   = useS(initialSymbol);
   const [tf, setTf]           = useS('5m');
   const [broker, setBroker]   = useS('kraken');   // default for BTC/USD
   const [bars, setBars]       = useS([]);
@@ -2642,7 +2773,8 @@ function ChartPanel({ defaultSymbol }) {
   const [searchVal, setSearch] = useS('');
   const [dropOpen, setDrop]   = useS(false);
   const [allSymbols, setAllSyms] = useS([]);
-  const [indicators, setIndicators] = useS(loadChartIndicators);
+  const [indicators, setIndicators] = useS(() => loadChartIndicators(initialSymbol));
+  const [indicatorSymbol, setIndicatorSymbol] = useS(initialSymbol);
   const [showIndEditor, setShowIndEditor] = useS(false);
   const [drawTool, setDrawTool] = useS('cursor');
   const [drawings, setDrawings] = useS([]);
@@ -2655,7 +2787,9 @@ function ChartPanel({ defaultSymbol }) {
   const [patternMsg, setPatternMsg]           = useS('');
   const [hoverPattern, setHoverPattern]       = useS(null);
   const [focusedPatternId, setFocusedPatternId] = useS(null);
-  const [emtStatus, setEmtStatus] = useS(null);
+  const [strategyStatus, setStrategyStatus] = useS(null);
+  const [strategyError, setStrategyError] = useS('');
+  const [strategyDataRevision, setStrategyDataRevision] = useS(0);
 
   // ── Chronos AI ────────────────────────────────────────────────────────────
   const [chronosActive,  setChronosActive]  = useS(false);
@@ -2664,7 +2798,9 @@ function ChartPanel({ defaultSymbol }) {
   // { direction: 'up'|'down'|'flat', confidence: 0.72, model: 'chronos-t5-base' }
 
   const isCrypto   = symbol.includes('/');
-  const isFutures  = !isCrypto && allSymbols.some(s => s.symbol === symbol && s.type === 'futures');
+  const symbolMeta = allSymbols.find(item => item.symbol === symbol);
+  const isFutures  = !isCrypto && symbolMeta?.type === 'futures';
+  const isStrategyFuture = isFutures && !!symbolMeta?.strategy_supported;
 
   const containerRef = useR(null);
   const drawingCanvasRef = useR(null);
@@ -2692,7 +2828,9 @@ function ChartPanel({ defaultSymbol }) {
   const cleanBarsRef = useR([]);
   const patternDrawingsRef = useR([]);
   const focusedPatternIdRef = useR(null);
-  const emtStatusRef = useR(null);
+  const strategyStatusRef = useR(null);
+  const strategyHydratedSymbolRef = useR(null);
+  const strategySyncedConfigRef = useR({ emt: null, eat: null });
   const symbolRef = useR(symbol);
   const chartSeriesTypeRef = useR('candles'); // tracks what type candleRef.current actually is
   const isLiveUpdateRef = useR(false); // true when bars changed via live poll (not full reload)
@@ -2807,8 +2945,24 @@ function ChartPanel({ defaultSymbol }) {
   }, []);
 
   useE(() => {
-    try { localStorage.setItem('chart_indicators_v2', JSON.stringify(indicators)); } catch (_) {}
-  }, [indicators]);
+    if (indicatorSymbol === symbol) return;
+    setIndicators(loadChartIndicators(symbol));
+    setIndicatorSymbol(symbol);
+    setStrategyStatus(null);
+    setStrategyError('');
+    strategyHydratedSymbolRef.current = null;
+    strategySyncedConfigRef.current = { emt: null, eat: null };
+  }, [symbol, indicatorSymbol]);
+
+  useE(() => {
+    if (indicatorSymbol !== symbol) return;
+    try {
+      localStorage.setItem(
+        chartIndicatorStoreKey(symbol),
+        JSON.stringify(indicators)
+      );
+    } catch (_) {}
+  }, [indicators, indicatorSymbol, symbol]);
 
   useE(() => {
     const key = drawingStoreKey(symbol, tf);
@@ -2836,7 +2990,7 @@ function ChartPanel({ defaultSymbol }) {
   useE(() => { drawingsHiddenRef.current = drawingsHidden; }, [drawingsHidden]);
   useE(() => { patternDrawingsRef.current = patternDrawings; }, [patternDrawings]);
   useE(() => { focusedPatternIdRef.current = focusedPatternId; }, [focusedPatternId]);
-  useE(() => { emtStatusRef.current = emtStatus; }, [emtStatus]);
+  useE(() => { strategyStatusRef.current = strategyStatus; }, [strategyStatus]);
   useE(() => { symbolRef.current = symbol; }, [symbol]);
   useE(() => { marksRef.current = marks; }, [marks]);
   useE(() => { openPositionsRef.current = openPositions; }, [openPositions]);
@@ -2928,7 +3082,7 @@ function ChartPanel({ defaultSymbol }) {
       .catch(e => { if (!cancelled) setErr(e.message); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [symbol, tf, broker]);
+  }, [symbol, tf, broker, strategyDataRevision]);
 
   // Poll for live candle updates — 20s tick keeps the current candle alive on any TF.
   // The poll ONLY updates bars state; the chart effect handles the actual series.update()
@@ -2989,7 +3143,7 @@ function ChartPanel({ defaultSymbol }) {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
     };
-  }, [symbol, tf, broker]);
+  }, [symbol, tf, broker, strategyDataRevision]);
 
   // Load symbol list once
   useE(() => {
@@ -3640,11 +3794,12 @@ function ChartPanel({ defaultSymbol }) {
       }))
     ].forEach(drawTradeFill);
 
-    const emt = emtStatusRef.current;
-    if (emt?.ok && symbolRef.current === 'ES') {
+    const chartStrategies = strategyStatusRef.current?.strategies || {};
+    const emt = chartStrategies.emt || {};
+    if (emt?.enabled && emt?.configured) {
       const overlay = emt.overlay || {};
-      const status = overlay.status_message || emt.emt?.status_message || emt.emt?.phase || 'EMT';
-      const phase = overlay.phase || emt.emt?.phase || '';
+      const status = overlay.status_message || emt.state?.status_message || emt.state?.phase || 'EMT';
+      const phase = overlay.phase || emt.state?.phase || '';
       const visibleTimes = (cleanBarsRef.current || [])
         .map(b => Number(b.time))
         .filter(Number.isFinite);
@@ -3724,6 +3879,107 @@ function ChartPanel({ defaultSymbol }) {
       ctx.beginPath(); ctx.roundRect(w - bw - 8, 8, bw, 26, 5); ctx.fill(); ctx.stroke();
       ctx.fillStyle = "#d1d5db"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
       ctx.fillText(label, w - 16, 21);
+      ctx.restore();
+    }
+
+    const eat = chartStrategies.eat || {};
+    if (eat?.enabled && eat?.configured) {
+      const overlay = eat.overlay || {};
+      const state = eat.state || {};
+      const usedLabelYs = [];
+      const drawEatH = (price, color, label, dash = [6, 4]) => {
+        const value = Number(price);
+        if (!Number.isFinite(value) || value <= 0) return;
+        const y = series.priceToCoordinate(value);
+        if (y === null || y === undefined) return;
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1.25;
+        ctx.setLineDash(dash);
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.font = "bold 10px JetBrains Mono, monospace";
+        let labelY = y - 4;
+        while (usedLabelYs.some(existing => Math.abs(existing - labelY) < 11)) labelY -= 12;
+        usedLabelYs.push(labelY);
+        ctx.fillStyle = color;
+        ctx.textAlign = "right";
+        ctx.fillText(label, w - 8, labelY);
+        ctx.restore();
+      };
+      const drawEatZone = (low, high, fill, stroke, startTime, endTime = null) => {
+        const lowValue = Number(low);
+        const highValue = Number(high);
+        if (!Number.isFinite(lowValue) || !Number.isFinite(highValue)) return;
+        const yLow = series.priceToCoordinate(lowValue);
+        const yHigh = series.priceToCoordinate(highValue);
+        if (yLow == null || yHigh == null) return;
+        const start = Number(startTime);
+        const end = Number(endTime);
+        const startCoordinate = Number.isFinite(start)
+          ? chart.timeScale().timeToCoordinate(start)
+          : null;
+        const endCoordinate = Number.isFinite(end)
+          ? chart.timeScale().timeToCoordinate(end)
+          : null;
+        const x1 = Math.max(0, Math.min(w, startCoordinate ?? 0));
+        const x2 = Math.max(x1, Math.min(w, endCoordinate ?? w));
+        ctx.save();
+        ctx.fillStyle = fill;
+        ctx.strokeStyle = stroke;
+        ctx.lineWidth = 1;
+        ctx.fillRect(x1, Math.min(yLow, yHigh), Math.max(2, x2 - x1), Math.abs(yLow - yHigh));
+        ctx.strokeRect(x1, Math.min(yLow, yHigh), Math.max(2, x2 - x1), Math.abs(yLow - yHigh));
+        ctx.restore();
+      };
+
+      drawEatZone(
+        overlay.inner_low, overlay.inner_high,
+        'rgba(59,130,246,.08)', '#60a5fa66',
+        overlay.box_start, overlay.box_end
+      );
+      drawEatZone(
+        overlay.inner_high, overlay.outer_high,
+        'rgba(45,212,191,.13)', '#2dd4bf88',
+        overlay.box_end
+      );
+      drawEatZone(
+        overlay.outer_low, overlay.inner_low,
+        'rgba(248,113,113,.12)', '#f8717188',
+        overlay.box_end
+      );
+      drawEatH(overlay.outer_high, '#2dd4bf', 'EAT upper buffer');
+      drawEatH(overlay.inner_high, '#5eead4', 'EAT box high', []);
+      drawEatH(overlay.inner_low, '#fca5a5', 'EAT box low', []);
+      drawEatH(overlay.outer_low, '#f87171', 'EAT lower buffer');
+
+      const trade = overlay.active_trade || state.active_trade;
+      if (trade) {
+        drawEatH(trade.entry_price, '#38bdf8', `EAT ${String(trade.direction || '').toUpperCase()} entry`, [2, 3]);
+        drawEatH(trade.stop_price, '#ef5350', 'EAT stop', [4, 3]);
+        drawEatH(trade.tp1_price, '#22c55e', 'EAT TP1', [4, 3]);
+        drawEatH(trade.runner_stop, '#a78bfa', 'EAT runner stop', [2, 3]);
+      }
+      if (overlay.last_live_price) {
+        drawEatH(overlay.last_live_price, '#e5e7ebaa', 'EAT live', []);
+      }
+
+      ctx.save();
+      ctx.font = "bold 11px JetBrains Mono, monospace";
+      const phase = overlay.phase || state.phase || '';
+      const status = overlay.status_message || state.status_message || 'EAT';
+      const badge = `EAT ${phase} · ${status}`;
+      const label = badge.length > 110 ? badge.slice(0, 107) + "…" : badge;
+      const bw = Math.min(w - 16, ctx.measureText(label).width + 18);
+      const badgeY = emt?.enabled ? 40 : 8;
+      ctx.fillStyle = "rgba(13,17,23,.88)";
+      ctx.strokeStyle = "#2dd4bf99";
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.roundRect(w - bw - 8, badgeY, bw, 26, 5); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = "#d1d5db";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      ctx.fillText(label, w - 16, badgeY + 13);
       ctx.restore();
     }
     if (drawingsHiddenRef.current) return;
@@ -3979,7 +4235,7 @@ function ChartPanel({ defaultSymbol }) {
       try { chart.timeScale().unsubscribeVisibleLogicalRangeChange(handler); } catch (_) {}
       try { ro?.disconnect(); } catch (_) {}
     };
-  }, [drawOverlay, drawings, draftDrawing, drawingsHidden, bars, marks, openPositions, tf, patternDrawings, focusedPatternId, emtStatus]);
+  }, [drawOverlay, drawings, draftDrawing, drawingsHidden, bars, marks, openPositions, tf, patternDrawings, focusedPatternId, strategyStatus]);
 
   // Which lower panels have at least one visible indicator assigned to them.
   // Declared here (before the lazy-init useEffect) so Babel's var-hoisting
@@ -4185,11 +4441,37 @@ function ChartPanel({ defaultSymbol }) {
     };
   }, []);
   useE(() => {
-    if (symbol !== "ES") { setEmtStatus(null); return; }
+    if (!isStrategyFuture || indicatorSymbol !== symbol) {
+      setStrategyStatus(null);
+      setStrategyError('');
+      return;
+    }
     let cancelled = false;
-    const load = () => panelApi("/api/emt/status")
-      .then(d => { if (!cancelled) setEmtStatus(d); })
-      .catch(() => { if (!cancelled) setEmtStatus(null); });
+    const load = () => panelApi(
+      `/api/chart/strategy_status?symbol=${encodeURIComponent(symbol)}`
+    )
+      .then(d => {
+        if (cancelled) return;
+        setStrategyStatus(d);
+        setStrategyError('');
+        if (strategyHydratedSymbolRef.current !== symbol) {
+          setIndicators(list => {
+            const hydrated = hydrateStrategyIndicators(list, d);
+            strategySyncedConfigRef.current = {
+              emt: JSON.stringify(strategyConfigFromIndicators(hydrated, 'EMT')),
+              eat: JSON.stringify(strategyConfigFromIndicators(hydrated, 'EAT')),
+            };
+            return hydrated;
+          });
+          strategyHydratedSymbolRef.current = symbol;
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          setStrategyStatus(null);
+          setStrategyError(err.message || 'Strategy service unavailable');
+        }
+      });
     load();
     const t = setInterval(load, 5000);
     const onVisible = () => { if (document.visibilityState === 'visible') load(); };
@@ -4201,8 +4483,41 @@ function ChartPanel({ defaultSymbol }) {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
     };
-  }, [symbol]);
+  }, [symbol, isStrategyFuture, indicatorSymbol]);
 
+  useE(() => {
+    if (
+      !isStrategyFuture ||
+      indicatorSymbol !== symbol ||
+      strategyHydratedSymbolRef.current !== symbol
+    ) return;
+    const timer = setTimeout(() => {
+      ['EMT', 'EAT'].forEach(type => {
+        const key = type.toLowerCase();
+        const settings = strategyConfigFromIndicators(indicators, type);
+        if (!settings) return;
+        const signature = JSON.stringify(settings);
+        if (strategySyncedConfigRef.current[key] === signature) return;
+        const previous = strategySyncedConfigRef.current[key];
+        strategySyncedConfigRef.current[key] = signature;
+        panelApi('/api/chart/strategy_config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ symbol, strategy: key, settings }),
+        })
+          .then(d => {
+            setStrategyStatus(d);
+            setStrategyError('');
+            setStrategyDataRevision(value => value + 1);
+          })
+          .catch(err => {
+            strategySyncedConfigRef.current[key] = previous;
+            setStrategyError(err.message || `${type} configuration failed`);
+          });
+      });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [indicators, indicatorSymbol, symbol, isStrategyFuture]);
 
   // ── Chronos: fetch prediction whenever active + bars change ──────────────
   useE(() => {
@@ -4242,7 +4557,7 @@ function ChartPanel({ defaultSymbol }) {
 
   const quickIndicators = DEFAULT_CHART_INDICATORS
     .map(def => indicators.find(ind => ind.id === def.id))
-    .filter(Boolean);
+    .filter(ind => ind && (isStrategyFuture || !STRATEGY_INDICATOR_TYPES.has(ind.type)));
 
   // Sub-minute TFs reserved for future data feeds — add '30s','15s','1s' here when feed supports them
   const TFS = ['1m','2m','3m','5m','15m','30m','1h','4h','1D'];
@@ -4274,9 +4589,9 @@ function ChartPanel({ defaultSymbol }) {
         : ind
     )).filter(ind => ind.id !== id || isDefaultIndicator(id)));
   };
-  const resetIndicators = () => setIndicators(cloneDefaultIndicators());
+  const resetIndicators = () => setIndicators(cloneDefaultIndicators(symbol));
   const clearDrawings = () => { setDrawings([]); setDraftDrawing(null); setPatternDrawings([]); setPatternMsg(''); };
-  const clearIndicators = () => setIndicators(cloneDefaultIndicators().map(ind => ({ ...ind, visible: false })));
+  const clearIndicators = () => setIndicators(cloneDefaultIndicators(symbol).map(ind => ({ ...ind, visible: false })));
   const clearDrawingsAndIndicators = () => { clearDrawings(); clearIndicators(); };
 
   const PATTERN_COLORS = { LONG: '#4ade80', SHORT: '#f87171', NEUTRAL: '#e879f9' };
@@ -4470,6 +4785,7 @@ function ChartPanel({ defaultSymbol }) {
 
         {loading && <span style={{ fontSize:10, opacity:.45 }}>Loading…</span>}
         {err     && <span style={{ fontSize:10, color:'var(--red)', maxWidth:160, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{err}</span>}
+        {strategyError && <span style={{ fontSize:10, color:'var(--red)', maxWidth:240, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{strategyError}</span>}
         <button className="btn ghost sm" style={{ padding:'2px 6px' }}
           onClick={() => { setBars([]); setMarks([]); setLoading(true); setErr(null);
             const limit = chartLimitForTf(tf);
@@ -4553,13 +4869,14 @@ function ChartPanel({ defaultSymbol }) {
       {showIndEditor && (
         <div style={{ display:'flex', flexDirection:'column', gap:6, padding:'7px 8px',
                       borderBottom:'1px solid #1a2035', background:'#111827', flexShrink:0 }}>
-          {indicators.map(ind => (
+          {indicators.filter(ind => isStrategyFuture || !STRATEGY_INDICATOR_TYPES.has(ind.type)).map(ind => (
             <div key={ind.id} style={{ display:'grid',
               gridTemplateColumns:'22px 82px 74px 74px minmax(280px, 1fr) 28px',
               gap:5, alignItems:'center' }}>
               <input type="checkbox" checked={!!ind.visible}
                 onChange={e => updateIndicator(ind.id, { visible: e.target.checked })} />
               <select className="select input" value={ind.type}
+                disabled={STRATEGY_INDICATOR_TYPES.has(ind.type)}
                 onChange={e => {
                   const nextType = e.target.value;
                   const defaults = IND_TYPE_DEFAULTS[nextType] || {};
@@ -4570,7 +4887,11 @@ function ChartPanel({ defaultSymbol }) {
                   });
                 }}
                 style={{ height:24, fontSize:11, padding:'2px 5px' }}>
-                {IND_TYPES.map(t => <option key={t}>{t}</option>)}
+                {IND_TYPES.filter(t => (
+                  STRATEGY_INDICATOR_TYPES.has(ind.type)
+                    ? t === ind.type
+                    : !STRATEGY_INDICATOR_TYPES.has(t)
+                )).map(t => <option key={t}>{t}</option>)}
               </select>
               <input className="input" type="color" value={ind.color || '#60a5fa'}
                 onChange={e => updateIndicator(ind.id, { color: e.target.value })}
@@ -4589,6 +4910,11 @@ function ChartPanel({ defaultSymbol }) {
                         value={ind[def.key] || def.fallback}
                         onChange={e => updateIndicator(ind.id, { [def.key]: e.target.value })}
                         style={{ width:34, height:24, padding:2 }} />
+                    ) : def.type === 'time' ? (
+                      <input className="input" type="time"
+                        value={ind[def.key] || def.fallback}
+                        onChange={e => updateIndicator(ind.id, { [def.key]: e.target.value || def.fallback })}
+                        style={{ width:82, height:24, fontSize:11, padding:'2px 4px' }} />
                     ) : def.type === 'select' ? (
                       <select className="select input"
                         value={ind[def.key] || def.fallback}

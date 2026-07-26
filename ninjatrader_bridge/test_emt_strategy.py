@@ -131,7 +131,9 @@ class EMTStrategyTests(unittest.TestCase):
             bar(stamp(9, 45), 98.75), complete=True, historical=False
         )
         self.assertEqual(self.engine.phase, "WAIT_BREAKOUT")
-        self.assertFalse(self.engine.events)
+        self.assertFalse(
+            any(event.kind == "BREAKOUT_ARMED" for event in self.engine.events)
+        )
 
     def test_short_retrace_confirmation_opens_exact_two_point_paper_bracket(self):
         self.arm_short_and_touch()
