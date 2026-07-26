@@ -25,6 +25,7 @@ import json
 import math
 import logging
 import threading
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Optional, Dict
 
@@ -56,6 +57,25 @@ from core.event_identity import derive_kraken_userref
 from data.database import db
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class PartialCloseOutcome:
+    """Confirmed result returned to the scanner partial-close coordinator."""
+
+    success: bool
+    reason: str
+    filled_qty: float = 0.0
+    fill_price: float = 0.0
+    full_fill: bool = False
+    stop_refresh_required: bool = False
+    reconciliation_required: bool = False
+    retryable: bool = False
+    broker_order_id: Optional[str] = None
+    cancellation: Dict = field(default_factory=dict)
+
+    def __bool__(self) -> bool:
+        return self.success
 
 
 def _stock_entries_allowed_now() -> bool:
@@ -1549,11 +1569,68 @@ class TradeExecutor:
         )
         return True
 
+    def _set_kraken_partial_reconcile_hold(
+        self,
+        trade: Dict,
+        reason: str,
+        requested_qty: float,
+        broker_result: Optional[Dict] = None,
+    ) -> None:
+        """Persist a fail-closed hold for an ambiguous scanner partial."""
+        trade_id = trade["trade_id"]
+        symbol = trade["symbol"]
+        result = broker_result if isinstance(broker_result, dict) else {}
+        marker = {
+            "required": True,
+            "trade_id": trade_id,
+            "symbol": symbol,
+            "reason": reason,
+            "requested_qty": float(requested_qty),
+            "broker_order_id": result.get("broker_order_id"),
+            "status": result.get("status"),
+            "last_known_filled_qty": result.get("filled_qty"),
+            "last_known_fill_price": result.get("filled_avg_price"),
+            "cancellation": result.get("cancellation"),
+            "timestamp": datetime.now().isoformat(),
+        }
+        state_key = f"kraken_partial_reconcile_{trade_id}"
+        try:
+            existing = self._db.get_state(state_key, default=0)
+        except Exception:
+            existing = 0
+        if not existing:
+            try:
+                self._db.set_state(state_key, marker)
+            except Exception as exc:
+                logger.critical(
+                    f"[KRAKEN PARTIAL HOLD] {symbol}: failed to persist "
+                    f"{state_key} ({exc})"
+                )
+        logger.critical(
+            f"[KRAKEN PARTIAL HOLD] {symbol}: {reason}; no further scanner "
+            f"partial action is allowed until live Kraken reconciliation"
+        )
+        try:
+            self._risk_manager.manual_halt(
+                f"Kraken scanner partial unresolved for {symbol}: {reason}. "
+                "Manual live-fill reconciliation required."
+            )
+        except Exception as exc:
+            logger.critical(
+                f"[KRAKEN PARTIAL HOLD] {symbol}: risk halt failed ({exc})"
+            )
+
     def close_partial_trade(
         self, trade: Dict, current_price: float, fraction: float,
         exit_reason: str = "partial_take_profit"
-    ) -> bool:
-        """Close part of an open trade while leaving the remainder open."""
+    ) -> PartialCloseOutcome:
+        """
+        Close part of an open trade using only confirmed broker fill quantity.
+
+        Live Kraken cancellation or fill ambiguity persists a reconciliation
+        hold and performs no accounting. A terminal zero fill is retryable,
+        while a confirmed partial is recorded for the exact filled quantity.
+        """
         symbol      = trade["symbol"]
         direction   = trade["direction"]
         qty         = float(trade.get("quantity") or 0)
@@ -1565,25 +1642,32 @@ class TradeExecutor:
         fraction = max(0.0, min(float(fraction or 0), 0.95))
         close_qty = round(qty * fraction, 8)
         if close_qty <= 0 or qty <= 0 or entry_price <= 0:
-            return False
+            return PartialCloseOutcome(False, "invalid_partial_request")
 
         if asset_class != "crypto":
             logger.info(
                 f"[PARTIAL SKIP] {symbol}: partial exits currently enabled "
                 f"only for crypto scanner trades"
             )
-            return False
+            return PartialCloseOutcome(False, "unsupported_asset_class")
 
         side = "buy" if direction == "long" else "sell"
         if config.KRAKEN_ENABLED:
-            close_leverage = 0
-            if direction == "short":
+            try:
+                close_leverage = int(
+                    json.loads(trade.get("indicators_json") or "{}").get(
+                        "kraken_leverage", 0
+                    )
+                )
+            except (TypeError, ValueError, json.JSONDecodeError):
+                close_leverage = 0
+            if direction == "short" and close_leverage <= 1:
                 desired_lev = getattr(config, "KRAKEN_SHORT_LEVERAGE", 2)
                 max_lev = exchange_capabilities.get_max_short_leverage(
                     symbol, "kraken"
                 )
                 close_leverage = min(desired_lev, max_lev) if max_lev > 1 else 0
-            success = self.kraken.close_position(
+            broker_result = self.kraken.close_partial_position(
                 symbol, close_qty, side, leverage=close_leverage
             )
         else:
@@ -1592,55 +1676,223 @@ class TradeExecutor:
                 f"[PAPER] Simulated partial close: {symbol} "
                 f"{close_side.upper()} {close_qty} @ ${current_price:.4f}"
             )
-            success = True
+            broker_result = {
+                "ok": True,
+                "reason": "local_paper_fill",
+                "broker_order_id": None,
+                "status": "filled",
+                "filled_qty": close_qty,
+                "filled_avg_price": current_price,
+                "resolution_failed": False,
+                "cancellation": {
+                    "matched": 0,
+                    "cancelled": 0,
+                    "ambiguous": False,
+                    "errors": [],
+                },
+            }
 
-        if not success:
-            logger.error(f"Failed to partially close position {symbol}")
-            return False
+        if not isinstance(broker_result, dict):
+            self._set_kraken_partial_reconcile_hold(
+                trade, "missing broker result", close_qty, None
+            )
+            return PartialCloseOutcome(
+                False,
+                "missing_broker_result",
+                reconciliation_required=True,
+            )
+
+        cancellation = broker_result.get("cancellation")
+        if not isinstance(cancellation, dict):
+            cancellation = {}
+        result_reason = str(broker_result.get("reason") or "unknown")
+        if (
+            cancellation.get("ambiguous")
+            or broker_result.get("resolution_failed")
+            or result_reason in {
+                "cancellation_ambiguous",
+                "submission_unknown",
+                "fill_resolution_failed",
+            }
+        ):
+            self._set_kraken_partial_reconcile_hold(
+                trade, result_reason, close_qty, broker_result
+            )
+            return PartialCloseOutcome(
+                False,
+                result_reason,
+                filled_qty=float(broker_result.get("filled_qty") or 0),
+                fill_price=float(broker_result.get("filled_avg_price") or 0),
+                reconciliation_required=True,
+                broker_order_id=broker_result.get("broker_order_id"),
+                cancellation=cancellation,
+            )
+
+        try:
+            actual_close_qty = float(broker_result.get("filled_qty") or 0)
+            broker_fill_price = float(
+                broker_result.get("filled_avg_price") or 0
+            )
+        except (TypeError, ValueError):
+            actual_close_qty = float("nan")
+            broker_fill_price = float("nan")
+        if not math.isfinite(actual_close_qty) or actual_close_qty < 0:
+            self._set_kraken_partial_reconcile_hold(
+                trade, "invalid confirmed fill quantity", close_qty, broker_result
+            )
+            return PartialCloseOutcome(
+                False,
+                "invalid_fill_quantity",
+                reconciliation_required=True,
+                cancellation=cancellation,
+            )
+
+        if actual_close_qty == 0:
+            logger.warning(
+                f"[PARTIAL ZERO FILL] {symbol}: terminal broker result "
+                f"confirmed no fill; partial may retry after backoff"
+            )
+            return PartialCloseOutcome(
+                False,
+                "terminal_zero_fill",
+                retryable=True,
+                stop_refresh_required=True,
+                broker_order_id=broker_result.get("broker_order_id"),
+                cancellation=cancellation,
+            )
+
+        if (
+            not math.isfinite(broker_fill_price)
+            or broker_fill_price <= 0
+        ):
+            if getattr(self.kraken, "paper", False):
+                broker_fill_price = float(current_price)
+            else:
+                self._set_kraken_partial_reconcile_hold(
+                    trade,
+                    "positive fill has no confirmed average price",
+                    close_qty,
+                    broker_result,
+                )
+                return PartialCloseOutcome(
+                    False,
+                    "invalid_fill_price",
+                    filled_qty=actual_close_qty,
+                    reconciliation_required=True,
+                    broker_order_id=broker_result.get("broker_order_id"),
+                    cancellation=cancellation,
+                )
+
+        qty_tolerance = max(1e-8, qty * 1e-8)
+        if actual_close_qty > qty + qty_tolerance:
+            self._set_kraken_partial_reconcile_hold(
+                trade,
+                "confirmed close fill exceeds tracked position quantity",
+                close_qty,
+                broker_result,
+            )
+            return PartialCloseOutcome(
+                False,
+                "confirmed_overfill",
+                filled_qty=actual_close_qty,
+                fill_price=broker_fill_price,
+                reconciliation_required=True,
+                broker_order_id=broker_result.get("broker_order_id"),
+                cancellation=cancellation,
+            )
+        if actual_close_qty >= qty - qty_tolerance:
+            return PartialCloseOutcome(
+                True,
+                "confirmed_full_fill",
+                filled_qty=min(actual_close_qty, qty),
+                fill_price=broker_fill_price,
+                full_fill=True,
+                broker_order_id=broker_result.get("broker_order_id"),
+                cancellation=cancellation,
+            )
 
         if direction == "long":
-            pnl = (current_price - entry_price) * close_qty
-            pnl_pct = ((current_price - entry_price) / entry_price) * 100
+            pnl = (broker_fill_price - entry_price) * actual_close_qty
+            pnl_pct = ((broker_fill_price - entry_price) / entry_price) * 100
         else:
-            pnl = (entry_price - current_price) * close_qty
-            pnl_pct = ((entry_price - current_price) / entry_price) * 100
+            pnl = (entry_price - broker_fill_price) * actual_close_qty
+            pnl_pct = ((entry_price - broker_fill_price) / entry_price) * 100
 
         fee_rt_pct = (
             (config.BT_COMMISSION_CRYPTO_PCT + config.BT_SLIPPAGE_CRYPTO_PCT)
             / 100 * 2
         )
-        fees_paid = round(entry_price * close_qty * fee_rt_pct, 4)
+        fees_paid = round(entry_price * actual_close_qty * fee_rt_pct, 4)
         pnl = pnl - fees_paid
-        partial_value = entry_price * close_qty
+        partial_value = entry_price * actual_close_qty
 
-        self._db.record_partial_exit(
-            trade_id=trade_id,
-            symbol=symbol,
-            exit_price=current_price,
-            quantity=close_qty,
-            position_value=partial_value,
-            pnl=round(pnl, 4),
-            pnl_pct=round(pnl_pct, 4),
-            fees_paid=fees_paid,
-            reason=exit_reason,
+        try:
+            self._db.record_partial_exit(
+                trade_id=trade_id,
+                symbol=symbol,
+                exit_price=broker_fill_price,
+                quantity=actual_close_qty,
+                position_value=partial_value,
+                pnl=round(pnl, 4),
+                pnl_pct=round(pnl_pct, 4),
+                fees_paid=fees_paid,
+                reason=exit_reason,
+            )
+        except Exception as exc:
+            failed_result = dict(broker_result)
+            failed_result["accounting_error"] = str(exc)
+            self._set_kraken_partial_reconcile_hold(
+                trade,
+                "confirmed fill could not be recorded atomically",
+                close_qty,
+                failed_result,
+            )
+            return PartialCloseOutcome(
+                False,
+                "accounting_failed",
+                filled_qty=actual_close_qty,
+                fill_price=broker_fill_price,
+                reconciliation_required=True,
+                broker_order_id=broker_result.get("broker_order_id"),
+                cancellation=cancellation,
+            )
+
+        trade["quantity"] = max(qty - actual_close_qty, 0)
+        trade["position_value"] = max(
+            float(trade.get("position_value") or 0) - partial_value, 0
         )
+        trade["partial_pnl"] = float(trade.get("partial_pnl") or 0) + pnl
+        trade["partial_fees_paid"] = (
+            float(trade.get("partial_fees_paid") or 0) + fees_paid
+        )
+        trade["partial_exit_count"] = int(
+            trade.get("partial_exit_count") or 0
+        ) + 1
 
-        cap = self._db.get_latest_capital()
-        if cap:
-            new_capital = cap["total_capital"] + pnl
-            new_invested = max(0, cap["invested_value"] - partial_value)
-            new_available = cap["available_cash"] + partial_value + pnl
-            new_available = min(new_available, max(0.0, new_capital - new_invested))
-            self._db.log_capital(
-                total=new_capital,
-                available=new_available,
-                invested=new_invested,
-                daily_pnl=cap["daily_pnl"] + pnl,
-                total_pnl=cap["total_pnl"] + pnl,
-                note=(
-                    f"Partial {symbol} @ {broker} {exit_reason}: "
-                    f"{'+' if pnl > 0 else ''}{pnl:.2f}"
-                ),
+        try:
+            cap = self._db.get_latest_capital()
+            if cap:
+                new_capital = cap["total_capital"] + pnl
+                new_invested = max(0, cap["invested_value"] - partial_value)
+                new_available = cap["available_cash"] + partial_value + pnl
+                new_available = min(
+                    new_available, max(0.0, new_capital - new_invested)
+                )
+                self._db.log_capital(
+                    total=new_capital,
+                    available=new_available,
+                    invested=new_invested,
+                    daily_pnl=cap["daily_pnl"] + pnl,
+                    total_pnl=cap["total_pnl"] + pnl,
+                    note=(
+                        f"Partial {symbol} @ {broker} {exit_reason}: "
+                        f"{'+' if pnl > 0 else ''}{pnl:.2f}"
+                    ),
+                )
+        except Exception as cap_exc:
+            logger.error(
+                f"[PARTIAL ACCOUNTING] {symbol}: confirmed fill was recorded "
+                f"but capital snapshot update failed ({cap_exc})"
             )
 
         try:
@@ -1656,23 +1908,21 @@ class TradeExecutor:
         except Exception as _bm_err:
             logger.debug(f"Broker balance update on partial close failed: {_bm_err}")
 
-        trade["quantity"] = max(qty - close_qty, 0)
-        trade["position_value"] = max(
-            float(trade.get("position_value") or 0) - partial_value, 0
-        )
-        trade["partial_pnl"] = float(trade.get("partial_pnl") or 0) + pnl
-        trade["partial_fees_paid"] = (
-            float(trade.get("partial_fees_paid") or 0) + fees_paid
-        )
-        trade["partial_exit_count"] = int(trade.get("partial_exit_count") or 0) + 1
-
         logger.info(
-            f"[PARTIAL TP] {symbol}: closed {fraction:.0%} "
-            f"({close_qty:.6f}) @ ${current_price:.4f} | "
+            f"[PARTIAL TP] {symbol}: requested {close_qty:.6f}, broker "
+            f"confirmed {actual_close_qty:.6f} @ ${broker_fill_price:.4f} | "
             f"P&L ${pnl:.2f} ({pnl_pct:+.2f}%) | "
             f"remaining qty {trade['quantity']:.6f}"
         )
-        return True
+        return PartialCloseOutcome(
+            True,
+            "confirmed_partial_fill",
+            filled_qty=actual_close_qty,
+            fill_price=broker_fill_price,
+            stop_refresh_required=True,
+            broker_order_id=broker_result.get("broker_order_id"),
+            cancellation=cancellation,
+        )
 
     def close_all_stock_positions(self):
         """Close all open stock positions — called at end of day."""

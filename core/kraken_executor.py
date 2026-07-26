@@ -17,7 +17,7 @@ import json
 import logging
 import os
 import time
-from typing import Optional, Dict
+from typing import Optional, Dict, Tuple
 import ccxt
 
 logger = logging.getLogger(__name__)
@@ -356,6 +356,248 @@ class KrakenExecutor:
         except Exception as e:
             logger.warning(f"cancel_all_orders_for_symbol({symbol}): {e}")
         return cancelled
+
+    @staticmethod
+    def _canonical_kraken_asset(asset: str) -> str:
+        """Normalize CCXT and Kraken raw asset IDs to a common code."""
+        raw = "".join(ch for ch in str(asset or "").upper() if ch.isalnum())
+        aliases = {
+            "XXBT": "BTC",
+            "XBT": "BTC",
+            "XETH": "ETH",
+            "XXDG": "DOGE",
+            "XDG": "DOGE",
+            "ZUSD": "USD",
+            "ZEUR": "EUR",
+            "ZGBP": "GBP",
+            "ZJPY": "JPY",
+            "ZCAD": "CAD",
+            "ZAUD": "AUD",
+        }
+        if raw in aliases:
+            return aliases[raw]
+        if len(raw) > 3 and raw[0] in {"X", "Z"}:
+            stripped = raw[1:]
+            if stripped in {
+                "BTC", "ETH", "USD", "EUR", "GBP", "JPY", "CAD", "AUD",
+                "SOL", "ADA", "DOT", "LTC", "XRP", "DOGE",
+            }:
+                return stripped
+        return raw.replace("XBT", "BTC")
+
+    @classmethod
+    def _canonical_kraken_pair(cls, pair: str) -> Optional[Tuple[str, str]]:
+        """
+        Return an exact ``(base, quote)`` pair for CCXT symbols and Kraken
+        raw IDs such as XETHZUSD and XXBTZUSD.
+
+        Unknown raw IDs return None. The scanner-partial cancellation path
+        treats an unparseable open order as ambiguous instead of guessing.
+        """
+        text = str(pair or "").strip().upper().replace("-", "/")
+        if not text:
+            return None
+        if "/" in text:
+            parts = [part for part in text.split("/") if part]
+            if len(parts) != 2:
+                return None
+            return (
+                cls._canonical_kraken_asset(parts[0]),
+                cls._canonical_kraken_asset(parts[1]),
+            )
+
+        compact = "".join(ch for ch in text if ch.isalnum())
+        quote_codes = (
+            "ZUSDT", "USDT", "ZUSDC", "USDC",
+            "ZUSD", "ZEUR", "ZGBP", "ZJPY", "ZCAD", "ZAUD",
+            "XXBT", "XETH",
+            "USD", "EUR", "GBP", "JPY", "CAD", "AUD",
+            "XBT", "BTC", "ETH",
+        )
+        for quote_code in quote_codes:
+            if not compact.endswith(quote_code) or len(compact) <= len(quote_code):
+                continue
+            base_code = compact[:-len(quote_code)]
+            base = cls._canonical_kraken_asset(base_code)
+            quote = cls._canonical_kraken_asset(quote_code)
+            if base and quote:
+                return base, quote
+        return None
+
+    def cancel_orders_for_partial_close(self, symbol: str) -> Dict:
+        """
+        Cancel resting orders before a scanner partial close.
+
+        Unlike the legacy count-only full-close helper, this returns a
+        structured, fail-closed result. Any open-order fetch failure,
+        unparseable open pair, or target-order cancel failure sets
+        ``ambiguous=True`` so the caller must not submit the market close.
+        """
+        target = self._canonical_kraken_pair(symbol)
+        result = {
+            "matched": 0,
+            "cancelled": 0,
+            "ambiguous": False,
+            "errors": [],
+        }
+        if self.paper:
+            return result
+        if target is None:
+            result["ambiguous"] = True
+            result["errors"].append(f"unparseable target symbol {symbol!r}")
+            return result
+
+        try:
+            response = self.exchange.privatePostOpenorders({})
+            payload = response.get("result") if isinstance(response, dict) else None
+            if not isinstance(payload, dict) or "open" not in payload:
+                raise ValueError("Kraken open-orders response missing result.open")
+            open_orders = payload.get("open") or {}
+            if not isinstance(open_orders, dict):
+                raise ValueError("Kraken result.open is not an order mapping")
+        except Exception as exc:
+            result["ambiguous"] = True
+            result["errors"].append(f"open-order fetch failed: {exc}")
+            logger.error(
+                f"[PARTIAL PRE-CLOSE HOLD] {symbol}: could not enumerate "
+                f"open Kraken orders ({exc})"
+            )
+            return result
+
+        cancel_fn = (
+            getattr(self.exchange, "cancelOrder", None)
+            or getattr(self.exchange, "cancel_order", None)
+        )
+        if not callable(cancel_fn):
+            result["ambiguous"] = True
+            result["errors"].append("Kraken cancel-order method unavailable")
+            return result
+
+        for order_id, order in open_orders.items():
+            raw_pair = (order or {}).get("descr", {}).get("pair", "")
+            order_pair = self._canonical_kraken_pair(raw_pair)
+            if order_pair is None:
+                result["ambiguous"] = True
+                result["errors"].append(
+                    f"open order {order_id} has unparseable pair {raw_pair!r}"
+                )
+                continue
+            if order_pair != target:
+                continue
+
+            result["matched"] += 1
+            try:
+                cancel_fn(order_id)
+                result["cancelled"] += 1
+                logger.info(
+                    f"[PARTIAL PRE-CLOSE CANCEL] {symbol}: cancelled "
+                    f"order {str(order_id)[:12]}"
+                )
+            except Exception as exc:
+                result["ambiguous"] = True
+                result["errors"].append(
+                    f"cancel {order_id} failed: {exc}"
+                )
+                logger.error(
+                    f"[PARTIAL PRE-CLOSE HOLD] {symbol}: could not cancel "
+                    f"order {str(order_id)[:12]} ({exc})"
+                )
+        return result
+
+    def close_partial_position(
+        self, symbol: str, qty: float, side: str, leverage: int = 0
+    ) -> Dict:
+        """
+        Submit a scanner-partial close and return its confirmed terminal fill.
+
+        This deliberately does not replace ``close_position()``; normal full
+        exits retain their existing path. A cancellation ambiguity blocks the
+        market order. Live submissions use the same bounded terminal fill
+        resolver as entries and never substitute requested quantity.
+        """
+        close_side = "sell" if side == "buy" else "buy"
+        if self.paper:
+            price = self.get_current_price(symbol) or 0.0
+            return {
+                "ok": True,
+                "reason": "paper_fill",
+                "broker_order_id": f"PAPER-PARTIAL-{symbol}-{int(time.time())}",
+                "status": "filled",
+                "filled_qty": float(qty),
+                "filled_avg_price": float(price),
+                "resolution_failed": False,
+                "cancellation": {
+                    "matched": 0,
+                    "cancelled": 0,
+                    "ambiguous": False,
+                    "errors": [],
+                },
+            }
+
+        cancellation = self.cancel_orders_for_partial_close(symbol)
+        if cancellation["ambiguous"]:
+            return {
+                "ok": False,
+                "reason": "cancellation_ambiguous",
+                "broker_order_id": None,
+                "status": "not_submitted",
+                "filled_qty": 0.0,
+                "filled_avg_price": 0.0,
+                "resolution_failed": True,
+                "cancellation": cancellation,
+            }
+
+        ccxt_symbol = symbol.replace("-", "/")
+        params = {}
+        if leverage > 1:
+            params["leverage"] = leverage
+        try:
+            order = self.exchange.create_market_order(
+                ccxt_symbol, close_side, qty, params=params
+            )
+        except Exception as exc:
+            logger.critical(
+                f"[PARTIAL CLOSE SUBMISSION UNKNOWN] {symbol}: market close "
+                f"raised after protective-order cancellation ({exc})"
+            )
+            return {
+                "ok": False,
+                "reason": "submission_unknown",
+                "broker_order_id": None,
+                "status": "submission_unknown",
+                "filled_qty": 0.0,
+                "filled_avg_price": 0.0,
+                "resolution_failed": True,
+                "error": str(exc),
+                "cancellation": cancellation,
+            }
+
+        order_id = order.get("id") if isinstance(order, dict) else None
+        final = self._resolve_order_fill(
+            ccxt_symbol, order_id, order if isinstance(order, dict) else {}
+        )
+        if final["resolution_failed"]:
+            self._record_unresolved_order(
+                symbol, order_id, close_side, qty, final
+            )
+            logger.critical(
+                f"[PARTIAL CLOSE UNRESOLVED] {symbol}: order {order_id} "
+                f"has unknown terminal fill state"
+            )
+        return {
+            "ok": not final["resolution_failed"],
+            "reason": (
+                "resolved"
+                if not final["resolution_failed"]
+                else "fill_resolution_failed"
+            ),
+            "broker_order_id": order_id,
+            "status": final["status"],
+            "filled_qty": final["filled_qty"],
+            "filled_avg_price": final["filled_avg_price"],
+            "resolution_failed": final["resolution_failed"],
+            "cancellation": cancellation,
+        }
 
     def close_position(self, symbol: str, qty: float, side: str,
                        leverage: int = 0) -> bool:
