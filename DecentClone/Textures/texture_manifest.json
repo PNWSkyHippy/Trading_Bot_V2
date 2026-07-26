@@ -14,6 +14,12 @@
       "path": "Textures/WallTextures/PhotogUnderwater.png",
       "mapping": "section"
     },
+     {
+      "id": "UnderSea",
+      "label": "UnderSea",
+      "path": "Textures/WallTextures/Underwater2.jpg",
+      "mapping": "section"
+    }
     {
       "id": "blackgloss",
       "label": "Black Gloss",
