@@ -15,11 +15,11 @@
       "mapping": "section"
     },
      {
-      "id": "UnderSea",
-      "label": "UnderSea",
+      "id": "NewUnderSea",
+      "label": "NewUnderSea",
       "path": "Textures/WallTextures/Underwater2.jpg",
       "mapping": "section"
-    }
+    },
     {
       "id": "blackgloss",
       "label": "Black Gloss",
