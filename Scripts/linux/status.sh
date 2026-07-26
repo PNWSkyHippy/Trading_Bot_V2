@@ -7,8 +7,10 @@ SERVICES=(
   breakout-scanner.service
   ibkr-watchdog.service
   astral-drift.service
-  ollama.service
-  night-watch-ollama.timer
+  astral-exploration-api.service
+  emt-scanner.service
+  emt-watchdog.service
+  emt-watchdog.timer
 )
 
 echo "== systemd service state =="
