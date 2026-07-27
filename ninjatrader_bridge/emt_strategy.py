@@ -248,6 +248,7 @@ class EMTStrategyEngine:
         self.retrace_seen = False
         self.retrace_touched = False
         self.last_live_price: Optional[float] = None
+        self.last_midline: Optional[float] = None
         self.trades_this_session = 0
 
     def _session_times(self, stamp_et: datetime):
@@ -336,6 +337,29 @@ class EMTStrategyEngine:
             "SESSION_DONE": "Trade window complete",
             "EXECUTION_HALTED": "Execution halted",
         }.get(self.phase, self.phase)
+        if (
+            self.phase == "WAIT_BREAKOUT"
+            and self.last_live_price is not None
+            and self.last_midline is not None
+        ):
+            if (
+                self.support_level is not None
+                and self.last_live_price < self.support_level
+                and self.last_midline >= self.support_level
+            ):
+                phase_text = (
+                    "Price below support; waiting for Keltner midline "
+                    f"< {self.support_level:.2f}"
+                )
+            elif (
+                self.resistance_level is not None
+                and self.last_live_price > self.resistance_level
+                and self.last_midline <= self.resistance_level
+            ):
+                phase_text = (
+                    "Price above resistance; waiting for Keltner midline "
+                    f"> {self.resistance_level:.2f}"
+                )
         bits = [phase_text]
         if self.opening_low is not None and self.opening_high is not None:
             bits.append(f"OR {self.opening_low:.2f}-{self.opening_high:.2f}")
@@ -582,6 +606,7 @@ class EMTStrategyEngine:
         if midline is None:
             self.phase = "WARMING"
             return
+        self.last_midline = midline
 
         price = bar["close"]
         if self.phase in ("BUILDING_RANGE", "WARMING"):
@@ -1027,6 +1052,7 @@ class EMTStrategyEngine:
                 ),
                 "status_message": self._status_message(),
                 "last_live_price": self.last_live_price,
+                "last_midline": self.last_midline,
                 "breakout_extreme": self.breakout_extreme,
                 "keltner": self._keltner_points(),
                 "events": [asdict(event) for event in list(self.events)[-30:]],

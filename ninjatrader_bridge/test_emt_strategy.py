@@ -131,6 +131,13 @@ class EMTStrategyTests(unittest.TestCase):
             bar(stamp(9, 45), 98.75), complete=True, historical=False
         )
         self.assertEqual(self.engine.phase, "WAIT_BREAKOUT")
+        self.assertGreaterEqual(
+            self.engine.last_midline, self.engine.support_level
+        )
+        self.assertIn(
+            "Price below support; waiting for Keltner midline",
+            self.engine.snapshot()["status_message"],
+        )
         self.assertFalse(
             any(event.kind == "BREAKOUT_ARMED" for event in self.engine.events)
         )
