@@ -2371,6 +2371,7 @@ const chartVisibleBarsForTf = (tf) => ({
 const DEFAULT_CHART_INDICATORS = [
   { id: 'ema9', type: 'EMA', period: 9, color: '#f59e0b', place: 'main', visible: true },
   { id: 'ema21', type: 'EMA', period: 21, color: '#60a5fa', place: 'main', visible: true },
+  { id: 'volume', type: 'Volume', color: '#26a69a', downColor: '#ef5350', place: 'main', visible: false },
   { id: 'rsi14', type: 'RSI', period: 14, overbought: 70, oversold: 30, color: '#a78bfa', place: 'lower1', visible: false },
   { id: 'adx14', type: 'ADX', period: 14, threshold: 20, color: '#f97316', thresholdColor: '#8b949e66', place: 'lower1', visible: false },
   { id: 'macd', type: 'MACD', period: 12, fast: 12, slow: 26, signal: 9, color: '#38bdf8', signalColor: '#f59e0b', histUpColor: '#26a69a66', histDownColor: '#ef535066', place: 'lower2', visible: false },
@@ -2382,7 +2383,8 @@ const DEFAULT_CHART_INDICATORS = [
 ];
 
 const STRATEGY_INDICATOR_TYPES = new Set(['EMT', 'EAT']);
-const IND_TYPES = ['EMA', 'SMA', 'RSI', 'MACD', 'BB', 'ADX', 'ATR', 'VWAP', 'SuperTrend', 'EMT', 'EAT'];
+const MAIN_ONLY_INDICATOR_TYPES = new Set(['Volume', ...STRATEGY_INDICATOR_TYPES]);
+const IND_TYPES = ['EMA', 'SMA', 'Volume', 'RSI', 'MACD', 'BB', 'ADX', 'ATR', 'VWAP', 'SuperTrend', 'EMT', 'EAT'];
 const IND_PLACES = [
   ['main',   'Main'],
   ['lower1', 'Lower 1'],
@@ -2391,9 +2393,11 @@ const IND_PLACES = [
   ['lower4', 'Lower 4'],
 ];
 const LOWER_IDS = ['lower1', 'lower2', 'lower3', 'lower4'];
+const MIN_LOWER_PANE_HEIGHT = 60;
 const IND_TYPE_DEFAULTS = {
   EMA:        { period: 50, color: '#22d3ee', place: 'main' },
   SMA:        { period: 50, color: '#94a3b8', place: 'main' },
+  Volume:     { color: '#26a69a', downColor: '#ef5350', place: 'main' },
   RSI:        { period: 14, overbought: 70, oversold: 30, color: '#a78bfa', place: 'lower1' },
   MACD:       { period: 12, fast: 12, slow: 26, signal: 9, color: '#38bdf8', signalColor: '#f59e0b', histUpColor: '#26a69a66', histDownColor: '#ef535066', place: 'lower2' },
   BB:         { period: 20, mult: 2, color: '#f472b6', midColor: '#8b949e88', place: 'main' },
@@ -2456,6 +2460,9 @@ const IND_PARAM_DEFS = {
     { key: 'mult', label: 'Mult', min: 0.1, max: 10, step: 0.1, fallback: 3 },
     { key: 'downColor', label: 'Down', type: 'color', fallback: '#ef5350' },
   ],
+  Volume: [
+    { key: 'downColor', label: 'Down', type: 'color', fallback: '#ef5350' },
+  ],
   EMT: [
     { key: 'contracts', label: 'Contracts', min: 1, max: 100, fallback: 1 },
     { key: 'openingStart', label: 'Start PT', type: 'time', fallback: '06:30' },
@@ -2481,10 +2488,16 @@ const IND_PARAM_DEFS = {
   ],
 };
 const indicatorParamDefs = (type) => IND_PARAM_DEFS[type] || IND_PARAM_DEFS.EMA;
-const PRICE_OVERLAY_INDICATORS = new Set(['EMA', 'SMA', 'BB', 'VWAP', 'SuperTrend', 'EMT', 'EAT']);
+const PRICE_OVERLAY_INDICATORS = new Set(['EMA', 'SMA', 'Volume', 'BB', 'VWAP', 'SuperTrend', 'EMT', 'EAT']);
 const LOWER_BAND_INDICATORS = new Set(['RSI', 'MACD', 'ADX', 'ATR']);
-const indicatorPlaceOptions = (type) => STRATEGY_INDICATOR_TYPES.has(type) ? [['main', 'Main']] : IND_PLACES;
-const effectiveIndicatorPlace = (ind) => ind.place || 'main';
+const indicatorPlaceOptions = (type) => MAIN_ONLY_INDICATOR_TYPES.has(type) ? [['main', 'Main']] : IND_PLACES;
+const effectiveIndicatorPlace = (ind) => MAIN_ONLY_INDICATOR_TYPES.has(ind.type) ? 'main' : (ind.place || 'main');
+const chartColorWithAlpha = (color, fallback, alpha = '55') => {
+  const value = String(color || fallback);
+  if (/^#[0-9a-f]{8}$/i.test(value)) return value;
+  if (/^#[0-9a-f]{6}$/i.test(value)) return `${value}${alpha}`;
+  return `${fallback}${alpha}`;
+};
 const cloneIndicator = (ind) => ({ ...ind });
 const strategyDefaultVisible = (type, symbol) => (
   (type === 'EMT' && symbol === 'ES') || (type === 'EAT' && symbol === 'MNQ')
@@ -2807,7 +2820,9 @@ function ChartPanel({ defaultSymbol }) {
   const lowerContainerRefs = useR([null, null, null, null]);
   const chartRef      = useR(null);
   const lowerChartRefs = useR([null, null, null, null]);
-  const [lowerHeights, setLowerHeights] = useS([120, 120, 120, 120]);
+  const [lowerHeights, setLowerHeights] = useS(
+    () => Array(LOWER_IDS.length).fill(MIN_LOWER_PANE_HEIGHT)
+  );
   const [chartInitKey, setChartInitKey] = useS(0);  // bumped when a lazy lower chart is created
   const lowerRetryCountRef = useR(0);  // guards against infinite retry if lower chart creation fails
   const resizeDragRef = useR(null);
@@ -2919,12 +2934,13 @@ function ChartPanel({ defaultSymbol }) {
       priceFormat: { type: 'price', precision: 4, minMove: 0.0001 },
     });
 
-    // Volume in bottom 22% of the same pane
+    // Volume is a built-in indicator. It starts empty/hidden and is populated
+    // only when the user enables the Volume toggle.
     volRef.current = chart.addHistogramSeries({
       priceFormat: { type: 'volume' }, priceScaleId: 'vol',
     });
     chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.78, bottom: 0 } });
-    chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.05, bottom: 0.22 } });
+    chart.priceScale('right').applyOptions({ scaleMargins: { top: 0.05, bottom: 0.05 } });
 
     return () => {
       rObsRef.current?.disconnect();
@@ -3154,6 +3170,21 @@ function ChartPanel({ defaultSymbol }) {
   useE(() => {
     if (!chartRef.current || !candleRef.current) return;
 
+    const volumeIndicator = indicators.find(ind => ind.type === 'Volume');
+    const volumeVisible = !!volumeIndicator?.visible;
+    const volumeUpColor = chartColorWithAlpha(volumeIndicator?.color, '#26a69a');
+    const volumeDownColor = chartColorWithAlpha(volumeIndicator?.downColor, '#ef5350');
+    const mainBottomMargin = volumeVisible ? 0.22 : 0.05;
+
+    // Reclaim the volume area immediately when Volume is disabled, even when
+    // the current symbol has no bars yet.
+    try {
+      chartRef.current.priceScale('right').applyOptions({
+        scaleMargins: { top: 0.05, bottom: mainBottomMargin },
+      });
+      if (!volumeVisible) volRef.current?.setData([]);
+    } catch (_) {}
+
     // Live poll updated bars state — push the change directly to the series
     // with update() instead of setData() so zoom/scroll/indicators are preserved.
     if (isLiveUpdateRef.current) {
@@ -3174,10 +3205,12 @@ function ChartPanel({ defaultSymbol }) {
           } else {
             candleRef.current.update(lastBar);
           }
-          volRef.current?.update({
-            time: lastBar.time, value: lastBar.volume || 0,
-            color: lastBar.close >= lastBar.open ? '#26a69a55' : '#ef535055',
-          });
+          if (volumeVisible) {
+            volRef.current?.update({
+              time: lastBar.time, value: lastBar.volume || 0,
+              color: lastBar.close >= lastBar.open ? volumeUpColor : volumeDownColor,
+            });
+          }
         } catch (_) {}
         // If user was scrolled into history, undo the auto-scroll update() triggered
         if (!atRight && rangeNow) {
@@ -3232,7 +3265,11 @@ function ChartPanel({ defaultSymbol }) {
       }
       chartSeriesTypeRef.current = chartType;
       // Re-attach price scale margins after series recreation
-      try { chartRef.current.priceScale('right').applyOptions({ scaleMargins: { top: 0.05, bottom: 0.22 } }); } catch (_) {}
+      try {
+        chartRef.current.priceScale('right').applyOptions({
+          scaleMargins: { top: 0.05, bottom: mainBottomMargin },
+        });
+      } catch (_) {}
     }
 
     // Convert bars for display
@@ -3259,10 +3296,10 @@ function ChartPanel({ defaultSymbol }) {
     }
     catch(e) { console.warn('ChartPanel series setData failed:', e); }
 
-    volRef.current?.setData(cleanBars.map(b => ({
+    volRef.current?.setData(volumeVisible ? cleanBars.map(b => ({
       time: b.time, value: b.volume || 0,
-      color: b.close >= b.open ? '#26a69a55' : '#ef535055',
-    })));
+      color: b.close >= b.open ? volumeUpColor : volumeDownColor,
+    })) : []);
 
     indicatorSeriesRef.current.forEach(item => { try { item.chart.removeSeries(item.series); } catch (_) {} });
     indicatorSeriesRef.current = [];
@@ -3314,7 +3351,7 @@ function ChartPanel({ defaultSymbol }) {
 
     chartRef.current.priceScale('right').applyOptions({
       autoScale: true,
-      scaleMargins: { top: 0.05, bottom: 0.22 },
+      scaleMargins: { top: 0.05, bottom: mainBottomMargin },
     });
     [chartRef.current, ...lowerChartRefs.current].forEach((ch, idx) => {
       try {
@@ -3336,7 +3373,7 @@ function ChartPanel({ defaultSymbol }) {
 
     const stCrossovers = [];   // crossover markers collected from any SuperTrend indicator
 
-    indicators.filter(ind => ind.visible).forEach(ind => {
+    indicators.filter(ind => ind.visible && ind.type !== 'Volume').forEach(ind => {
       const period = Math.max(1, Number(ind.period) || 14);
       const place = panelForIndicator(ind);
       const color = ind.color || '#60a5fa';
@@ -4264,7 +4301,7 @@ function ChartPanel({ defaultSymbol }) {
       if (!lowerChartRefs.current[i]) {
         try {
           const w = c.offsetWidth  || 900;
-          const h = c.offsetHeight || lowerHeights[i] || 120;
+          const h = c.offsetHeight || lowerHeights[i] || MIN_LOWER_PANE_HEIGHT;
           const ch = LC.createChart(c, {
             width: w, height: h,
             layout: { background: { type: 'solid', color: '#0d1117' }, textColor: '#8b949e', fontSize: 11, attributionLogo: false },
@@ -4291,7 +4328,7 @@ function ChartPanel({ defaultSymbol }) {
       const ch = lowerChartRefs.current[i];
       if (ch) {
         const w = c.offsetWidth  || 900;
-        const h = c.offsetHeight || lowerHeights[i] || 120;
+        const h = c.offsetHeight || lowerHeights[i] || MIN_LOWER_PANE_HEIGHT;
         if (w > 0 && h > 0) try { ch.resize(w, h); } catch (_) {}
         try {
           const range = chartRef.current?.timeScale().getVisibleRange();
@@ -5119,7 +5156,7 @@ function ChartPanel({ defaultSymbol }) {
                   const delta = ev.clientY - startY;
                   setLowerHeights(prev => {
                     const next = [...prev];
-                    next[i] = Math.max(60, Math.min(400, startH - delta));
+                    next[i] = Math.max(MIN_LOWER_PANE_HEIGHT, Math.min(400, startH - delta));
                     return next;
                   });
                 };
