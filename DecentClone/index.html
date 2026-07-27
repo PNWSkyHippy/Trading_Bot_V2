@@ -754,7 +754,7 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -1499,6 +1499,9 @@
         const DEFAULT_WALL_TEXTURE_ID = 'rock060';
         const DEFAULT_RIB_COLOR = '#21c7c0';
         const DEFAULT_WALL_OPAQUE = true;
+        const ROOM_SOLID_TEXTURE_ID = '__solid__';
+        const DEFAULT_ROOM_FLOOR_COLOR = '#28323c';
+        const DEFAULT_ROOM_CEILING_COLOR = '#101722';
         const textureLibrary = {
             walls: [
                 {
@@ -1670,6 +1673,22 @@
                 seg.roomHeight = Math.max(
                     MAP_ROOM_MIN_DIMENSION,
                     Math.min(MAP_ROOM_MAX_DIMENSION, Number(seg.roomHeight) || (seg.radius || builder.radius) * 2)
+                );
+                seg.roomFloorTextureId = storedTextureId(
+                    seg.roomFloorTextureId,
+                    ROOM_SOLID_TEXTURE_ID
+                );
+                seg.roomCeilingTextureId = storedTextureId(
+                    seg.roomCeilingTextureId,
+                    ROOM_SOLID_TEXTURE_ID
+                );
+                seg.roomFloorColor = normalizeHexColor(
+                    seg.roomFloorColor,
+                    DEFAULT_ROOM_FLOOR_COLOR
+                );
+                seg.roomCeilingColor = normalizeHexColor(
+                    seg.roomCeilingColor,
+                    DEFAULT_ROOM_CEILING_COLOR
                 );
             }
             return seg;
@@ -2528,10 +2547,10 @@
             return mesh;
         }
 
-        function buildRectRoomGpuMesh(seg) {
+        function buildRectRoomGpuMesh(seg, surface = 'walls') {
             const key =
                 `${TUNNEL_WEBGL_MESH_CACHE_VERSION}|rectRoom|` +
-                `${seg.capStart ? 1 : 0}|${seg.capEnd ? 1 : 0}`;
+                `${surface}|${seg.capStart ? 1 : 0}|${seg.capEnd ? 1 : 0}`;
             if (tunnelWebGL.meshCache.has(key)) return tunnelWebGL.meshCache.get(key);
 
             const vertices = [];
@@ -2544,15 +2563,19 @@
                 indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
             };
 
-            addFace([-0.5, -0.5, 0], [-0.5, -0.5, 1], [-0.5, 0.5, 1], [-0.5, 0.5, 0]);
-            addFace([0.5, 0.5, 0], [0.5, 0.5, 1], [0.5, -0.5, 1], [0.5, -0.5, 0]);
-            addFace([0.5, -0.5, 0], [0.5, -0.5, 1], [-0.5, -0.5, 1], [-0.5, -0.5, 0]);
-            addFace([-0.5, 0.5, 0], [-0.5, 0.5, 1], [0.5, 0.5, 1], [0.5, 0.5, 0]);
-            if (seg.capStart) {
-                addFace([0.5, -0.5, 0], [-0.5, -0.5, 0], [-0.5, 0.5, 0], [0.5, 0.5, 0]);
-            }
-            if (seg.capEnd) {
-                addFace([-0.5, -0.5, 1], [0.5, -0.5, 1], [0.5, 0.5, 1], [-0.5, 0.5, 1]);
+            if (surface === 'floor') {
+                addFace([-0.5, 0.5, 0], [-0.5, 0.5, 1], [0.5, 0.5, 1], [0.5, 0.5, 0]);
+            } else if (surface === 'ceiling') {
+                addFace([0.5, -0.5, 0], [0.5, -0.5, 1], [-0.5, -0.5, 1], [-0.5, -0.5, 0]);
+            } else {
+                addFace([-0.5, -0.5, 0], [-0.5, -0.5, 1], [-0.5, 0.5, 1], [-0.5, 0.5, 0]);
+                addFace([0.5, 0.5, 0], [0.5, 0.5, 1], [0.5, -0.5, 1], [0.5, -0.5, 0]);
+                if (seg.capStart) {
+                    addFace([0.5, -0.5, 0], [-0.5, -0.5, 0], [-0.5, 0.5, 0], [0.5, 0.5, 0]);
+                }
+                if (seg.capEnd) {
+                    addFace([-0.5, -0.5, 1], [0.5, -0.5, 1], [0.5, 0.5, 1], [-0.5, 0.5, 1]);
+                }
             }
 
             const gl = tunnelWebGL.gl;
@@ -2704,6 +2727,63 @@
                 image.src = entry.path;
             }
             return placeholder;
+        }
+
+        function getWebGLSolidColorTexture(color) {
+            const gl = tunnelWebGL.gl;
+            if (!gl) return tunnelWebGL.texture;
+            const normalized = normalizeHexColor(color, '#202832');
+            const cacheKey = `solid:${normalized}`;
+            const cached = tunnelWebGL.textureCache.get(cacheKey);
+            if (cached) return cached;
+
+            const rgb = normalized.match(/[a-f0-9]{2}/gi).map(value => parseInt(value, 16));
+            const texture = gl.createTexture();
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.texImage2D(
+                gl.TEXTURE_2D,
+                0,
+                gl.RGBA,
+                1,
+                1,
+                0,
+                gl.RGBA,
+                gl.UNSIGNED_BYTE,
+                new Uint8Array([rgb[0], rgb[1], rgb[2], 255])
+            );
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+            gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+            tunnelWebGL.textureCache.set(cacheKey, texture);
+            return texture;
+        }
+
+        function rectRoomSurfaceTexture(seg, surface) {
+            if (surface === 'walls') {
+                const entry = getWallTextureEntry(seg?.wallTextureId);
+                return {
+                    entry,
+                    texture: getWebGLTextureForSegment(seg, entry)
+                };
+            }
+            const textureId = surface === 'floor'
+                ? storedTextureId(seg?.roomFloorTextureId, ROOM_SOLID_TEXTURE_ID)
+                : storedTextureId(seg?.roomCeilingTextureId, ROOM_SOLID_TEXTURE_ID);
+            const color = surface === 'floor'
+                ? normalizeHexColor(seg?.roomFloorColor, DEFAULT_ROOM_FLOOR_COLOR)
+                : normalizeHexColor(seg?.roomCeilingColor, DEFAULT_ROOM_CEILING_COLOR);
+            if (textureId === ROOM_SOLID_TEXTURE_ID) {
+                return {
+                    entry: null,
+                    texture: getWebGLSolidColorTexture(color)
+                };
+            }
+            const entry = getWallTextureEntry(textureId);
+            return {
+                entry,
+                texture: getWebGLTextureForSegment(seg, entry)
+            };
         }
 
         function configureWebGLDoorFrameTexture(texture, image) {
@@ -2984,11 +3064,6 @@
                 const tubularSegs = webglBucketTubularSegments(span);
                 const rectRoom = segmentIsRectRoom(seg);
                 const chamber = segmentIsChamber(seg);
-                const mesh = rectRoom
-                    ? buildRectRoomGpuMesh(seg)
-                    : chamber
-                        ? buildChamberSphereGpuMesh(seg, TUNNEL_WEBGL_RADIAL_SEGMENTS * 2, Math.max(18, tubularSegs), index)
-                        : buildCylinderGpuMesh(span, TUNNEL_WEBGL_RADIAL_SEGMENTS, tubularSegs * 3);
                 const model = rectRoom
                     ? mat4RectRoomModel(seg, tunnelWebGL.modelScratch)
                     : chamber
@@ -2996,6 +3071,50 @@
                         : mat4SegmentModel(seg, zStart, span, radius, tunnelWebGL.modelScratch);
                 gl.uniformMatrix4fv(tunnelWebGL.uModel, false, model);
                 gl.uniform1f(tunnelWebGL.uAlpha, segmentWallAlpha(seg, 1));
+                if (rectRoom) {
+                    for (const surface of ['walls', 'ceiling', 'floor']) {
+                        const surfaceTexture = rectRoomSurfaceTexture(seg, surface);
+                        const sectionMapping = textureUsesSectionMapping(surfaceTexture.entry);
+                        gl.uniform2f(
+                            tunnelWebGL.uTileScale,
+                            sectionMapping ? 1 : TUNNEL_WEBGL_TILE_U,
+                            sectionMapping ? 1 : TUNNEL_WEBGL_TILE_V
+                        );
+                        gl.uniform1f(
+                            tunnelWebGL.uOffset,
+                            sectionMapping || !surfaceTexture.entry ? 0 : tunnelWebGL.scroll
+                        );
+                        if (surfaceTexture.texture !== activeTexture) {
+                            gl.bindTexture(
+                                gl.TEXTURE_2D,
+                                surfaceTexture.texture || tunnelWebGL.texture
+                            );
+                            activeTexture = surfaceTexture.texture;
+                        }
+                        const surfaceMesh = buildRectRoomGpuMesh(seg, surface);
+                        bindCylinderGpuMesh(surfaceMesh);
+                        gl.drawElements(
+                            gl.TRIANGLES,
+                            surfaceMesh.indexCount,
+                            gl.UNSIGNED_SHORT,
+                            0
+                        );
+                        tunnelWebGL.lastDrawCount += 1;
+                    }
+                    continue;
+                }
+                const mesh = chamber
+                    ? buildChamberSphereGpuMesh(
+                        seg,
+                        TUNNEL_WEBGL_RADIAL_SEGMENTS * 2,
+                        Math.max(18, tubularSegs),
+                        index
+                    )
+                    : buildCylinderGpuMesh(
+                        span,
+                        TUNNEL_WEBGL_RADIAL_SEGMENTS,
+                        tubularSegs * 3
+                    );
                 const textureEntry = getWallTextureEntry(seg?.wallTextureId);
                 const sectionMapping = textureUsesSectionMapping(textureEntry);
                 gl.uniform2f(
@@ -8191,7 +8310,19 @@
                     chamber: !!seg.chamber,
                     rectRoom: !!seg.rectRoom,
                     roomWidth: Number(seg.roomWidth) || undefined,
-                    roomHeight: Number(seg.roomHeight) || undefined
+                    roomHeight: Number(seg.roomHeight) || undefined,
+                    roomFloorTextureId: seg.rectRoom
+                        ? storedTextureId(seg.roomFloorTextureId, ROOM_SOLID_TEXTURE_ID)
+                        : undefined,
+                    roomCeilingTextureId: seg.rectRoom
+                        ? storedTextureId(seg.roomCeilingTextureId, ROOM_SOLID_TEXTURE_ID)
+                        : undefined,
+                    roomFloorColor: seg.rectRoom
+                        ? normalizeHexColor(seg.roomFloorColor, DEFAULT_ROOM_FLOOR_COLOR)
+                        : undefined,
+                    roomCeilingColor: seg.rectRoom
+                        ? normalizeHexColor(seg.roomCeilingColor, DEFAULT_ROOM_CEILING_COLOR)
+                        : undefined
                 })),
                 portals: builder.portals.map(portal => ({
                     id: portal.id,
@@ -13365,7 +13496,7 @@
             return true;
         }
 
-        function replaceSelectedSegmentsWithRectRoom(indices, dimensions, caps = {}) {
+        function replaceSelectedSegmentsWithRectRoom(indices, dimensions, caps = {}, surfaces = {}) {
             const selected = new Set(indices);
             const ordered = Array.isArray(mapMouse.selectionPath)
                 ? mapMouse.selectionPath.filter(index => selected.has(index))
@@ -13430,6 +13561,22 @@
             room.capStart = caps.start !== false;
             room.capEnd = caps.end !== false;
             room.wallTextureId = firstSeg.wallTextureId || defaultWallTextureId;
+            room.roomFloorTextureId = storedTextureId(
+                surfaces.floorTextureId,
+                ROOM_SOLID_TEXTURE_ID
+            );
+            room.roomCeilingTextureId = storedTextureId(
+                surfaces.ceilingTextureId,
+                ROOM_SOLID_TEXTURE_ID
+            );
+            room.roomFloorColor = normalizeHexColor(
+                surfaces.floorColor,
+                DEFAULT_ROOM_FLOOR_COLOR
+            );
+            room.roomCeilingColor = normalizeHexColor(
+                surfaces.ceilingColor,
+                DEFAULT_ROOM_CEILING_COLOR
+            );
             room.entranceFrameId = firstSeg.entranceFrameId || '';
             room.entranceFrameEnd = firstSeg.entranceFrameEnd === 'end' ? 'end' : 'start';
             room.ribColor = firstSeg.ribColor || defaultRibColor;
@@ -13757,6 +13904,58 @@
                 existingRoom?.roomHeight || currentRadius * 2
             ));
 
+            const makeRoomSurfaceSelect = (currentId) => {
+                const select = document.createElement('select');
+                const solidOption = document.createElement('option');
+                solidOption.value = ROOM_SOLID_TEXTURE_ID;
+                solidOption.textContent = 'Solid color';
+                select.appendChild(solidOption);
+                for (const entry of textureLibrary.walls) {
+                    const option = document.createElement('option');
+                    option.value = entry.id;
+                    option.textContent = entry.label;
+                    select.appendChild(option);
+                }
+                const storedId = storedTextureId(currentId, ROOM_SOLID_TEXTURE_ID);
+                if (
+                    storedId !== ROOM_SOLID_TEXTURE_ID &&
+                    !textureLibrary.walls.some(entry => entry.id === storedId)
+                ) {
+                    const missingOption = document.createElement('option');
+                    missingOption.value = storedId;
+                    missingOption.textContent = `Stored texture: ${storedId}`;
+                    select.appendChild(missingOption);
+                }
+                select.value = storedId;
+                return select;
+            };
+            const floorTextureLabel = document.createElement('label');
+            floorTextureLabel.textContent = 'Floor material';
+            const floorTextureSelect = makeRoomSurfaceSelect(
+                existingRoom?.roomFloorTextureId
+            );
+            const floorColorLabel = document.createElement('label');
+            floorColorLabel.textContent = 'Floor solid color';
+            const floorColorInput = document.createElement('input');
+            floorColorInput.type = 'color';
+            floorColorInput.value = normalizeHexColor(
+                existingRoom?.roomFloorColor,
+                DEFAULT_ROOM_FLOOR_COLOR
+            );
+            const ceilingTextureLabel = document.createElement('label');
+            ceilingTextureLabel.textContent = 'Ceiling material';
+            const ceilingTextureSelect = makeRoomSurfaceSelect(
+                existingRoom?.roomCeilingTextureId
+            );
+            const ceilingColorLabel = document.createElement('label');
+            ceilingColorLabel.textContent = 'Ceiling solid color';
+            const ceilingColorInput = document.createElement('input');
+            ceilingColorInput.type = 'color';
+            ceilingColorInput.value = normalizeHexColor(
+                existingRoom?.roomCeilingColor,
+                DEFAULT_ROOM_CEILING_COLOR
+            );
+
             roomGrid.append(
                 roomTitle,
                 roomWidthLabel,
@@ -13764,7 +13963,15 @@
                 roomLengthLabel,
                 roomLengthInput,
                 roomHeightLabel,
-                roomHeightInput
+                roomHeightInput,
+                floorTextureLabel,
+                floorTextureSelect,
+                floorColorLabel,
+                floorColorInput,
+                ceilingTextureLabel,
+                ceilingTextureSelect,
+                ceilingColorLabel,
+                ceilingColorInput
             );
             joinEditDialog.appendChild(roomGrid);
 
@@ -13864,7 +14071,13 @@
                 if (replaceSelectedSegmentsWithRectRoom(
                     indices,
                     { width, length, height },
-                    { start: roomCapStartCheck.checked, end: roomCapEndCheck.checked }
+                    { start: roomCapStartCheck.checked, end: roomCapEndCheck.checked },
+                    {
+                        floorTextureId: floorTextureSelect.value,
+                        ceilingTextureId: ceilingTextureSelect.value,
+                        floorColor: floorColorInput.value,
+                        ceilingColor: ceilingColorInput.value
+                    }
                 )) {
                     closeJoinEditDialog();
                 } else {
@@ -13905,6 +14118,30 @@
                     seg.wallOpaque = wallOpaque;
                     if (!mixedCapStart || capStartTouched) seg.capStart = capStart;
                     if (!mixedCapEnd || capEndTouched) seg.capEnd = capEnd;
+                    if (segmentIsRectRoom(seg)) {
+                        seg.roomFloorTextureId = floorTextureSelect.value === ROOM_SOLID_TEXTURE_ID
+                            ? ROOM_SOLID_TEXTURE_ID
+                            : sanitizeTextureId(
+                                floorTextureSelect.value,
+                                'walls',
+                                ROOM_SOLID_TEXTURE_ID
+                            );
+                        seg.roomCeilingTextureId = ceilingTextureSelect.value === ROOM_SOLID_TEXTURE_ID
+                            ? ROOM_SOLID_TEXTURE_ID
+                            : sanitizeTextureId(
+                                ceilingTextureSelect.value,
+                                'walls',
+                                ROOM_SOLID_TEXTURE_ID
+                            );
+                        seg.roomFloorColor = normalizeHexColor(
+                            floorColorInput.value,
+                            DEFAULT_ROOM_FLOOR_COLOR
+                        );
+                        seg.roomCeilingColor = normalizeHexColor(
+                            ceilingColorInput.value,
+                            DEFAULT_ROOM_CEILING_COLOR
+                        );
+                    }
                     normalizeSegmentRadius(seg, radius);
                 }
                 if (defaultCheck.checked) {
@@ -13945,7 +14182,11 @@
                 radiusInput,
                 roomWidthInput,
                 roomLengthInput,
-                roomHeightInput
+                roomHeightInput,
+                floorTextureSelect,
+                floorColorInput,
+                ceilingTextureSelect,
+                ceilingColorInput
             );
             return true;
         }
@@ -18376,51 +18617,97 @@
             return points;
         }
 
-        function buildRectRoomWallPanels(seg, includeCaps = true) {
+        function buildRectRoomSurfacePanels(seg, includeCaps = true) {
             const c = rectRoomCorners(seg);
             const panels = [
-                [
-                    c['start-left-top'],
-                    c['end-left-top'],
-                    c['end-left-bottom'],
-                    c['start-left-bottom']
-                ],
-                [
-                    c['start-right-bottom'],
-                    c['end-right-bottom'],
-                    c['end-right-top'],
-                    c['start-right-top']
-                ],
-                [
-                    c['start-right-top'],
-                    c['end-right-top'],
-                    c['end-left-top'],
-                    c['start-left-top']
-                ],
-                [
-                    c['start-left-bottom'],
-                    c['end-left-bottom'],
-                    c['end-right-bottom'],
-                    c['start-right-bottom']
-                ]
+                {
+                    surface: 'walls',
+                    points: [
+                        c['start-left-top'],
+                        c['end-left-top'],
+                        c['end-left-bottom'],
+                        c['start-left-bottom']
+                    ]
+                },
+                {
+                    surface: 'walls',
+                    points: [
+                        c['start-right-bottom'],
+                        c['end-right-bottom'],
+                        c['end-right-top'],
+                        c['start-right-top']
+                    ]
+                },
+                {
+                    surface: 'ceiling',
+                    points: [
+                        c['start-right-top'],
+                        c['end-right-top'],
+                        c['end-left-top'],
+                        c['start-left-top']
+                    ]
+                },
+                {
+                    surface: 'floor',
+                    points: [
+                        c['start-left-bottom'],
+                        c['end-left-bottom'],
+                        c['end-right-bottom'],
+                        c['start-right-bottom']
+                    ]
+                }
             ];
             if (includeCaps && seg.capStart) {
-                panels.push([
-                    c['start-right-top'],
-                    c['start-left-top'],
-                    c['start-left-bottom'],
-                    c['start-right-bottom']
-                ]);
+                panels.push({
+                    surface: 'walls',
+                    points: [
+                        c['start-right-top'],
+                        c['start-left-top'],
+                        c['start-left-bottom'],
+                        c['start-right-bottom']
+                    ]
+                });
             }
             if (includeCaps && seg.capEnd) {
-                panels.push([
-                    c['end-left-top'],
-                    c['end-right-top'],
-                    c['end-right-bottom'],
-                    c['end-left-bottom']
-                ]);
+                panels.push({
+                    surface: 'walls',
+                    points: [
+                        c['end-left-top'],
+                        c['end-right-top'],
+                        c['end-right-bottom'],
+                        c['end-left-bottom']
+                    ]
+                });
             }
             return panels;
+        }
+
+        function rectRoomVectorSurfaceFill(seg, surface, palette = 'main') {
+            if (surface === 'floor' &&
+                storedTextureId(seg?.roomFloorTextureId, ROOM_SOLID_TEXTURE_ID) === ROOM_SOLID_TEXTURE_ID) {
+                return normalizeHexColor(seg?.roomFloorColor, DEFAULT_ROOM_FLOOR_COLOR);
+            }
+            if (surface === 'ceiling' &&
+                storedTextureId(seg?.roomCeilingTextureId, ROOM_SOLID_TEXTURE_ID) === ROOM_SOLID_TEXTURE_ID) {
+                return normalizeHexColor(seg?.roomCeilingColor, DEFAULT_ROOM_CEILING_COLOR);
+            }
+            return vectorStyleBaseFill(palette);
+        }
+
+        function rectRoomSurfaceUsesSolidColor(seg, surface) {
+            if (surface === 'floor') {
+                return storedTextureId(
+                    seg?.roomFloorTextureId,
+                    ROOM_SOLID_TEXTURE_ID
+                ) === ROOM_SOLID_TEXTURE_ID;
+            }
+            if (surface === 'ceiling') {
+                return storedTextureId(
+                    seg?.roomCeilingTextureId,
+                    ROOM_SOLID_TEXTURE_ID
+                ) === ROOM_SOLID_TEXTURE_ID;
+            }
+            return false;
         }
 
         function chamberProfileRadius(seg, localZ, overlap = 1) {
@@ -19413,7 +19700,7 @@
             const seedY = textureHash(alongWall, panelSide) * 17.3 + worldCenter.y * 0.019 + scrollV * 0.55;
             const seedZ = alongWall * 1.63 + Math.sin(panelAngle) * 0.27 + scrollV * 1.15;
 
-            const baseFill = vectorStyleBaseFill(palette, style);
+            const baseFill = options.fillColor || vectorStyleBaseFill(palette, style);
             const streakDark = style === 'metal'
                 ? '#2a2d32'
                 : (palette === 'branch' ? '#1e2820' : '#1a1814');
@@ -19876,7 +20163,13 @@
 
                 if (isVector) {
                     if (segmentIsRectRoom(seg)) {
-                        for (const roomPanel of buildRectRoomWallPanels(seg, true)) {
+                        for (const roomSurface of buildRectRoomSurfacePanels(seg, true)) {
+                            const roomPanel = roomSurface.points;
+                            const surfaceFill = rectRoomVectorSurfaceFill(
+                                seg,
+                                roomSurface.surface,
+                                palette
+                            );
                             coverageJobs.push({
                                 avgZ: panelAvgCameraZ(roomPanel),
                                 draw: () => {
@@ -19892,14 +20185,15 @@
                                             panelSide: 0,
                                             panelSides: 4,
                                             solidFillOnly: true,
-                                            forceDraw: true
+                                            forceDraw: true,
+                                            fillColor: surfaceFill
                                         }
                                     );
                                     if (!drew) {
                                         fillSolidTunnelCap(roomPanel, centerX, centerY, fov, seg, {
                                             allowPartial: true,
                                             forceDraw: true,
-                                            fillColor: vectorStyleBaseFill(palette)
+                                            fillColor: surfaceFill
                                         });
                                     }
                                 }
@@ -19986,8 +20280,33 @@
                 };
 
                 if (segmentIsRectRoom(seg)) {
-                    for (const roomPanel of buildRectRoomWallPanels(seg, true)) {
-                        queuePanel(roomPanel, 0);
+                    for (const roomSurface of buildRectRoomSurfacePanels(seg, true)) {
+                        if (rectRoomSurfaceUsesSolidColor(seg, roomSurface.surface)) {
+                            const surfaceFill = rectRoomVectorSurfaceFill(
+                                seg,
+                                roomSurface.surface,
+                                palette
+                            );
+                            drawJobs.push({
+                                avgZ: panelAvgCameraZ(roomSurface.points),
+                                draw: () => {
+                                    fillSolidTunnelCap(
+                                        roomSurface.points,
+                                        centerX,
+                                        centerY,
+                                        fov,
+                                        seg,
+                                        {
+                                            ...panelOptionsBase,
+                                            forceDraw: true,
+                                            fillColor: surfaceFill
+                                        }
+                                    );
+                                }
+                            });
+                        } else {
+                            queuePanel(roomSurface.points, 0);
+                        }
                     }
                     continue;
                 }
