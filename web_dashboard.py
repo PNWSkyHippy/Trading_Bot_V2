@@ -2831,33 +2831,39 @@ def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
     except Exception:
         limit = 300
 
-    # Futures: Tradovate real-time feed (if token active) → IBKR → yfinance
+    # Futures: symbols the NinjaTrader scanner tracks (its "bars" cache has an
+    # entry for them) are served exclusively from that cache — they must never
+    # poll Tradovate, IBKR, or yfinance, regardless of the toolbar broker
+    # choice or whether a strategy engine is actively enabled for them.
+    # External futures fallbacks can silently return wrong-instrument data
+    # (e.g. raw "ES"/"MET" collide with the Eversource/MetLife stock tickers
+    # on yfinance), which blocked real futures data from ever showing.
+    # Symbols the scanner doesn't track at all (CL, NG, ZC, etc.) have no
+    # cache entry and fall through to the external chain below.
     if is_futures:
-        # When EMT or EAT is enabled for this futures symbol, show the exact
-        # Ninja cache being evaluated by that strategy.
         strategy_snap = _scanner_snapshot()
-        emt_state = (strategy_snap.get("emt_strategies") or {}).get(symbol) or {}
-        eat_state = (strategy_snap.get("eat_strategies") or {}).get(symbol) or {}
-        strategy_active = bool(emt_state.get("enabled") or eat_state.get("enabled"))
-        if strategy_active and broker not in ("ibkr", "yfinance"):
+        scanner_tracks_symbol = bool(
+            strategy_snap.get("ok") and symbol in (strategy_snap.get("bars") or {})
+        )
+        if scanner_tracks_symbol:
+            emt_state = (strategy_snap.get("emt_strategies") or {}).get(symbol) or {}
+            emt_overlay = (strategy_snap.get("emt_overlays") or {}).get(symbol) or {}
             ninja_bars = _scanner_bars_for_chart(
                 symbol, timeframe, limit, snapshot=strategy_snap
             )
-            minimum = int(os.environ.get("WEB_DASHBOARD_MIN_NINJA_CHART_BARS", "20"))
-            if len(ninja_bars) >= minimum:
-                emt_overlay = (strategy_snap.get("emt_overlays") or {}).get(symbol) or {}
-                uses_ticks = bool(
-                    emt_state.get("enabled") and emt_overlay.get("tick_bars_data")
-                )
-                return {
-                    "bars": ninja_bars,
-                    "markers": _trade_markers_for_symbol(symbol),
-                    "open_positions": _chart_open_positions_for_symbol(symbol),
-                    "symbol": symbol,
-                    "timeframe": timeframe,
-                    "source": "ninja_strategy_cache",
-                    "feed_label": "EMT 610-tick" if uses_ticks else "Ninja 1-minute",
-                }
+            uses_ticks = bool(
+                emt_state.get("enabled") and emt_overlay.get("tick_bars_data")
+            )
+            return {
+                "bars": ninja_bars,
+                "markers": _trade_markers_for_symbol(symbol),
+                "open_positions": _chart_open_positions_for_symbol(symbol),
+                "symbol": symbol,
+                "timeframe": timeframe,
+                "source": "ninja_strategy_cache",
+                "feed_label": "EMT 610-tick" if uses_ticks else "Ninja 1-minute",
+            }
+        # Non-scanner-tracked futures: Tradovate real-time feed (if token active) → IBKR → yfinance
         # Try Tradovate WebSocket cache first (real-time, ~0 delay).
         # Always attempted unless user explicitly chose ibkr or yfinance in the toolbar.
         force_yfinance  = broker == 'yfinance'
