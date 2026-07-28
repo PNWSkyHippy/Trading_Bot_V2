@@ -150,9 +150,6 @@ KRAKEN_STOP_RESTORE_BASE_RETRY_SEC = int(
 KRAKEN_STOP_RESTORE_MAX_RETRY_SEC = int(
     getattr(config, "KRAKEN_STOP_RESTORE_MAX_RETRY_SEC", 15 * 60)
 )
-KRAKEN_PARTIAL_ZERO_RETRY_SEC = int(
-    getattr(config, "KRAKEN_PARTIAL_ZERO_RETRY_SEC", 60)
-)
 
 
 def _is_breakout_trade(trade: dict) -> bool:
@@ -165,6 +162,16 @@ def _is_breakout_trade(trade: dict) -> bool:
             meta.get("strategy_name") in scanner_strategies
             or meta.get("signal_source") in scanner_strategies
         )
+    except Exception:
+        return False
+
+
+def _is_externally_managed_future(trade: dict) -> bool:
+    if trade.get("asset_class") == "future" or trade.get("strategy_name") == "emt":
+        return True
+    try:
+        meta = _json.loads(trade.get("indicators_json") or "{}")
+        return meta.get("strategy_name") == "emt" or meta.get("signal_source") == "emt"
     except Exception:
         return False
 
@@ -346,97 +353,10 @@ class PositionMonitor:
         except Exception as e:
             logger.debug(f"MFE/MAE update failed for {trade.get('symbol')}: {e}")
 
-    def _set_scanner_partial_reconcile_hold(
-        self, trade: Dict, reason: str, details: Optional[Dict] = None
-    ) -> None:
-        trade_id = trade["trade_id"]
-        symbol = trade["symbol"]
-        marker = {
-            "required": True,
-            "trade_id": trade_id,
-            "symbol": symbol,
-            "reason": reason,
-            "details": details or {},
-            "timestamp": datetime.now(timezone.utc).isoformat(),
-        }
-        try:
-            self._db.set_state(
-                f"kraken_partial_reconcile_{trade_id}", marker
-            )
-        except Exception as exc:
-            logger.critical(
-                f"[KRAKEN PARTIAL HOLD] {symbol}: marker persistence "
-                f"failed ({exc})"
-            )
-        logger.critical(f"[KRAKEN PARTIAL HOLD] {symbol}: {reason}")
-        try:
-            risk_manager.manual_halt(
-                f"Kraken scanner partial unresolved for {symbol}: {reason}"
-            )
-        except Exception as exc:
-            logger.critical(
-                f"[KRAKEN PARTIAL HOLD] {symbol}: risk halt failed ({exc})"
-            )
-
-    def _refresh_scanner_partial_stop(
-        self, trade: Dict, trade_id: str
-    ) -> bool:
-        """Protect the confirmed residual after partial-close order cancellation."""
-        symbol = trade["symbol"]
-        old_stop_id = str(trade.get("stop_order_id") or "")
-        try:
-            stop_loss = round(float(trade.get("stop_loss") or 0), 6)
-            qty = float(trade.get("quantity") or 0)
-        except (TypeError, ValueError):
-            stop_loss = 0
-            qty = 0
-        if stop_loss <= 0 or qty <= 0:
-            self._set_scanner_partial_reconcile_hold(
-                trade,
-                "confirmed residual cannot be protected: invalid stop or quantity",
-                {"stop_loss": stop_loss, "quantity": qty},
-            )
-            return False
-
-        try:
-            leverage = int(
-                _json.loads(trade.get("indicators_json") or "{}").get(
-                    "kraken_leverage", 0
-                )
-            )
-            stop_id = self._get_executor().kraken.place_stop_order(
-                symbol,
-                qty,
-                _scanner_stop_side(trade["direction"]),
-                stop_loss,
-                leverage=leverage,
-            )
-            if stop_id:
-                self._db.update_trade_order_ids(
-                    trade_id, stop_order_id=stop_id
-                )
-                trade["stop_order_id"] = stop_id
-                self._db.set_state(
-                    f"kraken_stop_unprotected_{trade_id}", 0
-                )
-                return True
-            failure = "Kraken returned no replacement stop ID"
-        except Exception as exc:
-            failure = str(exc)
-
-        self._mark_kraken_stop_unprotected(
-            trade, trade_id, symbol, old_stop_id, stop_loss
-        )
-        logger.error(
-            f"[SCANNER PARTIAL] {symbol}: residual stop refresh failed "
-            f"({failure}); existing restore/backoff path activated"
-        )
-        return False
-
     def _maybe_take_scanner_partial(
         self, trade: Dict, current_price: float, pnl_pct: float
     ) -> bool:
-        """Bank one confirmed scanner partial and protect its residual."""
+        """Bank one partial profit on scanner trades, then let the rest trail."""
         if not getattr(config, "BREAKOUT_PARTIAL_TP_ENABLED", True):
             return False
         if not _is_breakout_trade(trade):
@@ -447,20 +367,7 @@ class PositionMonitor:
             return False
 
         trade_id = trade["trade_id"]
-        reconcile_hold = self._db.get_state(
-            f"kraken_partial_reconcile_{trade_id}", default=0
-        )
-        if reconcile_hold:
-            return False
         if int(self._db.get_state(f"scanner_partial_taken_{trade_id}", default=0) or 0):
-            return False
-        retry_after = float(
-            self._db.get_state(
-                f"scanner_partial_retry_after_{trade_id}", default=0
-            )
-            or 0
-        )
-        if retry_after > time.time():
             return False
 
         trigger = float(getattr(config, "BREAKOUT_PARTIAL_TP_TRIGGER_PCT", 1.5))
@@ -468,78 +375,38 @@ class PositionMonitor:
         if pnl_pct < trigger:
             return False
 
-        outcome = self._get_executor().close_partial_trade(
+        success = self._get_executor().close_partial_trade(
             trade, current_price, fraction, "scanner_partial_tp"
         )
-        if outcome.reconciliation_required:
+        if not success:
             return False
 
-        if outcome.full_fill:
-            try:
-                self._record_close_in_db(
-                    trade,
-                    outcome.fill_price,
-                    "scanner_partial_confirmed_full_fill",
-                )
-                trade["status"] = "closed"
-                self._db.set_state(
-                    f"scanner_partial_taken_{trade_id}", 1
-                )
-                self._db.set_state(
-                    f"kraken_full_reconcile_{trade_id}", 0
-                )
-                logger.warning(
-                    f"[SCANNER PARTIAL FULL] {trade['symbol']}: broker "
-                    f"confirmed the tracked position fully closed"
-                )
-            except Exception as exc:
-                try:
-                    self._db.set_state(
-                        f"kraken_full_reconcile_{trade_id}",
-                        {
-                            "required": True,
-                            "trade_id": trade_id,
-                            "symbol": trade["symbol"],
-                            "broker_order_id": outcome.broker_order_id,
-                            "confirmed_fill_qty": outcome.filled_qty,
-                            "confirmed_fill_price": outcome.fill_price,
-                            "reason": f"DB full-close reconciliation failed: {exc}",
-                            "timestamp": datetime.now(timezone.utc).isoformat(),
-                        },
-                    )
-                finally:
-                    self._set_scanner_partial_reconcile_hold(
-                        trade,
-                        "confirmed full broker fill could not be recorded",
-                        {"error": str(exc)},
-                    )
-            return True
+        self._db.set_state(f"scanner_partial_taken_{trade_id}", 1)
+        logger.info(
+            f"[SCANNER PARTIAL] {trade['symbol']}: banked {fraction:.0%} at "
+            f"{pnl_pct:+.2f}% | remaining position will keep trailing"
+        )
 
-        if not outcome:
-            if outcome.stop_refresh_required:
-                self._refresh_scanner_partial_stop(trade, trade_id)
-            if outcome.retryable:
-                self._db.set_state(
-                    f"scanner_partial_retry_after_{trade_id}",
-                    time.time() + KRAKEN_PARTIAL_ZERO_RETRY_SEC,
+        # Partial close cancels/replaces exchange-side orders on Kraken. Re-place
+        # a protective stop for the remaining reduced size at the current DB stop.
+        try:
+            stop_loss = float(trade.get("stop_loss") or 0)
+            qty = float(trade.get("quantity") or 0)
+            if stop_loss > 0 and qty > 0:
+                _leverage = int(
+                    _json.loads(trade.get("indicators_json") or "{}").get("kraken_leverage", 0)
                 )
-            return False
-
-        stop_persisted = self._refresh_scanner_partial_stop(trade, trade_id)
-        if stop_persisted:
-            self._db.set_state(f"scanner_partial_taken_{trade_id}", 1)
-            self._db.set_state(
-                f"scanner_partial_retry_after_{trade_id}", 0
-            )
-            logger.info(
-                f"[SCANNER PARTIAL] {trade['symbol']}: confirmed "
-                f"{outcome.filled_qty:.8f} closed at {pnl_pct:+.2f}% | "
-                "residual stop persisted"
-            )
-        else:
+                stop_id = self._get_executor().kraken.place_stop_order(
+                    trade["symbol"], qty, _scanner_stop_side(trade["direction"]),
+                    round(stop_loss, 6), leverage=_leverage
+                )
+                if stop_id:
+                    self._db.update_trade_order_ids(trade_id, stop_order_id=stop_id)
+                    trade["stop_order_id"] = stop_id
+        except Exception as e:
             logger.warning(
-                f"[SCANNER PARTIAL] {trade['symbol']}: fill was confirmed "
-                "but scanner marker deferred until residual stop is restored"
+                f"[SCANNER PARTIAL] {trade['symbol']}: could not refresh "
+                f"remaining stop after partial: {e}"
             )
         return True
 
@@ -710,16 +577,6 @@ class PositionMonitor:
                 self._db.update_trade_order_ids(trade_id, stop_order_id=new_stop_id)
                 trade["stop_order_id"] = new_stop_id
                 self._db.set_state(state_key, 0)
-                if (
-                    int(trade.get("partial_exit_count") or 0) > 0
-                    and _is_breakout_trade(trade)
-                ):
-                    self._db.set_state(
-                        f"scanner_partial_taken_{trade_id}", 1
-                    )
-                    self._db.set_state(
-                        f"scanner_partial_retry_after_{trade_id}", 0
-                    )
                 logger.warning(
                     f"[STOP RESTORED] {symbol}: restored missing Kraken stop "
                     f"@ ${stop_loss:.6f} (order {new_stop_id})"
@@ -2414,6 +2271,8 @@ class PositionMonitor:
         # Non-breakout path — two-bar structural trailing stop
         _trade_meta   = _json.loads(trade.get("indicators_json") or "{}")
         _trail_pref   = _trade_meta.get("preferred_trail_mode", "two_bar").lower()
+        _recent_high  = None
+        _recent_low   = None
         if PM_DEBUG:
             logger.info(f"[PM-DBG] ⑦ {symbol} — two-bar trail path | trail_mode={_trail_pref}")
         if _trail_pref == "none":
@@ -2431,6 +2290,7 @@ class PositionMonitor:
             _spike_blocked = False
             if _trail_bars is not None and len(_trail_bars) >= 2:
                 _recent_high = float(_trail_bars["high"].iloc[-3:].max())
+                _recent_low  = float(_trail_bars["low"].iloc[-3:].min())
                 _spike_pct   = (current_price - _recent_high) / _recent_high * 100 if _recent_high > 0 else 0
                 if _spike_pct > 3.0:
                     logger.warning(
@@ -2459,6 +2319,7 @@ class PositionMonitor:
             _entry      = float(trade.get("entry_price") or 0)
             _prop_sl    = updates.get("stop_loss")
             _max_sl_pct = 10.0 if asset_class == "stock" else 20.0
+            _sl_rejected = False
             if (_prop_sl and _entry > 0
                     and abs(_prop_sl - _entry) / _entry * 100 > _max_sl_pct):
                 logger.warning(
@@ -2466,6 +2327,36 @@ class PositionMonitor:
                     f"{abs(_prop_sl-_entry)/_entry*100:.1f}% from entry ${_entry:.4f} "
                     f"(>{_max_sl_pct}% cap) -- bad price feed suspected, skipping stop update"
                 )
+                _sl_rejected = True
+            # ── Recent-range guard ────────────────────────────────────────
+            # The entry-relative cap above can still be fooled by a bad tick that
+            # happens to land under the % threshold (e.g. a stock 9% off entry is
+            # "normal", but if it's also 9% above every recent candle high it's
+            # still almost certainly a feed spike, not a real ratchet). Reject any
+            # proposed SL that sits further than 5% outside the recent 3-bar range
+            # on the side that matters for this direction, mirroring the same
+            # tolerance the [PRICE SPIKE GUARD] above uses for current_price.
+            _range_cap_pct = 5.0
+            if not _sl_rejected and _prop_sl:
+                if direction == "long" and _recent_high and _recent_high > 0:
+                    _range_dev_pct = (_prop_sl - _recent_high) / _recent_high * 100
+                    if _range_dev_pct > _range_cap_pct:
+                        logger.warning(
+                            f"[TRAIL SANITY] {symbol}: proposed SL ${_prop_sl:.4f} is "
+                            f"{_range_dev_pct:.1f}% above recent candle high ${_recent_high:.4f} "
+                            f"(>{_range_cap_pct}% cap) -- bad price feed suspected, skipping stop update"
+                        )
+                        _sl_rejected = True
+                elif direction == "short" and _recent_low and _recent_low > 0:
+                    _range_dev_pct = (_recent_low - _prop_sl) / _recent_low * 100
+                    if _range_dev_pct > _range_cap_pct:
+                        logger.warning(
+                            f"[TRAIL SANITY] {symbol}: proposed SL ${_prop_sl:.4f} is "
+                            f"{_range_dev_pct:.1f}% below recent candle low ${_recent_low:.4f} "
+                            f"(>{_range_cap_pct}% cap) -- bad price feed suspected, skipping stop update"
+                        )
+                        _sl_rejected = True
+            if _sl_rejected:
                 updates.pop("stop_loss", None)
             if not updates:
                 pass  # nothing safe to write
@@ -2535,8 +2426,16 @@ class PositionMonitor:
 
         market_open = _stock_market_open()
 
-        stock_trades  = [t for t in open_trades if t.get("asset_class") == "stock"]
-        crypto_trades = [t for t in open_trades if t.get("asset_class") != "stock"]
+        externally_managed = [t for t in open_trades if _is_externally_managed_future(t)]
+        managed_trades = [t for t in open_trades if not _is_externally_managed_future(t)]
+        stock_trades = [t for t in managed_trades if t.get("asset_class") == "stock"]
+        crypto_trades = [t for t in managed_trades if t.get("asset_class") != "stock"]
+
+        if externally_managed:
+            logger.debug(
+                "Position monitor: skipping %d externally managed futures position(s)",
+                len(externally_managed),
+            )
 
         if stock_trades and not market_open:
             logger.debug(
