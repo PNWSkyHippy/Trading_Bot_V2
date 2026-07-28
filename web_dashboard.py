@@ -3099,6 +3099,20 @@ FUTURES_YF_OVERRIDES = {
 }
 
 
+def _strategy_supported_symbols():
+    try:
+        strategy_config = json.loads(
+            (ROOT / "ninjatrader_bridge" / "ninja_futures_config.json")
+            .read_text(encoding="utf-8")
+        )
+        return {
+            str(symbol).upper()
+            for symbol in (strategy_config.get("contracts") or {})
+        }
+    except Exception:
+        return set()
+
+
 def get_chart_symbols():
     stocks = list(getattr(_config, 'STOCK_WATCHLIST', []) or [])
     crypto = list(getattr(_config, 'CRYPTO_WATCHLIST', []) or [])
@@ -3108,34 +3122,7 @@ def get_chart_symbols():
         crypto = list(dict.fromkeys(crypto + inj.get('crypto', [])))
     except Exception:
         pass
-    strategy_contracts = set()
-    try:
-        strategy_config = json.loads(
-            (ROOT / "ninjatrader_bridge" / "ninja_futures_config.json")
-            .read_text(encoding="utf-8")
-        )
-        strategy_contracts = {
-            str(symbol).upper()
-            for symbol in (strategy_config.get("contracts") or {})
-        }
-    except Exception:
-        pass
-    futures = [
-        {
-            'symbol': sym,
-            'type': 'futures',
-            'name': meta[1],
-            'category': meta[2],
-            'strategy_supported': sym in strategy_contracts,
-        }
-        for sym, meta in FUTURES_META.items()
-    ]
-    return (
-        [{'symbol': s, 'type': 'stock'} for s in stocks] +
-        [{'symbol': s, 'type': 'crypto'} for s in crypto] +
-        futures
-    )
-
+    strategy_contracts = _strategy_supported_symbols()
 
 WATCHLIST_DIR = ROOT / "watchlist"
 INJECTED_STOCKS_FILE = WATCHLIST_DIR / "scanned_stocks.txt"
@@ -5541,6 +5528,34 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(403, {"error": "Admin only"})
             ok, payload = _terminal_start(str(data.get("kind") or "hostinger"), self._current_user())
             return self._json(200 if ok else 400, {"ok": ok, **payload})
+        if path == "/api/chart/strategy_bulk_config":
+            if not _is_admin(self._current_user()):
+                return self._json(403, {
+                    "ok": False,
+                    "error": "Admin only",
+                })
+            strategy = str(data.get("strategy") or "").strip().lower()
+            if strategy not in ("emt", "eat"):
+                return self._json(400, {
+                    "ok": False,
+                    "error": "strategy must be EMT or EAT",
+                })
+            enabled = bool(data.get("enabled", True))
+            symbols = sorted(_strategy_supported_symbols())
+            results = {}
+            for sym in symbols:
+                results[sym] = _scanner_configure_strategy({
+                    "symbol": sym,
+                    "strategy": strategy,
+                    "settings": {"enabled": enabled},
+                })
+            ok = bool(symbols) and all(r.get("ok") for r in results.values())
+            return self._json(200, {
+                "ok": ok,
+                "strategy": strategy,
+                "enabled": enabled,
+                "results": results,
+            })
 
         if path == "/api/terminal/input":
             if not _is_admin(self._current_user()):
