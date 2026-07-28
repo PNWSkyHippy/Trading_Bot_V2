@@ -333,6 +333,8 @@ class MarketState:
             raise ValueError("strategy must be EMT or EAT")
         symbol = self.root_symbol(symbol)
         clean = self._clean_runtime_settings(strategy, settings)
+        other = "eat" if strategy == "emt" else "emt"
+        disabled_other = False
         with self.engine_lock:
             saved = dict(self.strategy_runtime[strategy].get(symbol, {}))
             saved.update(clean)
@@ -344,11 +346,36 @@ class MarketState:
                 )
                 engine.enabled = bool(clean["enabled"])
             self.strategy_runtime[strategy][symbol] = saved
+            # Mutual exclusion: only one strategy may run per symbol at a time.
+            # Enabling one here auto-disables the other rather than rejecting
+            # the request — the other engine is left in place (not torn down)
+            # so an already-open trade keeps being managed to close.
+            if clean.get("enabled"):
+                other_engines = (
+                    self.emt_engines if other == "emt" else self.eat_engines
+                )
+                other_engine = other_engines.get(symbol)
+                if other_engine is not None and other_engine.enabled:
+                    if other_engine.control_state_key and other_engine.db_mirror:
+                        other_engine.db_mirror.set_state(
+                            other_engine.control_state_key, "false"
+                        )
+                    other_engine.enabled = False
+                    other_saved = dict(
+                        self.strategy_runtime[other].get(symbol, {})
+                    )
+                    other_saved["enabled"] = False
+                    self.strategy_runtime[other][symbol] = other_saved
+                    disabled_other = True
             self._persist_strategy_runtime()
         print(
             f"{strategy.upper()} CONFIG · {symbol} · "
             f"{'enabled' if engine.enabled else 'disabled'} · "
-            f"contracts {engine.quantity}",
+            f"contracts {engine.quantity}"
+            + (
+                f" · auto-disabled {other.upper()} on {symbol} (mutual exclusion)"
+                if disabled_other else ""
+            ),
             flush=True,
         )
         return self.strategy_status(symbol)
