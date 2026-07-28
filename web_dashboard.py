@@ -3123,6 +3123,21 @@ def get_chart_symbols():
     except Exception:
         pass
     strategy_contracts = _strategy_supported_symbols()
+    futures = [
+        {
+            'symbol': sym,
+            'type': 'futures',
+            'name': meta[1],
+            'category': meta[2],
+            'strategy_supported': sym in strategy_contracts,
+        }
+        for sym, meta in FUTURES_META.items()
+    ]
+    return (
+        [{'symbol': s, 'type': 'stock'} for s in stocks] +
+        [{'symbol': s, 'type': 'crypto'} for s in crypto] +
+        futures
+    )
 
 WATCHLIST_DIR = ROOT / "watchlist"
 INJECTED_STOCKS_FILE = WATCHLIST_DIR / "scanned_stocks.txt"
@@ -5523,11 +5538,6 @@ class Handler(BaseHTTPRequestHandler):
                 "settings": data.get("settings") or {},
             })
             return self._json(200 if result.get("ok") else 400, result)
-        if path == "/api/terminal/start":
-            if not _is_admin(self._current_user()):
-                return self._json(403, {"error": "Admin only"})
-            ok, payload = _terminal_start(str(data.get("kind") or "hostinger"), self._current_user())
-            return self._json(200 if ok else 400, {"ok": ok, **payload})
         if path == "/api/chart/strategy_bulk_config":
             if not _is_admin(self._current_user()):
                 return self._json(403, {
@@ -5556,6 +5566,11 @@ class Handler(BaseHTTPRequestHandler):
                 "enabled": enabled,
                 "results": results,
             })
+        if path == "/api/terminal/start":
+            if not _is_admin(self._current_user()):
+                return self._json(403, {"error": "Admin only"})
+            ok, payload = _terminal_start(str(data.get("kind") or "hostinger"), self._current_user())
+            return self._json(200 if ok else 400, {"ok": ok, **payload})
 
         if path == "/api/terminal/input":
             if not _is_admin(self._current_user()):

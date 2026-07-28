@@ -4558,6 +4558,29 @@ function ChartPanel({ defaultSymbol }) {
     return () => clearTimeout(timer);
   }, [indicators, indicatorSymbol, symbol, isStrategyFuture]);
 
+  const enableStrategyEverywhere = (strategy) => {
+    setBulkStrategyBusy(true);
+    setBulkStrategyMsg('');
+    panelApi('/api/chart/strategy_bulk_config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ strategy, enabled: true }),
+    })
+      .then(d => {
+        const results = d.results || {};
+        const symbols = Object.keys(results);
+        const failed = symbols.filter(s => !results[s]?.ok);
+        setBulkStrategyMsg(
+          failed.length
+            ? `${strategy.toUpperCase()}: enabled ${symbols.length - failed.length}/${symbols.length} futures — failed: ${failed.join(', ')}`
+            : `${strategy.toUpperCase()}: enabled on all ${symbols.length} futures`
+        );
+        if (symbol && results[symbol]) setStrategyDataRevision(v => v + 1);
+      })
+      .catch(err => setBulkStrategyMsg(err.message || `${strategy.toUpperCase()} bulk enable failed`))
+      .finally(() => setBulkStrategyBusy(false));
+  };
+
   // ── Chronos: fetch prediction whenever active + bars change ──────────────
   useE(() => {
     if (!chronosActive || bars.length < 16) {
@@ -4983,10 +5006,29 @@ function ChartPanel({ defaultSymbol }) {
               </button>
             </div>
           ))}
-          <div style={{ display:'flex', gap:6 }}>
+          <div style={{ display:'flex', gap:6, alignItems:'center', flexWrap:'wrap' }}>
             <button className="btn ghost sm" onClick={addIndicator}>Add Indicator</button>
             <button className="btn ghost sm" onClick={resetIndicators}>Reset Defaults</button>
             <button className="btn ghost sm" onClick={() => setShowIndEditor(false)}>Close</button>
+            {isStrategyFuture && (
+              <>
+                <div style={{ width:1, height:16, background:'#2a3347', margin:'0 2px' }} />
+                <span style={{ fontSize:10, color:'#6b7280' }}>Enable everywhere:</span>
+                <button className="btn ghost sm" disabled={bulkStrategyBusy}
+                  onClick={() => enableStrategyEverywhere('emt')}
+                  title="Turn EMT on for every configured futures symbol, using each symbol's own saved settings (auto-disables EAT on any symbol where it's running)">
+                  EMT → all futures
+                </button>
+                <button className="btn ghost sm" disabled={bulkStrategyBusy}
+                  onClick={() => enableStrategyEverywhere('eat')}
+                  title="Turn EAT on for every configured futures symbol, using each symbol's own saved settings (auto-disables EMT on any symbol where it's running)">
+                  EAT → all futures
+                </button>
+                {bulkStrategyMsg && (
+                  <span style={{ fontSize:10, color:'#8b949e' }}>{bulkStrategyMsg}</span>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
