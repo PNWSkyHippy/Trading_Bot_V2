@@ -2802,6 +2802,8 @@ function ChartPanel({ defaultSymbol }) {
   const [focusedPatternId, setFocusedPatternId] = useS(null);
   const [strategyStatus, setStrategyStatus] = useS(null);
   const [strategyError, setStrategyError] = useS('');
+  const [bulkStrategyMsg, setBulkStrategyMsg] = useS('');
+  const [bulkStrategyBusy, setBulkStrategyBusy] = useS(false);
   const [strategyDataRevision, setStrategyDataRevision] = useS(0);
 
   // ── Chronos AI ────────────────────────────────────────────────────────────
