@@ -2486,6 +2486,7 @@ const IND_PARAM_DEFS = {
     { key: 'runnerTrailTicks', label: 'Trail', min: 1, max: 1000, fallback: 30 },
     { key: 'tradeWindowMinutes', label: 'Trade min', min: 1, max: 600, fallback: 60 },
     { key: 'maxStopTicks', label: 'Max stop', min: 0, max: 5000, fallback: 0 },
+    { key: 'stopTicksOverride', label: 'Stop ovr', min: 0, max: 5000, fallback: 0 },
     { key: 'enableLongs', label: 'Longs', type: 'bool', fallback: true },
     { key: 'enableShorts', label: 'Shorts', type: 'bool', fallback: true },
   ],
@@ -2576,6 +2577,7 @@ const strategyConfigFromIndicators = (list, type) => {
     runner_trail_ticks: Math.max(1, Number(ind.runnerTrailTicks) || 30),
     trade_window_minutes: Math.max(1, Number(ind.tradeWindowMinutes) || 60),
     max_stop_ticks: Math.max(0, Number(ind.maxStopTicks) || 0),
+    stop_ticks_override: Math.max(0, Number(ind.stopTicksOverride) || 0),
     enable_longs: ind.enableLongs ?? true,
     enable_shorts: ind.enableShorts ?? true,
     sessions: [
@@ -2631,6 +2633,7 @@ const hydrateStrategyIndicators = (list, status) => {
       runnerTrailTicks: Number(settings.runner_trail_ticks ?? ind.runnerTrailTicks ?? 30),
       tradeWindowMinutes: Number(settings.trade_window_minutes ?? ind.tradeWindowMinutes ?? 60),
       maxStopTicks: Number(settings.max_stop_ticks ?? ind.maxStopTicks ?? 0),
+      stopTicksOverride: Number(settings.stop_ticks_override ?? ind.stopTicksOverride ?? 0),
       enableLongs: settings.enable_longs ?? ind.enableLongs ?? true,
       enableShorts: settings.enable_shorts ?? ind.enableShorts ?? true,
     };

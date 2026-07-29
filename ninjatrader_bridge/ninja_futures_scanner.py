@@ -256,6 +256,7 @@ class MarketState:
                 "wick_stop_lookback_minutes", "trade_window_minutes",
                 "max_trades_per_session", "allow_reentry", "sessions",
                 "max_stop_ticks", "enable_longs", "enable_shorts",
+                "stop_ticks_override",
             },
         }[strategy]
         unknown = sorted(set(settings) - allowed)
@@ -282,6 +283,10 @@ class MarketState:
             clean["max_stop_ticks"] = int(clean["max_stop_ticks"])
             if clean["max_stop_ticks"] < 0:
                 raise ValueError("max_stop_ticks must be >= 0")
+        if "stop_ticks_override" in clean:
+            clean["stop_ticks_override"] = int(clean["stop_ticks_override"])
+            if clean["stop_ticks_override"] < 0:
+                raise ValueError("stop_ticks_override must be >= 0")
         for key in ("stop_points", "target_points"):
             if key in clean:
                 clean[key] = float(clean[key])

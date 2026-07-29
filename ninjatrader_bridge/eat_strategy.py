@@ -150,6 +150,7 @@ class EATStrategyEngine:
             self.settings.get("wick_stop_lookback_minutes", 20)
         )
         self.max_stop_ticks = int(self.settings.get("max_stop_ticks", 0))
+        self.stop_ticks_override = int(self.settings.get("stop_ticks_override", 0))
         self.enable_longs = bool(self.settings.get("enable_longs", True))
         self.enable_shorts = bool(self.settings.get("enable_shorts", True))
         self.allow_reentry = bool(self.settings.get("allow_reentry", True))
@@ -177,6 +178,8 @@ class EATStrategyEngine:
             raise ValueError("EAT tick distances must be positive")
         if self.max_stop_ticks < 0:
             raise ValueError("EAT max_stop_ticks must be >= 0")
+        if self.stop_ticks_override < 0:
+            raise ValueError("EAT stop_ticks_override must be >= 0")
         if not (self.enable_longs or self.enable_shorts):
             raise ValueError("EAT needs at least one of enable_longs/enable_shorts on")
 
@@ -460,17 +463,25 @@ class EATStrategyEngine:
 
     def _open_trade(self, direction: str, price: float, bar: dict) -> None:
         self._event_counter += 1
-        if direction == "long":
+        if self.stop_ticks_override > 0:
+            override_distance = self.stop_ticks_override * self.tick_size
+            if direction == "long":
+                stop = price - override_distance
+            else:
+                stop = price + override_distance
+        elif direction == "long":
             stop = self._wick_stop(
                 direction, float(self.inner_low), bar["dt"].astimezone(self.market_tz)
             )
-            tp1 = float(self.inner_high) + self.tp1_ticks * self.tick_size
         else:
             stop = self._wick_stop(
                 direction, float(self.inner_high), bar["dt"].astimezone(self.market_tz)
             )
+        if direction == "long":
+            tp1 = float(self.inner_high) + self.tp1_ticks * self.tick_size
+        else:
             tp1 = float(self.inner_low) - self.tp1_ticks * self.tick_size
-        if self.max_stop_ticks > 0:
+        if self.stop_ticks_override <= 0 and self.max_stop_ticks > 0:
             max_distance = self.max_stop_ticks * self.tick_size
             if direction == "long":
                 stop = max(stop, price - max_distance)
