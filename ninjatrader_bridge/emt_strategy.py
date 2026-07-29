@@ -26,6 +26,9 @@ if PROJECT_ROOT not in sys.path:
 from chart_patterns import PatternDetector
 
 
+_PACIFIC_TZ = ZoneInfo("America/Los_Angeles")
+
+
 @dataclass(frozen=True)
 class EMTEvent:
     time: str
@@ -156,9 +159,10 @@ class EMTStrategyEngine:
         self.source_timezone = str(
             self.settings.get("source_timezone", "America/Los_Angeles")
         )
-        self.market_tz = ZoneInfo(
-            str(self.settings.get("market_timezone", "America/New_York"))
-        )
+        # EMT session clocks are always Pacific. Offset-aware source bars are
+        # normalized to UTC by _parse_timestamp(), then converted to Pacific
+        # before any opening-range or trade-window comparison.
+        self.market_tz = _PACIFIC_TZ
         self.tick_size = _finite_number(self.contract.get("tick_size", 0.25))
         self.tick_value = _finite_number(self.contract.get("tick_value", 12.50))
         self.point_value = self.tick_value / self.tick_size
@@ -169,9 +173,7 @@ class EMTStrategyEngine:
         self.stop_points = _finite_number(self.settings.get("stop_points", 2.0))
         self.target_points = _finite_number(self.settings.get("target_points", 2.0))
         self.max_trades = int(self.settings.get("max_trades_per_session", 12))
-        self.db_timezone = ZoneInfo(str(
-            self.settings.get("db_timezone", "America/Los_Angeles")
-        ))
+        self.db_timezone = _PACIFIC_TZ
         self.retrace_tolerance = (
             int(self.settings.get("retrace_tolerance_ticks", 1)) * self.tick_size
         )
@@ -251,34 +253,40 @@ class EMTStrategyEngine:
         self.last_midline: Optional[float] = None
         self.trades_this_session = 0
 
-    def _session_times(self, stamp_et: datetime):
+    def _session_times(self, stamp_pacific: datetime):
         # Anchor on the session's own start date, not the bar's calendar date.
-        # Overnight sessions (e.g. 22:01 ET range start with an 8h trade
-        # window) cross midnight ET; re-deriving the window from stamp_et's
-        # date would silently roll the window forward mid-session.
-        anchor = self.session_date if self.session_date is not None else stamp_et.date()
+        # Overnight sessions can cross midnight Pacific; re-deriving the
+        # window from the current bar's date would silently roll it forward.
+        anchor = (
+            self.session_date
+            if self.session_date is not None
+            else stamp_pacific.date()
+        )
         start = datetime.combine(anchor, self.range_start, tzinfo=self.market_tz)
         range_end = start + timedelta(minutes=self.range_minutes)
         trade_end = range_end + timedelta(minutes=self.trade_window_minutes)
         return start, range_end, trade_end
 
-    def _ensure_session(self, stamp_et: datetime) -> None:
+    def _ensure_session(self, stamp_pacific: datetime) -> None:
         if self.session_date is None:
-            self._reset_session(stamp_et.date())
+            self._reset_session(stamp_pacific.date())
             return
         # Only start a new session once the current one's trade window has
-        # actually elapsed -- not merely when the ET calendar date rolls over,
-        # which happens mid-window for any session spanning midnight ET.
+        # actually elapsed -- not merely when the Pacific calendar date rolls
+        # over, which happens mid-window for any session spanning midnight.
         # Also require the calendar date to have actually advanced: once
-        # trade_end has passed for *today*, re-anchoring to stamp_et.date()
+        # trade_end has passed for *today*, re-anchoring to the same date
         # (still today) would immediately produce another already-expired
         # session, so every subsequent tick would reset -> re-expire in a
         # loop, wiping state and re-emitting SESSION_DONE on every tick.
-        _, _, trade_end = self._session_times(stamp_et)
-        if stamp_et >= trade_end and stamp_et.date() != self.session_date:
-            self._reset_session(stamp_et.date())
+        _, _, trade_end = self._session_times(stamp_pacific)
+        if (
+            stamp_pacific >= trade_end
+            and stamp_pacific.date() != self.session_date
+        ):
+            self._reset_session(stamp_pacific.date())
 
-    def _advance_stale_range_phase(self, stamp_et: datetime) -> None:
+    def _advance_stale_range_phase(self, stamp_pacific: datetime) -> None:
         # Historical-flagged tick bars skip _evaluate() entirely (see
         # on_tick_bar) so replayed/backfill data can never arm or open a
         # trade. But that also means, if a live tick bar never happens to
@@ -293,16 +301,17 @@ class EMTStrategyEngine:
         # runs regardless of whether the triggering bar was historical.
         if self.phase != "BUILDING_RANGE" or self.active_trade is not None:
             return
-        _, range_end, trade_end = self._session_times(stamp_et)
-        if stamp_et < range_end:
+        _, range_end, trade_end = self._session_times(stamp_pacific)
+        if stamp_pacific < range_end:
             return
-        if stamp_et >= trade_end:
+        if stamp_pacific >= trade_end:
             self.phase = "SESSION_DONE"
             return
         if self.opening_high is None or self.opening_low is None:
             self.phase = "RANGE_DATA_MISSED"
             self._emit(
-                stamp_et, 1, "RANGE_DATA_MISSED", self.direction or "", 0.0,
+                stamp_pacific, 1, "RANGE_DATA_MISSED",
+                self.direction or "", 0.0,
                 "Opening range window closed with no 1-minute bar data received; "
                 "no trades this session",
             )
@@ -323,9 +332,9 @@ class EMTStrategyEngine:
         )
         self.events.append(event)
 
-    def _status_message(self, stamp_et: Optional[datetime] = None) -> str:
-        stamp_et = stamp_et or datetime.now(self.market_tz)
-        start, range_end, trade_end = self._session_times(stamp_et)
+    def _status_message(self, stamp_pacific: Optional[datetime] = None) -> str:
+        stamp_pacific = stamp_pacific or datetime.now(self.market_tz)
+        start, range_end, trade_end = self._session_times(stamp_pacific)
         phase_text = {
             "BUILDING_RANGE": "Building opening range",
             "RANGE_DATA_MISSED": "Opening range data missing (no 1-minute bars received) — no trades this session",
@@ -364,13 +373,16 @@ class EMTStrategyEngine:
         if self.opening_low is not None and self.opening_high is not None:
             bits.append(f"OR {self.opening_low:.2f}-{self.opening_high:.2f}")
         else:
-            bits.append(f"OR window {start.strftime('%H:%M')}-{range_end.strftime('%H:%M')} ET")
+            bits.append(
+                f"OR window {start.strftime('%H:%M')}-"
+                f"{range_end.strftime('%H:%M')} PT"
+            )
         if self.support_level is not None or self.resistance_level is not None:
             bits.append(f"S/R {self.support_level if self.support_level is not None else '--'}/{self.resistance_level if self.resistance_level is not None else '--'}")
         if self.direction:
             bits.append(f"bias {self.direction.upper()}")
         bits.append(f"trades {self.trades_this_session}/{self.max_trades}")
-        bits.append(f"ends {trade_end.strftime('%H:%M')} ET")
+        bits.append(f"ends {trade_end.strftime('%H:%M')} PT")
         return " | ".join(str(x) for x in bits)
 
     def _state_signature(self) -> tuple:
@@ -476,13 +488,13 @@ class EMTStrategyEngine:
         if not self.enabled:
             return
         bar = _clean_bar(raw_bar, self.source_timezone)
-        stamp_et = bar["dt"].astimezone(self.market_tz)
+        stamp_pacific = bar["dt"].astimezone(self.market_tz)
         with self.lock:
-            self._ensure_session(stamp_et)
+            self._ensure_session(stamp_pacific)
             old_signature = self._state_signature()
             self._upsert(self.minute_bars, bar)
-            start, range_end, _ = self._session_times(stamp_et)
-            if start <= stamp_et < range_end:
+            start, range_end, _ = self._session_times(stamp_pacific)
+            if start <= stamp_pacific < range_end:
                 self.opening_high = (
                     bar["high"] if self.opening_high is None
                     else max(self.opening_high, bar["high"])
@@ -491,7 +503,7 @@ class EMTStrategyEngine:
                     bar["low"] if self.opening_low is None
                     else min(self.opening_low, bar["low"])
                 )
-            if stamp_et >= range_end and self.opening_high is not None:
+            if stamp_pacific >= range_end and self.opening_high is not None:
                 if self.resistance_level is None:
                     self.resistance_level = self.opening_high
                     self.support_level = self.opening_low
@@ -522,21 +534,21 @@ class EMTStrategyEngine:
 
         with self.lock:
             before = len(self.events)
-            stamp_et = bar["dt"].astimezone(self.market_tz)
+            stamp_pacific = bar["dt"].astimezone(self.market_tz)
             if historical:
                 old_signature = self._state_signature()
                 if complete:
                     self._upsert(self.tick_bars, bar)
                 self.last_tick_received = datetime.now(timezone.utc).timestamp()
-                self._advance_stale_range_phase(stamp_et)
+                self._advance_stale_range_phase(stamp_pacific)
                 self._emit_if_state_changed(bar["dt"], old_signature, bar["close"])
                 return []
-            self._ensure_session(stamp_et)
+            self._ensure_session(stamp_pacific)
             old_signature = self._state_signature()
             if complete:
                 self._upsert(self.tick_bars, bar)
             self.last_tick_received = datetime.now(timezone.utc).timestamp()
-            self._evaluate(bar, stamp_et, complete)
+            self._evaluate(bar, stamp_pacific, complete)
             self._emit_if_state_changed(bar["dt"], old_signature, bar["close"])
             return list(self.events)[before:]
 
@@ -546,8 +558,10 @@ class EMTStrategyEngine:
             return _ema_last(closes, self.ema_period)
         return _ema_last([*closes, current_close], self.ema_period)
 
-    def _evaluate(self, bar: dict, stamp_et: datetime, complete: bool) -> None:
-        start, range_end, trade_end = self._session_times(stamp_et)
+    def _evaluate(
+        self, bar: dict, stamp_pacific: datetime, complete: bool
+    ) -> None:
+        start, range_end, trade_end = self._session_times(stamp_pacific)
         # Captured before being overwritten below: RETRACE_TOUCHED needs the
         # prior tick's price (not this one's) to tell whether price is still
         # moving away from the Keltner midline.
@@ -558,12 +572,12 @@ class EMTStrategyEngine:
         # leave stale in-memory state or permit a duplicate next session.
         if self.active_trade is not None and not self.paper_only:
             self._update_trade_extreme(bar)
-            self._reconcile_live_trade(bar, stamp_et)
+            self._reconcile_live_trade(bar, stamp_pacific)
             return
-        if stamp_et < range_end:
+        if stamp_pacific < range_end:
             self.phase = "BUILDING_RANGE"
             return
-        if stamp_et >= trade_end:
+        if stamp_pacific >= trade_end:
             # Check this before RANGE_DATA_MISSED: _ensure_session() can roll
             # straight into a brand-new session for a stale/late bar whose
             # own trade window has already elapsed too (opening_high/low get
@@ -571,7 +585,9 @@ class EMTStrategyEngine:
             # terminal state for "the window is over" regardless of whether
             # the range was ever captured, so it must take priority.
             if self.active_trade is not None and self.paper_only:
-                self._close_trade(bar["close"], stamp_et, "trade_window_end")
+                self._close_trade(
+                    bar["close"], stamp_pacific, "trade_window_end"
+                )
             self.phase = "SESSION_DONE"
             return
         if self.opening_high is None or self.opening_low is None:
@@ -594,12 +610,15 @@ class EMTStrategyEngine:
             self.resistance_level = self.opening_high
             self.support_level = self.opening_low
             self.phase = "WAIT_BREAKOUT"
-        if stamp_et < start or self.trades_this_session >= self.max_trades:
+        if (
+            stamp_pacific < start
+            or self.trades_this_session >= self.max_trades
+        ):
             return
 
         if self.active_trade is not None:
             self._update_trade_extreme(bar)
-            self._check_exit(bar, stamp_et, complete)
+            self._check_exit(bar, stamp_pacific, complete)
             return
 
         midline = self._midline(bar["close"], complete)
@@ -614,14 +633,14 @@ class EMTStrategyEngine:
 
         if self.phase == "WAIT_BREAKOUT":
             if price < self.support_level and midline < self.support_level:
-                self._arm_breakout("short", bar, stamp_et, midline)
+                self._arm_breakout("short", bar, stamp_pacific, midline)
             elif price > self.resistance_level and midline > self.resistance_level:
-                self._arm_breakout("long", bar, stamp_et, midline)
+                self._arm_breakout("long", bar, stamp_pacific, midline)
             self.last_live_price = price
             return
 
         if self.phase == "WAIT_RETRACE":
-            self._track_retrace(bar, stamp_et, midline, complete)
+            self._track_retrace(bar, stamp_pacific, midline, complete)
             self.last_live_price = price
             return
 
@@ -644,11 +663,13 @@ class EMTStrategyEngine:
                     )
                     self._reset_setup_after_block()
                 else:
-                    self._open_trade(price, stamp_et, bar["time"])
+                    self._open_trade(price, stamp_pacific, bar["time"])
             self.last_live_price = price
 
-    def _arm_breakout(self, direction: str, bar: dict,
-                      stamp_et: datetime, midline: float) -> None:
+    def _arm_breakout(
+        self, direction: str, bar: dict,
+        stamp_pacific: datetime, midline: float
+    ) -> None:
         self.direction = direction
         self.phase = "WAIT_RETRACE"
         self.breakout_extreme = bar["low"] if direction == "short" else bar["high"]
@@ -661,8 +682,10 @@ class EMTStrategyEngine:
             f"Price and Keltner midline {midline:.2f} broke {level:.2f}; waiting for retracement",
         )
 
-    def _track_retrace(self, bar: dict, stamp_et: datetime,
-                       midline: float, complete: bool) -> None:
+    def _track_retrace(
+        self, bar: dict, stamp_pacific: datetime,
+        midline: float, complete: bool
+    ) -> None:
         price = bar["close"]
         if self.direction == "short":
             prior_extreme = self.breakout_extreme
@@ -741,8 +764,10 @@ class EMTStrategyEngine:
         self.retrace_seen = False
         self.retrace_touched = False
 
-    def _open_trade(self, price: float, stamp_et: datetime,
-                    entry_bar_time: str) -> None:
+    def _open_trade(
+        self, price: float, stamp_pacific: datetime,
+        entry_bar_time: str
+    ) -> None:
         self._event_counter += 1
         direction = self.direction
         if direction == "long":
@@ -754,7 +779,7 @@ class EMTStrategyEngine:
         mode = "paper" if self.paper_only else "live"
         trade_id = (
             f"EMT-{mode.upper()}-"
-            f"{stamp_et.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}"
+            f"{stamp_pacific.astimezone(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}"
             f"-{self._event_counter}"
         )
         trade = PaperTrade(
@@ -762,7 +787,7 @@ class EMTStrategyEngine:
             symbol=self.symbol,
             direction=direction,
             quantity=self.quantity,
-            entry_time=stamp_et.astimezone(timezone.utc).isoformat(),
+            entry_time=stamp_pacific.astimezone(timezone.utc).isoformat(),
             entry_price=round(price, 8),
             stop_price=round(stop, 8),
             target_price=round(target, 8),
@@ -786,7 +811,7 @@ class EMTStrategyEngine:
                 self.last_execution_error = f"{type(exc).__name__}: {exc}"
                 self.phase = "EXECUTION_HALTED"
                 self._emit(
-                    stamp_et.astimezone(timezone.utc), 0, "ORDER_ERROR",
+                    stamp_pacific.astimezone(timezone.utc), 0, "ORDER_ERROR",
                     direction, price,
                     f"LIVE ORDER HALTED: {self.last_execution_error}",
                 )
@@ -797,7 +822,7 @@ class EMTStrategyEngine:
         self._write_ledger("OPEN", trade)
         self._mirror_open_trade(trade)
         self._emit(
-            stamp_et.astimezone(timezone.utc), 3,
+            stamp_pacific.astimezone(timezone.utc), 3,
             "PAPER_ENTRY" if self.paper_only else "LIVE_ENTRY",
             direction, price,
             f"{mode.upper()} {direction.upper()} {self.quantity} {self.broker_symbol} "
@@ -817,7 +842,9 @@ class EMTStrategyEngine:
                 else max(self.breakout_extreme, bar["high"])
             )
 
-    def _reconcile_live_trade(self, bar: dict, stamp_et: datetime) -> None:
+    def _reconcile_live_trade(
+        self, bar: dict, stamp_pacific: datetime
+    ) -> None:
         now = datetime.now(timezone.utc).timestamp()
         interval = float(self.settings.get("broker_status_interval_seconds", 2.0))
         if now - self._last_broker_check < interval:
@@ -829,23 +856,30 @@ class EMTStrategyEngine:
         except Exception as exc:
             self.last_execution_error = f"{type(exc).__name__}: {exc}"
             self._emit(
-                stamp_et.astimezone(timezone.utc), 0, "BROKER_STATUS_ERROR",
+                stamp_pacific.astimezone(timezone.utc),
+                0, "BROKER_STATUS_ERROR",
                 trade.direction, bar["close"], self.last_execution_error,
             )
             return
         if status == "closed":
-            self._mark_broker_closed(bar["close"], stamp_et, "broker_bracket_complete")
+            self._mark_broker_closed(
+                bar["close"], stamp_pacific, "broker_bracket_complete"
+            )
         elif status == "rejected":
-            self._mark_broker_closed(bar["close"], stamp_et, "broker_rejected")
+            self._mark_broker_closed(
+                bar["close"], stamp_pacific, "broker_rejected"
+            )
             self.phase = "EXECUTION_HALTED"
 
-    def _mark_broker_closed(self, observed_price: float, stamp_et: datetime,
-                            reason: str) -> None:
+    def _mark_broker_closed(
+        self, observed_price: float, stamp_pacific: datetime,
+        reason: str
+    ) -> None:
         trade = self.active_trade
         if trade is None:
             return
         trade.status = "closed"
-        trade.exit_time = stamp_et.astimezone(timezone.utc).isoformat()
+        trade.exit_time = stamp_pacific.astimezone(timezone.utc).isoformat()
         trade.exit_price = round(observed_price, 8)
         trade.exit_reason = reason
         trade.pnl = None  # Exact broker fill and fees are not inferred.
@@ -853,7 +887,7 @@ class EMTStrategyEngine:
         self._write_ledger("CLOSE", trade)
         self._mirror_close_trade(trade)
         self._emit(
-            stamp_et.astimezone(timezone.utc), 0, "LIVE_EXIT",
+            stamp_pacific.astimezone(timezone.utc), 0, "LIVE_EXIT",
             trade.direction, observed_price,
             f"LIVE strategy {trade.broker_strategy_id} {reason}",
         )
@@ -867,7 +901,9 @@ class EMTStrategyEngine:
         self.retrace_seen = False
         self.retrace_touched = False
 
-    def _check_exit(self, bar: dict, stamp_et: datetime, complete: bool) -> None:
+    def _check_exit(
+        self, bar: dict, stamp_pacific: datetime, complete: bool
+    ) -> None:
         trade = self.active_trade
         same_entry_bar = bar["time"] == trade.entry_bar_time
         observed_low = bar["close"] if same_entry_bar else bar["low"]
@@ -880,11 +916,17 @@ class EMTStrategyEngine:
             target_hit = observed_low <= trade.target_price
         # If a completed bar spans both levels, use the pessimistic ordering.
         if stop_hit:
-            self._close_trade(trade.stop_price, stamp_et, "stop_loss")
+            self._close_trade(
+                trade.stop_price, stamp_pacific, "stop_loss"
+            )
         elif target_hit:
-            self._close_trade(trade.target_price, stamp_et, "take_profit")
+            self._close_trade(
+                trade.target_price, stamp_pacific, "take_profit"
+            )
 
-    def _close_trade(self, price: float, stamp_et: datetime, reason: str) -> None:
+    def _close_trade(
+        self, price: float, stamp_pacific: datetime, reason: str
+    ) -> None:
         trade = self.active_trade
         if trade is None:
             return
@@ -894,7 +936,7 @@ class EMTStrategyEngine:
             else trade.entry_price - price
         )
         trade.status = "closed"
-        trade.exit_time = stamp_et.astimezone(timezone.utc).isoformat()
+        trade.exit_time = stamp_pacific.astimezone(timezone.utc).isoformat()
         trade.exit_price = round(price, 8)
         trade.exit_reason = reason
         trade.pnl = round(points * self.point_value * trade.quantity, 2)
@@ -902,7 +944,8 @@ class EMTStrategyEngine:
         self._write_ledger("CLOSE", trade)
         self._mirror_close_trade(trade)
         self._emit(
-            stamp_et.astimezone(timezone.utc), 0, "PAPER_EXIT", trade.direction, price,
+            stamp_pacific.astimezone(timezone.utc), 0,
+            "PAPER_EXIT", trade.direction, price,
             f"PAPER EXIT {reason} | P&L ${trade.pnl:.2f}",
         )
         if trade.direction == "short" and self.breakout_extreme is not None:

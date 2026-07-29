@@ -127,12 +127,10 @@ class EATStrategyEngine:
         self.source_timezone = str(
             self.settings.get("source_timezone", "America/Los_Angeles")
         )
-        self.market_tz = ZoneInfo(
-            str(self.settings.get("market_timezone", "America/Los_Angeles"))
-        )
-        self.db_timezone = ZoneInfo(str(
-            self.settings.get("db_timezone", "America/Los_Angeles")
-        ))
+        # EAT session definitions are Pacific wall-clock times. Offset-aware
+        # source bars are converted before any session or box comparison.
+        self.market_tz = _PACIFIC_TZ
+        self.db_timezone = _PACIFIC_TZ
         self.tick_size = _finite_number(self.contract.get("tick_size", 0.25))
         self.tick_value = _finite_number(self.contract.get("tick_value", 0.5))
         self.point_value = self.tick_value / self.tick_size
@@ -227,17 +225,17 @@ class EATStrategyEngine:
         return _clock(session.get("start"))
 
     def _session_candidates(self, stamp: datetime) -> List[dict]:
-        stamp_local = stamp.astimezone(self.market_tz)
+        stamp_pacific = stamp.astimezone(self.market_tz)
         candidates = []
         for offset in (-1, 0, 1):
-            day = (stamp_local + timedelta(days=offset)).date()
+            day = (stamp_pacific + timedelta(days=offset)).date()
             for session in self.sessions:
                 start = datetime.combine(
                     day, self._session_start_time(session, day), tzinfo=self.market_tz
                 )
                 final_box_end = start + timedelta(minutes=self.fallback_box_minutes)
                 trade_end = final_box_end + timedelta(minutes=self.trade_window_minutes)
-                if start <= stamp_local <= trade_end:
+                if start <= stamp_pacific <= trade_end:
                     candidates.append({
                         "name": str(session.get("name") or "eat"),
                         "start": start,
@@ -331,12 +329,12 @@ class EATStrategyEngine:
             if start <= bar["dt"].astimezone(self.market_tz) < end
         ]
 
-    def _try_build_box(self, stamp_local: datetime) -> None:
+    def _try_build_box(self, stamp_pacific: datetime) -> None:
         if self.session_start is None or self.phase != "BUILDING_BOX":
             return
         primary_end = self.session_start + timedelta(minutes=self.primary_box_minutes)
         fallback_end = self.session_start + timedelta(minutes=self.fallback_box_minutes)
-        if stamp_local >= primary_end and self.box_minutes is None:
+        if stamp_pacific >= primary_end and self.box_minutes is None:
             bars = self._bars_between(self.session_start, primary_end)
             if len(bars) >= self.primary_box_minutes:
                 ticks = self._range_ticks(bars)
@@ -354,7 +352,10 @@ class EATStrategyEngine:
                     bars[-1]["dt"], 1, "FALLBACK_15M", "", bars[-1]["close"],
                     f"5-minute box too small ({ticks} ticks); waiting for 15-minute box",
                 )
-        if stamp_local >= fallback_end and self.box_minutes == self.fallback_box_minutes:
+        if (
+            stamp_pacific >= fallback_end
+            and self.box_minutes == self.fallback_box_minutes
+        ):
             bars = self._bars_between(self.session_start, fallback_end)
             if len(bars) >= self.fallback_box_minutes:
                 ticks = self._range_ticks(bars)
@@ -408,10 +409,10 @@ class EATStrategyEngine:
             return "bottom"
         return None
 
-    def _check_entry(self, bar: dict, stamp_local: datetime) -> None:
+    def _check_entry(self, bar: dict, stamp_pacific: datetime) -> None:
         if self.phase != "WAIT_BUFFER_CLOSE" or self.active_trade is not None:
             return
-        if self.trade_end is None or stamp_local > self.trade_end:
+        if self.trade_end is None or stamp_pacific > self.trade_end:
             self.phase = "SESSION_DONE"
             self._emit(
                 bar["dt"], 1, "SESSION_DONE", "", bar["close"],
@@ -641,7 +642,7 @@ class EATStrategyEngine:
         with self.lock:
             before = len(self.events)
             self._upsert_minute_bar(bar)
-            stamp_local = bar["dt"].astimezone(self.market_tz)
+            stamp_pacific = bar["dt"].astimezone(self.market_tz)
             self.last_live_price = bar["close"]
             if historical:
                 return []
@@ -666,8 +667,8 @@ class EATStrategyEngine:
             if self.active_trade is not None:
                 self._check_exit(bar)
             else:
-                self._try_build_box(stamp_local)
-                self._check_entry(bar, stamp_local)
+                self._try_build_box(stamp_pacific)
+                self._check_entry(bar, stamp_pacific)
             return list(self.events)[before:]
 
     def chart_overlay(self) -> dict:

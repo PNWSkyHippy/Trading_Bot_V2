@@ -176,12 +176,23 @@ def _trend(values: Sequence[float], fast: int, slow: int) -> str:
 def _session_vwap(bars: Sequence[dict], settings: dict) -> Tuple[List[float], bool]:
     if not bars:
         return [], False
-    eastern = ZoneInfo(settings.get("vwap_timezone", "America/New_York"))
+    pacific = ZoneInfo(
+        settings.get("vwap_timezone", "America/Los_Angeles")
+    )
     hour, minute = [int(part) for part in settings.get("vwap_session_start", "18:00").split(":")]
-    latest_et = bars[-1]["dt"].astimezone(eastern)
-    session_date = latest_et.date() if latest_et.time() >= dt_time(hour, minute) else latest_et.date() - timedelta(days=1)
-    start_et = datetime.combine(session_date, dt_time(hour, minute), tzinfo=eastern)
-    session = [bar for bar in bars if bar["dt"] >= start_et.astimezone(timezone.utc)]
+    latest_pacific = bars[-1]["dt"].astimezone(pacific)
+    session_date = (
+        latest_pacific.date()
+        if latest_pacific.time() >= dt_time(hour, minute)
+        else latest_pacific.date() - timedelta(days=1)
+    )
+    start_pacific = datetime.combine(
+        session_date, dt_time(hour, minute), tzinfo=pacific
+    )
+    session = [
+        bar for bar in bars
+        if bar["dt"] >= start_pacific.astimezone(timezone.utc)
+    ]
     if not session:
         return [], False
     cumulative_pv = 0.0
@@ -192,7 +203,10 @@ def _session_vwap(bars: Sequence[dict], settings: dict) -> Tuple[List[float], bo
         cumulative_pv += typical * bar["volume"]
         cumulative_volume += bar["volume"]
         values.append(cumulative_pv / cumulative_volume if cumulative_volume > 0 else typical)
-    complete = session[0]["dt"] <= start_et.astimezone(timezone.utc) + timedelta(minutes=1)
+    complete = (
+        session[0]["dt"]
+        <= start_pacific.astimezone(timezone.utc) + timedelta(minutes=1)
+    )
     return values, complete
 
 

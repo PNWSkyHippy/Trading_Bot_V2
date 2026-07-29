@@ -5,14 +5,16 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from emt_strategy import EMTStrategyEngine, PaperTrade
+from emt_strategy import EMTStrategyEngine, PaperTrade, _parse_timestamp
 
 
-ET = ZoneInfo("America/New_York")
+PACIFIC = ZoneInfo("America/Los_Angeles")
 
 
 def stamp(hour, minute, second=0):
-    return datetime(2026, 7, 20, hour, minute, second, tzinfo=ET).isoformat()
+    return datetime(
+        2026, 7, 20, hour, minute, second, tzinfo=PACIFIC
+    ).isoformat()
 
 
 def bar(time_text, close, high=None, low=None, volume=610, **extra):
@@ -60,9 +62,9 @@ class EMTStrategyTests(unittest.TestCase):
             "paper_only": True,
             "symbol": "ES",
             "tick_bar_value": 610,
-            "source_timezone": "America/New_York",
-            "market_timezone": "America/New_York",
-            "opening_range_start": "09:30",
+            "source_timezone": "America/Los_Angeles",
+            "market_timezone": "America/Los_Angeles",
+            "opening_range_start": "06:30",
             "opening_range_minutes": 15,
             "trade_window_minutes": 60,
             "keltner_ema_period": 5,
@@ -86,11 +88,18 @@ class EMTStrategyTests(unittest.TestCase):
     def tearDown(self):
         self.temp.cleanup()
 
+    def test_offset_aware_source_timestamp_converts_to_pacific(self):
+        parsed = _parse_timestamp(
+            "2026-07-20T09:30:00-04:00",
+            "America/Los_Angeles",
+        ).astimezone(PACIFIC)
+        self.assertEqual((parsed.hour, parsed.minute), (6, 30))
+
     def seed_opening_range(self, high=101.0, low=99.0):
         for minute in range(30, 45):
             close = 100.0
             minute_bar = bar(
-                stamp(9, minute), close,
+                stamp(6, minute), close,
                 high=high if minute == 35 else 100.5,
                 low=low if minute == 40 else 99.5,
                 volume=100,
@@ -98,7 +107,7 @@ class EMTStrategyTests(unittest.TestCase):
             self.engine.on_minute_bar(minute_bar, historical=True)
 
     def seed_tick_history(self, close=98.5, count=8):
-        start = datetime(2026, 7, 20, 9, 40, tzinfo=ET)
+        start = datetime(2026, 7, 20, 6, 40, tzinfo=PACIFIC)
         for index in range(count):
             value = close + (index % 2) * 0.05
             self.engine.on_tick_bar(
@@ -111,11 +120,11 @@ class EMTStrategyTests(unittest.TestCase):
         self.seed_opening_range()
         self.seed_tick_history()
         self.engine.on_tick_bar(
-            bar(stamp(9, 45), 98.0), complete=True, historical=False
+            bar(stamp(6, 45), 98.0), complete=True, historical=False
         )
         self.assertEqual(self.engine.phase, "WAIT_RETRACE")
         self.engine.on_tick_bar(
-            bar(stamp(9, 45, 1), 98.35), complete=False, historical=False
+            bar(stamp(6, 45, 1), 98.35), complete=False, historical=False
         )
         self.assertEqual(self.engine.phase, "RETRACE_TOUCHED")
 
@@ -128,7 +137,7 @@ class EMTStrategyTests(unittest.TestCase):
         self.seed_opening_range()
         self.seed_tick_history(close=102.0)
         self.engine.on_tick_bar(
-            bar(stamp(9, 45), 98.75), complete=True, historical=False
+            bar(stamp(6, 45), 98.75), complete=True, historical=False
         )
         self.assertEqual(self.engine.phase, "WAIT_BREAKOUT")
         self.assertGreaterEqual(
@@ -145,7 +154,7 @@ class EMTStrategyTests(unittest.TestCase):
     def test_short_retrace_confirmation_opens_exact_two_point_paper_bracket(self):
         self.arm_short_and_touch()
         self.engine.on_tick_bar(
-            bar(stamp(9, 45, 2), 97.75), complete=False, historical=False
+            bar(stamp(6, 45, 2), 97.75), complete=False, historical=False
         )
         trade = self.engine.active_trade
         self.assertIsNotNone(trade)
@@ -157,10 +166,10 @@ class EMTStrategyTests(unittest.TestCase):
     def test_two_point_es_target_is_one_hundred_dollars(self):
         self.arm_short_and_touch()
         self.engine.on_tick_bar(
-            bar(stamp(9, 45, 2), 97.75), complete=False, historical=False
+            bar(stamp(6, 45, 2), 97.75), complete=False, historical=False
         )
         self.engine.on_tick_bar(
-            bar(stamp(9, 46), 95.75, high=97.75, low=95.5),
+            bar(stamp(6, 46), 95.75, high=97.75, low=95.5),
             complete=False,
             historical=False,
         )
@@ -170,7 +179,7 @@ class EMTStrategyTests(unittest.TestCase):
 
     def test_same_forming_bar_cannot_use_pre_entry_high_for_false_stop(self):
         self.arm_short_and_touch()
-        entry_time = stamp(9, 45, 2)
+        entry_time = stamp(6, 45, 2)
         self.engine.on_tick_bar(
             bar(entry_time, 97.5, high=102.0, low=97.25),
             complete=False,
@@ -194,7 +203,7 @@ class EMTStrategyTests(unittest.TestCase):
         lows = [101, 100, 99, 98, 99, 100, 102, 101, 100, 99, 98.5, 99.5, 100.5, 101]
         for index, low in enumerate(lows):
             self.engine.tick_bars.append({
-                "time": str(index), "dt": datetime.now(tz=ET),
+                "time": str(index), "dt": datetime.now(tz=PACIFIC),
                 "open": low + 0.5, "high": low + (2.5 if index == 6 else 0.75),
                 "low": low, "close": low + 0.5, "volume": 610,
             })
@@ -206,7 +215,7 @@ class EMTStrategyTests(unittest.TestCase):
         lows = [101, 100, 99, 98, 99, 100, 102, 101, 100, 99, 98.5, 99.5, 100.5, 101]
         for index, low in enumerate(lows):
             self.engine.tick_bars.append({
-                "time": str(index), "dt": datetime.now(tz=ET),
+                "time": str(index), "dt": datetime.now(tz=PACIFIC),
                 "open": low + 0.5, "high": low + (2.5 if index == 6 else 0.75),
                 "low": low, "close": low + 0.5, "volume": 610,
             })
@@ -217,7 +226,7 @@ class EMTStrategyTests(unittest.TestCase):
         self.seed_opening_range()
         self.seed_tick_history()
         self.engine.on_tick_bar(
-            bar(stamp(10, 46), 98.0), complete=True, historical=False
+            bar(stamp(7, 46), 98.0), complete=True, historical=False
         )
         self.assertEqual(self.engine.phase, "SESSION_DONE")
         self.assertIsNone(self.engine.active_trade)
@@ -229,22 +238,22 @@ class EMTStrategyTests(unittest.TestCase):
 
         for minute in range(30, 45):
             engine.on_minute_bar(
-                bar(stamp(9, minute), 100.0,
+                bar(stamp(6, minute), 100.0,
                     high=101.0 if minute == 35 else 100.5,
                     low=99.0 if minute == 40 else 99.5, volume=100),
                 historical=True,
             )
-        start = datetime(2026, 7, 20, 9, 40, tzinfo=ET)
+        start = datetime(2026, 7, 20, 6, 40, tzinfo=PACIFIC)
         for index in range(8):
             engine.on_tick_bar(
                 bar((start + timedelta(seconds=index)).isoformat(), 98.5),
                 complete=True, historical=True,
             )
-        engine.on_tick_bar(bar(stamp(9, 45), 98.0), complete=True, historical=False)
-        engine.on_tick_bar(bar(stamp(9, 45, 1), 98.35), complete=False, historical=False)
-        engine.on_tick_bar(bar(stamp(9, 45, 2), 97.75), complete=False, historical=False)
+        engine.on_tick_bar(bar(stamp(6, 45), 98.0), complete=True, historical=False)
+        engine.on_tick_bar(bar(stamp(6, 45, 1), 98.35), complete=False, historical=False)
+        engine.on_tick_bar(bar(stamp(6, 45, 2), 97.75), complete=False, historical=False)
         engine.on_tick_bar(
-            bar(stamp(9, 46), 95.75, high=97.75, low=95.75),
+            bar(stamp(6, 46), 95.75, high=97.75, low=95.75),
             complete=False, historical=False,
         )
 
@@ -263,7 +272,7 @@ class EMTStrategyTests(unittest.TestCase):
         self.assertEqual(mirror.closed[0]["pnl_pct"], 100.0)
 
     def test_malformed_ohlc_is_rejected(self):
-        bad = bar(stamp(9, 45), 100.0, high=99.0, low=98.0)
+        bad = bar(stamp(6, 45), 100.0, high=99.0, low=98.0)
         with self.assertRaises(ValueError):
             self.engine.on_tick_bar(bad, complete=True, historical=False)
 
@@ -293,10 +302,10 @@ class EMTStrategyTests(unittest.TestCase):
     def test_ledger_contains_open_and_close_records(self):
         self.arm_short_and_touch()
         self.engine.on_tick_bar(
-            bar(stamp(9, 45, 2), 97.75), complete=False, historical=False
+            bar(stamp(6, 45, 2), 97.75), complete=False, historical=False
         )
         self.engine.on_tick_bar(
-            bar(stamp(9, 46), 95.75, high=97.75, low=95.75),
+            bar(stamp(6, 46), 95.75, high=97.75, low=95.75),
             complete=False,
             historical=False,
         )
@@ -310,14 +319,14 @@ class EMTStrategyTests(unittest.TestCase):
         # No seed_opening_range() call: on_minute_bar() never fires, so
         # opening_high/opening_low stay None once the range window closes.
         self.engine.on_tick_bar(
-            bar(stamp(9, 46), 100.0), complete=True, historical=False
+            bar(stamp(6, 46), 100.0), complete=True, historical=False
         )
         self.assertEqual(self.engine.phase, "RANGE_DATA_MISSED")
         self.assertIn("RANGE_DATA_MISSED", [event.kind for event in self.engine.events])
 
     def test_range_data_missed_stays_building_range_before_window_closes(self):
         self.engine.on_tick_bar(
-            bar(stamp(9, 40), 100.0), complete=True, historical=False
+            bar(stamp(6, 40), 100.0), complete=True, historical=False
         )
         self.assertEqual(self.engine.phase, "BUILDING_RANGE")
 
@@ -329,12 +338,12 @@ class EMTStrategyTests(unittest.TestCase):
         self.seed_opening_range()
         self.seed_tick_history()
         self.engine.on_tick_bar(
-            bar(stamp(10, 46), 98.0), complete=True, historical=False
+            bar(stamp(7, 46), 98.0), complete=True, historical=False
         )
         self.assertEqual(self.engine.phase, "SESSION_DONE")
 
     def test_keltner_points_stable_when_window_rolls_forward(self):
-        start = datetime(2026, 7, 20, 9, 45, tzinfo=ET)
+        start = datetime(2026, 7, 20, 6, 45, tzinfo=PACIFIC)
         prices = [100.0 + (index % 7) * 0.3 for index in range(150)]
         for index, price in enumerate(prices):
             self.engine.on_tick_bar(

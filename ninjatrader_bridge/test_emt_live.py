@@ -9,11 +9,13 @@ from emt_strategy import EMTStrategyEngine
 from tradovate_executor import BrokerOrder, TradovateExecutor
 
 
-ET = ZoneInfo("America/New_York")
+PACIFIC = ZoneInfo("America/Los_Angeles")
 
 
 def stamp(hour, minute, second=0):
-    return datetime(2026, 7, 20, hour, minute, second, tzinfo=ET).isoformat()
+    return datetime(
+        2026, 7, 20, hour, minute, second, tzinfo=PACIFIC
+    ).isoformat()
 
 
 def bar(time_text, close, high=None, low=None, volume=610):
@@ -76,9 +78,9 @@ class EMTLiveTests(unittest.TestCase):
             "symbol": "ES",
             "broker_symbol": "ESU6",
             "tick_bar_value": 610,
-            "source_timezone": "America/New_York",
-            "market_timezone": "America/New_York",
-            "opening_range_start": "09:30",
+            "source_timezone": "America/Los_Angeles",
+            "market_timezone": "America/Los_Angeles",
+            "opening_range_start": "06:30",
             "opening_range_minutes": 15,
             "trade_window_minutes": 60,
             "keltner_ema_period": 5,
@@ -99,19 +101,19 @@ class EMTLiveTests(unittest.TestCase):
     def seed_entry(self, engine):
         for minute in range(30, 45):
             engine.on_minute_bar(
-                bar(stamp(9, minute), 100, high=101 if minute == 35 else 100.5,
+                bar(stamp(6, minute), 100, high=101 if minute == 35 else 100.5,
                     low=99 if minute == 40 else 99.5, volume=100),
                 historical=True,
             )
-        start = datetime(2026, 7, 20, 9, 40, tzinfo=ET)
+        start = datetime(2026, 7, 20, 6, 40, tzinfo=PACIFIC)
         for index in range(8):
             engine.on_tick_bar(
                 bar((start + timedelta(seconds=index)).isoformat(), 98.5),
                 complete=True, historical=True,
             )
-        engine.on_tick_bar(bar(stamp(9, 45), 98.0), True, False)
-        engine.on_tick_bar(bar(stamp(9, 45, 1), 98.35), False, False)
-        engine.on_tick_bar(bar(stamp(9, 45, 2), 97.75), False, False)
+        engine.on_tick_bar(bar(stamp(6, 45), 98.0), True, False)
+        engine.on_tick_bar(bar(stamp(6, 45, 1), 98.35), False, False)
+        engine.on_tick_bar(bar(stamp(6, 45, 2), 97.75), False, False)
 
     def test_api_credentials_acquire_token_for_unattended_startup(self):
         class Response:
@@ -178,7 +180,7 @@ class EMTLiveTests(unittest.TestCase):
             self.assertEqual(fake.orders[0]["symbol"], "ESU6")
             self.assertEqual(engine.active_trade.broker_strategy_id, 321)
             engine.on_tick_bar(
-                bar(stamp(9, 46), 95.0, high=100.0, low=94.0), False, False
+                bar(stamp(6, 46), 95.0, high=100.0, low=94.0), False, False
             )
             self.assertIsNotNone(engine.active_trade)
 
@@ -192,7 +194,7 @@ class EMTLiveTests(unittest.TestCase):
             self.seed_entry(engine)
             fake.status = "closed"
             engine.on_tick_bar(
-                bar(stamp(9, 46), 96.0, high=98.0, low=95.75), False, False
+                bar(stamp(6, 46), 96.0, high=98.0, low=95.75), False, False
             )
             self.assertIsNone(engine.active_trade)
             self.assertEqual(engine.phase, "WAIT_BREAKOUT")
