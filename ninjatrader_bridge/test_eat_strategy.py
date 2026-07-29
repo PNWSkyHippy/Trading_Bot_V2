@@ -119,6 +119,51 @@ class EATStrategyTests(unittest.TestCase):
                 "fallback_box_minutes": 5,
             })
 
+    def test_stop_override_replaces_wick_stop_and_ignores_cap(self):
+        engine = self.engine({
+            "stop_ticks_override": 100,
+            "max_stop_ticks": 10,
+        })
+        trade_bar = minute_bar(5, close=100.0)
+        trade_bar["dt"] = datetime.fromisoformat(trade_bar["time"])
+        engine.inner_high = 100.0
+        engine.inner_low = 99.0
+
+        engine._open_trade("long", 100.0, trade_bar)
+
+        self.assertEqual(engine.active_trade.stop_price, 75.0)
+        self.assertEqual(
+            (engine.active_trade.entry_price - engine.active_trade.stop_price)
+            / engine.tick_size,
+            100,
+        )
+
+    def test_manual_close_closes_exact_active_paper_trade(self):
+        engine = self.engine()
+        engine.active_trade = EATTrade(
+            trade_id="EAT-PAPER-TEST",
+            symbol="MNQ",
+            direction="long",
+            quantity=2,
+            entry_time="2026-07-23T12:05:00+00:00",
+            entry_price=100.0,
+            stop_price=90.0,
+            tp1_price=125.0,
+            entry_bar_time="2026-07-23T05:05:00-07:00",
+            remaining_quantity=2,
+            tp1_quantity=1,
+        )
+        engine.last_live_price = 101.0
+
+        closed = engine.manual_close("EAT-PAPER-TEST")
+
+        self.assertIsNone(engine.active_trade)
+        self.assertEqual(closed["exit_reason"], "manual_close")
+        self.assertEqual(closed["exit_price"], 101.0)
+        self.assertEqual(closed["realized_pnl"], 4.0)
+        with self.assertRaises(LookupError):
+            engine.manual_close("EAT-PAPER-TEST")
+
 
 if __name__ == "__main__":
     unittest.main()

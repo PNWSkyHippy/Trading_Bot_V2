@@ -1246,31 +1246,175 @@ def get_open_positions(sort_by=None, sort_dir="desc", enrich=True):
         return []
 
 
-def close_position(position_id):
-    """Close a position through the same executor path used by the bot."""
+def _find_open_trade(position_id):
+    if db is not None:
+        try:
+            for trade in db.get_open_trades() or []:
+                if (
+                    str(trade.get("id")) == str(position_id)
+                    or str(trade.get("trade_id")) == str(position_id)
+                ):
+                    return trade
+        except Exception:
+            pass
     try:
-        trade_record = None
-        if db is not None:
-            for t in db.get_open_trades() or []:
-                if str(t.get("id")) == str(position_id) or str(t.get("trade_id")) == str(position_id):
-                    trade_record = t
-                    break
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cur = conn.cursor()
+        cur.execute(
+            "SELECT * FROM trades WHERE status='open' AND (id=? OR trade_id=?)",
+            (position_id, str(position_id)),
+        )
+        row = cur.fetchone()
+        conn.close()
+        return dict(row) if row else None
+    except Exception:
+        return None
 
-        if trade_record is None:
-            conn = sqlite3.connect(DB_PATH)
-            conn.row_factory = sqlite3.Row
-            cur = conn.cursor()
-            cur.execute(
-                "SELECT * FROM trades WHERE status='open' AND (id=? OR trade_id=?)",
-                (position_id, str(position_id)),
+
+def _trade_indicators(trade_record) -> dict:
+    value = (
+        trade_record.get("indicators")
+        or trade_record.get("indicators_json")
+        or {}
+    )
+    if isinstance(value, dict):
+        return value
+    try:
+        parsed = json.loads(value)
+        return parsed if isinstance(parsed, dict) else {}
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return {}
+
+
+def _paper_futures_identity(trade_record):
+    """Return (strategy, root symbol) only for scanner-owned paper trades."""
+    broker = str(trade_record.get("broker") or "").strip().lower()
+    strategy = str(trade_record.get("strategy_name") or "").strip().lower()
+    trade_id = str(trade_record.get("trade_id") or "")
+    if strategy not in ("emt", "eat"):
+        if trade_id.startswith("EMT-PAPER-"):
+            strategy = "emt"
+        elif trade_id.startswith("EAT-PAPER-"):
+            strategy = "eat"
+    expected_broker = f"paper_{strategy}" if strategy else ""
+    if strategy not in ("emt", "eat") or broker != expected_broker:
+        return None
+    indicators = _trade_indicators(trade_record)
+    symbol = str(
+        indicators.get("root_symbol")
+        or trade_record.get("symbol")
+        or ""
+    ).split()[0].upper()
+    return (strategy, symbol) if symbol else None
+
+
+def _reconcile_orphaned_paper_trade(trade_record, strategy, symbol):
+    """Close a DB-only paper row after the scanner confirms it is not active."""
+    trade_id = str(trade_record.get("trade_id") or "")
+    if db is not None:
+        current = db.get_trade(trade_id)
+        if current and str(current.get("status")) == "closed":
+            return True, (
+                f"{strategy.upper()} {symbol} paper trade was already closed."
             )
-            row = cur.fetchone()
-            conn.close()
-            if row:
-                trade_record = dict(row)
+    status = _scanner_strategy_status(symbol)
+    if not status.get("ok"):
+        return False, (
+            f"Scanner could not confirm {strategy.upper()} {symbol} state; "
+            "the database row was left open."
+        )
+    strategy_state = (
+        ((status.get("strategies") or {}).get(strategy) or {}).get("state") or {}
+    )
+    active = strategy_state.get("active_trade") or {}
+    if str(active.get("trade_id") or "") == trade_id:
+        return False, (
+            f"{strategy.upper()} {symbol} still reports trade {trade_id} active; "
+            "the database row was left open."
+        )
+    current_price = float(
+        strategy_state.get("last_live_price")
+        or trade_record.get("entry_price")
+        or 0
+    )
+    if current_price <= 0:
+        return False, f"No valid price is available to reconcile {trade_id}."
+    indicators = _trade_indicators(trade_record)
+    entry_price = float(trade_record.get("entry_price") or 0)
+    quantity = float(trade_record.get("quantity") or 0)
+    point_value = float(indicators.get("point_value") or 1)
+    direction = str(trade_record.get("direction") or "long").lower()
+    points = (
+        entry_price - current_price
+        if direction == "short"
+        else current_price - entry_price
+    )
+    # Database.close_trade adds any previously recorded partial P&L itself.
+    # Passing it here too would double count partial exits.
+    pnl = round(points * point_value * quantity, 2)
+    position_value = float(trade_record.get("position_value") or 0)
+    pnl_pct = round(pnl / position_value * 100, 4) if position_value else 0.0
+    if db is None:
+        return False, "Database adapter is unavailable; orphan was left open."
+    db.close_trade(
+        trade_id,
+        current_price,
+        "manual_orphan_reconcile",
+        pnl,
+        pnl_pct,
+    )
+    updated = db.get_trade(trade_id)
+    if not updated or str(updated.get("status")) != "closed":
+        return False, f"Database did not confirm closure of orphan {trade_id}."
+    recorded_pnl = float(updated.get("pnl") or pnl)
+    return True, (
+        f"Reconciled orphaned {strategy.upper()} {symbol} paper trade "
+        f"@ {current_price:.2f} (estimated P&L ${recorded_pnl:.2f})."
+    )
 
+
+def close_position(position_id):
+    """Close a position through its actual owning engine/executor."""
+    try:
+        trade_record = _find_open_trade(position_id)
         if not trade_record:
             return False, f"Position id {position_id} not found or already closed."
+
+        paper_identity = _paper_futures_identity(trade_record)
+        if paper_identity:
+            strategy, root_symbol = paper_identity
+            result = _scanner_close_strategy_trade({
+                "strategy": strategy,
+                "symbol": root_symbol,
+                "trade_id": trade_record.get("trade_id"),
+            })
+            if result.get("ok"):
+                closed = result.get("trade") or {}
+                still_open = _find_open_trade(trade_record.get("trade_id"))
+                if still_open:
+                    # The engine closed but its DB mirror did not. Complete the
+                    # paper-only reconciliation while scanner state proves the
+                    # trade is no longer active.
+                    return _reconcile_orphaned_paper_trade(
+                        still_open, strategy, root_symbol
+                    )
+                pnl = float(
+                    closed.get("pnl", closed.get("realized_pnl", 0)) or 0
+                )
+                return True, (
+                    f"Closed {strategy.upper()} {root_symbol} paper trade "
+                    f"@ {float(closed.get('exit_price') or 0):.2f} "
+                    f"(P&L ${pnl:.2f})."
+                )
+            if result.get("code") == "trade_not_active":
+                return _reconcile_orphaned_paper_trade(
+                    trade_record, strategy, root_symbol
+                )
+            return False, str(
+                result.get("error")
+                or f"{strategy.upper()} scanner rejected the manual close."
+            )
 
         symbol = trade_record["symbol"]
         asset_class = trade_record.get("asset_class", "crypto")
@@ -1305,6 +1449,13 @@ def close_position(position_id):
 
 def request_close_position(position_id):
     """Start a manual close in the background so the dashboard stays usable."""
+    trade_record = _find_open_trade(position_id)
+    if trade_record and _paper_futures_identity(trade_record):
+        # Scanner paper closes are quick and return a confirmed result. Running
+        # them synchronously prevents the UI from claiming success before the
+        # engine and central DB have actually closed the trade.
+        return close_position(position_id)
+
     key = str(position_id)
     with _close_lock:
         if key in _close_requests:
@@ -2173,6 +2324,45 @@ def _scanner_configure_strategy(payload: dict) -> dict:
         return {
             "ok": False,
             "error": f"scanner configuration unavailable: {type(exc).__name__}: {exc}",
+        }
+
+
+def _scanner_close_strategy_trade(payload: dict) -> dict:
+    secret = os.getenv("NINJA_BRIDGE_SECRET", "").strip()
+    if not secret:
+        return {
+            "ok": False,
+            "code": "scanner_unavailable",
+            "error": "NINJA_BRIDGE_SECRET is not configured",
+        }
+    body = json.dumps({**dict(payload or {}), "secret": secret}).encode("utf-8")
+    try:
+        import urllib.error
+        import urllib.request
+        request = urllib.request.Request(
+            "http://127.0.0.1:8765/strategy/close",
+            data=body,
+            method="POST",
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(request, timeout=8.0) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        try:
+            result = json.loads(exc.read().decode("utf-8"))
+        except Exception:
+            result = {
+                "error": f"scanner rejected manual close (HTTP {exc.code})"
+            }
+        return {"ok": False, **result}
+    except Exception as exc:
+        return {
+            "ok": False,
+            "code": "scanner_unavailable",
+            "error": (
+                "scanner manual close unavailable: "
+                f"{type(exc).__name__}: {exc}"
+            ),
         }
 
 
@@ -5777,8 +5967,12 @@ class Handler(BaseHTTPRequestHandler):
                     400,
                     {"ok": False, "message": "position_id or trade_id is required"},
                 )
+            paper_futures = bool(
+                _paper_futures_identity(_find_open_trade(position_id) or {})
+            )
             ok, msg = request_close_position(position_id)
-            return self._json(202 if ok else 400, {"ok": ok, "message": msg})
+            status = 200 if ok and paper_futures else (202 if ok else 400)
+            return self._json(status, {"ok": ok, "message": msg})
 
         if path == "/api/broker_panel/order":
             return self._json(200, {"ok": False, "message": "Direct order via broker panel not yet implemented."})
@@ -5854,8 +6048,12 @@ class Handler(BaseHTTPRequestHandler):
             position_id = data.get("position_id")
             if position_id is None:
                 return self._json(400, {"ok": False, "message": "position_id is required"})
+            paper_futures = bool(
+                _paper_futures_identity(_find_open_trade(position_id) or {})
+            )
             ok, msg = request_close_position(position_id)
-            return self._json(202 if ok else 400, {"ok": ok, "message": msg})
+            status = 200 if ok and paper_futures else (202 if ok else 400)
+            return self._json(status, {"ok": ok, "message": msg})
 
         return self._json(400, {"error": f"Unknown action: {action}"})
 

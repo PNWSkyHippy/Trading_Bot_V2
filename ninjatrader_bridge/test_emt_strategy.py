@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from emt_strategy import EMTStrategyEngine
+from emt_strategy import EMTStrategyEngine, PaperTrade
 
 
 ET = ZoneInfo("America/New_York")
@@ -266,6 +266,29 @@ class EMTStrategyTests(unittest.TestCase):
         bad = bar(stamp(9, 45), 100.0, high=99.0, low=98.0)
         with self.assertRaises(ValueError):
             self.engine.on_tick_bar(bad, complete=True, historical=False)
+
+    def test_manual_close_closes_exact_active_paper_trade(self):
+        self.engine.active_trade = PaperTrade(
+            trade_id="EMT-PAPER-TEST",
+            symbol="ES",
+            direction="short",
+            quantity=1,
+            entry_time="2026-07-20T16:00:00+00:00",
+            entry_price=100.0,
+            stop_price=102.0,
+            target_price=98.0,
+            entry_bar_time=stamp(9, 45),
+        )
+        self.engine.last_live_price = 99.0
+
+        closed = self.engine.manual_close("EMT-PAPER-TEST")
+
+        self.assertIsNone(self.engine.active_trade)
+        self.assertEqual(closed["exit_reason"], "manual_close")
+        self.assertEqual(closed["exit_price"], 99.0)
+        self.assertEqual(closed["pnl"], 50.0)
+        with self.assertRaises(LookupError):
+            self.engine.manual_close("EMT-PAPER-TEST")
 
     def test_ledger_contains_open_and_close_records(self):
         self.arm_short_and_touch()

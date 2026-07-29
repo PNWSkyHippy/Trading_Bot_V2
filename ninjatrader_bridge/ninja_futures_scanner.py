@@ -420,6 +420,37 @@ class MarketState:
                     "overlay": engine.chart_overlay(),
                 }
         return result
+
+    def close_strategy_trade(self, strategy, symbol, trade_id):
+        """Close an exact VPS paper trade without involving any broker adapter."""
+        strategy = str(strategy or "").strip().lower()
+        if strategy not in ("emt", "eat"):
+            raise ValueError("strategy must be EMT or EAT")
+        symbol = self.root_symbol(str(symbol or ""))
+        if not trade_id:
+            raise ValueError("trade_id is required")
+        with self.engine_lock:
+            engines = self.emt_engines if strategy == "emt" else self.eat_engines
+            engine = engines.get(symbol)
+        if engine is None:
+            raise LookupError(
+                f"{strategy.upper()} {symbol} is not configured in this scanner"
+            )
+        closed = engine.manual_close(str(trade_id))
+        print(
+            f"{strategy.upper()} MANUAL CLOSE · {symbol} · {trade_id} · "
+            f"{closed.get('exit_price')} · P&L "
+            f"${float(closed.get('pnl', closed.get('realized_pnl', 0)) or 0):.2f}",
+            flush=True,
+        )
+        return {
+            "ok": True,
+            "strategy": strategy,
+            "symbol": symbol,
+            "trade_id": str(trade_id),
+            "trade": closed,
+        }
+
     @staticmethod
     def root_symbol(symbol):
         return symbol.split()[0].upper()
@@ -831,7 +862,7 @@ def make_handler(state):
             path = parsed.path
             if path not in (
                 "/ingest/bar", "/ingest/emt/bar", "/ingest/heartbeat",
-                "/strategy/config",
+                "/strategy/config", "/strategy/close",
             ):
                 self.send_error(404)
                 return
@@ -851,6 +882,22 @@ def make_handler(state):
                     )
                     self._json(200, result)
                     return
+                if path == "/strategy/close":
+                    try:
+                        result = state.close_strategy_trade(
+                            value.get("strategy"),
+                            value.get("symbol"),
+                            value.get("trade_id"),
+                        )
+                    except LookupError as exc:
+                        self._json(409, {
+                            "ok": False,
+                            "code": "trade_not_active",
+                            "error": str(exc),
+                        })
+                        return
+                    self._json(200, result)
+                    return
                 if path == "/ingest/heartbeat":
                     state.heartbeat(value)
                 elif path == "/ingest/emt/bar":
@@ -865,7 +912,7 @@ def make_handler(state):
                 except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
                     return
             except (ValueError, TypeError, json.JSONDecodeError) as exc:
-                if path == "/strategy/config":
+                if path in ("/strategy/config", "/strategy/close"):
                     self._json(400, {"ok": False, "error": str(exc)})
                 else:
                     self.send_error(400, str(exc))

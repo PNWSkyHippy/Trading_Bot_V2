@@ -611,6 +611,28 @@ class EATStrategyEngine:
         else:
             self.phase = "SESSION_DONE"
 
+    def manual_close(self, trade_id: str, price: Optional[float] = None) -> dict:
+        """Close one exact paper trade through the owning strategy engine."""
+        with self.lock:
+            if not self.paper_only:
+                raise ValueError("manual paper close cannot operate on live EAT")
+            trade = self.active_trade
+            if trade is None or str(trade.trade_id) != str(trade_id):
+                active_id = None if trade is None else trade.trade_id
+                raise LookupError(
+                    f"EAT {self.symbol} trade {trade_id} is not active"
+                    + ("" if active_id is None else f"; active trade is {active_id}")
+                )
+            exit_price = _finite_number(
+                self.last_live_price if price is None else price
+            )
+            if exit_price <= 0:
+                raise ValueError("EAT manual close needs a positive current price")
+            self._close_trade(
+                exit_price, datetime.now(timezone.utc), "manual_close"
+            )
+            return asdict(trade)
+
     def on_minute_bar(self, raw_bar: dict, historical: bool = False) -> List[EATEvent]:
         self._refresh_runtime_enabled()
         if not self.enabled and self.active_trade is None:
