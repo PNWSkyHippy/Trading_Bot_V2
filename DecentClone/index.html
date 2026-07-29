@@ -754,7 +754,7 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -13545,11 +13545,19 @@
             );
             const from = addVec(center, scaleVec(forward, -roomLength * 0.5));
             const to = addVec(center, scaleVec(forward, roomLength * 0.5));
+            // Rect rooms need floor/ceiling to stay level regardless of how much the
+            // source tunnel had rolled by this point in the path (roll is invisible on
+            // a round tunnel but not on a room with distinct floor/ceiling surfaces).
+            const roomUpRef = Math.abs(dot(forward, { x: 0, y: 1, z: 0 })) > 0.92
+                ? { x: 0, y: 0, z: 1 }
+                : { x: 0, y: 1, z: 0 };
+            const roomRight = normalize(cross(roomUpRef, forward));
+            const roomDown = normalize(cross(forward, roomRight));
             const room = makeSegmentBetween(
                 from,
                 to,
-                firstSeg.right || builder.right,
-                firstSeg.down || builder.down,
+                roomRight,
+                roomDown,
                 'rect-room',
                 Math.max(roomWidth, roomHeight) * 0.5
             );
@@ -16211,8 +16219,15 @@
             for (const cache of builder.rocketCaches) {
                 const selected = mapMouse.selectedRocketCacheId === cache.id;
                 const def = LOOT_ITEM_DEFS[cache.itemType] || LOOT_ITEM_DEFS.rocketPack;
-                const projected = drawMapDot(cache.point, selected ? '#ffe95c' : def.color, selected ? 11 : 8);
+                const dotColor = selected ? '#ffe95c' : def.color;
+                const dotRadius = selected ? 11 : 8;
+                const projected = projectMapPoint(cache.point, centerX, centerY, fov);
                 if (!projected) continue;
+                const dotSize = Math.max(3, dotRadius * Math.min(1.4, 900 / projected.z));
+                ctx.fillStyle = dotColor;
+                ctx.beginPath();
+                ctx.arc(projected.x, projected.y, dotSize, 0, Math.PI * 2);
+                ctx.fill();
                 ctx.save();
                 ctx.fillStyle = selected ? '#fff2a8' : def.color;
                 ctx.font = `${selected ? 'bold ' : ''}11px monospace`;
@@ -21487,12 +21502,16 @@
                 if (shouldSuppressOpaqueOverlay(segIndex, texturedSegmentIndices, forwardPathSet)) {
                     continue;
                 }
-                const ribTimes = segmentHasWallCover
-                    ? [0.5]
-                    : Array.from(
-                        { length: Math.max(1, Math.floor(length / 120)) },
-                        (_, rib) => (rib + 1) / (Math.max(1, Math.floor(length / 120)) + 1)
-                    );
+                // Rect rooms are a single merged space, not a chain of tunnel
+                // sections -- don't stripe them with interior divider rings.
+                const ribTimes = segmentIsRectRoom(seg)
+                    ? []
+                    : segmentHasWallCover
+                        ? [0.5]
+                        : Array.from(
+                            { length: Math.max(1, Math.floor(length / 120)) },
+                            (_, rib) => (rib + 1) / (Math.max(1, Math.floor(length / 120)) + 1)
+                        );
 
                 for (const t of ribTimes) {
                     const ribCenter = pointOnSegment(seg, t);
