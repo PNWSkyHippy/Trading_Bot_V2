@@ -255,6 +255,7 @@ class MarketState:
                 "buffer_ticks", "tp1_ticks", "runner_trail_ticks",
                 "wick_stop_lookback_minutes", "trade_window_minutes",
                 "max_trades_per_session", "allow_reentry", "sessions",
+                "max_stop_ticks", "enable_longs", "enable_shorts",
             },
         }[strategy]
         unknown = sorted(set(settings) - allowed)
@@ -263,7 +264,7 @@ class MarketState:
                 f"unsupported {strategy.upper()} settings: {', '.join(unknown)}"
             )
         clean = {key: settings[key] for key in allowed if key in settings}
-        for key in ("enabled", "allow_reentry"):
+        for key in ("enabled", "allow_reentry", "enable_longs", "enable_shorts"):
             if key in clean and not isinstance(clean[key], bool):
                 raise ValueError(f"{key} must be true or false")
         for key in (
@@ -277,6 +278,10 @@ class MarketState:
                 clean[key] = int(clean[key])
                 if clean[key] < 1:
                     raise ValueError(f"{key} must be at least 1")
+        if "max_stop_ticks" in clean:
+            clean["max_stop_ticks"] = int(clean["max_stop_ticks"])
+            if clean["max_stop_ticks"] < 0:
+                raise ValueError("max_stop_ticks must be >= 0")
         for key in ("stop_points", "target_points"):
             if key in clean:
                 clean[key] = float(clean[key])

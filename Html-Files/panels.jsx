@@ -2485,6 +2485,9 @@ const IND_PARAM_DEFS = {
     { key: 'tp1Ticks', label: 'TP1', min: 1, max: 2000, fallback: 100 },
     { key: 'runnerTrailTicks', label: 'Trail', min: 1, max: 1000, fallback: 30 },
     { key: 'tradeWindowMinutes', label: 'Trade min', min: 1, max: 600, fallback: 60 },
+    { key: 'maxStopTicks', label: 'Max stop', min: 0, max: 5000, fallback: 0 },
+    { key: 'enableLongs', label: 'Longs', type: 'bool', fallback: true },
+    { key: 'enableShorts', label: 'Shorts', type: 'bool', fallback: true },
   ],
 };
 const indicatorParamDefs = (type) => IND_PARAM_DEFS[type] || IND_PARAM_DEFS.EMA;
@@ -2572,6 +2575,9 @@ const strategyConfigFromIndicators = (list, type) => {
     tp1_ticks: Math.max(1, Number(ind.tp1Ticks) || 100),
     runner_trail_ticks: Math.max(1, Number(ind.runnerTrailTicks) || 30),
     trade_window_minutes: Math.max(1, Number(ind.tradeWindowMinutes) || 60),
+    max_stop_ticks: Math.max(0, Number(ind.maxStopTicks) || 0),
+    enable_longs: ind.enableLongs ?? true,
+    enable_shorts: ind.enableShorts ?? true,
     sessions: [
       { name: 'ny', start: ind.nyStart || '05:00' },
       { name: 'tokyo', start: ind.tokyoStart || '14:30' },
@@ -2624,6 +2630,9 @@ const hydrateStrategyIndicators = (list, status) => {
       tp1Ticks: Number(settings.tp1_ticks ?? ind.tp1Ticks ?? 100),
       runnerTrailTicks: Number(settings.runner_trail_ticks ?? ind.runnerTrailTicks ?? 30),
       tradeWindowMinutes: Number(settings.trade_window_minutes ?? ind.tradeWindowMinutes ?? 60),
+      maxStopTicks: Number(settings.max_stop_ticks ?? ind.maxStopTicks ?? 0),
+      enableLongs: settings.enable_longs ?? ind.enableLongs ?? true,
+      enableShorts: settings.enable_shorts ?? ind.enableShorts ?? true,
     };
   });
 };
@@ -4986,6 +4995,11 @@ function ChartPanel({ defaultSymbol }) {
                           <option key={value} value={value}>{label}</option>
                         ))}
                       </select>
+                    ) : def.type === 'bool' ? (
+                      <input className="input" type="checkbox"
+                        checked={ind[def.key] ?? def.fallback}
+                        onChange={e => updateIndicator(ind.id, { [def.key]: e.target.checked })}
+                        style={{ width:16, height:16 }} />
                     ) : (
                       <input className="input" type="number"
                         min={def.min} max={def.max} step={def.step || 1}
