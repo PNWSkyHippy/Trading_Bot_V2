@@ -149,6 +149,9 @@ class EATStrategyEngine:
         self.wick_stop_lookback_minutes = int(
             self.settings.get("wick_stop_lookback_minutes", 20)
         )
+        self.max_stop_ticks = int(self.settings.get("max_stop_ticks", 0))
+        self.enable_longs = bool(self.settings.get("enable_longs", True))
+        self.enable_shorts = bool(self.settings.get("enable_shorts", True))
         self.allow_reentry = bool(self.settings.get("allow_reentry", True))
         self.control_state_key = str(self.settings.get("control_state_key") or "").strip()
         self.mirror_to_bot_db = bool(self.settings.get("mirror_to_bot_db", False))
@@ -172,6 +175,10 @@ class EATStrategyEngine:
             raise ValueError("EAT box tick range is invalid")
         if min(self.buffer_ticks, self.tp1_ticks, self.runner_trail_ticks) < 1:
             raise ValueError("EAT tick distances must be positive")
+        if self.max_stop_ticks < 0:
+            raise ValueError("EAT max_stop_ticks must be >= 0")
+        if not (self.enable_longs or self.enable_shorts):
+            raise ValueError("EAT needs at least one of enable_longs/enable_shorts on")
 
         self.lock = threading.RLock()
         self.minute_bars: Deque[dict] = deque(maxlen=3000)
@@ -418,6 +425,12 @@ class EATStrategyEngine:
         if self.last_zone == zone and self.allow_reentry:
             return
         direction = "long" if zone == "top" else "short"
+        if direction == "long" and not self.enable_longs:
+            self.last_zone = zone
+            return
+        if direction == "short" and not self.enable_shorts:
+            self.last_zone = zone
+            return
         self._open_trade(direction, float(bar["close"]), bar)
         self.last_zone = zone
 
@@ -457,6 +470,12 @@ class EATStrategyEngine:
                 direction, float(self.inner_high), bar["dt"].astimezone(self.market_tz)
             )
             tp1 = float(self.inner_low) - self.tp1_ticks * self.tick_size
+        if self.max_stop_ticks > 0:
+            max_distance = self.max_stop_ticks * self.tick_size
+            if direction == "long":
+                stop = max(stop, price - max_distance)
+            else:
+                stop = min(stop, price + max_distance)
         tp1_qty = int(math.ceil(self.quantity / 2.0))
         trade_id = (
             f"EAT-PAPER-"
