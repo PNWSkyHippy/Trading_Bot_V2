@@ -2221,6 +2221,27 @@ def _parse_chart_time(value) -> Optional[int]:
         return None
 
 
+def _fresh_emt_tick_bars(
+    snapshot: dict, symbol: str, min_bars: int = 20, max_age_seconds: int = 300
+) -> list:
+    """Return EMT tick bars only when the cache is usable as a live chart."""
+    state = (snapshot.get("emt_strategies") or {}).get(symbol) or {}
+    if not state.get("enabled"):
+        return []
+    overlay = (snapshot.get("emt_overlays") or {}).get(symbol) or {}
+    bars = overlay.get("tick_bars_data") or []
+    if len(bars) < min_bars:
+        return []
+    timestamps = [
+        timestamp
+        for timestamp in (_parse_chart_time(bar.get("time")) for bar in bars)
+        if timestamp is not None
+    ]
+    if not timestamps or max(timestamps) < int(time.time()) - max_age_seconds:
+        return []
+    return bars
+
+
 def _scanner_bars_for_chart(
     symbol: str, timeframe: str, limit: int, snapshot: Optional[dict] = None
 ) -> list:
@@ -2228,11 +2249,8 @@ def _scanner_bars_for_chart(
     if not snap.get("ok"):
         return []
     symbol = symbol.upper()
-    emt_state = (snap.get("emt_strategies") or {}).get(symbol) or {}
-    emt_overlay = (snap.get("emt_overlays") or {}).get(symbol) or {}
-    raw = []
-    if emt_state.get("enabled"):
-        raw = emt_overlay.get("tick_bars_data") or []
+    tick_bars = _fresh_emt_tick_bars(snap, symbol)
+    raw = tick_bars
     if not raw:
         raw = ((snap.get("bars") or {}).get(symbol) or [])
     rows = []
@@ -2256,7 +2274,7 @@ def _scanner_bars_for_chart(
         if min(bar["open"], bar["high"], bar["low"], bar["close"]) > 0
     ]
     rows.sort(key=lambda bar: bar["time"])
-    if emt_state.get("enabled") and emt_overlay.get("tick_bars_data"):
+    if tick_bars:
         return rows[-limit:]
     size = {
         "1m": 1, "2m": 2, "3m": 3, "5m": 5, "15m": 15,
@@ -3036,14 +3054,10 @@ def get_chart_data(symbol, timeframe='5m', limit=300, broker=None):
             strategy_snap.get("ok") and symbol in (strategy_snap.get("bars") or {})
         )
         if scanner_tracks_symbol:
-            emt_state = (strategy_snap.get("emt_strategies") or {}).get(symbol) or {}
-            emt_overlay = (strategy_snap.get("emt_overlays") or {}).get(symbol) or {}
             ninja_bars = _scanner_bars_for_chart(
                 symbol, timeframe, limit, snapshot=strategy_snap
             )
-            uses_ticks = bool(
-                emt_state.get("enabled") and emt_overlay.get("tick_bars_data")
-            )
+            uses_ticks = bool(_fresh_emt_tick_bars(strategy_snap, symbol))
             return {
                 "bars": ninja_bars,
                 "markers": _trade_markers_for_symbol(symbol),
