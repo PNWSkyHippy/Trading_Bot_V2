@@ -2379,7 +2379,7 @@ const DEFAULT_CHART_INDICATORS = [
   { id: 'vwap', type: 'VWAP', period: 1, anchor: 'session', source: 'hlc3', color: '#eab308', place: 'main', visible: false },
   { id: 'supertrend', type: 'SuperTrend', period: 10, mult: 3, color: '#22c55e', downColor: '#ef5350', place: 'main', visible: false },
   { id: 'emt_strategy', type: 'EMT', contracts: 1, openingStart: '06:30', openingRangeMinutes: 15, tradeWindowMinutes: 60, stopPoints: 2, targetPoints: 2, color: '#38bdf8', place: 'main', visible: false },
-  { id: 'eat_strategy', type: 'EAT', contracts: 1, nyStart: '05:00', tokyoStart: '14:30', londonStandardStart: '22:30', londonDstStart: '23:30', primaryBoxMinutes: 5, fallbackBoxMinutes: 15, minBoxTicks: 100, maxBoxTicks: 250, bufferTicks: 30, tp1Ticks: 100, runnerTrailTicks: 30, tradeWindowMinutes: 60, color: '#2dd4bf', place: 'main', visible: false },
+  { id: 'eat_strategy', type: 'EAT', contracts: 4, nyStart: '05:00', tokyoStart: '14:30', londonStandardStart: '22:30', londonDstStart: '23:30', primaryBoxMinutes: 5, fallbackBoxMinutes: 15, minBoxTicks: 100, maxBoxTicks: 250, bufferTicks: 30, tp1Ticks: 160, runnerTrailTicks: 20, tradeWindowMinutes: 60, maxStopTicks: 0, stopTicksOverride: 44, enableLongs: true, enableShorts: false, color: '#2dd4bf', place: 'main', visible: false },
 ];
 
 const STRATEGY_INDICATOR_TYPES = new Set(['EMT', 'EAT']);
@@ -2406,7 +2406,7 @@ const IND_TYPE_DEFAULTS = {
   VWAP:       { period: 1, anchor: 'session', source: 'hlc3', color: '#eab308', place: 'main' },
   SuperTrend: { period: 10, mult: 3, color: '#22c55e', downColor: '#ef5350', place: 'main' },
   EMT:        { contracts: 1, openingStart: '06:30', openingRangeMinutes: 15, tradeWindowMinutes: 60, stopPoints: 2, targetPoints: 2, color: '#38bdf8', place: 'main' },
-  EAT:        { contracts: 1, nyStart: '05:00', tokyoStart: '14:30', londonStandardStart: '22:30', londonDstStart: '23:30', primaryBoxMinutes: 5, fallbackBoxMinutes: 15, minBoxTicks: 100, maxBoxTicks: 250, bufferTicks: 30, tp1Ticks: 100, runnerTrailTicks: 30, tradeWindowMinutes: 60, color: '#2dd4bf', place: 'main' },
+  EAT:        { contracts: 4, nyStart: '05:00', tokyoStart: '14:30', londonStandardStart: '22:30', londonDstStart: '23:30', primaryBoxMinutes: 5, fallbackBoxMinutes: 15, minBoxTicks: 100, maxBoxTicks: 250, bufferTicks: 30, tp1Ticks: 160, runnerTrailTicks: 20, tradeWindowMinutes: 60, maxStopTicks: 0, stopTicksOverride: 44, enableLongs: true, enableShorts: false, color: '#2dd4bf', place: 'main' },
 };
 const IND_PARAM_DEFS = {
   EMA:        [{ key: 'period', label: 'Period', min: 1, max: 300, fallback: 50 }],
@@ -2472,7 +2472,7 @@ const IND_PARAM_DEFS = {
     { key: 'targetPoints', label: 'TP pts', min: 0.25, max: 100, step: 0.25, fallback: 2 },
   ],
   EAT: [
-    { key: 'contracts', label: 'Contracts', min: 1, max: 100, fallback: 1 },
+    { key: 'contracts', label: 'Contracts', min: 1, max: 100, fallback: 4 },
     { key: 'nyStart', label: 'NY PT', type: 'time', fallback: '05:00' },
     { key: 'tokyoStart', label: 'Tokyo PT', type: 'time', fallback: '14:30' },
     { key: 'londonStandardStart', label: 'London std', type: 'time', fallback: '22:30' },
@@ -2482,13 +2482,13 @@ const IND_PARAM_DEFS = {
     { key: 'minBoxTicks', label: 'Min ticks', min: 1, max: 2000, fallback: 100 },
     { key: 'maxBoxTicks', label: 'Max ticks', min: 1, max: 5000, fallback: 250 },
     { key: 'bufferTicks', label: 'Buffer', min: 1, max: 1000, fallback: 30 },
-    { key: 'tp1Ticks', label: 'TP1', min: 1, max: 2000, fallback: 100 },
-    { key: 'runnerTrailTicks', label: 'Trail', min: 1, max: 1000, fallback: 30 },
+    { key: 'tp1Ticks', label: 'TP1', min: 1, max: 2000, fallback: 160 },
+    { key: 'runnerTrailTicks', label: 'Trail', min: 1, max: 1000, fallback: 20 },
     { key: 'tradeWindowMinutes', label: 'Trade min', min: 1, max: 1380, fallback: 60 },
     { key: 'maxStopTicks', label: 'Max stop', min: 0, max: 5000, fallback: 0 },
-    { key: 'stopTicksOverride', label: 'Stop ovr', min: 0, max: 5000, fallback: 0 },
+    { key: 'stopTicksOverride', label: 'Stop ovr', min: 0, max: 5000, fallback: 44 },
     { key: 'enableLongs', label: 'Longs', type: 'bool', fallback: true },
-    { key: 'enableShorts', label: 'Shorts', type: 'bool', fallback: true },
+    { key: 'enableShorts', label: 'Shorts', type: 'bool', fallback: false },
   ],
 };
 const indicatorParamDefs = (type) => IND_PARAM_DEFS[type] || IND_PARAM_DEFS.EMA;
@@ -2567,19 +2567,19 @@ const strategyConfigFromIndicators = (list, type) => {
   }
   return {
     enabled: !!ind.visible,
-    contracts: Math.max(1, Number(ind.contracts) || 1),
+    contracts: Math.max(1, Number(ind.contracts) || 4),
     primary_box_minutes: Math.max(1, Number(ind.primaryBoxMinutes) || 5),
     fallback_box_minutes: Math.max(1, Number(ind.fallbackBoxMinutes) || 15),
     min_box_ticks: Math.max(1, Number(ind.minBoxTicks) || 100),
     max_box_ticks: Math.max(1, Number(ind.maxBoxTicks) || 250),
     buffer_ticks: Math.max(1, Number(ind.bufferTicks) || 30),
-    tp1_ticks: Math.max(1, Number(ind.tp1Ticks) || 100),
-    runner_trail_ticks: Math.max(1, Number(ind.runnerTrailTicks) || 30),
+    tp1_ticks: Math.max(1, Number(ind.tp1Ticks) || 160),
+    runner_trail_ticks: Math.max(1, Number(ind.runnerTrailTicks) || 20),
     trade_window_minutes: Math.max(1, Number(ind.tradeWindowMinutes) || 60),
     max_stop_ticks: Math.max(0, Number(ind.maxStopTicks) || 0),
-    stop_ticks_override: Math.max(0, Number(ind.stopTicksOverride) || 0),
+    stop_ticks_override: Math.max(0, Number(ind.stopTicksOverride ?? 44)),
     enable_longs: ind.enableLongs ?? true,
-    enable_shorts: ind.enableShorts ?? true,
+    enable_shorts: ind.enableShorts ?? false,
     sessions: [
       { name: 'ny', start: ind.nyStart || '05:00' },
       { name: 'tokyo', start: ind.tokyoStart || '14:30' },
@@ -2619,7 +2619,7 @@ const hydrateStrategyIndicators = (list, status) => {
     return {
       ...ind,
       visible: !!entry.enabled,
-      contracts: Number(settings.contracts ?? ind.contracts ?? 1),
+      contracts: Number(settings.contracts ?? ind.contracts ?? 4),
       nyStart: ny.start || ind.nyStart || '05:00',
       tokyoStart: tokyo.start || ind.tokyoStart || '14:30',
       londonStandardStart: london.standard_start || ind.londonStandardStart || '22:30',
@@ -2629,13 +2629,13 @@ const hydrateStrategyIndicators = (list, status) => {
       minBoxTicks: Number(settings.min_box_ticks ?? ind.minBoxTicks ?? 100),
       maxBoxTicks: Number(settings.max_box_ticks ?? ind.maxBoxTicks ?? 250),
       bufferTicks: Number(settings.buffer_ticks ?? ind.bufferTicks ?? 30),
-      tp1Ticks: Number(settings.tp1_ticks ?? ind.tp1Ticks ?? 100),
-      runnerTrailTicks: Number(settings.runner_trail_ticks ?? ind.runnerTrailTicks ?? 30),
+      tp1Ticks: Number(settings.tp1_ticks ?? ind.tp1Ticks ?? 160),
+      runnerTrailTicks: Number(settings.runner_trail_ticks ?? ind.runnerTrailTicks ?? 20),
       tradeWindowMinutes: Number(settings.trade_window_minutes ?? ind.tradeWindowMinutes ?? 60),
       maxStopTicks: Number(settings.max_stop_ticks ?? ind.maxStopTicks ?? 0),
-      stopTicksOverride: Number(settings.stop_ticks_override ?? ind.stopTicksOverride ?? 0),
+      stopTicksOverride: Number(settings.stop_ticks_override ?? ind.stopTicksOverride ?? 44),
       enableLongs: settings.enable_longs ?? ind.enableLongs ?? true,
-      enableShorts: settings.enable_shorts ?? ind.enableShorts ?? true,
+      enableShorts: settings.enable_shorts ?? ind.enableShorts ?? false,
     };
   });
 };

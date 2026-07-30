@@ -174,11 +174,11 @@
     "min_box_ticks": 100,
     "max_box_ticks": 250,
     "buffer_ticks": 30,
-    "tp1_ticks": 100,
-    "runner_trail_ticks": 30,
+    "tp1_ticks": 160,
+    "runner_trail_ticks": 20,
     "wick_stop_lookback_minutes": 20,
     "trade_window_minutes": 60,
-    "contracts": 1,
+    "contracts": 4,
     "max_trades_per_session": 12,
     "allow_reentry": true,
     "sessions": [
@@ -189,6 +189,10 @@
     "ledger_path": "eat_trades.jsonl",
     "mirror_to_bot_db": true,
     "db_timezone": "America/Los_Angeles",
-    "control_state_key": "scanner_eat_enabled"
+    "control_state_key": "scanner_eat_enabled",
+    "max_stop_ticks": 0,
+    "stop_ticks_override": 44,
+    "enable_longs": true,
+    "enable_shorts": false
   }
 }

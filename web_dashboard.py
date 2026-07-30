@@ -2287,7 +2287,7 @@ def _scanner_strategy_status(symbol: str) -> dict:
         import urllib.request
         query = urllib.parse.urlencode({"symbol": str(symbol).upper()})
         with urllib.request.urlopen(
-            f"http://127.0.0.1:8765/strategy/status?{query}", timeout=1.5
+            f"http://127.0.0.1:8765/strategy/status?{query}", timeout=8.0
         ) as response:
             return json.loads(response.read().decode("utf-8"))
     except Exception as exc:
