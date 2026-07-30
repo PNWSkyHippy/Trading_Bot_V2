@@ -193,7 +193,7 @@ class EMTStrategyEngine:
             self.settings.get("double_pattern_neckline_points", 1.0)
         )
         self.pattern_detector = PatternDetector()
-        self.range_start = self._clock(self.settings.get("opening_range_start", "09:30"))
+        self.range_start = self._clock(self.settings.get("opening_range_start", "05:00"))
         self.range_minutes = int(self.settings.get("opening_range_minutes", 15))
         self.trade_window_minutes = int(self.settings.get("trade_window_minutes", 60))
         self.ledger_path = os.path.join(

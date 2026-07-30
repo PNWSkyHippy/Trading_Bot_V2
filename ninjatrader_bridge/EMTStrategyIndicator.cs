@@ -50,8 +50,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                 DrawOnPricePanel = true;
                 IsSuspendedWhileInactive = true;
 
-                OpeningStartHour = 6;
-                OpeningStartMinute = 30;
+                OpeningStartHour = 5;
+                OpeningStartMinute = 0;
                 OpeningRangeMinutes = 15;
                 TradeWindowMinutes = 60;
                 KeltnerEmaPeriod = 20;
