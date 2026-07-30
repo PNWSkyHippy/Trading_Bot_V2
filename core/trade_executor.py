@@ -5,7 +5,7 @@
     Stocks: IBKR (preferred, if enabled) → Alpaca (fallback)
     Crypto: Coinbase → Kraken → paper simulation
 
-  IBKR cash account mode:
+ IBKR cash account mode:
     - No PDT rule (unlimited day trades with settled funds)
     - settlement_tracker checks settled capital before every IBKR stock trade
     - T+1 settlement (SEC standard since May 2024)
