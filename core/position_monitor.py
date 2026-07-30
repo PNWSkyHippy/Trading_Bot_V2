@@ -356,7 +356,7 @@ class PositionMonitor:
     def _maybe_take_scanner_partial(
         self, trade: Dict, current_price: float, pnl_pct: float
     ) -> bool:
-        """Bank one partial profit on scanner trades, then let the rest trail."""
+        """Bank one partial profit, then confirm protection before marking it done."""
         if not getattr(config, "BREAKOUT_PARTIAL_TP_ENABLED", True):
             return False
         if not _is_breakout_trade(trade):
@@ -381,18 +381,20 @@ class PositionMonitor:
         if not success:
             return False
 
-        self._db.set_state(f"scanner_partial_taken_{trade_id}", 1)
         logger.info(
-            f"[SCANNER PARTIAL] {trade['symbol']}: banked {fraction:.0%} at "
+            f"[SCANNER PARTIAL] {trade['symbol']}: partial fill booked at "
             f"{pnl_pct:+.2f}% | remaining position will keep trailing"
         )
 
-        # Partial close cancels/replaces exchange-side orders on Kraken. Re-place
-        # a protective stop for the remaining reduced size at the current DB stop.
-        try:
-            stop_loss = float(trade.get("stop_loss") or 0)
-            qty = float(trade.get("quantity") or 0)
-            if stop_loss > 0 and qty > 0:
+        # The partial close cancels all exchange-side orders.  Confirm the
+        # replacement stop before persisting the one-shot scanner marker so a
+        # falsey/failed stop placement enters the existing restore backoff.
+        stop_loss = float(trade.get("stop_loss") or 0)
+        qty = float(trade.get("quantity") or 0)
+        old_stop_id = trade.get("stop_order_id") or ""
+        stop_confirmed = False
+        if stop_loss > 0 and qty > 0:
+            try:
                 _leverage = int(
                     _json.loads(trade.get("indicators_json") or "{}").get("kraken_leverage", 0)
                 )
@@ -403,13 +405,26 @@ class PositionMonitor:
                 if stop_id:
                     self._db.update_trade_order_ids(trade_id, stop_order_id=stop_id)
                     trade["stop_order_id"] = stop_id
-        except Exception as e:
-            logger.warning(
-                f"[SCANNER PARTIAL] {trade['symbol']}: could not refresh "
-                f"remaining stop after partial: {e}"
-            )
-        return True
+                    stop_confirmed = True
+            except Exception as exc:
+                logger.warning(
+                    f"[SCANNER PARTIAL] {trade['symbol']}: could not refresh "
+                    f"remaining stop after partial: {exc}"
+                )
 
+        if stop_confirmed or qty <= 0:
+            self._db.set_state(f"scanner_partial_taken_{trade_id}", 1)
+        else:
+            try:
+                self._mark_kraken_stop_unprotected(
+                    trade, trade_id, trade["symbol"], old_stop_id, stop_loss
+                )
+            except Exception as exc:
+                logger.critical(
+                    f"[SCANNER PARTIAL] {trade['symbol']}: failed to persist "
+                    f"unprotected-stop recovery state: {exc}"
+                )
+        return True
     def start(self):
         if self.running:
             return
