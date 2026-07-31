@@ -551,6 +551,10 @@ class PositionMonitor:
     ) -> None:
         if trade.get("asset_class") != "crypto":
             return
+        if self._db.get_state(f"kraken_full_reconcile_{trade_id}", default=0):
+            # The tracked DB quantity may no longer match the exchange after a
+            # failed full close. Do not guess at a replacement stop size.
+            return
         if trade.get("stop_order_id"):
             return
 
