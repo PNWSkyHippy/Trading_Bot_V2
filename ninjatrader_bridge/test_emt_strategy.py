@@ -151,6 +151,23 @@ class EMTStrategyTests(unittest.TestCase):
             any(event.kind == "BREAKOUT_ARMED" for event in self.engine.events)
         )
 
+    def test_warming_status_reports_completed_tick_bar_progress(self):
+        self.engine.phase = "WARMING"
+        self.engine.tick_bars.extend([
+            bar(stamp(6, 30), 100.0),
+            bar(stamp(6, 31), 100.25),
+            bar(stamp(6, 32), 100.5),
+        ])
+
+        message = self.engine._status_message(
+            datetime(2026, 7, 20, 6, 33, tzinfo=PACIFIC)
+        )
+
+        self.assertIn(
+            "Warming Keltner data (3/5 completed 610-tick bars)",
+            message,
+        )
+
     def test_short_retrace_confirmation_opens_exact_two_point_paper_bracket(self):
         self.arm_short_and_touch()
         self.engine.on_tick_bar(

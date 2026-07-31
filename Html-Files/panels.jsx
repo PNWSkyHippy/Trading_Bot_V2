@@ -2378,7 +2378,7 @@ const DEFAULT_CHART_INDICATORS = [
   { id: 'atr14', type: 'ATR', period: 14, color: '#14b8a6', place: 'lower2', visible: false },
   { id: 'vwap', type: 'VWAP', period: 1, anchor: 'session', source: 'hlc3', color: '#eab308', place: 'main', visible: false },
   { id: 'supertrend', type: 'SuperTrend', period: 10, mult: 3, color: '#22c55e', downColor: '#ef5350', place: 'main', visible: false },
-  { id: 'emt_strategy', type: 'EMT', contracts: 1, openingStart: '06:30', openingRangeMinutes: 15, tradeWindowMinutes: 60, stopPoints: 2, targetPoints: 2, color: '#38bdf8', place: 'main', visible: false },
+  { id: 'emt_strategy', type: 'EMT', contracts: 1, openingStart: '05:00', openingRangeMinutes: 15, tradeWindowMinutes: 60, stopPoints: 2, targetPoints: 2, color: '#38bdf8', place: 'main', visible: false },
   { id: 'eat_strategy', type: 'EAT', contracts: 4, nyStart: '05:00', tokyoStart: '14:30', londonStandardStart: '22:30', londonDstStart: '23:30', primaryBoxMinutes: 5, fallbackBoxMinutes: 15, minBoxTicks: 100, maxBoxTicks: 250, bufferTicks: 30, tp1Ticks: 160, runnerTrailTicks: 20, tradeWindowMinutes: 60, maxStopTicks: 0, stopTicksOverride: 44, enableLongs: true, enableShorts: false, color: '#2dd4bf', place: 'main', visible: false },
 ];
 
@@ -2405,7 +2405,7 @@ const IND_TYPE_DEFAULTS = {
   ATR:        { period: 14, color: '#14b8a6', place: 'lower2' },
   VWAP:       { period: 1, anchor: 'session', source: 'hlc3', color: '#eab308', place: 'main' },
   SuperTrend: { period: 10, mult: 3, color: '#22c55e', downColor: '#ef5350', place: 'main' },
-  EMT:        { contracts: 1, openingStart: '06:30', openingRangeMinutes: 15, tradeWindowMinutes: 60, stopPoints: 2, targetPoints: 2, color: '#38bdf8', place: 'main' },
+  EMT:        { contracts: 1, openingStart: '05:00', openingRangeMinutes: 15, tradeWindowMinutes: 60, stopPoints: 2, targetPoints: 2, color: '#38bdf8', place: 'main' },
   EAT:        { contracts: 4, nyStart: '05:00', tokyoStart: '14:30', londonStandardStart: '22:30', londonDstStart: '23:30', primaryBoxMinutes: 5, fallbackBoxMinutes: 15, minBoxTicks: 100, maxBoxTicks: 250, bufferTicks: 30, tp1Ticks: 160, runnerTrailTicks: 20, tradeWindowMinutes: 60, maxStopTicks: 0, stopTicksOverride: 44, enableLongs: true, enableShorts: false, color: '#2dd4bf', place: 'main' },
 };
 const IND_PARAM_DEFS = {
@@ -2465,7 +2465,7 @@ const IND_PARAM_DEFS = {
   ],
   EMT: [
     { key: 'contracts', label: 'Contracts', min: 1, max: 100, fallback: 1 },
-    { key: 'openingStart', label: 'Start PT', type: 'time', fallback: '06:30' },
+    { key: 'openingStart', label: 'Start PT', type: 'time', fallback: '05:00' },
     { key: 'openingRangeMinutes', label: 'Range min', min: 1, max: 120, fallback: 15 },
     { key: 'tradeWindowMinutes', label: 'Trade min', min: 1, max: 1380, fallback: 60 },
     { key: 'stopPoints', label: 'SL pts', min: 0.25, max: 100, step: 0.25, fallback: 2 },
@@ -2558,7 +2558,7 @@ const strategyConfigFromIndicators = (list, type) => {
     return {
       enabled: !!ind.visible,
       contracts: Math.max(1, Number(ind.contracts) || 1),
-      opening_range_start: ind.openingStart || '06:30',
+      opening_range_start: ind.openingStart || '05:00',
       opening_range_minutes: Math.max(1, Number(ind.openingRangeMinutes) || 15),
       trade_window_minutes: Math.max(1, Number(ind.tradeWindowMinutes) || 60),
       stop_points: Math.max(0.25, Number(ind.stopPoints) || 2),
@@ -2605,7 +2605,7 @@ const hydrateStrategyIndicators = (list, status) => {
         ...ind,
         visible: !!entry.enabled,
         contracts: Number(settings.contracts ?? ind.contracts ?? 1),
-        openingStart: settings.opening_range_start || ind.openingStart || '06:30',
+        openingStart: settings.opening_range_start || ind.openingStart || '05:00',
         openingRangeMinutes: Number(settings.opening_range_minutes ?? ind.openingRangeMinutes ?? 15),
         tradeWindowMinutes: Number(settings.trade_window_minutes ?? ind.tradeWindowMinutes ?? 60),
         stopPoints: Number(settings.stop_points ?? ind.stopPoints ?? 2),
@@ -2860,6 +2860,9 @@ function ChartPanel({ defaultSymbol }) {
   const strategyStatusRef = useR(null);
   const strategyHydratedSymbolRef = useR(null);
   const strategySyncedConfigRef = useR({ emt: null, eat: null });
+  // Hydrating or switching a chart is read-only. Only a deliberate indicator
+  // edit may write strategy state back to the scanner.
+  const strategyUserEditRef = useR({ emt: false, eat: false });
   const symbolRef = useR(symbol);
   const chartSeriesTypeRef = useR('candles'); // tracks what type candleRef.current actually is
   const isLiveUpdateRef = useR(false); // true when bars changed via live poll (not full reload)
@@ -2982,6 +2985,7 @@ function ChartPanel({ defaultSymbol }) {
     setStrategyError('');
     strategyHydratedSymbolRef.current = null;
     strategySyncedConfigRef.current = { emt: null, eat: null };
+    strategyUserEditRef.current = { emt: false, eat: false };
   }, [symbol, indicatorSymbol]);
 
   useE(() => {
@@ -4545,6 +4549,7 @@ function ChartPanel({ defaultSymbol }) {
     const timer = setTimeout(() => {
       ['EMT', 'EAT'].forEach(type => {
         const key = type.toLowerCase();
+        if (!strategyUserEditRef.current[key]) return;
         const settings = strategyConfigFromIndicators(indicators, type);
         if (!settings) return;
         const signature = JSON.stringify(settings);
@@ -4557,6 +4562,9 @@ function ChartPanel({ defaultSymbol }) {
           body: JSON.stringify({ symbol, strategy: key, settings }),
         })
           .then(d => {
+            if (strategySyncedConfigRef.current[key] === signature) {
+              strategyUserEditRef.current[key] = false;
+            }
             setStrategyStatus(d);
             setStrategyError('');
             setStrategyDataRevision(value => value + 1);
@@ -4632,11 +4640,20 @@ function ChartPanel({ defaultSymbol }) {
   const quickIndicators = DEFAULT_CHART_INDICATORS
     .map(def => indicators.find(ind => ind.id === def.id))
     .filter(ind => ind && (isStrategyFuture || !STRATEGY_INDICATOR_TYPES.has(ind.type)));
+  const emtChartActive = isStrategyFuture && indicators.some(
+    ind => ind.type === 'EMT' && ind.visible
+  );
 
   // Sub-minute TFs reserved for future data feeds — add '30s','15s','1s' here when feed supports them
   const TFS = ['1m','2m','3m','5m','15m','30m','1h','4h','1D'];
   const updateIndicator = (id, patch) => {
-    setIndicators(list => list.map(ind => ind.id === id ? { ...ind, ...patch } : ind));
+    setIndicators(list => {
+      const current = list.find(ind => ind.id === id);
+      if (current && STRATEGY_INDICATOR_TYPES.has(current.type)) {
+        strategyUserEditRef.current[current.type.toLowerCase()] = true;
+      }
+      return list.map(ind => ind.id === id ? { ...ind, ...patch } : ind);
+    });
   };
   const addIndicator = () => {
     setIndicators(list => {
@@ -4657,15 +4674,27 @@ function ChartPanel({ defaultSymbol }) {
     setShowIndEditor(true);
   };
   const removeIndicator = (id) => {
-    setIndicators(list => list.map(ind => (
-      ind.id === id && isDefaultIndicator(id)
-        ? { ...ind, visible: false }
-        : ind
-    )).filter(ind => ind.id !== id || isDefaultIndicator(id)));
+    setIndicators(list => {
+      const current = list.find(ind => ind.id === id);
+      if (current && STRATEGY_INDICATOR_TYPES.has(current.type)) {
+        strategyUserEditRef.current[current.type.toLowerCase()] = true;
+      }
+      return list.map(ind => (
+        ind.id === id && isDefaultIndicator(id)
+          ? { ...ind, visible: false }
+          : ind
+      )).filter(ind => ind.id !== id || isDefaultIndicator(id));
+    });
   };
-  const resetIndicators = () => setIndicators(cloneDefaultIndicators(symbol));
+  const resetIndicators = () => {
+    strategyUserEditRef.current = { emt: true, eat: true };
+    setIndicators(cloneDefaultIndicators(symbol));
+  };
   const clearDrawings = () => { setDrawings([]); setDraftDrawing(null); setPatternDrawings([]); setPatternMsg(''); };
-  const clearIndicators = () => setIndicators(cloneDefaultIndicators(symbol).map(ind => ({ ...ind, visible: false })));
+  const clearIndicators = () => {
+    strategyUserEditRef.current = { emt: true, eat: true };
+    setIndicators(cloneDefaultIndicators(symbol).map(ind => ({ ...ind, visible: false })));
+  };
   const clearDrawingsAndIndicators = () => { clearDrawings(); clearIndicators(); };
 
   const PATTERN_COLORS = { LONG: '#4ade80', SHORT: '#f87171', NEUTRAL: '#e879f9' };
@@ -4757,13 +4786,12 @@ function ChartPanel({ defaultSymbol }) {
           )}
         </div>
 
-        {/* Timeframe buttons -- ES always serves 610-tick bars server-side
-            (see _scanner_bars_for_chart in web_dashboard.py), so the tf
-            buttons are inert for it. Lock the control instead of letting
-            the user click a timeframe that silently does nothing. */}
-        {symbol === 'ES' ? (
+        {/* Every futures chart with EMT applied serves the strategy's 610-tick
+            series once its cache is warm. Lock inert clock-time controls for
+            all EMT symbols, not just ES. */}
+        {emtChartActive ? (
           <div
-            title="ES always shows 610-tick bars (a new bar every 610 trades, not on a clock). Switch symbol to change timeframe."
+            title={`${symbol} uses EMT 610-tick bars (a new bar every 610 trades). Remove EMT to select a clock timeframe.`}
             style={{ padding:'2px 8px', fontSize:11, minWidth:32, color:'var(--text-2)', border:'1px solid #2a3347', borderRadius:4 }}
           >610-tick (fixed)</div>
         ) : (

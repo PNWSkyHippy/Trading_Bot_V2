@@ -346,6 +346,12 @@ class EMTStrategyEngine:
             "SESSION_DONE": "Trade window complete",
             "EXECUTION_HALTED": "Execution halted",
         }.get(self.phase, self.phase)
+        if self.phase == "WARMING":
+            phase_text = (
+                f"Warming Keltner data "
+                f"({min(len(self.tick_bars), self.ema_period)}/{self.ema_period} "
+                "completed 610-tick bars)"
+            )
         if (
             self.phase == "WAIT_BREAKOUT"
             and self.last_live_price is not None
