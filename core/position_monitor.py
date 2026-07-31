@@ -375,16 +375,29 @@ class PositionMonitor:
         if pnl_pct < trigger:
             return False
 
-        success = self._get_executor().close_partial_trade(
+        outcome = self._get_executor().close_partial_trade(
             trade, current_price, fraction, "scanner_partial_tp"
         )
-        if not success:
+        partial_booked = bool(outcome)
+        refresh_required = partial_booked or bool(
+            getattr(outcome, "stop_refresh_required", False)
+        )
+        if not refresh_required:
             return False
 
-        logger.info(
-            f"[SCANNER PARTIAL] {trade['symbol']}: partial fill booked at "
-            f"{pnl_pct:+.2f}% | remaining position will keep trailing"
-        )
+        if partial_booked:
+            logger.info(
+                f"[SCANNER PARTIAL] {trade['symbol']}: partial fill booked at "
+                f"{pnl_pct:+.2f}% | remaining position will keep trailing"
+            )
+            if getattr(outcome, "full_fill", False):
+                self._record_close_in_db(
+                    trade, float(outcome.fill_price), "scanner_partial_full_fill"
+                )
+                trade["status"] = "closed"
+                trade["exit_price"] = float(outcome.fill_price)
+                self._db.set_state(f"kraken_full_reconcile_{trade_id}", 0)
+                return True
 
         # The partial close cancels all exchange-side orders.  Confirm the
         # replacement stop before persisting the one-shot scanner marker so a
@@ -413,9 +426,17 @@ class PositionMonitor:
                 )
 
         if stop_confirmed or qty <= 0:
-            self._db.set_state(f"scanner_partial_taken_{trade_id}", 1)
+            if partial_booked:
+                self._db.set_state(f"scanner_partial_taken_{trade_id}", 1)
+            elif getattr(outcome, "retryable", False):
+                self._db.set_state(
+                    f"scanner_partial_retry_after_{trade_id}",
+                    time.time() + float(getattr(config, "KRAKEN_PARTIAL_ZERO_RETRY_SEC", 60)),
+                )
         else:
             try:
+                if partial_booked:
+                    self._db.set_state(f"scanner_partial_pending_{trade_id}", 1)
                 self._mark_kraken_stop_unprotected(
                     trade, trade_id, trade["symbol"], old_stop_id, stop_loss
                 )
@@ -424,7 +445,7 @@ class PositionMonitor:
                     f"[SCANNER PARTIAL] {trade['symbol']}: failed to persist "
                     f"unprotected-stop recovery state: {exc}"
                 )
-        return True
+        return partial_booked
     def start(self):
         if self.running:
             return
@@ -592,6 +613,9 @@ class PositionMonitor:
                 self._db.update_trade_order_ids(trade_id, stop_order_id=new_stop_id)
                 trade["stop_order_id"] = new_stop_id
                 self._db.set_state(state_key, 0)
+                if self._db.get_state(f"scanner_partial_pending_{trade_id}", default=0):
+                    self._db.set_state(f"scanner_partial_taken_{trade_id}", 1)
+                    self._db.set_state(f"scanner_partial_pending_{trade_id}", 0)
                 logger.warning(
                     f"[STOP RESTORED] {symbol}: restored missing Kraken stop "
                     f"@ ${stop_loss:.6f} (order {new_stop_id})"
@@ -727,34 +751,6 @@ class PositionMonitor:
                 except Exception:
                     pass
             return True
-
-        # ── Check if symbol simply doesn't exist on the broker ────────────
-        # Non-existent pairs (e.g. CC/USD from bad scanner injection) will
-        # never close successfully. Detect this early and force-close in DB
-        # to stop the infinite retry loop.
-        if trade.get("asset_class") == "crypto":
-            try:
-                import ccxt
-                exchange = ccxt.kraken({"enableRateLimit": True, "timeout": 5000})
-                markets  = exchange.load_markets()
-                if symbol not in markets:
-                    logger.error(
-                        f"[INVALID PAIR] {symbol} does not exist on Kraken — "
-                        f"force-closing in DB to stop retry loop. "
-                        f"Remove from watchlist to prevent re-entry."
-                    )
-                    from data.database import db as _db_ref
-                    _db_ref.close_trade(
-                        trade_id    = trade_id,
-                        exit_price  = current_price or trade["entry_price"],
-                        exit_reason = "invalid_pair",
-                        pnl         = 0.0,
-                        pnl_pct     = 0.0,
-                    )
-                    self._reset_close_attempts(trade_id)
-                    return True
-            except Exception:
-                pass  # If market check fails, fall through to normal retry logic
 
         # ── IBKR fallback: if IBKR close fails try Alpaca directly ────────
         # This handles the common case where TWS is not running but Alpaca is.
@@ -1683,6 +1679,15 @@ class PositionMonitor:
                 f"close attempts. Use dashboard Close Now to resolve."
             )
             return
+
+        if asset_class == "crypto":
+            hold = self._db.get_state(f"kraken_full_reconcile_{trade_id}", default=0)
+            if hold:
+                logger.critical(
+                    f"[KRAKEN FULL HOLD] {symbol}: skipping monitor actions until "
+                    "manual live-fill reconciliation clears the hold"
+                )
+                return
 
         if PM_DEBUG:
             logger.info(f"[PM-DBG] ② {symbol} — fetching price")
