@@ -3853,8 +3853,16 @@ function ChartPanel({ defaultSymbol }) {
     const emt = chartStrategies.emt || {};
     if (emt?.enabled && emt?.configured) {
       const overlay = emt.overlay || {};
-      const status = overlay.status_message || emt.state?.status_message || emt.state?.phase || 'EMT';
       const phase = overlay.phase || emt.state?.phase || '';
+      const rawStatus = overlay.status_message || emt.state?.status_message || phase || 'EMT';
+      const warmupNeeded = Math.max(1, Number(emt.settings?.keltner_ema_period) || 20);
+      const warmupCount = Math.min(
+        warmupNeeded,
+        Number(emt.state?.tick_bars) || (overlay.tick_bars_data || []).length
+      );
+      const status = phase === 'WARMING' && !rawStatus.includes('completed 610-tick bars')
+        ? `Warming Keltner data (${warmupCount}/${warmupNeeded} completed 610-tick bars)`
+        : rawStatus;
       const visibleTimes = (cleanBarsRef.current || [])
         .map(b => Number(b.time))
         .filter(Number.isFinite);

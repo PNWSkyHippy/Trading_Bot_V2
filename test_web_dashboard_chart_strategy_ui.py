@@ -23,3 +23,8 @@ def test_chart_hydration_cannot_write_strategy_state_without_user_edit():
     post = "panelApi('/api/chart/strategy_config'"
     assert guard in PANEL_SOURCE
     assert PANEL_SOURCE.index(guard) < PANEL_SOURCE.index(post)
+
+
+def test_keltner_warmup_progress_is_visible_without_scanner_restart():
+    assert "const warmupNeeded =" in PANEL_SOURCE
+    assert "completed 610-tick bars" in PANEL_SOURCE
