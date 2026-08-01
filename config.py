@@ -243,6 +243,10 @@ BREAKOUT_PARTIAL_TP_ENABLED       = True
 BREAKOUT_PARTIAL_TP_TRIGGER_PCT   = 1.50
 BREAKOUT_PARTIAL_TP_FRACTION      = 0.35
 KRAKEN_PARTIAL_ZERO_RETRY_SEC     = 60
+# Consecutive monitor cycles with neither a scanner nor Kraken quote before the
+# position is made a durable manual-reconciliation alert.  A missing quote must
+# never be treated as authority to close/account a position.
+CRYPTO_PRICE_UNAVAILABLE_ALERT_AFTER_CYCLES = 3
 BREAKOUT_EARLY_LOSS_CAP_ENABLED   = True
 BREAKOUT_EARLY_LOSS_CAP_SEC       = 2 * 60
 BREAKOUT_EARLY_LOSS_CAP_PCT       = -0.50

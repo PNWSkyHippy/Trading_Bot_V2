@@ -60,6 +60,7 @@ import numpy as np
 import pandas as pd
 
 import config
+from core import metrics
 from data.database import db
 from core.risk_manager import risk_manager
 from core.strategy_registry import (
@@ -270,6 +271,118 @@ class PositionMonitor:
     def _get_scanner(self):
         from scanners.market_scanner import scanner
         return scanner
+
+    @staticmethod
+    def _price_unavailable_state_key(trade_id: str) -> str:
+        return f"kraken_price_unavailable_{trade_id}"
+
+    def _clear_kraken_price_unavailable(self, trade_id: str) -> None:
+        """Clear only the quote-unavailable marker after a valid quote."""
+        state_key = self._price_unavailable_state_key(trade_id)
+        if self._db.get_state(state_key, default=0):
+            self._db.set_state(state_key, 0)
+
+    def _record_kraken_price_unavailable(
+        self, trade: Dict, broker_diagnostic: str
+    ) -> None:
+        """Durably record a dual-source crypto quote failure and alert once."""
+        trade_id = trade["trade_id"]
+        symbol = trade.get("symbol", "")
+        state_key = self._price_unavailable_state_key(trade_id)
+        threshold = max(
+            1, int(getattr(config, "CRYPTO_PRICE_UNAVAILABLE_ALERT_AFTER_CYCLES", 3))
+        )
+        now_ts = time.time()
+        now_iso = datetime.now(timezone.utc).isoformat()
+
+        def _updated_marker(raw_state):
+            state = raw_state if isinstance(raw_state, dict) else {}
+            prior_count = int(state.get("consecutive_failures", 0) or 0)
+            marker = dict(state)
+            marker.update(
+                {
+                    "symbol": symbol,
+                    "first_seen": marker.get("first_seen") or now_iso,
+                    "last_seen": now_iso,
+                    "last_seen_ts": now_ts,
+                    "consecutive_failures": prior_count + 1,
+                    "scanner_diagnostic": "unavailable",
+                    "broker_diagnostic": broker_diagnostic,
+                    "manual_reconciliation_required": True,
+                }
+            )
+            return marker, prior_count < threshold <= marker["consecutive_failures"]
+
+        try:
+            if hasattr(self._db, "_conn"):
+                with self._db._conn() as conn:
+                    row = conn.execute(
+                        "SELECT value FROM bot_state WHERE key=?", (state_key,)
+                    ).fetchone()
+                    try:
+                        raw_state = _json.loads(row["value"]) if row else {}
+                    except (TypeError, ValueError, KeyError):
+                        raw_state = {}
+                    marker, should_alert = _updated_marker(raw_state)
+                    conn.execute(
+                        "INSERT OR REPLACE INTO bot_state (key, value, updated) "
+                        "VALUES (?, ?, ?)",
+                        (state_key, _json.dumps(marker), now_iso),
+                    )
+            else:
+                marker, should_alert = _updated_marker(
+                    self._db.get_state(state_key, default={})
+                )
+                self._db.set_state(state_key, marker)
+        except Exception as exc:
+            logger.critical(
+                f"[KRAKEN PRICE HOLD] {symbol}: could not persist quote-unavailable "
+                f"marker ({exc})"
+            )
+            metrics.alert_gate_failure(
+                "kraken_price_unavailable_state",
+                f"{symbol}: dual-source quote failure could not be persisted: {exc}",
+            )
+            return
+
+        if should_alert:
+            metrics.alert_gate_failure(
+                "kraken_price_unavailable",
+                f"{symbol}: scanner and Kraken quotes unavailable for "
+                f"{marker['consecutive_failures']} consecutive monitor cycles; "
+                "manual reconciliation required",
+            )
+
+    def _resolve_crypto_quote_or_hold(
+        self, trade: Dict, scanner_price: Optional[float]
+    ) -> Optional[float]:
+        """Use one broker fallback or record a dual-source quote failure.
+
+        This method is deliberately observation-only: it never submits an order,
+        changes trade accounting, or clears any reconciliation/stop marker.
+        """
+        trade_id = trade["trade_id"]
+        symbol = trade.get("symbol", "")
+        if scanner_price is not None:
+            self._clear_kraken_price_unavailable(trade_id)
+            return scanner_price
+
+        broker_diagnostic = "unavailable"
+        try:
+            kraken_ex = self._get_executor().kraken
+            broker_price = kraken_ex.get_current_price(symbol) if kraken_ex else None
+            if broker_price is not None and float(broker_price) > 0:
+                self._clear_kraken_price_unavailable(trade_id)
+                logger.warning(
+                    f"[PRICE FALLBACK] {symbol}: scanner quote unavailable; "
+                    f"using Kraken quote ${float(broker_price):.6f}"
+                )
+                return float(broker_price)
+        except Exception as exc:
+            broker_diagnostic = f"error: {str(exc)[:250]}"
+
+        self._record_kraken_price_unavailable(trade, broker_diagnostic)
+        return None
 
     def _confirmed_monitor_price(
         self, trade: Dict, current_price: float, asset_class: str
@@ -1692,6 +1805,8 @@ class PositionMonitor:
         if PM_DEBUG:
             logger.info(f"[PM-DBG] ② {symbol} — fetching price")
         current_price = self._get_scanner().get_current_price(symbol, asset_class)
+        if asset_class == "crypto":
+            current_price = self._resolve_crypto_quote_or_hold(trade, current_price)
         if current_price is None:
             logger.warning(f"Could not get price for {symbol} — skipping check")
             return
