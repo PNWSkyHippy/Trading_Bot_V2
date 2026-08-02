@@ -54,10 +54,10 @@ namespace NinjaTrader.NinjaScript.Indicators
                 OpeningStartMinute = 0;
                 OpeningRangeMinutes = 15;
                 TradeWindowMinutes = 60;
-                KeltnerEmaPeriod = 20;
+                KeltnerEmaPeriod = 18;
                 KeltnerAtrPeriod = 10;
                 KeltnerAtrMultiplier = 1.5;
-                RetraceToleranceTicks = 1;
+                RetraceToleranceTicks = 2;
                 ConfirmationTicks = 1;
                 PatternLookbackBars = 20;
                 PatternTolerancePoints = 1.0;

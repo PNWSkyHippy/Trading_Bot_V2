@@ -79,7 +79,7 @@ namespace NinjaTrader.NinjaScript.Indicators
                 DrawOnPricePanel = true;
                 IsSuspendedWhileInactive = true;
 
-                Contracts = 1;
+                Contracts = 4;
                 EnableNY = true;
                 NYStartHour = 5;
                 NYStartMinute = 0;
@@ -96,8 +96,8 @@ namespace NinjaTrader.NinjaScript.Indicators
                 MinBoxTicks = 100;
                 MaxBoxTicks = 250;
                 BufferTicks = 30;
-                TP1Ticks = 100;
-                RunnerTrailTicks = 30;
+                TP1Ticks = 160;
+                RunnerTrailTicks = 20;
                 WickStopLookbackMinutes = 20;
                 TradeWindowMinutes = 60;
                 MaxTradesPerSession = 12;
