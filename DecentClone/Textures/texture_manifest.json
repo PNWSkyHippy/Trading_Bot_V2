@@ -1,4 +1,4 @@
-{
+{  
   "defaultWallTextureId": "rock060",
   "walls": [
     {
@@ -249,5 +249,89 @@
       "path": "Textures/Projectile Textures/player_shot_0.png",
       "color": "#66d9ff"
     }
-  ]
+  ]'
+  {
+  "  assetType": "tunnel-section-five-pack",
+    "dimensions": [
+      2048,
+      1024
+    ],
+    "format": "jpeg",  
+    "mapping": {
+      "imageWidth": "tunnel circumference; repeating left/right edge",
+      "imageHeight": "segment length; clamped top/bottom edge"
+    },
+    "builderSelectionRule": "Selecting any <pack>-NN.jpg assigns <pack>-01.jpg through <pack>-05.jpg to the next five tunnel sections.",
+    "packs": [
+      {
+        "id": "alien-clouds",
+        "count": 5,
+        "files": [
+          "alien-clouds-01.jpg",
+          "alien-clouds-02.jpg",
+          "alien-clouds-03.jpg",
+          "alien-clouds-04.jpg",
+          "alien-clouds-05.jpg"
+        ],
+        "loopOrder": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          1
+        ],
+        "edgeMetrics": {
+          "circumferenceMeanAbsolutePixelDelta": 0.449,
+          "sequenceJoinMeanAbsolutePixelDelta": 0.464
+        }
+      },
+      {
+        "id": "alien-ocean",
+        "count": 5,
+        "files": [
+          "alien-ocean-01.jpg",
+          "alien-ocean-02.jpg",
+          "alien-ocean-03.jpg",
+          "alien-ocean-04.jpg",
+          "alien-ocean-05.jpg"
+        ],
+        "loopOrder": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          1
+        ],
+        "edgeMetrics": {
+          "circumferenceMeanAbsolutePixelDelta": 0.49,
+          "sequenceJoinMeanAbsolutePixelDelta": 0.607
+        }
+      },
+    {
+        "id": "deep-space",
+        "count": 5,
+        "files": [
+          "deep-space-01.jpg",
+          "deep-space-02.jpg",
+          "deep-space-03.jpg",
+          "deep-space-04.jpg",
+          "deep-space-05.jpg"
+        ],
+        "loopOrder": [
+          1,
+          2,
+          3,
+          4,
+          5,
+          1
+        ],
+        "edgeMetrics": {
+          "circumferenceMeanAbsolutePixelDelta": 0.447,
+          "sequenceJoinMeanAbsolutePixelDelta": 0.542
+        }
+      }
+    ],
+    "contactSheet": "tunnel-texture-packs-contact-sheet.jpg"  }
 }
