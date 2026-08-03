@@ -1489,7 +1489,7 @@
         const TUNNEL_TEXTURE_TILE_WORLD = 110;
         const TUNNEL_TEXTURE_PANEL_OVERLAP = 1.024;
         const TUNNEL_SEGMENT_JOIN_OVERLAP = 48;
-        const TUNNEL_SECTION_JOIN_OVERLAP = 12;
+        const TUNNEL_SECTION_JOIN_OVERLAP = 18;
         const TUNNEL_SEGMENT_JOIN_RADIUS_BOOST = 1.042;
         const TUNNEL_TEXTURE_GAP_RIB_ALPHA = 0.07;
         const TUNNEL_TEXTURE_PATHS = {
@@ -1621,18 +1621,25 @@
             const visited = new Set(result);
             const neighbors = getTunnelTopologyNeighbors();
             let current = selected[0];
+            let exitPoint = builder.segments[current].to;
+            let travelDir = builder.segments[current].forward;
             while (result.length < count) {
-                const candidates = [...(neighbors[current] || [])]
-                    .filter(index => !visited.has(index))
-                    .sort((a, b) => {
-                        const aForward = a > current ? 0 : 1;
-                        const bForward = b > current ? 0 : 1;
-                        return aForward - bForward || Math.abs(a - current) - Math.abs(b - current);
-                    });
-                if (!candidates.length) break;
-                current = candidates[0];
+                // Segment array order is not tunnel travel order (especially after
+                // inserting or branching sections). Walk away from the selected
+                // section through the physically connected endpoint, choosing the
+                // continuation whose direction best matches the current path.
+                const next = findNextForwardSegmentIndex(
+                    exitPoint,
+                    travelDir,
+                    visited,
+                    neighbors[current]
+                );
+                if (!next) break;
+                current = next.index;
                 visited.add(current);
                 result.push(current);
+                exitPoint = next.exitPoint;
+                travelDir = next.segTravel;
             }
             return result;
         }
@@ -2737,7 +2744,12 @@
             gl.texParameteri(
                 gl.TEXTURE_2D,
                 gl.TEXTURE_WRAP_T,
-                textureUsesSectionMapping(entry) ? gl.CLAMP_TO_EDGE : gl.REPEAT
+                // Section geometry extends slightly into its neighbour to seal
+                // angled joins. CLAMP_TO_EDGE smeared one image row across that
+                // collar, creating the radial speed-line bands at every junction.
+                // Mirroring supplies real nearby pixels without restarting the
+                // five-image sequence or exposing a black crack.
+                textureUsesSectionMapping(entry) ? gl.MIRRORED_REPEAT : gl.REPEAT
             );
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -16392,6 +16404,7 @@
                     texturedSegmentIndices,
                     forwardPathOverlaySet
                 )) continue;
+                if (!pointVisibleThroughCurrentTunnel(cache.point)) continue;
                 const projected = projectPoint(cache.point, centerX, centerY, fov);
                 if (!projected) continue;
                 const size = Math.max(7, Math.min(42, 22 * fov / Math.max(65, projected.z)));
