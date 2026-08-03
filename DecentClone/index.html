@@ -1520,6 +1520,7 @@
                 { id: 'orange_laser', label: 'Orange Laser', path: '', color: '#ff5500' }
             ]
         };
+        const wallTexturePacks = [];
         let defaultWallTextureId = DEFAULT_WALL_TEXTURE_ID;
         let defaultRibColor = DEFAULT_RIB_COLOR;
         let defaultWallOpaque = DEFAULT_WALL_OPAQUE;
@@ -1578,6 +1579,63 @@
             textureLibrary[group] = [...existing.values()];
         }
 
+        function wallTextureFileName(path) {
+            const normalized = String(path || '').replace(/\\/g, '/');
+            return normalized.slice(normalized.lastIndexOf('/') + 1).toLowerCase();
+        }
+
+        function loadWallTexturePacks(rawPackManifest) {
+            wallTexturePacks.length = 0;
+            const packs = Array.isArray(rawPackManifest?.packs) ? rawPackManifest.packs : [];
+            for (const rawPack of packs) {
+                if (!rawPack || !Array.isArray(rawPack.files)) continue;
+                const textureIds = rawPack.files
+                    .map(file => {
+                        const fileName = wallTextureFileName(file);
+                        const entry = textureLibrary.walls.find(
+                            candidate => wallTextureFileName(candidate.path) === fileName
+                        );
+                        return entry?.id || null;
+                    })
+                    .filter(Boolean);
+                if (textureIds.length < 2) continue;
+                wallTexturePacks.push({
+                    id: String(rawPack.id || `wall_pack_${wallTexturePacks.length + 1}`),
+                    textureIds
+                });
+            }
+        }
+
+        function getWallTexturePack(textureId) {
+            return wallTexturePacks.find(pack => pack.textureIds.includes(textureId)) || null;
+        }
+
+        function texturePackTargetIndices(selectedIndices, count) {
+            const selected = [...new Set((selectedIndices || [])
+                .filter(index => Number.isInteger(index) && index >= 0 && index < builder.segments.length))]
+                .sort((a, b) => a - b);
+            if (selected.length !== 1 || count <= 1) return selected;
+
+            const result = [selected[0]];
+            const visited = new Set(result);
+            const neighbors = getTunnelTopologyNeighbors();
+            let current = selected[0];
+            while (result.length < count) {
+                const candidates = [...(neighbors[current] || [])]
+                    .filter(index => !visited.has(index))
+                    .sort((a, b) => {
+                        const aForward = a > current ? 0 : 1;
+                        const bForward = b > current ? 0 : 1;
+                        return aForward - bForward || Math.abs(a - current) - Math.abs(b - current);
+                    });
+                if (!candidates.length) break;
+                current = candidates[0];
+                visited.add(current);
+                result.push(current);
+            }
+            return result;
+        }
+
         function loadTextureManifest() {
             if (RUNNING_FROM_FILE) return;
             fetch('Textures/texture_manifest.json', { cache: 'no-store' })
@@ -1588,6 +1646,7 @@
                     mergeTextureLibrary('doorFrames', manifest.doorFrames);
                     mergeTextureLibrary('ai', manifest.ai);
                     mergeTextureLibrary('effects', manifest.effects);
+                    loadWallTexturePacks(manifest.wallTexturePacks);
                     defaultWallTextureId = sanitizeTextureId(
                         manifest.defaultWallTextureId || defaultWallTextureId,
                         'walls',
@@ -3117,12 +3176,27 @@
                     );
                 const textureEntry = getWallTextureEntry(seg?.wallTextureId);
                 const sectionMapping = textureUsesSectionMapping(textureEntry);
+                const nominalLength = Math.max(1, Number(seg?.length) || builder.length);
+                // Connected cylinders extend beyond their nominal endpoints to hide
+                // bend gaps. Map section art to the nominal 0..length interval, not
+                // the expanded overlap span. CLAMP_TO_EDGE then fills overlap geometry
+                // with only the matching edge row instead of pulling half of the next
+                // image backward into this section.
+                const sectionVScale = sectionMapping && !chamber
+                    ? span / nominalLength
+                    : 1;
+                const sectionVOffset = sectionMapping && !chamber
+                    ? zStart / span
+                    : 0;
                 gl.uniform2f(
                     tunnelWebGL.uTileScale,
                     sectionMapping ? 1 : TUNNEL_WEBGL_TILE_U,
-                    sectionMapping ? 1 : TUNNEL_WEBGL_TILE_V
+                    sectionMapping ? sectionVScale : TUNNEL_WEBGL_TILE_V
                 );
-                gl.uniform1f(tunnelWebGL.uOffset, sectionMapping ? 0 : tunnelWebGL.scroll);
+                gl.uniform1f(
+                    tunnelWebGL.uOffset,
+                    sectionMapping ? sectionVOffset : tunnelWebGL.scroll
+                );
                 const segmentTexture = getWebGLTextureForSegment(seg, textureEntry);
                 if (segmentTexture !== activeTexture) {
                     gl.bindTexture(gl.TEXTURE_2D, segmentTexture || tunnelWebGL.texture);
@@ -14105,6 +14179,19 @@
                 const textureId = replacingTexture
                     ? sanitizeTextureId(textureSelect.value, 'walls', defaultWallTextureId)
                     : null;
+                const texturePack = replacingTexture ? getWallTexturePack(textureId) : null;
+                const packTargetIndices = texturePack
+                    ? texturePackTargetIndices(indices, texturePack.textureIds.length)
+                    : [];
+                if (texturePack) {
+                    for (let order = 0; order < packTargetIndices.length; order++) {
+                        const index = packTargetIndices[order];
+                        const seg = builder.segments[index];
+                        if (!seg) continue;
+                        seg.wallTextureId = texturePack.textureIds[order % texturePack.textureIds.length];
+                        getWebGLTextureForSegment(seg, getWallTextureEntry(seg.wallTextureId));
+                    }
+                }
                 const ribColor = normalizeHexColor(colorInput.value, defaultRibColor);
                 const wallOpaque = !!opacityCheck.checked;
                 const capStart = !!capStartCheck.checked;
@@ -14117,7 +14204,7 @@
                 for (const index of indices) {
                     const seg = builder.segments[index];
                     if (!seg) continue;
-                    if (replacingTexture) seg.wallTextureId = textureId;
+                    if (replacingTexture && !texturePack) seg.wallTextureId = textureId;
                     if (replacingFrame) {
                         seg.entranceFrameId = getDoorFrameEntry(frameSelect.value) ? frameSelect.value : '';
                     }
@@ -14153,7 +14240,7 @@
                     normalizeSegmentRadius(seg, radius);
                 }
                 if (defaultCheck.checked) {
-                    if (replacingTexture) defaultWallTextureId = textureId;
+                    if (replacingTexture) defaultWallTextureId = texturePack ? texturePack.textureIds[0] : textureId;
                     defaultRibColor = ribColor;
                     defaultWallOpaque = wallOpaque;
                     builder.radius = radius;
