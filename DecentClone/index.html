@@ -1489,6 +1489,7 @@
         const TUNNEL_TEXTURE_TILE_WORLD = 110;
         const TUNNEL_TEXTURE_PANEL_OVERLAP = 1.024;
         const TUNNEL_SEGMENT_JOIN_OVERLAP = 48;
+        const TUNNEL_SECTION_JOIN_OVERLAP = 12;
         const TUNNEL_SEGMENT_JOIN_RADIUS_BOOST = 1.042;
         const TUNNEL_TEXTURE_GAP_RIB_ALPHA = 0.07;
         const TUNNEL_TEXTURE_PATHS = {
@@ -20071,7 +20072,7 @@
             // world space, producing the broad rings and sliced overlays visible
             // at every join. Keep section art on its own 0..length geometry. The
             // legacy tiled walls retain their overlap to cover hard bend gaps.
-            const joinOverlap = sectionMapped ? 0 : TUNNEL_SEGMENT_JOIN_OVERLAP;
+            const joinOverlap = sectionMapped ? TUNNEL_SECTION_JOIN_OVERLAP : TUNNEL_SEGMENT_JOIN_OVERLAP;
             return {
                 zStart: fromOpen ? 0 : -joinOverlap,
                 zEnd: toOpen ? length : length + joinOverlap,
