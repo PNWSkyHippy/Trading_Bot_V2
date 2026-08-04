@@ -28,10 +28,40 @@
             background: rgba(0, 0, 20, 0.85); padding: 14px; border-radius: 5px;
             border: 1px solid #00ffcc; z-index: 10; font-family: monospace;
             pointer-events: auto;
-            width: min(380px, calc(100vw - 32px));
-            max-height: 25vh;
+            --hud-font-scale: 1;
+            box-sizing: border-box;
+            width: min(420px, calc(100vw - 32px));
+            height: min(520px, calc(100vh - 32px));
+            min-width: min(300px, calc(100vw - 32px));
+            min-height: 170px;
+            max-width: calc(100vw - 20px);
+            max-height: calc(100vh - 20px);
+            resize: both;
             overflow-y: auto;
+            overflow-x: hidden;
+            font-size: calc(14px * var(--hud-font-scale));
             scrollbar-color: #00ffcc rgba(0, 0, 20, 0.65);
+        }
+        #hud-window-controls {
+            position: sticky; top: -14px; z-index: 4;
+            display: flex; justify-content: flex-end; gap: 5px;
+            margin: -9px -8px 7px; padding: 4px 6px;
+            background: rgba(0, 0, 20, 0.94);
+            border-bottom: 1px solid rgba(0, 255, 204, 0.35);
+        }
+        .hud-window-control {
+            min-width: 31px; min-height: 28px; padding: 2px 7px;
+            color: #00ffcc; background: #071725;
+            border: 1px solid #00aa99; border-radius: 4px;
+            font: bold 1em monospace; line-height: 1; cursor: pointer;
+        }
+        .hud-window-control:hover, .hud-window-control:focus-visible {
+            color: #ffffff; border-color: #ffffff; outline: none;
+        }
+        body.hud-panel-maximized #ui-overlay {
+            left: 10px; right: 10px; top: 10px; bottom: 10px;
+            width: auto !important; height: auto !important;
+            max-width: none; max-height: none; resize: none;
         }
         /* HUD display modes: full (default) / min (vitals only) / hidden.
            Ctrl+H toggles the help portion, Alt+M toggles the whole panel —
@@ -59,8 +89,9 @@
         #hud-mode-btn:hover { opacity: 1; }
         body.hud-banner-active #ui-overlay {
             top: 38px;
-            max-height: 25vh;
+            max-height: calc(100vh - 48px);
         }
+        body.hud-banner-active.hud-panel-maximized #ui-overlay { top: 38px; }
         #hud-mode-banner {
             display: none;
             position: absolute;
@@ -628,7 +659,12 @@
     <div id="hud-map-status" aria-live="polite"></div>
 
     <div id="ui-overlay">
-        <section id="player-hud-panel" class="hud-panel active">
+        <div id="hud-window-controls" aria-label="Panel size and text controls">
+            <button id="hud-font-down" class="hud-window-control" type="button" title="Decrease panel text size">A−</button>
+            <button id="hud-font-up" class="hud-window-control" type="button" title="Increase panel text size">A+</button>
+            <button id="hud-minimize" class="hud-window-control" type="button" title="Minimize or restore panel">—</button>
+            <button id="hud-maximize" class="hud-window-control" type="button" title="Maximize or restore panel">□</button>
+        </div>        <section id="player-hud-panel" class="hud-panel active">
             <h3 class="hud-title">ASTRAL DRIFT // PILOT</h3>
             <div class="hud-grid">
                 <div class="hud-card"><label>Pilot</label><span id="player-name-val">Pilot</span></div>
@@ -5936,8 +5972,12 @@
         // 'full' (as before), 'min' (title through hull bar + a hint line), and
         // 'hidden' (nothing on screen). Ctrl+H toggles help, Alt+M toggles the panel.
         const HUD_MODE_STORAGE_KEY = 'astralDrift.hudMode';
+        const HUD_FONT_SCALE_STORAGE_KEY = 'astralDrift.hudFontScale';
+        const HUD_PANEL_SIZE_STORAGE_KEY = 'astralDrift.hudPanelSize';
         let hudDisplayMode = 'full';
         let hudLastVisibleMode = 'full';
+        let hudFontScale = 1;
+        let hudPanelMaximized = false;
 
         function applyHudMode() {
             document.body.classList.toggle('hud-mode-min', hudDisplayMode === 'min');
@@ -5949,6 +5989,29 @@
             hudDisplayMode = mode;
             if (mode !== 'hidden') hudLastVisibleMode = mode;
             applyHudMode();
+        }
+
+        function applyHudFontScale() {
+            const overlay = document.getElementById('ui-overlay');
+            if (overlay) overlay.style.setProperty('--hud-font-scale', hudFontScale.toFixed(2));
+            try { localStorage.setItem(HUD_FONT_SCALE_STORAGE_KEY, String(hudFontScale)); } catch {}
+        }
+
+        function changeHudFontScale(delta) {
+            hudFontScale = Math.max(0.85, Math.min(2, Math.round((hudFontScale + delta) * 20) / 20));
+            applyHudFontScale();
+            keyboardStatus.innerText = `panel text ${Math.round(hudFontScale * 100)}%`;
+        }
+
+        function toggleHudMaximized() {
+            hudPanelMaximized = !hudPanelMaximized;
+            document.body.classList.toggle('hud-panel-maximized', hudPanelMaximized);
+            const button = document.getElementById('hud-maximize');
+            if (button) {
+                button.textContent = hudPanelMaximized ? '❐' : '□';
+                button.title = hudPanelMaximized ? 'Restore panel size' : 'Maximize panel';
+            }
+            if (hudPanelMaximized && hudDisplayMode !== 'full') setHudMode('full');
         }
 
         function toggleHudHelp() {
@@ -5979,13 +6042,19 @@
         (() => {
             try {
                 const saved = localStorage.getItem(HUD_MODE_STORAGE_KEY);
-                if (saved === 'min' || saved === 'hidden' || saved === 'full') {
-                    hudDisplayMode = saved;
-                }
+                if (saved === 'min' || saved === 'hidden' || saved === 'full') hudDisplayMode = saved;
                 if (hudDisplayMode !== 'hidden') hudLastVisibleMode = hudDisplayMode;
+                const savedScale = Number(localStorage.getItem(HUD_FONT_SCALE_STORAGE_KEY));
+                if (Number.isFinite(savedScale)) hudFontScale = Math.max(0.85, Math.min(2, savedScale));
+                const savedSize = JSON.parse(localStorage.getItem(HUD_PANEL_SIZE_STORAGE_KEY) || 'null');
+                const overlay = document.getElementById('ui-overlay');
+                if (overlay && savedSize && Number(savedSize.width) >= 300 && Number(savedSize.height) >= 170) {
+                    overlay.style.width = `${Math.min(savedSize.width, window.innerWidth - 20)}px`;
+                    overlay.style.height = `${Math.min(savedSize.height, window.innerHeight - 20)}px`;
+                }
             } catch {}
             applyHudMode();
-            // Mouse-only cycler: keyboard/focus problems must never strand the HUD.
+            applyHudFontScale();
             const btn = document.getElementById('hud-mode-btn');
             if (btn) {
                 btn.addEventListener('click', (ev) => {
@@ -5994,6 +6063,29 @@
                         : hudDisplayMode === 'min' ? 'hidden' : 'full';
                     setHudMode(next);
                 });
+            }
+            const overlay = document.getElementById('ui-overlay');
+            const controls = document.getElementById('hud-window-controls');
+            controls?.addEventListener('pointerdown', ev => ev.stopPropagation());
+            controls?.addEventListener('click', ev => ev.stopPropagation());
+            document.getElementById('hud-font-down')?.addEventListener('click', () => changeHudFontScale(-0.15));
+            document.getElementById('hud-font-up')?.addEventListener('click', () => changeHudFontScale(0.15));
+            document.getElementById('hud-minimize')?.addEventListener('click', () => setHudMode(hudDisplayMode === 'min' ? 'full' : 'min'));
+            document.getElementById('hud-maximize')?.addEventListener('click', toggleHudMaximized);
+            if (overlay && window.ResizeObserver) {
+                let saveTimer = null;
+                new ResizeObserver(() => {
+                    if (hudPanelMaximized || hudDisplayMode === 'hidden') return;
+                    clearTimeout(saveTimer);
+                    saveTimer = setTimeout(() => {
+                        try {
+                            localStorage.setItem(HUD_PANEL_SIZE_STORAGE_KEY, JSON.stringify({
+                                width: Math.round(overlay.getBoundingClientRect().width),
+                                height: Math.round(overlay.getBoundingClientRect().height)
+                            }));
+                        } catch {}
+                    }, 120);
+                }).observe(overlay);
             }
         })();
 
@@ -16399,8 +16491,12 @@
             const now = performance.now();
             ctx.save();
             for (const cache of rocketCaches) {
+                const cacheSegmentIndex = overlaySegmentIndexForPoint(cache.point, cache.segmentIndex);
+                const onVisibleTravelPath = cacheSegmentIndex === shipSegmentIndex ||
+                    !!forwardPathOverlaySet?.has?.(cacheSegmentIndex);
+                if (!onVisibleTravelPath) continue;
                 if (shouldSuppressOpaqueOverlay(
-                    cache.segmentIndex,
+                    cacheSegmentIndex,
                     texturedSegmentIndices,
                     forwardPathOverlaySet
                 )) continue;
