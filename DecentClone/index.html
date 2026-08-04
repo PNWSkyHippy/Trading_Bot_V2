@@ -73,6 +73,11 @@
         body.hud-mode-min #sentry-quickref,
         body.hud-mode-min #mode-cheatsheet,
         body.hud-mode-min #build-stamp { display: none; }
+        body.hud-mode-min #ui-overlay {
+            height: auto !important;
+            min-height: 0;
+            resize: none;
+        }
         body.hud-mode-hidden #ui-overlay { display: none; }
         .hud-mode-hint { display: none; font-size: 11px; opacity: 0.7; margin: 8px 0 0; }
         body.hud-mode-min .hud-mode-hint { display: block; }
@@ -6070,12 +6075,15 @@
             controls?.addEventListener('click', ev => ev.stopPropagation());
             document.getElementById('hud-font-down')?.addEventListener('click', () => changeHudFontScale(-0.15));
             document.getElementById('hud-font-up')?.addEventListener('click', () => changeHudFontScale(0.15));
-            document.getElementById('hud-minimize')?.addEventListener('click', () => setHudMode(hudDisplayMode === 'min' ? 'full' : 'min'));
+            document.getElementById('hud-minimize')?.addEventListener('click', () => {
+                if (hudPanelMaximized) toggleHudMaximized();
+                setHudMode(hudDisplayMode === 'min' ? 'full' : 'min');
+            });
             document.getElementById('hud-maximize')?.addEventListener('click', toggleHudMaximized);
             if (overlay && window.ResizeObserver) {
                 let saveTimer = null;
                 new ResizeObserver(() => {
-                    if (hudPanelMaximized || hudDisplayMode === 'hidden') return;
+                    if (hudPanelMaximized || hudDisplayMode !== 'full') return;
                     clearTimeout(saveTimer);
                     saveTimer = setTimeout(() => {
                         try {
