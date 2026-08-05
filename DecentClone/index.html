@@ -21710,6 +21710,14 @@
                 const length = seg.length || builder.length;
                 if (length < 80) continue;
 
+                // Never draw the internal rib chain of a nearby side tunnel
+                // through the current tunnel wall. Branch-mouth rendering has
+                // its own aperture overlay; the branch's ribs become visible
+                // only after it is the current or forward travel path.
+                const onVisibleTravelPath = segIndex === shipSegmentIndex ||
+                    !!forwardPathSet?.has?.(segIndex);
+                if (!onVisibleTravelPath) continue;
+
                 const segmentHasWallCover = wallsCoverSegments && texturedSegmentIndices.has(segIndex);
                 // Opaque wall sections already have their texture surface; drawing
                 // their rib overlay afterward makes neighboring tunnels look visible
