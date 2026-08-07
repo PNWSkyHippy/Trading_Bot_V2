@@ -106,7 +106,7 @@ TRADOVATE_SYMBOL_MAP = {
     # ── CME Equity Index Micros & Minis ──────────────────────────────────
     "MES":  "MESU6",   "ES":  "ESU6",
     "MNQ":  "MNQU6",   "NQ":  "NQU6",
-    "M2K":  "M2KU6",   "RTY": "RTYU6",
+    "M2K":  "M2KU6",   "RTY": "RTYU6", "MNK": "MNKU6",
     # ── CBOT Equity ──────────────────────────────────────────────────────
     "MYM":  "MYMU6",   "YM":  "YMU6",
     # ── NYMEX Energy ─────────────────────────────────────────────────────
@@ -2710,7 +2710,7 @@ def _futures_front_month_ticker(root: str) -> str:
 
     # Which delivery months are valid for this root?
     _monthly   = {'CL','MCL','QM','NG','MNG','QG','RB','HO','HG','MHG'}
-    _quarterly = {'ES','MES','NQ','MNQ','YM','MYM','RTY','M2K','NKD',
+    _quarterly = {'ES','MES','NQ','MNQ','YM','MYM','RTY','M2K','NKD', 'MNK',
                   '6A','M6A','6B','M6B','6C','6E','M6E','6J','6S','E7','6M','6N',
                   'ZT','ZF','ZN','ZB','UB','TN','MBT','MET'}
     _metals    = {'GC','MGC','SI','SIL','PL'}
@@ -3223,6 +3223,7 @@ FUTURES_META = {
     'RTY': ('CME',   'E-mini Russell 2000',       'Equity'),
     'M2K': ('CME',   'Micro E-mini Russell 2000', 'Equity'),
     'NKD': ('CME',   'Nikkei 225',                'Equity'),
+    'MNK': ('CME',   'Micro Nikkei 225',          'Equity'),
     'MBT': ('CME',   'Micro E-mini Bitcoin',      'Equity'),
     'MET': ('CME',   'Micro E-mini Ether',        'Equity'),
     # CBOT Equity
@@ -3293,6 +3294,7 @@ FUTURES_YF_OVERRIDES = {
     'MNQ': 'NQ=F',   # Micro E-mini NASDAQ   → use E-mini
     'M2K': 'RTY=F',  # Micro Russell 2000    → use E-mini
     'MYM': 'YM=F',   # Micro Mini-DOW        → use Mini-DOW
+    'MNK': 'NKD=F',  # Micro Nikeii          → use Mini-Nikeii
     # ── Energy ──────────────────────────────────────────────────────────
     'MCL': 'CL=F',   # Micro Crude Oil       → use CL
     # ── Metals ──────────────────────────────────────────────────────────
