@@ -4591,21 +4591,21 @@
             BOLT_SPEED: 8,
             BOLT_HIT_R: 100,                      // was  34
             COLLIDE_R: 50,
-            DIVE_RATE: 1 / 120,                  // ~2.0s per dive at 60fps -- readable, targetable swoop
+            DIVE_RATE: 5 / 120,                  // ~2.0s per dive at 60fps -- readable, targetable swoop
             DIVE_Y_GATE: 200,                    // slower dives no longer need a widened skip-collision gate
             SHIELD_DMG: 50,                      // was 14
             HULL_DMG: 30,                         // was 12
             INTRO_MS: 2600,
             RESULTS_MS: 4200,
-            BOSS_HP: 1550,                          // was 550 wave 3: boss fight, hits to kill -- long enough to actually see its attacks
+            BOSS_HP: 5550,                          // was 550 wave 3: boss fight, hits to kill -- long enough to actually see its attacks
             BOSS_HIT_R: 70,
             BOSS_COLLIDE_R: 90,
             BOSS_SCORE: 500,
             BOSS_LASER_MS: 950,                   // heavy aimed laser, roughly once a second
-            BOSS_LASER_SPEED: 26,                //  was 16
+            BOSS_LASER_SPEED: 16,                //  was 16
             BOSS_LASER_DMG_MULT: 1.9,              // was 1.6
             BOSS_LASER_HIT_R: 46,
-            BOSS_MISSILE_SPEED: 15,               // qa 6
+            BOSS_MISSILE_SPEED: 6               // qa 6
             BOSS_MISSILE_DMG_MULT: 6,             ///  was 4
             BOSS_MISSILE_HIT_R: 70,
             // missile and tractor beam share one "special attack" timer --
@@ -4628,7 +4628,7 @@
             // enemy_shoots(): a random enemy every 1000ms, no dive required
             // -- it's what makes camping in a corner unsafe.
             SNIPER_MS: 1600,
-            SNIPER_SPEED: 5.5,
+            SNIPER_SPEED: 2.5,      // was 5.5
             WAVE_DIVE: {
                 1: { squadSize: 1, minMs: 3200, maxMs: 5400 },
                 2: { squadSize: 2, minMs: 1400, maxMs: 3200 },
@@ -4636,9 +4636,9 @@
             },
         };
         const GALAGA_LEVEL_1 = {
-            BOLT_SPEED: 6, BOLT_HIT_R: 34, SHIELD_DMG: 14, HULL_DMG: 12,
-            BOSS_HP: 550, BOSS_LASER_SPEED: 16, BOSS_LASER_DMG_MULT: 1.6,
-            BOSS_MISSILE_SPEED: 6, BOSS_MISSILE_DMG_MULT: 4,
+            BOLT_SPEED: 2, BOLT_HIT_R: 34, SHIELD_DMG: 14, HULL_DMG: 12,
+            BOSS_HP: 5550, BOSS_LASER_SPEED: 4, BOSS_LASER_DMG_MULT: 1.6,
+            BOSS_MISSILE_SPEED: 2, BOSS_MISSILE_DMG_MULT: 4,
         };
 
         function galagaDifficulty(level = galagaPhase?.level || 1) {
