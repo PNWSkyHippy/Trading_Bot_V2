@@ -4588,7 +4588,7 @@
             // are multiplied by frameScale. Keep reaction windows readable:
             // a formation bolt crosses ~700 units in 1.5-2.0 seconds as the
             // level rises, rather than the previous 0.4-0.6 second blur.
-            BOLT_SPEED: 8,
+            BOLT_SPEED: 4,
             BOLT_HIT_R: 100,                      // was  34
             COLLIDE_R: 50,
             DIVE_RATE: 1 / 120,                  // ~2.0s per dive at 60fps -- readable, targetable swoop
@@ -4597,15 +4597,15 @@
             HULL_DMG: 30,                         // was 12
             INTRO_MS: 2600,
             RESULTS_MS: 4200,
-            BOSS_HP: 1550,                          // was 550 wave 3: boss fight, hits to kill -- long enough to actually see its attacks
+            BOSS_HP: 5550,                          // was 550 wave 3: boss fight, hits to kill -- long enough to actually see its attacks
             BOSS_HIT_R: 70,
             BOSS_COLLIDE_R: 90,
             BOSS_SCORE: 500,
             BOSS_LASER_MS: 950,                   // heavy aimed laser, roughly once a second
-            BOSS_LASER_SPEED: 26,                //  was 16
+            BOSS_LASER_SPEED: 12,                //  was 16
             BOSS_LASER_DMG_MULT: 1.9,              // was 1.6
             BOSS_LASER_HIT_R: 46,
-            BOSS_MISSILE_SPEED: 15,               // qa 6
+            BOSS_MISSILE_SPEED: 4,               // qa 6
             BOSS_MISSILE_DMG_MULT: 6,             ///  was 4
             BOSS_MISSILE_HIT_R: 70,
             // missile and tractor beam share one "special attack" timer --
@@ -4628,7 +4628,7 @@
             // enemy_shoots(): a random enemy every 1000ms, no dive required
             // -- it's what makes camping in a corner unsafe.
             SNIPER_MS: 1600,
-            SNIPER_SPEED: 5.5,
+            SNIPER_SPEED: 4.5,
             WAVE_DIVE: {
                 1: { squadSize: 1, minMs: 3200, maxMs: 5400 },
                 2: { squadSize: 2, minMs: 1400, maxMs: 3200 },
