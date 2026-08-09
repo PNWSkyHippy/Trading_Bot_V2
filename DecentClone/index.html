@@ -795,7 +795,7 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-aPacingFix1-aPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -913,7 +913,7 @@
             ['V / RMB', 'fire at sentries (10% per hit, 10 hits = kill)'],
             ['X', 'launch rocket (10 loaded; inventory packs auto-reload)'],
             ['Ctrl+Shift+R', 'developer repair hull/shields'],
-            ['Ctrl+Shift+G', 'developer toggle Galaga stage'],
+            ['Ctrl+Shift+G', 'developer toggle a stage'],
             ['Sentries', 'guard spot or patrol; dead = 5 min respawn'],
             ['Orange bolts', 'sentry fire drains shields — shoot first'],
         ];
@@ -4582,30 +4582,30 @@
             VSTRAFE_LIMIT: 420,                  // local down (world +z) -- vertical dodge range
             STRAFE_SPEED: 14,                    // key-driven strafe units/frame
             MOUSE_STRAFE_SENS: 1.1,               // world units per pixel of mouse delta
-            FORM_DIST: 700,                      // formation height above player
+            FORM_DIST: 400,                      // was 700 formation height above player
             FIGHTER_HIT_R: 30,
             // Motion values below are expressed in 60 Hz simulation units and
             // are multiplied by frameScale. Keep reaction windows readable:
             // a formation bolt crosses ~700 units in 1.5-2.0 seconds as the
             // level rises, rather than the previous 0.4-0.6 second blur.
-            BOLT_SPEED: 4,
-            BOLT_HIT_R: 100,                      // was  34
+            BOLT_SPEED: 2,
+            BOLT_HIT_R: 14,                      // was  34
             COLLIDE_R: 50,
-            DIVE_RATE: 2 / 120,                  // ~2.0s per dive at 60fps -- readable, targetable swoop
-            DIVE_Y_GATE: 200,                    // slower dives no longer need a widened skip-collision gate
+            DIVE_RATE: 4 / 120,                  // was 1/120 ~2.0s per dive at 60fps -- readable, targetable swoop
+            DIVE_Y_GATE: 400,                    // was 200 slower dives no longer need a widened skip-collision gate
             SHIELD_DMG: 50,                      // was 14
             HULL_DMG: 30,                         // was 12
             INTRO_MS: 2600,
             RESULTS_MS: 4200,
-            BOSS_HP: 5550,                          // was 550 wave 3: boss fight, hits to kill -- long enough to actually see its attacks
+            BOSS_HP: 15550,                          // was 550 wave 3: boss fight, hits to kill -- long enough to actually see its attacks
             BOSS_HIT_R: 70,
             BOSS_COLLIDE_R: 90,
             BOSS_SCORE: 500,
             BOSS_LASER_MS: 950,                   // heavy aimed laser, roughly once a second
-            BOSS_LASER_SPEED: 8,                //  was 16
+            BOSS_LASER_SPEED: 4,                //  was 16
             BOSS_LASER_DMG_MULT: 1.9,              // was 1.6
             BOSS_LASER_HIT_R: 46,
-            BOSS_MISSILE_SPEED: 4,               // qa 6
+            BOSS_MISSILE_SPEED: 2,               // qa 6
             BOSS_MISSILE_DMG_MULT: 6,             ///  was 4
             BOSS_MISSILE_HIT_R: 70,
             // missile and tractor beam share one "special attack" timer --
@@ -4636,9 +4636,9 @@
             },
         };
         const GALAGA_LEVEL_1 = {
-            BOLT_SPEED: 6, BOLT_HIT_R: 34, SHIELD_DMG: 14, HULL_DMG: 12,
-            BOSS_HP: 550, BOSS_LASER_SPEED: 16, BOSS_LASER_DMG_MULT: 1.6,
-            BOSS_MISSILE_SPEED: 6, BOSS_MISSILE_DMG_MULT: 4,
+            BOLT_SPEED: 2, BOLT_HIT_R: 34, SHIELD_DMG: 14, HULL_DMG: 12,
+            BOSS_HP: 5550, BOSS_LASER_SPEED: 4, BOSS_LASER_DMG_MULT: 1.6,
+            BOSS_MISSILE_SPEED: 2, BOSS_MISSILE_DMG_MULT: 4,
         };
 
         function galagaDifficulty(level = galagaPhase?.level || 1) {
