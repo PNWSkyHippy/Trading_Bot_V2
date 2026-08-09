@@ -1495,9 +1495,9 @@
         const TUNNEL_TEXTURE_VECTOR_SIDES_NEAR = 12;
         const TUNNEL_TEXTURE_LOD_FAR_SIDES = 8;
         const TUNNEL_TEXTURE_MAX_SEGMENTS = 14;
-        const TUNNEL_COVERAGE_MAX_SEGMENTS = 44;
+        const TUNNEL_COVERAGE_MAX_SEGMENTS = 32;
         const TUNNEL_FORWARD_LOOKAHEAD = 14;
-        const TUNNEL_COVERAGE_FORWARD_LOOKAHEAD = 48;
+        const TUNNEL_COVERAGE_FORWARD_LOOKAHEAD = 32;
         const TUNNEL_TEXTURE_VECTOR_STREAK_MAX_Z = 1050;
         const TUNNEL_TEXTURE_DETAIL_NEAR_COUNT = 5;
         const TUNNEL_TEXTURE_SHIP_RING = 2;
@@ -1505,7 +1505,10 @@
         // detail streaks. Two hops produced a circular black cutoff that followed
         // the ship and jumped forward at every segment handoff whenever the
         // directional look-ahead could not follow a sharp bend.
-        const TUNNEL_COVERAGE_TOPOLOGY_HOPS = 14;
+        // Keep only the local junction neighborhood in the broad coverage set.
+        // A fourteen-hop neighborhood pulled entire side corridors into the draw
+        // list at shallow junctions and made large maps substantially more costly.
+        const TUNNEL_COVERAGE_TOPOLOGY_HOPS = 4;
         const TUNNEL_TEXTURE_LOD_NEAR_Z = 900;
         const TUNNEL_TEXTURE_DETAIL_MAX_Z = 1150;
         const TUNNEL_TEXTURE_SOLID_ONLY_Z = 1050;
@@ -2002,7 +2005,7 @@
         const TUNNEL_WEBGL_BOOST_SCROLL_RATE = 0.006;
         const TUNNEL_WEBGL_ZERO_DRAW_FALLBACK_FRAMES = 45;
         const TUNNEL_WEBGL_MESH_CACHE_MAX = 64;
-        const TUNNEL_WEBGL_MAX_DRAW_SEGMENTS = 56;
+        const TUNNEL_WEBGL_MAX_DRAW_SEGMENTS = 36;
         const TUNNEL_WEBGL_AHEAD_SEGMENTS = 34;
         const TUNNEL_WEBGL_BEHIND_SEGMENTS = 6;
         const TUNNEL_WEBGL_SHIP_BEHIND_Z = 96;
@@ -3167,8 +3170,9 @@
             let activeTexture = null;
 
             for (let i = 0; i < drawList.length; i++) {
-                const { index, seg } = drawList[i];
-                const { zStart, zEnd, fromOpen, toOpen } = getWebGLSegmentZExtent(seg, index);
+                const routeEntry = drawList[i];
+                const { index, seg } = routeEntry;
+                const { zStart, zEnd, fromOpen, toOpen } = getWebGLSegmentZExtent(seg, index, routeEntry);
                 const span = Math.max(1, zEnd - zStart);
                 const minSpan = index === shipSegmentIndex ? 8 : 4;
                 if (span < minSpan) continue;
@@ -19096,7 +19100,10 @@
                     continue;
                 }
                 const align = dot(normalize(segTravel), dir);
-                if (align < 0.28) continue;
+                // Follow real bends instead of depending on a very large topology
+                // neighborhood to hide a broken forward path. Only reject a segment
+                // that turns mostly back toward the section we just left.
+                if (align < -0.15) continue;
                 const dist = segmentDistanceToShip(seg, i);
                 const score = align * 2 - dist * 0.002;
                 if (!best || score > best.score) {
@@ -19274,7 +19281,19 @@
             );
             const candidates = [];
             const shipPoint = { x: posX, y: posY, z: posZ };
-            for (let index = 0; index < builder.segments.length; index++) {
+            const shipSeg = builder.segments[shipSegmentIndex];
+            // Opaque walls prevent arbitrary world-space segments from being seen.
+            // Iterate only the route and its local topology instead of rescanning a
+            // potentially thousand-section map every rendered frame. Glass tunnels
+            // retain the broader scan because deliberate through-wall views matter.
+            const routeCandidateSet = new Set(topologyNearSet);
+            routeCandidateSet.add(shipSegmentIndex);
+            for (const index of forwardIndices) routeCandidateSet.add(index);
+            const candidateIndices = shipSeg && segmentWallOpaque(shipSeg)
+                ? routeCandidateSet
+                : builder.segments.keys();
+            for (const index of candidateIndices) {
+                if (!Number.isInteger(index) || index < 0 || index >= builder.segments.length) continue;
                 const seg = builder.segments[index];
                 // Door-portal chambers are intentionally detached from physical tunnel
                 // topology. Do not reveal their spherical shells merely because they are
@@ -19300,9 +19319,18 @@
                 // off-route geometry must not enter either render path merely because
                 // it is nearby in world space; that reveals/overlays other tunnels.
                 // Deliberate glass-to-glass views remain available.
-                const shipSeg = builder.segments[shipSegmentIndex];
                 const glassToGlass = shipSeg && !segmentWallOpaque(shipSeg) && !segmentWallOpaque(seg);
                 if (!isShipSeg && !isAdjacent && !isForwardPath && !glassToGlass) continue;
+                if (
+                    shipSeg &&
+                    segmentWallOpaque(shipSeg) &&
+                    segmentWallOpaque(seg) &&
+                    !isShipSeg &&
+                    !isForwardPath
+                ) {
+                    const midpoint = scaleVec(addVec(seg.from, seg.to), 0.5);
+                    if (!pointVisibleThroughCurrentTunnel(midpoint, 0.92)) continue;
+                }
                 const isCoveragePreload = coverageMode && midZ > 0 && midZ < TUNNEL_COVERAGE_PRELOAD_MAX_Z;
                 const isMouth = isSegmentMouthOpen(seg);
                 const keepForForward = isForwardPath || isCoveragePreload;
@@ -19333,6 +19361,7 @@
                 }
                 return a.dist - b.dist;
             });
+            const candidateIndexSet = new Set(candidates.map(item => item.index));
 
             const picked = [];
             const seen = new Set();
@@ -19350,7 +19379,12 @@
                     }));
                 }
                 for (const ringIndex of topologyNearSet) {
-                    if (ringIndex < 0 || ringIndex >= builder.segments.length || seen.has(ringIndex)) continue;
+                    if (
+                        ringIndex < 0 ||
+                        ringIndex >= builder.segments.length ||
+                        seen.has(ringIndex) ||
+                        !candidateIndexSet.has(ringIndex)
+                    ) continue;
                     seen.add(ringIndex);
                     picked.unshift(makeTunnelSegmentEntry(ringIndex, {
                         isForwardPath: forwardSet.has(ringIndex),
@@ -20176,7 +20210,7 @@
             return segmentPanelRadiusAt(seg, length * 0.5, joinBoost, index);
         }
 
-        function getSegmentPanelZExtent(seg) {
+        function getSegmentPanelZExtent(seg, routeEntry = null) {
             const length = seg.length || builder.length;
             const fromOpen = isOpenSegmentEnd(seg, 'from');
             const toOpen = isOpenSegmentEnd(seg, 'to');
@@ -20189,7 +20223,14 @@
             // world space, producing the broad rings and sliced overlays visible
             // at every join. Keep section art on its own 0..length geometry. The
             // legacy tiled walls retain their overlap to cover hard bend gaps.
-            const joinOverlap = sectionMapped ? TUNNEL_SECTION_JOIN_OVERLAP : TUNNEL_SEGMENT_JOIN_OVERLAP;
+            let joinOverlap = sectionMapped ? TUNNEL_SECTION_JOIN_OVERLAP : TUNNEL_SEGMENT_JOIN_OVERLAP;
+            // A connected side branch is a complete cylinder, not a boolean cutout.
+            // Extending it behind its junction lets its opaque wall penetrate the
+            // active corridor. Route sections keep overlap for seamless bends; an
+            // off-route branch starts exactly at its authored endpoints.
+            if (routeEntry && !routeEntry.isShipSeg && !routeEntry.isForwardPath) {
+                joinOverlap = 0;
+            }
             return {
                 zStart: fromOpen ? 0 : -joinOverlap,
                 zEnd: toOpen ? length : length + joinOverlap,
@@ -20216,9 +20257,9 @@
             return radius;
         }
 
-        function getWebGLSegmentZExtent(seg, index) {
+        function getWebGLSegmentZExtent(seg, index, routeEntry = null) {
             // renderRegressionFix1: draw full segment span — renderNotLockFix1 z trimming caused black voids.
-            return getSegmentPanelZExtent(seg);
+            return getSegmentPanelZExtent(seg, routeEntry);
         }
 
         function buildTunnelCrossSectionPolygon(seg, localZ, sides, joinBoost = false, reverseWinding = false) {
