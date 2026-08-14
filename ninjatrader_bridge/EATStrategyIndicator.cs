@@ -1,6 +1,9 @@
-// NinjaTrader 8 visual companion for the EAT session-box strategy.
-// Apply to a 1-minute futures chart. Advisory only: it draws and alerts;
-// Hostinger's Python EAT engine remains the only automated order executor.
+// NinjaTrader 8 indicator for the Easy Access Trade (EAT) box-breakout setup.
+// Apply to a 1-minute chart. Draws the session box only; the real
+// entry/wick-stop/TP1/runner-trail logic lives in the backend eat_strategy.py
+// engine (already tested/live). This indicator is a local visual aid; web_dash
+// and VPS runtime state exclusively own backend enablement and configuration.
+// Copy into Documents\NinjaTrader 8\bin\Custom\Indicators and compile.
 
 using System;
 using System.ComponentModel;
@@ -18,12 +21,10 @@ namespace NinjaTrader.NinjaScript.Indicators
     {
         private enum SetupPhase
         {
-            WaitingSession,
             BuildingBox,
-            WaitingBufferClose,
-            InTrade,
-            SessionDone,
-            MarketClosed
+            BoxReady,
+            TradeWindow,
+            SessionDone
         }
 
         private sealed class SessionCandidate
@@ -36,42 +37,16 @@ namespace NinjaTrader.NinjaScript.Indicators
         private string sessionKey;
         private string sessionName;
         private DateTime sessionStart;
-        private DateTime boxEnd;
-        private DateTime tradeEnd;
-        private double primaryHigh;
-        private double primaryLow;
-        private double fallbackHigh;
-        private double fallbackLow;
-        private int primaryBars;
-        private int fallbackBars;
-        private int selectedBoxMinutes;
-        private double innerHigh;
-        private double innerLow;
-        private double outerHigh;
-        private double outerLow;
-        private int lastZone;
-        private int tradesThisSession;
-        private int tradeSequence;
-
-        private bool tradeActive;
-        private int tradeDirection;
-        private int tradeQuantity;
-        private int remainingQuantity;
-        private int tp1Quantity;
-        private double entryPrice;
-        private double stopPrice;
-        private double tp1Price;
-        private double runnerStop;
-        private double bestPrice;
-        private bool tp1Done;
-        private int entryBar;
-        private double realizedPnlTicks;
+        private double boxHigh;
+        private double boxLow;
+        private bool usedFallback;
 
         protected override void OnStateChange()
         {
             if (State == State.SetDefaults)
             {
-                Description = "EAT first-candle range, entry buffers, paper signals, and runner visualization.";
+                Description = "Session box for the Easy Access Trade (EAT) setup. " +
+                    "Local visual only -- entries/exits run server-side.";
                 Name = "EAT Strategy Indicator";
                 Calculate = Calculate.OnBarClose;
                 IsOverlay = true;
@@ -79,13 +54,12 @@ namespace NinjaTrader.NinjaScript.Indicators
                 DrawOnPricePanel = true;
                 IsSuspendedWhileInactive = true;
 
-                Contracts = 4;
                 EnableNY = true;
-                NYStartHour = 5;
-                NYStartMinute = 0;
+                NyStartHour = 5;
+                NyStartMinute = 0;
                 EnableTokyo = true;
-                TokyoStartHour = 14;
-                TokyoStartMinute = 30;
+                TokyoStartHour = 15;
+                TokyoStartMinute = 00;
                 EnableLondon = true;
                 LondonStandardHour = 22;
                 LondonStandardMinute = 30;
@@ -96,15 +70,23 @@ namespace NinjaTrader.NinjaScript.Indicators
                 MinBoxTicks = 100;
                 MaxBoxTicks = 250;
                 BufferTicks = 30;
-                TP1Ticks = 160;
-                RunnerTrailTicks = 20;
+                Tp1Ticks = 200;
+                RunnerTrailTicks = 95;
                 WickStopLookbackMinutes = 20;
-                TradeWindowMinutes = 60;
-                MaxTradesPerSession = 12;
+                TradeWindowMinutes = 800;
+
+                Enabled = false;
+                Contracts = 20;
+                MaxTradesPerSession = 20;
+                AllowReentry = true;
+                EnableLongs = true;
+                EnableShorts = false;
+                MaxStopTicks = 0;
+                StopTicksOverride = 300;
             }
             else if (State == State.DataLoaded)
             {
-                ResetSession(null);
+                ResetSession(null, null, DateTime.MinValue);
             }
         }
 
@@ -113,69 +95,86 @@ namespace NinjaTrader.NinjaScript.Indicators
             if (BarsPeriod.BarsPeriodType != BarsPeriodType.Minute || BarsPeriod.Value != 1)
             {
                 Draw.TextFixed(this, "EATWrongBars",
-                    "EAT requires a 1-minute futures chart", TextPosition.TopLeft,
+                    "EAT requires a 1-minute chart", TextPosition.TopLeft,
                     Brushes.White, new SimpleFont("Arial", 16), Brushes.DarkRed,
                     Brushes.DarkRed, 80);
                 return;
             }
 
-            if (CurrentBar < Math.Max(FallbackBoxMinutes, WickStopLookbackMinutes) + 2)
+            if (CurrentBar < 1)
                 return;
 
             DateTime now = Time[0];
-            if (FallbackBoxMinutes < PrimaryBoxMinutes || MaxBoxTicks < MinBoxTicks)
-            {
-                Draw.TextFixed(this, "EATBadSettings",
-                    "EAT settings invalid: fallback box/range maximum must not be smaller",
-                    TextPosition.TopLeft, Brushes.White,
-                    new SimpleFont("Arial", 14), Brushes.DarkRed,
-                    Brushes.DarkRed, 80);
-                return;
-            }
             SessionCandidate candidate = FindActiveSession(now);
             if (candidate == null)
             {
-                if (tradeActive)
-                    UpdatePaperTrade();
-                else
-                    phase = SetupPhase.WaitingSession;
-                ShowStatus(tradeActive
-                    ? "Paper position active outside its entry window"
-                    : "Waiting for next EAT session");
+                ShowStatus("Waiting for next EAT session (NY/Tokyo/London)");
                 return;
             }
 
             string candidateKey = candidate.Name + ":" + candidate.Start.ToString("O");
-            if (candidateKey != sessionKey && !tradeActive)
-                ResetSession(candidate);
+            if (candidateKey != sessionKey)
+                ResetSession(candidateKey, candidate.Name, candidate.Start);
 
-            if (IsMarketClosed(now))
+            DateTime start = sessionStart;
+            DateTime primaryEnd = start.AddMinutes(PrimaryBoxMinutes);
+            DateTime fallbackEnd = start.AddMinutes(FallbackBoxMinutes);
+            DateTime tradeEnd = (usedFallback ? fallbackEnd : primaryEnd)
+                .AddMinutes(TradeWindowMinutes);
+
+            if (now < start)
             {
-                if (tradeActive)
-                    UpdatePaperTrade();
-                else
-                    phase = SetupPhase.MarketClosed;
-                ShowStatus(tradeActive
-                    ? "Paper position active during market closure"
-                    : "Futures market maintenance/weekly closure");
+                ShowStatus("Waiting for " + sessionName + " session start");
                 return;
             }
 
-            UpdateBoxInputs(now);
-            TryFinalizeBox(now);
+            double boxTicks = (double.IsNaN(boxHigh) || double.IsNaN(boxLow))
+                ? 0 : (boxHigh - boxLow) / TickSize;
 
-            if (tradeActive)
-                UpdatePaperTrade();
-            else if (phase == SetupPhase.WaitingBufferClose)
-                CheckEntry(now);
+            if (now >= start && now < primaryEnd)
+            {
+                boxHigh = double.IsNaN(boxHigh) ? High[0] : Math.Max(boxHigh, High[0]);
+                boxLow = double.IsNaN(boxLow) ? Low[0] : Math.Min(boxLow, Low[0]);
+                phase = SetupPhase.BuildingBox;
+                DrawBoxLines();
+                ShowStatus(sessionName + ": building primary box (" + PrimaryBoxMinutes + "m)");
+                return;
+            }
 
-            if (tradeEnd != DateTime.MinValue && now > tradeEnd && !tradeActive)
+            if (!usedFallback && boxTicks < MinBoxTicks && now < fallbackEnd)
+            {
+                usedFallback = true;
+            }
+
+            if (usedFallback && now < fallbackEnd)
+            {
+                boxHigh = Math.Max(boxHigh, High[0]);
+                boxLow = Math.Min(boxLow, Low[0]);
+                phase = SetupPhase.BuildingBox;
+                DrawBoxLines();
+                ShowStatus(sessionName + ": box too tight, extending to fallback (" + FallbackBoxMinutes + "m)");
+                return;
+            }
+
+            DrawBoxLines();
+
+            if (now >= tradeEnd)
+            {
                 phase = SetupPhase.SessionDone;
+                ShowStatus(sessionName + ": EAT trade window complete");
+                return;
+            }
 
-            DrawSessionBox();
-            ShowStatus(StatusDetail());
+            phase = boxTicks > MaxBoxTicks ? SetupPhase.SessionDone : SetupPhase.TradeWindow;
+            ShowStatus(phase == SetupPhase.SessionDone
+                ? sessionName + ": box too wide (" + boxTicks.ToString("0") + " ticks) -- session skipped"
+                : sessionName + ": trade window open, box " + boxTicks.ToString("0") + " ticks");
         }
 
+        // Picks whichever of NY/Tokyo/London is the most recent session start
+        // that's still within its box+trade window, checking both today and
+        // yesterday (a session that starts late in the evening chart-local
+        // time can still be "active" past midnight).
         private SessionCandidate FindActiveSession(DateTime now)
         {
             SessionCandidate best = null;
@@ -183,17 +182,17 @@ namespace NinjaTrader.NinjaScript.Indicators
             {
                 DateTime day = now.Date.AddDays(dayOffset);
                 if (EnableNY)
-                    ConsiderSession(ref best, now, "NY",
-                        day.AddHours(NYStartHour).AddMinutes(NYStartMinute));
+                    ConsiderSession(ref best, now, "ny",
+                        day.AddHours(NyStartHour).AddMinutes(NyStartMinute));
                 if (EnableTokyo)
-                    ConsiderSession(ref best, now, "Tokyo",
+                    ConsiderSession(ref best, now, "tokyo",
                         day.AddHours(TokyoStartHour).AddMinutes(TokyoStartMinute));
                 if (EnableLondon)
                 {
                     bool dst = TimeZoneInfo.Local.IsDaylightSavingTime(day.AddHours(12));
                     int hour = dst ? LondonDstHour : LondonStandardHour;
                     int minute = dst ? LondonDstMinute : LondonStandardMinute;
-                    ConsiderSession(ref best, now, "London",
+                    ConsiderSession(ref best, now, "london",
                         day.AddHours(hour).AddMinutes(minute));
                 }
             }
@@ -211,448 +210,46 @@ namespace NinjaTrader.NinjaScript.Indicators
                 best = new SessionCandidate { Name = name, Start = start };
         }
 
-        private void ResetSession(SessionCandidate candidate)
+        private void ResetSession(string key, string name, DateTime start)
         {
-            sessionKey = candidate == null
-                ? null
-                : candidate.Name + ":" + candidate.Start.ToString("O");
-            sessionName = candidate == null ? null : candidate.Name;
-            sessionStart = candidate == null ? DateTime.MinValue : candidate.Start;
-            boxEnd = DateTime.MinValue;
-            tradeEnd = DateTime.MinValue;
-            phase = candidate == null
-                ? SetupPhase.WaitingSession
-                : SetupPhase.BuildingBox;
-            primaryHigh = fallbackHigh = double.NaN;
-            primaryLow = fallbackLow = double.NaN;
-            primaryBars = fallbackBars = 0;
-            selectedBoxMinutes = 0;
-            innerHigh = innerLow = outerHigh = outerLow = double.NaN;
-            lastZone = 0;
-            tradesThisSession = 0;
-            ClearPaperTrade();
+            sessionKey = key;
+            sessionName = name;
+            sessionStart = start;
+            phase = SetupPhase.BuildingBox;
+            boxHigh = double.NaN;
+            boxLow = double.NaN;
+            usedFallback = false;
         }
 
-        private void UpdateBoxInputs(DateTime now)
+        private void DrawBoxLines()
         {
-            if (phase != SetupPhase.BuildingBox || sessionStart == DateTime.MinValue)
+            if (double.IsNaN(boxHigh) || double.IsNaN(boxLow) || sessionKey == null)
                 return;
-            DateTime barStart = now.AddMinutes(-1);
-            DateTime primaryEnd = sessionStart.AddMinutes(PrimaryBoxMinutes);
-            DateTime fallbackEnd = sessionStart.AddMinutes(FallbackBoxMinutes);
-            if (barStart >= sessionStart && barStart < primaryEnd)
-            {
-                primaryHigh = double.IsNaN(primaryHigh)
-                    ? High[0] : Math.Max(primaryHigh, High[0]);
-                primaryLow = double.IsNaN(primaryLow)
-                    ? Low[0] : Math.Min(primaryLow, Low[0]);
-                primaryBars++;
-            }
-            if (barStart >= sessionStart && barStart < fallbackEnd)
-            {
-                fallbackHigh = double.IsNaN(fallbackHigh)
-                    ? High[0] : Math.Max(fallbackHigh, High[0]);
-                fallbackLow = double.IsNaN(fallbackLow)
-                    ? Low[0] : Math.Min(fallbackLow, Low[0]);
-                fallbackBars++;
-            }
-        }
-
-        private void TryFinalizeBox(DateTime now)
-        {
-            if (phase != SetupPhase.BuildingBox || sessionStart == DateTime.MinValue)
-                return;
-            DateTime primaryEnd = sessionStart.AddMinutes(PrimaryBoxMinutes);
-            DateTime fallbackEnd = sessionStart.AddMinutes(FallbackBoxMinutes);
-
-            if (selectedBoxMinutes == 0 && now >= primaryEnd
-                && primaryBars >= PrimaryBoxMinutes)
-            {
-                int ticks = RangeTicks(primaryHigh, primaryLow);
-                if (ticks > MaxBoxTicks)
-                {
-                    SkipSession("Primary box too large: " + ticks + " ticks");
-                    return;
-                }
-                if (ticks >= MinBoxTicks)
-                {
-                    SetBox(primaryHigh, primaryLow, PrimaryBoxMinutes, ticks);
-                    return;
-                }
-                selectedBoxMinutes = -1;
-                AlertOnce("FALLBACK",
-                    "EAT " + sessionName + ": 5-minute box too small; waiting for 15-minute box",
-                    Brushes.Black, Brushes.Gold);
-            }
-
-            if (selectedBoxMinutes == -1 && now >= fallbackEnd
-                && fallbackBars >= FallbackBoxMinutes)
-            {
-                int ticks = RangeTicks(fallbackHigh, fallbackLow);
-                if (ticks < MinBoxTicks)
-                {
-                    SkipSession("Fallback box too small: " + ticks + " ticks");
-                    return;
-                }
-                if (ticks > MaxBoxTicks)
-                {
-                    SkipSession("Fallback box too large: " + ticks + " ticks");
-                    return;
-                }
-                SetBox(fallbackHigh, fallbackLow, FallbackBoxMinutes, ticks);
-            }
-        }
-
-        private int RangeTicks(double high, double low)
-        {
-            return (int)Math.Round((high - low) / TickSize);
-        }
-
-        private void SetBox(double high, double low, int minutes, int ticks)
-        {
-            selectedBoxMinutes = minutes;
-            boxEnd = sessionStart.AddMinutes(minutes);
-            tradeEnd = boxEnd.AddMinutes(TradeWindowMinutes);
-            innerHigh = high;
-            innerLow = low;
-            outerHigh = innerHigh + BufferTicks * TickSize;
-            outerLow = innerLow - BufferTicks * TickSize;
-            phase = SetupPhase.WaitingBufferClose;
-            AlertOnce("BOX",
-                "EAT " + sessionName + " box ready: "
-                + innerLow.ToString("0.00") + "-" + innerHigh.ToString("0.00")
-                + " (" + ticks + " ticks)",
-                Brushes.Black, Brushes.Turquoise);
-        }
-
-        private void SkipSession(string reason)
-        {
-            phase = SetupPhase.SessionDone;
-            tradeEnd = sessionStart.AddMinutes(
-                FallbackBoxMinutes + TradeWindowMinutes);
-            AlertOnce("SKIP", "EAT " + sessionName + " skipped: " + reason,
-                Brushes.White, Brushes.DarkRed);
-        }
-
-        private void CheckEntry(DateTime now)
-        {
-            if (now > tradeEnd || tradesThisSession >= MaxTradesPerSession)
-            {
-                phase = SetupPhase.SessionDone;
-                return;
-            }
-
-            double close = Close[0];
-            int zone = 0;
-            if (close >= innerHigh && close <= outerHigh)
-                zone = 1;
-            else if (close >= outerLow && close <= innerLow)
-                zone = -1;
-
-            if (zone == 0)
-            {
-                lastZone = 0;
-                return;
-            }
-            if (zone == lastZone)
-                return;
-
-            OpenPaperTrade(zone, close);
-            lastZone = zone;
-        }
-
-        private void OpenPaperTrade(int direction, double price)
-        {
-            tradeSequence++;
-            tradeDirection = direction;
-            tradeQuantity = Contracts;
-            remainingQuantity = Contracts;
-            tp1Quantity = (int)Math.Ceiling(Contracts / 2.0);
-            entryPrice = price;
-            stopPrice = WickStop(direction);
-            tp1Price = direction > 0
-                ? innerHigh + TP1Ticks * TickSize
-                : innerLow - TP1Ticks * TickSize;
-            runnerStop = double.NaN;
-            bestPrice = price;
-            tp1Done = false;
-            entryBar = CurrentBar;
-            realizedPnlTicks = 0;
-            tradeActive = true;
-            tradesThisSession++;
-            phase = SetupPhase.InTrade;
-
-            string tag = TradeTag();
-            if (direction > 0)
-                Draw.ArrowUp(this, tag + "Entry", false, 0,
-                    Low[0] - 2 * TickSize, Brushes.LimeGreen);
-            else
-                Draw.ArrowDown(this, tag + "Entry", false, 0,
-                    High[0] + 2 * TickSize, Brushes.Red);
-            DrawTradeLines();
-            AlertOnce("ENTRY" + tradeSequence,
-                "EAT PAPER " + (direction > 0 ? "LONG " : "SHORT ")
-                + Contracts + " " + Instrument.FullName
-                + " | stop " + stopPrice.ToString("0.00")
-                + " | TP1 " + tp1Price.ToString("0.00"),
-                Brushes.White, direction > 0 ? Brushes.DarkGreen : Brushes.DarkRed);
-        }
-
-        private double WickStop(int direction)
-        {
-            double fallback = direction > 0 ? innerLow : innerHigh;
-            double result = fallback;
-            int count = Math.Min(WickStopLookbackMinutes, CurrentBar);
-            for (int barsAgo = 1; barsAgo <= count; barsAgo++)
-            {
-                if (direction > 0
-                    && Low[barsAgo] >= outerLow && Low[barsAgo] < innerLow
-                    && Close[barsAgo] >= innerLow)
-                    result = Math.Min(result, Low[barsAgo]);
-                if (direction < 0
-                    && High[barsAgo] > innerHigh && High[barsAgo] <= outerHigh
-                    && Close[barsAgo] <= innerHigh)
-                    result = Math.Max(result, High[barsAgo]);
-            }
-            return result;
-        }
-
-        private void UpdatePaperTrade()
-        {
-            bool entryBarNow = CurrentBar == entryBar;
-            double observedLow = entryBarNow ? Close[0] : Low[0];
-            double observedHigh = entryBarNow ? Close[0] : High[0];
-            bool stopHit = tradeDirection > 0
-                ? observedLow <= stopPrice
-                : observedHigh >= stopPrice;
-            bool tpHit = tradeDirection > 0
-                ? observedHigh >= tp1Price
-                : observedLow <= tp1Price;
-
-            if (!tp1Done && stopHit)
-            {
-                ClosePaperTrade(stopPrice, "stop");
-                return;
-            }
-            if (!tp1Done && tpHit)
-            {
-                int qty = Math.Min(tp1Quantity, remainingQuantity);
-                Realize(qty, tp1Price);
-                tp1Done = true;
-                if (remainingQuantity <= 0)
-                {
-                    ClosePaperTrade(tp1Price, "TP1");
-                    return;
-                }
-                bestPrice = tradeDirection > 0
-                    ? Math.Max(bestPrice, observedHigh)
-                    : Math.Min(bestPrice, observedLow);
-                runnerStop = tradeDirection > 0
-                    ? bestPrice - RunnerTrailTicks * TickSize
-                    : bestPrice + RunnerTrailTicks * TickSize;
-                AlertOnce("TP1" + tradeSequence,
-                    "EAT TP1 reached; runner trail armed at "
-                    + runnerStop.ToString("0.00"),
-                    Brushes.Black, Brushes.LimeGreen);
-            }
-
-            if (tp1Done && remainingQuantity > 0)
-            {
-                if (tradeDirection > 0)
-                {
-                    bestPrice = Math.Max(bestPrice, observedHigh);
-                    runnerStop = Math.Max(
-                        runnerStop, bestPrice - RunnerTrailTicks * TickSize);
-                    if (observedLow <= runnerStop)
-                    {
-                        ClosePaperTrade(runnerStop, "runner trail");
-                        return;
-                    }
-                }
-                else
-                {
-                    bestPrice = Math.Min(bestPrice, observedLow);
-                    runnerStop = Math.Min(
-                        runnerStop, bestPrice + RunnerTrailTicks * TickSize);
-                    if (observedHigh >= runnerStop)
-                    {
-                        ClosePaperTrade(runnerStop, "runner trail");
-                        return;
-                    }
-                }
-            }
-            DrawTradeLines();
-        }
-
-        private void Realize(int quantity, double price)
-        {
-            double ticks = tradeDirection > 0
-                ? (price - entryPrice) / TickSize
-                : (entryPrice - price) / TickSize;
-            realizedPnlTicks += ticks * quantity;
-            remainingQuantity -= quantity;
-        }
-
-        private void ClosePaperTrade(double price, string reason)
-        {
-            if (remainingQuantity > 0)
-                Realize(remainingQuantity, price);
-            string tag = TradeTag();
-            if (tradeDirection > 0)
-                Draw.ArrowDown(this, tag + "Exit", false, 0,
-                    High[0] + 2 * TickSize, Brushes.White);
-            else
-                Draw.ArrowUp(this, tag + "Exit", false, 0,
-                    Low[0] - 2 * TickSize, Brushes.White);
-            AlertOnce("EXIT" + tradeSequence,
-                "EAT PAPER EXIT " + reason + " | "
-                + realizedPnlTicks.ToString("0") + " contract-ticks",
-                Brushes.White,
-                realizedPnlTicks >= 0 ? Brushes.DarkGreen : Brushes.DarkRed);
-            tradeActive = false;
-            phase = Time[0] < tradeEnd
-                ? SetupPhase.WaitingBufferClose
-                : SetupPhase.SessionDone;
-        }
-
-        private void ClearPaperTrade()
-        {
-            tradeActive = false;
-            tradeDirection = 0;
-            tradeQuantity = remainingQuantity = tp1Quantity = 0;
-            entryPrice = stopPrice = tp1Price = runnerStop = bestPrice = double.NaN;
-            tp1Done = false;
-            entryBar = -1;
-            realizedPnlTicks = 0;
-        }
-
-        private string TradeTag()
-        {
-            return "EATTrade" + sessionStart.ToString("yyyyMMddHHmm")
-                + "-" + tradeSequence;
-        }
-
-        private void DrawTradeLines()
-        {
-            if (!tradeActive)
-                return;
-            string tag = TradeTag();
-            Draw.HorizontalLine(this, tag + "EntryLine", entryPrice,
-                Brushes.DodgerBlue, DashStyleHelper.Dash, 1);
-            Draw.HorizontalLine(this, tag + "StopLine", stopPrice,
-                Brushes.Red, DashStyleHelper.Dash, 1);
-            Draw.HorizontalLine(this, tag + "TPLine", tp1Price,
-                Brushes.LimeGreen, DashStyleHelper.Dash, 1);
-            if (!double.IsNaN(runnerStop))
-                Draw.HorizontalLine(this, tag + "RunnerLine", runnerStop,
-                    Brushes.MediumPurple, DashStyleHelper.Dot, 2);
-        }
-
-        private void DrawSessionBox()
-        {
-            if (sessionStart == DateTime.MinValue)
-                return;
-            DateTime end = tradeEnd != DateTime.MinValue && Time[0] > tradeEnd
-                ? tradeEnd
-                : Time[0];
-            string tag = "EAT-" + sessionName + "-"
-                + sessionStart.ToString("yyyyMMddHHmm");
-
-            if (selectedBoxMinutes <= 0)
-            {
-                double high = !double.IsNaN(fallbackHigh)
-                    ? fallbackHigh : primaryHigh;
-                double low = !double.IsNaN(fallbackLow)
-                    ? fallbackLow : primaryLow;
-                if (!double.IsNaN(high) && !double.IsNaN(low))
-                    Draw.Rectangle(this, tag + "-Building", false,
-                        sessionStart, high, Time[0], low,
-                        Brushes.SteelBlue, Brushes.SteelBlue, 12);
-                return;
-            }
-
-            Draw.Rectangle(this, tag + "-Range", false,
-                sessionStart, innerHigh, end, innerLow,
-                Brushes.DodgerBlue, Brushes.DodgerBlue, 8);
-            Draw.Rectangle(this, tag + "-TopBuffer", false,
-                boxEnd, outerHigh, end, innerHigh,
-                Brushes.Turquoise, Brushes.Turquoise, 16);
-            Draw.Rectangle(this, tag + "-BottomBuffer", false,
-                boxEnd, innerLow, end, outerLow,
-                Brushes.IndianRed, Brushes.IndianRed, 16);
-            Draw.Line(this, tag + "-InnerHigh", false,
-                sessionStart, innerHigh, end, innerHigh,
-                Brushes.Aquamarine, DashStyleHelper.Solid, 2);
-            Draw.Line(this, tag + "-InnerLow", false,
-                sessionStart, innerLow, end, innerLow,
-                Brushes.LightCoral, DashStyleHelper.Solid, 2);
-            Draw.Line(this, tag + "-OuterHigh", false,
-                boxEnd, outerHigh, end, outerHigh,
-                Brushes.Turquoise, DashStyleHelper.Dash, 1);
-            Draw.Line(this, tag + "-OuterLow", false,
-                boxEnd, outerLow, end, outerLow,
-                Brushes.IndianRed, DashStyleHelper.Dash, 1);
-        }
-
-        private bool IsMarketClosed(DateTime stamp)
-        {
-            DayOfWeek day = stamp.DayOfWeek;
-            TimeSpan time = stamp.TimeOfDay;
-            if (day == DayOfWeek.Saturday)
-                return true;
-            if (day == DayOfWeek.Sunday)
-                return time < new TimeSpan(15, 0, 0);
-            if (day == DayOfWeek.Friday)
-                return time >= new TimeSpan(13, 0, 0);
-            return time >= new TimeSpan(13, 0, 0)
-                && time < new TimeSpan(15, 0, 0);
-        }
-
-        private string StatusDetail()
-        {
-            if (phase == SetupPhase.BuildingBox)
-                return selectedBoxMinutes == -1
-                    ? "5-minute box too small; building 15-minute fallback"
-                    : "Building first 5-minute session box";
-            if (phase == SetupPhase.WaitingBufferClose)
-                return "Waiting for a 1-minute close inside either buffer";
-            if (phase == SetupPhase.InTrade)
-                return "Paper position active; TP1 then 30-tick runner trail";
-            if (phase == SetupPhase.SessionDone)
-                return "Session complete";
-            return phase.ToString();
+            string tag = sessionKey.Replace(":", "-").Replace(".", "-");
+            Draw.HorizontalLine(this, "EATHigh" + tag, boxHigh,
+                Brushes.OrangeRed, DashStyleHelper.Solid, 2);
+            Draw.HorizontalLine(this, "EATLow" + tag, boxLow,
+                Brushes.DodgerBlue, DashStyleHelper.Solid, 2);
+            Draw.HorizontalLine(this, "EATTp1" + tag,
+                boxHigh + Tp1Ticks * TickSize, Brushes.LimeGreen, DashStyleHelper.Dash, 1);
+            Draw.HorizontalLine(this, "EATStop" + tag,
+                boxLow - BufferTicks * TickSize, Brushes.DarkRed, DashStyleHelper.Dash, 1);
         }
 
         private void ShowStatus(string detail)
         {
-            string range = double.IsNaN(innerHigh)
+            string range = double.IsNaN(boxHigh)
                 ? "not set"
-                : innerLow.ToString("0.00") + " - " + innerHigh.ToString("0.00");
-            string text = "EAT " + Instrument.FullName + "\n"
-                + "Session: " + (sessionName ?? "waiting") + "\n"
-                + "State: " + phase + "\n"
-                + "Box: " + range + "\n"
-                + "Contracts: " + Contracts
-                + " | Trades: " + tradesThisSession + "/" + MaxTradesPerSession
-                + "\n" + detail;
+                : boxLow.ToString("0.00") + " - " + boxHigh.ToString("0.00");
+            string text = "EAT " + Instrument.FullName + "\n" +
+                "Session: " + (sessionName ?? "waiting") + "\n" +
+                "State: " + phase + "\n" +
+                "Box: " + range + "\n" +
+                (Enabled ? "Backend: enabled" : "Backend: disabled") + "\n" + detail;
             Draw.TextFixed(this, "EATStatus", text, TextPosition.TopRight,
                 Brushes.White, new SimpleFont("Consolas", 13),
                 Brushes.Black, Brushes.Black, 55);
         }
-
-        private void AlertOnce(string level, string message,
-            Brush foreground, Brush background)
-        {
-            string id = "EAT-" + level + "-"
-                + sessionStart.ToString("yyyyMMddHHmm") + "-" + CurrentBar;
-            Alert(id, Priority.High, message, "Alert1.wav", 10,
-                foreground, background);
-        }
-
-        [NinjaScriptProperty]
-        [Range(1, 100)]
-        [Display(Name = "Contracts", GroupName = "Trade display", Order = 1)]
-        public int Contracts { get; set; }
 
         [NinjaScriptProperty]
         [Display(Name = "Enable New York", GroupName = "Sessions", Order = 1)]
@@ -660,13 +257,13 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         [NinjaScriptProperty]
         [Range(0, 23)]
-        [Display(Name = "NY start hour PT", GroupName = "Sessions", Order = 2)]
-        public int NYStartHour { get; set; }
+        [Display(Name = "NY start hour (chart local)", GroupName = "Sessions", Order = 2)]
+        public int NyStartHour { get; set; }
 
         [NinjaScriptProperty]
         [Range(0, 59)]
         [Display(Name = "NY start minute", GroupName = "Sessions", Order = 3)]
-        public int NYStartMinute { get; set; }
+        public int NyStartMinute { get; set; }
 
         [NinjaScriptProperty]
         [Display(Name = "Enable Tokyo", GroupName = "Sessions", Order = 4)]
@@ -674,7 +271,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         [NinjaScriptProperty]
         [Range(0, 23)]
-        [Display(Name = "Tokyo start hour PT", GroupName = "Sessions", Order = 5)]
+        [Display(Name = "Tokyo start hour (chart local)", GroupName = "Sessions", Order = 5)]
         public int TokyoStartHour { get; set; }
 
         [NinjaScriptProperty]
@@ -688,7 +285,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         [NinjaScriptProperty]
         [Range(0, 23)]
-        [Display(Name = "London standard hour PT", GroupName = "Sessions", Order = 8)]
+        [Display(Name = "London standard hour (chart local)", GroupName = "Sessions", Order = 8)]
         public int LondonStandardHour { get; set; }
 
         [NinjaScriptProperty]
@@ -698,7 +295,7 @@ namespace NinjaTrader.NinjaScript.Indicators
 
         [NinjaScriptProperty]
         [Range(0, 23)]
-        [Display(Name = "London DST hour PT", GroupName = "Sessions", Order = 10)]
+        [Display(Name = "London DST hour (chart local)", GroupName = "Sessions", Order = 10)]
         public int LondonDstHour { get; set; }
 
         [NinjaScriptProperty]
@@ -712,48 +309,142 @@ namespace NinjaTrader.NinjaScript.Indicators
         public int PrimaryBoxMinutes { get; set; }
 
         [NinjaScriptProperty]
-        [Range(1, 60)]
+        [Range(1, 120)]
         [Display(Name = "Fallback box minutes", GroupName = "Box", Order = 2)]
         public int FallbackBoxMinutes { get; set; }
 
         [NinjaScriptProperty]
-        [Range(1, 5000)]
-        [Display(Name = "Minimum box ticks", GroupName = "Box", Order = 3)]
+        [Range(1, 2000)]
+        [Display(Name = "Min box ticks", GroupName = "Box", Order = 3)]
         public int MinBoxTicks { get; set; }
 
         [NinjaScriptProperty]
         [Range(1, 5000)]
-        [Display(Name = "Maximum box ticks", GroupName = "Box", Order = 4)]
+        [Display(Name = "Max box ticks", GroupName = "Box", Order = 4)]
         public int MaxBoxTicks { get; set; }
 
         [NinjaScriptProperty]
-        [Range(1, 1000)]
-        [Display(Name = "Buffer ticks", GroupName = "Entry", Order = 1)]
+        [Range(0, 1000)]
+        [Display(Name = "Buffer ticks (stop)", GroupName = "Entry", Order = 1)]
         public int BufferTicks { get; set; }
 
         [NinjaScriptProperty]
         [Range(1, 2000)]
-        [Display(Name = "TP1 ticks", GroupName = "Exit", Order = 1)]
-        public int TP1Ticks { get; set; }
+        [Display(Name = "TP1 ticks", GroupName = "Entry", Order = 2)]
+        public int Tp1Ticks { get; set; }
 
         [NinjaScriptProperty]
-        [Range(1, 1000)]
-        [Display(Name = "Runner trail ticks", GroupName = "Exit", Order = 2)]
+        [Range(0, 1000)]
+        [Display(Name = "Runner trail ticks", GroupName = "Entry", Order = 3)]
         public int RunnerTrailTicks { get; set; }
 
         [NinjaScriptProperty]
-        [Range(1, 240)]
-        [Display(Name = "Wick stop lookback minutes", GroupName = "Exit", Order = 3)]
+        [Range(1, 120)]
+        [Display(Name = "Wick stop lookback minutes", GroupName = "Entry", Order = 4)]
         public int WickStopLookbackMinutes { get; set; }
 
         [NinjaScriptProperty]
         [Range(1, 600)]
-        [Display(Name = "Trade window minutes", GroupName = "Session control", Order = 1)]
+        [Display(Name = "Trade window minutes", GroupName = "Session", Order = 1)]
         public int TradeWindowMinutes { get; set; }
+
+        // Backend control: this indicator is the on/off switch and settings
+        // source for this symbol's live EAT paper-trading engine, including
+        // the NY/Tokyo/London session start times above -- applying it to a
+        // chart with Enabled=true (and clicking OK) pushes all of this as the
+        // engine's config. See ninja_futures_scanner.py's
+        // configure_strategy()/_replace_engine().
+        [NinjaScriptProperty]
+        [Display(Name = "Enabled (controls backend EAT engine)", GroupName = "Backend Control", Order = 1)]
+        public bool Enabled { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(1, 20)]
+        [Display(Name = "Contracts", GroupName = "Backend Control", Order = 2)]
+        public int Contracts { get; set; }
 
         [NinjaScriptProperty]
         [Range(1, 100)]
-        [Display(Name = "Maximum trades per session", GroupName = "Session control", Order = 2)]
+        [Display(Name = "Max trades per session", GroupName = "Backend Control", Order = 3)]
         public int MaxTradesPerSession { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Allow re-entry", GroupName = "Backend Control", Order = 4)]
+        public bool AllowReentry { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Enable longs", GroupName = "Backend Control", Order = 5)]
+        public bool EnableLongs { get; set; }
+
+        [NinjaScriptProperty]
+        [Display(Name = "Enable shorts", GroupName = "Backend Control", Order = 6)]
+        public bool EnableShorts { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(0, 5000)]
+        [Display(Name = "Max stop ticks (0 = off)", GroupName = "Backend Control", Order = 7)]
+        public int MaxStopTicks { get; set; }
+
+        [NinjaScriptProperty]
+        [Range(0, 5000)]
+        [Display(Name = "Stop ticks override (0 = off)", GroupName = "Backend Control", Order = 8)]
+        public int StopTicksOverride { get; set; }
     }
 }
+
+#region NinjaScript generated code. Neither change nor remove.
+
+namespace NinjaTrader.NinjaScript.Indicators
+{
+	public partial class Indicator : NinjaTrader.Gui.NinjaScript.IndicatorRenderBase
+	{
+		private EATStrategyIndicator[] cacheEATStrategyIndicator;
+		public EATStrategyIndicator EATStrategyIndicator(bool enableNY, int nyStartHour, int nyStartMinute, bool enableTokyo, int tokyoStartHour, int tokyoStartMinute, bool enableLondon, int londonStandardHour, int londonStandardMinute, int londonDstHour, int londonDstMinute, int primaryBoxMinutes, int fallbackBoxMinutes, int minBoxTicks, int maxBoxTicks, int bufferTicks, int tp1Ticks, int runnerTrailTicks, int wickStopLookbackMinutes, int tradeWindowMinutes, bool enabled, int contracts, int maxTradesPerSession, bool allowReentry, bool enableLongs, bool enableShorts, int maxStopTicks, int stopTicksOverride)
+		{
+			return EATStrategyIndicator(Input, enableNY, nyStartHour, nyStartMinute, enableTokyo, tokyoStartHour, tokyoStartMinute, enableLondon, londonStandardHour, londonStandardMinute, londonDstHour, londonDstMinute, primaryBoxMinutes, fallbackBoxMinutes, minBoxTicks, maxBoxTicks, bufferTicks, tp1Ticks, runnerTrailTicks, wickStopLookbackMinutes, tradeWindowMinutes, enabled, contracts, maxTradesPerSession, allowReentry, enableLongs, enableShorts, maxStopTicks, stopTicksOverride);
+		}
+
+		public EATStrategyIndicator EATStrategyIndicator(ISeries<double> input, bool enableNY, int nyStartHour, int nyStartMinute, bool enableTokyo, int tokyoStartHour, int tokyoStartMinute, bool enableLondon, int londonStandardHour, int londonStandardMinute, int londonDstHour, int londonDstMinute, int primaryBoxMinutes, int fallbackBoxMinutes, int minBoxTicks, int maxBoxTicks, int bufferTicks, int tp1Ticks, int runnerTrailTicks, int wickStopLookbackMinutes, int tradeWindowMinutes, bool enabled, int contracts, int maxTradesPerSession, bool allowReentry, bool enableLongs, bool enableShorts, int maxStopTicks, int stopTicksOverride)
+		{
+			if (cacheEATStrategyIndicator != null)
+				for (int idx = 0; idx < cacheEATStrategyIndicator.Length; idx++)
+					if (cacheEATStrategyIndicator[idx] != null && cacheEATStrategyIndicator[idx].EnableNY == enableNY && cacheEATStrategyIndicator[idx].NyStartHour == nyStartHour && cacheEATStrategyIndicator[idx].NyStartMinute == nyStartMinute && cacheEATStrategyIndicator[idx].EnableTokyo == enableTokyo && cacheEATStrategyIndicator[idx].TokyoStartHour == tokyoStartHour && cacheEATStrategyIndicator[idx].TokyoStartMinute == tokyoStartMinute && cacheEATStrategyIndicator[idx].EnableLondon == enableLondon && cacheEATStrategyIndicator[idx].LondonStandardHour == londonStandardHour && cacheEATStrategyIndicator[idx].LondonStandardMinute == londonStandardMinute && cacheEATStrategyIndicator[idx].LondonDstHour == londonDstHour && cacheEATStrategyIndicator[idx].LondonDstMinute == londonDstMinute && cacheEATStrategyIndicator[idx].PrimaryBoxMinutes == primaryBoxMinutes && cacheEATStrategyIndicator[idx].FallbackBoxMinutes == fallbackBoxMinutes && cacheEATStrategyIndicator[idx].MinBoxTicks == minBoxTicks && cacheEATStrategyIndicator[idx].MaxBoxTicks == maxBoxTicks && cacheEATStrategyIndicator[idx].BufferTicks == bufferTicks && cacheEATStrategyIndicator[idx].Tp1Ticks == tp1Ticks && cacheEATStrategyIndicator[idx].RunnerTrailTicks == runnerTrailTicks && cacheEATStrategyIndicator[idx].WickStopLookbackMinutes == wickStopLookbackMinutes && cacheEATStrategyIndicator[idx].TradeWindowMinutes == tradeWindowMinutes && cacheEATStrategyIndicator[idx].Enabled == enabled && cacheEATStrategyIndicator[idx].Contracts == contracts && cacheEATStrategyIndicator[idx].MaxTradesPerSession == maxTradesPerSession && cacheEATStrategyIndicator[idx].AllowReentry == allowReentry && cacheEATStrategyIndicator[idx].EnableLongs == enableLongs && cacheEATStrategyIndicator[idx].EnableShorts == enableShorts && cacheEATStrategyIndicator[idx].MaxStopTicks == maxStopTicks && cacheEATStrategyIndicator[idx].StopTicksOverride == stopTicksOverride && cacheEATStrategyIndicator[idx].EqualsInput(input))
+						return cacheEATStrategyIndicator[idx];
+			return CacheIndicator<EATStrategyIndicator>(new EATStrategyIndicator(){ EnableNY = enableNY, NyStartHour = nyStartHour, NyStartMinute = nyStartMinute, EnableTokyo = enableTokyo, TokyoStartHour = tokyoStartHour, TokyoStartMinute = tokyoStartMinute, EnableLondon = enableLondon, LondonStandardHour = londonStandardHour, LondonStandardMinute = londonStandardMinute, LondonDstHour = londonDstHour, LondonDstMinute = londonDstMinute, PrimaryBoxMinutes = primaryBoxMinutes, FallbackBoxMinutes = fallbackBoxMinutes, MinBoxTicks = minBoxTicks, MaxBoxTicks = maxBoxTicks, BufferTicks = bufferTicks, Tp1Ticks = tp1Ticks, RunnerTrailTicks = runnerTrailTicks, WickStopLookbackMinutes = wickStopLookbackMinutes, TradeWindowMinutes = tradeWindowMinutes, Enabled = enabled, Contracts = contracts, MaxTradesPerSession = maxTradesPerSession, AllowReentry = allowReentry, EnableLongs = enableLongs, EnableShorts = enableShorts, MaxStopTicks = maxStopTicks, StopTicksOverride = stopTicksOverride }, input, ref cacheEATStrategyIndicator);
+		}
+	}
+}
+
+namespace NinjaTrader.NinjaScript.MarketAnalyzerColumns
+{
+	public partial class MarketAnalyzerColumn : MarketAnalyzerColumnBase
+	{
+		public Indicators.EATStrategyIndicator EATStrategyIndicator(bool enableNY, int nyStartHour, int nyStartMinute, bool enableTokyo, int tokyoStartHour, int tokyoStartMinute, bool enableLondon, int londonStandardHour, int londonStandardMinute, int londonDstHour, int londonDstMinute, int primaryBoxMinutes, int fallbackBoxMinutes, int minBoxTicks, int maxBoxTicks, int bufferTicks, int tp1Ticks, int runnerTrailTicks, int wickStopLookbackMinutes, int tradeWindowMinutes, bool enabled, int contracts, int maxTradesPerSession, bool allowReentry, bool enableLongs, bool enableShorts, int maxStopTicks, int stopTicksOverride)
+		{
+			return indicator.EATStrategyIndicator(Input, enableNY, nyStartHour, nyStartMinute, enableTokyo, tokyoStartHour, tokyoStartMinute, enableLondon, londonStandardHour, londonStandardMinute, londonDstHour, londonDstMinute, primaryBoxMinutes, fallbackBoxMinutes, minBoxTicks, maxBoxTicks, bufferTicks, tp1Ticks, runnerTrailTicks, wickStopLookbackMinutes, tradeWindowMinutes, enabled, contracts, maxTradesPerSession, allowReentry, enableLongs, enableShorts, maxStopTicks, stopTicksOverride);
+		}
+
+		public Indicators.EATStrategyIndicator EATStrategyIndicator(ISeries<double> input , bool enableNY, int nyStartHour, int nyStartMinute, bool enableTokyo, int tokyoStartHour, int tokyoStartMinute, bool enableLondon, int londonStandardHour, int londonStandardMinute, int londonDstHour, int londonDstMinute, int primaryBoxMinutes, int fallbackBoxMinutes, int minBoxTicks, int maxBoxTicks, int bufferTicks, int tp1Ticks, int runnerTrailTicks, int wickStopLookbackMinutes, int tradeWindowMinutes, bool enabled, int contracts, int maxTradesPerSession, bool allowReentry, bool enableLongs, bool enableShorts, int maxStopTicks, int stopTicksOverride)
+		{
+			return indicator.EATStrategyIndicator(input, enableNY, nyStartHour, nyStartMinute, enableTokyo, tokyoStartHour, tokyoStartMinute, enableLondon, londonStandardHour, londonStandardMinute, londonDstHour, londonDstMinute, primaryBoxMinutes, fallbackBoxMinutes, minBoxTicks, maxBoxTicks, bufferTicks, tp1Ticks, runnerTrailTicks, wickStopLookbackMinutes, tradeWindowMinutes, enabled, contracts, maxTradesPerSession, allowReentry, enableLongs, enableShorts, maxStopTicks, stopTicksOverride);
+		}
+	}
+}
+
+namespace NinjaTrader.NinjaScript.Strategies
+{
+	public partial class Strategy : NinjaTrader.Gui.NinjaScript.StrategyRenderBase
+	{
+		public Indicators.EATStrategyIndicator EATStrategyIndicator(bool enableNY, int nyStartHour, int nyStartMinute, bool enableTokyo, int tokyoStartHour, int tokyoStartMinute, bool enableLondon, int londonStandardHour, int londonStandardMinute, int londonDstHour, int londonDstMinute, int primaryBoxMinutes, int fallbackBoxMinutes, int minBoxTicks, int maxBoxTicks, int bufferTicks, int tp1Ticks, int runnerTrailTicks, int wickStopLookbackMinutes, int tradeWindowMinutes, bool enabled, int contracts, int maxTradesPerSession, bool allowReentry, bool enableLongs, bool enableShorts, int maxStopTicks, int stopTicksOverride)
+		{
+			return indicator.EATStrategyIndicator(Input, enableNY, nyStartHour, nyStartMinute, enableTokyo, tokyoStartHour, tokyoStartMinute, enableLondon, londonStandardHour, londonStandardMinute, londonDstHour, londonDstMinute, primaryBoxMinutes, fallbackBoxMinutes, minBoxTicks, maxBoxTicks, bufferTicks, tp1Ticks, runnerTrailTicks, wickStopLookbackMinutes, tradeWindowMinutes, enabled, contracts, maxTradesPerSession, allowReentry, enableLongs, enableShorts, maxStopTicks, stopTicksOverride);
+		}
+
+		public Indicators.EATStrategyIndicator EATStrategyIndicator(ISeries<double> input , bool enableNY, int nyStartHour, int nyStartMinute, bool enableTokyo, int tokyoStartHour, int tokyoStartMinute, bool enableLondon, int londonStandardHour, int londonStandardMinute, int londonDstHour, int londonDstMinute, int primaryBoxMinutes, int fallbackBoxMinutes, int minBoxTicks, int maxBoxTicks, int bufferTicks, int tp1Ticks, int runnerTrailTicks, int wickStopLookbackMinutes, int tradeWindowMinutes, bool enabled, int contracts, int maxTradesPerSession, bool allowReentry, bool enableLongs, bool enableShorts, int maxStopTicks, int stopTicksOverride)
+		{
+			return indicator.EATStrategyIndicator(input, enableNY, nyStartHour, nyStartMinute, enableTokyo, tokyoStartHour, tokyoStartMinute, enableLondon, londonStandardHour, londonStandardMinute, londonDstHour, londonDstMinute, primaryBoxMinutes, fallbackBoxMinutes, minBoxTicks, maxBoxTicks, bufferTicks, tp1Ticks, runnerTrailTicks, wickStopLookbackMinutes, tradeWindowMinutes, enabled, contracts, maxTradesPerSession, allowReentry, enableLongs, enableShorts, maxStopTicks, stopTicksOverride);
+		}
+	}
+}
+
+#endregion

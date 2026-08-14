@@ -166,18 +166,16 @@ class EMTStrategyEngine:
         self.tick_size = _finite_number(self.contract.get("tick_size", 0.25))
         self.tick_value = _finite_number(self.contract.get("tick_value", 12.50))
         self.point_value = self.tick_value / self.tick_size
-        self.ema_period = int(self.settings.get("keltner_ema_period", 18))
+        self.ema_period = int(self.settings.get("keltner_ema_period", 20))
         self.atr_period = int(self.settings.get("keltner_atr_period", 10))
         self.atr_mult = _finite_number(self.settings.get("keltner_atr_multiplier", 1.5))
         self.quantity = int(self.settings.get("contracts", 1))
-        self.stop_points = _finite_number(self.settings.get("stop_points", 5.0))
-        self.target_points = _finite_number(self.settings.get("target_points", 3.0))
+        self.stop_points = _finite_number(self.settings.get("stop_points", 2.0))
+        self.target_points = _finite_number(self.settings.get("target_points", 2.0))
         self.max_trades = int(self.settings.get("max_trades_per_session", 12))
-        self.enable_longs = bool(self.settings.get("enable_longs", False))
-        self.enable_shorts = bool(self.settings.get("enable_shorts", True))
         self.db_timezone = _PACIFIC_TZ
         self.retrace_tolerance = (
-            int(self.settings.get("retrace_tolerance_ticks", 2)) * self.tick_size
+            int(self.settings.get("retrace_tolerance_ticks", 1)) * self.tick_size
         )
         self.confirmation_distance = (
             int(self.settings.get("confirmation_ticks", 1)) * self.tick_size
@@ -211,8 +209,6 @@ class EMTStrategyEngine:
             raise ValueError("contracts must be >= 1 and keltner_ema_period >= 2")
         if self.stop_points <= 0 or self.target_points <= 0:
             raise ValueError("EMT stop and target distances must be positive")
-        if not self.enable_longs and not self.enable_shorts:
-            raise ValueError("EMT must enable at least one trade direction")
 
         self.lock = threading.RLock()
         self.minute_bars: Deque[dict] = deque(maxlen=2000)
@@ -642,17 +638,9 @@ class EMTStrategyEngine:
             self.phase = "WAIT_BREAKOUT"
 
         if self.phase == "WAIT_BREAKOUT":
-            if (
-                self.enable_shorts
-                and price < self.support_level
-                and midline < self.support_level
-            ):
+            if price < self.support_level and midline < self.support_level:
                 self._arm_breakout("short", bar, stamp_pacific, midline)
-            elif (
-                self.enable_longs
-                and price > self.resistance_level
-                and midline > self.resistance_level
-            ):
+            elif price > self.resistance_level and midline > self.resistance_level:
                 self._arm_breakout("long", bar, stamp_pacific, midline)
             self.last_live_price = price
             return
@@ -1119,8 +1107,6 @@ class EMTStrategyEngine:
                 "broker_symbol": self.broker_symbol,
                 "symbol": self.symbol,
                 "contracts": self.quantity,
-                "enable_longs": self.enable_longs,
-                "enable_shorts": self.enable_shorts,
                 "phase": self.phase,
                 "session_date": None if self.session_date is None else str(self.session_date),
                 "opening_high": self.opening_high,

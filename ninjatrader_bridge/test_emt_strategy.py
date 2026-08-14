@@ -151,25 +151,6 @@ class EMTStrategyTests(unittest.TestCase):
             any(event.kind == "BREAKOUT_ARMED" for event in self.engine.events)
         )
 
-    def test_disabled_long_direction_does_not_arm_breakout(self):
-        self.seed_opening_range()
-        self.seed_tick_history(close=102.0)
-
-        self.engine.on_tick_bar(
-            bar(stamp(6, 45), 102.5), complete=True, historical=False
-        )
-
-        self.assertFalse(self.engine.enable_longs)
-        self.assertTrue(self.engine.enable_shorts)
-        self.assertEqual(self.engine.phase, "WAIT_BREAKOUT")
-        self.assertIsNone(self.engine.direction)
-
-    def test_at_least_one_direction_must_be_enabled(self):
-        settings = dict(self.settings, enable_longs=False, enable_shorts=False)
-
-        with self.assertRaisesRegex(ValueError, "at least one trade direction"):
-            EMTStrategyEngine(settings, self.contract, self.temp.name)
-
     def test_warming_status_reports_completed_tick_bar_progress(self):
         self.engine.phase = "WARMING"
         self.engine.tick_bars.extend([

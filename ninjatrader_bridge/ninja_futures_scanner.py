@@ -248,7 +248,6 @@ class MarketState:
                 "enabled", "contracts", "opening_range_start",
                 "opening_range_minutes", "trade_window_minutes",
                 "stop_points", "target_points", "max_trades_per_session",
-                "enable_longs", "enable_shorts",
             },
             "eat": {
                 "enabled", "contracts", "primary_box_minutes",

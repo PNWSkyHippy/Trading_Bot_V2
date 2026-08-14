@@ -1,0 +1,261 @@
+{
+  "listen_host": "127.0.0.1",
+  "listen_port": 8765,
+  "shared_secret": "SET_IN_ENV",
+  "stale_after_seconds": 150,
+  "signal_engine": {
+    "source_timezone": "America/Los_Angeles",
+    "minimum_one_minute_bars": 105,
+    "ema_fast": 8,
+    "ema_slow": 20,
+    "min_ema_gap_atr": 0.35,
+    "rsi_period": 14,
+    "rsi_long_min": 52,
+    "rsi_long_max": 72,
+    "rsi_short_min": 28,
+    "rsi_short_max": 48,
+    "macd_fast": 12,
+    "macd_slow": 26,
+    "macd_signal": 9,
+    "atr_period": 14,
+    "atr_stop_multiplier": 1.5,
+    "target_r_multiple": 2.0,
+    "manual_profit_goal_dollars": 250.0,
+    "adx_period": 14,
+    "adx_min": 25,
+    "choppiness_period": 14,
+    "max_choppiness": 61.8,
+    "min_atr_pct": 5E-05,
+    "max_atr_pct": 0.006,
+    "max_range_atr": 2.5,
+    "minimum_room_atr": 1.0,
+    "vwap_timezone": "America/New_York",
+    "vwap_session_start": "18:00",
+    "vwap_touch_tolerance_pct": 0.0005,
+    "ready_score": 65,
+    "watch_score": 38,
+    "sound_alerts": true,
+    "terminal_sound_alerts": false,
+    "color_output": true,
+    "alert_frequency_hz": 1100,
+    "alert_duration_ms": 250
+  },
+  "contracts": {
+    "MES": {
+      "family": "SP500",
+      "size": "micro",
+      "tick_size": 0.25,
+      "tick_value": 1.25
+    },
+    "ES": {
+      "family": "SP500",
+      "size": "mini",
+      "tick_size": 0.25,
+      "tick_value": 12.5
+    },
+    "MNQ": {
+      "family": "NASDAQ",
+      "size": "micro",
+      "tick_size": 0.25,
+      "tick_value": 0.5
+    },
+    "MNK": {
+      "family": "NIKKEI",
+      "size": "micro",
+      "tick_size": 0.20,
+      "tick_value": 2.50
+    },
+    "NQ": {
+      "family": "NASDAQ",
+      "size": "mini",
+      "tick_size": 0.25,
+      "tick_value": 5.0
+    },
+    "MYM": {
+      "family": "DOW",
+      "size": "micro",
+      "tick_size": 1.0,
+      "tick_value": 0.5
+    },
+    "YM": {
+      "family": "DOW",
+      "size": "mini",
+      "tick_size": 1.0,
+      "tick_value": 5.0
+    },
+    "M2K": {
+      "family": "RUSSELL",
+      "size": "micro",
+      "tick_size": 0.1,
+      "tick_value": 0.5
+    },
+    "RTY": {
+      "family": "RUSSELL",
+      "size": "mini",
+      "tick_size": 0.1,
+      "tick_value": 5.0
+    },
+    "MGC": {
+      "family": "GOLD",
+      "size": "micro",
+      "tick_size": 0.1,
+      "tick_value": 1.0
+    },
+    "GC": {
+      "family": "GOLD",
+      "size": "full",
+      "tick_size": 0.1,
+      "tick_value": 10.0,
+      "manual_only": true
+    },
+    "NKD": {
+      "family": "NIKKEI",
+      "size": "full",
+      "tick_size": 5.0,
+      "tick_value": 25.0
+    },
+    "MBT": {
+      "family": "BITCOIN",
+      "size": "micro",
+      "tick_size": 5.0,
+      "tick_value": 0.5
+    },
+    "MET": {
+      "family": "ETHER",
+      "size": "micro",
+      "tick_size": 0.5,
+      "tick_value": 0.05
+    }
+  },
+  "emt": {
+    "overrides_path": "emt_overrides_local.json",
+    "defaults": {
+      "paper_only": true,
+      "broker_environment": "live",
+      "broker_timeout_seconds": 8.0,
+      "broker_status_interval_seconds": 2.0,
+      "tick_bar_value": 610,
+      "source_timezone": "America/Los_Angeles",
+      "market_timezone": "America/Los_Angeles",
+      "opening_range_start": "05:00",
+      "opening_range_minutes": 15,
+      "trade_window_minutes": 60,
+      "keltner_ema_period": 20,
+      "keltner_atr_period": 10,
+      "keltner_atr_multiplier": 1.5,
+      "retrace_tolerance_ticks": 1,
+      "confirmation_ticks": 1,
+      "stop_points": 2.0,
+      "target_points": 2.0,
+      "contracts": 1,
+      "max_trades_per_session": 12,
+      "double_pattern_lookback_bars": 20,
+      "double_pattern_tolerance_points": 1.0,
+      "double_pattern_min_separation_bars": 6,
+      "double_pattern_neckline_points": 1.0,
+      "mirror_to_bot_db": false,
+      "db_timezone": "America/Los_Angeles",
+      "db_position_value_mode": "risk"
+    },
+    "instances": {
+      "ES": {
+        "enabled": false,
+        "instrument": "ES 09-26",
+        "broker_symbol": "ESU6",
+        "ledger_path": "emt_trades_local.jsonl",
+        "control_state_key": "scanner_emt_enabled_local"
+      },
+      "MES": {
+        "enabled": false,
+        "instrument": "MES 09-26",
+        "broker_symbol": "MESU6",
+        "ledger_path": "emt_trades_mes_local.jsonl",
+        "control_state_key": "scanner_emt_mes_enabled_local"
+      },
+      "NQ": {
+        "enabled": false,
+        "instrument": "NQ 09-26",
+        "broker_symbol": "NQU6",
+        "ledger_path": "emt_trades_nq_local.jsonl",
+        "control_state_key": "scanner_emt_nq_enabled_local"
+      },
+      "MNQ": {
+        "enabled": false,
+        "instrument": "MNQ 09-26",
+        "broker_symbol": "MNQU6",
+        "ledger_path": "emt_trades_mnq_local.jsonl",
+        "control_state_key": "scanner_emt_mnq_enabled_local"
+      },
+      "YM": {
+        "enabled": false,
+        "instrument": "YM 09-26",
+        "broker_symbol": "YMU6",
+        "ledger_path": "emt_trades_ym_local.jsonl",
+        "control_state_key": "scanner_emt_ym_enabled_local"
+      },
+      "MYM": {
+        "enabled": false,
+        "instrument": "MYM 09-26",
+        "broker_symbol": "MYMU6",
+        "ledger_path": "emt_trades_mym_local.jsonl",
+        "control_state_key": "scanner_emt_mym_enabled_local"
+      },
+      "RTY": {
+        "enabled": false,
+        "instrument": "RTY 09-26",
+        "broker_symbol": "RTYU6",
+        "ledger_path": "emt_trades_rty_local.jsonl",
+        "control_state_key": "scanner_emt_rty_enabled_local"
+      },
+      "M2K": {
+        "enabled": false,
+        "instrument": "M2K 09-26",
+        "broker_symbol": "M2KU6",
+        "ledger_path": "emt_trades_m2k_local.jsonl",
+        "control_state_key": "scanner_emt_m2k_enabled_local"
+      },
+      "GC": {
+        "enabled": false,
+        "instrument": "GC 08-26",
+        "broker_symbol": "GCQ6",
+        "ledger_path": "emt_trades_gc_local.jsonl",
+        "control_state_key": "scanner_emt_gc_enabled_local"
+      },
+      "MGC": {
+        "enabled": false,
+        "instrument": "MGC 08-26",
+        "broker_symbol": "MGCQ6",
+        "ledger_path": "emt_trades_mgc_local.jsonl",
+        "control_state_key": "scanner_emt_mgc_enabled_local"
+      },
+      "NKD": {
+        "enabled": false,
+        "instrument": "NKD 09-26",
+        "broker_symbol": "NKDU6",
+        "ledger_path": "emt_trades_nkd_local.jsonl",
+        "control_state_key": "scanner_emt_nkd_enabled_local"
+      },
+      "MNK": {
+        "enabled": false,
+        "instrument": "MNK 09-26",
+        "broker_symbol": "MNKU6",
+        "ledger_path": "emt_trades_mnk_local.jsonl",
+        "control_state_key": "scanner_emt_mnk_enabled_local"
+      },
+      "MBT": {
+        "enabled": false,
+        "instrument": "MBT 09-26",
+        "broker_symbol": "MBTU6",
+        "ledger_path": "emt_trades_mbt_local.jsonl",
+        "control_state_key": "scanner_emt_mbt_enabled_local"
+      },
+      "MET": {
+        "enabled": false,
+        "instrument": "MET 09-26",
+        "broker_symbol": "METU6",
+        "ledger_path": "emt_trades_met_local.jsonl",
+        "control_state_key": "scanner_emt_met_enabled_local"
+      }
+    }
+  }
+}
