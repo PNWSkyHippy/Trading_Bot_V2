@@ -8,13 +8,13 @@
       "normal": "Textures/WallTextures/Rock060_1K-JPG_NormalGL.jpg",
       "ao": "Textures/WallTextures/Rock060_1K-JPG_AmbientOcclusion.jpg"
     },
-    {
+     {
       "id": "phptpgUnderwater",
       "label": "Photo Undrwater",
       "path": "Textures/WallTextures/PhotogUnderwater.png",
       "mapping": "section"
     },
-    {
+     {
       "id": "NewUnderSea",
       "label": "NewUnderSea",
       "path": "Textures/WallTextures/Underwater2.jpg",
@@ -50,13 +50,13 @@
       "path": "Textures/WallTextures/tunnel_glass_underwater_scenic.jpg",
       "mapping": "section"
     },
-    {
+     {
       "id": "CloudySky",
       "label": "CloudySky",
       "path": "Textures/WallTextures/cloudy3.jpg",
       "normal": "Textures/WallTextures/cloudy3.jpg",
       "ao": "Textures/WallTextures/cloudy3.jpg"
-    },
+    },   
     {
       "id": "Sunrise2",
       "label": "Sunrise2",
@@ -64,7 +64,7 @@
       "normal": "Textures/WallTextures/sunise.jpg",
       "ao": "Textures/WallTextures/sunrise.jpg"
     },
-    {
+     {
       "id": "leopard",
       "label": "leopard",
       "path": "Textures/WallTextures/leopard_128.jpg",
@@ -151,96 +151,6 @@
       "id": "metal010_bar_1",
       "label": "Normal Map Metal 010 Bar Alt - not color",
       "path": "Textures/WallTextures/metall010-new-tileable-bar-nm-1.jpeg"
-    },
-    {
-      "id": "alien_clouds_01",
-      "label": "Alien Clouds 01",
-      "path": "Textures/WallTextures/alien-clouds-01.jpg",
-      "mapping": "section"
-    },
-    {
-      "id": "alien_clouds_02",
-      "label": "Alien Clouds 02",
-      "path": "Textures/WallTextures/alien-clouds-02.jpg",
-      "mapping": "section"
-    },
-    {
-      "id": "alien_clouds_03",
-      "label": "Alien Clouds 03",
-      "path": "Textures/WallTextures/alien-clouds-03.jpg",
-      "mapping": "section"
-    },
-    {
-      "id": "alien_clouds_04",
-      "label": "Alien Clouds 04",
-      "path": "Textures/WallTextures/alien-clouds-04.jpg",
-      "mapping": "section"
-    },
-    {
-      "id": "alien_clouds_05",
-      "label": "Alien Clouds 05",
-      "path": "Textures/WallTextures/alien-clouds-05.jpg",
-      "mapping": "section"
-    },
-    {
-      "id": "alien_ocean_01",
-      "label": "Alien Ocean 01",
-      "path": "Textures/WallTextures/alien-ocean-01.jpg",
-      "mapping": "section"
-    },
-    {
-      "id": "alien_ocean_02",
-      "label": "Alien Ocean 02",
-      "path": "Textures/WallTextures/alien-ocean-02.jpg",
-      "mapping": "section"
-    },
-    {
-      "id": "alien_ocean_03",
-      "label": "Alien Ocean 03",
-      "path": "Textures/WallTextures/alien-ocean-03.jpg",
-      "mapping": "section"
-    },
-    {
-      "id": "alien_ocean_04",
-      "label": "Alien Ocean 04",
-      "path": "Textures/WallTextures/alien-ocean-04.jpg",
-      "mapping": "section"
-    },
-    {
-      "id": "alien_ocean_05",
-      "label": "Alien Ocean 05",
-      "path": "Textures/WallTextures/alien-ocean-05.jpg",
-      "mapping": "section"
-    },
-    {
-      "id": "deep_space_01",
-      "label": "Deep Space 01",
-      "path": "Textures/WallTextures/deep-space-01.jpg",
-      "mapping": "section"
-    },
-    {
-      "id": "deep_space_02",
-      "label": "Deep Space 02",
-      "path": "Textures/WallTextures/deep-space-02.jpg",
-      "mapping": "section"
-    },
-    {
-      "id": "deep_space_03",
-      "label": "Deep Space 03",
-      "path": "Textures/WallTextures/deep-space-03.jpg",
-      "mapping": "section"
-    },
-    {
-      "id": "deep_space_04",
-      "label": "Deep Space 04",
-      "path": "Textures/WallTextures/deep-space-04.jpg",
-      "mapping": "section"
-    },
-    {
-      "id": "deep_space_05",
-      "label": "Deep Space 05",
-      "path": "Textures/WallTextures/deep-space-05.jpg",
-      "mapping": "section"
     }
   ],
   "doorFrames": [
@@ -339,90 +249,5 @@
       "path": "Textures/Projectile Textures/player_shot_0.png",
       "color": "#66d9ff"
     }
-  ],
-  "wallTexturePacks": {
-    "assetType": "tunnel-section-five-pack",
-    "dimensions": [
-      2048,
-      1024
-    ],
-    "format": "jpeg",
-    "mapping": {
-      "imageWidth": "tunnel circumference; repeating left/right edge",
-      "imageHeight": "segment length; clamped top/bottom edge"
-    },
-    "builderSelectionRule": "Selecting any <pack>-NN.jpg assigns <pack>-01.jpg through <pack>-05.jpg to the next five tunnel sections.",
-    "packs": [
-      {
-        "id": "alien-clouds",
-        "count": 5,
-        "files": [
-          "alien-clouds-01.jpg",
-          "alien-clouds-02.jpg",
-          "alien-clouds-03.jpg",
-          "alien-clouds-04.jpg",
-          "alien-clouds-05.jpg"
-        ],
-        "loopOrder": [
-          1,
-          2,
-          3,
-          4,
-          5,
-          1
-        ],
-        "edgeMetrics": {
-          "circumferenceMeanAbsolutePixelDelta": 0.449,
-          "sequenceJoinMeanAbsolutePixelDelta": 0.464
-        }
-      },
-      {
-        "id": "alien-ocean",
-        "count": 5,
-        "files": [
-          "alien-ocean-01.jpg",
-          "alien-ocean-02.jpg",
-          "alien-ocean-03.jpg",
-          "alien-ocean-04.jpg",
-          "alien-ocean-05.jpg"
-        ],
-        "loopOrder": [
-          1,
-          2,
-          3,
-          4,
-          5,
-          1
-        ],
-        "edgeMetrics": {
-          "circumferenceMeanAbsolutePixelDelta": 0.49,
-          "sequenceJoinMeanAbsolutePixelDelta": 0.607
-        }
-      },
-      {
-        "id": "deep-space",
-        "count": 5,
-        "files": [
-          "deep-space-01.jpg",
-          "deep-space-02.jpg",
-          "deep-space-03.jpg",
-          "deep-space-04.jpg",
-          "deep-space-05.jpg"
-        ],
-        "loopOrder": [
-          1,
-          2,
-          3,
-          4,
-          5,
-          1
-        ],
-        "edgeMetrics": {
-          "circumferenceMeanAbsolutePixelDelta": 0.447,
-          "sequenceJoinMeanAbsolutePixelDelta": 0.542
-        }
-      }
-    ],
-    "contactSheet": "tunnel-texture-packs-contact-sheet.jpg"
-  }
+  ]
 }
