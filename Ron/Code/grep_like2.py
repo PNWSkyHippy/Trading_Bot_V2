@@ -1,6 +1,8 @@
 import sys
 import argparse
+import zoneinfo
 
+print(zoneinfo.available_timezones())
 if len(sys.argv) < 2:
     print("Error: Missing arguments!")
     print(f"Usage: python {sys.argv[0]} [pattern]")

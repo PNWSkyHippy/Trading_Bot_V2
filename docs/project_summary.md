@@ -1,6 +1,101 @@
 # trading_bot_v2 — Project State Summary
-**Updated:** 2026-05-20  
+**Updated:** 2026-08-05  
 **Purpose:** Cold-start reference for new Claude sessions. Read this first.
+
+---
+
+## NinjaTrader / EMT Bridge Subsystem — Session Update (2026-08-03 → 08-05)
+
+Separate subsystem from the Python strategy suite below: a NinjaTrader 8
+AddOn (`PythonFuturesBridge.cs`) streams live futures bars from NinjaTrader
+to the VPS's `emt-scanner.service`, which runs the EAT (box-breakout) and
+EMT (Keltner breakout) engines. Real order-placing NinjaScript **Strategies**
+(`EATStrategy.cs`, `EMTStrategy.cs`) were ported this session from the
+existing Python engines (`eat_strategy.py`, `emt_strategy.py`) and the
+proven indicator logic (`EATStrategyIndicator.cs`, `EMTStrategyIndicator.cs`)
+— both compiled clean and are attached to live charts (Sim account).
+
+### CRITICAL GOTCHA — two copies of PythonFuturesBridge.cs exist
+- Repo copy (NOT what NinjaTrader compiles): `C:\Users\Linda\Trading_Bot_V2\ninjatrader_bridge\PythonFuturesBridge.cs`
+- **Real file NinjaTrader actually compiles from:** `C:\Users\Linda\OneDrive\Documents\NinjaTrader 8\bin\Custom\AddOns\PythonFuturesBridge.cs`
+
+Any edit to the repo copy has **zero effect** until manually copied into the
+OneDrive/NinjaTrader AddOns path and recompiled there. This caused a lost
+afternoon: contract-month fixes were made to the repo copy, user recompiled,
+and nothing changed for GC/MGC/MBT because the live file still had the old
+values. Only `MET` picked up a fix because the user hand-edited that one
+symbol directly in the real file. **Always edit/verify the OneDrive path
+directly going forward, or diff the two after every edit.**
+
+### Root cause found: expired/rolled contract months, hardcoded in `instruments[]`
+The bridge's `instruments[]` array hardcodes explicit contract months
+(NinjaTrader needs explicit months for reliable subscriptions — continuous
+contracts aren't used). Contracts silently go stale when they roll/expire;
+`Instrument.GetInstrument(name)` returns null and the per-symbol watchdog
+can't detect it (no entry ever gets created to compare against — see
+`SubscribeInstrument`/`CheckSubscriptionHealth` in the file). This is why
+"half the symbols went stale right at market reopen" on 2026-08-03: several
+contracts had rolled over the prior week.
+
+Corrected values (verified via NinjaTrader's own instrument picker + web
+search of CME/COMEX contract calendars):
+| Symbol | Old (broken) | New (confirmed correct) |
+|---|---|---|
+| GC / MGC | `08-26` | `12-26` (NinjaTrader skips Oct, goes straight to Dec as next active month) |
+| MBT | `07-26` | `08-26` (monthly contract, July settled) |
+| MET | `07-26` | `08-26` (monthly contract, July settled) — **already fixed, confirmed live** |
+| NKD | `09-26` | unchanged — was already correct (quarterly, next expiry Sep) |
+
+**As of this session's last check:** repo copy has all four fixes. The real
+OneDrive AddOns copy only has the MET fix (user's own manual edit) — GC,
+MGC, and MBT still need the same edits applied **directly to the OneDrive
+file**, then recompile, then verify via VPS `/snapshot` endpoint (see below).
+
+### GC/NKD "staleness" that is NOT a bug
+Both showed rising staleness after their fixes were confirmed correct
+(NKD symbol was always right; GC's new Dec contract is real). This matches
+the previously-diagnosed, already-understood pattern: bars only close on
+actual volume, and both are simply thin right now (GC because it just
+rolled to a new front month, NKD because it's a lower-volume product).
+Nothing to fix in code — don't chase this further, it self-resolves as
+volume normalizes.
+
+### Useful diagnostic: VPS `/snapshot` endpoint
+`ninja_futures_scanner.py` on the VPS exposes `GET /snapshot` on
+`127.0.0.1:8765` (also `/health`, `/strategy/status?symbol=X&strategy=Y`).
+Returns `last_received: {SYMBOL: seconds_since_last_bar}` for every
+subscribed instrument — the fastest way to check per-symbol data health
+without parsing journal logs. Query via SSH:
+```
+ssh -i <key> claude@187.127.248.52 "curl -s http://127.0.0.1:8765/snapshot"
+```
+SSH key/access details: see `reference_vps_ssh_journal_access` memory.
+
+### Not yet done / next session
+1. Apply GC/MGC/MBT contract-month fixes to the **real** OneDrive AddOns
+   file (not the repo copy), recompile, verify via `/snapshot`.
+2. Only 8 symbols (MES/ES/MNQ/NQ/MYM/YM/M2K/RTY) have EAT/EMT engines
+   instantiated at all — GC/MGC/MBT/MET/QO are data-only (dashboard
+   context), NKD has an engine but is toggled `enabled: false` in
+   `ninja_futures_config.json`. This is intentional, not a bug — don't
+   "fix" the missing engines for the data-only symbols.
+3. A separate, still-unconfirmed issue: VPS journal earlier showed
+   `RANGE_DATA_MISSED`/stuck `tick bars 0` for otherwise-healthy symbols
+   (was MNQ at one point) — possibly the Hostinger delivery queue's
+   `MaxHostingerDeliveryAge` (2 min drop) or `MaxPendingHostingerEmtMessages`
+   (40-message EMT reserve) dropping live bars under load. Not reproduced
+   since the contract-month fixes landed; keep an eye on it.
+4. `PythonEMTBridge.cs` (separate file, seen in directory listing only)
+   has never been read/examined — unknown relationship to
+   `PythonFuturesBridge.cs`, possibly superseded/unused.
+
+---
+
+## Also pending (separate project, same docs folder)
+**Project Astral Drift** (`game_concept_zero_gravity_astral_shooter.md`) —
+a 6DOF Descent-style space shooter concept (Three.js browser prototype
+planned). Hasn't been touched in a while; user wants to resume design/build
+work on it in an upcoming session.
 
 ---
 

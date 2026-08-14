@@ -7,6 +7,9 @@ DecentClone/data/exploration.db
 data/daily_scan_results.json
 reports/
 signals_log.csv
+.claude/worktrees/
+graphify-out/
+data/futures_history/
 watchlist/
 junk*
 data/junk.ps1

@@ -106,13 +106,9 @@ class FakeExchange:
 class FakeRiskManager:
     def __init__(self):
         self.halts = []
-        self.results = []
 
     def manual_halt(self, reason):
         self.halts.append(reason)
-
-    def record_trade_result(self, *args, **kwargs):
-        self.results.append((args, kwargs))
 
 
 class FakeBrokerManager:
@@ -210,16 +206,17 @@ def test_raw_pair_cancellation():
         }
     )
     kraken = make_kraken(exchange)
-    eth = kraken.cancel_all_orders_for_symbol_result("ETH/USD")
+    eth = kraken.cancel_orders_for_partial_close("ETH/USD")
     assert eth == {
         "matched": 1,
         "cancelled": 1,
         "ambiguous": False,
+        "errors": [],
     }
     assert exchange.cancel_calls == ["ETH-STOP"]
 
     exchange.cancel_calls.clear()
-    btc = kraken.cancel_all_orders_for_symbol_result("BTC/USD")
+    btc = kraken.cancel_orders_for_partial_close("BTC/USD")
     assert btc["matched"] == 1 and btc["cancelled"] == 1
     assert not btc["ambiguous"]
     assert exchange.cancel_calls == ["BTC-STOP"]
@@ -227,7 +224,7 @@ def test_raw_pair_cancellation():
 
 def test_cancellation_ambiguity_blocks_market_order():
     exchange = FakeExchange(open_orders_error=RuntimeError("Kraken timeout"))
-    result = make_kraken(exchange).close_scanner_partial(
+    result = make_kraken(exchange).close_partial_position(
         "ETH/USD", 3.5, "buy"
     )
     assert result["reason"] == "cancellation_ambiguous"
@@ -238,7 +235,7 @@ def test_cancellation_ambiguity_blocks_market_order():
         open_orders={"ETH-STOP": {"descr": {"pair": "XETHZUSD"}}},
         cancel_fail_ids={"ETH-STOP"},
     )
-    result = make_kraken(exchange).close_scanner_partial(
+    result = make_kraken(exchange).close_partial_position(
         "ETH/USD", 3.5, "buy"
     )
     assert result["reason"] == "cancellation_ambiguous"
@@ -459,68 +456,6 @@ def test_falsey_residual_stop_enters_existing_restore_path():
     assert database.state["scanner_partial_taken_T-STOP"] == 1
 
 
-def test_normal_full_close_requires_canonical_confirmed_fill():
-    database = make_database("normal-full-fill")
-    trade = seed_trade(database, trade_id="T-NORMAL-FULL")
-    exchange = FakeExchange(
-        open_orders={"ETH-STOP": {"descr": {"pair": "XETHZUSD"}}},
-        market_response={
-            "id": "FULL-CLOSE", "status": "closed", "filled": 10.0,
-            "average": 112.0,
-        },
-    )
-    executor = make_trade_executor(database, make_kraken(exchange))
-
-    assert executor.close_trade(trade, 999.0, "test_full_close")
-    assert exchange.cancel_calls == ["ETH-STOP"]
-    assert exchange.market_calls == [{"symbol": "ETH/USD", "side": "sell", "qty": 10.0, "params": {}}]
-    assert scalar(database, "SELECT status FROM trades WHERE trade_id=?", ("T-NORMAL-FULL",)) == "closed"
-    assert scalar(database, "SELECT exit_price FROM trades WHERE trade_id=?", ("T-NORMAL-FULL",)) == 112.0
-    assert database.get_state("kraken_full_reconcile_T-NORMAL-FULL") == 0
-
-
-def test_normal_full_zero_or_partial_fill_holds_and_protects_residual():
-    for name, filled, expected_residual in (
-        ("zero", 0.0, 10.0),
-        ("partial", 4.0, 6.0),
-    ):
-        database = make_database(f"normal-full-{name}")
-        trade = seed_trade(database, trade_id=f"T-NORMAL-{name.upper()}")
-        exchange = FakeExchange(
-            open_orders={"ETH-STOP": {"descr": {"pair": "XETHZUSD"}}},
-            market_response={
-                "id": f"{name}-close", "status": "closed", "filled": filled,
-                "average": 110.0 if filled else 0.0,
-            },
-        )
-        executor = make_trade_executor(database, make_kraken(exchange))
-
-        assert not executor.close_trade(trade, 110.0, "test_full_close")
-        marker = database.get_state(f"kraken_full_reconcile_T-NORMAL-{name.upper()}")
-        assert marker["required"] and marker["last_known_filled_qty"] == filled
-        assert scalar(database, "SELECT status FROM trades WHERE trade_id=?", (f"T-NORMAL-{name.upper()}",)) == "open"
-        assert exchange.stop_calls[-1]["amount"] == expected_residual
-        assert database.get_state(f"kraken_stop_unprotected_T-NORMAL-{name.upper()}") == 0
-        assert executor._risk_manager.halts
-
-
-def test_normal_full_ambiguity_blocks_market_and_duplicate_retry():
-    database = make_database("normal-full-ambiguity")
-    trade = seed_trade(database, trade_id="T-NORMAL-HOLD")
-    exchange = FakeExchange(open_orders_error=RuntimeError("Kraken timeout"))
-    executor = make_trade_executor(database, make_kraken(exchange))
-
-    assert not executor.close_trade(trade, 110.0, "test_full_close")
-    assert exchange.market_calls == []
-    assert database.get_state("kraken_full_reconcile_T-NORMAL-HOLD")["required"]
-    assert not executor.close_trade(trade, 110.0, "test_full_close")
-    assert exchange.market_calls == []
-
-    monitor = PositionMonitor(db_ref=database, trade_executor=executor)
-    monitor._process_position(trade)
-    assert exchange.market_calls == []
-
-
 TESTS = [
     test_raw_pair_cancellation,
     test_cancellation_ambiguity_blocks_market_order,
@@ -529,9 +464,6 @@ TESTS = [
     test_terminal_full_fill_routes_without_partial_accounting,
     test_unresolved_fill_sets_hold_and_does_not_account,
     test_falsey_residual_stop_enters_existing_restore_path,
-    test_normal_full_close_requires_canonical_confirmed_fill,
-    test_normal_full_zero_or_partial_fill_holds_and_protects_residual,
-    test_normal_full_ambiguity_blocks_market_and_duplicate_retry,
 ]
 
 

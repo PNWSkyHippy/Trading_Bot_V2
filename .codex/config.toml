@@ -1,3 +1,6 @@
+sandbox_mode = "danger-full-access"
+model_verbosity = "high"
+model_reasoning_summary = "detailed"
 [mcp_servers.github]
 command = "docker"
 args = [

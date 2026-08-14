@@ -1320,183 +1320,6 @@ class TradeExecutor:
 
         self._risk_manager.manual_halt(halt_reason)
 
-    def _set_kraken_full_reconcile_hold(
-        self, trade: Dict, reason: str, requested_qty: float,
-        broker_result: Optional[Dict] = None,
-    ) -> None:
-        """Persist a fail-closed hold for a normal Kraken close."""
-        trade_id = trade["trade_id"]
-        symbol = trade["symbol"]
-        result = broker_result if isinstance(broker_result, dict) else {}
-        state_key = f"kraken_full_reconcile_{trade_id}"
-        marker = {
-            "required": True,
-            "trade_id": trade_id,
-            "symbol": symbol,
-            "reason": reason,
-            "requested_qty": float(requested_qty),
-            "broker_order_id": result.get("broker_order_id"),
-            "status": result.get("status"),
-            "last_known_filled_qty": result.get("filled_qty"),
-            "last_known_fill_price": result.get("filled_avg_price"),
-            "cancellation": result.get("cancellation"),
-            "timestamp": datetime.now().isoformat(),
-        }
-        try:
-            existing = self._db.get_state(state_key, default=0)
-        except Exception:
-            existing = 0
-        if not existing:
-            try:
-                self._db.set_state(state_key, marker)
-            except Exception as exc:
-                logger.critical(
-                    f"[KRAKEN FULL HOLD] {symbol}: failed to persist {state_key} ({exc})"
-                )
-        logger.critical(
-            f"[KRAKEN FULL HOLD] {symbol}: {reason}; DB close and accounting "
-            "are blocked until live Kraken reconciliation"
-        )
-        try:
-            self._risk_manager.manual_halt(
-                f"Kraken full close unresolved for {symbol}: {reason}. "
-                "Manual live-fill reconciliation required."
-            )
-        except Exception as exc:
-            logger.critical(f"[KRAKEN FULL HOLD] {symbol}: risk halt failed ({exc})")
-
-    def _restore_kraken_full_close_residual_stop(
-        self, trade: Dict, residual_qty: float,
-    ) -> None:
-        """Replace a cancelled stop only for a known, nonzero residual quantity."""
-        trade_id = trade["trade_id"]
-        symbol = trade["symbol"]
-        old_stop_id = trade.get("stop_order_id") or ""
-        try:
-            stop_loss = round(float(trade.get("stop_loss") or 0), 6)
-        except (TypeError, ValueError):
-            stop_loss = 0.0
-
-        self._db.update_trade_order_ids(trade_id, stop_order_id="")
-        trade["stop_order_id"] = ""
-        state_key = f"kraken_stop_unprotected_{trade_id}"
-        state = {
-            "symbol": symbol,
-            "cancelled_stop_order_id": old_stop_id,
-            "target_stop_loss": stop_loss,
-            "residual_qty": residual_qty,
-            "full_close_reconciliation": True,
-            "attempts": 0,
-            "last_attempt_ts": 0,
-        }
-        if residual_qty <= 0 or stop_loss <= 0:
-            self._db.set_state(state_key, state)
-            return
-        try:
-            leverage = int(json.loads(trade.get("indicators_json") or "{}").get(
-                "kraken_leverage", 0
-            ))
-        except (TypeError, ValueError, json.JSONDecodeError):
-            leverage = 0
-        stop_side = "buy" if trade.get("direction") == "short" else "sell"
-        try:
-            stop_id = self.kraken.place_stop_order(
-                symbol, residual_qty, stop_side, stop_loss, leverage=leverage
-            )
-        except Exception as exc:
-            state["last_error"] = str(exc)
-            stop_id = None
-        if stop_id:
-            self._db.update_trade_order_ids(trade_id, stop_order_id=stop_id)
-            trade["stop_order_id"] = stop_id
-            self._db.set_state(state_key, 0)
-            logger.warning(
-                f"[KRAKEN FULL HOLD] {symbol}: restored residual stop for "
-                f"{residual_qty:.8f} units (order {stop_id})"
-            )
-            return
-        self._db.set_state(state_key, state)
-        logger.critical(
-            f"[STOP UNPROTECTED] {symbol}: full-close reconciliation has no "
-            f"replacement stop for known residual {residual_qty:.8f}"
-        )
-
-    def _confirmed_kraken_full_close_price(
-        self, trade: Dict, current_price: float, broker_result: object,
-    ) -> Optional[float]:
-        """Return a confirmed full-fill price, otherwise hold the trade open."""
-        qty = float(trade.get("quantity") or 0)
-        symbol = trade["symbol"]
-        if qty <= 0 or not isinstance(broker_result, dict):
-            self._set_kraken_full_reconcile_hold(
-                trade, "missing or invalid broker close result", qty, None
-            )
-            return None
-
-        cancellation = broker_result.get("cancellation")
-        if not isinstance(cancellation, dict):
-            cancellation = {}
-        result_reason = str(broker_result.get("reason") or "unknown")
-        try:
-            filled_qty = float(broker_result.get("filled_qty") or 0)
-            fill_price = float(broker_result.get("filled_avg_price") or 0)
-        except (TypeError, ValueError):
-            filled_qty = float("nan")
-            fill_price = float("nan")
-
-        if (
-            cancellation.get("ambiguous")
-            or broker_result.get("resolution_failed")
-            or result_reason in {
-                "cancellation_ambiguous", "submission_failed", "submission_unknown",
-                "fill_resolution_failed",
-            }
-            or not math.isfinite(filled_qty)
-            or filled_qty < 0
-        ):
-            self._set_kraken_full_reconcile_hold(trade, result_reason, qty, broker_result)
-            return None
-
-        tolerance = max(1e-8, qty * 1e-8)
-        if filled_qty > qty + tolerance:
-            self._set_kraken_full_reconcile_hold(
-                trade, "confirmed close fill exceeds tracked position quantity", qty, broker_result
-            )
-            return None
-
-        if filled_qty < qty - tolerance:
-            reason = "terminal_zero_fill" if filled_qty == 0 else "confirmed_partial_fill"
-            self._set_kraken_full_reconcile_hold(trade, reason, qty, broker_result)
-            # Cancellation was confirmed; protect only the mathematically known
-            # residual while the reconciliation hold blocks further monitor actions.
-            if not cancellation.get("ambiguous"):
-                self._restore_kraken_full_close_residual_stop(
-                    trade, max(0.0, qty - filled_qty)
-                )
-            return None
-
-        if not math.isfinite(fill_price) or fill_price <= 0:
-            if getattr(self.kraken, "paper", False):
-                fill_price = float(current_price)
-            else:
-                self._set_kraken_full_reconcile_hold(
-                    trade, "confirmed full fill has no average price", qty, broker_result
-                )
-                return None
-
-        try:
-            self._db.set_state(f"kraken_full_reconcile_{trade['trade_id']}", 0)
-        except Exception as exc:
-            self._set_kraken_full_reconcile_hold(
-                trade, f"could not clear prior reconciliation hold: {exc}", qty, broker_result
-            )
-            return None
-        logger.info(
-            f"[KRAKEN FULL CONFIRMED] {symbol}: requested {qty:.8f}, "
-            f"filled {filled_qty:.8f} @ ${fill_price:.8f}"
-        )
-        return fill_price
-
     def close_trade(self, trade: Dict, current_price: float,
                     exit_reason: str) -> bool:
         symbol      = trade["symbol"]
@@ -1507,7 +1330,6 @@ class TradeExecutor:
         broker      = trade.get("broker", "alpaca")
 
         success = False
-        kraken_fill_price = None
         if asset_class == "stock":
             if broker == "ibkr" and self._ibkr is not None:
                 success = self._ibkr.close_position(symbol)
@@ -1572,15 +1394,14 @@ class TradeExecutor:
             # Kraken is the default crypto executor — Coinbase API is deprecated.
             side = "buy" if direction == "long" else "sell"
             if config.KRAKEN_ENABLED:
+                trade_id = trade["trade_id"]
                 existing_hold = self._db.get_state(
-                    f"kraken_full_reconcile_{trade['trade_id']}", default=0
+                    f"kraken_full_reconcile_{trade_id}", default=0
                 )
                 if existing_hold:
-                    self._set_kraken_full_reconcile_hold(
-                        trade,
-                        "duplicate close suppressed while reconciliation hold is active",
-                        qty,
-                        None,
+                    logger.error(
+                        f"[KRAKEN FULL HOLD] {symbol}: existing reconciliation hold "
+                        "blocks a duplicate close submission"
                     )
                     return False
                 # ── Re-derive leverage to match the entry order ───────────────
@@ -1596,13 +1417,12 @@ class TradeExecutor:
                     )
                     close_leverage = min(desired_lev, max_lev) if max_lev > 1 else 0
 
-                broker_result = self.kraken.close_position(
+                terminal = self.kraken.close_position(
                     symbol, qty, side, leverage=close_leverage
                 )
-                kraken_fill_price = self._confirmed_kraken_full_close_price(
-                    trade, current_price, broker_result
+                success, current_price = self._validate_kraken_full_close(
+                    trade, terminal, qty, current_price, close_leverage
                 )
-                success = kraken_fill_price is not None
             else:
                 logger.info(f"[PAPER] Simulated close: {symbol} {side.upper()} @ ${current_price:.4f}")
                 success = True
@@ -1610,9 +1430,6 @@ class TradeExecutor:
         if not success:
             logger.error(f"Failed to close position {symbol}")
             return False
-
-        if kraken_fill_price is not None:
-            current_price = kraken_fill_price
 
         if direction == "long":
             pnl = (current_price - entry_price) * qty
@@ -1762,6 +1579,123 @@ class TradeExecutor:
         )
         return True
 
+    def _persist_kraken_full_reconcile(
+        self, trade: Dict, requested_qty: float, result: Dict, reason: str
+    ) -> None:
+        trade_id = trade["trade_id"]
+        marker = {
+            "symbol": trade["symbol"],
+            "requested_qty": float(requested_qty),
+            "filled_qty": float(result.get("filled_qty") or 0),
+            "filled_avg_price": float(result.get("filled_avg_price") or 0),
+            "status": result.get("status"),
+            "broker_order_id": result.get("broker_order_id"),
+            "cancellation_ambiguous": bool(result.get("cancellation_ambiguous")),
+            "reason": reason,
+            "updated_at": datetime.now().isoformat(),
+        }
+        try:
+            self._db.set_state(f"kraken_full_reconcile_{trade_id}", marker)
+        except Exception as exc:
+            logger.critical(
+                f"[KRAKEN FULL RECONCILE] {trade['symbol']}: failed to persist hold: {exc}"
+            )
+
+    def _mark_kraken_full_exit_stop_unprotected(
+        self, trade: Dict, reason: str
+    ) -> None:
+        trade_id = trade["trade_id"]
+        old_stop_id = trade.get("stop_order_id") or ""
+        self._db.update_trade_order_ids(trade_id, stop_order_id="")
+        trade["stop_order_id"] = ""
+        self._db.set_state(
+            f"kraken_stop_unprotected_{trade_id}",
+            {
+                "symbol": trade["symbol"],
+                "cancelled_stop_order_id": old_stop_id,
+                "target_stop_loss": round(float(trade.get("stop_loss") or 0), 6),
+                "manual_reconciliation_required": True,
+                "reason": reason,
+                "attempts": 0,
+                "last_attempt_ts": 0,
+            },
+        )
+
+    def _protect_confirmed_full_exit_residual(
+        self, trade: Dict, remaining_qty: float, leverage: int, reason: str
+    ) -> None:
+        """Restore only an exactly known residual after a failed full close."""
+        if remaining_qty <= 0 or float(trade.get("stop_loss") or 0) <= 0:
+            self._mark_kraken_full_exit_stop_unprotected(trade, reason)
+            return
+        stop_side = "buy" if trade.get("direction") == "short" else "sell"
+        try:
+            stop_id = self.kraken.place_stop_order(
+                trade["symbol"], remaining_qty, stop_side,
+                round(float(trade["stop_loss"]), 6), leverage=leverage,
+            )
+        except Exception as exc:
+            logger.critical(
+                f"[KRAKEN FULL HOLD] {trade['symbol']}: residual stop placement "
+                f"raised: {exc}"
+            )
+            stop_id = None
+        if stop_id:
+            self._db.update_trade_order_ids(trade["trade_id"], stop_order_id=stop_id)
+            trade["stop_order_id"] = stop_id
+            return
+        self._mark_kraken_full_exit_stop_unprotected(trade, reason)
+
+    def _validate_kraken_full_close(
+        self, trade: Dict, result: Dict, requested_qty: float,
+        fallback_price: float, leverage: int
+    ) -> tuple[bool, float]:
+        """Fail closed unless Kraken confirms an exact, priced full fill."""
+        symbol = trade["symbol"]
+        try:
+            filled_qty = float(result.get("filled_qty") or 0)
+        except (TypeError, ValueError):
+            filled_qty = float("nan")
+        tolerance = max(1e-8, float(requested_qty) * 1e-8)
+        resolution_failed = bool(result.get("resolution_failed"))
+        cancellation_ambiguous = bool(result.get("cancellation_ambiguous"))
+        if resolution_failed or cancellation_ambiguous:
+            reason = "cancellation ambiguity" if cancellation_ambiguous else "terminal fill unresolved"
+            self._persist_kraken_full_reconcile(trade, requested_qty, result, reason)
+            if not cancellation_ambiguous:
+                self._mark_kraken_full_exit_stop_unprotected(trade, reason)
+            logger.error(f"[KRAKEN FULL HOLD] {symbol}: {reason}; no close accounting applied")
+            return False, fallback_price
+        if not math.isfinite(filled_qty) or filled_qty < 0:
+            self._persist_kraken_full_reconcile(
+                trade, requested_qty, result, "invalid confirmed fill quantity"
+            )
+            self._mark_kraken_full_exit_stop_unprotected(
+                trade, "invalid confirmed fill quantity"
+            )
+            return False, fallback_price
+        if abs(filled_qty - float(requested_qty)) > tolerance:
+            reason = "terminal zero fill" if filled_qty == 0 else "terminal non-full fill"
+            self._persist_kraken_full_reconcile(trade, requested_qty, result, reason)
+            self._protect_confirmed_full_exit_residual(
+                trade, max(float(requested_qty) - filled_qty, 0.0), leverage, reason
+            )
+            logger.error(
+                f"[KRAKEN FULL HOLD] {symbol}: {reason} "
+                f"({filled_qty}/{requested_qty}); no close accounting applied"
+            )
+            return False, fallback_price
+        try:
+            fill_price = float(result.get("filled_avg_price") or 0)
+        except (TypeError, ValueError):
+            fill_price = 0.0
+        if not math.isfinite(fill_price) or fill_price <= 0:
+            self._persist_kraken_full_reconcile(
+                trade, requested_qty, result, "full fill lacks confirmed average price"
+            )
+            return False, fallback_price
+        return True, fill_price
+
     def _set_kraken_partial_reconcile_hold(
         self,
         trade: Dict,
@@ -1860,7 +1794,7 @@ class TradeExecutor:
                     symbol, "kraken"
                 )
                 close_leverage = min(desired_lev, max_lev) if max_lev > 1 else 0
-            broker_result = self.kraken.close_scanner_partial(
+            broker_result = self.kraken.close_partial_position(
                 symbol, close_qty, side, leverage=close_leverage
             )
         else:

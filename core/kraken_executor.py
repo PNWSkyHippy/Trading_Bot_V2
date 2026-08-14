@@ -362,26 +362,24 @@ class KrakenExecutor:
                 logger.error(f"[PRE-CLOSE CANCEL] {symbol}: cancellation ambiguous for {str(oid)[:12]}: {exc}")
         return {"matched": matched, "cancelled": cancelled, "ambiguous": ambiguous}
 
-    def _close_with_terminal_fill(self, symbol: str, qty: float, side: str,
-                                  leverage: int = 0) -> Dict:
-        """Close Kraken exposure only after cancellation and fill resolution."""
+    def close_scanner_partial(self, symbol: str, qty: float, side: str,
+                              leverage: int = 0) -> Dict:
+        """Close a scanner partial with fail-closed terminal-fill semantics."""
         ccxt_symbol = symbol.replace("-", "/")
         if self.paper:
             price = self.get_current_price(symbol) or 0.0
             return {
                 "broker_order_id": f"PAPER-PARTIAL-{symbol}-{int(time.time())}",
-                "reason": "confirmed_terminal", "status": "closed", "filled_qty": float(qty),
+                "status": "closed", "filled_qty": float(qty),
                 "filled_avg_price": price, "resolution_failed": False,
-                "cancellation_ambiguous": False,
-                "cancellation": {"matched": 0, "cancelled": 0, "ambiguous": False},
-                "leverage": leverage,
+                "cancellation_ambiguous": False, "leverage": leverage,
             }
         cancel_result = self.cancel_all_orders_for_symbol_result(symbol)
         if cancel_result["ambiguous"]:
             return {
-                "reason": "cancellation_ambiguous", "status": "cancellation_ambiguous", "filled_qty": 0.0,
+                "status": "cancellation_ambiguous", "filled_qty": 0.0,
                 "filled_avg_price": 0.0, "resolution_failed": True,
-                "cancellation_ambiguous": True, "cancellation": cancel_result,
+                "cancellation_ambiguous": True, "cancel_result": cancel_result,
                 "leverage": leverage,
             }
         try:
@@ -395,34 +393,26 @@ class KrakenExecutor:
             if final["resolution_failed"]:
                 self._record_unresolved_order(symbol, order_id, close_side, qty, final)
                 return {
-                    "broker_order_id": order_id, "reason": "fill_resolution_failed", "status": "unresolved",
+                    "broker_order_id": order_id, "status": "unresolved",
                     "filled_qty": final["filled_qty"],
                     "filled_avg_price": final["filled_avg_price"],
                     "resolution_failed": True, "cancellation_ambiguous": False,
-                    "cancellation": cancel_result,
                     "leverage": leverage,
                 }
             return {
-                "broker_order_id": order_id, "reason": "confirmed_terminal", "status": final["status"],
+                "broker_order_id": order_id, "status": final["status"],
                 "filled_qty": final["filled_qty"],
                 "filled_avg_price": final["filled_avg_price"],
                 "resolution_failed": False, "cancellation_ambiguous": False,
-                "cancellation": cancel_result,
                 "leverage": leverage,
             }
         except Exception as exc:
-            logger.error(f"Failed to close Kraken position {symbol}: {exc}")
+            logger.error(f"Failed to close scanner partial {symbol}: {exc}")
             return {
-                "reason": "submission_failed", "status": "submission_failed", "filled_qty": 0.0,
+                "status": "submission_failed", "filled_qty": 0.0,
                 "filled_avg_price": 0.0, "resolution_failed": True,
-                "cancellation_ambiguous": False, "cancellation": cancel_result,
-                "leverage": leverage,
+                "cancellation_ambiguous": False, "leverage": leverage,
             }
-
-    def close_scanner_partial(self, symbol: str, qty: float, side: str,
-                              leverage: int = 0) -> Dict:
-        """Close a scanner partial with fail-closed terminal-fill semantics."""
-        return self._close_with_terminal_fill(symbol, qty, side, leverage)
 
     def cancel_all_orders_for_symbol(self, symbol: str) -> int:
         """
@@ -434,34 +424,7 @@ class KrakenExecutor:
         Returns the number of orders cancelled.
         Paper mode: always returns 0 (no real orders placed in paper mode).
         """
-        if self.paper:
-            return 0
-        cancelled = 0
-        try:
-            # Fetch all open orders (Kraken returns them keyed by order ID)
-            resp       = self.exchange.privatePostOpenorders({})
-            open_orders = (resp.get("result", {}).get("open") or {})
-            for oid, o in open_orders.items():
-                descr    = o.get("descr", {})
-                pair_raw = descr.get("pair", "")
-                # Normalise both sides to "BASE/QUOTE" for comparison
-                norm = pair_raw.replace("XBT", "BTC").upper()
-                tgt  = symbol.replace("-", "/").upper()
-                # Match if pair contains the base currency or full symbol
-                if tgt in norm or norm.replace("/", "") in tgt.replace("/", ""):
-                    try:
-                        self.exchange.cancelOrder(oid)
-                        logger.info(
-                            f"[PRE-CLOSE CANCEL] {symbol}: cancelled order {oid[:12]}"
-                        )
-                        cancelled += 1
-                    except Exception as ce:
-                        logger.warning(
-                            f"[PRE-CLOSE CANCEL] {symbol}: could not cancel {oid[:12]}: {ce}"
-                        )
-        except Exception as e:
-            logger.warning(f"cancel_all_orders_for_symbol({symbol}): {e}")
-        return cancelled
+        return int(self.cancel_all_orders_for_symbol_result(symbol)["cancelled"])
 
     def close_position(self, symbol: str, qty: float, side: str,
                        leverage: int = 0) -> Dict:
@@ -477,10 +440,78 @@ class KrakenExecutor:
                position rather than opening a new spot position.
              - If leverage == 0 (spot entry) a plain market order is correct.
 
-        Returns a structured terminal-fill result. Callers must not close their
-        local trade record unless `filled_qty` confirms the complete position.
+        Returns a terminal-fill result.  Callers must not account for or mark
+        a full exit complete unless it reports an exact confirmed full fill.
         """
-        return self._close_with_terminal_fill(symbol, qty, side, leverage)
+        ccxt_symbol = symbol.replace("-", "/")
+
+        if self.paper:
+            price      = self.get_current_price(symbol) or 0.0
+            close_side = "sell" if side == "buy" else "buy"
+            logger.info(
+                f"[PAPER] Kraken simulated close: {symbol} "
+                f"{close_side} {qty} @ ${price:.4f}"
+            )
+            return {
+                "broker_order_id": f"PAPER-CLOSE-{symbol}-{int(time.time())}",
+                "status": "closed", "filled_qty": float(qty),
+                "filled_avg_price": price, "resolution_failed": False,
+                "cancellation_ambiguous": False, "leverage": leverage,
+            }
+
+        # ── 1. Cancel all resting orders for this symbol ─────────────────────
+        cancel_result = self.cancel_all_orders_for_symbol_result(symbol)
+        if cancel_result["ambiguous"]:
+            return {
+                "status": "cancellation_ambiguous", "filled_qty": 0.0,
+                "filled_avg_price": 0.0, "resolution_failed": True,
+                "cancellation_ambiguous": True, "cancel_result": cancel_result,
+                "leverage": leverage,
+            }
+        if cancel_result["cancelled"]:
+            logger.info(
+                f"[CLOSE] {symbol}: cancelled {cancel_result['cancelled']} "
+                "open order(s) before close"
+            )
+
+        # ── 2. Send margin-aware market close order ───────────────────────────
+        try:
+            close_side = "sell" if side == "buy" else "buy"
+            params     = {}
+            if leverage > 1:
+                params["leverage"] = leverage
+            order = self.exchange.create_market_order(
+                ccxt_symbol, close_side, qty, params=params
+            )
+            order_id = (order or {}).get("id")
+            final = self._resolve_order_fill(ccxt_symbol, order_id, order or {})
+            if final["resolution_failed"]:
+                self._record_unresolved_order(symbol, order_id, close_side, qty, final)
+                return {
+                    "broker_order_id": order_id, "status": "unresolved",
+                    "filled_qty": final["filled_qty"],
+                    "filled_avg_price": final["filled_avg_price"],
+                    "resolution_failed": True, "cancellation_ambiguous": False,
+                    "leverage": leverage,
+                }
+            logger.info(
+                f"Kraken position closed: {symbol} {close_side} "
+                f"{qty} {'@ {}x leverage'.format(leverage) if leverage > 1 else '(spot)'}"
+            )
+            return {
+                "broker_order_id": order_id, "status": final["status"],
+                "filled_qty": final["filled_qty"],
+                "filled_avg_price": final["filled_avg_price"],
+                "resolution_failed": False, "cancellation_ambiguous": False,
+                "leverage": leverage,
+            }
+        except Exception as e:
+            logger.error(f"Failed to close Kraken {symbol}: {e}")
+            return {
+                "status": "submission_failed", "filled_qty": 0.0,
+                "filled_avg_price": 0.0, "resolution_failed": True,
+                "cancellation_ambiguous": False, "leverage": leverage,
+            }
 
     def get_balance(self, currency: str = "USD") -> float:
         if self.paper:
