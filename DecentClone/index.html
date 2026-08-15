@@ -795,7 +795,7 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -2714,6 +2714,26 @@
             return quads;
         }
 
+        // Straight-edged picture-frame collar for a junction-cube face whose far
+        // side is itself a rect room: 4 quads (top/bottom/left/right strips)
+        // between the rectangular doorway (ru, rv) and the square face border, in
+        // unit-cube space. Same input/output shape as rectRoomFaceCollarLocalQuads
+        // but with straight edges instead of an inscribed ellipse.
+        function rectRoomFaceCollarRectLocalQuads(face, ru, rv) {
+            const quads = [];
+            const pushQuad = (corners) => {
+                quads.push({
+                    quad: corners.map(p => rectRoomFaceUnitPoint(face, p[0], p[1])),
+                    uvs: corners.map(p => [p[0] + 0.5, p[1] + 0.5])
+                });
+            };
+            pushQuad([[-0.5, rv], [-0.5, 0.5], [0.5, 0.5], [0.5, rv]]);
+            pushQuad([[-0.5, -0.5], [-0.5, -rv], [0.5, -rv], [0.5, -0.5]]);
+            pushQuad([[-0.5, -rv], [-0.5, rv], [-ru, rv], [-ru, -rv]]);
+            pushQuad([[ru, -rv], [ru, rv], [0.5, rv], [0.5, -rv]]);
+            return quads;
+        }
+
         // Which open faces of a junction cube get collars for a given surface
         // bucket, with hole radii as unit fractions. Null for plain rect rooms.
         function rectRoomCollarPlan(seg, surface) {
@@ -2726,20 +2746,24 @@
             const plan = {};
             for (const face of faces) {
                 if (!states[face]) continue;
-                const holeR = rectRoomFaceHoleRadius(seg, face, dims);
-                let ru;
-                let rv;
+                const opening = rectRoomFaceOpeningExtent(seg, face, dims);
+                let widthDenom;
+                let lengthDenom;
                 if (face === 'start' || face === 'end') {
-                    ru = holeR / dims.width;
-                    rv = holeR / dims.height;
+                    widthDenom = dims.width;
+                    lengthDenom = dims.height;
                 } else if (face === 'right' || face === 'left') {
-                    ru = holeR / dims.height;
-                    rv = holeR / dims.length;
+                    widthDenom = dims.height;
+                    lengthDenom = dims.length;
                 } else {
-                    ru = holeR / dims.width;
-                    rv = holeR / dims.length;
+                    widthDenom = dims.width;
+                    lengthDenom = dims.length;
                 }
-                plan[face] = { ru: Math.min(0.49, ru), rv: Math.min(0.49, rv) };
+                plan[face] = {
+                    ru: Math.min(0.49, opening.hu / widthDenom),
+                    rv: Math.min(0.49, opening.hv / lengthDenom),
+                    rect: opening.rect
+                };
             }
             return plan;
         }
@@ -2749,7 +2773,8 @@
             let collarKey = '';
             if (collars) {
                 for (const face of Object.keys(collars)) {
-                    collarKey += `|${face}:${collars[face].ru.toFixed(3)}x${collars[face].rv.toFixed(3)}`;
+                    const spec = collars[face];
+                    collarKey += `|${face}:${spec.ru.toFixed(3)}x${spec.rv.toFixed(3)}${spec.rect ? 'r' : 'e'}`;
                 }
             }
             const key =
@@ -2771,7 +2796,9 @@
                 indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
             };
             const addCollar = (face) => {
-                for (const entry of rectRoomFaceCollarLocalQuads(face, collars[face].ru, collars[face].rv)) {
+                const spec = collars[face];
+                const quadsFn = spec.rect ? rectRoomFaceCollarRectLocalQuads : rectRoomFaceCollarLocalQuads;
+                for (const entry of quadsFn(face, spec.ru, spec.rv)) {
                     addFace(entry.quad[0], entry.quad[1], entry.quad[2], entry.quad[3], entry.uvs);
                 }
             };
@@ -11247,7 +11274,20 @@
                 }
                 return false;
             };
-            return roomEndpointTouch(a, b) || roomEndpointTouch(b, a);
+            // Two junction cubes glued directly wall-to-wall (no corridor between
+            // them) — connect when one's open face finds the other as its portal.
+            const roomRoomTouch = (x, y) => {
+                if (!segmentIsJunctionCube(x) || !segmentIsJunctionCube(y)) return false;
+                const states = rectRoomFaceStates(x);
+                for (const face of RECT_ROOM_FACES) {
+                    if (!states[face]) continue;
+                    const portal = rectRoomFacePortal(x, face);
+                    if (portal && portal.seg === y) return true;
+                }
+                return false;
+            };
+            return roomEndpointTouch(a, b) || roomEndpointTouch(b, a) ||
+                roomRoomTouch(a, b) || roomRoomTouch(b, a);
         }
 
         function isNearTunnelJunction(candidate) {
@@ -13889,7 +13929,7 @@
             return true;
         }
 
-        function replaceSelectedSegmentsWithRectRoom(indices, dimensions, caps = {}, surfaces = {}) {
+        function replaceSelectedSegmentsWithRectRoom(indices, dimensions, caps = {}, surfaces = {}, openFaces = {}) {
             const selected = new Set(indices);
             const ordered = Array.isArray(mapMouse.selectionPath)
                 ? mapMouse.selectionPath.filter(index => selected.has(index))
@@ -13982,6 +14022,10 @@
             room.entranceFrameEnd = firstSeg.entranceFrameEnd === 'end' ? 'end' : 'start';
             room.ribColor = firstSeg.ribColor || defaultRibColor;
             room.wallOpaque = firstSeg.wallOpaque !== false;
+            room.roomOpenRight = !!openFaces.openRight;
+            room.roomOpenLeft = !!openFaces.openLeft;
+            room.roomOpenFloor = !!openFaces.openFloor;
+            room.roomOpenCeiling = !!openFaces.openCeiling;
             ensureSegmentStyle(room);
 
             // Insert at the first numeric slot so every removed member can map
@@ -14040,6 +14084,37 @@
             );
             rebuildTunnelSentries();
             rebuildRocketCaches();
+            return true;
+        }
+
+        // Rotates a rect room's right/down/forward basis around a WORLD axis
+        // (not the room's own local axes), keeping its center fixed. Length is
+        // preserved, so from/to are recomputed from the rotated forward vector.
+        function rotateVectorAroundWorldAxis(v, axis, deg) {
+            const rad = deg * Math.PI / 180;
+            const c = Math.cos(rad);
+            const s = Math.sin(rad);
+            if (axis === 'x') {
+                return { x: v.x, y: v.y * c - v.z * s, z: v.y * s + v.z * c };
+            }
+            if (axis === 'y') {
+                return { x: v.x * c + v.z * s, y: v.y, z: -v.x * s + v.z * c };
+            }
+            return { x: v.x * c - v.y * s, y: v.x * s + v.y * c, z: v.z };
+        }
+
+        function rotateRectRoomAroundCenter(seg, axis, deg) {
+            if (!seg || !segmentIsRectRoom(seg) || !deg) return false;
+            const center = lerpVec(seg.from, seg.to, 0.5);
+            const forward = normalize(rotateVectorAroundWorldAxis(seg.forward, axis, deg));
+            const right = normalize(rotateVectorAroundWorldAxis(seg.right, axis, deg));
+            const down = normalize(rotateVectorAroundWorldAxis(seg.down, axis, deg));
+            const halfLen = (seg.length || 0) * 0.5;
+            seg.forward = forward;
+            seg.right = right;
+            seg.down = down;
+            seg.from = addVec(center, scaleVec(forward, -halfLen));
+            seg.to = addVec(center, scaleVec(forward, halfLen));
             return true;
         }
 
@@ -14568,6 +14643,28 @@
             const openCeilingCheck = makeFaceCheck('Open ceiling', existingRoom?.roomOpenCeiling);
             joinEditDialog.appendChild(roomFacesRow);
 
+            let roomRotateColumns = null;
+            if (existingRoom) {
+                const rotateLabel = document.createElement('div');
+                rotateLabel.className = 'hint';
+                rotateLabel.style.color = '#ffbd55';
+                rotateLabel.textContent =
+                    'Rotate room around its center (world X/Y/Z axes) — drag a dial or type a value:';
+                joinEditDialog.appendChild(rotateLabel);
+                const rotateRow = document.createElement('div');
+                rotateRow.style.display = 'flex';
+                rotateRow.style.gap = '14px';
+                rotateRow.style.justifyContent = 'center';
+                rotateRow.style.margin = '8px 0';
+                roomRotateColumns = {
+                    x: buildRoomRotateColumn('X axis', 'x', '#ff5577', existingRoom),
+                    y: buildRoomRotateColumn('Y axis', 'y', '#66d9ff', existingRoom),
+                    z: buildRoomRotateColumn('Z axis', 'z', '#8cff66', existingRoom)
+                };
+                rotateRow.append(roomRotateColumns.x.col, roomRotateColumns.y.col, roomRotateColumns.z.col);
+                joinEditDialog.appendChild(rotateRow);
+            }
+
             const currentInfo = document.createElement('div');
             currentInfo.className = 'hint';
             currentInfo.style.color = '#9bdcff';
@@ -14652,6 +14749,12 @@
                         ceilingTextureId: ceilingTextureSelect.value,
                         floorColor: floorColorInput.value,
                         ceilingColor: ceilingColorInput.value
+                    },
+                    {
+                        openRight: openRightCheck.checked,
+                        openLeft: openLeftCheck.checked,
+                        openFloor: openFloorCheck.checked,
+                        openCeiling: openCeilingCheck.checked
                     }
                 )) {
                     closeJoinEditDialog();
@@ -14784,7 +14887,8 @@
                 floorTextureSelect,
                 floorColorInput,
                 ceilingTextureSelect,
-                ceilingColorInput
+                ceilingColorInput,
+                ...(roomRotateColumns ? [roomRotateColumns.x.input, roomRotateColumns.y.input, roomRotateColumns.z.input] : [])
             );
             return true;
         }
@@ -16814,6 +16918,166 @@
             svg.addEventListener('pointercancel', endDrag);
 
             return { svg, redraw };
+        }
+
+        // Full-circle (-180..180) rotate dial for spinning a rect room around a
+        // world axis. Unlike the aim dial, this is a NUDGE control: dragging it
+        // doesn't set an absolute orientation (a room has no natural "zero"), it
+        // reports the dial's current position and the caller applies the delta
+        // since the last reading (see buildRoomRotateColumn).
+        function rectRoomRotateDialPoint(cx, cy, r, deg) {
+            const t = deg * Math.PI / 180;
+            return { x: cx + r * Math.sin(t), y: cy - r * Math.cos(t) };
+        }
+        function rectRoomRotateDialAngleFromPoint(cx, cy, px, py) {
+            return Math.atan2(px - cx, -(py - cy)) * 180 / Math.PI;
+        }
+        function buildRectRoomRotateDial(colorHex) {
+            const size = 120;
+            const cx = size / 2;
+            const cy = size / 2;
+            const r = 46;
+            const svgNS = 'http://www.w3.org/2000/svg';
+            const svg = document.createElementNS(svgNS, 'svg');
+            svg.setAttribute('width', String(size));
+            svg.setAttribute('height', String(size));
+            svg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+            svg.style.touchAction = 'none';
+            svg.style.cursor = 'pointer';
+
+            const ring = document.createElementNS(svgNS, 'circle');
+            ring.setAttribute('cx', String(cx));
+            ring.setAttribute('cy', String(cy));
+            ring.setAttribute('r', String(r));
+            ring.setAttribute('fill', 'none');
+            ring.setAttribute('stroke', 'rgba(215, 255, 248, 0.35)');
+            ring.setAttribute('stroke-width', '1.5');
+            svg.appendChild(ring);
+
+            for (const deg of [-180, -90, 0, 90, 180]) {
+                const inner = rectRoomRotateDialPoint(cx, cy, r - 6, deg);
+                const outer = rectRoomRotateDialPoint(cx, cy, r + 4, deg);
+                const tick = document.createElementNS(svgNS, 'line');
+                tick.setAttribute('x1', inner.x.toFixed(1));
+                tick.setAttribute('y1', inner.y.toFixed(1));
+                tick.setAttribute('x2', outer.x.toFixed(1));
+                tick.setAttribute('y2', outer.y.toFixed(1));
+                tick.setAttribute('stroke', 'rgba(215, 255, 248, 0.5)');
+                tick.setAttribute('stroke-width', '1.5');
+                svg.appendChild(tick);
+            }
+
+            const centerDot = document.createElementNS(svgNS, 'circle');
+            centerDot.setAttribute('cx', String(cx));
+            centerDot.setAttribute('cy', String(cy));
+            centerDot.setAttribute('r', '3');
+            centerDot.setAttribute('fill', 'rgba(215, 255, 248, 0.6)');
+            svg.appendChild(centerDot);
+
+            const needle = document.createElementNS(svgNS, 'line');
+            needle.setAttribute('x1', String(cx));
+            needle.setAttribute('y1', String(cy));
+            needle.setAttribute('stroke', colorHex);
+            needle.setAttribute('stroke-width', '2.5');
+            svg.appendChild(needle);
+
+            const handle = document.createElementNS(svgNS, 'circle');
+            handle.setAttribute('r', '6');
+            handle.setAttribute('fill', colorHex);
+            svg.appendChild(handle);
+
+            function redraw(deg) {
+                const p = rectRoomRotateDialPoint(cx, cy, r, deg);
+                needle.setAttribute('x2', p.x.toFixed(1));
+                needle.setAttribute('y2', p.y.toFixed(1));
+                handle.setAttribute('cx', p.x.toFixed(1));
+                handle.setAttribute('cy', p.y.toFixed(1));
+            }
+
+            let dragging = false;
+            function angleFromEvent(e) {
+                const rect = svg.getBoundingClientRect();
+                const scaleX = size / rect.width;
+                const scaleY = size / rect.height;
+                const px = (e.clientX - rect.left) * scaleX;
+                const py = (e.clientY - rect.top) * scaleY;
+                return rectRoomRotateDialAngleFromPoint(cx, cy, px, py);
+            }
+            svg.addEventListener('pointerdown', (e) => {
+                dragging = true;
+                svg.setPointerCapture(e.pointerId);
+                const deg = angleFromEvent(e);
+                redraw(deg);
+                svg.dispatchEvent(new CustomEvent('roomrotate', { detail: { deg, final: false } }));
+            });
+            svg.addEventListener('pointermove', (e) => {
+                if (!dragging) return;
+                const deg = angleFromEvent(e);
+                redraw(deg);
+                svg.dispatchEvent(new CustomEvent('roomrotate', { detail: { deg, final: false } }));
+            });
+            const endDrag = (e) => {
+                if (!dragging) return;
+                dragging = false;
+                const deg = angleFromEvent(e);
+                redraw(deg);
+                svg.dispatchEvent(new CustomEvent('roomrotate', { detail: { deg, final: true } }));
+            };
+            svg.addEventListener('pointerup', endDrag);
+            svg.addEventListener('pointercancel', endDrag);
+
+            return { svg, redraw };
+        }
+
+        function buildRoomRotateColumn(labelText, axis, colorHex, room) {
+            const col = document.createElement('div');
+            col.style.display = 'flex';
+            col.style.flexDirection = 'column';
+            col.style.alignItems = 'center';
+            col.style.gap = '6px';
+            const label = document.createElement('div');
+            label.textContent = labelText;
+            label.style.color = colorHex;
+            label.style.fontSize = '0.85em';
+            col.appendChild(label);
+            const dial = buildRectRoomRotateDial(colorHex);
+            dial.redraw(0);
+            col.appendChild(dial.svg);
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.min = '-180';
+            input.max = '180';
+            input.step = '1';
+            input.value = '0';
+            input.style.width = '64px';
+            input.style.textAlign = 'center';
+            col.appendChild(input);
+
+            // Dial/input show the CUMULATIVE angle applied this dialog session,
+            // not the room's absolute orientation (rooms don't have a natural
+            // zero) -- each new reading is diffed against the last one applied.
+            let appliedDeg = 0;
+            const apply = (deg, commit) => {
+                const delta = deg - appliedDeg;
+                if (delta) rotateRectRoomAroundCenter(room, axis, delta);
+                appliedDeg = deg;
+                invalidateTunnelSegmentCache();
+                if (commit) {
+                    applyMapGeometryChange(`rotated room ${Math.round(deg)}° around ${axis.toUpperCase()}`);
+                }
+            };
+            dial.svg.addEventListener('roomrotate', (e) => {
+                const deg = Math.round(e.detail.deg);
+                input.value = String(deg);
+                apply(deg, e.detail.final);
+            });
+            input.addEventListener('change', () => {
+                const deg = Math.max(-180, Math.min(180, Math.round(Number(input.value) || 0)));
+                input.value = String(deg);
+                dial.redraw(deg);
+                apply(deg, true);
+            });
+            return { col, dial, input };
         }
 
         function openBuilderAimDialog() {
@@ -19539,7 +19803,24 @@
             }
             if (face in seg._facePortals.faces) return seg._facePortals.faces[face];
             const center = rectRoomFaceCenter(seg, face);
+            // Prefer whichever candidate is actually closer to this face's
+            // center (a genuinely touching connection is ~0 away); only fall
+            // back to the wider mouth when two candidates are near-tied on
+            // distance, e.g. several corridors converging at one joint. Pure
+            // radius-first comparison let a large tube merely passing within
+            // its own tolerance steal the match from a room that's truly
+            // flush against this face (zero distance) but has a smaller
+            // cross-section.
+            const TOUCH_TIE_EPS = 8;
             let found = null;
+            let foundDist = Infinity;
+            function considerPortal(index, other, endKind, radius, dist) {
+                if (!found || dist < foundDist - TOUCH_TIE_EPS ||
+                    (dist <= foundDist + TOUCH_TIE_EPS && radius > found.radius)) {
+                    found = { index, seg: other, endKind, radius };
+                    foundDist = dist;
+                }
+            }
             for (let i = 0; i < builder.segments.length; i++) {
                 const other = builder.segments[i];
                 if (!other || other === seg || !other.from || !other.to) continue;
@@ -19553,9 +19834,25 @@
                         mouthRadius = other.radius || builder.radius;
                     }
                     const tol = Math.max(mouthRadius, 40);
-                    if (distanceSq(other[endKind], center) > tol * tol) continue;
-                    if (!found || mouthRadius > found.radius) {
-                        found = { index: i, seg: other, endKind, radius: mouthRadius };
+                    const dist = Math.sqrt(distanceSq(other[endKind], center));
+                    if (dist > tol) continue;
+                    considerPortal(i, other, endKind, mouthRadius, dist);
+                }
+                // Another junction cube glued directly wall-to-wall: match against
+                // its open side faces too, not just its from/to endpoints — two
+                // rooms butted together share no tube endpoint at all.
+                if (segmentIsJunctionCube(other)) {
+                    const otherStates = rectRoomFaceStates(other);
+                    const otherDims = rectRoomDimensions(other);
+                    const otherMouthRadius = Math.hypot(otherDims.halfWidth, otherDims.halfHeight);
+                    const tol = Math.max(otherMouthRadius, 40);
+                    for (const otherFace of RECT_ROOM_FACES) {
+                        if (otherFace === 'start' || otherFace === 'end') continue;
+                        if (!otherStates[otherFace]) continue;
+                        const otherCenter = rectRoomFaceCenter(other, otherFace);
+                        const dist = Math.sqrt(distanceSq(otherCenter, center));
+                        if (dist > tol) continue;
+                        considerPortal(i, other, otherFace, otherMouthRadius, dist);
                     }
                 }
             }
@@ -19564,7 +19861,9 @@
         }
 
         // Doorway radius for an open face, clamped inside the face; used by mesh
-        // collars and the collision aperture gate so they always agree.
+        // collars and the collision aperture gate so they always agree. This is
+        // the round-tube / no-portal fallback — see rectRoomFaceOpeningExtent
+        // for the straight-edged rectangle used when the far side is a room too.
         function rectRoomFaceHoleRadius(seg, face, dims = null) {
             const d = dims || rectRoomDimensions(seg);
             const plane = rectRoomFacePlane({ x: 0, y: 0, z: 0 }, d, face);
@@ -19574,6 +19873,68 @@
             return Math.max(12, Math.min(maxFit, base));
         }
 
+        // Inverse of rectRoomFacePlane's u/v mapping: a local point on `face`
+        // at in-plane offset (u, v) from the face center.
+        function rectRoomFaceLocalPointFromUV(dims, face, u, v) {
+            switch (face) {
+                case 'start': return { x: u, y: v, z: 0 };
+                case 'end': return { x: u, y: v, z: dims.length };
+                case 'right': return { x: dims.halfWidth, y: u, z: v + dims.length * 0.5 };
+                case 'left': return { x: -dims.halfWidth, y: u, z: v + dims.length * 0.5 };
+                case 'floor': return { x: u, y: dims.halfHeight, z: v + dims.length * 0.5 };
+                default: return { x: u, y: -dims.halfHeight, z: v + dims.length * 0.5 };
+            }
+        }
+
+        // When the segment across an open face is itself a rect room (not a
+        // round tube), the doorway should be a straight-edged rectangle sized to
+        // the OTHER segment's own cross-section at the connection point, not a
+        // circle inscribed in it -- two rectangular corridors meeting should cut
+        // a rectangular hole, not a circular one. Projects the other's 4 face
+        // corners into THIS face's (u, v) plane and bounds them; for the common
+        // case (both rooms axis-aligned / 90°-snapped) that's the exact overlap,
+        // and it degrades gracefully to a bounding rectangle under free rotation.
+        // Returns null (fall back to rectRoomFaceHoleRadius) when the portal is
+        // a round tube or there is no portal yet.
+        function rectRoomFacePortalRectExtent(seg, face, portal, dims) {
+            if (!portal || !segmentIsRectRoom(portal.seg)) return null;
+            const otherFace = portal.endKind === 'from' ? 'start'
+                : portal.endKind === 'to' ? 'end'
+                : portal.endKind;
+            if (!RECT_ROOM_FACES.includes(otherFace)) return null;
+            const otherDims = rectRoomDimensions(portal.seg);
+            const otherPlane = rectRoomFacePlane({ x: 0, y: 0, z: 0 }, otherDims, otherFace);
+            const myPlane = rectRoomFacePlane({ x: 0, y: 0, z: 0 }, dims, face);
+            let minU = Infinity, maxU = -Infinity, minV = Infinity, maxV = -Infinity;
+            for (const su of [-1, 1]) {
+                for (const sv of [-1, 1]) {
+                    const otherLocal = rectRoomFaceLocalPointFromUV(
+                        otherDims, otherFace, su * otherPlane.hu, sv * otherPlane.hv
+                    );
+                    const world = segmentLocalToWorld(portal.seg, otherLocal.x, otherLocal.y, otherLocal.z);
+                    const myLocal = rectRoomLocalPoint(world, seg);
+                    const corner = rectRoomFacePlane(myLocal, dims, face);
+                    minU = Math.min(minU, corner.u); maxU = Math.max(maxU, corner.u);
+                    minV = Math.min(minV, corner.v); maxV = Math.max(maxV, corner.v);
+                }
+            }
+            const hu = Math.max(12, Math.min(myPlane.hu * 0.98, Math.max(Math.abs(minU), Math.abs(maxU))));
+            const hv = Math.max(12, Math.min(myPlane.hv * 0.98, Math.max(Math.abs(minV), Math.abs(maxV))));
+            return { hu, hv, rect: true };
+        }
+
+        // Unified doorway extent for an open face: a straight rectangle when the
+        // far side is a rect room, an isotropic circle (radius in both hu/hv)
+        // when it's a round tube or nothing has connected yet.
+        function rectRoomFaceOpeningExtent(seg, face, dims = null) {
+            const d = dims || rectRoomDimensions(seg);
+            const portal = rectRoomFacePortal(seg, face);
+            const rectExtent = rectRoomFacePortalRectExtent(seg, face, portal, d);
+            if (rectExtent) return rectExtent;
+            const r = rectRoomFaceHoleRadius(seg, face, d);
+            return { hu: r, hv: r, rect: false };
+        }
+
         // True when an open face's doorway admits this local position — the collar
         // ring around the hole stays solid in collision as well as in the mesh.
         function rectRoomOpenFaceAllowsExit(seg, face, local, dims = null) {
@@ -19581,8 +19942,11 @@
             if (!states[face]) return false;
             const d = dims || rectRoomDimensions(seg);
             const plane = rectRoomFacePlane(local, d, face);
-            const holeR = rectRoomFaceHoleRadius(seg, face, d) * 0.95;
-            return Math.hypot(plane.u, plane.v) <= holeR;
+            const opening = rectRoomFaceOpeningExtent(seg, face, d);
+            if (opening.rect) {
+                return Math.abs(plane.u) <= opening.hu * 0.95 && Math.abs(plane.v) <= opening.hv * 0.95;
+            }
+            return Math.hypot(plane.u, plane.v) <= opening.hu * 0.95;
         }
 
         function rectRoomCorners(seg) {
@@ -19609,7 +19973,8 @@
             const collarsCeiling = rectRoomCollarPlan(seg, 'ceiling');
             const panels = [];
             const pushCollar = (face, surface, spec) => {
-                for (const entry of rectRoomFaceCollarLocalQuads(face, spec.ru, spec.rv)) {
+                const quadsFn = spec.rect ? rectRoomFaceCollarRectLocalQuads : rectRoomFaceCollarLocalQuads;
+                for (const entry of quadsFn(face, spec.ru, spec.rv)) {
                     panels.push({
                         surface,
                         points: entry.quad.map(p => segmentLocalToWorld(
