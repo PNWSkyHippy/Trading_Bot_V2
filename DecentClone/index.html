@@ -938,6 +938,7 @@
             'Place sentries: press M, then 7 for sentry tools, Ctrl+LMB places a spawn, click a sentry to edit guard or patrol behavior.',
             'Place loot: press M, then 6, Ctrl+LMB a tunnel or room, click the cache and press V to set its item, quantity, and respawn time.',
             'Build a room: create and range-select 2-5 detached sections, press V, enter room width/length/height and cap choices, then choose Make Rectangular Room.',
+            'Fix misaligned sections: Alt+Shift+LMB range-select a touching chain A→B, press V, choose Snap Chain Joints Flush to weld every joint exactly (position + orientation); use Normalize Selection to Plane to re-level roll/twist without moving endpoints.',
             'Save/load maps: Ctrl+Shift+S defaults to the current map name for quick update/overwrite; Ctrl+Shift+L opens the local map library.',
             'Clean mistakes: Del deletes selected segment/range, U undoes the last placed segment, G prunes disconnected strays.',
         ];
@@ -1404,7 +1405,7 @@
         const MAP_RADIUS_MIN_FRAC = 0.72;
         const MAP_RADIUS_MAX_FRAC = 1.60;
         const MAP_CHAMBER_MAX_RADIUS = 1200;
-        const MAP_ROOM_MIN_DIMENSION = 120;
+        const MAP_ROOM_MIN_DIMENSION = 50;
         const MAP_ROOM_MAX_DIMENSION = 5000;
         const MAP_JUNCTION_RADIUS_SNAP = 0.55;
         // mapBuildFix3: auto-repair rib gaps — mirrors manual delete+Y-rejoin at bad junctions
@@ -7564,6 +7565,10 @@
 
         function addVec(a, b) {
             return { x: a.x + b.x, y: a.y + b.y, z: a.z + b.z };
+        }
+
+        function subVec(a, b) {
+            return { x: a.x - b.x, y: a.y - b.y, z: a.z - b.z };
         }
 
         function scaleVec(v, amount) {
@@ -13869,7 +13874,14 @@
             for (let i = 0; i < builder.segments.length; i++) graph.set(i, []);
             for (let i = 0; i < builder.segments.length; i++) {
                 for (let j = i + 1; j < builder.segments.length; j++) {
-                    if (segmentsTouch(i, j, toleranceSq)) {
+                    // Plain from/to proximity misses junction-cube corners, whose
+                    // real connection is a face portal rather than a shared corner
+                    // point — fall back to the room-aware check so range-select can
+                    // cross those joints too.
+                    if (
+                        segmentsTouch(i, j, toleranceSq) ||
+                        tunnelSegmentsConnected(builder.segments[i], builder.segments[j])
+                    ) {
                         graph.get(i).push(j);
                         graph.get(j).push(i);
                     }
@@ -14277,6 +14289,163 @@
             applyMapGeometryChange(
                 `junction cube: ${arms.length} corridor(s) joined, ${Math.round(side)}u across`
             );
+            return true;
+        }
+
+        // For each consecutive pair in an ordered, touching segment chain, finds
+        // which end ('from'/'to') of each segment is the one touching its neighbor.
+        function orderedChainTouchEnds(ordered) {
+            if (!Array.isArray(ordered) || ordered.length < 2) return null;
+            const touchTol = Math.max(24, builder.radius * 0.72);
+            const touchSq = touchTol * touchTol;
+            const info = ordered.map(() => ({ prevEnd: null, nextEnd: null }));
+            for (let k = 0; k < ordered.length - 1; k++) {
+                const a = builder.segments[ordered[k]];
+                const b = builder.segments[ordered[k + 1]];
+                if (!a?.from || !a?.to || !b?.from || !b?.to) return null;
+                const candidates = [
+                    ['to', 'from', distanceSq(a.to, b.from)],
+                    ['to', 'to', distanceSq(a.to, b.to)],
+                    ['from', 'from', distanceSq(a.from, b.from)],
+                    ['from', 'to', distanceSq(a.from, b.to)]
+                ];
+                candidates.sort((x, y) => x[2] - y[2]);
+                const [aEnd, bEnd, bestDistSq] = candidates[0];
+                if (bestDistSq > touchSq) return null;
+                info[k].nextEnd = aEnd;
+                info[k + 1].prevEnd = bEnd;
+            }
+            return info;
+        }
+
+        // Builds a true orthonormal {right, down, forward} frame via Gram-Schmidt
+        // from a forward direction and a right hint — used before treating a
+        // segment's basis as a rotation frame, since real map data can have
+        // slight (sub-degree) drift that would otherwise shear a rigid transform.
+        function orthonormalFrame(forwardHint, rightHint) {
+            const forward = normalize(forwardHint);
+            const rightRaw = subVec(rightHint, scaleVec(forward, dot(rightHint, forward)));
+            const right = normalize(rightRaw);
+            const down = normalize(cross(forward, right));
+            return { forward, right, down };
+        }
+
+        // Rigidly welds a selected, ordered chain of touching segments (made via
+        // Alt+Shift+LMB range select) joint-by-joint: the first segment stays fixed,
+        // and each next segment (plus everything still downstream of it) is rotated
+        // + translated as one rigid body so its near end lands exactly on the
+        // previous segment's far-end position AND orientation (right/down/forward
+        // all match, zero twist, zero gap) — fixing the "off a few degrees" drift
+        // that accumulates from hand-placing sections in the editor.
+        function snapSelectedChainJoints() {
+            const ordered = orderedSelectedSegmentIndices();
+            if (ordered.length < 2) {
+                keyboardStatus.innerText =
+                    'snap chain: select a tunnel RANGE first (Alt+Shift+LMB A→B), 2+ connected segments';
+                return false;
+            }
+            const touch = orderedChainTouchEnds(ordered);
+            if (!touch) {
+                keyboardStatus.innerText = 'snap chain: selected range segments must touch end-to-end';
+                return false;
+            }
+            let joints = 0;
+            for (let k = 0; k < ordered.length - 1; k++) {
+                const segA = builder.segments[ordered[k]];
+                const segB = builder.segments[ordered[k + 1]];
+                const aEnd = touch[k].nextEnd;
+                const bEnd = touch[k + 1].prevEnd;
+                if (!segA || !segB || !aEnd || !bEnd) continue;
+
+                const anchorPoint = copyVec(segA[aEnd]);
+                const aOutward = aEnd === 'to' ? segA.forward : scaleVec(segA.forward, -1);
+                const targetOutward = scaleVec(aOutward, -1);
+                const targetForwardHint = bEnd === 'to' ? targetOutward : scaleVec(targetOutward, -1);
+                const targetFrame = orthonormalFrame(targetForwardHint, segA.right);
+                const curFrame = orthonormalFrame(segB.forward, segB.right);
+                const rotateVec = (w) => addVec(
+                    addVec(
+                        scaleVec(targetFrame.right, dot(w, curFrame.right)),
+                        scaleVec(targetFrame.down, dot(w, curFrame.down))
+                    ),
+                    scaleVec(targetFrame.forward, dot(w, curFrame.forward))
+                );
+
+                const pivot = copyVec(segB[bEnd]);
+                const movingGroup = ordered.slice(k + 1);
+                for (const idx of movingGroup) {
+                    const seg = builder.segments[idx];
+                    if (!seg) continue;
+                    seg.forward = normalize(rotateVec(seg.forward));
+                    seg.right = normalize(rotateVec(seg.right));
+                    seg.down = normalize(rotateVec(seg.down));
+                    seg.from = addVec(pivot, rotateVec(subVec(seg.from, pivot)));
+                    seg.to = addVec(pivot, rotateVec(subVec(seg.to, pivot)));
+                }
+
+                const translation = subVec(anchorPoint, builder.segments[ordered[k + 1]][bEnd]);
+                for (const idx of movingGroup) {
+                    const seg = builder.segments[idx];
+                    if (!seg) continue;
+                    seg.from = addVec(seg.from, translation);
+                    seg.to = addVec(seg.to, translation);
+                }
+                joints++;
+            }
+            if (!joints) {
+                keyboardStatus.innerText = 'snap chain: no joints to fix';
+                return false;
+            }
+            clearSelectedRangeBend();
+            rocketCacheGeometryDirty = true;
+            applyMapGeometryChange(`snapped ${joints} joint(s) flush across ${ordered.length} segment(s)`);
+            rebuildTunnelSentries();
+            rebuildRocketCaches();
+            return true;
+        }
+
+        // Levels the roll/twist of every selected segment (right/down basis) to
+        // share the first selected segment's cross-section plane, WITHOUT moving
+        // any endpoints — fixes accumulated tilt between sections that don't
+        // actually need repositioning, just re-leveling.
+        function normalizeSelectionToPlane(indices) {
+            if (!Array.isArray(indices) || indices.length < 2) {
+                keyboardStatus.innerText = 'normalize to plane: select 2+ segments first';
+                return false;
+            }
+            const ordered = Array.isArray(mapMouse.selectionPath)
+                ? mapMouse.selectionPath.filter(index => indices.includes(index))
+                : [];
+            for (const index of indices) {
+                if (!ordered.includes(index)) ordered.push(index);
+            }
+            const refIndex = ordered[0];
+            const refSeg = builder.segments[refIndex];
+            if (!refSeg?.down) {
+                keyboardStatus.innerText = 'normalize to plane: reference segment is invalid';
+                return false;
+            }
+            const downRef = normalize(refSeg.down);
+            let changed = 0;
+            for (const index of ordered) {
+                if (index === refIndex) continue;
+                const seg = builder.segments[index];
+                if (!seg?.forward) continue;
+                const flat = subVec(downRef, scaleVec(seg.forward, dot(downRef, seg.forward)));
+                if (Math.hypot(flat.x, flat.y, flat.z) < 0.01) continue;
+                const down = normalize(flat);
+                const right = normalize(cross(down, seg.forward));
+                seg.right = right;
+                seg.down = down;
+                changed++;
+            }
+            if (!changed) {
+                keyboardStatus.innerText =
+                    'normalize to plane: nothing to level (need a 2nd segment not parallel to the reference)';
+                return false;
+            }
+            rocketCacheGeometryDirty = true;
+            applyMapGeometryChange(`normalized ${changed} segment(s) to seg ${refIndex + 1}'s plane`);
             return true;
         }
 
@@ -14873,11 +15042,30 @@
             equalizeAllBtn.addEventListener('click', () => {
                 applyRadiusOnly(builder.segments.map((_, index) => index), true);
             });
+            const snapChainBtn = document.createElement('button');
+            snapChainBtn.type = 'button';
+            snapChainBtn.textContent = 'Snap Chain Joints Flush';
+            snapChainBtn.title = 'Range-select (Alt+Shift+LMB A→B) a touching chain, then weld every joint '
+                + 'exactly flush — fixes sections that are off by a few degrees / a few units.';
+            snapChainBtn.addEventListener('click', () => {
+                if (snapSelectedChainJoints()) closeJoinEditDialog();
+            });
+            const normalizePlaneBtn = document.createElement('button');
+            normalizePlaneBtn.type = 'button';
+            normalizePlaneBtn.textContent = 'Normalize Selection to Plane';
+            normalizePlaneBtn.title = 'Levels every selected segment\'s roll to match the first selected '
+                + 'segment\'s up/down plane, without moving any endpoints.';
+            normalizePlaneBtn.addEventListener('click', () => {
+                if (normalizeSelectionToPlane(indices)) closeJoinEditDialog();
+            });
             const cancelBtn = document.createElement('button');
             cancelBtn.type = 'button';
             cancelBtn.textContent = 'Cancel';
             cancelBtn.addEventListener('click', closeJoinEditDialog);
-            actions.append(applyBtn, roomBtn, junctionBtn, chamberBtn, equalizeAllBtn, cancelBtn);
+            actions.append(
+                applyBtn, roomBtn, junctionBtn, chamberBtn, equalizeAllBtn,
+                snapChainBtn, normalizePlaneBtn, cancelBtn
+            );
             joinEditDialog.appendChild(actions);
             joinEditDialog.style.display = 'block';
             wireDialogInputFocus(
