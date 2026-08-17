@@ -12228,6 +12228,38 @@
             repairBuilderBasis();
         }
 
+        // Ship-proximity snapping (above) can't reliably land the cursor on a
+        // specific rect-room face — flying into a cube and eyeballing "b" only
+        // gives whichever point happens to be nearest. This sets the cursor
+        // precisely at a face's center, aimed outward, so a follow-up T/O press
+        // branches a new corridor straight out of that doorway.
+        function sendBuilderCursorToRoomFace(seg, face) {
+            const center = rectRoomFaceCenter(seg, face);
+            if (!center) return false;
+            let outward;
+            if (face === 'right') outward = seg.right;
+            else if (face === 'left') outward = scaleVec(seg.right, -1);
+            else if (face === 'floor') outward = seg.down;
+            else if (face === 'ceiling') outward = scaleVec(seg.down, -1);
+            else if (face === 'start') outward = scaleVec(seg.forward, -1);
+            else outward = seg.forward;
+            outward = normalize(outward);
+            const upRef = Math.abs(dot(outward, { x: 0, y: 1, z: 0 })) > 0.92
+                ? { x: 0, y: 0, z: 1 }
+                : { x: 0, y: 1, z: 0 };
+            const right = normalize(cross(upRef, outward));
+            const down = normalize(cross(outward, right));
+            builder.cursor = copyVec(center);
+            builder.forward = outward;
+            builder.right = right;
+            builder.down = down;
+            repairBuilderBasis();
+            builderMode = true;
+            keyboardStatus.innerText =
+                `builder cursor sent to ${face} face — press T to branch a new corridor outward`;
+            return true;
+        }
+
         function recoverShipToTunnel() {
             const nearest = nearestTunnelPoint({ x: posX, y: posY, z: posZ });
             if (!nearest) return placeShipAtTunnelStart();
@@ -14816,6 +14848,45 @@
             const openFloorCheck = makeFaceCheck('Open floor', existingRoom?.roomOpenFloor);
             const openCeilingCheck = makeFaceCheck('Open ceiling', existingRoom?.roomOpenCeiling);
             joinEditDialog.appendChild(roomFacesRow);
+
+            if (existingRoom) {
+                const cursorHint = document.createElement('div');
+                cursorHint.className = 'hint';
+                cursorHint.style.color = '#ffbd55';
+                cursorHint.textContent =
+                    'Branch a new corridor off this room: opens the face and sends the builder '
+                    + 'cursor to its center, aimed outward, ready for T/O.';
+                joinEditDialog.appendChild(cursorHint);
+                const cursorRow = document.createElement('div');
+                cursorRow.style.display = 'flex';
+                cursorRow.style.gap = '8px';
+                cursorRow.style.flexWrap = 'wrap';
+                cursorRow.style.margin = '4px 0 10px';
+                const faceButtons = [
+                    ['right', 'Right', openRightCheck],
+                    ['left', 'Left', openLeftCheck],
+                    ['floor', 'Floor', openFloorCheck],
+                    ['ceiling', 'Ceiling', openCeilingCheck]
+                ];
+                for (const [face, label, checkboxRef] of faceButtons) {
+                    const btn = document.createElement('button');
+                    btn.type = 'button';
+                    btn.textContent = `Build from ${label}`;
+                    btn.addEventListener('click', () => {
+                        checkboxRef.checked = true;
+                        if (face === 'right') existingRoom.roomOpenRight = true;
+                        else if (face === 'left') existingRoom.roomOpenLeft = true;
+                        else if (face === 'floor') existingRoom.roomOpenFloor = true;
+                        else existingRoom.roomOpenCeiling = true;
+                        invalidateTunnelSegmentCache();
+                        applyMapGeometryChange(`opened ${face} face`);
+                        sendBuilderCursorToRoomFace(existingRoom, face);
+                        closeJoinEditDialog();
+                    });
+                    cursorRow.appendChild(btn);
+                }
+                joinEditDialog.appendChild(cursorRow);
+            }
 
             let roomRotateColumns = null;
             if (existingRoom) {
