@@ -1,0 +1,201 @@
+==================================================
+          PYTHON DATA STRUCTURES REFERENCE        
+==================================================
+==================================================
+               QUICK CHOICE GUIDE                 
+==================================================
+LIST vs DICT
+
+[] = LIST = ordered, index-based, good for sequences
+    symbols = ['AAPL', 'MSFT', 'NVDA']
+    symbols[0] -> 'AAPL'
+    symbols.append('AMZN')
+    symbols.sort()
+
+{} = DICT = key-based, fast lookup by name
+    trade = {'symbol': 'AAPL', 'pnl': 250.00}
+    trade['symbol'] -> 'AAPL'
+    trade['pnl'] = 500.00
+    trade['new_key'] = value
+
+When to pick which:
+- use a list when you want order, iteration, or a sequence
+- use a dict when you want direct lookup by name/key
+- use list of dicts when you store many records
+- use dict of lists when you group records by category
+
+BIG-O MEMORY RULES
+- one loop -> O(n)
+- loop inside loop -> O(n^2)
+- loop inside loop inside loop -> O(n^3)
+- list search by value -> O(n)
+- dict lookup by key -> O(1) average
+- factorial recursion -> O(n)
+- naive Fibonacci recursion -> O(2^n)
+==================================================
+
+
+--- 2. LISTS OF DICTIONARIES ---
+1. Created list_of_dicts = [{'item': 'Tires', 'price': 499.0}, {'item': 'Air', 'price': 5.0}]
+2. After append dict = [{'item': 'Tires', 'price': 499.0}, {'item': 'Air', 'price': 5.0}, {'item': 'Car', 'price': 15000.0}]
+3. After deleting index 1 = [{'item': 'Tires', 'price': 499.0}, {'item': 'Car', 'price': 15000.0}]
+4. Found 'Car' with price $15000.0
+5. Sorted by price = [{'item': 'Tires', 'price': 499.0}, {'item': 'Car', 'price': 15000.0}]
+
+--- 3. LISTS OF TUPLES ---
+1. Created list_of_tuples = [('Tires', 499.0), ('Air', 5.0)]
+2. After append tuple = [('Tires', 499.0), ('Air', 5.0), ('Car', 15000.0)]
+3. After deleting index 1 = [('Tires', 499.0), ('Car', 15000.0)]
+4. Found target 'Car' with value $15000.0
+5. Sorted by price (index 1) = [('Tires', 499.0), ('Car', 15000.0)]
+
+--- 4. LISTS OF MIXED DATA TYPES ---
+1. Created mixed_list = ['Apple', 45, True, 'Banana', 12]
+2. After insert at index 2 = ['Apple', 45, 'New Element', True, 'Banana', 12]
+3. After popping last item = ['Apple', 45, 'New Element', True, 'Banana']
+4. Successfully found Boolean value True in list
+5. Sorted safely using key=str rule = [45, 'Apple', 'Banana', 'New Element', True]
+
+--- 5. BASIC DICTIONARIES ---
+1. Created basic_dict = {'Car': 15000.0, 'Air': 5.0}
+2. After adding key 'Tires' = {'Car': 15000.0, 'Air': 5.0, 'Tires': 499.0}
+3. After modifying key 'Air' = {'Car': 15000.0, 'Air': 6.5, 'Tires': 499.0}
+4. After popping key 'Air' (Value was 6.5) = {'Car': 15000.0, 'Tires': 499.0}
+5. Key 'Car' found! Value is: 15000.0
+6. Rebuilt dict sorted alphabetically by Keys = {'Car': 15000.0, 'Tires': 499.0}
+
+--- 6. DICTIONARIES OF LISTS ---
+1. Created dict_of_lists = {'fruits': ['Banana', 'Apple'], 'tools': ['Wrench']}
+2. After appending 'Cherry' to 'fruits' list = {'fruits': ['Banana', 'Apple', 'Cherry'], 'tools': ['Wrench']}
+3. After removing 'Banana' from 'fruits' list = {'fruits': ['Apple', 'Cherry'], 'tools': ['Wrench']}
+4. Found 'Apple' inside the 'fruits' list!
+5. After sorting all inner lists alphabetically = {'fruits': ['Apple', 'Cherry'], 'tools': ['Wrench']}
+
+--- 7. DICTIONARIES OF DICTIONARIES ---
+1. Created dict_of_dicts = {'User1': {'name': 'Linda', 'role': 'Admin'}, 'User2': {'name': 'Alex', 'role': 'Guest'}}
+2. After updates = {'User1': {'name': 'Linda', 'role': 'Admin', 'status': 'Active'}, 'User2': {'name': 'Alex', 'role': 'Guest'}, 'User3': {'name': 'Charlie', 'role': 'User'}}
+3. After removing 'role' from User2 = {'User1': {'name': 'Linda', 'role': 'Admin', 'status': 'Active'}, 'User2': {'name': 'Alex'}, 'User3': {'name': 'Charlie', 'role': 'User'}}
+4. Deep Search: Found 'Linda' under the main key 'User1'
+5. Main dict sorted by inner 'name' key = {'User2': {'name': 'Alex'}, 'User3': {'name': 'Charlie', 'role': 'User'}, 'User1': {'name': 'Linda', 'role': 'Admin', 'status': 'Active'}}
+
+--- 8. DICT OF LISTS OF DICTS ---
+1. Created structure = {'August': [{'item': 'Tires', 'price': 499.0}, {'item': 'Air', 'price': 5.0}]}
+2. After adding new item dict to August list = {'August': [{'item': 'Tires', 'price': 499.0}, {'item': 'Air', 'price': 5.0}, {'item': 'Car', 'price': 15000.0}]}
+3. After popping index 1 (Removed {'item': 'Air', 'price': 5.0}) = {'August': [{'item': 'Tires', 'price': 499.0}, {'item': 'Car', 'price': 15000.0}]}
+4. Found record! Cost of Car in August is $15000.0
+5. Inner list sorted by 'price' key = {'August': [{'item': 'Tires', 'price': 499.0}, {'item': 'Car', 'price': 15000.0}]}
+
+--- 9. DICT OF DICTS OF LISTS ---
+1. Created structure = {'2026-08-10': {'AdminActions': ['login', 'backup_db'], 'GuestActions': ['browse']}}
+2. After appending 'logout' to AdminActions = {'2026-08-10': {'AdminActions': ['login', 'backup_db', 'logout'], 'GuestActions': ['browse']}}
+3. After removing 'login' from AdminActions = {'2026-08-10': {'AdminActions': ['backup_db', 'logout'], 'GuestActions': ['browse']}}
+4. Deep Search: Found 'backup_db' action inside 2026-08-10 -> AdminActions
+5. Deepest inner list sorted alphabetically = {'2026-08-10': {'AdminActions': ['backup_db', 'logout'], 'GuestActions': ['browse']}}
+
+--- 10. ACCESS PATTERNS YOU WILL ACTUALLY USE ---
+1. sample_list[0] = AAPL
+2. sample_dict['symbol'] = AAPL
+3. grouped['AAPL'] = [10, 20, 30]
+   grouped['AAPL'][1] = 20
+4. trades[0]['symbol'] = AAPL
+   trades[1]['pnl'] = -10.0
+   ↳ trade['symbol'] = AAPL | pnl = 25.0
+   ↳ trade['symbol'] = MSFT | pnl = -10.0
+   ↳ key = AAPL | values = [10, 20, 30]
+   ↳ key = MSFT | values = [5, 15]
+
+--- 11. LISTS VS DICTS CHEAT CARD ---
+1. Use a LIST when you care about ORDER and POSITION
+   trades = ['AAPL', 'MSFT', 'NVDA']
+   trades[0] -> 'AAPL'
+   trades.append('AMZN')
+   trades.pop(1)
+   trades.sort()
+
+2. Use a DICT when you care about NAMES and LOOKUPS
+   trade = {'symbol': 'AAPL', 'pnl': 250.00}
+   trade['symbol'] -> 'AAPL'
+   trade['pnl'] = 500.00
+   trade.pop('pnl')
+   for key, value in trade.items():
+
+3. Append belongs to LISTS
+   my_list.append('new item')
+   my_list.insert(0, 'first')
+
+4. Direct assignment belongs to DICTS
+   my_dict['new_key'] = value
+   my_dict['symbol'] = 'TSLA'
+
+5. Common trading patterns
+   trades[0]['symbol']       -> dict inside list
+   grouped['AAPL'][0]       -> list inside dict
+   for trade in trades:      -> iterate list of dicts
+   for k, v in grouped.items(): -> iterate dict of lists
+
+6. Memory rule
+   [] = list = position-based
+   {} = dict = key-based
+   append() = list only
+   my_dict['new_key'] = value = dict only
+   pop() works on both, but list uses index/value and dict uses key
+
+--- 12. MAPPING (TRANSFORMING DATA) ---
+Mapping means taking one structure and turning it into another one.
+This is one of the biggest Python 102 / 103 ideas.
+1. trades = [{'symbol': 'AAPL', 'pnl': 120.0}, {'symbol': 'MSFT', 'pnl': -15.0}, {'symbol': 'NVDA', 'pnl': 240.0}, {'symbol': 'AMZN', 'pnl': 50.0}]
+2. pnl_values = [trade['pnl'] for trade in trades] -> [120.0, -15.0, 240.0, 50.0]
+3. winners = [trade for trade in trades if trade['pnl'] > 0] -> [{'symbol': 'AAPL', 'pnl': 120.0}, {'symbol': 'NVDA', 'pnl': 240.0}, {'symbol': 'AMZN', 'pnl': 50.0}]
+4. symbol_to_pnl = {trade['symbol']: trade['pnl'] for trade in trades} -> {'AAPL': 120.0, 'MSFT': -15.0, 'NVDA': 240.0, 'AMZN': 50.0}
+5. profitable_symbols = {trade['symbol'] for trade in trades if trade['pnl'] > 0} -> {'AAPL', 'AMZN', 'NVDA'}
+
+7. Quick rule
+   [x for x in items] -> new list
+   {k: v for item in items} -> new dict
+   if condition -> filter
+   for trade in trades -> iterate list of dicts
+   trade['symbol'] -> access a dict inside a list
+
+--- 13. COMPLEXITY + RECURSION CHEAT CARD ---
+1. One loop -> O(n)
+   for x in items:
+   -> linearly scans the collection
+
+2. Loop inside loop -> O(n^2)
+   for i in items:
+       for j in items:
+   -> each outer step triggers a full inner pass
+
+3. Loop inside loop inside loop -> O(n^3)
+   for i in items:
+       for j in items:
+           for k in items:
+   -> growth blows up fast
+
+4. List search by value -> O(n)
+   if target in my_list:
+   -> Python may walk through the whole list
+
+5. Dict lookup by key -> O(1) average
+   my_dict['AAPL']
+   -> direct hash lookup, usually instant
+
+6. Factorial recursion is a good memory anchor
+   def factorial(n):
+       if n <= 1: return 1
+       return n * factorial(n - 1)
+   -> one recursive call each step -> O(n)
+
+7. Naive Fibonacci recursion is a classic exponential case
+   fib(n) calls fib(n-1) and fib(n-2)
+   -> tree-like branching -> O(2^n)
+
+8. Memory rule
+   list scan = O(n)
+   dict lookup = O(1)
+   nested loops = O(n^2), O(n^3), etc.
+   recursion = depends on branching and depth
+
+==================================================
+            ALL STEPS DEMONSTRATED!               
+==================================================

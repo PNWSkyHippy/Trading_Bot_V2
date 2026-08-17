@@ -1,0 +1,367 @@
+MobaDiff Report
+
+Date/Time: 8/1/2026 - 09:01.54.966
+File 1:    C:\Users\Linda\Trading_Bot_V2\Ron\Code\trades_list.py
+File 2:    C:\Users\Linda\AppData\Roaming\MobaXterm\slash\mx86_64b\RemoteFiles\132838_4_0\trades_list.py
+
+
+
+--------------------------------------------
++ Added line(s) at index 2
+--------------------------------------------
+
+
+
+--------------------------------------------
++ Added line(s) at index 11
+--------------------------------------------
+EQUALSTR = "=" * 128 + "\n"
+
+
+--------------------------------------------
+- Deleted line(s) at index 39
+--------------------------------------------
+EQUALSTR = "=" * 50 + "\n"
+
+
+--------------------------------------------
+~ Modified line(s) at index 50
+--------------------------------------------
+def proc_strat(loc_trade_list, strat_name, output_file):
+
+
+
+--------------------------------------------
++ Added line(s) at index 51
+--------------------------------------------
+def proc_dict(loc_trade_list, strat_name,key,  output_file):
+
+
+--------------------------------------------
+~ Modified line(s) at index 53
+--------------------------------------------
+    counter = 0
+    counter = 1
+
+
+--------------------------------------------
+- Deleted line(s) at index 58
+--------------------------------------------
+    counter = 1
+    prompt_one = ""
+    prompt_two = ""
+    prompt_three = ""
+    prompt_four = ""
+    prompt_five = ""
+
+
+--------------------------------------------
++ Added line(s) at index 65
+--------------------------------------------
+    print_outfile(EQUALSTR, output_file)
+
+    # Search the dict for the provided srtategy name or ALL
+
+
+--------------------------------------------
+~ Modified line(s) at index 69
+--------------------------------------------
+        if trade_dict['strategy_name'] == strat_name  or strat_name == "ALL":
+        if trade_dict[key] == strat_name or strat_name == "ALL":
+
+
+--------------------------------------------
++ Added line(s) at index 72
+--------------------------------------------
+	    # Combine 3 sections onto one line then print it
+
+
+--------------------------------------------
+~ Modified line(s) at index 80
+--------------------------------------------
+                        f'\t{float(trade_dict["entry_price"]):<8.5f}'
+                        f'\t{float(trade_dict["entry_price"]):>8.2f}'
+
+                        f'\t{float(trade_dict["exit_price"]):<8.5f}  '
+                        f'\t{float(trade_dict["exit_price"]):>8.2f}  '
+
+
+--------------------------------------------
+~ Modified line(s) at index 92
+--------------------------------------------
+                        f'\t{trade_dict["entry_price"]:<8.5f}' +
+                        f'\t{trade_dict["entry_price"]:>8.2f}' +
+
+                        f'\t{trade_dict["exit_price"]:<8.5f}' +
+                        f'\t{trade_dict["exit_price"]:>8.2f}' +
+
+
+--------------------------------------------
+- Deleted line(s) at index 100
+--------------------------------------------
+def proc_symbols(loc_trade_list, symbol_name, output_file):
+    counter = 1
+    total_pnl = 0
+    trade_count = 0
+    print_outfile(f'List of {symbol_name} Trades\n', output_file)
+    print_outfile(EQUALSTR, output_file)
+    print_outfile(f'Id:\t\tEntry\t\t\tExit\t\t\tSymbol\t\tDirct\tEntry Price\tExit Price\t PnL\n', output_file)
+    for trade_dict in loc_trade_list:
+        if trade_dict['symbol'] == symbol_name or symbol_name == "ALL":
+            total_pnl += trade_dict["pnl"]
+            trade_count += 1
+            if counter % 3 == 0:
+                print_outfile(
+			f'{trade_dict["trade_id"][-12:]:<7}'
+                        f'\t{trade_dict["entry_time"][0:16]:<10}'
+                        f'\t{trade_dict["exit_time"][0:16]:<10}'
+                        f'\t{trade_dict["symbol"]:<10}'
+                        f'\t{trade_dict["direction"]:<5}'
+                        f'\t{float(trade_dict["entry_price"]):<8.5f}'
+                        f'\t{float(trade_dict["exit_price"]):<8.5f}  '
+                        f'\t{trade_dict["pnl"]: 8.2f}\t\n', output_file
+                    )
+                counter += 1
+            else:
+                print_outfile(
+			f'{trade_dict["trade_id"][-12:]:<7}' +
+                        f'\t{trade_dict["entry_time"][0:16]:<10}' +
+                        f'\t{trade_dict["exit_time"][0:16]:<10}' +
+                        f'\t{trade_dict["symbol"]:<10}' +
+                        f'\t{trade_dict["direction"]:<5}' +
+                        f'\t{trade_dict["entry_price"]:<8.5f}' +
+                        f'\t{trade_dict["exit_price"]:<8.5f}' +
+                        f'\t{trade_dict["pnl"]: 8.2f}\t\n', output_file
+                    )
+                counter += 1
+
+
+--------------------------------------------
++ Added line(s) at index 136
+--------------------------------------------
+def print_col_headers(trades_lst):
+    final_list = ""
+    local_counter = 1
+    for key_lst in trades_lst:
+        for my_key in key_lst:
+            if (local_counter % 5) == 0:
+                final_list +=  f"{my_key:<20}\n"
+                print(final_list)
+                final_list = ""
+            else:
+                final_list +=  f"{my_key:<20}"
+
+
+--------------------------------------------
+~ Modified line(s) at index 148
+--------------------------------------------
+    return trade_count, total_pnl
+            local_counter += 1
+
+
+--------------------------------------------
++ Added line(s) at index 149
+--------------------------------------------
+        return
+
+
+--------------------------------------------
++ Added line(s) at index 154
+--------------------------------------------
+    # Connect to DB and load the trades table into the trades_list dictionary
+
+
+--------------------------------------------
+~ Modified line(s) at index 164
+--------------------------------------------
+    parser = argparse.ArgumentParser(description="List PnL  based on search criteria")
+    # Paese the commandline arguments
+
+
+--------------------------------------------
++ Added line(s) at index 165
+--------------------------------------------
+    parser = argparse.ArgumentParser(description="List PnL  based on search criteria",
+		epilog="Usage:"
+	)
+
+
+--------------------------------------------
+~ Modified line(s) at index 170
+--------------------------------------------
+            "-s","--strategy", 
+            "-1","--list1", 
+
+            help="--strategy ALL or a <comma seperated list of strategies>"
+            help="--list1 ALL or a <comma seperated list of values found in first provided key>"
+
+
+--------------------------------------------
+~ Modified line(s) at index 174
+--------------------------------------------
+            "-t", "--ticker", 
+            "-2", "--list2", 
+
+            help="--ticker ALL or a <Comma seperated list if stock/crypto tickers>"
+            help="--list2r ALL or a <Comma seperated list of valuws found in second providd key>"
+
+
+--------------------------------------------
++ Added line(s) at index 177
+--------------------------------------------
+    parser.add_argument(
+            "-k", "--key", 
+            help="--key ALL or a <Comma seperated list of DB table keys to index and search>"
+    )
+    parser.add_argument(
+            "-N", "--Names",  action='store_true',
+            help="--Names If given prints a list of all trade table  key names  you can use"
+    )
+
+
+--------------------------------------------
+~ Modified line(s) at index 186
+--------------------------------------------
+    if not args.strategy and not args.ticker:
+
+
+
+--------------------------------------------
++ Added line(s) at index 187
+--------------------------------------------
+    if args.Names:
+        print_col_headers(trades_list)
+        sys.exit(2)
+
+    if not args.list1 and not args.list2 and not (len(args.key) == 2):
+
+
+--------------------------------------------
+~ Modified line(s) at index 195
+--------------------------------------------
+            "\nError: provide --strategy, --ticker, or both.\n"
+            "\nError: provide --key key1,key2 and (--list1 (ALL) or --list2 (ALL)or both).\n"
+
+
+--------------------------------------------
+~ Modified line(s) at index 200
+--------------------------------------------
+    strat_list = args.strategy.split(",") if args.strategy else []
+    strat_list = args.list1.split(",") if args.list1 else []
+
+    ticker_list = args.ticker.split(",") if args.ticker else []
+    ticker_list = args.list2.split(",") if args.list2 else []
+
+
+--------------------------------------------
++ Added line(s) at index 202
+--------------------------------------------
+    key_list  = args.key.split(",") if args.key else ["None"]
+
+
+--------------------------------------------
+~ Modified line(s) at index 204
+--------------------------------------------
+    dict_of_trades_by_strat = {}
+    dict_of_trades_by_list1 = {}
+
+
+--------------------------------------------
++ Added line(s) at index 205
+--------------------------------------------
+    dict_of_trades_by_list2 = {}
+    key1 = key_list[0]
+    key2 = key_list[1]
+
+
+--------------------------------------------
+~ Modified line(s) at index 209
+--------------------------------------------
+        strat_name = trade["strategy_name"]
+        strat_name = trade[key1]
+
+        dict_of_trades_by_strat.setdefault(strat_name, []).append(copy.deepcopy(trade)) # Deep copy of trade
+        dict_of_trades_by_list1.setdefault(strat_name, []).append(copy.deepcopy(trade)) # Deep copy of trade
+
+
+--------------------------------------------
+~ Modified line(s) at index 212
+--------------------------------------------
+    for strat in dict_of_trades_by_strat:
+    for strat in dict_of_trades_by_list1:
+
+
+--------------------------------------------
+~ Modified line(s) at index 214
+--------------------------------------------
+        trade_list = dict_of_trades_by_strat[strat]
+        trade_list = dict_of_trades_by_list1[strat]
+
+        strat_name = trade_list[0]["strategy_name"]
+        strat_name = trade_list[0][key1]
+
+
+--------------------------------------------
+- Deleted line(s) at index 216
+--------------------------------------------
+
+
+
+--------------------------------------------
+~ Modified line(s) at index 218
+--------------------------------------------
+             trade_count, total_pnl = proc_strat(trade_list, strat_name, output_file)
+             trade_count, total_pnl = proc_dict(trade_list, strat_name, key1, output_file)
+
+
+--------------------------------------------
+- Deleted line(s) at index 223
+--------------------------------------------
+    dict_of_trades_by_symbol = {}
+    for trade in trades_list:
+        symbol_name = trade["symbol"]
+        dict_of_trades_by_symbol.setdefault(symbol_name, []).append(trade)
+
+
+--------------------------------------------
+~ Modified line(s) at index 229
+--------------------------------------------
+    for symbol in dict_of_trades_by_symbol:
+    for trade in trades_list:
+
+
+--------------------------------------------
++ Added line(s) at index 230
+--------------------------------------------
+        symbol_name = trade[key2]
+        dict_of_trades_by_list2.setdefault(symbol_name, []).append(trade)
+
+
+--------------------------------------------
+~ Modified line(s) at index 234
+--------------------------------------------
+        trade_list = dict_of_trades_by_symbol[symbol]
+    for symbol in dict_of_trades_by_list2:
+
+        symbol_name = trade_list[0]["symbol"]
+
+
+
+--------------------------------------------
++ Added line(s) at index 236
+--------------------------------------------
+        trade_list = dict_of_trades_by_list2[symbol]
+        symbol_name = trade_list[0][key2]
+
+
+--------------------------------------------
+~ Modified line(s) at index 239
+--------------------------------------------
+            trade_count, total_pnl = proc_symbols(trade_list, symbol_name, output_file)
+            trade_count, total_pnl = proc_dict(trade_list, symbol_name,key2,  output_file)
+
+
+--------------------------------------------
+- Deleted line(s) at index 243
+--------------------------------------------
+
