@@ -3641,6 +3641,11 @@ def get_quick_status(year=None):
         status["tax"] = {}
 
     try:
+        status["expenses"] = db.get_expense_summary(year) if db is not None else {}
+    except Exception:
+        status["expenses"] = {}
+
+    try:
         from intelligence.condition_detector import condition_detector
         from scanners.market_scanner import scanner
         cond = condition_detector.get_spy_condition(scanner.stock_scanner)
@@ -3701,6 +3706,27 @@ def process_withdrawal(amount, reason):
         return bool(result.get("approved")), result.get("message", "Withdrawal processed."), result
     except Exception as exc:
         return False, f"Withdrawal failed: {exc}", {}
+
+
+def record_expense(expense_date, category, amount, description, vendor, recurring):
+    try:
+        amount = float(amount or 0)
+        if amount <= 0:
+            return False, "Amount must be greater than 0.", {}
+        if not description:
+            return False, "Description is required.", {}
+        category = str(category or "OTHER").upper()
+        if category not in db.EXPENSE_CATEGORIES:
+            category = "OTHER"
+        expense_date = str(expense_date or date.today().isoformat())
+        expense_id = db.record_expense(
+            expense_date, category, amount, str(description),
+            vendor=str(vendor) if vendor else None,
+            recurring=bool(recurring),
+        )
+        return True, f"Expense recorded: ${amount:.2f} ({category}).", {"id": expense_id}
+    except Exception as exc:
+        return False, f"Expense recording failed: {exc}", {}
 
 
 def retrain_ml():
@@ -5841,6 +5867,13 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/api/withdrawal":
             ok, msg, details = process_withdrawal(data.get("amount"), data.get("reason"))
+            return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
+
+        if path == "/api/expense":
+            ok, msg, details = record_expense(
+                data.get("expense_date"), data.get("category"), data.get("amount"),
+                data.get("description"), data.get("vendor"), data.get("recurring"),
+            )
             return self._json(200 if ok else 400, {"ok": ok, "message": msg, **details})
 
         if path == "/api/ml/retrain":
