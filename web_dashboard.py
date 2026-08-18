@@ -3532,24 +3532,38 @@ def get_overview_data():
     closed_today_pnl = sum(float(trade.get("pnl") or 0) for trade in closed_today)
 
     daily_summaries = db.get_daily_summaries(370) or []
-    daily_perf = [
-        {
-            "date":            s.get("trade_date"),
-            "trades":          int(s.get("total_trades") or 0),
-            "wins":            int(s.get("winning_trades") or 0),
-            "losses":          int(s.get("losing_trades") or 0),
-            "win_rate":        float(s.get("win_rate") or 0),
-            "pnl":             float(s.get("daily_pnl") or 0),
-            "fees_paid":       float(s.get("fees_paid") or 0),
-            "net_pnl":         float(s.get("daily_pnl") or 0) - float(s.get("fees_paid") or 0),
-            "pnl_pct":         float(s.get("daily_pnl_pct") or 0),
-            "start_capital":   float(s.get("starting_capital") or 0),
+    # trades/wins/losses/win_rate/pnl/fees are recomputed live from `trades`
+    # rather than trusting daily_summaries' stored columns: that row is a
+    # snapshot frozen at whatever moment bot_engine's _end_of_day() last ran
+    # for that date, so any later trade correction/removal or late-settling
+    # close (crypto runs past stock-market EOD) leaves it stale — drifting
+    # from a live "sum(pnl) WHERE date(exit_time)=..." query by a different
+    # amount per day. start_capital/capital (ending) stay from the snapshot
+    # since those are genuine point-in-time facts, not derivable from trades.
+    daily_perf = []
+    for s in daily_summaries:
+        trade_date = s.get("trade_date")
+        day_trades = [t for t in db.get_trades_for_date(trade_date) if t.get("status") == "closed"]
+        wins   = [t for t in day_trades if (t.get("pnl", 0) or 0) > 0]
+        losses = [t for t in day_trades if (t.get("pnl", 0) or 0) <= 0]
+        gross  = sum((t.get("pnl", 0) or 0) for t in day_trades)
+        fees   = sum((t.get("fees_paid", 0) or 0) for t in day_trades)
+        start_capital = float(s.get("starting_capital") or 0)
+        daily_perf.append({
+            "date":            trade_date,
+            "trades":          len(day_trades),
+            "wins":            len(wins),
+            "losses":          len(losses),
+            "win_rate":        (len(wins) / len(day_trades) * 100) if day_trades else 0.0,
+            "pnl":             gross,
+            "fees_paid":       fees,
+            "net_pnl":         gross - fees,
+            "pnl_pct":         (gross / start_capital * 100) if start_capital else 0.0,
+            "start_capital":   start_capital,
             "capital":         float(s.get("ending_capital") or 0),
             "goal_met":        bool(s.get("goal_met")),
             "trading_halted":  bool(s.get("trading_halted")),
-        }
-        for s in daily_summaries
-    ]
+        })
 
     capital_history = [
         {

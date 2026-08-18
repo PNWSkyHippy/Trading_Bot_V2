@@ -896,11 +896,26 @@ xout_summaries = db.get_daily_summaries(30)
 if xout_summaries:
     xout_data = []
     running_net = 0.0
+    all_gross = 0.0
+    all_fees  = 0.0
     for s in reversed(xout_summaries):   # oldest → newest for running total
-        gross  = s.get("daily_pnl", 0) or 0
-        fees   = s.get("fees_paid", 0) or 0
-        net    = gross - fees
+        # Gross/fees/W-L/win% are recomputed live from trades rather than
+        # trusting daily_summaries' stored snapshot: that row is frozen at
+        # whatever moment _end_of_day() last ran for that date, so any later
+        # trade correction/removal or late-settling close leaves it stale
+        # (mismatched against a live "sum(pnl) WHERE date(exit_time)=..."
+        # query by a different amount every day). Start/End Capital stay
+        # from the snapshot since those are genuine point-in-time facts.
+        day_trades = [t for t in db.get_trades_for_date(s["trade_date"]) if t.get("status") == "closed"]
+        wins       = [t for t in day_trades if (t.get("pnl", 0) or 0) > 0]
+        losses     = [t for t in day_trades if (t.get("pnl", 0) or 0) <= 0]
+        gross      = sum((t.get("pnl", 0) or 0) for t in day_trades)
+        fees       = sum((t.get("fees_paid", 0) or 0) for t in day_trades)
+        win_rate   = (len(wins) / len(day_trades) * 100) if day_trades else 0
+        net        = gross - fees
         running_net += net
+        all_gross += gross
+        all_fees  += fees
         xout_data.append({
             "Date":        s["trade_date"],
             "Start Cap":   f"${s.get('starting_capital', 0):,.2f}",
@@ -908,8 +923,8 @@ if xout_summaries:
             "Fees":        f"-${abs(fees):.2f}",
             "Net P&L":     f"${net:+.2f}",
             "End Cap":     f"${s.get('ending_capital', 0):,.2f}",
-            "W / L":       f"{s.get('winning_trades',0)}W / {s.get('losing_trades',0)}L",
-            "Win %":       f"{s.get('win_rate', 0):.1f}%",
+            "W / L":       f"{len(wins)}W / {len(losses)}L",
+            "Win %":       f"{win_rate:.1f}%",
             "Goal":        "✅" if s.get("goal_met") else "❌",
             "Halted":      "⚠️" if s.get("trading_halted") else "",
         })
@@ -919,8 +934,6 @@ if xout_summaries:
     st.dataframe(xout_df, width='stretch', hide_index=True)
 
     # Totals row beneath table
-    all_gross  = sum((s.get("daily_pnl",  0) or 0) for s in xout_summaries)
-    all_fees   = sum((s.get("fees_paid",  0) or 0) for s in xout_summaries)
     all_net    = all_gross - all_fees
     tot_c1, tot_c2, tot_c3, tot_c4 = st.columns(4)
     tot_c1.metric("30-Day Gross P&L", f"${all_gross:+,.2f}")
