@@ -885,6 +885,15 @@ class Database:
             ).fetchone()
             return float(row["starting_capital_today"] or 0.0) if row else 0.0
 
+    def record_consecutive_result(self, trade_won: bool):
+        """Update session_state.consecutive_losses the same way every strategy does:
+        reset to 0 on a win, +1 on a loss."""
+        today = date.today().isoformat()
+        session = self.get_session(today)
+        current_losses = int(session.get("consecutive_losses") or 0)
+        new_losses = 0 if trade_won else current_losses + 1
+        self.update_session(today, consecutive_losses=new_losses)
+
     def reset_session_state(self):
         today = date.today().isoformat()
         self.update_session(today,
