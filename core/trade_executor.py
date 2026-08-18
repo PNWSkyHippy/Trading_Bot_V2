@@ -1330,6 +1330,7 @@ class TradeExecutor:
         broker      = trade.get("broker", "alpaca")
 
         success = False
+        terminal = None
         if asset_class == "stock":
             if broker == "ibkr" and self._ibkr is not None:
                 success = self._ibkr.close_position(symbol)
@@ -1468,6 +1469,29 @@ class TradeExecutor:
         _fixed_cap   = 15.0 if asset_class == "stock" else 60.0
         max_sane_pct = max(_fixed_cap, config.DEFAULT_STOP_LOSS_PCT * 3)
         if abs(pnl_pct) > max_sane_pct:
+            if (
+                asset_class == "crypto"
+                and not config.KRAKEN_PAPER_MODE
+                and terminal is not None
+            ):
+                reason = "confirmed full fill exceeds P&L sanity cap"
+                self._persist_kraken_full_reconcile(trade, qty, terminal, reason)
+                logger.critical(
+                    "[KRAKEN FULL HOLD] %s: %s; local accounting withheld",
+                    symbol,
+                    reason,
+                )
+                try:
+                    self._risk_manager.manual_halt(
+                        f"Kraken full close requires reconciliation for {symbol}: {reason}"
+                    )
+                except Exception as exc:
+                    logger.critical(
+                        "[KRAKEN FULL HOLD] %s: risk halt failed: %s",
+                        symbol,
+                        exc,
+                    )
+                return False
             logger.warning(
                 f"[PNL SANITY] {symbol}: pnl_pct={pnl_pct:.2f}% exceeds cap "
                 f"({max_sane_pct:.1f}%). Bad price feed suspected — "
