@@ -1818,7 +1818,7 @@ class TradeExecutor:
                     symbol, "kraken"
                 )
                 close_leverage = min(desired_lev, max_lev) if max_lev > 1 else 0
-            broker_result = self.kraken.close_partial_position(
+            broker_result = self.kraken.close_scanner_partial(
                 symbol, close_qty, side, leverage=close_leverage
             )
         else:
