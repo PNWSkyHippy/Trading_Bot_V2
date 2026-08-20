@@ -2235,7 +2235,13 @@
             for (let i = 0; i < builder.segments.length; i++) {
                 const seg = builder.segments[i];
                 if (!seg?.from || !seg?.to) continue;
-                if (segmentIsChamber(seg) || segmentIsRectRoom(seg)) continue; // rooms already cover their volume
+                // Chamber spheres cover their own volume, but a rect-room's box does
+                // NOT cover the seam to its neighbor when two independently-oriented
+                // boxes (or a box and a tube) meet with any drift — same wedge-gap
+                // problem as tube-tube joints, just unnoticed until rooms started
+                // getting chained end-to-end as corridors. Give room endpoints a
+                // bubble too instead of requiring perfect alignment.
+                if (segmentIsChamber(seg)) continue;
                 const r = seg.radius || builder.radius;
                 pts.push({ p: seg.from, r, i });
                 pts.push({ p: seg.to, r, i });
@@ -14179,7 +14185,11 @@
                 endpoints.push({ index, seg, endKind: 'to', point: seg.to });
             }
             if (endpoints.length < 4) {
-                keyboardStatus.innerText = 'select 2-4 corridors whose ends meet at one point first';
+                const distinctCount = new Set(indices).size;
+                keyboardStatus.innerText = distinctCount <= 1
+                    ? `select 2-4 corridors meeting at one point first (only ${distinctCount} segment selected — `
+                        + 'multi-select the other arm(s) too before pressing V)'
+                    : 'select 2-4 corridors whose ends meet at one point first';
                 return false;
             }
             const tolSq = JUNCTION_SNAP_TOL * JUNCTION_SNAP_TOL;
@@ -14222,25 +14232,44 @@
                 : { x: 0, y: 1, z: 0 };
             const right = normalize(cross(upRef, forward));
             const down = normalize(cross(forward, right));
+            // Nearest-axis classification instead of a hard 0.9-dot cutoff: a
+            // corridor a few degrees off perfect 90° still picks the closest
+            // face rather than getting hard-rejected — JUNCTION_AXIS_FLOOR is
+            // just a sanity floor to reject genuinely-diagonal selections.
+            const JUNCTION_AXIS_FLOOR = 0.5;
+            const faceAxisCandidates = [
+                ['start', forward],
+                ['end', scaleVec(forward, -1)],
+                ['left', right],
+                ['right', scaleVec(right, -1)],
+                ['ceiling', down],
+                ['floor', scaleVec(down, -1)]
+            ];
             const faceFor = (dir) => {
-                const df = dot(dir, forward);
-                const dr = dot(dir, right);
-                const dd = dot(dir, down);
-                if (df >= JUNCTION_AXIS_DOT) return 'start';
-                if (df <= -JUNCTION_AXIS_DOT) return 'end';
-                if (dr >= JUNCTION_AXIS_DOT) return 'left';
-                if (dr <= -JUNCTION_AXIS_DOT) return 'right';
-                if (dd >= JUNCTION_AXIS_DOT) return 'ceiling';
-                if (dd <= -JUNCTION_AXIS_DOT) return 'floor';
-                return null;
+                let bestFace = null;
+                let bestDot = -Infinity;
+                for (const [face, axis] of faceAxisCandidates) {
+                    const d = dot(dir, axis);
+                    if (d > bestDot) { bestDot = d; bestFace = face; }
+                }
+                return bestDot >= JUNCTION_AXIS_FLOOR ? bestFace : null;
             };
             for (const arm of arms) {
                 arm.face = faceFor(arm.dir);
                 if (!arm.face) {
                     keyboardStatus.innerText =
-                        'corridors must meet at ~90° angles to make a junction cube';
+                        'corridors must meet at roughly 90° angles to make a junction cube';
                     return false;
                 }
+            }
+            const usedFaces = new Set();
+            for (const arm of arms) {
+                if (usedFaces.has(arm.face)) {
+                    keyboardStatus.innerText =
+                        `two corridors both point toward the cube's ${arm.face} face — angle them apart first`;
+                    return false;
+                }
+                usedFaces.add(arm.face);
             }
 
             let maxMouth = 0;
@@ -14297,10 +14326,23 @@
                 else if (arm.face === 'floor') cube.roomOpenFloor = true;
                 else cube.roomOpenCeiling = true;
             }
-            // Butt each corridor flush against its doorway.
+            // Butt each corridor flush against its doorway AND hard-snap its
+            // direction to the cube's exact face normal: the near end lands on
+            // the face center, and the FAR end is recomputed along that exact
+            // axis (preserving the corridor's original length) instead of being
+            // left wherever it originally was — any pre-existing angular error
+            // is resolved by twisting the far end into place, not left crooked.
+            const faceOutward = {
+                start: scaleVec(forward, -1), end: forward,
+                left: scaleVec(right, -1), right,
+                ceiling: scaleVec(down, -1), floor: down
+            };
             for (const arm of arms) {
                 const faceCenter = rectRoomFaceCenter(cube, arm.face);
+                const farEndKind = arm.endKind === 'from' ? 'to' : 'from';
+                const length = Math.sqrt(distanceSq(arm.seg.from, arm.seg.to));
                 arm.seg[arm.endKind] = copyVec(faceCenter);
+                arm.seg[farEndKind] = addVec(faceCenter, scaleVec(faceOutward[arm.face], length));
                 normalizeSegmentFromEndpoints(arm.seg);
             }
 
@@ -14328,13 +14370,22 @@
         // which end ('from'/'to') of each segment is the one touching its neighbor.
         function orderedChainTouchEnds(ordered) {
             if (!Array.isArray(ordered) || ordered.length < 2) return null;
-            const touchTol = Math.max(24, builder.radius * 0.72);
-            const touchSq = touchTol * touchTol;
             const info = ordered.map(() => ({ prevEnd: null, nextEnd: null }));
             for (let k = 0; k < ordered.length - 1; k++) {
                 const a = builder.segments[ordered[k]];
                 const b = builder.segments[ordered[k + 1]];
                 if (!a?.from || !a?.to || !b?.from || !b?.to) return null;
+                // Scale acceptance per-pair off the segments' own radius, not the
+                // live builder-tool radius: rect-rooms carry a much larger radius
+                // than tubes, and a hand-placed room-to-room seam can drift far
+                // more (seen up to ~130u in real maps) than a tube joint ever
+                // does. The user already hand-picked this pair as one ordered,
+                // connected run via range-select, so being generous about what
+                // still counts as "the same joint" is safe here.
+                const aRadius = a.radius || builder.radius;
+                const bRadius = b.radius || builder.radius;
+                const touchTol = Math.max(24, Math.max(aRadius, bRadius) * 2.5);
+                const touchSq = touchTol * touchTol;
                 const candidates = [
                     ['to', 'from', distanceSq(a.to, b.from)],
                     ['to', 'to', distanceSq(a.to, b.to)],
@@ -14431,6 +14482,117 @@
             clearSelectedRangeBend();
             rocketCacheGeometryDirty = true;
             applyMapGeometryChange(`snapped ${joints} joint(s) flush across ${ordered.length} segment(s)`);
+            rebuildTunnelSentries();
+            rebuildRocketCaches();
+            return true;
+        }
+
+        // BFS-collects every segment (other than `excludeIndices`) whose from/to
+        // lies within radius-scaled tolerance of `point`, chasing further links
+        // from each found segment's far end too — so a rigid transform anchored
+        // at `point` can carry a whole previously-welded sub-chain along with it
+        // instead of leaving it behind mid-air.
+        function collectTouchingSegmentIndices(point, excludeIndices) {
+            const excluded = new Set(excludeIndices);
+            const found = [];
+            const frontier = [point];
+            const visited = [];
+            const closeEnough = (p, q, tol) => distanceSq(p, q) <= tol * tol;
+            while (frontier.length) {
+                const p = frontier.pop();
+                if (visited.some(v => closeEnough(v, p, 1))) continue;
+                visited.push(p);
+                for (let idx = 0; idx < builder.segments.length; idx++) {
+                    if (excluded.has(idx)) continue;
+                    const seg = builder.segments[idx];
+                    if (!seg?.from || !seg?.to) continue;
+                    const radius = seg.radius || builder.radius;
+                    const tol = Math.max(24, radius * 2.5);
+                    let touchedEnd = null;
+                    if (closeEnough(seg.from, p, tol)) touchedEnd = 'from';
+                    else if (closeEnough(seg.to, p, tol)) touchedEnd = 'to';
+                    if (!touchedEnd) continue;
+                    excluded.add(idx);
+                    found.push(idx);
+                    frontier.push(seg[touchedEnd === 'from' ? 'to' : 'from']);
+                }
+            }
+            return found;
+        }
+
+        // Aligns two arbitrary, not-necessarily-touching endpoints: `indices[0]`
+        // (the first-selected segment) stays fixed and supplies the target point
+        // + outward direction; the closest end of `indices[1]` is stretched onto
+        // that exact point and twisted to match its angle, pivoting on ITS OWN
+        // far end (which does not move). Anything still touching the moving
+        // end's old position — e.g. a joint made by a previous align call —
+        // rides along rigidly so this can never disconnect an earlier weld.
+        function alignSelectedEndpoints(indices) {
+            if (!Array.isArray(indices) || indices.length !== 2) {
+                keyboardStatus.innerText = 'align endpoints: select exactly 2 segments (target first, then the one to move)';
+                return false;
+            }
+            const [aIndex, bIndex] = indices;
+            const segA = builder.segments[aIndex];
+            const segB = builder.segments[bIndex];
+            if (!segA?.from || !segA?.to || !segB?.from || !segB?.to) {
+                keyboardStatus.innerText = 'align endpoints: invalid segment selection';
+                return false;
+            }
+            const candidates = [
+                ['from', 'from', distanceSq(segA.from, segB.from)],
+                ['from', 'to', distanceSq(segA.from, segB.to)],
+                ['to', 'from', distanceSq(segA.to, segB.from)],
+                ['to', 'to', distanceSq(segA.to, segB.to)]
+            ];
+            candidates.sort((x, y) => x[2] - y[2]);
+            const [aEnd, bEnd] = candidates[0];
+            const bPivotEnd = bEnd === 'from' ? 'to' : 'from';
+
+            const targetPoint = copyVec(segA[aEnd]);
+            const aOutward = aEnd === 'to' ? segA.forward : scaleVec(segA.forward, -1);
+            const targetOutward = scaleVec(aOutward, -1);
+            const targetForwardHint = bEnd === 'to' ? targetOutward : scaleVec(targetOutward, -1);
+
+            const targetFrame = orthonormalFrame(targetForwardHint, segA.right);
+            const curFrame = orthonormalFrame(segB.forward, segB.right);
+            const rotateVec = (w) => addVec(
+                addVec(
+                    scaleVec(targetFrame.right, dot(w, curFrame.right)),
+                    scaleVec(targetFrame.down, dot(w, curFrame.down))
+                ),
+                scaleVec(targetFrame.forward, dot(w, curFrame.forward))
+            );
+
+            const pivot = copyVec(segB[bPivotEnd]);
+            const oldMovingPoint = copyVec(segB[bEnd]);
+            const group = collectTouchingSegmentIndices(oldMovingPoint, [aIndex, bIndex]);
+            group.unshift(bIndex);
+
+            for (const idx of group) {
+                const seg = builder.segments[idx];
+                if (!seg) continue;
+                seg.forward = normalize(rotateVec(seg.forward));
+                seg.right = normalize(rotateVec(seg.right));
+                seg.down = normalize(rotateVec(seg.down));
+                seg.from = addVec(pivot, rotateVec(subVec(seg.from, pivot)));
+                seg.to = addVec(pivot, rotateVec(subVec(seg.to, pivot)));
+            }
+
+            const translation = subVec(targetPoint, builder.segments[bIndex][bEnd]);
+            for (const idx of group) {
+                const seg = builder.segments[idx];
+                if (!seg) continue;
+                seg.from = addVec(seg.from, translation);
+                seg.to = addVec(seg.to, translation);
+            }
+
+            clearSelectedRangeBend();
+            rocketCacheGeometryDirty = true;
+            applyMapGeometryChange(
+                `aligned segment ${bIndex + 1}'s end onto segment ${aIndex + 1}` +
+                (group.length > 1 ? ` (+${group.length - 1} attached)` : '')
+            );
             rebuildTunnelSentries();
             rebuildRocketCaches();
             return true;
@@ -15129,13 +15291,23 @@
             normalizePlaneBtn.addEventListener('click', () => {
                 if (normalizeSelectionToPlane(indices)) closeJoinEditDialog();
             });
+            const alignEndpointsBtn = document.createElement('button');
+            alignEndpointsBtn.type = 'button';
+            alignEndpointsBtn.textContent = 'Align Endpoints';
+            alignEndpointsBtn.title = 'Select 2 segments (target FIRST, then the one to move). Stretches + '
+                + 'twists the moving segment\'s near end exactly onto the target\'s, pivoting on its own far '
+                + 'end. Works even if the two ends are not touching or are off by any angle. Anything still '
+                + 'attached at the moving end from a prior align rides along, so nothing gets disconnected.';
+            alignEndpointsBtn.addEventListener('click', () => {
+                if (alignSelectedEndpoints(indices)) closeJoinEditDialog();
+            });
             const cancelBtn = document.createElement('button');
             cancelBtn.type = 'button';
             cancelBtn.textContent = 'Cancel';
             cancelBtn.addEventListener('click', closeJoinEditDialog);
             actions.append(
                 applyBtn, roomBtn, junctionBtn, chamberBtn, equalizeAllBtn,
-                snapChainBtn, normalizePlaneBtn, cancelBtn
+                snapChainBtn, normalizePlaneBtn, alignEndpointsBtn, cancelBtn
             );
             joinEditDialog.appendChild(actions);
             joinEditDialog.style.display = 'block';
