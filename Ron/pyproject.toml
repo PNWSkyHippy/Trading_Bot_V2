@@ -1,0 +1,4 @@
+[tool.black]
+line-length = 50	
+target-version = ['py312']
+include = '\.pyi?$'
