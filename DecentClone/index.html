@@ -298,7 +298,11 @@
             transform: translate(-50%, -50%);
             width: min(460px, calc(100vw - 32px));
             max-height: min(720px, calc(100vh - 32px));
+            min-width: 260px;
+            min-height: 140px;
+            max-width: calc(100vw - 20px);
             overflow: auto;
+            resize: both;
             color: #d7fff8;
             background: rgba(2, 10, 20, 0.96);
             border: 1px solid #33a8ff;
@@ -309,7 +313,7 @@
             padding: 14px;
             display: none;
         }
-        #join-edit-dialog h3 { margin: 0 0 8px; color: #33a8ff; }
+        #join-edit-dialog h3 { margin: 0 0 8px; color: #33a8ff; cursor: move; user-select: none; }
         #join-edit-dialog .join-grid {
             display: grid;
             grid-template-columns: 32px 1fr;
@@ -13824,6 +13828,106 @@
             closeJoinEditDialog();
         }
 
+        // Every "V" dialog (segment style, portal, target, sentry, route segment, rocket
+        // cache, ...) reuses this same #join-edit-dialog element and just swaps its
+        // innerHTML, so wiring drag/resize once here covers all of them for free.
+        const JOIN_DIALOG_GEOMETRY_STORAGE_KEY = 'astralDrift.joinDialogGeometry';
+        (() => {
+            const DRAG_IGNORE_SELECTOR = 'input, select, textarea, button, label, a, canvas';
+            const RESIZE_GRIP_PX = 18;
+            let dragging = false;
+            let dragMoved = false;
+            let dragStartX = 0;
+            let dragStartY = 0;
+            let startLeft = 0;
+            let startTop = 0;
+            let saveTimer = null;
+
+            const useExplicitPosition = () => {
+                if (joinEditDialog.dataset.positioned === 'true') return;
+                const rect = joinEditDialog.getBoundingClientRect();
+                joinEditDialog.style.transform = 'none';
+                joinEditDialog.style.left = `${rect.left}px`;
+                joinEditDialog.style.top = `${rect.top}px`;
+                joinEditDialog.dataset.positioned = 'true';
+            };
+
+            const saveGeometry = () => {
+                try {
+                    const rect = joinEditDialog.getBoundingClientRect();
+                    localStorage.setItem(JOIN_DIALOG_GEOMETRY_STORAGE_KEY, JSON.stringify({
+                        left: Math.round(rect.left),
+                        top: Math.round(rect.top),
+                        width: Math.round(rect.width),
+                        height: Math.round(rect.height)
+                    }));
+                } catch {}
+            };
+
+            joinEditDialog.addEventListener('pointerdown', (ev) => {
+                if (ev.target.closest(DRAG_IGNORE_SELECTOR)) return;
+                const rect = joinEditDialog.getBoundingClientRect();
+                // Leave the bottom-right corner alone -- that is the native CSS
+                // resize grip, and capturing the pointer here would break it.
+                if (ev.clientX >= rect.right - RESIZE_GRIP_PX && ev.clientY >= rect.bottom - RESIZE_GRIP_PX) return;
+                dragging = true;
+                dragMoved = false;
+                useExplicitPosition();
+                dragStartX = ev.clientX;
+                dragStartY = ev.clientY;
+                startLeft = rect.left;
+                startTop = rect.top;
+                joinEditDialog.setPointerCapture(ev.pointerId);
+                ev.preventDefault();
+            });
+
+            joinEditDialog.addEventListener('pointermove', (ev) => {
+                if (!dragging) return;
+                const dx = ev.clientX - dragStartX;
+                const dy = ev.clientY - dragStartY;
+                if (!dragMoved && Math.abs(dx) < 3 && Math.abs(dy) < 3) return;
+                dragMoved = true;
+                const rect = joinEditDialog.getBoundingClientRect();
+                const left = Math.max(-rect.width + 60, Math.min(startLeft + dx, window.innerWidth - 60));
+                const top = Math.max(0, Math.min(startTop + dy, window.innerHeight - 40));
+                joinEditDialog.style.left = `${left}px`;
+                joinEditDialog.style.top = `${top}px`;
+            });
+
+            const endDrag = (ev) => {
+                if (!dragging) return;
+                dragging = false;
+                try { joinEditDialog.releasePointerCapture(ev.pointerId); } catch {}
+                if (dragMoved) saveGeometry();
+            };
+            joinEditDialog.addEventListener('pointerup', endDrag);
+            joinEditDialog.addEventListener('pointercancel', endDrag);
+
+            if (window.ResizeObserver) {
+                new ResizeObserver(() => {
+                    if (joinEditDialog.style.display === 'none') return;
+                    clearTimeout(saveTimer);
+                    saveTimer = setTimeout(saveGeometry, 150);
+                }).observe(joinEditDialog);
+            }
+
+            try {
+                const saved = JSON.parse(localStorage.getItem(JOIN_DIALOG_GEOMETRY_STORAGE_KEY) || 'null');
+                if (saved && Number.isFinite(saved.left) && Number.isFinite(saved.top)) {
+                    joinEditDialog.style.transform = 'none';
+                    joinEditDialog.style.left = `${Math.min(Math.max(saved.left, 0), window.innerWidth - 60)}px`;
+                    joinEditDialog.style.top = `${Math.min(Math.max(saved.top, 0), window.innerHeight - 40)}px`;
+                    joinEditDialog.dataset.positioned = 'true';
+                    if (Number.isFinite(saved.width) && saved.width >= 260) {
+                        joinEditDialog.style.width = `${saved.width}px`;
+                    }
+                    if (Number.isFinite(saved.height) && saved.height >= 140) {
+                        joinEditDialog.style.height = `${saved.height}px`;
+                    }
+                }
+            } catch {}
+        })();
+
         function selectedSegmentIndices() {
             const indices = [...mapMouse.selection]
                 .filter(index => index >= 0 && index < builder.segments.length);
@@ -14906,7 +15010,10 @@
             joinEditDialog.appendChild(capEndRow);
 
             const lockedRow = document.createElement('label');
-            lockedRow.className = 'hint';
+            lockedRow.style.display = 'block';
+            lockedRow.style.margin = '10px 0 2px';
+            lockedRow.style.color = '#e6f1ee';
+            lockedRow.style.fontWeight = 'bold';
             const lockedCheck = document.createElement('input');
             lockedCheck.type = 'checkbox';
             lockedCheck.checked = currentLocked;
