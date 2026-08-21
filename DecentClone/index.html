@@ -11108,12 +11108,7 @@
         }
 
         function nearestTunnelPoint(point, preferredIndex = null, options = {}) {
-            let best = null;
-            let preferred = null;
-            let bestContaining = null;
-            const candidates = [];
-            for (let i = 0; i < builder.segments.length; i++) {
-                const seg = builder.segments[i];
+            const segmentDistanceState = (seg) => {
                 let center;
                 let dist2;
                 let t;
@@ -11145,6 +11140,48 @@
                     center = pointOnSegment(seg, t);
                     dist2 = distanceSq(point, center);
                 }
+                return { center, dist2, t, containmentMargin };
+            };
+
+            // Fast path: most frames the ship is comfortably deep inside the same
+            // segment it occupied last frame, nowhere near a junction/end. Re-scanning
+            // every segment (with full box-distance math for rect-rooms/junction cubes)
+            // every single frame gets slower as the map grows and was showing up as
+            // multi-frame stalls (a stalled frame drops input, it doesn't steer you —
+            // that's what read as unexplained drift). Skip the O(segments) scan when
+            // containment in the current segment is unambiguous.
+            if (
+                options.preferContaining &&
+                Number.isInteger(preferredIndex) &&
+                preferredIndex >= 0 &&
+                preferredIndex < builder.segments.length &&
+                !(boostingForward && wallHit.lockUntil > performance.now() && wallHit.lockedSegmentIndex != null)
+            ) {
+                const fastSeg = builder.segments[preferredIndex];
+                const fastState = segmentDistanceState(fastSeg);
+                const fastRadius = fastSeg.radius || builder.radius;
+                const fastMargin = fastState.containmentMargin ?? (fastRadius - Math.sqrt(fastState.dist2));
+                const safelyMidSegment = fastState.t >= 0.12 && fastState.t <= 0.88;
+                const safelyDeep = fastMargin >= fastRadius * 0.35;
+                if (safelyMidSegment && safelyDeep) {
+                    return {
+                        seg: fastSeg,
+                        index: preferredIndex,
+                        center: fastState.center,
+                        dist2: fastState.dist2,
+                        t: fastState.t,
+                        margin: fastMargin
+                    };
+                }
+            }
+
+            let best = null;
+            let preferred = null;
+            let bestContaining = null;
+            const candidates = [];
+            for (let i = 0; i < builder.segments.length; i++) {
+                const seg = builder.segments[i];
+                const { center, dist2, t, containmentMargin } = segmentDistanceState(seg);
                 const candidate = { seg, index: i, center, dist2, t };
                 candidates.push(candidate);
                 if (i === preferredIndex) preferred = candidate;
@@ -14492,12 +14529,16 @@
         // from each found segment's far end too — so a rigid transform anchored
         // at `point` can carry a whole previously-welded sub-chain along with it
         // instead of leaving it behind mid-air.
-        function collectTouchingSegmentIndices(point, excludeIndices) {
+        // Tight on purpose: this only exists to detect genuine welds (two
+        // endpoints hard-snapped exactly on top of each other by a prior
+        // align), never merely-nearby segments in a dense grid/room layout.
+        const ALIGN_WELD_RIDE_TOL = 6;
+        function collectTouchingSegmentIndices(point, excludeIndices, tol = ALIGN_WELD_RIDE_TOL) {
             const excluded = new Set(excludeIndices);
             const found = [];
             const frontier = [point];
             const visited = [];
-            const closeEnough = (p, q, tol) => distanceSq(p, q) <= tol * tol;
+            const closeEnough = (p, q, t) => distanceSq(p, q) <= t * t;
             while (frontier.length) {
                 const p = frontier.pop();
                 if (visited.some(v => closeEnough(v, p, 1))) continue;
@@ -14506,8 +14547,6 @@
                     if (excluded.has(idx)) continue;
                     const seg = builder.segments[idx];
                     if (!seg?.from || !seg?.to) continue;
-                    const radius = seg.radius || builder.radius;
-                    const tol = Math.max(24, radius * 2.5);
                     let touchedEnd = null;
                     if (closeEnough(seg.from, p, tol)) touchedEnd = 'from';
                     else if (closeEnough(seg.to, p, tol)) touchedEnd = 'to';
@@ -14566,7 +14605,17 @@
 
             const pivot = copyVec(segB[bPivotEnd]);
             const oldMovingPoint = copyVec(segB[bEnd]);
-            const group = collectTouchingSegmentIndices(oldMovingPoint, [aIndex, bIndex]);
+            // Never let the moving group reach into A's own welded network —
+            // in a closed loop (e.g. a rectangle built from 4+ segments) the
+            // flood-fill could otherwise wrap all the way around through the
+            // other sides and drag the fixed side along too, producing
+            // overlapping duplicate geometry instead of a clean weld.
+            const fixedSide = new Set([
+                aIndex,
+                ...collectTouchingSegmentIndices(segA.from, [aIndex, bIndex]),
+                ...collectTouchingSegmentIndices(segA.to, [aIndex, bIndex])
+            ]);
+            const group = collectTouchingSegmentIndices(oldMovingPoint, [...fixedSide, bIndex]);
             group.unshift(bIndex);
 
             for (const idx of group) {
@@ -23708,7 +23757,11 @@
             const shouldResetForWallRoll =
                 !inVerticalFlight &&
                 (recentlyScrapedWall || wallLevelLockActive) &&
-                Math.abs(shipRollAngle) > 0.08 &&
+                // Was 0.08 rad (~4.6°) — fired on ordinary banking any time the ship had
+                // touched a wall recently, forcibly zeroing roll every ~900ms and reading
+                // as constant fighting/auto-correction during normal flight. Only step in
+                // once roll is uncomfortably large and clearly not a deliberate bank.
+                Math.abs(shipRollAngle) > Math.PI / 6 &&
                 // rollFix1: don't correct wall-induced drift during a deliberate barrel roll;
                 // the player intentionally rolled past 60° so leave them alone.
                 Math.abs(shipRollAngle) < Math.PI / 3;
