@@ -1779,6 +1779,11 @@
             seg.wallOpaque = seg.wallOpaque !== false;
             seg.capStart = !!seg.capStart;
             seg.capEnd = !!seg.capEnd;
+            // While locked, the global endpoint-snap pass in sanitizeMapSegments leaves
+            // this segment's endpoints alone entirely -- lets a piece be freely moved or
+            // rotated (e.g. to fix an out-of-alignment twist) without every nearby
+            // neighbor's endpoint getting dragged along toward it on each commit.
+            seg.autoJoinLocked = !!seg.autoJoinLocked;
             seg.chamber = !!seg.chamber;
             seg.rectRoom = !!seg.rectRoom || seg.kind === 'rect-room';
             if (seg.rectRoom) {
@@ -8423,6 +8428,12 @@
                 for (let j = i + 1; j < builder.segments.length; j++) {
                     const a = builder.segments[i];
                     const b = builder.segments[j];
+                    // Locked pieces sit this pass out entirely -- otherwise nudging a
+                    // freshly-unwelded/rotated segment back toward alignment keeps landing
+                    // it just inside snap range of its old neighbor, and this pass pulls
+                    // both endpoints to the midpoint, dragging the neighbor a little further
+                    // every single commit instead of letting the locked piece move freely.
+                    if (a.autoJoinLocked || b.autoJoinLocked) continue;
                     for (const aEnd of ['from', 'to']) {
                         for (const bEnd of ['from', 'to']) {
                             const pa = a[aEnd];
@@ -8684,6 +8695,7 @@
                     wallOpaque: seg.wallOpaque !== false,
                     capStart: !!seg.capStart,
                     capEnd: !!seg.capEnd,
+                    autoJoinLocked: !!seg.autoJoinLocked,
                     chamber: !!seg.chamber,
                     rectRoom: !!seg.rectRoom,
                     roomWidth: Number(seg.roomWidth) || undefined,
@@ -14715,6 +14727,7 @@
             const selectedWallOpaque = new Set(indices.map(index => segmentWallOpaque(builder.segments[index])));
             const selectedCapStart = new Set(indices.map(index => !!builder.segments[index]?.capStart));
             const selectedCapEnd = new Set(indices.map(index => !!builder.segments[index]?.capEnd));
+            const selectedLocked = new Set(indices.map(index => !!builder.segments[index]?.autoJoinLocked));
             const selectedRadii = new Set(indices.map(index => Math.round(segmentRadiusAt(builder.segments[index]))));
             const mixedTexture = selectedTextureIds.size > 1;
             const mixedFrame = selectedFrameIds.size > 1;
@@ -14723,6 +14736,7 @@
             const mixedWallOpaque = selectedWallOpaque.size > 1;
             const mixedCapStart = selectedCapStart.size > 1;
             const mixedCapEnd = selectedCapEnd.size > 1;
+            const mixedLocked = selectedLocked.size > 1;
             const mixedRadius = selectedRadii.size > 1;
             const currentTextureId = mixedTexture ? '' : [...selectedTextureIds][0];
             const currentFrameId = mixedFrame ? '' : [...selectedFrameIds][0];
@@ -14731,6 +14745,7 @@
             const currentWallOpaque = mixedWallOpaque ? true : [...selectedWallOpaque][0];
             const currentCapStart = mixedCapStart ? false : [...selectedCapStart][0];
             const currentCapEnd = mixedCapEnd ? false : [...selectedCapEnd][0];
+            const currentLocked = mixedLocked ? false : [...selectedLocked][0];
             const currentRadius = mixedRadius ? builder.radius : [...selectedRadii][0];
             const radiusMin = Math.round(clampMapSegmentRadius(builder.radius * MAP_RADIUS_MIN_FRAC));
             const radiusMax = Math.round(clampMapSegmentRadius(builder.radius * MAP_RADIUS_MAX_FRAC));
@@ -14889,6 +14904,27 @@
             });
             capEndRow.append(capEndCheck, ' Cap far end');
             joinEditDialog.appendChild(capEndRow);
+
+            const lockedRow = document.createElement('label');
+            lockedRow.className = 'hint';
+            const lockedCheck = document.createElement('input');
+            lockedCheck.type = 'checkbox';
+            lockedCheck.checked = currentLocked;
+            lockedCheck.indeterminate = mixedLocked;
+            let lockedTouched = false;
+            lockedCheck.addEventListener('change', () => {
+                lockedTouched = true;
+                lockedCheck.indeterminate = false;
+            });
+            lockedRow.append(lockedCheck, ' Locked (ignore auto-join while moving/rotating this)');
+            joinEditDialog.appendChild(lockedRow);
+            const lockedHint = document.createElement('div');
+            lockedHint.className = 'hint';
+            lockedHint.textContent =
+                'Lock a piece (or a multi-selected run) before repositioning it to stop the ' +
+                'auto-join snap from dragging its neighbors along too. Uncheck and click ' +
+                '"Reconnect Now" below when it is back in place.';
+            joinEditDialog.appendChild(lockedHint);
 
             const radiusRow = document.createElement('div');
             radiusRow.className = 'join-grid';
@@ -15265,6 +15301,7 @@
                     seg.wallOpaque = wallOpaque;
                     if (!mixedCapStart || capStartTouched) seg.capStart = capStart;
                     if (!mixedCapEnd || capEndTouched) seg.capEnd = capEnd;
+                    if (!mixedLocked || lockedTouched) seg.autoJoinLocked = !!lockedCheck.checked;
                     if (segmentIsRectRoom(seg)) {
                         seg.roomFloorTextureId = floorTextureSelect.value === ROOM_SOLID_TEXTURE_ID
                             ? ROOM_SOLID_TEXTURE_ID
@@ -15350,13 +15387,27 @@
             alignEndpointsBtn.addEventListener('click', () => {
                 if (alignSelectedEndpoints(indices)) closeJoinEditDialog();
             });
+            const reconnectBtn = document.createElement('button');
+            reconnectBtn.type = 'button';
+            reconnectBtn.textContent = 'Reconnect Now';
+            reconnectBtn.title = 'Clears the Locked flag on the selected segment(s) and immediately runs the '
+                + 'auto-join snap pass, so any endpoint left near a neighbor gets pulled flush right away '
+                + 'instead of waiting for the next unrelated edit.';
+            reconnectBtn.addEventListener('click', () => {
+                for (const index of indices) {
+                    const seg = builder.segments[index];
+                    if (seg) seg.autoJoinLocked = false;
+                }
+                applyMapGeometryChange(`reconnected ${indices.length} segment(s)`);
+                closeJoinEditDialog();
+            });
             const cancelBtn = document.createElement('button');
             cancelBtn.type = 'button';
             cancelBtn.textContent = 'Cancel';
             cancelBtn.addEventListener('click', closeJoinEditDialog);
             actions.append(
                 applyBtn, roomBtn, junctionBtn, chamberBtn, equalizeAllBtn,
-                snapChainBtn, normalizePlaneBtn, alignEndpointsBtn, cancelBtn
+                snapChainBtn, normalizePlaneBtn, alignEndpointsBtn, reconnectBtn, cancelBtn
             );
             joinEditDialog.appendChild(actions);
             joinEditDialog.style.display = 'block';
