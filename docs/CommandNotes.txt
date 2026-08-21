@@ -1,3 +1,13 @@
+
+AutoCad Rectangular Roomlayers
+TUNNEL_MAIN — the maze inner corridor centerlines
+TUNNEL_BLOCKS — the rectangle blocks/walls
+TUNNEL_JUNCTION — the junction splice markers
+TUNNEL_BRANCH (Same as Junction for tunnels)
+TUNNEL_PORTALS
+TUNNEL_META  (Notes such as direction of portal one way two way)
+
+
 python Scripts/archive_db_rollover.py --execute --no-service-control --db-path /tmp/test_rollover.db --archive-dir /tmp/test_archives --backup-dir /tmp/test_backups
 --db-path/--archive-dir/--backup-dir override the production locations everywhere in the script (reads, writes, deletes, VACUUM) — the real trading_bot.db is never opened. --no-service-control skips the systemctl calls, which would otherwise pointlessly try to stop the real bot services.
 Open /tmp/test_rollover.db and /tmp/test_archives/trading_bot<YEAR>.db in a SQLite browser afterward and check: row counts moved, nothing eligible left behind, trade_partials/ai_signal_reviews landed in the same yearly file as their parent trade, bot_state/api_keys/non-terminal breakout_event_execution untouched
