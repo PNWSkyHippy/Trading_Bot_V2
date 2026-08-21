@@ -1,0 +1,8 @@
+
+tmux kill-session -t agent_pipeline 2>/dev/null || tmux kill-server
+tmux
+bash boot_agents.sh
+bash agent_runner.sh <File To Run>
+(open a seperate terminal window)
+tmux attach -t agent_runner
+
