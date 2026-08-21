@@ -9,33 +9,42 @@ def basic():
 
     # Creation
     basic_list = ["131", "798", "465", "0"]
-    log_step(f"1. Created basic_list = {basic_list}")
+    log_step(f"1. Created basic_list = {basic_list}\n")
 
     # Adding (Append)
+    log_step(f'basic_list.append("989")')
     basic_list.append("989")
-    log_step(f"2. After append '989' = {basic_list}")
+    log_step(f"2. After append '989' = {basic_list}\n")
 
     # Removing
+    log_step(f"removed_item = basic_list.pop(3) # Removes by index (removes '0')")
     removed_item = basic_list.pop(3) # Removes by index (removes '0')
-    log_step(f"3. After pop(3) [removed '{removed_item}'] = {basic_list}")
+    log_step(f"3. After pop(3) [removed '{removed_item}'] = {basic_list}\n")
+
     basic_list.remove("798") # Removes by value
-    log_step(f"4. After remove('798') = {basic_list}")
+    log_step(f'basic_list.remove("798")') # Re
+    log_step(f"4. After remove('798') = {basic_list}\n")
 
     # Searching
     search_val = "465"
     if search_val in basic_list:
         idx = basic_list.index(search_val)
-        log_step(f"5. Found '{search_val}' at index {idx}")
+    log_step(f'search_val = "465"')
+    log_step(f'if search_val in basic_list:')
+    log_step(f'\tidx = basic_list.index(search_val)')
+    log_step(f"5. Found '{search_val}' at index {idx}\n")
 
     # Iteration & In-place String Sorting (Your example logic)
-    for i in range(len(basic_list)):
-        log_step(f"   ↳ basic_list[{i}] = {basic_list[i]}")
+    log_step(f'for i in range(len(basic_list)):')
+    log_step(f'\tbasic_list[i] = str_sort(basic_list[i])')
+    for i in range(len(basic_list)): 
         basic_list[i] = str_sort(basic_list[i])
-    log_step(f"6. Each inner string sorted = {basic_list}")
+    log_step(f"6. Each inner string sorted = {basic_list}\n")
 
     # Sorting the List itself
+    log_step(f'basic_list.sort()')
     basic_list.sort()
-    log_step(f"7. Final basic_list sorted = {basic_list}")
+    log_step(f"7. Final basic_list sorted = {basic_list}\n")
 
 
 def save_log_to_file(filename, content_list):
@@ -102,25 +111,32 @@ def listsdicts():
         {"item": "Tires", "price": 499.00},
         {"item": "Air", "price": 5.00}
     ]
-    log_step(f"1. Created list_of_dicts = {list_of_dicts}")
+    log_step(f"1. Created list_of_dicts = {list_of_dicts}\n")
     
     # Adding
+    log_step('list_of_dicts.append({"item": "Car", "price": 15000.00})')
     list_of_dicts.append({"item": "Car", "price": 15000.00})
-    log_step(f"2. After append dict = {list_of_dicts}")
+    log_step(f"2. After append dict = {list_of_dicts}\n")
     
     # Removing
+    log_step('del list_of_dicts[1]  # Removes {"item": "Air", "price": 5.00}')
     del list_of_dicts[1]  # Removes {"item": "Air", "price": 5.00}
-    log_step(f"3. After deleting index 1 = {list_of_dicts}")
+    log_step(f"3. After deleting index 1 = {list_of_dicts}\n")
     
     # Searching
+    log_step(f'search_item = "Car"')
+    log_step(f'for item in list_of_dicts:')
+    log_step(f'\tif item["item"] == search_item:')
+    log_step(f'\t\tsearch_item = "Car"')
     search_item = "Car"
     for item in list_of_dicts:
         if item["item"] == search_item:
-            log_step(f"4. Found '{search_item}' with price ${item['price']}")
+            log_step(f"4. Found '{search_item}' with price ${item['price']}\n")
     
     # Sorting
+    log_step(f'list_of_dicts.sort(key=lambda x: x["price"])')
     list_of_dicts.sort(key=lambda x: x["price"])
-    log_step(f"5. Sorted by price = {list_of_dicts}")
+    log_step(f"5. Sorted by price = {list_of_dicts}\n")
     
 def tuples():
     # =====================================================================
@@ -129,26 +145,33 @@ def tuples():
     log_step("\n--- 3. LISTS OF TUPLES ---")
     
     # Creation
+    log_step(f'list_of_tuples = [("Tires", 499.00), ("Air", 5.00)]')
     list_of_tuples = [("Tires", 499.00), ("Air", 5.00)]
-    log_step(f"1. Created list_of_tuples = {list_of_tuples}")
+    log_step(f"1. Created list_of_tuples = {list_of_tuples}\n")
     
     # Adding
+    log_step(f'list_of_tuples.append(("Car", 15000.00))')
     list_of_tuples.append(("Car", 15000.00))
-    log_step(f"2. After append tuple = {list_of_tuples}")
+    log_step(f"2. After append tuple = {list_of_tuples}\n")
     
     # Removing
+    log_step(f'del list_of_tuples[1]') # Removes ("Air", 5.00) at index 1
     del list_of_tuples[1] # Removes ("Air", 5.00) at index 1
-    log_step(f"3. After deleting index 1 = {list_of_tuples}")
+    log_step(f"3. After deleting index 1 = {list_of_tuples}\n")
     
     # Searching (Checking if a key exists inside any tuple)
+    log_step(f'search_target = "Car"')
+    log_step(f'for item in list_of_tuples:')
+    log_step(f'\tif item[0] == search_target:')
     search_target = "Car"
     for item in list_of_tuples:
         if item[0] == search_target:
-            log_step(f"4. Found target '{search_target}' with value ${item[1]}")
+            log_step(f"4. Found target '{search_target}' with value ${item[1]}\n")
     
     # Sorting (Tuples are immutable, but the list containing them can be sorted by an index)
+    log_step('list_of_tuples.sort(key=lambda x: x[1])')
     list_of_tuples.sort(key=lambda x: x[1]) # Sort by price (index 1 of the tuple)
-    log_step(f"5. Sorted by price (index 1) = {list_of_tuples}")
+    log_step(f"5. Sorted by price (index 1) = {list_of_tuples}\n")
     
 def listsmixed():
      
@@ -656,7 +679,7 @@ def main():
 
     # If 1+ switches given     
     if (switch_given):
-        # Iterate list of swithes
+        # Iterate list of switches
         for items in list_values:
             # If switch set to true, call its function
             if items[1]:

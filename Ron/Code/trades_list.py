@@ -83,6 +83,14 @@ def get_closed_trades(conn):
     )
     return [dict(r) for r in c.fetchall()]
 
+def get_open_trades(conn):
+    c = conn.cursor()
+    c.execute(
+        'SELECT * FROM trades WHERE status=? ORDER BY entry_time DESC',
+        ('open',)
+    )
+    return [dict(r) for r in c.fetchall()]
+
 
 def proc_dict(loc_trade_list, strat_name,key,  output_file, start_date,end_date):
     """ Process the provided dictionary of trades """
@@ -141,7 +149,7 @@ def proc_dict(loc_trade_list, strat_name,key,  output_file, start_date,end_date)
                 print_outfile(BL_EQUALSTR, output_file)
                 passes += 1
             print_outfile(
-                f'{trade_dict["trade_id"][-12:]:<7}'
+                f'{trade_dict["trade_id"][-52:]:<7}'
                 f'\t{entry_time[0:16]:<10}'
                 f'\t{exit_time[0:16]:<10}'
                 f'{colorize(f"\t{trade_dict["symbol"]:<10}", "cyan")}'
@@ -332,17 +340,8 @@ def print_group_summary(group_name, trade_list, key, output_file,start_date,end_
 
 def main():
 
+    default_key_list = ["strategy_name", "symbol", "exit_reason", "quantity", "broker_order_id"]
     # Connect to DB and load the trades table into the trades_list dictionary
-    conn = connect()
-    try:
-        trades_list = get_closed_trades(conn)
-        conn.close()
-    except sqlite3.OperationalError as e:
-        print(f'Database error: {e}')
-        conn.close()
-        sys.exit(1)
-
-    hdr_list = build_hdr_list(trades_list)
 
     def wide_formatter(prog):
         return argparse.RawDescriptionHelpFormatter(
@@ -365,6 +364,7 @@ Usage examples:
     )
 
     parser.add_argument("-o", "--outfile", metavar="", help="\tpath and name of output file")
+    parser.add_argument("-op", "--open", action='store_true', help='List open trades instead of closed')
     parser.add_argument("-csv", "--csv", action='store_true', help="\tuse to have output file be a csv")
         
     parser.add_argument("-1", "--list1", metavar="",
@@ -401,12 +401,43 @@ Usage examples:
     args = parser.parse_args()
     global csv_true
     csv_true = args.csv if args.csv else False
+    
+    mode = 'open' if args.open else 'closed'
+    
+    conn = connect()
+    if mode == 'closed':
+        try:
+            trades_list = get_closed_trades(conn)
+            conn.close()
+        except sqlite3.OperationalError as e:
+            print(f'Database error: {e}')
+            conn.close()
+            sys.exit(1)
+    else:
+        try:
+            trades_list = get_open_trades(conn)
+            conn.close()
+        except sqlite3.OperationalError as e:
+            print(f'Database error: {e}')
+            conn.close()
+            sys.exit(1)
+                
+    if not trades_list:
+        print('No closed trades found.') if (mode == "closed") else print('No open trades found.')
+        conn.close()
+        return
+    
+    hdr_list = build_hdr_list(trades_list)
+
+    
     if args.Names:
         print_col_headers(trades_list)
         sys.exit(2)
-
-    start_date = args.start if args.start else "1980-01-01T00:00"
-    end_date = args.end if args.end else "4050-01-01T00:00"
+    DEF_START_DATE = "1980-01-01T00:00"
+    DEF_END_DATE = "4050-01-01T00:00"
+    
+    start_date = args.start if args.start else DEF_START_DATE
+    end_date = args.end if args.end else DEF_END_DATE
     if args.start and (date_check(start_date) == False):
         print(f'Invalid start date. use format YYYY-MM-DDTHH:MM')
         sys.exit(4)
@@ -415,9 +446,12 @@ Usage examples:
         print(f'Invalid end date. use format YYYY-MM-DDTHH:MM')
         sys.exit(4)
 
+    date_range_given = (start_date != DEF_START_DATE or end_date != DEF_END_DATE) 
 
-    output_file = args.outfile
-
+    output_file = args.outfile 
+    if csv_true:
+        output_file, extension = output_file.split(".")
+        
     # Build a list of list options skipping those not given
     list_values = [
         args.list1.split(",") if args.list1 else [],
@@ -427,13 +461,7 @@ Usage examples:
         args.list5.split(",") if args.list5 else [],
     ]
 
-    key_list = args.key.split(",") if args.key else ["None"]
-    if (not args.list1 and not args.list2 and not args.list3 and not args.list4 and not args.list5) or (not (len(key_list) >= 1)):
-        parser.print_help()
-        parser.exit(
-            2,
-            "\nError: provide --key key1,key2,... and at least one --list option per key given.\n"
-        )
+    key_list = args.key.split(",") if args.key else []
         
 
     if len(key_list) > 5:
@@ -441,13 +469,27 @@ Usage examples:
         sys.exit(1)
 
     # Verify every key value input is valid
+    if date_range_given and len(list_values) < 1:
+        for j in range(5):
+            list_values.append("ALL")
+        
+    if date_range_given and len(key_list) < 1:
+        key_list = default_key_list
+
+    if ((not len(list_values)) or (not len(key_list))) and (not date_range_given):
+         parser.print_help()
+         parser.exit(
+             2,
+             "\nError: provide --key key1,key2,... and at least one --list option per key given.\n"
+         )
+          
     for key_name in key_list:
         if key_name not in hdr_list:
             print(f'\nError: {key_name} is not a valid entry. please run with -N to see a list of valid choices\n')
             sys.exit()
 
     if (not args.Names) and (len(key_list) < 1):
-        print(f'\nError: Please provide at least 1 key , seperated by a ,\n')
+        print(f'\nError: Please provide at least 1 key , separated by a ,\n')
         sys.exit()
 
     # -A/--and: one combined report where a trade must match every selected

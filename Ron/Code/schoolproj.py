@@ -30,7 +30,7 @@ def compute_totals(loc_list):
             if lists["customer"] == key["customer"]:
                 found = True
         # If not found add a new entry for customer
-        # using deep copy as were goig to reuse tmp_dict 
+        # using deep copy as were going to reuse tmp_dict 
         if not found:
             loc_dict_list.append(copy.deepcopy(tmp_dict))
         # Else was found so locate the dict in new list
