@@ -1,0 +1,70 @@
+Main options
+Order quantity
+Number of contracts entered. Use 1 for your current test.
+
+TIF (Time in Force)
+DAY cancels unfilled working orders at the session/broker cutoff. GTC keeps them working until filled or manually cancelled. For learning in Sim101, DAY is simpler.
+
+Parameter type
+Determines what the stop and target numbers mean:
+Ticks: distance in minimum price increments.
+Price: exact target/stop price.
+Currency: dollar distance from entry.
+Percent: percentage from entry.
+Pips: mainly forex.
+
+Target 1 – Quantity
+Contracts managed by this stop/target pair. With one entry contract, use 1.
+
+Stop loss
+Distance from your filled entry. For EMT, enter 8 ticks.
+
+Profit
+Profit-target distance. For EMT, enter 8 ticks. A value of 0 means you do not have the desired two-point target.
+
+Stop strategy
+Optional automatic stop management:
+None: fixed stop.
+Custom/template: can move to breakeven or trail automatically.
+
+add / remove
+Adds or removes targets. For example, with two contracts you could exit one at eight ticks and another at sixteen. You only need one target currently.
+
+“More” options
+Reverse at stop
+When stopped out, NinjaTrader immediately opens a position in the opposite direction. Leave this off.
+
+Reverse at target
+After reaching the target, it immediately enters in the opposite direction. Leave this off.
+
+Target chase
+If the target is touched but not filled, NinjaTrader moves the target toward the market. This can get you filled at a worse price. Leave off initially.
+
+Chase limit (t)
+Maximum number of ticks an order is allowed to chase. It matters only when a chase option is enabled.
+
+Chase
+Moves a limit entry toward the market when price moves away, up to the chase limit. This can turn a patient limit order into a less favorable entry.
+
+Chase if touch
+Chase begins only after the market first touches your limit price.
+
+Stop limit for stop loss
+Uses a stop-limit instead of a stop-market order. A stop-limit can trigger but remain unfilled during a fast move, leaving the position exposed. Leave unchecked while learning.
+
+MIT for profit
+Uses a Market-if-Touched order for the target instead of a limit order. It improves the chance of exiting after the target is touched, but the fill can slip beyond the intended price.
+
+Shadow strategy
+Runs an alternate simulated trade-management plan alongside another strategy for comparison. You don’t need it for the current Sim101 EMT test.
+
+Save as Template
+Saves these settings so you can select them again. A useful name would be EMT-1-Contract-2Point.
+
+OK / Cancel
+OK accepts the ATM settings; Cancel discards the changes.
+
+NinjaTrader’s official references cover the ATM parameters, advanced options, and automatic stop strategies.
+
+
+10:31 PM

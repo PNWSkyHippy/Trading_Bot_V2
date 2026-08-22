@@ -265,24 +265,22 @@ def main():
     conn = connect()
     mode = 'open' if args.open else 'closed'
     num_records = args.n if not trade_id_to_remove else 1000000000
-    if mode == 'closed':
+    if mode == 'closed' and not trade_id_to_remove:
         trades = get_closed_trades(conn, num_records)
         if not trades:
             print('No closed trades found.')
             conn.close()
             return
-        if not trade_id_to_remove:
-            print(f'\nLast {len(trades)} closed trades:')
-            print_closed_table(trades)
+        print(f'\nLast {len(trades)} closed trades:')
+        print_closed_table(trades)
     elif not trade_id_to_remove:
         trades = get_open_trades(conn, num_records)
         if not trades:
             print('No open trades found.')
             conn.close()
             return
-        if not trade_id_to_remove:
-            print(f'\nCurrent {len(trades)} open trades:')
-            print_open_table(trades)
+        print(f'\nCurrent {len(trades)} open trades:')
+        print_open_table(trades)
 
     print()
     

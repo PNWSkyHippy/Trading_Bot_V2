@@ -154,19 +154,19 @@ def main():
  
  
     parser = argparse.ArgumentParser(
-        description="Colorize the input stream into a colorized output stream for terminal display.",
+        description="Colorize the input stream into a collorized output stream for terminal display.",
         epilog="""\
 Usage examples:
-    colorize.py -c red -b bg_black -B -k "Hello, World!"
-    colorize.py -l list the available color options
-    colorize.py --i <file name to read from>
-    colorize.py -h
+    tcolorize.py -c red -b bg_black -B -k "Hello, World!"
+    tcolirze.py -l list the available color opttions
+    tcolorize.py --i <file name to read from>
+    tcolorize.py -h
  """,
         formatter_class=wide_formatter,
     )
  
     parser.add_argument("-i","--infile", metavar="",
-            help="path/to/infile/to/parse and colorize based on the provided key"
+            help="path/toifile/to/parse and colorize based on the provided key"
     )
     parser.add_argument("-c","--color", metavar="",
             help="a color name from the list of available colors"
@@ -190,25 +190,39 @@ Usage examples:
     if args.list:
         print("Available text colors:")
         for color in ["red", "green", "yellow", "blue", "magenta", "cyan"]:
-            print(colorize(f"  {color}", color))
+            print(f"  {color}")
         print("\nAvailable background colors:")
         for color in ["bg_red", "bg_green", "bg_yellow", "bg_blue", "bg_magenta", "bg_cyan", "bg_black", "bg_white"]:
-            print(colorize(f"  {color}", bg_col=color))
+            print(f"  {color}")
         sys.exit()
                 
-    text_color = args.color if args.color in colors else None
-    if text_color == None:
-        print(f"Invalid text color: {args.color}")
-        sys.exit(1)
+    if args.color:
+        if args.color not in colors:
+            print(f"Invalid text color: {args.color}")
+            sys.exit(1)
+        else:
+            text_color = args.color
+    else:
+        text_color = None
+    if args.bkcolor:
+        if args.bkcolor not in colors:
+            print(f"Invalid background color: {args.bkcolor}")
+            sys.exit(1)
+        else:
+            bg_color = args.bkcolor
+    else:
+        bg_color = None
+
+    if args.Bold:
+        bold = True
+    else:
+        bold = False
         
-    bg_color=  args.bkcolor if (args.bkcolor in colors) else None
-    if bg_color == None:
-        print(f"Invalid background color: {args.bkcolor}")
-        sys.exit(1)
+    if args.blink:
+        blink = True
+    else:
+        blink = False
         
-    bold = args.Bold if args.bold else False   
-    blink = args.blink if args.blink else False
-  
     if args.infile:
         try:
             with open(args.infile, 'r') as f:
