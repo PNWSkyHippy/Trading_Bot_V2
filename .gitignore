@@ -19,7 +19,6 @@ data/ninja_strategy_instances.json
 data/*.db-shm
 data/*.db-wal
 data/breakout_sender_outbox/
-docs/
 symbol_params.json
 logs/bot.log
 *.log

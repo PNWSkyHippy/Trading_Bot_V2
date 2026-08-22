@@ -265,26 +265,28 @@ def main():
     conn = connect()
     mode = 'open' if args.open else 'closed'
     num_records = args.n if not trade_id_to_remove else 1000000000
-    if mode == 'closed' and not trade_id_to_remove:
+    if mode == 'closed':
         trades = get_closed_trades(conn, num_records)
         if not trades:
             print('No closed trades found.')
             conn.close()
             return
-        print(f'\nLast {len(trades)} closed trades:')
-        print_closed_table(trades)
-    elif not trade_id_to_remove:
+        if not trade_id_to_remove:
+            print(f'\nLast {len(trades)} closed trades:')
+            print_closed_table(trades)
+    else:
         trades = get_open_trades(conn, num_records)
         if not trades:
             print('No open trades found.')
             conn.close()
             return
-        print(f'\nCurrent {len(trades)} open trades:')
-        print_open_table(trades)
+        if not  trade_id_to_remove:
+            print(f'\nCurrent {len(trades)} open trades:')
+            print_open_table(trades)
 
     print()
     
-    if trade_id_to_remove == 0:
+    if not trade_id_to_remove:
         selection = input('Enter trade number(s) to remove (comma-separated), or q to quit: ').strip()
         if selection.lower() == 'q' or not selection:
             print('Cancelled.')
@@ -299,7 +301,7 @@ def main():
             return
 
     selected = []
-    if trade_id_to_remove == 0:
+    if not trade_id_to_remove:
         for i in indices:
             if 0 <= i < len(trades):
                 selected.append(trades[i])
@@ -318,8 +320,8 @@ def main():
     print(f'\nPreview — {len(selected)} trade(s) to remove:')
     for t in selected:
         print(f'\n  [{t["id"]}] {t["symbol"]} {(t["direction"] or "").upper()} '
-              f'pnl={float(t.get("pnl") or 0):+.2f} strategy={t.get("strategy_name")} '
-              f'broker={t.get("broker")}')
+                f'pnl={float(t.get("pnl") or 0):+.2f} strategy={t.get("strategy_name")} '
+                f'broker={t.get("broker")}')
         changes = remove_trade(conn, t, dry_run=True)
         for ch in changes:
             print(ch)

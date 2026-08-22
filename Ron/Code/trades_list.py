@@ -113,6 +113,12 @@ def proc_dict(loc_trade_list, strat_name,key,  output_file, start_date,end_date)
  
     # Search the dict for Key  provided
     trade_count = 0
+    for trade in loc_trade_list:
+        tid_slice = -(len(trade["trade_id"])) if extended else -16
+        tid_pad = 4 + (tid_slice * -1)
+#        num = 50 - len(trade["trade_id"])
+#        tid_pad = str(num)
+        break  # only look at one record
     for trade_dict in loc_trade_list:
         entry_time = trade_dict["entry_time"] or ""
         exit_time = trade_dict["exit_time"] or ""
@@ -139,24 +145,24 @@ def proc_dict(loc_trade_list, strat_name,key,  output_file, start_date,end_date)
                # Track the number of trades processed
                 trade_count += 1
                 if trade_pnl < 0:
-                    col_pnl = colorize(f'{trade_pnl:8.2f}', "red")
+                    col_pnl = colorize(f'{trade_pnl:<8.2f}', "red")
                 else:
-                    col_pnl = colorize(f'{trade_pnl:8.2f}', "green")
+                    col_pnl = colorize(f'{trade_pnl:<8.2f}', "green")
             if (passes == 1):
                 print_outfile(f'List of {colorize(strat_name,"red")} Trades\n', output_file)
                 print_outfile(BL_EQUALSTR, output_file)
-                print_outfile(colorize(f'{"Id:":<16}{"Entry":<24}{"Exit":<24}{"Symbol":<16}{"Direct":<9}{"EntryPrice":<15}{"ExitPrice":<17}{"PnL":<15}{"quantity":<14}  {"ExitReason":<12}\n', "magenta"), output_file)
+                print_outfile(colorize(f'{"ID":<38}{"Entry":<26}{"Exit":<24}{"Symbol":<16}{"Direct":<9}{"EntryPrice":<15}{"ExitPrice":<17}{"PnL":<16}{"quantity":<14}\n', "magenta"), output_file)
                 print_outfile(BL_EQUALSTR, output_file)
                 passes += 1
             print_outfile(
-                f'{trade_dict["trade_id"][-52:]:<7}'
-                f'\t{entry_time[0:16]:<10}'
-                f'\t{exit_time[0:16]:<10}'
+                f'{trade_dict["trade_id"][tid_slice:]:<38}'
+                f'{entry_time[0:16]:<26}'
+                f'{exit_time[0:16]:<10}'
                 f'{colorize(f"\t{trade_dict["symbol"]:<10}", "cyan")}'
                 f'\t{trade_dict["direction"]:<5}'
-                f'\t{float(trade_dict["entry_price"]):>8.2f}'
-                f'\t{float(trade_dict["exit_price"]):>8.2f}  '
-                f'\t{col_pnl}\t{int(trade_dict["quantity"]):<11}\t{trade_dict["exit_reason"]}\t\n', output_file
+                f'\t{float(trade_dict["entry_price"]):>11.2f}'
+                f'\t{float(trade_dict["exit_price"]):>9.2f}'
+                f'\t{col_pnl}\t{int(trade_dict["quantity"]):>3}\t\n', output_file
             )
     # Select the best and worst complete symbol totals after every matching
     # trade has been accumulated. This also works when every symbol is a loss
@@ -397,10 +403,17 @@ Usage examples:
     parser.add_argument("-A", "--and", dest="and_filter", action='store_true',
             help="If given with multiple --key values, require trades to match ALL selected key/value filters at once (e.g. symbol=MSFT AND direction=long) instead of printing a separate breakdown per key"
     )
+    parser.add_argument("-E", "--Ext", action='store_true',
+            help="Extended Trade Id , default is shortened Id (Useful when you need the full trade Id for a lookup)"
+    )
 
     args = parser.parse_args()
     global csv_true
+    global extended
+    
     csv_true = args.csv if args.csv else False
+    
+    extended = args.Ext if args.Ext else False
     
     mode = 'open' if args.open else 'closed'
     
@@ -469,9 +482,9 @@ Usage examples:
         sys.exit(1)
 
     # Verify every key value input is valid
-    if date_range_given and len(list_values) < 1:
+    if date_range_given and (not any(list_values)):
         for j in range(5):
-            list_values.append("ALL")
+            list_values[j].append("ALL")
         
     if date_range_given and len(key_list) < 1:
         key_list = default_key_list
