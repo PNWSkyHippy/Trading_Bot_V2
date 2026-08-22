@@ -1093,6 +1093,7 @@ class EMTStrategyEngine:
                 round(pnl, 2),
                 round(pnl_pct, 4),
             )
+            self.db_mirror.record_consecutive_result(pnl > 0)
         except Exception as exc:
             self.last_execution_error = (
                 f"DB mirror close failed: {type(exc).__name__}: {exc}"

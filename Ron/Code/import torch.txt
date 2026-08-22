@@ -1,0 +1,15 @@
+import torch
+from transformers import AutoTokenizer, AutoModelForCausalLM
+
+model_id = "google/gemma-3-4b-it"  # use a smaller Gemma first
+tok = AutoTokenizer.from_pretrained(model_id)
+model = AutoModelForCausalLM.from_pretrained(
+    model_id,
+    torch_dtype=torch.float16,
+    device_map="auto"
+)
+
+prompt = "Give me a 3-bullet market summary for today."
+inputs = tok(prompt, return_tensors="pt").to(model.device)
+out = model.generate(**inputs, max_new_tokens=120)
+print(tok.decode(out[0], skip_special_tokens=True))

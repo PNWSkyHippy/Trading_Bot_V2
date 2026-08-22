@@ -1,0 +1,11 @@
+tbl,idx,stat
+scanner_alerts,sqlite_autoindex_scanner_alerts_1,1802 1
+api_keys,sqlite_autoindex_api_keys_1,17 2 1
+ai_signal_reviews,idx_ai_signal_reviews_symbol_time,9149 27 1
+ai_signal_reviews,idx_ai_signal_reviews_trade_id,9149 2001
+trades,sqlite_autoindex_trades_1,124 1
+dashboard_users,sqlite_autoindex_dashboard_users_1,3 1
+settlement_queue,idx_settlement_queue_trade_id,18 1
+bot_state,sqlite_autoindex_bot_state_1,23796 1
+daily_summaries,sqlite_autoindex_daily_summaries_1,3 1
+session_state,sqlite_autoindex_session_state_1,5 1

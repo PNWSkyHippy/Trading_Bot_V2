@@ -1,0 +1,773 @@
+List of breakout_scanner Trades
+	Symbol: VELVET/USD		Direction: long 		Entry Price: 0.45    		ExPri: 0.44    	 PNL:   -41.57	
+	Symbol: COTI/USD  		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -51.05	
+	Symbol: SOON/USD  		Direction: short		Entry Price: 0.23    		ExPri: 0.23      PNL:     1.33	
+	Symbol: EUL/USD   		Direction: short		Entry Price: 1.77    		ExPri: 1.75    	 PNL:    17.64	
+	Symbol: COTI/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -51.19	
+	Symbol: THQ/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:   -51.21	
+	Symbol: COTI/USD  		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    99.26	
+	Symbol: BAL/USD   		Direction: short		Entry Price: 0.12    		ExPri: 0.12    	 PNL:    30.39	
+	Symbol: US/USD    		Direction: long 		Entry Price: 0.05    		ExPri: 0.05      PNL:   -51.12	
+	Symbol: THQ/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:     0.80	
+	Symbol: THQ/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -24.40	
+	Symbol: ESP/USD   		Direction: long 		Entry Price: 0.12    		ExPri: 0.12      PNL:   -51.15	
+	Symbol: ESP/USD   		Direction: long 		Entry Price: 0.11    		ExPri: 0.11    	 PNL:    11.36	
+	Symbol: EUL/USD   		Direction: long 		Entry Price: 2.46    		ExPri: 2.41    	 PNL:   -51.17	
+	Symbol: ESP/USD   		Direction: long 		Entry Price: 0.10    		ExPri: 0.10      PNL:    -3.07	
+	Symbol: UMXM/USD  		Direction: long 		Entry Price: 0.33    		ExPri: 0.32    	 PNL:   -51.20	
+	Symbol: LPT/USD   		Direction: long 		Entry Price: 1.70    		ExPri: 1.71    	 PNL:    11.53	
+	Symbol: EUL/USD   		Direction: long 		Entry Price: 2.33    		ExPri: 2.28      PNL:   -51.22	
+	Symbol: UMXM/USD  		Direction: short		Entry Price: 0.36    		ExPri: 0.36    	 PNL:   -15.40	
+	Symbol: ALLO/USD  		Direction: short		Entry Price: 0.35    		ExPri: 0.34    	 PNL:    57.96	
+	Symbol: ALLO/USD  		Direction: long 		Entry Price: 0.36    		ExPri: 0.37      PNL:    16.48	
+	Symbol: REQ/USD   		Direction: long 		Entry Price: 0.07    		ExPri: 0.07    	 PNL:   -51.23	
+	Symbol: REQ/USD   		Direction: short		Entry Price: 0.07    		ExPri: 0.07    	 PNL:    18.50	
+	Symbol: ESPORTS/USD		Direction: long 		Entry Price: 0.05    		ExPri: 0.05      PNL:    15.82	
+	Symbol: GWEI/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    25.40	
+	Symbol: SYN/USD   		Direction: long 		Entry Price: 0.18    		ExPri: 0.18    	 PNL:   -51.22	
+	Symbol: ESPORTS/USD		Direction: long 		Entry Price: 0.05    		ExPri: 0.06      PNL:    65.89	
+	Symbol: ESPORTS/USD		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -51.21	
+	Symbol: CHECK/USD 		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -51.23	
+	Symbol: OXT/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:    50.67	
+	Symbol: US/USD    		Direction: long 		Entry Price: 0.05    		ExPri: 0.05    	 PNL:   -51.25	
+	Symbol: B2/USD    		Direction: short		Entry Price: 0.37    		ExPri: 0.36    	 PNL:    34.02	
+	Symbol: SYN/USD   		Direction: short		Entry Price: 0.15    		ExPri: 0.14      PNL:    71.67	
+	Symbol: SCOR/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -52.55	
+	Symbol: SCOR/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -51.27	
+	Symbol: NANO/USD  		Direction: short		Entry Price: 0.44    		ExPri: 0.41      PNL:    77.12	
+	Symbol: NANO/USD  		Direction: short		Entry Price: 0.45    		ExPri: 0.46    	 PNL:   -51.26	
+	Symbol: REP/USD   		Direction: long 		Entry Price: 0.72    		ExPri: 0.71    	 PNL:   -51.33	
+	Symbol: NANO/USD  		Direction: long 		Entry Price: 0.41    		ExPri: 0.40      PNL:   -51.35	
+	Symbol: ESPORTS/USD		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    11.35	
+	Symbol: UMXM/USD  		Direction: long 		Entry Price: 1.21    		ExPri: 1.21    	 PNL:   -13.37	
+	Symbol: KEEP/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:   -51.37	
+	Symbol: OXT/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -51.31	
+	Symbol: NIGHT/USD 		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    41.00	
+	Symbol: LRC/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:    12.91	
+	Symbol: OXT/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.02    	 PNL:    97.46	
+	Symbol: OXT/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    27.53	
+	Symbol: EVAA/USD  		Direction: long 		Entry Price: 0.85    		ExPri: 0.84      PNL:   -51.22	
+	Symbol: OXT/USD   		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -51.23	
+	Symbol: ESPORTS/USD		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    31.21	
+	Symbol: PI/USD    		Direction: long 		Entry Price: 0.10    		ExPri: 0.10      PNL:   -51.26	
+	Symbol: OXT/USD   		Direction: short		Entry Price: 0.01    		ExPri: 0.02    	 PNL:   -51.27	
+	Symbol: ESPORTS/USD		Direction: short		Entry Price: 0.05    		ExPri: 0.05    	 PNL:    18.71	
+	Symbol: OXT/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:    21.16	
+	Symbol: EWT/USD   		Direction: short		Entry Price: 0.30    		ExPri: 0.29    	 PNL:    -3.46	
+	Symbol: BLUAI/USD 		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -24.17	
+	Symbol: OXT/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:    14.36	
+	Symbol: US/USD    		Direction: long 		Entry Price: 0.05    		ExPri: 0.05    	 PNL:    11.24	
+	Symbol: USELESS/USD		Direction: long 		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -12.13	
+	Symbol: SYND/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:   -17.37	
+	Symbol: ARX/USD   		Direction: long 		Entry Price: 0.19    		ExPri: 0.19    	 PNL:   -15.68	
+	Symbol: PERP/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    13.93	
+	Symbol: US/USD    		Direction: long 		Entry Price: 0.05    		ExPri: 0.05      PNL:    -0.26	
+	Symbol: BOB/USD   		Direction: long 		Entry Price: 0.00    		ExPri: 0.00    	 PNL:   -21.56	
+	Symbol: BILLY/USD 		Direction: long 		Entry Price: 0.00    		ExPri: 0.00    	 PNL:    16.44	
+	Symbol: BLUAI/USD 		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:   -51.41	
+	Symbol: OGN/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -51.32	
+	Symbol: BILL/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.03    	 PNL:    80.95	
+	Symbol: STABLE/USD		Direction: short		Entry Price: 0.03    		ExPri: 0.03      PNL:   -12.98	
+	Symbol: MYX/USD   		Direction: long 		Entry Price: 0.08    		ExPri: 0.08    	 PNL:    13.32	
+	Symbol: EVAA/USD  		Direction: long 		Entry Price: 1.10    		ExPri: 1.09    	 PNL:   -30.16	
+	Symbol: SLX/USD   		Direction: short		Entry Price: 0.12    		ExPri: 0.12      PNL:    16.46	
+	Symbol: MYX/USD   		Direction: long 		Entry Price: 0.08    		ExPri: 0.08    	 PNL:    39.56	
+	Symbol: TER/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    14.33	
+	Symbol: MYX/USD   		Direction: long 		Entry Price: 0.08    		ExPri: 0.08      PNL:   -49.06	
+	Symbol: RAILS/USD 		Direction: long 		Entry Price: 0.06    		ExPri: 0.06    	 PNL:     3.36	
+	Symbol: QUAI/USD  		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -51.35	
+	Symbol: RAILS/USD 		Direction: long 		Entry Price: 0.06    		ExPri: 0.06      PNL:   -22.90	
+	Symbol: DAG/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    14.47	
+	Symbol: REPPO/USD 		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    41.63	
+	Symbol: DAG/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:    23.15	
+	Symbol: SLX/USD   		Direction: long 		Entry Price: 0.12    		ExPri: 0.12    	 PNL:   -17.68	
+	Symbol: AI/USD    		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    11.45	
+	Symbol: AI/USD    		Direction: long 		Entry Price: 0.03    		ExPri: 0.03      PNL:    19.75	
+	Symbol: FIS/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    27.95	
+	Symbol: US/USD    		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:    12.32	
+	Symbol: US/USD    		Direction: short		Entry Price: 0.04    		ExPri: 0.04      PNL:    -0.26	
+	Symbol: FLOCK/USD 		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:    -2.40	
+	Symbol: EVAA/USD  		Direction: short		Entry Price: 0.96    		ExPri: 0.96    	 PNL:   -19.06	
+	Symbol: EVAA/USD  		Direction: short		Entry Price: 0.97    		ExPri: 0.96      PNL:     1.09	
+	Symbol: NES/USD   		Direction: long 		Entry Price: 0.25    		ExPri: 0.25    	 PNL:   -24.98	
+	Symbol: CAP/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    56.71	
+	Symbol: ONDO/USD  		Direction: long 		Entry Price: 0.35    		ExPri: 0.36      PNL:    75.04	
+	Symbol: CAP/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   138.77	
+	Symbol: BILL/USD  		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -51.14	
+	Symbol: US/USD    		Direction: long 		Entry Price: 0.04    		ExPri: 0.04      PNL:   -23.36	
+	Symbol: RIZE/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -51.10	
+	Symbol: LCX/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -51.10	
+	Symbol: QUAI/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:   165.61	
+	Symbol: US/USD    		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    53.29	
+	Symbol: VELVET/USD		Direction: long 		Entry Price: 0.57    		ExPri: 0.56    	 PNL:   -58.73	
+	Symbol: KEEP/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:   -51.14	
+	Symbol: VELVET/USD		Direction: short		Entry Price: 0.56    		ExPri: 0.56    	 PNL:    12.14	
+	Symbol: BILL/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:    63.23	
+	Symbol: TREE/USD  		Direction: short		Entry Price: 0.05    		ExPri: 0.05      PNL:   -51.17	
+	Symbol: DRV/USD   		Direction: short		Entry Price: 0.16    		ExPri: 0.16    	 PNL:    -5.20	
+	Symbol: TX/USD    		Direction: short		Entry Price: 0.00    		ExPri: 0.00    	 PNL:    15.78	
+	Symbol: NOCK/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:   -24.68	
+	Symbol: PEPECOIN/USD		Direction: short		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -51.20	
+	Symbol: TREMP/USD 		Direction: short		Entry Price: 0.00    		ExPri: 0.00    	 PNL:   -51.37	
+	Symbol: CLOUD/USD 		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:   -51.24	
+	Symbol: BOBA/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    -6.39	
+	Symbol: TREMP/USD 		Direction: short		Entry Price: 0.00    		ExPri: 0.00    	 PNL:   -51.51	
+	Symbol: LOFI/USD  		Direction: short		Entry Price: 0.00    		ExPri: 0.00      PNL:   -51.04	
+	Symbol: REPPO/USD 		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -18.68	
+	Symbol: ALCH/USD  		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -51.36	
+	Symbol: RAILS/USD 		Direction: short		Entry Price: 0.06    		ExPri: 0.06      PNL:   -29.67	
+	Symbol: GWEI/USD  		Direction: short		Entry Price: 0.05    		ExPri: 0.05    	 PNL:     2.37	
+	Symbol: LMWR/USD  		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -13.12	
+	Symbol: GWEI/USD  		Direction: short		Entry Price: 0.05    		ExPri: 0.05      PNL:   -15.38	
+	Symbol: PONKE/USD 		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    38.32	
+	Symbol: SENT/USD  		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -20.67	
+	Symbol: US/USD    		Direction: short		Entry Price: 0.03    		ExPri: 0.03      PNL:   -21.93	
+	Symbol: BILL/USD  		Direction: short		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -22.43	
+	Symbol: JTO/USD   		Direction: short		Entry Price: 0.67    		ExPri: 0.67    	 PNL:    12.01	
+	Symbol: JUNO/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:    18.72	
+	Symbol: KEEP/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -51.45	
+	Symbol: GWEI/USD  		Direction: short		Entry Price: 0.05    		ExPri: 0.05    	 PNL:    -5.01	
+	Symbol: FHE/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:    16.70	
+	Symbol: BLUAI/USD 		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -12.05	
+	Symbol: BLUAI/USD 		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -14.52	
+	Symbol: PARTI/USD 		Direction: short		Entry Price: 0.03    		ExPri: 0.03      PNL:    41.13	
+	Symbol: ALTHEA/USD		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -51.43	
+	Symbol: XAN/USD   		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    19.23	
+	Symbol: DCR/USD   		Direction: short		Entry Price: 13.31   		ExPri: 12.91     PNL:    41.33	
+	Symbol: QUAI/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -48.17	
+	Symbol: EWT/USD   		Direction: short		Entry Price: 0.33    		ExPri: 0.33    	 PNL:   -26.98	
+	Symbol: DCR/USD   		Direction: short		Entry Price: 13.29   		ExPri: 13.15     PNL:    11.60	
+	Symbol: DCR/USD   		Direction: short		Entry Price: 12.51   		ExPri: 12.38   	 PNL:    12.46	
+	Symbol: QUAI/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -51.48	
+	Symbol: KEEP/USD  		Direction: short		Entry Price: 0.03    		ExPri: 0.03      PNL:   -51.50	
+	Symbol: FHE/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -20.94	
+	Symbol: BILL/USD  		Direction: short		Entry Price: 0.05    		ExPri: 0.05    	 PNL:   -51.52	
+	Symbol: EWT/USD   		Direction: short		Entry Price: 0.33    		ExPri: 0.34      PNL:   -51.55	
+	Symbol: VELVET/USD		Direction: long 		Entry Price: 0.50    		ExPri: 0.50    	 PNL:    12.90	
+	Symbol: EVAA/USD  		Direction: long 		Entry Price: 1.26    		ExPri: 1.23    	 PNL:   -51.57	
+	Symbol: BNC/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:   -51.59	
+	Symbol: BILL/USD  		Direction: short		Entry Price: 0.05    		ExPri: 0.05    	 PNL:   -51.61	
+	Symbol: SUP/USD   		Direction: short		Entry Price: 0.00    		ExPri: 0.00    	 PNL:   -51.42	
+	Symbol: UAI/USD   		Direction: short		Entry Price: 0.37    		ExPri: 0.37      PNL:    11.72	
+	Symbol: KEEP/USD  		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   233.44	
+	Symbol: US/USD    		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    21.65	
+	Symbol: AI3/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:    74.96	
+	Symbol: EVAA/USD  		Direction: long 		Entry Price: 1.06    		ExPri: 1.03    	 PNL:   -51.69	
+	Symbol: SKY/USD   		Direction: long 		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -44.08	
+	Symbol: SKY/USD   		Direction: long 		Entry Price: 0.06    		ExPri: 0.06      PNL:    -1.47	
+	Symbol: FHE/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -21.03	
+	Symbol: LCX/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -51.57	
+	Symbol: LCX/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:   -42.85	
+	Symbol: RAILS/USD 		Direction: long 		Entry Price: 0.06    		ExPri: 0.06    	 PNL:    33.88	
+	Symbol: BONZO/USD 		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    -3.81	
+	Symbol: FHE/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:   -40.36	
+	Symbol: TRIA/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    14.39	
+	Symbol: VINE/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -20.01	
+	Symbol: PARTI/USD 		Direction: long 		Entry Price: 0.03    		ExPri: 0.03      PNL:    40.71	
+	Symbol: FHE/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -22.68	
+	Symbol: ESP/USD   		Direction: long 		Entry Price: 0.07    		ExPri: 0.07    	 PNL:    51.18	
+	Symbol: LCX/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:    42.91	
+	Symbol: EVAA/USD  		Direction: long 		Entry Price: 2.18    		ExPri: 2.14    	 PNL:   -51.56	
+	Symbol: SCRT/USD  		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -23.61	
+	Symbol: BLESS/USD 		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:    12.10	
+	Symbol: AIO/USD   		Direction: long 		Entry Price: 0.12    		ExPri: 0.12    	 PNL:    56.38	
+	Symbol: GWEI/USD  		Direction: long 		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -37.12	
+	Symbol: OPN/USD   		Direction: long 		Entry Price: 0.07    		ExPri: 0.07      PNL:    10.85	
+	Symbol: AIO/USD   		Direction: long 		Entry Price: 0.11    		ExPri: 0.11    	 PNL:   -35.76	
+	Symbol: HSK/USD   		Direction: long 		Entry Price: 0.09    		ExPri: 0.09    	 PNL:   -23.88	
+	Symbol: REPPO/USD 		Direction: long 		Entry Price: 0.03    		ExPri: 0.03      PNL:   -24.65	
+	Symbol: ALCX/USD  		Direction: long 		Entry Price: 2.23    		ExPri: 2.24    	 PNL:    -0.68	
+	Symbol: TRIA/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    -3.41	
+	Symbol: REPPO/USD 		Direction: long 		Entry Price: 0.03    		ExPri: 0.03      PNL:   -51.55	
+	Symbol: PARTI/USD 		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -41.69	
+	Symbol: AI/USD    		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -51.52	
+	Symbol: ROLL/USD  		Direction: short		Entry Price: 0.07    		ExPri: 0.06      PNL:   190.01	
+	Symbol: LCX/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    77.03	
+	Symbol: LCX/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -30.40	
+	Symbol: ESPORTS/USD		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:    13.73	
+	Symbol: RAILS/USD 		Direction: long 		Entry Price: 0.06    		ExPri: 0.06    	 PNL:    33.62	
+	Symbol: DAG/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    30.15	
+	Symbol: REPPO/USD 		Direction: long 		Entry Price: 0.03    		ExPri: 0.03      PNL:   101.35	
+	Symbol: TRIA/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -26.58	
+	Symbol: MYX/USD   		Direction: long 		Entry Price: 0.08    		ExPri: 0.08    	 PNL:   -24.80	
+	Symbol: PROMPT/USD		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:   -10.81	
+	Symbol: BLUAI/USD 		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    12.12	
+	Symbol: VANRY/USD 		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:     1.71	
+	Symbol: ANON/USD  		Direction: long 		Entry Price: 0.33    		ExPri: 0.33      PNL:    11.33	
+	Symbol: VANRY/USD 		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -18.53	
+	Symbol: ARB/USD   		Direction: long 		Entry Price: 0.09    		ExPri: 0.09    	 PNL:   -15.90	
+	Symbol: TRIA/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:     0.22	
+	Symbol: VINE/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    -5.79	
+	Symbol: TRIA/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -21.42	
+	Symbol: TRIA/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:   -51.45	
+	Symbol: EIGEN/USD 		Direction: long 		Entry Price: 0.25    		ExPri: 0.25    	 PNL:   -14.55	
+	Symbol: RAILS/USD 		Direction: long 		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -51.47	
+	Symbol: SCRT/USD  		Direction: long 		Entry Price: 0.04    		ExPri: 0.04      PNL:    -5.99	
+	Symbol: JUNO/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    -4.99	
+	Symbol: PLAY/USD  		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -36.43	
+	Symbol: TAKE/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:   -10.80	
+	Symbol: SCRT/USD  		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -19.79	
+	Symbol: TAKE/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -41.24	
+	Symbol: JUNO/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:    39.81	
+	Symbol: CHEX/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    27.96	
+	Symbol: US/USD    		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    11.13	
+	Symbol: BLUAI/USD 		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:    19.07	
+	Symbol: DRIFT/USD 		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    12.51	
+	Symbol: JUNO/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    14.07	
+	Symbol: RIZE/USD  		Direction: short		Entry Price: 0.01    		ExPri: 0.01      PNL:    24.77	
+	Symbol: NOCK/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    36.05	
+	Symbol: CHEX/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -47.53	
+	Symbol: KAITO/USD 		Direction: short		Entry Price: 0.74    		ExPri: 0.70      PNL:    81.20	
+	Symbol: TRIA/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    -6.56	
+	Symbol: ROBO/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -18.26	
+	Symbol: US/USD    		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:   -13.82	
+	Symbol: ESPORTS/USD		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -18.52	
+	Symbol: VOOI/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -11.33	
+	Symbol: WARD/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:   -23.09	
+	Symbol: JUNO/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -49.33	
+	Symbol: VINE/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    -3.69	
+	Symbol: EDGEX/USD 		Direction: long 		Entry Price: 0.46    		ExPri: 0.46      PNL:     0.57	
+	Symbol: RIZE/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    -5.40	
+	Symbol: EDGE/USD  		Direction: long 		Entry Price: 0.08    		ExPri: 0.08    	 PNL:   -18.27	
+	Symbol: PONKE/USD 		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:   -30.70	
+	Symbol: MULTI/USD 		Direction: long 		Entry Price: 0.08    		ExPri: 0.08    	 PNL:     1.03	
+	Symbol: EVAA/USD  		Direction: short		Entry Price: 2.48    		ExPri: 2.45    	 PNL:    20.23	
+	Symbol: EDGEX/USD 		Direction: long 		Entry Price: 0.39    		ExPri: 0.40      PNL:    35.75	
+	Symbol: BASED/USD 		Direction: short		Entry Price: 0.08    		ExPri: 0.08    	 PNL:   -30.43	
+	Symbol: TRIA/USD  		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    -5.03	
+	Symbol: EDGEX/USD 		Direction: short		Entry Price: 0.37    		ExPri: 0.38      PNL:   -51.54	
+	Symbol: CHIP/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -30.78	
+	Symbol: SLX/USD   		Direction: short		Entry Price: 0.18    		ExPri: 0.18    	 PNL:    12.04	
+	Symbol: TRIA/USD  		Direction: short		Entry Price: 0.03    		ExPri: 0.03      PNL:   -11.10	
+	Symbol: EVAA/USD  		Direction: short		Entry Price: 1.77    		ExPri: 1.75    	 PNL:    15.24	
+	Symbol: RE/USD    		Direction: short		Entry Price: 0.75    		ExPri: 0.73    	 PNL:    28.71	
+	Symbol: TRIA/USD  		Direction: short		Entry Price: 0.03    		ExPri: 0.03      PNL:   -25.23	
+	Symbol: RE/USD    		Direction: short		Entry Price: 0.72    		ExPri: 0.71    	 PNL:    15.89	
+	Symbol: US/USD    		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -17.29	
+	Symbol: US/USD    		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:   -51.64	
+	Symbol: CHIP/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -34.90	
+	Symbol: M/USD     		Direction: short		Entry Price: 1.45    		ExPri: 1.43    	 PNL:    16.78	
+	Symbol: KEEP/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:   -51.62	
+	Symbol: CHIP/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:    49.86	
+	Symbol: VOOI/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -51.68	
+	Symbol: TRIA/USD  		Direction: long 		Entry Price: 0.03    		ExPri: 0.03      PNL:   -27.11	
+	Symbol: LCX/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    20.00	
+	Symbol: VOOI/USD  		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -51.65	
+	Symbol: CAP/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:   173.02	
+	Symbol: DEEP/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    14.54	
+	Symbol: PROS/USD  		Direction: short		Entry Price: 0.42    		ExPri: 0.43    	 PNL:   -51.67	
+	Symbol: MON/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:   -46.10	
+	Symbol: SYND/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -51.53	
+	Symbol: MAT/USD   		Direction: short		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -51.80	
+	Symbol: M/USD     		Direction: short		Entry Price: 1.21    		ExPri: 1.20      PNL:    17.73	
+	Symbol: ES/USD    		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -51.83	
+	Symbol: US/USD    		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -51.82	
+	Symbol: SOMI/USD  		Direction: short		Entry Price: 0.12    		ExPri: 0.11      PNL:    22.90	
+	Symbol: TRIA/USD  		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    53.73	
+	Symbol: MON/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -12.98	
+	Symbol: ES/USD    		Direction: short		Entry Price: 0.01    		ExPri: 0.01      PNL:   -51.49	
+	Symbol: SOMI/USD  		Direction: short		Entry Price: 0.12    		ExPri: 0.11    	 PNL:    -1.15	
+	Symbol: PYTH/USD  		Direction: short		Entry Price: 0.05    		ExPri: 0.05    	 PNL:   -20.45	
+	Symbol: CHEX/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:    30.95	
+	Symbol: MINA/USD  		Direction: short		Entry Price: 0.05    		ExPri: 0.05    	 PNL:    -3.79	
+	Symbol: EDGE/USD  		Direction: short		Entry Price: 0.07    		ExPri: 0.07    	 PNL:   -14.33	
+	Symbol: PLAY/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04      PNL:   -25.81	
+	Symbol: BLUR/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    32.41	
+	Symbol: MON/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    11.18	
+	Symbol: GWEI/USD  		Direction: short		Entry Price: 0.14    		ExPri: 0.14      PNL:   -25.36	
+	Symbol: SYND/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -12.16	
+	Symbol: TRIA/USD  		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    68.14	
+	Symbol: HFT/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:    12.38	
+	Symbol: TRIA/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -13.06	
+	Symbol: JUNO/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -35.20	
+	Symbol: US/USD    		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:    -6.18	
+	Symbol: NES/USD   		Direction: long 		Entry Price: 0.26    		ExPri: 0.26    	 PNL:    31.38	
+	Symbol: OOB/USD   		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    17.64	
+	Symbol: CHEX/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:   -51.81	
+	Symbol: AI/USD    		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -51.82	
+	Symbol: ARX/USD   		Direction: short		Entry Price: 0.23    		ExPri: 0.24    	 PNL:   -51.84	
+	Symbol: GWEI/USD  		Direction: short		Entry Price: 0.15    		ExPri: 0.14      PNL:    -3.65	
+	Symbol: PLAY/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -51.85	
+	Symbol: BREV/USD  		Direction: short		Entry Price: 0.09    		ExPri: 0.09    	 PNL:    -1.09	
+	Symbol: BLESS/USD 		Direction: short		Entry Price: 0.01    		ExPri: 0.01      PNL:   -19.35	
+	Symbol: VULT/USD  		Direction: short		Entry Price: 0.09    		ExPri: 0.09    	 PNL:   -43.05	
+	Symbol: XNY/USD   		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -18.70	
+	Symbol: SLX/USD   		Direction: long 		Entry Price: 0.27    		ExPri: 0.27      PNL:   -51.94	
+	Symbol: GLMR/USD  		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    94.30	
+	Symbol: A/USD     		Direction: long 		Entry Price: 0.07    		ExPri: 0.07    	 PNL:   -20.36	
+	Symbol: SYND/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:    -3.33	
+	Symbol: ALCH/USD  		Direction: long 		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -51.05	
+	Symbol: NOCK/USD  		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -36.10	
+	Symbol: TAC/USD   		Direction: short		Entry Price: 0.03    		ExPri: 0.03      PNL:   -51.97	
+	Symbol: MEGA/USD  		Direction: long 		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -12.83	
+	Symbol: GLMR/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -31.06	
+	Symbol: XNY/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:    18.48	
+	Symbol: ARPA/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -45.20	
+	Symbol: RAILS/USD 		Direction: long 		Entry Price: 0.06    		ExPri: 0.06    	 PNL:    17.35	
+	Symbol: ACT/USD   		Direction: short		Entry Price: 0.01    		ExPri: 0.01      PNL:   -20.86	
+	Symbol: MIRA/USD  		Direction: long 		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -52.04	
+	Symbol: VELODROME/USD		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    -1.56	
+	Symbol: TRIA/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:   -13.17	
+	Symbol: TRIA/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -14.30	
+	Symbol: NIL/USD   		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -46.00	
+	Symbol: BLESS/USD 		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:    39.21	
+	Symbol: VELODROME/USD		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -52.09	
+	Symbol: CAP/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    12.64	
+	Symbol: ZKP/USD   		Direction: long 		Entry Price: 0.06    		ExPri: 0.06      PNL:   -30.08	
+	Symbol: RSC/USD   		Direction: short		Entry Price: 0.10    		ExPri: 0.10    	 PNL:    13.75	
+	Symbol: QUAI/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    26.33	
+	Symbol: BMB/USD   		Direction: long 		Entry Price: 0.00    		ExPri: 0.00      PNL:   255.32	
+	Symbol: VELVET/USD		Direction: long 		Entry Price: 1.66    		ExPri: 1.67    	 PNL:    -0.93	
+	Symbol: PYTH/USD  		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:    23.22	
+	Symbol: TAC/USD   		Direction: long 		Entry Price: 0.05    		ExPri: 0.05      PNL:    -6.66	
+	Symbol: RE/USD    		Direction: long 		Entry Price: 0.78    		ExPri: 0.79    	 PNL:    -0.48	
+	Symbol: AEVO/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -51.95	
+	Symbol: RAVE/USD  		Direction: long 		Entry Price: 0.42    		ExPri: 0.41      PNL:   -51.99	
+	Symbol: TAC/USD   		Direction: long 		Entry Price: 0.05    		ExPri: 0.05    	 PNL:    -6.88	
+	Symbol: RAVE/USD  		Direction: short		Entry Price: 0.41    		ExPri: 0.40    	 PNL:    41.48	
+	Symbol: ESPORTS/USD		Direction: long 		Entry Price: 0.03    		ExPri: 0.03      PNL:   -27.22	
+	Symbol: BTR/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    -6.82	
+	Symbol: TX/USD    		Direction: long 		Entry Price: 0.00    		ExPri: 0.00    	 PNL:    44.59	
+	Symbol: PERP/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:    33.09	
+	Symbol: M/USD     		Direction: short		Entry Price: 0.59    		ExPri: 0.60    	 PNL:   -20.58	
+	Symbol: RAVE/USD  		Direction: long 		Entry Price: 0.48    		ExPri: 0.49    	 PNL:    22.50	
+	Symbol: VELVET/USD		Direction: long 		Entry Price: 1.75    		ExPri: 1.71      PNL:   -51.97	
+	Symbol: NIGHT/USD 		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -52.00	
+	Symbol: ES/USD    		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    50.83	
+	Symbol: UNFI/USD  		Direction: long 		Entry Price: 0.03    		ExPri: 0.03      PNL:   -23.71	
+	Symbol: TRIA/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -21.14	
+	Symbol: GWEI/USD  		Direction: long 		Entry Price: 0.16    		ExPri: 0.17    	 PNL:    45.23	
+	Symbol: USDUC/USD 		Direction: long 		Entry Price: 0.00    		ExPri: 0.00      PNL:    18.21	
+	Symbol: EREBRO/USD		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -35.51	
+	Symbol: VELVET/USD		Direction: long 		Entry Price: 1.80    		ExPri: 1.82    	 PNL:     0.65	
+	Symbol: EREBRO/USD		Direction: long 		Entry Price: 0.04    		ExPri: 0.04      PNL:   -19.75	
+	Symbol: RAVE/USD  		Direction: long 		Entry Price: 0.31    		ExPri: 0.31    	 PNL:    -3.43	
+	Symbol: COOKIE/USD		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    13.38	
+	Symbol: PIPE/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:    70.09	
+	Symbol: BILL/USD  		Direction: long 		Entry Price: 0.05    		ExPri: 0.05    	 PNL:    14.60	
+	Symbol: CLOUD/USD 		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    13.45	
+	Symbol: RIZE/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:   -23.95	
+	Symbol: GRIFFAIN/USD		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    23.49	
+	Symbol: FUN/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -17.90	
+	Symbol: S/USD     		Direction: long 		Entry Price: 0.02    		ExPri: 0.03      PNL:    20.14	
+	Symbol: RAVE/USD  		Direction: long 		Entry Price: 0.31    		ExPri: 0.31    	 PNL:    29.35	
+	Symbol: BILL/USD  		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:    12.06	
+	Symbol: GRIFFAIN/USD		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:   -13.32	
+	Symbol: DRV/USD   		Direction: long 		Entry Price: 0.10    		ExPri: 0.10    	 PNL:   -10.93	
+	Symbol: CELO/USD  		Direction: long 		Entry Price: 0.07    		ExPri: 0.07    	 PNL:   -51.95	
+	Symbol: SYN/USD   		Direction: long 		Entry Price: 0.35    		ExPri: 0.37      PNL:    66.60	
+	Symbol: BASED/USD 		Direction: long 		Entry Price: 0.07    		ExPri: 0.07    	 PNL:   -25.93	
+	Symbol: BABYSHARK/USD		Direction: long 		Entry Price: 0.00    		ExPri: 0.01    	 PNL:   124.21	
+	Symbol: UP/USD    		Direction: long 		Entry Price: 0.07    		ExPri: 0.07      PNL:    -3.01	
+	Symbol: AIN/USD   		Direction: long 		Entry Price: 0.08    		ExPri: 0.08    	 PNL:   -33.71	
+	Symbol: SYND/USD  		Direction: long 		Entry Price: 0.03    		ExPri: 0.02    	 PNL:   -51.95	
+	Symbol: M/USD     		Direction: short		Entry Price: 0.75    		ExPri: 0.76      PNL:   -51.94	
+	Symbol: ES/USD    		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    32.39	
+	Symbol: UP/USD    		Direction: long 		Entry Price: 0.06    		ExPri: 0.07    	 PNL:    15.64	
+	Symbol: TX/USD    		Direction: short		Entry Price: 0.01    		ExPri: 0.01      PNL:    54.91	
+	Symbol: SYN/USD   		Direction: short		Entry Price: 0.37    		ExPri: 0.36    	 PNL:    20.93	
+	Symbol: IAG/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -51.93	
+	Symbol: ME/USD    		Direction: short		Entry Price: 0.07    		ExPri: 0.07      PNL:   -10.79	
+	Symbol: IAG/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -51.96	
+	Symbol: EDGE/USD  		Direction: short		Entry Price: 0.07    		ExPri: 0.07    	 PNL:   -51.97	
+	Symbol: SLX/USD   		Direction: short		Entry Price: 0.38    		ExPri: 0.38      PNL:   -12.59	
+	Symbol: UP/USD    		Direction: long 		Entry Price: 0.07    		ExPri: 0.07    	 PNL:    13.17	
+	Symbol: GWEI/USD  		Direction: long 		Entry Price: 0.12    		ExPri: 0.12    	 PNL:    -6.54	
+	Symbol: UP/USD    		Direction: short		Entry Price: 0.06    		ExPri: 0.06      PNL:    -6.49	
+	Symbol: SYND/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.01    	 PNL:   -52.04	
+	Symbol: SLX/USD   		Direction: short		Entry Price: 0.32    		ExPri: 0.32    	 PNL:   -26.74	
+	Symbol: EDU/USD   		Direction: short		Entry Price: 0.03    		ExPri: 0.03      PNL:   -11.99	
+	Symbol: ESPORTS/USD		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -52.04	
+	Symbol: STG/USD   		Direction: short		Entry Price: 0.17    		ExPri: 0.16    	 PNL:     0.00	
+	Symbol: MYX/USD   		Direction: short		Entry Price: 0.09    		ExPri: 0.09      PNL:   -23.70	
+	Symbol: FARTCOIN/USD		Direction: short		Entry Price: 0.12    		ExPri: 0.12    	 PNL:   -52.11	
+	Symbol: POPCAT/USD		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -45.52	
+	Symbol: WCT/USD   		Direction: short		Entry Price: 0.04    		ExPri: 0.04      PNL:   -15.39	
+	Symbol: NIL/USD   		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -15.20	
+	Symbol: TRIA/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    -2.62	
+	Symbol: PLAY/USD  		Direction: short		Entry Price: 0.03    		ExPri: 0.03      PNL:   -13.38	
+	Symbol: FIDA/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -16.60	
+	Symbol: NIL/USD   		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -12.34	
+	Symbol: PLAY/USD  		Direction: long 		Entry Price: 0.03    		ExPri: 0.03      PNL:   -41.54	
+	Symbol: BILL/USD  		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:    35.09	
+	Symbol: GFI/USD   		Direction: short		Entry Price: 0.05    		ExPri: 0.05    	 PNL:    55.14	
+	Symbol: AIOZ/USD  		Direction: long 		Entry Price: 0.05    		ExPri: 0.05      PNL:    15.68	
+	Symbol: INX/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -52.22	
+	Symbol: RIZE/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    19.90	
+	Symbol: IAG/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:    89.17	
+	Symbol: ESPORTS/USD		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    11.36	
+	Symbol: TNSR/USD  		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -23.22	
+	Symbol: BLUAI/USD 		Direction: short		Entry Price: 0.02    		ExPri: 0.01      PNL:   114.81	
+	Symbol: ALICE/USD 		Direction: short		Entry Price: 0.14    		ExPri: 0.14    	 PNL:    -2.33	
+	Symbol: SYN/USD   		Direction: short		Entry Price: 0.30    		ExPri: 0.31    	 PNL:   -31.33	
+	Symbol: BLUAI/USD 		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:   -24.59	
+	Symbol: SLX/USD   		Direction: short		Entry Price: 0.26    		ExPri: 0.26    	 PNL:   -52.09	
+	Symbol: BLUAI/USD 		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -20.10	
+	Symbol: SYN/USD   		Direction: short		Entry Price: 0.31    		ExPri: 0.31      PNL:   -24.17	
+	Symbol: PLAY/USD  		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -21.77	
+	Symbol: TER/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -14.81	
+	Symbol: ES/USD    		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:    23.09	
+	Symbol: VELVET/USD		Direction: long 		Entry Price: 0.45    		ExPri: 0.46    	 PNL:    20.32	
+	Symbol: SAHARA/USD		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -52.21	
+	Symbol: SAHARA/USD		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:    23.00	
+	Symbol: PARTI/USD 		Direction: long 		Entry Price: 0.06    		ExPri: 0.05    	 PNL:   -21.90	
+	Symbol: BICO/USD  		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    11.42	
+	Symbol: TER/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:   -42.12	
+	Symbol: SYND/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    85.85	
+	Symbol: SYND/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    49.57	
+	Symbol: SYND/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:   -51.97	
+	Symbol: OOB/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -15.54	
+	Symbol: ESPORTS/USD		Direction: long 		Entry Price: 0.03    		ExPri: 0.04    	 PNL:    72.53	
+	Symbol: ION/USD   		Direction: short		Entry Price: 0.17    		ExPri: 0.17      PNL:   -19.34	
+	Symbol: VELODROME/USD		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -48.61	
+	Symbol: VELODROME/USD		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -18.54	
+	Symbol: SYND/USD  		Direction: short		Entry Price: 0.03    		ExPri: 0.02      PNL:    45.24	
+	Symbol: SYND/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    86.67	
+	Symbol: SYN/USD   		Direction: long 		Entry Price: 0.29    		ExPri: 0.29    	 PNL:   -33.91	
+	Symbol: TNSR/USD  		Direction: long 		Entry Price: 0.04    		ExPri: 0.04      PNL:   -27.35	
+	Symbol: LOCKIN/USD		Direction: long 		Entry Price: 0.00    		ExPri: 0.00    	 PNL:   -41.00	
+	Symbol: FIDA/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.03    	 PNL:    25.92	
+	Symbol: BLZ/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:   -22.38	
+	Symbol: ESPORTS/USD		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    -4.80	
+	Symbol: BICO/USD  		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    34.27	
+	Symbol: BICO/USD  		Direction: short		Entry Price: 0.03    		ExPri: 0.03      PNL:   -52.12	
+	Symbol: BICO/USD  		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    -6.37	
+	Symbol: BICO/USD  		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    22.74	
+	Symbol: RLS/USD   		Direction: long 		Entry Price: 0.00    		ExPri: 0.00      PNL:   -42.37	
+	Symbol: GWEI/USD  		Direction: long 		Entry Price: 0.12    		ExPri: 0.12    	 PNL:   -28.44	
+	Symbol: GFI/USD   		Direction: short		Entry Price: 0.07    		ExPri: 0.07    	 PNL:   -25.53	
+	Symbol: TRIA/USD  		Direction: long 		Entry Price: 0.03    		ExPri: 0.03      PNL:    11.95	
+	Symbol: ARX/USD   		Direction: long 		Entry Price: 0.29    		ExPri: 0.30    	 PNL:    40.72	
+	Symbol: ARPA/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -31.65	
+	Symbol: MYX/USD   		Direction: long 		Entry Price: 0.11    		ExPri: 0.10      PNL:   -40.41	
+	Symbol: PARTI/USD 		Direction: long 		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -42.84	
+	Symbol: UNFI/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   147.28	
+	Symbol: BREV/USD  		Direction: long 		Entry Price: 0.09    		ExPri: 0.09      PNL:    16.57	
+	Symbol: ME/USD    		Direction: long 		Entry Price: 0.07    		ExPri: 0.07    	 PNL:   115.20	
+	Symbol: ES/USD    		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -12.32	
+	Symbol: TRIA/USD  		Direction: long 		Entry Price: 0.03    		ExPri: 0.03      PNL:   -43.06	
+	Symbol: W/USD     		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    33.29	
+	Symbol: BLESS/USD 		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -20.11	
+	Symbol: BILL/USD  		Direction: short		Entry Price: 0.06    		ExPri: 0.06      PNL:   -24.58	
+	Symbol: ARC/USD   		Direction: short		Entry Price: 0.08    		ExPri: 0.08    	 PNL:   -39.52	
+	Symbol: RNBW/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    -3.72	
+	Symbol: STBL/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:    -1.69	
+	Symbol: ZK/USD    		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -23.62	
+	Symbol: EIGEN/USD 		Direction: short		Entry Price: 0.30    		ExPri: 0.30    	 PNL:    -0.06	
+	Symbol: OBOL/USD  		Direction: short		Entry Price: 0.00    		ExPri: 0.00      PNL:   -39.44	
+	Symbol: OOB/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -24.56	
+	Symbol: JUNO/USD  		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -28.93	
+	Symbol: DAG/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:    -2.87	
+	Symbol: US/USD    		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -13.06	
+	Symbol: EREBRO/USD		Direction: long 		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -19.18	
+	Symbol: DAG/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:    28.50	
+	Symbol: WARD/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    11.59	
+	Symbol: TNSR/USD  		Direction: short		Entry Price: 0.05    		ExPri: 0.05    	 PNL:   -48.19	
+	Symbol: DRIFT/USD 		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:    19.54	
+	Symbol: ES/USD    		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -18.52	
+	Symbol: DYM/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -27.80	
+	Symbol: BICO/USD  		Direction: short		Entry Price: 0.05    		ExPri: 0.05      PNL:   -10.66	
+	Symbol: REPPO/USD 		Direction: short		Entry Price: 0.03    		ExPri: 0.02    	 PNL:   138.14	
+	Symbol: DAG/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   120.25	
+	Symbol: SYN/USD   		Direction: long 		Entry Price: 0.15    		ExPri: 0.15      PNL:   -45.41	
+	Symbol: BTR/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    86.56	
+	Symbol: SYND/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    93.83	
+	Symbol: PARTI/USD 		Direction: long 		Entry Price: 0.06    		ExPri: 0.06      PNL:   -15.84	
+	Symbol: DRIFT/USD 		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -17.47	
+	Symbol: UAI/USD   		Direction: long 		Entry Price: 0.32    		ExPri: 0.32    	 PNL:   -13.50	
+	Symbol: DAG/USD   		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:    11.33	
+	Symbol: SYND/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    -4.02	
+	Symbol: DRIFT/USD 		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    -0.64	
+	Symbol: W/USD     		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:   -31.42	
+	Symbol: EIGEN/USD 		Direction: long 		Entry Price: 0.28    		ExPri: 0.28    	 PNL:   -24.07	
+	Symbol: OBOL/USD  		Direction: long 		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    46.78	
+	Symbol: TNSR/USD  		Direction: long 		Entry Price: 0.03    		ExPri: 0.04      PNL:    87.17	
+	Symbol: JTO/USD   		Direction: long 		Entry Price: 0.71    		ExPri: 0.71    	 PNL:   -31.58	
+	Symbol: ESPORTS/USD		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    13.50	
+	Symbol: CHR/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:    28.68	
+	Symbol: AXS/USD   		Direction: long 		Entry Price: 1.23    		ExPri: 1.26    	 PNL:    47.16	
+	Symbol: MET/USD   		Direction: short		Entry Price: 0.16    		ExPri: 0.16    	 PNL:   -35.81	
+	Symbol: SYND/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:   -11.65	
+	Symbol: BABYSHARK/USD		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -22.46	
+	Symbol: ES/USD    		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -17.74	
+	Symbol: OOB/USD   		Direction: short		Entry Price: 0.01    		ExPri: 0.01      PNL:    -5.51	
+	Symbol: MANA/USD  		Direction: short		Entry Price: 0.08    		ExPri: 0.08    	 PNL:    23.53	
+	Symbol: SAND/USD  		Direction: short		Entry Price: 0.06    		ExPri: 0.06    	 PNL:    -0.22	
+	Symbol: ESPORTS/USD		Direction: short		Entry Price: 0.03    		ExPri: 0.03      PNL:   -34.05	
+	Symbol: MANA/USD  		Direction: short		Entry Price: 0.08    		ExPri: 0.08    	 PNL:   -27.30	
+	Symbol: GFI/USD   		Direction: short		Entry Price: 0.07    		ExPri: 0.07    	 PNL:    -2.94	
+	Symbol: BLESS/USD 		Direction: short		Entry Price: 0.01    		ExPri: 0.01      PNL:    20.35	
+	Symbol: BLEND/USD 		Direction: short		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -17.88	
+	Symbol: BIO/USD   		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -28.97	
+	Symbol: MANA/USD  		Direction: short		Entry Price: 0.08    		ExPri: 0.08      PNL:   -13.61	
+	Symbol: MEGA/USD  		Direction: short		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -33.51	
+	Symbol: SAND/USD  		Direction: short		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -31.16	
+	Symbol: SYN/USD   		Direction: short		Entry Price: 0.17    		ExPri: 0.17      PNL:   -35.79	
+	Symbol: POLS/USD  		Direction: short		Entry Price: 0.06    		ExPri: 0.07    	 PNL:   -36.93	
+	Symbol: FUN/USD   		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:    11.68	
+	Symbol: OOB/USD   		Direction: short		Entry Price: 0.01    		ExPri: 0.01      PNL:    29.10	
+	Symbol: WARD/USD  		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    -5.47	
+	Symbol: PARTI/USD 		Direction: short		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -26.09	
+	Symbol: MANA/USD  		Direction: short		Entry Price: 0.07    		ExPri: 0.07      PNL:   -29.88	
+	Symbol: SLX/USD   		Direction: short		Entry Price: 0.20    		ExPri: 0.20    	 PNL:    29.70	
+	Symbol: RARE/USD  		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    -2.23	
+	Symbol: BICO/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04      PNL:   -25.16	
+	Symbol: GFI/USD   		Direction: short		Entry Price: 0.07    		ExPri: 0.07    	 PNL:   -22.50	
+	Symbol: SLX/USD   		Direction: short		Entry Price: 0.19    		ExPri: 0.19    	 PNL:   -27.22	
+	Symbol: SAND/USD  		Direction: short		Entry Price: 0.06    		ExPri: 0.06      PNL:    11.48	
+	Symbol: ODOS/USD  		Direction: short		Entry Price: 0.00    		ExPri: 0.00    	 PNL:   -53.57	
+	Symbol: SLX/USD   		Direction: short		Entry Price: 0.18    		ExPri: 0.18    	 PNL:   -37.13	
+	Symbol: AXS/USD   		Direction: short		Entry Price: 1.13    		ExPri: 1.14      PNL:   -33.59	
+	Symbol: TREE/USD  		Direction: short		Entry Price: 0.05    		ExPri: 0.05    	 PNL:   -12.36	
+	Symbol: BICO/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:    15.75	
+	Symbol: ES/USD    		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:   -52.26	
+	Symbol: OOB/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -24.70	
+	Symbol: CELO/USD  		Direction: long 		Entry Price: 0.07    		ExPri: 0.07    	 PNL:   -11.47	
+	Symbol: WCT/USD   		Direction: long 		Entry Price: 0.05    		ExPri: 0.05      PNL:   -14.46	
+	Symbol: BICO/USD  		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:     0.89	
+	Symbol: ESPORTS/USD		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -18.85	
+	Symbol: US/USD    		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:    32.58	
+	Symbol: MET/USD   		Direction: long 		Entry Price: 0.14    		ExPri: 0.14    	 PNL:   -39.70	
+	Symbol: NODE/USD  		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -52.31	
+	Symbol: SYN/USD   		Direction: long 		Entry Price: 0.12    		ExPri: 0.12      PNL:    -2.49	
+	Symbol: PUFFER/USD		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -32.39	
+	Symbol: QUAI/USD  		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -29.58	
+	Symbol: UP/USD    		Direction: short		Entry Price: 0.06    		ExPri: 0.06      PNL:    12.39	
+	Symbol: ENJ/USD   		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -27.81	
+	Symbol: QUAI/USD  		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -33.12	
+	Symbol: PORTAL/USD		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:    15.96	
+	Symbol: SYND/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    61.64	
+	Symbol: BICO/USD  		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    58.03	
+	Symbol: BICO/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:   -11.45	
+	Symbol: MET/USD   		Direction: short		Entry Price: 0.13    		ExPri: 0.13    	 PNL:    34.88	
+	Symbol: BASED/USD 		Direction: short		Entry Price: 0.10    		ExPri: 0.09    	 PNL:   142.63	
+	Symbol: BLEND/USD 		Direction: short		Entry Price: 0.06    		ExPri: 0.06      PNL:   -18.98	
+	Symbol: BASED/USD 		Direction: short		Entry Price: 0.10    		ExPri: 0.10    	 PNL:    11.78	
+	Symbol: ADX/USD   		Direction: short		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -20.27	
+	Symbol: A/USD     		Direction: short		Entry Price: 0.07    		ExPri: 0.07      PNL:   -13.80	
+	Symbol: GFI/USD   		Direction: short		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -37.28	
+	Symbol: REPPO/USD 		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -52.29	
+	Symbol: WARD/USD  		Direction: short		Entry Price: 0.01    		ExPri: 0.01      PNL:    -0.25	
+	Symbol: TAC/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -52.34	
+	Symbol: CHEX/USD  		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    20.39	
+	Symbol: ESPORTS/USD		Direction: long 		Entry Price: 0.08    		ExPri: 0.08      PNL:    13.22	
+	Symbol: LIT/USD   		Direction: short		Entry Price: 0.09    		ExPri: 0.09    	 PNL:   -52.31	
+	Symbol: BLUR/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    16.24	
+	Symbol: GWEI/USD  		Direction: short		Entry Price: 0.11    		ExPri: 0.11      PNL:   -14.57	
+	Symbol: ENJ/USD   		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -15.86	
+	Symbol: BLUAI/USD 		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -52.37	
+	Symbol: EREBRO/USD		Direction: short		Entry Price: 0.03    		ExPri: 0.03      PNL:   -52.50	
+	Symbol: TRUST/USD 		Direction: short		Entry Price: 0.06    		ExPri: 0.05    	 PNL:    73.88	
+	Symbol: ENJ/USD   		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:    13.33	
+	Symbol: MEGA/USD  		Direction: short		Entry Price: 0.07    		ExPri: 0.06      PNL:    69.78	
+	Symbol: ZBT/USD   		Direction: short		Entry Price: 0.14    		ExPri: 0.14    	 PNL:    -4.89	
+	Symbol: TAC/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -30.50	
+	Symbol: WAL/USD   		Direction: short		Entry Price: 0.03    		ExPri: 0.03      PNL:   -17.35	
+	Symbol: MEGA/USD  		Direction: short		Entry Price: 0.07    		ExPri: 0.04    	 PNL:   845.53	
+	Symbol: UNITAS/USD		Direction: short		Entry Price: 0.43    		ExPri: 0.44    	 PNL:   -43.32	
+	Symbol: US/USD    		Direction: long 		Entry Price: 0.01    		ExPri: 0.01      PNL:    -2.95	
+	Symbol: UNFI/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -51.92	
+	Symbol: BLUAI/USD 		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    27.43	
+	Symbol: US/USD    		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:    -3.43	
+	Symbol: BIO/USD   		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -14.58	
+	Symbol: SYND/USD  		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    31.49	
+	Symbol: SENT/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:   -14.71	
+	Symbol: EREBRO/USD		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -36.27	
+	Symbol: US/USD    		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    27.10	
+	Symbol: BIO/USD   		Direction: long 		Entry Price: 0.04    		ExPri: 0.04      PNL:   -22.32	
+	Symbol: EREBRO/USD		Direction: long 		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -51.89	
+	Symbol: ROLL/USD  		Direction: long 		Entry Price: 0.08    		ExPri: 0.09    	 PNL:    80.22	
+	Symbol: SYN/USD   		Direction: long 		Entry Price: 0.07    		ExPri: 0.07      PNL:    19.54	
+	Symbol: SYN/USD   		Direction: long 		Entry Price: 0.06    		ExPri: 0.07    	 PNL:    49.46	
+	Symbol: TAC/USD   		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -51.83	
+	Symbol: ALEO/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04      PNL:   -51.94	
+	Symbol: US/USD    		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:     0.93	
+	Symbol: MON/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -11.40	
+	Symbol: BIO/USD   		Direction: short		Entry Price: 0.04    		ExPri: 0.04      PNL:    -0.96	
+	Symbol: DOT/USD   		Direction: short		Entry Price: 1.03    		ExPri: 1.04    	 PNL:   -17.86	
+	Symbol: ACU/USD   		Direction: short		Entry Price: 0.08    		ExPri: 0.08    	 PNL:   -30.19	
+	Symbol: XPL/USD   		Direction: short		Entry Price: 0.12    		ExPri: 0.12      PNL:   -35.22	
+	Symbol: ION/USD   		Direction: short		Entry Price: 0.16    		ExPri: 0.16    	 PNL:   -52.00	
+	Symbol: EREBRO/USD		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -51.99	
+	Symbol: ION/USD   		Direction: short		Entry Price: 0.15    		ExPri: 0.15      PNL:    -5.94	
+	Symbol: BIO/USD   		Direction: short		Entry Price: 0.04    		ExPri: 0.03    	 PNL:    28.32	
+	Symbol: PLAY/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:     1.67	
+	Symbol: PLAY/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04      PNL:   -16.14	
+	Symbol: EREBRO/USD		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -24.57	
+	Symbol: PLAY/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -39.18	
+	Symbol: GRASS/USD 		Direction: short		Entry Price: 0.49    		ExPri: 0.50      PNL:   -52.08	
+	Symbol: SENT/USD  		Direction: long 		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    -6.84	
+	Symbol: BIO/USD   		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -15.25	
+	Symbol: STG/USD   		Direction: short		Entry Price: 0.27    		ExPri: 0.27      PNL:    11.59	
+	Symbol: ESPORTS/USD		Direction: short		Entry Price: 0.09    		ExPri: 0.09    	 PNL:     7.95	
+	Symbol: TRIA/USD  		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -52.15	
+	Symbol: PORTAL/USD		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:    11.09	
+	Symbol: PUFFER/USD		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    44.61	
+	Symbol: GWEI/USD  		Direction: short		Entry Price: 0.13    		ExPri: 0.13    	 PNL:    13.84	
+	Symbol: ZEX/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:    36.81	
+	Symbol: PARTI/USD 		Direction: short		Entry Price: 0.06    		ExPri: 0.06    	 PNL:   -26.97	
+	Symbol: SUKU/USD  		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:    36.85	
+	Symbol: TAKE/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:   -30.05	
+	Symbol: TRIA/USD  		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    12.40	
+	Symbol: SCOR/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    -6.54	
+	Symbol: AERO/USD  		Direction: short		Entry Price: 0.47    		ExPri: 0.48      PNL:   -44.40	
+	Symbol: XPL/USD   		Direction: short		Entry Price: 0.10    		ExPri: 0.09    	 PNL:    69.33	
+	Symbol: TRIA/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -52.08	
+	Symbol: KP3R/USD  		Direction: short		Entry Price: 0.94    		ExPri: 0.96      PNL:   -52.09	
+	Symbol: ALLO/USD  		Direction: short		Entry Price: 0.39    		ExPri: 0.38    	 PNL:     7.95	
+	Symbol: EVAA/USD  		Direction: long 		Entry Price: 0.96    		ExPri: 0.98    	 PNL:    16.52	
+	Symbol: PUFFER/USD		Direction: long 		Entry Price: 0.02    		ExPri: 0.02      PNL:   -52.04	
+	Symbol: PUFFER/USD		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    42.14	
+	Symbol: SYN/USD   		Direction: short		Entry Price: 0.05    		ExPri: 0.05    	 PNL:    -5.95	
+	Symbol: FIDA/USD  		Direction: short		Entry Price: 0.03    		ExPri: 0.02      PNL:    36.19	
+	Symbol: PLAY/USD  		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    29.54	
+	Symbol: FIDA/USD  		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:   -52.11	
+	Symbol: LIT/USD   		Direction: short		Entry Price: 0.07    		ExPri: 0.07      PNL:     7.97	
+	Symbol: XLM/USD   		Direction: short		Entry Price: 0.23    		ExPri: 0.23    	 PNL:     7.96	
+	Symbol: ARC/USD   		Direction: short		Entry Price: 0.08    		ExPri: 0.08    	 PNL:     0.22	
+	Symbol: AERO/USD  		Direction: short		Entry Price: 0.44    		ExPri: 0.43      PNL:     7.96	
+	Symbol: XLM/USD   		Direction: short		Entry Price: 0.21    		ExPri: 0.21    	 PNL:    -5.61	
+	Symbol: CHIP/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:    -4.13	
+	Symbol: TRIA/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:   -52.17	
+	Symbol: SPK/USD   		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:    85.60	
+	Symbol: ZRO/USD   		Direction: short		Entry Price: 1.13    		ExPri: 1.11    	 PNL:    11.84	
+	Symbol: US/USD    		Direction: short		Entry Price: 0.01    		ExPri: 0.01      PNL:   -52.11	
+	Symbol: NIL/USD   		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:   -50.97	
+	Symbol: GWEI/USD  		Direction: short		Entry Price: 0.14    		ExPri: 0.14    	 PNL:     1.90	
+	Symbol: CHIP/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04      PNL:    10.20	
+	Symbol: BABY/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -52.17	
+	Symbol: CHIP/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:    -6.27	
+	Symbol: WLD/USD   		Direction: short		Entry Price: 0.58    		ExPri: 0.59      PNL:   -23.66	
+	Symbol: UAI/USD   		Direction: short		Entry Price: 0.33    		ExPri: 0.34    	 PNL:   -45.78	
+	Symbol: USELESS/USD		Direction: short		Entry Price: 0.08    		ExPri: 0.07    	 PNL:    19.16	
+	Symbol: CHIP/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04      PNL:    20.26	
+	Symbol: TRIA/USD  		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -52.06	
+	Symbol: SPACE/USD 		Direction: short		Entry Price: 0.01    		ExPri: 0.01    	 PNL:   -52.33	
+	Symbol: LCX/USD   		Direction: short		Entry Price: 0.03    		ExPri: 0.03      PNL:   -27.97	
+	Symbol: PLAY/USD  		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    -5.37	
+	Symbol: EVAA/USD  		Direction: short		Entry Price: 0.69    		ExPri: 0.67    	 PNL:    66.90	
+	Symbol: WARD/USD  		Direction: short		Entry Price: 0.01    		ExPri: 0.01      PNL:    -4.43	
+	Symbol: IP/USD    		Direction: short		Entry Price: 0.29    		ExPri: 0.29    	 PNL:   -42.00	
+	Symbol: PUFFER/USD		Direction: short		Entry Price: 0.02    		ExPri: 0.02    	 PNL:   -22.08	
+	Symbol: Q/USD     		Direction: short		Entry Price: 0.02    		ExPri: 0.02      PNL:   -52.25	
+	Symbol: CHIP/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:     2.25	
+	Symbol: EVAA/USD  		Direction: short		Entry Price: 0.51    		ExPri: 0.50    	 PNL:    36.69	
+	Symbol: NIL/USD   		Direction: short		Entry Price: 0.04    		ExPri: 0.04      PNL:   -43.91	
+	Symbol: CHIP/USD  		Direction: short		Entry Price: 0.04    		ExPri: 0.04    	 PNL:    41.37	
+	Symbol: FWOG/USD  		Direction: short		Entry Price: 0.00    		ExPri: 0.00    	 PNL:   -52.10	
+	Symbol: BANANAS31/USD		Direction: short		Entry Price: 0.01    		ExPri: 0.01      PNL:     8.05	
+	Symbol: VELVET/USD		Direction: short		Entry Price: 0.52    		ExPri: 0.51    	 PNL:     7.98	
+	Symbol: VSN/USD   		Direction: short		Entry Price: 0.03    		ExPri: 0.03    	 PNL:    45.19	
+	Symbol: EIGEN/USD 		Direction: short		Entry Price: 0.20    		ExPri: 0.20      PNL:    11.03	
+	Symbol: BNB/USD   		Direction: long 		Entry Price: 608.99  		ExPri: 608.94  	 PNL:   -12.55	
+	Symbol: SOL/USD   		Direction: long 		Entry Price: 68.87   		ExPri: 68.83   	 PNL:   -13.56	
+	Symbol: AAVE/USD  		Direction: long 		Entry Price: 67.22   		ExPri: 67.21     PNL:   -12.55	
+	Symbol: ETH/USD   		Direction: long 		Entry Price: 1684.43 		ExPri: 1684.07 	 PNL:   -12.83	
+	Total Trades:  664	Total P&L: -2339.290299999998
+List of MSFT Trades
+	Symbol: MSFT      		Direction: long 		Entry Price: 393.02  		ExPri: 392.46  	 PNL:    -2.80	
+	Symbol: MSFT      		Direction: short		Entry Price: 387.92  		ExPri: 389.64  	 PNL:    -8.68	
+	Symbol: MSFT      		Direction: long 		Entry Price: 395.36  		ExPri: 401.70    PNL:    30.99	
+	Symbol: MSFT      		Direction: long 		Entry Price: 378.56  		ExPri: 381.01  	 PNL:    12.30	
+	Symbol: MSFT      		Direction: short		Entry Price: 393.08  		ExPri: 393.17  	 PNL:    -0.84	
+	Symbol: MSFT      		Direction: short		Entry Price: 378.09  		ExPri: 378.09    PNL:     0.00	
+	Symbol: MSFT      		Direction: short		Entry Price: 383.27  		ExPri: 378.42  	 PNL:    25.03	
+	Symbol: MSFT      		Direction: long 		Entry Price: 393.13  		ExPri: 392.94  	 PNL:    -1.35	
+	Total Trades:  8	Total P&L: 54.64
+List of NFLX Trades
+	Symbol: NFLX      		Direction: long 		Entry Price: 68.72   		ExPri: 69.14   	 PNL:    11.85	
+	Symbol: NFLX      		Direction: long 		Entry Price: 75.28   		ExPri: 74.47   	 PNL:   -21.37	
+	Symbol: NFLX      		Direction: long 		Entry Price: 75.88   		ExPri: 75.88     PNL:     0.00	
+	Total Trades:  3	Total P&L: -9.52
+List of bmr_357 Trades
+================================================================================================================================
+Id:		Entry			Exit			Symbol		Dirct	Entry Price	Exit Price	 PnL
+================================================================================================================================
+7a990f1d-eb2	2026-07-07T08:06	2026-07-07T08:55	SUSHI/USD 	long 	    0.16	    0.16	    8.40	
+7f6db8de-7ad	2026-07-07T08:06	2026-07-07T08:15	SAND/USD  	long 	    0.05	    0.05	   -6.32	
+2583de90-c5c	2026-06-29T05:22	2026-07-03T08:46	BAL/USD   	long 	    0.09	    0.09  	   49.68	
+================================================================================================================================
+Total Trades: 3           Total P&L: 51.76           Max Win: 49.68           Max Loss: -6.32       
+Avg Win:      29.04       Avg Loss: -6.32            W/L:     2/1             W/L%       66.67%/33.33%
+================================================================================================================================
+
+
+List of MSFT Trades
+================================================================================================================================
+Id:		Entry			Exit			Symbol		Dirct	Entry Price	Exit Price	 PnL
+================================================================================================================================
+6de7eb05-5ee	2026-07-30T09:26	2026-07-30T12:45	MSFT      	long 	  455.31	  455.66	    1.14	
+73dde5cd-03e	2026-07-27T10:21	2026-07-27T12:17	MSFT      	long 	  392.13	  391.89	   -1.59	
+2a310445-3c5	2026-07-27T08:16	2026-07-27T08:35	MSFT      	long 	  393.23	  392.65  	   -3.26	
+378295f6-a4e	2026-07-20T07:40	2026-07-20T10:40	MSFT      	long 	  395.36	  401.70	   30.99	
+c6cab462-bf3	2026-07-09T07:02	2026-07-09T08:00	MSFT      	long 	  378.56	  381.01	   12.30	
+6b04cb56-532	2026-07-07T07:02	2026-07-07T07:13	MSFT      	short	  393.08	  393.17  	   -0.84	
+18b940ef-8c4	2026-06-29T07:07	2026-07-03T08:45	MSFT      	short	  378.09	  378.09	    0.00	
+666f127e-d09	2026-06-17T11:10	2026-06-17T12:52	MSFT      	short	  383.27	  378.42	   25.03	
+e1a6b83f-e1b	2026-06-16T11:55	2026-06-17T10:07	MSFT      	long 	  393.13	  392.94  	   -1.35	
+================================================================================================================================
+Total Trades: 9           Total P&L: 62.41           Max Win: 30.99           Max Loss: -3.26       
+Avg Win:      13.89       Avg Loss: -1.76            W/L:     5/4             W/L%       55.56%/44.44%
+================================================================================================================================
+
+
+List of bmr_357 Trades
+================================================================================================================================
+Id:		Entry			Exit			Symbol		Dirct	Entry Price	Exit Price	 PnL
+================================================================================================================================
+7a990f1d-eb2	2026-07-07T08:06	2026-07-07T08:55	SUSHI/USD 	long 	    0.16	    0.16	    8.40	
+7f6db8de-7ad	2026-07-07T08:06	2026-07-07T08:15	SAND/USD  	long 	    0.05	    0.05	   -6.32	
+2583de90-c5c	2026-06-29T05:22	2026-07-03T08:46	BAL/USD   	long 	    0.09	    0.09  	   49.68	
+================================================================================================================================
+Total Trades: 3           Total P&L: 51.76           Max Win: 49.68           Max Loss: -6.32       
+Avg Win:      29.04       Avg Loss: -6.32            W/L:     2/1             W/L%       66.67%/33.33%
+Total Trades:  3	Total P&L: 51.76	Max Win: 49.68		Max Loss: -6.32	
+Avg Win: 29.04		Avg Loss: -6.32	W/L(2/1)		W/L%(66.67%/33.33%)
+================================================================================================================================
+
+
+List of bmr_357 Trades
+================================================================================================================================
+Id:		Entry			Exit			Symbol		Dirct	Entry Price	Exit Price	 PnL
+================================================================================================================================
+7a990f1d-eb2	2026-07-07T08:06	2026-07-07T08:55	SUSHI/USD 	long 	    0.16	    0.16	    8.40	
+7f6db8de-7ad	2026-07-07T08:06	2026-07-07T08:15	SAND/USD  	long 	    0.05	    0.05	   -6.32	
+2583de90-c5c	2026-06-29T05:22	2026-07-03T08:46	BAL/USD   	long 	    0.09	    0.09  	   49.68	
+================================================================================================================================
+Total Trades: 3           Total P&L: 51.76           Max Win: 49.68           Max Loss: -6.32       
+Avg Win:      29.04       Avg Loss: -6.32            W/L:     2/1             W/L%       66.67%/33.33%
+Total Trades:  3	Total P&L: 51.76	Max Win: 49.68		Max Loss: -6.32	
+Avg Win: 29.04		Avg Loss: -6.32	W/L(2/1)		W/L%(66.67%/33.33%)
+================================================================================================================================
+
+
+List of bmr_357 Trades
+================================================================================================================================
+Id:		Entry			Exit			Symbol		Dirct	Entry Price	Exit Price	 PnL
+================================================================================================================================
+7a990f1d-eb2	2026-07-07T08:06	2026-07-07T08:55	SUSHI/USD 	long 	    0.16	    0.16	    8.40	
+7f6db8de-7ad	2026-07-07T08:06	2026-07-07T08:15	SAND/USD  	long 	    0.05	    0.05	   -6.32	
+2583de90-c5c	2026-06-29T05:22	2026-07-03T08:46	BAL/USD   	long 	    0.09	    0.09  	   49.68	
+================================================================================================================================
+Total Trades: 3           Total P&L: 51.76           Max Win: 49.68           Max Loss: -6.32       
+Avg Win:      29.04       Avg Loss: -6.32            W/L:     2/1             W/L%       66.67%/33.33%
+Total Trades:  3	Total P&L: 51.76	Max Win: 49.68		Max Loss: -6.32	
+Avg Win: 29.04		Avg Loss: -6.32	W/L(2/1)		W/L%(66.67%/33.33%)
+================================================================================================================================
+
+
+List of bmr_357 Trades
+================================================================================================================================
+Id:		Entry			Exit			Symbol		Dirct	Entry Price	Exit Price	 PnL
+================================================================================================================================
+7a990f1d-eb2	2026-07-07T08:06	2026-07-07T08:55	SUSHI/USD 	long 	    0.16	    0.16	    8.40	
+7f6db8de-7ad	2026-07-07T08:06	2026-07-07T08:15	SAND/USD  	long 	    0.05	    0.05	   -6.32	
+2583de90-c5c	2026-06-29T05:22	2026-07-03T08:46	BAL/USD   	long 	    0.09	    0.09  	   49.68	
+================================================================================================================================
+Total Trades: 3           Total P&L: 51.76           Max Win: 49.68           Max Loss: -6.32       
+Avg Win:      29.04       Avg Loss: -6.32            W/L:     2/1             W/L%       66.67%/33.33%
+Total Trades:  3	Total P&L: 51.76	Max Win: 49.68		Max Loss: -6.32	
+Avg Win: 29.04		Avg Loss: -6.32	W/L(2/1)		W/L%(66.67%/33.33%)
+================================================================================================================================
+
+

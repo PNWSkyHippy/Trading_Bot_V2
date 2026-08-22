@@ -1,0 +1,69 @@
+==================================================
+          PYTHON DATA STRUCTURES REFERENCE        
+==================================================
+
+--- 1. BASIC LISTS ---
+1. Created basic_list = ['131', '798', '465', '0']
+2. After append '989' = ['131', '798', '465', '0', '989']
+3. After pop(3) [removed '0'] = ['131', '798', '465', '989']
+4. After remove('798') = ['131', '465', '989']
+5. Found '465' at index 1
+   ↳ basic_list[0] = 131
+   ↳ basic_list[1] = 465
+   ↳ basic_list[2] = 989
+6. Each inner string sorted = ['113', '456', '899']
+7. Final basic_list sorted = ['113', '456', '899']
+
+--- 2. LISTS OF TUPLES ---
+1. Created list_of_tuples = [('Tires', 499.0), ('Air', 5.0)]
+2. After append tuple = [('Tires', 499.0), ('Air', 5.0), ('Car', 15000.0)]
+3. After deleting index 1 = [('Tires', 499.0), ('Car', 15000.0)]
+4. Found target 'Car' with value $15000.0
+5. Sorted by price (index 1) = [('Tires', 499.0), ('Car', 15000.0)]
+
+--- 3. LISTS OF MIXED DATA TYPES ---
+1. Created mixed_list = ['Apple', 45, True, 'Banana', 12]
+2. After insert at index 2 = ['Apple', 45, 'New Element', True, 'Banana', 12]
+3. After popping last item = ['Apple', 45, 'New Element', True, 'Banana']
+4. Successfully found Boolean value True in list
+5. Sorted safely using key=str rule = [45, 'Apple', 'Banana', 'New Element', True]
+
+--- 4. BASIC DICTIONARIES ---
+1. Created basic_dict = {'Car': 15000.0, 'Air': 5.0}
+2. After adding key 'Tires' = {'Car': 15000.0, 'Air': 5.0, 'Tires': 499.0}
+3. After modifying key 'Air' = {'Car': 15000.0, 'Air': 6.5, 'Tires': 499.0}
+4. After popping key 'Air' (Value was 6.5) = {'Car': 15000.0, 'Tires': 499.0}
+5. Key 'Car' found! Value is: 15000.0
+6. Rebuilt dict sorted alphabetically by Keys = {'Car': 15000.0, 'Tires': 499.0}
+
+--- 5. DICTIONARIES OF LISTS ---
+1. Created dict_of_lists = {'fruits': ['Banana', 'Apple'], 'tools': ['Wrench']}
+2. After appending 'Cherry' to 'fruits' list = {'fruits': ['Banana', 'Apple', 'Cherry'], 'tools': ['Wrench']}
+3. After removing 'Banana' from 'fruits' list = {'fruits': ['Apple', 'Cherry'], 'tools': ['Wrench']}
+4. Found 'Apple' inside the 'fruits' list!
+5. After sorting all inner lists alphabetically = {'fruits': ['Apple', 'Cherry'], 'tools': ['Wrench']}
+
+--- 6. DICTIONARIES OF DICTIONARIES ---
+1. Created dict_of_dicts = {'User1': {'name': 'Linda', 'role': 'Admin'}, 'User2': {'name': 'Alex', 'role': 'Guest'}}
+2. After updates = {'User1': {'name': 'Linda', 'role': 'Admin', 'status': 'Active'}, 'User2': {'name': 'Alex', 'role': 'Guest'}, 'User3': {'name': 'Charlie', 'role': 'User'}}
+3. After removing 'role' from User2 = {'User1': {'name': 'Linda', 'role': 'Admin', 'status': 'Active'}, 'User2': {'name': 'Alex'}, 'User3': {'name': 'Charlie', 'role': 'User'}}
+4. Deep Search: Found 'Linda' under the main key 'User1'
+5. Main dict sorted by inner 'name' key = {'User2': {'name': 'Alex'}, 'User3': {'name': 'Charlie', 'role': 'User'}, 'User1': {'name': 'Linda', 'role': 'Admin', 'status': 'Active'}}
+
+--- 7. DICT OF LISTS OF DICTS ---
+1. Created structure = {'August': [{'item': 'Tires', 'price': 499.0}, {'item': 'Air', 'price': 5.0}]}
+2. After adding new item dict to August list = {'August': [{'item': 'Tires', 'price': 499.0}, {'item': 'Air', 'price': 5.0}, {'item': 'Car', 'price': 15000.0}]}
+3. After popping index 1 (Removed {'item': 'Air', 'price': 5.0}) = {'August': [{'item': 'Tires', 'price': 499.0}, {'item': 'Car', 'price': 15000.0}]}
+4. Found record! Cost of Car in August is $15000.0
+5. Inner list sorted by 'price' key = {'August': [{'item': 'Tires', 'price': 499.0}, {'item': 'Car', 'price': 15000.0}]}
+
+--- 8. DICT OF DICTS OF LISTS ---
+1. Created structure = {'2026-08-10': {'AdminActions': ['login', 'backup_db'], 'GuestActions': ['browse']}}
+2. After appending 'logout' to AdminActions = {'2026-08-10': {'AdminActions': ['login', 'backup_db', 'logout'], 'GuestActions': ['browse']}}
+3. After removing 'login' from AdminActions = {'2026-08-10': {'AdminActions': ['backup_db', 'logout'], 'GuestActions': ['browse']}}
+4. Deep Search: Found 'backup_db' action inside 2026-08-10 -> AdminActions
+5. Deepest inner list sorted alphabetically = {'2026-08-10': {'AdminActions': ['backup_db', 'logout'], 'GuestActions': ['browse']}}
+
+==================================================
+            ALL STEPS DEMONSTRATED!               
+==================================================

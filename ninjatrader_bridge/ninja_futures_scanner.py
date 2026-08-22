@@ -235,9 +235,21 @@ class MarketState:
         }
         with self.engine_lock:
             for symbol in sorted(emt_symbols):
-                self._replace_engine("emt", symbol)
+                try:
+                    self._replace_engine("emt", symbol)
+                except ValueError as exc:
+                    print(
+                        f"STRATEGY CONFIG WARNING · skipping EMT {symbol} · {exc}",
+                        flush=True,
+                    )
             for symbol in sorted(eat_symbols):
-                self._replace_engine("eat", symbol)
+                try:
+                    self._replace_engine("eat", symbol)
+                except ValueError as exc:
+                    print(
+                        f"STRATEGY CONFIG WARNING · skipping EAT {symbol} · {exc}",
+                        flush=True,
+                    )
 
     @staticmethod
     def _clean_runtime_settings(strategy, settings):

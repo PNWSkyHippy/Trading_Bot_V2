@@ -55,22 +55,26 @@ def _clean_bars(bars: Iterable[dict], source_timezone: str) -> List[dict]:
 
 
 def aggregate_completed(bars: Sequence[dict], minutes: int, source_timezone: str) -> List[dict]:
-    """Aggregate only complete, clock-aligned buckets; never use a partial bucket."""
+    """Aggregate clock-aligned buckets from whatever completed 1-minute bars landed
+    in them; skip only the trailing bucket, which may still be filling. Thin symbols
+    can miss a print in a given minute (no synthetic flat bar from the feed), so a
+    bucket is not required to contain every expected minute to be considered closed."""
     clean = _clean_bars(bars, source_timezone)
     if minutes <= 1:
         return clean
+    if not clean:
+        return []
     groups: Dict[datetime, List[dict]] = {}
     for bar in clean:
         stamp = bar["dt"].replace(second=0, microsecond=0)
         bucket = stamp.replace(minute=(stamp.minute // minutes) * minutes)
         groups.setdefault(bucket, []).append(bar)
+    latest = clean[-1]["dt"]
     result = []
     for bucket in sorted(groups):
-        group = groups[bucket]
-        expected = [bucket + timedelta(minutes=i) for i in range(minutes)]
-        actual = [item["dt"].replace(second=0, microsecond=0) for item in group]
-        if actual != expected:
+        if latest < bucket + timedelta(minutes=minutes):
             continue
+        group = groups[bucket]
         result.append({
             "dt": bucket,
             "open": group[0]["open"],

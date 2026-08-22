@@ -1,0 +1,92 @@
+id,timestamp,action_date,user_message,action_type,action_detail,result
+1,2026-05-03T18:42:52.885363,2026-05-03,just checking in as i made a modfication to your API key (Stored encrypted now) . want to verify your onlne,message,,
+2,2026-05-05T07:50:27.676978,2026-05-05,strategy stats,message,,
+3,2026-05-05T07:50:47.128265,2026-05-05,strategy stats,strategy_stats,{},"Strategy Performance:
+OFF rsi_momentum: 4 trades | Win rate: 50.0% | P&L: $+86.38
+ON bollinger_breakout: 36 trades | Win rate: 25.0% | P&L: $-627.74
+OFF ema_crossover: 0 trades | Win rate: 0.0% | P&L:"
+4,2026-05-05T07:53:42.936936,2026-05-05,no dont disable anything,message,,
+5,2026-05-05T08:04:15.662428,2026-05-05,"i dont see the main workiing strategy listsed, stats stategy grid_bot",message,,
+6,2026-05-05T08:04:39.255278,2026-05-05,"i dont see the main workiing strategy listsed, stats stategy grid_bot",strategy_stats,{},"Strategy Performance:
+OFF rsi_momentum: 4 trades | Win rate: 50.0% | P&L: $+86.38
+ON bollinger_breakout: 36 trades | Win rate: 25.0% | P&L: $-627.74
+OFF ema_crossover: 0 trades | Win rate: 0.0% | P&L:"
+7,2026-05-05T10:06:00.057825,2026-05-05,were in testing no pauses justobervations. if it were live it auto pauses at 10 conseq losses,message,,
+8,2026-05-05T10:08:06.499571,2026-05-05,right now is perfect 21 trades only 1 losing and trump +75,message,,
+9,2026-05-09T22:44:57.799114,2026-05-09,show injected symbols,message,,
+10,2026-05-09T22:47:28.110291,2026-05-09,show injected symbols,message,,
+11,2026-05-09T22:47:59.785719,2026-05-09,show strategies,message,,
+12,2026-05-10T04:09:08.992511,2026-05-10,show strategies,message,,
+13,2026-05-10T04:09:08.992511,2026-05-10,open positions,message,,
+14,2026-05-10T04:09:09.003505,2026-05-10,capital summary,message,,
+15,2026-05-10T04:10:54.473721,2026-05-10,show strategies,message,,
+16,2026-05-10T04:11:12.518746,2026-05-10,daily performance,message,,
+17,2026-05-10T04:24:13.820293,2026-05-10,local commands,message,,
+18,2026-05-10T04:24:14.330596,2026-05-10,dashboard summary,message,,
+19,2026-05-10T04:24:16.742796,2026-05-10,risk status,message,,
+20,2026-05-10T04:24:18.410826,2026-05-10,recent trades,message,,
+21,2026-05-10T04:24:18.436824,2026-05-10,capital breakdown,message,,
+22,2026-05-10T04:24:26.614109,2026-05-10,recent trades,message,,
+23,2026-05-10T04:24:58.204483,2026-05-10,recent trades,message,,
+24,2026-05-10T04:24:58.865014,2026-05-10,dashboard summary,message,,
+25,2026-05-10T04:25:02.385039,2026-05-10,risk status,message,,
+26,2026-05-10T04:25:02.415042,2026-05-10,local commands,message,,
+27,2026-05-10T04:26:31.486834,2026-05-10,recent trades,message,,
+28,2026-05-10T04:27:40.413904,2026-05-10,show stats,message,,
+29,2026-05-10T04:27:54.982438,2026-05-10,list strategies,message,,
+30,2026-05-10T04:31:18.733217,2026-05-10,show  my stats,message,,
+31,2026-05-10T04:31:36.461645,2026-05-10,list brokers,message,,
+32,2026-05-10T04:32:24.319644,2026-05-10,show positions,message,,
+33,2026-05-11T08:00:16.631455,2026-05-11,stats grid-bot,message,,
+34,2026-05-11T08:00:31.498597,2026-05-11,stats,message,,
+35,2026-05-11T08:00:55.166880,2026-05-11,list commands,message,,
+36,2026-05-11T08:01:11.088080,2026-05-11,list strategies,message,,
+37,2026-05-11T11:11:25.364769,2026-05-11,bot status,message,,
+38,2026-05-11T11:11:55.351463,2026-05-11,dashboard summary,message,,
+39,2026-05-11T11:12:41.233331,2026-05-11,capital breakdown,message,,
+40,2026-05-11T11:13:21.194601,2026-05-11,risk status,message,,
+41,2026-05-11T11:13:46.293996,2026-05-11,strategy stats,message,,
+42,2026-05-11T11:14:58.768894,2026-05-11,daily,message,,
+43,2026-05-11T11:15:09.109886,2026-05-11,daily performance,message,,
+44,2026-05-11T11:15:27.268482,2026-05-11,chat help,message,,
+45,2026-05-11T11:15:54.412894,2026-05-11,recent trades,message,,
+46,2026-05-11T11:16:05.434560,2026-05-11,show injected,message,,
+47,2026-05-11T11:18:36.378984,2026-05-11,positions,message,,
+48,2026-05-13T14:47:17.747452,2026-05-13,list commands auto,message,,
+49,2026-05-14T08:43:35.869706,2026-05-14,status,message,,
+50,2026-05-15T07:38:17.492773,2026-05-15,are you able to share with me your moorning briefing results that your using today and how they are influencing you,message,,
+51,2026-05-15T07:39:54.071390,2026-05-15,are you able to share with me your moorning briefing results that your using today and how they are influencing you,morning_scan,{},"🔍 Morning Scan (10:38 ET) — Top 1 Candidates:
+
+1. META: ▼ SHORT | Move: -0.37% | Vol: 1.3x | Price: $608.48
+
+💡 Wait for 9:45 ET ORB window before entering.
+Enter in direction of move if volume confirm"
+52,2026-05-15T07:49:00.720677,2026-05-15,no i was just curious if it was maintained in your memory after its run so you could share it with me ill have the code modified so you can store it in DB when yiu run it so its recallable withour bur,message,,
+53,2026-05-16T04:05:38.858120,2026-05-16,how are we doing today? are you now able tell brief me on your morning briefing finfings since we patched it in,message,,
+54,2026-05-16T04:06:00.094757,2026-05-16,how are we doing today? are you now able tell brief me on your morning briefing finfings since we patched it in,morning_scan,{},"🔍 Morning Scan (07:05 ET) — No strong setups found yet.
+Check back after 10:00 AM ET when ORB window opens."
+55,2026-05-16T04:07:15.526258,2026-05-16,"no i meant the one that you desidethe trend of the market, bearish or buliish that influenes your decisions on trades assing or failing",message,,
+56,2026-05-16T04:08:18.532601,2026-05-16,okay i thought he was going to patch it so it got dumped to a file on HD that you could access il address it,message,,
+57,2026-05-16T04:10:58.916111,2026-05-16,found it however only partially human readable,message,,
+58,2026-05-16T04:11:16.671398,2026-05-16,(venv312) PS C:\users\linda\trading_bot_v2> type .\logs\morning_briefing.txt â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•   MORNING BR,message,,
+59,2026-05-16T04:12:56.402239,2026-05-16,"you can disable them until you get new briefing in a few hours, markets slow now anyways",message,,
+60,2026-05-16T04:14:33.281101,2026-05-16,"oh i thought you meant on your decisions to pass or fail a trade based on if they were long based, not to disable the strate itself. telyou what just hold off and leave as is for now weol check after ",message,,
+61,2026-05-16T05:45:17.857042,2026-05-16,stats grid-bot,message,,
+62,2026-05-16T05:45:36.805411,2026-05-16,stats grid-bot,strategy_stats,"{""strategy"": ""grid_bot""}","Strategy Performance:
+OFF rsi_momentum: 4 trades | Win rate: 50.0% | P&L: $+86.38
+ON bollinger_breakout: 111 trades | Win rate: 22.5% | P&L: $-1916.20
+OFF ema_crossover: 0 trades | Win rate: 0.0% | P&"
+63,2026-05-16T11:29:53.026612,2026-05-16,disable dca_accumulator,message,,
+64,2026-05-20T03:44:51.497930,2026-05-20,show strategy stats,message,,
+65,2026-05-22T15:00:43.281953,2026-05-22,list strats,message,,
+66,2026-05-22T15:01:29.299836,2026-05-22,list strats,list_strategies,{},"Strategies:
+  OFF rsi_momentum
+  ON bollinger_breakout
+  OFF ema_crossover
+  OFF mean_reversion
+  ON scalp_master
+  OFF swing_trader
+  OFF grid_bot
+  OFF dca_accumulator
+  ON vwap_momentum
+  ON vwap_c"

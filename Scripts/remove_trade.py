@@ -256,50 +256,61 @@ def remove_trade(conn, trade, dry_run=False):
 def main():
     parser = argparse.ArgumentParser(description='Remove trades from DB and adjust all financial state.')
     parser.add_argument('-n', type=int, default=50, help='Number of trades to list (default 50)')
+    parser.add_argument('-i',"--id", metavar="", help='ID of trade to remove')
     parser.add_argument('--open', action='store_true', help='List open trades instead of closed')
     args = parser.parse_args()
 
+    trade_id_to_remove = args.id if args.id else 0
+
     conn = connect()
     mode = 'open' if args.open else 'closed'
-
+    num_records = args.n if not trade_id_to_remove else 1000000000
     if mode == 'closed':
-        trades = get_closed_trades(conn, args.n)
+        trades = get_closed_trades(conn, num_records)
         if not trades:
             print('No closed trades found.')
             conn.close()
             return
-        print(f'\nLast {len(trades)} closed trades:')
-        print_closed_table(trades)
-    else:
-        trades = get_open_trades(conn, args.n)
+        if not trade_id_to_remove:
+            print(f'\nLast {len(trades)} closed trades:')
+            print_closed_table(trades)
+    elif not trade_id_to_remove:
+        trades = get_open_trades(conn, num_records)
         if not trades:
             print('No open trades found.')
             conn.close()
             return
-        print(f'\nCurrent {len(trades)} open trades:')
-        print_open_table(trades)
+        if not trade_id_to_remove:
+            print(f'\nCurrent {len(trades)} open trades:')
+            print_open_table(trades)
 
     print()
-    selection = input('Enter trade number(s) to remove (comma-separated), or q to quit: ').strip()
-    if selection.lower() == 'q' or not selection:
-        print('Cancelled.')
-        conn.close()
-        return
+    
+    if trade_id_to_remove == 0:
+        selection = input('Enter trade number(s) to remove (comma-separated), or q to quit: ').strip()
+        if selection.lower() == 'q' or not selection:
+            print('Cancelled.')
+            conn.close()
+            return
 
-    try:
-        indices = [int(x.strip()) - 1 for x in selection.split(',')]
-    except ValueError:
-        print('Invalid selection.')
-        conn.close()
-        return
+        try:
+            indices = [int(x.strip()) - 1 for x in selection.split(',')]
+        except ValueError:
+            print('Invalid selection.')
+            conn.close()
+            return
 
     selected = []
-    for i in indices:
-        if 0 <= i < len(trades):
-            selected.append(trades[i])
-        else:
-            print(f'  Warning: index {i+1} out of range, skipping.')
-
+    if trade_id_to_remove == 0:
+        for i in indices:
+            if 0 <= i < len(trades):
+                selected.append(trades[i])
+            else:
+                print(f'  Warning: index {i+1} out of range, skipping.')
+    else:
+        for trade in trades:
+             if trade["trade_id"] == trade_id_to_remove:
+                 selected.append(trade)
     if not selected:
         print('No valid trades selected.')
         conn.close()

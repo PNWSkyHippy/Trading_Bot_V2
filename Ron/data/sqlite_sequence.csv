@@ -1,0 +1,13 @@
+name,seq
+session_state,11
+capital,1003259
+trades,398
+settlement_queue,35
+tax_ledger,623
+strategy_results,377
+daily_summaries,10
+chat_actions,0
+ai_signal_reviews,12115
+scanner_alerts,5137
+trade_partials,60
+log_events,23642

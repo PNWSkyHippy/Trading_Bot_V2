@@ -509,8 +509,12 @@ function QuickControlsPanel() {
   const [taxYear, setTaxYear] = uS(2026);
   const [wAmount, setWAmount] = uS('0.00');
   const [wReason, setWReason] = uS('Living expenses');
+  const [eCategory, setECategory] = uS('HOSTING');
+  const [eAmount, setEAmount] = uS('0.00');
+  const [eDescription, setEDescription] = uS('');
+  const [eVendor, setEVendor] = uS('');
   const [mlTraining, setMlTraining] = uS(false);
-  const [quickStatus, setQuickStatus] = uS({ ml: {}, tax: {}, market_condition: {} });
+  const [quickStatus, setQuickStatus] = uS({ ml: {}, tax: {}, expenses: {}, market_condition: {} });
   const [busy, setBusy] = uS(false);
   const [msg, setMsg] = uS('');
 
@@ -592,6 +596,10 @@ function QuickControlsPanel() {
 
   const ml = quickStatus.ml || {};
   const tax = quickStatus.tax || {};
+  const expenses = quickStatus.expenses || {};
+  const EXPENSE_CATEGORIES = ['SOFTWARE', 'DATA_FEEDS', 'BROKER_FEES', 'TRADE_COMMISSIONS',
+    'EDUCATION', 'HARDWARE', 'HOSTING', 'PUBLICATIONS', 'PROFESSIONAL', 'OFFICE',
+    'TRADING_INFRASTRUCTURE', 'OTHER'];
   const mlStage = String(ml.stage || 'unknown').replace('_', ' ');
   const mlProgress = Math.min(100, Math.max(0, Number(ml.progress_pct || 0)));
   const mlActive = ml.stage === 'active';
@@ -688,6 +696,38 @@ function QuickControlsPanel() {
         <button className="btn primary full" disabled={busy || parseFloat(wAmount) <= 0} onClick={() => postAction('/api/withdrawal', { amount: parseFloat(wAmount), reason: wReason })}><Icon name="arrow" size={12} />Process Withdrawal</button>
       </div>
 
+      {/* Business Expense */}
+      <div style={{ background: 'var(--bg-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 14, marginBottom: 16 }}>
+        <h3 style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-1)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Icon name="file" size={13} />Business Expense
+        </h3>
+        <div className="field" style={{ marginBottom: 10 }}>
+          <label>Category</label>
+          <select className="input" value={eCategory} onChange={e => setECategory(e.target.value)}>
+            {EXPENSE_CATEGORIES.map(c => <option key={c} value={c}>{c.replace('_', ' ')}</option>)}
+          </select>
+        </div>
+        <div className="field" style={{ marginBottom: 10 }}>
+          <label>Amount ($)</label>
+          <input className="input" value={eAmount} onChange={e => setEAmount(e.target.value)} />
+        </div>
+        <div className="field" style={{ marginBottom: 10 }}>
+          <label>Description</label>
+          <input className="input" placeholder="e.g. VPS Hosting" value={eDescription} onChange={e => setEDescription(e.target.value)} />
+        </div>
+        <div className="field" style={{ marginBottom: 10 }}>
+          <label>Vendor (optional)</label>
+          <input className="input" placeholder="e.g. Hostinger" value={eVendor} onChange={e => setEVendor(e.target.value)} />
+        </div>
+        <button className="btn primary full" disabled={busy || parseFloat(eAmount) <= 0 || !eDescription} onClick={async () => {
+          const res = await postAction('/api/expense', {
+            category: eCategory, amount: parseFloat(eAmount),
+            description: eDescription, vendor: eVendor || null,
+          });
+          if (res && res.ok) { setEAmount('0.00'); setEDescription(''); setEVendor(''); }
+        }}><Icon name="arrow" size={12} />Record Expense</button>
+      </div>
+
       {/* YTD Tax Summary */}
       <div style={{ borderTop: '1px solid var(--border)', paddingTop: 16, marginBottom: 18 }}>
         <h3 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text-1)', marginBottom: 18 }}>
@@ -701,9 +741,23 @@ function QuickControlsPanel() {
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)', marginBottom: 6 }}>Short-Term</div>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 30, lineHeight: 1, color: 'var(--text-1)' }}>{fmt$(Number(tax.short_term_gains || 0))}</div>
         </div>
-        <div>
+        <div style={{ marginBottom: 18 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)', marginBottom: 6 }}>Long-Term</div>
           <div style={{ fontFamily: 'var(--mono)', fontSize: 30, lineHeight: 1, color: 'var(--text-1)' }}>{fmt$(Number(tax.long_term_gains || 0))}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)', marginBottom: 6 }}>Business Expenses (Deductible)</div>
+          <div style={{ fontFamily: 'var(--mono)', fontSize: 30, lineHeight: 1, color: 'var(--text-1)' }}>{fmt$(Number(expenses.total || 0))}</div>
+          {(expenses.by_category || []).length > 0 && (
+            <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 3 }}>
+              {expenses.by_category.map(c => (
+                <div key={c.category} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: 'var(--text-2)' }}>
+                  <span>{String(c.category).replace('_', ' ')} ({c.count})</span>
+                  <span style={{ fontFamily: 'var(--mono)' }}>{fmt$(Number(c.total || 0))}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

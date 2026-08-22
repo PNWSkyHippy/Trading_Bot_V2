@@ -216,15 +216,15 @@
       },
       "GC": {
         "enabled": false,
-        "instrument": "GC 08-26",
-        "broker_symbol": "GCQ6",
+        "instrument": "GC 12-26",
+        "broker_symbol": "GCZ6",
         "ledger_path": "emt_trades_gc_local.jsonl",
         "control_state_key": "scanner_emt_gc_enabled_local"
       },
       "MGC": {
         "enabled": false,
-        "instrument": "MGC 08-26",
-        "broker_symbol": "MGCQ6",
+        "instrument": "MGC 12-26",
+        "broker_symbol": "MGCZ6",
         "ledger_path": "emt_trades_mgc_local.jsonl",
         "control_state_key": "scanner_emt_mgc_enabled_local"
       },

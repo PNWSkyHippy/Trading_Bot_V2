@@ -31,7 +31,7 @@ namespace NinjaTrader.NinjaScript.AddOns
             "MNQ 09-26", "NQ 09-26",
             "MYM 09-26", "YM 09-26", 
             "M2K 09-26", "RTY 09-26",
-            "MGC 08-26", "GC 08-26", "MNK 09-26",
+            "MGC 12-26", "GC 12-26", "MNK 09-26",
             "NKD 09-26", "MBT 09-26", "MET 09-26"
         };
 
