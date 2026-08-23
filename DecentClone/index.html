@@ -799,7 +799,7 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -932,7 +932,7 @@
         const builderProcedures = [
             'Enter developer mode: press B for build cursor or M for the full 3D map.',
             'Build a normal tunnel: select an endpoint, set bend plane with Shift+Q/Shift+E, set bend angle with [ or ], then press T or I/K/J/L. Plain Q/E rolls your view, same as in flight.',
-            'Ruler/protractor (map mode): / toggles it at your current anchor point; it follows wherever you click next. Shift+/ cycles which quadrant its two grid-snapped legs point, Shift+[ / Shift+] swing its third free-angle leg. Coordinates label every 5th grid tick.',
+'Ruler/protractor (map mode): / toggles it on at your current anchor point, then it stays LOCKED there — normal clicks (selecting tunnels, orbiting) never move it. Drag its lime crosshair handle to reposition, or Ctrl+Shift+/ to snap it to wherever your anchor/cursor is now. Shift+/ cycles which quadrant its two grid-snapped legs point, Shift+[ / Shift+] swing its third free-angle leg 5deg at a time. Coordinates label every 5th grid tick.',
             'Create a branch: select the source endpoint, press O or Shift+O, then select that new stub later to continue the branch.',
             'Connect two tunnel endpoints: LMB sets A, Ctrl+LMB sets B, optional Shift+Ctrl+LMB sets curve handle C, then press Y.',
             'Create a corkscrew: select endpoint A, press Alt+N, enter diameter/pitch/turns/axis, create the editable preview, inspect or adjust it, then press Y.',
@@ -1339,15 +1339,22 @@
             visible: true,
             snapEnabled: false
         };
-        // Protractor/ruler builder aid: follows the same origin (anchor/destination/
-        // camera target) the edit-plane grid already uses, so "moving" it is just
-        // clicking a new anchor like normal — no separate drag state needed.
+        // Protractor/ruler builder aid: has its own locked origin so normal
+        // clicks (selecting tunnels, orbiting the view) never move it. It only
+        // relocates when you drag its handle or explicitly re-anchor it.
         const rulerTool = {
             active: false,
+            origin: null, // world point; null until first placed
             quadrant: 0, // 0:+A+B 1:+A-B 2:-A-B 3:-A+B — which two perpendicular legs are drawn
             angleDeg: 45 // free-angle third line, measured from axis A toward axis B
         };
         const RULER_QUADRANT_SIGNS = [[1, 1], [1, -1], [-1, -1], [-1, 1]];
+        function rulerFallbackOrigin() {
+            return mapMouse.anchor?.point || mapMouse.destination?.point || mapMouse.hoverEditPoint || mapCamera.target;
+        }
+        function rulerOriginPoint() {
+            return rulerTool.origin || rulerFallbackOrigin();
+        }
         const TUNNEL_MAP_STORAGE_KEY = 'astral-drift-tunnel-map-v2';
         const TUNNEL_MAP_LIBRARY_KEY = `${TUNNEL_MAP_STORAGE_KEY}:library`;
         const TUNNEL_MAP_NAMED_PREFIX = `${TUNNEL_MAP_STORAGE_KEY}:named:`;
@@ -6054,6 +6061,7 @@
             if (key === ';' || key === ':' || key === 'semicolon' || code === 'semicolon') return ';';
             if (key === '[' || key === '{' || key === 'bracketleft' || code === 'bracketleft') return '[';
             if (key === ']' || key === '}' || key === 'bracketright' || code === 'bracketright') return ']';
+            if (key === '/' || key === '?' || key === 'slash' || code === 'slash') return '/';
             if (/^[a-z0-9]$/.test(key)) return key;
             if (code.startsWith('key') && code.length === 4) return code.slice(3);
             if (code.startsWith('digit') && code.length === 6) return code.slice(5);
@@ -6832,6 +6840,18 @@
                     e.preventDefault();
                     return;
                 }
+                if (rulerTool.active) {
+                    const rOrigin = rulerOriginPoint();
+                    if (rOrigin && pickMapMarker(canvasX, canvasY, rOrigin, RULER_HANDLE_PICK_RADIUS)) {
+                        rulerTool.origin = copyVec(rOrigin);
+                        mapMouse.dragTarget = 'rulerOrigin';
+                        mapMouse.dragStartPoint = copyVec(rOrigin);
+                        mapMouse.dragMoved = false;
+                        keyboardStatus.innerText = 'ruler handle armed — drag to reposition, release to drop';
+                        e.preventDefault();
+                        return;
+                    }
+                }
                 if (mapMouse.routeDraft && handleRouteDraftMouseDown(canvasX, canvasY, e)) {
                     e.preventDefault();
                     return;
@@ -7038,6 +7058,9 @@
                     keyboardStatus.innerText =
                         `builder bend handle set: ${Math.round(builder.bendDeg)}deg roll ${Math.round(builder.bendRollDeg)}deg`;
                 }
+                if (mapMouse.dragTarget === 'rulerOrigin' && mapMouse.dragMoved) {
+                    keyboardStatus.innerText = `ruler moved to ${formatMapPoint(rulerTool.origin)} — locked there`;
+                }
                 mapMouse.orbiting = false;
                 mapMouse.orbitAroundPivot = false;
                 mapMouse.dragTarget = null;
@@ -7186,6 +7209,8 @@
                         mapMouse.midpoint.point = copyVec(point);
                     } else if (mapMouse.dragTarget === 'selectionBend') {
                         applySelectedRangeBend(point);
+                    } else if (mapMouse.dragTarget === 'rulerOrigin') {
+                        rulerTool.origin = copyVec(point);
                     }
                     mapMouse.dragMoved = true;
                     keyboardStatus.innerText =
@@ -12139,13 +12164,22 @@
             }
             if (key === '/') {
                 if (!mapView) return false;
+                if (event?.ctrlKey && event?.shiftKey) {
+                    rulerTool.origin = copyVec(rulerFallbackOrigin());
+                    rulerTool.active = true;
+                    keyboardStatus.innerText = `ruler moved to ${formatMapPoint(rulerTool.origin)} — locked there until you drag its handle or re-anchor`;
+                    return true;
+                }
                 if (event?.shiftKey) {
                     rulerTool.quadrant = (rulerTool.quadrant + 1) % 4;
                     keyboardStatus.innerText = `ruler quadrant ${rulerTool.quadrant + 1}/4`;
                     return true;
                 }
                 rulerTool.active = !rulerTool.active;
-                keyboardStatus.innerText = `ruler ${rulerTool.active ? 'ON' : 'off'} (Shift+/ quadrant, Shift+[ ] angle)`;
+                if (rulerTool.active && !rulerTool.origin) rulerTool.origin = copyVec(rulerFallbackOrigin());
+                keyboardStatus.innerText = rulerTool.active
+                    ? 'ruler ON — drag its handle to reposition, Ctrl+Shift+/ to re-anchor here, Shift+/ quadrant, Shift+[ ] angle'
+                    : 'ruler off';
                 return true;
             }
             if (key === ' ' || key === 'space') {
@@ -23038,9 +23072,11 @@
         // picks which pair of half-axes) plus one free-angle leg, all lying on the
         // current edit plane, reaching out to roughly the visible working area with
         // major-tick coordinate labels every 5 grid squares.
+        const RULER_HANDLE_COLOR = '#c6ff00';
+        const RULER_HANDLE_PICK_RADIUS = 22;
         function renderRulerTool(centerX, centerY, fov, drawMapLine, drawMapDot) {
             if (!mapView || !rulerTool.active) return;
-            const origin = mapMouse.anchor?.point || mapMouse.destination?.point || mapCamera.target;
+            const origin = rulerOriginPoint();
             if (!origin) return;
             const [axisA, axisB] = rulerPlaneAxes(mapMouse.editPlane);
             const bounds = getMapGridWorldBounds();
@@ -23078,15 +23114,42 @@
             const angleDir = normalize(addVec(scaleVec(axisA, Math.cos(rad)), scaleVec(axisB, Math.sin(rad))));
             drawRulerLeg(angleDir, '#ffb040');
 
-            const originScreen = drawMapDot(origin, '#ffffff', 7);
+            const originScreen = projectMapPoint(origin, centerX, centerY, fov);
             if (originScreen) {
+                const dragging = mapMouse.dragTarget === 'rulerOrigin';
+                const size = Math.max(6, (dragging ? 15 : 12) * Math.min(1.4, 900 / originScreen.z));
+                ctx.save();
+                ctx.globalAlpha = 1;
+                ctx.shadowColor = RULER_HANDLE_COLOR;
+                ctx.shadowBlur = dragging ? 18 : 10;
+                ctx.strokeStyle = RULER_HANDLE_COLOR;
+                ctx.lineWidth = dragging ? 4 : 3;
+                ctx.beginPath();
+                ctx.arc(originScreen.x, originScreen.y, size, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(originScreen.x - size * 1.6, originScreen.y);
+                ctx.lineTo(originScreen.x - size * 0.5, originScreen.y);
+                ctx.moveTo(originScreen.x + size * 0.5, originScreen.y);
+                ctx.lineTo(originScreen.x + size * 1.6, originScreen.y);
+                ctx.moveTo(originScreen.x, originScreen.y - size * 1.6);
+                ctx.lineTo(originScreen.x, originScreen.y - size * 0.5);
+                ctx.moveTo(originScreen.x, originScreen.y + size * 0.5);
+                ctx.lineTo(originScreen.x, originScreen.y + size * 1.6);
+                ctx.stroke();
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = RULER_HANDLE_COLOR;
+                ctx.beginPath();
+                ctx.arc(originScreen.x, originScreen.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
                 ctx.globalAlpha = 0.9;
-                ctx.fillStyle = '#ffffff';
-                ctx.font = '11px monospace';
+                ctx.fillStyle = RULER_HANDLE_COLOR;
+                ctx.font = 'bold 11px monospace';
                 ctx.textAlign = 'left';
                 ctx.fillText(
-                    `RULER quadrant ${rulerTool.quadrant + 1}/4  angle ${rulerTool.angleDeg}deg  ${formatMapPoint(origin)}`,
-                    originScreen.x + 10, originScreen.y + 16
+                    `RULER (drag handle to move) quadrant ${rulerTool.quadrant + 1}/4  angle ${rulerTool.angleDeg}deg  ${formatMapPoint(origin)}`,
+                    originScreen.x + size + 8, originScreen.y + 16
                 );
                 ctx.globalAlpha = 1;
             }
