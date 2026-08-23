@@ -10,25 +10,20 @@ import re
 from pathlib import Path
 from local_functions import colorize, clean_ansi, colors, ANSI_ESCAPE_RE, date_check,STAT_LABEL_VALUE_RE
 
-# Standard library approach to handle Windows initialization safely
-if sys.platform == "win32":
-    os.system("") # Crucial trick: This forces the Windows terminal engine to enable ANSI parsing natively
+# Global Constants
+extended = False
+csv_true  = False  
 
-csv_true = False    
-output_file = ""
 EQUALSTR = "=" * 175 + "\n"
 BL_EQUALSTR = colorize(EQUALSTR, "blue")
-tot_losers = 0
-tot_winners = 0
-
-# Fi path to the trading bot DB
+# Find path to the trading bot DB
 if os.name == "nt":
     DB_PATH = os.path.join(os.path.dirname(__file__), '..\\..', 'data',
-                       'trading_bot.db')
+                    'trading_bot.db')
 else:
     DB_PATH = os.path.join(os.path.dirname(__file__), '../..', 'data',
-                       'trading_bot.db')
-
+                    'trading_bot.db')
+# End Globals
 
 def print_outfile(text, output_file):
     """
@@ -347,6 +342,12 @@ def print_group_summary(group_name, trade_list, key, output_file,start_date,end_
 
 def main():
 
+    # Standard library approach to handle Windows initialization safely
+    if sys.platform == "win32":
+        os.system("") # Crucial trick: This forces the Windows terminal engine to enable ANSI parsing natively
+
+    output_file = ""
+
     default_key_list = ["strategy_name", "symbol", "exit_reason", "quantity", "broker_order_id"]
     # Connect to DB and load the trades table into the trades_list dictionary
 
@@ -411,8 +412,7 @@ Usage examples:
     args = parser.parse_args()
     global csv_true
     global extended
-    loc_vars = locals()
-    print(loc_vars)
+ 
     csv_true = args.csv if args.csv else False
     
     extended = args.Ext if args.Ext else False

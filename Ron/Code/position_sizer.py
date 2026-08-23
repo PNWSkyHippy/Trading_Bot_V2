@@ -13,7 +13,10 @@ def get_user_input(prompt):
         except ValueError:
             print("Invalid input. Please enter a numeric value.")
 
-
+print(__file__)
+print(f'{globals()}')
+print()
+print(f'{locals()}')
 account_size = get_user_input("Enter the account size: $")
 risk_pct_per_trade = get_user_input("Enter the percentage to risk per trade: %")
 stop_distance_pct = get_user_input("Enter the stop distance percentage: %")
@@ -27,8 +30,6 @@ VALUE_W = 24
 BORDER = "=" * (LABEL_W + VALUE_W + 4)  # +4 for "| " and " |"
 DIVIDER = f"|{'=' * (LABEL_W + VALUE_W + 2)}|"
 
-loc_vars = locals()
-print(loc_vars)
 def row(label, value):
     return f"| {label:<{LABEL_W}}{value:>{VALUE_W}} |"
 
