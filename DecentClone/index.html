@@ -799,7 +799,7 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -987,6 +987,7 @@
             ['P / R', 'pan up'],
             ['F', 'pan down'],
             ['Z / X', 'zoom in / out'],
+            ['Q / E', 'roll camera left / right'],
             ['0', 'frame whole tunnel'],
             ['Cube face', 'front/back/left/right/top/bottom view + plane lock'],
             ['Cube edge/corner', '45° diagonal view; preserve edit plane'],
@@ -1245,6 +1246,7 @@
             target: { x: 0, y: 0, z: 520 },
             yaw: 0.65,
             pitch: -0.42,
+            roll: 0,
             distance: 1250,
             snappedPlane: null
         };
@@ -6637,6 +6639,7 @@
             const back = normalize(backDirection);
             mapCamera.yaw = Math.atan2(back.x, back.z);
             mapCamera.pitch = Math.asin(Math.max(-1, Math.min(1, back.y)));
+            mapCamera.roll = 0;
             mapCamera.snappedPlane = plane;
             if (plane) {
                 mapMouse.editPlane = plane;
@@ -12677,9 +12680,13 @@
             const cameraPos = addVec(mapCamera.target, scaleVec(back, mapCamera.distance));
             // Keep editor orbit continuous through top/bottom views. Using worldUp x back
             // collapses at the poles and flips after ~180deg; yaw-derived right stays valid.
-            const right = normalize({ x: cy, y: 0, z: -sy });
+            const rawRight = normalize({ x: cy, y: 0, z: -sy });
             const forward = normalize(scaleVec(back, -1));
-            const down = normalize(cross(forward, right));
+            const rawDown = normalize(cross(forward, rawRight));
+            const cr = Math.cos(mapCamera.roll);
+            const sr = Math.sin(mapCamera.roll);
+            const right = addVec(scaleVec(rawRight, cr), scaleVec(rawDown, sr));
+            const down = addVec(scaleVec(rawRight, -sr), scaleVec(rawDown, cr));
             return { cameraPos, forward, right, down };
         }
 
@@ -20049,6 +20056,8 @@
             if (isKeyActive('arrowright')) mapCamera.yaw = wrapAngle(mapCamera.yaw + orbitSpeed);
             if (isKeyActive('arrowup')) mapCamera.pitch = wrapAngle(mapCamera.pitch - orbitSpeed);
             if (isKeyActive('arrowdown')) mapCamera.pitch = wrapAngle(mapCamera.pitch + orbitSpeed);
+            const keyRoll = (isKeyActive('e') ? 1 : 0) - (isKeyActive('q') ? 1 : 0);
+            if (keyRoll) mapCamera.roll = wrapAngle(mapCamera.roll + keyRoll * orbitSpeed * 2.4);
 
             const basis = getMapCameraBasis();
             const mapUp = scaleVec(basis.down, -1);
