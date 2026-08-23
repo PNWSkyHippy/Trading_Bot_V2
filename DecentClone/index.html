@@ -799,7 +799,7 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -931,7 +931,8 @@
         ];
         const builderProcedures = [
             'Enter developer mode: press B for build cursor or M for the full 3D map.',
-            'Build a normal tunnel: select an endpoint, set bend plane with Q/E, set bend angle with [ or ], then press T or I/K/J/L.',
+            'Build a normal tunnel: select an endpoint, set bend plane with Shift+Q/Shift+E, set bend angle with [ or ], then press T or I/K/J/L. Plain Q/E rolls your view, same as in flight.',
+            'Ruler/protractor (map mode): / toggles it at your current anchor point; it follows wherever you click next. Shift+/ cycles which quadrant its two grid-snapped legs point, Shift+[ / Shift+] swing its third free-angle leg. Coordinates label every 5th grid tick.',
             'Create a branch: select the source endpoint, press O or Shift+O, then select that new stub later to continue the branch.',
             'Connect two tunnel endpoints: LMB sets A, Ctrl+LMB sets B, optional Shift+Ctrl+LMB sets curve handle C, then press Y.',
             'Create a corkscrew: select endpoint A, press Alt+N, enter diameter/pitch/turns/axis, create the editable preview, inspect or adjust it, then press Y.',
@@ -1338,6 +1339,15 @@
             visible: true,
             snapEnabled: false
         };
+        // Protractor/ruler builder aid: follows the same origin (anchor/destination/
+        // camera target) the edit-plane grid already uses, so "moving" it is just
+        // clicking a new anchor like normal — no separate drag state needed.
+        const rulerTool = {
+            active: false,
+            quadrant: 0, // 0:+A+B 1:+A-B 2:-A-B 3:-A+B — which two perpendicular legs are drawn
+            angleDeg: 45 // free-angle third line, measured from axis A toward axis B
+        };
+        const RULER_QUADRANT_SIGNS = [[1, 1], [1, -1], [-1, -1], [-1, 1]];
         const TUNNEL_MAP_STORAGE_KEY = 'astral-drift-tunnel-map-v2';
         const TUNNEL_MAP_LIBRARY_KEY = `${TUNNEL_MAP_STORAGE_KEY}:library`;
         const TUNNEL_MAP_NAMED_PREFIX = `${TUNNEL_MAP_STORAGE_KEY}:named:`;
@@ -12127,6 +12137,17 @@
                 }
                 return false;
             }
+            if (key === '/') {
+                if (!mapView) return false;
+                if (event?.shiftKey) {
+                    rulerTool.quadrant = (rulerTool.quadrant + 1) % 4;
+                    keyboardStatus.innerText = `ruler quadrant ${rulerTool.quadrant + 1}/4`;
+                    return true;
+                }
+                rulerTool.active = !rulerTool.active;
+                keyboardStatus.innerText = `ruler ${rulerTool.active ? 'ON' : 'off'} (Shift+/ quadrant, Shift+[ ] angle)`;
+                return true;
+            }
             if (key === ' ' || key === 'space') {
                 if (mapView) return releaseMapPlaneSnap();
                 return false;
@@ -12241,6 +12262,16 @@
                 return false;
             }
             if (!builderMode && !mapView) return false;
+            if (key === '[' && event?.shiftKey) {
+                rulerTool.angleDeg = (rulerTool.angleDeg + 355) % 360;
+                keyboardStatus.innerText = `ruler angle ${rulerTool.angleDeg}deg`;
+                return true;
+            }
+            if (key === ']' && event?.shiftKey) {
+                rulerTool.angleDeg = (rulerTool.angleDeg + 5) % 360;
+                keyboardStatus.innerText = `ruler angle ${rulerTool.angleDeg}deg`;
+                return true;
+            }
             if (key === '[') {
                 builder.bendDeg = Math.max(5, builder.bendDeg - 5);
                 return true;
@@ -12249,12 +12280,12 @@
                 builder.bendDeg = Math.min(90, builder.bendDeg + 5);
                 return true;
             }
-            if (key === 'q') {
+            if (key === 'q' && event?.shiftKey) {
                 builder.bendRollDeg = (builder.bendRollDeg + 345) % 360;
                 keyboardStatus.innerText = `bend plane ${builder.bendRollDeg}deg`;
                 return true;
             }
-            if (key === 'e') {
+            if (key === 'e' && event?.shiftKey) {
                 builder.bendRollDeg = (builder.bendRollDeg + 15) % 360;
                 keyboardStatus.innerText = `bend plane ${builder.bendRollDeg}deg`;
                 return true;
@@ -22997,6 +23028,70 @@
             }
         }
 
+        function rulerPlaneAxes(planeName) {
+            if (planeName === 'yz') return [{ x: 0, y: 1, z: 0 }, { x: 0, y: 0, z: 1 }];
+            if (planeName === 'zx') return [{ x: 0, y: 0, z: 1 }, { x: 1, y: 0, z: 0 }];
+            return [{ x: 1, y: 0, z: 0 }, { x: 0, y: 1, z: 0 }];
+        }
+
+        // Protractor/ruler builder aid: two grid-snapped legs at 90 deg (quadrant
+        // picks which pair of half-axes) plus one free-angle leg, all lying on the
+        // current edit plane, reaching out to roughly the visible working area with
+        // major-tick coordinate labels every 5 grid squares.
+        function renderRulerTool(centerX, centerY, fov, drawMapLine, drawMapDot) {
+            if (!mapView || !rulerTool.active) return;
+            const origin = mapMouse.anchor?.point || mapMouse.destination?.point || mapCamera.target;
+            if (!origin) return;
+            const [axisA, axisB] = rulerPlaneAxes(mapMouse.editPlane);
+            const bounds = getMapGridWorldBounds();
+            const step = MAP_EDIT_GRID_SPACING;
+            const reach = Math.max(
+                bounds.maxX - bounds.minX,
+                bounds.maxY - bounds.minY,
+                bounds.maxZ - bounds.minZ
+            ) * 0.5;
+            const ticks = Math.min(200, Math.max(1, Math.floor(reach / step)));
+
+            const drawRulerLeg = (dir, color) => {
+                const end = addVec(origin, scaleVec(dir, ticks * step));
+                drawMapLine(origin, end, color, 2, 0.85);
+                for (let i = 1; i <= ticks; i++) {
+                    const p = addVec(origin, scaleVec(dir, i * step));
+                    const isMajor = i % 5 === 0;
+                    const pp = drawMapDot(p, color, isMajor ? 4 : 2);
+                    if (isMajor && pp) {
+                        ctx.globalAlpha = 0.85;
+                        ctx.fillStyle = color;
+                        ctx.font = '10px monospace';
+                        ctx.textAlign = 'left';
+                        ctx.fillText(formatMapPoint(p), pp.x + 6, pp.y - 6);
+                        ctx.globalAlpha = 1;
+                    }
+                }
+            };
+
+            const [sA, sB] = RULER_QUADRANT_SIGNS[rulerTool.quadrant % 4];
+            drawRulerLeg(scaleVec(axisA, sA), '#00f5ff');
+            drawRulerLeg(scaleVec(axisB, sB), '#ff4fd8');
+
+            const rad = rulerTool.angleDeg * Math.PI / 180;
+            const angleDir = normalize(addVec(scaleVec(axisA, Math.cos(rad)), scaleVec(axisB, Math.sin(rad))));
+            drawRulerLeg(angleDir, '#ffb040');
+
+            const originScreen = drawMapDot(origin, '#ffffff', 7);
+            if (originScreen) {
+                ctx.globalAlpha = 0.9;
+                ctx.fillStyle = '#ffffff';
+                ctx.font = '11px monospace';
+                ctx.textAlign = 'left';
+                ctx.fillText(
+                    `RULER quadrant ${rulerTool.quadrant + 1}/4  angle ${rulerTool.angleDeg}deg  ${formatMapPoint(origin)}`,
+                    originScreen.x + 10, originScreen.y + 16
+                );
+                ctx.globalAlpha = 1;
+            }
+        }
+
         function renderMapOverlay() {
             if (!mapView) {
                 updateHudTopLayer(false);
@@ -23046,6 +23141,7 @@
             }
 
             renderMapEditGrid(centerX, centerY, fov, drawMapLine);
+            renderRulerTool(centerX, centerY, fov, drawMapLine, drawMapDot);
 
             for (let i = 0; i < builder.segments.length; i++) {
                 const seg = builder.segments[i];

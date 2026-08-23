@@ -27,7 +27,8 @@ VALUE_W = 24
 BORDER = "=" * (LABEL_W + VALUE_W + 4)  # +4 for "| " and " |"
 DIVIDER = f"|{'=' * (LABEL_W + VALUE_W + 2)}|"
 
-
+loc_vars = locals()
+print(loc_vars)
 def row(label, value):
     return f"| {label:<{LABEL_W}}{value:>{VALUE_W}} |"
 

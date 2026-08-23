@@ -122,6 +122,7 @@ def proc_dict(loc_trade_list, strat_name,key,  output_file, start_date,end_date)
     for trade_dict in loc_trade_list:
         entry_time = trade_dict["entry_time"] or ""
         exit_time = trade_dict["exit_time"] or ""
+
         if (entry_time[0:16] >= start_date) and (exit_time[0:16] <= end_date):
 
             if key == "ALL" or trade_dict.get(key, "None") == strat_name or strat_name == "ALL":
@@ -410,7 +411,8 @@ Usage examples:
     args = parser.parse_args()
     global csv_true
     global extended
-    
+    loc_vars = locals()
+    print(loc_vars)
     csv_true = args.csv if args.csv else False
     
     extended = args.Ext if args.Ext else False
