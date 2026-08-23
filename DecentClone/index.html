@@ -799,7 +799,7 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -8792,6 +8792,7 @@
                     id: sentry.id,
                     label: sentry.label || '',
                     mode: sentry.mode === 'patrol' ? 'patrol' : 'guard',
+                    packId: sentry.packId || null,
                     shipTextureId: sentry.shipTextureId || 'wire_star_destroyer',
                     effectTextureId: sentry.effectTextureId || 'orange_laser',
                     spawn: sentry.spawn,
@@ -12176,9 +12177,13 @@
                     return true;
                 }
                 rulerTool.active = !rulerTool.active;
-                if (rulerTool.active && !rulerTool.origin) rulerTool.origin = copyVec(rulerFallbackOrigin());
+                // Turning it ON always (re)plants it at your current anchor/click —
+                // toggling off then clicking a new spot then toggling back on is the
+                // quick way to relocate it. Once it's showing, further clicks leave
+                // it alone; only the handle drag or Ctrl+Shift+/ move it from there.
+                if (rulerTool.active) rulerTool.origin = copyVec(rulerFallbackOrigin());
                 keyboardStatus.innerText = rulerTool.active
-                    ? 'ruler ON — drag its handle to reposition, Ctrl+Shift+/ to re-anchor here, Shift+/ quadrant, Shift+[ ] angle'
+                    ? 'ruler ON at current spot — drag its handle to reposition, Ctrl+Shift+/ to re-anchor here, Shift+/ quadrant, Shift+[ ] angle'
                     : 'ruler off';
                 return true;
             }
@@ -18471,6 +18476,11 @@
             return builder.sentries.find(sentry => sentry.id === sentryId) || null;
         }
 
+        function sentryPackmates(sentry) {
+            if (!sentry?.packId) return [];
+            return builder.sentries.filter(s => s.packId === sentry.packId && s.id !== sentry.id);
+        }
+
         function findRuntimeSentryById(sentryId) {
             return tunnelSentries.find(sentry => sentry.id === sentryId) || null;
         }
@@ -18490,6 +18500,7 @@
                     id: raw.id || makeSentryId(),
                     label: raw.label || '',
                     mode: raw.mode === 'patrol' ? 'patrol' : 'guard',
+                    packId: raw.packId || null,
                     shipTextureId: preservedTextureId(raw.shipTextureId, 'ai', 'wire_star_destroyer'),
                     effectTextureId: preservedTextureId(raw.effectTextureId, 'effects', 'orange_laser'),
                     spawn: {
@@ -18714,6 +18725,7 @@
                 id: makeSentryId(),
                 label,
                 mode: 'guard',
+                packId: options.packId || null,
                 shipTextureId: preservedTextureId(options.shipTextureId, 'ai', 'wire_star_destroyer'),
                 effectTextureId: preservedTextureId(options.effectTextureId, 'effects', 'orange_laser'),
                 spawn: {
@@ -18743,6 +18755,7 @@
             }
             const actualCount = Math.min(packCount, slotsLeft);
             const offsets = computeSentryPackOffsets(actualCount, snapped.forward, snapped.right);
+            const packId = actualCount > 1 ? makeSentryId() : null;
             const placed = [];
             for (let i = 0; i < actualCount; i++) {
                 if (builder.sentries.length >= SENTRY_MAX_COUNT) break;
@@ -18756,7 +18769,7 @@
                 const label = actualCount > 1
                     ? `Horde x${actualCount} #${placed.length + 1}`
                     : `Sentry ${builder.sentries.length + 1}`;
-                const sentry = makeSentryRecord(offsetSnapped, label, options);
+                const sentry = makeSentryRecord(offsetSnapped, label, { ...options, packId });
                 builder.sentries.push(sentry);
                 placed.push(sentry);
             }
@@ -18879,7 +18892,7 @@
             return true;
         }
 
-        function applySentryEdit(sentryId, label, mode, pathStages, shipTextureId, effectTextureId) {
+        function applySentryEdit(sentryId, label, mode, pathStages, shipTextureId, effectTextureId, applyStyleToPack) {
             const sentry = findSentryById(sentryId);
             if (!sentry) return false;
             sentry.label = (label || '').trim();
@@ -18894,10 +18907,16 @@
             } else {
                 sentry.path = [];
             }
+            const packmates = applyStyleToPack ? sentryPackmates(sentry) : [];
+            for (const mate of packmates) {
+                mate.shipTextureId = sentry.shipTextureId;
+                mate.effectTextureId = sentry.effectTextureId;
+            }
             rebuildTunnelSentries();
             saveTunnelMap();
             keyboardStatus.innerText =
-                `sentry updated (${sentry.mode}${sentry.mode === 'patrol' ? `, ${sentry.path.length} pts` : ''})`;
+                `sentry updated (${sentry.mode}${sentry.mode === 'patrol' ? `, ${sentry.path.length} pts` : ''})` +
+                (packmates.length ? ` — visuals applied to ${packmates.length + 1} horde sentries` : '');
             return true;
         }
 
@@ -19017,6 +19036,22 @@
             effectSelect.value = currentEffectTextureId;
             styleRow.append(styleTitle, shipLabel, shipSelect, effectLabel, effectSelect);
             joinEditDialog.appendChild(styleRow);
+
+            const packmates = sentryPackmates(sentry);
+            let applyStyleToPackCheck = null;
+            if (packmates.length) {
+                const packStyleRow = document.createElement('div');
+                packStyleRow.className = 'join-grid';
+                applyStyleToPackCheck = document.createElement('input');
+                applyStyleToPackCheck.type = 'checkbox';
+                applyStyleToPackCheck.checked = true;
+                const packStyleLabel = document.createElement('label');
+                packStyleLabel.textContent =
+                    `Apply Ship/Fire to whole horde (${packmates.length + 1} sentries)`;
+                packStyleLabel.style.gridColumn = '2 / -1';
+                packStyleRow.append(applyStyleToPackCheck, packStyleLabel);
+                joinEditDialog.appendChild(packStyleRow);
+            }
 
             const pathSection = document.createElement('div');
             pathSection.id = 'sentry-path-section';
@@ -19172,7 +19207,8 @@
                     selectedMode,
                     pathStages,
                     shipSelect.value,
-                    effectSelect.value
+                    effectSelect.value,
+                    applyStyleToPackCheck?.checked ?? false
                 );
                 closeJoinEditDialog();
             });
