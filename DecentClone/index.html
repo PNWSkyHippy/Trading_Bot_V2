@@ -799,7 +799,7 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1-sharpTurnOcclusionFix1-sixPortJunction1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -944,6 +944,7 @@
             'Place sentries: press M, then 7 for sentry tools, Ctrl+LMB places a spawn, click a sentry to edit guard or patrol behavior.',
             'Place loot: press M, then 6, Ctrl+LMB a tunnel or room, click the cache and press V to set its item, quantity, and respawn time.',
             'Build a room: create and range-select 2-5 detached sections, press V, enter room width/length/height and cap choices, then choose Make Rectangular Room.',
+            'Build a six-port junction: select one tunnel section, press V, choose Promote Section to Six-Port Junction, reopen V, then choose Build from Back/Forward/Right/Left/Down/Up and press T.',
             'Fix misaligned sections: Alt+Shift+LMB range-select a touching chain A→B, press V, choose Snap Chain Joints Flush to weld every joint exactly (position + orientation); use Normalize Selection to Plane to re-level roll/twist without moving endpoints.',
             'Save/load maps: Ctrl+Shift+S defaults to the current map name for quick update/overwrite; Ctrl+Shift+L opens the local map library.',
             'Clean mistakes: Del deletes selected segment/range, U undoes the last placed segment, G prunes disconnected strays.',
@@ -1563,6 +1564,10 @@
         const TUNNEL_SEGMENT_JOIN_OVERLAP = 48;
         const TUNNEL_SECTION_JOIN_OVERLAP = 18;
         const TUNNEL_SEGMENT_JOIN_RADIUS_BOOST = 1.042;
+        // At hard tube-to-tube turns, an axial overlap becomes a textured sleeve
+        // across the outgoing mouth. Keep overlap for straight/gentle joints, but
+        // trim mapped cylinders at turns of roughly 70 degrees or sharper.
+        const TUNNEL_HARD_TURN_MAX_DOT = 0.35;
         const TUNNEL_TEXTURE_GAP_RIB_ALPHA = 0.07;
         // Junction cubes: rect rooms with per-side-face openings so 2-4 corridors can
         // converge at 90° through real doorway geometry instead of butted tube walls.
@@ -2125,6 +2130,7 @@
             seg.autoJoinLocked = !!seg.autoJoinLocked;
             seg.chamber = !!seg.chamber;
             seg.rectRoom = !!seg.rectRoom || seg.kind === 'rect-room';
+            seg.junctionCube = !!seg.junctionCube && seg.rectRoom;
             if (seg.rectRoom) {
                 seg.chamber = false;
                 seg.kind = 'rect-room';
@@ -9348,6 +9354,7 @@
                     autoJoinLocked: !!seg.autoJoinLocked,
                     chamber: !!seg.chamber,
                     rectRoom: !!seg.rectRoom,
+                    junctionCube: seg.rectRoom ? !!seg.junctionCube : undefined,
                     roomWidth: Number(seg.roomWidth) || undefined,
                     roomHeight: Number(seg.roomHeight) || undefined,
                     roomFloorTextureId: seg.rectRoom
@@ -14953,6 +14960,7 @@
             );
             if (!room) return false;
             room.rectRoom = true;
+            room.junctionCube = false;
             room.chamber = false;
             room.roomWidth = roomWidth;
             room.roomHeight = roomHeight;
@@ -15201,6 +15209,7 @@
             }
             const firstSeg = arms[0].seg;
             cube.rectRoom = true;
+            cube.junctionCube = true;
             cube.chamber = false;
             cube.roomWidth = side;
             cube.roomHeight = side;
@@ -15220,14 +15229,7 @@
             cube.wallOpaque = firstSeg.wallOpaque !== false;
             ensureSegmentStyle(cube);
 
-            for (const arm of arms) {
-                if (arm.face === 'start') cube.capStart = false;
-                else if (arm.face === 'end') cube.capEnd = false;
-                else if (arm.face === 'right') cube.roomOpenRight = true;
-                else if (arm.face === 'left') cube.roomOpenLeft = true;
-                else if (arm.face === 'floor') cube.roomOpenFloor = true;
-                else cube.roomOpenCeiling = true;
-            }
+            for (const arm of arms) setRectRoomFaceOpen(cube, arm.face, true);
             // Butt each corridor flush against its doorway AND hard-snap its
             // direction to the cube's exact face normal: the near end lands on
             // the face center, and the FAR end is recomputed along that exact
@@ -16071,11 +16073,11 @@
             const roomCapStartCheck = document.createElement('input');
             roomCapStartCheck.type = 'checkbox';
             roomCapStartCheck.checked = existingRoom ? !!existingRoom.capStart : true;
-            const roomCapStartText = document.createTextNode(' Cap room start ');
+            const roomCapStartText = document.createTextNode(' Close Back / Start ');
             const roomCapEndCheck = document.createElement('input');
             roomCapEndCheck.type = 'checkbox';
             roomCapEndCheck.checked = existingRoom ? !!existingRoom.capEnd : true;
-            const roomCapEndText = document.createTextNode(' Cap room end');
+            const roomCapEndText = document.createTextNode(' Close Forward / End');
             roomCapsRow.append(
                 roomCapStartCheck,
                 roomCapStartText,
@@ -16097,8 +16099,8 @@
             };
             const openRightCheck = makeFaceCheck('Open right', existingRoom?.roomOpenRight);
             const openLeftCheck = makeFaceCheck('Open left', existingRoom?.roomOpenLeft);
-            const openFloorCheck = makeFaceCheck('Open floor', existingRoom?.roomOpenFloor);
-            const openCeilingCheck = makeFaceCheck('Open ceiling', existingRoom?.roomOpenCeiling);
+            const openFloorCheck = makeFaceCheck('Open Down / Floor', existingRoom?.roomOpenFloor);
+            const openCeilingCheck = makeFaceCheck('Open Up / Ceiling', existingRoom?.roomOpenCeiling);
             joinEditDialog.appendChild(roomFacesRow);
 
             if (existingRoom) {
@@ -16106,8 +16108,8 @@
                 cursorHint.className = 'hint';
                 cursorHint.style.color = '#ffbd55';
                 cursorHint.textContent =
-                    'Branch a new corridor off this room: opens the face and sends the builder '
-                    + 'cursor to its center, aimed outward, ready for T/O.';
+                    'Six-port building: choose Back, Forward, Right, Left, Down, or Up. '
+                    + 'The face opens and the cursor snaps to its center, aimed exactly outward for T.';
                 joinEditDialog.appendChild(cursorHint);
                 const cursorRow = document.createElement('div');
                 cursorRow.style.display = 'flex';
@@ -16115,21 +16117,25 @@
                 cursorRow.style.flexWrap = 'wrap';
                 cursorRow.style.margin = '4px 0 10px';
                 const faceButtons = [
+                    ['start', 'Back', roomCapStartCheck],
+                    ['end', 'Forward', roomCapEndCheck],
                     ['right', 'Right', openRightCheck],
                     ['left', 'Left', openLeftCheck],
-                    ['floor', 'Floor', openFloorCheck],
-                    ['ceiling', 'Ceiling', openCeilingCheck]
+                    ['floor', 'Down', openFloorCheck],
+                    ['ceiling', 'Up', openCeilingCheck]
                 ];
                 for (const [face, label, checkboxRef] of faceButtons) {
                     const btn = document.createElement('button');
                     btn.type = 'button';
                     btn.textContent = `Build from ${label}`;
                     btn.addEventListener('click', () => {
-                        checkboxRef.checked = true;
-                        if (face === 'right') existingRoom.roomOpenRight = true;
-                        else if (face === 'left') existingRoom.roomOpenLeft = true;
-                        else if (face === 'floor') existingRoom.roomOpenFloor = true;
-                        else existingRoom.roomOpenCeiling = true;
+                        // Start/end controls are "Close" checkboxes; the four
+                        // side controls are "Open" checkboxes.
+                        checkboxRef.checked = face === 'start' || face === 'end'
+                            ? false
+                            : true;
+                        setRectRoomFaceOpen(existingRoom, face, true);
+                        existingRoom.junctionCube = true;
                         invalidateTunnelSegmentCache();
                         applyMapGeometryChange(`opened ${face} face`);
                         sendBuilderCursorToRoomFace(existingRoom, face);
@@ -16258,6 +16264,94 @@
                 } else {
                     keyboardStatus.innerText = 'could not create rectangular room from selection';
                 }
+            }
+
+            function promoteSelectedSectionToJunction() {
+                if (indices.length !== 1) {
+                    keyboardStatus.innerText =
+                        'six-port junction: select exactly one tunnel section or rectangular room';
+                    return;
+                }
+                const source = builder.segments[indices[0]];
+                if (!source || segmentIsChamber(source)) {
+                    keyboardStatus.innerText =
+                        'six-port junction: spherical chambers cannot be promoted';
+                    return;
+                }
+                const width = Number(roomWidthInput.value);
+                const requestedLength = Number(roomLengthInput.value);
+                const length = segmentIsRectRoom(source)
+                    ? requestedLength
+                    : Number(source.length);
+                const height = Number(roomHeightInput.value);
+                if (![width, length, height].every(value => (
+                    Number.isFinite(value) &&
+                    value >= MAP_ROOM_MIN_DIMENSION &&
+                    value <= MAP_ROOM_MAX_DIMENSION
+                ))) {
+                    keyboardStatus.innerText =
+                        `junction dimensions must be ${MAP_ROOM_MIN_DIMENSION}-${MAP_ROOM_MAX_DIMENSION}`;
+                    return;
+                }
+
+                if (segmentIsRectRoom(source)) {
+                    source.junctionCube = true;
+                    source.capStart = !!roomCapStartCheck.checked;
+                    source.capEnd = !!roomCapEndCheck.checked;
+                    source.roomOpenRight = !!openRightCheck.checked;
+                    source.roomOpenLeft = !!openLeftCheck.checked;
+                    source.roomOpenFloor = !!openFloorCheck.checked;
+                    source.roomOpenCeiling = !!openCeilingCheck.checked;
+                    clearSegmentDistanceWallMapping(source);
+                    ensureSegmentStyle(source);
+                    applyMapGeometryChange('marked rectangular unit as a six-port junction');
+                    closeJoinEditDialog();
+                    return;
+                }
+
+                // The selected tube already supplies its Back and Forward mouths.
+                // Keep its exact centerline length so existing neighbors remain
+                // attached; only its cross-section becomes the six-face room cell.
+                roomCapStartCheck.checked = false;
+                roomCapEndCheck.checked = false;
+                const converted = replaceSelectedSegmentsWithRectRoom(
+                    indices,
+                    { width, length, height },
+                    { start: false, end: false },
+                    {
+                        floorTextureId: floorTextureSelect.value,
+                        ceilingTextureId: ceilingTextureSelect.value,
+                        floorColor: floorColorInput.value,
+                        ceilingColor: ceilingColorInput.value
+                    },
+                    {
+                        openRight: openRightCheck.checked,
+                        openLeft: openLeftCheck.checked,
+                        openFloor: openFloorCheck.checked,
+                        openCeiling: openCeilingCheck.checked
+                    }
+                );
+                if (!converted) {
+                    keyboardStatus.innerText = 'six-port junction: conversion failed';
+                    return;
+                }
+                const junctionIndex = mapMouse.anchor?.segmentIndex;
+                const junction = Number.isInteger(junctionIndex)
+                    ? builder.segments[junctionIndex]
+                    : null;
+                if (!junction || !segmentIsRectRoom(junction)) {
+                    keyboardStatus.innerText = 'six-port junction: converted unit was not found';
+                    return;
+                }
+                junction.junctionCube = true;
+                junction.capStart = false;
+                junction.capEnd = false;
+                clearSegmentDistanceWallMapping(junction);
+                ensureSegmentStyle(junction);
+                applyMapGeometryChange(
+                    'promoted tunnel section to six-port junction; Back and Forward are open'
+                );
+                closeJoinEditDialog();
             }
 
             const actions = document.createElement('div');
@@ -16415,6 +16509,12 @@
             roomBtn.type = 'button';
             roomBtn.textContent = existingRoom ? 'Update Rectangular Room' : 'Make Rectangular Room';
             roomBtn.addEventListener('click', makeSelectedRectRoom);
+            const promoteJunctionBtn = document.createElement('button');
+            promoteJunctionBtn.type = 'button';
+            promoteJunctionBtn.textContent = existingRoom
+                ? 'Mark as Six-Port Junction'
+                : 'Promote Section to Six-Port Junction';
+            promoteJunctionBtn.addEventListener('click', promoteSelectedSectionToJunction);
             const junctionBtn = document.createElement('button');
             junctionBtn.type = 'button';
             junctionBtn.textContent = 'Make Junction Cube at Joint';
@@ -16472,7 +16572,7 @@
             cancelBtn.textContent = 'Cancel';
             cancelBtn.addEventListener('click', closeJoinEditDialog);
             actions.append(
-                applyBtn, roomBtn, junctionBtn, chamberBtn, equalizeAllBtn,
+                applyBtn, roomBtn, promoteJunctionBtn, junctionBtn, chamberBtn, equalizeAllBtn,
                 snapChainBtn, normalizePlaneBtn, alignEndpointsBtn, reconnectBtn, cancelBtn
             );
             joinEditDialog.appendChild(actions);
@@ -21284,6 +21384,43 @@
             return isBranchMouthSegment(seg) || isSegmentEndpointOpen(seg, 'to');
         }
 
+        function segmentEndHasHardTubeTurn(seg, endKind) {
+            if (!seg || segmentIsRectRoom(seg) || segmentIsChamber(seg)) return false;
+            const point = endKind === 'from' ? seg.from : seg.to;
+            const approach = endKind === 'from'
+                ? scaleVec(normalize(seg.forward), -1)
+                : normalize(seg.forward);
+            for (const other of builder.segments) {
+                if (
+                    !other || other === seg || !other.from || !other.to ||
+                    segmentIsRectRoom(other) || segmentIsChamber(other)
+                ) {
+                    continue;
+                }
+                const tolerance = Math.max(
+                    24,
+                    Math.min(
+                        90,
+                        Math.max(
+                            Number(seg.radius) || builder.radius,
+                            Number(other.radius) || builder.radius
+                        ) * 0.65
+                    )
+                );
+                const toleranceSq = tolerance * tolerance;
+                let outgoing = null;
+                if (distanceSq(point, other.from) <= toleranceSq) {
+                    outgoing = normalize(other.forward);
+                } else if (distanceSq(point, other.to) <= toleranceSq) {
+                    outgoing = scaleVec(normalize(other.forward), -1);
+                }
+                if (outgoing && dot(approach, outgoing) <= TUNNEL_HARD_TURN_MAX_DOT) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         function segmentIsChamber(seg) {
             if (!seg) return false;
             if (segmentIsRectRoom(seg)) return false;
@@ -21397,9 +21534,25 @@
             };
         }
 
+        function setRectRoomFaceOpen(seg, face, open) {
+            if (!segmentIsRectRoom(seg) || !RECT_ROOM_FACES.includes(face)) return false;
+            const isOpen = !!open;
+            if (face === 'start') seg.capStart = !isOpen;
+            else if (face === 'end') seg.capEnd = !isOpen;
+            else if (face === 'right') seg.roomOpenRight = isOpen;
+            else if (face === 'left') seg.roomOpenLeft = isOpen;
+            else if (face === 'floor') seg.roomOpenFloor = isOpen;
+            else seg.roomOpenCeiling = isOpen;
+            return true;
+        }
+
         function segmentIsJunctionCube(seg) {
             return segmentIsRectRoom(seg) &&
-                !!(seg.roomOpenRight || seg.roomOpenLeft || seg.roomOpenFloor || seg.roomOpenCeiling);
+                !!(
+                    seg.junctionCube ||
+                    seg.roomOpenRight || seg.roomOpenLeft ||
+                    seg.roomOpenFloor || seg.roomOpenCeiling
+                );
         }
 
         function rectRoomFaceLocalCenter(dims, face) {
@@ -23055,6 +23208,10 @@
             // at every join. Keep section art on its own 0..length geometry. The
             // legacy tiled walls retain their overlap to cover hard bend gaps.
             let joinOverlap = sectionMapped ? TUNNEL_SECTION_JOIN_OVERLAP : TUNNEL_SEGMENT_JOIN_OVERLAP;
+            const trimHardFrom = sectionMapped && !fromOpen &&
+                segmentEndHasHardTubeTurn(seg, 'from');
+            const trimHardTo = sectionMapped && !toOpen &&
+                segmentEndHasHardTubeTurn(seg, 'to');
             // A connected side branch is a complete cylinder, not a boolean cutout.
             // Extending it behind its junction lets its opaque wall penetrate the
             // active corridor. Route sections keep overlap for seamless bends; an
@@ -23063,10 +23220,12 @@
                 joinOverlap = 0;
             }
             return {
-                zStart: fromOpen ? 0 : -joinOverlap,
-                zEnd: toOpen ? length : length + joinOverlap,
+                zStart: fromOpen || trimHardFrom ? 0 : -joinOverlap,
+                zEnd: toOpen || trimHardTo ? length : length + joinOverlap,
                 fromOpen,
                 toOpen,
+                trimHardFrom,
+                trimHardTo,
                 length
             };
         }

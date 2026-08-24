@@ -51,6 +51,10 @@ const context = {
     WALL_TEXTURE_DISTANCE_DEFAULT_SPAN: 1200,
     WALL_TEXTURE_DISTANCE_MIN_SPAN: 60,
     WALL_TEXTURE_DISTANCE_MAX_SPAN: 50000,
+    TUNNEL_HARD_TURN_MAX_DOT: 0.35,
+    TUNNEL_SECTION_JOIN_OVERLAP: 18,
+    TUNNEL_SEGMENT_JOIN_OVERLAP: 48,
+    RECT_ROOM_FACES: ['start', 'end', 'right', 'left', 'floor', 'ceiling'],
     builder: {
         radius: 120,
         right: { x: 1, y: 0, z: 0 },
@@ -72,6 +76,9 @@ const context = {
         (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2,
     segmentIsChamber: seg => !!seg.chamber,
     segmentIsJunctionCube: seg => !!seg.junctionCube,
+    segmentIsRectRoom: seg => !!seg.rectRoom,
+    isOpenSegmentEnd: () => false,
+    textureUsesSectionMapping: () => false,
     getWebGLTextureForSegment: () => null,
     getWallTextureEntry: () => null,
     segmentRadiusAt: seg => seg.radius || 120
@@ -87,6 +94,11 @@ for (const name of [
     'transportTextureRunReference',
     'planDistanceTextureRun',
     'applyDistanceTextureRunPlan',
+    'rectRoomFaceStates',
+    'setRectRoomFaceOpen',
+    'segmentIsJunctionCube',
+    'segmentEndHasHardTubeTurn',
+    'getSegmentPanelZExtent',
     'splitSegmentAtPoint',
     'splitLongAutogenSegment'
 ]) {
@@ -198,6 +210,59 @@ plan = context.planDistanceTextureRun([0, 1, 2, 3], ['deep_space_01'], {
 });
 if (plan.error || plan.assignments.some(item => !Number.isFinite(item.uOffset))) {
     throw new Error('U-shaped route did not preserve finite circumferential phase');
+}
+
+context.builder.segments = [
+    segment({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 180 }),
+    segment({ x: 0, y: 0, z: 180 }, { x: 180, y: 0, z: 180 })
+];
+plan = context.planDistanceTextureRun([0, 1], ['deep_space_01'], {
+    targetSpan: 1200,
+    boundaryMode: 'fit-selection'
+});
+context.applyDistanceTextureRunPlan(plan, { runId: 'right-angle-run' });
+const rightAngleExtent = context.getSegmentPanelZExtent(context.builder.segments[0]);
+if (!rightAngleExtent.trimHardTo ||
+    rightAngleExtent.zEnd !== context.builder.segments[0].length) {
+    throw new Error('mapped 90-degree tube joint retained its occluding axial sleeve');
+}
+
+context.builder.segments = straightSegments(2);
+plan = context.planDistanceTextureRun([0, 1], ['deep_space_01'], {
+    targetSpan: 1200,
+    boundaryMode: 'fit-selection'
+});
+context.applyDistanceTextureRunPlan(plan, { runId: 'straight-overlap-run' });
+const straightExtent = context.getSegmentPanelZExtent(context.builder.segments[0]);
+if (straightExtent.trimHardTo ||
+    straightExtent.zEnd !== context.builder.segments[0].length + 18) {
+    throw new Error('straight mapped joint lost its crack-hiding overlap');
+}
+
+const sixPortJunction = {
+    rectRoom: true,
+    junctionCube: true,
+    capStart: true,
+    capEnd: true,
+    roomOpenRight: false,
+    roomOpenLeft: false,
+    roomOpenFloor: false,
+    roomOpenCeiling: false
+};
+for (const face of context.RECT_ROOM_FACES) {
+    if (!context.setRectRoomFaceOpen(sixPortJunction, face, true)) {
+        throw new Error('six-port junction could not open face: ' + face);
+    }
+}
+const sixPortStates = context.rectRoomFaceStates(sixPortJunction);
+if (Object.values(sixPortStates).some(open => !open) ||
+    !context.segmentIsJunctionCube(sixPortJunction)) {
+    throw new Error('six-port junction did not expose six independent open states');
+}
+context.setRectRoomFaceOpen(sixPortJunction, 'ceiling', false);
+if (context.rectRoomFaceStates(sixPortJunction).ceiling ||
+    !sixPortJunction.roomOpenFloor) {
+    throw new Error('closing one junction port changed another port');
 }
 
 context.builder.segments = [
@@ -391,6 +456,12 @@ for (const field of [
     if (!html.includes(field + ': segmentUsesDistanceWallMapping(seg)')) {
         throw new Error('serialized texture-run field is missing: ' + field);
     }
+}
+if (!html.includes('Promote Section to Six-Port Junction') ||
+    !html.includes("['start', 'Back', roomCapStartCheck]") ||
+    !html.includes("['end', 'Forward', roomCapEndCheck]") ||
+    !html.includes('junctionCube: seg.rectRoom ? !!seg.junctionCube : undefined')) {
+    throw new Error('six-port promotion, forward/back controls, or persistence wiring is missing');
 }
 
 console.log(
