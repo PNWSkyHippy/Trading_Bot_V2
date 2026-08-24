@@ -271,6 +271,33 @@ The route system uses:
 
 ## Map Save And Rebuild Contract
 
+### Import segment safety limit
+
+`MAP_IMPORT_MAX_SEGMENTS` in `index.html` is the single admission limit for
+every saved-map source: pasted JSON, uploaded library backups, bootstrap files,
+named maps, and the autosave. It is currently **2,000 segments**. Maps at or
+below the limit load normally; a map with 2,001 or more segments is rejected
+before it can replace `builder.segments`, invalidate render caches, or enter
+the quadratic segment-sanitization pass.
+
+When raising this value, change the named constant and this reference together,
+then test an accepted map at the proposed limit and a rejected map one segment
+above it. The limit is an availability guard, not a map-format change; existing
+maps at or below the new value require no migration.
+
+### Imported sentry and loot validation
+
+`SENTRY_MAX_PATROL_POINTS` is currently **256**. It applies to both imported
+patrol data and patrols completed or edited in the map UI, so one map cannot
+make the AI tick or map overlay iterate an unbounded path. Valid paths longer
+than the limit retain their first 256 points; malformed points are dropped and
+non-finite linger times become zero.
+
+Imported sentry spawn frames and rocket-cache position/orientation vectors must
+be finite before reconstruction. Duplicate sentry IDs are regenerated during
+import. These are admission guards only: normal finite map data remains in the
+existing format and needs no migration.
+
 Any code that changes `builder.segments` should call:
 
 ```js

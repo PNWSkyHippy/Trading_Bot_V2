@@ -1424,6 +1424,9 @@
         const MAP_MIN_ENDPOINT_SPACING = 36;
         const MAP_ENDPOINT_SNAP_MAX = 28;
         const MAP_JOIN_COLINEAR_DOT = 0.992;
+        // Import admission guard: keep this documented in astral_technical_reference.md.
+        // It permits the current large maps while avoiding unbounded O(n^2) map cleanup.
+        const MAP_IMPORT_MAX_SEGMENTS = 2000;
         // mapBuildFix2: clamp tube radius + junction continuity — avoids narrow/wide WebGL gaps
         const MAP_RADIUS_MIN_FRAC = 0.72;
         const MAP_RADIUS_MAX_FRAC = 1.60;
@@ -4112,6 +4115,8 @@
         const SHIELD_REGEN_UNDER_SENTRY_FIRE = 1.5;
         const HULL_MAX = 100;
         const SENTRY_MAX_COUNT = 100;
+        // Saved and imported patrol paths use the same bounded admission rule.
+        const SENTRY_MAX_PATROL_POINTS = 256;
         const SENTRY_COLOR = '#ff6622';
         const SENTRY_COLOR_CORE = '#ff2200';
         const SENTRY_DETECT_RANGE = 280;
@@ -9208,6 +9213,11 @@
 
         function applyTunnelMap(map, message = 'map loaded') {
             if (!map || !Array.isArray(map.segments) || map.segments.length < 1) return false;
+            if (map.segments.length > MAP_IMPORT_MAX_SEGMENTS) {
+                keyboardStatus.innerText =
+                    `map rejected: ${map.segments.length} segments exceeds import limit ${MAP_IMPORT_MAX_SEGMENTS}`;
+                return false;
+            }
             builder.segments = map.segments;
             // Invalidate now, before builder.radius/targets/etc. are set up below and
             // before the conditional syncBuilderTargetsFromGeometry() a few lines down
@@ -17378,7 +17388,7 @@
             const cleaned = [];
             const usedIds = new Set();
             for (const raw of caches) {
-                if (!raw?.point) continue;
+                if (!isFiniteVec(raw?.point)) continue;
                 let id = raw.id || makeRocketCacheId();
                 while (usedIds.has(id)) id = makeRocketCacheId();
                 usedIds.add(id);
@@ -17386,6 +17396,10 @@
                     ? raw.segmentIndex
                     : null;
                 const seg = segmentIndex !== null ? builder.segments[segmentIndex] : null;
+                const right = raw.right || seg?.right || builder.right;
+                const down = raw.down || seg?.down || builder.down;
+                const forward = raw.forward || seg?.forward || builder.forward;
+                if (!isFiniteVec(right) || !isFiniteVec(down) || !isFiniteVec(forward)) continue;
                 const itemType = LOOT_ITEM_DEFS[raw.itemType] ? raw.itemType : 'rocketPack';
                 cleaned.push({
                     id,
@@ -17399,9 +17413,9 @@
                         )
                     ),
                     point: copyVec(raw.point),
-                    right: normalize(copyVec(raw.right || seg?.right || builder.right)),
-                    down: normalize(copyVec(raw.down || seg?.down || builder.down)),
-                    forward: normalize(copyVec(raw.forward || seg?.forward || builder.forward)),
+                    right: normalize(copyVec(right)),
+                    down: normalize(copyVec(down)),
+                    forward: normalize(copyVec(forward)),
                     segmentIndex
                 });
             }
@@ -18479,6 +18493,15 @@
             return `sentry-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
         }
 
+        function uniqueSentryId(requestedId, usedIds) {
+            let id = typeof requestedId === 'string' && requestedId.trim()
+                ? requestedId
+                : makeSentryId();
+            while (usedIds.has(id)) id = makeSentryId();
+            usedIds.add(id);
+            return id;
+        }
+
         function findSentryById(sentryId) {
             return builder.sentries.find(sentry => sentry.id === sentryId) || null;
         }
@@ -18497,33 +18520,44 @@
             return normalize(fwd);
         }
 
+        function sanitizeSentryPath(path) {
+            if (!Array.isArray(path)) return [];
+            const cleaned = [];
+            for (const stage of path.slice(0, SENTRY_MAX_PATROL_POINTS)) {
+                if (!isFiniteVec(stage?.point)) continue;
+                const lingerSec = Number(stage.lingerSec);
+                cleaned.push({
+                    point: copyVec(stage.point),
+                    lingerSec: Number.isFinite(lingerSec) ? Math.max(0, lingerSec) : 0
+                });
+            }
+            return cleaned;
+        }
+
         function sanitizeSentryList(sentries) {
             if (!Array.isArray(sentries)) return [];
             const cleaned = [];
+            const usedIds = new Set();
             for (const raw of sentries.slice(0, SENTRY_MAX_COUNT)) {
-                if (!raw?.spawn?.point || !raw?.spawn?.right || !raw?.spawn?.down) continue;
-                const path = Array.isArray(raw.path) ? raw.path : [];
+                const spawn = raw?.spawn;
+                if (!isFiniteVec(spawn?.point) || !isFiniteVec(spawn?.right) || !isFiniteVec(spawn?.down)) continue;
+                if (spawn.forward && !isFiniteVec(spawn.forward)) continue;
                 cleaned.push({
-                    id: raw.id || makeSentryId(),
+                    id: uniqueSentryId(raw.id, usedIds),
                     label: raw.label || '',
                     mode: raw.mode === 'patrol' ? 'patrol' : 'guard',
                     packId: raw.packId || null,
                     shipTextureId: preservedTextureId(raw.shipTextureId, 'ai', 'wire_star_destroyer'),
                     effectTextureId: preservedTextureId(raw.effectTextureId, 'effects', 'orange_laser'),
                     spawn: {
-                        point: copyVec(raw.spawn.point),
-                        right: normalize(copyVec(raw.spawn.right)),
-                        down: normalize(copyVec(raw.spawn.down)),
-                        forward: normalize(raw.spawn.forward || cross(raw.spawn.right, raw.spawn.down)),
-                        segmentIndex: Number.isInteger(raw.spawn.segmentIndex) ? raw.spawn.segmentIndex : null,
-                        segmentT: Number.isFinite(raw.spawn.segmentT) ? raw.spawn.segmentT : null
+                        point: copyVec(spawn.point),
+                        right: normalize(copyVec(spawn.right)),
+                        down: normalize(copyVec(spawn.down)),
+                        forward: normalize(spawn.forward || cross(spawn.right, spawn.down)),
+                        segmentIndex: Number.isInteger(spawn.segmentIndex) ? spawn.segmentIndex : null,
+                        segmentT: Number.isFinite(spawn.segmentT) ? spawn.segmentT : null
                     },
-                    path: path
-                        .filter(stage => stage?.point && isFiniteVec(stage.point))
-                        .map(stage => ({
-                            point: copyVec(stage.point),
-                            lingerSec: Math.max(0, Number(stage.lingerSec) || 0)
-                        }))
+                    path: sanitizeSentryPath(raw.path)
                 });
             }
             return cleaned;
@@ -18884,7 +18918,7 @@
             const stagePoint = copyVec(snapped.point);
             const spawnDist = Math.sqrt(distanceSq(stagePoint, sentry.spawn.point));
             if (draft.points.length >= 2 && spawnDist <= SENTRY_PATH_CLOSE_DIST) {
-                sentry.path = draft.points.map(p => ({ point: copyVec(p), lingerSec: 0 }));
+                sentry.path = sanitizeSentryPath(draft.points.map(p => ({ point: copyVec(p), lingerSec: 0 })));
                 sentry.mode = 'patrol';
                 mapMouse.sentryPathDraft = null;
                 rebuildTunnelSentries();
@@ -18907,10 +18941,7 @@
             sentry.shipTextureId = preservedTextureId(shipTextureId, 'ai', 'wire_star_destroyer');
             sentry.effectTextureId = preservedTextureId(effectTextureId, 'effects', 'orange_laser');
             if (sentry.mode === 'patrol') {
-                sentry.path = (pathStages || []).map(stage => ({
-                    point: copyVec(stage.point),
-                    lingerSec: Math.max(0, Number(stage.lingerSec) || 0)
-                }));
+                sentry.path = sanitizeSentryPath(pathStages);
             } else {
                 sentry.path = [];
             }
