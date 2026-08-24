@@ -144,6 +144,28 @@ def date_check(mdate):
     return True
 
 
+def classify(args):
+    """
+kinds = classify(sys.argv[1:])
+kinds == {int}          # all ints
+kinds == {float}        # all floats
+kinds == {int, float}   # mix of ints/floats
+kinds == {str}          # all strings
+str in kinds and (int in kinds or float in kinds)  # mixed strings + numbers
+    """    
+    kinds = set()
+    for x in args:
+        try:
+            int(x)
+            kinds.add(int)
+        except ValueError:
+            try:
+                float(x)
+                kinds.add(float)
+            except ValueError:
+                kinds.add(str)
+    return kinds
+
 def main():
     def wide_formatter(prog):
         return argparse.RawDescriptionHelpFormatter(

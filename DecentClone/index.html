@@ -799,7 +799,7 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -938,6 +938,7 @@
             'Create a corkscrew: select endpoint A, press Alt+N, enter diameter/pitch/turns/axis, create the editable preview, inspect or adjust it, then press Y.',
             'Create a portal: in map mode press 8 for portal mode, LMB sets entry A, Ctrl+LMB sets exit B, then Shift+Y links them.',
             'Edit textures/ring colors: in 3D map, click the first tunnel section, Alt+Shift+LMB the ending tunnel section, then press V.',
+            'Stretch scenic art across a route: in the V dialog choose Across distance, set Image span (1200u default), and inspect the joint-snapped image lengths before Apply. Use Fit one image for a single composition across the entire selection.',
             'Delete tunnel sections: select one section or a tunnel range, then press Del/Backspace.',
             'Edit target boxes: Shift+LMB selects the first box; with a target selection active, Ctrl+Shift+LMB the ending box selects every target along that connected path; then press V.',
             'Place sentries: press M, then 7 for sentry tools, Ctrl+LMB places a spawn, click a sentry to edit guard or patrol behavior.',
@@ -1577,6 +1578,10 @@
         const DEFAULT_WALL_TEXTURE_ID = 'rock060';
         const DEFAULT_RIB_COLOR = '#21c7c0';
         const DEFAULT_WALL_OPAQUE = true;
+        const WALL_TEXTURE_MAPPING_DISTANCE = 'distance-run';
+        const WALL_TEXTURE_DISTANCE_DEFAULT_SPAN = 1200;
+        const WALL_TEXTURE_DISTANCE_MIN_SPAN = 60;
+        const WALL_TEXTURE_DISTANCE_MAX_SPAN = 50000;
         const ROOM_SOLID_TEXTURE_ID = '__solid__';
         const DEFAULT_ROOM_FLOOR_COLOR = '#28323c';
         const DEFAULT_ROOM_CEILING_COLOR = '#101722';
@@ -1623,6 +1628,75 @@
         function storedTextureId(id, fallback) {
             const raw = String(id || '').trim();
             return raw || fallback;
+        }
+
+        function clearSegmentDistanceWallMapping(seg) {
+            if (!seg) return;
+            delete seg.wallMappingMode;
+            delete seg.wallTextureRunId;
+            delete seg.wallTextureRunOrder;
+            delete seg.wallTextureRunDirection;
+            delete seg.wallTextureVStart;
+            delete seg.wallTextureVEnd;
+            delete seg.wallTextureUOffset;
+            delete seg.wallTextureTargetSpan;
+            delete seg.wallTextureActualSpan;
+            delete seg.wallTextureBoundaryMode;
+            delete seg.wallTexturePackId;
+        }
+
+        function sanitizeSegmentDistanceWallMapping(seg) {
+            if (!seg || seg.wallMappingMode !== WALL_TEXTURE_MAPPING_DISTANCE) {
+                clearSegmentDistanceWallMapping(seg);
+                return false;
+            }
+            const runId = String(seg.wallTextureRunId || '').trim().slice(0, 96);
+            const order = Math.round(Number(seg.wallTextureRunOrder));
+            const direction = Number(seg.wallTextureRunDirection) < 0 ? -1 : 1;
+            const vStart = Number(seg.wallTextureVStart);
+            const vEnd = Number(seg.wallTextureVEnd);
+            const clampedVStart = Math.max(0, Math.min(1, vStart));
+            const clampedVEnd = Math.max(0, Math.min(1, vEnd));
+            const uOffset = Number(seg.wallTextureUOffset);
+            const targetSpan = Number(seg.wallTextureTargetSpan);
+            const actualSpan = Number(seg.wallTextureActualSpan);
+            if (
+                !runId ||
+                !Number.isFinite(order) || order < 0 || order >= MAP_IMPORT_MAX_SEGMENTS ||
+                !Number.isFinite(vStart) || !Number.isFinite(vEnd) ||
+                vStart < -0.001 || vStart > 1.001 ||
+                vEnd < -0.001 || vEnd > 1.001 ||
+                Math.abs(clampedVEnd - clampedVStart) < 0.000001 ||
+                !Number.isFinite(targetSpan) ||
+                targetSpan < WALL_TEXTURE_DISTANCE_MIN_SPAN ||
+                targetSpan > WALL_TEXTURE_DISTANCE_MAX_SPAN ||
+                !Number.isFinite(actualSpan) || actualSpan < 1
+            ) {
+                clearSegmentDistanceWallMapping(seg);
+                return false;
+            }
+            seg.wallTextureRunId = runId;
+            seg.wallTextureRunOrder = order;
+            seg.wallTextureRunDirection = direction;
+            seg.wallTextureVStart = clampedVStart;
+            seg.wallTextureVEnd = clampedVEnd;
+            seg.wallTextureUOffset = Number.isFinite(uOffset)
+                ? ((uOffset % 1) + 1) % 1
+                : 0;
+            seg.wallTextureTargetSpan = targetSpan;
+            seg.wallTextureActualSpan = Math.min(WALL_TEXTURE_DISTANCE_MAX_SPAN * 4, actualSpan);
+            seg.wallTextureBoundaryMode = seg.wallTextureBoundaryMode === 'fit-selection'
+                ? 'fit-selection'
+                : 'nearest-joint';
+            seg.wallTexturePackId = String(seg.wallTexturePackId || '').trim().slice(0, 96);
+            return true;
+        }
+
+        function segmentUsesDistanceWallMapping(seg) {
+            return !!seg && seg.wallMappingMode === WALL_TEXTURE_MAPPING_DISTANCE &&
+                Number.isFinite(seg.wallTextureVStart) &&
+                Number.isFinite(seg.wallTextureVEnd) &&
+                Math.abs(seg.wallTextureVEnd - seg.wallTextureVStart) >= 0.000001;
         }
 
         function normalizeTextureEntry(raw, index, group) {
@@ -1719,6 +1793,245 @@
                 travelDir = next.segTravel;
             }
             return result;
+        }
+
+        function textureRunPathConnection(aIndex, bIndex) {
+            const a = builder.segments[aIndex];
+            const b = builder.segments[bIndex];
+            if (!a || !b) return { error: 'texture run contains a missing segment' };
+            const pairs = [
+                { aEnd: 'from', bEnd: 'from', distSq: distanceSq(a.from, b.from) },
+                { aEnd: 'from', bEnd: 'to', distSq: distanceSq(a.from, b.to) },
+                { aEnd: 'to', bEnd: 'from', distSq: distanceSq(a.to, b.from) },
+                { aEnd: 'to', bEnd: 'to', distSq: distanceSq(a.to, b.to) }
+            ];
+            pairs.sort((left, right) => left.distSq - right.distSq);
+            const best = pairs[0];
+            const radius = Math.max(
+                Number(a.radius) || builder.radius,
+                Number(b.radius) || builder.radius
+            );
+            // Match the range-selection graph's ordinary endpoint tolerance.
+            // A looser test can mistake a nearby room side for a true centerline joint.
+            const tolerance = Math.max(24, Math.min(90, radius * 0.65));
+            if (best.distSq > tolerance * tolerance) {
+                return {
+                    error:
+                        'texture run crosses a room side face or junction without a shared start/end centerline; ' +
+                        'split it into separate runs at that transition'
+                };
+            }
+            return best;
+        }
+
+        function orientDistanceTextureRunPath(indices) {
+            const ordered = [...new Set((indices || []).filter(index =>
+                Number.isInteger(index) && index >= 0 && index < builder.segments.length
+            ))];
+            if (!ordered.length) return { error: 'texture run needs at least one selected segment' };
+            const entries = ordered.map(index => ({ index, seg: builder.segments[index], direction: 1 }));
+            for (const entry of entries) {
+                if (segmentIsChamber(entry.seg)) {
+                    return { error: 'spherical chambers are texture-run boundaries' };
+                }
+                if (segmentIsJunctionCube(entry.seg)) {
+                    return { error: 'junction cubes are texture-run boundaries; select the outgoing corridor separately' };
+                }
+            }
+            if (entries.length === 1) return { entries, connections: [] };
+
+            const connections = [];
+            for (let i = 0; i < entries.length - 1; i++) {
+                const connection = textureRunPathConnection(entries[i].index, entries[i + 1].index);
+                if (connection.error) return connection;
+                connections.push(connection);
+            }
+
+            for (let i = 0; i < entries.length; i++) {
+                if (i === 0) {
+                    entries[i].direction = connections[0].aEnd === 'to' ? 1 : -1;
+                    continue;
+                }
+                if (i === entries.length - 1) {
+                    entries[i].direction = connections[i - 1].bEnd === 'from' ? 1 : -1;
+                    continue;
+                }
+                const entryEnd = connections[i - 1].bEnd;
+                const exitEnd = connections[i].aEnd;
+                if (entryEnd === exitEnd) {
+                    return {
+                        error:
+                            'texture run doubles back through the same end of segment ' +
+                            String(entries[i].index + 1)
+                    };
+                }
+                entries[i].direction = entryEnd === 'from' ? 1 : -1;
+            }
+            return { entries, connections };
+        }
+
+        function transportTextureRunReference(reference, fromDirection, toDirection) {
+            const from = normalize(fromDirection);
+            const to = normalize(toDirection);
+            const agreement = Math.max(-1, Math.min(1, dot(from, to)));
+            let axis = cross(from, to);
+            let axisLength = Math.hypot(axis.x, axis.y, axis.z);
+            let transported = copyVec(reference);
+            if (axisLength > 0.000001) {
+                axis = scaleVec(axis, 1 / axisLength);
+                transported = rotateVector(transported, axis, Math.acos(agreement));
+            } else if (agreement < 0) {
+                axis = cross(from, reference);
+                axisLength = Math.hypot(axis.x, axis.y, axis.z);
+                if (axisLength < 0.000001) {
+                    axis = cross(from, Math.abs(from.y) < 0.9
+                        ? { x: 0, y: 1, z: 0 }
+                        : { x: 1, y: 0, z: 0 });
+                    axisLength = Math.hypot(axis.x, axis.y, axis.z);
+                }
+                axis = scaleVec(axis, 1 / Math.max(0.000001, axisLength));
+                transported = rotateVector(transported, axis, Math.PI);
+            }
+            const projected = subVec(transported, scaleVec(to, dot(transported, to)));
+            const projectedLength = Math.hypot(projected.x, projected.y, projected.z);
+            return projectedLength > 0.000001
+                ? scaleVec(projected, 1 / projectedLength)
+                : copyVec(reference);
+        }
+
+        function planDistanceTextureRun(indices, textureIds, options = {}) {
+            const orientation = orientDistanceTextureRunPath(indices);
+            if (orientation.error) return orientation;
+            const entries = orientation.entries;
+            const safeTextureIds = (textureIds || [])
+                .map(id => String(id || '').trim())
+                .filter(Boolean);
+            if (!safeTextureIds.length) return { error: 'texture run needs at least one texture image' };
+
+            const targetSpan = Math.max(
+                WALL_TEXTURE_DISTANCE_MIN_SPAN,
+                Math.min(
+                    WALL_TEXTURE_DISTANCE_MAX_SPAN,
+                    Number(options.targetSpan) || WALL_TEXTURE_DISTANCE_DEFAULT_SPAN
+                )
+            );
+            const boundaryMode = options.boundaryMode === 'fit-selection'
+                ? 'fit-selection'
+                : 'nearest-joint';
+            const prefix = [0];
+            for (const entry of entries) {
+                const length = Math.max(1, Number(entry.seg.length) ||
+                    Math.sqrt(distanceSq(entry.seg.from, entry.seg.to)));
+                entry.length = length;
+                prefix.push(prefix[prefix.length - 1] + length);
+            }
+            const totalLength = prefix[prefix.length - 1];
+            const chunkCount = boundaryMode === 'fit-selection'
+                ? 1
+                : Math.max(1, Math.min(entries.length, Math.round(totalLength / targetSpan)));
+            const cuts = [0];
+            for (let chunkIndex = 1; chunkIndex < chunkCount; chunkIndex++) {
+                const ideal = totalLength * chunkIndex / chunkCount;
+                const minCut = cuts[cuts.length - 1] + 1;
+                const maxCut = entries.length - (chunkCount - chunkIndex);
+                let bestCut = minCut;
+                let bestError = Infinity;
+                for (let candidate = minCut; candidate <= maxCut; candidate++) {
+                    const error = Math.abs(prefix[candidate] - ideal);
+                    if (error < bestError) {
+                        bestCut = candidate;
+                        bestError = error;
+                    }
+                }
+                cuts.push(bestCut);
+            }
+            cuts.push(entries.length);
+
+            const chunks = [];
+            const assignments = [];
+            let reference = normalize(entries[0].seg.right || builder.right);
+            let previousTravel = null;
+            const uOffsets = [];
+            for (let i = 0; i < entries.length; i++) {
+                const entry = entries[i];
+                const travel = entry.direction > 0
+                    ? normalize(entry.seg.forward)
+                    : scaleVec(normalize(entry.seg.forward), -1);
+                if (previousTravel) {
+                    reference = transportTextureRunReference(reference, previousTravel, travel);
+                }
+                const right = normalize(entry.seg.right || builder.right);
+                const down = normalize(entry.seg.down || builder.down);
+                const angle = Math.atan2(dot(reference, down), dot(reference, right));
+                // A segment stored opposite to run travel needs a reflected U axis,
+                // not merely a shifted one. Use direction as the shader's U scale
+                // and solve the offset against that handedness.
+                uOffsets.push((((-entry.direction * angle / (Math.PI * 2)) % 1) + 1) % 1);
+                previousTravel = travel;
+            }
+
+            for (let chunkIndex = 0; chunkIndex < chunkCount; chunkIndex++) {
+                const start = cuts[chunkIndex];
+                const end = cuts[chunkIndex + 1];
+                const chunkLength = Math.max(1, prefix[end] - prefix[start]);
+                const textureId = safeTextureIds[chunkIndex % safeTextureIds.length];
+                const chunk = { start, end, length: chunkLength, textureId };
+                chunks.push(chunk);
+                for (let i = start; i < end; i++) {
+                    const entry = entries[i];
+                    const pathVStart = (prefix[i] - prefix[start]) / chunkLength;
+                    const pathVEnd = (prefix[i + 1] - prefix[start]) / chunkLength;
+                    assignments.push({
+                        index: entry.index,
+                        order: i,
+                        direction: entry.direction,
+                        textureId,
+                        vStart: entry.direction > 0 ? pathVStart : pathVEnd,
+                        vEnd: entry.direction > 0 ? pathVEnd : pathVStart,
+                        uOffset: uOffsets[i],
+                        actualSpan: chunkLength
+                    });
+                }
+            }
+            return {
+                entries,
+                assignments,
+                chunks,
+                targetSpan,
+                totalLength,
+                boundaryMode,
+                textureIds: safeTextureIds
+            };
+        }
+
+        function applyDistanceTextureRunPlan(plan, options = {}) {
+            if (!plan || plan.error || !Array.isArray(plan.assignments) || !plan.assignments.length) {
+                return false;
+            }
+            const runId = String(options.runId ||
+                ('texture-run-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7)))
+                .slice(0, 96);
+            const packId = String(options.packId || '').trim().slice(0, 96);
+            for (const assignment of plan.assignments) {
+                const seg = builder.segments[assignment.index];
+                if (!seg) continue;
+                clearSegmentDistanceWallMapping(seg);
+                seg.wallTextureId = assignment.textureId;
+                seg.wallMappingMode = WALL_TEXTURE_MAPPING_DISTANCE;
+                seg.wallTextureRunId = runId;
+                seg.wallTextureRunOrder = assignment.order;
+                seg.wallTextureRunDirection = assignment.direction;
+                seg.wallTextureVStart = assignment.vStart;
+                seg.wallTextureVEnd = assignment.vEnd;
+                seg.wallTextureUOffset = assignment.uOffset;
+                seg.wallTextureTargetSpan = plan.targetSpan;
+                seg.wallTextureActualSpan = assignment.actualSpan;
+                seg.wallTextureBoundaryMode = plan.boundaryMode;
+                seg.wallTexturePackId = packId;
+                sanitizeSegmentDistanceWallMapping(seg);
+                getWebGLTextureForSegment(seg, getWallTextureEntry(seg.wallTextureId));
+            }
+            return true;
         }
 
         function loadTextureManifest() {
@@ -1844,6 +2157,7 @@
                 seg.roomOpenFloor = !!seg.roomOpenFloor;
                 seg.roomOpenCeiling = !!seg.roomOpenCeiling;
             }
+            sanitizeSegmentDistanceWallMapping(seg);
             return seg;
         }
 
@@ -2072,6 +2386,7 @@
             uViewport: null,
             uCamNear: null,
             uOffset: null,
+            uUOffset: null,
             uTileScale: null,
             uAlpha: null,
             uSampler: null,
@@ -2942,7 +3257,7 @@
             return plan;
         }
 
-        function buildRectRoomGpuMesh(seg, surface = 'walls') {
+        function buildRectRoomGpuMesh(seg, surface = 'walls', distanceMapped = false) {
             const collars = rectRoomCollarPlan(seg, surface);
             let collarKey = '';
             if (collars) {
@@ -2953,12 +3268,16 @@
             }
             const key =
                 `${TUNNEL_WEBGL_MESH_CACHE_VERSION}|rectRoom|` +
-                `${surface}|${seg.capStart ? 1 : 0}|${seg.capEnd ? 1 : 0}${collarKey}`;
+                `${surface}|${seg.capStart ? 1 : 0}|${seg.capEnd ? 1 : 0}|` +
+                `${distanceMapped ? 'distance' : 'legacy'}${collarKey}`;
             if (tunnelWebGL.meshCache.has(key)) return tunnelWebGL.meshCache.get(key);
 
             const vertices = [];
             const texCoords = [];
             const indices = [];
+            const longitudinalUvs = distanceMapped
+                ? [[0, 0], [0, 1], [1, 1], [1, 0]]
+                : null;
             const addFace = (a, b, c, d, uvs = null) => {
                 const base = vertices.length / 3;
                 for (const point of [a, b, c, d]) vertices.push(...point);
@@ -2979,22 +3298,40 @@
 
             if (surface === 'floor') {
                 if (collars?.floor) addCollar('floor');
-                else addFace([-0.5, 0.5, 0], [-0.5, 0.5, 1], [0.5, 0.5, 1], [0.5, 0.5, 0]);
+                else addFace(
+                    [-0.5, 0.5, 0], [-0.5, 0.5, 1], [0.5, 0.5, 1], [0.5, 0.5, 0],
+                    longitudinalUvs
+                );
             } else if (surface === 'ceiling') {
                 if (collars?.ceiling) addCollar('ceiling');
-                else addFace([0.5, -0.5, 0], [0.5, -0.5, 1], [-0.5, -0.5, 1], [-0.5, -0.5, 0]);
+                else addFace(
+                    [0.5, -0.5, 0], [0.5, -0.5, 1], [-0.5, -0.5, 1], [-0.5, -0.5, 0],
+                    longitudinalUvs
+                );
             } else {
                 if (collars?.left) addCollar('left');
-                else addFace([-0.5, -0.5, 0], [-0.5, -0.5, 1], [-0.5, 0.5, 1], [-0.5, 0.5, 0]);
+                else addFace(
+                    [-0.5, -0.5, 0], [-0.5, -0.5, 1], [-0.5, 0.5, 1], [-0.5, 0.5, 0],
+                    longitudinalUvs
+                );
                 if (collars?.right) addCollar('right');
-                else addFace([0.5, 0.5, 0], [0.5, 0.5, 1], [0.5, -0.5, 1], [0.5, -0.5, 0]);
+                else addFace(
+                    [0.5, 0.5, 0], [0.5, 0.5, 1], [0.5, -0.5, 1], [0.5, -0.5, 0],
+                    longitudinalUvs
+                );
                 if (seg.capStart) {
-                    addFace([0.5, -0.5, 0], [-0.5, -0.5, 0], [-0.5, 0.5, 0], [0.5, 0.5, 0]);
+                    addFace(
+                        [0.5, -0.5, 0], [-0.5, -0.5, 0], [-0.5, 0.5, 0], [0.5, 0.5, 0],
+                        distanceMapped ? [[1, 0], [0, 0], [0, 0], [1, 0]] : null
+                    );
                 } else if (collars?.start) {
                     addCollar('start');
                 }
                 if (seg.capEnd) {
-                    addFace([-0.5, -0.5, 1], [0.5, -0.5, 1], [0.5, 0.5, 1], [-0.5, 0.5, 1]);
+                    addFace(
+                        [-0.5, -0.5, 1], [0.5, -0.5, 1], [0.5, 0.5, 1], [-0.5, 0.5, 1],
+                        distanceMapped ? [[0, 1], [1, 1], [1, 1], [0, 1]] : null
+                    );
                 } else if (collars?.end) {
                     addCollar('end');
                 }
@@ -3355,7 +3692,7 @@
                 '}'
             ].join('\n');
             // GLSL requires float literals (6.0), not JS number strings ("6") — see proposed_index.html
-            const fsSource = 'precision mediump float; varying vec2 vTexCoord; uniform sampler2D uSampler; uniform vec2 uTileScale; uniform float uOffset; uniform float uAlpha; void main() { vec2 mappedCoord = vec2(vTexCoord.x * uTileScale.x, (vTexCoord.y + uOffset) * uTileScale.y); vec4 tex = texture2D(uSampler, mappedCoord); gl_FragColor = vec4(tex.rgb, tex.a * uAlpha); }';
+            const fsSource = 'precision mediump float; varying vec2 vTexCoord; uniform sampler2D uSampler; uniform vec2 uTileScale; uniform float uOffset; uniform float uUOffset; uniform float uAlpha; void main() { vec2 mappedCoord = vec2(vTexCoord.x * uTileScale.x + uUOffset, vTexCoord.y * uTileScale.y + uOffset); vec4 tex = texture2D(uSampler, mappedCoord); gl_FragColor = vec4(tex.rgb, tex.a * uAlpha); }';
 
             const program = webglCreateProgram(gl, vsSource, fsSource);
             if (!program) return false;
@@ -3370,6 +3707,7 @@
             tunnelWebGL.uViewport = gl.getUniformLocation(program, 'uViewport');
             tunnelWebGL.uCamNear = gl.getUniformLocation(program, 'uCamNear');
             tunnelWebGL.uOffset = gl.getUniformLocation(program, 'uOffset');
+            tunnelWebGL.uUOffset = gl.getUniformLocation(program, 'uUOffset');
             tunnelWebGL.uTileScale = gl.getUniformLocation(program, 'uTileScale');
             tunnelWebGL.uAlpha = gl.getUniformLocation(program, 'uAlpha');
             tunnelWebGL.uSampler = gl.getUniformLocation(program, 'uSampler');
@@ -3422,6 +3760,7 @@
                     gl.uniform1f(tunnelWebGL.uAlpha, 1);
                     gl.uniform2f(tunnelWebGL.uTileScale, 1, 1);
                     gl.uniform1f(tunnelWebGL.uOffset, 0);
+                    gl.uniform1f(tunnelWebGL.uUOffset, 0);
                     gl.bindTexture(gl.TEXTURE_2D, texture);
                     bindCylinderGpuMesh(mesh);
                     gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_SHORT, 0);
@@ -3502,15 +3841,34 @@
                 if (rectRoom) {
                     for (const surface of ['walls', 'ceiling', 'floor']) {
                         const surfaceTexture = rectRoomSurfaceTexture(seg, surface);
-                        const sectionMapping = textureUsesSectionMapping(surfaceTexture.entry);
+                        const distanceMapping = segmentUsesDistanceWallMapping(seg) &&
+                            !segmentIsJunctionCube(seg) &&
+                            !!surfaceTexture.entry;
+                        const sectionMapping = distanceMapping ||
+                            textureUsesSectionMapping(surfaceTexture.entry);
+                        const distanceVScale = Number(seg.wallTextureVEnd) -
+                            Number(seg.wallTextureVStart);
+                        const distanceUScale = Number(seg.wallTextureRunDirection) < 0 ? -1 : 1;
                         gl.uniform2f(
                             tunnelWebGL.uTileScale,
-                            sectionMapping ? 1 : TUNNEL_WEBGL_TILE_U,
-                            sectionMapping ? 1 : TUNNEL_WEBGL_TILE_V
+                            distanceMapping
+                                ? distanceUScale
+                                : (sectionMapping ? 1 : TUNNEL_WEBGL_TILE_U),
+                            distanceMapping
+                                ? distanceVScale
+                                : (sectionMapping ? 1 : TUNNEL_WEBGL_TILE_V)
                         );
                         gl.uniform1f(
                             tunnelWebGL.uOffset,
-                            sectionMapping || !surfaceTexture.entry ? 0 : tunnelWebGL.scroll
+                            distanceMapping
+                                ? Number(seg.wallTextureVStart)
+                                : (sectionMapping || !surfaceTexture.entry
+                                    ? 0
+                                    : tunnelWebGL.scroll * TUNNEL_WEBGL_TILE_V)
+                        );
+                        gl.uniform1f(
+                            tunnelWebGL.uUOffset,
+                            distanceMapping ? Number(seg.wallTextureUOffset) || 0 : 0
                         );
                         if (surfaceTexture.texture !== activeTexture) {
                             gl.bindTexture(
@@ -3519,7 +3877,7 @@
                             );
                             activeTexture = surfaceTexture.texture;
                         }
-                        const surfaceMesh = buildRectRoomGpuMesh(seg, surface);
+                        const surfaceMesh = buildRectRoomGpuMesh(seg, surface, distanceMapping);
                         bindCylinderGpuMesh(surfaceMesh);
                         gl.drawElements(
                             gl.TRIANGLES,
@@ -3544,27 +3902,42 @@
                         tubularSegs * 3
                     );
                 const textureEntry = getWallTextureEntry(seg?.wallTextureId);
-                const sectionMapping = textureUsesSectionMapping(textureEntry);
+                const distanceMapping = segmentUsesDistanceWallMapping(seg) && !chamber;
+                const sectionMapping = distanceMapping || textureUsesSectionMapping(textureEntry);
                 const nominalLength = Math.max(1, Number(seg?.length) || builder.length);
                 // Connected cylinders extend beyond their nominal endpoints to hide
                 // bend gaps. Map section art to the nominal 0..length interval, not
                 // the expanded overlap span. CLAMP_TO_EDGE then fills overlap geometry
                 // with only the matching edge row instead of pulling half of the next
                 // image backward into this section.
+                const distanceDelta = Number(seg.wallTextureVEnd) -
+                    Number(seg.wallTextureVStart);
                 const sectionVScale = sectionMapping && !chamber
-                    ? span / nominalLength
+                    ? span / nominalLength * (distanceMapping ? distanceDelta : 1)
                     : 1;
                 const sectionVOffset = sectionMapping && !chamber
-                    ? zStart / span
+                    ? (distanceMapping
+                        ? Number(seg.wallTextureVStart) +
+                            (zStart / nominalLength) * distanceDelta
+                        : zStart / nominalLength)
                     : 0;
+                const distanceUScale = Number(seg.wallTextureRunDirection) < 0 ? -1 : 1;
                 gl.uniform2f(
                     tunnelWebGL.uTileScale,
-                    sectionMapping ? 1 : TUNNEL_WEBGL_TILE_U,
+                    distanceMapping
+                        ? distanceUScale
+                        : (sectionMapping ? 1 : TUNNEL_WEBGL_TILE_U),
                     sectionMapping ? sectionVScale : TUNNEL_WEBGL_TILE_V
                 );
                 gl.uniform1f(
                     tunnelWebGL.uOffset,
-                    sectionMapping ? sectionVOffset : tunnelWebGL.scroll
+                    sectionMapping
+                        ? sectionVOffset
+                        : tunnelWebGL.scroll * TUNNEL_WEBGL_TILE_V
+                );
+                gl.uniform1f(
+                    tunnelWebGL.uUOffset,
+                    distanceMapping ? Number(seg.wallTextureUOffset) || 0 : 0
                 );
                 const segmentTexture = getWebGLTextureForSegment(seg, textureEntry);
                 if (segmentTexture !== activeTexture) {
@@ -7972,6 +8345,67 @@
                 seg.radius || builder.radius,
                 split
             );
+            if (split.length > 1) {
+                const styleKeys = [
+                    'wallTextureId', 'ribColor', 'wallOpaque', 'autoJoinLocked'
+                ];
+                for (const piece of split) {
+                    for (const key of styleKeys) {
+                        if (seg[key] !== undefined) piece[key] = seg[key];
+                    }
+                    piece.radius = segmentRadiusAt(seg);
+                }
+                split[0].capStart = !!seg.capStart;
+                split[split.length - 1].capEnd = !!seg.capEnd;
+                if (seg.entranceFrameId) {
+                    const framePiece = seg.entranceFrameEnd === 'end'
+                        ? split[split.length - 1]
+                        : split[0];
+                    framePiece.entranceFrameId = seg.entranceFrameId;
+                    framePiece.entranceFrameEnd = seg.entranceFrameEnd === 'end' ? 'end' : 'start';
+                }
+                if (segmentUsesDistanceWallMapping(seg)) {
+                    const originalOrder = Number(seg.wallTextureRunOrder) || 0;
+                    const orderGrowth = split.length - 1;
+                    for (const other of builder.segments) {
+                        if (
+                            other !== seg &&
+                            other.wallTextureRunId === seg.wallTextureRunId &&
+                            Number(other.wallTextureRunOrder) > originalOrder
+                        ) {
+                            other.wallTextureRunOrder = Math.min(
+                                MAP_IMPORT_MAX_SEGMENTS - 1,
+                                Number(other.wallTextureRunOrder) + orderGrowth
+                            );
+                        }
+                    }
+                    const runKeys = [
+                        'wallMappingMode', 'wallTextureRunId', 'wallTextureRunDirection',
+                        'wallTextureUOffset', 'wallTextureTargetSpan', 'wallTextureActualSpan',
+                        'wallTextureBoundaryMode', 'wallTexturePackId'
+                    ];
+                    const originalVStart = Number(seg.wallTextureVStart);
+                    const originalVDelta = Number(seg.wallTextureVEnd) - originalVStart;
+                    const totalPieceLength = split.reduce(
+                        (sum, piece) => sum + Math.max(0, Number(piece.length) || 0),
+                        0
+                    ) || 1;
+                    let coveredLength = 0;
+                    for (let index = 0; index < split.length; index++) {
+                        const piece = split[index];
+                        for (const key of runKeys) piece[key] = seg[key];
+                        const startFraction = coveredLength / totalPieceLength;
+                        coveredLength += Math.max(0, Number(piece.length) || 0);
+                        const endFraction = index === split.length - 1
+                            ? 1
+                            : coveredLength / totalPieceLength;
+                        piece.wallTextureRunOrder = originalOrder + index;
+                        piece.wallTextureVStart = originalVStart + originalVDelta * startFraction;
+                        piece.wallTextureVEnd = originalVStart + originalVDelta * endFraction;
+                        sanitizeSegmentDistanceWallMapping(piece);
+                    }
+                }
+            }
             return split.length ? split : [seg];
         }
 
@@ -8872,6 +9306,39 @@
                     branchMouth: !!seg.branchMouth,
                     generated: !!seg.generated,
                     wallTextureId: seg.wallTextureId || defaultWallTextureId,
+                    wallMappingMode: segmentUsesDistanceWallMapping(seg)
+                        ? WALL_TEXTURE_MAPPING_DISTANCE
+                        : undefined,
+                    wallTextureRunId: segmentUsesDistanceWallMapping(seg)
+                        ? seg.wallTextureRunId
+                        : undefined,
+                    wallTextureRunOrder: segmentUsesDistanceWallMapping(seg)
+                        ? seg.wallTextureRunOrder
+                        : undefined,
+                    wallTextureRunDirection: segmentUsesDistanceWallMapping(seg)
+                        ? seg.wallTextureRunDirection
+                        : undefined,
+                    wallTextureVStart: segmentUsesDistanceWallMapping(seg)
+                        ? seg.wallTextureVStart
+                        : undefined,
+                    wallTextureVEnd: segmentUsesDistanceWallMapping(seg)
+                        ? seg.wallTextureVEnd
+                        : undefined,
+                    wallTextureUOffset: segmentUsesDistanceWallMapping(seg)
+                        ? seg.wallTextureUOffset
+                        : undefined,
+                    wallTextureTargetSpan: segmentUsesDistanceWallMapping(seg)
+                        ? seg.wallTextureTargetSpan
+                        : undefined,
+                    wallTextureActualSpan: segmentUsesDistanceWallMapping(seg)
+                        ? seg.wallTextureActualSpan
+                        : undefined,
+                    wallTextureBoundaryMode: segmentUsesDistanceWallMapping(seg)
+                        ? seg.wallTextureBoundaryMode
+                        : undefined,
+                    wallTexturePackId: segmentUsesDistanceWallMapping(seg)
+                        ? seg.wallTexturePackId
+                        : undefined,
                     entranceFrameId: seg.entranceFrameId || '',
                     entranceFrameEnd: seg.entranceFrameEnd === 'end' ? 'end' : 'start',
                     ribColor: seg.ribColor || defaultRibColor,
@@ -10239,6 +10706,65 @@
                 seg.kind || 'tap-split'
             );
             if (!first || !second) return false;
+            const styleKeys = [
+                'wallTextureId', 'ribColor', 'wallOpaque', 'autoJoinLocked',
+                'chamber', 'rectRoom', 'roomWidth', 'roomHeight',
+                'roomFloorTextureId', 'roomCeilingTextureId',
+                'roomFloorColor', 'roomCeilingColor',
+                'roomOpenRight', 'roomOpenLeft', 'roomOpenFloor', 'roomOpenCeiling'
+            ];
+            for (const key of styleKeys) {
+                if (seg[key] !== undefined) {
+                    first[key] = seg[key];
+                    second[key] = seg[key];
+                }
+            }
+            first.capStart = !!seg.capStart;
+            first.capEnd = false;
+            second.capStart = false;
+            second.capEnd = !!seg.capEnd;
+            first.entranceFrameId = seg.entranceFrameEnd === 'end' ? '' : (seg.entranceFrameId || '');
+            first.entranceFrameEnd = 'start';
+            second.entranceFrameId = seg.entranceFrameEnd === 'end' ? (seg.entranceFrameId || '') : '';
+            second.entranceFrameEnd = 'end';
+            if (segmentUsesDistanceWallMapping(seg)) {
+                const originalOrder = Number(seg.wallTextureRunOrder) || 0;
+                for (const other of builder.segments) {
+                    if (
+                        other !== seg &&
+                        other.wallTextureRunId === seg.wallTextureRunId &&
+                        Number(other.wallTextureRunOrder) > originalOrder
+                    ) {
+                        other.wallTextureRunOrder = Math.min(
+                            MAP_IMPORT_MAX_SEGMENTS - 1,
+                            Number(other.wallTextureRunOrder) + 1
+                        );
+                    }
+                }
+                const splitFraction = Math.max(
+                    0,
+                    Math.min(1, Math.sqrt(fromDist) / Math.max(1, Number(seg.length) || 1))
+                );
+                const vMid = Number(seg.wallTextureVStart) +
+                    (Number(seg.wallTextureVEnd) - Number(seg.wallTextureVStart)) * splitFraction;
+                const runKeys = [
+                    'wallMappingMode', 'wallTextureRunId', 'wallTextureRunDirection',
+                    'wallTextureUOffset', 'wallTextureTargetSpan', 'wallTextureActualSpan',
+                    'wallTextureBoundaryMode', 'wallTexturePackId'
+                ];
+                for (const key of runKeys) {
+                    first[key] = seg[key];
+                    second[key] = seg[key];
+                }
+                first.wallTextureRunOrder = originalOrder;
+                second.wallTextureRunOrder = originalOrder + 1;
+                first.wallTextureVStart = Number(seg.wallTextureVStart);
+                first.wallTextureVEnd = vMid;
+                second.wallTextureVStart = vMid;
+                second.wallTextureVEnd = Number(seg.wallTextureVEnd);
+                sanitizeSegmentDistanceWallMapping(first);
+                sanitizeSegmentDistanceWallMapping(second);
+            }
             first.branch = !!seg.branch;
             second.branch = !!seg.branch;
             first.branchMouth = !!seg.branchMouth;
@@ -15056,6 +15582,9 @@
             const selectedCapEnd = new Set(indices.map(index => !!builder.segments[index]?.capEnd));
             const selectedLocked = new Set(indices.map(index => !!builder.segments[index]?.autoJoinLocked));
             const selectedRadii = new Set(indices.map(index => Math.round(segmentRadiusAt(builder.segments[index]))));
+            const selectedDistanceModes = new Set(indices.map(index =>
+                segmentUsesDistanceWallMapping(builder.segments[index])
+            ));
             const mixedTexture = selectedTextureIds.size > 1;
             const mixedFrame = selectedFrameIds.size > 1;
             const mixedFrameEnd = selectedFrameEnds.size > 1;
@@ -15074,6 +15603,12 @@
             const currentCapEnd = mixedCapEnd ? false : [...selectedCapEnd][0];
             const currentLocked = mixedLocked ? false : [...selectedLocked][0];
             const currentRadius = mixedRadius ? builder.radius : [...selectedRadii][0];
+            const allDistanceMapped = selectedDistanceModes.size === 1 &&
+                selectedDistanceModes.has(true);
+            // A resolved distance run often contains several pack images, so it
+            // correctly appears as a mixed-texture selection. Preserve that mapping
+            // for style-only edits unless the designer explicitly chooses a mode.
+            const offerKeepMapping = mixedTexture || selectedDistanceModes.size > 1;
             const radiusMin = Math.round(clampMapSegmentRadius(builder.radius * MAP_RADIUS_MIN_FRAC));
             const radiusMax = Math.round(clampMapSegmentRadius(builder.radius * MAP_RADIUS_MAX_FRAC));
             joinEditDialog.innerHTML = '';
@@ -15125,6 +15660,146 @@
             textureSelect.value = mixedTexture ? '__mixed__' : currentTextureId;
             textureRow.append(textureSelectLabel, textureSelect);
             joinEditDialog.appendChild(textureRow);
+
+            const mappingRow = document.createElement('div');
+            mappingRow.className = 'join-grid';
+            const mappingTitle = document.createElement('div');
+            mappingTitle.style.gridColumn = '1 / -1';
+            mappingTitle.style.color = '#00ffcc';
+            mappingTitle.textContent = 'Scenic Mapping';
+            const mappingLabel = document.createElement('label');
+            mappingLabel.textContent = 'Mode';
+            const mappingSelect = document.createElement('select');
+            const mappingChoices = [
+                ['section', 'One full image per section (legacy)'],
+                ['distance', 'Across distance; snap images to joints'],
+                ['fit-selection', 'Fit one image across full selection']
+            ];
+            if (offerKeepMapping) {
+                mappingChoices.unshift(['keep', 'Keep current mapping (style only)']);
+            }
+            for (const [value, label] of mappingChoices) {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = label;
+                mappingSelect.appendChild(option);
+            }
+            mappingSelect.value = offerKeepMapping
+                ? 'keep'
+                : allDistanceMapped
+                ? (firstSeg.wallTextureBoundaryMode === 'fit-selection'
+                    ? 'fit-selection'
+                    : 'distance')
+                : 'section';
+            const spanLabel = document.createElement('label');
+            spanLabel.textContent = 'Image span (units)';
+            const spanInput = document.createElement('input');
+            spanInput.type = 'number';
+            spanInput.step = '10';
+            spanInput.min = String(WALL_TEXTURE_DISTANCE_MIN_SPAN);
+            spanInput.max = String(WALL_TEXTURE_DISTANCE_MAX_SPAN);
+            spanInput.value = String(
+                allDistanceMapped && Number(firstSeg.wallTextureTargetSpan)
+                    ? Math.round(Number(firstSeg.wallTextureTargetSpan))
+                    : WALL_TEXTURE_DISTANCE_DEFAULT_SPAN
+            );
+            const directionLabel = document.createElement('label');
+            directionLabel.textContent = 'Run direction';
+            const directionSelect = document.createElement('select');
+            for (const [value, label] of [
+                ['forward', 'Selected A to B'],
+                ['reverse', 'Selected B to A']
+            ]) {
+                const option = document.createElement('option');
+                option.value = value;
+                option.textContent = label;
+                directionSelect.appendChild(option);
+            }
+            const mappingPreview = document.createElement('div');
+            mappingPreview.className = 'hint';
+            mappingPreview.style.gridColumn = '1 / -1';
+            const selectedRunPath = () => {
+                const ordered = orderedSelectedSegmentIndices();
+                if (ordered.length === indices.length) return ordered.slice();
+                return indices.length === 1 ? [indices[0]] : [];
+            };
+            const readMappingTargetSpan = () => {
+                const value = Number(spanInput.value);
+                return Number.isFinite(value)
+                    ? Math.max(
+                        WALL_TEXTURE_DISTANCE_MIN_SPAN,
+                        Math.min(WALL_TEXTURE_DISTANCE_MAX_SPAN, value)
+                    )
+                    : null;
+            };
+            const previewDistanceMapping = () => {
+                if (mappingSelect.value === 'keep') {
+                    spanInput.disabled = true;
+                    directionSelect.disabled = true;
+                    mappingPreview.textContent =
+                        'Current per-section texture mapping is preserved; only the other style fields change.';
+                    return;
+                }
+                const isDistance = mappingSelect.value !== 'section';
+                spanInput.disabled = !isDistance || mappingSelect.value === 'fit-selection';
+                directionSelect.disabled = !isDistance;
+                if (!isDistance) {
+                    mappingPreview.textContent =
+                        'Legacy mode restarts the complete image on every selected section.';
+                    return;
+                }
+                const path = selectedRunPath();
+                if (!path.length) {
+                    mappingPreview.textContent =
+                        'Distance mapping requires an ordered Alt+Shift range selection from A to B.';
+                    return;
+                }
+                const selectedId = textureSelect.value === '__mixed__'
+                    ? ''
+                    : sanitizeTextureId(textureSelect.value, 'walls', defaultWallTextureId);
+                if (!selectedId) {
+                    mappingPreview.textContent =
+                        'Choose one texture or texture-pack image before applying a distance run.';
+                    return;
+                }
+                const texturePack = getWallTexturePack(selectedId);
+                const textureIds = texturePack ? texturePack.textureIds : [selectedId];
+                const plannedPath = directionSelect.value === 'reverse'
+                    ? path.slice().reverse()
+                    : path;
+                const plan = planDistanceTextureRun(plannedPath, textureIds, {
+                    targetSpan: readMappingTargetSpan() || WALL_TEXTURE_DISTANCE_DEFAULT_SPAN,
+                    boundaryMode: mappingSelect.value === 'fit-selection'
+                        ? 'fit-selection'
+                        : 'nearest-joint'
+                });
+                if (plan.error) {
+                    mappingPreview.textContent = plan.error;
+                    return;
+                }
+                const chunkText = plan.chunks
+                    .map((chunk, index) =>
+                        'image ' + String(index + 1) + ': ' + String(Math.round(chunk.length)) + 'u')
+                    .join(' | ');
+                mappingPreview.textContent =
+                    String(path.length) + ' section(s), ' +
+                    String(Math.round(plan.totalLength)) + 'u total | ' + chunkText;
+            };
+            mappingRow.append(
+                mappingTitle,
+                mappingLabel,
+                mappingSelect,
+                spanLabel,
+                spanInput,
+                directionLabel,
+                directionSelect,
+                mappingPreview
+            );
+            joinEditDialog.appendChild(mappingRow);
+            for (const control of [textureSelect, mappingSelect, spanInput, directionSelect]) {
+                control.addEventListener('change', previewDistanceMapping);
+            }
+            previewDistanceMapping();
 
             const frameRow = document.createElement('div');
             frameRow.className = 'join-grid';
@@ -15597,17 +16272,66 @@
                 const textureId = replacingTexture
                     ? sanitizeTextureId(textureSelect.value, 'walls', defaultWallTextureId)
                     : null;
-                const texturePack = replacingTexture ? getWallTexturePack(textureId) : null;
-                const packTargetIndices = texturePack
-                    ? texturePackTargetIndices(indices, texturePack.textureIds.length)
-                    : [];
-                if (texturePack) {
-                    for (let order = 0; order < packTargetIndices.length; order++) {
-                        const index = packTargetIndices[order];
-                        const seg = builder.segments[index];
-                        if (!seg) continue;
-                        seg.wallTextureId = texturePack.textureIds[order % texturePack.textureIds.length];
-                        getWebGLTextureForSegment(seg, getWallTextureEntry(seg.wallTextureId));
+                let texturePack = replacingTexture ? getWallTexturePack(textureId) : null;
+                let distancePlan = null;
+                if (mappingSelect.value === 'keep') {
+                    // Intentionally leave every segment's current resolved mapping
+                    // and wall texture untouched during style-only edits.
+                } else if (mappingSelect.value !== 'section') {
+                    if (!replacingTexture || !textureId) {
+                        keyboardStatus.innerText =
+                            'distance mapping: choose one texture or texture-pack image first';
+                        return;
+                    }
+                    const targetSpan = readMappingTargetSpan();
+                    if (targetSpan === null) {
+                        keyboardStatus.innerText = 'distance mapping: invalid image span';
+                        return;
+                    }
+                    const selectedPath = selectedRunPath();
+                    if (!selectedPath.length) {
+                        keyboardStatus.innerText =
+                            'distance mapping: Alt+Shift range-select an ordered A to B path';
+                        return;
+                    }
+                    const plannedPath = directionSelect.value === 'reverse'
+                        ? selectedPath.slice().reverse()
+                        : selectedPath;
+                    distancePlan = planDistanceTextureRun(
+                        plannedPath,
+                        texturePack ? texturePack.textureIds : [textureId],
+                        {
+                            targetSpan,
+                            boundaryMode: mappingSelect.value === 'fit-selection'
+                                ? 'fit-selection'
+                                : 'nearest-joint'
+                        }
+                    );
+                    if (distancePlan.error) {
+                        keyboardStatus.innerText = 'distance mapping: ' + distancePlan.error;
+                        return;
+                    }
+                    if (!applyDistanceTextureRunPlan(distancePlan, {
+                        packId: texturePack?.id || ''
+                    })) {
+                        keyboardStatus.innerText = 'distance mapping: could not apply texture run';
+                        return;
+                    }
+                } else {
+                    for (const index of indices) {
+                        clearSegmentDistanceWallMapping(builder.segments[index]);
+                    }
+                    const packTargetIndices = texturePack
+                        ? texturePackTargetIndices(indices, texturePack.textureIds.length)
+                        : [];
+                    if (texturePack) {
+                        for (let order = 0; order < packTargetIndices.length; order++) {
+                            const index = packTargetIndices[order];
+                            const seg = builder.segments[index];
+                            if (!seg) continue;
+                            seg.wallTextureId = texturePack.textureIds[order % texturePack.textureIds.length];
+                            getWebGLTextureForSegment(seg, getWallTextureEntry(seg.wallTextureId));
+                        }
                     }
                 }
                 const ribColor = normalizeHexColor(colorInput.value, defaultRibColor);
@@ -15622,7 +16346,13 @@
                 for (const index of indices) {
                     const seg = builder.segments[index];
                     if (!seg) continue;
-                    if (replacingTexture && !texturePack) seg.wallTextureId = textureId;
+                    if (
+                        mappingSelect.value === 'section' &&
+                        replacingTexture &&
+                        !texturePack
+                    ) {
+                        seg.wallTextureId = textureId;
+                    }
                     if (replacingFrame) {
                         seg.entranceFrameId = getDoorFrameEntry(frameSelect.value) ? frameSelect.value : '';
                     }
@@ -15668,7 +16398,13 @@
                     defaultWallOpaque = wallOpaque;
                     builder.radius = radius;
                 }
-                applyMapGeometryChange(`styled ${indices.length} segment(s), radius ${Math.round(radius)}`);
+                const mappingSummary = distancePlan
+                    ? `, ${distancePlan.chunks.length} image span(s) across ` +
+                        `${Math.round(distancePlan.totalLength)}u`
+                    : '';
+                applyMapGeometryChange(
+                    `styled ${indices.length} segment(s), radius ${Math.round(radius)}${mappingSummary}`
+                );
                 closeJoinEditDialog();
             });
             const chamberBtn = document.createElement('button');
@@ -22308,7 +23044,10 @@
             const toOpen = isOpenSegmentEnd(seg, 'to');
             const sectionMapped = !segmentIsChamber(seg)
                 && !segmentIsRectRoom(seg)
-                && textureUsesSectionMapping(getWallTextureEntry(seg?.wallTextureId));
+                && (
+                    segmentUsesDistanceWallMapping(seg) ||
+                    textureUsesSectionMapping(getWallTextureEntry(seg?.wallTextureId))
+                );
             // The five-part environment packs are authored as one complete image
             // per nominal tunnel section. Extending those cylinders into both
             // neighbours makes large pieces of adjacent images occupy the same
