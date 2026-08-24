@@ -11,10 +11,10 @@ jobs:
   rebuild-graph:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       - name: Install Codex CLI
-        run: npm install -g @codex/cli  # or your package manager
+        run: npm install -g @openai/codex  # Codex CLI package
       
       - name: Rebuild Graphify Map
         run: codex graphify build --project-root .
