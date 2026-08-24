@@ -2192,6 +2192,8 @@
             tunnelVisibleSegmentsCache.coverage = null;
             tunnelVisibleSegmentsCache.streak = null;
             junctionBubbleCache.stale = true;
+            tunnelSpatialIndex.stale = true;
+            branchMouthCache.stale = true;
             rocketCacheGeometryDirty = true;
             tunnelTopologyCache.stale = true;
             junctionMouthCache.stale = true;
@@ -2215,9 +2217,143 @@
         const junctionBubbleCache = { stale: true, bubbles: [] };
         const tunnelTopologyCache = { stale: true, neighbors: [] };
         const junctionMouthCache = { stale: true, mouths: [] };
+        // Keep the complete map authoritative, but index its world bounds so the
+        // renderer and collision fallbacks do not repeatedly scan a 1,001-segment
+        // map while the ship is flying one local corridor.
+        const TUNNEL_SPATIAL_CELL_SIZE = 1200;
+        const TUNNEL_SPATIAL_MAX_CELLS_PER_SEGMENT = 192;
+        const tunnelSpatialIndex = { stale: true, cells: new Map(), global: new Set() };
+        const branchMouthCache = { stale: true, mouths: [] };
         // Bumped by invalidateTunnelSegmentCache(); rect-room face-portal lookups
         // cache per-segment against this version (see rectRoomFacePortal).
         let facePortalCacheVersion = 0;
+
+
+        function tunnelSpatialCellKey(x, y, z) {
+            return [x, y, z].join('|');
+        }
+
+        function segmentSpatialBounds(seg) {
+            const padding = Math.max(8, Number(seg?.radius) || builder.radius || 0);
+            const points = [];
+            if (segmentIsRectRoom(seg)) {
+                const room = rectRoomDimensions(seg);
+                for (const x of [-room.halfWidth, room.halfWidth]) {
+                    for (const y of [-room.halfHeight, room.halfHeight]) {
+                        points.push(segmentLocalToWorld(seg, x, y, 0));
+                        points.push(segmentLocalToWorld(seg, x, y, room.length));
+                    }
+                }
+            } else if (segmentIsChamber(seg)) {
+                const center = chamberCenterPoint(seg);
+                const radius = Math.max(padding, Number(seg.radius) || builder.radius || 0);
+                points.push(
+                    { x: center.x - radius, y: center.y - radius, z: center.z - radius },
+                    { x: center.x + radius, y: center.y + radius, z: center.z + radius }
+                );
+            } else if (seg?.from && seg?.to) {
+                points.push(seg.from, seg.to);
+            }
+            if (!points.length || points.some(point =>
+                !Number.isFinite(point?.x) || !Number.isFinite(point?.y) || !Number.isFinite(point?.z)
+            )) return null;
+            let minX = Infinity, minY = Infinity, minZ = Infinity;
+            let maxX = -Infinity, maxY = -Infinity, maxZ = -Infinity;
+            for (const point of points) {
+                minX = Math.min(minX, point.x - padding);
+                minY = Math.min(minY, point.y - padding);
+                minZ = Math.min(minZ, point.z - padding);
+                maxX = Math.max(maxX, point.x + padding);
+                maxY = Math.max(maxY, point.y + padding);
+                maxZ = Math.max(maxZ, point.z + padding);
+            }
+            return { minX, minY, minZ, maxX, maxY, maxZ };
+        }
+
+        function rebuildTunnelSpatialIndex() {
+            const cells = new Map();
+            const global = new Set();
+            for (let index = 0; index < builder.segments.length; index++) {
+                const bounds = segmentSpatialBounds(builder.segments[index]);
+                if (!bounds) {
+                    global.add(index);
+                    continue;
+                }
+                const minX = Math.floor(bounds.minX / TUNNEL_SPATIAL_CELL_SIZE);
+                const minY = Math.floor(bounds.minY / TUNNEL_SPATIAL_CELL_SIZE);
+                const minZ = Math.floor(bounds.minZ / TUNNEL_SPATIAL_CELL_SIZE);
+                const maxX = Math.floor(bounds.maxX / TUNNEL_SPATIAL_CELL_SIZE);
+                const maxY = Math.floor(bounds.maxY / TUNNEL_SPATIAL_CELL_SIZE);
+                const maxZ = Math.floor(bounds.maxZ / TUNNEL_SPATIAL_CELL_SIZE);
+                const cellCount = (maxX - minX + 1) * (maxY - minY + 1) * (maxZ - minZ + 1);
+                if (!Number.isFinite(cellCount) || cellCount > TUNNEL_SPATIAL_MAX_CELLS_PER_SEGMENT) {
+                    global.add(index);
+                    continue;
+                }
+                for (let x = minX; x <= maxX; x++) {
+                    for (let y = minY; y <= maxY; y++) {
+                        for (let z = minZ; z <= maxZ; z++) {
+                            const key = tunnelSpatialCellKey(x, y, z);
+                            if (!cells.has(key)) cells.set(key, new Set());
+                            cells.get(key).add(index);
+                        }
+                    }
+                }
+            }
+            tunnelSpatialIndex.cells = cells;
+            tunnelSpatialIndex.global = global;
+            tunnelSpatialIndex.stale = false;
+            return tunnelSpatialIndex;
+        }
+
+        function getSpatialSegmentIndicesNearPoint(point, radius = 0) {
+            if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y) || !Number.isFinite(point.z)) {
+                return null;
+            }
+            const index = tunnelSpatialIndex.stale ? rebuildTunnelSpatialIndex() : tunnelSpatialIndex;
+            const reach = Math.max(0, Number(radius) || 0);
+            const minX = Math.floor((point.x - reach) / TUNNEL_SPATIAL_CELL_SIZE);
+            const minY = Math.floor((point.y - reach) / TUNNEL_SPATIAL_CELL_SIZE);
+            const minZ = Math.floor((point.z - reach) / TUNNEL_SPATIAL_CELL_SIZE);
+            const maxX = Math.floor((point.x + reach) / TUNNEL_SPATIAL_CELL_SIZE);
+            const maxY = Math.floor((point.y + reach) / TUNNEL_SPATIAL_CELL_SIZE);
+            const maxZ = Math.floor((point.z + reach) / TUNNEL_SPATIAL_CELL_SIZE);
+            const candidates = new Set(index.global);
+            for (let x = minX; x <= maxX; x++) {
+                for (let y = minY; y <= maxY; y++) {
+                    for (let z = minZ; z <= maxZ; z++) {
+                        for (const segmentIndex of index.cells.get(tunnelSpatialCellKey(x, y, z)) || []) {
+                            candidates.add(segmentIndex);
+                        }
+                    }
+                }
+            }
+            return candidates.size ? candidates : null;
+        }
+
+        function getBranchMouthEntries() {
+            if (!branchMouthCache.stale) return branchMouthCache.mouths;
+            const mouths = [];
+            for (let segmentIndex = 0; segmentIndex < builder.segments.length; segmentIndex++) {
+                const seg = builder.segments[segmentIndex];
+                if (!isBranchMouthSegment(seg)) continue;
+                const mouthInset = Math.min(36, Math.max(12, (seg.length || builder.length) * 0.18));
+                mouths.push({
+                    point: addVec(seg.from, scaleVec(seg.forward, mouthInset)),
+                    forward: copyVec(seg.forward),
+                    right: copyVec(seg.right),
+                    down: copyVec(seg.down),
+                    radius: seg.radius || builder.radius,
+                    branch: true,
+                    segmentIndex,
+                    segmentIndices: [segmentIndex],
+                    label: 'BRANCH'
+                });
+            }
+            branchMouthCache.mouths = mouths;
+            branchMouthCache.stale = false;
+            return mouths;
+        }
 
         function getTunnelTopologyNeighbors() {
             if (!tunnelTopologyCache.stale) return tunnelTopologyCache.neighbors;
@@ -20939,7 +21075,13 @@
 
         function shipInsideAnyTunnelTube(ship, mouthPad = 24) {
             if (pointInJunctionBubble(ship, -mouthPad)) return true;
-            for (const seg of builder.segments) {
+            // Any containing volume intersects the ship's own spatial cell. Fall
+            // back to the complete map only if the index is unavailable, preserving
+            // the original fail-safe containment behavior.
+            const candidateIndices = getSpatialSegmentIndicesNearPoint(ship) || builder.segments.keys();
+            for (const index of candidateIndices) {
+                const seg = builder.segments[index];
+                if (!seg) continue;
                 if (segmentIsRectRoom(seg)) {
                     const room = rectRoomDistanceState(ship, seg, mouthPad);
                     if (room.inside) return true;
@@ -21234,9 +21376,14 @@
             const routeCandidateSet = new Set(topologyNearSet);
             routeCandidateSet.add(shipSegmentIndex);
             for (const index of forwardIndices) routeCandidateSet.add(index);
-            const candidateIndices = shipSeg && segmentWallOpaque(shipSeg)
-                ? routeCandidateSet
-                : builder.segments.keys();
+            let candidateIndices = routeCandidateSet;
+            if (!shipSeg || !segmentWallOpaque(shipSeg)) {
+                const spatialCandidates = getSpatialSegmentIndicesNearPoint(shipPoint, maxCameraZ * 2.5);
+                candidateIndices = spatialCandidates || builder.segments.keys();
+                if (spatialCandidates) {
+                    for (const index of routeCandidateSet) candidateIndices.add(index);
+                }
+            }
             for (const index of candidateIndices) {
                 if (!Number.isInteger(index) || index < 0 || index >= builder.segments.length) continue;
                 const seg = builder.segments[index];
@@ -23700,24 +23847,7 @@
             // reference, and this function appends frame-local branch-mouth entries
             // below — mutating the cache in place would leak duplicates into every
             // subsequent frame's read.
-            const mouths = collectJunctionMouths().slice();
-            for (let segmentIndex = 0; segmentIndex < builder.segments.length; segmentIndex++) {
-                const seg = builder.segments[segmentIndex];
-                const mouthInset = Math.min(36, Math.max(12, (seg.length || builder.length) * 0.18));
-                if (isBranchMouthSegment(seg)) {
-                    mouths.push({
-                        point: addVec(seg.from, scaleVec(seg.forward, mouthInset)),
-                        forward: copyVec(seg.forward),
-                        right: copyVec(seg.right),
-                        down: copyVec(seg.down),
-                        radius: seg.radius || builder.radius,
-                        branch: true,
-                        segmentIndex,
-                        segmentIndices: [segmentIndex],
-                        label: 'BRANCH'
-                    });
-                }
-            }
+            const mouths = collectJunctionMouths().concat(getBranchMouthEntries());
             for (const mouth of mouths) {
                 const sourceIndices = mouth.segmentIndices || [mouth.segmentIndex];
                 if (
@@ -23794,8 +23924,15 @@
 
         function renderSegmentRibs(centerX, centerY, fov, texturedSegmentIndices = null, forwardPathSet = null) {
             const wallsCoverSegments = tunnelWallsReady() && texturedSegmentIndices;
-            for (let segIndex = 0; segIndex < builder.segments.length; segIndex++) {
+            // The old full-map loop immediately rejected every off-route segment.
+            // Iterate the same current/forward set directly so a 1,001-segment map
+            // does not pay that rejected work each frame.
+            const ribSegmentIndices = new Set();
+            if (Number.isInteger(shipSegmentIndex)) ribSegmentIndices.add(shipSegmentIndex);
+            for (const segmentIndex of forwardPathSet || []) ribSegmentIndices.add(segmentIndex);
+            for (const segIndex of ribSegmentIndices) {
                 const seg = builder.segments[segIndex];
+                if (!seg) continue;
                 const length = seg.length || builder.length;
                 if (length < 80) continue;
 

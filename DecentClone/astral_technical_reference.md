@@ -1,5 +1,30 @@
 # Astral Drift Technical Reference
 
+> **Living reference.** Update this page whenever a user-visible subsystem, map-data contract, safety boundary, or performance path changes. Add a dated entry to the timeline first, then update the affected main section in the same change. Timeline notes record verified source and test status; they do not replace real-map browser verification.
+
+## Update Timeline (newest first)
+
+### 2026-08-24 — Scoped large-map rendering optimization
+
+- A 1,001-segment map remains fully loaded in `builder.segments`; no geometry is unloaded or streamed. The complete map stays authoritative for saving, editing, route topology, and safety fallbacks.
+- `tunnelSpatialIndex` now lazily indexes bounded segment world-bounds into 1,200-unit cells after a geometry/cache invalidation. Collision fallback and non-opaque visibility queries use nearby candidates plus a conservative global set for malformed or exceptionally large segments.
+- Branch-mouth entries are cached between geometry changes, and tunnel ribs iterate the current/forward route set rather than repeatedly walking unrelated segments.
+- `test_spatial_segment_index.js` passed with a synthetic 1,001-segment map: a local query stayed bounded and an oversized segment remained queryable. The normal local browser smoke test loaded a 54-segment autosave without console warnings; it is **not** proof of the pilot's actual 1,001-segment route performance.
+- Next performance proof: load the actual large map in a normal local-browser origin, fly the known slow route with HUD shown and hidden, include dense junctions and an edit/return pass, then profile the minimap before considering any streaming design.
+
+### 2026-08-24 — Map-import and entity admission guards
+
+- `MAP_IMPORT_MAX_SEGMENTS` is 2,000 for every map source. A 2,001-segment map is rejected before it mutates active geometry or enters quadratic sanitization.
+- Sentry patrol paths are capped at 256 points, imported vectors must be finite, and duplicate sentry IDs are regenerated. Focused import/entity regression tests passed.
+
+### 2026-08-24 — Collision and WebGL lifecycle review
+
+- Static source review found no confirmed containment bypass, stale geometry cache, or WebGL resource-lifecycle defect in the reviewed paths. Dynamic verification of the real large map and an intentional WebGL context-loss/recovery exercise remains open.
+
+### 2026-08-19 — Track 1 baseline and safety inventory
+
+- The current one-file game architecture, map-import path, collision ownership, sentry reconstruction, and WebGL resource lifecycle became the focused audit track. Completed findings are recorded in `../docs/adversarial_systems_audit_log.md`; resume from its newest dated handoff rather than repeating closed checks.
+
 This guide is for a new coder opening `index.html` and wondering where to start.
 Astral Drift is a one-file browser game: HTML creates the page, CSS styles the
 HUD, and one large JavaScript block runs the game, map editor, AI sentries,
@@ -70,6 +95,10 @@ have a saved map.
 `TASKS_FOR_CODEX_AND_CLAIUDE.md`
 
 Current task stack and safety rules.
+
+`test_map_import_segment_limit.js`, `test_map_entity_sanitizers.js`, and `test_spatial_segment_index.js`
+
+Small Node regression checks for map admission, imported entity sanitization, and the large-map spatial-index contract. They validate specific invariants; a normal-browser run still validates the game integration.
 
 ## First Landmarks In index.html
 
@@ -201,6 +230,12 @@ If the screen goes blank, search the browser console for `Astral Drift engine
 error`. This loop catches errors and writes them to the canvas, which helps keep
 debugging possible even when rendering breaks.
 
+### WebGL context-loss recovery
+
+The WebGL canvas is deliberately fail-soft. `bindWebGLContextRecovery()` handles a browser `webglcontextlost` event by preventing the default terminal loss, clearing stale GPU handles through `resetWebGLResourceState()`, hiding the WebGL layer, and switching wall rendering to vector mode. On `webglcontextrestored`, it clears handles again, reinitializes the renderer, and returns to WebGL only if initialization succeeds. This prevents a lost context from leaving an opaque black canvas over an otherwise runnable game.
+
+When changing renderer resources, do not retain an old buffer, texture, shader program, or cached location across a context restore. Exercise the loss/restore path in a real browser after material WebGL changes.
+
 ## Builder Flow
 
 Builder mode and map mode are different:
@@ -271,6 +306,18 @@ The route system uses:
 
 ## Map Save And Rebuild Contract
 
+### Large-map query model
+
+A large map is retained in full; this codebase currently scopes *queries*, not map ownership. `invalidateTunnelSegmentCache()` marks `tunnelSpatialIndex` and `branchMouthCache` stale along with the existing render/topology caches. The next nearby query rebuilds the spatial index from segment world bounds.
+
+The index uses 1,200-unit cells. A normal segment is stored in every cell crossed by its padded bounds. A malformed segment or one covering more than 192 cells is placed in the index's global set instead, so it is never silently omitted by a local query. This deliberately favors correctness over a pathological performance win.
+
+- `shipInsideAnyTunnelTube()` asks the index for the ship's local candidates, including global entries; it falls back to the complete map if no usable candidate query exists.
+- `collectVisibleTunnelSegmentsUncached()` preserves the topology/forward-route path for opaque walls. In a glass or otherwise non-opaque current segment, it starts from spatial candidates, then adds the current route candidates so deliberate through-wall views retain their behavior.
+- `getBranchMouthEntries()` caches static branch-mouth geometry until the next invalidation. `renderSegmentRibs()` restricts work to the current/forward route set.
+
+This is intentionally not a streaming subsystem. Do not add unload/reload rules unless profiling the actual map proves the remaining full-map work—notably the minimap—is the bottleneck and a design preserves builder, collision, save, and topology correctness.
+
 ### Import segment safety limit
 
 `MAP_IMPORT_MAX_SEGMENTS` in `index.html` is the single admission limit for
@@ -309,7 +356,7 @@ That function does the important cleanup:
 - Repairs tiny, duplicate, or badly joined segments.
 - Rebuilds target references.
 - Rebuilds tunnel stars and target boxes.
-- Invalidates render caches.
+- Invalidates render, topology, spatial-index, and branch-mouth caches.
 - Saves the map.
 
 Do not replace it with a hand-written list unless there is a very specific
@@ -361,13 +408,15 @@ When something breaks:
 6. If map edits vanish, inspect whether the edit called `applyMapGeometryChange()`.
 7. If AI exists but cannot be shot, inspect both `tickSentries()` and
    `renderTunnelSentries()`.
+8. After a large-map change, run `node DecentClone/test_spatial_segment_index.js` from the repo root, then load the real map through the local HTTP server. The synthetic regression does not measure a pilot route.
+9. After a WebGL resource change, test normal rendering and the browser context-loss/recovery path; a static parse check cannot validate GPU resource ownership.
 
 ## Script Parse Check
 
 Use this from the repo root:
 
 ```powershell
-node -e "const fs=require('fs'); const html=fs.readFileSync('C:/Users/Linda/trading_bot_v2/DecentClone/index.html','utf8'); const m=html.match(/<script>([\s\S]*)<\/script>/); if(!m) throw new Error('script tag not found'); new Function(m[1]); console.log('script parse OK');"
+node -e "const fs=require('fs'); const html=fs.readFileSync('C:/Users/Linda/trading_bot_v2/DecentClone/index.html','utf8'); const m=html.match(/<script[^>]*>([\s\S]*)<\/script>/i); if(!m) throw new Error('script tag not found'); new Function(m[1]); console.log('script parse OK');"
 ```
 
 This does not prove the game logic is perfect. It proves the JavaScript can
