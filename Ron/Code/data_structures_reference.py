@@ -233,7 +233,7 @@ def listlists():
 
         tmp_list.clear()
     print(f'Sorted grades per user:\n\t{gradebook}')
-    
+
 def tuples():
     # =====================================================================
     # 3. LISTS OF TUPLES
@@ -333,37 +333,37 @@ def dictlists():
     
     # Creation
     dict_of_lists = {"fruits": ["Banana", "Apple"], "tools": ["Wrench"]}
-    log_step(f"1. Created dict_of_lists = {dict_of_lists}\n")
+    log_step(f"Created dict_of_lists = {dict_of_lists}\n")
     
     # Adding to an internal list
     log_step('dict_of_lists["fruits"].append("Cherry")')
     dict_of_lists["fruits"].append("Cherry")
-    log_step(f"2. After appending 'Cherry' to 'fruits' list = {dict_of_lists}\n")
+    log_step(f"After appending 'Cherry' to 'fruits' list = {dict_of_lists}\n")
     
     # Removing from an internal list
     log_step('dict_of_lists["fruits"].remove("Banana")')
     dict_of_lists["fruits"].remove("Banana")
-    log_step(f"3. After removing 'Banana' from 'fruits' list = {dict_of_lists}\n")
+    log_step(f"After removing 'Banana' from 'fruits' list = {dict_of_lists}\n")
     
     # Searching inside the inner lists
     log_step('for category, items in dict_of_lists.items():')
     log_step('\tif "Apple" in items:')
     for category, items in dict_of_lists.items():
         if "Apple" in items:
-            log_step(f"4. Found 'Apple' inside the '{category}' list!\n")
+            log_step(f"Found 'Apple' inside the '{category}' list!\n")
     
     # Sorting the inner lists
     log_step('for key in dict_of_lists:')
     log_step('\tdict_of_lists[key].sort()')
     for key in dict_of_lists:
         dict_of_lists[key].sort()
-    log_step(f"5. After sorting all inner lists alphabetically = {dict_of_lists}\n")
+    log_step(f"After sorting all inner lists alphabetically = {dict_of_lists}\n")
     
 def dictdicts():
     # =====================================================================
     # 7. DICTIONARIES OF DICTIONARIES (Nested Dicts)
     # =====================================================================
-    log_step("\n--- 9. DICTIONARIES OF DICTIONARIES ---")
+    log_step("\n--- 8. DICTIONARIES OF DICTIONARIES ---")
     
     # Creation
     dict_of_dicts = {
