@@ -138,6 +138,102 @@ def listsdicts():
     list_of_dicts.sort(key=lambda x: x["price"])
     log_step(f"5. Sorted by price = {list_of_dicts}\n")
     
+def listlists():
+    # =====================================================================
+    # 2. LIST OF Lists
+    # =====================================================================
+    log_step("\n--- 5. LIST OF LISTS ---\n")
+    
+    # A list of lists representing a gradebook
+    gradebook = [   
+        ["Alice", 88, 92, 82],  # Row 0
+        ["Zed", 99, 90, 88, 100], # Row 1  
+        ["Charlie", 92, 90, 95], # Row 2    
+        ["Eric", 93, 91], # Row 3  
+        ["Bob", 88, 80, 75]# Row 4
+    ]
+
+    log_step('gradebook = [')
+    log_step('\t["Alice", 88, 92, 82],')  # Row 0
+    log_step('\t["Zed", 99, 90, 88, 100],')  
+    log_step('\t["Charlie", 92, 90, 95]') # Row 2
+    log_step('\t ["Eric", 93, 91],')  # Row 3 
+    log_step('\t["Bob", 88, 80, 75],')    # Row 1
+ 
+    log_step(']\n')
+
+    print(gradebook)
+
+    log_step('\nAccess Charlie''s second score (90)')
+    log_step('# Outer index 2 (Charlie), Inner index 2 (second test score)')
+    log_step('print(gradebook[2][2])  # Output: 90')
+       
+    # 1. Access Charlie's second score (90)
+    # Outer index 2 (Charlie), Inner index 2 (second test score)
+    print(gradebook[2][2])  # Output: 90
+
+    log_step('\nAdd a new student (a new row)')
+    log_step('gradebook.append(["David", 88, 84, 91])')
+
+    # 2. Add a new student (a new row)
+    gradebook.append(["David", 88, 84, 91])
+    log_step("gradebook after append")
+    print(gradebook)
+    
+    log_step('\nUpdate Bob''s first score to 82')
+    log_step('gradebook[1][1] = 82')
+
+    # 3. Update Bob's first score to 82
+    gradebook[1][1] = 82
+    log_step("graebook after update")
+    print(gradebook)
+    
+    # 4. remove a list
+    log_step("\nRemove a list")
+    log_step('del gradebook[0]')
+
+    del gradebook[0]
+    log_step("After remove")
+    print(gradebook)
+
+
+    # 5. Searching
+    log_step("\nSearch for the first Grade listed for David")
+    log_step(f'search_item = "David"')
+    log_step(f'for user_entry in grades:')
+    log_step(f'\tif user_item[0] == search_item:')
+    log_step(f"\t\tresult = user_item[1]")
+    search_item = "David"
+    for user_entry in gradebook:
+        if user_entry[0] == search_item:
+            log_step(f"Found '{search_item}' with price {user_entry[1]}\n")
+    
+    # Sorting
+    log_step(f'\n#Sorting our outer list')
+    log_step('gradebook.sort()')
+    gradebook.sort()
+    log_step(f"Sorted by name = {gradebook}\n")
+    
+    log_step("\nSorting inner the list of grades for each student")
+    log_step("\ntmp_list = []")
+    log_step("for user_entry in gradebook:")
+    log_step("\tfor i in range(1,len(user_entry)):")
+    log_step("\t\ttmp_list.append(user_entry[i])")
+    log_step("\ttmp_list.sort()")
+    log_step("\tfor i in range(len(tmp_list)):")
+    log_step("\t\tuser_entry[i+1] = tmp_list[i]")
+    log_step("\ttmp_list.clear()\n")
+    tmp_list = []   
+    for user_entry in gradebook:
+        for i in range(1,len(user_entry)):
+            tmp_list.append(user_entry[i])
+        tmp_list.sort()
+        for i in range(len(tmp_list)):
+            user_entry[i+1] = tmp_list[i]
+
+        tmp_list.clear()
+    print(f'Sorted grades per user:\n\t{gradebook}')
+    
 def tuples():
     # =====================================================================
     # 3. LISTS OF TUPLES
@@ -204,7 +300,7 @@ def dicts():
     # =====================================================================
     # 5. BASIC DICTIONARIES (Key-Value Pairs)
     # =====================================================================
-    log_step("\n--- 5. BASIC DICTIONARIES ---")
+    log_step("\n--- 6. BASIC DICTIONARIES ---")
 
     # Creation
     basic_dict = {"Car": 15000.00, "Air": 5.00}
@@ -233,7 +329,7 @@ def dictlists():
     # =====================================================================
     # 6. DICTIONARIES OF LISTS
     # =====================================================================
-    log_step("\n--- 6. DICTIONARIES OF LISTS ---")
+    log_step("\n--- 7. DICTIONARIES OF LISTS ---")
     
     # Creation
     dict_of_lists = {"fruits": ["Banana", "Apple"], "tools": ["Wrench"]}
@@ -267,7 +363,7 @@ def dictdicts():
     # =====================================================================
     # 7. DICTIONARIES OF DICTIONARIES (Nested Dicts)
     # =====================================================================
-    log_step("\n--- 7. DICTIONARIES OF DICTIONARIES ---")
+    log_step("\n--- 9. DICTIONARIES OF DICTIONARIES ---")
     
     # Creation
     dict_of_dicts = {
@@ -305,7 +401,7 @@ def dictlistdict():
     # =====================================================================
     # 8. DICTIONARY OF LISTS OF DICTIONARIES
     # =====================================================================
-    log_step("\n--- 8. DICT OF LISTS OF DICTS ---")
+    log_step("\n--- 9. DICT OF LISTS OF DICTS ---")
 
     # Creation
     complex_structure_1 = {
@@ -344,7 +440,7 @@ def dictdictlist():
    # =====================================================================
     # 9. DICTIONARY OF DICTIONARIES OF LISTS
     # =====================================================================
-    log_step("\n--- 9. DICT OF DICTS OF LISTS ---")
+    log_step("\n---10. DICT OF DICTS OF LISTS ---")
 
     # Creation
     complex_structure_2 = {
@@ -385,7 +481,7 @@ def patterns():
     # ========================week then py 103 in 2 mongr=============================================
     # 10. ACCESS PATTERNS YOU WILL ACTUALLY USE
     # =====================================================================
-    log_step("\n--- 10. ACCESS PATTERNS YOU WILL ACTUALLY USE ---")
+    log_step("\n--- 11. ACCESS PATTERNS YOU WILL ACTUALLY USE ---")
 
     # 1) List access
     log_step('sample_list = ["AAPL", "MSFT", "NVDA"]')
@@ -424,7 +520,7 @@ def cheatcode():
     # =====================================================================
     # 11. LISTS VS DICTS CHEAT CARD
     # =====================================================================
-    log_step("\n--- 11. LISTS VS DICTS CHEAT CARD ---")
+    log_step("\n--- 12. LISTS VS DICTS CHEAT CODE ---")
     log_step("1. Use a LIST when you care about ORDER and POSITION")
     log_step("   trades = ['AAPL', 'MSFT', 'NVDA']")
     log_step("   trades[0] -> 'AAPL'")
@@ -469,7 +565,7 @@ def mapping():
     # =====================================================================
     # 12. MAPPING (Python 102 / 103 core)
     # =====================================================================
-    log_step("\n--- 12. MAPPING (TRANSFORMING DATA) ---")
+    log_step("\n--- 13. MAPPING (TRANSFORMING DATA) ---")
     log_step("Mapping means taking one structure and turning it into another one.")
     log_step("This is one of the biggest Python 102 / 103 ideas.")
 
@@ -514,7 +610,7 @@ def cheatcard():
     # =====================================================================
     # 13. COMPLEXITY + RECURSION CHEAT CARD
     # =====================================================================
-    log_step("\n--- 13. COMPLEXITY + RECURSION CHEAT CARD ---")
+    log_step("\n--- 14. COMPLEXITY + RECURSION CHEAT CARD ---")
     log_step("1. One loop -> O(n)")
     log_step("   for x in items:")
     log_step("   -> linearly scans the collection")
@@ -562,7 +658,7 @@ def cheatcard():
     log_step("   recursion = depends on branching and depth")
 
 def comprehentions():
-    log_step("\n--- 13. COMPREHENTIONS ie shorthand list/set/dict generator looops---")
+    log_step("\n--- 15. COMPREHENTIONS ie shorthand list/set/dict generator looops---")
     log_step('name is comprehensions — same syntax family covers four variants:\n')
 
     log_step('[... for ... in ... if ...] → list comprehension')
@@ -627,6 +723,7 @@ def main():
     m = parser.add_argument("-m","--mapping", action='store_true', help="\tprint help on mapping")
     n = parser.add_argument("-cd","--cheatcard", action='store_true', help="\tprint cheat card")            
     o = parser.add_argument("-co","--comprehentions", action='store_true', help="\tprint comprehentions")            
+    p = parser.add_argument("-ll","--listlists", action='store_true', help="\tprint list of lists")            
     args = parser.parse_args()
  
     output_file = args.outfile if args.outfile else "None"
@@ -638,16 +735,17 @@ def main():
         [c.dest, args.listsdicts]  if args.listsdicts else [c.dest, False],
         [d.dest, args.tuples]  if args.tuples else [d.dest, False],
         [e.dest, args.listsmixed] if args.listsmixed else [e.dest, False],
-        [f.dest, args.dicts]  if args.dicts else [f.dest, False],
-        [g.dest, args.dictlists] if args.dictlists else [g.dest, False],
-        [h.dest, args.dictdicts] if args.dictdicts else [h.dest, False],
-        [i.dest, args.dictlistdict] if args.dictlistdict else [i.dest, False],
-        [j.dest, args.dictdictlist] if args.dictdictlist else [j.dest, False],
-        [k.dest, args.patterns] if args.patterns else [k.dest, False],
-        [l.dest, args.cheatcode] if args.cheatcode else [l.dest, False],
-        [m.dest, args.mapping] if args.mapping else [m.dest, False],
-        [n.dest, args.cheatcard] if args.cheatcard else [n.dest, False],
-        [o.dest, args.comprehentions] if args.comprehentions else [o.dest, False],
+        [f.dest, args.listlists] if args.listlists else [f.dest, False],
+        [g.dest, args.dicts]  if args.dicts else [g.dest, False],
+        [h.dest, args.dictlists] if args.dictlists else [h.dest, False],
+        [i.dest, args.dictdicts] if args.dictdicts else [i.dest, False],
+        [j.dest, args.dictlistdict] if args.dictlistdict else [j.dest, False],
+        [k.dest, args.dictdictlist] if args.dictdictlist else [k.dest, False],
+        [l.dest, args.patterns] if args.patterns else [l.dest, False],
+        [m.dest, args.cheatcode] if args.cheatcode else [m.dest, False],
+        [n.dest, args.mapping] if args.mapping else [n.dest, False],
+        [o.dest, args.cheatcard] if args.cheatcard else [o.dest, False],
+        [p.dest, args.comprehentions] if args.comprehentions else [p.dest, False],
     ]
     # If any flags give we only print the else we print everything
     switch_given = False
@@ -662,6 +760,7 @@ def main():
         "listsdicts": listsdicts,
         "tuples": tuples,
         "listsmixed": listsmixed,
+        "listlists": listlists,
         "dicts": dicts,
         "dictlists": dictlists,
         "dictdicts": dictdicts,
