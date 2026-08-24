@@ -54,6 +54,7 @@ const context = {
     TUNNEL_HARD_TURN_MAX_DOT: 0.35,
     TUNNEL_SECTION_JOIN_OVERLAP: 18,
     TUNNEL_SEGMENT_JOIN_OVERLAP: 48,
+    TUNNEL_TEXTURE_PANEL_OVERLAP: 1.006,
     TUNNEL_WEBGL_MESH_CACHE_VERSION: 'test',
     TUNNEL_WEBGL_RADIAL_SEGMENTS: 24,
     RECT_ROOM_FACES: ['start', 'end', 'right', 'left', 'floor', 'ceiling'],
@@ -74,6 +75,11 @@ const context = {
         z: value.z * amount
     }),
     addVec: (a, b) => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z }),
+    lerpVec: (a, b, t) => ({
+        x: a.x + (b.x - a.x) * t,
+        y: a.y + (b.y - a.y) * t,
+        z: a.z + (b.z - a.z) * t
+    }),
     segmentLocalToWorld: (seg, x, y, z) => ({
         x: seg.from.x + seg.right.x * x + seg.down.x * y + seg.forward.x * z,
         y: seg.from.y + seg.right.y * x + seg.down.y * y + seg.forward.y * z,
@@ -149,6 +155,8 @@ for (const name of [
     'nearestTunnelPoint',
     'segmentEndHasHardTubeTurn',
     'getSegmentPanelZExtent',
+    'distanceMappedHardBendConnections',
+    'buildDistanceBendConnectorGpuMesh',
     'splitSegmentAtPoint',
     'splitLongAutogenSegment'
 ]) {
@@ -275,6 +283,16 @@ const rightAngleExtent = context.getSegmentPanelZExtent(context.builder.segments
 if (!rightAngleExtent.trimHardTo ||
     rightAngleExtent.zEnd !== context.builder.segments[0].length) {
     throw new Error('mapped 90-degree tube joint retained its occluding axial sleeve');
+}
+const bendConnectors = context.distanceMappedHardBendConnections(
+    context.builder.segments.map((seg, index) => ({ index, seg }))
+);
+if (bendConnectors.length !== 1) {
+    throw new Error('mapped 90-degree tube joint did not receive one elbow connector');
+}
+const bendMesh = context.buildDistanceBendConnectorGpuMesh(bendConnectors[0], 48);
+if (bendMesh.indexCount !== 48 * 6 || !Number.isFinite(bendMesh.boundaryV)) {
+    throw new Error('distance-mapped elbow connector mesh is incomplete');
 }
 
 context.builder.segments = straightSegments(2);

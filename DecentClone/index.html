@@ -799,7 +799,7 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1-sharpTurnOcclusionFix1-sixPortJunction1-roundSixPortJunction1-sidePortalHandoffFix1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1-sharpTurnOcclusionFix1-sixPortJunction1-roundSixPortJunction1-sidePortalHandoffFix1-distanceBendConnector1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -3193,6 +3193,147 @@
             return mesh;
         }
 
+        function distanceMappedHardBendConnections(drawList) {
+            const byRun = new Map();
+            for (const entry of drawList || []) {
+                const seg = entry.seg;
+                if (!segmentUsesDistanceWallMapping(seg) || segmentIsRectRoom(seg) || segmentIsChamber(seg)) continue;
+                const runId = String(seg.wallTextureRunId || '');
+                const order = Number(seg.wallTextureRunOrder);
+                if (!runId || !Number.isInteger(order)) continue;
+                if (!byRun.has(runId)) byRun.set(runId, new Map());
+                byRun.get(runId).set(order, entry);
+            }
+            const result = [];
+            for (const [runId, ordered] of byRun) {
+                const orders = [...ordered.keys()].sort((a, b) => a - b);
+                for (const order of orders) {
+                    const a = ordered.get(order);
+                    const b = ordered.get(order + 1);
+                    if (!a || !b) continue;
+                    const connection = textureRunPathConnection(a.index, b.index);
+                    if (connection.error) continue;
+                    const awayA = connection.aEnd === 'from'
+                        ? normalize(a.seg.forward)
+                        : scaleVec(normalize(a.seg.forward), -1);
+                    const awayB = connection.bEnd === 'from'
+                        ? normalize(b.seg.forward)
+                        : scaleVec(normalize(b.seg.forward), -1);
+                    const continuationDot = -dot(awayA, awayB);
+                    if (continuationDot > TUNNEL_HARD_TURN_MAX_DOT) continue;
+                    // Avoid a degenerate fold for two segments doubled back onto
+                    // the same centerline. Those need an authored junction cell.
+                    if (dot(awayA, awayB) > 0.985) continue;
+                    const pointA = connection.aEnd === 'from' ? a.seg.from : a.seg.to;
+                    const pointB = connection.bEnd === 'from' ? b.seg.from : b.seg.to;
+                    result.push({
+                        runId,
+                        order,
+                        a,
+                        b,
+                        connection,
+                        joint: lerpVec(pointA, pointB, 0.5)
+                    });
+                }
+            }
+            return result;
+        }
+
+        function buildDistanceBendConnectorGpuMesh(info, radialSegments = 48) {
+            radialSegments = Math.max(16, Math.min(64, Math.round(radialSegments)));
+            const { a, b, connection, joint } = info;
+            const radiusA = Number(a.seg.radius) || builder.radius;
+            const radiusB = Number(b.seg.radius) || builder.radius;
+            const radius = Math.min(radiusA, radiusB) * TUNNEL_TEXTURE_PANEL_OVERLAP;
+            const directionA = Number(a.seg.wallTextureRunDirection) < 0 ? -1 : 1;
+            const directionB = Number(b.seg.wallTextureRunDirection) < 0 ? -1 : 1;
+            const offsetA = Number(a.seg.wallTextureUOffset) || 0;
+            const offsetB = Number(b.seg.wallTextureUOffset) || 0;
+            const key = `${TUNNEL_WEBGL_MESH_CACHE_VERSION}|distanceBend|${a.index}:${b.index}|${radialSegments}|` +
+                `${joint.x.toFixed(2)},${joint.y.toFixed(2)},${joint.z.toFixed(2)}|${radius.toFixed(2)}|` +
+                `${offsetA.toFixed(4)},${offsetB.toFixed(4)},${directionA},${directionB}`;
+            if (tunnelWebGL.meshCache.has(key)) return tunnelWebGL.meshCache.get(key);
+
+            const vertices = [];
+            const texCoords = [];
+            const indices = [];
+            const pushRing = (seg, isB) => {
+                for (let i = 0; i <= radialSegments; i++) {
+                    const uA = i / radialSegments;
+                    const absoluteU = uA * directionA + offsetA;
+                    const localU = isB ? (absoluteU - offsetB) / directionB : uA;
+                    const theta = localU * Math.PI * 2;
+                    const point = addVec(
+                        joint,
+                        addVec(
+                            scaleVec(normalize(seg.right), Math.cos(theta) * radius),
+                            scaleVec(normalize(seg.down), Math.sin(theta) * radius)
+                        )
+                    );
+                    vertices.push(point.x, point.y, point.z);
+                    texCoords.push(uA, isB ? 1 : 0);
+                }
+            };
+            pushRing(a.seg, false);
+            pushRing(b.seg, true);
+            const row = radialSegments + 1;
+            for (let i = 0; i < radialSegments; i++) {
+                const first = i;
+                const second = row + i;
+                indices.push(first, first + 1, second, second, first + 1, second + 1);
+            }
+            const gl = tunnelWebGL.gl;
+            const mesh = {
+                indexCount: indices.length,
+                vertexBuffer: gl.createBuffer(),
+                texCoordBuffer: gl.createBuffer(),
+                indexBuffer: gl.createBuffer(),
+                boundaryV: connection.aEnd === 'from'
+                    ? Number(a.seg.wallTextureVStart) || 0
+                    : Number(a.seg.wallTextureVEnd) || 0,
+                directionA,
+                offsetA
+            };
+            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vertexBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.texCoordBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+            tunnelWebGL.meshCache.set(key, mesh);
+            trimCylinderMeshCache();
+            return mesh;
+        }
+
+        function renderDistanceBendConnectorsWebGL(drawList) {
+            const gl = tunnelWebGL.gl;
+            let drawn = 0;
+            for (const info of distanceMappedHardBendConnections(drawList)) {
+                const mesh = buildDistanceBendConnectorGpuMesh(info, TUNNEL_WEBGL_RADIAL_SEGMENTS * 2);
+                const model = tunnelWebGL.modelScratch;
+                model.fill(0);
+                model[0] = model[5] = model[10] = model[15] = 1;
+                gl.uniformMatrix4fv(tunnelWebGL.uModel, false, model);
+                gl.uniform1f(tunnelWebGL.uAlpha, Math.max(
+                    segmentWallAlpha(info.a.seg, 1),
+                    segmentWallAlpha(info.b.seg, 1)
+                ));
+                // Sample a narrow strip around the exact cumulative-distance
+                // boundary. It closes the elbow without visibly restarting or
+                // stretching a second copy of the scenic image.
+                const vBand = 0.012;
+                gl.uniform2f(tunnelWebGL.uTileScale, mesh.directionA, vBand);
+                gl.uniform1f(tunnelWebGL.uOffset, mesh.boundaryV - vBand * 0.5);
+                gl.uniform1f(tunnelWebGL.uUOffset, mesh.offsetA);
+                const textureEntry = getWallTextureEntry(info.a.seg.wallTextureId);
+                gl.bindTexture(gl.TEXTURE_2D, getWebGLTextureForSegment(info.a.seg, textureEntry) || tunnelWebGL.texture);
+                bindCylinderGpuMesh(mesh);
+                gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_SHORT, 0);
+                drawn += 1;
+            }
+            return drawn;
+        }
+
         function buildChamberSphereGpuMesh(seg, radialSegments, latSegments, index = null) {
             radialSegments = Math.max(16, Math.min(64, radialSegments || 32));
             latSegments = Math.max(12, Math.min(48, latSegments || 24));
@@ -4046,6 +4187,7 @@
                 tunnelWebGL.lastDrawCount += 1;
             }
 
+            tunnelWebGL.lastDrawCount += renderDistanceBendConnectorsWebGL(drawList);
             tunnelWebGL.lastDrawCount += renderDoorFramesWebGL(drawList);
 
             if (tunnelWebGL.lastDrawCount === 0) {
@@ -23641,6 +23783,40 @@
             return panels;
         }
 
+        function buildDistanceBendConnectorPanels(info, sides) {
+            sides = Math.max(12, Math.min(48, Math.round(sides || TUNNEL_TEXTURE_VECTOR_SIDES_NEAR)));
+            const { a, b, joint } = info;
+            const radius = Math.min(
+                Number(a.seg.radius) || builder.radius,
+                Number(b.seg.radius) || builder.radius
+            ) * TUNNEL_TEXTURE_PANEL_OVERLAP;
+            const directionA = Number(a.seg.wallTextureRunDirection) < 0 ? -1 : 1;
+            const directionB = Number(b.seg.wallTextureRunDirection) < 0 ? -1 : 1;
+            const offsetA = Number(a.seg.wallTextureUOffset) || 0;
+            const offsetB = Number(b.seg.wallTextureUOffset) || 0;
+            const ringPoint = (seg, uA, isB) => {
+                const absoluteU = uA * directionA + offsetA;
+                const localU = isB ? (absoluteU - offsetB) / directionB : uA;
+                const theta = localU * Math.PI * 2;
+                return addVec(joint, addVec(
+                    scaleVec(normalize(seg.right), Math.cos(theta) * radius),
+                    scaleVec(normalize(seg.down), Math.sin(theta) * radius)
+                ));
+            };
+            const panels = [];
+            for (let side = 0; side < sides; side++) {
+                const u0 = side / sides;
+                const u1 = (side + 1) / sides;
+                panels.push([
+                    ringPoint(a.seg, u0, false),
+                    ringPoint(a.seg, u1, false),
+                    ringPoint(b.seg, u1, true),
+                    ringPoint(b.seg, u0, true)
+                ]);
+            }
+            return panels;
+        }
+
         function renderCappedTunnelEnds(centerX, centerY, fov, coverageSegments = null) {
             if (!TUNNEL_TEXTURE_ENABLED) return;
             const segments = coverageSegments || collectVisibleTunnelSegments(TUNNEL_COVERAGE_MAX_SEGMENTS, { coverageMode: true });
@@ -23932,6 +24108,44 @@
             }
 
             if (isVector) {
+                for (const info of distanceMappedHardBendConnections(segments)) {
+                    const palette = mapMouse.selection.has(info.a.index) || mapMouse.selection.has(info.b.index)
+                        ? 'selected'
+                        : 'main';
+                    for (const panel of buildDistanceBendConnectorPanels(
+                        info,
+                        TUNNEL_TEXTURE_VECTOR_SIDES_NEAR
+                    )) {
+                        coverageJobs.push({
+                            avgZ: panelAvgCameraZ(panel),
+                            draw: () => {
+                                const drew = drawVectorWallPanel(
+                                    panel,
+                                    centerX,
+                                    centerY,
+                                    fov,
+                                    palette,
+                                    info.a.seg,
+                                    {
+                                        allowPartial: true,
+                                        forceDraw: true,
+                                        solidFillOnly: true,
+                                        panelSide: 0,
+                                        panelSides: TUNNEL_TEXTURE_VECTOR_SIDES_NEAR,
+                                        nearShipRing: true
+                                    }
+                                );
+                                if (!drew) {
+                                    fillSolidTunnelCap(panel, centerX, centerY, fov, info.a.seg, {
+                                        allowPartial: true,
+                                        forceDraw: true,
+                                        fillColor: vectorStyleBaseFill(palette)
+                                    });
+                                }
+                            }
+                        });
+                    }
+                }
                 coverageJobs.sort((a, b) => b.avgZ - a.avgZ);
                 for (const job of coverageJobs) job.draw();
                 streakJobs.sort((a, b) => b.avgZ - a.avgZ);
