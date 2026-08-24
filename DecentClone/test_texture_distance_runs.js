@@ -54,6 +54,8 @@ const context = {
     TUNNEL_HARD_TURN_MAX_DOT: 0.35,
     TUNNEL_SECTION_JOIN_OVERLAP: 18,
     TUNNEL_SEGMENT_JOIN_OVERLAP: 48,
+    TUNNEL_WEBGL_MESH_CACHE_VERSION: 'test',
+    TUNNEL_WEBGL_RADIAL_SEGMENTS: 24,
     RECT_ROOM_FACES: ['start', 'end', 'right', 'left', 'floor', 'ceiling'],
     builder: {
         radius: 120,
@@ -71,12 +73,53 @@ const context = {
         y: value.y * amount,
         z: value.z * amount
     }),
+    addVec: (a, b) => ({ x: a.x + b.x, y: a.y + b.y, z: a.z + b.z }),
+    segmentLocalToWorld: (seg, x, y, z) => ({
+        x: seg.from.x + seg.right.x * x + seg.down.x * y + seg.forward.x * z,
+        y: seg.from.y + seg.right.y * x + seg.down.y * y + seg.forward.y * z,
+        z: seg.from.z + seg.right.z * x + seg.down.z * y + seg.forward.z * z
+    }),
+    rectRoomLocalPoint: (point, seg) => {
+        const rel = { x: point.x - seg.from.x, y: point.y - seg.from.y, z: point.z - seg.from.z };
+        return { x: dot(rel, seg.right), y: dot(rel, seg.down), z: dot(rel, seg.forward) };
+    },
     subVec: (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }),
     distanceSq: (a, b) =>
         (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2,
     segmentIsChamber: seg => !!seg.chamber,
     segmentIsJunctionCube: seg => !!seg.junctionCube,
     segmentIsRectRoom: seg => !!seg.rectRoom,
+    rectRoomDistanceState: (point, seg) => ({
+        nearestPoint: { ...point },
+        outsideDist: 0,
+        local: { x: 0, y: 0, z: (seg.length || 100) * 0.5 },
+        length: seg.length || 100,
+        margin: 100
+    }),
+    chamberCenterPoint: seg => ({ ...seg.from }),
+    pointOnSegment: (seg, t) => ({
+        x: seg.from.x + (seg.to.x - seg.from.x) * t,
+        y: seg.from.y + (seg.to.y - seg.from.y) * t,
+        z: seg.from.z + (seg.to.z - seg.from.z) * t
+    }),
+    boostingForward: false,
+    wallHit: { lockUntil: 0, lockedSegmentIndex: null },
+    lastThrustVector: { x: -1, y: 0, z: 0 },
+    performance: { now: () => 1 },
+    tunnelSegmentsConnected: () => true,
+    junctionOpenFaceTouchesPoint: seg => !!(seg.junctionCube || seg.roundJunction),
+    tunnelWebGL: {
+        meshCache: new Map(),
+        gl: {
+            ARRAY_BUFFER: 1,
+            ELEMENT_ARRAY_BUFFER: 2,
+            STATIC_DRAW: 3,
+            createBuffer: () => ({}),
+            bindBuffer: () => {},
+            bufferData: () => {}
+        }
+    },
+    trimCylinderMeshCache: () => {},
     isOpenSegmentEnd: () => false,
     textureUsesSectionMapping: () => false,
     getWebGLTextureForSegment: () => null,
@@ -96,7 +139,14 @@ for (const name of [
     'applyDistanceTextureRunPlan',
     'rectRoomFaceStates',
     'setRectRoomFaceOpen',
+    'segmentIsRoundJunction',
+    'junctionFaceStates',
+    'setJunctionFaceOpen',
+    'junctionFaceCenter',
+    'roundJunctionOpenSideForPoint',
+    'buildRoundJunctionGpuMesh',
     'segmentIsJunctionCube',
+    'nearestTunnelPoint',
     'segmentEndHasHardTubeTurn',
     'getSegmentPanelZExtent',
     'splitSegmentAtPoint',
@@ -258,6 +308,66 @@ const sixPortStates = context.rectRoomFaceStates(sixPortJunction);
 if (Object.values(sixPortStates).some(open => !open) ||
     !context.segmentIsJunctionCube(sixPortJunction)) {
     throw new Error('six-port junction did not expose six independent open states');
+}
+
+const roundJunction = segment(
+    { x: 0, y: 0, z: 0 },
+    { x: 0, y: 0, z: 240 },
+    { roundJunction: true }
+);
+for (const face of context.RECT_ROOM_FACES) {
+    if (!context.setJunctionFaceOpen(roundJunction, face, true)) {
+        throw new Error('round six-port junction could not open face: ' + face);
+    }
+}
+if (Object.values(context.junctionFaceStates(roundJunction)).some(open => !open)) {
+    throw new Error('round junction did not expose the same six independent ports');
+}
+const roundMesh = context.buildRoundJunctionGpuMesh(roundJunction, 240, 0, 120, 48, 36);
+if (!(roundMesh.indexCount > 0 && roundMesh.indexCount < 48 * 36 * 6)) {
+    throw new Error('round junction WebGL mesh did not cut real side apertures');
+}
+const rightPort = context.junctionFaceCenter(roundJunction, 'right');
+if (Math.abs(rightPort.x - 120) > 1e-9 || Math.abs(rightPort.z - 120) > 1e-9 ||
+    context.roundJunctionOpenSideForPoint(roundJunction, rightPort) !== 'right') {
+    throw new Error('round junction right port is not centered on the curved wall');
+}
+if (context.roundJunctionOpenSideForPoint(roundJunction, { x: 120, y: 0, z: 10 }) !== null) {
+    throw new Error('round junction side aperture leaks outside its axial doorway');
+}
+const sideBranch = segment(
+    { x: 120, y: 0, z: 120 },
+    { x: 300, y: 0, z: 120 },
+    { right: { x: 0, y: 0, z: 1 } }
+);
+const cubeHost = {
+    ...segment({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 240 }),
+    rectRoom: true,
+    junctionCube: true,
+    roomOpenRight: true,
+    roomWidth: 240,
+    roomHeight: 240
+};
+context.builder.segments = [cubeHost, sideBranch];
+let handoff = context.nearestTunnelPoint({ x: 125, y: 0, z: 120 }, 1);
+if (handoff?.index !== 0) {
+    throw new Error('returning side branch did not hand flight ownership back to the cube');
+}
+context.builder.segments = [roundJunction, sideBranch];
+handoff = context.nearestTunnelPoint({ x: 125, y: 0, z: 120 }, 1);
+if (handoff?.index !== 0) {
+    throw new Error('returning side branch did not hand flight ownership back to the round junction');
+}
+if (!html.includes('roundJunction: !seg.rectRoom ? !!seg.roundJunction : undefined')) {
+    throw new Error('round junction marker is not serialized');
+}
+if (!html.includes('buildRoundJunctionGpuMesh(') ||
+    !html.includes('buildSegmentWallPanelSlices(seg, side, sides, zStart, zEnd, radius)')) {
+    throw new Error('round junction apertures are missing from a tunnel renderer');
+}
+if (!html.includes('if (sideJunctionHandoff) return sideJunctionHandoff;') ||
+    !html.includes('junctionFacePortal(seg, exitFace)?.index ?? nearest.index')) {
+    throw new Error('side-port flight ownership is not handed off in both directions');
 }
 context.setRectRoomFaceOpen(sixPortJunction, 'ceiling', false);
 if (context.rectRoomFaceStates(sixPortJunction).ceiling ||
@@ -457,7 +567,8 @@ for (const field of [
         throw new Error('serialized texture-run field is missing: ' + field);
     }
 }
-if (!html.includes('Promote Section to Six-Port Junction') ||
+if (!html.includes('Promote Section to Round Six-Port Junction') ||
+    !html.includes('Promote Section to Cube Six-Port Junction') ||
     !html.includes("['start', 'Back', roomCapStartCheck]") ||
     !html.includes("['end', 'Forward', roomCapEndCheck]") ||
     !html.includes('junctionCube: seg.rectRoom ? !!seg.junctionCube : undefined')) {
