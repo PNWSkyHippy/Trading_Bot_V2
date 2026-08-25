@@ -57,6 +57,8 @@ const context = {
     TUNNEL_TEXTURE_PANEL_OVERLAP: 1.006,
     TUNNEL_WEBGL_MESH_CACHE_VERSION: 'test',
     TUNNEL_WEBGL_RADIAL_SEGMENTS: 24,
+    ROUND_JUNCTION_HUB_RADIUS_SCALE: 1.72,
+    ROUND_JUNCTION_APERTURE_SCALE: 1.06,
     RECT_ROOM_FACES: ['start', 'end', 'right', 'left', 'floor', 'ceiling'],
     builder: {
         radius: 120,
@@ -89,6 +91,23 @@ const context = {
         const rel = { x: point.x - seg.from.x, y: point.y - seg.from.y, z: point.z - seg.from.z };
         return { x: dot(rel, seg.right), y: dot(rel, seg.down), z: dot(rel, seg.forward) };
     },
+    shipSegmentLocal: (point, seg) => {
+        const rel = { x: point.x - seg.from.x, y: point.y - seg.from.y, z: point.z - seg.from.z };
+        const localZ = dot(rel, seg.forward);
+        const onAxis = {
+            x: seg.from.x + seg.forward.x * localZ,
+            y: seg.from.y + seg.forward.y * localZ,
+            z: seg.from.z + seg.forward.z * localZ
+        };
+        return {
+            localZ,
+            radialDist: Math.hypot(point.x - onAxis.x, point.y - onAxis.y, point.z - onAxis.z),
+            onAxis,
+            length: seg.length,
+            forward: seg.forward
+        };
+    },
+    getSpatialSegmentIndicesNearPoint: () => null,
     subVec: (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }),
     distanceSq: (a, b) =>
         (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2,
@@ -149,6 +168,10 @@ for (const name of [
     'junctionFaceStates',
     'setJunctionFaceOpen',
     'junctionFaceCenter',
+    'roundJunctionProfileRadius',
+    'roundJunctionSideApertureContainsLocalPoint',
+    'roundJunctionSightlinePassesOpenPortal',
+    'roundJunctionContainingPointIndex',
     'roundJunctionOpenSideForPoint',
     'buildRoundJunctionGpuMesh',
     'segmentIsJunctionCube',
@@ -345,6 +368,40 @@ const roundMesh = context.buildRoundJunctionGpuMesh(roundJunction, 240, 0, 120, 
 if (!(roundMesh.indexCount > 0 && roundMesh.indexCount < 48 * 36 * 6)) {
     throw new Error('round junction WebGL mesh did not cut real side apertures');
 }
+const hubRadius = context.roundJunctionProfileRadius(roundJunction, 120, 120);
+if (Math.abs(context.roundJunctionProfileRadius(roundJunction, 0, 120) - 120) > 1e-9 ||
+    hubRadius < 120 * 1.7) {
+    throw new Error('round junction does not preserve its endpoints and grow a real central hub');
+}
+const diagonalShellPoint = {
+    x: hubRadius / Math.sqrt(2),
+    y: hubRadius / Math.sqrt(2),
+    z: 120
+};
+if (context.roundJunctionSideApertureContainsLocalPoint(roundJunction, diagonalShellPoint, 120)) {
+    throw new Error('adjacent round-junction apertures overlap and erase the hub wall');
+}
+if (!context.roundJunctionSideApertureContainsLocalPoint(
+    roundJunction,
+    { x: hubRadius, y: 0, z: 120 },
+    120
+)) {
+    throw new Error('round junction hub does not cut the right child-tunnel opening');
+}
+if (!context.roundJunctionSightlinePassesOpenPortal(
+    roundJunction,
+    { x: 0, y: 0, z: 120 },
+    { x: 420, y: 0, z: 120 }
+)) {
+    throw new Error('round junction hides an enabled side tunnel from its center');
+}
+if (context.roundJunctionSightlinePassesOpenPortal(
+    roundJunction,
+    { x: 0, y: 0, z: 120 },
+    { x: 420, y: 420, z: 120 }
+)) {
+    throw new Error('round junction visibility leaks diagonally through its solid hub wall');
+}
 const rightPort = context.junctionFaceCenter(roundJunction, 'right');
 if (Math.abs(rightPort.x - 120) > 1e-9 || Math.abs(rightPort.z - 120) > 1e-9 ||
     context.roundJunctionOpenSideForPoint(roundJunction, rightPort) !== 'right') {
@@ -376,6 +433,10 @@ handoff = context.nearestTunnelPoint({ x: 125, y: 0, z: 120 }, 1);
 if (handoff?.index !== 0) {
     throw new Error('returning side branch did not hand flight ownership back to the round junction');
 }
+if (context.roundJunctionContainingPointIndex({ x: 0, y: 0, z: 120 }) !== 0 ||
+    context.roundJunctionContainingPointIndex({ x: 500, y: 500, z: 120 }) !== null) {
+    throw new Error('render visibility cannot identify the round hub containing the camera');
+}
 if (!html.includes('roundJunction: !seg.rectRoom ? !!seg.roundJunction : undefined')) {
     throw new Error('round junction marker is not serialized');
 }
@@ -383,9 +444,21 @@ if (!html.includes('buildRoundJunctionGpuMesh(') ||
     !html.includes('buildSegmentWallPanelSlices(seg, side, sides, zStart, zEnd, radius)')) {
     throw new Error('round junction apertures are missing from a tunnel renderer');
 }
+if (!html.includes('roundJunctionProfileRadius(seg, local.localZ, rawSegRadius)') ||
+    !html.includes('roundJunctionSightlinePassesOpenPortal(seg, ship, point, apertureScale)')) {
+    throw new Error('round junction hub collision or all-port interior visibility is missing');
+}
+if (!html.includes('const containingRoundHubIndex = roundJunctionContainingPointIndex(shipPoint, 4);') ||
+    !html.includes('pointVisibleThroughCurrentTunnel(midpoint, 0.92, visibilityOwnerIndex)')) {
+    throw new Error('round hub does not own rendering while the camera is inside it');
+}
 if (!html.includes('if (sideJunctionHandoff) return sideJunctionHandoff;') ||
     !html.includes('junctionFacePortal(seg, exitFace)?.index ?? nearest.index')) {
     throw new Error('side-port flight ownership is not handed off in both directions');
+}
+if (!html.includes('const scenicDistanceRun = segmentUsesDistanceWallMapping(seg);') ||
+    !html.includes('segmentIsRectRoom(seg) || scenicDistanceRun')) {
+    throw new Error('distance-mapped scenic runs still expose per-segment rib outlines');
 }
 context.setRectRoomFaceOpen(sixPortJunction, 'ceiling', false);
 if (context.rectRoomFaceStates(sixPortJunction).ceiling ||
