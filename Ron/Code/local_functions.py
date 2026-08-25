@@ -143,6 +143,45 @@ def date_check(mdate):
 
     return True
 
+def chkstr_isnum(value: str) -> str:
+    """
+    Distinguishes if a string represents an integer or a float.
+    Returns 'float', 'int', or 'str'.
+    """
+    try:
+        # First, ensure it is a valid numeric structure
+        f = float(value)
+        
+        # Check if a decimal point exists in the string to confirm it's a float
+        # This correctly marks "9.0" as float and "9" as int
+        if "." in value:
+            return "float"
+            
+        # Handle scientific notation (e.g., "1e3"), which results in a float
+        elif "e" in value.lower():
+            return "float"
+            
+        else:
+            return "int"
+            
+    except ValueError:
+        return "str"
+    
+def can_to_float(value: str) -> bool:
+    """Returns True if the string can be parsed into a float."""
+    try:
+        float(value)
+        return True
+    except ValueError:
+        return False
+
+def can_to_int(value: str) -> bool:
+    """Returns True if the string can be parsed into an integer."""
+    try:
+        int(value)
+        return True
+    except ValueError:
+        return False
 
 def classify(args):
     """

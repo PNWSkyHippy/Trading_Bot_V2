@@ -9,8 +9,6 @@ import re
 
 from pathlib import Path
 from local_functions import colorize, clean_ansi, colors, ANSI_ESCAPE_RE, date_check,STAT_LABEL_VALUE_RE
-
-# Global Constants
 extended = False
 csv_true  = False  
 

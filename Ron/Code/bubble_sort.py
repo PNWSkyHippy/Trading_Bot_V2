@@ -1,8 +1,27 @@
 import argparse
-
+from local_functions import classify
 debug = False
 
+
+
+
+
+def insert_sort(lst):
+    pass_count = 0
+    tmp_list = []
+    for pass_num in range(1,len(lst)):
+        pos = pass_num
+        while pos > 0 and lst[pass_num] > lst[pos]:
+            lst[pos],lst[pos-1] = lst[pos-1], lst[pos]
+            pos = pos - 1
+            pass_count += 1
+    print(pass_count) 
+    
+    
 def bubble_sort(lst):
+#    kinds = classify(lst)
+#    if kinds == (int, float):
+        
     tmp_lst = lst.copy()
     pass_count = 0
     for pass_num in range(1,len(tmp_lst)):
@@ -22,7 +41,8 @@ def main():
             width=110,
             max_help_position=46,
         )
-
+        """_summary_
+        """
     parser = argparse.ArgumentParser(
         description="Bubble Sort a list of coma seperated terms or default a demo",
         epilog="""\
@@ -44,7 +64,13 @@ Usage examples:
     debug = args.debug if args.debug else False
      
     if not args.list:
+        print(insertion_sort([5, 2, 4, 6, 1, 3]))
         my_list = [5, 6, 10, 75, 99, 66, 2, 57, 8, 7]
+        print(f'my_list pre insertion sorted:\n\t{my_list}')
+        insert_sort(my_list)
+        print(f'post insertion sorted list:\n\t{my_list}')  
+        my_list = [5, 6, 10, 75, 99, 66, 2, 57, 8, 7]
+              
         print(f'my_list pre bubble sort:\n\t{my_list}')
         sorted_list = bubble_sort(my_list)
         print(f'post bubble sorted list:\n\t{sorted_list}')
