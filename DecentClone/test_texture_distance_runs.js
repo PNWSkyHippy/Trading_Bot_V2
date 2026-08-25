@@ -57,8 +57,9 @@ const context = {
     TUNNEL_TEXTURE_PANEL_OVERLAP: 1.006,
     TUNNEL_WEBGL_MESH_CACHE_VERSION: 'test',
     TUNNEL_WEBGL_RADIAL_SEGMENTS: 24,
-    ROUND_JUNCTION_HUB_RADIUS_SCALE: 1.72,
-    ROUND_JUNCTION_APERTURE_SCALE: 1.06,
+    ROUND_JUNCTION_HUB_RADIUS_SCALE: 1.55,
+    ROUND_JUNCTION_APERTURE_SCALE: 1.0,
+    ROUND_JUNCTION_SHELL_OVERLAP: 30,
     RECT_ROOM_FACES: ['start', 'end', 'right', 'left', 'floor', 'ceiling'],
     builder: {
         radius: 120,
@@ -133,6 +134,7 @@ const context = {
     performance: { now: () => 1 },
     tunnelSegmentsConnected: () => true,
     junctionOpenFaceTouchesPoint: seg => !!(seg.junctionCube || seg.roundJunction),
+    junctionFacePortal: () => null,
     tunnelWebGL: {
         meshCache: new Map(),
         gl: {
@@ -168,7 +170,10 @@ for (const name of [
     'junctionFaceStates',
     'setJunctionFaceOpen',
     'junctionFaceCenter',
+    'junctionFaceOutward',
+    'roundJunctionHubRadius',
     'roundJunctionProfileRadius',
+    'roundJunctionApertureContainsLocalPoint',
     'roundJunctionSideApertureContainsLocalPoint',
     'roundJunctionSightlinePassesOpenPortal',
     'roundJunctionContainingPointIndex',
@@ -177,6 +182,7 @@ for (const name of [
     'segmentIsJunctionCube',
     'nearestTunnelPoint',
     'segmentEndHasHardTubeTurn',
+    'roundJunctionEndpointRenderTrim',
     'getSegmentPanelZExtent',
     'distanceMappedHardBendConnections',
     'buildDistanceBendConnectorGpuMesh',
@@ -369,9 +375,11 @@ if (!(roundMesh.indexCount > 0 && roundMesh.indexCount < 48 * 36 * 6)) {
     throw new Error('round junction WebGL mesh did not cut real side apertures');
 }
 const hubRadius = context.roundJunctionProfileRadius(roundJunction, 120, 120);
-if (Math.abs(context.roundJunctionProfileRadius(roundJunction, 0, 120) - 120) > 1e-9 ||
-    hubRadius < 120 * 1.7) {
-    throw new Error('round junction does not preserve its endpoints and grow a real central hub');
+const sphereRadius = context.roundJunctionHubRadius(roundJunction, 120);
+if (Math.abs(hubRadius - sphereRadius) > 1e-9 ||
+    context.roundJunctionProfileRadius(roundJunction, 0, 120) <= 120 ||
+    context.roundJunctionProfileRadius(roundJunction, 120 - sphereRadius, 120) > 1e-6) {
+    throw new Error('round junction is not a full independent spherical room');
 }
 const diagonalShellPoint = {
     x: hubRadius / Math.sqrt(2),
@@ -387,6 +395,17 @@ if (!context.roundJunctionSideApertureContainsLocalPoint(
     120
 )) {
     throw new Error('round junction hub does not cut the right child-tunnel opening');
+}
+if (!context.roundJunctionApertureContainsLocalPoint(
+    roundJunction,
+    { x: 0, y: 0, z: 120 - sphereRadius },
+    120
+) || !context.roundJunctionApertureContainsLocalPoint(
+    roundJunction,
+    { x: 0, y: 0, z: 120 + sphereRadius },
+    120
+)) {
+    throw new Error('round junction sphere does not cut its start/end tunnel openings');
 }
 if (!context.roundJunctionSightlinePassesOpenPortal(
     roundJunction,
@@ -429,6 +448,10 @@ if (handoff?.index !== 0) {
     throw new Error('returning side branch did not hand flight ownership back to the cube');
 }
 context.builder.segments = [roundJunction, sideBranch];
+const trimmedSideExtent = context.getSegmentPanelZExtent(sideBranch);
+if (!(trimmedSideExtent.zStart >= 0 && trimmedSideExtent.zStart < sideBranch.length * 0.5)) {
+    throw new Error('incoming side tunnel was not trimmed to the round-room shell');
+}
 handoff = context.nearestTunnelPoint({ x: 125, y: 0, z: 120 }, 1);
 if (handoff?.index !== 0) {
     throw new Error('returning side branch did not hand flight ownership back to the round junction');

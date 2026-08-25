@@ -205,6 +205,54 @@ str in kinds and (int in kinds or float in kinds)  # mixed strings + numbers
                 kinds.add(str)
     return kinds
 
+debug = False
+
+def insertion_sort(arr):
+    """ Takes a list and sorts a copy of it susing insertion sort
+        returns the sported list, leaving original intact
+    """
+    # Make a copy of the list
+    pass_count = 0
+    tmp_list = arr.copy()
+    # Loop through the list, 2nd item to last
+    for pass_cnt in range(1, len(tmp_list)):
+        # Store current item we want to sort into position
+        key = tmp_list[pass_cnt]
+        # setup to look left
+        pos = pass_cnt - 1
+        #  shift larger elements to the right
+        while pos >= 0 and tmp_list[pos] > key:
+            tmp_list[pos+1] = tmp_list[pos]
+            pos -= 1
+            pass_count += 1
+
+        # Insert our current term into the correct spot
+        tmp_list[pos+1] =key
+        if debug:
+             print(f'inner loop {pass_count}: {tmp_list}')
+    if debug:
+        print(f'after inner loop {pass_count}: {tmp_list}')
+        print(f'Passes made: {pass_count}')
+    return(tmp_list)
+    
+    
+def bubble_sort(lst):
+        
+    tmp_lst = lst.copy()
+    pass_count = 0
+    for pass_num in range(1,len(tmp_lst)):
+        for pos in range(len(tmp_lst) - 1):
+            if tmp_lst[pos] > tmp_lst[pos + 1]:
+                tmp_lst[pos], tmp_lst[pos+1] = tmp_lst[pos+1], tmp_lst[pos]
+            pass_count += 1
+        if debug:
+            print(f'inside inner loop {pass_count}: {tmp_lst}')
+    if debug:
+        print(f'after all loops {pass_count}: {tmp_lst}')
+        print(f'Passes made: {pass_count}')
+    return tmp_lst
+
+
 def main():
     def wide_formatter(prog):
         return argparse.RawDescriptionHelpFormatter(

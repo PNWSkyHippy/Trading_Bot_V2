@@ -15,7 +15,9 @@ def insert_sort(lst):
             lst[pos],lst[pos-1] = lst[pos-1], lst[pos]
             pos = pos - 1
             pass_count += 1
-    print(pass_count) 
+            print(lst)
+    if debug:
+        print(f'Passes made: {pass_count}')
     
     
 def bubble_sort(lst):
@@ -29,9 +31,11 @@ def bubble_sort(lst):
             if tmp_lst[pos] > tmp_lst[pos + 1]:
                 tmp_lst[pos], tmp_lst[pos+1] = tmp_lst[pos+1], tmp_lst[pos]
             pass_count += 1
+
     if debug:
         print(f'Passes made: {pass_count}')
     return tmp_lst
+
 
 def main():
     global debug
@@ -64,13 +68,14 @@ Usage examples:
     debug = args.debug if args.debug else False
      
     if not args.list:
-        print(insertion_sort([5, 2, 4, 6, 1, 3]))
+        print(insert_sort([5, 2, 4, 6, 1, 3]))
         my_list = [5, 6, 10, 75, 99, 66, 2, 57, 8, 7]
+        my_list = [5, 2, 8, 1]
         print(f'my_list pre insertion sorted:\n\t{my_list}')
         insert_sort(my_list)
         print(f'post insertion sorted list:\n\t{my_list}')  
         my_list = [5, 6, 10, 75, 99, 66, 2, 57, 8, 7]
-              
+        my_list = [3, 1, 4, 2]
         print(f'my_list pre bubble sort:\n\t{my_list}')
         sorted_list = bubble_sort(my_list)
         print(f'post bubble sorted list:\n\t{sorted_list}')

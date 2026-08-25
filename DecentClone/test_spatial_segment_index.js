@@ -18,9 +18,16 @@ const context = {
     builder: { radius: 120, segments: [] },
     segmentIsRectRoom: () => false,
     segmentIsChamber: () => false,
+    segmentIsRoundJunction: seg => !!seg?.roundJunction,
+    roundJunctionHubRadius: seg => (seg.radius || 120) * 1.55,
     rectRoomDimensions: () => ({ halfWidth: 100, halfHeight: 100, length: 200 }),
     segmentLocalToWorld: (_seg, x, y, z) => ({ x, y, z }),
-    chamberCenterPoint: seg => seg.from
+    chamberCenterPoint: seg => seg.from,
+    pointOnSegment: (seg, t) => ({
+        x: seg.from.x + (seg.to.x - seg.from.x) * t,
+        y: seg.from.y + (seg.to.y - seg.from.y) * t,
+        z: seg.from.z + (seg.to.z - seg.from.z) * t
+    })
 };
 vm.createContext(context);
 

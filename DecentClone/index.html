@@ -799,7 +799,7 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1-sharpTurnOcclusionFix1-sixPortJunction1-roundSixPortJunction1-sidePortalHandoffFix1-distanceBendConnector1-distanceScenicRibSuppression1-roundJunctionHubShell1-roundHubRenderOwnership1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1-sharpTurnOcclusionFix1-sixPortJunction1-roundSixPortJunction1-sidePortalHandoffFix1-distanceBendConnector1-distanceScenicRibSuppression1-roundJunctionHubShell1-roundHubRenderOwnership1-roundJunctionSphereRoom2';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -1563,12 +1563,14 @@
         const TUNNEL_TEXTURE_PANEL_OVERLAP = 1.024;
         const TUNNEL_SEGMENT_JOIN_OVERLAP = 48;
         const TUNNEL_SECTION_JOIN_OVERLAP = 18;
-        // A six-way round junction needs more shell area than a same-radius tube:
-        // four full-size side portals cannot fit around an ordinary cylinder
-        // without their cutouts overlapping. Bulge the authored host section at
-        // its midpoint while keeping both longitudinal endpoints unchanged.
-        const ROUND_JUNCTION_HUB_RADIUS_SCALE = 1.72;
-        const ROUND_JUNCTION_APERTURE_SCALE = 1.06;
+        // A round six-way junction is a room, not a widened piece of its host
+        // cylinder. Six full tunnel mouths fit on this independent spherical
+        // shell with a strip of wall between neighbouring apertures. Incoming
+        // cylinders are render-trimmed to their sphere intersections, so their
+        // authored endpoints can stay exactly where the builder put them.
+        const ROUND_JUNCTION_HUB_RADIUS_SCALE = 1.55;
+        const ROUND_JUNCTION_APERTURE_SCALE = 1.0;
+        const ROUND_JUNCTION_SHELL_OVERLAP = 30;
         const TUNNEL_SEGMENT_JOIN_RADIUS_BOOST = 1.042;
         // At hard tube-to-tube turns, an axial overlap becomes a textured sleeve
         // across the outgoing mouth. Keep overlap for straight/gentle joints, but
@@ -2586,6 +2588,13 @@
                     { x: center.x - radius, y: center.y - radius, z: center.z - radius },
                     { x: center.x + radius, y: center.y + radius, z: center.z + radius }
                 );
+            } else if (segmentIsRoundJunction(seg)) {
+                const center = pointOnSegment(seg, 0.5);
+                const radius = roundJunctionHubRadius(seg);
+                points.push(
+                    { x: center.x - radius, y: center.y - radius, z: center.z - radius },
+                    { x: center.x + radius, y: center.y + radius, z: center.z + radius }
+                );
             } else if (seg?.from && seg?.to) {
                 points.push(seg.from, seg.to);
             }
@@ -3131,56 +3140,126 @@
             return mesh;
         }
 
+        function roundJunctionHubRadius(seg, baseRadius = null) {
+            const radius = Math.max(1, Number(baseRadius) || Number(seg?.radius) || builder.radius);
+            return segmentIsRoundJunction(seg)
+                ? radius * ROUND_JUNCTION_HUB_RADIUS_SCALE
+                : radius;
+        }
+
         function roundJunctionProfileRadius(seg, localZ, baseRadius = null) {
             const radius = Math.max(1, Number(baseRadius) || Number(seg?.radius) || builder.radius);
             if (!segmentIsRoundJunction(seg)) return radius;
             const length = Math.max(1, Number(seg.length) || builder.length);
-            const along = Math.max(0, Math.min(1, localZ / length));
-            // Zero bulge at both authored endpoints, full rounded-room width at
-            // the side-port plane. The smooth exponent avoids an abrupt shoulder.
-            const bulge = Math.pow(Math.sin(along * Math.PI), 1.35);
-            return radius * (1 + (ROUND_JUNCTION_HUB_RADIUS_SCALE - 1) * bulge);
+            const hubRadius = roundJunctionHubRadius(seg, radius);
+            const axial = localZ - length * 0.5;
+            return Math.sqrt(Math.max(0, hubRadius * hubRadius - axial * axial));
         }
 
-        function roundJunctionSideApertureContainsLocalPoint(
+        function roundJunctionApertureContainsLocalPoint(
             seg,
             local,
             baseRadius = null,
-            apertureScale = ROUND_JUNCTION_APERTURE_SCALE
+            apertureScale = ROUND_JUNCTION_APERTURE_SCALE,
+            faceApertures = null
         ) {
             if (!segmentIsRoundJunction(seg) || !local) return false;
             const radius = Math.max(1, Number(baseRadius) || Number(seg.radius) || builder.radius);
-            const holeRadius = Math.max(12, radius * apertureScale);
             const centerZ = Math.max(1, Number(seg.length) || builder.length) * 0.5;
             const states = junctionFaceStates(seg);
+            const axial = local.z - centerZ;
+            const aperture = face => {
+                if (faceApertures?.[face]) return faceApertures[face];
+                const portal = typeof junctionFacePortal === 'function'
+                    ? junctionFacePortal(seg, face)
+                    : null;
+                const portalRadius = Number(portal?.radius);
+                const center = portal
+                    ? rectRoomLocalPoint(portal.seg[portal.endKind], seg)
+                    : { x: 0, y: 0, z: centerZ };
+                return {
+                    radius: Math.max(
+                        12,
+                        (Number.isFinite(portalRadius) ? portalRadius : radius) * apertureScale
+                    ),
+                    center
+                };
+            };
+            const right = aperture('right');
+            const left = aperture('left');
+            const floor = aperture('floor');
+            const ceiling = aperture('ceiling');
+            const start = aperture('start');
+            const end = aperture('end');
             return !!(
-                (states.right && local.x >= 0 && Math.hypot(local.y, local.z - centerZ) < holeRadius) ||
-                (states.left && local.x <= 0 && Math.hypot(local.y, local.z - centerZ) < holeRadius) ||
-                (states.floor && local.y >= 0 && Math.hypot(local.x, local.z - centerZ) < holeRadius) ||
-                (states.ceiling && local.y <= 0 && Math.hypot(local.x, local.z - centerZ) < holeRadius)
+                (states.right && local.x >= 0 &&
+                    Math.hypot(local.y - right.center.y, local.z - right.center.z) < right.radius) ||
+                (states.left && local.x <= 0 &&
+                    Math.hypot(local.y - left.center.y, local.z - left.center.z) < left.radius) ||
+                (states.floor && local.y >= 0 &&
+                    Math.hypot(local.x - floor.center.x, local.z - floor.center.z) < floor.radius) ||
+                (states.ceiling && local.y <= 0 &&
+                    Math.hypot(local.x - ceiling.center.x, local.z - ceiling.center.z) < ceiling.radius) ||
+                (states.start && axial <= 0 &&
+                    Math.hypot(local.x - start.center.x, local.y - start.center.y) < start.radius) ||
+                (states.end && axial >= 0 &&
+                    Math.hypot(local.x - end.center.x, local.y - end.center.y) < end.radius)
             );
         }
 
-        // The junction is a real, textured, bulged hub rather than six tubes
-        // converging on empty space. Side apertures are the exact intersections
-        // of the hub surface with the child-tunnel cylinders. Longitudinal UVs
-        // remain unchanged, preserving Back/Forward distance texture continuity.
+        // Compatibility name used by older regression probes.
+        function roundJunctionSideApertureContainsLocalPoint(...args) {
+            return roundJunctionApertureContainsLocalPoint(...args);
+        }
+
+        // Build the complete spherical room even though its authored host segment
+        // is shorter. Model-space z may extend outside 0..1; mat4SegmentModel maps
+        // it back to the same local frame.
         function buildRoundJunctionGpuMesh(seg, span, zStart, radius, radialSegments, tubularSegments) {
             radialSegments = Math.max(32, Math.min(64, Math.round(radialSegments || 48)));
-            tubularSegments = Math.max(18, Math.min(72, Math.round(tubularSegments || 36)));
+            tubularSegments = Math.max(36, Math.min(96, Math.round(tubularSegments || 48)));
             const length = Math.max(1, Number(seg.length) || builder.length);
+            const hubRadius = roundJunctionHubRadius(seg, radius);
+            const sphereStart = length * 0.5 - hubRadius;
+            const sphereEnd = length * 0.5 + hubRadius;
             const states = junctionFaceStates(seg);
-            const mask = `${states.right ? 1 : 0}${states.floor ? 1 : 0}${states.left ? 1 : 0}${states.ceiling ? 1 : 0}`;
-            const axialCenter = (length * 0.5 - zStart) / Math.max(1, span);
-            const key = `${TUNNEL_WEBGL_MESH_CACHE_VERSION}|roundHub2|${radialSegments}|${tubularSegments}|${mask}|${ROUND_JUNCTION_HUB_RADIUS_SCALE}|${ROUND_JUNCTION_APERTURE_SCALE}|${axialCenter.toFixed(3)}|${(span / length).toFixed(3)}`;
+            const mask = RECT_ROOM_FACES.map(face => states[face] ? 1 : 0).join('');
+            const faceApertures = {};
+            for (const face of RECT_ROOM_FACES) {
+                const portal = junctionFacePortal(seg, face);
+                const portalRadius = Number(portal?.radius);
+                faceApertures[face] = {
+                    radius: Math.max(
+                        12,
+                        (Number.isFinite(portalRadius) ? portalRadius : radius) *
+                            ROUND_JUNCTION_APERTURE_SCALE
+                    ),
+                    center: portal
+                        ? rectRoomLocalPoint(portal.seg[portal.endKind], seg)
+                        : { x: 0, y: 0, z: length * 0.5 }
+                };
+            }
+            const apertureKey = RECT_ROOM_FACES
+                .map(face => {
+                    const opening = faceApertures[face];
+                    return [
+                        opening.radius,
+                        opening.center.x,
+                        opening.center.y,
+                        opening.center.z
+                    ].map(value => value.toFixed(2)).join(':');
+                })
+                .join(',');
+            const key = `${TUNNEL_WEBGL_MESH_CACHE_VERSION}|roundHubSphere2|${radialSegments}|${tubularSegments}|${mask}|${apertureKey}|${ROUND_JUNCTION_HUB_RADIUS_SCALE}|${ROUND_JUNCTION_APERTURE_SCALE}|${radius.toFixed(3)}|${length.toFixed(3)}|${zStart.toFixed(3)}|${span.toFixed(3)}`;
             if (tunnelWebGL.meshCache.has(key)) return tunnelWebGL.meshCache.get(key);
 
             const vertices = [];
             const texCoords = [];
             const indices = [];
             for (let j = 0; j <= tubularSegments; j++) {
-                const v = j / tubularSegments;
-                const localZ = zStart + v * span;
+                const sphereV = j / tubularSegments;
+                const localZ = sphereStart + sphereV * (sphereEnd - sphereStart);
+                const v = (localZ - zStart) / Math.max(1, span);
                 const profileScale = roundJunctionProfileRadius(seg, localZ, radius) / radius;
                 for (let i = 0; i <= radialSegments; i++) {
                     const u = i / radialSegments;
@@ -3194,16 +3273,16 @@
                 }
             }
             for (let j = 0; j < tubularSegments; j++) {
-                const v = (j + 0.5) / tubularSegments;
-                const localZ = zStart + v * span;
+                const sphereV = (j + 0.5) / tubularSegments;
+                const localZ = sphereStart + sphereV * (sphereEnd - sphereStart);
                 const profileRadius = roundJunctionProfileRadius(seg, localZ, radius);
                 for (let i = 0; i < radialSegments; i++) {
                     const theta = ((i + 0.5) / radialSegments) * Math.PI * 2;
-                    const insideDoor = roundJunctionSideApertureContainsLocalPoint(seg, {
+                    const insideDoor = roundJunctionApertureContainsLocalPoint(seg, {
                         x: Math.cos(theta) * profileRadius,
                         y: Math.sin(theta) * profileRadius,
                         z: localZ
-                    }, radius);
+                    }, radius, ROUND_JUNCTION_APERTURE_SCALE, faceApertures);
                     if (insideDoor) continue;
                     const first = j * (radialSegments + 1) + i;
                     const second = first + radialSegments + 1;
@@ -12122,12 +12201,17 @@
                     dist2 = room.outsideDist * room.outsideDist;
                     t = Math.max(0, Math.min(1, room.local.z / Math.max(1, room.length)));
                     containmentMargin = room.margin;
-                } else if (segmentIsChamber(seg)) {
-                    center = chamberCenterPoint(seg);
+                } else if (segmentIsChamber(seg) || segmentIsRoundJunction(seg)) {
+                    center = segmentIsRoundJunction(seg)
+                        ? pointOnSegment(seg, 0.5)
+                        : chamberCenterPoint(seg);
                     const chamberDist = Math.sqrt(distanceSq(point, center));
-                    dist2 = Math.pow(Math.max(0, chamberDist - (seg.radius || builder.radius)), 2);
+                    const roomRadius = segmentIsRoundJunction(seg)
+                        ? roundJunctionHubRadius(seg)
+                        : (seg.radius || builder.radius);
+                    dist2 = Math.pow(Math.max(0, chamberDist - roomRadius), 2);
                     t = 0.5;
-                    containmentMargin = (seg.radius || builder.radius) - chamberDist;
+                    containmentMargin = roomRadius - chamberDist;
                 } else {
                     const axis = {
                         x: seg.to.x - seg.from.x,
@@ -12142,14 +12226,6 @@
                     }, axis) / lenSq));
                     center = pointOnSegment(seg, t);
                     dist2 = distanceSq(point, center);
-                    if (segmentIsRoundJunction(seg)) {
-                        const localZ = t * Math.max(1, Number(seg.length) || builder.length);
-                        containmentMargin = roundJunctionProfileRadius(
-                            seg,
-                            localZ,
-                            seg.radius || builder.radius
-                        ) - Math.sqrt(dist2);
-                    }
                 }
                 return { center, dist2, t, containmentMargin };
             };
@@ -22045,8 +22121,13 @@
                 y: from.y + (to.y - from.y) * t,
                 z: from.z + (to.z - from.z) * t
             });
-            const shellDistance = local => Math.hypot(local.x, local.y) -
-                roundJunctionProfileRadius(seg, local.z, radius);
+            const centerZ = Math.max(1, Number(seg.length) || builder.length) * 0.5;
+            const hubRadius = roundJunctionHubRadius(seg, radius);
+            const shellDistance = local => Math.hypot(
+                local.x,
+                local.y,
+                local.z - centerZ
+            ) - hubRadius;
             let previousT = 0;
             if (shellDistance(pointAt(0)) > 0) return false;
             // Find the first point where the sightline reaches the bulged shell,
@@ -22063,7 +22144,7 @@
                         if (shellDistance(pointAt(mid)) >= 0) high = mid;
                         else low = mid;
                     }
-                    return roundJunctionSideApertureContainsLocalPoint(
+                    return roundJunctionApertureContainsLocalPoint(
                         seg,
                         pointAt(high),
                         radius,
@@ -22083,13 +22164,11 @@
                 const seg = builder.segments[index];
                 if (!segmentIsRoundJunction(seg)) continue;
                 const local = shipSegmentLocal(point, seg);
-                if (local.localZ < -padding || local.localZ > local.length + padding) continue;
-                const radius = roundJunctionProfileRadius(
-                    seg,
-                    local.localZ,
-                    seg.radius || builder.radius
-                ) + padding;
-                const margin = radius - local.radialDist;
+                const radius = roundJunctionHubRadius(seg) + padding;
+                const margin = radius - Math.hypot(
+                    local.radialDist,
+                    local.localZ - local.length * 0.5
+                );
                 if (margin < 0) continue;
                 if (!best || margin > best.margin) best = { index, margin };
             }
@@ -22551,6 +22630,16 @@
                     continue;
                 }
                 const local = shipSegmentLocal(ship, seg);
+                if (segmentIsRoundJunction(seg)) {
+                    const centerDist = Math.hypot(
+                        local.radialDist,
+                        local.localZ - local.length * 0.5
+                    );
+                    if (centerDist <= roundJunctionHubRadius(seg) * 1.06 + mouthPad) {
+                        return true;
+                    }
+                    continue;
+                }
                 const radius = segmentIsRoundJunction(seg)
                     ? roundJunctionProfileRadius(seg, local.localZ, seg.radius || builder.radius)
                     : chamberProfileRadius(seg, local.localZ, 1);
@@ -22999,6 +23088,16 @@
         function segmentAxialContainmentDistance(ship, seg) {
             const local = shipSegmentLocal(ship, seg);
             const length = seg.length || builder.length;
+            if (segmentIsRoundJunction(seg)) {
+                const centerDist = Math.hypot(
+                    local.radialDist,
+                    local.localZ - length * 0.5
+                );
+                return Math.max(
+                    0,
+                    centerDist - roundJunctionHubRadius(seg) - TUNNEL_WEBGL_AXIS_LEASH
+                );
+            }
             const radius = segmentIsRoundJunction(seg)
                 ? roundJunctionProfileRadius(seg, local.localZ, seg.radius || builder.radius)
                 : seg.radius || builder.radius;
@@ -23786,6 +23885,56 @@
             return segmentPanelRadiusAt(seg, length * 0.5, joinBoost, index);
         }
 
+        function roundJunctionEndpointRenderTrim(seg, endKind) {
+            if (!seg || segmentIsRoundJunction(seg) || segmentIsRectRoom(seg) || segmentIsChamber(seg)) {
+                return null;
+            }
+            const point = endKind === 'from' ? seg.from : seg.to;
+            const away = endKind === 'from'
+                ? normalize(seg.forward)
+                : scaleVec(normalize(seg.forward), -1);
+            const tubeRadius = Math.max(1, Number(seg.radius) || builder.radius);
+            let best = null;
+            for (const hub of builder.segments) {
+                if (!segmentIsRoundJunction(hub)) continue;
+                const states = junctionFaceStates(hub);
+                const hubCenter = pointOnSegment(hub, 0.5);
+                const hubRadius = roundJunctionHubRadius(hub);
+                for (const face of RECT_ROOM_FACES) {
+                    if (!states[face]) continue;
+                    const faceCenter = junctionFaceCenter(hub, face);
+                    const tolerance = Math.max(24, tubeRadius * 0.78);
+                    if (!faceCenter || distanceSq(point, faceCenter) > tolerance * tolerance) continue;
+                    const outward = junctionFaceOutward(hub, face);
+                    if (dot(away, outward) < 0.82) continue;
+                    const centerRel = subVec(point, hubCenter);
+                    const authoredAxisDistance = dot(centerRel, outward);
+                    const transverse = subVec(
+                        centerRel,
+                        scaleVec(outward, authoredAxisDistance)
+                    );
+                    // An off-center pipe meets the sphere sooner on its near side.
+                    // Trim to that conservative intersection so the complete
+                    // circumference overlaps behind the doorway instead of leaving
+                    // a crescent gap on builder geometry that is not perfectly flush.
+                    const effectiveRadius = tubeRadius + Math.hypot(
+                        transverse.x,
+                        transverse.y,
+                        transverse.z
+                    );
+                    if (effectiveRadius >= hubRadius) continue;
+                    const shellAxisDistance = Math.sqrt(
+                        Math.max(0, hubRadius * hubRadius - effectiveRadius * effectiveRadius)
+                    );
+                    best = Math.max(
+                        best ?? 0,
+                        shellAxisDistance - authoredAxisDistance - ROUND_JUNCTION_SHELL_OVERLAP
+                    );
+                }
+            }
+            return best === null ? null : Math.max(0, best);
+        }
+
         function getSegmentPanelZExtent(seg, routeEntry = null) {
             const length = seg.length || builder.length;
             const fromOpen = isOpenSegmentEnd(seg, 'from');
@@ -23814,9 +23963,27 @@
             if (routeEntry && !routeEntry.isShipSeg && !routeEntry.isForwardPath) {
                 joinOverlap = 0;
             }
+            if (segmentIsRoundJunction(seg)) {
+                const hubRadius = roundJunctionHubRadius(seg);
+                return {
+                    zStart: length * 0.5 - hubRadius,
+                    zEnd: length * 0.5 + hubRadius,
+                    fromOpen,
+                    toOpen,
+                    trimHardFrom,
+                    trimHardTo,
+                    length
+                };
+            }
+            const fromHubTrim = roundJunctionEndpointRenderTrim(seg, 'from');
+            const toHubTrim = roundJunctionEndpointRenderTrim(seg, 'to');
             return {
-                zStart: fromOpen || trimHardFrom ? 0 : -joinOverlap,
-                zEnd: toOpen || trimHardTo ? length : length + joinOverlap,
+                zStart: fromHubTrim !== null
+                    ? fromHubTrim
+                    : (fromOpen || trimHardFrom ? 0 : -joinOverlap),
+                zEnd: toHubTrim !== null
+                    ? length - toHubTrim
+                    : (toOpen || trimHardTo ? length : length + joinOverlap),
                 fromOpen,
                 toOpen,
                 trimHardFrom,
@@ -23921,7 +24088,7 @@
                 const b = zA + (zB - zA) * ((step + 1) / steps);
                 const localZ = (a + b) * 0.5;
                 const profileRadius = roundJunctionProfileRadius(seg, localZ, radius);
-                const open = roundJunctionSideApertureContainsLocalPoint(seg, {
+                const open = roundJunctionApertureContainsLocalPoint(seg, {
                     x: Math.cos(theta) * profileRadius,
                     y: Math.sin(theta) * profileRadius,
                     z: localZ
