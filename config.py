@@ -163,7 +163,7 @@ CLAUDE_REVIEWER_APPLY_SIZE_ADVICE = True
 # their receiver checklist passes, immediately before trade execution.
 # Source-specific flags let each scanner be tested independently.
 BREAKOUT_CONTRARIAN_MODE = True
-BREAKOUT_SCANNER_CONTRARIAN = Truw
+BREAKOUT_SCANNER_CONTRARIAN = True
 FUNDING_SCANNER_CONTRARIAN  = False
 GAP_SCANNER_CONTRARIAN      = False
 

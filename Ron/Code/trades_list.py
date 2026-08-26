@@ -141,7 +141,8 @@ def get_open_trades(conn):
     return [dict(r) for r in c.fetchall()]
 
 
-def proc_dict(
+    
+    def proc_dict(
     loc_trade_list,
     strat_name,
     key,
@@ -511,7 +512,7 @@ def print_group_summary(
     start_date,
     end_date,
 ):
-    """Print this grups summary list"""
+    """Print this groups summary list"""
     res_dict = proc_dict(
         trade_list,
         group_name,
@@ -640,6 +641,13 @@ Usage examples:
         metavar="",
         help="ALL or a <Comma seperated list of DB table keys to index and search>",
     )
+    parser.add_argument(
+        "-sk",
+        "--sort-keys",
+        metavar="",
+        help="<Comma seperated list of DB table keys to sort results. one entry per key from -k>",
+    )
+   
     parser.add_argument(
         "-N",
         "--Names",
@@ -770,6 +778,10 @@ Usage examples:
 
     key_list = (
         args.key.split(",") if args.key else []
+    )
+
+    sort_list = (
+         args.sort.split(",") if args.sort else []
     )
 
     if len(key_list) > 5:

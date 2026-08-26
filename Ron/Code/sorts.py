@@ -2,11 +2,57 @@ import sys
 import argparse
 from local_functions import (
     chkstr_isnum,
-    bubble_sort,
-    insertion_sort,
+#    bubble_sort,
+#    insertion_sort,
 )
 
-debug = False
+debug = True
+
+def insertion_sort(arr):
+    """ Takes a list and sorts a copy of it susing insertion sort
+        returns the sported list, leaving original intact
+    """
+    debug = True
+    # Make a copy of the list
+    pass_count = 0
+    tmp_list = arr.copy()
+    # Loop through the list, 2nd item to last
+    for pass_cnt in range(1, len(tmp_list)):
+        # Store current item we want to sort into position
+        key = tmp_list[pass_cnt]
+        # setup to look left
+        pos = pass_cnt - 1
+        #  shift larger elements to the right
+        while pos >= 0 and tmp_list[pos] > key:
+            tmp_list[pos+1] = tmp_list[pos]
+            pos -= 1
+            pass_count += 1
+
+        # Insert our current term into the correct spot
+        tmp_list[pos+1] =key
+        if debug:
+             print(f'inner loop {pass_count}: {tmp_list}')
+    if debug:
+        print(f'Insertion: after inner loop {pass_count}: {tmp_list}')
+        print(f'Insertio: Passes made: {pass_count}')
+    return(tmp_list)
+    
+    
+def bubble_sort(lst):
+    debug = True
+    tmp_lst = lst.copy()
+    pass_count = 0
+    for pass_num in range(1,len(tmp_lst)):
+        for pos in range(len(tmp_lst) - 1):
+            if tmp_lst[pos] > tmp_lst[pos + 1]:
+                tmp_lst[pos], tmp_lst[pos+1] = tmp_lst[pos+1], tmp_lst[pos]
+            pass_count += 1
+        if debug:
+            print(f'inside inner loop {pass_count}: {tmp_lst}')
+    if debug:
+        print(f'Bubble: after all loops {pass_count}: {tmp_lst}')
+        print(f'Bubble: Passes made: {pass_count}')
+    return tmp_lst
 
 
 def main():
@@ -102,18 +148,22 @@ Usage examples:
     if (
         insertion and not args.list
     ) or demo_enabled:
-        my_list = [
-            5,
-            6,
-            10,
-            75,
-            99,
-            66,
-            2,
-            57,
-            8,
-            7,
-        ]
+        my_list = []
+        for x in range(1,101):
+            my_list.append(x)
+    
+#        my_list = [
+#            5,
+#            6,
+#            10,
+#            75,
+ #           99,
+ #           66,
+ #           2,
+#            57,
+#            8,
+#            7,
+#        ]
         print(
             f"my_list pre insertion sorted:\n{my_list}"
         )

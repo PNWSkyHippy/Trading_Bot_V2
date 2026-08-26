@@ -6515,17 +6515,13 @@
         // See GAME_DESIGN_BONUS_LEVELS.md.
         // ═════════════════════════════════════════════════════════════════════
         const GULLET_MAZE = [
-            '###############',
-            '#S..#.....#..o#',
-            '#.#.#.###.#.#.#',
-            '#.#.....#.....#',
-            '#.###.#.#.###.#',
-            '#o....#*#....o#',
-            '#.###.#.#.###.#',
-            '#.....#.....#.#',
-            '#.#.#.###.#.#.#',
-            '#o..#.....#...#',
-            '###############'
+            '#########',
+            '#S.#...o#',
+            '#.#.#.#.#',
+            '#...#*..#',
+            '#.#.#.#.#',
+            '#o....#.#',
+            '#########'
         ];
         const GULLET = {
             ORIGIN: { x: 24000, y: 30000, z: 24000 },
@@ -6578,6 +6574,7 @@
             const lerp = (a, b) => a + (b - a) * t;
             return {
                 level: clampedLevel,
+                floors: clampedLevel <= 3 ? 2 : 3,
                 jellySpeed: lerp(GULLET_LEVEL_1.JELLY_SPEED, GULLET.JELLY_SPEED),
                 mawSpeed: lerp(GULLET_LEVEL_1.MAW_SPEED, GULLET.MAW_SPEED),
                 jellyCount: Math.round(lerp(GULLET_LEVEL_1.JELLY_COUNT, GULLET.JELLY_COUNT)),
@@ -6585,7 +6582,9 @@
                 mawSize: lerp(GULLET_LEVEL_1.MAW_SIZE, GULLET.MAW_SIZE),
                 chaseBlend: lerp(GULLET_LEVEL_1.CHASE_BLEND, GULLET.CHASE_BLEND),
                 powerMs: Math.round(lerp(GULLET_LEVEL_1.POWER_MS, GULLET.POWER_MS)),
-                respawnMs: Math.round(lerp(GULLET_LEVEL_1.RESPAWN_MS, GULLET.RESPAWN_MS))
+                respawnMs: Math.round(lerp(GULLET_LEVEL_1.RESPAWN_MS, GULLET.RESPAWN_MS)),
+                gateStride: Math.max(1, Math.round(lerp(3, 1))),
+                powerFloors: Math.max(1, Math.min(GULLET.FLOORS, Math.round(lerp(1, GULLET.FLOORS))))
             };
         }
 
@@ -6691,7 +6690,105 @@
             };
         }
 
-        function buildGulletArena() {
+        function gulletContainingSegmentIndex(point, preferred = null, segments = builder.segments) {
+            if (!point || !segments?.length) return null;
+            if (Number.isInteger(preferred) && preferred >= 0 && preferred < segments.length) {
+                const preferredSeg = segments[preferred];
+                if (preferredSeg && segmentIsRectRoom(preferredSeg)) {
+                    const state = rectRoomDistanceState(point, preferredSeg);
+                    if (state.inside) return preferred;
+                }
+            }
+            let best = null;
+            let bestMargin = -Infinity;
+            for (let i = 0; i < segments.length; i++) {
+                const seg = segments[i];
+                if (!seg || !segmentIsRectRoom(seg)) continue;
+                const state = rectRoomDistanceState(point, seg);
+                if (!state.inside) continue;
+                const margin = state.margin + (seg.junctionCube ? 8 : 0);
+                if (margin > bestMargin) {
+                    bestMargin = margin;
+                    best = i;
+                }
+            }
+            return best;
+        }
+
+        function gulletSegmentIsVerticalShaft(seg) {
+            if (!seg?.from || !seg?.to) return false;
+            const dy = Math.abs(seg.to.y - seg.from.y);
+            const dx = Math.abs(seg.to.x - seg.from.x);
+            const dz = Math.abs(seg.to.z - seg.from.z);
+            return dy > dx && dy > dz && dy > 40;
+        }
+
+        function gulletPointVisible(point, preferredIndex = null) {
+            if (!point || !Number.isInteger(shipSegmentIndex)) return false;
+            const index = gulletContainingSegmentIndex(point, preferredIndex);
+            if (!Number.isInteger(index)) return false;
+            if (index === shipSegmentIndex) return true;
+            if (segmentsWithinTopologyHops(shipSegmentIndex, index, 1)) return true;
+            if (!segmentsWithinTopologyHops(shipSegmentIndex, index, 2)) return false;
+            const neighbors = getTunnelTopologyNeighbors();
+            const shipNbrs = neighbors[shipSegmentIndex] || new Set();
+            const targetNbrs = neighbors[index] || new Set();
+            for (const mid of shipNbrs) {
+                if (!targetNbrs.has(mid)) continue;
+                if (gulletSegmentIsVerticalShaft(builder.segments[mid])) return false;
+                return true;
+            }
+            return false;
+        }
+
+        function snapshotMiniMapExplorationState() {
+            return {
+                storageId: miniMapHud.explorationStorageId,
+                intervals: new Map(miniMapHud.exploredIntervals),
+                lastExploreSegmentIndex: miniMapHud.lastExploreSegmentIndex,
+                lastExploreT: miniMapHud.lastExploreT,
+                lastExplorePoint: miniMapHud.lastExplorePoint
+                    ? { x: miniMapHud.lastExplorePoint.x, y: miniMapHud.lastExplorePoint.y, z: miniMapHud.lastExplorePoint.z }
+                    : null
+            };
+        }
+
+        function restoreMiniMapExplorationState(snap) {
+            miniMapHud.segmentKeysStale = true;
+            if (!snap) {
+                loadMiniMapExploration();
+                return;
+            }
+            miniMapHud.exploredIntervals = new Map(snap.intervals);
+            miniMapHud.explorationStorageId = snap.storageId || '';
+            miniMapHud.lastExploreSegmentIndex = snap.lastExploreSegmentIndex;
+            miniMapHud.lastExploreT = snap.lastExploreT;
+            miniMapHud.lastExplorePoint = snap.lastExplorePoint;
+            miniMapHud.explorationDirty = false;
+        }
+
+        function gulletRevealShipRoom() {
+            if (!Number.isInteger(shipSegmentIndex)) return;
+            const key = miniMapSegmentKey(shipSegmentIndex);
+            if (!key) return;
+            miniMapHud.exploredIntervals.set(key, { min: 0, max: 1 });
+            miniMapHud.explorationDirty = true;
+        }
+
+        function beginGulletMiniMapFog() {
+            miniMapHud.exploredIntervals = new Map();
+            miniMapHud.segmentKeysStale = true;
+            rebuildMiniMapSegmentKeys();
+            miniMapHud.explorationStorageId = `gullet:${gulletPhase.level}:${Date.now()}`;
+            miniMapHud.lastExploreSegmentIndex = null;
+            miniMapHud.lastExploreT = null;
+            miniMapHud.lastExplorePoint = null;
+            miniMapHud.explorationDirty = false;
+        }
+
+        function buildGulletArena(level = 1) {
+            const diff = gulletDifficulty(level);
+            const floors = Math.max(1, Math.min(GULLET.FLOORS, Math.round(Number(diff.floors) || GULLET.FLOORS)));
             const rows = GULLET_MAZE.length;
             const cols = GULLET_MAZE[0].length;
             const dirs = [
@@ -6733,7 +6830,7 @@
 
             const segments = [];
             const corridorDone = new Set();
-            for (let floor = 0; floor < GULLET.FLOORS; floor++) {
+            for (let floor = 0; floor < floors; floor++) {
                 const floorColor = GULLET.FLOOR_COLORS[floor] || GULLET.FLOOR_COLORS[0];
                 for (const node of intersections) {
                     for (const dir of dirs) {
@@ -6775,12 +6872,12 @@
                         if (hall) segments.push(hall);
                     }
                     const opens = ensureOpens(floor, node.c, node.r);
-                    if (floor < GULLET.FLOORS - 1) opens.ceiling = true;
+                    if (floor < floors - 1) opens.ceiling = true;
                     if (floor > 0) opens.floor = true;
                 }
             }
 
-            for (let floor = 0; floor < GULLET.FLOORS; floor++) {
+            for (let floor = 0; floor < floors; floor++) {
                 const floorColor = GULLET.FLOOR_COLORS[floor] || GULLET.FLOOR_COLORS[0];
                 for (const node of intersections) {
                     const center = gulletTileWorld(node.c, node.r, floor);
@@ -6793,7 +6890,7 @@
                         { junction: true, floorColor }
                     );
                     if (cube) segments.push(cube);
-                    if (floor < GULLET.FLOORS - 1) {
+                    if (floor < floors - 1) {
                         const upper = gulletTileWorld(node.c, node.r, floor + 1);
                         const lowerCeil = { x: center.x, y: center.y - half, z: center.z };
                         const upperFloor = { x: upper.x, y: upper.y + half, z: upper.z };
@@ -6823,7 +6920,7 @@
                 graphIndex.set(key, idx);
                 return idx;
             };
-            for (let floor = 0; floor < GULLET.FLOORS; floor++) {
+            for (let floor = 0; floor < floors; floor++) {
                 for (const tile of walkTiles) pushNode(tile.c, tile.r, floor);
             }
             const link = (ia, ib) => {
@@ -6842,7 +6939,7 @@
                     if (node.floor > 0) {
                         link(graphIndex.get(node.key), graphIndex.get(gulletTileKey(node.c, node.r, node.floor - 1)));
                     }
-                    if (node.floor < GULLET.FLOORS - 1) {
+                    if (node.floor < floors - 1) {
                         link(graphIndex.get(node.key), graphIndex.get(gulletTileKey(node.c, node.r, node.floor + 1)));
                     }
                 }
@@ -6851,31 +6948,41 @@
             const targets = [];
             const basisR = { x: 1, y: 0, z: 0 };
             const basisD = { x: 0, y: 1, z: 0 };
-            for (let floor = 0; floor < GULLET.FLOORS; floor++) {
+            for (let floor = 0; floor < floors; floor++) {
+                let hallN = 0;
                 for (const tile of walkTiles) {
                     const ch = tile.ch;
                     if (ch === '*' || ch === 'S') continue;
-                    const point = gulletTileWorld(tile.c, tile.r, floor);
                     const isPower = ch === 'o';
+                    if (isPower && floor >= diff.powerFloors) continue;
+                    if (!isPower) {
+                        if (gulletIsIntersection(tile.c, tile.r)) continue;
+                        const take = (hallN % diff.gateStride) === 0;
+                        hallN += 1;
+                        if (!take) continue;
+                    }
+                    const point = gulletTileWorld(tile.c, tile.r, floor);
                     targets.push({
                         id: `gullet-${floor}-${tile.c}-${tile.r}`,
                         label: isPower ? 'SURGE' : '',
                         explosive: false,
                         gulletPower: isPower,
                         gulletGate: !isPower,
+                        authored: true,
                         point: copyVec(point),
                         right: copyVec(basisR),
                         down: copyVec(basisD),
                         size: isPower ? 70 : 42,
                         branch: false,
                         junction: gulletIsIntersection(tile.c, tile.r),
-                        segmentIndex: null
+                        segmentIndex: gulletContainingSegmentIndex(point, null, segments)
                     });
                 }
             }
 
+            const nestFloor = Math.min(1, floors - 1);
             const startIdx = graphIndex.get(gulletTileKey(startTile.c, startTile.r, 0));
-            const nestIdx = graphIndex.get(gulletTileKey(nestTiles[0].c, nestTiles[0].r, 1));
+            const nestIdx = graphIndex.get(gulletTileKey(nestTiles[0].c, nestTiles[0].r, nestFloor));
             return {
                 segments,
                 targets,
@@ -6991,11 +7098,14 @@
         function startGulletPhase(level = 1) {
             if (gulletPhase.active) return;
             if (galagaPhase.active) endGalagaPhase(true);
-            const arena = buildGulletArena();
+            const diff = gulletDifficulty(level);
+            const arena = buildGulletArena(diff.level);
             if (!arena.segments.length) {
                 keyboardStatus.innerText = 'Gullet arena failed to build';
                 return;
             }
+            persistMiniMapExploration(true);
+            const explorationSnap = snapshotMiniMapExplorationState();
             gulletPhase.host = {
                 segments: builder.segments,
                 targets: builder.targets,
@@ -7007,7 +7117,8 @@
                 rocketCachesRuntime: rocketCaches.slice(),
                 x: posX, y: posY, z: posZ,
                 f: copyVec(shipForward), r: copyVec(shipRight), d: copyVec(shipDown),
-                roll: shipRollAngle, segIdx: shipSegmentIndex, hud: hudDisplayMode
+                roll: shipRollAngle, segIdx: shipSegmentIndex, hud: hudDisplayMode,
+                exploration: explorationSnap
             };
             builder.segments = arena.segments;
             builder.targets = arena.targets;
@@ -7020,7 +7131,7 @@
             rebuildRocketCaches();
             rebuildTunnelSentries();
             gulletPhase.active = true;
-            gulletPhase.level = gulletDifficulty(level).level;
+            gulletPhase.level = diff.level;
             gulletPhase.state = 'intro';
             gulletPhase.stateUntil = performance.now() + GULLET.INTRO_MS;
             gulletPhase.score = 0;
@@ -7031,10 +7142,12 @@
             gulletSpawnHunters(arena);
             resetPlayerCombatState();
             gulletPlacePlayer();
+            beginGulletMiniMapFog();
+            gulletRevealShipRoom();
             setHudMode('min');
             playSfx('portal_whoosh', { worldPos: { x: posX, y: posY, z: posZ } });
             keyboardStatus.innerText =
-                `GULLET ${gulletPhase.level} — ${arena.segments.length} rooms, ${arena.targets.length} gates`;
+                `GULLET ${gulletPhase.level} — ${diff.floors} floors, ${arena.segments.length} rooms, ${arena.targets.length} gates`;
         }
 
         function endGulletPhase(restorePosition = true) {
@@ -7070,6 +7183,7 @@
                     syncViewToShip();
                 }
                 setHudMode(host.hud || 'full');
+                restoreMiniMapExplorationState(host.exploration);
             }
             gulletPhase.host = null;
             keyboardStatus.innerText =
@@ -7120,7 +7234,7 @@
         }
 
         function serializeGulletArenaMap() {
-            const arena = buildGulletArena();
+            const arena = buildGulletArena(1);
             if (!arena.segments.length) return null;
             const startNode = arena.graph[arena.startIdx];
             const neighbor = startNode?.neighbors?.[0];
@@ -10744,6 +10858,9 @@
                     id: target.id,
                     label: target.label || '',
                     explosive: !!target.explosive,
+                    gulletPower: !!target.gulletPower,
+                    gulletGate: !!target.gulletGate,
+                    authored: !!target.authored || !!target.gulletGate || !!target.gulletPower,
                     point: target.point,
                     right: target.right,
                     down: target.down,
@@ -10941,6 +11058,22 @@
             }
 
             return { loaded: false };
+        }
+
+        async function bootstrapGulletMazeIfMissing() {
+            if (RUNNING_FROM_FILE) return;
+            try {
+                if (localStorage.getItem(namedMapKey('gullet-maze-1'))) return;
+                const response = await fetch('data/gullet-maze-library.json');
+                if (!response.ok) return;
+                const bundle = await response.json();
+                const result = importMapLibraryBundle(bundle, { merge: true, applyAutosave: false });
+                if (result.ok) {
+                    console.info('Astral Drift: added Gullet Maze 1 to the map library');
+                }
+            } catch (err) {
+                console.warn('Astral Drift: Gullet maze bootstrap skipped', err);
+            }
         }
 
         function exportMapLibraryBackup() {
@@ -11236,7 +11369,9 @@
             mapMouse.targetRangeStartId = null;
             clearSelectedRangeBend();
             repairBuilderBasis();
-            sanitizeMapSegments();
+            if (!map.gulletArena) {
+                sanitizeMapSegments();
+            }
             // sanitizeMapSegments() can further mutate builder.segments (repair tiny/
             // duplicate spans) after the invalidation above, so invalidate again before
             // rebuildTunnelTargets() below consumes junction-mouth data.
@@ -11427,7 +11562,8 @@
             originWarn.textContent =
                 'Saves are per browser origin. file:// and http://localhost:8127 are separate storage. ' +
                 'Use Export Library Backup in one session, then Import Library Backup in the other. ' +
-                'On localhost, you can also drop a backup at data/map_library_bundle.json for auto-load.';
+                'On localhost, you can also drop a backup at data/map_library_bundle.json for auto-load. ' +
+                'Gullet Maze 1: Alt+Shift+P or Export Gullet Maze, then Import Library Backup on the other origin.';
             mapLibraryDialog.appendChild(originWarn);
 
             const toolRow = document.createElement('div');
@@ -11458,12 +11594,21 @@
             exportCurrentButton.textContent = 'Export Current';
             exportCurrentButton.addEventListener('click', exportCurrentTunnelMap);
 
+            const exportGulletButton = document.createElement('button');
+            exportGulletButton.type = 'button';
+            exportGulletButton.textContent = 'Export Gullet Maze';
+            exportGulletButton.addEventListener('click', () => {
+                exportGulletArenaBackup();
+                showMapLibraryDialog();
+            });
+
             toolRow.append(
                 importLibraryButton,
                 importLibraryPasteButton,
                 exportLibraryButton,
                 importButton,
-                exportCurrentButton
+                exportCurrentButton,
+                exportGulletButton
             );
             mapLibraryDialog.appendChild(toolRow);
 
@@ -19148,13 +19293,31 @@
             const previous = builder.targets.slice();
             const next = [];
             const usedIds = new Set();
+            for (const existing of previous) {
+                if (!(existing.gulletGate || existing.gulletPower || existing.authored)) continue;
+                const id = uniqueTargetId(existing.id, usedIds);
+                next.push({
+                    ...existing,
+                    id,
+                    point: copyVec(existing.point),
+                    right: copyVec(existing.right),
+                    down: copyVec(existing.down)
+                });
+            }
             for (const placement of placements) {
+                if (next.some(existing =>
+                    distanceSq(existing.point, placement.point) <
+                    Math.pow(Math.max(placement.size, existing.size || 48) * 0.75, 2)
+                )) continue;
                 const matched = matchExistingTarget(placement, previous, usedIds);
                 const id = uniqueTargetId(matched?.id, usedIds);
                 next.push({
                     id,
                     label: matched?.label || '',
                     explosive: !!matched?.explosive,
+                    gulletPower: !!matched?.gulletPower,
+                    gulletGate: !!matched?.gulletGate,
+                    authored: !!matched?.authored,
                     point: copyVec(placement.point),
                     right: copyVec(placement.right),
                     down: copyVec(placement.down),
@@ -19177,6 +19340,9 @@
                     id: uniqueTargetId(raw.id, usedIds),
                     label: raw.label || '',
                     explosive: !!raw.explosive,
+                    gulletPower: !!raw.gulletPower,
+                    gulletGate: !!raw.gulletGate,
+                    authored: !!raw.authored || !!raw.gulletGate || !!raw.gulletPower,
                     point: copyVec(raw.point),
                     right: normalize(copyVec(raw.right)),
                     down: normalize(copyVec(raw.down)),
