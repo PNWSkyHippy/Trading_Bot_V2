@@ -4,9 +4,14 @@
 
 ## Update Timeline (newest first)
 
+### 2026-08-26 — Gullet Maze 1 hard copy + playtest fixes
+
+- `data/gullet-maze-library.json` is a shareable library backup for Gullet Maze 1 (`localhost:8127` vs live vs `file://` do not share localStorage). Alt+Shift+P or the map-library **Export Gullet Maze** button also downloads it. `bootstrapGulletMazeIfMissing()` merges that named map into the current origin without replacing the player's tunnel.
+- Level 1–3 use 2 floors and fewer mid-hall gates. HUD mini-map starts blank and fills room-by-room; gates, jellies, and the Maw no longer draw through walls; lasers cannot clear gates (fly-through only).
+
 ### 2026-08-25 — Gullet arcade maze phase
 
-- `startGulletPhase(level)` / Alt+P swaps in a temporary 3-floor rectangular-room arena, then restores the host map without saving. Target-box gates, surge stashes, jellyfish patrols, and an unkillable Maw live only while the phase is active.
+- `startGulletPhase(level)` / Alt+P swaps in a temporary rectangular-room arena (2 floors on L1–3, 3 from L4), then restores the host map without saving. Target-box gates, surge stashes, jellyfish patrols, and an unkillable Maw live only while the phase is active.
 - Map save is blocked during Gullet so the generated arena cannot overwrite the player's tunnel.
 
 ### 2026-08-24 — Scoped large-map rendering optimization

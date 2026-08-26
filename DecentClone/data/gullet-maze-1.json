@@ -1,0 +1,6248 @@
+{
+  "tunnelVisualMode": "textured",
+  "defaultWallTextureId": "blackgloss",
+  "defaultRibColor": "#2ad4ff",
+  "defaultWallOpaque": true,
+  "gulletArena": true,
+  "gulletLevel": 1,
+  "segments": [
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 30000.0,
+        "z": 24090.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 30000.0,
+        "z": 24270.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 30000.0,
+        "z": 24270.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 30000.0,
+        "z": 24450.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24990.0,
+        "y": 30000.0,
+        "z": 24180.0
+      },
+      "to": {
+        "x": 25170.0,
+        "y": 30000.0,
+        "z": 24180.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -1.0
+      },
+      "down": {
+        "x": -0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 30000.0,
+        "z": 24270.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 30000.0,
+        "z": 24450.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 30000.0,
+        "z": 24270.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 30000.0,
+        "z": 24450.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24270.0,
+        "y": 30000.0,
+        "z": 24540.0
+      },
+      "to": {
+        "x": 24450.0,
+        "y": 30000.0,
+        "z": 24540.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -1.0
+      },
+      "down": {
+        "x": -0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 30000.0,
+        "z": 24630.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 30000.0,
+        "z": 24810.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 30000.0,
+        "z": 24630.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 30000.0,
+        "z": 24810.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24990.0,
+        "y": 30000.0,
+        "z": 24540.0
+      },
+      "to": {
+        "x": 25170.0,
+        "y": 30000.0,
+        "z": 24540.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -1.0
+      },
+      "down": {
+        "x": -0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 30000.0,
+        "z": 24630.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 30000.0,
+        "z": 24810.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 30000.0,
+        "z": 24630.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 30000.0,
+        "z": 24810.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24270.0,
+        "y": 30000.0,
+        "z": 24900.0
+      },
+      "to": {
+        "x": 24450.0,
+        "y": 30000.0,
+        "z": 24900.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -1.0
+      },
+      "down": {
+        "x": -0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24630.0,
+        "y": 30000.0,
+        "z": 24900.0
+      },
+      "to": {
+        "x": 24810.0,
+        "y": 30000.0,
+        "z": 24900.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -1.0
+      },
+      "down": {
+        "x": -0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 29670.0,
+        "z": 24270.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 29670.0,
+        "z": 24450.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24990.0,
+        "y": 29670.0,
+        "z": 24180.0
+      },
+      "to": {
+        "x": 25170.0,
+        "y": 29670.0,
+        "z": 24180.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -1.0
+      },
+      "down": {
+        "x": -0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 29670.0,
+        "z": 24270.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 29670.0,
+        "z": 24450.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 29670.0,
+        "z": 24270.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 29670.0,
+        "z": 24450.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24270.0,
+        "y": 29670.0,
+        "z": 24540.0
+      },
+      "to": {
+        "x": 24450.0,
+        "y": 29670.0,
+        "z": 24540.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -1.0
+      },
+      "down": {
+        "x": -0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 29670.0,
+        "z": 24630.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 29670.0,
+        "z": 24810.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 29670.0,
+        "z": 24630.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 29670.0,
+        "z": 24810.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24990.0,
+        "y": 29670.0,
+        "z": 24540.0
+      },
+      "to": {
+        "x": 25170.0,
+        "y": 29670.0,
+        "z": 24540.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -1.0
+      },
+      "down": {
+        "x": -0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 29670.0,
+        "z": 24630.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 29670.0,
+        "z": 24810.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 29670.0,
+        "z": 24630.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 29670.0,
+        "z": 24810.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24270.0,
+        "y": 29670.0,
+        "z": 24900.0
+      },
+      "to": {
+        "x": 24450.0,
+        "y": 29670.0,
+        "z": 24900.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -1.0
+      },
+      "down": {
+        "x": -0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24630.0,
+        "y": 29670.0,
+        "z": 24900.0
+      },
+      "to": {
+        "x": 24810.0,
+        "y": 29670.0,
+        "z": 24900.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -1.0
+      },
+      "down": {
+        "x": -0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 29340.0,
+        "z": 24270.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 29340.0,
+        "z": 24450.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24990.0,
+        "y": 29340.0,
+        "z": 24180.0
+      },
+      "to": {
+        "x": 25170.0,
+        "y": 29340.0,
+        "z": 24180.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -1.0
+      },
+      "down": {
+        "x": -0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 29340.0,
+        "z": 24270.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 29340.0,
+        "z": 24450.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 29340.0,
+        "z": 24270.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 29340.0,
+        "z": 24450.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24270.0,
+        "y": 29340.0,
+        "z": 24540.0
+      },
+      "to": {
+        "x": 24450.0,
+        "y": 29340.0,
+        "z": 24540.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -1.0
+      },
+      "down": {
+        "x": -0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 29340.0,
+        "z": 24630.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 29340.0,
+        "z": 24810.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 29340.0,
+        "z": 24630.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 29340.0,
+        "z": 24810.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24990.0,
+        "y": 29340.0,
+        "z": 24540.0
+      },
+      "to": {
+        "x": 25170.0,
+        "y": 29340.0,
+        "z": 24540.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -1.0
+      },
+      "down": {
+        "x": -0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 29340.0,
+        "z": 24630.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 29340.0,
+        "z": 24810.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 29340.0,
+        "z": 24630.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 29340.0,
+        "z": 24810.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24270.0,
+        "y": 29340.0,
+        "z": 24900.0
+      },
+      "to": {
+        "x": 24450.0,
+        "y": 29340.0,
+        "z": 24900.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -1.0
+      },
+      "down": {
+        "x": -0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24630.0,
+        "y": 29340.0,
+        "z": 24900.0
+      },
+      "to": {
+        "x": 24810.0,
+        "y": 29340.0,
+        "z": 24900.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": -1.0
+      },
+      "down": {
+        "x": -0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 29910.0,
+        "z": 24180.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 29760.0,
+        "z": 24180.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24360.0,
+        "y": 30000.0,
+        "z": 24090.0
+      },
+      "to": {
+        "x": 24360.0,
+        "y": 30000.0,
+        "z": 24270.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": true,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24360.0,
+        "y": 29910.0,
+        "z": 24180.0
+      },
+      "to": {
+        "x": 24360.0,
+        "y": 29760.0,
+        "z": 24180.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24720.0,
+        "y": 30000.0,
+        "z": 24090.0
+      },
+      "to": {
+        "x": 24720.0,
+        "y": 30000.0,
+        "z": 24270.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24720.0,
+        "y": 29910.0,
+        "z": 24180.0
+      },
+      "to": {
+        "x": 24720.0,
+        "y": 29760.0,
+        "z": 24180.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 30000.0,
+        "z": 24090.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 30000.0,
+        "z": 24270.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": true,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 29910.0,
+        "z": 24180.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 29760.0,
+        "z": 24180.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 30000.0,
+        "z": 24090.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 30000.0,
+        "z": 24270.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": true,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 29910.0,
+        "z": 24180.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 29760.0,
+        "z": 24180.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 30000.0,
+        "z": 24270.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 30000.0,
+        "z": 24450.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 29910.0,
+        "z": 24360.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 29760.0,
+        "z": 24360.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 30000.0,
+        "z": 24450.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 30000.0,
+        "z": 24630.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 29910.0,
+        "z": 24540.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 29760.0,
+        "z": 24540.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 30000.0,
+        "z": 24450.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 30000.0,
+        "z": 24630.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": true,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 29910.0,
+        "z": 24540.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 29760.0,
+        "z": 24540.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 30000.0,
+        "z": 24450.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 30000.0,
+        "z": 24630.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 29910.0,
+        "z": 24540.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 29760.0,
+        "z": 24540.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 30000.0,
+        "z": 24450.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 30000.0,
+        "z": 24630.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": true,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 29910.0,
+        "z": 24540.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 29760.0,
+        "z": 24540.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 30000.0,
+        "z": 24810.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 30000.0,
+        "z": 24990.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 29910.0,
+        "z": 24900.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 29760.0,
+        "z": 24900.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 30000.0,
+        "z": 24810.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 30000.0,
+        "z": 24990.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": true,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 29910.0,
+        "z": 24900.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 29760.0,
+        "z": 24900.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 30000.0,
+        "z": 24810.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 30000.0,
+        "z": 24990.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": true,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 29910.0,
+        "z": 24900.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 29760.0,
+        "z": 24900.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 30000.0,
+        "z": 24810.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 30000.0,
+        "z": 24990.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0a1840",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 29910.0,
+        "z": 24900.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 29760.0,
+        "z": 24900.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 29670.0,
+        "z": 24090.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 29670.0,
+        "z": 24270.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": false,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 29580.0,
+        "z": 24180.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 29430.0,
+        "z": 24180.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24360.0,
+        "y": 29670.0,
+        "z": 24090.0
+      },
+      "to": {
+        "x": 24360.0,
+        "y": 29670.0,
+        "z": 24270.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": true,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24360.0,
+        "y": 29580.0,
+        "z": 24180.0
+      },
+      "to": {
+        "x": 24360.0,
+        "y": 29430.0,
+        "z": 24180.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24720.0,
+        "y": 29670.0,
+        "z": 24090.0
+      },
+      "to": {
+        "x": 24720.0,
+        "y": 29670.0,
+        "z": 24270.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": false,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24720.0,
+        "y": 29580.0,
+        "z": 24180.0
+      },
+      "to": {
+        "x": 24720.0,
+        "y": 29430.0,
+        "z": 24180.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 29670.0,
+        "z": 24090.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 29670.0,
+        "z": 24270.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": true,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 29580.0,
+        "z": 24180.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 29430.0,
+        "z": 24180.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 29670.0,
+        "z": 24090.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 29670.0,
+        "z": 24270.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": true,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 29580.0,
+        "z": 24180.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 29430.0,
+        "z": 24180.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 29670.0,
+        "z": 24270.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 29670.0,
+        "z": 24450.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 29580.0,
+        "z": 24360.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 29430.0,
+        "z": 24360.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 29670.0,
+        "z": 24450.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 29670.0,
+        "z": 24630.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": false,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 29580.0,
+        "z": 24540.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 29430.0,
+        "z": 24540.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 29670.0,
+        "z": 24450.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 29670.0,
+        "z": 24630.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": true,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 29580.0,
+        "z": 24540.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 29430.0,
+        "z": 24540.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 29670.0,
+        "z": 24450.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 29670.0,
+        "z": 24630.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": false,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 29580.0,
+        "z": 24540.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 29430.0,
+        "z": 24540.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 29670.0,
+        "z": 24450.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 29670.0,
+        "z": 24630.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": true,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 29580.0,
+        "z": 24540.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 29430.0,
+        "z": 24540.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 29670.0,
+        "z": 24810.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 29670.0,
+        "z": 24990.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": false,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 29580.0,
+        "z": 24900.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 29430.0,
+        "z": 24900.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 29670.0,
+        "z": 24810.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 29670.0,
+        "z": 24990.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": true,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 29580.0,
+        "z": 24900.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 29430.0,
+        "z": 24900.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 29670.0,
+        "z": 24810.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 29670.0,
+        "z": 24990.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": true,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 29580.0,
+        "z": 24900.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 29430.0,
+        "z": 24900.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 29670.0,
+        "z": 24810.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 29670.0,
+        "z": 24990.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#0c2436",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": true,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 29580.0,
+        "z": 24900.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 29430.0,
+        "z": 24900.0
+      },
+      "kind": "rect-room",
+      "length": 150.0,
+      "radius": 76.0,
+      "forward": {
+        "x": 0.0,
+        "y": -1.0,
+        "z": 0.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": -0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": false,
+      "roomWidth": 152.0,
+      "roomHeight": 152.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#08101c",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": false,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 29340.0,
+        "z": 24090.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 29340.0,
+        "z": 24270.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": false,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24360.0,
+        "y": 29340.0,
+        "z": 24090.0
+      },
+      "to": {
+        "x": 24360.0,
+        "y": 29340.0,
+        "z": 24270.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": true,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24720.0,
+        "y": 29340.0,
+        "z": 24090.0
+      },
+      "to": {
+        "x": 24720.0,
+        "y": 29340.0,
+        "z": 24270.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": false,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 29340.0,
+        "z": 24090.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 29340.0,
+        "z": 24270.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": true,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 29340.0,
+        "z": 24090.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 29340.0,
+        "z": 24270.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": true,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 29340.0,
+        "z": 24270.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 29340.0,
+        "z": 24450.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": true,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 29340.0,
+        "z": 24450.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 29340.0,
+        "z": 24630.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": false,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 29340.0,
+        "z": 24450.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 29340.0,
+        "z": 24630.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": true,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 29340.0,
+        "z": 24450.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 29340.0,
+        "z": 24630.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": false,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 29340.0,
+        "z": 24450.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 29340.0,
+        "z": 24630.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": false,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": true,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24180.0,
+        "y": 29340.0,
+        "z": 24810.0
+      },
+      "to": {
+        "x": 24180.0,
+        "y": 29340.0,
+        "z": 24990.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": false,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24540.0,
+        "y": 29340.0,
+        "z": 24810.0
+      },
+      "to": {
+        "x": 24540.0,
+        "y": 29340.0,
+        "z": 24990.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": true,
+      "roomOpenLeft": true,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 24900.0,
+        "y": 29340.0,
+        "z": 24810.0
+      },
+      "to": {
+        "x": 24900.0,
+        "y": 29340.0,
+        "z": 24990.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": true,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    },
+    {
+      "from": {
+        "x": 25260.0,
+        "y": 29340.0,
+        "z": 24810.0
+      },
+      "to": {
+        "x": 25260.0,
+        "y": 29340.0,
+        "z": 24990.0
+      },
+      "kind": "rect-room",
+      "length": 180.0,
+      "radius": 90.0,
+      "forward": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 1.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "branch": false,
+      "branchMouth": false,
+      "generated": true,
+      "wallTextureId": "blackgloss",
+      "entranceFrameId": "",
+      "entranceFrameEnd": "start",
+      "ribColor": "#2ad4ff",
+      "wallOpaque": true,
+      "capStart": false,
+      "capEnd": true,
+      "autoJoinLocked": true,
+      "chamber": false,
+      "rectRoom": true,
+      "junctionCube": true,
+      "roomWidth": 180.0,
+      "roomHeight": 180.0,
+      "roomFloorTextureId": "__solid__",
+      "roomCeilingTextureId": "__solid__",
+      "roomFloorColor": "#142214",
+      "roomCeilingColor": "#050b18",
+      "roomOpenRight": false,
+      "roomOpenLeft": false,
+      "roomOpenFloor": true,
+      "roomOpenCeiling": false,
+      "gulletArena": true
+    }
+  ],
+  "portals": [],
+  "targets": [
+    {
+      "id": "gullet-0-6-1",
+      "label": "",
+      "explosive": false,
+      "gulletPower": false,
+      "gulletGate": true,
+      "authored": true,
+      "point": {
+        "x": 25080.0,
+        "y": 30000.0,
+        "z": 24180.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "size": 42,
+      "branch": false,
+      "junction": false,
+      "segmentIndex": 2
+    },
+    {
+      "id": "gullet-0-7-1",
+      "label": "SURGE",
+      "explosive": false,
+      "gulletPower": true,
+      "gulletGate": false,
+      "authored": true,
+      "point": {
+        "x": 25260.0,
+        "y": 30000.0,
+        "z": 24180.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "size": 70,
+      "branch": false,
+      "junction": true,
+      "segmentIndex": 44
+    },
+    {
+      "id": "gullet-0-7-2",
+      "label": "",
+      "explosive": false,
+      "gulletPower": false,
+      "gulletGate": true,
+      "authored": true,
+      "point": {
+        "x": 25260.0,
+        "y": 30000.0,
+        "z": 24360.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "size": 42,
+      "branch": false,
+      "junction": false,
+      "segmentIndex": 4
+    },
+    {
+      "id": "gullet-0-1-4",
+      "label": "",
+      "explosive": false,
+      "gulletPower": false,
+      "gulletGate": true,
+      "authored": true,
+      "point": {
+        "x": 24180.0,
+        "y": 30000.0,
+        "z": 24720.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "size": 42,
+      "branch": false,
+      "junction": false,
+      "segmentIndex": 6
+    },
+    {
+      "id": "gullet-0-7-4",
+      "label": "",
+      "explosive": false,
+      "gulletPower": false,
+      "gulletGate": true,
+      "authored": true,
+      "point": {
+        "x": 25260.0,
+        "y": 30000.0,
+        "z": 24720.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "size": 42,
+      "branch": false,
+      "junction": false,
+      "segmentIndex": 10
+    },
+    {
+      "id": "gullet-0-1-5",
+      "label": "SURGE",
+      "explosive": false,
+      "gulletPower": true,
+      "gulletGate": false,
+      "authored": true,
+      "point": {
+        "x": 24180.0,
+        "y": 30000.0,
+        "z": 24900.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "size": 70,
+      "branch": false,
+      "junction": true,
+      "segmentIndex": 56
+    },
+    {
+      "id": "gullet-1-6-1",
+      "label": "",
+      "explosive": false,
+      "gulletPower": false,
+      "gulletGate": true,
+      "authored": true,
+      "point": {
+        "x": 25080.0,
+        "y": 29670.0,
+        "z": 24180.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "size": 42,
+      "branch": false,
+      "junction": false,
+      "segmentIndex": 14
+    },
+    {
+      "id": "gullet-1-7-2",
+      "label": "",
+      "explosive": false,
+      "gulletPower": false,
+      "gulletGate": true,
+      "authored": true,
+      "point": {
+        "x": 25260.0,
+        "y": 29670.0,
+        "z": 24360.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "size": 42,
+      "branch": false,
+      "junction": false,
+      "segmentIndex": 16
+    },
+    {
+      "id": "gullet-1-1-4",
+      "label": "",
+      "explosive": false,
+      "gulletPower": false,
+      "gulletGate": true,
+      "authored": true,
+      "point": {
+        "x": 24180.0,
+        "y": 29670.0,
+        "z": 24720.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "size": 42,
+      "branch": false,
+      "junction": false,
+      "segmentIndex": 18
+    },
+    {
+      "id": "gullet-1-7-4",
+      "label": "",
+      "explosive": false,
+      "gulletPower": false,
+      "gulletGate": true,
+      "authored": true,
+      "point": {
+        "x": 25260.0,
+        "y": 29670.0,
+        "z": 24720.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "size": 42,
+      "branch": false,
+      "junction": false,
+      "segmentIndex": 22
+    },
+    {
+      "id": "gullet-2-6-1",
+      "label": "",
+      "explosive": false,
+      "gulletPower": false,
+      "gulletGate": true,
+      "authored": true,
+      "point": {
+        "x": 25080.0,
+        "y": 29340.0,
+        "z": 24180.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "size": 42,
+      "branch": false,
+      "junction": false,
+      "segmentIndex": 26
+    },
+    {
+      "id": "gullet-2-7-2",
+      "label": "",
+      "explosive": false,
+      "gulletPower": false,
+      "gulletGate": true,
+      "authored": true,
+      "point": {
+        "x": 25260.0,
+        "y": 29340.0,
+        "z": 24360.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "size": 42,
+      "branch": false,
+      "junction": false,
+      "segmentIndex": 28
+    },
+    {
+      "id": "gullet-2-1-4",
+      "label": "",
+      "explosive": false,
+      "gulletPower": false,
+      "gulletGate": true,
+      "authored": true,
+      "point": {
+        "x": 24180.0,
+        "y": 29340.0,
+        "z": 24720.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "size": 42,
+      "branch": false,
+      "junction": false,
+      "segmentIndex": 30
+    },
+    {
+      "id": "gullet-2-7-4",
+      "label": "",
+      "explosive": false,
+      "gulletPower": false,
+      "gulletGate": true,
+      "authored": true,
+      "point": {
+        "x": 25260.0,
+        "y": 29340.0,
+        "z": 24720.0
+      },
+      "right": {
+        "x": 1.0,
+        "y": 0.0,
+        "z": 0.0
+      },
+      "down": {
+        "x": 0.0,
+        "y": 1.0,
+        "z": 0.0
+      },
+      "size": 42,
+      "branch": false,
+      "junction": false,
+      "segmentIndex": 34
+    }
+  ],
+  "rocketCaches": [],
+  "sentries": [],
+  "cursor": {
+    "x": 24180.0,
+    "y": 30000.0,
+    "z": 24180.0
+  },
+  "forward": {
+    "x": 1.0,
+    "y": 0.0,
+    "z": 0.0
+  },
+  "right": {
+    "x": 0.0,
+    "y": 0.0,
+    "z": -1.0
+  },
+  "down": {
+    "x": -0.0,
+    "y": 1.0,
+    "z": 0.0
+  },
+  "bendDeg": 0,
+  "bendRollDeg": 0,
+  "aimYawDeg": 0,
+  "aimPitchDeg": 0,
+  "radius": 90.0
+}

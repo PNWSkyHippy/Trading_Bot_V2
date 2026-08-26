@@ -4,8 +4,8 @@
 
 - **GALAGA 1 of 10 is implemented and playable** inside `index.html`: restricted arcade movement, intro/play/results flow, three enemy waves, bees, butterflies, a boss, enemy fire, shared shield/hull damage, scoring, sprites, and boss special attacks.
 - **GALAGA levels 2–10 remain to be designed and implemented.** The existing first stage is the foundation for the nine additional Galaga stages.
-- **GULLET (maze-chase) level 1 is implemented** in `index.html`: original 3-layer rectangular-room station maze, jellyfish roamers on seeded patrols, surge stashes, unkillable Maw, and target-box gates. Dev trigger: Alt+P. Original layout and creatures — arcade-inspired, not a licensed clone.
-- **GULLET levels 2–10** reuse the same arena; `startGulletPhase(level)` scales speed, count, size, and chase via `gulletDifficulty(level)`.
+- **GULLET (maze-chase) level 1 is implemented** in `index.html`: original 2-floor rectangular-room station maze (3 floors from level 4), jellyfish roamers on seeded patrols, surge stashes, unkillable Maw, and target-box gates. Dev trigger: Alt+P. Original layout and creatures — arcade-inspired, not a licensed clone.
+- **GULLET levels 2–10** reuse the same station plan; `startGulletPhase(level)` scales floors (2 then 3), speed, count, size, and chase via `gulletDifficulty(level)`.
 - **DEFENDER levels 1–10 are not implemented.**
 - Challenge-wave behavior, the deep-space phase, station/repair missions, and the complete tunnels → arcade → deep-space progression loop remain future work.
 
@@ -170,7 +170,7 @@ Do not reproduce any licensed maze, character, name, or sound.
 - **Jellies**: seeded, repeatable patrol loops. Touch = death unless surged.
 - **Maw**: flapping mouth, cannot be killed, always lethal, patrol-only.
 - **Lives**: 3 for the act. Alt+P starts it in developer mode.
-- **Difficulty**: `startGulletPhase(1..10)` scales speed, count, size, chase, surge
+- **Difficulty**: `startGulletPhase(1..10)` scales floors (2 on L1–3, 3 from L4), speed, count, size, chase, surge
   duration, and respawn delay.
 
 ## Level 3: DEFENDER (sketch — build after Gullet)
