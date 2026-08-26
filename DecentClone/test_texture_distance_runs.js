@@ -60,6 +60,7 @@ const context = {
     ROUND_JUNCTION_HUB_RADIUS_SCALE: 1.55,
     ROUND_JUNCTION_APERTURE_SCALE: 1.0,
     ROUND_JUNCTION_SHELL_OVERLAP: 30,
+    facePortalCacheVersion: 0,
     RECT_ROOM_FACES: ['start', 'end', 'right', 'left', 'floor', 'ceiling'],
     builder: {
         radius: 120,
@@ -109,6 +110,9 @@ const context = {
         };
     },
     getSpatialSegmentIndicesNearPoint: () => null,
+    getTunnelTopologyNeighbors: () => context.builder.segments.map((seg, index, all) =>
+        new Set(all.map((_, otherIndex) => otherIndex).filter(otherIndex => otherIndex !== index))
+    ),
     subVec: (a, b) => ({ x: a.x - b.x, y: a.y - b.y, z: a.z - b.z }),
     distanceSq: (a, b) =>
         (a.x - b.x) ** 2 + (a.y - b.y) ** 2 + (a.z - b.z) ** 2,
@@ -171,12 +175,14 @@ for (const name of [
     'setJunctionFaceOpen',
     'junctionFaceCenter',
     'junctionFaceOutward',
+    'junctionFacePortal',
     'roundJunctionHubRadius',
     'roundJunctionProfileRadius',
     'roundJunctionApertureContainsLocalPoint',
     'roundJunctionSideApertureContainsLocalPoint',
     'roundJunctionSightlinePassesOpenPortal',
     'roundJunctionContainingPointIndex',
+    'roundJunctionVisibilityContext',
     'roundJunctionOpenSideForPoint',
     'buildRoundJunctionGpuMesh',
     'segmentIsJunctionCube',
@@ -447,6 +453,7 @@ let handoff = context.nearestTunnelPoint({ x: 125, y: 0, z: 120 }, 1);
 if (handoff?.index !== 0) {
     throw new Error('returning side branch did not hand flight ownership back to the cube');
 }
+context.facePortalCacheVersion += 1;
 context.builder.segments = [roundJunction, sideBranch];
 const trimmedSideExtent = context.getSegmentPanelZExtent(sideBranch);
 if (!(trimmedSideExtent.zStart >= 0 && trimmedSideExtent.zStart < sideBranch.length * 0.5)) {
@@ -460,6 +467,27 @@ if (context.roundJunctionContainingPointIndex({ x: 0, y: 0, z: 120 }) !== 0 ||
     context.roundJunctionContainingPointIndex({ x: 500, y: 500, z: 120 }) !== null) {
     throw new Error('render visibility cannot identify the round hub containing the camera');
 }
+context.shipSegmentIndex = 1;
+const sideVisibility = context.roundJunctionVisibilityContext({ x: 220, y: 0, z: 120 }, 1);
+if (sideVisibility.hubIndex !== 0 || !sideVisibility.portalIndices.includes(1)) {
+    throw new Error('round hub visibility was dropped immediately after entering an attached side tunnel');
+}
+const sixPortalTubes = [
+    segment({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: -180 }),
+    segment({ x: 0, y: 0, z: 240 }, { x: 0, y: 0, z: 420 }),
+    segment({ x: 120, y: 0, z: 120 }, { x: 300, y: 0, z: 120 }, { right: { x: 0, y: 0, z: 1 } }),
+    segment({ x: -120, y: 0, z: 120 }, { x: -300, y: 0, z: 120 }, { right: { x: 0, y: 0, z: 1 } }),
+    segment({ x: 0, y: 120, z: 120 }, { x: 0, y: 300, z: 120 }),
+    segment({ x: 0, y: -120, z: 120 }, { x: 0, y: -300, z: 120 })
+];
+context.facePortalCacheVersion += 1;
+context.builder.segments = [roundJunction, ...sixPortalTubes];
+const sixWayVisibility = context.roundJunctionVisibilityContext({ x: 0, y: 0, z: 120 }, 0);
+if (sixWayVisibility.portalIndices.length !== 6) {
+    throw new Error('six-way round hub render coverage did not retain all six connected portal tunnels');
+}
+context.facePortalCacheVersion += 1;
+context.builder.segments = [roundJunction, sideBranch];
 if (!html.includes('roundJunction: !seg.rectRoom ? !!seg.roundJunction : undefined')) {
     throw new Error('round junction marker is not serialized');
 }
@@ -471,9 +499,10 @@ if (!html.includes('roundJunctionProfileRadius(seg, local.localZ, rawSegRadius)'
     !html.includes('roundJunctionSightlinePassesOpenPortal(seg, ship, point, apertureScale)')) {
     throw new Error('round junction hub collision or all-port interior visibility is missing');
 }
-if (!html.includes('const containingRoundHubIndex = roundJunctionContainingPointIndex(shipPoint, 4);') ||
+if (!html.includes('const roundHubContext = roundJunctionVisibilityContext(shipPoint, shipSegmentIndex);') ||
+    !html.includes('...roundHubContext.portalIndices,') ||
     !html.includes('pointVisibleThroughCurrentTunnel(midpoint, 0.92, visibilityOwnerIndex)')) {
-    throw new Error('round hub does not own rendering while the camera is inside it');
+    throw new Error('round hub and its open portals do not retain rendering across side-tunnel handoff');
 }
 if (!html.includes('if (sideJunctionHandoff) return sideJunctionHandoff;') ||
     !html.includes('junctionFacePortal(seg, exitFace)?.index ?? nearest.index')) {

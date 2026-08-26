@@ -799,7 +799,7 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1-sharpTurnOcclusionFix1-sixPortJunction1-roundSixPortJunction1-sidePortalHandoffFix1-distanceBendConnector1-distanceScenicRibSuppression1-roundJunctionHubShell1-roundHubRenderOwnership1-roundJunctionSphereRoom2';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1-sharpTurnOcclusionFix1-sixPortJunction1-roundSixPortJunction1-sidePortalHandoffFix1-distanceBendConnector1-distanceScenicRibSuppression1-roundJunctionHubShell1-roundHubRenderOwnership1-roundJunctionSphereRoom2-roundJunctionPortalCoverage1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -22078,6 +22078,10 @@
         function junctionFacePortal(seg, face) {
             if (segmentIsRectRoom(seg)) return rectRoomFacePortal(seg, face);
             if (!segmentIsRoundJunction(seg)) return null;
+            if (!seg._roundFacePortals || seg._roundFacePortals.version !== facePortalCacheVersion) {
+                seg._roundFacePortals = { version: facePortalCacheVersion, faces: {} };
+            }
+            if (face in seg._roundFacePortals.faces) return seg._roundFacePortals.faces[face];
             const center = junctionFaceCenter(seg, face);
             let best = null;
             for (let index = 0; index < builder.segments.length; index++) {
@@ -22091,6 +22095,7 @@
                     best = { index, seg: other, endKind, radius, dist };
                 }
             }
+            seg._roundFacePortals.faces[face] = best;
             return best;
         }
 
@@ -22173,6 +22178,59 @@
                 if (!best || margin > best.margin) best = { index, margin };
             }
             return best?.index ?? null;
+        }
+
+        function roundJunctionVisibilityContext(point, currentSegmentIndex = shipSegmentIndex) {
+            const containingHubIndex = roundJunctionContainingPointIndex(point, 4);
+            const candidateHubIndices = [];
+            if (Number.isInteger(containingHubIndex)) {
+                candidateHubIndices.push(containingHubIndex);
+            } else if (
+                Number.isInteger(currentSegmentIndex) &&
+                currentSegmentIndex >= 0 &&
+                currentSegmentIndex < builder.segments.length
+            ) {
+                // Side-tunnel ownership begins as soon as the ship crosses a portal.
+                // Keep the directly attached round room authoritative throughout that
+                // first tube so its shell and the other five mouths cannot disappear
+                // during the render-owner handoff.
+                const neighbors = getTunnelTopologyNeighbors();
+                for (const index of neighbors[currentSegmentIndex] || []) {
+                    if (segmentIsRoundJunction(builder.segments[index])) {
+                        candidateHubIndices.push(index);
+                    }
+                }
+            }
+
+            // A corridor may connect two round rooms. Outside either sphere, use
+            // the nearer hub instead of depending on topology-set insertion order.
+            candidateHubIndices.sort((a, b) =>
+                distanceSq(pointOnSegment(builder.segments[a], 0.5), point) -
+                distanceSq(pointOnSegment(builder.segments[b], 0.5), point)
+            );
+
+            for (const hubIndex of candidateHubIndices) {
+                const hub = builder.segments[hubIndex];
+                if (!segmentIsRoundJunction(hub)) continue;
+                const states = junctionFaceStates(hub);
+                const portalIndices = [];
+                let currentIsPortal = false;
+                for (const face of RECT_ROOM_FACES) {
+                    if (!states[face]) continue;
+                    const portal = junctionFacePortal(hub, face);
+                    if (!portal || !Number.isInteger(portal.index)) continue;
+                    if (!portalIndices.includes(portal.index)) portalIndices.push(portal.index);
+                    if (portal.index === currentSegmentIndex) currentIsPortal = true;
+                }
+                if (
+                    Number.isInteger(containingHubIndex) ||
+                    currentSegmentIndex === hubIndex ||
+                    currentIsPortal
+                ) {
+                    return { hubIndex, portalIndices, containing: hubIndex === containingHubIndex };
+                }
+            }
+            return { hubIndex: null, portalIndices: [], containing: false };
         }
 
         function roundJunctionOpenSideForPoint(seg, point, safetyScale = 0.9) {
@@ -22918,9 +22976,10 @@
             // child tube while the camera is already inside the central room.
             // Visibility must be owned by the containing hub or the incoming
             // tube's opaque gate hides the other four ports and the hub shell.
-            const containingRoundHubIndex = roundJunctionContainingPointIndex(shipPoint, 4);
-            const visibilityOwnerIndex = Number.isInteger(containingRoundHubIndex)
-                ? containingRoundHubIndex
+            const roundHubContext = roundJunctionVisibilityContext(shipPoint, shipSegmentIndex);
+            const activeRoundHubIndex = roundHubContext.hubIndex;
+            const visibilityOwnerIndex = Number.isInteger(activeRoundHubIndex)
+                ? activeRoundHubIndex
                 : shipSegmentIndex;
             const forwardIndices = collectForwardPathSegmentIndices(
                 coverageMode ? TUNNEL_COVERAGE_FORWARD_LOOKAHEAD : TUNNEL_FORWARD_LOOKAHEAD
@@ -22938,9 +22997,8 @@
             // retain the broader scan because deliberate through-wall views matter.
             const routeCandidateSet = new Set(topologyNearSet);
             routeCandidateSet.add(shipSegmentIndex);
-            if (Number.isInteger(containingRoundHubIndex)) {
-                routeCandidateSet.add(containingRoundHubIndex);
-            }
+            if (Number.isInteger(activeRoundHubIndex)) routeCandidateSet.add(activeRoundHubIndex);
+            for (const index of roundHubContext.portalIndices) routeCandidateSet.add(index);
             for (const index of forwardIndices) routeCandidateSet.add(index);
             let candidateIndices = routeCandidateSet;
             if (!shipSeg || !segmentWallOpaque(shipSeg)) {
@@ -23025,7 +23083,17 @@
             const seen = new Set();
 
             if (shipSegmentIndex !== null) {
-                const forceIndices = [shipSegmentIndex, containingRoundHubIndex, ...forwardIndices];
+                // A six-way room is one visibility unit. Retain its shell and every
+                // genuinely connected open mouth even after movement ownership has
+                // crossed into a side tube. These entries deliberately bypass the
+                // single-cylinder sightline filter; the room's own apertures provide
+                // the occlusion boundary.
+                const forceIndices = [
+                    shipSegmentIndex,
+                    activeRoundHubIndex,
+                    ...roundHubContext.portalIndices,
+                    ...forwardIndices
+                ];
                 for (const ringIndex of forceIndices) {
                     if (
                         !Number.isInteger(ringIndex) ||
