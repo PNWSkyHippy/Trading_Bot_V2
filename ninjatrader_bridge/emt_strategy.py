@@ -9,6 +9,7 @@ live fills use an injected broker adapter with server-side protection.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 import sys
@@ -27,6 +28,7 @@ from chart_patterns import PatternDetector
 
 
 _PACIFIC_TZ = ZoneInfo("America/Los_Angeles")
+logger = logging.getLogger("EMT")
 
 
 @dataclass(frozen=True)
@@ -834,6 +836,12 @@ class EMTStrategyEngine:
             f"{mode.upper()} {direction.upper()} {self.quantity} {self.broker_symbol} "
             f"| 2-sided broker bracket | stop {stop:.2f} | target {target:.2f}",
         )
+        logger.info(
+            f"[TRADE OPEN] {self.broker_symbol} {direction.upper()} | "
+            f"Entry: ${price:.4f} | Qty: {self.quantity} | "
+            f"SL: ${stop:.4f} | TP: ${target:.4f} | "
+            f"Broker: {'PAPER' if self.paper_only else 'LIVE'} | ID: {trade_id}"
+        )
 
     def _update_trade_extreme(self, bar: dict) -> None:
         direction = self.active_trade.direction if self.active_trade else self.direction
@@ -897,6 +905,10 @@ class EMTStrategyEngine:
             trade.direction, observed_price,
             f"LIVE strategy {trade.broker_strategy_id} {reason}",
         )
+        logger.info(
+            f"[TRADE CLOSED] [EMT] {self.broker_symbol} | LIVE | {reason} | "
+            f"PnL: n/a (broker fill not inferred)"
+        )
         if trade.direction == "short" and self.breakout_extreme is not None:
             self.support_level = self.breakout_extreme
         elif trade.direction == "long" and self.breakout_extreme is not None:
@@ -953,6 +965,10 @@ class EMTStrategyEngine:
             stamp_pacific.astimezone(timezone.utc), 0,
             "PAPER_EXIT", trade.direction, price,
             f"PAPER EXIT {reason} | P&L ${trade.pnl:.2f}",
+        )
+        logger.info(
+            f"[TRADE CLOSED] [EMT] {self.broker_symbol} | PAPER | {reason} | "
+            f"PnL: {'+' if trade.pnl > 0 else ''}{trade.pnl:.2f}"
         )
         if trade.direction == "short" and self.breakout_extreme is not None:
             self.support_level = self.breakout_extreme

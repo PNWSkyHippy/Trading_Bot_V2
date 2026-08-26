@@ -8,4 +8,6 @@ def average(list):
     return sum / len(list)
 
 
-print(f"The average of {my_list} is {average(my_list)}")
+print(
+    f"The average of {my_list} is {average(my_list)}"
+)

@@ -2,7 +2,7 @@ from tkinter import *
 
 
 def show_info():
-    message_txt.delete(0.0, 'end')
+    message_txt.delete(0.0, "end")
     selected_name = character_name_entry.get()
     age_restriction = age_value_choice.get()
 
@@ -12,19 +12,29 @@ def show_info():
 
     if age_restriction == 1:
         if selected_name == "Gru":
-            gru_photo_label.grid(row=6, columnspan=3)
+            gru_photo_label.grid(
+                row=6, columnspan=3
+            )
         elif selected_name == "Bob":
-            bob_photo_label.grid(row=6, columnspan=3)
+            bob_photo_label.grid(
+                row=6, columnspan=3
+            )
         elif selected_name == "Kevin":
-            kevin_photo_label.grid(row=6, columnspan=3)
+            kevin_photo_label.grid(
+                row=6, columnspan=3
+            )
     else:
-        message_txt.insert(0.0, "You are not authorized!")
-        restricted_photo_label.grid(row=6, columnspan=3)
+        message_txt.insert(
+            0.0, "You are not authorized!"
+        )
+        restricted_photo_label.grid(
+            row=6, columnspan=3
+        )
 
 
 rootWindow = Tk()
 
-rootWindow.resizable(height = None, width = None)
+rootWindow.resizable(height=None, width=None)
 rootWindow.title("Hello World")
 
 # topFrame = Frame(rootWindow)
@@ -32,39 +42,85 @@ rootWindow.title("Hello World")
 # bottomFrame = Frame(rootWindow)
 # bottomFrame.pack(side=BOTTOM)
 
-welcome_lable = Label(rootWindow, text="Welcome to Tkinter Minion", fg="gray",
-                      font=("arial", 16,"bold"))
+welcome_lable = Label(
+    rootWindow,
+    text="Welcome to Tkinter Minion",
+    fg="gray",
+    font=("arial", 16, "bold"),
+)
 
 character_name_entry = StringVar()
-character_name_entry.set("Gru") # default value
+character_name_entry.set("Gru")  # default value
 
-character_name_label = Label(rootWindow, text="Name of the character :", font=("arial", 12))
-dropdown = OptionMenu(rootWindow, character_name_entry, "Gru", "Bob", "Kevin")
-age_confirm_label = Label(rootWindow, text="Younger than 6 years :", font=("arial", 12))
+character_name_label = Label(
+    rootWindow,
+    text="Name of the character :",
+    font=("arial", 12),
+)
+dropdown = OptionMenu(
+    rootWindow,
+    character_name_entry,
+    "Gru",
+    "Bob",
+    "Kevin",
+)
+age_confirm_label = Label(
+    rootWindow,
+    text="Younger than 6 years :",
+    font=("arial", 12),
+)
 
 age_value_choice = IntVar()
-radio_button_yes = Radiobutton(rootWindow, text="Yes", variable=age_value_choice,
-                               font=("arial", 12), value=1)
-radio_button_no = Radiobutton(rootWindow, text="No", variable=age_value_choice,
-                              font=("arial", 12), value=2)
+radio_button_yes = Radiobutton(
+    rootWindow,
+    text="Yes",
+    variable=age_value_choice,
+    font=("arial", 12),
+    value=1,
+)
+radio_button_no = Radiobutton(
+    rootWindow,
+    text="No",
+    variable=age_value_choice,
+    font=("arial", 12),
+    value=2,
+)
 
-message_txt = Text(rootWindow, width=16, height=1, wrap=WORD, fg="red",
-                   font=("arial", 20, "bold"))
+message_txt = Text(
+    rootWindow,
+    width=16,
+    height=1,
+    wrap=WORD,
+    fg="red",
+    font=("arial", 20, "bold"),
+)
 
 restricted_imag = PhotoImage(file="no_minion.png")
-restricted_photo_label = Label(rootWindow, image=restricted_imag)
+restricted_photo_label = Label(
+    rootWindow, image=restricted_imag
+)
 
 gru_imag = PhotoImage(file="gru.png")
-gru_photo_label = Label(rootWindow, image=gru_imag)
+gru_photo_label = Label(
+    rootWindow, image=gru_imag
+)
 
 bob_imag = PhotoImage(file="bob.png")
-bob_photo_label = Label(rootWindow, image=bob_imag)
+bob_photo_label = Label(
+    rootWindow, image=bob_imag
+)
 
 kevin_imag = PhotoImage(file="kevin.png")
-kevin_photo_label = Label(rootWindow, image=kevin_imag)
+kevin_photo_label = Label(
+    rootWindow, image=kevin_imag
+)
 
-lets_see_button = Button(rootWindow, text="Let me see", font=("arial", 12),
-                         command=lambda: show_info())
+lets_see_button = Button(
+    rootWindow,
+    text="Let me see",
+    font=("arial", 12),
+    command=lambda: show_info(),
+)
 
 # Setting the layout
 
@@ -78,7 +134,9 @@ radio_button_no.grid(row=2, column=2, sticky=W)
 
 rootWindow.grid_rowconfigure(3, minsize=20)
 
-message_txt.grid(row=5, columnspan=3, sticky=N, rowspan=1)
+message_txt.grid(
+    row=5, columnspan=3, sticky=N, rowspan=1
+)
 
 lets_see_button.grid(row=4, columnspan=3)
 

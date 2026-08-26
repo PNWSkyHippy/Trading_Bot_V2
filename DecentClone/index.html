@@ -799,7 +799,7 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1-sharpTurnOcclusionFix1-sixPortJunction1-roundSixPortJunction1-sidePortalHandoffFix1-distanceBendConnector1-distanceScenicRibSuppression1-roundJunctionHubShell1-roundHubRenderOwnership1-roundJunctionSphereRoom2-roundJunctionPortalCoverage1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1-sharpTurnOcclusionFix1-sixPortJunction1-roundSixPortJunction1-sidePortalHandoffFix1-distanceBendConnector1-distanceScenicRibSuppression1-roundJunctionHubShell1-roundHubRenderOwnership1-roundJunctionSphereRoom2-roundJunctionPortalCoverage1-gulletP1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -918,6 +918,8 @@
             ['X', 'launch rocket (10 loaded; inventory packs auto-reload)'],
             ['Ctrl+Shift+R', 'developer repair hull/shields'],
             ['Ctrl+Shift+G', 'developer toggle Galaga stage'],
+            ['Alt+P', 'developer toggle Gullet maze stage'],
+            ['Alt+Shift+P', 'export Gullet maze as a shareable map backup'],
             ['Sentries', 'guard spot or patrol; dead = 5 min respawn'],
             ['Orange bolts', 'sentry fire drains shields — shoot first'],
         ];
@@ -1230,6 +1232,7 @@
         const TARGET_EXPLOSIVE_COLOR = '#ff2828';
         const TARGET_BRANCH_COLOR = '#ffb040';
         const TARGET_JUNCTION_COLOR = '#33d7ff';
+        const TARGET_GULLET_POWER_COLOR = '#ffd24a';
         let targetScore = 0;
 
         const DEADZONE = 0.15;
@@ -1418,7 +1421,8 @@
         const MAP_LIBRARY_BUNDLE_VERSION = 1;
         const MAP_DATA_BOOTSTRAP_FILES = [
             'data/map_library_bundle.json',
-            'data/map_library.json'
+            'data/map_library.json',
+            'data/gullet-maze-library.json'
         ];
         const TUNNEL_DEFAULT_RADIUS = 120;
         // mapBuildFix1: min tube length + spacing on T-placed and Y-autogen paths
@@ -6503,6 +6507,1001 @@
             ctx.restore();
         }
 
+        // ═════════════════════════════════════════════════════════════════════
+        // GULLET PHASE — original first-person maze-chase act (campaign slot 2).
+        // Arcade-inspired only: custom station layout, jellyfish roamers, a Maw
+        // you cannot kill, and the existing target-box gates. Not a reproduction
+        // of any licensed maze, character, or name. Dev trigger: Alt+P.
+        // See GAME_DESIGN_BONUS_LEVELS.md.
+        // ═════════════════════════════════════════════════════════════════════
+        const GULLET_MAZE = [
+            '###############',
+            '#S..#.....#..o#',
+            '#.#.#.###.#.#.#',
+            '#.#.....#.....#',
+            '#.###.#.#.###.#',
+            '#o....#*#....o#',
+            '#.###.#.#.###.#',
+            '#.....#.....#.#',
+            '#.#.#.###.#.#.#',
+            '#o..#.....#...#',
+            '###############'
+        ];
+        const GULLET = {
+            ORIGIN: { x: 24000, y: 30000, z: 24000 },
+            FLOORS: 3,
+            CELL: 180,
+            SHAFT: 150,
+            CORRIDOR: 152,
+            INTRO_MS: 2800,
+            RESULTS_MS: 4200,
+            LIVES: 3,
+            POWER_MS: 20000,
+            RESPAWN_MS: 60000,
+            INVULN_MS: 2200,
+            JELLY_SPEED: 3.4,
+            MAW_SPEED: 2.2,
+            JELLY_COUNT: 8,
+            JELLY_SIZE: 36,
+            MAW_SIZE: 62,
+            CHASE_BLEND: 0.52,
+            GATE_SCORE: 100,
+            POWER_SCORE: 60,
+            JELLY_SCORE: 250,
+            FLOOR_COLORS: ['#0a1840', '#0c2436', '#142214'],
+            JELLY_COLORS: [
+                { stroke: '#5dffc8', fill: 'rgba(40,220,170,0.28)' },
+                { stroke: '#c56bff', fill: 'rgba(160,80,255,0.28)' },
+                { stroke: '#ffe066', fill: 'rgba(255,210,60,0.26)' },
+                { stroke: '#7ad0ff', fill: 'rgba(80,180,255,0.28)' },
+                { stroke: '#ff8a5c', fill: 'rgba(255,120,70,0.26)' },
+                { stroke: '#b8ff7a', fill: 'rgba(160,255,90,0.26)' },
+                { stroke: '#ff6aad', fill: 'rgba(255,80,160,0.26)' },
+                { stroke: '#9aa6ff', fill: 'rgba(120,140,255,0.28)' }
+            ]
+        };
+        const GULLET_LEVEL_1 = {
+            JELLY_SPEED: 1.55,
+            MAW_SPEED: 1.05,
+            JELLY_COUNT: 4,
+            JELLY_SIZE: 22,
+            MAW_SIZE: 46,
+            CHASE_BLEND: 0.06,
+            POWER_MS: 20000,
+            RESPAWN_MS: 60000
+        };
+        GULLET.FLOOR_PITCH = GULLET.CELL + GULLET.SHAFT;
+
+        function gulletDifficulty(level = gulletPhase?.level || 1) {
+            const clampedLevel = Math.max(1, Math.min(10, Math.round(Number(level) || 1)));
+            const t = (clampedLevel - 1) / 9;
+            const lerp = (a, b) => a + (b - a) * t;
+            return {
+                level: clampedLevel,
+                jellySpeed: lerp(GULLET_LEVEL_1.JELLY_SPEED, GULLET.JELLY_SPEED),
+                mawSpeed: lerp(GULLET_LEVEL_1.MAW_SPEED, GULLET.MAW_SPEED),
+                jellyCount: Math.round(lerp(GULLET_LEVEL_1.JELLY_COUNT, GULLET.JELLY_COUNT)),
+                jellySize: lerp(GULLET_LEVEL_1.JELLY_SIZE, GULLET.JELLY_SIZE),
+                mawSize: lerp(GULLET_LEVEL_1.MAW_SIZE, GULLET.MAW_SIZE),
+                chaseBlend: lerp(GULLET_LEVEL_1.CHASE_BLEND, GULLET.CHASE_BLEND),
+                powerMs: Math.round(lerp(GULLET_LEVEL_1.POWER_MS, GULLET.POWER_MS)),
+                respawnMs: Math.round(lerp(GULLET_LEVEL_1.RESPAWN_MS, GULLET.RESPAWN_MS))
+            };
+        }
+
+        const gulletPhase = {
+            active: false, state: 'idle', stateUntil: 0, level: 1,
+            score: 0, lives: 3, won: false,
+            powerUntil: 0, invulnUntil: 0,
+            jellies: [], maw: null, graph: [],
+            start: null, nest: null, host: null
+        };
+
+        function gulletChar(c, r) {
+            const row = GULLET_MAZE[r];
+            if (!row || c < 0 || c >= row.length) return '#';
+            return row[c];
+        }
+
+        function gulletWalkableChar(ch) {
+            return ch === '.' || ch === 'o' || ch === '*' || ch === 'S';
+        }
+
+        function gulletWalkable(c, r) {
+            return gulletWalkableChar(gulletChar(c, r));
+        }
+
+        function gulletSameFloorDegree(c, r) {
+            let n = 0;
+            if (gulletWalkable(c + 1, r)) n += 1;
+            if (gulletWalkable(c - 1, r)) n += 1;
+            if (gulletWalkable(c, r + 1)) n += 1;
+            if (gulletWalkable(c, r - 1)) n += 1;
+            return n;
+        }
+
+        function gulletIsIntersection(c, r) {
+            if (!gulletWalkable(c, r)) return false;
+            if (gulletChar(c, r) === '*') return true;
+            const deg = gulletSameFloorDegree(c, r);
+            if (deg !== 2) return true;
+            const horiz = gulletWalkable(c - 1, r) && gulletWalkable(c + 1, r);
+            const vert = gulletWalkable(c, r - 1) && gulletWalkable(c, r + 1);
+            return !(horiz || vert);
+        }
+
+        function gulletTileWorld(c, r, floor) {
+            return {
+                x: GULLET.ORIGIN.x + c * GULLET.CELL,
+                y: GULLET.ORIGIN.y - floor * GULLET.FLOOR_PITCH,
+                z: GULLET.ORIGIN.z + r * GULLET.CELL
+            };
+        }
+
+        function gulletTileKey(c, r, floor) {
+            return `${floor}:${c},${r}`;
+        }
+
+        function gulletFrame(forward) {
+            const f = normalize(forward);
+            const upRef = Math.abs(dot(f, { x: 0, y: 1, z: 0 })) > 0.92
+                ? { x: 0, y: 0, z: 1 }
+                : { x: 0, y: 1, z: 0 };
+            const right = normalize(cross(upRef, f));
+            const down = normalize(cross(f, right));
+            return { forward: f, right, down };
+        }
+
+        function makeGulletRoom(from, to, width, height, opens, extras = {}) {
+            const delta = subVec(to, from);
+            const frame = gulletFrame(delta);
+            const seg = makeSegmentBetween(from, to, frame.right, frame.down, 'rect-room', Math.max(width, height) * 0.5);
+            if (!seg) return null;
+            seg.rectRoom = true;
+            seg.junctionCube = !!extras.junction;
+            seg.chamber = false;
+            seg.roomWidth = width;
+            seg.roomHeight = height;
+            seg.capStart = !opens.start;
+            seg.capEnd = !opens.end;
+            seg.roomOpenRight = !!opens.right;
+            seg.roomOpenLeft = !!opens.left;
+            seg.roomOpenFloor = !!opens.floor;
+            seg.roomOpenCeiling = !!opens.ceiling;
+            seg.wallTextureId = 'blackgloss';
+            seg.roomFloorTextureId = ROOM_SOLID_TEXTURE_ID;
+            seg.roomCeilingTextureId = ROOM_SOLID_TEXTURE_ID;
+            seg.roomFloorColor = extras.floorColor || GULLET.FLOOR_COLORS[0];
+            seg.roomCeilingColor = '#050b18';
+            seg.ribColor = '#2ad4ff';
+            seg.wallOpaque = true;
+            seg.autoJoinLocked = true;
+            seg.gulletArena = true;
+            ensureSegmentStyle(seg);
+            return seg;
+        }
+
+        function gulletSeedRng(seed) {
+            let s = seed | 0;
+            return function next() {
+                s = s + 0x6D2B79F5 | 0;
+                let t = Math.imul(s ^ s >>> 15, 1 | s);
+                t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+                return ((t ^ t >>> 14) >>> 0) / 4294967296;
+            };
+        }
+
+        function buildGulletArena() {
+            const rows = GULLET_MAZE.length;
+            const cols = GULLET_MAZE[0].length;
+            const dirs = [
+                { dc: 1, dr: 0, face: 'right', opp: 'left', axis: 'x' },
+                { dc: -1, dr: 0, face: 'left', opp: 'right', axis: 'x' },
+                { dc: 0, dr: 1, face: 'end', opp: 'start', axis: 'z' },
+                { dc: 0, dr: -1, face: 'start', opp: 'end', axis: 'z' }
+            ];
+            const intersections = [];
+            const walkTiles = [];
+            let startTile = null;
+            const nestTiles = [];
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    const ch = gulletChar(c, r);
+                    if (!gulletWalkableChar(ch)) continue;
+                    walkTiles.push({ c, r, ch });
+                    if (ch === 'S') startTile = { c, r };
+                    if (ch === '*') nestTiles.push({ c, r });
+                    if (gulletIsIntersection(c, r)) intersections.push({ c, r });
+                }
+            }
+            if (!startTile) startTile = walkTiles[0];
+            if (!nestTiles.length) nestTiles.push(intersections[0] || walkTiles[0]);
+
+            const isNode = new Set(intersections.map(n => `${n.c},${n.r}`));
+            const cubeOpens = new Map();
+            const openKey = (floor, c, r) => `${floor}:${c},${r}`;
+            const ensureOpens = (floor, c, r) => {
+                const key = openKey(floor, c, r);
+                if (!cubeOpens.has(key)) {
+                    cubeOpens.set(key, {
+                        start: false, end: false, right: false, left: false,
+                        floor: false, ceiling: false
+                    });
+                }
+                return cubeOpens.get(key);
+            };
+
+            const segments = [];
+            const corridorDone = new Set();
+            for (let floor = 0; floor < GULLET.FLOORS; floor++) {
+                const floorColor = GULLET.FLOOR_COLORS[floor] || GULLET.FLOOR_COLORS[0];
+                for (const node of intersections) {
+                    for (const dir of dirs) {
+                        let c = node.c + dir.dc;
+                        let r = node.r + dir.dr;
+                        if (!gulletWalkable(c, r)) continue;
+                        let steps = 1;
+                        while (gulletWalkable(c, r) && !isNode.has(`${c},${r}`)) {
+                            c += dir.dc;
+                            r += dir.dr;
+                            steps += 1;
+                            if (!gulletWalkable(c, r)) {
+                                steps = 0;
+                                break;
+                            }
+                        }
+                        if (steps < 1 || !isNode.has(`${c},${r}`)) continue;
+                        const a = { c: node.c, r: node.r };
+                        const b = { c, r };
+                        const edgeId = `${floor}:${Math.min(a.c, b.c)},${Math.min(a.r, b.r)}>${Math.max(a.c, b.c)},${Math.max(a.r, b.r)}:${dir.axis}`;
+                        const opensA = ensureOpens(floor, a.c, a.r);
+                        const opensB = ensureOpens(floor, b.c, b.r);
+                        opensA[dir.face] = true;
+                        opensB[dir.opp] = true;
+                        if (steps === 1 || corridorDone.has(edgeId)) continue;
+                        corridorDone.add(edgeId);
+                        const from = gulletTileWorld(a.c, a.r, floor);
+                        const to = gulletTileWorld(b.c, b.r, floor);
+                        const half = GULLET.CELL * 0.5;
+                        const along = normalize(subVec(to, from));
+                        const roomFrom = addVec(from, scaleVec(along, half));
+                        const roomTo = addVec(to, scaleVec(along, -half));
+                        if (Math.hypot(roomTo.x - roomFrom.x, roomTo.y - roomFrom.y, roomTo.z - roomFrom.z) < 48) continue;
+                        const hall = makeGulletRoom(
+                            roomFrom, roomTo, GULLET.CORRIDOR, GULLET.CORRIDOR,
+                            { start: true, end: true },
+                            { floorColor }
+                        );
+                        if (hall) segments.push(hall);
+                    }
+                    const opens = ensureOpens(floor, node.c, node.r);
+                    if (floor < GULLET.FLOORS - 1) opens.ceiling = true;
+                    if (floor > 0) opens.floor = true;
+                }
+            }
+
+            for (let floor = 0; floor < GULLET.FLOORS; floor++) {
+                const floorColor = GULLET.FLOOR_COLORS[floor] || GULLET.FLOOR_COLORS[0];
+                for (const node of intersections) {
+                    const center = gulletTileWorld(node.c, node.r, floor);
+                    const half = GULLET.CELL * 0.5;
+                    const from = { x: center.x, y: center.y, z: center.z - half };
+                    const to = { x: center.x, y: center.y, z: center.z + half };
+                    const cube = makeGulletRoom(
+                        from, to, GULLET.CELL, GULLET.CELL,
+                        ensureOpens(floor, node.c, node.r),
+                        { junction: true, floorColor }
+                    );
+                    if (cube) segments.push(cube);
+                    if (floor < GULLET.FLOORS - 1) {
+                        const upper = gulletTileWorld(node.c, node.r, floor + 1);
+                        const lowerCeil = { x: center.x, y: center.y - half, z: center.z };
+                        const upperFloor = { x: upper.x, y: upper.y + half, z: upper.z };
+                        const shaft = makeGulletRoom(
+                            lowerCeil, upperFloor, GULLET.CORRIDOR, GULLET.CORRIDOR,
+                            { start: true, end: true },
+                            { floorColor: '#08101c' }
+                        );
+                        if (shaft) segments.push(shaft);
+                    }
+                }
+            }
+
+            const graph = [];
+            const graphIndex = new Map();
+            const pushNode = (c, r, floor) => {
+                const key = gulletTileKey(c, r, floor);
+                if (graphIndex.has(key)) return graphIndex.get(key);
+                const idx = graph.length;
+                graph.push({
+                    c, r, floor, key,
+                    pos: gulletTileWorld(c, r, floor),
+                    intersection: isNode.has(`${c},${r}`),
+                    nest: gulletChar(c, r) === '*',
+                    neighbors: []
+                });
+                graphIndex.set(key, idx);
+                return idx;
+            };
+            for (let floor = 0; floor < GULLET.FLOORS; floor++) {
+                for (const tile of walkTiles) pushNode(tile.c, tile.r, floor);
+            }
+            const link = (ia, ib) => {
+                if (ia === ib) return;
+                if (!graph[ia].neighbors.includes(ib)) graph[ia].neighbors.push(ib);
+                if (!graph[ib].neighbors.includes(ia)) graph[ib].neighbors.push(ia);
+            };
+            for (const node of graph) {
+                for (const dir of dirs) {
+                    const nc = node.c + dir.dc;
+                    const nr = node.r + dir.dr;
+                    if (!gulletWalkable(nc, nr)) continue;
+                    link(graphIndex.get(node.key), graphIndex.get(gulletTileKey(nc, nr, node.floor)));
+                }
+                if (node.intersection) {
+                    if (node.floor > 0) {
+                        link(graphIndex.get(node.key), graphIndex.get(gulletTileKey(node.c, node.r, node.floor - 1)));
+                    }
+                    if (node.floor < GULLET.FLOORS - 1) {
+                        link(graphIndex.get(node.key), graphIndex.get(gulletTileKey(node.c, node.r, node.floor + 1)));
+                    }
+                }
+            }
+
+            const targets = [];
+            const basisR = { x: 1, y: 0, z: 0 };
+            const basisD = { x: 0, y: 1, z: 0 };
+            for (let floor = 0; floor < GULLET.FLOORS; floor++) {
+                for (const tile of walkTiles) {
+                    const ch = tile.ch;
+                    if (ch === '*' || ch === 'S') continue;
+                    const point = gulletTileWorld(tile.c, tile.r, floor);
+                    const isPower = ch === 'o';
+                    targets.push({
+                        id: `gullet-${floor}-${tile.c}-${tile.r}`,
+                        label: isPower ? 'SURGE' : '',
+                        explosive: false,
+                        gulletPower: isPower,
+                        gulletGate: !isPower,
+                        point: copyVec(point),
+                        right: copyVec(basisR),
+                        down: copyVec(basisD),
+                        size: isPower ? 70 : 42,
+                        branch: false,
+                        junction: gulletIsIntersection(tile.c, tile.r),
+                        segmentIndex: null
+                    });
+                }
+            }
+
+            const startIdx = graphIndex.get(gulletTileKey(startTile.c, startTile.r, 0));
+            const nestIdx = graphIndex.get(gulletTileKey(nestTiles[0].c, nestTiles[0].r, 1));
+            return {
+                segments,
+                targets,
+                graph,
+                startIdx,
+                nestIdx: nestIdx ?? startIdx,
+                startTile,
+                nestTiles
+            };
+        }
+
+        function gulletBuildLoop(graph, startIdx, length, rng) {
+            if (!graph.length) return [startIdx];
+            const path = [startIdx];
+            let current = startIdx;
+            for (let i = 0; i < length; i++) {
+                const nbrs = graph[current].neighbors;
+                if (!nbrs.length) break;
+                const prev = path.length > 1 ? path[path.length - 2] : -1;
+                const choices = nbrs.filter(n => n !== prev);
+                const pool = choices.length ? choices : nbrs;
+                current = pool[Math.floor(rng() * pool.length)];
+                path.push(current);
+            }
+            const seen = new Set();
+            const loop = [];
+            for (const idx of path) {
+                if (seen.has(idx)) continue;
+                seen.add(idx);
+                loop.push(idx);
+            }
+            if (loop.length < 4) return path;
+            loop.push(loop[0]);
+            return loop;
+        }
+
+        function gulletInstallTargets(list) {
+            tunnelTargets.length = 0;
+            for (const saved of list) {
+                tunnelTargets.push({
+                    ...saved,
+                    point: copyVec(saved.point),
+                    right: copyVec(saved.right),
+                    down: copyVec(saved.down),
+                    destroyedAt: null,
+                    flyThroughScored: false,
+                    regenCycle: 0
+                });
+            }
+        }
+
+        function gulletSpawnHunters(arena) {
+            const diff = gulletDifficulty();
+            const rng = gulletSeedRng(1800 + diff.level * 97);
+            const graph = arena.graph;
+            const nestIdx = arena.nestIdx;
+            const jellies = [];
+            for (let i = 0; i < diff.jellyCount; i++) {
+                const palette = GULLET.JELLY_COLORS[i % GULLET.JELLY_COLORS.length];
+                const loop = gulletBuildLoop(graph, nestIdx, 14 + i * 3, rng);
+                const spawnNode = graph[loop[0]] || graph[nestIdx];
+                jellies.push({
+                    id: `jelly-${i}`,
+                    color: palette.stroke,
+                    fill: palette.fill,
+                    path: loop,
+                    pathIndex: i % Math.max(1, loop.length),
+                    pos: copyVec(spawnNode.pos),
+                    phase: i * 1.7,
+                    deadUntil: 0,
+                    reverse: false
+                });
+            }
+            const mawLoop = gulletBuildLoop(graph, nestIdx, 36, gulletSeedRng(4400 + diff.level));
+            const mawNode = graph[mawLoop[0]] || graph[nestIdx];
+            gulletPhase.jellies = jellies;
+            gulletPhase.maw = {
+                path: mawLoop,
+                pathIndex: 0,
+                pos: copyVec(mawNode.pos),
+                phase: 0.4,
+                noChase: true
+            };
+            gulletPhase.graph = graph;
+            gulletPhase.nest = copyVec(graph[nestIdx].pos);
+            gulletPhase.start = copyVec(graph[arena.startIdx].pos);
+            const startNode = graph[arena.startIdx];
+            const neighbor = startNode.neighbors[0];
+            gulletPhase.startForward = neighbor != null
+                ? normalize(subVec(graph[neighbor].pos, startNode.pos))
+                : { x: 0, y: 0, z: 1 };
+        }
+
+        function gulletPlacePlayer() {
+            if (!gulletPhase.start) return;
+            posX = gulletPhase.start.x;
+            posY = gulletPhase.start.y;
+            posZ = gulletPhase.start.z;
+            const forward = gulletPhase.startForward || { x: 0, y: 0, z: 1 };
+            const frame = gulletFrame(forward);
+            shipForward = frame.forward;
+            shipRight = frame.right;
+            shipDown = frame.down;
+            shipRollAngle = 0;
+            shipSegmentIndex = 0;
+            tunnelCoreLatX = 0;
+            tunnelCoreLatY = 0;
+            repairBasis();
+            syncViewToShip();
+            containShipInTunnel();
+        }
+
+        function startGulletPhase(level = 1) {
+            if (gulletPhase.active) return;
+            if (galagaPhase.active) endGalagaPhase(true);
+            const arena = buildGulletArena();
+            if (!arena.segments.length) {
+                keyboardStatus.innerText = 'Gullet arena failed to build';
+                return;
+            }
+            gulletPhase.host = {
+                segments: builder.segments,
+                targets: builder.targets,
+                rocketCaches: builder.rocketCaches,
+                sentries: builder.sentries,
+                portals: builder.portals,
+                tunnelTargets: tunnelTargets.slice(),
+                tunnelSentries: tunnelSentries.slice(),
+                rocketCachesRuntime: rocketCaches.slice(),
+                x: posX, y: posY, z: posZ,
+                f: copyVec(shipForward), r: copyVec(shipRight), d: copyVec(shipDown),
+                roll: shipRollAngle, segIdx: shipSegmentIndex, hud: hudDisplayMode
+            };
+            builder.segments = arena.segments;
+            builder.targets = arena.targets;
+            builder.rocketCaches = [];
+            builder.sentries = [];
+            builder.portals = [];
+            invalidateTunnelSegmentCache();
+            rebuildTunnelStars();
+            gulletInstallTargets(arena.targets);
+            rebuildRocketCaches();
+            rebuildTunnelSentries();
+            gulletPhase.active = true;
+            gulletPhase.level = gulletDifficulty(level).level;
+            gulletPhase.state = 'intro';
+            gulletPhase.stateUntil = performance.now() + GULLET.INTRO_MS;
+            gulletPhase.score = 0;
+            gulletPhase.lives = GULLET.LIVES;
+            gulletPhase.won = false;
+            gulletPhase.powerUntil = 0;
+            gulletPhase.invulnUntil = 0;
+            gulletSpawnHunters(arena);
+            resetPlayerCombatState();
+            gulletPlacePlayer();
+            setHudMode('min');
+            playSfx('portal_whoosh', { worldPos: { x: posX, y: posY, z: posZ } });
+            keyboardStatus.innerText =
+                `GULLET ${gulletPhase.level} — ${arena.segments.length} rooms, ${arena.targets.length} gates`;
+        }
+
+        function endGulletPhase(restorePosition = true) {
+            if (!gulletPhase.active) return;
+            const host = gulletPhase.host;
+            gulletPhase.active = false;
+            gulletPhase.state = 'idle';
+            gulletPhase.jellies = [];
+            gulletPhase.maw = null;
+            gulletPhase.graph = [];
+            if (host) {
+                builder.segments = host.segments;
+                builder.targets = host.targets;
+                builder.rocketCaches = host.rocketCaches;
+                builder.sentries = host.sentries;
+                builder.portals = host.portals;
+                invalidateTunnelSegmentCache();
+                rebuildTunnelStars();
+                tunnelTargets.length = 0;
+                for (const t of host.tunnelTargets) tunnelTargets.push(t);
+                tunnelSentries.length = 0;
+                for (const s of host.tunnelSentries) tunnelSentries.push(s);
+                rocketCaches.length = 0;
+                for (const c of host.rocketCachesRuntime) rocketCaches.push(c);
+                if (restorePosition) {
+                    posX = host.x; posY = host.y; posZ = host.z;
+                    shipForward = copyVec(host.f);
+                    shipRight = copyVec(host.r);
+                    shipDown = copyVec(host.d);
+                    shipRollAngle = host.roll;
+                    shipSegmentIndex = host.segIdx;
+                    repairBasis();
+                    syncViewToShip();
+                }
+                setHudMode(host.hud || 'full');
+            }
+            gulletPhase.host = null;
+            keyboardStatus.innerText =
+                `GULLET over — ${gulletPhase.won ? 'cleared' : 'failed'}  +${gulletPhase.score}`;
+        }
+
+        function toggleGulletPhase() {
+            if (gulletPhase.active) endGulletPhase(true);
+            else startGulletPhase(1);
+        }
+
+        function serializeGulletSegment(seg) {
+            return {
+                from: copyVec(seg.from),
+                to: copyVec(seg.to),
+                kind: seg.kind,
+                length: seg.length,
+                radius: seg.radius,
+                forward: copyVec(seg.forward),
+                right: copyVec(seg.right),
+                down: copyVec(seg.down),
+                branch: false,
+                branchMouth: false,
+                generated: true,
+                wallTextureId: seg.wallTextureId || 'blackgloss',
+                entranceFrameId: '',
+                entranceFrameEnd: 'start',
+                ribColor: seg.ribColor || '#2ad4ff',
+                wallOpaque: seg.wallOpaque !== false,
+                capStart: !!seg.capStart,
+                capEnd: !!seg.capEnd,
+                autoJoinLocked: true,
+                chamber: false,
+                rectRoom: true,
+                junctionCube: !!seg.junctionCube,
+                roomWidth: Number(seg.roomWidth) || undefined,
+                roomHeight: Number(seg.roomHeight) || undefined,
+                roomFloorTextureId: storedTextureId(seg.roomFloorTextureId, ROOM_SOLID_TEXTURE_ID),
+                roomCeilingTextureId: storedTextureId(seg.roomCeilingTextureId, ROOM_SOLID_TEXTURE_ID),
+                roomFloorColor: normalizeHexColor(seg.roomFloorColor, DEFAULT_ROOM_FLOOR_COLOR),
+                roomCeilingColor: normalizeHexColor(seg.roomCeilingColor, DEFAULT_ROOM_CEILING_COLOR),
+                roomOpenRight: !!seg.roomOpenRight,
+                roomOpenLeft: !!seg.roomOpenLeft,
+                roomOpenFloor: !!seg.roomOpenFloor,
+                roomOpenCeiling: !!seg.roomOpenCeiling,
+                gulletArena: true
+            };
+        }
+
+        function serializeGulletArenaMap() {
+            const arena = buildGulletArena();
+            if (!arena.segments.length) return null;
+            const startNode = arena.graph[arena.startIdx];
+            const neighbor = startNode?.neighbors?.[0];
+            const forward = neighbor != null
+                ? normalize(subVec(arena.graph[neighbor].pos, startNode.pos))
+                : { x: 0, y: 0, z: 1 };
+            const frame = gulletFrame(forward);
+            const startPos = startNode ? startNode.pos : arena.segments[0].from;
+            let segments = arena.segments.slice();
+            let startIndex = 0;
+            let bestDist = Infinity;
+            for (let i = 0; i < segments.length; i++) {
+                if (!segments[i].junctionCube) continue;
+                const mid = lerpVec(segments[i].from, segments[i].to, 0.5);
+                const dist = distanceSq(mid, startPos);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    startIndex = i;
+                }
+            }
+            if (startIndex > 0) {
+                const startSeg = segments.splice(startIndex, 1)[0];
+                segments.unshift(startSeg);
+            }
+            return {
+                tunnelVisualMode: 'textured',
+                defaultWallTextureId: 'blackgloss',
+                defaultRibColor: '#2ad4ff',
+                defaultWallOpaque: true,
+                gulletArena: true,
+                gulletLevel: 1,
+                segments: segments.map(serializeGulletSegment),
+                portals: [],
+                targets: arena.targets.map(target => ({
+                    id: target.id,
+                    label: target.label || '',
+                    explosive: false,
+                    gulletPower: !!target.gulletPower,
+                    gulletGate: !!target.gulletGate,
+                    authored: true,
+                    point: copyVec(target.point),
+                    right: copyVec(target.right),
+                    down: copyVec(target.down),
+                    size: target.size,
+                    branch: false,
+                    junction: !!target.junction,
+                    segmentIndex: target.segmentIndex
+                })),
+                rocketCaches: [],
+                sentries: [],
+                cursor: copyVec(startPos),
+                forward: copyVec(frame.forward),
+                right: copyVec(frame.right),
+                down: copyVec(frame.down),
+                bendDeg: 0,
+                bendRollDeg: 0,
+                aimYawDeg: 0,
+                aimPitchDeg: 0,
+                radius: GULLET.CELL * 0.5
+            };
+        }
+
+        function buildGulletLibraryBundle() {
+            const map = serializeGulletArenaMap();
+            if (!map) return null;
+            const id = 'gullet-maze-1';
+            const entry = {
+                id,
+                name: 'Gullet Maze 1',
+                savedAt: new Date().toISOString(),
+                segmentCount: map.segments.length
+            };
+            return {
+                version: MAP_LIBRARY_BUNDLE_VERSION,
+                exportedAt: new Date().toISOString(),
+                origin: (typeof window !== 'undefined' && window.location && window.location.origin) || 'file://',
+                library: [entry],
+                namedMaps: { [id]: map },
+                autosave: null
+            };
+        }
+
+        function saveGulletArenaIntoLibrary() {
+            const bundle = buildGulletLibraryBundle();
+            if (!bundle) return null;
+            const id = bundle.library[0].id;
+            const map = bundle.namedMaps[id];
+            localStorage.setItem(namedMapKey(id), JSON.stringify(map));
+            const library = loadMapLibrary().filter(entry => entry.id !== id);
+            library.unshift(bundle.library[0]);
+            saveMapLibrary(library);
+            return bundle;
+        }
+
+        function exportGulletArenaBackup() {
+            const bundle = saveGulletArenaIntoLibrary();
+            if (!bundle) {
+                keyboardStatus.innerText = 'Gullet maze export failed';
+                return false;
+            }
+            const map = bundle.namedMaps[bundle.library[0].id];
+            downloadJsonFile('gullet-maze-library.json', bundle);
+            downloadJsonFile('gullet-maze-1.json', map);
+            keyboardStatus.innerText =
+                `exported Gullet Maze 1 (${map.segments.length} rooms, ${map.targets.length} gates) — ` +
+                'Import Library Backup on the other origin, or copy to data/gullet-maze-library.json';
+            return bundle;
+        }
+
+        function gulletGatesLeft() {
+            let n = 0;
+            for (const target of tunnelTargets) {
+                if (target.gulletGate && targetIsActive(target)) n += 1;
+            }
+            return n;
+        }
+
+        function gulletActivatePower() {
+            const diff = gulletDifficulty();
+            gulletPhase.powerUntil = performance.now() + diff.powerMs;
+            for (const jelly of gulletPhase.jellies) jelly.reverse = !jelly.reverse;
+            playSfx('boost', { worldPos: getPlayerWorldPos() });
+        }
+
+        function gulletHandleGate(target) {
+            if (!targetIsActive(target) || target.flyThroughScored) return;
+            if (target.gulletPower) {
+                gulletActivatePower();
+                addTargetScore(GULLET.POWER_SCORE);
+                gulletPhase.score += GULLET.POWER_SCORE;
+                spawnTargetParticles(target.point, target.right, target.down, TARGET_GULLET_POWER_COLOR, 52, 5.2, 48);
+            } else {
+                addTargetScore(GULLET.GATE_SCORE);
+                gulletPhase.score += GULLET.GATE_SCORE;
+                spawnTargetParticles(target.point, target.right, target.down, '#66f0ff', 38, 4.4, 42);
+            }
+            playSfx('target_chime', { worldPos: { ...target.point } });
+            destroyTarget(target);
+            target.flyThroughScored = true;
+            if (gulletGatesLeft() <= 0 && gulletPhase.state === 'play') {
+                gulletPhase.state = 'results';
+                gulletPhase.won = true;
+                gulletPhase.stateUntil = performance.now() + GULLET.RESULTS_MS;
+            }
+        }
+
+        function gulletAdvanceHunter(hunter, speed, frameScale) {
+            const graph = gulletPhase.graph;
+            if (!hunter?.path?.length || !graph.length) return;
+            const len = hunter.path.length;
+            const idx = ((hunter.pathIndex % len) + len) % len;
+            const node = graph[hunter.path[idx]];
+            if (!node) return;
+            const dx = node.pos.x - hunter.pos.x;
+            const dy = node.pos.y - hunter.pos.y;
+            const dz = node.pos.z - hunter.pos.z;
+            const dist = Math.hypot(dx, dy, dz) || 1;
+            const step = speed * frameScale;
+            if (dist <= Math.max(10, step * 1.15)) {
+                hunter.pos = copyVec(node.pos);
+                hunter.pathIndex += hunter.reverse ? -1 : 1;
+                if (hunter.pathIndex < 0) hunter.pathIndex = len - 1;
+                return;
+            }
+            const chase = hunter.noChase ? 0 : gulletDifficulty().chaseBlend;
+            let vx = dx / dist;
+            let vy = dy / dist;
+            let vz = dz / dist;
+            if (chase > 0.02 && !hunter.reverse && gulletPhase.state === 'play') {
+                const toShip = normalize({ x: posX - hunter.pos.x, y: posY - hunter.pos.y, z: posZ - hunter.pos.z });
+                vx = vx * (1 - chase) + toShip.x * chase;
+                vy = vy * (1 - chase) + toShip.y * chase;
+                vz = vz * (1 - chase) + toShip.z * chase;
+                const mag = Math.hypot(vx, vy, vz) || 1;
+                vx /= mag; vy /= mag; vz /= mag;
+            }
+            hunter.pos.x += vx * step;
+            hunter.pos.y += vy * step;
+            hunter.pos.z += vz * step;
+        }
+
+        function gulletOnPlayerDied() {
+            if (!gulletPhase.active || gulletPhase.state !== 'play') return;
+            const now = performance.now();
+            if (now < gulletPhase.invulnUntil) return;
+            spawnTargetParticles(
+                { x: posX, y: posY, z: posZ },
+                shipRight, shipDown, '#ff5a73', 56, 5.4, 50
+            );
+            playSfx('target_explosion', { intensity: 1.05, worldPos: getPlayerWorldPos() });
+            gulletPhase.lives -= 1;
+            resetPlayerCombatState();
+            if (gulletPhase.lives <= 0) {
+                gulletPhase.state = 'results';
+                gulletPhase.won = false;
+                gulletPhase.stateUntil = now + GULLET.RESULTS_MS;
+                keyboardStatus.innerText = 'GULLET failed — the Maw and jellies hold the halls';
+                return;
+            }
+            gulletPlacePlayer();
+            const arenaGraph = gulletPhase.graph;
+            const nestPos = gulletPhase.nest;
+            for (const jelly of gulletPhase.jellies) {
+                if (nestPos) jelly.pos = copyVec(nestPos);
+                jelly.pathIndex = 0;
+                jelly.deadUntil = 0;
+                jelly.reverse = false;
+            }
+            if (gulletPhase.maw && arenaGraph[gulletPhase.maw.path[0]]) {
+                gulletPhase.maw.pos = copyVec(arenaGraph[gulletPhase.maw.path[0]].pos);
+                gulletPhase.maw.pathIndex = 0;
+            }
+            gulletPhase.invulnUntil = now + GULLET.INVULN_MS;
+            keyboardStatus.innerText = `GULLET — ${gulletPhase.lives} lives left`;
+        }
+
+        function tickGulletPhase(frameScale = 1) {
+            if (!gulletPhase.active) return;
+            const now = performance.now();
+            const diff = gulletDifficulty();
+            if (gulletPhase.state === 'intro' && now >= gulletPhase.stateUntil) {
+                gulletPhase.state = 'play';
+            }
+            if (gulletPhase.state === 'results' && now >= gulletPhase.stateUntil) {
+                endGulletPhase(true);
+                return;
+            }
+            if (gulletPhase.state !== 'play') return;
+            const frightened = now < gulletPhase.powerUntil;
+            for (const jelly of gulletPhase.jellies) {
+                if (jelly.deadUntil && now >= jelly.deadUntil) {
+                    jelly.deadUntil = 0;
+                    if (gulletPhase.nest) jelly.pos = copyVec(gulletPhase.nest);
+                    jelly.pathIndex = 0;
+                    jelly.reverse = false;
+                }
+                if (jelly.deadUntil) continue;
+                const speed = diff.jellySpeed * (frightened ? 0.55 : 1);
+                jelly.reverse = frightened;
+                gulletAdvanceHunter(jelly, speed, frameScale);
+            }
+            if (gulletPhase.maw) {
+                gulletPhase.maw.reverse = false;
+                gulletAdvanceHunter(gulletPhase.maw, diff.mawSpeed, frameScale);
+            }
+            if (now < gulletPhase.invulnUntil) return;
+            const ship = { x: posX, y: posY, z: posZ };
+            for (const jelly of gulletPhase.jellies) {
+                if (jelly.deadUntil) continue;
+                const hitR = diff.jellySize + 16;
+                if (Math.sqrt(distanceSq(jelly.pos, ship)) > hitR) continue;
+                if (frightened) {
+                    jelly.deadUntil = now + diff.respawnMs;
+                    gulletPhase.score += GULLET.JELLY_SCORE;
+                    addTargetScore(GULLET.JELLY_SCORE);
+                    spawnTargetParticles(jelly.pos, shipRight, shipDown, jelly.color, 40, 4.8, 44);
+                    playSfx('target_explosion', { intensity: 0.7, worldPos: jelly.pos });
+                } else {
+                    gulletOnPlayerDied();
+                    return;
+                }
+            }
+            if (gulletPhase.maw) {
+                const mawR = diff.mawSize + 18;
+                if (Math.sqrt(distanceSq(gulletPhase.maw.pos, ship)) <= mawR) {
+                    gulletOnPlayerDied();
+                }
+            }
+        }
+
+        function renderGulletJelly(jelly, centerX, centerY, fov, now) {
+            const p = projectPoint(jelly.pos, centerX, centerY, fov);
+            if (!p || p.z <= 8) return;
+            const frightened = now < gulletPhase.powerUntil;
+            const blink = frightened && Math.floor(now / 140) % 2 === 0;
+            const s = Math.max(6, gulletDifficulty().jellySize * (fov / Math.max(70, p.z)));
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.globalAlpha = blink ? 0.28 : 0.9;
+            ctx.strokeStyle = blink ? '#f4f7ff' : jelly.color;
+            ctx.fillStyle = blink ? 'rgba(244,247,255,0.16)' : jelly.fill;
+            ctx.lineWidth = Math.max(1.1, s * 0.08);
+            ctx.beginPath();
+            ctx.ellipse(0, -s * 0.08, s * 0.58, s * 0.4, 0, Math.PI, Math.PI * 2, true);
+            ctx.quadraticCurveTo(s * 0.5, s * 0.5, 0, s * 0.22);
+            ctx.quadraticCurveTo(-s * 0.5, s * 0.5, -s * 0.58, -s * 0.08);
+            ctx.closePath();
+            ctx.fill();
+            ctx.stroke();
+            const t = now * 0.008 + jelly.phase;
+            for (let i = 0; i < 5; i++) {
+                const ox = (i - 2) * s * 0.13;
+                ctx.beginPath();
+                ctx.moveTo(ox, s * 0.16);
+                ctx.quadraticCurveTo(
+                    ox + Math.sin(t + i) * s * 0.18,
+                    s * 0.42,
+                    ox + Math.sin(t * 1.35 + i) * s * 0.12,
+                    s * 0.78
+                );
+                ctx.stroke();
+            }
+            ctx.restore();
+        }
+
+        function renderGulletMaw(maw, centerX, centerY, fov, now) {
+            const p = projectPoint(maw.pos, centerX, centerY, fov);
+            if (!p || p.z <= 8) return;
+            const s = Math.max(10, gulletDifficulty().mawSize * (fov / Math.max(70, p.z)));
+            const open = 0.28 + 0.72 * (0.5 + 0.5 * Math.sin(now * 0.014));
+            ctx.save();
+            ctx.translate(p.x, p.y);
+            ctx.strokeStyle = '#6b1020';
+            ctx.fillStyle = 'rgba(40,6,10,0.85)';
+            ctx.lineWidth = Math.max(2, s * 0.08);
+            ctx.beginPath();
+            ctx.ellipse(0, 0, s * 0.72, s * 0.52 * open, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.strokeStyle = '#ff4d6d';
+            ctx.lineWidth = Math.max(1.2, s * 0.05);
+            const teeth = 10;
+            for (let i = 0; i < teeth; i++) {
+                const a = (i / teeth) * Math.PI * 2 + now * 0.001;
+                const x0 = Math.cos(a) * s * 0.7;
+                const y0 = Math.sin(a) * s * 0.5 * open;
+                const x1 = Math.cos(a) * s * (0.28 + 0.12 * open);
+                const y1 = Math.sin(a) * s * (0.18 + 0.1 * open);
+                ctx.beginPath();
+                ctx.moveTo(x0, y0);
+                ctx.lineTo(x1, y1);
+                ctx.stroke();
+            }
+            ctx.fillStyle = '#140206';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, s * 0.22, s * 0.14 * open, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+
+        function renderGulletPhase(centerX, centerY, fov) {
+            if (!gulletPhase.active) return;
+            const now = performance.now();
+            for (const jelly of gulletPhase.jellies) {
+                if (jelly.deadUntil) continue;
+                renderGulletJelly(jelly, centerX, centerY, fov, now);
+            }
+            if (gulletPhase.maw) renderGulletMaw(gulletPhase.maw, centerX, centerY, fov, now);
+            const powerLeft = Math.max(0, gulletPhase.powerUntil - now);
+            ctx.save();
+            ctx.font = '16px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = powerLeft > 0 ? '#ffd24a' : '#66f0ff';
+            ctx.fillText(
+                `GULLET ${gulletPhase.level}  ·  GATES ${gulletGatesLeft()}  ·  LIVES ${gulletPhase.lives}  ·  +${gulletPhase.score}` +
+                (powerLeft > 0 ? `  ·  SURGE ${Math.ceil(powerLeft / 1000)}s` : ''),
+                centerX, 30
+            );
+            if (now < gulletPhase.invulnUntil) {
+                ctx.fillStyle = 'rgba(102,240,255,0.12)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+            if (gulletPhase.state === 'intro') {
+                ctx.font = 'bold 34px monospace';
+                ctx.fillStyle = '#66f0ff';
+                ctx.fillText('GULLET', centerX, centerY - 52);
+                ctx.font = '16px monospace';
+                ctx.fillStyle = '#c8f6ff';
+                ctx.fillText('fly every gate  ·  surge stashes flip the jellies  ·  the Maw cannot be killed', centerX, centerY);
+                ctx.fillText('three stacked halls  ·  shafts at every junction  ·  3 lives', centerX, centerY + 26);
+            } else if (gulletPhase.state === 'results') {
+                ctx.font = 'bold 30px monospace';
+                ctx.fillStyle = gulletPhase.won ? '#ffd24a' : '#ff6a7a';
+                ctx.fillText(gulletPhase.won ? 'HALLS CLEARED' : 'GULLET FAILED', centerX, centerY - 36);
+                ctx.font = '16px monospace';
+                ctx.fillStyle = '#c8f6ff';
+                ctx.fillText(`score +${gulletPhase.score}   lives ${Math.max(0, gulletPhase.lives)}`, centerX, centerY);
+            }
+            ctx.restore();
+        }
+
         function triggerGameOver() {
             if (gameOverState.active) return;
             spawnTargetParticles(
@@ -6518,6 +7517,10 @@
             // A game-over tick returns before Galaga can clean itself up. End the
             // bonus state now, without restoring its saved flight position; the
             // normal respawn/restart path below owns final ship placement.
+            if (gulletPhase.active) {
+                gulletOnPlayerDied();
+                return;
+            }
             if (galagaPhase.active) endGalagaPhase(false);
             livesRemaining = Math.max(0, livesRemaining - 1);
             savePlayerProfile();
@@ -7235,6 +8238,12 @@
             // once the loop state machine exists (see GAME_DESIGN_BONUS_LEVELS.md).
             if (key === 'g' && e.ctrlKey && e.shiftKey && !e.altKey) {
                 toggleGalagaPhase();
+                e.preventDefault();
+                return;
+            }
+            if (key === 'p' && e.altKey && !e.ctrlKey) {
+                if (e.shiftKey) exportGulletArenaBackup();
+                else toggleGulletPhase();
                 e.preventDefault();
                 return;
             }
@@ -9780,6 +10789,10 @@
         }
 
         function saveTunnelMap(options = {}) {
+            if (gulletPhase.active) {
+                keyboardStatus.innerText = 'Gullet arena is temporary — map save blocked';
+                return;
+            }
             try {
                 localStorage.setItem(TUNNEL_MAP_STORAGE_KEY, JSON.stringify(serializeTunnelMap()));
                 if (options.markDirty !== false) {
@@ -10245,6 +11258,10 @@
         }
 
         function saveNamedTunnelMap() {
+            if (gulletPhase.active) {
+                keyboardStatus.innerText = 'Gullet arena is temporary — map save blocked';
+                return true;
+            }
             clearKeyboardState();
             const defaultName = currentNamedMapName || `Map ${new Date().toLocaleString()}`;
             const name = (window.prompt('Save tunnel map as:', defaultName) || '').trim();
@@ -18208,6 +19225,7 @@
         }
 
         function tickTargetRegen() {
+            if (gulletPhase.active) return;
             const now = performance.now();
             for (const target of tunnelTargets) {
                 if (!target.destroyedAt) continue;
@@ -19609,6 +20627,10 @@
 
         function handleTargetFlyThrough(target, containment) {
             if (!targetIsActive(target) || target.flyThroughScored) return;
+            if (gulletPhase.active) {
+                gulletHandleGate(target);
+                return;
+            }
             const quality = containment || targetContainmentAtPoint(target, { x: posX, y: posY, z: posZ });
             if (!quality) return;
 
@@ -19630,6 +20652,10 @@
 
         function handleTargetLaserHit(target) {
             if (!targetIsActive(target)) return false;
+            if (gulletPhase.active) {
+                gulletHandleGate(target);
+                return true;
+            }
             playSfx('target_explosion', {
                 intensity: target.explosive ? 1 : 0.72,
                 worldPos: { ...target.point }
@@ -21075,7 +22101,7 @@
         }
 
         function flightSentryAiActive() {
-            return !mapView && !portalTransit.active && !gameOverState.active;
+            return !mapView && !portalTransit.active && !gameOverState.active && !gulletPhase.active && !galagaPhase.active;
         }
 
         function tickSentries(frameScale = 1) {
@@ -25885,11 +26911,12 @@
                 const alpha = Math.max(0.25, Math.min(1, 1 - cameraPoint.z / 1600));
                 let strokeColor = TARGET_NORMAL_COLOR;
                 if (target.explosive) strokeColor = TARGET_EXPLOSIVE_COLOR;
+                else if (target.gulletPower) strokeColor = TARGET_GULLET_POWER_COLOR;
                 else if (target.branch) strokeColor = TARGET_BRANCH_COLOR;
                 else if (target.junction) strokeColor = TARGET_JUNCTION_COLOR;
                 ctx.globalAlpha = alpha;
                 ctx.strokeStyle = strokeColor;
-                ctx.lineWidth = target.explosive ? 3 : (target.branch || target.junction ? 3 : 2);
+                ctx.lineWidth = target.explosive || target.gulletPower ? 3 : (target.branch || target.junction ? 3 : 2);
                 ctx.beginPath();
                 ctx.moveTo(corners[0].x, corners[0].y);
                 for (let i = 1; i < corners.length; i++) ctx.lineTo(corners[i].x, corners[i].y);
@@ -26213,6 +27240,7 @@
             tickTargetRegen();
             tickSentryRegen();
             tickGalagaPhase(frameScale);
+            tickGulletPhase(frameScale);
 
             // 4. Fire Dual Lasers on V Key (Stops hardware circuit locking)
             const shotNow = performance.now();
@@ -26374,6 +27402,7 @@
                 renderTunnelTargets(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderTunnelSentries(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderGalagaPhase(centerX, centerY, fov);
+                renderGulletPhase(centerX, centerY, fov);
                 renderLaserAimCrosshair(centerX, centerY, fov);
                 updateAndRenderParticles(centerX, centerY, fov, frameScale);
                 renderRocketBlastClouds(centerX, centerY, fov);

@@ -4,17 +4,18 @@
 
 - **GALAGA 1 of 10 is implemented and playable** inside `index.html`: restricted arcade movement, intro/play/results flow, three enemy waves, bees, butterflies, a boss, enemy fire, shared shield/hull damage, scoring, sprites, and boss special attacks.
 - **GALAGA levels 2–10 remain to be designed and implemented.** The existing first stage is the foundation for the nine additional Galaga stages.
-- **PAC-MAN levels 1–10 are not implemented.**
+- **GULLET (maze-chase) level 1 is implemented** in `index.html`: original 3-layer rectangular-room station maze, jellyfish roamers on seeded patrols, surge stashes, unkillable Maw, and target-box gates. Dev trigger: Alt+P. Original layout and creatures — arcade-inspired, not a licensed clone.
+- **GULLET levels 2–10** reuse the same arena; `startGulletPhase(level)` scales speed, count, size, and chase via `gulletDifficulty(level)`.
 - **DEFENDER levels 1–10 are not implemented.**
 - Challenge-wave behavior, the deep-space phase, station/repair missions, and the complete tunnels → arcade → deep-space progression loop remain future work.
 
 The complete campaign contains **90 levels** arranged as 30 three-level chapters:
 
 - 30 tunnel levels.
-- 30 rotating arcade levels: 10 Galaga, 10 Pac-Man, and 10 Defender.
+- 30 rotating arcade levels: 10 Galaga, 10 Gullet, and 10 Defender.
 - 30 space-exploration levels with a station for repairs, buying items, and receiving quests.
 
-The first Galaga stage is the only completed arcade stage so far.
+The first Galaga stage and Gullet stage 1 are the completed arcade stages so far.
 
 **Vision (Ron, 2026-07-07, campaign sequence clarified 2026-07-11):** the game is a repeating LOOP
 of three level types, each chapter harder than the last. The arcade stages are
@@ -25,15 +26,17 @@ and real stakes:
 TUNNELS phase  →  ARCADE phase  →  DEEP SPACE phase  →  (repeat, tier+1)
  (the core        (rotating:        (space station:
   6DOF crawl)      Galaga →          repairs, missions —
-                   Pac-Man →         "help the mining
+                   Gullet →         "help the mining
                    Defender)         colony on Planet X")
 ```
 
 Arcade phases, rotating one per lap:
 1. **GALAGA** — locked looking up, fighter waves swoop and dive-bomb, you can
    only strafe left/right and shoot. They shoot back. They have to.
-2. **PAC-MAN** — you ARE Pac-Man, first person inside the maze, eating dots,
-   hunted by four ghosts.
+2. **GULLET** — first-person hall-clear in a stacked 3D station maze.
+   Fly every target-box gate, dodge jellyfish on learnable patrols, grab
+   surge stashes to hunt them, and avoid the Maw (unkillable). Original
+   layout and creatures — arcade-inspired, not a licensed clone.
 3. **DEFENDER** — side-scroller seen from inside the cockpit, flying the
    scroll lane, rescuing pods.
 
@@ -42,7 +45,7 @@ Arcade phases, rotating one per lap:
 Each numbered chapter contains exactly three levels:
 
 1. A tunnel level.
-2. The next arcade level in the repeating Galaga → Pac-Man → Defender rotation.
+2. The next arcade level in the repeating Galaga → Gullet → Defender rotation.
 3. A space-exploration level with a station for repairs, item purchases, and quests.
 
 The opening sequence is:
@@ -53,7 +56,7 @@ The opening sequence is:
 | 2 | Galaga 1 |
 | 3 | Space 1 |
 | 4 | Tunnel 2 |
-| 5 | Pac-Man 1 |
+| 5 | Gullet 1 |
 | 6 | Space 2 |
 | 7 | Tunnel 3 |
 | 8 | Defender 1 |
@@ -85,7 +88,7 @@ vast → tight...
   teleported in via portal transit and back to their exact saved main-game
   position/state afterward. Arena segments are tagged and removed on exit.
 - **Input gate**: each level type declares which controls pass through
-  (Galaga: strafe + fire; Pac-Man: yaw + forward; Defender: fore/aft +
+  (Galaga: strafe + fire; Gullet: full 6DOF in stacked halls; Defender: fore/aft +
   lift + fire). Everything else is ignored while the mode is active.
 - **Stakes — SHARED lives (Ron's call)**: these are progression acts, not
   rewards. Shield/hull carry over; dying in an arcade phase costs a life
@@ -153,21 +156,24 @@ gets a reserved `special` phase slot now so v2 slots in without rework.
 
 ---
 
-## Level 2: PAC-MAN (sketch — build after Galaga ships)
+## Level 2: GULLET (implemented — original maze-chase)
 
-You are Pac-Man. First person, inside the maze.
-- **The maze is tunnels** — the engine's core competency. Auto-generate a
-  flat classic-layout tunnel grid with the map builder machinery.
-- Dots: existing target pickups spaced along tunnel axes; eat by flying
-  through. Power pellets glow larger.
-- Ghosts: four sentry-derived drones with the classic personalities —
-  Blinky (direct chase), Pinky (ambush ahead of you), Inky (flank via
-  Blinky mirror), Clyde (approach-then-shy). Power pellet flips them blue
-  and vulnerable — ram them through the tunnels.
-- Input gate: yaw + forward thrust only (tunnel running, no strafe/lift).
-- Win: clear the dots. Timer pressure via tier.
+First-person hall-clear inside a 3-layer rectangular-room station. Arcade-inspired
+only: original layout, jellyfish roamers, surge stashes, and an unkillable Maw.
+Do not reproduce any licensed maze, character, name, or sound.
 
-## Level 3: DEFENDER (sketch — build after Pac-Man)
+- **Maze**: square/rect rooms mimicking a station grid, not a famous arcade map.
+  Three stacked floors with up/down shafts at every intersection.
+- **Gates**: existing target boxes. Win by flying through every remaining gate.
+- **Surge stashes**: larger gold boxes. 20s (level 1) hunter-flip; ram jellies to
+  clear them. They respawn from the nest after 60s (scales with difficulty).
+- **Jellies**: seeded, repeatable patrol loops. Touch = death unless surged.
+- **Maw**: flapping mouth, cannot be killed, always lethal, patrol-only.
+- **Lives**: 3 for the act. Alt+P starts it in developer mode.
+- **Difficulty**: `startGulletPhase(1..10)` scales speed, count, size, chase, surge
+  duration, and respawn delay.
+
+## Level 3: DEFENDER (sketch — build after Gullet)
 
 Side-scroller from inside the cockpit.
 - Constrained to a vertical plane: fore/aft along the scroll axis + lift,
@@ -201,7 +207,7 @@ The wide-open act between laps. Full 6DOF in open space.
   Linda's hard-boss settings at level 10: enemy bolt speed/hit radius and damage,
   boss HP, laser speed/damage, and missile speed/damage. `startGalagaPhase(level)`
   accepts levels 1–10; the future campaign director should pass the Galaga level.
-- **P3**: Pac-Man levels 1–10.
+- **P3**: Gullet levels 2–10 (level 1 is playable via Alt+P).
 - **P4**: Defender levels 1–10.
 - **P5**: 30 deep-space levels — station, docking/repair, item shop, quests, and escalating exploration missions.
 - **P6**: the full 90-level campaign: tunnel → rotating arcade → space, repeated for 30 chapters with difficulty scaling; the campaign state machine owns the current chapter, arcade-family level number, and completion state.

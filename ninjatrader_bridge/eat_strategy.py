@@ -10,6 +10,7 @@ than EMT's simple all-in/all-out bracket.
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
 import sys
@@ -23,6 +24,8 @@ from zoneinfo import ZoneInfo
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
+
+logger = logging.getLogger("EAT")
 
 
 @dataclass(frozen=True)
@@ -518,6 +521,12 @@ class EATStrategyEngine:
             f"EAT PAPER {direction.upper()} {self.quantity} {self.broker_symbol} "
             f"| stop {stop:.2f} | TP1 {tp1:.2f} | runner trail {self.runner_trail_ticks} ticks",
         )
+        logger.info(
+            f"[TRADE OPEN] {self.broker_symbol} {direction.upper()} | "
+            f"Entry: ${price:.4f} | Qty: {self.quantity} | "
+            f"SL: ${stop:.4f} | TP1: ${tp1:.4f} | "
+            f"Broker: PAPER | ID: {trade_id}"
+        )
 
     def _points_won(self, trade: EATTrade, price: float) -> float:
         return price - trade.entry_price if trade.direction == "long" else trade.entry_price - price
@@ -605,6 +614,10 @@ class EATStrategyEngine:
         self._emit(
             stamp, 0, "PAPER_EXIT", trade.direction, price,
             f"EAT PAPER EXIT {reason} | P&L ${trade.realized_pnl:.2f}",
+        )
+        logger.info(
+            f"[TRADE CLOSED] [EAT] {self.broker_symbol} | PAPER | {reason} | "
+            f"PnL: {'+' if trade.realized_pnl > 0 else ''}{trade.realized_pnl:.2f}"
         )
         self.active_trade = None
         if self.allow_reentry and self.trade_end and stamp.astimezone(self.market_tz) < self.trade_end:

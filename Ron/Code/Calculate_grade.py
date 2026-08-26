@@ -18,9 +18,17 @@ for i in range(0, len(weeks_discuss)):
 final_exam_score = float(
     input("Enter the score on your final exam: ")
 )
+bonus = 0
+bonus_pts = input(
+    "Did you earn full bous points> Y/n: "
+)
+if bonus_pts.upper() == "Y":
+    bonus = 10
+
 final_score = (
     (var_sixty * final_exam_score)
     + sum(wweeks_review_score)
     + sum(weeks_discuss)
+    + bonus
 )
 print(f"Your final score is: {final_score}")

@@ -4,6 +4,11 @@
 
 ## Update Timeline (newest first)
 
+### 2026-08-25 — Gullet arcade maze phase
+
+- `startGulletPhase(level)` / Alt+P swaps in a temporary 3-floor rectangular-room arena, then restores the host map without saving. Target-box gates, surge stashes, jellyfish patrols, and an unkillable Maw live only while the phase is active.
+- Map save is blocked during Gullet so the generated arena cannot overwrite the player's tunnel.
+
 ### 2026-08-24 — Scoped large-map rendering optimization
 
 - A 1,001-segment map remains fully loaded in `builder.segments`; no geometry is unloaded or streamed. The complete map stays authoritative for saving, editing, route topology, and safety fallbacks.

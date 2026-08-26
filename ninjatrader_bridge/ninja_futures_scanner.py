@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import logging
 import os
 import statistics
 import threading
@@ -933,7 +934,28 @@ def make_handler(state):
             return
     return Handler
 
+def setup_bot_log_handler():
+    """Attach a FileHandler to the shared bot.log so EMT/EAT [TRADE OPEN]/
+    [TRADE CLOSED] entries land in the same file as every other strategy,
+    even though this scanner runs as its own standalone process.
+    """
+    log_dir = os.path.join(PROJECT_ROOT, "logs")
+    os.makedirs(log_dir, exist_ok=True)
+    file_handler = logging.FileHandler(
+        os.path.join(log_dir, "bot.log"), encoding="utf-8"
+    )
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S"
+    ))
+    root_logger = logging.getLogger()
+    root_logger.setLevel(logging.INFO)
+    root_logger.addHandler(file_handler)
+
+
 def main():
+    setup_bot_log_handler()
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default=os.path.join(ROOT, "ninja_futures_config.json"))
     parser.add_argument(
