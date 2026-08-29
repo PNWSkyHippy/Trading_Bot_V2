@@ -17,7 +17,7 @@ jobs:
         run: npm install -g @openai/codex  # Codex CLI package
       
       - name: Rebuild Graphify Map
-        run: codex graphify build --project-root .
+        run: codex exec "graphify build --project-root ."
       
       - name: Commit and Push
         run: |
