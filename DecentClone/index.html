@@ -2750,13 +2750,14 @@
             for (let i = 0; i < builder.segments.length; i++) {
                 const seg = builder.segments[i];
                 if (!seg?.from || !seg?.to) continue;
-                // Chamber spheres cover their own volume, but a rect-room's box does
-                // NOT cover the seam to its neighbor when two independently-oriented
-                // boxes (or a box and a tube) meet with any drift — same wedge-gap
-                // problem as tube-tube joints, just unnoticed until rooms started
-                // getting chained end-to-end as corridors. Give room endpoints a
-                // bubble too instead of requiring perfect alignment.
-                if (segmentIsChamber(seg)) continue;
+                // Chambers cover their own volume, and rect rooms have their own
+                // exit logic (plain open ends + junction-cube face apertures in
+                // containShipInTunnel) that's precise about which faces are open
+                // and where. A rect room's full-sphere bubble here was disabling
+                // ALL containment (including the floor) near every seam — in a
+                // densely-packed rect-room maze (Gullet) that blanketed most of
+                // the playable space and let the ship sink through the floor.
+                if (segmentIsChamber(seg) || segmentIsRectRoom(seg)) continue;
                 const r = seg.radius || builder.radius;
                 pts.push({ p: seg.from, r, i });
                 pts.push({ p: seg.to, r, i });
@@ -6539,8 +6540,8 @@
             JELLY_SPEED: 3.4,
             MAW_SPEED: 2.2,
             JELLY_COUNT: 8,
-            JELLY_SIZE: 36,
-            MAW_SIZE: 62,
+            JELLY_SIZE: 58,
+            MAW_SIZE: 86,
             CHASE_BLEND: 0.52,
             GATE_SCORE: 100,
             POWER_SCORE: 60,
@@ -6561,8 +6562,8 @@
             JELLY_SPEED: 1.55,
             MAW_SPEED: 1.05,
             JELLY_COUNT: 4,
-            JELLY_SIZE: 22,
-            MAW_SIZE: 46,
+            JELLY_SIZE: 44,
+            MAW_SIZE: 70,
             CHASE_BLEND: 0.06,
             POWER_MS: 20000,
             RESPAWN_MS: 60000
@@ -7538,7 +7539,7 @@
             const ship = { x: posX, y: posY, z: posZ };
             for (const jelly of gulletPhase.jellies) {
                 if (jelly.deadUntil) continue;
-                const hitR = diff.jellySize + 16;
+                const hitR = diff.jellySize + 36;
                 if (Math.sqrt(distanceSq(jelly.pos, ship)) > hitR) continue;
                 if (frightened) {
                     jelly.deadUntil = now + diff.respawnMs;
@@ -7552,7 +7553,7 @@
                 }
             }
             if (gulletPhase.maw) {
-                const mawR = diff.mawSize + 18;
+                const mawR = diff.mawSize + 38;
                 if (Math.sqrt(distanceSq(gulletPhase.maw.pos, ship)) <= mawR) {
                     gulletOnPlayerDied();
                 }
