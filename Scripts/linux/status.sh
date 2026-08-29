@@ -11,6 +11,7 @@ SERVICES=(
   emt-scanner.service
   emt-watchdog.service
   emt-watchdog.timer
+  trading-bot-map-sync.service 
 )
 
 echo "== systemd service state =="
