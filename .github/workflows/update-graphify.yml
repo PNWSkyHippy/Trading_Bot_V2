@@ -7,6 +7,13 @@ on:
       - "graphify-out/**"  # Don't re-run if only graphify changes
   workflow_dispatch:  # Manual trigger
 
+permissions:
+  contents: write
+
+concurrency:
+  group: graphify-map-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   rebuild-graph:
     runs-on: ubuntu-latest
@@ -24,10 +31,14 @@ jobs:
       - name: Update Graphify Map
         run: graphify update .
       
-      - name: Upload Graphify Map
-        uses: actions/upload-artifact@v4
-        with:
-          name: graphify-map-${{ github.sha }}
-          path: graphify-out/
-          if-no-files-found: error
-          retention-days: 7
+      - name: Commit updated Graphify Map
+        run: |
+          git config user.name "Graphify Bot"
+          git config user.email "graphify@bot"
+          git add -A -- graphify-out/
+          if git diff --cached --quiet; then
+            echo "Graphify map is already current."
+            exit 0
+          fi
+          git commit -m "Update Graphify map"
+          git push origin HEAD:main
