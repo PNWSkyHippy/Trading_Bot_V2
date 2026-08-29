@@ -35,7 +35,14 @@ jobs:
         run: |
           git config user.name "Graphify Bot"
           git config user.email "graphify@bot"
-          git add -A -- graphify-out/
+          git add -A -- \
+            graphify-out/graph.json \
+            graphify-out/GRAPH_REPORT.md \
+            graphify-out/manifest.json \
+            graphify-out/.graphify_root \
+            graphify-out/.graphify_labels.json \
+            graphify-out/.graphify_labels.json.sig \
+            graphify-out/graph.html
           if git diff --cached --quiet; then
             echo "Graphify map is already current."
             exit 0

@@ -8,6 +8,9 @@ data/daily_scan_results.json
 reports/
 signals_log.csv
 .claude/worktrees/
+graphify-out/cache/
+graphify-out/20*/
+graphify-out/trading-bot-code-graph.html
 data/futures_history/
 watchlist/
 junk*
