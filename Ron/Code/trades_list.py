@@ -8,13 +8,7 @@ import csv
 import re
    
 
-from local_functions import (
-    colorize,
-    chkstr_isnum,
-    clean_ansi,
-    date_check,
-    STAT_LABEL_VALUE_RE,
-)
+from local_functions import ( colorize, chkstr_isnum, clean_ansi,  date_check,  STAT_LABEL_VALUE_RE,)
 
 extended = False
 csv_true = False
@@ -23,19 +17,9 @@ EQUALSTR = "=" * 175 + "\n"
 BL_EQUALSTR = colorize(EQUALSTR, "blue")
 # Find path to the trading bot DB
 if os.name == "nt":
-    DB_PATH = os.path.join(
-        os.path.dirname(__file__),
-        "..\\..",
-        "data",
-        "trading_bot.db",
-    )
+    DB_PATH = os.path.join( os.path.dirname(__file__), "..\\..", "data", "trading_bot.db",)
 else:
-    DB_PATH = os.path.join(
-        os.path.dirname(__file__),
-        "../..",
-        "data",
-        "trading_bot.db",
-    )
+    DB_PATH = os.path.join(os.path.dirname(__file__), "../..", "data", "trading_bot.db",)
 # End Globals
 
 
@@ -49,62 +33,23 @@ def print_outfile(text, output_file):
         clean_text = clean_ansi(text)
         try:
             if csv_true:
-                with open(
-                    output_file + ".csv",
-                    "a",
-                    newline="",
-                ) as csvfile:
-                    spamwriter = csv.writer(
-                        csvfile,
-                        delimiter=",",
-                        quotechar=" ",
-                        quoting=csv.QUOTE_MINIMAL,
-                    )
-                    for (
-                        line
-                    ) in clean_text.splitlines():
+                with open(output_file + ".csv", "a", newline="", ) as csvfile:
+                    spamwriter = csv.writer(csvfile, delimiter=",", quotechar=" ", quoting=csv.QUOTE_MINIMAL,)
+                    for ( line ) in clean_text.splitlines():
                         stripped = line.strip()
-                        if not stripped or set(
-                            stripped
-                        ) == {"="}:
-                            spamwriter.writerow(
-                                []
-                            )
-                        elif (
-                            stripped.count(":")
-                            >= 2
-                        ):
+                        if not stripped or set( stripped ) == {"="}:
+                            spamwriter.writerow( [] )
+                        elif ( stripped.count(":") >= 2):
                             # summary lines like "Total Trades: 54   Total P&L: -1320.00 ..."
-                            pairs = STAT_LABEL_VALUE_RE.findall(
-                                stripped
-                            )
-                            row = [
-                                part.strip()
-                                for label, value in pairs
-                                for part in (
-                                    label,
-                                    value,
-                                )
-                            ]
-                            spamwriter.writerow(
-                                row
-                                or stripped.split()
-                            )
+                            pairs = STAT_LABEL_VALUE_RE.findall(stripped)
+                            row = [ part.strip() for label, value in pairs for part in ( label, value,)]
+                            spamwriter.writerow( row or stripped.split() )
                         else:
-                            spamwriter.writerow(
-                                stripped.split()
-                            )
+                            spamwriter.writerow( stripped.split() )
             else:
-                with open(
-                    output_file,
-                    "a",
-                    encoding="utf-8",
-                ) as file:
-                    file.write(clean_text)
+                with open( output_file, "a", encoding="utf-8", ) as file: file.write(clean_text)
         except OSError as e:
-            print(
-                f"Error writing to output file: {e}"
-            )
+            print( f"Error writing to output file: {e}" )
             sys.exit(1)
     else:
         print(text, end="")
@@ -185,24 +130,11 @@ def proc_dict(
         )
         exit_time = trade_dict["exit_time"] or ""
 
-        if (entry_time[0:16] >= start_date) and (
-            exit_time[0:16] <= end_date
-        ):
-
-            if (
-                key == "ALL"
-                or trade_dict.get(key, "None")
-                == strat_name
-                or strat_name == "ALL"
-            ):
+        if entry_time[0:16] >= start_date and exit_time[0:16] <= end_date:
+            if key == "ALL" or trade_dict.get(key, "None") == strat_name or strat_name == "ALL":
                 symbol = trade_dict["symbol"]
-                trade_pnl = float(
-                    trade_dict["pnl"] or 0.0
-                )
-                sym_total_pnl[symbol] = (
-                    sym_total_pnl.get(symbol, 0.0)
-                    + trade_pnl
-                )
+                trade_pnl = float(trade_dict["pnl"] or 0.0)
+                sym_total_pnl[symbol] = sym_total_pnl.get(symbol, 0.0) + trade_pnl 
                 #  entry contains strat were after total the PnL
                 total_pnl += trade_pnl
                 # Running total the number of wins or losses and trace the total of each
@@ -220,15 +152,9 @@ def proc_dict(
                 # Track the number of trades processed
                 trade_count += 1
                 if trade_pnl < 0:
-                    col_pnl = colorize(
-                        f"{trade_pnl:<8.2f}",
-                        "red",
-                    )
+                    col_pnl = colorize( f"{trade_pnl:<8.2f}","red",)
                 else:
-                    col_pnl = colorize(
-                        f"{trade_pnl:<8.2f}",
-                        "green",
-                    )
+                    col_pnl = colorize(f"{trade_pnl:<8.2f}","green",)
             if passes == 1:
                 print_outfile(
                     f'List of {colorize(strat_name, "red")} Trades\n',
@@ -370,7 +296,7 @@ def print_col_headers(trades_lst):
             final_list = ""
 
         local_counter += 1
-    # If num of colums not disivble by 5 print the remaining odd headers
+    # If num of columns not divisible by 5 print the remaining odd headers
     if final_list:
         print(f'{colorize(final_list, "blue")}')
 
@@ -469,10 +395,7 @@ def value_in_selected(actual, selected):
             if actual_str == val:
                 return True
             selected_num = numeric_value(val)
-            if (
-                actual_num is not None
-                and selected_num is not None
-            ):
+            if ( actual_num is not None and selected_num is not None ):
                 if actual_num == selected_num:
                     return True
     return False
@@ -536,106 +459,56 @@ Usage examples:
         formatter_class=wide_formatter,
     )
 
-    parser.add_argument(
-        "-o",
-        "--outfile",
-        metavar="",
+    parser.add_argument("-o", "--outfile", metavar="",
         help="\tpath and name of output file",
     )
-    parser.add_argument(
-        "-op",
-        "--open",
-        action="store_true",
+    parser.add_argument("-op", "--open", action="store_true",
         help="List open trades instead of closed",
     )
-    parser.add_argument(
-        "-csv",
-        "--csv",
-        action="store_true",
+    parser.add_argument("-csv", "--csv",  action="store_true",
         help="\tuse to have output file be a csv",
     )
 
-    parser.add_argument(
-        "-1",
-        "--list1",
-        metavar="",
+    parser.add_argument("-1", "--list1", metavar="",
         help="ALL or comma-separated values for the first key; numeric values also accept !=, <, >,"
         "<=, >= (quote these in PowerShell)",
     )
-    parser.add_argument(
-        "-2",
-        "--list2",
-        metavar="",
-        help="ALL or a <Comma seperated list of valuws found in second provided key>",
+    parser.add_argument("-2", "--list2", metavar="",
+        help="ALL or a <Comma seperated list of values found in second provided key>",
     )
-    parser.add_argument(
-        "-3",
-        "--list3",
-        metavar="",
-        help="ALL or a <Comma seperated list of valuws found in third provided key>",
+    parser.add_argument("-3", "--list3", metavar="",
+        help="ALL or a <Comma separated list of values found in third provided key>",
     )
-    parser.add_argument(
-        "-4",
-        "--list4",
-        metavar="",
-        help="ALL or a <Comma seperated list of valuws found in fourth provided key>",
+    parser.add_argument("-4", "--list4", metavar="",
+        help="ALL or a <Comma separated list of values found in fourth provided key>",
     )
-    parser.add_argument(
-        "-5",
-        "--list5",
-        metavar="",
-        help="ALL or a <Comma seperated list of valuws found in fifth provided key>",
+    parser.add_argument("-5", "--list5", metavar="",
+        help="ALL or a <Comma separated list of values found in fifth provided key>",
     )
-    parser.add_argument(
-        "-s",
-        "--start",
-        metavar="",
-        help="Starting date and time. Format YYYY:MM:DDTHH:MM T being a litteral T",
+    parser.add_argument("-s", "--start", metavar="",
+        help="Starting date and time. Format YYYY:MM:DDTHH:MM T being a literal T",
     )
-    parser.add_argument(
-        "-e",
-        "--end",
-        metavar="",
-        help="Ending date and time. Format YYYY:MM:DDTHH:MM T being a litteral T",
+    parser.add_argument("-e", "--end", metavar="",
+        help="Ending date and time. Format YYYY:MM:DDTHH:MM T being a literal T",
     )
-    parser.add_argument(
-        "-k",
-        "--key",
-        metavar="",
-        help="ALL or a <Comma seperated list of DB table keys to index and search>",
+    parser.add_argument("-k", "--key", metavar="",
+        help="ALL or a <Comma separated list of DB table keys to index and search>",
     )
-    parser.add_argument(
-        "-sk",
-        "--sort-keys",
-        metavar="",
-        help="<Comma seperated list of DB table keys to sort results. one entry per key from -k>",
+    parser.add_argument("-sk", "--sort-keys", metavar="",
+        help="<Comma separated list of DB table keys to sort results. one entry per key from -k>",
     )
 
-    parser.add_argument(
-        "-R",
-        "--Reverse",
-        action="store_true",
+    parser.add_argument("-R", "--Reverse", action="store_true",
         help="If given, sort order is reversed",
     )
-   
-    parser.add_argument(
-        "-N",
-        "--Names",
-        action="store_true",
+    parser.add_argument("-N", "--Names", action="store_true",
         help="If given, prints a list of all trade table key names you can use",
     )
-    parser.add_argument(
-        "-A",
-        "--and",
-        dest="and_filter",
-        action="store_true",
+    parser.add_argument("-A", "--and", dest="and_filter", action="store_true",
         help="If given with multiple --key values, require trades to match ALL selected key/value "
         "filters at once (e.g. symbol=MSFT AND direction=long) instead of printing a separate breakdown per key",
     )
-    parser.add_argument(
-        "-E",
-        "--Ext",
-        action="store_true",
+    parser.add_argument("-E", "--Ext", action="store_true",
         help="Extended Trade Id , default is shortened Id (Useful when you need the full trade Id for a lookup)",
     )
 
@@ -670,11 +543,8 @@ Usage examples:
             sys.exit(1)
 
     if not trades_list:
-        (
-            print("No closed trades found.")
-            if (mode == "closed")
-            else print("No open trades found.")
-        )
+        print("No closed trades found.") if (mode == "closed") else print("No open trades found.")
+        
         conn.close()
         return
 
@@ -701,62 +571,47 @@ Usage examples:
 
     output_file = args.outfile
     if csv_true:
-        output_file, extension = output_file.split(".")
+        output_file, _, extension = output_file.rpartition(".")
+        if not extension:
+            extension = "csv"
+            output_file = args.outfile
 
     # Build a list of list options skipping those not given
     list_values = [
-        ( args.list1.split(",") if args.list1 else []),
-        ( args.list2.split(",") if args.list2 else []),
-        ( args.list3.split(",") if args.list3 else []),
-        ( args.list4.split(",") if args.list4 else []),
-        ( args.list5.split(",") if args.list5 else []),
+        args.list1.split(",") if args.list1 else [],
+        args.list2.split(",") if args.list2 else [],
+        args.list3.split(",") if args.list3 else [],
+        args.list4.split(",") if args.list4 else [],
+        args.list5.split(",") if args.list5 else [],
     ]
 
-    key_list = (
-        args.key.split(",") if args.key else []
-    )
+    key_list =  args.key.split(",") if args.key else []
 
     if len(key_list) > 5:
-        print(
-            "\nError: maximum of 5 keys is supported.\n"
-        )
+        print("\nError: maximum of 5 keys is supported.\n")
         sys.exit(1)
         
-    sort_list = (
-         args.sort_keys.split(",") if args.sort_keys else []
-    )
+    sort_list = args.sort_keys.split(",") if args.sort_keys else []
 
     if len(sort_list) > 5:
-        print(
-            "\nError: maximum of 5 sort keys is supported.\n"
-        )
+        print("\nError: maximum of 5 sort keys is supported.\n")
         sys.exit(1)
 
     # Verify every key value input is valid
-    if date_range_given and (
-        not any(list_values)
-    ):
+    if date_range_given and (not any(list_values)):
         for j in range(5):
             list_values[j].append("ALL")
 
     if date_range_given and len(key_list) < 1:
         key_list = default_key_list
 
-    if (
-        (not len(list_values))
-        or (not len(key_list))
-    ) and (not date_range_given):
-        parser.print_help()
-        parser.exit(
-            2,
-            "\nError: provide --key key1,key2,... and at least one --list option per key given.\n",
-        )
-
+    if ((not len(list_values)) or (not len(key_list))) and (not date_range_given):
+         parser.print_help()
+         parser.exit(2,"\nError: provide --key key1,key2,... and at least one --list option per key given.\n")
+  
     for key_name in key_list:
         if key_name not in hdr_list:
-            print(
-                f"\nError: {key_name} is not a valid entry. please run with -N to see a list of valid choices\n"
-            )
+            print(f"\nError: {key_name} is not a valid entry. please run with -N to see a list of valid choices\n")
             sys.exit()
 
     for sort_name in sort_list:
@@ -798,22 +653,16 @@ Usage examples:
         combined_list = []
         for trade in trades_list:
             matches_all = True
-            for key_name, selected in zip(
-                key_list, list_values
-            ):
+            for key_name, selected in zip( key_list, list_values):
                 if not selected:
                     continue
                 if selected[0] == "ALL":
                     continue
-                if not value_in_selected(
-                    trade[key_name], selected
-                ):
+                if not value_in_selected(trade[key_name], selected):
                     matches_all = False
                     break
             if matches_all:
-                combined_list.append(
-                    copy.deepcopy(trade)
-                )
+                combined_list.append(copy.deepcopy(trade))
 
         if is_sorted:
             for sort_key in reversed(sort_list):

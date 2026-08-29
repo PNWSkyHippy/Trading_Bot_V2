@@ -2750,14 +2750,13 @@
             for (let i = 0; i < builder.segments.length; i++) {
                 const seg = builder.segments[i];
                 if (!seg?.from || !seg?.to) continue;
-                // Chambers cover their own volume, and rect rooms have their own
-                // exit logic (plain open ends + junction-cube face apertures in
-                // containShipInTunnel) that's precise about which faces are open
-                // and where. A rect room's full-sphere bubble here was disabling
-                // ALL containment (including the floor) near every seam — in a
-                // densely-packed rect-room maze (Gullet) that blanketed most of
-                // the playable space and let the ship sink through the floor.
-                if (segmentIsChamber(seg) || segmentIsRectRoom(seg)) continue;
+                // Chamber spheres cover their own volume, but a rect-room's box does
+                // NOT cover the seam to its neighbor when two independently-oriented
+                // boxes (or a box and a tube) meet with any drift — same wedge-gap
+                // problem as tube-tube joints, just unnoticed until rooms started
+                // getting chained end-to-end as corridors. Give room endpoints a
+                // bubble too instead of requiring perfect alignment.
+                if (segmentIsChamber(seg)) continue;
                 const r = seg.radius || builder.radius;
                 pts.push({ p: seg.from, r, i });
                 pts.push({ p: seg.to, r, i });
@@ -7506,6 +7505,11 @@
             if (!gulletPhase.active) return;
             const now = performance.now();
             const diff = gulletDifficulty();
+            const ship = { x: posX, y: posY, z: posZ };
+            const teleportJump = !gulletPhase._lastShipPos
+                || distanceSq(gulletPhase._lastShipPos, ship) > 90000;
+            const prevShip = teleportJump ? ship : gulletPhase._lastShipPos;
+            gulletPhase._lastShipPos = ship;
             if (gulletPhase.state === 'intro' && now >= gulletPhase.stateUntil) {
                 gulletPhase.state = 'play';
             }
@@ -7536,11 +7540,10 @@
                 gulletAdvanceHunter(gulletPhase.maw, diff.mawSpeed, frameScale);
             }
             if (now < gulletPhase.invulnUntil) return;
-            const ship = { x: posX, y: posY, z: posZ };
             for (const jelly of gulletPhase.jellies) {
                 if (jelly.deadUntil) continue;
-                const hitR = diff.jellySize + 36;
-                if (Math.sqrt(distanceSq(jelly.pos, ship)) > hitR) continue;
+                const hitR = diff.jellySize + 50;
+                if (distSqToSegment(prevShip, ship, jelly.pos) > hitR * hitR) continue;
                 if (frightened) {
                     jelly.deadUntil = now + diff.respawnMs;
                     gulletPhase.score += GULLET.JELLY_SCORE;
@@ -7553,8 +7556,8 @@
                 }
             }
             if (gulletPhase.maw) {
-                const mawR = diff.mawSize + 38;
-                if (Math.sqrt(distanceSq(gulletPhase.maw.pos, ship)) <= mawR) {
+                const mawR = diff.mawSize + 55;
+                if (distSqToSegment(prevShip, ship, gulletPhase.maw.pos) <= mawR * mawR) {
                     gulletOnPlayerDied();
                 }
             }
@@ -9724,6 +9727,18 @@
             const dx = a.x - b.x;
             const dy = a.y - b.y;
             const dz = a.z - b.z;
+            return dx * dx + dy * dy + dz * dz;
+        }
+
+        function distSqToSegment(a, b, p) {
+            const abx = b.x - a.x, aby = b.y - a.y, abz = b.z - a.z;
+            const abLenSq = abx * abx + aby * aby + abz * abz;
+            let t = abLenSq > 1e-9
+                ? ((p.x - a.x) * abx + (p.y - a.y) * aby + (p.z - a.z) * abz) / abLenSq
+                : 0;
+            t = Math.max(0, Math.min(1, t));
+            const cx = a.x + abx * t, cy = a.y + aby * t, cz = a.z + abz * t;
+            const dx = p.x - cx, dy = p.y - cy, dz = p.z - cz;
             return dx * dx + dy * dy + dz * dz;
         }
 
