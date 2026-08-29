@@ -2,6 +2,15 @@
     "claudeCodeChat.permissions.yoloMode": false,
     "python-envs.defaultEnvManager": "ms-python.python:system",
     "cSpell.words": [
-        "gradebook"
+        "Canis",
+        "familiaris",
+        "gradebook",
+        "Starfleet"
+    ],
+    "python.REPL.enableREPLSmartSend": false,
+    "cSpell.ignoreWords": [
+        "chkstr",
+        "clist",
+        "isnum"
     ]
 }

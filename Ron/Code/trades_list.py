@@ -6,9 +6,11 @@ import copy
 import argparse
 import csv
 import re
+   
 
 from local_functions import (
     colorize,
+    chkstr_isnum,
     clean_ansi,
     date_check,
     STAT_LABEL_VALUE_RE,
@@ -142,12 +144,12 @@ def get_open_trades(conn):
 
 
     
-    def proc_dict(
+def proc_dict(
     loc_trade_list,
     strat_name,
     key,
     output_file,
-    start_date,
+        start_date,
     end_date,
 ):
     """Process the provided dictionary of trades"""
@@ -393,21 +395,10 @@ def build_hdr_list(trades_lst2):
 
 def format_group_summary(res_dict):
     """color and format the results dictionary"""
-    lhigh_tot = colorize(
-        f'{res_dict["high_sym"]["total"]:.2f}',
-        "green",
-    )
-    llow_tot = colorize(
-        f'{res_dict["low_sym"]["total"]:.2f}',
-        "red",
-    )
-    lhigh_sym = colorize(
-        f'{res_dict["high_sym"]["symbol"]}',
-        "cyan",
-    )
-    llow_sym = colorize(
-        f'{res_dict["low_sym"]["symbol"]}', "cyan"
-    )
+    lhigh_tot = colorize(f'{res_dict["high_sym"]["total"]:.2f}', "green",)
+    llow_tot = colorize(f'{res_dict["low_sym"]["total"]:.2f}', "red",)
+    lhigh_sym = colorize(f'{res_dict["high_sym"]["symbol"]}', "cyan",)
+    llow_sym = colorize(f'{res_dict["low_sym"]["symbol"]}', "cyan")
 
     return (
         f'{"Total Trades:":>16} {res_dict["trade_count"]}    {"Total P&L:":<13}   {res_dict["total_pnl"]}'
@@ -460,35 +451,18 @@ def value_in_selected(actual, selected):
             if val.startswith(op):
                 if actual_num is None:
                     break
-                bound = numeric_value(
-                    val[len(op) :]
-                )
+                bound = numeric_value(val[len(op) :])
                 if bound is None:
                     break
-                if (
-                    op == "!="
-                    and actual_num != bound
-                ):
+                if (op == "!=" and actual_num != bound):
                     return True
-                if (
-                    op == "<="
-                    and actual_num <= bound
-                ):
+                if (op == "<=" and actual_num <= bound):
                     return True
-                if (
-                    op == ">="
-                    and actual_num >= bound
-                ):
+                if (op == ">=" and actual_num >= bound):
                     return True
-                if (
-                    op == "<"
-                    and actual_num < bound
-                ):
+                if (op == "<" and actual_num < bound):
                     return True
-                if (
-                    op == ">"
-                    and actual_num > bound
-                ):
+                if (op == ">" and actual_num > bound):
                     return True
                 break
         else:
@@ -523,10 +497,7 @@ def print_group_summary(
     )
     if int(res_dict["trade_count"]) >= 1:
         print_outfile(BL_EQUALSTR, output_file)
-        print_outfile(
-            format_group_summary(res_dict),
-            output_file,
-        )
+        print_outfile(format_group_summary(res_dict),output_file,)
         print_outfile(
             BL_EQUALSTR + "\n\n", output_file
         )
@@ -536,12 +507,10 @@ def main():
 
     # Standard library approach to handle Windows initialization safely
     if sys.platform == "win32":
-        os.system(
-            ""
-        )  # Crucial trick: This forces the Windows terminal engine to enable ANSI parsing natively
+        os.system("")  # Crucial trick: This forces the Windows terminal engine to enable ANSI parsing natively
 
     output_file = ""
-
+    is_sorted = False
     default_key_list = [
         "strategy_name",
         "symbol",
@@ -552,13 +521,7 @@ def main():
     # Connect to DB and load the trades table into the trades_list dictionary
 
     def wide_formatter(prog):
-        return (
-            argparse.RawDescriptionHelpFormatter(
-                prog,
-                width=110,
-                max_help_position=46,
-            )
-        )
+        return (argparse.RawDescriptionHelpFormatter(prog,width=110,max_help_position=46,))
 
     parser = argparse.ArgumentParser(
         description="List PnL based on search criteria",
@@ -647,6 +610,13 @@ Usage examples:
         metavar="",
         help="<Comma seperated list of DB table keys to sort results. one entry per key from -k>",
     )
+
+    parser.add_argument(
+        "-R",
+        "--Reverse",
+        action="store_true",
+        help="If given, sort order is reversed",
+    )
    
     parser.add_argument(
         "-N",
@@ -678,6 +648,8 @@ Usage examples:
     extended = args.Ext if args.Ext else False
 
     mode = "open" if args.open else "closed"
+    is_sorted = args.sort_keys if args.sort_keys else False
+    rev_sort = args.Reverse if args.Reverse else False
 
     conn = connect()
     if mode == "closed":
@@ -706,6 +678,7 @@ Usage examples:
         conn.close()
         return
 
+  
     hdr_list = build_hdr_list(trades_list)
 
     if args.Names:
@@ -714,79 +687,48 @@ Usage examples:
     DEF_START_DATE = "1980-01-01T00:00"
     DEF_END_DATE = "4050-01-01T00:00"
 
-    start_date = (
-        args.start
-        if args.start
-        else DEF_START_DATE
-    )
-    end_date = (
-        args.end if args.end else DEF_END_DATE
-    )
-    if args.start and (
-        not date_check(start_date)
-    ):
-        print(
-            "Invalid start date. use format YYYY-MM-DDTHH:MM"
-        )
+    start_date = args.start if args.start else DEF_START_DATE
+    end_date = args.end if args.end else DEF_END_DATE
+    if args.start and (not date_check(start_date)):
+        print("Invalid start date. use format YYYY-MM-DDTHH:MM")
         sys.exit(4)
 
     if args.end and (not date_check(end_date)):
-        print(
-            "Invalid end date. use format YYYY-MM-DDTHH:MM"
-        )
+        print("Invalid end date. use format YYYY-MM-DDTHH:MM")
         sys.exit(4)
 
-    date_range_given = (
-        start_date != DEF_START_DATE
-        or end_date != DEF_END_DATE
-    )
+    date_range_given = start_date != DEF_START_DATE or end_date != DEF_END_DATE
 
     output_file = args.outfile
     if csv_true:
-        output_file, extension = (
-            output_file.split(".")
-        )
+        output_file, extension = output_file.split(".")
 
     # Build a list of list options skipping those not given
     list_values = [
-        (
-            args.list1.split(",")
-            if args.list1
-            else []
-        ),
-        (
-            args.list2.split(",")
-            if args.list2
-            else []
-        ),
-        (
-            args.list3.split(",")
-            if args.list3
-            else []
-        ),
-        (
-            args.list4.split(",")
-            if args.list4
-            else []
-        ),
-        (
-            args.list5.split(",")
-            if args.list5
-            else []
-        ),
+        ( args.list1.split(",") if args.list1 else []),
+        ( args.list2.split(",") if args.list2 else []),
+        ( args.list3.split(",") if args.list3 else []),
+        ( args.list4.split(",") if args.list4 else []),
+        ( args.list5.split(",") if args.list5 else []),
     ]
 
     key_list = (
         args.key.split(",") if args.key else []
     )
 
-    sort_list = (
-         args.sort.split(",") if args.sort else []
-    )
-
     if len(key_list) > 5:
         print(
             "\nError: maximum of 5 keys is supported.\n"
+        )
+        sys.exit(1)
+        
+    sort_list = (
+         args.sort_keys.split(",") if args.sort_keys else []
+    )
+
+    if len(sort_list) > 5:
+        print(
+            "\nError: maximum of 5 sort keys is supported.\n"
         )
         sys.exit(1)
 
@@ -817,6 +759,32 @@ Usage examples:
             )
             sys.exit()
 
+    for sort_name in sort_list:
+        if sort_name not in hdr_list:
+            print(
+                f"\nError: {sort_name} is not a valid entry. please run with -N to see a list of valid choices\n"
+            )
+            sys.exit()
+    ttrades_list = []
+    for i in range(len(key_list)):
+        ttrades_list.append(copy.deepcopy(trades_list))
+    if is_sorted:
+        for i in range(min(len(key_list), len(sort_list))):
+            for trade in ttrades_list[i]:
+                try:
+                    if chkstr_isnum(trade[sort_list[i]]) == "float":
+                        trade[sort_list[i]] = float(trade[sort_list[i]])
+                    elif chkstr_isnum(trade[sort_list[i]]) == "int":
+                        trade[sort_list[i]] = int(trade[sort_list[i]])
+                except ValueError:
+                    pass
+            try:
+                if rev_sort:
+                    ttrades_list[i].sort(key=lambda r: (isinstance(r[sort_list[i]], str), r[sort_list[i]]), reverse=True)
+                else:
+                    ttrades_list[i].sort(key=lambda r: (isinstance(r[sort_list[i]], str), r[sort_list[i]]), reverse=False)
+            except ValueError:
+                None
     if (not args.Names) and (len(key_list) < 1):
         print(
             "\nError: Please provide at least 1 key , separated by a ,   \n"
@@ -847,6 +815,24 @@ Usage examples:
                     copy.deepcopy(trade)
                 )
 
+        if is_sorted:
+            for sort_key in reversed(sort_list):
+                for trade in combined_list:
+                    try:
+                        if chkstr_isnum(trade[sort_key]) == "float":
+                            trade[sort_key] = float(trade[sort_key])
+                        elif chkstr_isnum(trade[sort_key]) == "int":
+                            trade[sort_key] = int(trade[sort_key])
+                    except ValueError:
+                        pass
+                try:
+                    combined_list.sort(
+                        key=lambda r: (isinstance(r[sort_key], str), r[sort_key]),
+                        reverse=rev_sort,
+                    )
+                except ValueError:
+                    None
+
         label_parts = [
             f'{key_name}={",".join(selected)}'
             for key_name, selected in zip(
@@ -874,11 +860,11 @@ Usage examples:
 
     for idx, key_name in enumerate(key_list):
         grouped_trades = {}
-        for trade in trades_list:
+        for trade in ttrades_list[idx]:
             group_value = trade[key_name]
             grouped_trades.setdefault(
                 group_value, []
-            ).append(copy.deepcopy(trade))
+          ).append(copy.deepcopy(trade))
 
         dict_of_trades.append(
             {

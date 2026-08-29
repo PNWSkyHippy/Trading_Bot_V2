@@ -1,0 +1,16 @@
+FCR (First Candle Rule)  Strategy/Indicator
+
+Mark first 5 minute candle of the day 6:30-6:35 AM PST
+
+mark high and low of first 5 minute candle, this establishes range
+ drop to 1 minute  chart
+ wait for a fair value gap (FVG) to break out of the range of the market box, high or low
+ this establishes direction we will go, long with a break high, short with a break low
+ Then wait for a retrace into the fair value gap,  Then wait for an engulfing candle to top the candle 
+ that dropped/rose into the FVG. Note thi cadle doest have to close in the FVG just encroach its range
+ Set SL at 1 tick below the low of the candle that entered FVG o  a long  or 1 tick higher then the high of the candle
+   the entered the FVG on a Short
+ set TP at 3/1 ratio, set by the SL (so if the SL ends up being 25 tick from entry then set TP at 75 ticks
+ 
+ No retracemet into the FVG no trade, rsrtace + engulfing confirmation is needed
+ 
