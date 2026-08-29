@@ -2784,9 +2784,24 @@
                 if (distinctSegs.size < 2) continue;   // dead end — no joint here
                 let maxR = 0;
                 for (const m of members) maxR = Math.max(maxR, m.r);
+                const segArr = Array.from(distinctSegs);
+                // A generous bubble is only needed to bridge the wedge-shaped gap
+                // at a real angle change. Two collinear/parallel segments (e.g. a
+                // straight corridor spliced from a narrower hall into a wider one)
+                // share no such wedge — a big bubble there just turns a stretch of
+                // ordinary side wall into a free-flight zone. Keep those tight.
+                let isCorner = false;
+                for (let a = 0; a < segArr.length && !isCorner; a++) {
+                    for (let b = a + 1; b < segArr.length; b++) {
+                        const fa = builder.segments[segArr[a]]?.forward;
+                        const fb = builder.segments[segArr[b]]?.forward;
+                        if (!fa || !fb || Math.abs(dot(fa, fb)) < 0.98) { isCorner = true; break; }
+                    }
+                }
                 bubbles.push({
                     x: pts[i].p.x, y: pts[i].p.y, z: pts[i].p.z,
-                    r: maxR * 1.12
+                    r: isCorner ? maxR * 1.12 : Math.min(maxR * 1.12, TUNNEL_SAFE_MARGIN * 2),
+                    segs: segArr
                 });
             }
             junctionBubbleCache.bubbles = bubbles;
@@ -2803,6 +2818,40 @@
                 if (dx * dx + dy * dy + dz * dz <= lim * lim) return b;
             }
             return null;
+        }
+
+        // A bubble's sphere is sized off the WIDEST segment sharing that joint, so
+        // at a wide room's endpoint it can reach well past the room's own (narrower)
+        // walls in every direction — not just toward the joint. Treating "in bubble"
+        // alone as "free flight" let the ship strafe straight out a side wall while
+        // still comfortably inside the sphere, with nothing to catch it beyond that.
+        // Require the point to still be within one of the joint's OWN segment
+        // footprints (own half-width/height or own tube radius, with slack for the
+        // corner cut) before honoring the bubble's collision bypass.
+        function pointWithinSegmentFootprint(ship, seg, slack = 24) {
+            if (!seg) return false;
+            if (segmentIsRectRoom(seg)) {
+                // Full 3D box distance, not per-axis: a wide neighbor's generous
+                // half-width must not "reach back" past its own Z-range to excuse
+                // an escape that is really happening deep inside a narrower,
+                // same-axis segment further back along the corridor (two collinear
+                // halls of differing width still get a joint bubble even though
+                // there is no real corner between them to cut).
+                const room = rectRoomDistanceState(ship, seg);
+                return room.outsideDist <= slack;
+            }
+            if (segmentIsChamber(seg)) return true;
+            const local = shipSegmentLocal(ship, seg);
+            const rad = seg.radius || builder.radius;
+            return local.radialDist <= rad + slack;
+        }
+
+        function pointWithinBubbleJointFootprint(ship, bubble) {
+            if (!bubble?.segs) return true;   // legacy bubble shape — don't break it
+            for (const idx of bubble.segs) {
+                if (pointWithinSegmentFootprint(ship, builder.segments[idx])) return true;
+            }
+            return false;
         }
 
         function destroyCylinderGpuMesh(mesh) {
@@ -6539,8 +6588,8 @@
             JELLY_SPEED: 3.4,
             MAW_SPEED: 2.2,
             JELLY_COUNT: 8,
-            JELLY_SIZE: 58,
-            MAW_SIZE: 86,
+            JELLY_SIZE: 116,
+            MAW_SIZE: 172,
             CHASE_BLEND: 0.52,
             GATE_SCORE: 100,
             POWER_SCORE: 60,
@@ -6561,8 +6610,8 @@
             JELLY_SPEED: 1.55,
             MAW_SPEED: 1.05,
             JELLY_COUNT: 4,
-            JELLY_SIZE: 44,
-            MAW_SIZE: 70,
+            JELLY_SIZE: 88,
+            MAW_SIZE: 140,
             CHASE_BLEND: 0.06,
             POWER_MS: 20000,
             RESPAWN_MS: 60000
@@ -14069,7 +14118,8 @@
             if (!nearest) return;
 
             // Inside a junction bubble: free flight — no wall push. See getJunctionBubbles.
-            if (pointInJunctionBubble(ship)) {
+            const bubble = pointInJunctionBubble(ship);
+            if (bubble && pointWithinBubbleJointFootprint(ship, bubble)) {
                 shipSegmentIndex = nearest.index;
                 wallHit.active = false;
                 wallHit.intensity *= 0.9;
