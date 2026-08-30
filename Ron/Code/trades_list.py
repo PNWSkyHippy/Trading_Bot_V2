@@ -166,7 +166,7 @@ def proc_dict(
                 print_outfile(
                     colorize(
                         f'{"ID":<38}{"Entry":<26}{"Exit":<24}{"Symbol":<16}{"Direct":<9}{"EntryPrice":<15}'
-                        + f'{"Strategy":<17}{"PnL":<16}{"strategy_name":<14}\n',
+                        + f'{"ExitPrice":<17}{"PnL":<16}{"Strat":<14}\n',
                         "magenta",
                     ),
                     output_file,
@@ -183,7 +183,7 @@ def proc_dict(
                 f'\t{trade_dict["direction"]:<5}'
                 f'\t{float(trade_dict["entry_price"]):>11.2f}'
                 f'\t{float(trade_dict["exit_price"]):>9.2f}'
-                f'\t{col_pnl}\t{int(trade_dict["strategy_name"]):>3}\t\n',
+                f'\t{col_pnl}\t{trade_dict["strategy_name"]:>3}\t\n',
                 output_file,
             )
     # Select the best and worst complete symbol totals after every matching
