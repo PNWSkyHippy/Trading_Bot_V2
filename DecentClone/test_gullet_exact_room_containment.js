@@ -101,7 +101,9 @@ const context = {
 vm.createContext(context);
 vm.runInContext(extractFunction('containShipInExactGulletRooms'), context);
 
-if (!context.containShipInExactGulletRooms({ x: 120, y: 0, z: 50 })) {
+// x=94 lies in the old 12-unit clearance gap: outside the cube's x=88
+// safe wall but just before the side hall's authored x=100 start.
+if (!context.containShipInExactGulletRooms({ x: 94, y: 0, z: 50 })) {
     throw new Error('open side-hall junction was not handled');
 }
 if (context.shipSegmentIndex !== 1 || context.posX !== 0 || context.posY !== 0 || context.posZ !== 0) {
@@ -109,7 +111,8 @@ if (context.shipSegmentIndex !== 1 || context.posX !== 0 || context.posY !== 0 |
 }
 
 context.shipSegmentIndex = 0;
-if (!context.containShipInExactGulletRooms({ x: 50, y: 120, z: 50 })) {
+// y=94 exercises the equivalent open floor/shaft clearance gap.
+if (!context.containShipInExactGulletRooms({ x: 50, y: 94, z: 50 })) {
     throw new Error('aligned floor shaft was not admitted');
 }
 if (context.shipSegmentIndex !== 2) throw new Error('floor shaft did not own its open volume');

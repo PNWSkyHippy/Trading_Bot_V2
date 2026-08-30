@@ -45,6 +45,7 @@ const context = {
 };
 vm.createContext(context);
 vm.runInContext(extractFunction('getSegmentPanelZExtent'), context);
+vm.runInContext(extractFunction('interpolateBendConnectorRadial'), context);
 
 const section = context.getSegmentPanelZExtent({ length: 100, wallTextureId: 'section' });
 if (section.zStart !== -18 || section.zEnd !== 118) {
@@ -69,4 +70,17 @@ if (open.zStart !== 0 || open.zEnd !== 100) {
     throw new Error('open section endpoint gained sealing geometry outside its authored span');
 }
 
-console.log('segment join seam policy passed: ordinary section overlap retained; connector-backed distance run trimmed');
+const rounded = context.interpolateBendConnectorRadial(
+    { x: 100, y: 0, z: 0 },
+    { x: 0, y: 100, z: 0 },
+    0.5,
+    100
+);
+if (Math.abs(Math.hypot(rounded.x, rounded.y, rounded.z) - 100) > 0.0001) {
+    throw new Error('smoothed bend connector pinched below the tunnel radius');
+}
+if (!html.includes('distanceBendSmooth1') || !html.includes('const bendRows = 8')) {
+    throw new Error('multi-ring hard-bend connector is missing');
+}
+
+console.log('segment join seam policy passed: ordinary overlap retained; connector-backed run trimmed; rounded bend radius preserved');

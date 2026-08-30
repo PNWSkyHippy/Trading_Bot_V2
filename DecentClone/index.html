@@ -3421,6 +3421,26 @@
             return result;
         }
 
+        function interpolateBendConnectorRadial(radialA, radialB, t, radius) {
+            const blended = {
+                x: radialA.x + (radialB.x - radialA.x) * t,
+                y: radialA.y + (radialB.y - radialA.y) * t,
+                z: radialA.z + (radialB.z - radialA.z) * t
+            };
+            const mag = Math.hypot(blended.x, blended.y, blended.z);
+            if (mag > 0.0001) {
+                const scale = radius / mag;
+                return { x: blended.x * scale, y: blended.y * scale, z: blended.z * scale };
+            }
+            // Degenerate opposite radial samples are possible only on an almost
+            // doubled-back join. Preserve a full-radius endpoint direction instead
+            // of collapsing the connector through its center into a black sector.
+            const fallback = t < 0.5 ? radialA : radialB;
+            const fallbackMag = Math.hypot(fallback.x, fallback.y, fallback.z) || 1;
+            const scale = radius / fallbackMag;
+            return { x: fallback.x * scale, y: fallback.y * scale, z: fallback.z * scale };
+        }
+
         function buildDistanceBendConnectorGpuMesh(info, radialSegments = 48) {
             radialSegments = Math.max(16, Math.min(64, Math.round(radialSegments)));
             const { a, b, connection, joint } = info;
@@ -3431,7 +3451,8 @@
             const directionB = Number(b.seg.wallTextureRunDirection) < 0 ? -1 : 1;
             const offsetA = Number(a.seg.wallTextureUOffset) || 0;
             const offsetB = Number(b.seg.wallTextureUOffset) || 0;
-            const key = `${TUNNEL_WEBGL_MESH_CACHE_VERSION}|distanceBend|${a.index}:${b.index}|${radialSegments}|` +
+            const bendRows = 8;
+            const key = `${TUNNEL_WEBGL_MESH_CACHE_VERSION}|distanceBendSmooth1|${a.index}:${b.index}|${radialSegments}|` +
                 `${joint.x.toFixed(2)},${joint.y.toFixed(2)},${joint.z.toFixed(2)}|${radius.toFixed(2)}|` +
                 `${offsetA.toFixed(4)},${offsetB.toFixed(4)},${directionA},${directionB}`;
             if (tunnelWebGL.meshCache.has(key)) return tunnelWebGL.meshCache.get(key);
@@ -3439,30 +3460,37 @@
             const vertices = [];
             const texCoords = [];
             const indices = [];
-            const pushRing = (seg, isB) => {
+            const radialAt = (seg, uA, isB) => {
+                const absoluteU = uA * directionA + offsetA;
+                const localU = isB ? (absoluteU - offsetB) / directionB : uA;
+                const theta = localU * Math.PI * 2;
+                return addVec(
+                    scaleVec(normalize(seg.right), Math.cos(theta) * radius),
+                    scaleVec(normalize(seg.down), Math.sin(theta) * radius)
+                );
+            };
+            for (let rowIndex = 0; rowIndex <= bendRows; rowIndex++) {
+                const t = rowIndex / bendRows;
                 for (let i = 0; i <= radialSegments; i++) {
                     const uA = i / radialSegments;
-                    const absoluteU = uA * directionA + offsetA;
-                    const localU = isB ? (absoluteU - offsetB) / directionB : uA;
-                    const theta = localU * Math.PI * 2;
-                    const point = addVec(
-                        joint,
-                        addVec(
-                            scaleVec(normalize(seg.right), Math.cos(theta) * radius),
-                            scaleVec(normalize(seg.down), Math.sin(theta) * radius)
-                        )
+                    const radial = interpolateBendConnectorRadial(
+                        radialAt(a.seg, uA, false),
+                        radialAt(b.seg, uA, true),
+                        t,
+                        radius
                     );
+                    const point = addVec(joint, radial);
                     vertices.push(point.x, point.y, point.z);
-                    texCoords.push(uA, isB ? 1 : 0);
+                    texCoords.push(uA, t);
                 }
-            };
-            pushRing(a.seg, false);
-            pushRing(b.seg, true);
+            }
             const row = radialSegments + 1;
-            for (let i = 0; i < radialSegments; i++) {
-                const first = i;
-                const second = row + i;
-                indices.push(first, first + 1, second, second, first + 1, second + 1);
+            for (let rowIndex = 0; rowIndex < bendRows; rowIndex++) {
+                for (let i = 0; i < radialSegments; i++) {
+                    const first = rowIndex * row + i;
+                    const second = first + row;
+                    indices.push(first, first + 1, second, second, first + 1, second + 1);
+                }
             }
             const gl = tunnelWebGL.gl;
             const mesh = {
@@ -14170,8 +14198,16 @@
                 // adjoining corridor/cube/shaft owns the volume beyond that face.
                 // This eliminates both the approximate spherical handoff and the
                 // infinite-prism behavior of ordinary uncapped rectangular rooms.
-                const minZ = seg.capStart ? TUNNEL_SAFE_MARGIN : 0;
-                const maxZ = seg.capEnd ? room.length - TUNNEL_SAFE_MARGIN : room.length;
+                // An open corridor begins at the authored junction face, while
+                // the solid-wall clearance ends SAFE_MARGIN inside the junction.
+                // Extend only OPEN axial ends across that clearance or every valid
+                // doorway contains an invisible 12-unit clearance gap. Keep capped
+                // ends inset and keep the extension finite so it cannot become the
+                // old infinite-prism escape path.
+                const minZ = seg.capStart ? TUNNEL_SAFE_MARGIN : -TUNNEL_SAFE_MARGIN;
+                const maxZ = seg.capEnd
+                    ? room.length - TUNNEL_SAFE_MARGIN
+                    : room.length + TUNNEL_SAFE_MARGIN;
                 const correctedLocal = {
                     x: Math.max(-sideX, Math.min(sideX, room.local.x)),
                     y: Math.max(-sideY, Math.min(sideY, room.local.y)),
