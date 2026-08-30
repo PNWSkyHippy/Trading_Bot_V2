@@ -1,16 +1,16 @@
-# Graph Report - Trading_Bot_V2  (2026-08-29)
+# Graph Report - Trading_Bot_V2  (2026-08-30)
 
 ## Corpus Check
-- 551 files · ~9,300,048 words
+- 553 files · ~9,301,466 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 8987 nodes · 16537 edges · 497 communities (415 shown, 82 thin omitted)
+- 9006 nodes · 16554 edges · 491 communities (411 shown, 80 thin omitted)
 - Extraction: 95% EXTRACTED · 5% INFERRED · 0% AMBIGUOUS · INFERRED: 867 edges (avg confidence: 0.52)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `bb4e2881`
+- Built from commit: `51515bf8`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -38,7 +38,7 @@
 - BreakoutSender
 - daily_market_scanner.py
 - BrokerManager
-- yt
+- se
 - EMTLiveTests
 - ecb_strategy.py
 - PositionMonitor
@@ -48,7 +48,7 @@
 - db_panel_tui.py
 - test_breakout_event_durability.py
 - CandleStore
-- test_web_dashboard_ninja_chart.py
+- get_chart_data
 - Part 1: Sub-Minute Signal Delivery
 - test_map_entity_sanitizers.js
 - EATStrategy
@@ -86,7 +86,7 @@
 - night_watch_log_digest.py
 - Core Alert Types
 - ScannerGUI
-- BreakoutDetector
+- PriceData
 - ensure_breakout_event_identity
 - FCRStrategy
 - analyze_trades.py
@@ -105,11 +105,11 @@
 - exploration_api.py
 - BacktestRunContext
 - .toJSON
-- en
+- .applyMatrix4
 - analyze_trade_dump.py
 - BMR357Strategy
-- dashboard.py
-- StrategyEngine
+- ct
+- strategy_engine.py
 - RiskManager
 - PythonEMTBridge
 - nc
@@ -122,14 +122,14 @@
 - CatalystChecker
 - full_strategy_stress_test.py
 - Scripts/market_scanner.py
-- BreakoutSenderSafetyTests
+- RuntimeError
 - vdmr_strategy.py
 - _db_conn
 - ScannerEngine
 - app.jsx
 - pt
 - futures_signal_engine.py
-- test
+- test_bmr357_no_live_state.py
 - SFRStrategy
 - mr_04_fvg_strategy.py
 - TwoBarStopEngine
@@ -148,24 +148,24 @@
 - Scripts/trade_maintenance.py
 - BreakoutScannerSafetyTests
 - test_recovery_reconciliation_guards.py
-- RuntimeError
+- panelApi
 - ORBBreakout
 - FakeDB
 - is_scanner_enabled
 - stock_calendar_authority.py
-- get_store
+- opt_worker.py
 - StrategyOptimizer
 - Astral Drift unified audit task list
 - TASKS_FOR_CODEX_AND_CLAIUDE.md
 - tweaks-panel.jsx
-- ws
+- nl
 - set_api_key.py
 - test_breakout_producer_identity.py
 - StockDataFetcher
-- test_kraken_price_unavailable.py
+- FakeKraken
 - Backtester
 - emt_strategy.py
-- wo
+- ._update
 - import_log_events.py
 - sync_candle_store.py
 - FakeKrakenBroker
@@ -174,7 +174,7 @@
 - config.py
 - test_map_import_segment_limit.js
 - ._fetch_multi
-- test_candle_store_incremental_retention.py
+- traderdev_gridbot_adx15.py
 - traderdev_day_trader_v3.py
 - test_kraken_full_exit.py
 - VwapConfirmedOrb
@@ -183,13 +183,13 @@
 - VBMStrategy
 - tema_crossover.py
 - live_ticker_reference
-- get_current_price
-- ema_ribbon_breakout.py
+- side-panels.jsx
+- test_rect_junction_corner_handoff.js
 - quarterly_hourly_log_scan.py
 - setup_encryption.py
 - RSIDipSimpleStrategy
 - Test-EMTScannerPipeline.ps1
-- close_position
+- test_segment_join_seam_policy.js
 - alert_sound.py
 - KrakenExecutor
 - MLSignalScorer
@@ -203,10 +203,10 @@
 - flush_candle_symbol.py
 - night_watch_rollup.py
 - _normalise_tf
-- api_server.py
+- vwap_momentum.py
 - trade_blocker_snapshot.py
-- get_injected_symbols
-- MR03FBSStrategy
+- bc
+- migrate_timestamps_to_pt.py
 - MR02VEFStrategy
 - clear_stuck_trades.py
 - ClearStuckTrades.py
@@ -214,21 +214,18 @@
 - Astral Drift Builder CAD Tasks
 - scan_image_sizes.py
 - NinjaTrader → Python Futures Scanner
-- weekly_tradelog.py
+- _Ticker
 - log_event_context.py
 - .analyse
 - VTMRStrategy
-- startup_reconciler.py
+- _chronos_predict
 - test_texture_distance_runs.js
 - quarterly_hourly_health_scan.ps1
-- bind
-- .calculate_trailing_stop
-- ._close_stocks_eod
 - Adversarial Systems Audit Log
 - Astral Drift map data folder
 - .SendEmtHistory
 - signal_engine.py
-- Wn
+- en
 - .EnqueueBoth
 - is_clean_breakout
 - EATStrategyIndicator
@@ -267,7 +264,7 @@
 - summarize_sweeps.py
 - INTEGRATION_GUIDE.py
 - intelligence/claude_reviewer.py
-- test_strategy_registry_parity.py
+- test
 - is_bot_running
 - FakeDB
 - test_backtester_crypto_history_pagination.py
@@ -286,7 +283,7 @@
 - trading-bot-v2
 - insertion_sort
 - Gameplay
-- .updateProjectionMatrix
+- us
 - St
 - tn
 - ControlPointQuartetCollection
@@ -363,7 +360,6 @@
 - ensure_yearly_db_exists
 - Durable Event Identity Patch — Status (2026-07-17)
 - run_pipeline.sh
-- set_dashboard_password.py
 - metrics.py
 - Streamlit → HTML Migration Plan
 - 18. Backtest Results Summary
@@ -371,7 +367,6 @@
 - pyhelper.py
 - convert_button_clicked
 - toolbox.py
-- test_metrics.py
 - Dog
 - fix_trades.py
 - Dog
@@ -382,7 +377,7 @@
 - chart_patterns.py
 - Car
 - Employee
-- TradeExecutor
+- trade_executor.py
 - cleanup_candle_store.py
 - WallTextures/README.md
 - BROKER_INTEGRATION_GUIDE.py
@@ -395,10 +390,9 @@
 - ._resolve_order_fill
 - test_backtester_p1_correctness.py
 - breakout_sender.py
-- .load
-- strategy_engine.py
+- FELSStrategy
 - Tutor/README.md
-- position_monitor.py
+- is_us_equity_regular_session_now
 - FakeSessionDB
 - Circle
 - BaseStrategy
@@ -435,7 +429,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (497 total, 82 thin omitted)
+## Communities (491 total, 80 thin omitted)
 
 ### Community 0 - "{"
 Cohesion: 0.00
@@ -443,23 +437,23 @@ Nodes (921): {, 0ms, │, │, │, │, 119ms, { (+913 more)
 
 ### Community 1 - "Current Queue"
 Cohesion: 0.04
-Nodes (55): 2026-06-26 - Broker Cash Failure Must Fail Closed, 2026-06-28 - Kraken Broker Registry Rejoined Execution Routing, 2026-06-29 - Live Kraken Balance Failures Now Fail Closed, 2026-06-30 - Kraken Stop Ratchet Ignores Rounded No-Ops, 2026-07-01 - Kraken Stop Replacement Blocks Duplicate Live Stops, 2026-07-02 - Kraken Stop Replacement Clears Stale Cancelled IDs, 2026-07-03 - Missing Kraken Stops Restore With Backoff, 2026-07-14 - Kraken Recovery Reconciliation Guards Implemented (+47 more)
+Nodes (56): 2026-06-26 - Broker Cash Failure Must Fail Closed, 2026-06-28 - Kraken Broker Registry Rejoined Execution Routing, 2026-06-29 - Live Kraken Balance Failures Now Fail Closed, 2026-06-30 - Kraken Stop Ratchet Ignores Rounded No-Ops, 2026-07-01 - Kraken Stop Replacement Blocks Duplicate Live Stops, 2026-07-02 - Kraken Stop Replacement Clears Stale Cancelled IDs, 2026-07-03 - Missing Kraken Stops Restore With Backoff, 2026-07-14 - Kraken Recovery Reconciliation Guards Implemented (+48 more)
 
 ### Community 2 - "test_broker_routing_safety.py"
 Cohesion: 0.13
-Nodes (36): Return True if the broker allows shorting this symbol. On any fetch error the…, crypto_signal(), execute(), FakeAlerts, FakeBrokerManager, FakeRiskManager, FakeStockBroker, make_executor() (+28 more)
+Nodes (36): crypto_signal(), execute(), FailingMarkerDB, FakeAlerts, FakeBrokerManager, FakeRiskManager, FakeStockBroker, make_executor() (+28 more)
 
 ### Community 3 - "panels.jsx"
 Cohesion: 0.05
-Nodes (80): BacktestCharts(), BacktesterPanel(), BrokerPanel(), calcADX(), calcATR(), calcBB(), calcEMA(), calcMACD() (+72 more)
+Nodes (63): BacktestCharts(), calcADX(), calcATR(), calcBB(), calcEMA(), calcMACD(), calcRSI(), calcSMA() (+55 more)
 
 ### Community 4 - "test_candle_validation.py"
 Cohesion: 0.06
 Nodes (75): ClosedCandleSeries, Capture the current instant as a new scan's fixed cutoff, with subsecond…, Persistent CLOSED-candle data for strategy analysis. Never used to supply…, Alias for the module-level validate_closed_candles() factory, kept for call-…, Strict, fail-closed closed-bar validator. THE public entry point for turning…, validate_closed_candles(), _bars(), _cutoff_after() (+67 more)
 
 ### Community 5 - "MarketScanner"
-Cohesion: 0.11
-Nodes (13): _coingecko_price(), MarketScanner, PriceData, Scan ALL loaded exchanges. Each PriceData is tagged with its source exchange…, Fetch OHLCV history for a crypto symbol. `exchange` may be a CCXT exchange…, Mark a symbol as alerted with a longer-than-normal cooldown (e.g. for FADING)., Return True if this symbol's most recent CSV entry shows FADING momentum.…, Recheck only symbols already in the WATCHLIST or escalation tracker. Full… (+5 more)
+Cohesion: 0.13
+Nodes (9): MarketScanner, Scan ALL loaded exchanges. Each PriceData is tagged with its source exchange…, Mark a symbol as alerted with a longer-than-normal cooldown (e.g. for FADING)., Return True if this symbol's most recent CSV entry shows FADING momentum.…, Recheck only symbols already in the WATCHLIST or escalation tracker. Full…, Register overnight stock gaps at 9:25-9:35 ET via Alpha Vantage…, Register overnight crypto gaps at 00:00-00:15 UTC. Fires once per day., Called from _process_symbol for any symbol in the gap watchlist. Uses already-… (+1 more)
 
 ### Community 6 - "EMTStrategyIndicator"
 Cohesion: 0.18
@@ -478,12 +472,12 @@ Cohesion: 0.21
 Nodes (10): _atr(), generate_signals(), DataFrame, Series, RCR Mean Reversion ================== Classification : INCUBATE Source : Trader…, Return Correlation Reversion. Detects mean-reverting market regimes via rolling…, Rolling autocorrelation of a series with given lag. Uses pandas rolling…, RCRMeanReversionParams (+2 more)
 
 ### Community 10 - "BreakoutScanner.py"
-Cohesion: 0.07
-Nodes (27): Alert, AlertType, AssetType, ConfigManager, CryptoDataFetcher, EscalationTracker, MassiveDataFetcher, Enum (+19 more)
+Cohesion: 0.06
+Nodes (33): Alert, AlertType, AssetType, ConfigManager, CryptoDataFetcher, _encrypt_cfg(), EscalationTracker, MassiveDataFetcher (+25 more)
 
 ### Community 11 - "BreakoutReceiver"
-Cohesion: 0.13
-Nodes (10): BreakoutReceiver, _is_bad_quote_currency(), _optional_finite_float(), Any, Re-verify live price without crossing crypto venue identities. Order: 1.…, Persist the terminal (or SUBMISSION_UNKNOWN) state and, for terminal states,…, Coerce optional scanner telemetry without letting bad data crash a request., Recover equivalent volume ratio fields before checklist evaluation. (+2 more)
+Cohesion: 0.14
+Nodes (9): BreakoutReceiver, _optional_finite_float(), Any, Re-verify live price without crossing crypto venue identities. Order: 1.…, Persist the terminal (or SUBMISSION_UNKNOWN) state and, for terminal states,…, Coerce optional scanner telemetry without letting bad data crash a request., Recover equivalent volume ratio fields before checklist evaluation., BreakoutReceiverRequestStateTests (+1 more)
 
 ### Community 12 - "TradeExecutor"
 Cohesion: 0.06
@@ -503,7 +497,7 @@ Nodes (9): CandleManager, Single source of truth for OHLCV data. All consumers c
 
 ### Community 16 - "Docs/three.min.js"
 Cohesion: 0.02
-Nodes (87): Ah, _allocateTargets(), ao(), _applyPMREM(), Ba, _blur(), $c(), ci (+79 more)
+Nodes (79): _allocateTargets(), ao(), _applyPMREM(), Ba, _blur(), $c(), _cleanup(), cn (+71 more)
 
 ### Community 17 - "candle_validation.py"
 Cohesion: 0.07
@@ -511,7 +505,7 @@ Nodes (33): _coerce_ohlc_numeric(), EntryQuoteSnapshot, HeldPositionPrice, _is_f
 
 ### Community 18 - "copy"
 Cohesion: 0.03
-Nodes (11): ai, as(), bo, copy(), cs, ht(), je, Ne (+3 more)
+Nodes (14): ai, as(), copy(), cs, Ea(), ec, je, jn() (+6 more)
 
 ### Community 19 - "RSIDipSpikeV4Strategy"
 Cohesion: 0.09
@@ -522,16 +516,16 @@ Cohesion: 0.08
 Nodes (15): BreakoutSender, datetime, Path, Live kill switch. The standalone scanner can keep running for alerts, but bot…, Return only an explicit valid direction. Direction inference belongs to the…, Non-blocking send in background thread. signal: BreakoutSignal from…, Build the API payload. Data priority for candle / analytical fields: 1.…, Return the best non-zero volume ratio plus raw volume diagnostics. (+7 more)
 
 ### Community 21 - "daily_market_scanner.py"
-Cohesion: 0.16
-Nodes (21): _cg_get(), _dated_filename(), fetch_kraken_funding_rates(), fetch_stock_universe(), load_scan_results(), _print_table(), DataFrame, Series (+13 more)
+Cohesion: 0.13
+Nodes (23): _cg_get(), _dated_filename(), fetch_kraken_funding_rates(), fetch_stock_universe(), inject_scan_results_into_config(), load_scan_results(), _print_table(), DataFrame (+15 more)
 
 ### Community 22 - "BrokerManager"
 Cohesion: 0.08
 Nodes (17): BrokerManager, Register a new broker or update an existing one. broker_type: stock, crypto, or…, Remove a broker registration (does not affect open trades)., List all registered brokers (redacts secrets)., Get enabled brokers, optionally filtered by type., Persist broker configs to database., Get the latest tracked balance for a broker., Update tracked balance for a broker. (+9 more)
 
-### Community 23 - "yt"
+### Community 23 - "se"
 Cohesion: 0.03
-Nodes (8): dl, ec, fh, ia, la, oi(), parseTextures(), yt
+Nodes (8): dl, fh, ia, la, oi(), parseTextures(), se, yt
 
 ### Community 24 - "EMTLiveTests"
 Cohesion: 0.20
@@ -542,12 +536,12 @@ Cohesion: 0.16
 Nodes (20): backtest(), ECBParams, ECBStrategy, fetch_ohlcv_ccxt(), generate_signals(), print_stats(), DataFrame, Series (+12 more)
 
 ### Community 26 - "PositionMonitor"
-Cohesion: 0.06
-Nodes (27): _is_breakout_trade(), PositionMonitor, DataFrame, If 2+ consecutive CLOSED candles move against the trade direction within the…, Breakout-specific fast-fail: real breakouts move immediately. If price is flat…, Breakout-specific maximum loss guard. This is intentionally narrower than…, Classic floor trader pivot points calculated from recent bars. PP = (High + Low…, Stale position sell-off logic: If ADX < 25 (trend stalled) → sell immediately… (+19 more)
+Cohesion: 0.05
+Nodes (33): _get_position_age_seconds(), _is_breakout_trade(), _is_externally_managed_future(), _parse_entry_time_local(), PositionMonitor, DataFrame, datetime, If 2+ consecutive CLOSED candles move against the trade direction within the… (+25 more)
 
 ### Community 27 - "EMTStrategyEngine"
-Cohesion: 0.13
-Nodes (9): Deque, EMTEvent, EMTStrategyEngine, PaperTrade, datetime, dt_time, Stateful EMT evaluator for one configured futures contract., Use the shared chart-pattern pivot definition with ES-sized thresholds. The… (+1 more)
+Cohesion: 0.14
+Nodes (8): Deque, EMTEvent, EMTStrategyEngine, PaperTrade, datetime, dt_time, Stateful EMT evaluator for one configured futures contract., Use the shared chart-pattern pivot definition with ES-sized thresholds. The…
 
 ### Community 28 - "Database"
 Cohesion: 0.06
@@ -566,12 +560,12 @@ Cohesion: 0.13
 Nodes (23): derive_client_order_id(), Deterministic client-order id derived from event_id. Stable across delivery…, _bypass_checklist(), _exec_ctx(), FakeAlerts, FakeStockBroker, _make_executor(), _make_receiver() (+15 more)
 
 ### Community 32 - "CandleStore"
-Cohesion: 0.09
-Nodes (25): CandleStore, _cutoff_ts(), _now_ts(), DataFrame, Thread-safe persistent OHLCV cache backed by SQLite (WAL mode). Each connection…, Open a connection with WAL and busy-timeout., Upsert candles into the store. df must have a DatetimeIndex and at minimum…, Load the most recent `days` of candles from the store. Returns a DataFrame with… (+17 more)
+Cohesion: 0.07
+Nodes (34): CandleStore, _cutoff_ts(), _now_ts(), DataFrame, ============================================================= CANDLE STORE v1.0…, Thread-safe persistent OHLCV cache backed by SQLite (WAL mode). Each connection…, Open a connection with WAL and busy-timeout., Upsert candles into the store. df must have a DatetimeIndex and at minimum… (+26 more)
 
-### Community 33 - "test_web_dashboard_ninja_chart.py"
-Cohesion: 0.80
-Nodes (4): _bar(), _snapshot(), test_fresh_emt_ticks_are_used_when_cache_is_ready(), test_stale_emt_ticks_fall_back_to_minute_bars()
+### Community 33 - "get_chart_data"
+Cohesion: 0.13
+Nodes (21): _bar(), _snapshot(), test_fresh_emt_ticks_are_used_when_cache_is_ready(), test_stale_emt_ticks_fall_back_to_minute_bars(), _chart_bars_alpaca(), _chart_bars_coinbase(), _chart_bars_ibkr(), _chart_bars_tradovate() (+13 more)
 
 ### Community 34 - "Part 1: Sub-Minute Signal Delivery"
 Cohesion: 0.06
@@ -586,8 +580,8 @@ Cohesion: 0.14
 Nodes (14): EatPhase, bool, DateTime, double, Execution, int, MarketPosition, string (+6 more)
 
 ### Community 37 - "test_backtester_p1a_behavior.py"
-Cohesion: 0.14
-Nodes (18): _live_session_date(), Map a candle timestamp to RiskManager's verified Hostinger calendar day., _AlwaysSignalStrategy, _bare_backtester(), _FakeTA, _frame(), _OneShotStrategy, Focused behavior-delta tests for the independently implementable P1-A fixes. (+10 more)
+Cohesion: 0.16
+Nodes (15): _AlwaysSignalStrategy, _bare_backtester(), _FakeTA, _frame(), _OneShotStrategy, Focused behavior-delta tests for the independently implementable P1-A fixes., _simulate(), test_confidence_gate_removes_legacy_subthreshold_trade() (+7 more)
 
 ### Community 38 - "PLLCycleStrategy"
 Cohesion: 0.11
@@ -614,8 +608,8 @@ Cohesion: 0.13
 Nodes (14): date, Fetch a fresh window from Alpaca's get_calendar(), validate it for completeness…, True if `d` is a confirmed non-trading date per a fresh refresh, None if…, Walk backward from `start_date` (inclusive) up to `max_days` calendar days,…, Mirror of `_walk_back_to_prior_session`, walking forward. Used by…, Return (open_epoch, close_epoch) for date `d` if a fresh (per the configured…, Public accessor for the confirmed-closed-date fact. Returns None (unknown)…, True/False if the schedule for `cutoff`'s date is fresh enough to answer… (+6 more)
 
 ### Community 44 - ".get"
-Cohesion: 0.11
-Nodes (20): AlertSystem, BreakoutSignal, classify_signal(), favorable_move_pct(), _is_dead_or_fading(), _load_csv(), log_signal_to_csv(), move_pct() (+12 more)
+Cohesion: 0.14
+Nodes (17): AlertSystem, BreakoutSignal, classify_signal(), _is_dead_or_fading(), _load_csv(), log_signal_to_csv(), move_pct(), _prune_csv() (+9 more)
 
 ### Community 45 - ".do_GET"
 Cohesion: 0.10
@@ -623,15 +617,15 @@ Nodes (20): BaseHTTPRequestHandler, _api_keys_page(), _calc_fib_levels(), db_qui
 
 ### Community 46 - "Ce"
 Cohesion: 0.03
-Nodes (9): Ce, parseObject(), qn, _s(), se, updateMatrixWorld(), xs, Yl (+1 more)
+Nodes (14): _a, bs, Ce, dispose(), Et, ft(), qn, _s() (+6 more)
 
 ### Community 47 - "test_lifecycle_correctness_patch.py"
 Cohesion: 0.11
 Nodes (25): _DummyStrategy, _flat_df(), main(), Lifecycle-correctness patch tests — backtester parity patch step 5…, Sanity check: the gap-fill correction is scoped to reason=='stop_loss' only —…, Build a df whose closes/opens follow `price_path` starting right at entry (bar…, Long entry, price drops >0.5% and keeps declining for 3 confirming closes right…, Long entry dips below -0.5% at the check bar but the 3-bar window is NOT… (+17 more)
 
 ### Community 48 - "BotEngine"
-Cohesion: 0.10
-Nodes (6): BotEngine, Fire at 07:00 PT (10:00 ET) weekdays to pre-warm the Claude briefing cache., Run check_positions in a background thread so a slow price fetch can't block…, Start a scheduled job unless the prior run is still active., inject_scan_results_into_config(), Inject scanner picks into the active watchlists. PRIMARY source:…
+Cohesion: 0.07
+Nodes (17): BotEngine, _et_now_str(), Fire at 07:00 PT (10:00 ET) weekdays to pre-warm the Claude briefing cache., Run check_positions in a background thread so a slow price fetch can't block…, Start a scheduled job unless the prior run is still active., Close all open stock positions before market close. Two-pass approach: Pass 1:…, generate_weekly_tradelog(), get_week_range() (+9 more)
 
 ### Community 49 - "PatternDetector"
 Cohesion: 0.09
@@ -655,11 +649,11 @@ Nodes (14): ClaudeReviewer, MarketContext, Autonomous signal review layer using 
 
 ### Community 55 - "intelligence/backtester.py"
 Cohesion: 0.07
-Nodes (30): BacktestResult, ============================================================= STRATEGY REGISTRY…, _BacktestCancelled, BacktestTrade, _bt_stale_adx(), _compute_adx_di_50(), _consecutive_loss_halt_reached(), EquityPoint (+22 more)
+Nodes (33): BacktestResult, ============================================================= STRATEGY REGISTRY…, _BacktestCancelled, BacktestTrade, _bt_stale_adx(), _compute_adx_di_50(), _consecutive_loss_halt_reached(), EquityPoint (+25 more)
 
 ### Community 56 - "bl"
-Cohesion: 0.10
-Nodes (5): bl, dc, mc(), pc, setValue()
+Cohesion: 0.14
+Nodes (3): bl, dc, mc()
 
 ### Community 57 - "EMTStrategyTests"
 Cohesion: 0.17
@@ -678,7 +672,7 @@ Cohesion: 0.11
 Nodes (15): GapScanner, GapSetup, Any, DataFrame, datetime, Two-stage gap scanner. Stage 1: detect overnight gaps at market open, add to…, Fetch today's top gainers + losers from Alpha Vantage TOP_GAINERS_LOSERS.…, Alpaca ScreenerClient fallback when Alpha Vantage key is absent. (+7 more)
 
 ### Community 61 - "test_kraken_scanner_partial.py"
-Cohesion: 0.12
+Cohesion: 0.11
 Nodes (20): PartialCloseOutcome, Confirmed result returned to the scanner partial-close coordinator., FakeBrokerManager, FakeExchange, FakeRiskManager, make_database(), make_kraken(), make_trade_executor() (+12 more)
 
 ### Community 62 - "test_web_dashboard_backtest_behavior_profile.py"
@@ -686,8 +680,8 @@ Cohesion: 0.10
 Nodes (19): _FakeBacktester, _NoDataBacktester, Deterministic API/UI contract tests for versioned backtest behavior., _run(), test_api_defaults_to_legacy_profile_and_returns_it(), test_api_forwards_live_parity_profile_and_returns_it(), test_api_rejects_unknown_profile_before_starting_a_run(), test_api_reports_data_failure_instead_of_misleading_empty_result() (+11 more)
 
 ### Community 64 - "ChatInterface"
-Cohesion: 0.13
-Nodes (12): list_scanner_controls(), ChatInterface, Path, Read a watchlist file and return list of symbols, ignoring comments., Returns (master_stocks, injected_stocks). Master = from watchlists/stocks.txt…, Returns (master_crypto, injected_crypto). Master = from watchlists/crypto.txt…, Check if a specific symbol is in any watchlist and report where., Handle watchlist-related queries from the pre-parse layer. Returns formatted… (+4 more)
+Cohesion: 0.14
+Nodes (11): ChatInterface, Path, Read a watchlist file and return list of symbols, ignoring comments., Returns (master_stocks, injected_stocks). Master = from watchlists/stocks.txt…, Returns (master_crypto, injected_crypto). Master = from watchlists/crypto.txt…, Check if a specific symbol is in any watchlist and report where., Handle watchlist-related queries from the pre-parse layer. Returns formatted…, Reload temp watchlist files into the bot's in-memory lists. This picks up new… (+3 more)
 
 ### Community 65 - "archive_db_rollover.py"
 Cohesion: 0.22
@@ -707,15 +701,15 @@ Nodes (22): 1. EXIT WARNING, 2. TAKE PROFIT SUGGESTED, 3. MOVE STOP UP, 4. DO NO
 
 ### Community 70 - "ScannerGUI"
 Cohesion: 0.14
-Nodes (5): Refresh the gap watchlist pane. Primary source: scanner.gap_watchlist…, Distinct beep for gap events, scaled by severity. severity='mild' (2-5%) : low-…, GUI update loop — runs on main tkinter thread every 30s. All network calls are…, ScannerGUI, Treeview
+Nodes (6): favorable_move_pct(), Refresh the gap watchlist pane. Primary source: scanner.gap_watchlist…, GUI update loop — runs on main tkinter thread every 30s. All network calls are…, Normalize move_pct so positive always means good for the trade direction.…, ScannerGUI, Treeview
 
-### Community 71 - "BreakoutDetector"
-Cohesion: 0.18
-Nodes (7): BreakoutDetector, datetime, Merge overlapping snapshots by timestamp instead of replaying bars., Build the enrichment dict for a signal. Mirrors the logic previously in…, Full detection pipeline. Calls score(), then builds and returns a fully-…, Resolve trade direction with explicit priority order: 1. explicit direction…, resolved_direction()
+### Community 71 - "PriceData"
+Cohesion: 0.11
+Nodes (14): BreakoutDetector, _coingecko_price(), PriceData, Any, datetime, Fetch OHLCV history for a crypto symbol. `exchange` may be a CCXT exchange…, Return the CCXT exchange instance that matches `name`, or None., Merge overlapping snapshots by timestamp instead of replaying bars. (+6 more)
 
 ### Community 72 - "ensure_breakout_event_identity"
-Cohesion: 0.11
-Nodes (21): canonicalize_breakout_payload(), ensure_breakout_event_identity(), hash_breakout_payload(), _identity_component(), Any, core/event_identity.py ======================= Shared helpers for durable…, Raise ValueError on any NaN/Infinity found anywhere in the payload., Immutable, hash-stable view of a breakout payload: excludes receiver… (+13 more)
+Cohesion: 0.15
+Nodes (17): canonicalize_breakout_payload(), ensure_breakout_event_identity(), hash_breakout_payload(), _identity_component(), Any, core/event_identity.py ======================= Shared helpers for durable…, Raise ValueError on any NaN/Infinity found anywhere in the payload., Immutable, hash-stable view of a breakout payload: excludes receiver… (+9 more)
 
 ### Community 73 - "FCRStrategy"
 Cohesion: 0.15
@@ -746,8 +740,8 @@ Cohesion: 0.11
 Nodes (15): DipSignal, DipTracker, dip_tracker.py ============== Per-position dip detection and scale-in…, Call when a new position is opened to clear stale swing-high / dip history., True if the last 2 recorded dips PLUS the current one are each >20% deeper., Per-position dip analysis on low-timeframe bars (1m / 5m). Stateful: tracks…, Analyse recent bars for dip-confirmation trigger. bars — list of OHLCV dicts,…, MaintenanceSignal (+7 more)
 
 ### Community 81 - ".do_POST"
-Cohesion: 0.08
-Nodes (26): chat_with_bot(), _chronos_predict(), clear_injected_symbols(), db_flush_ghost(), db_strategy_toggle(), export_tax_csv(), generate_daily_report(), _load_chronos_pipeline() (+18 more)
+Cohesion: 0.07
+Nodes (35): chat_with_bot(), clear_injected_symbols(), close_position(), db_flush_ghost(), db_strategy_toggle(), export_tax_csv(), _find_open_trade(), get_current_price() (+27 more)
 
 ### Community 82 - "run_backtest_matrix.py"
 Cohesion: 0.23
@@ -758,7 +752,7 @@ Cohesion: 0.13
 Nodes (7): bot-pids(), go-bot(), run-bot(), run-break(), run-breakk(), run-www(), stop-trading()
 
 ### Community 84 - "BaseEventScanner"
-Cohesion: 0.09
+Cohesion: 0.10
 Nodes (9): BaseEventScanner, datetime, Start the scanner in a background daemon thread., Override in subclass. Called every check_interval_sec., Get current price via the wired market_scanner., Base class for event-driven scanners. Subclasses implement: run_once() --…, Wire to breakout_receiver (or any receiver with .receive_signal())., Wire to market_scanner for live price lookups. (+1 more)
 
 ### Community 85 - "scanners/market_scanner.py"
@@ -779,11 +773,11 @@ Nodes (16): BacktestRunContext, clear_cancel(), Isolated cancel state for one ba
 
 ### Community 89 - ".toJSON"
 Cohesion: 0.03
-Nodes (13): ac, Al, el, fl, go, Ll, parseGeometries(), parseShapes() (+5 more)
+Nodes (12): ac, Al, el, fl, go, Ll, parseGeometries(), parseShapes() (+4 more)
 
-### Community 90 - "en"
-Cohesion: 0.04
-Nodes (18): an, ar(), Ea(), en, fa, Ga, ir(), ln (+10 more)
+### Community 90 - ".applyMatrix4"
+Cohesion: 0.06
+Nodes (8): an, fi(), ln, ls(), Mh, mn, update(), wh()
 
 ### Community 91 - "analyze_trade_dump.py"
 Cohesion: 0.26
@@ -793,21 +787,25 @@ Nodes (19): append_total_row(), build_outputs(), first_present(), load_csv(), ma
 Cohesion: 0.18
 Nodes (13): BMR357Params, BMR357Strategy, _bollinger(), generate_signals(), DataFrame, Series, BMR-357 — Bollinger Band Mean Reversion / 3-5-7 Risk Rule…, Returns DataFrame with signal columns added. No lookahead — all signals are… (+5 more)
 
-### Community 93 - "dashboard.py"
-Cohesion: 0.10
-Nodes (12): cache_data, ============================================================= EXCHANGE…, fmt_db_time(), load_data(), normalize_entry_exit(), parse_db_time(), ============================================================= LIVE TRADING…, Fetch OHLCV bars and render a Plotly candlestick chart. Supports 5Min, 1Hour,… (+4 more)
+### Community 93 - "ct"
+Cohesion: 0.11
+Nodes (4): bt, ct(), es(), Xe()
 
-### Community 94 - "StrategyEngine"
-Cohesion: 0.06
-Nodes (23): BollingerBreakout, DataFrame, DCAAccumulator, DataFrame, EMACrossover, DataFrame, GridBot, DataFrame (+15 more)
+### Community 94 - "strategy_engine.py"
+Cohesion: 0.05
+Nodes (36): Grid Bot Iter4 quick audit — BTC only, 90 days Run: python…, BollingerBreakout, DCAAccumulator, EMACrossover, GridBot, DataFrame, grid_bot.py — Strategy 7: Grid Bot Trading Bot v2 Profits from ranging…, MeanReversion (+28 more)
 
 ### Community 95 - "RiskManager"
-Cohesion: 0.15
-Nodes (9): DailyStatus, Get today's starting capital. If not yet set (first call of the day), calculate…, Approve a trade signal and compute position sizing. Parameters ----------…, Guardian of the trading system. Nothing gets traded without approval here. All…, Update session state after a trade closes., Always re-read session from DB to get latest values. The dashboard runs as a…, Reset the daily session state (called at end of day)., Calculate true capital by adding all-time realized P&L to starting capital.… (+1 more)
+Cohesion: 0.12
+Nodes (11): DailyStatus, Get today's starting capital. If not yet set (first call of the day), calculate…, Approve a trade signal and compute position sizing. Parameters ----------…, Update trailing stop for an open trade. When `bars` (a closed-bar DataFrame, at…, Guardian of the trading system. Nothing gets traded without approval here. All…, Profit-activation gate (Opus audit 2026-05-29). A trailing stop may move INTO…, Update session state after a trade closes., Always re-read session from DB to get latest values. The dashboard runs as a… (+3 more)
 
 ### Community 96 - "PythonEMTBridge"
 Cohesion: 0.13
 Nodes (11): BarsRequest, Bars, BarsSeries, BarsUpdateEventArgs, BlockingCollection, bool, DateTime, int (+3 more)
+
+### Community 97 - "nc"
+Cohesion: 0.10
+Nodes (4): bind(), getValue(), Ko, nc
 
 ### Community 98 - "Astral Drift Technical Reference"
 Cohesion: 0.07
@@ -818,7 +816,7 @@ Cohesion: 0.16
 Nodes (13): applyState(), childrenConnectedCallback(), connectedCallback(), flushWaitingVideos(), getRetryImportUrl(), handleHydrationError(), hydrateVideo(), importWithRetry() (+5 more)
 
 ### Community 100 - "AlpacaExecutor"
-Cohesion: 0.15
+Cohesion: 0.11
 Nodes (9): AlpacaExecutor, KrakenSpotExecutor, Submit a stock order to Alpaca. Short tickers (1-2 chars) use plain market…, Plain market order — used for short tickers or as bracket fallback., Cancel all open orders for a symbol before closing the position. This is…, Close a position at Alpaca. ALWAYS cancels open orders first (bracket legs)…, Close all open stock positions at EOD. Cancels all open orders first, then…, Legacy direct-ccxt Kraken executor. NOTE: The primary crypto execution path is… (+1 more)
 
 ### Community 101 - "_load_users"
@@ -845,17 +843,17 @@ Nodes (15): agg(), _exp(), main(), _pf(), DataFrame, ===========================
 Cohesion: 0.17
 Nodes (18): coingecko_get(), fetch_kraken_funding_rates(), fetch_stock_universe(), main(), print_table(), DataFrame, Series, Daily Market Scanner — Stocks + Crypto =======================================… (+10 more)
 
-### Community 107 - "BreakoutSenderSafetyTests"
-Cohesion: 0.23
-Nodes (5): BreakoutSenderSafetyTests, _payload(), Offline regression tests for BreakoutSender containment and validation., _Response, _signal()
+### Community 107 - "RuntimeError"
+Cohesion: 0.06
+Nodes (34): RuntimeError, build_prompt(), compact_digest(), installed_ollama_models(), load_digest(), main(), Path, run_ollama() (+26 more)
 
 ### Community 108 - "vdmr_strategy.py"
 Cohesion: 0.18
 Nodes (16): backtest(), fetch_ohlcv_ccxt(), generate_signals(), print_stats(), DataFrame, Series, VDMR — Velocity-Deceleration Mean Reversion…, Minimal event-driven backtest. Returns (trades, equity_curve). commission_pct… (+8 more)
 
 ### Community 109 - "_db_conn"
-Cohesion: 0.22
-Nodes (19): db_add_row(), _db_blank_value_for(), db_browse(), _db_conn(), _db_datetime_expr(), db_delete_rows(), db_edit_row(), _db_filter_where() (+11 more)
+Cohesion: 0.19
+Nodes (21): get_store(), Return the shared CandleStore singleton (creates on first call)., db_add_row(), _db_blank_value_for(), db_browse(), _db_conn(), _db_datetime_expr(), db_delete_rows() (+13 more)
 
 ### Community 110 - "ScannerEngine"
 Cohesion: 0.12
@@ -873,9 +871,9 @@ Nodes (3): eh, jt(), pt()
 Cohesion: 0.24
 Nodes (17): adx_last(), aggregate_completed(), assess_confluence(), choppiness_last(), _clean_bars(), ema_series(), _number(), _parse_time() (+9 more)
 
-### Community 114 - "test"
-Cohesion: 0.14
-Nodes (18): Grid Bot Iter4 quick audit — BTC only, 90 days Run: python…, test(), main(), main(), _make_oscillating_df(), _make_volatile_btc_df(), BMR-357 no-live-state test — backtester parity patch step 4…, Run one backtest with core.candle_manager.candle_manager.get() monkeypatched to… (+10 more)
+### Community 114 - "test_bmr357_no_live_state.py"
+Cohesion: 0.22
+Nodes (13): main(), _make_oscillating_df(), _make_volatile_btc_df(), BMR-357 no-live-state test — backtester parity patch step 4…, Run one backtest with core.candle_manager.candle_manager.get() monkeypatched to…, Report §5 item 2's exact test: backtest a non-BTC symbol twice with different…, Backtesting BTC/USD itself with bmr_357 must still work (uses its own candles…, Repeating sharp-crash / slow-recovery cycles so price repeatedly breaches… (+5 more)
 
 ### Community 115 - "SFRStrategy"
 Cohesion: 0.16
@@ -914,12 +912,12 @@ Cohesion: 0.18
 Nodes (8): AdaptiveRegime, DataFrame, Series, Adaptive Regime — Trend-Long Stock-Only Edition. ADX + EMA alignment + Donchian…, Zero all per-run counters. Called by backtester before each symbol., Return a copy of the current diagnostic counters., Return MACD histogram value (fast=12, slow=26, signal=9)., Trend-long stock-only exit: Exit when EMA20 crosses below EMA100. This is the…
 
 ### Community 126 - "TradeSignal"
-Cohesion: 0.10
-Nodes (21): Convenience constructor for TradeSignal using this strategy's defaults.…, Represents a trade opportunity identified by a strategy., TradeSignal, BollingerSqueeze, DataFrame, bollinger_squeeze.py — Strategy: Bollinger Squeeze Trading Bot v2 Philosophy:…, # NOTE: self.logger already set by BaseStrategy.__init__ to the class name., DataFrame (+13 more)
+Cohesion: 0.07
+Nodes (27): Convenience constructor for TradeSignal using this strategy's defaults.…, Represents a trade opportunity identified by a strategy., TradeSignal, DataFrame, BollingerSqueeze, DataFrame, DataFrame, DataFrame (+19 more)
 
 ### Community 127 - "ExchangeCapabilities"
 Cohesion: 0.11
-Nodes (13): ExchangeCapabilities, Returns True if the symbol has leverage_sell available on Kraken. Kraken uses…, Load or refresh the Kraken shortable-pairs cache., Calls Kraken public API (no auth). Returns (shortable: Set[str], lev_map:…, Convert Kraken wsname "XBT/USD" → ccxt symbol "BTC/USD". Handles the XBT→BTC…, Generate all the name variants we should check against the Kraken shortable set…, Returns True if Alpaca marks the asset as shortable and easy-to-borrow. Falls…, Load or refresh the Alpaca shortable assets cache. (+5 more)
+Nodes (14): ExchangeCapabilities, Returns True if the symbol has leverage_sell available on Kraken. Kraken uses…, Load or refresh the Kraken shortable-pairs cache., Calls Kraken public API (no auth). Returns (shortable: Set[str], lev_map:…, Convert Kraken wsname "XBT/USD" → ccxt symbol "BTC/USD". Handles the XBT→BTC…, Generate all the name variants we should check against the Kraken shortable set…, Returns True if Alpaca marks the asset as shortable and easy-to-borrow. Falls…, Load or refresh the Alpaca shortable assets cache. (+6 more)
 
 ### Community 128 - "param_sweep.py"
 Cohesion: 0.16
@@ -945,29 +943,29 @@ Nodes (4): _bar(), BreakoutScannerSafetyTests, _Config, Deterministic, offline r
 Cohesion: 0.29
 Nodes (13): assert_guarded_trades_unchanged(), load_script(), main(), Deterministic isolation tests for Kraken recovery-script reconciliation holds., Minimal isolated stand-in for Database.set_state()., run_with_output(), seed_database(), SqliteStateStore (+5 more)
 
-### Community 134 - "RuntimeError"
-Cohesion: 0.13
-Nodes (12): _db_key(), _decrypt(), Decrypt a Fernet-encrypted API key loaded from .env. - Empty string → returned…, Load a key from the DB api_keys table, decrypt it, fall back to env., RuntimeError, build_prompt(), compact_digest(), installed_ollama_models() (+4 more)
+### Community 134 - "panelApi"
+Cohesion: 0.32
+Nodes (17): BacktesterPanel(), BrokerPanel(), ChatPanel(), cls(), DailyPerfPanel(), exportCsv(), fmt$(), fmt$Sign() (+9 more)
 
 ### Community 135 - "ORBBreakout"
 Cohesion: 0.23
 Nodes (7): ORBBreakout, DataFrame, Series, Opening Range Breakout — Strategy 11. 5m bars (stocks) | 15m bars (crypto).…, Normalise timestamps for session calculations. Stocks → America/New_York (strip…, Return today's session bars only., Intraday VWAP anchored to session open.
 
 ### Community 136 - "FakeDB"
-Cohesion: 0.13
-Nodes (4): AtomicFakeDB, FailingMarkerDB, FakeDB, FakeKrakenBroker
+Cohesion: 0.14
+Nodes (3): AtomicFakeDB, FakeDB, FakeKrakenBroker
 
 ### Community 137 - "is_scanner_enabled"
-Cohesion: 0.26
-Nodes (10): is_scanner_enabled(), normalize_scanner_name(), Shared DB-backed controls for receiver/event scanners. These are not…, scanner_source_from_runtime_name(), scanner_state_key(), set_scanner_enabled(), _state_enabled(), breakout_injection_enabled() (+2 more)
+Cohesion: 0.23
+Nodes (11): is_scanner_enabled(), list_scanner_controls(), normalize_scanner_name(), Shared DB-backed controls for receiver/event scanners. These are not…, scanner_source_from_runtime_name(), scanner_state_key(), set_scanner_enabled(), _state_enabled() (+3 more)
 
 ### Community 138 - "stock_calendar_authority.py"
 Cohesion: 0.16
 Nodes (13): _bar_close_epoch_in_session(), get_authority(), _latest_closed_bar_open_in_session(), ============================================================= STOCK CALENDAR…, Enumerate the open-time epoch of every intraday bar in a session [open_epoch,…, Authoritative close-time epoch for the bar opening at `open_epoch` within the…, Open-time epoch of the latest bar in the session whose close time is at or…, Shared StockCalendarAuthority singleton. `api` is only used on the first call… (+5 more)
 
-### Community 139 - "get_store"
-Cohesion: 0.19
-Nodes (10): get_store(), ============================================================= CANDLE STORE v1.0…, Return the shared CandleStore singleton (creates on first call)., main(), _NumpyEncoder, ============================================================= OPTIMIZER WORKER…, Serialize numpy scalars that standard json can't handle., Atomic-ish write: write to .tmp then rename. (+2 more)
+### Community 139 - "opt_worker.py"
+Cohesion: 0.28
+Nodes (7): main(), _NumpyEncoder, ============================================================= OPTIMIZER WORKER…, Serialize numpy scalars that standard json can't handle., Atomic-ish write: write to .tmp then rename., result_to_dict(), write_progress()
 
 ### Community 140 - "StrategyOptimizer"
 Cohesion: 0.16
@@ -981,9 +979,9 @@ Nodes (14): Astral Drift unified audit task list, Batch A — confirmed correctn
 Cohesion: 0.13
 Nodes (14): 1. General Flight-Control Jitter Polish, 2. ABC Existing-Tunnel Move Tool Stability, 3. 3D Gizmo Axis Consistency, 5. Free-Drag Yellow Build Handle, 6. Tunnel Range Operations, Astral Drift Current Work List, Builder Features To Keep / Already Working, Cache Rooms, Hidden Doors, And Quest Rooms (+6 more)
 
-### Community 144 - "ws"
-Cohesion: 0.03
-Nodes (20): _a, bs, clone(), dispose(), Et, fi(), ft(), gl (+12 more)
+### Community 144 - "nl"
+Cohesion: 0.05
+Nodes (6): clone(), il(), ml, nl, Wl, zl
 
 ### Community 145 - "set_api_key.py"
 Cohesion: 0.25
@@ -994,20 +992,20 @@ Cohesion: 0.22
 Nodes (6): derive_breakout_event_ids(), Derive a stable semantic root ID and delivery/event ID. ``source_event_key`` is…, _direct_payload(), ProducerIdentityTests, Offline contract tests for producer-owned breakout event identity., _Receiver
 
 ### Community 147 - "StockDataFetcher"
-Cohesion: 0.26
-Nodes (8): _latest_scan_csv(), load_injected_crypto_symbols(), load_injected_stock_symbols(), Path, _read_scan_csv(), _read_symbol_file(), StockDataFetcher, _unique_keep_order()
+Cohesion: 0.17
+Nodes (12): _db_fallback(), _decrypt_cfg(), _latest_scan_csv(), load_injected_crypto_symbols(), load_injected_stock_symbols(), Path, Decrypt a Fernet-encrypted value read from scanner_config.json. - Empty /…, Look up a blank scanner key in the trading bot's encrypted api_keys DB table.… (+4 more)
 
-### Community 148 - "test_kraken_price_unavailable.py"
-Cohesion: 0.31
-Nodes (8): FakeExecutor, FakeKraken, make_database(), make_trade(), Focused regression tests for crypto monitor quote-unavailable containment. No…, test_broker_fallback_clears_marker_and_preserves_monitoring(), test_dual_source_failure_persists_one_threshold_alert_without_close(), test_valid_scanner_quote_clears_only_price_marker_without_broker_call()
+### Community 148 - "FakeKraken"
+Cohesion: 0.29
+Nodes (7): FakeExecutor, FakeKraken, make_database(), make_trade(), test_broker_fallback_clears_marker_and_preserves_monitoring(), test_dual_source_failure_persists_one_threshold_alert_without_close(), test_valid_scanner_quote_clears_only_price_marker_without_broker_call()
 
 ### Community 149 - "Backtester"
 Cohesion: 0.07
 Nodes (29): Backtester, BacktestResult, _bt_eod_close(), _bt_orb_vwap(), _bt_pivot_break(), DataFrame, Series, Standard fixed % stop with symmetric trailing for both directions. Stop checks… (+21 more)
 
 ### Community 150 - "emt_strategy.py"
-Cohesion: 0.29
-Nodes (7): _clean_bar(), _ema_last(), _finite_number(), _parse_timestamp(), Deterministic Easy Money Trade (EMT) paper-trading state machine. The engine…, _sma_last(), _true_ranges()
+Cohesion: 0.23
+Nodes (8): _clean_bar(), _ema_last(), _finite_number(), _parse_timestamp(), Deterministic Easy Money Trade (EMT) paper-trading state machine. The engine…, Close one exact paper trade through the owning strategy engine., _sma_last(), _true_ranges()
 
 ### Community 152 - "import_log_events.py"
 Cohesion: 0.30
@@ -1030,8 +1028,8 @@ Cohesion: 0.13
 Nodes (14): Commit any uncommitted changes you have on your local machine so Git tracks them properly:, Fetch the latest remote state without altering local filesDownload all remote branch data without automatically changing your working files:, files or newer changes on either side, use a combination of fetch, merge/rebase with, if everything merges cleanly, complete the commit:, If there are problems, Merge remote changes into local safely, non-destructive strategies, and careful pushing., once you have resolved the blocks or chosen the correct version (+6 more)
 
 ### Community 157 - "config.py"
-Cohesion: 0.04
-Nodes (38): bot_engine.py — Main entry point for the Autonomous Day Trading Bot Trading Bot…, setup_logging(), ============================================================= CLAUDE AUTONOMOUS…, _load_fernet_key(), _load_watchlist(), config.py — All settings, API keys, and tunable parameters Trading Bot v2, Load Fernet key from .env first, then from the OS keyring if available., Load a watchlist from a text file, falling back to hardcoded list. (+30 more)
+Cohesion: 0.03
+Nodes (69): BreakoutSignalPayload, control(), ControlPayload, get_open_positions(), health(), BaseModel, field_validator, get (+61 more)
 
 ### Community 158 - "test_map_import_segment_limit.js"
 Cohesion: 0.17
@@ -1041,9 +1039,9 @@ Nodes (11): assertAccepted(), context, fs, functionMatch, html, limit, limitMatc
 Cohesion: 0.16
 Nodes (8): Return sources in preferred order — try last-known-good first., Try all sources in preferred order. Cache on first success., Append to unreachable_symbols.log — for manual cleanup., Return True for symbols that can never be fetched (Tradovate futures, etc.)., Namespace stock symbols in the candle store to prevent collision with any same-…, Get OHLCV candles for a symbol/timeframe. Returns cached data if fresh,…, Force-fetch and cache. Returns True if successful., Background worker — refreshes all symbols on interval.
 
-### Community 160 - "test_candle_store_incremental_retention.py"
-Cohesion: 0.47
-Nodes (8): _hourly_df(), main(), _make_store(), CandleStore incremental-refresh retention test — Step 6 (Patch B data…, Two short refreshes in a row, each covering only their own recent tail, must…, test_retention_horizon_still_prunes_bars_beyond_the_window(), test_short_incremental_refresh_does_not_erase_long_history(), test_two_widely_separated_incremental_refreshes_both_survive()
+### Community 160 - "traderdev_gridbot_adx15.py"
+Cohesion: 0.31
+Nodes (7): _adx(), generate_signals(), DataFrame, Series, TraderDev GridBot Iter1 ADX15 lane. Parity-oriented port of the public…, _rma(), TraderDevGridBotADX15
 
 ### Community 161 - "traderdev_day_trader_v3.py"
 Cohesion: 0.24
@@ -1077,13 +1075,13 @@ Nodes (9): _adx(), _cmo(), DataFrame, Series, tema_crossover.py ================
 Cohesion: 0.25
 Nodes (6): live_ticker_reference(), Any, Venue-local crypto quote helpers. Never use this helper to compare or…, Prefer a sane live bid/ask midpoint; otherwise return venue-local last., CryptoQuoteTests, Deterministic tests for venue-local live crypto quote selection.
 
-### Community 169 - "get_current_price"
-Cohesion: 0.29
-Nodes (7): get_current_price(), get_manual_trade_preview(), get_open_positions(), open_manual_trade(), Return open positions using DB adapter when available, else SQLite fallback., Open a manual trade and register it in the DB for bot management., sort_open_positions()
+### Community 169 - "side-panels.jsx"
+Cohesion: 0.31
+Nodes (9): apiBase(), apiCall(), InjectSymbolsPanel(), ManagePositionsPanel(), MiniLWChart(), normalizePos(), QUICK_QUERIES_DB, QuickControlsPanel() (+1 more)
 
-### Community 170 - "ema_ribbon_breakout.py"
-Cohesion: 0.24
-Nodes (10): _adx(), _atr(), _ema(), EMARibbonBreakoutParams, EMARibbonBreakoutStrategy, generate_signals(), DataFrame, Series (+2 more)
+### Community 170 - "test_rect_junction_corner_handoff.js"
+Cohesion: 0.22
+Nodes (7): context, cornerBubble, fs, html, rect, straightBubble, vm
 
 ### Community 171 - "quarterly_hourly_log_scan.py"
 Cohesion: 0.36
@@ -1101,17 +1099,17 @@ Nodes (12): _atr(), generate_signals(), DataFrame, Series, RSI Dip Simple ======
 Cohesion: 0.44
 Nodes (10): Get-BarRow(), Get-DynamicProperty(), Get-HttpJson(), Invoke-PipelineCheck(), Test-BridgeFiles(), Test-Endpoint(), Test-NinjaTrader(), Test-RemoteService() (+2 more)
 
-### Community 175 - "close_position"
-Cohesion: 0.24
-Nodes (11): close_position(), _find_open_trade(), _paper_futures_identity(), Return (strategy, root symbol) only for scanner-owned paper trades., Close a DB-only paper row after the scanner confirms it is not active., Close a position through its actual owning engine/executor., Start a manual close in the background so the dashboard stays usable., _reconcile_orphaned_paper_trade() (+3 more)
+### Community 175 - "test_segment_join_seam_policy.js"
+Cohesion: 0.22
+Nodes (7): context, distance, fs, html, open, section, vm
 
 ### Community 176 - "alert_sound.py"
 Cohesion: 0.24
 Nodes (9): _generate_tone(), init_audio(), play_alert(), _play_pattern(), alert_sound.py ============== Cross-device audio alerts using pygame — works…, Non-blocking alert tone. Fires in a background thread. level : 0-3 (escalation…, Call once at startup. Returns True if audio is available., Generate a sine-wave tone as a pygame Sound object. (+1 more)
 
 ### Community 177 - "KrakenExecutor"
-Cohesion: 0.08
-Nodes (55): KrakenExecutor, ============================================================= KRAKEN EXECUTOR…, Check if a position actually exists on Kraken exchange. Returns position dict…, Best-effort reconciliation lookup by Kraken userref (our deterministic client-…, Query Kraken for the most recent closed order for a symbol. Used to find the…, TradeApproval, Exception, build_executor() (+47 more)
+Cohesion: 0.07
+Nodes (57): KrakenExecutor, Check if a position actually exists on Kraken exchange. Returns position dict…, Best-effort reconciliation lookup by Kraken userref (our deterministic client-…, Query Kraken for the most recent closed order for a symbol. Used to find the…, TradeApproval, Exception, build_executor(), FakeDB (+49 more)
 
 ### Community 178 - "MLSignalScorer"
 Cohesion: 0.14
@@ -1126,8 +1124,8 @@ Cohesion: 0.60
 Nodes (4): Deterministic tests for non-destructive trade-open identity handling., _row(), run(), _trade()
 
 ### Community 183 - "scalp_master.py"
-Cohesion: 0.19
-Nodes (12): _calc_adx(), _calc_vwap(), get_symbol_params(), _load_params_file(), DataFrame, scalp_master.py — Strategy 5: Scalp Master Trading Bot v2 High-frequency…, Return current SL/TP params for a symbol. Priority: learned params on disk →…, Calculate intraday VWAP from available bars. VWAP = cumulative(typical_price *… (+4 more)
+Cohesion: 0.22
+Nodes (11): _calc_adx(), _calc_vwap(), get_symbol_params(), _load_params_file(), DataFrame, scalp_master.py — Strategy 5: Scalp Master Trading Bot v2 High-frequency…, Return current SL/TP params for a symbol. Priority: learned params on disk →…, Calculate intraday VWAP from available bars. VWAP = cumulative(typical_price *… (+3 more)
 
 ### Community 184 - "watchdog_bot_engine.py"
 Cohesion: 0.31
@@ -1135,7 +1133,7 @@ Nodes (9): get_target_pane(), is_bot_running(), log(), monitor(), Bot Engine Wat
 
 ### Community 185 - "web_dashboard.py"
 Cohesion: 0.11
-Nodes (33): _chart_bars_alpaca(), _chart_bars_coinbase(), _chart_bars_ibkr(), _chart_bars_kraken(), _chart_bars_tradovate(), _chart_bars_yfinance(), _chart_open_positions_for_symbol(), _clean_header_token() (+25 more)
+Nodes (30): _chart_bars_kraken(), _clean_header_token(), _format_duration(), _format_trade_time(), get_chart_symbols(), get_injected_symbols(), get_overview_data(), get_today_trade_log() (+22 more)
 
 ### Community 186 - "flush_candle_symbol.py"
 Cohesion: 0.42
@@ -1149,21 +1147,17 @@ Nodes (8): build_rollup(), iter_archived_digests(), main(), markdown_rollup(), p
 Cohesion: 0.23
 Nodes (8): _normalise_tf(), DataFrame, Normalise timeframe to CCXT/yfinance format (e.g. '5Min' → '5m')., Fetch from Kraken via CCXT., 1-hour stock bars can't be sliced from Alpaca's native 1Hour endpoint into a…, Fetch from yfinance with semaphore + exponential backoff retry., Fetch from KuCoin via CCXT — no auth required (public endpoint). KuCoin uses…, Dispatch to the correct fetcher.
 
-### Community 189 - "api_server.py"
-Cohesion: 0.19
-Nodes (14): BreakoutSignalPayload, control(), ControlPayload, get_open_positions(), health(), BaseModel, field_validator, get (+6 more)
+### Community 189 - "vwap_momentum.py"
+Cohesion: 0.36
+Nodes (6): _calc_adx(), _calc_vwap(), DataFrame, vwap_momentum.py — Strategy 9: VWAP Momentum Trading Bot v2 Combines the EMA…, Intraday VWAP from available bars. Returns current value or None., ADX value from pandas_ta. Returns current value or None.
 
 ### Community 190 - "trade_blocker_snapshot.py"
 Cohesion: 0.42
 Nodes (8): _connect(), _json_value(), main(), _print_rows(), Connection, Path, _scan_log(), _tail_lines()
 
-### Community 191 - "get_injected_symbols"
-Cohesion: 0.50
-Nodes (5): get_chart_symbols(), get_injected_symbols(), inject_symbols(), _read_symbol_file(), _strategy_supported_symbols()
-
-### Community 192 - "MR03FBSStrategy"
-Cohesion: 0.19
-Nodes (12): _atr(), generate_signals(), _get_market_sentiment(), MR03FBSStrategy, MR03Params, DataFrame, Series, MR-03 v5 False Breakout Snap ================================ Hypothesis: When… (+4 more)
+### Community 192 - "migrate_timestamps_to_pt.py"
+Cohesion: 0.67
+Nodes (3): migrate(), migrate_timestamps_to_pt.py ============================ One-time migration:…, shift_timestamp()
 
 ### Community 193 - "MR02VEFStrategy"
 Cohesion: 0.22
@@ -1193,10 +1187,6 @@ Nodes (6): is_power_of_two(), main(), Path, Print image dimensions for texture f
 Cohesion: 0.29
 Nodes (6): 1. Choose a shared secret, 2. Start Python, 3. Install the NinjaTrader AddOn, Health check, NinjaTrader → Python Futures Scanner, Safety and interpretation
 
-### Community 200 - "weekly_tradelog.py"
-Cohesion: 0.22
-Nodes (11): generate_weekly_tradelog(), get_week_range(), date, datetime, ============================================================= WEEKLY TRADE LOG…, Called by scheduler every Sunday at midnight., Convert UTC ISO string to Pacific Time datetime., Get the Sunday-Saturday week range for the week that just ended. If called at… (+3 more)
-
 ### Community 201 - "log_event_context.py"
 Cohesion: 0.52
 Nodes (6): find_match(), load_event(), main(), print_context(), Path, safe_path()
@@ -1209,9 +1199,9 @@ Nodes (13): ConditionReport, MarketCondition, MarketConditionDetector, DataFrame
 Cohesion: 0.33
 Nodes (6): compute_indicators(), generate_signals(), DataFrame, Strategy v7: VTRT - Volatility-Triggered Reversion in Trend…, VTRT/VTM-R: RSI(2) trend reversion with strategy-owned EMA/max-hold exits., VTMRStrategy
 
-### Community 204 - "startup_reconciler.py"
-Cohesion: 0.27
-Nodes (9): _entry_timestamp(), ============================================================= STARTUP…, Reconcile open crypto positions against Kraken. Two-stage check per trade:…, Parse entry_time from a trade dict to a Unix timestamp (for Kraken order…, Main entry point. Call this once at bot startup before any scanning begins., Check each open stock trade against Alpaca positions., _reconcile_crypto(), reconcile_on_startup() (+1 more)
+### Community 204 - "_chronos_predict"
+Cohesion: 0.50
+Nodes (4): _chronos_predict(), _load_chronos_pipeline(), Load amazon/chronos-t5-base once and cache it. Returns the pipeline object or…, POST /api/chronos_predict Receives: { symbol, timeframe, bars:…
 
 ### Community 205 - "test_texture_distance_runs.js"
 Cohesion: 0.06
@@ -1229,9 +1219,9 @@ Nodes (4): Astral Drift map data folder, Gullet Maze 1 (shareable hard copy), Mo
 Cohesion: 0.83
 Nodes (3): classify_signal(), continuation_probability(), determine_direction()
 
-### Community 218 - "Wn"
+### Community 218 - "en"
 Cohesion: 0.03
-Nodes (24): bt, ca, ct(), ei, es(), fo(), hh, il() (+16 more)
+Nodes (47): Ah, ar(), bo, ca, cl, Da, ds(), ei (+39 more)
 
 ### Community 221 - "EATStrategyIndicator"
 Cohesion: 0.24
@@ -1253,13 +1243,13 @@ Nodes (4): Environment & Running, graphify, Key Modules (see AGENTS.md for full 
 Cohesion: 0.15
 Nodes (15): _build_market_snapshot(), _compact_signal_payload(), _extract_json_array(), _extract_json_object(), _fetch_alpha_movers(), _pct_change(), ============================================================= CLAUDE AUTONOMOUS…, Hard-blocks signals that fail mechanical criteria. Runs before any API call.… (+7 more)
 
-### Community 321 - "test_strategy_registry_parity.py"
-Cohesion: 0.36
-Nodes (9): main(), Registry parity tests — backtester parity patch step 1…, test_all_registry_modules_importable(), test_backtest_strategies_subset_of_strategy_map(), test_backtester_time_stop_exempt_identical_to_canonical(), test_ecb_strategy_now_reachable_everywhere(), test_optimizer_param_map_matches_dashboard_list(), test_strategy_map_has_no_duplicate_source_keys() (+1 more)
+### Community 321 - "test"
+Cohesion: 0.22
+Nodes (13): test(), main(), main(), main(), main(), Registry parity tests — backtester parity patch step 1…, test_all_registry_modules_importable(), test_backtest_strategies_subset_of_strategy_map() (+5 more)
 
 ### Community 323 - "is_bot_running"
-Cohesion: 0.12
-Nodes (19): build_snapshot(), db_log_context(), find_bot_pids_windows(), _format_duration(), _format_trade_time(), get_overview_data(), get_today_trade_log(), is_bot_running() (+11 more)
+Cohesion: 0.16
+Nodes (14): build_snapshot(), db_log_context(), find_bot_pids_windows(), is_bot_running(), Path, Stop bot_engine.py process(es)., Top-level status metrics., Best-effort check for bot process. (+6 more)
 
 ### Community 325 - "FakeDB"
 Cohesion: 0.27
@@ -1286,8 +1276,8 @@ Cohesion: 0.25
 Nodes (6): context, fs, html, nearLast, vm, withGlobal
 
 ### Community 343 - "At"
-Cohesion: 0.05
-Nodes (8): At, cl, ds(), fe, gi(), mi(), ps(), qr()
+Cohesion: 0.06
+Nodes (4): At, fe, ht(), ps()
 
 ### Community 365 - "insertion_sort"
 Cohesion: 0.67
@@ -1297,12 +1287,12 @@ Nodes (3): insertion_sort(), main(), Takes a list and sorts a copy of it susing 
 Cohesion: 0.07
 Nodes (9): PathPointCalculator, ControlPointQuartet, PathPoint, Enemy, Explosion, Player, Rocket, Gameplay (+1 more)
 
-### Community 369 - ".updateProjectionMatrix"
-Cohesion: 0.12
-Nodes (3): Jl, Kn, vl()
+### Community 369 - "us"
+Cohesion: 0.06
+Nodes (8): gl, hl, Jl, kl, Kn, us(), vl(), Yl
 
 ### Community 417 - "tn"
-Cohesion: 0.08
+Cohesion: 0.07
 Nodes (5): dt(), $e(), Qe(), tn, ut()
 
 ### Community 431 - "ControlPointQuartetCollection"
@@ -1314,8 +1304,8 @@ Cohesion: 0.05
 Nodes (37): 1. scalp_master.py — CRITICAL f-string crash, 2. bollinger_squeeze.py — CRITICAL stop/TP decimal vs percent bug, 3. ecb_strategy.py — Wrong timeframe producing garbage signals, 4. trade_executor.py — DCA structural stop override, 5. hammer_reversal.py — Whitelist too narrow, 6. vwap_momentum.py — Missing ml_exempt, Also pending (separate project, same docs folder), Apr 2026 Backtest Results (30d, 25 symbols each) (+29 more)
 
 ### Community 445 - "i"
-Cohesion: 0.07
-Nodes (16): bindSkeletons(), i(), ic, load(), oc, ol, parse(), parseAnimations() (+8 more)
+Cohesion: 0.08
+Nodes (15): bindSkeletons(), i(), ic, load(), ol, parse(), parseAnimations(), parseImages() (+7 more)
 
 ### Community 457 - "BaseState"
 Cohesion: 0.07
@@ -1330,8 +1320,8 @@ Cohesion: 0.11
 Nodes (7): ControlPointCollectionFactory, ControlPoint, ControlPointHandler, ControlPointQuartetCollection, ControlPointHandler, ControlPointQuartet, ControlPointQuartet
 
 ### Community 512 - "Lc"
-Cohesion: 0.06
-Nodes (13): apiBase(), apiCall(), InjectSymbolsPanel(), ManagePositionsPanel(), MiniLWChart(), normalizePos(), QUICK_QUERIES_DB, QuickControlsPanel() (+5 more)
+Cohesion: 0.10
+Nodes (3): getInput(), getOutput(), Lc
 
 ### Community 533 - "BaseState"
 Cohesion: 0.09
@@ -1414,8 +1404,8 @@ Cohesion: 0.15
 Nodes (12): bollinger_squeeze, btc_v6_chandelier, First Local Matrix, First Results, Next Work, pll_cycle / pll_cycle_martingale, Promotion Criteria, rsi_dip_simple (+4 more)
 
 ### Community 961 - "ReportGenerator"
-Cohesion: 0.17
-Nodes (8): Generate a clean HTML email report including Claude activity., Append one row to reports/xout_register.csv. Creates the file with headers on…, Generate end-of-day summary, save to DB, and email it., Send the HTML report via email (Gmail SMTP)., Compile all data for a given trading day into a summary dict., Export Form 8949 CSV for a given tax year., Compile Claude AI activity stats for the given date. Returns a dict with counts…, ReportGenerator
+Cohesion: 0.16
+Nodes (9): Generate a clean HTML email report including Claude activity., Append one row to reports/xout_register.csv. Creates the file with headers on…, Generate end-of-day summary, save to DB, and email it., Send the HTML report via email (Gmail SMTP)., Compile all data for a given trading day into a summary dict., Export Form 8949 CSV for a given tax year., Compile Claude AI activity stats for the given date. Returns a dict with counts…, ReportGenerator (+1 more)
 
 ### Community 968 - "candle_manager.py"
 Cohesion: 0.25
@@ -1557,10 +1547,6 @@ Nodes (5): Deployed, Durable Event Identity Patch — Status (2026-07-17), Expli
 Cohesion: 0.60
 Nodes (5): send_prompt(), set_state(), run_pipeline.sh script, usage(), wait_for_both()
 
-### Community 1257 - "set_dashboard_password.py"
-Cohesion: 0.30
-Nodes (10): cmd_delete(), cmd_list(), cmd_set_password(), _dec_hash(), _enc_hash(), _get_fernet(), _hash(), _load() (+2 more)
-
 ### Community 1275 - "metrics.py"
 Cohesion: 0.22
 Nodes (9): alert_gate_failure(), get_snapshot(), increment(), ============================================================= METRICS — Patch A…, Increment a named counter. Thread-safe., Return a copy of all counters (for dashboards/tests)., Clear all counters and alert-cooldown state. Test use only., Report a fail-closed gate failure (e.g. calendar authority stale, broker… (+1 more)
@@ -1589,10 +1575,6 @@ Nodes (4): convert_button_clicked(), fahrenheit_to_celsius(), Convert fahrenheit
 Cohesion: 0.60
 Nodes (3): hammer(), main(), saw()
 
-### Community 1286 - "test_metrics.py"
-Cohesion: 0.22
-Nodes (11): _mock_gate_alert(), Deterministic tests for core/metrics.py (Patch A telemetry). Covers: counter…, Defensive backstop: even if gate_failure() unexpectedly raises (a coding error,…, The corrected retry semantics, the crux of this fix: a FAILED delivery…, test_alert_gate_failure_always_counts_and_logs_even_when_delivery_fails(), test_alert_gate_failure_cooldown_is_per_category(), test_alert_gate_failure_delivery_exception_does_not_raise(), test_alert_gate_failure_rate_limits_external_send_on_success() (+3 more)
-
 ### Community 1311 - "Dog"
 Cohesion: 0.31
 Nodes (4): Bulldog, Dachshund, Dog, JackRussellTerrier
@@ -1609,9 +1591,9 @@ Nodes (3): _coingecko_price(), CryptoScanner, Return current USD price from Coin
 Cohesion: 0.33
 Nodes (3): chart_patterns.py ================= Geometric chart-pattern AND candlestick-…, Run all detectors. OHLCV optional — enables candlestick signals., score_patterns()
 
-### Community 1392 - "TradeExecutor"
-Cohesion: 0.08
-Nodes (16): AlpacaExecutor, CoinbaseExecutor, Close all open stock positions — called at end of day., Executes crypto trades via Coinbase Advanced Trade., Unified executor that coordinates risk approval, order submission, and logging.…, Full pipeline: approve -> execute -> log -> return trade_id. Accepts a Signal…, Executes stock trades via Alpaca Markets API., Close an open position. Updates database and notifies risk manager. (+8 more)
+### Community 1392 - "trade_executor.py"
+Cohesion: 0.05
+Nodes (29): ============================================================= EXCHANGE…, ============================================================= KRAKEN EXECUTOR…, ============================================================= T+1 SETTLEMENT…, AlpacaExecutor, CoinbaseExecutor, ============================================================= TRADE EXECUTOR…, Close all open stock positions — called at end of day., Executes crypto trades via Coinbase Advanced Trade. (+21 more)
 
 ### Community 1572 - "FundingScanner"
 Cohesion: 0.17
@@ -1630,28 +1612,24 @@ Cohesion: 0.08
 Nodes (14): Extract a cumulative filled quantity from an order dict, treating a…, Resolve the definitive terminal state of a just-submitted order. 1. If the…, Append a durable, greppable record of an order whose final fill state could not…, Return exact CCXT and raw-Kraken aliases for an order pair., Cancel scanner-partial orders and report ambiguity explicitly., Close a scanner partial with fail-closed terminal-fill semantics., Cancel every open order on Kraken for the given symbol. Called before closing a…, Close an open Kraken position. Steps (live mode): 1. Cancel all resting orders… (+6 more)
 
 ### Community 1586 - "test_backtester_p1_correctness.py"
-Cohesion: 0.16
-Nodes (13): _bare_backtester(), _frame(), Deterministic regression tests for the approved P1-B/P1-C fixes., _Strategy, test_invalid_direction_never_becomes_short(), test_invalid_memory_cache_is_revalidated_before_use(), test_param_override_restores_absent_key_on_success_and_exception(), test_param_overrides_are_process_serialized() (+5 more)
+Cohesion: 0.22
+Nodes (12): _bare_backtester(), _frame(), Deterministic regression tests for the approved P1-B/P1-C fixes., _Strategy, test_invalid_direction_never_becomes_short(), test_invalid_memory_cache_is_revalidated_before_use(), test_param_override_restores_absent_key_on_success_and_exception(), test_param_overrides_are_process_serialized() (+4 more)
 
 ### Community 1587 - "breakout_sender.py"
 Cohesion: 0.18
 Nodes (15): breakout_sender.py (hardened v2) ================================== Sends…, escalation_meets_minimum(), is_breakout_stale(), core/breakout_decision.py ========================== Shared, pure decision…, True if `escalation` satisfies `min_escalation` (or no minimum is set). Shared…, True if the breakout move is too many bars old to still be a valid entry.…, main(), Shared breakout-decision predicate tests — Step 8 (Reconciled Safe Patch… (+7 more)
 
-### Community 1593 - ".load"
-Cohesion: 0.20
-Nodes (7): _db_fallback(), _decrypt_cfg(), _encrypt_cfg(), Any, Encrypt a plaintext secret for writing back to scanner_config.json. - Already-…, Decrypt a Fernet-encrypted value read from scanner_config.json. - Empty /…, Look up a blank scanner key in the trading bot's encrypted api_keys DB table.…
-
-### Community 1597 - "strategy_engine.py"
-Cohesion: 0.07
-Nodes (30): Mean Reversion 5-Strategy Viability Audit…, CBAEShortTF, make_fels_short(), Short-Timeframe Mean Reversion Audit -- FELS & CBAE…, Override: drop the contradictory macro-trend direction filter. Original logic…, CBAE with short-TF parameters and no macro-trend direction filter., CBAEParams, CBAEStrategy (+22 more)
-
-### Community 1613 - "position_monitor.py"
+### Community 1597 - "FELSStrategy"
 Cohesion: 0.10
-Nodes (28): _is_market_open(), _easter_date(), is_us_equity_market_holiday(), is_us_equity_regular_session_now(), _last_weekday(), _nth_weekday(), _observed(), date (+20 more)
+Nodes (21): Mean Reversion 5-Strategy Viability Audit…, CBAEShortTF, make_fels_short(), Short-Timeframe Mean Reversion Audit -- FELS & CBAE…, Override: drop the contradictory macro-trend direction filter. Original logic…, CBAE with short-TF parameters and no macro-trend direction filter., CBAEParams, CBAEStrategy (+13 more)
+
+### Community 1613 - "is_us_equity_regular_session_now"
+Cohesion: 0.18
+Nodes (17): _is_market_open(), _easter_date(), is_us_equity_market_holiday(), is_us_equity_regular_session_now(), _last_weekday(), _nth_weekday(), _observed(), date (+9 more)
 
 ### Community 1621 - "FakeSessionDB"
-Cohesion: 0.10
-Nodes (7): FakeRiskManager, FakeSessionDB, trades.stop_order_id / trades.tp_order_id are referenced by…, Returns a canned, always-approved TradeApproval., Stands in for the module-level `db` imported inside core.risk_manager, so…, test_global_halt_blocks_subsequent_approve_trade(), test_update_trade_order_ids_persists_stop_and_tp_ids()
+Cohesion: 0.14
+Nodes (4): FakeSessionDB, trades.stop_order_id / trades.tp_order_id are referenced by…, Stands in for the module-level `db` imported inside core.risk_manager, so…, test_update_trade_order_ids_persists_stop_and_tp_ids()
 
 ### Community 1626 - "Circle"
 Cohesion: 0.15
@@ -1659,7 +1637,7 @@ Nodes (7): Circle, Set radius, raise error if negative, Calculate area inside ci
 
 ### Community 1665 - "BaseStrategy"
 Cohesion: 0.06
-Nodes (26): ABC, list_sort(), adaptive_regime.py — Strategy 12: Adaptive Regime (Trend-Long Stock Edition)…, BaseStrategy, _injected_symbols(), _normalise_whitelist(), DataFrame, base_strategy.py — Abstract base class for all 8 trading strategies. Trading… (+18 more)
+Nodes (27): ABC, list_sort(), adaptive_regime.py — Strategy 12: Adaptive Regime (Trend-Long Stock Edition)…, BaseStrategy, _injected_symbols(), _normalise_whitelist(), DataFrame, base_strategy.py — Abstract base class for all 8 trading strategies. Trading… (+19 more)
 
 ### Community 1691 - "login_required"
 Cohesion: 0.50
@@ -1678,24 +1656,24 @@ Cohesion: 0.67
 Nodes (3): route, update_grade(), validate_json()
 
 ## Knowledge Gaps
-- **1586 isolated node(s):** `start_astral.sh script`, `fs`, `vm`, `html`, `context` (+1581 more)
+- **1601 isolated node(s):** `start_astral.sh script`, `fs`, `vm`, `html`, `context` (+1596 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **82 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **80 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `PatternDetector` connect `PatternDetector` to `Scripts/trade_maintenance.py`, `chart_patterns.py`, `TradeMaintenanceEngine`, `.do_GET`, `TradeMaintenanceEngine`, `emt_strategy.py`, `web_dashboard.py`, `EMTStrategyEngine`?**
-  _High betweenness centrality (0.039) - this node is a cross-community bridge._
+  _High betweenness centrality (0.048) - this node is a cross-community bridge._
+- **Why does `BaseStrategy` connect `BaseStrategy` to `ORBBreakout`, `RCRMeanReversionStrategy`, `BTCV6ChandelierStrategy`, `RSIDipSpikeV4Strategy`, `ecb_strategy.py`, `PositionMonitor`, `config.py`, `traderdev_gridbot_adx15.py`, `traderdev_day_trader_v3.py`, `VwapConfirmedOrb`, `PLLCycleStrategy`, `tema_crossover.py`, `VBMStrategy`, `RSIDipSimpleStrategy`, `scalp_master.py`, `FELSStrategy`, `vwap_momentum.py`, `map_strategy.py`, `MR02VEFStrategy`, `VTMRStrategy`, `kds_mean_reversion.py`, `BMR357Strategy`, `strategy_engine.py`, `vdmr_strategy.py`, `SFRStrategy`, `mr_04_fvg_strategy.py`, `HammerReversal`, `AdaptiveRegime`, `TradeSignal`?**
+  _High betweenness centrality (0.024) - this node is a cross-community bridge._
 - **Why does `EMTStrategyEngine` connect `EMTStrategyEngine` to `MarketState`, `PatternDetector`, `emt_strategy.py`, `EMTLiveTests`, `EMTStrategyTests`?**
-  _High betweenness centrality (0.018) - this node is a cross-community bridge._
-- **Why does `BaseStrategy` connect `BaseStrategy` to `ORBBreakout`, `RCRMeanReversionStrategy`, `BTCV6ChandelierStrategy`, `RSIDipSpikeV4Strategy`, `ecb_strategy.py`, `PositionMonitor`, `traderdev_day_trader_v3.py`, `VwapConfirmedOrb`, `PLLCycleStrategy`, `tema_crossover.py`, `VBMStrategy`, `ema_ribbon_breakout.py`, `RSIDipSimpleStrategy`, `scalp_master.py`, `strategy_engine.py`, `map_strategy.py`, `MR02VEFStrategy`, `MR03FBSStrategy`, `VTMRStrategy`, `position_monitor.py`, `kds_mean_reversion.py`, `BMR357Strategy`, `StrategyEngine`, `vdmr_strategy.py`, `SFRStrategy`, `mr_04_fvg_strategy.py`, `HammerReversal`, `AdaptiveRegime`, `TradeSignal`?**
-  _High betweenness centrality (0.018) - this node is a cross-community bridge._
+  _High betweenness centrality (0.021) - this node is a cross-community bridge._
 - **Are the 69 inferred relationships involving `TradeSignal` (e.g. with `_DummyStrategy` and `AdaptiveRegime`) actually correct?**
   _`TradeSignal` has 69 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 69 inferred relationships involving `BaseStrategy` (e.g. with `PositionMonitor` and `AdaptiveRegime`) actually correct?**
   _`BaseStrategy` has 69 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `start_astral.sh script`, `fs`, `vm` to the rest of the system?**
-  _1586 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1601 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `{` be split into smaller, more focused modules?**
   _Cohesion score 0.002145922746781116 - nodes in this community are weakly interconnected._
