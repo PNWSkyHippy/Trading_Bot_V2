@@ -799,7 +799,7 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1-sharpTurnOcclusionFix1-sixPortJunction1-roundSixPortJunction1-sidePortalHandoffFix1-distanceBendConnector1-distanceScenicRibSuppression1-roundJunctionHubShell1-roundHubRenderOwnership1-roundJunctionSphereRoom2-roundJunctionPortalCoverage1-gulletP1-gulletPlayFix1-gulletHallBlock2-rectCornerHandoff1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1-sharpTurnOcclusionFix1-sixPortJunction1-roundSixPortJunction1-sidePortalHandoffFix1-distanceBendConnector1-distanceScenicRibSuppression1-roundJunctionHubShell1-roundHubRenderOwnership1-roundJunctionSphereRoom2-roundJunctionPortalCoverage1-gulletP1-gulletPlayFix1-gulletHallBlock2-rectCornerHandoff1-gulletExactRooms1-gulletSurgeClarity1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -1567,6 +1567,9 @@
         const TUNNEL_TEXTURE_PANEL_OVERLAP = 1.024;
         const TUNNEL_SEGMENT_JOIN_OVERLAP = 48;
         const TUNNEL_SECTION_JOIN_OVERLAP = 18;
+        // Flight already exposes the branch itself; the old ten-sided mouth overlay
+        // became a field of distracting octagonal markers in dense junction maps.
+        const TUNNEL_BRANCH_INDICATORS_ENABLED = false;
         // A round six-way junction is a room, not a widened piece of its host
         // cylinder. Six full tunnel mouths fit on this independent spherical
         // shell with a strip of wall between neighbouring apertures. Incoming
@@ -6594,7 +6597,7 @@
             RESULTS_MS: 4200,
             TAGGED_MS: 2200,
             LIVES: 3,
-            POWER_MS: 20000,
+            POWER_MS: 30000,
             RESPAWN_MS: 60000,
             INVULN_MS: 2200,
             JELLY_SPEED: 3.4,
@@ -6625,7 +6628,7 @@
             JELLY_SIZE: 176,
             MAW_SIZE: 280,
             CHASE_BLEND: 0.06,
-            POWER_MS: 20000,
+            POWER_MS: 30000,
             RESPAWN_MS: 60000
         };
         GULLET.FLOOR_PITCH = GULLET.CELL + GULLET.SHAFT;
@@ -7634,14 +7637,16 @@
                 && gulletPhase.state === 'play';
             const chaseFlash = chaseMix
                 && ((now + jelly.phase * 220) % 1600) < 160;
-            const blink = frightened && Math.floor(now / 140) % 2 === 0;
+            const vulnerablePulse = frightened ? 0.82 + 0.18 * Math.sin(now * 0.012) : 1;
             const s = Math.max(6, gulletDifficulty().jellySize * (fov / Math.max(70, p.z)));
             ctx.save();
             ctx.translate(p.x, p.y);
-            ctx.globalAlpha = blink ? 0.28 : (chaseFlash ? 1 : 0.9);
-            ctx.strokeStyle = blink ? '#f4f7ff' : (chaseFlash ? '#fff4c8' : jelly.color);
-            ctx.fillStyle = blink ? 'rgba(244,247,255,0.16)' : jelly.fill;
-            ctx.lineWidth = Math.max(1.1, s * (chaseFlash ? 0.14 : 0.08));
+            ctx.globalAlpha = chaseFlash ? 1 : 0.94;
+            ctx.shadowColor = frightened ? '#45eaff' : '#ff304f';
+            ctx.shadowBlur = frightened ? Math.max(12, s * 0.28) : Math.max(3, s * 0.06);
+            ctx.strokeStyle = frightened ? '#f5ffff' : (chaseFlash ? '#fff4c8' : jelly.color);
+            ctx.fillStyle = frightened ? 'rgba(20,105,255,0.94)' : jelly.fill;
+            ctx.lineWidth = Math.max(1.5, s * (frightened ? 0.13 : (chaseFlash ? 0.14 : 0.08)));
             ctx.beginPath();
             ctx.ellipse(0, -s * 0.08, s * 0.58, s * 0.4, 0, Math.PI, Math.PI * 2, true);
             ctx.quadraticCurveTo(s * 0.5, s * 0.5, 0, s * 0.22);
@@ -7661,6 +7666,28 @@
                     s * 0.78
                 );
                 ctx.stroke();
+            }
+            ctx.shadowBlur = 0;
+            if (frightened) {
+                ctx.strokeStyle = '#45eaff';
+                ctx.lineWidth = Math.max(2, s * 0.07);
+                ctx.beginPath();
+                ctx.arc(0, 0, s * (0.86 + 0.07 * vulnerablePulse), 0, Math.PI * 2);
+                ctx.stroke();
+                if (s >= 18) {
+                    ctx.font = `bold ${Math.max(11, Math.min(20, s * 0.2))}px monospace`;
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText('KILLABLE', 0, -s * 0.72);
+                }
+            } else {
+                // Constant red eyes make the lethal state readable without relying
+                // on the brief chase blink or on each Jelly's individual palette.
+                ctx.fillStyle = '#ff304f';
+                ctx.beginPath();
+                ctx.arc(-s * 0.18, -s * 0.08, Math.max(2, s * 0.045), 0, Math.PI * 2);
+                ctx.arc(s * 0.18, -s * 0.08, Math.max(2, s * 0.045), 0, Math.PI * 2);
+                ctx.fill();
             }
             ctx.restore();
         }
@@ -7720,8 +7747,14 @@
                 centerX, 30
             );
             ctx.font = '13px monospace';
-            ctx.fillStyle = '#9ad8e8';
-            ctx.fillText(gulletHunterHudLine(), centerX, 50);
+            ctx.fillStyle = powerLeft > 0 ? '#ffffff' : '#ff8b9a';
+            ctx.fillText(
+                powerLeft > 0
+                    ? `BLUE JELLIES KILLABLE  ·  MAW ALWAYS LETHAL  ·  ${Math.ceil(powerLeft / 1000)}s`
+                    : 'RED-EYED JELLIES LETHAL  ·  MAW ALWAYS LETHAL',
+                centerX,
+                50
+            );
             if (now < gulletPhase.invulnUntil && gulletPhase.state === 'play') {
                 ctx.fillStyle = 'rgba(102,240,255,0.12)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -14122,9 +14155,78 @@
             return normalize(addVec(scaleVec(segRight, lateralR / len), scaleVec(segDown, lateralD / len)));
         }
 
+        function containShipInExactGulletRooms(ship) {
+            if (!gulletPhase.active) return false;
+            let containing = null;
+            let nearestState = null;
+            for (let index = 0; index < builder.segments.length; index++) {
+                const seg = builder.segments[index];
+                if (!seg?.gulletArena || !segmentIsRectRoom(seg)) continue;
+                const room = rectRoomDistanceState(ship, seg);
+                const sideX = Math.max(8, room.halfWidth - TUNNEL_SAFE_MARGIN);
+                const sideY = Math.max(8, room.halfHeight - TUNNEL_SAFE_MARGIN);
+                // Gullet geometry is generated as an exact union of finite boxes.
+                // Keep every box finite even when its authored face is open; its
+                // adjoining corridor/cube/shaft owns the volume beyond that face.
+                // This eliminates both the approximate spherical handoff and the
+                // infinite-prism behavior of ordinary uncapped rectangular rooms.
+                const minZ = seg.capStart ? TUNNEL_SAFE_MARGIN : 0;
+                const maxZ = seg.capEnd ? room.length - TUNNEL_SAFE_MARGIN : room.length;
+                const correctedLocal = {
+                    x: Math.max(-sideX, Math.min(sideX, room.local.x)),
+                    y: Math.max(-sideY, Math.min(sideY, room.local.y)),
+                    z: Math.max(minZ, Math.min(maxZ, room.local.z))
+                };
+                const dx = room.local.x - correctedLocal.x;
+                const dy = room.local.y - correctedLocal.y;
+                const dz = room.local.z - correctedLocal.z;
+                const dist2 = dx * dx + dy * dy + dz * dz;
+                const state = { index, seg, room, correctedLocal, dist2 };
+                if (dist2 <= 0.0001) {
+                    if (index === shipSegmentIndex) {
+                        containing = state;
+                        break;
+                    }
+                    if (!containing) containing = state;
+                }
+                if (!nearestState || dist2 < nearestState.dist2) nearestState = state;
+            }
+
+            if (containing) {
+                shipSegmentIndex = containing.index;
+                wallHit.active = false;
+                wallHit.intensity *= 0.86;
+                wallHit.lastRadius = Math.max(containing.room.halfWidth, containing.room.halfHeight);
+                wallHit.stuckCount = Math.max(0, (wallHit.stuckCount || 0) - 1);
+                return true;
+            }
+            if (!nearestState) return false;
+
+            const corrected = segmentLocalToWorld(
+                nearestState.seg,
+                nearestState.correctedLocal.x,
+                nearestState.correctedLocal.y,
+                nearestState.correctedLocal.z
+            );
+            posX = corrected.x;
+            posY = corrected.y;
+            posZ = corrected.z;
+            shipSegmentIndex = nearestState.index;
+            wallHit.active = true;
+            wallHit.intensity = Math.max(wallHit.intensity, 0.35);
+            wallHit.last = performance.now();
+            wallHit.lastRadius = Math.max(nearestState.room.halfWidth, nearestState.room.halfHeight);
+            wallHit.stuckCount = Math.min(12, (wallHit.stuckCount || 0) + 1);
+            return true;
+        }
+
         function containShipInTunnel() {
             if (!builder.segments.length) return;
             const ship = { x: posX, y: posY, z: posZ };
+            // The generated Gullet maze is an exact union of aligned rectangular
+            // volumes. Its dedicated gate is both more permissive at real doorways
+            // and stricter at floors than the approximate general junction bubbles.
+            if (containShipInExactGulletRooms(ship)) return;
             const priorSegmentIndex = shipSegmentIndex;
             const nearest = nearestTunnelPoint(ship, shipSegmentIndex, { preferContaining: true });
             if (!nearest) return;
@@ -27084,6 +27186,7 @@
         }
 
         function renderBranchMouths(centerX, centerY, fov, texturedSegmentIndices = null, forwardPathSet = null) {
+            if (!TUNNEL_BRANCH_INDICATORS_ENABLED) return;
             // Slice: collectJunctionMouths() now returns the shared cache array by
             // reference, and this function appends frame-local branch-mouth entries
             // below — mutating the cache in place would leak duplicates into every
