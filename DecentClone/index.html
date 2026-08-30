@@ -799,7 +799,7 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1-sharpTurnOcclusionFix1-sixPortJunction1-roundSixPortJunction1-sidePortalHandoffFix1-distanceBendConnector1-distanceScenicRibSuppression1-roundJunctionHubShell1-roundHubRenderOwnership1-roundJunctionSphereRoom2-roundJunctionPortalCoverage1-gulletP1-gulletPlayFix1';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1-sharpTurnOcclusionFix1-sixPortJunction1-roundSixPortJunction1-sidePortalHandoffFix1-distanceBendConnector1-distanceScenicRibSuppression1-roundJunctionHubShell1-roundHubRenderOwnership1-roundJunctionSphereRoom2-roundJunctionPortalCoverage1-gulletP1-gulletPlayFix1-gulletHallBlock2-rectCornerHandoff1';
         const BUILD_LABEL = 'v0.6 · Astral Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -2828,7 +2828,7 @@
         // Require the point to still be within one of the joint's OWN segment
         // footprints (own half-width/height or own tube radius, with slack for the
         // corner cut) before honoring the bubble's collision bypass.
-        function pointWithinSegmentFootprint(ship, seg, slack = 24) {
+        function pointWithinSegmentFootprint(ship, seg, slack = 24, bubble = null) {
             if (!seg) return false;
             if (segmentIsRectRoom(seg)) {
                 // Full 3D box distance, not per-axis: a wide neighbor's generous
@@ -2838,7 +2838,19 @@
                 // halls of differing width still get a joint bubble even though
                 // there is no real corner between them to cut).
                 const room = rectRoomDistanceState(ship, seg);
-                return room.outsideDist <= slack;
+                if (room.outsideDist <= slack) return true;
+                // At a real angle change the bubble itself bounds axial reach around
+                // the joint. Requiring the point to remain inside the finite box as
+                // well made diagonal/90-degree transitions briefly fall outside BOTH
+                // aligned rectangles and hit an invisible wall. Permit that axial
+                // handoff only while the ship remains inside this member's expanded
+                // cross-section; side walls, floor, and ceiling therefore stay solid.
+                // Straight narrow-to-wide joins keep their deliberately tight bubble
+                // and cannot use a wide neighbour to excuse a side-wall escape.
+                const cornerBubble = Number(bubble?.r) > TUNNEL_SAFE_MARGIN * 2 + 0.001;
+                return cornerBubble &&
+                    Math.abs(room.local.x) <= room.halfWidth + slack &&
+                    Math.abs(room.local.y) <= room.halfHeight + slack;
             }
             if (segmentIsChamber(seg)) return true;
             const local = shipSegmentLocal(ship, seg);
@@ -2849,7 +2861,7 @@
         function pointWithinBubbleJointFootprint(ship, bubble) {
             if (!bubble?.segs) return true;   // legacy bubble shape — don't break it
             for (const idx of bubble.segs) {
-                if (pointWithinSegmentFootprint(ship, builder.segments[idx])) return true;
+                if (pointWithinSegmentFootprint(ship, builder.segments[idx], 24, bubble)) return true;
             }
             return false;
         }
@@ -6588,8 +6600,8 @@
             JELLY_SPEED: 3.4,
             MAW_SPEED: 2.2,
             JELLY_COUNT: 8,
-            JELLY_SIZE: 116,
-            MAW_SIZE: 172,
+            JELLY_SIZE: 232,
+            MAW_SIZE: 344,
             CHASE_BLEND: 0.52,
             GATE_SCORE: 100,
             POWER_SCORE: 60,
@@ -6610,8 +6622,8 @@
             JELLY_SPEED: 1.55,
             MAW_SPEED: 1.05,
             JELLY_COUNT: 4,
-            JELLY_SIZE: 88,
-            MAW_SIZE: 140,
+            JELLY_SIZE: 176,
+            MAW_SIZE: 280,
             CHASE_BLEND: 0.06,
             POWER_MS: 20000,
             RESPAWN_MS: 60000
@@ -25366,10 +25378,13 @@
             const length = seg.length || builder.length;
             const fromOpen = isOpenSegmentEnd(seg, 'from');
             const toOpen = isOpenSegmentEnd(seg, 'to');
+            const distanceMapped = !segmentIsChamber(seg)
+                && !segmentIsRectRoom(seg)
+                && segmentUsesDistanceWallMapping(seg);
             const sectionMapped = !segmentIsChamber(seg)
                 && !segmentIsRectRoom(seg)
                 && (
-                    segmentUsesDistanceWallMapping(seg) ||
+                    distanceMapped ||
                     textureUsesSectionMapping(getWallTextureEntry(seg?.wallTextureId))
                 );
             // The five-part environment packs are authored as one complete image
@@ -25379,9 +25394,13 @@
             // at every join. Keep section art on its own 0..length geometry. The
             // legacy tiled walls retain their overlap to cover hard bend gaps.
             let joinOverlap = sectionMapped ? TUNNEL_SECTION_JOIN_OVERLAP : TUNNEL_SEGMENT_JOIN_OVERLAP;
-            const trimHardFrom = sectionMapped && !fromOpen &&
+            // Only distance-mapped texture runs have a bend connector. Trimming
+            // every section-mapped cylinder to the exact endpoint left a black
+            // wedge at hard turns because no geometry covered the gap. Ordinary
+            // section textures retain their narrow overlap instead.
+            const trimHardFrom = distanceMapped && !fromOpen &&
                 segmentEndHasHardTubeTurn(seg, 'from');
-            const trimHardTo = sectionMapped && !toOpen &&
+            const trimHardTo = distanceMapped && !toOpen &&
                 segmentEndHasHardTubeTurn(seg, 'to');
             // A connected side branch is a complete cylinder, not a boolean cutout.
             // Extending it behind its junction lets its opaque wall penetrate the
