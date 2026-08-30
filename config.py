@@ -28,6 +28,7 @@ def _load_fernet_key() -> str | None:
     env_key = (
         os.getenv("TRADING_BOT_FERNET_KEY")
         or os.getenv("FERNET_KEY")
+
         or ""
     ).strip()
     if env_key:
@@ -163,7 +164,7 @@ CLAUDE_REVIEWER_APPLY_SIZE_ADVICE = True
 # their receiver checklist passes, immediately before trade execution.
 # Source-specific flags let each scanner be tested independently.
 BREAKOUT_CONTRARIAN_MODE = True
-BREAKOUT_SCANNER_CONTRARIAN = True
+BREAKOUT_SCANNER_CONTRARIAN = False
 FUNDING_SCANNER_CONTRARIAN  = False
 GAP_SCANNER_CONTRARIAN      = False
 
