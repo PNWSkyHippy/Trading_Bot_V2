@@ -191,6 +191,7 @@ for (const name of [
     'roundJunctionEndpointRenderTrim',
     'getSegmentPanelZExtent',
     'distanceMappedHardBendConnections',
+    'interpolateBendConnectorRadial',
     'buildDistanceBendConnectorGpuMesh',
     'splitSegmentAtPoint',
     'splitLongAutogenSegment'
@@ -326,7 +327,7 @@ if (bendConnectors.length !== 1) {
     throw new Error('mapped 90-degree tube joint did not receive one elbow connector');
 }
 const bendMesh = context.buildDistanceBendConnectorGpuMesh(bendConnectors[0], 48);
-if (bendMesh.indexCount !== 48 * 6 || !Number.isFinite(bendMesh.boundaryV)) {
+if (bendMesh.indexCount !== 48 * 8 * 6 || !Number.isFinite(bendMesh.boundaryV)) {
     throw new Error('distance-mapped elbow connector mesh is incomplete');
 }
 
@@ -695,7 +696,7 @@ if (!html.includes('vTexCoord.x * uTileScale.x + uUOffset') ||
     !html.includes('vTexCoord.y * uTileScale.y + uOffset')) {
     throw new Error('distance-capable shader transform is missing');
 }
-if (!html.includes('distanceMapping\n                        ? distanceUScale') ||
+if (!/distanceMapping\s*\?\s*distanceUScale/.test(html) ||
     !html.includes("Number(seg.wallTextureRunDirection) < 0 ? -1 : 1")) {
     throw new Error('reverse-travel U reflection is not wired into the renderer');
 }

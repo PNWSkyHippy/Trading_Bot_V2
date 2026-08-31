@@ -3502,7 +3502,9 @@
 
         function buildDistanceBendConnectorGpuMesh(info, radialSegments = 48) {
             radialSegments = Math.max(16, Math.min(64, Math.round(radialSegments)));
-            const { a, b, connection, joint } = info;
+            const { a, b, connection } = info;
+            const pointA = connection.aEnd === 'from' ? a.seg.from : a.seg.to;
+            const pointB = connection.bEnd === 'from' ? b.seg.from : b.seg.to;
             const radiusA = Number(a.seg.radius) || builder.radius;
             const radiusB = Number(b.seg.radius) || builder.radius;
             const radius = Math.min(radiusA, radiusB) * TUNNEL_TEXTURE_PANEL_OVERLAP;
@@ -3511,9 +3513,14 @@
             const offsetA = Number(a.seg.wallTextureUOffset) || 0;
             const offsetB = Number(b.seg.wallTextureUOffset) || 0;
             const bendRows = 8;
+            const frameKey = seg => [
+                seg.right.x, seg.right.y, seg.right.z,
+                seg.down.x, seg.down.y, seg.down.z
+            ].map(value => Number(value).toFixed(4)).join(',');
             const key = `${TUNNEL_WEBGL_MESH_CACHE_VERSION}|distanceBendSmooth1|${a.index}:${b.index}|${radialSegments}|` +
-                `${joint.x.toFixed(2)},${joint.y.toFixed(2)},${joint.z.toFixed(2)}|${radius.toFixed(2)}|` +
-                `${offsetA.toFixed(4)},${offsetB.toFixed(4)},${directionA},${directionB}`;
+                `${pointA.x.toFixed(2)},${pointA.y.toFixed(2)},${pointA.z.toFixed(2)}|` +
+                `${pointB.x.toFixed(2)},${pointB.y.toFixed(2)},${pointB.z.toFixed(2)}|${radius.toFixed(2)}|` +
+                `${frameKey(a.seg)}|${frameKey(b.seg)}|${offsetA.toFixed(4)},${offsetB.toFixed(4)},${directionA},${directionB}`;
             if (tunnelWebGL.meshCache.has(key)) return tunnelWebGL.meshCache.get(key);
 
             const vertices = [];
@@ -3538,7 +3545,7 @@
                         t,
                         radius
                     );
-                    const point = addVec(joint, radial);
+                    const point = addVec(lerpVec(pointA, pointB, t), radial);
                     vertices.push(point.x, point.y, point.z);
                     texCoords.push(uA, t);
                 }
