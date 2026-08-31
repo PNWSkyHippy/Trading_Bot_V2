@@ -431,7 +431,54 @@ def main():
     # Standard library approach to handle Windows initialization safely
     if sys.platform == "win32":
         os.system("")  # Crucial trick: This forces the Windows terminal engine to enable ANSI parsing natively
-
+    DEF_OUTFIELDS = {
+        "trade_i": "ID",
+        "entry_price": "Entry",
+        "exit_price": "Exit",
+        "symbol": "Symbol",
+        "direction": "Direct",
+        "entry_price": "EntryPrice",
+        "exit_price": "ExitPrice",
+        "pnl": "PNL",
+        "strategy": "Strat",
+    }
+    
+    ALL_OUTFIELDS = {
+        "trade_id": "ID",
+        "symbol": "Symbol",
+        "asset_class": "Asset",
+        "direction": "Direct",
+        "status": "Status",
+        "entry_time": "EntryTime",
+        "exit_time": "ExitTime",
+        "entry_price": "EntryPrice",
+        "exit_price": "ExitPrice",
+        "quantity": "Quantity",
+        "positional_value": "PosVal",
+        "stop_loss": "StopLoss",
+        "take_profit": "TakeProf",
+        "pnl": "PnL",
+        "pnl_pct": "PnLPct",
+        "exit_reason": "ExitReas",
+        "signal_score": "SigScore",
+        "indicators_json": "IndJSON",
+        "broker": "Broker",
+        "strategy_name": "Strat",
+        "is_overnight": "OverNite",
+        "broker_order_id": "BrokerID",
+        "tp_hit_count": "TPHitCnt",
+        "stop_order_id": "StopID",
+        "tp_order_id": "TPId",
+        "entry_timeframe": "EnterTFrm",
+        "fees_paid": "FeesPd",
+        "mfe_pct": "MfePct",
+        "mae_pct": "MaePct",
+        "partial_pnl": "PartPnL",
+        "partial_fees_paid": "ParFeePd",
+        "partial_exit_count": "ParExtCnt",
+        "event_id": "EventId"
+    }
+    
     output_file = ""
     is_sorted = False
     default_key_list = [
@@ -494,10 +541,12 @@ Usage examples:
     parser.add_argument("-k", "--key", metavar="",
         help="ALL or a <Comma separated list of DB table keys to index and search>",
     )
+    parser.add_argument("-of", "--outfields", metavar="",
+        help="ALL or a <Comma separated list of DB table output fields to display",
+    )
     parser.add_argument("-sk", "--sort-keys", metavar="",
         help="<Comma separated list of DB table keys to sort results. one entry per key from -k>",
     )
-
     parser.add_argument("-R", "--Reverse", action="store_true",
         help="If given, sort order is reversed",
     )
@@ -584,6 +633,16 @@ Usage examples:
         args.list4.split(",") if args.list4 else [],
         args.list5.split(",") if args.list5 else [],
     ]
+    
+    output_fields = args.outfields.split(",") if args.outfields else False
+    if not output_fields:
+        output_dict = DEF_OUTFIELDS
+    else:
+        for fields in output_fields:
+            for key_name, descr in ALL_OUTFIELDS :   
+                if key_name == fields:
+                    output_dict[key_name] = descr
+                    continue
 
     key_list =  args.key.split(",") if args.key else []
 

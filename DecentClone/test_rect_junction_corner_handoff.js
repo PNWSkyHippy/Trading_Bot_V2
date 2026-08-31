@@ -41,6 +41,7 @@ const context = {
 };
 vm.createContext(context);
 vm.runInContext(extractFunction('pointWithinSegmentFootprint'), context);
+vm.runInContext(extractFunction('pointTouchesSegmentCap'), context);
 vm.runInContext(extractFunction('pointWithinBubbleJointFootprint'), context);
 
 const cornerBubble = { r: 80, segs: [0] };

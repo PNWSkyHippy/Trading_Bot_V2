@@ -2746,6 +2746,30 @@
             return tunnelTopologyNeighborhood(aIndex, maxHops).has(bIndex);
         }
 
+        // A junction bubble is a collision exception, so nearby geometry alone is
+        // never enough to admit it. Preserve the endpoint/face identity until this
+        // check has rejected solid caps and undeclared junction faces.
+        function junctionBubbleMemberIsOpen(member) {
+            if (!member?.seg) return false;
+            if (member.kind === 'endpoint') {
+                return member.end === 'from'
+                    ? !member.seg.capStart
+                    : member.end === 'to' && !member.seg.capEnd;
+            }
+            if (member.kind === 'face') {
+                return !!junctionFaceStates(member.seg)?.[member.face];
+            }
+            return false;
+        }
+
+        function junctionBubbleMembersCanConnect(a, b) {
+            if (!a || !b || a.i === b.i) return false;
+            if (!junctionBubbleMemberIsOpen(a) || !junctionBubbleMemberIsOpen(b)) return false;
+            // tunnelSegmentsConnected() intentionally starts with endpoint proximity;
+            // only consult it after the cap/open-face boundary has failed closed.
+            return tunnelSegmentsConnected(a.seg, b.seg);
+        }
+
         function getJunctionBubbles() {
             if (!junctionBubbleCache.stale) return junctionBubbleCache.bubbles;
             const joinTol2 = Math.pow(28, 2);
@@ -2761,12 +2785,17 @@
                 // bubble too instead of requiring perfect alignment.
                 if (segmentIsChamber(seg)) continue;
                 const r = seg.radius || builder.radius;
-                pts.push({ p: seg.from, r, i });
-                pts.push({ p: seg.to, r, i });
+                pts.push({ p: seg.from, r, i, seg, kind: 'endpoint', end: 'from' });
+                pts.push({ p: seg.to, r, i, seg, kind: 'endpoint', end: 'to' });
                 if (segmentIsRoundJunction(seg)) {
                     const states = junctionFaceStates(seg);
                     for (const face of ['right', 'left', 'floor', 'ceiling']) {
-                        if (states[face]) pts.push({ p: junctionFaceCenter(seg, face), r, i });
+                        if (states[face]) {
+                            pts.push({
+                                p: junctionFaceCenter(seg, face), r, i, seg,
+                                kind: 'face', face
+                            });
+                        }
                     }
                 }
             }
@@ -2778,7 +2807,10 @@
                 used[i] = true;
                 for (let j = i + 1; j < pts.length; j++) {
                     if (used[j]) continue;
-                    if (distanceSq(pts[i].p, pts[j].p) <= joinTol2) {
+                    if (
+                        distanceSq(pts[i].p, pts[j].p) <= joinTol2 &&
+                        junctionBubbleMembersCanConnect(pts[i], pts[j])
+                    ) {
                         members.push(pts[j]);
                         used[j] = true;
                     }
@@ -2861,8 +2893,35 @@
             return local.radialDist <= rad + slack;
         }
 
+        function pointTouchesSegmentCap(ship, seg) {
+            if (!seg || segmentIsChamber(seg)) return false;
+            const capInset = Math.max(10, Math.min(42, (seg.radius || builder.radius) * 0.08));
+            if (segmentIsRectRoom(seg)) {
+                const room = rectRoomDistanceState(ship, seg);
+                const withinFace =
+                    Math.abs(room.local.x) <= room.halfWidth &&
+                    Math.abs(room.local.y) <= room.halfHeight;
+                return withinFace && (
+                    (seg.capStart && room.local.z < capInset) ||
+                    (seg.capEnd && room.local.z > room.length - capInset)
+                );
+            }
+            const local = shipSegmentLocal(ship, seg);
+            const rad = seg.radius || builder.radius;
+            return local.radialDist <= rad * 0.98 && (
+                (seg.capStart && local.localZ < capInset) ||
+                (seg.capEnd && local.localZ > local.length - capInset)
+            );
+        }
+
         function pointWithinBubbleJointFootprint(ship, bubble) {
             if (!bubble?.segs) return true;   // legacy bubble shape — don't break it
+            // A bubble can overlap another end of a very short member. A solid cap
+            // always wins over the collision exception, even if a neighboring open
+            // member's broad radial footprint also contains the ship.
+            for (const idx of bubble.segs) {
+                if (pointTouchesSegmentCap(ship, builder.segments[idx])) return false;
+            }
             for (const idx of bubble.segs) {
                 if (pointWithinSegmentFootprint(ship, builder.segments[idx], 24, bubble)) return true;
             }
