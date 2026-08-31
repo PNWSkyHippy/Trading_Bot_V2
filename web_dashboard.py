@@ -5,6 +5,7 @@ Run: python web_dashboard.py
 import hashlib
 import json
 import logging
+import math
 import os
 import re
 import secrets
@@ -1123,11 +1124,152 @@ def sort_open_positions(rows, sort_by=None, sort_dir="desc"):
     return sorted(rows, key=value, reverse=reverse)
 
 
+def _futures_strategy_identity(trade_record):
+    """Return (strategy, root symbol) for a DB-backed EAT/EMT futures row."""
+    if str(trade_record.get("asset_class") or "").strip().lower() not in (
+        "future", "futures",
+    ):
+        return None
+    strategy = str(trade_record.get("strategy_name") or "").strip().lower()
+    trade_id = str(trade_record.get("trade_id") or "").upper()
+    if strategy not in ("eat", "emt"):
+        if trade_id.startswith("EAT-"):
+            strategy = "eat"
+        elif trade_id.startswith("EMT-"):
+            strategy = "emt"
+    if strategy not in ("eat", "emt"):
+        return None
+    indicators = _trade_indicators(trade_record)
+    symbol = str(
+        indicators.get("root_symbol")
+        or trade_record.get("symbol")
+        or ""
+    ).split()[0].upper()
+    if not symbol:
+        return None
+    match = _CONTRACT_SUFFIX_RE.match(symbol)
+    return strategy, (match.group(1) if match else symbol)
+
+
+def _enrich_futures_strategy_positions(rows, snapshot=None):
+    """Apply exact EAT/EMT live marks and futures contract P&L to DB rows.
+
+    A mark is accepted only when the scanner's active strategy trade has the
+    same durable trade ID as the central DB row. This prevents a quote from a
+    newer trade being shown on an orphaned or stale position.
+    """
+    positions = [dict(row) for row in (rows or [])]
+    candidates = [row for row in positions if _futures_strategy_identity(row)]
+    if not candidates:
+        return positions
+    scanner = snapshot
+    status_cache = {}
+
+    for trade in candidates:
+        strategy, symbol = _futures_strategy_identity(trade)
+        if scanner is not None:
+            strategy_status = scanner
+            state = (
+                (scanner.get(f"{strategy}_strategies") or {}).get(symbol) or {}
+            )
+        else:
+            if symbol not in status_cache:
+                status_cache[symbol] = _scanner_strategy_status(symbol, timeout=1.5)
+            strategy_status = status_cache[symbol]
+            state = (
+                ((strategy_status.get("strategies") or {}).get(strategy) or {})
+                .get("state") or {}
+            )
+        bridge_live = bool((strategy_status.get("bridge") or {}).get("alive"))
+        active = state.get("active_trade") or {}
+        exact_trade = (
+            strategy_status.get("ok")
+            and str(active.get("trade_id") or "") == str(trade.get("trade_id") or "")
+        )
+        if not exact_trade:
+            trade["mark_status"] = "unavailable"
+            trade["mark_source"] = "scanner_trade_mismatch"
+            continue
+        try:
+            current_price = float(state.get("last_live_price"))
+        except (TypeError, ValueError, OverflowError):
+            current_price = 0.0
+        if not math.isfinite(current_price) or current_price <= 0:
+            trade["mark_status"] = "unavailable"
+            trade["mark_source"] = "scanner_price_unavailable"
+            continue
+
+        indicators = _trade_indicators(trade)
+        try:
+            point_value = float(indicators.get("point_value") or 0)
+            entry_price = float(trade.get("entry_price") or 0)
+            quantity = float(
+                active.get("remaining_quantity")
+                if active.get("remaining_quantity") is not None
+                else active.get("quantity", trade.get("quantity") or 0)
+            )
+        except (TypeError, ValueError, OverflowError):
+            point_value = entry_price = quantity = 0.0
+        if not all(math.isfinite(value) for value in (point_value, entry_price, quantity)):
+            point_value = entry_price = quantity = 0.0
+        if point_value <= 0 or entry_price <= 0 or quantity < 0:
+            trade["mark_status"] = "unavailable"
+            trade["mark_source"] = "contract_metadata_unavailable"
+            continue
+
+        direction = str(trade.get("direction") or "long").lower()
+        points = (
+            entry_price - current_price
+            if direction == "short"
+            else current_price - entry_price
+        )
+        unrealized_pnl = points * point_value * quantity
+        position_value = float(trade.get("position_value") or 0)
+        initial_quantity = float(active.get("quantity") or trade.get("quantity") or 0)
+        tp1_done = strategy == "eat" and bool(active.get("tp1_done"))
+        try:
+            runner_stop = float(active.get("runner_stop") or 0)
+        except (TypeError, ValueError, OverflowError):
+            runner_stop = 0.0
+        realized_pnl = float(active.get("realized_pnl") or 0)
+        if tp1_done and math.isfinite(runner_stop) and runner_stop > 0:
+            trade["stop_loss"] = round(runner_stop, 8)
+        stop_loss = float(trade.get("stop_loss") or entry_price)
+        take_profit = float(trade.get("take_profit") or entry_price)
+        trade.update({
+            "quantity": quantity,
+            "contracts_open": quantity,
+            "contracts_initial": initial_quantity,
+            "current_price": round(current_price, 8),
+            "unrealized_pnl": round(unrealized_pnl, 4),
+            "pnl_pct": round(
+                unrealized_pnl / position_value * 100.0, 4
+            ) if position_value > 0 else 0.0,
+            "market_value": round(current_price * point_value * quantity, 2),
+            "mark_status": "live" if bridge_live else "stale",
+            "mark_source": f"{strategy}_scanner",
+            "realized_pnl": realized_pnl,
+            "combined_pnl": round(realized_pnl + unrealized_pnl, 4),
+            "position_status": "runner" if tp1_done and quantity > 0 else "open",
+            "take_profit_status": "tp1_filled_runner" if tp1_done else "working",
+            "runner_stop": round(runner_stop, 8) if runner_stop > 0 else None,
+            "distance_to_sl": round(
+                abs(current_price - stop_loss) / current_price * 100.0, 4
+            ),
+            "distance_to_tp": round(
+                abs(take_profit - current_price) / current_price * 100.0, 4
+            ),
+        })
+    return positions
+
+
 def get_open_positions(sort_by=None, sort_dir="desc", enrich=True):
     """Return open positions using DB adapter when available, else SQLite fallback."""
     if enrich and monitor is not None:
         try:
-            rows = monitor.get_positions_summary() or []
+            rows = _enrich_futures_strategy_positions(
+                monitor.get_positions_summary() or []
+            )
             positions = [
                 {
                     "id": t.get("id"),
@@ -1151,6 +1293,15 @@ def get_open_positions(sort_by=None, sort_dir="desc", enrich=True):
                     "close_attempts": int(t.get("close_attempts") or 0),
                     "tp_hit_count": int(t.get("tp_hit_count") or 0),
                     "strategy_name": str(t.get("strategy_name") or "—"),
+                    "mark_status": str(t.get("mark_status") or "standard"),
+                    "mark_source": str(t.get("mark_source") or "market_scanner"),
+                    "realized_pnl": float(t.get("realized_pnl") or 0),
+                    "combined_pnl": float(t.get("combined_pnl") or t.get("unrealized_pnl") or 0),
+                    "contracts_open": float(t.get("contracts_open") or t.get("quantity") or 0),
+                    "contracts_initial": float(t.get("contracts_initial") or t.get("quantity") or 0),
+                    "position_status": str(t.get("position_status") or "open"),
+                    "take_profit_status": str(t.get("take_profit_status") or "working"),
+                    "runner_stop": t.get("runner_stop"),
                 }
                 for t in rows
             ]
@@ -1161,10 +1312,13 @@ def get_open_positions(sort_by=None, sort_dir="desc", enrich=True):
     if db is not None:
         try:
             rows = db.get_open_trades() or []
+            futures_marked_rows = _enrich_futures_strategy_positions(rows) if enrich else rows
             positions = []
-            for t in rows:
+            for t in futures_marked_rows:
                 entry_price = float(t.get("entry_price") or 0)
-                if enrich:
+                if enrich and t.get("mark_source") in ("eat_scanner", "emt_scanner"):
+                    current_price = float(t.get("current_price") or entry_price)
+                elif enrich:
                     raw_price = get_current_price(
                         t.get("symbol") or t.get("ticker") or "?",
                         t.get("asset_class") or "crypto",
@@ -1182,13 +1336,17 @@ def get_open_positions(sort_by=None, sort_dir="desc", enrich=True):
                     current_price = float(t.get("current_price") or entry_price or 0)
                 qty = float(t.get("quantity") or t.get("shares") or 0)
                 direction = (t.get("direction") or t.get("side") or "long").lower()
-                pnl = (current_price - entry_price) * qty
-                if direction == "short":
-                    pnl = -pnl
-                pnl_pct = 0.0
-                if entry_price:
-                    raw_pct = ((current_price - entry_price) / entry_price) * 100
-                    pnl_pct = raw_pct if direction == "long" else -raw_pct
+                if t.get("mark_source") in ("eat_scanner", "emt_scanner"):
+                    pnl = float(t.get("unrealized_pnl") or 0)
+                    pnl_pct = float(t.get("pnl_pct") or 0)
+                else:
+                    pnl = (current_price - entry_price) * qty
+                    if direction == "short":
+                        pnl = -pnl
+                    pnl_pct = 0.0
+                    if entry_price:
+                        raw_pct = ((current_price - entry_price) / entry_price) * 100
+                        pnl_pct = raw_pct if direction == "long" else -raw_pct
                 stop_loss = float(t.get("stop_loss") or entry_price or 0)
                 take_profit = float(t.get("take_profit") or entry_price or 0)
                 distance_to_sl = abs((current_price - stop_loss) / current_price * 100) if current_price else 0
@@ -1211,6 +1369,15 @@ def get_open_positions(sort_by=None, sort_dir="desc", enrich=True):
                     "distance_to_tp": distance_to_tp,
                     "entry_time": t.get("entry_time") or "",
                     "strategy_name": str(t.get("strategy_name") or "—"),
+                    "mark_status": str(t.get("mark_status") or "standard"),
+                    "mark_source": str(t.get("mark_source") or "market_scanner"),
+                    "realized_pnl": float(t.get("realized_pnl") or 0),
+                    "combined_pnl": float(t.get("combined_pnl") or pnl),
+                    "contracts_open": float(t.get("contracts_open") or qty),
+                    "contracts_initial": float(t.get("contracts_initial") or qty),
+                    "position_status": str(t.get("position_status") or "open"),
+                    "take_profit_status": str(t.get("take_profit_status") or "working"),
+                    "runner_stop": t.get("runner_stop"),
                 })
             return sort_open_positions(positions, sort_by, sort_dir)
         except Exception:
@@ -2299,13 +2466,13 @@ def _scanner_bars_for_chart(
         rows = [bucketed[key] for key in sorted(bucketed)]
     return rows[-limit:]
 
-def _scanner_strategy_status(symbol: str) -> dict:
+def _scanner_strategy_status(symbol: str, timeout: float = 8.0) -> dict:
     try:
         import urllib.parse
         import urllib.request
         query = urllib.parse.urlencode({"symbol": str(symbol).upper()})
         with urllib.request.urlopen(
-            f"http://127.0.0.1:8765/strategy/status?{query}", timeout=8.0
+            f"http://127.0.0.1:8765/strategy/status?{query}", timeout=timeout
         ) as response:
             return json.loads(response.read().decode("utf-8"))
     except Exception as exc:

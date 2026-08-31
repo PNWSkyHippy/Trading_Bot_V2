@@ -336,6 +336,14 @@ function OpenPositionsPanel() {
     tp: Number(p.take_profit || p.entry_price || 0),
     pnlD: Number(p.unrealized_pnl || 0),
     pnlP: Number(p.pnl_pct || 0),
+    markStatus: String(p.mark_status || 'standard'),
+    markSource: String(p.mark_source || ''),
+    realizedPnl: Number(p.realized_pnl || 0),
+    combinedPnl: Number(p.combined_pnl ?? p.unrealized_pnl ?? 0),
+    contractsOpen: Number(p.contracts_open ?? p.qty ?? p.quantity ?? 0),
+    contractsInitial: Number(p.contracts_initial ?? p.qty ?? p.quantity ?? 0),
+    positionStatus: String(p.position_status || 'open'),
+    takeProfitStatus: String(p.take_profit_status || 'working'),
     toSL: Number(p.distance_to_sl || 0),
     toTP: Number(p.distance_to_tp || 0),
     slRaised: Number(p.sl_raise_count || 0),
@@ -465,7 +473,7 @@ function OpenPositionsPanel() {
       <TblWrap>
         <table className="tbl">
           <thead><tr>
-            <SortHead k="opened">Opened</SortHead><SortHead k="symbol">Symbol</SortHead><SortHead k="type">Type</SortHead><SortHead k="dir">Dir</SortHead><SortHead k="strategy">Strategy</SortHead>
+            <SortHead k="opened">Opened</SortHead><SortHead k="symbol">Symbol</SortHead><SortHead k="type">Type</SortHead><SortHead k="dir">Dir</SortHead><SortHead k="strategy">Strategy</SortHead><th>Contracts</th><th>State</th>
             <SortHead k="entry" num>Entry</SortHead><SortHead k="current" num>Current</SortHead><SortHead k="sl" num>SL</SortHead><SortHead k="tp" num>TP</SortHead>
             <SortHead k="pnlD" num>Unreal P&L</SortHead><SortHead k="pnlP" num>P&L %</SortHead><SortHead k="toSL" num>→ SL</SortHead><SortHead k="toTP" num>→ TP</SortHead>
           </tr></thead>
@@ -477,13 +485,17 @@ function OpenPositionsPanel() {
                 <td className="muted">{p.type}</td>
                 <td><span className={cls('pill', p.dir.toLowerCase())}>{p.dir}</span></td>
                 <td className="muted" style={{ fontSize: 10, maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.strategy}>{p.strategy}</td>
+                <td>{p.contractsOpen}/{p.contractsInitial}</td>
+                <td className={p.positionStatus === 'runner' ? 'warn' : 'muted'}>{p.positionStatus === 'runner' ? 'RUNNER' : 'OPEN'}</td>
                 <td className="num">{fmtN(p.entry)}</td>
-                <td className="num">{fmtN(p.current)}</td>
-                <td className="num muted">{fmtN(p.sl)}</td>
-                <td className="num muted" title={p.tpExt > 0 ? `Take-profit extended ${p.tpExt}× by momentum rider` : undefined}>
-                  {fmtN(p.tp)}{p.tpExt > 0 && <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', background:'#e53935', color:'#fff', borderRadius:'50%', fontSize:9, fontWeight:700, width:14, height:14, marginLeft:4, lineHeight:1 }}>{p.tpExt}</span>}
+                <td className="num" title={p.markSource || undefined}>
+                  {fmtN(p.current)}{p.markStatus === 'live' && <span style={{ marginLeft: 4, fontSize: 8, color: 'var(--green)' }}>LIVE</span>}{p.markStatus === 'stale' && <span style={{ marginLeft: 4, fontSize: 8, color: 'var(--yellow)' }}>STALE</span>}{p.markStatus === 'unavailable' && <span style={{ marginLeft: 4, fontSize: 8, color: 'var(--red)' }}>UNAVAILABLE</span>}
                 </td>
-                <td className={cls('num', p.pnlD > 0 && 'pos', p.pnlD < 0 && 'neg')}>{fmt$Sign(p.pnlD)}</td>
+                <td className="num muted">{fmtN(p.sl)}</td>
+                <td className="num muted" title={p.takeProfitStatus === 'tp1_filled_runner' ? 'TP1 is banked; the remaining contracts have no fixed TP2 and are managed by the runner stop.' : p.tpExt > 0 ? `Take-profit extended ${p.tpExt}× by momentum rider` : undefined}>
+                  {p.takeProfitStatus === 'tp1_filled_runner' ? `TP1 FILLED @ ${fmtN(p.tp)}` : fmtN(p.tp)}{p.tpExt > 0 && <span style={{ display:'inline-flex', alignItems:'center', justifyContent:'center', background:'#e53935', color:'#fff', borderRadius:'50%', fontSize:9, fontWeight:700, width:14, height:14, marginLeft:4, lineHeight:1 }}>{p.tpExt}</span>}
+                </td>
+                <td className={cls('num', p.pnlD > 0 && 'pos', p.pnlD < 0 && 'neg')} title={p.realizedPnl !== 0 ? `Banked: ${p.realizedPnl > 0 ? '+' : ''}$${p.realizedPnl.toFixed(2)} · Combined trade total: ${p.combinedPnl > 0 ? '+' : ''}$${p.combinedPnl.toFixed(2)}` : undefined}>{fmt$Sign(p.pnlD)}{p.realizedPnl !== 0 && <div style={{ fontSize: 9, color: 'var(--text-2)' }}>Banked {fmt$Sign(p.realizedPnl)} · Total {fmt$Sign(p.combinedPnl)}</div>}</td>
                 <td className={cls('num', p.pnlP > 0 && 'pos', p.pnlP < 0 && 'neg')}>{fmtP(p.pnlP)}</td>
                 <td className="num muted">{p.toSL.toFixed(2)}%</td>
                 <td className="num muted">{p.toTP.toFixed(2)}%</td>

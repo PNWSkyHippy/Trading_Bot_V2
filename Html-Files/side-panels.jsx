@@ -29,6 +29,14 @@ const normalizePos = (p) => ({
   tp: Number(p.take_profit ?? p.tp ?? p.entry_price ?? p.entry ?? 0),
   pnlD: Number(p.unrealized_pnl ?? p.pnlD ?? 0),
   pnlP: Number(p.pnl_pct ?? p.pnlP ?? 0),
+  markStatus: String(p.mark_status || 'standard'),
+  markSource: String(p.mark_source || ''),
+  realizedPnl: Number(p.realized_pnl || 0),
+  combinedPnl: Number(p.combined_pnl ?? p.unrealized_pnl ?? 0),
+  contractsOpen: Number(p.contracts_open ?? p.qty ?? p.quantity ?? 0),
+  contractsInitial: Number(p.contracts_initial ?? p.qty ?? p.quantity ?? 0),
+  positionStatus: String(p.position_status || 'open'),
+  takeProfitStatus: String(p.take_profit_status || 'working'),
   opened: p.entry_time || p.opened || '—',
   toSL: Number(p.distance_to_sl ?? p.toSL ?? 0),
   toTP: Number(p.distance_to_tp ?? p.toTP ?? 0),
@@ -221,9 +229,10 @@ function ManagePositionsPanel() {
             <div className="row1">
               <span className="sym">{p.symbol}</span>
               <span className={cls('pill', p.dir.toLowerCase())} style={{ fontSize: 9.5 }}>{p.dir}</span>
-              <span className="meta">ID {p.id ?? '—'} · Entry {fmtN(p.entry)} · Cur {fmtN(p.current)} · SL {fmtN(p.sl)} · TP {fmtN(p.tp)}</span>
+              {p.positionStatus === 'runner' && <span className="pill" style={{ fontSize: 9, color: 'var(--yellow)' }}>RUNNER</span>}
+              <span className="meta">ID {p.id ?? '—'} · Contracts {p.contractsOpen}/{p.contractsInitial} · Entry {fmtN(p.entry)} · Cur {fmtN(p.current)}{p.markStatus === 'live' ? ' LIVE' : p.markStatus === 'stale' ? ' STALE' : p.markStatus === 'unavailable' ? ' UNAVAILABLE' : ''} · Stop {fmtN(p.sl)} · {p.takeProfitStatus === 'tp1_filled_runner' ? `TP1 FILLED @ ${fmtN(p.tp)}` : `TP ${fmtN(p.tp)}`}</span>
               <span className={cls('pnl', p.pnlD >= 0 ? 'pos' : 'neg')} style={{ color: p.pnlD >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                {fmt$Sign(p.pnlD)} ({fmtP(p.pnlP)})
+                Open {fmt$Sign(p.pnlD)} ({fmtP(p.pnlP)}){p.realizedPnl !== 0 ? ` · Banked ${p.realizedPnl > 0 ? '+' : ''}$${p.realizedPnl.toFixed(2)} · Total ${p.combinedPnl > 0 ? '+' : ''}$${p.combinedPnl.toFixed(2)}` : ''}
               </span>
             </div>
 
