@@ -1,6 +1,14 @@
+
+
 # The Blueprint: 3D Ray Tracing Technical Reference & Roadmap
 
+
+
 A comprehensive guide to ray tracing concepts, 3D linear algebra, optical math, UV texture mapping, and software architecture designed for developers building a custom ray tracer in Python without pre-packaged full-code dumps.
+ContolShift
+V to view in VS
+
+--
 
 ---
 

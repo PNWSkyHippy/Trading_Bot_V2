@@ -2389,6 +2389,9 @@
         const TUNNEL_WEBGL_SCROLL_RATE = 0.0025;
         const TUNNEL_WEBGL_BOOST_SCROLL_RATE = 0.006;
         const TUNNEL_WEBGL_ZERO_DRAW_FALLBACK_FRAMES = 45;
+        const TUNNEL_WEBGL_BLANK_SAMPLE_INTERVAL = 20;
+        const TUNNEL_WEBGL_BLANK_FALLBACK_SAMPLES = 3;
+        const TUNNEL_WEBGL_BLANK_CHANNEL_MIN = 18;
         const TUNNEL_WEBGL_MESH_CACHE_MAX = 64;
         const TUNNEL_WEBGL_MAX_DRAW_SEGMENTS = 36;
         const TUNNEL_WEBGL_AHEAD_SEGMENTS = 34;
@@ -2433,7 +2436,9 @@
             modelScratch: new Float32Array(16),
             viewProjScratch: new Float32Array(16),
             lastDrawCount: 0,
-            zeroDrawFrames: 0
+            zeroDrawFrames: 0,
+            blankFrameSamples: 0,
+            lastBlankFrameSample: -Infinity
         };
 
         function webglCompileShader(gl, type, source) {
@@ -2475,6 +2480,8 @@
             tunnelWebGL.doorFrameMesh = null;
             tunnelWebGL.lastDrawCount = 0;
             tunnelWebGL.zeroDrawFrames = 0;
+            tunnelWebGL.blankFrameSamples = 0;
+            tunnelWebGL.lastBlankFrameSample = -Infinity;
             tunnelWebGL.textureSource = 'pending';
         }
 
@@ -3267,6 +3274,47 @@
             return mesh;
         }
 
+        // A closed tube end must live in the same depth buffer as its wall. The
+        // old canvas cap pass was painted after WebGL, so at an angled join a cap
+        // behind the wall could appear as a black crescent through it.
+        function buildCappedTunnelEndGpuMesh(radialSegments = TUNNEL_WEBGL_RADIAL_SEGMENTS) {
+            radialSegments = Math.max(8, Math.min(64, Math.round(radialSegments)));
+            const key = `${TUNNEL_WEBGL_MESH_CACHE_VERSION}|tunnelEndCap|${radialSegments}`;
+            if (tunnelWebGL.meshCache.has(key)) return tunnelWebGL.meshCache.get(key);
+
+            const vertices = [0, 0, 0];
+            const texCoords = [0.5, 0];
+            const indices = [];
+            for (let i = 0; i <= radialSegments; i++) {
+                const u = i / radialSegments;
+                const theta = u * Math.PI * 2.0;
+                vertices.push(Math.cos(theta), Math.sin(theta), 0);
+                // All cap vertices sample the endpoint row; U remains continuous
+                // around the circumference so scenic edges do not turn into black.
+                texCoords.push(u, 0);
+            }
+            for (let i = 0; i < radialSegments; i++) {
+                indices.push(0, i + 1, i + 2);
+            }
+
+            const gl = tunnelWebGL.gl;
+            const mesh = {
+                indexCount: indices.length,
+                vertexBuffer: gl.createBuffer(),
+                texCoordBuffer: gl.createBuffer(),
+                indexBuffer: gl.createBuffer()
+            };
+            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vertexBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ARRAY_BUFFER, mesh.texCoordBuffer);
+            gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texCoords), gl.STATIC_DRAW);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.indexBuffer);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+            tunnelWebGL.meshCache.set(key, mesh);
+            trimCylinderMeshCache();
+            return mesh;
+        }
+
         function roundJunctionHubRadius(seg, baseRadius = null) {
             const radius = Math.max(1, Number(baseRadius) || Number(seg?.radius) || builder.radius);
             return segmentIsRoundJunction(seg)
@@ -3606,6 +3654,51 @@
                 bindCylinderGpuMesh(mesh);
                 gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_SHORT, 0);
                 drawn += 1;
+            }
+            return drawn;
+        }
+
+        function renderCappedTunnelEndsWebGL(drawList) {
+            const gl = tunnelWebGL.gl;
+            const mesh = buildCappedTunnelEndGpuMesh(TUNNEL_WEBGL_RADIAL_SEGMENTS * 2);
+            let drawn = 0;
+            for (const { index, seg } of drawList || []) {
+                if (!seg || segmentIsRectRoom(seg) || segmentIsChamber(seg) || segmentIsRoundJunction(seg)) continue;
+                const textureEntry = getWallTextureEntry(seg.wallTextureId);
+                const distanceMapping = segmentUsesDistanceWallMapping(seg);
+                const sectionMapping = distanceMapping || textureUsesSectionMapping(textureEntry);
+                const radius = webglTunnelDrawRadius(seg, index, true);
+                const length = Math.max(1, Number(seg.length) || builder.length);
+                const direction = Number(seg.wallTextureRunDirection) < 0 ? -1 : 1;
+                const texture = getWebGLTextureForSegment(seg, textureEntry) || tunnelWebGL.texture;
+                for (const endKind of ['from', 'to']) {
+                    const capped = endKind === 'from' ? seg.capStart : seg.capEnd;
+                    if (!capped) continue;
+                    const boundary = endKind === 'from' ? 0 : 1;
+                    const vOffset = distanceMapping
+                        ? (endKind === 'from' ? Number(seg.wallTextureVStart) : Number(seg.wallTextureVEnd))
+                        : (sectionMapping ? boundary : tunnelWebGL.scroll * TUNNEL_WEBGL_TILE_V);
+                    const model = mat4SegmentModel(
+                        seg,
+                        endKind === 'from' ? 0 : length,
+                        1,
+                        radius,
+                        tunnelWebGL.modelScratch
+                    );
+                    gl.uniformMatrix4fv(tunnelWebGL.uModel, false, model);
+                    gl.uniform1f(tunnelWebGL.uAlpha, segmentWallAlpha(seg, 1));
+                    gl.uniform2f(
+                        tunnelWebGL.uTileScale,
+                        distanceMapping ? direction : (sectionMapping ? 1 : TUNNEL_WEBGL_TILE_U),
+                        1
+                    );
+                    gl.uniform1f(tunnelWebGL.uOffset, Number.isFinite(vOffset) ? vOffset : 0);
+                    gl.uniform1f(tunnelWebGL.uUOffset, distanceMapping ? Number(seg.wallTextureUOffset) || 0 : 0);
+                    gl.bindTexture(gl.TEXTURE_2D, texture);
+                    bindCylinderGpuMesh(mesh);
+                    gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_SHORT, 0);
+                    drawn += 1;
+                }
             }
             return drawn;
         }
@@ -4277,6 +4370,51 @@
             return drawn;
         }
 
+        function webglFrameHasVisibleTunnelSurface(gl) {
+            if (!gl || typeof gl.readPixels !== 'function') return true;
+            const width = Number(gl.drawingBufferWidth) || 0;
+            const height = Number(gl.drawingBufferHeight) || 0;
+            if (width < 8 || height < 8) return true;
+            // Sample around the inner wall, not only at the central vanishing point.
+            // A legitimate long straight tunnel can be dark at its center, but its
+            // textured perimeter must contribute visible pixels. This catches the
+            // otherwise silent case where WebGL accepts draw calls yet presents only
+            // its black clear color behind the 2D rib overlay.
+            const sampleFractions = [
+                [0.20, 0.20], [0.50, 0.16], [0.80, 0.20], [0.84, 0.50],
+                [0.80, 0.80], [0.50, 0.84], [0.20, 0.80], [0.16, 0.50]
+            ];
+            const pixel = new Uint8Array(4);
+            let visibleSamples = 0;
+            try {
+                for (const [u, v] of sampleFractions) {
+                    pixel.fill(0);
+                    gl.readPixels(
+                        Math.max(0, Math.min(width - 1, Math.round((width - 1) * u))),
+                        Math.max(0, Math.min(height - 1, Math.round((height - 1) * v))),
+                        1,
+                        1,
+                        gl.RGBA,
+                        gl.UNSIGNED_BYTE,
+                        pixel
+                    );
+                    if (
+                        pixel[0] >= TUNNEL_WEBGL_BLANK_CHANNEL_MIN ||
+                        pixel[1] >= TUNNEL_WEBGL_BLANK_CHANNEL_MIN ||
+                        pixel[2] >= TUNNEL_WEBGL_BLANK_CHANNEL_MIN
+                    ) {
+                        visibleSamples += 1;
+                        if (visibleSamples >= 2) return true;
+                    }
+                }
+            } catch (error) {
+                // A platform that disallows readback must keep the established
+                // draw-count watchdog rather than being forced into vector mode.
+                return true;
+            }
+            return false;
+        }
+
         function renderTunnelWebGL(fov, coverageSegments) {
             if (!tunnelWebGL.ready || mapView || builderMode) {
                 updateWebGLCanvasVisibility();
@@ -4463,8 +4601,31 @@
                 tunnelWebGL.lastDrawCount += 1;
             }
 
+            tunnelWebGL.lastDrawCount += renderCappedTunnelEndsWebGL(drawList);
             tunnelWebGL.lastDrawCount += renderDistanceBendConnectorsWebGL(drawList);
             tunnelWebGL.lastDrawCount += renderDoorFramesWebGL(drawList);
+
+            if (
+                tunnelWebGL.lastDrawCount > 0 &&
+                renderFrameCounter - tunnelWebGL.lastBlankFrameSample >= TUNNEL_WEBGL_BLANK_SAMPLE_INTERVAL
+            ) {
+                tunnelWebGL.lastBlankFrameSample = renderFrameCounter;
+                if (webglFrameHasVisibleTunnelSurface(gl)) {
+                    tunnelWebGL.blankFrameSamples = 0;
+                } else {
+                    tunnelWebGL.blankFrameSamples += 1;
+                    if (tunnelWebGL.blankFrameSamples >= TUNNEL_WEBGL_BLANK_FALLBACK_SAMPLES) {
+                        console.warn(
+                            'Astral Drift: WebGL tunnel presented blank frames — falling back to vector walls'
+                        );
+                        TUNNEL_TEXTURE_MODE = 'vector';
+                        tunnelWebGL.blankFrameSamples = 0;
+                        updateWebGLCanvasVisibility();
+                        setTunnelTextureStatus('vector');
+                        return false;
+                    }
+                }
+            }
 
             if (tunnelWebGL.lastDrawCount === 0) {
                 tunnelWebGL.zeroDrawFrames += 1;
@@ -25791,6 +25952,10 @@
                 if (!seg?.capStart && !seg?.capEnd) continue;
                 if (segmentIsRectRoom(seg)) continue;
                 if (segmentIsChamber(seg) && TUNNEL_TEXTURE_MODE === 'webgl') continue;
+                // Ordinary tube caps are rendered above in the depth-tested WebGL
+                // pass. Painting these 2D polygons after WebGL makes hidden caps
+                // cut across the visible wall at every sharp bend.
+                if (TUNNEL_TEXTURE_MODE === 'webgl' && !segmentIsRoundJunction(seg)) continue;
                 const isBranchMouth = isBranchMouthSegment(seg);
                 const palette = mapMouse.selection.has(index) || mapMouse.anchor?.segmentIndex === index
                     ? 'selected'

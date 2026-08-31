@@ -30,7 +30,7 @@ class CList(MutableSequence):
         return sorted(self.data)
 
     def sort(self, key=None, reverse=False):
-        self.data.sort(key,reverse)
+        self.data.sort()
         return self.data
 
     def insert(self, idx, item):
