@@ -1,7 +1,10 @@
 from PIL import Image
 import os, sys, io
 import argparse
+import logging
 
+logger = logging.getLogger("stdout"
+                           )
 file_formats = [
                 "bmp",  "gif",  "ico", 
                 "jpeg", "pcx",  "png", 
@@ -48,12 +51,14 @@ def rotate_image(img: Image.Image, angle) -> Image.Image:
     """ Rotate image angle defrees couter clockwise """
     out = img.rotate(angle)
     return out
+
 def create_ppm():
     image_width = 256
     image_height = 256
-
+   
     ppm_image = f'P3\n{image_width} {image_height}\n255\n'
     for j in range(image_height):
+        logger.info(f'\rScanlines remaining: {image_height - j} ')
         row_rgb = ""
         for i in range (image_width):
             r = float(i) / (image_width-1)
@@ -65,7 +70,8 @@ def create_ppm():
             ib = int(255.999 * b)
 
             row_rgb += f'{ir} {ig} {ib}\t\t'
-        ppm_image += f'{row_rgb}\n'    
+        ppm_image += f'{row_rgb}\n'  
+    logger.info(f'\rDone.                 \n')  
     return ppm_image
     
 def main():
@@ -125,12 +131,11 @@ Usage examples:
         print('Error" You must specify an input and an output file')
         sys.exit(3)
         
-    if not is_demo and (outfile not in file_formats):
-        f, e, = os.path.splitext(outfile)
+    if not is_demo and outfile and (format not in file_formats):   
         raise ValueError(f'Error: {e} format not supported')
     if not is_demo:
         try:
-            f, e = os.path.splitext(infile)
+            f, e = infile.split(".")
         except:
             raise ValueError(f'Error {infile} not found')
  

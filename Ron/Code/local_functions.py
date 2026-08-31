@@ -1,6 +1,8 @@
 import sys
 import re
 import argparse
+import os
+import logging
 
 colors = {
     # Text Modifiers
@@ -32,6 +34,32 @@ ANSI_ESCAPE_RE = re.compile(
 STAT_LABEL_VALUE_RE = re.compile(
     r"([A-Za-z][\w &/%]*:)\s+(.*?)(?=(?:\s{2,}[A-Za-z][\w &/%]*:)|\s*$)"
 )
+
+def setup_logging(verbose: bool) -> logging.Logger:
+#    os.makedirs("logs", exist_ok=True)
+    log_level = logging.DEBUG if verbose else logging.INFO
+
+#    file_handler = logging.FileHandler("logs/bot.log", encoding="utf-8")
+#    file_handler.setLevel(log_level)
+#    file_handler.setFormatter(logging.Formatter(
+#        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+#        datefmt="%Y-%m-%d %H:%M:%S"
+#    ))
+
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(message)s",
+        datefmt="%H:%M:%S"
+    ))
+
+    root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
+ #   root_logger.addHandler(file_handler)
+    root_logger.addHandler(console_handler)
+
+  
+    return logging.getLogger("BotEngine")
 
 
 def clean_ansi(text):
