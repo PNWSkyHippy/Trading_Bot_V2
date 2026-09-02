@@ -89,14 +89,7 @@ def get_open_trades(conn):
 
 
     
-def proc_dict(
-    loc_trade_list,
-    strat_name,
-    key,
-    output_file,
-        start_date,
-    end_date,
-):
+def proc_dict(loc_trade_list, strat_name, ikey, output_file, start_date, end_date, output_dict):
     """Process the provided dictionary of trades"""
     # Initialize Locals
     col_pnl = ""
@@ -114,15 +107,14 @@ def proc_dict(
     # One entry per symbol processed by this proc_dict call:
     # {"AAPL": 12.50, "MSFT": -3.25, ...}
     sym_total_pnl = {}
-
+    field_lens = {}
     # Search the dict for Key  provided
     trade_count = 0
     for trade in loc_trade_list:
-        tid_slice = (
-            -(len(trade["trade_id"]))
-            if extended
-            else -16
-        )
+        t_sli = 38 if extended else 20
+        t_idx = -len(trade["trade_id"]) if extended else -16
+ #       for my_idx, my_key in trade.items():
+ #           field_lens[my_idx] =  len(str(my_key)) + 4
         break  # only look at one record
     for trade_dict in loc_trade_list:
         entry_time = (
@@ -131,7 +123,7 @@ def proc_dict(
         exit_time = trade_dict["exit_time"] or ""
 
         if entry_time[0:16] >= start_date and exit_time[0:16] <= end_date:
-            if key == "ALL" or trade_dict.get(key, "None") == strat_name or strat_name == "ALL":
+            if ikey == "ALL" or trade_dict.get(ikey, "None") == strat_name or strat_name == "ALL":
                 symbol = trade_dict["symbol"]
                 trade_pnl = float(trade_dict["pnl"] or 0.0)
                 sym_total_pnl[symbol] = sym_total_pnl.get(symbol, 0.0) + trade_pnl 
@@ -152,67 +144,72 @@ def proc_dict(
                 # Track the number of trades processed
                 trade_count += 1
                 if trade_pnl < 0:
-                    col_pnl = colorize( f"{trade_pnl:<8.2f}","red",)
+                    col_pnl = colorize( f"{trade_pnl:<20.2f}","red",)
                 else:
-                    col_pnl = colorize(f"{trade_pnl:<8.2f}","green",)
-            if passes == 1:
-                print_outfile(
-                    f'List of {colorize(strat_name, "red")} Trades\n',
-                    output_file,
-                )
-                print_outfile(
-                    BL_EQUALSTR, output_file
-                )
-                print_outfile(
-                    colorize(
-                        f'{"ID":<38}{"Entry":<26}{"Exit":<24}{"Symbol":<16}{"Direct":<9}{"EntryPrice":<15}'
-                        + f'{"ExitPrice":<17}{"PnL":<16}{"Strat":<14}\n',
-                        "magenta",
-                    ),
-                    output_file,
-                )
-                print_outfile(
-                    BL_EQUALSTR, output_file
-                )
-                passes += 1
-            print_outfile(
-                f'{trade_dict["trade_id"][tid_slice:]:<38}'
-                f"{entry_time[0:16]:<26}"
-                f"{exit_time[0:16]:<10}"
-                f'{colorize(f"\t{trade_dict["symbol"]:<10}", "cyan")}'
-                f'\t{trade_dict["direction"]:<5}'
-                f'\t{float(trade_dict["entry_price"]):>11.2f}'
-                f'\t{float(trade_dict["exit_price"]):>9.2f}'
-                f'\t{col_pnl}\t{trade_dict["strategy_name"]:>3}\t\n',
-                output_file,
-            )
+                    col_pnl = colorize(f"{trade_pnl:<20.2f}","green",)
+ 
+                head_str = ""
+                tail_str = ""
+                for key, idx in output_dict.items():
+ #                   key_len = field_lens[key]
+                    if key == "trade_id" and extended:
+                        head_str += f'{key[t_idx:]:<{t_sli}}'
+                    elif key == "exit_reason":
+                         head_str += f'{key:<27}'
+                    else:
+                        head_str += f'{key:<20}'
+                    if key == "trade_id":
+                        tail_str += f'{trade_dict[key][t_idx:]:{t_sli}}'
+                    elif key == "exit_reason":
+                         tail_str += f'{trade_dict[key]:<27}'
+                    elif key == "entry_time" or key == "exit_time":
+                        tail_str += f'{trade_dict[key][0:16]:<20}'
+                    elif  chkstr_isnum(trade_dict[key]) == "float":
+                        if float(trade_dict[key]) >= 0:
+                            stii = float(trade_dict[key])
+                            stii2 = colorize(f"{stii:<20.6f}", "green")
+                            tail_str += f'{stii2}'
+                        else:
+                            stii = float(trade_dict[key])
+                            stii2 = colorize(f"{stii:<20.6f}", "red")
+                            tail_str += f'{stii2}'
+#                             tail_str += f'{colorize({float(trade_dict[key]):<20.6f}}, "red")'
+                    else:
+                        tail_str += f'{trade_dict[key]:<20}'
+                head_str += "\n"
+                tail_str += "\n"
+ 
+                if passes == 1:
+                    print_outfile(
+                        f'List of {colorize(strat_name, "red")} Trades\n',
+                        output_file,
+                    )
+                    print_outfile(
+                        BL_EQUALSTR, output_file
+                    )
+                    print_outfile(
+                        colorize(f'{head_str}', "magenta"),
+                     output_file,
+                    )
+                    print_outfile(
+                        BL_EQUALSTR, output_file
+                    ) 
+                    passes += 1 
+ 
+                print_outfile(tail_str, output_file)
+
     # Select the best and worst complete symbol totals after every matching
     # trade has been accumulated. This also works when every symbol is a loss
     # or every symbol is a profit, without relying on sentinel values.
     # Print  Tttle , header graphics and column headers
 
     if sym_total_pnl:
-        high_symbol, high_total = max(
-            sym_total_pnl.items(),
-            key=lambda item: item[1],
-        )
-        low_symbol, low_total = min(
-            sym_total_pnl.items(),
-            key=lambda item: item[1],
-        )
-        high_sym = {
-            "symbol": high_symbol,
-            "total": high_total,
-        }
-        low_sym = {
-            "symbol": low_symbol,
-            "total": low_total,
-        }
+        high_symbol, high_total = max(sym_total_pnl.items(), key=lambda item: item[1],)
+        low_symbol, low_total = min(sym_total_pnl.items(), key=lambda item: item[1],)
+        high_sym = {"symbol": high_symbol, "total": high_total,}
+        low_sym = {"symbol": low_symbol, "total": low_total,}
     else:
-        high_sym = {
-            "symbol": "None",
-            "total": 0.0,
-        }
+        high_sym = {"symbol": "None", "total": 0.0,}
         low_sym = {"symbol": "None", "total": 0.0}
 
     # Prevent div by zero excetions then calculate avg wins and losses
@@ -408,6 +405,7 @@ def print_group_summary(
     output_file,
     start_date,
     end_date,
+    output_dict,
 ):
     """Print this groups summary list"""
     res_dict = proc_dict(
@@ -417,6 +415,7 @@ def print_group_summary(
         output_file,
         start_date,
         end_date,
+        output_dict,
     )
     if int(res_dict["trade_count"]) >= 1:
         print_outfile(BL_EQUALSTR, output_file)
@@ -431,52 +430,52 @@ def main():
     # Standard library approach to handle Windows initialization safely
     if sys.platform == "win32":
         os.system("")  # Crucial trick: This forces the Windows terminal engine to enable ANSI parsing natively
+
     DEF_OUTFIELDS = {
-        "trade_i": "ID",
-        "entry_price": "Entry",
-        "exit_price": "Exit",
-        "symbol": "Symbol",
-        "direction": "Direct",
-        "entry_price": "EntryPrice",
-        "exit_price": "ExitPrice",
-        "pnl": "PNL",
-        "strategy": "Strat",
+        "trade_id":         "ID",
+        "entry_time":       "Entry",
+        "exit_time":        "Exit",
+        "symbol":           "Symbol",
+        "direction":        "Direct",
+        "entry_price":      "EntryPrice",
+        "exit_price":       "ExitPrice",
+        "pnl":              "PNL",
     }
     
     ALL_OUTFIELDS = {
-        "trade_id": "ID",
-        "symbol": "Symbol",
-        "asset_class": "Asset",
-        "direction": "Direct",
-        "status": "Status",
-        "entry_time": "EntryTime",
-        "exit_time": "ExitTime",
-        "entry_price": "EntryPrice",
-        "exit_price": "ExitPrice",
-        "quantity": "Quantity",
-        "positional_value": "PosVal",
-        "stop_loss": "StopLoss",
-        "take_profit": "TakeProf",
-        "pnl": "PnL",
-        "pnl_pct": "PnLPct",
-        "exit_reason": "ExitReas",
-        "signal_score": "SigScore",
-        "indicators_json": "IndJSON",
-        "broker": "Broker",
-        "strategy_name": "Strat",
-        "is_overnight": "OverNite",
-        "broker_order_id": "BrokerID",
-        "tp_hit_count": "TPHitCnt",
-        "stop_order_id": "StopID",
-        "tp_order_id": "TPId",
-        "entry_timeframe": "EnterTFrm",
-        "fees_paid": "FeesPd",
-        "mfe_pct": "MfePct",
-        "mae_pct": "MaePct",
-        "partial_pnl": "PartPnL",
-        "partial_fees_paid": "ParFeePd",
-        "partial_exit_count": "ParExtCnt",
-        "event_id": "EventId"
+        "trade_id":             "ID",
+        "symbol":               "Symbol",
+        "asset_class":          "Asset",
+        "direction":            "Direct",
+        "status":               "Status",
+        "entry_time":           "EntryTime",
+        "exit_time":            "ExitTime",
+        "entry_price":          "EntryPrice",
+        "exit_price":           "ExitPrice",
+        "quantity":             "Quantity",
+        "position_value":       "PosVal",
+        "stop_loss":            "topLoss",
+        "take_profit":          "TakeProf",
+        "pnl":                  "PnL",
+        "pnl_pct":              "PnLPct",
+        "exit_reason":          "ExitReas",
+        "signal_score":         "SigScore",
+        "indicators_json":      "IndJSON",
+        "broker":               "Broker",
+        "strategy_name":        "Strat",
+        "is_overnight":         "OverNite",
+        "broker_order_id":      "BrokerID",
+        "tp_hit_count":         "TPHitCnt",
+        "stop_order_id":        "StopID",
+        "tp_order_id":          "TPId",
+        "entry_timeframe":      "EnterTFrm",
+        "fees_paid":            "FeesPd",
+        "mfe_pct":              "MfePct",
+        "mae_pct":              "MaePct",
+        "partial_pnl":          "PartPnL",
+        "partial_fees_paid":    "ParFeePd",
+        "partial_exit_count":   "ParExtCnt",
+        "event_id":             "EventId"
     }
     
     output_file = ""
@@ -620,10 +619,15 @@ Usage examples:
 
     output_file = args.outfile
     if csv_true:
-        output_file, _, extension = output_file.rpartition(".")
-        if not extension:
-            extension = "csv"
-            output_file = args.outfile
+        try:
+            output_file, extension = output_file.split(".")
+        except:
+            pass
+#    if csv_true:
+#        output_file, _, extension = output_file.rpartition(".")
+#        if not extension:
+#            extension = "csv"
+#            output_file = args.outfile
 
     # Build a list of list options skipping those not given
     list_values = [
@@ -633,22 +637,27 @@ Usage examples:
         args.list4.split(",") if args.list4 else [],
         args.list5.split(",") if args.list5 else [],
     ]
-    
-    output_fields = args.outfields.split(",") if args.outfields else False
-    if not output_fields:
-        output_dict = DEF_OUTFIELDS
-    else:
-        for fields in output_fields:
-            for key_name, descr in ALL_OUTFIELDS :   
-                if key_name == fields:
-                    output_dict[key_name] = descr
-                    continue
 
     key_list =  args.key.split(",") if args.key else []
 
     if len(key_list) > 5:
         print("\nError: maximum of 5 keys is supported.\n")
         sys.exit(1)
+        
+    output_fields = args.outfields.split(",") if args.outfields else False
+    output_dict = {}
+    if not output_fields:
+        output_dict = DEF_OUTFIELDS
+    else:
+        for outpt in output_fields:
+                if outpt not in hdr_list:
+                    print(f"\nError: {outpt} is not a valid entry. please run with -N to see a list of valid choices\n")
+                    sys.exit()
+        for fields in output_fields:
+            for key_name, descr in ALL_OUTFIELDS.items():   
+                if key_name == fields:
+                    output_dict[key_name] = descr
+                    continue
         
     sort_list = args.sort_keys.split(",") if args.sort_keys else []
 
@@ -760,6 +769,7 @@ Usage examples:
             output_file,
             start_date,
             end_date,
+            output_dict,
         )
         return
 
@@ -810,6 +820,7 @@ Usage examples:
                     output_file,
                     start_date,
                     end_date,
+                    output_dict
                 )
 
 

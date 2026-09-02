@@ -1208,13 +1208,41 @@ def _enrich_futures_strategy_positions(rows, snapshot=None):
                 if active.get("remaining_quantity") is not None
                 else active.get("quantity", trade.get("quantity") or 0)
             )
+            initial_quantity = float(
+                active.get("quantity") or trade.get("quantity") or 0
+            )
         except (TypeError, ValueError, OverflowError):
-            point_value = entry_price = quantity = 0.0
-        if not all(math.isfinite(value) for value in (point_value, entry_price, quantity)):
-            point_value = entry_price = quantity = 0.0
+            point_value = entry_price = quantity = initial_quantity = 0.0
+        if not all(math.isfinite(value) for value in (
+            point_value, entry_price, quantity, initial_quantity
+        )):
+            point_value = entry_price = quantity = initial_quantity = 0.0
         if point_value <= 0 or entry_price <= 0 or quantity < 0:
             trade["mark_status"] = "unavailable"
             trade["mark_source"] = "contract_metadata_unavailable"
+            continue
+        if quantity == 0:
+            try:
+                realized_pnl = float(active.get("realized_pnl") or 0.0)
+            except (TypeError, ValueError, OverflowError):
+                realized_pnl = 0.0
+            if not math.isfinite(realized_pnl):
+                realized_pnl = 0.0
+            trade.update({
+                "quantity": 0.0,
+                "contracts_open": 0.0,
+                "contracts_initial": initial_quantity,
+                "unrealized_pnl": 0.0,
+                "pnl_pct": 0.0,
+                "market_value": 0.0,
+                "realized_pnl": realized_pnl,
+                "combined_pnl": realized_pnl,
+                "mark_status": "unavailable",
+                "mark_source": "zero_remaining_reconciliation",
+                "position_status": "reconciling",
+                "take_profit_status": "reconciling",
+                "runner_stop": None,
+            })
             continue
 
         direction = str(trade.get("direction") or "long").lower()
@@ -1225,7 +1253,6 @@ def _enrich_futures_strategy_positions(rows, snapshot=None):
         )
         unrealized_pnl = points * point_value * quantity
         position_value = float(trade.get("position_value") or 0)
-        initial_quantity = float(active.get("quantity") or trade.get("quantity") or 0)
         tp1_done = strategy == "eat" and bool(active.get("tp1_done"))
         try:
             runner_stop = float(active.get("runner_stop") or 0)

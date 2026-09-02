@@ -8,6 +8,19 @@ from local_functions import (
 
 debug = True
 
+def binary_search(nums, target):
+    low = 0
+    high = len(nums) - 1
+    while low <= high:
+        mid = (low + high) // 2
+        if nums[mid] == target:
+            return mid
+        elif nums[mid] < target:
+            low = mid + 1
+        else:
+            high = mid - 1
+    return -1
+
 def insertion_sort(arr):
     """ Takes a list and sorts a copy of it using insertion sort
         returns the sported list, leaving original intact
@@ -25,8 +38,10 @@ def insertion_sort(arr):
         while pos >= 0 and tmp_list[pos] > key:
             tmp_list[pos+1] = tmp_list[pos]
             pos -= 1
+ #           print(tmp_list)
         # Insert our current term into the correct spot
         tmp_list[pos+1] =key
+
         pass_count += 1        
         if debug:
             print(f'Insertion: inner loop {pass_count}: {tmp_list}')
@@ -136,16 +151,14 @@ Usage examples:
     ) or demo_enabled:
     
         my_list = [
-            5,
-            6,
-            10,
-            75,
-            99,
-            66,
             2,
-            57,
-            8,
+            3,
+            4,
             7,
+            9,
+            5,
+            10,
+            11,
         ]
         print(
             f"my_list pre insertion sorted:\n{my_list}"
@@ -160,16 +173,14 @@ Usage examples:
 
     if (bubble and not args.list) or demo_enabled:
         my_list = [
-            5,
-            6,
-            10,
-            75,
-            99,
-            66,
             2,
-            57,
-            8,
+            3,
+            4,
             7,
+            9,
+            5,
+            10,
+            11,
         ]
         print(
             f"my_list pre bubble sort:\n{my_list}"

@@ -4,7 +4,7 @@ import os
 import copy
 import argparse
 from pathlib import Path
-from colorizer import (
+from local_functions import (
     colorize,
     clean_ansi,
     colors,

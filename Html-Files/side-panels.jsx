@@ -115,7 +115,8 @@ function ManagePositionsPanel() {
     }
   };
 
-  const closablePositions = () => positions.filter(p => p.id != null);
+  const zeroExposureFuture = p => p.assetClass === 'future' && p.contractsOpen <= 0;
+  const closablePositions = () => positions.filter(p => p.id != null && !zeroExposureFuture(p));
 
   const requestCloseAll = () => {
     const closable = closablePositions();
@@ -134,7 +135,7 @@ function ManagePositionsPanel() {
       setCloseAllConfirm(2);
       return;
     }
-    const closable = positions.filter(p => p.id != null);
+    const closable = closablePositions();
     if (!closable.length || closingAll) {
       setCloseAllConfirm(0);
       return;
@@ -244,7 +245,7 @@ function ManagePositionsPanel() {
               </button>
               <button className="btn ghost sm"><Icon name="edit" size={12} />Adjust SL/TP</button>
               <span className="spacer" />
-              <button className="btn danger sm" onClick={() => closeNow(p)} disabled={rowClosing || p.id == null}>
+              <button className="btn danger sm" onClick={() => closeNow(p)} disabled={rowClosing || p.id == null || zeroExposureFuture(p)} title={zeroExposureFuture(p) ? 'No contracts remain; awaiting reconciliation.' : undefined}>
                 <Icon name="x" size={12} />{rowClosing ? 'Closing...' : 'Close Now'}
               </button>
             </div>

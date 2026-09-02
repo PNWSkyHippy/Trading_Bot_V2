@@ -160,6 +160,38 @@ class FuturesPositionValuationTests(unittest.TestCase):
         self.assertEqual(position["mark_status"], "unavailable")
         self.assertEqual(position["mark_source"], "scanner_trade_mismatch")
 
+    def test_zero_remaining_exact_trade_is_unavailable_and_exposes_zero_contracts(self):
+        trade = futures_trade("eat", "long")
+        snapshot = {
+            "ok": True,
+            "bridge": {"alive": True},
+            "eat_strategies": {
+                "MNQ": {
+                    "active_trade": {
+                        "trade_id": trade["trade_id"],
+                        "quantity": 10,
+                        "remaining_quantity": 0,
+                        "realized_pnl": 60.0,
+                        "tp1_done": True,
+                    },
+                    "last_live_price": 103.0,
+                }
+            },
+        }
+        [position] = web_dashboard._enrich_futures_strategy_positions(
+            [trade], snapshot=snapshot
+        )
+
+        self.assertEqual(position["quantity"], 0.0)
+        self.assertEqual(position["contracts_open"], 0.0)
+        self.assertEqual(position["contracts_initial"], 10.0)
+        self.assertEqual(position["unrealized_pnl"], 0.0)
+        self.assertEqual(position["realized_pnl"], 60.0)
+        self.assertEqual(position["combined_pnl"], 60.0)
+        self.assertEqual(position["mark_status"], "unavailable")
+        self.assertEqual(position["mark_source"], "zero_remaining_reconciliation")
+        self.assertEqual(position["position_status"], "reconciling")
+
     def test_dead_bridge_labels_last_strategy_mark_stale(self):
         trade = futures_trade("eat", "long")
         snapshot = {
@@ -221,6 +253,9 @@ class FuturesPositionValuationTests(unittest.TestCase):
             self.assertIn("RUNNER", source)
             self.assertIn("TP1 FILLED", source)
             self.assertIn("realizedPnl", source)
+        self.assertIn("zeroExposureFuture", manage_panel)
+        self.assertIn("!zeroExposureFuture(p)", manage_panel)
+        self.assertIn("No contracts remain; awaiting reconciliation.", manage_panel)
 
 
 if __name__ == "__main__":

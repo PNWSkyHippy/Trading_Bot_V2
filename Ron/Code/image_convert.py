@@ -7,8 +7,8 @@ logger = logging.getLogger("stdout"
                            )
 file_formats = [
                 "bmp",  "gif",  "ico", 
-                "jpeg", "pcx",  "png", 
-                "ppm",  "tga",  "tiff"
+                "jpg",  "pcx",  "png", 
+                "ppm",  "tga",  "tif"
             ]       
 
 def roll(im: Image.Image, delta: int) -> Image.Image:
@@ -58,7 +58,7 @@ def create_ppm():
    
     ppm_image = f'P3\n{image_width} {image_height}\n255\n'
     for j in range(image_height):
-        logger.info(f'\rScanlines remaining: {image_height - j} ')
+        logger.debug(f'\rScanlines remaining: {image_height - j} ')
         row_rgb = ""
         for i in range (image_width):
             r = float(i) / (image_width-1)
@@ -71,7 +71,7 @@ def create_ppm():
 
             row_rgb += f'{ir} {ig} {ib}\t\t'
         ppm_image += f'{row_rgb}\n'  
-    logger.info(f'\rDone.                 \n')  
+    logger.debug(f'\rDone.                 \n')  
     return ppm_image
     
 def main():
@@ -127,6 +127,10 @@ Usage examples:
     infile = args.infile if args.infile else  False
     outfile = args.outfile if args.outfile else False
   
+    if outfile and not format:
+        print('Error: When giving an output filename you must include  -f <File Format to create>')
+        sys.exit(5)
+        
     if (not infile or not outfile) and not is_demo:
         print('Error" You must specify an input and an output file')
         sys.exit(3)
@@ -146,6 +150,8 @@ Usage examples:
                     im.save(outfile)
             except OSError:
                 print("cannot convert", infile)
+        im = Image.open(outfile)
+        im.show()
     else:
         ppm_img = create_ppm()
         # 1. Convert your string buffer to bytes (if it isn't already bytes)
