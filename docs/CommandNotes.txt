@@ -1,4 +1,9 @@
 
+Get-Module PSReadLine
+
+Import-Module -Name Microsoft.PowerShell.ConsoleGuiTools
+Import-Module -Name F7History
+
 AutoCad Rectangular Roomlayers
 TUNNEL_MAIN — the maze inner corridor centerlines
 TUNNEL_BLOCKS — the rectangle blocks/walls

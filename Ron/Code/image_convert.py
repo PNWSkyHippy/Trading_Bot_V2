@@ -58,6 +58,7 @@ def create_ppm():
    
     ppm_image = f'P3\n{image_width} {image_height}\n255\n'
     for j in range(image_height):
+        print(f'\rScanlines remaining: {image_height - j}')
         logger.debug(f'\rScanlines remaining: {image_height - j} ')
         row_rgb = ""
         for i in range (image_width):
@@ -71,6 +72,7 @@ def create_ppm():
 
             row_rgb += f'{ir} {ig} {ib}\t\t'
         ppm_image += f'{row_rgb}\n'  
+    print("Done.                         \n")
     logger.debug(f'\rDone.                 \n')  
     return ppm_image
     
