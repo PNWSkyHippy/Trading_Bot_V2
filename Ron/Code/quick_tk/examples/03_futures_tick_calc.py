@@ -24,10 +24,12 @@ FUTURES_SPECS = {
     "MNQ (Micro E-mini Nasdaq)": {"tick_size": 0.25, "tick_value": 0.50, "point_value": 2.0},
     "YM (E-mini Dow ($5))": {"tick_size": 1.0, "tick_value": 5.00, "point_value": 5.0},
     "MYM (Micro E-mini Dow)": {"tick_size": 1.0, "tick_value": 0.50, "point_value": 0.5},
-    "CL (Crude Oil)": {"tick_size": 0.01, "tick_value": 10.00, "point_value": 1000.0},
+    "MGC (Micro Goldl)": {"tick_size": 0.10, "tick_value": 1.00, "point_value": 10.0},
     "GC (Gold)": {"tick_size": 0.10, "tick_value": 10.00, "point_value": 100.0},
     "RTY (E-mini Russell 2000)": {"tick_size": 0.10, "tick_value": 5.00, "point_value": 50.0},
     "M2K (Micro E-mini Russell)": {"tick_size": 0.10, "tick_value": 0.50, "point_value": 5.0},
+    "NKD (Nikkei 225 USD)": {"tick_size": 0.20, "tick_value": 25.00, "point_value": 5.0},
+    "M2K (Micro Nikkei 225 USD)": {"tick_size": 0.20, "tick_value": 2.50, "point_value": 0.50},
 }
 
 
