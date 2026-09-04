@@ -4,6 +4,14 @@
 
 ## Update Timeline (newest first)
 
+### 2026-09-04 — Sweep-ribbon tunnel walls (gap-free texture runs)
+
+- WebGL corridor walls are no longer independent unit cylinders butted at each section. Connected tubes are one **sweep ribbon**: rings along a filleted centerline, UVs from arc length, one draw (or one draw per sequential pack image) per run.
+- Collision, builder topology, and map save still own per-section capsules. Only the wall **render mesh** changed.
+- Black join gaps on bends were a geometry hole (two end-circles in different planes), not a wrap-mode bug. Overlap sleeves, `MIRRORED_REPEAT`, and the chord bend-connector were retired from the WebGL path for swept tubes.
+- Pilot-verified: one scenic image stretched along a long distance-run, including heavy bends, with no black cracks. Texture-to-texture handoffs share a single ring; sequential 5-tile packs meet as authored pictures, not as a hole.
+- Mesh cache version is `sweepRibbon2`. Hard-refresh after pulling. Vector/2D fallback still uses the old per-section overlap path.
+
 ### 2026-08-26 — Gullet Maze 1 hard copy + playtest fixes
 
 - `data/gullet-maze-library.json` is a shareable library backup for Gullet Maze 1 (`localhost:8127` vs live vs `file://` do not share localStorage). Alt+Shift+P or the map-library **Export Gullet Maze** button also downloads it. `bootstrapGulletMazeIfMissing()` merges that named map into the current origin without replacing the player's tunnel.
@@ -164,6 +172,9 @@ If a map-editor tool feels confused, inspect `mapMouse` first.
 ### Texture And Wall Rendering
 
 Look for `Tunnel wall rendering controls` and `WebGL gap-free tunnel renderer`.
+The live corridor path is the **sweep ribbon** (`renderSweepTubesWebGL`, cache
+version `sweepRibbon2`). Do not revive per-section cylinder joins to "fix" a
+seam.
 
 The game uses two drawing layers:
 
@@ -180,6 +191,55 @@ Builder-selected segments can also be converted with **Make Chamber**. Chambers
 render as fully textured 360-degree spherical rooms and use chamber-aware
 containment for free flight in every direction. Door-marked portals connect
 these rooms to the tunnel network for quest rooms, loot, traps, or guarded areas.
+
+#### Sweep ribbon (WebGL corridors)
+
+Map data is still a polyline of sections. Flight collision uses those capsules.
+WebGL walls for ordinary round tubes do **not** instance a unit cylinder per
+section. Adjacent cylinders cannot form a watertight elbow: the inner bend is a
+wedge (clear color reads as a black gap), worst on curves.
+
+`renderTunnelWebGL()` now:
+
+1. Collects connected sweepable tubes (`collectCorridorSweepChunks`).
+2. Builds a world-space ring strip (`buildSweepPathSamples` + `buildSweepTubeGpuMesh`).
+3. Marks those section indices `sweepCovered` and **skips** their old cylinder draws.
+4. Does **not** call `renderDistanceBendConnectorsWebGL` for those walls.
+
+What is sweepable: round corridor segments that are not rect-rooms, spherical
+chambers, or round six-port hubs. Those special kinds keep their existing meshes.
+
+**Centerline.** Walk the distance-run order when `wallMappingMode` is
+`distance-run`; otherwise walk unique degree-2 neighbors. At each turn sharper
+than `TUNNEL_SWEEP_MIN_TURN_RAD` (~7°) and under `TUNNEL_SWEEP_MAX_TURN_RAD`
+(~170°), `planSweepFillet()` inserts a circular arc. Gentle joints stay
+polyline. Hard 90° bends are extra rings on that arc, not two butted tubes.
+
+**UVs.** `U` is the circumference around a parallel-transported frame (same
+idea as `transportTextureRunReference`). `V` is cumulative arc length along the
+ribbon. A distance-run chunk maps `V` 0..1 across that image so a 5-tile set
+stretched over many sections stays one mural around a bend.
+
+**Texture handoff.** A run may still change `wallTextureId` (pack tiles
+01–05). Geometry stays one path. Draws split with `sweepTextureRanges` /
+`sliceSweepSamplesForEntries`. The next image **shares the previous image's
+last ring** (one edge, no overlapping sleeves). `U` scale/offset come from the
+**first segment of the whole run**, not each tile, so the mural does not spin
+at the file change. `V` restarts 0..1 per image. Authored pack edges should
+meet; a picture change is expected, a black crack is not.
+
+**Wrap.** Section/scenic textures use `CLAMP_TO_EDGE` on `T`. Tiled rock still
+`REPEAT`. Do not switch scenic walls back to `MIRRORED_REPEAT` to hide joins;
+that collar existed to paper over overlap geometry the ribbon no longer draws.
+
+**Leave alone.** `TUNNEL_SECTION_JOIN_OVERLAP`, `TUNNEL_SEGMENT_JOIN_OVERLAP`,
+and `TUNNEL_TEXTURE_PANEL_OVERLAP` still exist for the vector fallback and for
+unswept meshes. Increasing them will not improve the WebGL ribbon and can
+bring back sleeves across branch mouths.
+
+Search terms: `renderSweepTubesWebGL`, `buildSweepPathSamples`,
+`planSweepFillet`, `collectDistanceSweepChunks`, `sweepCovered`,
+`sweepRibbon2`.
 
 ## Flight Flow
 
@@ -420,6 +480,7 @@ When something breaks:
    `renderTunnelSentries()`.
 8. After a large-map change, run `node DecentClone/test_spatial_segment_index.js` from the repo root, then load the real map through the local HTTP server. The synthetic regression does not measure a pilot route.
 9. After a WebGL resource change, test normal rendering and the browser context-loss/recovery path; a static parse check cannot validate GPU resource ownership.
+10. After a corridor-wall change, hard-refresh, fly a distance-run through a sharp bend, then a 5-tile pack handoff. Black wedges mean the ribbon is not covering the joint; a picture change without a hole is the pack edge. Do not raise join-overlap constants to hide it.
 
 ## Script Parse Check
 
@@ -441,6 +502,14 @@ Opaque walls:
 - Missing old-map values are upgraded in `ensureSegmentStyle()`.
 - WebGL uses `segmentWallAlpha()` through the `uAlpha` shader uniform.
 - The JPG fallback uses the same `segmentWallAlpha()` helper.
+
+Sweep-ribbon walls:
+
+- Entry: `renderSweepTubesWebGL()` inside `renderTunnelWebGL()`.
+- Path samples: `buildSweepPathSamples()` / `planSweepFillet()`.
+- Pack splits: `sweepTextureRanges()` + `sliceSweepSamplesForEntries()`.
+- Covered sections must stay in `sweepCovered` so the old cylinder path does not draw on top.
+- Bump `TUNNEL_WEBGL_MESH_CACHE_VERSION` when ribbon vertex or UV rules change.
 
 AutoBoost:
 

@@ -16,6 +16,9 @@ class Vec3:
     def z(self):
         return self.e[2]
     
+    def value(self):
+        return self.e
+    
     def __neg__(self):
         return Vec3(-self.e[0], -self.e[1], -self.e[2])
     
@@ -72,7 +75,7 @@ class Vec3:
 
 
 # point3 is just an alias for Vec3, but useful for geometric clarity in the code.
-point3 = Vec3
+Point3 = Vec3
 
 
 # Vector Utility Functions
@@ -93,9 +96,10 @@ def unit_vector(v):
     """Compute unit vector in the direction of v"""
     return v / v.length()
 
+
 def main():
     return
 
 if __name__ == "__main__":
     main()
-    
+

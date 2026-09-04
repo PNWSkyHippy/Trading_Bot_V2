@@ -2,8 +2,8 @@ from PIL import Image
 import os, sys, io
 import argparse
 import logging
-from color import write_color
-from vector import Vec3
+from colors import write_color
+from vectors import Vec3
 
 logger = logging.getLogger(__name__)
 file_formats = [
@@ -12,44 +12,25 @@ file_formats = [
                 "ppm",  "tga",  "tif"
             ]       
 
-def create_ppm(outfile):
+
+def create_ppm():
     image_width = 256
     image_height = 256
-    ppm_img = ""
-    color = Vec3
+   
     ppm_image = f'P3\n{image_width} {image_height}\n255\n'
     for j in range(image_height):
-        logger.info(f'\rScanlines remaining: {image_height - j} ')
+        logger.debug(f'\rScanlines remaining: {image_height - j} ')
         row_rgb = ""
         for i in range (image_width):
-            pixel_color =  color(float(i) / (image_width-1),
-                                    float(j) / (image_height-1),
-                                    0.0
-                                )
+            r = float(i) / (image_width-1)
+            g = float(j) / (image_height-1)
+            b = 0.0;
 
-            ir = int(255.999 * (float(i) / (image_width-1)))
-            ig = int(255.999 * (float(j) / (image_height-1)))
-            ib = int(255.999 * 0.0)
-
-            row_rgb += f'{ir} {ig} {ib}\t\t'
-            if (i+1) % 3 == 0:
-                row_rgb += f'{row_rgb}\n'
-    
-        ppm_img += row_rgb 
-    ppm_bytes = ppm_img.encode('utf-8') if isinstance(ppm_img, str) else ppm_img
-    # 2. Wrap the buffer in an in-memory stream
-    ppm_stream = io.BytesIO(ppm_bytes)
-    outfile = outfile if outfile else sys.stdout
-    try:
-        # 3. Open it from memory and save it natively
-        with Image.open(ppm_stream) as img:
-            img.save(outfile, optimize=True)
-            # Automatically converts and saves to disk
-    except:
-        raise ValueError("Error saving output file")
-    
-    logger.info(f'\rDone.                 \n')  
+            row_rgb += f'{r} {g} {b}\t\t'
+        ppm_image += f'{row_rgb}\n'  
+    logger.debug(f'\rDone.                 \n')  
     return ppm_image
+
     
 def main():
 #    logging.basicConfig(filename='myapp.log', level=logging.INFO)
@@ -86,6 +67,15 @@ Usage examples:
         help="\tlist supported file formats",
     )
 
+    parser.add_argument("-s", "--scale", metavar="",
+        help="\ta factor between .1 and 10 to scale the image evenly up/downn",
+    )
+    
+
+    parser.add_argument("-r", "--resize", metavar="",
+        help="\twith/ixesls,height/pixels to resize the image to",
+    )
+    
     parser.add_argument("-d", "--demo", action="store_true",
         help="\tlist supported file formats",
     )
@@ -103,13 +93,27 @@ Usage examples:
         print(f'Supported Formats:\n{out_string}')
         sys.exit(2)
  
+    scale_it = float(args.scale) if args.scale else 1.0
+    resize_x = resize_y = 0.0
+    if not args.resize:
+        resize_x = rsize_y = 0
+    else:
+        try:
+            resize_x, resize_y = args.resize.split(",")
+        except:
+            raise ValueError(f'Error {args.resize} is not a valid height,width number pair')
+        resize_x = float(resize_x)
+        resize_y = float(resize_y)
+    
     is_demo = args.demo if args.demo else False
                       
     format = args.format if args.format else False
     
     infile = args.infile if args.infile else  False
     outfile = args.outfile if args.outfile else False
-  
+    if is_demo and not outfile:
+        outfile = "default.ppm"
+        format = "ppm"
     if outfile and not format:
         print('Error: When giving an output filename you must include  -f <File Format to create>')
         sys.exit(5)
@@ -118,28 +122,65 @@ Usage examples:
         print('Error" You must specify an input and an output file')
         sys.exit(3)
         
-    if not is_demo and outfile and (format not in file_formats):   
+    if outfile and (format not in file_formats):   
         raise ValueError(f'Error: {e} format not supported')
+  
+    out_ext = False
+    try:
+        f, e = outfile.split(".")
+        out_ext = True
+    except:
+        nut_ext = False
+      
+    if out_ext:
+        f, e = outfile.split(".")
+        outfile = f + "." + format
+    else:
+        outfile = outfile + "." + format
+  
     if not is_demo:
         try:
             f, e = infile.split(".")
         except:
             raise ValueError(f'Error {infile} not found')
- 
-        outfile = f + "." + format
+  
         if infile != outfile:
             try:
-                with Image.open(infile) as im:
-                    im.save(outfile)
+                with Image.open(infile) as img:
+ #                   (width, height) = (img.width * scale_it, img.height* scale_it)
+#                    res_image = img.resize(tuple((4, 4)))
+                    if resize_x >= 1 and resize_y >= 1:
+                        img_pair = (int(resize_x), int(resize_y))
+                        res_img = res_img.resize(img_pair)
+                    res_img.save(outfile)
             except OSError:
                 print("cannot convert", infile)
-        im = Image.open(outfile)
-        im.show()
+        img = Image.open(outfile)
+        img.show()
     else:
-        ppm_img = create_ppm(outfile)
- #       im = Image.open(outfile)
-        im.show()
+        breakpoint()
+        ppm_img = create_ppm()
+        ppm_bytes = ppm_img.encode('utf-8') if isinstance(ppm_img, str) else ppm_img
+        # 2. Wrap the buffer in an in-memory stream
+        ppm_stream = io.BytesIO(ppm_bytes)
+        outfile = outfile if outfile else "default.ppm"
+    res_iage = ""
+        try:
+            # 3. Open it from memory and save it natively
+            with Image.open(ppm_stream) as img:
+  #             (width),(height) = (img.width * scale_it, img.height * scale_it)
+   #            res_image = img.resize(tuple((4, 4)))
+                if resize_x >= 1 and resize_y >= 1:
+                    img_pair = (int(resize_x), int(resize_y))
+                    res_img = res_img.resize(img_pair)
+                res_img.save(outfile, optimize=True)
+                # Automatically converts and saves to disk
+        except:
+            raise ValueError("Error saving output file")
+ 
+        img = Image.open(outfile)
+        img.show()
 
 if __name__ == "__main__":
     main()
-    
+        

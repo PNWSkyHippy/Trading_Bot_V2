@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Astral Drift — tunnel seam lab (read-only experiment)</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #05060a; color: #d7dde8; font: 14px/1.4 sans-serif; }
+  canvas { display: block; width: 100%; height: 70vh; background: #000; }
+  #hud { padding: 12px 18px 24px; max-width: 980px; }
+  h1 { font-size: 18px; margin: 0 0 8px; color: #7ee0d0; }
+  .row { display: flex; gap: 18px; flex-wrap: wrap; }
+  label { display: flex; gap: 8px; align-items: center; }
+  kbd { background: #222; padding: 1px 6px; border-radius: 3px; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <h1>Seam lab — current cylinders vs swept rings</h1>
+  <p>
+    Clear color is <b>magenta</b> so holes read as the same black-gap class you see in-game
+    (whatever is behind the wall). Left: two independent cylinders at 90°, the live renderer’s
+    model. Right: one mesh of rings swept along a circular centerline with a parallel-transported frame.
+  </p>
+  <div class="row">
+    <label>Bend <input id="angle" type="range" min="10" max="120" value="90"> <span id="angleOut">90°</span></label>
+    <label>Overlap (current) <input id="overlap" type="range" min="0" max="80" value="18"> <span id="overlapOut">18u</span></label>
+    <label><input id="showCurrent" type="checkbox" checked> current cylinders</label>
+    <label><input id="showSweep" type="checkbox" checked> swept rings</label>
+  </div>
+  <p>Drag to orbit. Magenta showing through = uncovered join. <kbd>index.html was not modified</kbd>.</p>
+</div>
+<script>
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl', { antialias: true });
+const vs = `
+attribute vec3 aPos; attribute vec2 aUv;
+uniform mat4 uMVP;
+varying vec2 vUv; varying vec3 vN;
+void main() {
+  gl_Position = uMVP * vec4(aPos, 1.0);
+  vUv = aUv;
+}
+`;
+const fs = `
+precision mediump float;
+varying vec2 vUv;
+uniform sampler2D uTex;
+void main() {
+  vec3 stripe = mix(vec3(0.18,0.55,0.72), vec3(0.92,0.86,0.55), step(0.5, fract(vUv.y * 5.0)));
+  stripe *= 0.65 + 0.35 * fract(vUv.x * 8.0);
+  gl_FragColor = vec4(stripe, 1.0);
+}
+`;
+function compile(type, src) {
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src); gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(s));
+  return s;
+}
+const prog = gl.createProgram();
+gl.attachShader(prog, compile(gl.VERTEX_SHADER, vs));
+gl.attachShader(prog, compile(gl.FRAGMENT_SHADER, fs));
+gl.linkProgram(prog);
+gl.useProgram(prog);
+const locPos = gl.getAttribLocation(prog, 'aPos');
+const locUv = gl.getAttribLocation(prog, 'aUv');
+const locMVP = gl.getUniformLocation(prog, 'uMVP');
+
+function makeMesh(positions, uvs, indices) {
+  const vbo = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
+  const tbo = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, tbo);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
+  const ibo = gl.createBuffer();
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, ibo);
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+  return { vbo, tbo, ibo, count: indices.length };
+}
+
+function addRing(positions, uvs, center, right, down, radius, radial, v) {
+  for (let i = 0; i <= radial; i++) {
+    const u = i / radial;
+    const th = u * Math.PI * 2;
+    const c = Math.cos(th), s = Math.sin(th);
+    positions.push(
+      center[0] + right[0] * c * radius + down[0] * s * radius,
+      center[1] + right[1] * c * radius + down[1] * s * radius,
+      center[2] + right[2] * c * radius + down[2] * s * radius
+    );
+    uvs.push(u, v);
+  }
+}
+
+function stitch(indices, rings, radial) {
+  const row = radial + 1;
+  for (let j = 0; j < rings - 1; j++) {
+    for (let i = 0; i < radial; i++) {
+      const a = j * row + i;
+      const b = a + row;
+      indices.push(a, a + 1, b, b, a + 1, b + 1);
+    }
+  }
+}
+
+function cylinder(from, to, right, down, radius, radial, tubular, v0, v1, zPad0, zPad1) {
+  const positions = [], uvs = [], indices = [];
+  const fx = to[0] - from[0], fy = to[1] - from[1], fz = to[2] - from[2];
+  const len = Math.hypot(fx, fy, fz) || 1;
+  const f = [fx / len, fy / len, fz / len];
+  const z0 = -zPad0, z1 = len + zPad1;
+  for (let j = 0; j <= tubular; j++) {
+    const t = j / tubular;
+    const z = z0 + (z1 - z0) * t;
+    const c = [from[0] + f[0] * z, from[1] + f[1] * z, from[2] + f[2] * z];
+    const v = v0 + (v1 - v0) * (z / len);
+    addRing(positions, uvs, c, right, down, radius, radial, v);
+  }
+  stitch(indices, tubular + 1, radial);
+  return makeMesh(positions, uvs, indices);
+}
+
+function parallelTransport(prevFwd, fwd, right) {
+  const axis = [
+    prevFwd[1] * fwd[2] - prevFwd[2] * fwd[1],
+    prevFwd[2] * fwd[0] - prevFwd[0] * fwd[2],
+    prevFwd[0] * fwd[1] - prevFwd[1] * fwd[0]
+  ];
+  const axisLen = Math.hypot(axis[0], axis[1], axis[2]);
+  const dot = Math.max(-1, Math.min(1, prevFwd[0]*fwd[0] + prevFwd[1]*fwd[1] + prevFwd[2]*fwd[2]));
+  if (axisLen < 1e-8) return right.slice();
+  const ang = Math.acos(dot);
+  const n = [axis[0]/axisLen, axis[1]/axisLen, axis[2]/axisLen];
+  const c = Math.cos(ang), s = Math.sin(ang);
+  const k = n[0]*right[0] + n[1]*right[1] + n[2]*right[2];
+  const cx = n[1]*right[2] - n[2]*right[1];
+  const cy = n[2]*right[0] - n[0]*right[2];
+  const cz = n[0]*right[1] - n[1]*right[0];
+  return [
+    right[0]*c + cx*s + n[0]*k*(1-c),
+    right[1]*c + cy*s + n[1]*k*(1-c),
+    right[2]*c + cz*s + n[2]*k*(1-c)
+  ];
+}
+
+function sweepElbow(angleDeg, radius, tubeR, radial, samples) {
+  const positions = [], uvs = [], indices = [];
+  const ang = angleDeg * Math.PI / 180;
+  const fillet = radius;
+  const start = [0, 0, -radius];
+  const pivot = [fillet, 0, 0];
+  let right = [1, 0, 0];
+  let prevFwd = [0, 0, 1];
+  for (let j = 0; j <= samples; j++) {
+    const t = j / samples;
+    const a = t * ang;
+    const center = [
+      pivot[0] - Math.cos(a) * fillet,
+      0,
+      pivot[2] + Math.sin(a) * fillet
+    ];
+    const fwd = [Math.sin(a), 0, Math.cos(a)];
+    right = parallelTransport(prevFwd, fwd, right);
+    prevFwd = fwd;
+    const down = [
+      fwd[1]*right[2] - fwd[2]*right[1],
+      fwd[2]*right[0] - fwd[0]*right[2],
+      fwd[0]*right[1] - fwd[1]*right[0]
+    ];
+    addRing(positions, uvs, center, right, down, tubeR, radial, t);
+  }
+  stitch(indices, samples + 1, radial);
+  return makeMesh(positions, uvs, indices);
+}
+
+function currentPair(angleDeg, overlap, tubeR) {
+  const ang = angleDeg * Math.PI / 180;
+  const Afrom = [0, 0, -220];
+  const Ato = [0, 0, 0];
+  const Bfrom = [0, 0, 0];
+  const Bto = [Math.sin(ang) * 220, 0, Math.cos(ang) * 220];
+  const Ar = [1, 0, 0], Ad = [0, 1, 0];
+  const Bf = [Math.sin(ang), 0, Math.cos(ang)];
+  const Br = [Math.cos(ang), 0, -Math.sin(ang)];
+  const Bd = [0, 1, 0];
+  return [
+    cylinder(Afrom, Ato, Ar, Ad, tubeR, 24, 12, 0, 0.5, overlap, overlap),
+    cylinder(Bfrom, Bto, Br, Bd, tubeR, 24, 12, 0.5, 1.0, overlap, overlap)
+  ];
+}
+
+function perspective(fovy, aspect, near, far) {
+  const f = 1 / Math.tan(fovy / 2);
+  const m = new Float32Array(16);
+  m[0] = f / aspect; m[5] = f;
+  m[10] = (far + near) / (near - far);
+  m[11] = -1;
+  m[14] = (2 * far * near) / (near - far);
+  return m;
+}
+function lookAt(eye, target, up) {
+  const z = [eye[0]-target[0], eye[1]-target[1], eye[2]-target[2]];
+  let zl = Math.hypot(z[0], z[1], z[2]) || 1;
+  z[0]/=zl; z[1]/=zl; z[2]/=zl;
+  const x = [up[1]*z[2]-up[2]*z[1], up[2]*z[0]-up[0]*z[2], up[0]*z[1]-up[1]*z[0]];
+  let xl = Math.hypot(x[0], x[1], x[2]) || 1;
+  x[0]/=xl; x[1]/=xl; x[2]/=xl;
+  const y = [z[1]*x[2]-z[2]*x[1], z[2]*x[0]-z[0]*x[2], z[0]*x[1]-z[1]*x[0]];
+  const m = new Float32Array(16);
+  m[0]=x[0]; m[4]=x[1]; m[8]=x[2]; m[12]=-(x[0]*eye[0]+x[1]*eye[1]+x[2]*eye[2]);
+  m[1]=y[0]; m[5]=y[1]; m[9]=y[2]; m[13]=-(y[0]*eye[0]+y[1]*eye[1]+y[2]*eye[2]);
+  m[2]=z[0]; m[6]=z[1]; m[10]=z[2]; m[14]=-(z[0]*eye[0]+z[1]*eye[1]+z[2]*eye[2]);
+  m[15]=1;
+  return m;
+}
+function mul(a, b) {
+  const o = new Float32Array(16);
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) {
+    o[i*4+j] = a[j]*b[i*4] + a[4+j]*b[i*4+1] + a[8+j]*b[i*4+2] + a[12+j]*b[i*4+3];
+  }
+  return o;
+}
+
+let yaw = 0.7, pitch = 0.35, dist = 520;
+let dragging = false, lx = 0, ly = 0;
+canvas.addEventListener('mousedown', e => { dragging = true; lx = e.clientX; ly = e.clientY; });
+window.addEventListener('mouseup', () => dragging = false);
+window.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  yaw += (e.clientX - lx) * 0.01;
+  pitch = Math.max(-1.2, Math.min(1.2, pitch + (e.clientY - ly) * 0.01));
+  lx = e.clientX; ly = e.clientY;
+});
+canvas.addEventListener('wheel', e => { dist = Math.max(220, Math.min(1200, dist + e.deltaY * 0.4)); e.preventDefault(); }, { passive: false });
+
+const angleEl = document.getElementById('angle');
+const overlapEl = document.getElementById('overlap');
+const angleOut = document.getElementById('angleOut');
+const overlapOut = document.getElementById('overlapOut');
+const showCurrent = document.getElementById('showCurrent');
+const showSweep = document.getElementById('showSweep');
+
+function resize() {
+  canvas.width = canvas.clientWidth;
+  canvas.height = canvas.clientHeight;
+  gl.viewport(0, 0, canvas.width, canvas.height);
+}
+window.addEventListener('resize', resize);
+resize();
+
+gl.enable(gl.DEPTH_TEST);
+gl.enable(gl.CULL_FACE);
+gl.cullFace(gl.FRONT); // interior of tube, same as flying inside
+
+function drawMesh(mesh, mvp) {
+  gl.uniformMatrix4fv(locMVP, false, mvp);
+  gl.bindBuffer(gl.ARRAY_BUFFER, mesh.vbo);
+  gl.enableVertexAttribArray(locPos);
+  gl.vertexAttribPointer(locPos, 3, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ARRAY_BUFFER, mesh.tbo);
+  gl.enableVertexAttribArray(locUv);
+  gl.vertexAttribPointer(locUv, 2, gl.FLOAT, false, 0, 0);
+  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, mesh.ibo);
+  gl.drawElements(gl.TRIANGLES, mesh.count, gl.UNSIGNED_SHORT, 0);
+}
+
+function frame() {
+  const ang = Number(angleEl.value);
+  const overlap = Number(overlapEl.value);
+  angleOut.textContent = ang + '°';
+  overlapOut.textContent = overlap + 'u';
+  const tubeR = 70;
+  const current = currentPair(ang, overlap, tubeR);
+  const swept = sweepElbow(ang, 140, tubeR, 24, 24);
+
+  gl.clearColor(1, 0, 1, 1);
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  const split = showCurrent.checked && showSweep.checked;
+  const w = canvas.width;
+  const h = canvas.height;
+  const eye = [
+    Math.cos(pitch) * Math.sin(yaw) * dist,
+    Math.sin(pitch) * dist,
+    Math.cos(pitch) * Math.cos(yaw) * dist
+  ];
+  const view = lookAt(eye, [40, 0, 40], [0, 1, 0]);
+  function drawPane(x, paneW, meshes) {
+    gl.viewport(x, 0, paneW, h);
+    const proj = perspective(50 * Math.PI / 180, paneW / h, 4, 4000);
+    const mvp = mul(proj, view);
+    meshes.forEach(m => drawMesh(m, mvp));
+  }
+  if (split) {
+    drawPane(0, w * 0.5, current);
+    drawPane(w * 0.5, w * 0.5, [swept]);
+  } else if (showCurrent.checked) {
+    drawPane(0, w, current);
+  } else if (showSweep.checked) {
+    drawPane(0, w, [swept]);
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>
