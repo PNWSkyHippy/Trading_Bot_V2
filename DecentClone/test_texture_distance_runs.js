@@ -137,6 +137,11 @@ const context = {
     lastThrustVector: { x: -1, y: 0, z: 0 },
     performance: { now: () => 1 },
     tunnelSegmentsConnected: () => true,
+    mapMouse: {
+        selection: new Set(),
+        selectionPath: null,
+        anchor: null
+    },
     junctionOpenFaceTouchesPoint: seg => !!(seg.junctionCube || seg.roundJunction),
     junctionFacePortal: () => null,
     tunnelWebGL: {
@@ -163,8 +168,12 @@ for (const name of [
     'clearSegmentDistanceWallMapping',
     'sanitizeSegmentDistanceWallMapping',
     'segmentUsesDistanceWallMapping',
+    'segmentIsTextureRunBoundary',
     'textureRunPathConnection',
     'orientDistanceTextureRunPath',
+    'orderedSelectedSegmentIndices',
+    'textureRunNeighbors',
+    'collectSelectedTextureRunPaths',
     'transportTextureRunReference',
     'planDistanceTextureRun',
     'applyDistanceTextureRunPlan',
@@ -569,6 +578,58 @@ if (!plan.error || !plan.error.includes('side face')) {
     throw new Error('ambiguous room side-face transition was not rejected');
 }
 
+const origConnected = context.tunnelSegmentsConnected;
+context.builder.segments = [
+    segment({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 180 }),
+    segment({ x: 0, y: 0, z: 280 }, { x: 0, y: 0, z: 460 })
+];
+context.tunnelSegmentsConnected = () => true;
+plan = context.planDistanceTextureRun([0, 1], ['deep_space_01'], {
+    targetSpan: 1200,
+    boundaryMode: 'fit-selection'
+});
+if (plan.error) {
+    throw new Error('drifted corridor joint should follow range-select topology: ' + plan.error);
+}
+context.tunnelSegmentsConnected = () => false;
+plan = context.planDistanceTextureRun([0, 1], ['deep_space_01'], {
+    targetSpan: 1200,
+    boundaryMode: 'fit-selection'
+});
+if (!plan.error) {
+    throw new Error('disconnected drifted mouths should still be rejected');
+}
+context.tunnelSegmentsConnected = (a, b) => {
+    const tol = 80 * 80;
+    return context.distanceSq(a.from, b.from) <= tol ||
+        context.distanceSq(a.from, b.to) <= tol ||
+        context.distanceSq(a.to, b.from) <= tol ||
+        context.distanceSq(a.to, b.to) <= tol;
+};
+
+context.builder.segments = [
+    ...straightSegments(4, 180),
+    segment(
+        { x: 0, y: 0, z: 720 },
+        { x: 0, y: 0, z: 900 },
+        { rectRoom: true, kind: 'rect-room', roomWidth: 500, roomHeight: 400 }
+    ),
+    ...straightSegments(3, 180).map((seg, index) => segment(
+        { x: 0, y: 0, z: 900 + index * 180 },
+        { x: 0, y: 0, z: 1080 + index * 180 }
+    ))
+];
+context.mapMouse.selection = new Set([0, 1, 2, 3, 4, 5, 6, 7]);
+context.mapMouse.selectionPath = null;
+const collectedRuns = context.collectSelectedTextureRunPaths([0, 1, 2, 3, 4, 5, 6, 7]);
+if (collectedRuns.error || collectedRuns.skipped !== 1 || collectedRuns.paths.length !== 2) {
+    throw new Error('selected corridor with a room should split into two texture runs, skipping the room');
+}
+if (collectedRuns.paths[0].join(',') !== '0,1,2,3' || collectedRuns.paths[1].join(',') !== '5,6,7') {
+    throw new Error('texture-run split did not keep corridor order around the skipped room');
+}
+context.tunnelSegmentsConnected = origConnected;
+
 context.builder.segments = [
     segment(
         { x: 0, y: 0, z: 0 },
@@ -710,6 +771,11 @@ for (const field of [
     if (!html.includes(field + ': segmentUsesDistanceWallMapping(seg)')) {
         throw new Error('serialized texture-run field is missing: ' + field);
     }
+}
+if (!html.includes('function collectSelectedTextureRunPaths') ||
+    !html.includes('setMappingApplyEnabled') ||
+    !html.includes('Rooms and junctions in the selection are skipped')) {
+    throw new Error('distance-mapping Apply path no longer collects corridor runs or reports skipped rooms');
 }
 if (!html.includes('Promote Section to Round Six-Port Junction') ||
     !html.includes('Promote Section to Cube Six-Port Junction') ||

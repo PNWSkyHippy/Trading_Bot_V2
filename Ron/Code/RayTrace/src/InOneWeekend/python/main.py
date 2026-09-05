@@ -16,16 +16,17 @@ from rtweekend import random_double
 from sphere import Sphere
 from vec3 import Point3, Vec3
 import argparse, sys, logging
+from local_functions import setup_logging
 
-logger = logging.getLogger(__name__)
+
 file_formats = [
                 "bmp",  "gif",  "ico", 
                 "jpg",  "pcx",  "png", 
                 "ppm",  "tga",  "tif"
             ]       
 
-def main():
-    
+def main(logger):
+
     def wide_formatter(prog):
         return (argparse.RawDescriptionHelpFormatter(prog,width=110,max_help_position=46,))
     
@@ -48,9 +49,25 @@ Usage examples:
     parser.add_argument("-l", "--list", action="store_true",
         help="\tlist supported file formats",
     )
+    
+    parser.add_argument("-d", "--debug", action="store_true",
+        help="\tif give, prints extra debug info during render",
+    )
 
     parser.add_argument("-p", "--printout", action="store_true",
         help="\tif setm, copy of the output in R G B triplets sent to screen (> yoourfile.ppm)",
+    )
+    
+    parser.add_argument("-r", "--resize", metavar="",
+        help="\tWidth, Height to resize image to",
+    )
+        
+    parser.add_argument("-w", "--width", metavar="",
+        help="\tWidth to create the initial 16/9 aspect image to. Defaults to 1200",
+    )
+   
+    parser.add_argument("-s", "--scale", metavar="",
+        help="\tFactor to cle image by <0.1 to 10>",
     )
     args = parser.parse_args()
   
@@ -62,30 +79,44 @@ Usage examples:
              if i % 3 == 0:
                  out_string += '\n'
              i += 1
-         print(f'Supported Formats:\n{out_string}')
+         logger.info(f'Supported Formats:\n{out_string}')
          sys.exit(2)
-    format = args.format if args.format else False
-    outfile = args.outfile if args.outfile else False    
+    format = args.format if args.format else None
+    outfile = args.outfile if args.outfile else None
     printout = args.printout if args.printout else False
+    render_width = int(args.width) if args.width else 1200
+    debug = args.debug if args.debug else False
 
-    if outfile and not format:
-         logger.info('Error: When giving an output filename you must include  -f <File Format to create>')
-         sys.exit(5)
-    if outfile and (format not in file_formats):   
-        raise ValueError(f'Error: {e} format not supported')               
- 
-    out_ext = False
-    try:
-        f, e = outfile.split(".")
-        out_ext = True
-    except:
-        nut_ext = False
-      
-    if out_ext:
-        f, e = outfile.split(".")
-        outfile = f + "." + format
-    else:
-        outfile = outfile + "." + format
+    width, height = [int(x.strip()) for x in args.resize.split(",")] if args.resize else (0, 0)
+    is_resize = True if args.resize else False
+
+    is_scaled = True if args.scale else False
+    scale_fac = float(args.scale) if args.scale else 1.0
+    scale_fac = max(0.1, min(10.0, scale_fac))
+
+    is_resize = False if is_scaled else is_resize
+
+    if outfile:
+        if not format:
+            if "." in outfile:
+                ext = outfile.rsplit(".", 1)[1].lower()
+                if ext in file_formats:
+                    format = ext
+                else:
+                    logger.error(f"Error: When giving an output filename you must include -f <File Format to create>")
+                    sys.exit(5)
+            else:
+                logger.error("Error: When giving an output filename you must include -f <File Format to create>")
+                sys.exit(5)
+
+        if format not in file_formats:
+            raise ValueError(f"Error: {format} format not supported")
+
+        if "." in outfile:
+            f, _ = outfile.rsplit(".", 1)
+            outfile = f + "." + format
+        else:
+            outfile = outfile + "." + format
         
     world = HittableList()
 
@@ -124,11 +155,16 @@ Usage examples:
     world.add(Sphere(Point3(4, 1, 0), 1.0, material3))
 
     cam = Camera()
-
+    cam.is_scaled = is_scaled
+    cam.debug = debug
+    cam.is_resize = is_resize
+    cam.scale_fac = scale_fac
+    cam.scaled_height = height
+    cam.scaled_width = width
     cam.outfile = outfile
     cam.printout = printout
     cam.aspect_ratio = 16.0 / 9.0
-    cam.image_width = 128
+    cam.image_width = render_width
     cam.samples_per_pixel = 10
     cam.max_depth = 20
 
@@ -142,6 +178,11 @@ Usage examples:
 
     cam.render(world)
 
-
 if __name__ == "__main__":
-    main()
+    setup_logging("file.log")
+    log = logging.getLogger(__name__)
+#    log.debug("file only")
+#    log.info("stdout + file")
+#    log.warning("stdout + file")
+#    log.error("stderr + file")
+    main(log)

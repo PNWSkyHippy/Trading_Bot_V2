@@ -1,4 +1,4 @@
-from PIL import Image
+from PIL import Image 
 import os, sys, io
 import argparse
 import logging
@@ -97,6 +97,13 @@ Usage examples:
         help="\tpath and name of output file",
     )
     
+    parser.add_argument("-r", "--resize", metavar="",
+        help="\tWidth, Height to resize image to",
+    )
+    
+    parser.add_argument("-s", "--scale", metavar="",
+        help="\tFactor to cle image by <0.1 to 10>",
+    )
     parser.add_argument("-f", "--format", metavar="",
         help="\tfile format to output to",
     )
@@ -129,6 +136,20 @@ Usage examples:
     infile = args.infile if args.infile else  False
     outfile = args.outfile if args.outfile else False
   
+    width, height = args.resize.split(",") if args.resize else (0,0)
+ 
+    is_resize = True if args.resize else False
+
+    is_scaled = True if args.scale else False
+    scale_fac = float(args.scale) if args.scale else float(1.0)
+    scale_fac = scale_fac if scale_fac >= .1 else .1
+    scale_fac = scale_fac if scale_fac <= 10 else 10.0
+    
+    width = int(width)
+    height = int(height)
+    
+    is_resize - False if is_scaled else is_resize
+    
     if outfile and not format:
         print('Error: When giving an output filename you must include  -f <File Format to create>')
         sys.exit(5)
@@ -141,19 +162,33 @@ Usage examples:
         raise ValueError(f'Error: {e} format not supported')
     if not is_demo:
         try:
-            f, e = infile.split(".")
+            f, e = outfile.split(".")
         except:
             raise ValueError(f'Error {infile} not found')
  
         outfile = f + "." + format
         if infile != outfile:
             try:
-                with Image.open(infile) as im:
-                    im.save(outfile)
+                with Image.open(infile) as img:
+                    if is_scaled:
+                        width = int(img.width * scale_fac)
+                        height = int(img.height * scale_fac)
+                        print(f'Original image Width: {img.width}, Height: {img.height}')
+                        out = img.resize((width, height))
+                        print(f'Converted image Width: {out.width}, Height: {out.height}')
+                    elif is_resize:
+                        print(f'Original image Width: {img.width}, Height: {img.height}')
+                        out = img.resize((width, height))
+                        print(f'Converted image Width: {out.width}, Height: {out.height}')
+                    else:
+                        # Fallback if is_resize is False so 'out' is always defined
+                        out = img
+                    out.save(outfile)
             except OSError:
                 print("cannot convert", infile)
-        im = Image.open(outfile)
-        im.show()
+
+            img = Image.open(outfile)
+            img.show()
     else:
         ppm_img = create_ppm()
         # 1. Convert your string buffer to bytes (if it isn't already bytes)
@@ -162,12 +197,23 @@ Usage examples:
         ppm_stream = io.BytesIO(ppm_bytes)
         outfile = outfile if outfile else "mytest.ppm"
         try:
-            # 3. Open it from memory and save it natively
             with Image.open(ppm_stream) as img:
-                img.save(outfile, optimize=True)
-                # Automatically converts and saves to disk
-        except:
-            raise ValueError("Error saving output file")
+                if is_scaled:
+                    width = int(img.width * scale_fac)
+                    height = int(img.height * scale_fac)
+                    print(f'Original image Width: {img.width}, Height: {img.height}')
+                    out = img.resize((width, height))
+                    print(f'Converted image Width: {out.width}, Height: {out.height}')
+                elif is_resize:
+                    print(f'Original image Width: {img.width}, Height: {img.height}')
+                    out = img.resize((width, height))
+                    print(f'Converted image Width: {out.width}, Height: {out.height}')
+                else:
+                    # Fallback if is_resize is False so 'out' is always defined
+                    out = img
+                out.save(outfile)
+        except OSError:
+            print("cannot convert", infile)
         im = Image.open(outfile)
         im.show()
 

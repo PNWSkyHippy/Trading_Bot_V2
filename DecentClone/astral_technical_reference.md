@@ -4,6 +4,11 @@
 
 ## Update Timeline (newest first)
 
+### 2026-09-04 — Distance-mapping Apply no longer a silent no-op
+
+- V-dialog **Across distance** and **Fit one image** were rejecting Apply unless `selectionPath` matched the selection exactly and the path contained zero rooms/junctions. The dialog stayed open, so it looked like Apply did nothing. Legacy per-section mode never used that path check.
+- Apply now orders any connected corridor selection (Alt+Shift range or Shift+click), skips rooms/junctions, and can apply multiple corridor runs. Failures show in the Scenic Mapping hint in red.
+
 ### 2026-09-04 — Sweep-ribbon tunnel walls (gap-free texture runs)
 
 - WebGL corridor walls are no longer independent unit cylinders butted at each section. Connected tubes are one **sweep ribbon**: rings along a filleted centerline, UVs from arc length, one draw (or one draw per sequential pack image) per run.

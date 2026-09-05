@@ -1,3 +1,8 @@
+C Files (.c): gcc program.c -o program
+For C++ Files (.cpp):g++ program.cpp -o programTo 
+Run the Output:./programIf
+in WSL for cpu thraded optimized speed run
+g++ -O3 -std=c++17 -fopenmp main.cc -o inoneweekend
 
 Get-Module PSReadLine
 

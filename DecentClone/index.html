@@ -1719,6 +1719,13 @@
                 Math.abs(seg.wallTextureVEnd - seg.wallTextureVStart) >= 0.000001;
         }
 
+        function segmentIsTextureRunBoundary(seg) {
+            return !seg ||
+                segmentIsChamber(seg) ||
+                segmentIsRectRoom(seg) ||
+                segmentIsRoundJunction(seg);
+        }
+
         function normalizeTextureEntry(raw, index, group) {
             if (!raw || typeof raw !== 'object') return null;
             const path = String(raw.path || raw.color || '').trim();
@@ -1835,6 +1842,16 @@
             // A looser test can mistake a nearby room side for a true centerline joint.
             const tolerance = Math.max(24, Math.min(90, radius * 0.65));
             if (best.distSq > tolerance * tolerance) {
+                // Range-select can still treat drifted mouths as connected.
+                // Accept the closest endpoint pair so Apply matches that graph.
+                if (
+                    typeof tunnelSegmentsConnected === 'function' &&
+                    tunnelSegmentsConnected(a, b) &&
+                    !segmentIsTextureRunBoundary(a) &&
+                    !segmentIsTextureRunBoundary(b)
+                ) {
+                    return best;
+                }
                 return {
                     error:
                         'texture run crosses a room side face or junction without a shared start/end centerline; ' +
@@ -17341,6 +17358,86 @@
             return [...new Set(indices)];
         }
 
+        function textureRunNeighbors(aIndex, bIndex) {
+            if (aIndex === bIndex) return false;
+            const a = builder.segments[aIndex];
+            const b = builder.segments[bIndex];
+            if (!a || !b || segmentIsTextureRunBoundary(a) || segmentIsTextureRunBoundary(b)) {
+                return false;
+            }
+            if (!textureRunPathConnection(aIndex, bIndex).error) return true;
+            return tunnelSegmentsConnected(a, b);
+        }
+
+        function collectSelectedTextureRunPaths(indices) {
+            const selected = [...new Set((indices || []).filter(index =>
+                Number.isInteger(index) && index >= 0 && index < builder.segments.length
+            ))];
+            if (!selected.length) {
+                return { error: 'select one or more tunnel sections first', paths: [], skipped: 0 };
+            }
+            const corridor = selected.filter(index => !segmentIsTextureRunBoundary(builder.segments[index]));
+            const skipped = selected.length - corridor.length;
+            if (!corridor.length) {
+                return {
+                    error: 'distance mapping needs corridor sections; rooms and junctions are skipped',
+                    paths: [],
+                    skipped
+                };
+            }
+
+            const unused = new Set(corridor);
+            const paths = [];
+            const preferred = orderedSelectedSegmentIndices().filter(index => unused.has(index));
+            if (preferred.length) {
+                let current = [];
+                for (const index of preferred) {
+                    if (!unused.has(index)) continue;
+                    if (!current.length) {
+                        current = [index];
+                        unused.delete(index);
+                        continue;
+                    }
+                    const prev = current[current.length - 1];
+                    if (textureRunNeighbors(prev, index)) {
+                        current.push(index);
+                        unused.delete(index);
+                    } else {
+                        paths.push(current);
+                        current = [index];
+                        unused.delete(index);
+                    }
+                }
+                if (current.length) paths.push(current);
+            }
+
+            while (unused.size) {
+                const nodes = [...unused];
+                const degree = index => nodes.filter(other =>
+                    unused.has(other) && textureRunNeighbors(index, other)
+                );
+                let start = nodes.find(index => degree(index).length <= 1) || nodes[0];
+                const path = [];
+                let current = start;
+                let previous = null;
+                while (current !== null && unused.has(current)) {
+                    path.push(current);
+                    unused.delete(current);
+                    const nexts = [...unused].filter(other => textureRunNeighbors(current, other));
+                    const forward = nexts.filter(other => other !== previous);
+                    if (forward.length !== 1) break;
+                    previous = current;
+                    current = forward[0];
+                }
+                if (path.length) paths.push(path);
+            }
+
+            if (!paths.length) {
+                return { error: 'distance mapping could not order the selected corridor', paths: [], skipped };
+            }
+            return { paths, skipped };
+        }
+
         function selectedRangePointChain() {
             const indices = orderedSelectedSegmentIndices();
             if (indices.length < 2) return null;
@@ -18253,7 +18350,8 @@
             hint.className = 'hint';
             hint.textContent =
                 'Choose the wall texture, rib color, opacity, and tunnel width for selected sections. ' +
-                'Set Default makes new sections use these values until changed again.';
+                'Across distance / Fit one image work on a connected corridor (Alt+Shift A→B or Shift+click). ' +
+                'Rooms and junctions in the selection are skipped. Set Default makes new sections use these values until changed again.';
             joinEditDialog.appendChild(hint);
 
             const textureRow = document.createElement('div');
@@ -18346,11 +18444,15 @@
             const mappingPreview = document.createElement('div');
             mappingPreview.className = 'hint';
             mappingPreview.style.gridColumn = '1 / -1';
-            const selectedRunPath = () => {
-                const ordered = orderedSelectedSegmentIndices();
-                if (ordered.length === indices.length) return ordered.slice();
-                return indices.length === 1 ? [indices[0]] : [];
+            let mappingApplyBtn = null;
+            const setMappingApplyEnabled = enabled => {
+                if (mappingApplyBtn) mappingApplyBtn.disabled = !enabled;
             };
+            const selectedRunPath = () => {
+                const collected = collectSelectedTextureRunPaths(indices);
+                return collected.paths[0] || (indices.length === 1 ? [indices[0]] : []);
+            };
+            const selectedRunCollection = () => collectSelectedTextureRunPaths(indices);
             const readMappingTargetSpan = () => {
                 const value = Number(spanInput.value);
                 return Number.isFinite(value)
@@ -18366,52 +18468,80 @@
                     directionSelect.disabled = true;
                     mappingPreview.textContent =
                         'Current per-section texture mapping is preserved; only the other style fields change.';
+                    setMappingApplyEnabled(true);
                     return;
                 }
                 const isDistance = mappingSelect.value !== 'section';
                 spanInput.disabled = !isDistance || mappingSelect.value === 'fit-selection';
                 directionSelect.disabled = !isDistance;
+                mappingPreview.style.color = '';
                 if (!isDistance) {
                     mappingPreview.textContent =
                         'Legacy mode restarts the complete image on every selected section.';
+                    setMappingApplyEnabled(true);
                     return;
                 }
-                const path = selectedRunPath();
-                if (!path.length) {
-                    mappingPreview.textContent =
-                        'Distance mapping requires an ordered Alt+Shift range selection from A to B.';
+                const collected = selectedRunCollection();
+                if (collected.error && !collected.paths.length) {
+                    mappingPreview.style.color = '#ff8b8b';
+                    mappingPreview.textContent = collected.error;
+                    setMappingApplyEnabled(false);
                     return;
                 }
                 const selectedId = textureSelect.value === '__mixed__'
                     ? ''
                     : sanitizeTextureId(textureSelect.value, 'walls', defaultWallTextureId);
                 if (!selectedId) {
+                    mappingPreview.style.color = '#ff8b8b';
                     mappingPreview.textContent =
                         'Choose one texture or texture-pack image before applying a distance run.';
+                    setMappingApplyEnabled(false);
                     return;
                 }
                 const texturePack = getWallTexturePack(selectedId);
                 const textureIds = texturePack ? texturePack.textureIds : [selectedId];
-                const plannedPath = directionSelect.value === 'reverse'
-                    ? path.slice().reverse()
-                    : path;
-                const plan = planDistanceTextureRun(plannedPath, textureIds, {
-                    targetSpan: readMappingTargetSpan() || WALL_TEXTURE_DISTANCE_DEFAULT_SPAN,
-                    boundaryMode: mappingSelect.value === 'fit-selection'
-                        ? 'fit-selection'
-                        : 'nearest-joint'
-                });
-                if (plan.error) {
-                    mappingPreview.textContent = plan.error;
-                    return;
+                const summaries = [];
+                let totalLength = 0;
+                let totalChunks = 0;
+                let totalSections = 0;
+                for (const path of collected.paths) {
+                    const plannedPath = directionSelect.value === 'reverse'
+                        ? path.slice().reverse()
+                        : path;
+                    const plan = planDistanceTextureRun(plannedPath, textureIds, {
+                        targetSpan: readMappingTargetSpan() || WALL_TEXTURE_DISTANCE_DEFAULT_SPAN,
+                        boundaryMode: mappingSelect.value === 'fit-selection'
+                            ? 'fit-selection'
+                            : 'nearest-joint'
+                    });
+                    if (plan.error) {
+                        mappingPreview.style.color = '#ff8b8b';
+                        mappingPreview.textContent = plan.error;
+                        setMappingApplyEnabled(false);
+                        return;
+                    }
+                    totalLength += plan.totalLength;
+                    totalChunks += plan.chunks.length;
+                    totalSections += path.length;
+                    summaries.push(
+                        plan.chunks
+                            .map((chunk, index) =>
+                                'image ' + String(index + 1) + ': ' + String(Math.round(chunk.length)) + 'u')
+                            .join(' | ')
+                    );
                 }
-                const chunkText = plan.chunks
-                    .map((chunk, index) =>
-                        'image ' + String(index + 1) + ': ' + String(Math.round(chunk.length)) + 'u')
-                    .join(' | ');
+                setMappingApplyEnabled(true);
+                const skipText = collected.skipped
+                    ? ' (skipped ' + String(collected.skipped) + ' room/junction section(s))'
+                    : '';
+                const runText = collected.paths.length > 1
+                    ? String(collected.paths.length) + ' corridor runs, '
+                    : '';
                 mappingPreview.textContent =
-                    String(path.length) + ' section(s), ' +
-                    String(Math.round(plan.totalLength)) + 'u total | ' + chunkText;
+                    runText + String(totalSections) + ' section(s), ' +
+                    String(Math.round(totalLength)) + 'u total, ' +
+                    String(totalChunks) + ' image(s)' + skipText +
+                    (summaries.length === 1 ? ' | ' + summaries[0] : '');
             };
             mappingRow.append(
                 mappingTitle,
@@ -19042,6 +19172,8 @@
             const applyBtn = document.createElement('button');
             applyBtn.type = 'button';
             applyBtn.textContent = 'Apply';
+            mappingApplyBtn = applyBtn;
+            previewDistanceMapping();
             applyBtn.addEventListener('click', () => {
                 const replacingTexture = textureSelect.value !== '__mixed__';
                 const replacingFrame = frameSelect.value !== '__mixed__';
@@ -19058,41 +19190,62 @@
                     if (!replacingTexture || !textureId) {
                         keyboardStatus.innerText =
                             'distance mapping: choose one texture or texture-pack image first';
+                        mappingPreview.style.color = '#ff8b8b';
+                        mappingPreview.textContent = keyboardStatus.innerText;
                         return;
                     }
                     const targetSpan = readMappingTargetSpan();
                     if (targetSpan === null) {
                         keyboardStatus.innerText = 'distance mapping: invalid image span';
+                        mappingPreview.style.color = '#ff8b8b';
+                        mappingPreview.textContent = keyboardStatus.innerText;
                         return;
                     }
-                    const selectedPath = selectedRunPath();
-                    if (!selectedPath.length) {
-                        keyboardStatus.innerText =
-                            'distance mapping: Alt+Shift range-select an ordered A to B path';
+                    const collected = selectedRunCollection();
+                    if (!collected.paths.length) {
+                        keyboardStatus.innerText = 'distance mapping: ' +
+                            (collected.error || 'select a connected corridor first');
+                        mappingPreview.style.color = '#ff8b8b';
+                        mappingPreview.textContent = keyboardStatus.innerText;
                         return;
                     }
-                    const plannedPath = directionSelect.value === 'reverse'
-                        ? selectedPath.slice().reverse()
-                        : selectedPath;
-                    distancePlan = planDistanceTextureRun(
-                        plannedPath,
-                        texturePack ? texturePack.textureIds : [textureId],
-                        {
-                            targetSpan,
-                            boundaryMode: mappingSelect.value === 'fit-selection'
-                                ? 'fit-selection'
-                                : 'nearest-joint'
+                    const appliedPlans = [];
+                    for (const path of collected.paths) {
+                        const plannedPath = directionSelect.value === 'reverse'
+                            ? path.slice().reverse()
+                            : path;
+                        const plan = planDistanceTextureRun(
+                            plannedPath,
+                            texturePack ? texturePack.textureIds : [textureId],
+                            {
+                                targetSpan,
+                                boundaryMode: mappingSelect.value === 'fit-selection'
+                                    ? 'fit-selection'
+                                    : 'nearest-joint'
+                            }
+                        );
+                        if (plan.error) {
+                            keyboardStatus.innerText = 'distance mapping: ' + plan.error;
+                            mappingPreview.style.color = '#ff8b8b';
+                            mappingPreview.textContent = keyboardStatus.innerText;
+                            return;
                         }
-                    );
-                    if (distancePlan.error) {
-                        keyboardStatus.innerText = 'distance mapping: ' + distancePlan.error;
-                        return;
+                        if (!applyDistanceTextureRunPlan(plan, {
+                            packId: texturePack?.id || ''
+                        })) {
+                            keyboardStatus.innerText = 'distance mapping: could not apply texture run';
+                            mappingPreview.style.color = '#ff8b8b';
+                            mappingPreview.textContent = keyboardStatus.innerText;
+                            return;
+                        }
+                        appliedPlans.push(plan);
                     }
-                    if (!applyDistanceTextureRunPlan(distancePlan, {
-                        packId: texturePack?.id || ''
-                    })) {
-                        keyboardStatus.innerText = 'distance mapping: could not apply texture run';
-                        return;
+                    distancePlan = appliedPlans[0];
+                    if (appliedPlans.length > 1) {
+                        distancePlan = {
+                            chunks: appliedPlans.flatMap(plan => plan.chunks),
+                            totalLength: appliedPlans.reduce((sum, plan) => sum + plan.totalLength, 0)
+                        };
                     }
                 } else {
                     for (const index of indices) {

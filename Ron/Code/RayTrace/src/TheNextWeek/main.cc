@@ -21,8 +21,42 @@
 #include "sphere.h"
 #include "texture.h"
 
+#include <iostream>
+#include <string>
+#include <vector>
+#include <cstdlib>
 
-void bouncing_spheres() {
+const std::vector<std::string> file_formats = {
+    "bmp",  "gif",  "ico", 
+    "jpg",  "pcx",  "png", 
+    "ppm",  "tga",  "tif"
+};
+
+struct camera_options {
+    std::string outfile = "";
+    std::string format = "";
+    bool debug = false;
+    bool printout = false;
+    int width = 0;
+    bool is_scaled = false;
+    double scale_fac = 1.0;
+    bool is_resize = false;
+    int resize_w = 0, resize_h = 0;
+};
+
+inline void apply_options(camera& cam, const camera_options& opt) {
+    if (opt.width > 0) cam.image_width = opt.width;
+    cam.outfile = opt.outfile;
+    cam.debug = opt.debug;
+    cam.printout = opt.printout;
+    cam.is_scaled = opt.is_scaled;
+    cam.scale_fac = opt.scale_fac;
+    cam.is_resize = opt.is_resize;
+    cam.scaled_width = opt.resize_w;
+    cam.scaled_height = opt.resize_h;
+}
+
+void bouncing_spheres(const camera_options& opt) {
     hittable_list world;
 
     auto checker = make_shared<checker_texture>(0.32, color(.2, .3, .1), color(.9, .9, .9));
@@ -84,11 +118,12 @@ void bouncing_spheres() {
     cam.defocus_angle = 0.6;
     cam.focus_dist    = 10.0;
 
+    apply_options(cam, opt);
     cam.render(world);
 }
 
 
-void checkered_spheres() {
+void checkered_spheres(const camera_options& opt) {
     hittable_list world;
 
     auto checker = make_shared<checker_texture>(0.32, color(.2, .3, .1), color(.9, .9, .9));
@@ -111,11 +146,12 @@ void checkered_spheres() {
 
     cam.defocus_angle = 0;
 
+    apply_options(cam, opt);
     cam.render(world);
 }
 
 
-void earth() {
+void earth(const camera_options& opt) {
     auto earth_texture = make_shared<image_texture>("earthmap.jpg");
     auto earth_surface = make_shared<lambertian>(earth_texture);
     auto globe = make_shared<sphere>(point3(0,0,0), 2, earth_surface);
@@ -135,11 +171,12 @@ void earth() {
 
     cam.defocus_angle = 0;
 
+    apply_options(cam, opt);
     cam.render(hittable_list(globe));
 }
 
 
-void perlin_spheres() {
+void perlin_spheres(const camera_options& opt) {
     hittable_list world;
 
     auto pertext = make_shared<noise_texture>(4);
@@ -161,11 +198,12 @@ void perlin_spheres() {
 
     cam.defocus_angle = 0;
 
+    apply_options(cam, opt);
     cam.render(world);
 }
 
 
-void quads() {
+void quads(const camera_options& opt) {
     hittable_list world;
 
     // Materials
@@ -197,11 +235,12 @@ void quads() {
 
     cam.defocus_angle = 0;
 
+    apply_options(cam, opt);
     cam.render(world);
 }
 
 
-void simple_light() {
+void simple_light(const camera_options& opt) {
     hittable_list world;
 
     auto pertext = make_shared<noise_texture>(4);
@@ -227,11 +266,12 @@ void simple_light() {
 
     cam.defocus_angle = 0;
 
+    apply_options(cam, opt);
     cam.render(world);
 }
 
 
-void cornell_box() {
+void cornell_box(const camera_options& opt) {
     hittable_list world;
 
     auto red   = make_shared<lambertian>(color(.65, .05, .05));
@@ -271,11 +311,12 @@ void cornell_box() {
 
     cam.defocus_angle = 0;
 
+    apply_options(cam, opt);
     cam.render(world);
 }
 
 
-void cornell_smoke() {
+void cornell_smoke(const camera_options& opt) {
     hittable_list world;
 
     auto red   = make_shared<lambertian>(color(.65, .05, .05));
@@ -288,7 +329,7 @@ void cornell_smoke() {
     world.add(make_shared<quad>(point3(113,554,127), vec3(330,0,0), vec3(0,0,305), light));
     world.add(make_shared<quad>(point3(0,555,0), vec3(555,0,0), vec3(0,0,555), white));
     world.add(make_shared<quad>(point3(0,0,0), vec3(555,0,0), vec3(0,0,555), white));
-    world.add(make_shared<quad>(point3(0,0,555), vec3(555,0,0), vec3(0,555,0), white));
+    world.add(make_shared<quad>(point3(0,0,555), vec3(555,0,0), vec3(0,0,555), white));
 
     shared_ptr<hittable> box1 = box(point3(0,0,0), point3(165,330,165), white);
     box1 = make_shared<rotate_y>(box1, 15);
@@ -316,11 +357,12 @@ void cornell_smoke() {
 
     cam.defocus_angle = 0;
 
+    apply_options(cam, opt);
     cam.render(world);
 }
 
 
-void final_scene(int image_width, int samples_per_pixel, int max_depth) {
+void final_scene(int image_width, int samples_per_pixel, int max_depth, const camera_options& opt) {
     hittable_list boxes1;
     auto ground = make_shared<lambertian>(color(0.48, 0.83, 0.53));
 
@@ -396,21 +438,137 @@ void final_scene(int image_width, int samples_per_pixel, int max_depth) {
 
     cam.defocus_angle = 0;
 
+    apply_options(cam, opt);
     cam.render(world);
 }
 
+void print_help(const char* prog) {
+    std::cout << "Usage: " << prog << " [options]\n\n"
+              << "Options:\n"
+              << "  -c, --scene <1-9>       Scene to render (1: Bouncing Spheres, 2: Checkered Spheres,\n"
+              << "                            3: Earth, 4: Perlin Spheres, 5: Quads, 6: Simple Light,\n"
+              << "                            7: Cornell Box, 8: Cornell Smoke, 9: Final Scene (default: 9))\n"
+              << "  -o, --outfile <file>    Path and name of output file\n"
+              << "  -f, --format <format>   File format to output to\n"
+              << "  -l, --list              List supported file formats\n"
+              << "  -d, --debug             If given, prints extra debug info during render\n"
+              << "  -p, --printout          If set, copy of output in RGB triplets sent to screen\n"
+              << "  -r, --resize <w,h>      Width, Height to resize image to\n"
+              << "  -w, --width <w>         Width to create the initial image (overrides scene default)\n"
+              << "  -s, --scale <factor>    Factor to scale image by (0.1 to 10)\n"
+              << "  -h, --help              Show this help message\n";
+}
 
-int main() {
-    switch (0) {
-        case 1:  bouncing_spheres();          break;
-        case 2:  checkered_spheres();         break;
-        case 3:  earth();                     break;
-        case 4:  perlin_spheres();            break;
-        case 5:  quads();                     break;
-        case 6:  simple_light();              break;
-        case 7:  cornell_box();               break;
-        case 8:  cornell_smoke();             break;
-        case 9:  final_scene(800, 10000, 40); break;
-        default: final_scene(400,   250,  4); break;
+int main(int argc, char* argv[]) {
+    camera_options opt;
+    int scene = 9;
+    bool list_formats = false;
+
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "-h" || arg == "--help") {
+            print_help(argv[0]);
+            return 0;
+        } else if (arg == "-l" || arg == "--list") {
+            list_formats = true;
+        } else if (arg == "-d" || arg == "--debug") {
+            opt.debug = true;
+        } else if (arg == "-p" || arg == "--printout") {
+            opt.printout = true;
+        } else if ((arg == "-c" || arg == "--scene") && i + 1 < argc) {
+            scene = std::atoi(argv[++i]);
+        } else if ((arg == "-o" || arg == "--outfile") && i + 1 < argc) {
+            opt.outfile = argv[++i];
+        } else if ((arg == "-f" || arg == "--format") && i + 1 < argc) {
+            opt.format = argv[++i];
+        } else if ((arg == "-w" || arg == "--width") && i + 1 < argc) {
+            opt.width = std::atoi(argv[++i]);
+        } else if ((arg == "-s" || arg == "--scale") && i + 1 < argc) {
+            opt.is_scaled = true;
+            opt.scale_fac = std::atof(argv[++i]);
+            if (opt.scale_fac < 0.1) opt.scale_fac = 0.1;
+            if (opt.scale_fac > 10.0) opt.scale_fac = 10.0;
+        } else if ((arg == "-r" || arg == "--resize") && i + 1 < argc) {
+            opt.is_resize = true;
+            std::string res_str = argv[++i];
+            auto comma_pos = res_str.find(',');
+            if (comma_pos != std::string::npos) {
+                opt.resize_w = std::atoi(res_str.substr(0, comma_pos).c_str());
+                opt.resize_h = std::atoi(res_str.substr(comma_pos + 1).c_str());
+            }
+        }
     }
+
+    if (list_formats) {
+        std::cout << "Supported Formats:\n";
+        int idx = 1;
+        for (const auto& fmt : file_formats) {
+            std::cout << fmt << "\t";
+            if (idx % 3 == 0) std::cout << "\n";
+            idx++;
+        }
+        return 0;
+    }
+
+    if (opt.is_scaled) {
+        opt.is_resize = false;
+    }
+
+    if (!opt.outfile.empty()) {
+        if (opt.format.empty()) {
+            auto dot_pos = opt.outfile.find_last_of('.');
+            if (dot_pos != std::string::npos) {
+                std::string ext = opt.outfile.substr(dot_pos + 1);
+                bool found = false;
+                for (const auto& f : file_formats) {
+                    if (f == ext) {
+                        opt.format = ext;
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    std::cerr << "Error: When giving an output filename you must include -f <File Format to create>\n";
+                    return 5;
+                }
+            } else {
+                std::cerr << "Error: When giving an output filename you must include -f <File Format to create>\n";
+                return 5;
+            }
+        }
+
+        bool format_valid = false;
+        for (const auto& f : file_formats) {
+            if (f == opt.format) {
+                format_valid = true;
+                break;
+            }
+        }
+        if (!format_valid) {
+            std::cerr << "Error: " << opt.format << " format not supported\n";
+            return 1;
+        }
+
+        auto dot_pos = opt.outfile.find_last_of('.');
+        if (dot_pos != std::string::npos) {
+            opt.outfile = opt.outfile.substr(0, dot_pos) + "." + opt.format;
+        } else {
+            opt.outfile = opt.outfile + "." + opt.format;
+        }
+    }
+
+    switch (scene) {
+        case 1:  bouncing_spheres(opt);          break;
+        case 2:  checkered_spheres(opt);         break;
+        case 3:  earth(opt);                     break;
+        case 4:  perlin_spheres(opt);            break;
+        case 5:  quads(opt);                     break;
+        case 6:  simple_light(opt);              break;
+        case 7:  cornell_box(opt);               break;
+        case 8:  cornell_smoke(opt);             break;
+        case 9:  final_scene(800, 10000, 40, opt); break;
+        default: final_scene(400,   250,  4, opt); break;
+    }
+
+    return 0;
 }

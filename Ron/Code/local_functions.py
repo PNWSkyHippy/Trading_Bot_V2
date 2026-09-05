@@ -35,31 +35,47 @@ STAT_LABEL_VALUE_RE = re.compile(
     r"([A-Za-z][\w &/%]*:)\s+(.*?)(?=(?:\s{2,}[A-Za-z][\w &/%]*:)|\s*$)"
 )
 
-def setup_logging(verbose: bool) -> logging.Logger:
-#    os.makedirs("logs", exist_ok=True)
-    log_level = logging.DEBUG if verbose else logging.INFO
+class SkipErrors(logging.Filter):
+    """Keep INFO/WARNING on stdout; errors go to stderr instead."""
 
-#    file_handler = logging.FileHandler("logs/bot.log", encoding="utf-8")
-#    file_handler.setLevel(log_level)
-#    file_handler.setFormatter(logging.Formatter(
-#        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-#        datefmt="%Y-%m-%d %H:%M:%S"
-#    ))
+    def filter(self, record):
+        return record.levelno < logging.ERROR
 
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(logging.INFO)
-    console_handler.setFormatter(logging.Formatter(
-        "%(asctime)s [%(levelname)s] %(message)s",
-        datefmt="%H:%M:%S"
-    ))
 
-    root_logger = logging.getLogger()
-    root_logger.setLevel(log_level)
- #   root_logger.addHandler(file_handler)
-    root_logger.addHandler(console_handler)
+def setup_logging(log_filename: str) -> logging.Logger:
+    """Route debug to the log file, info/warning to stdout, error+ to stderr."""
+    logger = logging.getLogger()
+    logger.setLevel(logging.DEBUG)
+    logger.handlers.clear()
 
-  
-    return logging.getLogger("BotEngine")
+    file_fmt = logging.Formatter(
+        "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+    console_fmt = logging.Formatter("%(message)s")
+
+    log_dir = os.path.dirname(log_filename)
+    if log_dir:
+        os.makedirs(log_dir, exist_ok=True)
+
+    file_handler = logging.FileHandler(log_filename, encoding="utf-8")
+    file_handler.setLevel(logging.DEBUG)
+    file_handler.setFormatter(file_fmt)
+
+
+    stdout_handler = logging.StreamHandler(sys.stdout)
+    stdout_handler.setLevel(logging.INFO)
+    stdout_handler.addFilter(SkipErrors())
+    stdout_handler.setFormatter(console_fmt)
+
+    stderr_handler = logging.StreamHandler(sys.stderr)
+    stderr_handler.setLevel(logging.ERROR)
+    stderr_handler.setFormatter(file_fmt)
+
+    logger.addHandler(file_handler)
+    logger.addHandler(stdout_handler)
+    logger.addHandler(stderr_handler)
+    return logger
 
 
 def clean_ansi(text):

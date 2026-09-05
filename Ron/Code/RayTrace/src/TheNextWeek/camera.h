@@ -14,9 +14,25 @@
 #include "hittable.h"
 #include "material.h"
 
+#include <iostream>
+#include <fstream>
+#include <vector>
+#include <atomic>
+#include <sstream>
+#include <string>
+
 
 class camera {
   public:
+    std::string outfile           = "";
+    bool   printout               = false;
+    bool   debug                  = false;
+    bool   is_scaled              = false;
+    double scale_fac              = 1.0;
+    bool   is_resize              = false;
+    int    scaled_width           = 0;
+    int    scaled_height          = 0;
+
     double aspect_ratio      = 1.0;  // Ratio of image width over height
     int    image_width       = 100;  // Rendered image width in pixel count
     int    samples_per_pixel = 10;   // Count of random samples for each pixel
@@ -34,21 +50,78 @@ class camera {
     void render(const hittable& world) {
         initialize();
 
-        std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+        std::ofstream file_out;
+        if (!outfile.empty()) {
+            file_out.open(outfile);
+            if (!file_out.is_open()) {
+                std::cerr << "Error opening output file: " << outfile << "\n";
+            } else {
+                file_out << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+            }
+        }
 
+        if (printout) {
+            std::cout << "P3\n" << image_width << ' ' << image_height << "\n255\n";
+        }
+
+        std::vector<std::string> scanlines(image_height);
+        std::atomic<int> scanlines_completed{0};
+
+        #pragma omp parallel for schedule(dynamic, 1)
         for (int j = 0; j < image_height; j++) {
-            std::clog << "\rScanlines remaining: " << (image_height - j) << ' ' << std::flush;
+            std::string row_str = "";
             for (int i = 0; i < image_width; i++) {
                 color pixel_color(0,0,0);
                 for (int sample = 0; sample < samples_per_pixel; sample++) {
                     ray r = get_ray(i, j);
                     pixel_color += ray_color(r, max_depth, world);
                 }
-                write_color(std::cout, pixel_samples_scale * pixel_color);
+
+                auto scaled = pixel_samples_scale * pixel_color;
+                auto r = scaled.x();
+                auto g = scaled.y();
+                auto b = scaled.z();
+
+                // Apply linear-to-gamma transform
+                r = (r > 0) ? std::sqrt(r) : 0;
+                g = (g > 0) ? std::sqrt(g) : 0;
+                b = (b > 0) ? std::sqrt(b) : 0;
+
+                static const interval intensity(0.000, 0.999);
+                int rbyte = int(256 * intensity.clamp(r));
+                int gbyte = int(256 * intensity.clamp(g));
+                int bbyte = int(256 * intensity.clamp(b));
+
+                std::string pixel_str = std::to_string(rbyte) + " " + std::to_string(gbyte) + " " + std::to_string(bbyte);
+                if (i > 0) row_str += "  ";
+                row_str += pixel_str;
+            }
+            scanlines[j] = row_str;
+            if (debug) {
+                int done = ++scanlines_completed;
+                #pragma omp critical
+                {
+                    std::clog << "\rScanlines remaining: " << (image_height - done) << ' ' << std::flush;
+                }
             }
         }
 
-        std::clog << "\rDone.                 \n";
+        for (int j = 0; j < image_height; j++) {
+            if (file_out.is_open()) {
+                file_out << scanlines[j] << "\n";
+            }
+            if (printout) {
+                std::cout << scanlines[j] << "\n";
+            }
+        }
+
+        if (file_out.is_open()) {
+            file_out.close();
+        }
+
+        if (debug) {
+            std::clog << "\rDone.                 \n";
+        }
     }
 
   private:
