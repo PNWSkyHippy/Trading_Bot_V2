@@ -664,6 +664,7 @@ Usage examples:
     if len(sort_list) > 5:
         print("\nError: maximum of 5 sort keys is supported.\n")
         sys.exit(1)
+        
     # Verify every key value input is valid
     if date_range_given and (not any(list_values)):
         for j in range(5):
