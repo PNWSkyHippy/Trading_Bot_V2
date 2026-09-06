@@ -24,6 +24,8 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+from futures_fees import tradovate_round_trip_fee
+
 from chart_patterns import PatternDetector
 
 
@@ -57,6 +59,7 @@ class PaperTrade:
     exit_price: Optional[float] = None
     exit_reason: Optional[str] = None
     pnl: Optional[float] = None
+    fees_paid: float = 0.0
     broker_strategy_id: Optional[int] = None
     execution_mode: str = "paper"
 
@@ -957,7 +960,11 @@ class EMTStrategyEngine:
         trade.exit_time = stamp_pacific.astimezone(timezone.utc).isoformat()
         trade.exit_price = round(price, 8)
         trade.exit_reason = reason
-        trade.pnl = round(points * self.point_value * trade.quantity, 2)
+        trade.fees_paid = tradovate_round_trip_fee(trade.symbol, trade.quantity)
+        trade.pnl = round(
+            points * self.point_value * trade.quantity - trade.fees_paid,
+            2,
+        )
         self.closed_trades.append(trade)
         self._write_ledger("CLOSE", trade)
         self._mirror_close_trade(trade)
@@ -1108,6 +1115,7 @@ class EMTStrategyEngine:
                 str(trade.exit_reason or "emt_closed"),
                 round(pnl, 2),
                 round(pnl_pct, 4),
+                round(float(trade.fees_paid), 4),
             )
             self.db_mirror.record_consecutive_result(pnl > 0)
         except Exception as exc:

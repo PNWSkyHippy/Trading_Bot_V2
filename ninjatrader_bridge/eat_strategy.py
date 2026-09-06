@@ -25,6 +25,8 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+from futures_fees import tradovate_round_trip_fee
+
 logger = logging.getLogger("EAT")
 
 
@@ -59,6 +61,7 @@ class EATTrade:
     exit_price: Optional[float] = None
     exit_reason: Optional[str] = None
     realized_pnl: float = 0.0
+    fees_paid: float = 0.0
     execution_mode: str = "paper"
 
 
@@ -604,6 +607,10 @@ class EATStrategyEngine:
             return
         if trade.remaining_quantity > 0:
             self._realize(trade, trade.remaining_quantity, price)
+        # EAT is currently paper-only.  Its reported result must nevertheless
+        # include both entry and exit all-in Tradovate fees for every contract.
+        trade.fees_paid = tradovate_round_trip_fee(trade.symbol, trade.quantity)
+        trade.realized_pnl = round(trade.realized_pnl - trade.fees_paid, 2)
         trade.status = "closed"
         trade.exit_time = stamp.astimezone(timezone.utc).isoformat()
         trade.exit_price = round(price, 8)
@@ -791,6 +798,7 @@ class EATStrategyEngine:
                 str(trade.exit_reason or "eat_closed"),
                 round(float(trade.realized_pnl), 2),
                 round(pnl_pct, 4),
+                round(float(trade.fees_paid), 4),
             )
             self.db_mirror.record_consecutive_result(trade.realized_pnl > 0)
         except Exception as exc:

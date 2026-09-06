@@ -21,6 +21,26 @@ def minute_bar(offset, close=99.75, high=100.0, low=99.0):
     }
 
 
+class FakeMirrorDB:
+    def __init__(self):
+        self.closed = []
+        self.results = []
+
+    def close_trade(self, trade_id, exit_price, exit_reason, pnl, pnl_pct,
+                    fees_paid=0.0):
+        self.closed.append({
+            "trade_id": trade_id,
+            "exit_price": exit_price,
+            "exit_reason": exit_reason,
+            "pnl": pnl,
+            "pnl_pct": pnl_pct,
+            "fees_paid": fees_paid,
+        })
+
+    def record_consecutive_result(self, won):
+        self.results.append(won)
+
+
 class EATStrategyTests(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
@@ -160,9 +180,38 @@ class EATStrategyTests(unittest.TestCase):
         self.assertIsNone(engine.active_trade)
         self.assertEqual(closed["exit_reason"], "manual_close")
         self.assertEqual(closed["exit_price"], 101.0)
-        self.assertEqual(closed["realized_pnl"], 4.0)
+        # MNQ Free-plan all-in rate is $0.95/side: two contracts cost $3.80.
+        self.assertEqual(closed["fees_paid"], 3.8)
+        self.assertEqual(closed["realized_pnl"], 0.2)
         with self.assertRaises(LookupError):
             engine.manual_close("EAT-PAPER-TEST")
+
+    def test_db_mirror_receives_quantity_scaled_net_eat_result_and_fee(self):
+        mirror = FakeMirrorDB()
+        engine = EATStrategyEngine(
+            dict(self.settings, mirror_to_bot_db=True), self.contract,
+            self.temp_dir.name, db_mirror=mirror,
+        )
+        engine.active_trade = EATTrade(
+            trade_id="EAT-PAPER-MIRROR",
+            symbol="MNQ",
+            direction="long",
+            quantity=2,
+            entry_time="2026-07-23T12:05:00+00:00",
+            entry_price=100.0,
+            stop_price=90.0,
+            tp1_price=125.0,
+            entry_bar_time="2026-07-23T05:05:00-07:00",
+            remaining_quantity=2,
+            tp1_quantity=1,
+        )
+        engine.last_live_price = 101.0
+
+        engine.manual_close("EAT-PAPER-MIRROR")
+
+        self.assertEqual(mirror.closed[0]["fees_paid"], 3.8)
+        self.assertEqual(mirror.closed[0]["pnl"], 0.2)
+        self.assertEqual(mirror.results, [True])
 
 
 if __name__ == "__main__":

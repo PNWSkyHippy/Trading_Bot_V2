@@ -192,7 +192,9 @@ class EMTStrategyTests(unittest.TestCase):
         )
         trade = self.engine.closed_trades[-1]
         self.assertEqual(trade.exit_reason, "take_profit")
-        self.assertEqual(trade.pnl, 100.0)
+        # ES Free-plan all-in rate is $2.88/side, or $5.76 round trip.
+        self.assertEqual(trade.fees_paid, 5.76)
+        self.assertEqual(trade.pnl, 94.24)
 
     def test_same_forming_bar_cannot_use_pre_entry_high_for_false_stop(self):
         self.arm_short_and_touch()
@@ -285,8 +287,9 @@ class EMTStrategyTests(unittest.TestCase):
         self.assertEqual(opened["indicators"]["point_value"], 50.0)
         self.assertEqual(len(mirror.closed), 1)
         self.assertEqual(mirror.closed[0]["exit_reason"], "take_profit")
-        self.assertEqual(mirror.closed[0]["pnl"], 100.0)
-        self.assertEqual(mirror.closed[0]["pnl_pct"], 100.0)
+        self.assertEqual(mirror.closed[0]["pnl"], 94.24)
+        self.assertEqual(mirror.closed[0]["pnl_pct"], 94.24)
+        self.assertEqual(mirror.closed[0]["fees_paid"], 5.76)
 
     def test_malformed_ohlc_is_rejected(self):
         bad = bar(stamp(6, 45), 100.0, high=99.0, low=98.0)
@@ -312,7 +315,8 @@ class EMTStrategyTests(unittest.TestCase):
         self.assertIsNone(self.engine.active_trade)
         self.assertEqual(closed["exit_reason"], "manual_close")
         self.assertEqual(closed["exit_price"], 99.0)
-        self.assertEqual(closed["pnl"], 50.0)
+        self.assertEqual(closed["fees_paid"], 5.76)
+        self.assertEqual(closed["pnl"], 44.24)
         with self.assertRaises(LookupError):
             self.engine.manual_close("EMT-PAPER-TEST")
 
