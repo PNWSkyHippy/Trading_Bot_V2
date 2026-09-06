@@ -110,6 +110,7 @@ def proc_dict(loc_trade_list, strat_name, ikey, output_file, start_date, end_dat
     field_lens = {}
     # Search the dict for Key  provided
     trade_count = 0
+    tot_fees = 0
     for trade in loc_trade_list:
         t_sli = 38 if extended else 20
         t_idx = -len(trade["trade_id"]) if extended else -16
@@ -121,9 +122,9 @@ def proc_dict(loc_trade_list, strat_name, ikey, output_file, start_date, end_dat
             trade_dict["entry_time"] or ""
         )
         exit_time = trade_dict["exit_time"] or ""
-
         if entry_time[0:16] >= start_date and exit_time[0:16] <= end_date:
             if ikey == "ALL" or trade_dict.get(ikey, "None") == strat_name or strat_name == "ALL":
+                tot_fees += trade_dict["fees_paid"]
                 symbol = trade_dict["symbol"]
                 trade_pnl = float(trade_dict["pnl"] or 0.0)
                 sym_total_pnl[symbol] = sym_total_pnl.get(symbol, 0.0) + trade_pnl 
@@ -263,6 +264,9 @@ def proc_dict(loc_trade_list, strat_name, ikey, output_file, start_date, end_dat
     ret_dict["tot_losers"] = colorize(
         f"{tot_losers:<11}", "red"
     )
+    ret_dict["tot_fees"] = colorize(
+        f"{tot_fees:<6.2f}", "red"
+    )
     ret_dict["high_sym"] = high_sym
     ret_dict["low_sym"] = low_sym
     # Pass back our pre color formatted dictionary of results
@@ -331,7 +335,7 @@ def format_group_summary(res_dict):
         f'{"":<4}W/L: {res_dict["tot_wins"]}/{res_dict["tot_losers"]}{"":<6}W/L%:{"":<5}{res_dict["win_pct"]}'
         f'%/{res_dict["loss_pct"]}%\n'
         f'{"High Sym:":>16} {lhigh_sym:>10} ({lhigh_tot:>16})'
-        f'{"Low Sym:":>13} {llow_sym} ({llow_tot})\n'
+        f'{"Low Sym:":>16} {llow_sym} ({llow_tot}){"Tot. Fees:":>16} {res_dict["tot_fees"]}\n'
     )
 
 
