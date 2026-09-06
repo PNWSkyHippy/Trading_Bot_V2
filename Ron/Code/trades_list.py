@@ -265,7 +265,7 @@ def proc_dict(loc_trade_list, strat_name, ikey, output_file, start_date, end_dat
         f"{tot_losers:<11}", "red"
     )
     ret_dict["tot_fees"] = colorize(
-        f"{tot_fees:<6.2f}", "red"
+        f"{tot_fees:<9.2f}", "red"
     )
     ret_dict["high_sym"] = high_sym
     ret_dict["low_sym"] = low_sym
@@ -335,7 +335,7 @@ def format_group_summary(res_dict):
         f'{"":<4}W/L: {res_dict["tot_wins"]}/{res_dict["tot_losers"]}{"":<6}W/L%:{"":<5}{res_dict["win_pct"]}'
         f'%/{res_dict["loss_pct"]}%\n'
         f'{"High Sym:":>16} {lhigh_sym:>10} ({lhigh_tot:>16})'
-        f'{"Low Sym:":>16} {llow_sym} ({llow_tot}){"Tot. Fees:":>16} {res_dict["tot_fees"]}\n'
+        f'{"Low Sym:":>13} {llow_sym} ({llow_tot}){"Tot. Fees:":>19} {res_dict["tot_fees"]}\n'
     )
 
 
