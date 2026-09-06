@@ -8895,8 +8895,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_inoneweekend_python_color",
-      "community": 50,
-      "community_name": "Vec3",
+      "community": 167,
+      "community_name": "Interval",
       "norm_label": "inoneweekend/python/color.py"
     },
     {
@@ -8906,8 +8906,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_inoneweekend_python_color_linear_to_gamma",
-      "community": 50,
-      "community_name": "Vec3",
+      "community": 167,
+      "community_name": "Interval",
       "norm_label": "linear_to_gamma()"
     },
     {
@@ -8917,8 +8917,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_inoneweekend_python_color_write_color",
-      "community": 50,
-      "community_name": "Vec3",
+      "community": 167,
+      "community_name": "Interval",
       "norm_label": "write_color()"
     },
     {
@@ -9082,8 +9082,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_inoneweekend_python_hittable",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 50,
+      "community_name": "Vec3",
       "norm_label": "inoneweekend/python/hittable.py"
     },
     {
@@ -9137,8 +9137,8 @@
       "source_location": "L38",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_inoneweekend_python_hittable_hittable",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 50,
+      "community_name": "Vec3",
       "norm_label": "hittable"
     },
     {
@@ -9148,8 +9148,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_inoneweekend_python_hittable_py_abc",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 50,
+      "community_name": "Vec3",
       "norm_label": "abc"
     },
     {
@@ -9159,8 +9159,8 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_inoneweekend_python_hittable_hittable_hit",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 50,
+      "community_name": "Vec3",
       "norm_label": ".hit()"
     },
     {
@@ -9170,8 +9170,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_inoneweekend_python_hittable_rationale_26",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 50,
+      "community_name": "Vec3",
       "norm_label": "# note: the parameter `outward_normal` is assumed to have unit length."
     },
     {
@@ -9193,7 +9193,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_inoneweekend_python_hittable_list_hittablelist",
       "community": 63,
-      "community_name": "Hittable",
+      "community_name": "HittableList",
       "norm_label": "hittablelist"
     },
     {
@@ -9204,7 +9204,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_inoneweekend_python_hittable_list_py_hittable",
       "community": 63,
-      "community_name": "Hittable",
+      "community_name": "HittableList",
       "norm_label": "hittable"
     },
     {
@@ -9215,7 +9215,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_inoneweekend_python_hittable_list_hittablelist_init",
       "community": 63,
-      "community_name": "Hittable",
+      "community_name": "HittableList",
       "norm_label": ".__init__()"
     },
     {
@@ -9226,7 +9226,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_inoneweekend_python_hittable_list_hittablelist_clear",
       "community": 63,
-      "community_name": "Hittable",
+      "community_name": "HittableList",
       "norm_label": ".clear()"
     },
     {
@@ -9237,7 +9237,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_inoneweekend_python_hittable_list_hittablelist_add",
       "community": 63,
-      "community_name": "Hittable",
+      "community_name": "HittableList",
       "norm_label": ".add()"
     },
     {
@@ -9248,7 +9248,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_inoneweekend_python_hittable_list_hittablelist_hit",
       "community": 63,
-      "community_name": "Hittable",
+      "community_name": "HittableList",
       "norm_label": ".hit()"
     },
     {
@@ -11778,7 +11778,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_constant_medium_h_texture",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "texture"
     },
     {
@@ -12085,7 +12085,7 @@
       "source_location": "L881",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_err",
-      "community": 232,
+      "community": 401,
       "community_name": "stbi__err",
       "norm_label": "stbi__err()"
     },
@@ -12360,8 +12360,8 @@
       "source_location": "L1196",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_refill_buffer",
-      "community": 97,
-      "community_name": "STBIDEF",
+      "community": 140,
+      "community_name": "stbi__context",
       "norm_label": "stbi__refill_buffer()"
     },
     {
@@ -12382,8 +12382,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_h_stbi_inline",
-      "community": 401,
-      "community_name": "stbi__zbuf",
+      "community": 232,
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi_inline"
     },
     {
@@ -12415,8 +12415,8 @@
       "source_location": "L1252",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_getn",
-      "community": 140,
-      "community_name": "stbi__context",
+      "community": 178,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__getn()"
     },
     {
@@ -12437,8 +12437,8 @@
       "source_location": "L1282",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_get32be",
-      "community": 178,
-      "community_name": "stbi__malloc",
+      "community": 140,
+      "community_name": "stbi__context",
       "norm_label": "stbi__get32be()"
     },
     {
@@ -12514,8 +12514,8 @@
       "source_location": "L1384",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_hdr_to_ldr",
-      "community": 90,
-      "community_name": "TheNextWeek/external/stb_image.h",
+      "community": 140,
+      "community_name": "stbi__context",
       "norm_label": "stbi__hdr_to_ldr()"
     },
     {
@@ -12526,7 +12526,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_build_huffman",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__build_huffman()"
     },
     {
@@ -12537,7 +12537,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_h_stbi_huffman",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__huffman"
     },
     {
@@ -12548,7 +12548,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_build_fast_ac",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__build_fast_ac()"
     },
     {
@@ -12559,7 +12559,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_h_stbi_int16",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__int16"
     },
     {
@@ -12570,7 +12570,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_grow_buffer_unsafe",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__grow_buffer_unsafe()"
     },
     {
@@ -12581,7 +12581,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_h_stbi_jpeg",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg"
     },
     {
@@ -12592,7 +12592,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_jpeg_huff_decode",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_huff_decode()"
     },
     {
@@ -12603,7 +12603,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_extend_receive",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__extend_receive()"
     },
     {
@@ -12614,7 +12614,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_jpeg_get_bits",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_get_bits()"
     },
     {
@@ -12625,7 +12625,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_jpeg_get_bit",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_get_bit()"
     },
     {
@@ -12636,7 +12636,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_jpeg_decode_block",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_decode_block()"
     },
     {
@@ -12647,7 +12647,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_jpeg_decode_block_prog_dc",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_decode_block_prog_dc()"
     },
     {
@@ -12658,7 +12658,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_jpeg_decode_block_prog_ac",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_decode_block_prog_ac()"
     },
     {
@@ -12702,7 +12702,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_get_marker",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__get_marker()"
     },
     {
@@ -12713,7 +12713,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_jpeg_reset",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_reset()"
     },
     {
@@ -12724,7 +12724,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_parse_entropy_coded_data",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__parse_entropy_coded_data()"
     },
     {
@@ -12757,7 +12757,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_process_marker",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__process_marker()"
     },
     {
@@ -12767,8 +12767,8 @@
       "source_location": "L2642",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_process_scan_header",
-      "community": 232,
-      "community_name": "stbi__err",
+      "community": 140,
+      "community_name": "stbi__context",
       "norm_label": "stbi__process_scan_header()"
     },
     {
@@ -12778,8 +12778,8 @@
       "source_location": "L2681",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_process_frame_header",
-      "community": 232,
-      "community_name": "stbi__err",
+      "community": 140,
+      "community_name": "stbi__context",
       "norm_label": "stbi__process_frame_header()"
     },
     {
@@ -12790,7 +12790,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_decode_jpeg_header",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__decode_jpeg_header()"
     },
     {
@@ -12801,7 +12801,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_decode_jpeg_image",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__decode_jpeg_image()"
     },
     {
@@ -12943,8 +12943,8 @@
       "source_location": "L3396",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_jpeg_test",
-      "community": 140,
-      "community_name": "stbi__context",
+      "community": 90,
+      "community_name": "TheNextWeek/external/stb_image.h",
       "norm_label": "stbi__jpeg_test()"
     },
     {
@@ -12955,7 +12955,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_jpeg_info_raw",
       "community": 232,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_info_raw()"
     },
     {
@@ -12976,8 +12976,8 @@
       "source_location": "L3452",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_bitreverse16",
-      "community": 401,
-      "community_name": "stbi__zbuf",
+      "community": 232,
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__bitreverse16()"
     },
     {
@@ -12988,7 +12988,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_bit_reverse",
       "community": 401,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__bit_reverse()"
     },
     {
@@ -12999,7 +12999,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_zbuild_huffman",
       "community": 401,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__zbuild_huffman()"
     },
     {
@@ -13010,7 +13010,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_h_stbi_zhuffman",
       "community": 401,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__zhuffman"
     },
     {
@@ -13021,7 +13021,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_zget8",
       "community": 401,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__zget8()"
     },
     {
@@ -13032,7 +13032,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_h_stbi_zbuf",
       "community": 401,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__zbuf"
     },
     {
@@ -13043,7 +13043,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_fill_bits",
       "community": 401,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__fill_bits()"
     },
     {
@@ -13054,7 +13054,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_zreceive",
       "community": 401,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__zreceive()"
     },
     {
@@ -13065,7 +13065,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_zhuffman_decode_slowpath",
       "community": 401,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__zhuffman_decode_slowpath()"
     },
     {
@@ -13076,7 +13076,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_zhuffman_decode",
       "community": 401,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__zhuffman_decode()"
     },
     {
@@ -13087,7 +13087,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_zexpand",
       "community": 401,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__zexpand()"
     },
     {
@@ -13098,7 +13098,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_parse_huffman_block",
       "community": 401,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__parse_huffman_block()"
     },
     {
@@ -13109,7 +13109,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_compute_huffman_codes",
       "community": 401,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__compute_huffman_codes()"
     },
     {
@@ -13120,7 +13120,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_parse_uncomperssed_block",
       "community": 401,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__parse_uncomperssed_block()"
     },
     {
@@ -13131,7 +13131,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_parse_zlib_header",
       "community": 401,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__parse_zlib_header()"
     },
     {
@@ -13142,7 +13142,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_init_zdefaults",
       "community": 401,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__init_zdefaults()"
     },
     {
@@ -13153,7 +13153,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_parse_zlib",
       "community": 401,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__parse_zlib()"
     },
     {
@@ -13526,8 +13526,8 @@
       "source_location": "L4846",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_tga_load",
-      "community": 140,
-      "community_name": "stbi__context",
+      "community": 178,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__tga_load()"
     },
     {
@@ -13548,8 +13548,8 @@
       "source_location": "L5052",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_psd_load",
-      "community": 178,
-      "community_name": "stbi__malloc",
+      "community": 140,
+      "community_name": "stbi__context",
       "norm_label": "stbi__psd_load()"
     },
     {
@@ -13592,8 +13592,8 @@
       "source_location": "L5266",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_copyval",
-      "community": 90,
-      "community_name": "TheNextWeek/external/stb_image.h",
+      "community": 140,
+      "community_name": "stbi__context",
       "norm_label": "stbi__copyval()"
     },
     {
@@ -13790,8 +13790,8 @@
       "source_location": "L5788",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_hdr_test",
-      "community": 140,
-      "community_name": "stbi__context",
+      "community": 90,
+      "community_name": "TheNextWeek/external/stb_image.h",
       "norm_label": "stbi__hdr_test()"
     },
     {
@@ -13823,8 +13823,8 @@
       "source_location": "L5845",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_hdr_load",
-      "community": 140,
-      "community_name": "stbi__context",
+      "community": 178,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__hdr_load()"
     },
     {
@@ -13889,8 +13889,8 @@
       "source_location": "L6132",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_pnm_load",
-      "community": 140,
-      "community_name": "stbi__context",
+      "community": 178,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__pnm_load()"
     },
     {
@@ -15914,7 +15914,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_bvh_bvhnode",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "bvhnode"
     },
     {
@@ -15925,7 +15925,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_bvh_py_hittable",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "hittable"
     },
     {
@@ -15936,7 +15936,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_bvh_bvhnode_init",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".__init__()"
     },
     {
@@ -15958,7 +15958,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_bvh_bvhnode_bounding_box",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".bounding_box()"
     },
     {
@@ -15968,7 +15968,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_camera",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "thenextweek/python/camera.py"
     },
@@ -15980,7 +15980,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_camera_camera",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "camera"
     },
     {
@@ -15990,7 +15990,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_camera_camera_init",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__init__()"
     },
@@ -16002,7 +16002,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_camera_camera_render",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".render()"
     },
     {
@@ -16012,7 +16012,7 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_camera_camera_initialize",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".initialize()"
     },
@@ -16024,7 +16024,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_camera_camera_get_ray",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".get_ray()"
     },
     {
@@ -16035,7 +16035,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_camera_camera_sample_square",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".sample_square()"
     },
     {
@@ -16045,7 +16045,7 @@
       "source_location": "L116",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_camera_camera_sample_disk",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".sample_disk()"
     },
@@ -16057,7 +16057,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_camera_camera_defocus_disk_sample",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".defocus_disk_sample()"
     },
     {
@@ -16068,7 +16068,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_camera_camera_ray_color",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".ray_color()"
     },
     {
@@ -16078,8 +16078,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_color",
-      "community": 84,
-      "community_name": "vec3",
+      "community": 101,
+      "community_name": "Vec3",
       "norm_label": "thenextweek/python/color.py"
     },
     {
@@ -16089,8 +16089,8 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_color_linear_to_gamma",
-      "community": 84,
-      "community_name": "vec3",
+      "community": 101,
+      "community_name": "Vec3",
       "norm_label": "linear_to_gamma()"
     },
     {
@@ -16100,8 +16100,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_color_write_color",
-      "community": 84,
-      "community_name": "vec3",
+      "community": 101,
+      "community_name": "Vec3",
       "norm_label": "write_color()"
     },
     {
@@ -16123,7 +16123,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_constant_medium_constantmedium",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "constantmedium"
     },
     {
@@ -16134,7 +16134,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_constant_medium_py_hittable",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "hittable"
     },
     {
@@ -16145,7 +16145,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_constant_medium_constantmedium_init",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".__init__()"
     },
     {
@@ -16156,7 +16156,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_constant_medium_constantmedium_hit",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".hit()"
     },
     {
@@ -16167,7 +16167,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_constant_medium_constantmedium_bounding_box",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".bounding_box()"
     },
     {
@@ -16342,7 +16342,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_hittable_hitrecord",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "hitrecord"
     },
@@ -16353,7 +16353,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_hittable_hitrecord_init",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__init__()"
     },
@@ -16364,7 +16364,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_hittable_hitrecord_set_face_normal",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".set_face_normal()"
     },
@@ -16375,7 +16375,7 @@
       "source_location": "L36",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_hittable_hitrecord_copy_from",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".copy_from()"
     },
@@ -16431,7 +16431,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_hittable_translate",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "translate"
     },
     {
@@ -16442,7 +16442,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_hittable_translate_init",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".__init__()"
     },
     {
@@ -16452,7 +16452,7 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_hittable_translate_hit",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".hit()"
     },
@@ -16464,7 +16464,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_hittable_translate_bounding_box",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".bounding_box()"
     },
     {
@@ -16475,7 +16475,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_hittable_rotatey",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "rotatey"
     },
     {
@@ -16485,7 +16485,7 @@
       "source_location": "L79",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_hittable_rotatey_init",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__init__()"
     },
@@ -16496,7 +16496,7 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_hittable_rotatey_hit",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".hit()"
     },
@@ -16508,7 +16508,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_hittable_rotatey_bounding_box",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".bounding_box()"
     },
     {
@@ -16541,7 +16541,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_hittable_list_hittablelist",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "hittablelist"
     },
     {
@@ -16552,7 +16552,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_hittable_list_py_hittable",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "hittable"
     },
     {
@@ -16574,7 +16574,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_hittable_list_hittablelist_clear",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".clear()"
     },
     {
@@ -16595,7 +16595,7 @@
       "source_location": "L30",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_hittable_list_hittablelist_hit",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".hit()"
     },
@@ -16728,7 +16728,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_main",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "thenextweek/python/main.py"
     },
     {
@@ -16739,7 +16739,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_main_bouncing_spheres",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "bouncing_spheres()"
     },
     {
@@ -16750,7 +16750,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_main_checkered_spheres",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "checkered_spheres()"
     },
     {
@@ -16761,7 +16761,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_main_earth",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "earth()"
     },
     {
@@ -16772,7 +16772,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_main_perlin_spheres",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "perlin_spheres()"
     },
     {
@@ -16783,7 +16783,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_main_quads",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "quads()"
     },
     {
@@ -16794,7 +16794,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_main_simple_light",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "simple_light()"
     },
     {
@@ -16805,7 +16805,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_main_cornell_box",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "cornell_box()"
     },
     {
@@ -16816,7 +16816,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_main_cornell_smoke",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "cornell_smoke()"
     },
     {
@@ -16827,7 +16827,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_main_final_scene",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "final_scene()"
     },
     {
@@ -16838,7 +16838,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_main_main",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "main()"
     },
     {
@@ -16849,7 +16849,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "thenextweek/python/material.py"
     },
     {
@@ -16860,7 +16860,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_material",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "material"
     },
     {
@@ -16871,7 +16871,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_material_emitted",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".emitted()"
     },
     {
@@ -16882,7 +16882,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_material_scatter",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".scatter()"
     },
     {
@@ -16893,7 +16893,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_lambertian",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "lambertian"
     },
     {
@@ -16904,7 +16904,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_lambertian_init",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".__init__()"
     },
     {
@@ -16914,7 +16914,7 @@
       "source_location": "L41",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_lambertian_scatter",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".scatter()"
     },
@@ -16926,7 +16926,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_metal",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "metal"
     },
     {
@@ -16937,7 +16937,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_metal_init",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".__init__()"
     },
     {
@@ -16947,7 +16947,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_metal_scatter",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".scatter()"
     },
@@ -16959,7 +16959,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_dielectric",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "dielectric"
     },
     {
@@ -16970,7 +16970,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_dielectric_init",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".__init__()"
     },
     {
@@ -16980,7 +16980,7 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_dielectric_scatter",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".scatter()"
     },
@@ -16991,7 +16991,7 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_dielectric_reflectance",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".reflectance()"
     },
@@ -17003,7 +17003,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_diffuselight",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "diffuselight"
     },
     {
@@ -17014,7 +17014,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_diffuselight_init",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".__init__()"
     },
     {
@@ -17025,7 +17025,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_diffuselight_emitted",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".emitted()"
     },
     {
@@ -17036,7 +17036,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_isotropic",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "isotropic"
     },
     {
@@ -17047,7 +17047,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_isotropic_init",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".__init__()"
     },
     {
@@ -17058,7 +17058,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_material_isotropic_scatter",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".scatter()"
     },
     {
@@ -17068,7 +17068,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_perlin",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "thenextweek/python/perlin.py"
     },
@@ -17168,7 +17168,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_quad_quad",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "quad"
     },
     {
@@ -17179,7 +17179,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_quad_py_hittable",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "hittable"
     },
     {
@@ -17189,7 +17189,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_quad_quad_init",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__init__()"
     },
@@ -17200,7 +17200,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_quad_quad_set_bounding_box",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".set_bounding_box()"
     },
@@ -17212,7 +17212,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_quad_quad_bounding_box",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".bounding_box()"
     },
     {
@@ -17222,7 +17222,7 @@
       "source_location": "L39",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_quad_quad_hit",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".hit()"
     },
@@ -17233,7 +17233,7 @@
       "source_location": "L64",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_quad_quad_is_interior",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".is_interior()"
     },
@@ -17245,7 +17245,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_quad_box",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "box()"
     },
     {
@@ -17255,7 +17255,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_ray",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "thenextweek/python/ray.py"
     },
@@ -17266,7 +17266,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_ray_ray",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "ray"
     },
@@ -17277,7 +17277,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_ray_ray_init",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__init__()"
     },
@@ -17288,7 +17288,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_ray_ray_origin",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".origin()"
     },
@@ -17299,7 +17299,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_ray_ray_direction",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".direction()"
     },
@@ -17310,7 +17310,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_ray_ray_time",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".time()"
     },
@@ -17321,7 +17321,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_ray_ray_at",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".at()"
     },
@@ -17442,7 +17442,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_rtweekend",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "thenextweek/python/rtweekend.py"
     },
@@ -17453,7 +17453,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_rtweekend_degrees_to_radians",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "degrees_to_radians()"
     },
@@ -17465,7 +17465,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_rtweekend_random_double",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "random_double()"
     },
     {
@@ -17475,7 +17475,7 @@
       "source_location": "L32",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_rtweekend_random_int",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "random_int()"
     },
@@ -17498,7 +17498,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_sphere_sphere",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "sphere"
     },
     {
@@ -17509,7 +17509,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_sphere_py_hittable",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "hittable"
     },
     {
@@ -17519,7 +17519,7 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_sphere_sphere_init",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__init__()"
     },
@@ -17531,7 +17531,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_sphere_sphere_hit",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".hit()"
     },
     {
@@ -17542,7 +17542,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_sphere_sphere_bounding_box",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".bounding_box()"
     },
     {
@@ -17553,7 +17553,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_sphere_sphere_get_sphere_uv",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".get_sphere_uv()"
     },
     {
@@ -17563,8 +17563,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_texture",
-      "community": 167,
-      "community_name": "Interval",
+      "community": 341,
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "thenextweek/python/texture.py"
     },
     {
@@ -17575,7 +17575,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_texture_texture",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "texture"
     },
     {
@@ -17585,8 +17585,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_texture_py_abc",
-      "community": 167,
-      "community_name": "Interval",
+      "community": 341,
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "abc"
     },
     {
@@ -17597,7 +17597,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_texture_texture_value",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".value()"
     },
     {
@@ -17608,7 +17608,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_texture_solidcolor",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "solidcolor"
     },
     {
@@ -17619,7 +17619,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_texture_solidcolor_init",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".__init__()"
     },
     {
@@ -17630,7 +17630,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_texture_solidcolor_value",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".value()"
     },
     {
@@ -17641,7 +17641,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_texture_checkertexture",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "checkertexture"
     },
     {
@@ -17652,7 +17652,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_texture_checkertexture_init",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".__init__()"
     },
     {
@@ -17663,7 +17663,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_texture_checkertexture_value",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".value()"
     },
     {
@@ -17707,7 +17707,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_texture_noisetexture",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "noisetexture"
     },
     {
@@ -17729,7 +17729,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_texture_noisetexture_value",
       "community": 341,
-      "community_name": "Vec3",
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": ".value()"
     },
     {
@@ -17739,7 +17739,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "thenextweek/python/vec3.py"
     },
@@ -17750,7 +17750,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "vec3"
     },
@@ -17761,7 +17761,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_init",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__init__()"
     },
@@ -17772,7 +17772,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_x",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".x()"
     },
@@ -17783,7 +17783,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_y",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".y()"
     },
@@ -17794,7 +17794,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_z",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".z()"
     },
@@ -17805,7 +17805,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_neg",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__neg__()"
     },
@@ -17816,7 +17816,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_getitem",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__getitem__()"
     },
@@ -17827,7 +17827,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_setitem",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__setitem__()"
     },
@@ -17838,7 +17838,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_iadd",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__iadd__()"
     },
@@ -17849,7 +17849,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_imul",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__imul__()"
     },
@@ -17860,7 +17860,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_itruediv",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__itruediv__()"
     },
@@ -17871,7 +17871,7 @@
       "source_location": "L55",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_length",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".length()"
     },
@@ -17882,7 +17882,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_length_squared",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".length_squared()"
     },
@@ -17893,7 +17893,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_near_zero",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".near_zero()"
     },
@@ -17904,7 +17904,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_copy_from",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".copy_from()"
     },
@@ -17915,7 +17915,7 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_random",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".random()"
     },
@@ -17926,7 +17926,7 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_add",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__add__()"
     },
@@ -17937,7 +17937,7 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_sub",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__sub__()"
     },
@@ -17948,7 +17948,7 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_mul",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__mul__()"
     },
@@ -17959,7 +17959,7 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_rmul",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__rmul__()"
     },
@@ -17970,7 +17970,7 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_truediv",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__truediv__()"
     },
@@ -17981,7 +17981,7 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_vec3_repr",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": ".__repr__()"
     },
@@ -17992,7 +17992,7 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_dot",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "dot()"
     },
@@ -18003,7 +18003,7 @@
       "source_location": "L111",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_cross",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "cross()"
     },
@@ -18014,7 +18014,7 @@
       "source_location": "L119",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_unit_vector",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "unit_vector()"
     },
@@ -18025,7 +18025,7 @@
       "source_location": "L123",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_random_in_unit_disk",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "random_in_unit_disk()"
     },
@@ -18036,7 +18036,7 @@
       "source_location": "L130",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_random_unit_vector",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "random_unit_vector()"
     },
@@ -18047,7 +18047,7 @@
       "source_location": "L138",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_random_on_hemisphere",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "random_on_hemisphere()"
     },
@@ -18058,7 +18058,7 @@
       "source_location": "L145",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_reflect",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "reflect()"
     },
@@ -18069,7 +18069,7 @@
       "source_location": "L149",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_python_vec3_refract",
-      "community": 341,
+      "community": 101,
       "community_name": "Vec3",
       "norm_label": "refract()"
     },
@@ -19180,8 +19180,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_texture_h_perlin",
-      "community": 167,
-      "community_name": "Interval",
+      "community": 341,
+      "community_name": "TheNextWeek/python/main.py",
       "norm_label": "perlin"
     },
     {
@@ -25110,7 +25110,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_bvh_bvhnode",
       "community": 63,
-      "community_name": "Hittable",
+      "community_name": "HittableList",
       "norm_label": "bvhnode"
     },
     {
@@ -25121,7 +25121,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_bvh_py_hittable",
       "community": 63,
-      "community_name": "Hittable",
+      "community_name": "HittableList",
       "norm_label": "hittable"
     },
     {
@@ -25132,7 +25132,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_bvh_bvhnode_init",
       "community": 63,
-      "community_name": "Hittable",
+      "community_name": "HittableList",
       "norm_label": ".__init__()"
     },
     {
@@ -25143,7 +25143,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_bvh_bvhnode_hit",
       "community": 63,
-      "community_name": "Hittable",
+      "community_name": "HittableList",
       "norm_label": ".hit()"
     },
     {
@@ -25154,7 +25154,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_bvh_bvhnode_bounding_box",
       "community": 63,
-      "community_name": "Hittable",
+      "community_name": "HittableList",
       "norm_label": ".bounding_box()"
     },
     {
@@ -25165,7 +25165,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_camera",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "therestofyourlife/python/camera.py"
     },
     {
@@ -25176,7 +25176,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_camera_camera",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "camera"
     },
     {
@@ -25186,7 +25186,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_camera_camera_init",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".__init__()"
     },
@@ -25198,7 +25198,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_camera_camera_render",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": ".render()"
     },
     {
@@ -25209,7 +25209,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_camera_camera_initialize",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": ".initialize()"
     },
     {
@@ -25220,7 +25220,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_camera_camera_get_ray",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": ".get_ray()"
     },
     {
@@ -25231,7 +25231,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_camera_camera_sample_square_stratified",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": ".sample_square_stratified()"
     },
     {
@@ -25242,7 +25242,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_camera_camera_sample_square",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": ".sample_square()"
     },
     {
@@ -25253,7 +25253,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_camera_camera_sample_disk",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": ".sample_disk()"
     },
     {
@@ -25264,7 +25264,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_camera_camera_defocus_disk_sample",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": ".defocus_disk_sample()"
     },
     {
@@ -25275,7 +25275,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_camera_camera_ray_color",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": ".ray_color()"
     },
     {
@@ -25286,7 +25286,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_color",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "therestofyourlife/python/color.py"
     },
     {
@@ -25297,7 +25297,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_color_linear_to_gamma",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "linear_to_gamma()"
     },
     {
@@ -25308,7 +25308,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_color_write_color",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "write_color()"
     },
     {
@@ -25329,8 +25329,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_constant_medium_constantmedium",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 372,
+      "community_name": "Vec3",
       "norm_label": "constantmedium"
     },
     {
@@ -25340,8 +25340,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_constant_medium_py_hittable",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 372,
+      "community_name": "Vec3",
       "norm_label": "hittable"
     },
     {
@@ -25351,8 +25351,8 @@
       "source_location": "L21",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_constant_medium_constantmedium_init",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 372,
+      "community_name": "Vec3",
       "norm_label": ".__init__()"
     },
     {
@@ -25362,8 +25362,8 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_constant_medium_constantmedium_hit",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 372,
+      "community_name": "Vec3",
       "norm_label": ".hit()"
     },
     {
@@ -25373,8 +25373,8 @@
       "source_location": "L62",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_constant_medium_constantmedium_bounding_box",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 372,
+      "community_name": "Vec3",
       "norm_label": ".bounding_box()"
     },
     {
@@ -25385,7 +25385,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_cos_cubed",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "cos_cubed.py"
     },
     {
@@ -25396,7 +25396,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_cos_cubed_f",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "f()"
     },
     {
@@ -25407,7 +25407,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_cos_cubed_pdf",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "pdf()"
     },
     {
@@ -25418,7 +25418,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_cos_cubed_main",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "main()"
     },
     {
@@ -25428,8 +25428,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_cos_density",
-      "community": 44,
-      "community_name": "TheRestOfYourLife/python/material.py",
+      "community": 372,
+      "community_name": "Vec3",
       "norm_label": "cos_density.py"
     },
     {
@@ -25439,8 +25439,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_cos_density_f",
-      "community": 44,
-      "community_name": "TheRestOfYourLife/python/material.py",
+      "community": 372,
+      "community_name": "Vec3",
       "norm_label": "f()"
     },
     {
@@ -25450,8 +25450,8 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_cos_density_pdf",
-      "community": 44,
-      "community_name": "TheRestOfYourLife/python/material.py",
+      "community": 372,
+      "community_name": "Vec3",
       "norm_label": "pdf()"
     },
     {
@@ -25461,8 +25461,8 @@
       "source_location": "L24",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_cos_density_main",
-      "community": 44,
-      "community_name": "TheRestOfYourLife/python/material.py",
+      "community": 372,
+      "community_name": "Vec3",
       "norm_label": "main()"
     },
     {
@@ -25473,7 +25473,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_estimate_halfway",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "estimate_halfway.py"
     },
     {
@@ -25484,7 +25484,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_estimate_halfway_sample",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "sample"
     },
     {
@@ -25495,7 +25495,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_estimate_halfway_sample_init",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": ".__init__()"
     },
     {
@@ -25506,7 +25506,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_estimate_halfway_main",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "main()"
     },
     {
@@ -25780,7 +25780,7 @@
       "source_location": "L58",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_hittable_hittable_random",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".random()"
     },
@@ -25813,7 +25813,7 @@
       "source_location": "L68",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_hittable_translate_hit",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".hit()"
     },
@@ -25857,7 +25857,7 @@
       "source_location": "L113",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_hittable_rotatey_hit",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".hit()"
     },
@@ -26001,7 +26001,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_integrate_x_sq",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "integrate_x_sq.py"
     },
     {
@@ -26012,7 +26012,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_integrate_x_sq_icd",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "icd()"
     },
     {
@@ -26023,7 +26023,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_integrate_x_sq_pdf",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "pdf()"
     },
     {
@@ -26034,7 +26034,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_integrate_x_sq_main",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "main()"
     },
     {
@@ -26198,7 +26198,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_material_scatterrecord_init",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".__init__()"
     },
@@ -26649,8 +26649,8 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_pdf_cosinepdf_generate",
-      "community": 44,
-      "community_name": "TheRestOfYourLife/python/material.py",
+      "community": 372,
+      "community_name": "Vec3",
       "norm_label": ".generate()"
     },
     {
@@ -26661,7 +26661,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_pdf_hittablepdf",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "hittablepdf"
     },
     {
@@ -26672,7 +26672,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_pdf_hittablepdf_init",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": ".__init__()"
     },
     {
@@ -26683,7 +26683,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_pdf_hittablepdf_value",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": ".value()"
     },
     {
@@ -26694,7 +26694,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_pdf_hittablepdf_generate",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": ".generate()"
     },
     {
@@ -26705,7 +26705,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_pdf_mixturepdf",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "mixturepdf"
     },
     {
@@ -26716,7 +26716,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_pdf_mixturepdf_init",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": ".__init__()"
     },
     {
@@ -26727,7 +26727,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_pdf_mixturepdf_value",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": ".value()"
     },
     {
@@ -26738,7 +26738,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_pdf_mixturepdf_generate",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": ".generate()"
     },
     {
@@ -26837,7 +26837,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_pi",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "pi.py"
     },
     {
@@ -26848,7 +26848,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_pi_main",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "main()"
     },
     {
@@ -26979,7 +26979,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_ray",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": "therestofyourlife/python/ray.py"
     },
@@ -26990,7 +26990,7 @@
       "source_location": "L14",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_ray_ray",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": "ray"
     },
@@ -27001,7 +27001,7 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_ray_ray_init",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".__init__()"
     },
@@ -27012,7 +27012,7 @@
       "source_location": "L20",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_ray_ray_origin",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".origin()"
     },
@@ -27023,7 +27023,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_ray_ray_direction",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".direction()"
     },
@@ -27034,7 +27034,7 @@
       "source_location": "L26",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_ray_ray_time",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".time()"
     },
@@ -27045,7 +27045,7 @@
       "source_location": "L29",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_ray_ray_at",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".at()"
     },
@@ -27167,7 +27167,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_rtweekend",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "therestofyourlife/python/rtweekend.py"
     },
     {
@@ -27178,7 +27178,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_rtweekend_degrees_to_radians",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "degrees_to_radians()"
     },
     {
@@ -27189,7 +27189,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_rtweekend_random_double",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "random_double()"
     },
     {
@@ -27200,7 +27200,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_rtweekend_random_int",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "random_int()"
     },
     {
@@ -27221,7 +27221,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_sphere_sphere",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": "sphere"
     },
@@ -27232,7 +27232,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_sphere_py_hittable",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": "hittable"
     },
@@ -27243,7 +27243,7 @@
       "source_location": "L23",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_sphere_sphere_init",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".__init__()"
     },
@@ -27254,7 +27254,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_sphere_sphere_hit",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".hit()"
     },
@@ -27265,7 +27265,7 @@
       "source_location": "L72",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_sphere_sphere_bounding_box",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".bounding_box()"
     },
@@ -27276,7 +27276,7 @@
       "source_location": "L75",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_sphere_sphere_pdf_value",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".pdf_value()"
     },
@@ -27287,7 +27287,7 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_sphere_sphere_random",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".random()"
     },
@@ -27298,7 +27298,7 @@
       "source_location": "L93",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_sphere_sphere_get_sphere_uv",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".get_sphere_uv()"
     },
@@ -27309,7 +27309,7 @@
       "source_location": "L102",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_sphere_sphere_random_to_sphere",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".random_to_sphere()"
     },
@@ -27365,7 +27365,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_sphere_plot",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "sphere_plot.py"
     },
     {
@@ -27376,7 +27376,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_sphere_plot_main",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "main()"
     },
     {
@@ -27573,7 +27573,7 @@
       "source_location": "L18",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": "vec3"
     },
@@ -27584,7 +27584,7 @@
       "source_location": "L19",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_init",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".__init__()"
     },
@@ -27595,7 +27595,7 @@
       "source_location": "L22",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_x",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".x()"
     },
@@ -27606,7 +27606,7 @@
       "source_location": "L25",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_y",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".y()"
     },
@@ -27617,7 +27617,7 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_z",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".z()"
     },
@@ -27628,7 +27628,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_neg",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".__neg__()"
     },
@@ -27639,7 +27639,7 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_getitem",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".__getitem__()"
     },
@@ -27650,7 +27650,7 @@
       "source_location": "L37",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_setitem",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".__setitem__()"
     },
@@ -27661,7 +27661,7 @@
       "source_location": "L40",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_iadd",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".__iadd__()"
     },
@@ -27672,7 +27672,7 @@
       "source_location": "L46",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_imul",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".__imul__()"
     },
@@ -27683,7 +27683,7 @@
       "source_location": "L52",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_itruediv",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".__itruediv__()"
     },
@@ -27716,7 +27716,7 @@
       "source_location": "L61",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_near_zero",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".near_zero()"
     },
@@ -27727,7 +27727,7 @@
       "source_location": "L66",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_copy_from",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".copy_from()"
     },
@@ -27738,7 +27738,7 @@
       "source_location": "L71",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_random",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".random()"
     },
@@ -27749,7 +27749,7 @@
       "source_location": "L80",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_add",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".__add__()"
     },
@@ -27760,7 +27760,7 @@
       "source_location": "L83",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_sub",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".__sub__()"
     },
@@ -27771,7 +27771,7 @@
       "source_location": "L86",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_mul",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".__mul__()"
     },
@@ -27782,7 +27782,7 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_rmul",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".__rmul__()"
     },
@@ -27793,7 +27793,7 @@
       "source_location": "L94",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_truediv",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".__truediv__()"
     },
@@ -27804,7 +27804,7 @@
       "source_location": "L97",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_vec3_repr",
-      "community": 128,
+      "community": 372,
       "community_name": "Vec3",
       "norm_label": ".__repr__()"
     },
@@ -27849,7 +27849,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_random_in_unit_disk",
       "community": 128,
-      "community_name": "Vec3",
+      "community_name": "random_double",
       "norm_label": "random_in_unit_disk()"
     },
     {
@@ -27903,8 +27903,8 @@
       "source_location": "L156",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_python_vec3_random_cosine_direction",
-      "community": 44,
-      "community_name": "TheRestOfYourLife/python/material.py",
+      "community": 372,
+      "community_name": "Vec3",
       "norm_label": "random_cosine_direction()"
     },
     {
@@ -30103,8 +30103,8 @@
       "source_location": "L1252",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_getn",
-      "community": 393,
-      "community_name": "stbi__malloc",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__getn()"
     },
     {
@@ -30455,8 +30455,8 @@
       "source_location": "L2642",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_process_scan_header",
-      "community": 383,
-      "community_name": "stbi__jpeg",
+      "community": 393,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__process_scan_header()"
     },
     {
@@ -31181,8 +31181,8 @@
       "source_location": "L4578",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_bmp_load",
-      "community": 110,
-      "community_name": "stbi__context",
+      "community": 148,
+      "community_name": "src/external/stb_image.h",
       "norm_label": "stbi__bmp_load()"
     },
     {
@@ -31302,8 +31302,8 @@
       "source_location": "L5386",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_pic_load",
-      "community": 393,
-      "community_name": "stbi__malloc",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__pic_load()"
     },
     {
@@ -31577,8 +31577,8 @@
       "source_location": "L6132",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_pnm_load",
-      "community": 393,
-      "community_name": "stbi__malloc",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__pnm_load()"
     },
     {
@@ -44601,8 +44601,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "ron_code_sphere_oy_sphere",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 50,
+      "community_name": "Vec3",
       "norm_label": "sphere"
     },
     {
@@ -44612,8 +44612,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_sphere_oy_py_hittable",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 50,
+      "community_name": "Vec3",
       "norm_label": "hittable"
     },
     {
@@ -44623,8 +44623,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "ron_code_sphere_oy_sphere_init",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 50,
+      "community_name": "Vec3",
       "norm_label": ".__init__()"
     },
     {
@@ -44634,8 +44634,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "ron_code_sphere_oy_sphere_hit",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 50,
+      "community_name": "Vec3",
       "norm_label": ".hit()"
     },
     {
@@ -44645,8 +44645,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_sphere_oy_py_ray",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 50,
+      "community_name": "Vec3",
       "norm_label": "ray"
     },
     {
@@ -44656,8 +44656,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_sphere_oy_py_hitrecord",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 50,
+      "community_name": "Vec3",
       "norm_label": "hitrecord"
     },
     {
@@ -44678,8 +44678,8 @@
       "source_location": "L7",
       "_origin": "ast",
       "id": "ron_code_sphere_sphere",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 50,
+      "community_name": "Vec3",
       "norm_label": "sphere"
     },
     {
@@ -44689,8 +44689,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_sphere_py_hittable",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 50,
+      "community_name": "Vec3",
       "norm_label": "hittable"
     },
     {
@@ -44700,8 +44700,8 @@
       "source_location": "L8",
       "_origin": "ast",
       "id": "ron_code_sphere_sphere_init",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 50,
+      "community_name": "Vec3",
       "norm_label": ".__init__()"
     },
     {
@@ -44711,8 +44711,8 @@
       "source_location": "L12",
       "_origin": "ast",
       "id": "ron_code_sphere_sphere_hit",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 50,
+      "community_name": "Vec3",
       "norm_label": ".hit()"
     },
     {
@@ -44722,8 +44722,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_sphere_py_ray",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 50,
+      "community_name": "Vec3",
       "norm_label": "ray"
     },
     {
@@ -44733,8 +44733,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_sphere_py_hitrecord",
-      "community": 63,
-      "community_name": "Hittable",
+      "community": 50,
+      "community_name": "Vec3",
       "norm_label": "hitrecord"
     },
     {
@@ -98207,8 +98207,8 @@
       "source_location": "L990",
       "_origin": "ast",
       "id": "ninjatrader_bridge_emt_strategy_emtstrategyengine_manual_close",
-      "community": 27,
-      "community_name": "EMTStrategyEngine",
+      "community": 430,
+      "community_name": "emt_strategy.py",
       "norm_label": ".manual_close()"
     },
     {
@@ -98339,8 +98339,8 @@
       "source_location": "L991",
       "_origin": "ast",
       "id": "ninjatrader_bridge_emt_strategy_rationale_991",
-      "community": 27,
-      "community_name": "EMTStrategyEngine",
+      "community": 430,
+      "community_name": "emt_strategy.py",
       "norm_label": "close one exact paper trade through the owning strategy engine."
     },
     {
@@ -111795,8 +111795,8 @@
       "source_location": "L158",
       "_origin": "ast",
       "id": "web_dashboard_get_fernet",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 428,
+      "community_name": "_save_users",
       "norm_label": "_get_fernet()"
     },
     {
@@ -111806,8 +111806,8 @@
       "source_location": "L170",
       "_origin": "ast",
       "id": "web_dashboard_enc_hash",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 428,
+      "community_name": "_save_users",
       "norm_label": "_enc_hash()"
     },
     {
@@ -111817,8 +111817,8 @@
       "source_location": "L179",
       "_origin": "ast",
       "id": "web_dashboard_dec_hash",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 45,
+      "community_name": ".do_GET",
       "norm_label": "_dec_hash()"
     },
     {
@@ -111828,8 +111828,8 @@
       "source_location": "L194",
       "_origin": "ast",
       "id": "web_dashboard_db_path",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 428,
+      "community_name": "_save_users",
       "norm_label": "_db_path()"
     },
     {
@@ -111839,8 +111839,8 @@
       "source_location": "L198",
       "_origin": "ast",
       "id": "web_dashboard_load_users",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 45,
+      "community_name": ".do_GET",
       "norm_label": "_load_users()"
     },
     {
@@ -111850,8 +111850,8 @@
       "source_location": "L221",
       "_origin": "ast",
       "id": "web_dashboard_save_users",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 428,
+      "community_name": "_save_users",
       "norm_label": "_save_users()"
     },
     {
@@ -111861,8 +111861,8 @@
       "source_location": "L247",
       "_origin": "ast",
       "id": "web_dashboard_delete_user_db",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 428,
+      "community_name": "_save_users",
       "norm_label": "_delete_user_db()"
     },
     {
@@ -111872,8 +111872,8 @@
       "source_location": "L257",
       "_origin": "ast",
       "id": "web_dashboard_ensure_admin_seeded",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 428,
+      "community_name": "_save_users",
       "norm_label": "_ensure_admin_seeded()"
     },
     {
@@ -111883,8 +111883,8 @@
       "source_location": "L295",
       "_origin": "ast",
       "id": "web_dashboard_needs_setup",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 45,
+      "community_name": ".do_GET",
       "norm_label": "_needs_setup()"
     },
     {
@@ -111894,8 +111894,8 @@
       "source_location": "L304",
       "_origin": "ast",
       "id": "web_dashboard_hash_password",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 428,
+      "community_name": "_save_users",
       "norm_label": "_hash_password()"
     },
     {
@@ -111905,8 +111905,8 @@
       "source_location": "L316",
       "_origin": "ast",
       "id": "web_dashboard_verify_password",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 428,
+      "community_name": "_save_users",
       "norm_label": "_verify_password()"
     },
     {
@@ -111916,8 +111916,8 @@
       "source_location": "L342",
       "_origin": "ast",
       "id": "web_dashboard_auth_check",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 428,
+      "community_name": "_save_users",
       "norm_label": "_auth_check()"
     },
     {
@@ -111960,8 +111960,8 @@
       "source_location": "L390",
       "_origin": "ast",
       "id": "web_dashboard_recovery_retry_after",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 33,
+      "community_name": ".do_POST",
       "norm_label": "_recovery_retry_after()"
     },
     {
@@ -111971,8 +111971,8 @@
       "source_location": "L403",
       "_origin": "ast",
       "id": "web_dashboard_record_recovery_attempt",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 33,
+      "community_name": ".do_POST",
       "norm_label": "_record_recovery_attempt()"
     },
     {
@@ -111982,8 +111982,8 @@
       "source_location": "L413",
       "_origin": "ast",
       "id": "web_dashboard_is_admin",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 45,
+      "community_name": ".do_GET",
       "norm_label": "_is_admin()"
     },
     {
@@ -111993,8 +111993,8 @@
       "source_location": "L418",
       "_origin": "ast",
       "id": "web_dashboard_user_force_change",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 45,
+      "community_name": ".do_GET",
       "norm_label": "_user_force_change()"
     },
     {
@@ -112004,8 +112004,8 @@
       "source_location": "L425",
       "_origin": "ast",
       "id": "web_dashboard_new_session",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 33,
+      "community_name": ".do_POST",
       "norm_label": "_new_session()"
     },
     {
@@ -112071,7 +112071,7 @@
       "_origin": "ast",
       "id": "web_dashboard_is_bot_running",
       "community": 33,
-      "community_name": "is_bot_running",
+      "community_name": ".do_POST",
       "norm_label": "is_bot_running()"
     },
     {
@@ -112082,7 +112082,7 @@
       "_origin": "ast",
       "id": "web_dashboard_find_bot_pids_windows",
       "community": 33,
-      "community_name": "is_bot_running",
+      "community_name": ".do_POST",
       "norm_label": "find_bot_pids_windows()"
     },
     {
@@ -112093,7 +112093,7 @@
       "_origin": "ast",
       "id": "web_dashboard_start_bot_process",
       "community": 33,
-      "community_name": "is_bot_running",
+      "community_name": ".do_POST",
       "norm_label": "start_bot_process()"
     },
     {
@@ -112103,8 +112103,8 @@
       "source_location": "L815",
       "_origin": "ast",
       "id": "web_dashboard_open_project_terminal",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 33,
+      "community_name": ".do_POST",
       "norm_label": "open_project_terminal()"
     },
     {
@@ -112114,8 +112114,8 @@
       "source_location": "L848",
       "_origin": "ast",
       "id": "web_dashboard_open_hostinger_terminal",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 33,
+      "community_name": ".do_POST",
       "norm_label": "open_hostinger_terminal()"
     },
     {
@@ -112236,7 +112236,7 @@
       "_origin": "ast",
       "id": "web_dashboard_stop_bot_process",
       "community": 33,
-      "community_name": "is_bot_running",
+      "community_name": ".do_POST",
       "norm_label": "stop_bot_process()"
     },
     {
@@ -112499,8 +112499,8 @@
       "source_location": "L2397",
       "_origin": "ast",
       "id": "web_dashboard_scanner_snapshot",
-      "community": 101,
-      "community_name": "get_chart_data",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "_scanner_snapshot()"
     },
     {
@@ -112510,8 +112510,8 @@
       "source_location": "L2406",
       "_origin": "ast",
       "id": "web_dashboard_parse_chart_time",
-      "community": 101,
-      "community_name": "get_chart_data",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "_parse_chart_time()"
     },
     {
@@ -112521,8 +112521,8 @@
       "source_location": "L2418",
       "_origin": "ast",
       "id": "web_dashboard_fresh_emt_tick_bars",
-      "community": 101,
-      "community_name": "get_chart_data",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "_fresh_emt_tick_bars()"
     },
     {
@@ -112532,8 +112532,8 @@
       "source_location": "L2439",
       "_origin": "ast",
       "id": "web_dashboard_scanner_bars_for_chart",
-      "community": 101,
-      "community_name": "get_chart_data",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "_scanner_bars_for_chart()"
     },
     {
@@ -112554,8 +112554,8 @@
       "source_location": "L2513",
       "_origin": "ast",
       "id": "web_dashboard_scanner_configure_strategy",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 33,
+      "community_name": ".do_POST",
       "norm_label": "_scanner_configure_strategy()"
     },
     {
@@ -112587,8 +112587,8 @@
       "source_location": "L2613",
       "_origin": "ast",
       "id": "web_dashboard_chart_bars_alpaca",
-      "community": 101,
-      "community_name": "get_chart_data",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "_chart_bars_alpaca()"
     },
     {
@@ -112598,8 +112598,8 @@
       "source_location": "L2643",
       "_origin": "ast",
       "id": "web_dashboard_chart_bars_ibkr",
-      "community": 101,
-      "community_name": "get_chart_data",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "_chart_bars_ibkr()"
     },
     {
@@ -112609,8 +112609,8 @@
       "source_location": "L2659",
       "_origin": "ast",
       "id": "web_dashboard_resample_bars",
-      "community": 101,
-      "community_name": "get_chart_data",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "_resample_bars()"
     },
     {
@@ -112620,8 +112620,8 @@
       "source_location": "L2694",
       "_origin": "ast",
       "id": "web_dashboard_chart_bars_kraken",
-      "community": 101,
-      "community_name": "get_chart_data",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "_chart_bars_kraken()"
     },
     {
@@ -112631,8 +112631,8 @@
       "source_location": "L2746",
       "_origin": "ast",
       "id": "web_dashboard_chart_bars_coinbase",
-      "community": 101,
-      "community_name": "get_chart_data",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "_chart_bars_coinbase()"
     },
     {
@@ -112642,8 +112642,8 @@
       "source_location": "L2771",
       "_origin": "ast",
       "id": "web_dashboard_chart_bars_tradovate",
-      "community": 101,
-      "community_name": "get_chart_data",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "_chart_bars_tradovate()"
     },
     {
@@ -112653,8 +112653,8 @@
       "source_location": "L2836",
       "_origin": "ast",
       "id": "web_dashboard_chart_bars_yfinance",
-      "community": 101,
-      "community_name": "get_chart_data",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "_chart_bars_yfinance()"
     },
     {
@@ -112664,8 +112664,8 @@
       "source_location": "L2880",
       "_origin": "ast",
       "id": "web_dashboard_futures_front_month_ticker",
-      "community": 101,
-      "community_name": "get_chart_data",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "_futures_front_month_ticker()"
     },
     {
@@ -112730,8 +112730,8 @@
       "source_location": "L3227",
       "_origin": "ast",
       "id": "web_dashboard_get_chart_data",
-      "community": 101,
-      "community_name": "get_chart_data",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "get_chart_data()"
     },
     {
@@ -112796,8 +112796,8 @@
       "source_location": "L3609",
       "_origin": "ast",
       "id": "web_dashboard_clear_injected_symbols",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 33,
+      "community_name": ".do_POST",
       "norm_label": "clear_injected_symbols()"
     },
     {
@@ -112807,8 +112807,8 @@
       "source_location": "L3616",
       "_origin": "ast",
       "id": "web_dashboard_format_trade_time",
-      "community": 33,
-      "community_name": "is_bot_running",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "_format_trade_time()"
     },
     {
@@ -112818,8 +112818,8 @@
       "source_location": "L3628",
       "_origin": "ast",
       "id": "web_dashboard_normalize_trade_datetimes",
-      "community": 33,
-      "community_name": "is_bot_running",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "_normalize_trade_datetimes()"
     },
     {
@@ -112829,8 +112829,8 @@
       "source_location": "L3642",
       "_origin": "ast",
       "id": "web_dashboard_format_duration",
-      "community": 33,
-      "community_name": "is_bot_running",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "_format_duration()"
     },
     {
@@ -112840,8 +112840,8 @@
       "source_location": "L3653",
       "_origin": "ast",
       "id": "web_dashboard_get_today_trade_log",
-      "community": 33,
-      "community_name": "is_bot_running",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "get_today_trade_log()"
     },
     {
@@ -112852,7 +112852,7 @@
       "_origin": "ast",
       "id": "web_dashboard_get_overview_data",
       "community": 33,
-      "community_name": "is_bot_running",
+      "community_name": ".do_POST",
       "norm_label": "get_overview_data()"
     },
     {
@@ -112884,8 +112884,8 @@
       "source_location": "L3885",
       "_origin": "ast",
       "id": "web_dashboard_export_tax_csv",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 33,
+      "community_name": ".do_POST",
       "norm_label": "export_tax_csv()"
     },
     {
@@ -112895,8 +112895,8 @@
       "source_location": "L3897",
       "_origin": "ast",
       "id": "web_dashboard_process_withdrawal",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 33,
+      "community_name": ".do_POST",
       "norm_label": "process_withdrawal()"
     },
     {
@@ -112906,8 +112906,8 @@
       "source_location": "L3905",
       "_origin": "ast",
       "id": "web_dashboard_record_expense",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 33,
+      "community_name": ".do_POST",
       "norm_label": "record_expense()"
     },
     {
@@ -112917,8 +112917,8 @@
       "source_location": "L3926",
       "_origin": "ast",
       "id": "web_dashboard_retrain_ml",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 33,
+      "community_name": ".do_POST",
       "norm_label": "retrain_ml()"
     },
     {
@@ -112928,8 +112928,8 @@
       "source_location": "L3937",
       "_origin": "ast",
       "id": "web_dashboard_chat_with_bot",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 33,
+      "community_name": ".do_POST",
       "norm_label": "chat_with_bot()"
     },
     {
@@ -112939,8 +112939,8 @@
       "source_location": "L3959",
       "_origin": "ast",
       "id": "web_dashboard_load_chronos_pipeline",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 433,
+      "community_name": "_chronos_predict",
       "norm_label": "_load_chronos_pipeline()"
     },
     {
@@ -112950,8 +112950,8 @@
       "source_location": "L4005",
       "_origin": "ast",
       "id": "web_dashboard_chronos_predict",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 433,
+      "community_name": "_chronos_predict",
       "norm_label": "_chronos_predict()"
     },
     {
@@ -112984,7 +112984,7 @@
       "_origin": "ast",
       "id": "web_dashboard_py_path",
       "community": 33,
-      "community_name": "is_bot_running",
+      "community_name": ".do_POST",
       "norm_label": "path"
     },
     {
@@ -113126,8 +113126,8 @@
       "source_location": "L4554",
       "_origin": "ast",
       "id": "web_dashboard_db_quick",
-      "community": 45,
-      "community_name": ".do_GET",
+      "community": 109,
+      "community_name": "_db_conn",
       "norm_label": "db_quick()"
     },
     {
@@ -113192,8 +113192,8 @@
       "source_location": "L4771",
       "_origin": "ast",
       "id": "web_dashboard_db_flush_ghost",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 109,
+      "community_name": "_db_conn",
       "norm_label": "db_flush_ghost()"
     },
     {
@@ -113203,8 +113203,8 @@
       "source_location": "L4789",
       "_origin": "ast",
       "id": "web_dashboard_db_strategy_toggle",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 109,
+      "community_name": "_db_conn",
       "norm_label": "db_strategy_toggle()"
     },
     {
@@ -113215,7 +113215,7 @@
       "_origin": "ast",
       "id": "web_dashboard_safe_log_path",
       "community": 33,
-      "community_name": "is_bot_running",
+      "community_name": ".do_POST",
       "norm_label": "_safe_log_path()"
     },
     {
@@ -113226,7 +113226,7 @@
       "_origin": "ast",
       "id": "web_dashboard_read_log_context",
       "community": 33,
-      "community_name": "is_bot_running",
+      "community_name": ".do_POST",
       "norm_label": "_read_log_context()"
     },
     {
@@ -113237,7 +113237,7 @@
       "_origin": "ast",
       "id": "web_dashboard_db_log_context",
       "community": 33,
-      "community_name": "is_bot_running",
+      "community_name": ".do_POST",
       "norm_label": "db_log_context()"
     },
     {
@@ -113247,8 +113247,8 @@
       "source_location": "L4911",
       "_origin": "ast",
       "id": "web_dashboard_build_snapshot",
-      "community": 33,
-      "community_name": "is_bot_running",
+      "community": 45,
+      "community_name": ".do_GET",
       "norm_label": "build_snapshot()"
     },
     {
@@ -113412,8 +113412,8 @@
       "source_location": "L5456",
       "_origin": "ast",
       "id": "web_dashboard_handler_do_post",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 33,
+      "community_name": ".do_POST",
       "norm_label": ".do_post()"
     },
     {
@@ -113434,8 +113434,8 @@
       "source_location": "L159",
       "_origin": "ast",
       "id": "web_dashboard_rationale_159",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 428,
+      "community_name": "_save_users",
       "norm_label": "return a fernet instance using the key from the os credential store. returns..."
     },
     {
@@ -113445,8 +113445,8 @@
       "source_location": "L171",
       "_origin": "ast",
       "id": "web_dashboard_rationale_171",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 428,
+      "community_name": "_save_users",
       "norm_label": "encrypt a password hash string for db storage. falls back to plain: prefix if..."
     },
     {
@@ -113456,8 +113456,8 @@
       "source_location": "L180",
       "_origin": "ast",
       "id": "web_dashboard_rationale_180",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 45,
+      "community_name": ".do_GET",
       "norm_label": "decrypt a stored hash_enc value back to the raw sha256 hash string."
     },
     {
@@ -113467,8 +113467,8 @@
       "source_location": "L199",
       "_origin": "ast",
       "id": "web_dashboard_rationale_199",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 45,
+      "community_name": ".do_GET",
       "norm_label": "return {username: {hash, role, force_change}} from db."
     },
     {
@@ -113478,8 +113478,8 @@
       "source_location": "L222",
       "_origin": "ast",
       "id": "web_dashboard_rationale_222",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 428,
+      "community_name": "_save_users",
       "norm_label": "write the users dict back to db, encrypting hashes."
     },
     {
@@ -113489,8 +113489,8 @@
       "source_location": "L258",
       "_origin": "ast",
       "id": "web_dashboard_rationale_258",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 428,
+      "community_name": "_save_users",
       "norm_label": "seed admin/admin (force_change=true) if no users exist in db yet. also migrates..."
     },
     {
@@ -113500,8 +113500,8 @@
       "source_location": "L296",
       "_origin": "ast",
       "id": "web_dashboard_rationale_296",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 45,
+      "community_name": ".do_GET",
       "norm_label": "true when the only account is admin with force_change=true (fresh install)."
     },
     {
@@ -113522,8 +113522,8 @@
       "source_location": "L391",
       "_origin": "ast",
       "id": "web_dashboard_rationale_391",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 33,
+      "community_name": ".do_POST",
       "norm_label": "return seconds to wait when repeated recovery failures trip the throttle."
     },
     {
@@ -113534,7 +113534,7 @@
       "_origin": "ast",
       "id": "web_dashboard_rationale_709",
       "community": 33,
-      "community_name": "is_bot_running",
+      "community_name": ".do_POST",
       "norm_label": "best-effort check for bot process."
     },
     {
@@ -113545,7 +113545,7 @@
       "_origin": "ast",
       "id": "web_dashboard_rationale_721",
       "community": 33,
-      "community_name": "is_bot_running",
+      "community_name": ".do_POST",
       "norm_label": "find pids for processes whose command line contains bot_engine.py."
     },
     {
@@ -113556,7 +113556,7 @@
       "_origin": "ast",
       "id": "web_dashboard_rationale_777",
       "community": 33,
-      "community_name": "is_bot_running",
+      "community_name": ".do_POST",
       "norm_label": "start bot_engine.py if not already running."
     },
     {
@@ -113566,8 +113566,8 @@
       "source_location": "L816",
       "_origin": "ast",
       "id": "web_dashboard_rationale_816",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 33,
+      "community_name": ".do_POST",
       "norm_label": "open an interactive local shell rooted in the trading bot workspace."
     },
     {
@@ -113577,8 +113577,8 @@
       "source_location": "L849",
       "_origin": "ast",
       "id": "web_dashboard_rationale_849",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 33,
+      "community_name": ".do_POST",
       "norm_label": "open a windows powershell ssh session to hostinger when possible."
     },
     {
@@ -113589,7 +113589,7 @@
       "_origin": "ast",
       "id": "web_dashboard_rationale_1070",
       "community": 33,
-      "community_name": "is_bot_running",
+      "community_name": ".do_POST",
       "norm_label": "stop bot_engine.py process(es)."
     },
     {
@@ -113720,8 +113720,8 @@
       "source_location": "L2421",
       "_origin": "ast",
       "id": "web_dashboard_rationale_2421",
-      "community": 101,
-      "community_name": "get_chart_data",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "return emt tick bars only when the cache is usable as a live chart."
     },
     {
@@ -113731,8 +113731,8 @@
       "source_location": "L2660",
       "_origin": "ast",
       "id": "web_dashboard_rationale_2660",
-      "community": 101,
-      "community_name": "get_chart_data",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "resample a list of 1-minute ohlcv bars into n-minute bars. used for timeframes..."
     },
     {
@@ -113742,8 +113742,8 @@
       "source_location": "L2772",
       "_origin": "ast",
       "id": "web_dashboard_rationale_2772",
-      "community": 101,
-      "community_name": "get_chart_data",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "return bars from the tradovate real-time websocket cache. returns [] if the..."
     },
     {
@@ -113753,8 +113753,8 @@
       "source_location": "L2881",
       "_origin": "ast",
       "id": "web_dashboard_rationale_2881",
-      "community": 101,
-      "community_name": "get_chart_data",
+      "community": 354,
+      "community_name": "web_dashboard.py",
       "norm_label": "build the yfinance-style specific front-month contract ticker for a futures..."
     },
     {
@@ -113786,8 +113786,8 @@
       "source_location": "L3960",
       "_origin": "ast",
       "id": "web_dashboard_rationale_3960",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 433,
+      "community_name": "_chronos_predict",
       "norm_label": "load amazon/chronos-t5-base once and cache it. returns the pipeline object or..."
     },
     {
@@ -113797,8 +113797,8 @@
       "source_location": "L4006",
       "_origin": "ast",
       "id": "web_dashboard_rationale_4006",
-      "community": 354,
-      "community_name": "web_dashboard.py",
+      "community": 433,
+      "community_name": "_chronos_predict",
       "norm_label": "post /api/chronos_predict receives: { symbol, timeframe, bars:..."
     },
     {
@@ -113830,8 +113830,8 @@
       "source_location": "L4912",
       "_origin": "ast",
       "id": "web_dashboard_rationale_4912",
-      "community": 33,
-      "community_name": "is_bot_running",
+      "community": 45,
+      "community_name": ".do_GET",
       "norm_label": "top-level status metrics."
     },
     {
@@ -221686,7 +221686,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L697",
+      "source_location": "L698",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_main",
@@ -236673,7 +236673,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L728",
+      "source_location": "L729",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_main",
@@ -236696,7 +236696,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L764",
+      "source_location": "L765",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_main",
@@ -404830,5 +404830,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "281fff9c47f2ef69706710f85180f0323dace546"
+  "built_at_commit": "3e7dbf5cf740f405ba41706890e3d8aa62e60365"
 }
