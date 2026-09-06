@@ -175,6 +175,19 @@ def _et_now_str() -> str:
     return datetime.now(ZoneInfo("America/New_York")).strftime("%a %H:%M ET")
 
 
+def _paper_brokers_in_capital_breakdown(breakdown: dict) -> list[dict]:
+    """Return enabled paper brokers whose balances are separate simulations.
+
+    Their balances must never be summed and compared to the shared local P&L
+    ledger: each paper account has its own synthetic starting balance, while
+    risk capital is one ledger derived from STARTING_CAPITAL plus closed P&L.
+    """
+    return [
+        broker for broker in (breakdown.get("brokers") or [])
+        if broker.get("enabled") and broker.get("paper")
+    ]
+
+
 class BotEngine:
 
     def __init__(self):
@@ -730,7 +743,18 @@ class BotEngine:
             total     = breakdown.get("total_balance", 0.0)
             cap = self.db.get_latest_capital()
             db_total = float(cap.get("total_capital", 0.0)) if cap else 0.0
-            if total > 0 and db_total > 0 and abs(total - db_total) > 1000:
+            paper_brokers = _paper_brokers_in_capital_breakdown(breakdown)
+            if paper_brokers:
+                names = ", ".join(
+                    str(broker.get("broker") or "unknown")
+                    for broker in paper_brokers
+                )
+                self.logger.info(
+                    "[CAPITAL SYNC] skipping aggregate broker-equity comparison "
+                    f"because paper balances are independent simulations ({names}); "
+                    "risk capital remains on DB/PnL accounting"
+                )
+            elif total > 0 and db_total > 0 and abs(total - db_total) > 1000:
                 self.logger.warning(
                     f"[CAPITAL SYNC] broker equity ${total:,.2f} differs from "
                     f"DB trading capital ${db_total:,.2f}; leaving risk capital "

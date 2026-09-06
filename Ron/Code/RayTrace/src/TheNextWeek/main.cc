@@ -45,7 +45,15 @@ struct camera_options {
 };
 
 inline void apply_options(camera& cam, const camera_options& opt) {
-    if (opt.width > 0) cam.image_width = opt.width;
+    if (opt.is_resize && opt.resize_w > 0 && opt.resize_h > 0) {
+        cam.image_width = opt.resize_w;
+        cam.aspect_ratio = double(opt.resize_w) / double(opt.resize_h);
+    } else {
+        if (opt.width > 0) cam.image_width = opt.width;
+        if (opt.is_scaled) {
+            cam.image_width = int(cam.image_width * opt.scale_fac);
+        }
+    }
     cam.outfile = opt.outfile;
     cam.debug = opt.debug;
     cam.printout = opt.printout;
@@ -178,11 +186,14 @@ void earth(const camera_options& opt) {
 
 void perlin_spheres(const camera_options& opt) {
     hittable_list world;
-
+  
+    auto light = make_shared<diffuse_light>(color(15, 15, 15));
     auto pertext = make_shared<noise_texture>(4);
     world.add(make_shared<sphere>(point3(0,-1000,0), 1000, make_shared<lambertian>(pertext)));
     world.add(make_shared<sphere>(point3(0,2,0), 2, make_shared<lambertian>(pertext)));
-
+    world.add(make_shared<quad>(point3(343, 554, 332), vec3(-130,0,0), vec3(0,0,-105), light));
+    world.add(make_shared<quad>(point3(343, 554, 332), vec3(130,0,0), vec3(0,0,-105), light));
+    world.add(make_shared<quad>(point3(343, 554, 332), vec3(-130,1300,0), vec3(0,0,-105), light));
     camera cam;
 
     cam.aspect_ratio      = 16.0 / 9.0;

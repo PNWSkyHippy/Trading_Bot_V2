@@ -229,6 +229,35 @@ FEE_RT_STOCK_PCT   = (BT_COMMISSION_STOCK_PCT  + BT_SLIPPAGE_STOCK_PCT)  * 2   #
 MIN_NET_PROFIT_CRYPTO_PCT = round(FEE_RT_CRYPTO_PCT + 0.40, 2)   # ~1.02 %
 MIN_NET_PROFIT_STOCK_PCT  = round(FEE_RT_STOCK_PCT  + 0.30, 2)   # ~0.32 %
 
+# ---------------------------------------------------------------------------
+# Tradovate futures all-in transaction fees (USD per contract, per side).
+#
+# EAT and EMT are paper futures strategies, but their paper performance must
+# include the same exchange/NFA, routing, clearing, and commission costs a
+# normal Tradovate "Free" membership customer pays.  These are the *all-in*
+# Free-plan rates from Tradovate's itemized rate card, effective 2025-12-06.
+# They intentionally exclude slippage: fill-price simulation remains the
+# strategy engine's separate responsibility.
+#
+# Update this table from Tradovate's current all-in rate card if the account
+# membership or published exchange fees change.  Do not substitute only the
+# advertised commission -- that omits exchange/NFA and clearing fees.
+# ---------------------------------------------------------------------------
+TRADOVATE_FEE_PLAN = "free"
+TRADOVATE_ALL_IN_FEE_PER_SIDE_USD = {
+    # CME / CBOT equity index futures
+    "ES": 2.88,
+    "NQ": 2.88,
+    "RTY": 2.88,
+    "YM": 2.88,
+    "MES": 0.95,
+    "MNQ": 0.95,
+    "M2K": 0.95,
+    "MYM": 0.95,
+    # CME cryptocurrency futures
+    "MBT": 1.71,
+}
+
 # Scanner profit protection stages:
 #   +1.0%: reduce risk to gross breakeven without choking the trade at the
 #          full fee-adjusted stop immediately.

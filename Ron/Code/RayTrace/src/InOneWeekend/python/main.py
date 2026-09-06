@@ -163,7 +163,15 @@ Usage examples:
     cam.scaled_width = width
     cam.outfile = outfile
     cam.printout = printout
-    cam.aspect_ratio = 16.0 / 9.0
+
+    if is_resize and width > 0 and height > 0:
+        render_width = width
+        cam.aspect_ratio = float(width) / float(height)
+    else:
+        cam.aspect_ratio = 16.0 / 9.0
+        if is_scaled:
+            render_width = int(render_width * scale_fac)
+
     cam.image_width = render_width
     cam.samples_per_pixel = 10
     cam.max_depth = 20

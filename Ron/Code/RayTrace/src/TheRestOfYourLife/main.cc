@@ -189,7 +189,16 @@ int main(int argc, char* argv[]) {
     cam.outfile       = outfile;
     cam.printout      = printout;
 
-    cam.aspect_ratio      = 1.0;
+    if (is_resize && resize_w > 0 && resize_h > 0) {
+        render_width = resize_w;
+        cam.aspect_ratio = double(resize_w) / double(resize_h);
+    } else {
+        cam.aspect_ratio = 1.0;
+        if (is_scaled) {
+            render_width = int(render_width * scale_fac);
+        }
+    }
+
     cam.image_width       = render_width;
     cam.samples_per_pixel = 100;
     cam.max_depth         = 50;
