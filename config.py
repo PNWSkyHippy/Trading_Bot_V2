@@ -254,6 +254,9 @@ TRADOVATE_ALL_IN_FEE_PER_SIDE_USD = {
     "MNQ": 0.95,
     "M2K": 0.95,
     "MYM": 0.95,
+    # COMEX metals futures
+    "GC": 3.10,
+    "MGC": 1.10,
     # CME cryptocurrency futures
     "MBT": 1.71,
 }
