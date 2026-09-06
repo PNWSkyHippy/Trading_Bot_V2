@@ -54,8 +54,8 @@
       "source_location": "L264",
       "_origin": "ast",
       "id": "breakoutscanner_unique_keep_order",
-      "community": 147,
-      "community_name": "BreakoutScanner.py",
+      "community": 148,
+      "community_name": "StockDataFetcher",
       "norm_label": "_unique_keep_order()"
     },
     {
@@ -65,8 +65,8 @@
       "source_location": "L276",
       "_origin": "ast",
       "id": "breakoutscanner_read_symbol_file",
-      "community": 147,
-      "community_name": "BreakoutScanner.py",
+      "community": 148,
+      "community_name": "StockDataFetcher",
       "norm_label": "_read_symbol_file()"
     },
     {
@@ -76,8 +76,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "breakoutscanner_py_path",
-      "community": 147,
-      "community_name": "BreakoutScanner.py",
+      "community": 148,
+      "community_name": "StockDataFetcher",
       "norm_label": "path"
     },
     {
@@ -87,8 +87,8 @@
       "source_location": "L286",
       "_origin": "ast",
       "id": "breakoutscanner_latest_scan_csv",
-      "community": 147,
-      "community_name": "BreakoutScanner.py",
+      "community": 148,
+      "community_name": "StockDataFetcher",
       "norm_label": "_latest_scan_csv()"
     },
     {
@@ -98,8 +98,8 @@
       "source_location": "L297",
       "_origin": "ast",
       "id": "breakoutscanner_read_scan_csv",
-      "community": 147,
-      "community_name": "BreakoutScanner.py",
+      "community": 148,
+      "community_name": "StockDataFetcher",
       "norm_label": "_read_scan_csv()"
     },
     {
@@ -109,8 +109,8 @@
       "source_location": "L323",
       "_origin": "ast",
       "id": "breakoutscanner_load_injected_stock_symbols",
-      "community": 147,
-      "community_name": "BreakoutScanner.py",
+      "community": 148,
+      "community_name": "StockDataFetcher",
       "norm_label": "load_injected_stock_symbols()"
     },
     {
@@ -120,8 +120,8 @@
       "source_location": "L330",
       "_origin": "ast",
       "id": "breakoutscanner_load_injected_crypto_symbols",
-      "community": 147,
-      "community_name": "BreakoutScanner.py",
+      "community": 148,
+      "community_name": "StockDataFetcher",
       "norm_label": "load_injected_crypto_symbols()"
     },
     {
@@ -208,8 +208,8 @@
       "source_location": "L445",
       "_origin": "ast",
       "id": "breakoutscanner_alert",
-      "community": 10,
-      "community_name": "GapWatchlist",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": "alert"
     },
     {
@@ -351,8 +351,8 @@
       "source_location": "L680",
       "_origin": "ast",
       "id": "breakoutscanner_configmanager_init",
-      "community": 147,
-      "community_name": "BreakoutScanner.py",
+      "community": 148,
+      "community_name": "StockDataFetcher",
       "norm_label": ".__init__()"
     },
     {
@@ -417,8 +417,8 @@
       "source_location": "L741",
       "_origin": "ast",
       "id": "breakoutscanner_configmanager_is_market_open",
-      "community": 147,
-      "community_name": "BreakoutScanner.py",
+      "community": 100,
+      "community_name": ".get",
       "norm_label": ".is_market_open()"
     },
     {
@@ -461,8 +461,8 @@
       "source_location": "L824",
       "_origin": "ast",
       "id": "breakoutscanner_stockdatafetcher",
-      "community": 147,
-      "community_name": "BreakoutScanner.py",
+      "community": 148,
+      "community_name": "StockDataFetcher",
       "norm_label": "stockdatafetcher"
     },
     {
@@ -483,8 +483,8 @@
       "source_location": "L853",
       "_origin": "ast",
       "id": "breakoutscanner_stockdatafetcher_stock_universe",
-      "community": 147,
-      "community_name": "BreakoutScanner.py",
+      "community": 148,
+      "community_name": "StockDataFetcher",
       "norm_label": "._stock_universe()"
     },
     {
@@ -494,8 +494,8 @@
       "source_location": "L860",
       "_origin": "ast",
       "id": "breakoutscanner_stockdatafetcher_get_top_movers",
-      "community": 147,
-      "community_name": "BreakoutScanner.py",
+      "community": 148,
+      "community_name": "StockDataFetcher",
       "norm_label": ".get_top_movers()"
     },
     {
@@ -505,8 +505,8 @@
       "source_location": "L885",
       "_origin": "ast",
       "id": "breakoutscanner_stockdatafetcher_yfinance_movers",
-      "community": 147,
-      "community_name": "BreakoutScanner.py",
+      "community": 148,
+      "community_name": "StockDataFetcher",
       "norm_label": "._yfinance_movers()"
     },
     {
@@ -516,8 +516,8 @@
       "source_location": "L908",
       "_origin": "ast",
       "id": "breakoutscanner_stockdatafetcher_get_historical_data",
-      "community": 147,
-      "community_name": "BreakoutScanner.py",
+      "community": 148,
+      "community_name": "StockDataFetcher",
       "norm_label": ".get_historical_data()"
     },
     {
@@ -527,8 +527,8 @@
       "source_location": "L963",
       "_origin": "ast",
       "id": "breakoutscanner_coingecko_price",
-      "community": 100,
-      "community_name": ".get",
+      "community": 168,
+      "community_name": "live_ticker_reference",
       "norm_label": "_coingecko_price()"
     },
     {
@@ -571,8 +571,8 @@
       "source_location": "L1063",
       "_origin": "ast",
       "id": "breakoutscanner_cryptodatafetcher_append_injected_crypto",
-      "community": 100,
-      "community_name": ".get",
+      "community": 168,
+      "community_name": "live_ticker_reference",
       "norm_label": "._append_injected_crypto()"
     },
     {
@@ -802,8 +802,8 @@
       "source_location": "L1426",
       "_origin": "ast",
       "id": "breakoutscanner_watchlistmanager",
-      "community": 100,
-      "community_name": ".get",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": "watchlistmanager"
     },
     {
@@ -934,8 +934,8 @@
       "source_location": "L1553",
       "_origin": "ast",
       "id": "breakoutscanner_alertsystem",
-      "community": 423,
-      "community_name": "AlertSystem",
+      "community": 100,
+      "community_name": ".get",
       "norm_label": "alertsystem"
     },
     {
@@ -945,8 +945,8 @@
       "source_location": "L1554",
       "_origin": "ast",
       "id": "breakoutscanner_alertsystem_init",
-      "community": 423,
-      "community_name": "AlertSystem",
+      "community": 100,
+      "community_name": ".get",
       "norm_label": ".__init__()"
     },
     {
@@ -956,8 +956,8 @@
       "source_location": "L1571",
       "_origin": "ast",
       "id": "breakoutscanner_alertsystem_start",
-      "community": 423,
-      "community_name": "AlertSystem",
+      "community": 100,
+      "community_name": ".get",
       "norm_label": ".start()"
     },
     {
@@ -967,8 +967,8 @@
       "source_location": "L1583",
       "_origin": "ast",
       "id": "breakoutscanner_alertsystem_stop",
-      "community": 423,
-      "community_name": "AlertSystem",
+      "community": 100,
+      "community_name": ".get",
       "norm_label": ".stop()"
     },
     {
@@ -1000,8 +1000,8 @@
       "source_location": "L1635",
       "_origin": "ast",
       "id": "breakoutscanner_alertsystem_btc_market_pct_change",
-      "community": 423,
-      "community_name": "AlertSystem",
+      "community": 100,
+      "community_name": ".get",
       "norm_label": "._btc_market_pct_change()"
     },
     {
@@ -1044,8 +1044,8 @@
       "source_location": "L1722",
       "_origin": "ast",
       "id": "breakoutscanner_alertsystem_send_error_email",
-      "community": 423,
-      "community_name": "AlertSystem",
+      "community": 100,
+      "community_name": ".get",
       "norm_label": ".send_error_email()"
     },
     {
@@ -1055,8 +1055,8 @@
       "source_location": "L1731",
       "_origin": "ast",
       "id": "breakoutscanner_alertsystem_send_email_now",
-      "community": 423,
-      "community_name": "AlertSystem",
+      "community": 100,
+      "community_name": ".get",
       "norm_label": "._send_email_now()"
     },
     {
@@ -1066,8 +1066,8 @@
       "source_location": "L1748",
       "_origin": "ast",
       "id": "breakoutscanner_alertsystem_process_alerts",
-      "community": 423,
-      "community_name": "AlertSystem",
+      "community": 100,
+      "community_name": ".get",
       "norm_label": "._process_alerts()"
     },
     {
@@ -1099,8 +1099,8 @@
       "source_location": "L1811",
       "_origin": "ast",
       "id": "breakoutscanner_marketscanner_log_injected_watchlists",
-      "community": 147,
-      "community_name": "BreakoutScanner.py",
+      "community": 148,
+      "community_name": "StockDataFetcher",
       "norm_label": "._log_injected_watchlists()"
     },
     {
@@ -1110,8 +1110,8 @@
       "source_location": "L1819",
       "_origin": "ast",
       "id": "breakoutscanner_marketscanner_start",
-      "community": 100,
-      "community_name": ".get",
+      "community": 70,
+      "community_name": "ScannerGUI",
       "norm_label": ".start()"
     },
     {
@@ -1528,8 +1528,8 @@
       "source_location": "L3002",
       "_origin": "ast",
       "id": "breakoutscanner_scannergui_open_db_panel",
-      "community": 147,
-      "community_name": "BreakoutScanner.py",
+      "community": 148,
+      "community_name": "StockDataFetcher",
       "norm_label": "._open_db_panel()"
     },
     {
@@ -1627,8 +1627,8 @@
       "source_location": "L964",
       "_origin": "ast",
       "id": "breakoutscanner_rationale_964",
-      "community": 100,
-      "community_name": ".get",
+      "community": 168,
+      "community_name": "live_ticker_reference",
       "norm_label": "return current usd price from coingecko for a /usd watchlist symbol. returns..."
     },
     {
@@ -1726,8 +1726,8 @@
       "source_location": "L1636",
       "_origin": "ast",
       "id": "breakoutscanner_rationale_1636",
-      "community": 423,
-      "community_name": "AlertSystem",
+      "community": 100,
+      "community_name": ".get",
       "norm_label": "derive a market proxy from btc/usdt price history in the detector."
     },
     {
@@ -1748,8 +1748,8 @@
       "source_location": "L1723",
       "_origin": "ast",
       "id": "breakoutscanner_rationale_1723",
-      "community": 423,
-      "community_name": "AlertSystem",
+      "community": 100,
+      "community_name": ".get",
       "norm_label": "send an immediate email for serious errors (exchange down, etc.)."
     },
     {
@@ -11964,7 +11964,7 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_h_stbi_uc",
-      "community": 178,
+      "community": 435,
       "community_name": "stbi_uc",
       "norm_label": "stbi_uc"
     },
@@ -12097,7 +12097,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_malloc",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__malloc()"
     },
     {
@@ -12415,8 +12415,8 @@
       "source_location": "L1252",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_getn",
-      "community": 178,
-      "community_name": "stbi_uc",
+      "community": 140,
+      "community_name": "stbi__context",
       "norm_label": "stbi__getn()"
     },
     {
@@ -12427,7 +12427,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_get16be",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__get16be()"
     },
     {
@@ -12438,7 +12438,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_get32be",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__get32be()"
     },
     {
@@ -12449,7 +12449,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_h_stbi_uint32",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__uint32"
     },
     {
@@ -12481,7 +12481,7 @@
       "source_location": "L1314",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_compute_y",
-      "community": 178,
+      "community": 435,
       "community_name": "stbi_uc",
       "norm_label": "stbi__compute_y()"
     },
@@ -12493,7 +12493,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_convert_format",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__convert_format()"
     },
     {
@@ -12514,7 +12514,7 @@
       "source_location": "L1384",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_hdr_to_ldr",
-      "community": 178,
+      "community": 435,
       "community_name": "stbi_uc",
       "norm_label": "stbi__hdr_to_ldr()"
     },
@@ -12690,7 +12690,7 @@
       "source_location": "L2009",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_idct_simd",
-      "community": 178,
+      "community": 435,
       "community_name": "stbi_uc",
       "norm_label": "stbi__idct_simd()"
     },
@@ -12779,7 +12779,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_process_frame_header",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__process_frame_header()"
     },
     {
@@ -12811,7 +12811,7 @@
       "source_location": "L2839",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_resample_row_1",
-      "community": 178,
+      "community": 435,
       "community_name": "stbi_uc",
       "norm_label": "resample_row_1()"
     },
@@ -12822,7 +12822,7 @@
       "source_location": "L2848",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_resample_row_v_2",
-      "community": 178,
+      "community": 435,
       "community_name": "stbi_uc",
       "norm_label": "stbi__resample_row_v_2()"
     },
@@ -12833,7 +12833,7 @@
       "source_location": "L2858",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_resample_row_h_2",
-      "community": 178,
+      "community": 435,
       "community_name": "stbi_uc",
       "norm_label": "stbi__resample_row_h_2()"
     },
@@ -12844,7 +12844,7 @@
       "source_location": "L2888",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_resample_row_hv_2",
-      "community": 178,
+      "community": 435,
       "community_name": "stbi_uc",
       "norm_label": "stbi__resample_row_hv_2()"
     },
@@ -12855,7 +12855,7 @@
       "source_location": "L2913",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_resample_row_hv_2_simd",
-      "community": 178,
+      "community": 435,
       "community_name": "stbi_uc",
       "norm_label": "stbi__resample_row_hv_2_simd()"
     },
@@ -12866,7 +12866,7 @@
       "source_location": "L3029",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_resample_row_generic",
-      "community": 178,
+      "community": 435,
       "community_name": "stbi_uc",
       "norm_label": "stbi__resample_row_generic()"
     },
@@ -12877,7 +12877,7 @@
       "source_location": "L3044",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_ycbcr_to_rgb_row",
-      "community": 178,
+      "community": 435,
       "community_name": "stbi_uc",
       "norm_label": "stbi__ycbcr_to_rgb_row()"
     },
@@ -12888,7 +12888,7 @@
       "source_location": "L3099",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_ycbcr_to_rgb_simd",
-      "community": 178,
+      "community": 435,
       "community_name": "stbi_uc",
       "norm_label": "stbi__ycbcr_to_rgb_simd()"
     },
@@ -13197,7 +13197,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_zlib_decode_malloc_guesssize_headerflag",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi_zlib_decode_malloc_guesssize_headerflag()"
     },
     {
@@ -13241,7 +13241,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_get_chunk_header",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__get_chunk_header()"
     },
     {
@@ -13252,7 +13252,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_h_stbi_pngchunk",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__pngchunk"
     },
     {
@@ -13274,7 +13274,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_paeth",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__paeth()"
     },
     {
@@ -13285,7 +13285,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_create_png_image_raw",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__create_png_image_raw()"
     },
     {
@@ -13296,7 +13296,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_h_stbi_png",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__png"
     },
     {
@@ -13307,7 +13307,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_create_png_image",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__create_png_image()"
     },
     {
@@ -13318,7 +13318,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_compute_transparency",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__compute_transparency()"
     },
     {
@@ -13329,7 +13329,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_expand_png_palette",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__expand_png_palette()"
     },
     {
@@ -13362,7 +13362,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_de_iphone",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__de_iphone()"
     },
     {
@@ -13373,7 +13373,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_parse_png_file",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__parse_png_file()"
     },
     {
@@ -13384,7 +13384,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_do_png",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__do_png()"
     },
     {
@@ -13417,7 +13417,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_png_info_raw",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__png_info_raw()"
     },
     {
@@ -13460,8 +13460,8 @@
       "source_location": "L4539",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_high_bit",
-      "community": 97,
-      "community_name": "TheNextWeek/external/stb_image.h",
+      "community": 140,
+      "community_name": "stbi__context",
       "norm_label": "stbi__high_bit()"
     },
     {
@@ -13471,8 +13471,8 @@
       "source_location": "L4551",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_bitcount",
-      "community": 97,
-      "community_name": "TheNextWeek/external/stb_image.h",
+      "community": 140,
+      "community_name": "stbi__context",
       "norm_label": "stbi__bitcount()"
     },
     {
@@ -13482,8 +13482,8 @@
       "source_location": "L4561",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_shiftsigned",
-      "community": 97,
-      "community_name": "TheNextWeek/external/stb_image.h",
+      "community": 140,
+      "community_name": "stbi__context",
       "norm_label": "stbi__shiftsigned()"
     },
     {
@@ -13549,7 +13549,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_psd_load",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__psd_load()"
     },
     {
@@ -13615,7 +13615,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_pic_load",
       "community": 178,
-      "community_name": "stbi_uc",
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__pic_load()"
     },
     {
@@ -13659,7 +13659,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_gif_parse_colortable",
       "community": 435,
-      "community_name": "stbi__gif_load_next",
+      "community_name": "stbi_uc",
       "norm_label": "stbi__gif_parse_colortable()"
     },
     {
@@ -13670,7 +13670,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_gif_header",
       "community": 435,
-      "community_name": "stbi__gif_load_next",
+      "community_name": "stbi_uc",
       "norm_label": "stbi__gif_header()"
     },
     {
@@ -13681,7 +13681,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_h_stbi_gif",
       "community": 435,
-      "community_name": "stbi__gif_load_next",
+      "community_name": "stbi_uc",
       "norm_label": "stbi__gif"
     },
     {
@@ -13703,7 +13703,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_out_gif_code",
       "community": 435,
-      "community_name": "stbi__gif_load_next",
+      "community_name": "stbi_uc",
       "norm_label": "stbi__out_gif_code()"
     },
     {
@@ -13714,7 +13714,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_h_stbi_uint16",
       "community": 435,
-      "community_name": "stbi__gif_load_next",
+      "community_name": "stbi_uc",
       "norm_label": "stbi__uint16"
     },
     {
@@ -13725,7 +13725,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_process_gif_raster",
       "community": 435,
-      "community_name": "stbi__gif_load_next",
+      "community_name": "stbi_uc",
       "norm_label": "stbi__process_gif_raster()"
     },
     {
@@ -13736,7 +13736,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_fill_gif_background",
       "community": 435,
-      "community_name": "stbi__gif_load_next",
+      "community_name": "stbi_uc",
       "norm_label": "stbi__fill_gif_background()"
     },
     {
@@ -13747,7 +13747,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_gif_load_next",
       "community": 435,
-      "community_name": "stbi__gif_load_next",
+      "community_name": "stbi_uc",
       "norm_label": "stbi__gif_load_next()"
     },
     {
@@ -13758,7 +13758,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_gif_load",
       "community": 435,
-      "community_name": "stbi__gif_load_next",
+      "community_name": "stbi_uc",
       "norm_label": "stbi__gif_load()"
     },
     {
@@ -13812,7 +13812,7 @@
       "source_location": "L5818",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_hdr_convert",
-      "community": 178,
+      "community": 435,
       "community_name": "stbi_uc",
       "norm_label": "stbi__hdr_convert()"
     },
@@ -13889,8 +13889,8 @@
       "source_location": "L6132",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_thenextweek_external_stb_image_stbi_pnm_load",
-      "community": 178,
-      "community_name": "stbi_uc",
+      "community": 140,
+      "community_name": "stbi__context",
       "norm_label": "stbi__pnm_load()"
     },
     {
@@ -19444,7 +19444,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_aabb",
-      "community": 148,
+      "community": 410,
       "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "therestofyourlife/aabb.h"
     },
@@ -19456,7 +19456,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_aabb_aabb",
       "community": 410,
-      "community_name": "aabb",
+      "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "aabb"
     },
     {
@@ -19467,7 +19467,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_aabb_h_interval",
       "community": 410,
-      "community_name": "aabb",
+      "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "interval"
     },
     {
@@ -19478,7 +19478,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_aabb_aabb_x",
       "community": 410,
-      "community_name": "aabb",
+      "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "x"
     },
     {
@@ -19489,7 +19489,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_aabb_aabb_y",
       "community": 410,
-      "community_name": "aabb",
+      "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "y"
     },
     {
@@ -19500,7 +19500,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_aabb_aabb_z",
       "community": 410,
-      "community_name": "aabb",
+      "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "z"
     },
     {
@@ -19511,7 +19511,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_aabb_aabb_aabb",
       "community": 410,
-      "community_name": "aabb",
+      "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": ".aabb()"
     },
     {
@@ -19522,7 +19522,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_aabb_h_point3",
       "community": 410,
-      "community_name": "aabb",
+      "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "point3"
     },
     {
@@ -19533,7 +19533,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_aabb_aabb_hit",
       "community": 410,
-      "community_name": "aabb",
+      "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": ".hit()"
     },
     {
@@ -19544,7 +19544,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_aabb_h_ray",
       "community": 410,
-      "community_name": "aabb",
+      "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "ray"
     },
     {
@@ -19555,7 +19555,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_aabb_aabb_longest_axis",
       "community": 410,
-      "community_name": "aabb",
+      "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": ".longest_axis()"
     },
     {
@@ -19566,7 +19566,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_aabb_aabb_empty",
       "community": 410,
-      "community_name": "aabb",
+      "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "empty"
     },
     {
@@ -19577,7 +19577,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_aabb_aabb_universe",
       "community": 410,
-      "community_name": "aabb",
+      "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "universe"
     },
     {
@@ -19588,7 +19588,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_aabb_aabb_pad_to_minimums",
       "community": 410,
-      "community_name": "aabb",
+      "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": ".pad_to_minimums()"
     },
     {
@@ -19599,7 +19599,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_aabb_operator",
       "community": 410,
-      "community_name": "aabb",
+      "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "operator+()"
     },
     {
@@ -19610,7 +19610,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_aabb_h_vec3",
       "community": 410,
-      "community_name": "aabb",
+      "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "vec3"
     },
     {
@@ -19620,7 +19620,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_bvh",
-      "community": 148,
+      "community": 410,
       "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "therestofyourlife/bvh.h"
     },
@@ -19829,7 +19829,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_camera",
-      "community": 148,
+      "community": 410,
       "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "therestofyourlife/camera.h"
     },
@@ -21270,8 +21270,8 @@
       "source_location": "L1252",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_getn",
-      "community": 379,
-      "community_name": "stbi__malloc",
+      "community": 121,
+      "community_name": "stbi__context",
       "norm_label": "stbi__getn()"
     },
     {
@@ -21281,8 +21281,8 @@
       "source_location": "L1276",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_get16be",
-      "community": 121,
-      "community_name": "stbi__context",
+      "community": 379,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__get16be()"
     },
     {
@@ -21292,8 +21292,8 @@
       "source_location": "L1282",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_get32be",
-      "community": 121,
-      "community_name": "stbi__context",
+      "community": 379,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__get32be()"
     },
     {
@@ -21369,8 +21369,8 @@
       "source_location": "L1384",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_hdr_to_ldr",
-      "community": 121,
-      "community_name": "stbi__context",
+      "community": 90,
+      "community_name": "TheRestOfYourLife/external/stb_image.h",
       "norm_label": "stbi__hdr_to_ldr()"
     },
     {
@@ -21622,8 +21622,8 @@
       "source_location": "L2642",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_process_scan_header",
-      "community": 121,
-      "community_name": "stbi__context",
+      "community": 316,
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__process_scan_header()"
     },
     {
@@ -21633,8 +21633,8 @@
       "source_location": "L2681",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_process_frame_header",
-      "community": 121,
-      "community_name": "stbi__context",
+      "community": 379,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__process_frame_header()"
     },
     {
@@ -21798,8 +21798,8 @@
       "source_location": "L3396",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_jpeg_test",
-      "community": 90,
-      "community_name": "TheRestOfYourLife/external/stb_image.h",
+      "community": 121,
+      "community_name": "stbi__context",
       "norm_label": "stbi__jpeg_test()"
     },
     {
@@ -22381,8 +22381,8 @@
       "source_location": "L4846",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_tga_load",
-      "community": 379,
-      "community_name": "stbi__malloc",
+      "community": 121,
+      "community_name": "stbi__context",
       "norm_label": "stbi__tga_load()"
     },
     {
@@ -22403,8 +22403,8 @@
       "source_location": "L5052",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_psd_load",
-      "community": 121,
-      "community_name": "stbi__context",
+      "community": 379,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__psd_load()"
     },
     {
@@ -22469,8 +22469,8 @@
       "source_location": "L5386",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_pic_load",
-      "community": 121,
-      "community_name": "stbi__context",
+      "community": 379,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__pic_load()"
     },
     {
@@ -22513,8 +22513,8 @@
       "source_location": "L5472",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_gif_parse_colortable",
-      "community": 121,
-      "community_name": "stbi__context",
+      "community": 371,
+      "community_name": "stbi__gif_load_next",
       "norm_label": "stbi__gif_parse_colortable()"
     },
     {
@@ -22524,8 +22524,8 @@
       "source_location": "L5483",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_gif_header",
-      "community": 121,
-      "community_name": "stbi__context",
+      "community": 371,
+      "community_name": "stbi__gif_load_next",
       "norm_label": "stbi__gif_header()"
     },
     {
@@ -22535,8 +22535,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_h_stbi_gif",
-      "community": 121,
-      "community_name": "stbi__context",
+      "community": 371,
+      "community_name": "stbi__gif_load_next",
       "norm_label": "stbi__gif"
     },
     {
@@ -22557,8 +22557,8 @@
       "source_location": "L5523",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_out_gif_code",
-      "community": 121,
-      "community_name": "stbi__context",
+      "community": 371,
+      "community_name": "stbi__gif_load_next",
       "norm_label": "stbi__out_gif_code()"
     },
     {
@@ -22568,8 +22568,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_h_stbi_uint16",
-      "community": 121,
-      "community_name": "stbi__context",
+      "community": 371,
+      "community_name": "stbi__gif_load_next",
       "norm_label": "stbi__uint16"
     },
     {
@@ -22579,8 +22579,8 @@
       "source_location": "L5557",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_process_gif_raster",
-      "community": 121,
-      "community_name": "stbi__context",
+      "community": 371,
+      "community_name": "stbi__gif_load_next",
       "norm_label": "stbi__process_gif_raster()"
     },
     {
@@ -22590,8 +22590,8 @@
       "source_location": "L5637",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_fill_gif_background",
-      "community": 121,
-      "community_name": "stbi__context",
+      "community": 371,
+      "community_name": "stbi__gif_load_next",
       "norm_label": "stbi__fill_gif_background()"
     },
     {
@@ -22601,8 +22601,8 @@
       "source_location": "L5652",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_gif_load_next",
-      "community": 121,
-      "community_name": "stbi__context",
+      "community": 371,
+      "community_name": "stbi__gif_load_next",
       "norm_label": "stbi__gif_load_next()"
     },
     {
@@ -22612,8 +22612,8 @@
       "source_location": "L5752",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_gif_load",
-      "community": 121,
-      "community_name": "stbi__context",
+      "community": 371,
+      "community_name": "stbi__gif_load_next",
       "norm_label": "stbi__gif_load()"
     },
     {
@@ -22645,8 +22645,8 @@
       "source_location": "L5788",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_hdr_test",
-      "community": 90,
-      "community_name": "TheRestOfYourLife/external/stb_image.h",
+      "community": 121,
+      "community_name": "stbi__context",
       "norm_label": "stbi__hdr_test()"
     },
     {
@@ -22678,8 +22678,8 @@
       "source_location": "L5845",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_hdr_load",
-      "community": 379,
-      "community_name": "stbi__malloc",
+      "community": 121,
+      "community_name": "stbi__context",
       "norm_label": "stbi__hdr_load()"
     },
     {
@@ -22744,8 +22744,8 @@
       "source_location": "L6132",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_external_stb_image_stbi_pnm_load",
-      "community": 379,
-      "community_name": "stbi__malloc",
+      "community": 121,
+      "community_name": "stbi__context",
       "norm_label": "stbi__pnm_load()"
     },
     {
@@ -23140,7 +23140,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_hittable",
-      "community": 148,
+      "community": 410,
       "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "therestofyourlife/hittable.h"
     },
@@ -23558,7 +23558,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_hittable_list",
-      "community": 148,
+      "community": 410,
       "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "therestofyourlife/hittable_list.h"
     },
@@ -23954,7 +23954,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_main",
-      "community": 148,
+      "community": 410,
       "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "therestofyourlife/main.cc"
     },
@@ -23965,7 +23965,7 @@
       "source_location": "L31",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_main_print_help",
-      "community": 148,
+      "community": 410,
       "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "print_help()"
     },
@@ -23976,7 +23976,7 @@
       "source_location": "L45",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_main_main",
-      "community": 148,
+      "community": 410,
       "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "main()"
     },
@@ -23987,7 +23987,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_material",
-      "community": 148,
+      "community": 410,
       "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "therestofyourlife/material.h"
     },
@@ -24438,7 +24438,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_onb",
-      "community": 148,
+      "community": 410,
       "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "onb.h"
     },
@@ -24449,8 +24449,8 @@
       "source_location": "L15",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_onb_onb",
-      "community": 148,
-      "community_name": "TheRestOfYourLife/hittable.h",
+      "community": 213,
+      "community_name": "pdf",
       "norm_label": "onb"
     },
     {
@@ -24460,8 +24460,8 @@
       "source_location": "L17",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_onb_onb_onb",
-      "community": 148,
-      "community_name": "TheRestOfYourLife/hittable.h",
+      "community": 213,
+      "community_name": "pdf",
       "norm_label": ".onb()"
     },
     {
@@ -24471,8 +24471,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_onb_h_vec3",
-      "community": 148,
-      "community_name": "TheRestOfYourLife/hittable.h",
+      "community": 213,
+      "community_name": "pdf",
       "norm_label": "vec3"
     },
     {
@@ -24482,8 +24482,8 @@
       "source_location": "L28",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_onb_onb_transform",
-      "community": 148,
-      "community_name": "TheRestOfYourLife/hittable.h",
+      "community": 213,
+      "community_name": "pdf",
       "norm_label": ".transform()"
     },
     {
@@ -24493,8 +24493,8 @@
       "source_location": "L34",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_onb_onb_axis",
-      "community": 148,
-      "community_name": "TheRestOfYourLife/hittable.h",
+      "community": 213,
+      "community_name": "pdf",
       "norm_label": "axis"
     },
     {
@@ -24504,7 +24504,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_pdf",
-      "community": 148,
+      "community": 410,
       "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "pdf.h"
     },
@@ -27914,7 +27914,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_quad",
-      "community": 148,
+      "community": 410,
       "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "therestofyourlife/quad.h"
     },
@@ -28574,7 +28574,7 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_therestofyourlife_sphere",
-      "community": 148,
+      "community": 410,
       "community_name": "TheRestOfYourLife/hittable.h",
       "norm_label": "therestofyourlife/sphere.h"
     },
@@ -29609,7 +29609,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_cpuid3",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__cpuid3()"
     },
     {
@@ -29620,7 +29620,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_sse2_available",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__sse2_available()"
     },
     {
@@ -29630,8 +29630,8 @@
       "source_location": "L759",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_start_mem",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__start_mem()"
     },
     {
@@ -29652,8 +29652,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_h_stbi_uc",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi_uc"
     },
     {
@@ -29773,7 +29773,7 @@
       "source_location": "L881",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_err",
-      "community": 383,
+      "community": 400,
       "community_name": "stbi__err",
       "norm_label": "stbi__err()"
     },
@@ -29828,8 +29828,8 @@
       "source_location": "L967",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_load_flip",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__load_flip()"
     },
     {
@@ -29839,8 +29839,8 @@
       "source_location": "L992",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_float_postprocess",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__float_postprocess()"
     },
     {
@@ -29883,8 +29883,8 @@
       "source_location": "L1053",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_load_from_memory",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi_load_from_memory()"
     },
     {
@@ -29905,8 +29905,8 @@
       "source_location": "L1068",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_loadf_main",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__loadf_main()"
     },
     {
@@ -29916,8 +29916,8 @@
       "source_location": "L1085",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_loadf_from_memory",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi_loadf_from_memory()"
     },
     {
@@ -29960,8 +29960,8 @@
       "source_location": "L1124",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_is_hdr_from_memory",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi_is_hdr_from_memory()"
     },
     {
@@ -30048,8 +30048,8 @@
       "source_location": "L1196",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_refill_buffer",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__refill_buffer()"
     },
     {
@@ -30070,8 +30070,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_h_stbi_inline",
-      "community": 400,
-      "community_name": "stbi__zbuf",
+      "community": 383,
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi_inline"
     },
     {
@@ -30081,8 +30081,8 @@
       "source_location": "L1223",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_at_eof",
-      "community": 110,
-      "community_name": "stbi__context",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__at_eof()"
     },
     {
@@ -30114,8 +30114,8 @@
       "source_location": "L1276",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_get16be",
-      "community": 110,
-      "community_name": "stbi__context",
+      "community": 393,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__get16be()"
     },
     {
@@ -30125,8 +30125,8 @@
       "source_location": "L1282",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_get32be",
-      "community": 110,
-      "community_name": "stbi__context",
+      "community": 393,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__get32be()"
     },
     {
@@ -30147,8 +30147,8 @@
       "source_location": "L1288",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_get16le",
-      "community": 371,
-      "community_name": "stbi__gif_load_next",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__get16le()"
     },
     {
@@ -30158,8 +30158,8 @@
       "source_location": "L1294",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_get32le",
-      "community": 371,
-      "community_name": "stbi__gif_load_next",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__get32le()"
     },
     {
@@ -30169,8 +30169,8 @@
       "source_location": "L1314",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_compute_y",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__compute_y()"
     },
     {
@@ -30191,8 +30191,8 @@
       "source_location": "L1364",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_ldr_to_hdr",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__ldr_to_hdr()"
     },
     {
@@ -30202,8 +30202,8 @@
       "source_location": "L1384",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_hdr_to_ldr",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__hdr_to_ldr()"
     },
     {
@@ -30214,7 +30214,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_build_huffman",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__build_huffman()"
     },
     {
@@ -30225,7 +30225,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_h_stbi_huffman",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__huffman"
     },
     {
@@ -30236,7 +30236,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_build_fast_ac",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__build_fast_ac()"
     },
     {
@@ -30247,7 +30247,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_h_stbi_int16",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__int16"
     },
     {
@@ -30258,7 +30258,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_grow_buffer_unsafe",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__grow_buffer_unsafe()"
     },
     {
@@ -30269,7 +30269,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_h_stbi_jpeg",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg"
     },
     {
@@ -30280,7 +30280,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_jpeg_huff_decode",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_huff_decode()"
     },
     {
@@ -30291,7 +30291,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_extend_receive",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__extend_receive()"
     },
     {
@@ -30302,7 +30302,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_jpeg_get_bits",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_get_bits()"
     },
     {
@@ -30313,7 +30313,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_jpeg_get_bit",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_get_bit()"
     },
     {
@@ -30324,7 +30324,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_jpeg_decode_block",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_decode_block()"
     },
     {
@@ -30335,7 +30335,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_jpeg_decode_block_prog_dc",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_decode_block_prog_dc()"
     },
     {
@@ -30346,7 +30346,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_jpeg_decode_block_prog_ac",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_decode_block_prog_ac()"
     },
     {
@@ -30378,8 +30378,8 @@
       "source_location": "L2009",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_idct_simd",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__idct_simd()"
     },
     {
@@ -30390,7 +30390,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_get_marker",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__get_marker()"
     },
     {
@@ -30401,7 +30401,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_jpeg_reset",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_reset()"
     },
     {
@@ -30412,7 +30412,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_parse_entropy_coded_data",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__parse_entropy_coded_data()"
     },
     {
@@ -30422,8 +30422,8 @@
       "source_location": "L2552",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_jpeg_dequantize",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 383,
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_dequantize()"
     },
     {
@@ -30433,8 +30433,8 @@
       "source_location": "L2559",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_jpeg_finish",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 383,
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_finish()"
     },
     {
@@ -30445,7 +30445,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_process_marker",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__process_marker()"
     },
     {
@@ -30455,8 +30455,8 @@
       "source_location": "L2642",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_process_scan_header",
-      "community": 383,
-      "community_name": "stbi__err",
+      "community": 393,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__process_scan_header()"
     },
     {
@@ -30466,8 +30466,8 @@
       "source_location": "L2681",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_process_frame_header",
-      "community": 383,
-      "community_name": "stbi__err",
+      "community": 393,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__process_frame_header()"
     },
     {
@@ -30478,7 +30478,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_decode_jpeg_header",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__decode_jpeg_header()"
     },
     {
@@ -30489,7 +30489,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_decode_jpeg_image",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__decode_jpeg_image()"
     },
     {
@@ -30499,8 +30499,8 @@
       "source_location": "L2839",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_resample_row_1",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "resample_row_1()"
     },
     {
@@ -30510,8 +30510,8 @@
       "source_location": "L2848",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_resample_row_v_2",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__resample_row_v_2()"
     },
     {
@@ -30521,8 +30521,8 @@
       "source_location": "L2858",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_resample_row_h_2",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__resample_row_h_2()"
     },
     {
@@ -30532,8 +30532,8 @@
       "source_location": "L2888",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_resample_row_hv_2",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__resample_row_hv_2()"
     },
     {
@@ -30543,8 +30543,8 @@
       "source_location": "L2913",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_resample_row_hv_2_simd",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__resample_row_hv_2_simd()"
     },
     {
@@ -30554,8 +30554,8 @@
       "source_location": "L3029",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_resample_row_generic",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__resample_row_generic()"
     },
     {
@@ -30565,8 +30565,8 @@
       "source_location": "L3044",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_ycbcr_to_rgb_row",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__ycbcr_to_rgb_row()"
     },
     {
@@ -30576,8 +30576,8 @@
       "source_location": "L3099",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_ycbcr_to_rgb_simd",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__ycbcr_to_rgb_simd()"
     },
     {
@@ -30588,7 +30588,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_setup_jpeg",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__setup_jpeg()"
     },
     {
@@ -30599,7 +30599,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_cleanup_jpeg",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__cleanup_jpeg()"
     },
     {
@@ -30610,7 +30610,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_load_jpeg_image",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "load_jpeg_image()"
     },
     {
@@ -30621,7 +30621,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_jpeg_load",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_load()"
     },
     {
@@ -30631,8 +30631,8 @@
       "source_location": "L3396",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_jpeg_test",
-      "community": 110,
-      "community_name": "stbi__context",
+      "community": 383,
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_test()"
     },
     {
@@ -30643,7 +30643,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_jpeg_info_raw",
       "community": 383,
-      "community_name": "stbi__err",
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__jpeg_info_raw()"
     },
     {
@@ -30653,8 +30653,8 @@
       "source_location": "L3419",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_jpeg_info",
-      "community": 383,
-      "community_name": "stbi__err",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__jpeg_info()"
     },
     {
@@ -30664,8 +30664,8 @@
       "source_location": "L3452",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_bitreverse16",
-      "community": 400,
-      "community_name": "stbi__zbuf",
+      "community": 383,
+      "community_name": "stbi__jpeg",
       "norm_label": "stbi__bitreverse16()"
     },
     {
@@ -30676,7 +30676,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_bit_reverse",
       "community": 400,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__bit_reverse()"
     },
     {
@@ -30687,7 +30687,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_zbuild_huffman",
       "community": 400,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__zbuild_huffman()"
     },
     {
@@ -30698,7 +30698,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_h_stbi_zhuffman",
       "community": 400,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__zhuffman"
     },
     {
@@ -30709,7 +30709,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_zget8",
       "community": 400,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__zget8()"
     },
     {
@@ -30720,7 +30720,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_h_stbi_zbuf",
       "community": 400,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__zbuf"
     },
     {
@@ -30731,7 +30731,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_fill_bits",
       "community": 400,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__fill_bits()"
     },
     {
@@ -30742,7 +30742,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_zreceive",
       "community": 400,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__zreceive()"
     },
     {
@@ -30753,7 +30753,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_zhuffman_decode_slowpath",
       "community": 400,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__zhuffman_decode_slowpath()"
     },
     {
@@ -30764,7 +30764,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_zhuffman_decode",
       "community": 400,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__zhuffman_decode()"
     },
     {
@@ -30775,7 +30775,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_zexpand",
       "community": 400,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__zexpand()"
     },
     {
@@ -30786,7 +30786,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_parse_huffman_block",
       "community": 400,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__parse_huffman_block()"
     },
     {
@@ -30797,7 +30797,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_compute_huffman_codes",
       "community": 400,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__compute_huffman_codes()"
     },
     {
@@ -30808,7 +30808,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_parse_uncomperssed_block",
       "community": 400,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__parse_uncomperssed_block()"
     },
     {
@@ -30819,7 +30819,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_parse_zlib_header",
       "community": 400,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__parse_zlib_header()"
     },
     {
@@ -30830,7 +30830,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_init_zdefaults",
       "community": 400,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__init_zdefaults()"
     },
     {
@@ -30841,7 +30841,7 @@
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_parse_zlib",
       "community": 400,
-      "community_name": "stbi__zbuf",
+      "community_name": "stbi__err",
       "norm_label": "stbi__parse_zlib()"
     },
     {
@@ -30928,8 +30928,8 @@
       "source_location": "L3900",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_get_chunk_header",
-      "community": 110,
-      "community_name": "stbi__context",
+      "community": 393,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__get_chunk_header()"
     },
     {
@@ -30939,8 +30939,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_h_stbi_pngchunk",
-      "community": 110,
-      "community_name": "stbi__context",
+      "community": 393,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__pngchunk"
     },
     {
@@ -31126,8 +31126,8 @@
       "source_location": "L4515",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_bmp_test_raw",
-      "community": 371,
-      "community_name": "stbi__gif_load_next",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__bmp_test_raw()"
     },
     {
@@ -31148,8 +31148,8 @@
       "source_location": "L4539",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_high_bit",
-      "community": 371,
-      "community_name": "stbi__gif_load_next",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__high_bit()"
     },
     {
@@ -31159,8 +31159,8 @@
       "source_location": "L4551",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_bitcount",
-      "community": 371,
-      "community_name": "stbi__gif_load_next",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__bitcount()"
     },
     {
@@ -31170,8 +31170,8 @@
       "source_location": "L4561",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_shiftsigned",
-      "community": 371,
-      "community_name": "stbi__gif_load_next",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__shiftsigned()"
     },
     {
@@ -31181,8 +31181,8 @@
       "source_location": "L4578",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_bmp_load",
-      "community": 371,
-      "community_name": "stbi__gif_load_next",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__bmp_load()"
     },
     {
@@ -31236,8 +31236,8 @@
       "source_location": "L5052",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_psd_load",
-      "community": 110,
-      "community_name": "stbi__context",
+      "community": 393,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__psd_load()"
     },
     {
@@ -31269,8 +31269,8 @@
       "source_location": "L5252",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_readval",
-      "community": 110,
-      "community_name": "stbi__context",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__readval()"
     },
     {
@@ -31280,8 +31280,8 @@
       "source_location": "L5266",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_copyval",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__copyval()"
     },
     {
@@ -31291,8 +31291,8 @@
       "source_location": "L5275",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_pic_load_core",
-      "community": 110,
-      "community_name": "stbi__context",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__pic_load_core()"
     },
     {
@@ -31302,8 +31302,8 @@
       "source_location": "L5386",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_pic_load",
-      "community": 110,
-      "community_name": "stbi__context",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__pic_load()"
     },
     {
@@ -31346,8 +31346,8 @@
       "source_location": "L5472",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_gif_parse_colortable",
-      "community": 371,
-      "community_name": "stbi__gif_load_next",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__gif_parse_colortable()"
     },
     {
@@ -31357,8 +31357,8 @@
       "source_location": "L5483",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_gif_header",
-      "community": 371,
-      "community_name": "stbi__gif_load_next",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__gif_header()"
     },
     {
@@ -31368,8 +31368,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_h_stbi_gif",
-      "community": 371,
-      "community_name": "stbi__gif_load_next",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__gif"
     },
     {
@@ -31390,8 +31390,8 @@
       "source_location": "L5523",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_out_gif_code",
-      "community": 371,
-      "community_name": "stbi__gif_load_next",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__out_gif_code()"
     },
     {
@@ -31401,8 +31401,8 @@
       "source_location": "",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_h_stbi_uint16",
-      "community": 371,
-      "community_name": "stbi__gif_load_next",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__uint16"
     },
     {
@@ -31412,8 +31412,8 @@
       "source_location": "L5557",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_process_gif_raster",
-      "community": 371,
-      "community_name": "stbi__gif_load_next",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__process_gif_raster()"
     },
     {
@@ -31423,8 +31423,8 @@
       "source_location": "L5637",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_fill_gif_background",
-      "community": 371,
-      "community_name": "stbi__gif_load_next",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__fill_gif_background()"
     },
     {
@@ -31434,8 +31434,8 @@
       "source_location": "L5652",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_gif_load_next",
-      "community": 371,
-      "community_name": "stbi__gif_load_next",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__gif_load_next()"
     },
     {
@@ -31445,8 +31445,8 @@
       "source_location": "L5752",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_gif_load",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 110,
+      "community_name": "stbi__context",
       "norm_label": "stbi__gif_load()"
     },
     {
@@ -31478,8 +31478,8 @@
       "source_location": "L5788",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_hdr_test",
-      "community": 110,
-      "community_name": "stbi__context",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__hdr_test()"
     },
     {
@@ -31500,8 +31500,8 @@
       "source_location": "L5818",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_hdr_convert",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi__hdr_convert()"
     },
     {
@@ -31511,8 +31511,8 @@
       "source_location": "L5845",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_hdr_load",
-      "community": 110,
-      "community_name": "stbi__context",
+      "community": 393,
+      "community_name": "stbi__malloc",
       "norm_label": "stbi__hdr_load()"
     },
     {
@@ -31676,8 +31676,8 @@
       "source_location": "L6280",
       "_origin": "ast",
       "id": "ron_code_raytrace_src_external_stb_image_stbi_info_from_memory",
-      "community": 218,
-      "community_name": "src/external/stb_image.h",
+      "community": 104,
+      "community_name": "stbi_uc",
       "norm_label": "stbi_info_from_memory()"
     },
     {
@@ -45027,7 +45027,7 @@
       "label": "print_col_headers()",
       "file_type": "code",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L273",
+      "source_location": "L277",
       "_origin": "ast",
       "id": "ron_code_trades_list_print_col_headers",
       "community": 658,
@@ -45038,7 +45038,7 @@
       "label": "build_hdr_list()",
       "file_type": "code",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L304",
+      "source_location": "L308",
       "_origin": "ast",
       "id": "ron_code_trades_list_build_hdr_list",
       "community": 658,
@@ -45049,7 +45049,7 @@
       "label": "format_group_summary()",
       "file_type": "code",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L319",
+      "source_location": "L323",
       "_origin": "ast",
       "id": "ron_code_trades_list_format_group_summary",
       "community": 658,
@@ -45060,7 +45060,7 @@
       "label": "numeric_value()",
       "file_type": "code",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L338",
+      "source_location": "L342",
       "_origin": "ast",
       "id": "ron_code_trades_list_numeric_value",
       "community": 658,
@@ -45071,7 +45071,7 @@
       "label": "value_in_selected()",
       "file_type": "code",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L359",
+      "source_location": "L363",
       "_origin": "ast",
       "id": "ron_code_trades_list_value_in_selected",
       "community": 658,
@@ -45082,7 +45082,7 @@
       "label": "print_group_summary()",
       "file_type": "code",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L401",
+      "source_location": "L405",
       "_origin": "ast",
       "id": "ron_code_trades_list_print_group_summary",
       "community": 658,
@@ -45093,7 +45093,7 @@
       "label": "main()",
       "file_type": "code",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L428",
+      "source_location": "L432",
       "_origin": "ast",
       "id": "ron_code_trades_list_main",
       "community": 658,
@@ -45148,9 +45148,9 @@
       "label": "Prints the list of column headers in the trades table given switch -N",
       "file_type": "rationale",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L274",
+      "source_location": "L278",
       "_origin": "ast",
-      "id": "ron_code_trades_list_rationale_274",
+      "id": "ron_code_trades_list_rationale_278",
       "community": 658,
       "community_name": "Code/trades_list.py",
       "norm_label": "prints the list of column headers in the trades table given switch -n"
@@ -45159,9 +45159,9 @@
       "label": "Collect unique column header names from all rows, preserving order.",
       "file_type": "rationale",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L305",
+      "source_location": "L309",
       "_origin": "ast",
-      "id": "ron_code_trades_list_rationale_305",
+      "id": "ron_code_trades_list_rationale_309",
       "community": 658,
       "community_name": "Code/trades_list.py",
       "norm_label": "collect unique column header names from all rows, preserving order."
@@ -45170,9 +45170,9 @@
       "label": "color and format the results dictionary",
       "file_type": "rationale",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L320",
+      "source_location": "L324",
       "_origin": "ast",
-      "id": "ron_code_trades_list_rationale_320",
+      "id": "ron_code_trades_list_rationale_324",
       "community": 658,
       "community_name": "Code/trades_list.py",
       "norm_label": "color and format the results dictionary"
@@ -45181,9 +45181,9 @@
       "label": "Return a number only when the whole value is a plain integer or decimal. This\u2026",
       "file_type": "rationale",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L339",
+      "source_location": "L343",
       "_origin": "ast",
-      "id": "ron_code_trades_list_rationale_339",
+      "id": "ron_code_trades_list_rationale_343",
       "community": 658,
       "community_name": "Code/trades_list.py",
       "norm_label": "return a number only when the whole value is a plain integer or decimal. this..."
@@ -45192,9 +45192,9 @@
       "label": "Compare a DB value against one or more CLI-supplied strings. argparse always\u2026",
       "file_type": "rationale",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L360",
+      "source_location": "L364",
       "_origin": "ast",
-      "id": "ron_code_trades_list_rationale_360",
+      "id": "ron_code_trades_list_rationale_364",
       "community": 658,
       "community_name": "Code/trades_list.py",
       "norm_label": "compare a db value against one or more cli-supplied strings. argparse always..."
@@ -45203,9 +45203,9 @@
       "label": "Print this groups summary list",
       "file_type": "rationale",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L410",
+      "source_location": "L414",
       "_origin": "ast",
-      "id": "ron_code_trades_list_rationale_410",
+      "id": "ron_code_trades_list_rationale_414",
       "community": 658,
       "community_name": "Code/trades_list.py",
       "norm_label": "print this groups summary list"
@@ -46174,8 +46174,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_mt",
-      "community": 94,
-      "community_name": "en",
+      "community": 16,
+      "community_name": "Docs/three.min.js",
       "norm_label": "mt()"
     },
     {
@@ -47043,8 +47043,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_t",
-      "community": 94,
-      "community_name": "en",
+      "community": 16,
+      "community_name": "Docs/three.min.js",
       "norm_label": "_t"
     },
     {
@@ -47054,8 +47054,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_t_getdataurl",
-      "community": 94,
-      "community_name": "en",
+      "community": 16,
+      "community_name": "Docs/three.min.js",
       "norm_label": ".getdataurl()"
     },
     {
@@ -49342,8 +49342,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_pt_equals",
-      "community": 112,
-      "community_name": "pt",
+      "community": 94,
+      "community_name": "en",
       "norm_label": ".equals()"
     },
     {
@@ -49551,8 +49551,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_jt_equals",
-      "community": 112,
-      "community_name": "pt",
+      "community": 94,
+      "community_name": "en",
       "norm_label": ".equals()"
     },
     {
@@ -49793,8 +49793,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_re_equals",
-      "community": 112,
-      "community_name": "pt",
+      "community": 94,
+      "community_name": "en",
       "norm_label": ".equals()"
     },
     {
@@ -50442,8 +50442,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_ge",
-      "community": 94,
-      "community_name": "en",
+      "community": 16,
+      "community_name": "Docs/three.min.js",
       "norm_label": "ge"
     },
     {
@@ -50453,8 +50453,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_ge_constructor",
-      "community": 94,
-      "community_name": "en",
+      "community": 16,
+      "community_name": "Docs/three.min.js",
       "norm_label": ".constructor()"
     },
     {
@@ -50464,8 +50464,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_ge_set",
-      "community": 94,
-      "community_name": "en",
+      "community": 16,
+      "community_name": "Docs/three.min.js",
       "norm_label": ".set()"
     },
     {
@@ -50475,8 +50475,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_ge_enable",
-      "community": 94,
-      "community_name": "en",
+      "community": 16,
+      "community_name": "Docs/three.min.js",
       "norm_label": ".enable()"
     },
     {
@@ -50486,8 +50486,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_ge_enableall",
-      "community": 94,
-      "community_name": "en",
+      "community": 16,
+      "community_name": "Docs/three.min.js",
       "norm_label": ".enableall()"
     },
     {
@@ -50497,8 +50497,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_ge_toggle",
-      "community": 94,
-      "community_name": "en",
+      "community": 16,
+      "community_name": "Docs/three.min.js",
       "norm_label": ".toggle()"
     },
     {
@@ -50519,8 +50519,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_ge_disableall",
-      "community": 94,
-      "community_name": "en",
+      "community": 16,
+      "community_name": "Docs/three.min.js",
       "norm_label": ".disableall()"
     },
     {
@@ -50530,8 +50530,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_ge_test",
-      "community": 94,
-      "community_name": "en",
+      "community": 16,
+      "community_name": "Docs/three.min.js",
       "norm_label": ".test()"
     },
     {
@@ -51223,8 +51223,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_ne_equals",
-      "community": 112,
-      "community_name": "pt",
+      "community": 94,
+      "community_name": "en",
       "norm_label": ".equals()"
     },
     {
@@ -51421,8 +51421,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_je_equals",
-      "community": 112,
-      "community_name": "pt",
+      "community": 94,
+      "community_name": "en",
       "norm_label": ".equals()"
     },
     {
@@ -52290,8 +52290,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_on",
-      "community": 16,
-      "community_name": "Docs/three.min.js",
+      "community": 46,
+      "community_name": "Ce",
       "norm_label": "on"
     },
     {
@@ -52301,8 +52301,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_on_constructor",
-      "community": 16,
-      "community_name": "Docs/three.min.js",
+      "community": 46,
+      "community_name": "Ce",
       "norm_label": ".constructor()"
     },
     {
@@ -52334,8 +52334,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_cn",
-      "community": 16,
-      "community_name": "Docs/three.min.js",
+      "community": 46,
+      "community_name": "Ce",
       "norm_label": "cn"
     },
     {
@@ -52345,8 +52345,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_cn_constructor",
-      "community": 16,
-      "community_name": "Docs/three.min.js",
+      "community": 46,
+      "community_name": "Ce",
       "norm_label": ".constructor()"
     },
     {
@@ -52356,8 +52356,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_hn",
-      "community": 16,
-      "community_name": "Docs/three.min.js",
+      "community": 46,
+      "community_name": "Ce",
       "norm_label": "hn"
     },
     {
@@ -52367,8 +52367,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_hn_constructor",
-      "community": 16,
-      "community_name": "Docs/three.min.js",
+      "community": 46,
+      "community_name": "Ce",
       "norm_label": ".constructor()"
     },
     {
@@ -52378,8 +52378,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_un",
-      "community": 16,
-      "community_name": "Docs/three.min.js",
+      "community": 46,
+      "community_name": "Ce",
       "norm_label": "un"
     },
     {
@@ -52389,8 +52389,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_un_constructor",
-      "community": 16,
-      "community_name": "Docs/three.min.js",
+      "community": 46,
+      "community_name": "Ce",
       "norm_label": ".constructor()"
     },
     {
@@ -52400,8 +52400,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_dn",
-      "community": 16,
-      "community_name": "Docs/three.min.js",
+      "community": 46,
+      "community_name": "Ce",
       "norm_label": "dn"
     },
     {
@@ -52411,8 +52411,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_dn_constructor",
-      "community": 16,
-      "community_name": "Docs/three.min.js",
+      "community": 46,
+      "community_name": "Ce",
       "norm_label": ".constructor()"
     },
     {
@@ -52422,8 +52422,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_pn",
-      "community": 16,
-      "community_name": "Docs/three.min.js",
+      "community": 46,
+      "community_name": "Ce",
       "norm_label": "pn"
     },
     {
@@ -52433,8 +52433,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_pn_constructor",
-      "community": 16,
-      "community_name": "Docs/three.min.js",
+      "community": 46,
+      "community_name": "Ce",
       "norm_label": ".constructor()"
     },
     {
@@ -52466,8 +52466,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_fn",
-      "community": 16,
-      "community_name": "Docs/three.min.js",
+      "community": 46,
+      "community_name": "Ce",
       "norm_label": "fn"
     },
     {
@@ -52477,8 +52477,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_fn_constructor",
-      "community": 16,
-      "community_name": "Docs/three.min.js",
+      "community": 46,
+      "community_name": "Ce",
       "norm_label": ".constructor()"
     },
     {
@@ -52884,8 +52884,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_jn",
-      "community": 16,
-      "community_name": "Docs/three.min.js",
+      "community": 46,
+      "community_name": "Ce",
       "norm_label": "jn()"
     },
     {
@@ -52928,8 +52928,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_jn_constructor",
-      "community": 16,
-      "community_name": "Docs/three.min.js",
+      "community": 46,
+      "community_name": "Ce",
       "norm_label": ".constructor()"
     },
     {
@@ -54963,8 +54963,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_s_bonetransform",
-      "community": 16,
-      "community_name": "Docs/three.min.js",
+      "community": 46,
+      "community_name": "Ce",
       "norm_label": ".bonetransform()"
     },
     {
@@ -56866,8 +56866,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_sl",
-      "community": 94,
-      "community_name": "en",
+      "community": 16,
+      "community_name": "Docs/three.min.js",
       "norm_label": "sl"
     },
     {
@@ -56877,8 +56877,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_sl_constructor",
-      "community": 94,
-      "community_name": "en",
+      "community": 16,
+      "community_name": "Docs/three.min.js",
       "norm_label": ".constructor()"
     },
     {
@@ -58813,8 +58813,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_ec_equals",
-      "community": 112,
-      "community_name": "pt",
+      "community": 94,
+      "community_name": "en",
       "norm_label": ".equals()"
     },
     {
@@ -61387,8 +61387,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_eh_equals",
-      "community": 112,
-      "community_name": "pt",
+      "community": 94,
+      "community_name": "en",
       "norm_label": ".equals()"
     },
     {
@@ -61530,8 +61530,8 @@
       "source_location": "L6",
       "_origin": "ast",
       "id": "ron_docs_three_min_rh_equals",
-      "community": 112,
-      "community_name": "pt",
+      "community": 94,
+      "community_name": "en",
       "norm_label": ".equals()"
     },
     {
@@ -101488,8 +101488,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "scanners_catalyst_checker",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": "catalyst_checker.py"
     },
     {
@@ -101499,8 +101499,8 @@
       "source_location": "L91",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_catalystresult",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": "catalystresult"
     },
     {
@@ -101510,8 +101510,8 @@
       "source_location": "L103",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_catalystresult_matches_gap_up",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": ".matches_gap_up()"
     },
     {
@@ -101521,8 +101521,8 @@
       "source_location": "L107",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_catalystresult_matches_gap_down",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": ".matches_gap_down()"
     },
     {
@@ -101532,8 +101532,8 @@
       "source_location": "L115",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_catalystchecker",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": "catalystchecker"
     },
     {
@@ -101543,8 +101543,8 @@
       "source_location": "L121",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_catalystchecker_init",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": ".__init__()"
     },
     {
@@ -101554,8 +101554,8 @@
       "source_location": "L137",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_catalystchecker_check_batch",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": ".check_batch()"
     },
     {
@@ -101565,8 +101565,8 @@
       "source_location": "L162",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_catalystchecker_check_single",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": ".check_single()"
     },
     {
@@ -101576,8 +101576,8 @@
       "source_location": "L173",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_catalystchecker_fetch_batch",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": "._fetch_batch()"
     },
     {
@@ -101587,8 +101587,8 @@
       "source_location": "L214",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_catalystchecker_parse_feed",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": "._parse_feed()"
     },
     {
@@ -101598,8 +101598,8 @@
       "source_location": "L243",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_catalystchecker_classify",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": "._classify()"
     },
     {
@@ -101609,8 +101609,8 @@
       "source_location": "L309",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_catalystchecker_make_result",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": "._make_result()"
     },
     {
@@ -101620,8 +101620,8 @@
       "source_location": "L323",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_catalystchecker_no_key_result",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": "._no_key_result()"
     },
     {
@@ -101631,8 +101631,8 @@
       "source_location": "L329",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_catalystchecker_chunks",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": "._chunks()"
     },
     {
@@ -101642,8 +101642,8 @@
       "source_location": "L1",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_rationale_1",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": "scanners/catalyst_checker.py ============================= checks whether a..."
     },
     {
@@ -101653,8 +101653,8 @@
       "source_location": "L116",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_rationale_116",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": "batch news sentiment checker using alpha vantage. one api call per gap..."
     },
     {
@@ -101664,8 +101664,8 @@
       "source_location": "L138",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_rationale_138",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": "check news catalyst for a list of symbols in one api call. returns dict of..."
     },
     {
@@ -101675,8 +101675,8 @@
       "source_location": "L163",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_rationale_163",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": "check a single symbol. uses one api call."
     },
     {
@@ -101686,8 +101686,8 @@
       "source_location": "L324",
       "_origin": "ast",
       "id": "scanners_catalyst_checker_rationale_324",
-      "community": 104,
-      "community_name": "CatalystChecker",
+      "community": 147,
+      "community_name": "BreakoutScanner.py",
       "norm_label": "pass-through result when checker is disabled."
     },
     {
@@ -215837,7 +215837,7 @@
       "confidence": "INFERRED",
       "confidence_score": 0.8,
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L505",
+      "source_location": "L509",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_main",
@@ -221483,7 +221483,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L321",
+      "source_location": "L325",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_format_group_summary",
@@ -221495,7 +221495,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L291",
+      "source_location": "L295",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_print_col_headers",
@@ -221507,7 +221507,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L147",
+      "source_location": "L148",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_proc_dict",
@@ -221603,7 +221603,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L610",
+      "source_location": "L614",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_main",
@@ -221686,7 +221686,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L697",
+      "source_location": "L701",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_main",
@@ -221698,7 +221698,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L167",
+      "source_location": "L168",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_proc_dict",
@@ -236332,7 +236332,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L304",
+      "source_location": "L308",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list",
@@ -236354,7 +236354,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L319",
+      "source_location": "L323",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list",
@@ -236387,7 +236387,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L428",
+      "source_location": "L432",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list",
@@ -236398,7 +236398,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L338",
+      "source_location": "L342",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list",
@@ -236409,7 +236409,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L273",
+      "source_location": "L277",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list",
@@ -236420,7 +236420,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L401",
+      "source_location": "L405",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list",
@@ -236453,7 +236453,7 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L359",
+      "source_location": "L363",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list",
@@ -236465,7 +236465,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L421",
+      "source_location": "L425",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_print_group_summary",
@@ -236477,7 +236477,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L183",
+      "source_location": "L184",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_proc_dict",
@@ -236500,7 +236500,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L575",
+      "source_location": "L579",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_main",
@@ -236523,7 +236523,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L578",
+      "source_location": "L582",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_main",
@@ -236546,7 +236546,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L586",
+      "source_location": "L590",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_main",
@@ -236558,7 +236558,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L411",
+      "source_location": "L415",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_print_group_summary",
@@ -236581,7 +236581,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L603",
+      "source_location": "L607",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_main",
@@ -236592,10 +236592,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L274",
+      "source_location": "L278",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "ron_code_trades_list_rationale_274",
+      "source": "ron_code_trades_list_rationale_278",
       "target": "ron_code_trades_list_print_col_headers",
       "confidence_score": 1.0
     },
@@ -236604,7 +236604,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L600",
+      "source_location": "L604",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_main",
@@ -236615,10 +236615,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L305",
+      "source_location": "L309",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "ron_code_trades_list_rationale_305",
+      "source": "ron_code_trades_list_rationale_309",
       "target": "ron_code_trades_list_build_hdr_list",
       "confidence_score": 1.0
     },
@@ -236627,7 +236627,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L422",
+      "source_location": "L426",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_print_group_summary",
@@ -236638,10 +236638,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L320",
+      "source_location": "L324",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "ron_code_trades_list_rationale_320",
+      "source": "ron_code_trades_list_rationale_324",
       "target": "ron_code_trades_list_format_group_summary",
       "confidence_score": 1.0
     },
@@ -236649,10 +236649,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L339",
+      "source_location": "L343",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "ron_code_trades_list_rationale_339",
+      "source": "ron_code_trades_list_rationale_343",
       "target": "ron_code_trades_list_numeric_value",
       "confidence_score": 1.0
     },
@@ -236661,7 +236661,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L369",
+      "source_location": "L373",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_value_in_selected",
@@ -236673,7 +236673,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L728",
+      "source_location": "L732",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_main",
@@ -236684,10 +236684,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L360",
+      "source_location": "L364",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "ron_code_trades_list_rationale_360",
+      "source": "ron_code_trades_list_rationale_364",
       "target": "ron_code_trades_list_value_in_selected",
       "confidence_score": 1.0
     },
@@ -236696,7 +236696,7 @@
       "context": "call",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L764",
+      "source_location": "L768",
       "weight": 1.0,
       "_origin": "ast",
       "source": "ron_code_trades_list_main",
@@ -236707,10 +236707,10 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "Ron/Code/trades_list.py",
-      "source_location": "L410",
+      "source_location": "L414",
       "weight": 1.0,
       "_origin": "ast",
-      "source": "ron_code_trades_list_rationale_410",
+      "source": "ron_code_trades_list_rationale_414",
       "target": "ron_code_trades_list_print_group_summary",
       "confidence_score": 1.0
     },
@@ -404830,5 +404830,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "d7d380d8486274fe3f9f617e3e56a1c714d6912c"
+  "built_at_commit": "3fc78eafb84f1a9592cd160f46dcf840a67cd382"
 }
