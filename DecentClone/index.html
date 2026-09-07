@@ -26576,7 +26576,9 @@
 
         function buildDistanceBendConnectorPanels(info, sides) {
             sides = Math.max(12, Math.min(48, Math.round(sides || TUNNEL_TEXTURE_VECTOR_SIDES_NEAR)));
-            const { a, b, joint } = info;
+            const { a, b, connection } = info;
+            const pointA = connection.aEnd === 'from' ? a.seg.from : a.seg.to;
+            const pointB = connection.bEnd === 'from' ? b.seg.from : b.seg.to;
             const radius = Math.min(
                 Number(a.seg.radius) || builder.radius,
                 Number(b.seg.radius) || builder.radius
@@ -26585,11 +26587,11 @@
             const directionB = Number(b.seg.wallTextureRunDirection) < 0 ? -1 : 1;
             const offsetA = Number(a.seg.wallTextureUOffset) || 0;
             const offsetB = Number(b.seg.wallTextureUOffset) || 0;
-            const ringPoint = (seg, uA, isB) => {
+            const ringPoint = (seg, uA, isB, center) => {
                 const absoluteU = uA * directionA + offsetA;
                 const localU = isB ? (absoluteU - offsetB) / directionB : uA;
                 const theta = localU * Math.PI * 2;
-                return addVec(joint, addVec(
+                return addVec(center, addVec(
                     scaleVec(normalize(seg.right), Math.cos(theta) * radius),
                     scaleVec(normalize(seg.down), Math.sin(theta) * radius)
                 ));
@@ -26599,10 +26601,10 @@
                 const u0 = side / sides;
                 const u1 = (side + 1) / sides;
                 panels.push([
-                    ringPoint(a.seg, u0, false),
-                    ringPoint(a.seg, u1, false),
-                    ringPoint(b.seg, u1, true),
-                    ringPoint(b.seg, u0, true)
+                    ringPoint(a.seg, u0, false, pointA),
+                    ringPoint(a.seg, u1, false, pointA),
+                    ringPoint(b.seg, u1, true, pointB),
+                    ringPoint(b.seg, u0, true, pointB)
                 ]);
             }
             return panels;

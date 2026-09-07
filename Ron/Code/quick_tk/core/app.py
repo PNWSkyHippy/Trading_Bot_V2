@@ -9,6 +9,7 @@ from tkinter import ttk, messagebox
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 from .forms import FormPanel
+from .menu import MenuBarBuilder, MenuNode
 from .outputs import ConsolePanel, DataTable, StatGrid
 from .theme import Theme, apply_theme
 
@@ -101,6 +102,18 @@ class ToolView(ttk.Frame):
         paned.add(f2, weight=2)
         return f1, f2
 
+    def add_menu(self, label: str) -> MenuNode:
+        """Adds a top-level menu dropdown (e.g. 'File', 'Edit') and returns MenuNode for chaining."""
+        return self.app.add_menu(label)
+
+    def menu(self, label: str) -> MenuNode:
+        """Alias for add_menu."""
+        return self.app.menu(label)
+
+    def build_menu_tree(self, tree: Dict[str, List[Union[str, Dict[str, Any]]]]):
+        """Builds an entire menu tree declaratively from a nested dictionary."""
+        self.app.build_menu_tree(tree)
+
     def set_status(self, text: str):
         """Updates the main app's status bar."""
         self.app.set_status(text)
@@ -175,8 +188,8 @@ class QuickApp:
         theme_cb.grid(row=0, column=1)
         theme_cb.bind("<<ComboboxSelected>>", lambda e: self.set_theme(self._theme_var.get()))
 
-        self._menu_bar = tk.Menu(self.root)
-        self.root.config(menu=self._menu_bar)
+        self.menu_builder = MenuBarBuilder(self.root)
+        self._menu_bar = self.menu_builder.menu_bar
 
         self._setup_default_menus()
 
@@ -186,10 +199,9 @@ class QuickApp:
 
     def _setup_default_menus(self):
         """Sets up default top menus including theme picker."""
-        theme_menu = tk.Menu(self._menu_bar, tearoff=0)
+        theme_menu = self.menu_builder.add_menu("Themes")
         for t_name in Theme.PRESETS.keys():
-            theme_menu.add_command(label=t_name, command=lambda n=t_name: self.set_theme(n))
-        self._menu_bar.add_cascade(label="Themes", menu=theme_menu)
+            theme_menu.add_command(t_name, lambda n=t_name: self.set_theme(n))
 
     def set_theme(self, theme_input: Union[str, dict]):
         """Switches the theme dynamically to a preset name or custom dictionary."""
@@ -211,15 +223,55 @@ class QuickApp:
         """Sets the status bar text."""
         self._status_lbl.config(text=text)
 
-    def add_menu(self, label: str, items: List[Tuple[str, Optional[Callable]]]):
-        """Adds a top menu with dropdown items."""
-        menu = tk.Menu(self._menu_bar, tearoff=0)
-        for item_label, callback in items:
-            if item_label == "---" or callback is None:
-                menu.add_separator()
-            else:
-                menu.add_command(label=item_label, command=callback)
-        self._menu_bar.add_cascade(label=label, menu=menu)
+    def add_menu(self, label: str, items: Optional[List[Tuple[str, Optional[Callable]]]] = None) -> MenuNode:
+        """
+        Adds a top-level menu dropdown (e.g. 'File', 'Edit', 'Help') and returns MenuNode.
+        If items is provided, populates legacy list of (label, callback).
+        """
+        node = self.menu_builder.add_menu(label)
+        if items:
+            for item in items:
+                lbl = item[0]
+                cb = item[1] if len(item) > 1 else None
+                if lbl == "---" or cb is None:
+                    node.add_separator()
+                else:
+                    node.add_command(lbl, cb)
+        return node
+
+    def menu(self, label: str) -> MenuNode:
+        """Alias for add_menu."""
+        return self.add_menu(label)
+
+    def build_menu_tree(self, tree: Dict[str, List[Union[str, Dict[str, Any]]]]):
+        """Builds an entire menu tree declaratively from a nested dictionary."""
+        self.menu_builder.build_tree(tree)
+
+    def exit(self, confirm: bool = False):
+        """Cleanly closes the application window with optional confirmation."""
+        if confirm:
+            ans = messagebox.askyesno("Confirm Exit", "Are you sure you want to exit the application?")
+            if not ans:
+                return
+        try:
+            self.root.destroy()
+        except Exception:
+            self.root.quit()
+
+    def on_close(self, callback: Callable[[], bool]):
+        """
+        Registers a custom handler when the user clicks the OS window close (X) button.
+        If callback returns False, the close action is aborted.
+        """
+        def _handler():
+            res = callback()
+            if res is not False:
+                try:
+                    self.root.destroy()
+                except Exception:
+                    self.root.quit()
+
+        self.root.protocol("WM_DELETE_WINDOW", _handler)
 
     def set_single_tool(self, tool_class: Type[ToolView]) -> ToolView:
         """Sets up the app to display a single tool view filling the entire window."""

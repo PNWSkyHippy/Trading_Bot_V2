@@ -77,6 +77,7 @@ vm.createContext(context);
 vm.runInContext(extractFunction('getSegmentPanelZExtent'), context);
 vm.runInContext(extractFunction('interpolateBendConnectorRadial'), context);
 vm.runInContext(extractFunction('textureRunPathConnection'), context);
+vm.runInContext(extractFunction('buildDistanceBendConnectorPanels'), context);
 
 const uploads = new Map();
 let boundBuffer = null;
@@ -226,6 +227,41 @@ for (let rowIndex = 0; rowIndex <= 8; rowIndex++) {
     const ringCenter = midpoint(vertex(zeroDriftVertices, rowIndex, 0), vertex(zeroDriftVertices, rowIndex, 8));
     assertPoint(ringCenter, pointA, `zero-drift ring ${rowIndex} center`);
 }
+
+function rimCenter(panels, first, second) {
+    const points = panels.flatMap(panel => [panel[first], panel[second]]);
+    const total = points.reduce((sum, point) => ({
+        x: sum.x + point.x,
+        y: sum.y + point.y,
+        z: sum.z + point.z
+    }), { x: 0, y: 0, z: 0 });
+    return {
+        x: total.x / points.length,
+        y: total.y / points.length,
+        z: total.z / points.length
+    };
+}
+
+const driftedVectorPanels = context.buildDistanceBendConnectorPanels(driftedInfo, 16);
+if (driftedVectorPanels.length !== 16) {
+    throw new Error(`drifted vector connector emitted ${driftedVectorPanels.length} panels instead of 16`);
+}
+assertPoint(rimCenter(driftedVectorPanels, 0, 1), pointA, 'drifted vector A rim');
+assertPoint(rimCenter(driftedVectorPanels, 2, 3), pointB, 'drifted vector B rim');
+for (const [panelIndex, panel] of driftedVectorPanels.entries()) {
+    for (const [vertexIndex, center] of [[0, pointA], [1, pointA], [2, pointB], [3, pointB]]) {
+        const point = panel[vertexIndex];
+        approximatelyEqual(Math.hypot(
+            point.x - center.x,
+            point.y - center.y,
+            point.z - center.z
+        ), radius, `drifted vector panel ${panelIndex} vertex ${vertexIndex} radius`);
+    }
+}
+
+const zeroDriftVectorPanels = context.buildDistanceBendConnectorPanels(zeroDriftInfo, 16);
+assertPoint(rimCenter(zeroDriftVectorPanels, 0, 1), pointA, 'zero-drift vector A rim');
+assertPoint(rimCenter(zeroDriftVectorPanels, 2, 3), pointA, 'zero-drift vector B rim');
 
 const cacheShiftA = makeBendSegment({ x: -20, y: 0, z: 0 }, { x: -20, y: 0, z: 100 }, { x: 1, y: 0, z: 0 }, { x: 0, y: 1, z: 0 });
 const cacheShiftB = makeBendSegment({ x: 100, y: 0, z: 100 }, { x: 300, y: 0, z: 100 }, { x: 0, y: 0, z: -1 }, { x: 0, y: 1, z: 0 });

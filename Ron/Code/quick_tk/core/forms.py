@@ -3,8 +3,9 @@ Form components and input wrappers for QuickTk.
 Handles automatic variable binding, multi-column row layouts, custom widgets, and value extraction.
 """
 
+import os
 import tkinter as tk
-from tkinter import ttk, filedialog, colorchooser
+from tkinter import ttk, filedialog, colorchooser, messagebox
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 
@@ -334,6 +335,109 @@ class FormPanel(ttk.Frame):
             var.trace_add("write", lambda *args: on_change(var.get()))
 
         self._fields[name] = ("file_picker", box, var)
+        return box
+
+    def add_output_file_picker(
+        self,
+        name: str,
+        label: str,
+        default: str = "",
+        default_filename: str = "output.txt",
+        default_extension: str = ".txt",
+        filetypes: Optional[List[Tuple[str, str]]] = None,
+        parent: Optional[tk.Widget] = None,
+        on_change: Optional[Callable[[str], None]] = None,
+    ) -> ttk.Frame:
+        """
+        Adds an output destination picker that:
+        1. Lets user select target directory and file name.
+        2. Validates the path and write permissions with a ghost file probe.
+        3. Prompts overwrite confirmation if the file already exists.
+        4. Fills the entry only if verified, otherwise sets user back to retry.
+        """
+        container = self._add_field_container(label, parent=parent)
+        var = tk.StringVar(value=default)
+
+        box = ttk.Frame(container, style="Surface.TFrame")
+        box.grid(row=1, column=0, sticky="ew")
+        box.columnconfigure(0, weight=1)
+
+        entry = ttk.Entry(box, textvariable=var)
+        entry.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+
+        def _browse_output():
+            ft = filetypes or [("All Files", "*.*")]
+            
+            # Initial setup for save dialog
+            init_dir = os.path.dirname(var.get()) if var.get() else ""
+            init_file = os.path.basename(var.get()) if var.get() else default_filename
+
+            chosen_path = filedialog.asksaveasfilename(
+                initialdir=init_dir or None,
+                initialfile=init_file,
+                defaultextension=default_extension,
+                filetypes=ft,
+                confirmoverwrite=False,  # Handle overwrite manually with custom validation
+                title=f"Select {label}",
+            )
+
+            if not chosen_path:
+                return  # User closed/cancelled dialog
+
+            # 1. Check folder directory validity
+            target_dir = os.path.dirname(chosen_path)
+            if not os.path.exists(target_dir):
+                messagebox.showerror("Invalid Directory", f"The directory does not exist:\n{target_dir}")
+                return
+
+            # 2. Check for file existence & prompt overwrite
+            if os.path.exists(chosen_path):
+                proceed = messagebox.askyesno(
+                    "File Exists",
+                    f"The file already exists:\n\n{chosen_path}\n\nDo you wish to overwrite it?",
+                    icon="warning",
+                )
+                if not proceed:
+                    messagebox.showinfo("Cancelled", "File selection cancelled. Please choose another file name.")
+                    return
+
+                # Test writeability on existing file (e.g. check if locked by Excel/another process)
+                try:
+                    with open(chosen_path, "a"):
+                        pass
+                except (IOError, PermissionError, OSError) as err:
+                    messagebox.showerror(
+                        "Permission / Lock Error",
+                        f"Cannot write to this file (it may be locked by another program):\n\n{err}",
+                    )
+                    return
+            else:
+                # 3. Ghost creation test to verify folder write permissions
+                try:
+                    with open(chosen_path, "a"):
+                        pass
+                    # Remove ghost file immediately so we leave no artifacts
+                    if os.path.exists(chosen_path):
+                        os.remove(chosen_path)
+                except (IOError, PermissionError, OSError) as err:
+                    messagebox.showerror(
+                        "Cannot Write to Folder",
+                        f"You do not have write permissions for this folder:\n\n{target_dir}\n\nError: {err}",
+                    )
+                    return
+
+            # 4. Verified & approved: fill the path into the entry box
+            var.set(chosen_path)
+            if on_change:
+                on_change(chosen_path)
+
+        btn = ttk.Button(box, text="Save As...", command=_browse_output)
+        btn.grid(row=0, column=1, sticky="e")
+
+        if on_change:
+            var.trace_add("write", lambda *args: on_change(var.get()))
+
+        self._fields[name] = ("output_file_picker", box, var)
         return box
 
     def add_custom_widget(
