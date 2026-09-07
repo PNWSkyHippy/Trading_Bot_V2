@@ -1501,7 +1501,6 @@
         const BRANCH_FLIGHT_BRANCH_ALIGN = 0.14;
         const BRANCH_FLIGHT_HORIZ_STEER_BOOST = 0.28;
         const BRANCH_FLIGHT_HORIZON_HINT = 0.10;
-        const TUNNEL_OPEN_SPACE_DETACH = 1.42;
         // Player controls are expressed per nominal 60 Hz frame. The original
         // 4/14-unit values were tuned while the textured renderer ran far below
         // 60 FPS; after the renderer was optimized they made cruise feel like the
@@ -1567,6 +1566,10 @@
         const TUNNEL_TEXTURE_PANEL_OVERLAP = 1.024;
         const TUNNEL_SEGMENT_JOIN_OVERLAP = 48;
         const TUNNEL_SECTION_JOIN_OVERLAP = 18;
+        // Section-mapped panoramas are authored as discrete images. Blend only
+        // their shared handoff edge; tiled/distance-run textures keep their
+        // exact continuous UV mapping.
+        const TUNNEL_SECTION_TEXTURE_CROSSFADE_WORLD = 36;
         // Flight already exposes the branch itself; the old ten-sided mouth overlay
         // became a field of distracting octagonal markers in dense junction maps.
         const TUNNEL_BRANCH_INDICATORS_ENABLED = false;
@@ -2442,6 +2445,8 @@
             uTileScale: null,
             uAlpha: null,
             uSampler: null,
+            uSectionBlendSampler: null,
+            uSectionBlendWidth: null,
             posLoc: null,
             texLoc: null,
             texture: null,
@@ -4307,7 +4312,7 @@
                 '}'
             ].join('\n');
             // GLSL requires float literals (6.0), not JS number strings ("6") — see proposed_index.html
-            const fsSource = 'precision mediump float; varying vec2 vTexCoord; uniform sampler2D uSampler; uniform vec2 uTileScale; uniform float uOffset; uniform float uUOffset; uniform float uAlpha; void main() { vec2 mappedCoord = vec2(vTexCoord.x * uTileScale.x + uUOffset, vTexCoord.y * uTileScale.y + uOffset); vec4 tex = texture2D(uSampler, mappedCoord); gl_FragColor = vec4(tex.rgb, tex.a * uAlpha); }';
+            const fsSource = 'precision mediump float; varying vec2 vTexCoord; uniform sampler2D uSampler; uniform sampler2D uSectionBlendSampler; uniform vec2 uTileScale; uniform float uOffset; uniform float uUOffset; uniform float uAlpha; uniform float uSectionBlendWidth; void main() { vec2 mappedCoord = vec2(vTexCoord.x * uTileScale.x + uUOffset, vTexCoord.y * uTileScale.y + uOffset); vec4 tex = texture2D(uSampler, mappedCoord); if (uSectionBlendWidth > 0.0 && vTexCoord.y < uSectionBlendWidth) { vec2 priorCoord = vec2(mappedCoord.x, 1.0 - uSectionBlendWidth + vTexCoord.y); vec4 priorTex = texture2D(uSectionBlendSampler, priorCoord); float blend = smoothstep(0.0, uSectionBlendWidth, vTexCoord.y); tex = mix(priorTex, tex, blend); } gl_FragColor = vec4(tex.rgb, tex.a * uAlpha); }';
 
             const program = webglCreateProgram(gl, vsSource, fsSource);
             if (!program) return false;
@@ -4326,6 +4331,8 @@
             tunnelWebGL.uTileScale = gl.getUniformLocation(program, 'uTileScale');
             tunnelWebGL.uAlpha = gl.getUniformLocation(program, 'uAlpha');
             tunnelWebGL.uSampler = gl.getUniformLocation(program, 'uSampler');
+            tunnelWebGL.uSectionBlendSampler = gl.getUniformLocation(program, 'uSectionBlendSampler');
+            tunnelWebGL.uSectionBlendWidth = gl.getUniformLocation(program, 'uSectionBlendWidth');
             tunnelWebGL.posLoc = gl.getAttribLocation(program, 'aPosition');
             tunnelWebGL.texLoc = gl.getAttribLocation(program, 'aTexCoord');
             clearCylinderMeshCache();
@@ -4845,6 +4852,20 @@
             }));
         }
 
+        function sectionTextureHandoffBlendWidth(chunk, range, slice) {
+            if (chunk.kind !== 'corridor' || range.start <= 0 || slice.length < 2) return 0;
+            const outgoing = chunk.entries[range.start - 1];
+            const incoming = chunk.entries[range.start];
+            const outgoingTexture = getWallTextureEntry(outgoing?.seg?.wallTextureId);
+            const incomingTexture = getWallTextureEntry(incoming?.seg?.wallTextureId);
+            if (!textureUsesSectionMapping(outgoingTexture) ||
+                !textureUsesSectionMapping(incomingTexture)) {
+                return 0;
+            }
+            const span = Math.max(0.0001, slice[slice.length - 1].arc - slice[0].arc);
+            return Math.max(0.08, Math.min(0.28, TUNNEL_SECTION_TEXTURE_CROSSFADE_WORLD / span));
+        }
+
         function collectCorridorSweepChunks(drawList) {
             const drawn = new Set(drawList.map(entry => entry.index));
             const used = new Set();
@@ -4911,6 +4932,14 @@
                     );
                     if (!mesh) continue;
                     const texture = getWebGLTextureForSegment(rangeSeg, rangeTextureEntry) || tunnelWebGL.texture;
+                    const blendWidth = sectionTextureHandoffBlendWidth(chunk, range, slice);
+                    const previousEntry = blendWidth > 0 ? chunk.entries[range.start - 1] : null;
+                    const previousTexture = previousEntry
+                        ? (getWebGLTextureForSegment(
+                            previousEntry.seg,
+                            getWallTextureEntry(previousEntry.seg.wallTextureId)
+                        ) || tunnelWebGL.texture)
+                        : null;
                     const model = tunnelWebGL.modelScratch;
                     model.fill(0);
                     model[0] = model[5] = model[10] = model[15] = 1;
@@ -4930,9 +4959,18 @@
                         gl.uniform1f(tunnelWebGL.uOffset, tunnelWebGL.scroll);
                         gl.uniform1f(tunnelWebGL.uUOffset, 0);
                     }
+                    gl.activeTexture(gl.TEXTURE0);
                     if (texture !== activeTexture) {
                         gl.bindTexture(gl.TEXTURE_2D, texture);
                         activeTexture = texture;
+                    }
+                    if (previousTexture) {
+                        gl.activeTexture(gl.TEXTURE1);
+                        gl.bindTexture(gl.TEXTURE_2D, previousTexture);
+                        gl.uniform1f(tunnelWebGL.uSectionBlendWidth, blendWidth);
+                        gl.activeTexture(gl.TEXTURE0);
+                    } else {
+                        gl.uniform1f(tunnelWebGL.uSectionBlendWidth, 0);
                     }
                     bindCylinderGpuMesh(mesh);
                     gl.drawElements(gl.TRIANGLES, mesh.indexCount, gl.UNSIGNED_SHORT, 0);
@@ -4984,6 +5022,8 @@
             gl.uniform1f(tunnelWebGL.uCamNear, TUNNEL_WEBGL_CAM_NEAR);
             gl.activeTexture(gl.TEXTURE0);
             gl.uniform1i(tunnelWebGL.uSampler, 0);
+            gl.uniform1i(tunnelWebGL.uSectionBlendSampler, 1);
+            gl.uniform1f(tunnelWebGL.uSectionBlendWidth, 0);
 
             const drawList = collectWebGLTunnelDrawList(coverageSegments);
             tunnelWebGL.lastDrawCount = 0;
@@ -15205,17 +15245,6 @@
             // Past an open mouth — release wall containment so the ship can fly out.
             if (shipMayExitTunnelMouth(seg, local, mouthPad, exitingForward, exitingBackward)) {
                 shipSegmentIndex = nearest.index;
-                wallHit.active = false;
-                wallHit.intensity *= 0.85;
-                wallHit.stuckCount = 0;
-                wallHit.lockedSegmentIndex = null;
-                wallHit.lockUntil = 0;
-                return;
-            }
-
-            // Open space — detach only when clearly outside the tether radius.
-            const nearestDist = Math.sqrt(nearest.dist2);
-            if (!shipInsideAnyTunnelTube(ship, mouthPad) && nearestDist > segRadius * TUNNEL_OPEN_SPACE_DETACH) {
                 wallHit.active = false;
                 wallHit.intensity *= 0.85;
                 wallHit.stuckCount = 0;

@@ -53,6 +53,7 @@ const context = {
     WALL_TEXTURE_DISTANCE_MAX_SPAN: 50000,
     TUNNEL_HARD_TURN_MAX_DOT: 0.35,
     TUNNEL_SECTION_JOIN_OVERLAP: 18,
+    TUNNEL_SECTION_TEXTURE_CROSSFADE_WORLD: 36,
     TUNNEL_SEGMENT_JOIN_OVERLAP: 48,
     TUNNEL_TEXTURE_PANEL_OVERLAP: 1.006,
     TUNNEL_WEBGL_MESH_CACHE_VERSION: 'test',
@@ -202,6 +203,7 @@ for (const name of [
     'distanceMappedHardBendConnections',
     'interpolateBendConnectorRadial',
     'buildDistanceBendConnectorGpuMesh',
+    'sectionTextureHandoffBlendWidth',
     'splitSegmentAtPoint',
     'splitLongAutogenSegment'
 ]) {
@@ -339,6 +341,38 @@ const bendMesh = context.buildDistanceBendConnectorGpuMesh(bendConnectors[0], 48
 if (bendMesh.indexCount !== 48 * 8 * 6 || !Number.isFinite(bendMesh.boundaryV)) {
     throw new Error('distance-mapped elbow connector mesh is incomplete');
 }
+
+const priorTextureUsesSectionMapping = context.textureUsesSectionMapping;
+const priorGetWallTextureEntry = context.getWallTextureEntry;
+context.textureUsesSectionMapping = entry => entry?.mapping === 'section';
+context.getWallTextureEntry = id => ({
+    mapping: String(id || '').startsWith('section') ? 'section' : 'distance-run'
+});
+const sectionHandoffChunk = {
+    kind: 'corridor',
+    entries: [
+        { index: 0, seg: { wallTextureId: 'section_outgoing' } },
+        { index: 1, seg: { wallTextureId: 'section_incoming' } }
+    ]
+};
+const sectionBlendWidth = context.sectionTextureHandoffBlendWidth(
+    sectionHandoffChunk,
+    { start: 1, end: 2 },
+    [{ arc: 180 }, { arc: 360 }]
+);
+if (Math.abs(sectionBlendWidth - 0.2) > 1e-9) {
+    throw new Error('section texture handoff did not receive its 36u crossfade');
+}
+sectionHandoffChunk.kind = 'distance';
+if (context.sectionTextureHandoffBlendWidth(
+    sectionHandoffChunk,
+    { start: 1, end: 2 },
+    [{ arc: 180 }, { arc: 360 }]
+) !== 0) {
+    throw new Error('distance-run texture handoff incorrectly crossfades');
+}
+context.textureUsesSectionMapping = priorTextureUsesSectionMapping;
+context.getWallTextureEntry = priorGetWallTextureEntry;
 
 context.builder.segments = straightSegments(2);
 plan = context.planDistanceTextureRun([0, 1], ['deep_space_01'], {
@@ -756,6 +790,11 @@ if (repairedPieces.length !== 3 ||
 if (!html.includes('vTexCoord.x * uTileScale.x + uUOffset') ||
     !html.includes('vTexCoord.y * uTileScale.y + uOffset')) {
     throw new Error('distance-capable shader transform is missing');
+}
+if (!html.includes('uniform sampler2D uSectionBlendSampler') ||
+    !html.includes('function sectionTextureHandoffBlendWidth') ||
+    !html.includes('gl.activeTexture(gl.TEXTURE1)')) {
+    throw new Error('section-texture crossfade shader or secondary texture binding is missing');
 }
 if (!/distanceMapping\s*\?\s*distanceUScale/.test(html) ||
     !html.includes("Number(seg.wallTextureRunDirection) < 0 ? -1 : 1")) {
