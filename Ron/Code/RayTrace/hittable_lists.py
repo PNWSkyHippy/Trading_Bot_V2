@@ -1,5 +1,5 @@
 from hittables import HitRecord, Hittable
-from rays import Ray
+import ray as ry
 
 
 class HittableList(Hittable):

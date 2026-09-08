@@ -320,6 +320,20 @@ class EMTStrategyTests(unittest.TestCase):
         with self.assertRaises(LookupError):
             self.engine.manual_close("EMT-PAPER-TEST")
 
+    def test_session_close_uses_last_live_price_and_eod_reason(self):
+        self.engine.active_trade = PaperTrade(
+            trade_id="EMT-PAPER-EOD", symbol="ES", direction="long", quantity=1,
+            entry_time="2026-09-08T16:00:00+00:00", entry_price=100.0,
+            stop_price=98.0, target_price=102.0, entry_bar_time=stamp(9, 45),
+        )
+        self.engine.last_live_price = 101.0
+
+        closed = self.engine.session_close(datetime.fromisoformat(stamp(12, 50)))
+
+        self.assertIsNone(self.engine.active_trade)
+        self.assertEqual(closed["exit_reason"], "futures_eod_close")
+        self.assertEqual(closed["exit_price"], 101.0)
+
     def test_ledger_contains_open_and_close_records(self):
         self.arm_short_and_touch()
         self.engine.on_tick_bar(

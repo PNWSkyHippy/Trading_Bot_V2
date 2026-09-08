@@ -8,9 +8,10 @@ import statistics
 import threading
 import time
 from collections import defaultdict, deque
-from datetime import datetime, timezone
+from datetime import datetime, time as clock_time, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
+from zoneinfo import ZoneInfo
 
 from dotenv import load_dotenv
 
@@ -29,6 +30,34 @@ except ImportError:  # direct script execution
 ROOT = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(ROOT)
 load_dotenv(os.path.join(PROJECT_ROOT, ".env"))
+
+_PACIFIC_TZ = ZoneInfo("America/Los_Angeles")
+_FUTURES_EOD_FLATTEN = clock_time(12, 50)
+_FUTURES_REOPEN = clock_time(15, 0)
+
+
+def futures_session_is_active(stamp=None):
+    """Return whether scanner strategies may manage/enter a futures trade now.
+
+    CME equity-index futures run Sunday 15:00 PT through Friday 13:00 PT,
+    with the weekday 13:00-15:00 PT maintenance break.  We flatten ten
+    minutes early, at 12:50 PT, to avoid carrying a scanner-owned paper trade
+    into the daily shutdown.
+    """
+    if stamp is None:
+        stamp = datetime.now(timezone.utc)
+    if stamp.tzinfo is None:
+        raise ValueError("futures session timestamp must be timezone-aware")
+    pacific = stamp.astimezone(_PACIFIC_TZ)
+    day = pacific.weekday()  # Monday=0, Sunday=6
+    current = pacific.time()
+    if day == 6:
+        return current >= _FUTURES_REOPEN
+    if day == 5:
+        return False
+    if day == 4:
+        return current < _FUTURES_EOD_FLATTEN
+    return current < _FUTURES_EOD_FLATTEN or current >= _FUTURES_REOPEN
 
 
 def load_config(path):
@@ -464,6 +493,36 @@ class MarketState:
             "trade": closed,
         }
 
+    def enforce_futures_session(self, stamp=None):
+        """Flatten scanner-owned paper trades whenever the futures session is closed."""
+        if futures_session_is_active(stamp):
+            return []
+        stamp = stamp or datetime.now(timezone.utc)
+        closed = []
+        with self.engine_lock:
+            groups = (("emt", self.emt_engines), ("eat", self.eat_engines))
+            for strategy, engines in groups:
+                for symbol, engine in engines.items():
+                    if engine.active_trade is None:
+                        continue
+                    try:
+                        trade = engine.session_close(stamp)
+                    except Exception as exc:
+                        print(
+                            f"{strategy.upper()} SESSION CLOSE FAILED · {symbol} · "
+                            f"{type(exc).__name__}: {exc}",
+                            flush=True,
+                        )
+                        continue
+                    if trade is not None:
+                        closed.append((strategy, symbol, trade["trade_id"]))
+                        print(
+                            f"{strategy.upper()} SESSION CLOSE · {symbol} · "
+                            f"{trade['trade_id']} · futures_eod_close",
+                            flush=True,
+                        )
+        return closed
+
     @staticmethod
     def root_symbol(symbol):
         return symbol.split()[0].upper()
@@ -486,6 +545,9 @@ class MarketState:
         with self.engine_lock:
             emt = self.emt_engines.get(symbol)
             eat = self.eat_engines.get(symbol)
+        if not futures_session_is_active():
+            self.enforce_futures_session()
+            return
         if emt is not None:
             emt.on_minute_bar(
                 clean, historical=bool(bar.get("historical", False))
@@ -519,6 +581,9 @@ class MarketState:
         with self.engine_lock:
             engine = self.emt_engines.get(symbol)
         if engine is None:
+            return
+        if not futures_session_is_active():
+            self.enforce_futures_session()
             return
         events = engine.on_tick_bar(
             bar,
@@ -778,6 +843,7 @@ def emt_watchdog(state):
     while True:
         time.sleep(60)
         try:
+            state.enforce_futures_session()
             bridge = state.bridge_status()
             emt = state.emt.snapshot()
             eat = state.eat.snapshot()

@@ -1,6 +1,6 @@
 from math import sqrt
 from hittables import HitRecord, Hittable
-from rays import Ray
+import ray as ry
 from vectors import dot  # <-- Import your standalone dot function here
 
 

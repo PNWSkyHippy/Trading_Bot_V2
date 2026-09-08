@@ -654,6 +654,22 @@ class EATStrategyEngine:
             )
             return asdict(trade)
 
+    def session_close(self, stamp: Optional[datetime] = None) -> Optional[dict]:
+        """Flatten the exact active paper trade for the daily futures shutdown."""
+        with self.lock:
+            trade = self.active_trade
+            if trade is None:
+                return None
+            if not self.paper_only:
+                raise RuntimeError("automatic session close is not implemented for live EAT")
+            exit_price = _finite_number(self.last_live_price)
+            if exit_price <= 0:
+                raise ValueError("EAT session close needs a positive last live price")
+            self._close_trade(
+                exit_price, stamp or datetime.now(timezone.utc), "futures_eod_close"
+            )
+            return asdict(trade)
+
     def on_minute_bar(self, raw_bar: dict, historical: bool = False) -> List[EATEvent]:
         self._refresh_runtime_enabled()
         if not self.enabled and self.active_trade is None:

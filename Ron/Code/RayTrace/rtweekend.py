@@ -12,7 +12,7 @@ def degrees_to_radians(degrees):
 #// Common Headers
 import vectors
 import spheres
-import rays
+import ray as ry
 import colors
 import hittables
 import hittable_lists

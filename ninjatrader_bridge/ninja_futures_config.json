@@ -183,7 +183,7 @@
     "allow_reentry": true,
     "sessions": [
       {"name": "ny", "start": "05:00"},
-      {"name": "tokyo", "start": "14:30"},
+      {"name": "tokyo", "start": "15:00"},
       {"name": "london", "standard_start": "22:30", "dst_start": "23:30"}
     ],
     "ledger_path": "eat_trades.jsonl",
