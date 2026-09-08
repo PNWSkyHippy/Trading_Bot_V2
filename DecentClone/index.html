@@ -15085,10 +15085,18 @@
             const priorSeg = priorSegmentIndex !== null && priorSegmentIndex !== undefined
                 ? builder.segments[priorSegmentIndex]
                 : null;
+            // A scraped tube may retain collision ownership across an ordinary
+            // handoff, but never after the ship is already inside a rectangular
+            // junction. At a 90-degree turn the old tube's open-mouth release can
+            // otherwise run for one frame and push the ship through the box floor
+            // or ceiling before the room's own solid-face clamp gets a chance.
+            const nearestRectContainsShip = segmentIsRectRoom(nearest.seg) &&
+                rectRoomDistanceState(ship, nearest.seg).outsideDist <= 0.001;
             if (
                 wallHit.active &&
                 priorSeg &&
                 nearest.index !== priorSegmentIndex &&
+                !nearestRectContainsShip &&
                 tunnelSegmentsConnected(priorSeg, nearest.seg)
             ) {
                 const priorLocal = shipSegmentLocal(ship, priorSeg);
