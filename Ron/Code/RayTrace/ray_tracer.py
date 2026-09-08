@@ -1,6 +1,6 @@
-from vector import Vec3, Point3, dot, cross, unit_vector
-from color import write_color, Color
-from ray import Ray
+from vectors import Vec3, Point3, dot, cross, unit_vector
+from colors import write_color, Color
+import rays
 import logging
 import sys, io
 from PIL import Image

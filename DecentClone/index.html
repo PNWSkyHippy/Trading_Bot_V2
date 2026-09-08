@@ -4477,8 +4477,16 @@
             return Math.max(1, z1 - z0);
         }
 
-        function sweepTubeRadius(seg) {
-            return Math.max(1, Number(seg?.radius) || builder.radius);
+        function sweepTubeRadius(seg, index = null) {
+            const radius = Math.max(1, Number(seg?.radius) || builder.radius);
+            // Sweep meshes bake their radius into the vertex buffer, unlike the
+            // ordinary cylinder path's model matrix. Keep a small visual cushion
+            // only while the cockpit is scraping its own swept segment, so the
+            // camera near plane cannot expose a black lateral crescent despite
+            // collision correctly holding the ship inside the real tunnel wall.
+            return webglSegmentNeedsScrapeBoost(seg, index)
+                ? radius + TUNNEL_WEBGL_INTERIOR_NEAR_PAD
+                : radius;
         }
 
         function sweepOrthonormalFrame(tangent, rightHint) {
@@ -4503,8 +4511,8 @@
             const cos = Math.max(-1, Math.min(1, dot(t1, t2)));
             const alpha = Math.acos(cos);
             const tubeRadius = Math.min(
-                sweepTubeRadius(entryA.seg),
-                sweepTubeRadius(entryB.seg)
+                sweepTubeRadius(entryA.seg, entryA.index),
+                sweepTubeRadius(entryB.seg, entryB.index)
             );
             const straight = {
                 kind: 'join',
@@ -4586,13 +4594,13 @@
                     sweepPointAtZ(seg, zStart),
                     sweepTravelDir(seg, entry.direction),
                     rightHint,
-                    sweepTubeRadius(seg),
+                    sweepTubeRadius(seg, entry.index),
                     entry.index
                 );
                 return;
             }
             const travel = sweepTravelDir(seg, entry.direction);
-            const radius = sweepTubeRadius(seg);
+            const radius = sweepTubeRadius(seg, entry.index);
             const step = Math.max(28, radius * 0.35);
             const count = Math.max(1, Math.ceil(Math.abs(span) / step));
             for (let i = 0; i <= count; i++) {
@@ -4607,7 +4615,7 @@
                 sweepTravelZ(entryB.seg, entryB.direction, 'start', fillet?.insetB || 0)
             );
             const t2 = sweepTravelDir(entryB.seg, entryB.direction);
-            const radiusB = sweepTubeRadius(entryB.seg);
+            const radiusB = sweepTubeRadius(entryB.seg, entryB.index);
             if (!fillet || fillet.kind !== 'arc') {
                 pushSweepSample(samples, enterB, t2, rightHint, radiusB, entryB.index);
                 return;
@@ -4918,7 +4926,7 @@
                             return [
                                 entry.index,
                                 entry.direction,
-                                sweepTubeRadius(seg),
+                                sweepTubeRadius(seg, entry.index),
                                 seg.from.x, seg.from.y, seg.from.z,
                                 seg.to.x, seg.to.y, seg.to.z
                             ].join(',');

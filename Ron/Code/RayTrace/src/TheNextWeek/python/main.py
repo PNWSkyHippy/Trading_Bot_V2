@@ -7,7 +7,7 @@
 #
 # You should have received a copy (see file COPYING.txt) of the CC0 Public Domain Dedication
 # along with this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
-
+import argparse, sys, logging
 from bvh import BvhNode
 from camera import Camera
 from color import Color
@@ -20,6 +20,7 @@ from rtweekend import random_double
 from sphere import Sphere
 from texture import CheckerTexture, ImageTexture, NoiseTexture
 from vec3 import Point3, Vec3
+from local_functions import setup_logging
 
 
 def bouncing_spheres():
@@ -321,9 +322,118 @@ def final_scene(image_width, samples_per_pixel, max_depth):
     cam.defocus_angle = 0
     cam.render(world)
 
+file_formats = [
+                "bmp",  "gif",  "ico", 
+                "jpg",  "pcx",  "png", 
+                "ppm",  "tga",  "tif"
+            ]       
 
-def main():
-    scene = 0
+
+
+def main(logger):
+
+    def wide_formatter(prog):
+        return (argparse.RawDescriptionHelpFormatter(prog,width=110,max_help_position=46,))
+    
+    parser = argparse.ArgumentParser(
+            description="convert ppm tp jpg",
+            epilog="""\
+Usage examples:
+    make_ppm.py -i <input file> -o <output file>
+""",
+            formatter_class=wide_formatter,
+    )
+    
+    parser.add_argument("-o", "--outfile", metavar="",
+        help="\tpath and name of output file",
+    )        
+    parser.add_argument("-f", "--format", metavar="",
+        help="\tfile format to output to",
+    )
+
+    parser.add_argument("-l", "--list", action="store_true",
+        help="\tlist supported file formats",
+    )
+    
+    parser.add_argument("-d", "--debug", action="store_true",
+        help="\tif give, prints extra debug info during render",
+    )
+
+    parser.add_argument("-p", "--printout", action="store_true",
+        help="\tif setm, copy of the output in R G B triplets sent to screen (> yoourfile.ppm)",
+    )
+    
+    parser.add_argument("-r", "--resize", metavar="",
+        help="\tWidth, Height to resize image to",
+    )
+        
+    parser.add_argument("-w", "--width", metavar="",
+        help="\tWidth to create the initial 16/9 aspect image to. Defaults to 1200",
+    )
+   
+    parser.add_argument("-s", "--scale", metavar="",
+        help="\tFactor to cle image by <0.1 to 10>",
+    )
+    
+    parser.add_argument("-c", "--scene", metavar="",
+        help="\tscene <1-9>       Scene to render (1: Bouncing Spheres, 2: Checkered Spheres,\n"
+        "                            3: Earth, 4: Perlin Spheres, 5: Quads, 6: Simple Light,\n"
+        "                            7: Cornell Box, 8: Cornell Smoke, 9: Final Scene (default: 9))\n"
+    )
+    
+   
+    
+    args = parser.parse_args()
+    
+    scene = int(args.scene) if args.scene  else 9
+
+    if args.list:
+        i = 1
+        out_string = ""
+        for file in file_formats:
+            out_string += f'{file}\t'
+            if i % 3 == 0:
+                 out_string += '\n'
+            i += 1
+        logger.info(f'Supported Formats:\n{out_string}')
+        sys.exit(2)
+    format = args.format if args.format else None
+    outfile = args.outfile if args.outfile else None
+    printout = args.printout if args.printout else False
+    render_width = int(args.width) if args.width else 1200
+    debug = args.debug if args.debug else False
+
+    width, height = [int(x.strip()) for x in args.resize.split(",")] if args.resize else (0, 0)
+    is_resize = True if args.resize else False
+
+    is_scaled = True if args.scale else False
+    scale_fac = float(args.scale) if args.scale else 1.0
+    scale_fac = max(0.1, min(10.0, scale_fac))
+
+    is_resize = False if is_scaled else is_resize
+
+    if outfile:
+        if not format:
+            if "." in outfile:
+                ext = outfile.rsplit(".", 1)[1].lower()
+                if ext in file_formats:
+                    format = ext
+                else:
+                    logger.error(f"Error: When giving an output filename you must include -f <File Format to create>")
+                    sys.exit(5)
+            else:
+                logger.error("Error: When giving an output filename you must include -f <File Format to create>")
+                sys.exit(5)
+
+            if format not in file_formats:
+                raise ValueError(f"Error: {format} format not supported")
+
+            if "." in outfile:
+                f, _ = outfile.rsplit(".", 1)
+                outfile = f + "." + format
+            else:
+                outfile = outfile + "." + format
+        
     if scene == 1:
         bouncing_spheres()
     elif scene == 2:
@@ -347,4 +457,10 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    setup_logging("file.log")
+    log = logging.getLogger(__name__)
+    #    log.debug("file only")
+    #    log.info("stdout + file")
+    #    log.warning("stdout + file")
+    #    log.error("stderr + file")
+    main(log)
