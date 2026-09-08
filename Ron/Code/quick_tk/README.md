@@ -105,7 +105,34 @@ self.stats.set_metrics({
 - **`write_code(code_str)`**: Syntax-highlighted code blocks.
 - **`clear()`** / **`copy_all()`**: Toolbar actions.
 
-### 5. `QuickApp` (Multi-Tool Hub & Async Runner)
+### 5. `MenuBarBuilder` & `MenuNode` (Hierarchical Menus & Shortcuts)
+Build rich top menus either fluently or declaratively:
+- **Fluent Style**:
+  ```python
+  file_menu = self.menu("File")
+  file_menu.add_item("New", self.on_new, shortcut="Ctrl+N")
+  file_menu.add_file_open("Open...", self.on_open, shortcut="Ctrl+O")
+  file_menu.add_file_save("Save Report As...", self.on_save, default_ext=".csv")
+  file_menu.add_separator()
+  export_sub = file_menu.add_submenu("Export")
+  export_sub.add_item("To CSV", self.export_csv)
+  
+  view_menu = self.menu("View")
+  view_menu.add_toggle("Show Grid", default=True, on_toggle=self.toggle_grid)
+  view_menu.add_radio_group(["Compact", "Normal", "Wide"], default="Normal", on_change=self.set_layout)
+  ```
+- **Declarative Tree Style**:
+  ```python
+  self.build_menu_tree({
+      "Tools": [
+          {"label": "Run Diagnostic", "command": self.run_diag, "shortcut": "F5"},
+          "---",
+          {"label": "DB Tools", "submenu": [{"label": "Vacuum", "command": self.db_vacuum}]}
+      ]
+  })
+  ```
+
+### 6. `QuickApp` (Multi-Tool Hub & Async Runner)
 - **`app.set_single_tool(ToolClass)`**: Runs as a focused standalone window.
 - **`app.setup_sidebar([Tool1, Tool2, Tool3])`**: Mounts multiple tools in a left-sidebar navigation dashboard.
 - **`app.setup_tabs([Tool1, Tool2])`**: Tabbed notebook interface.

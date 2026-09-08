@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 from .forms import FormPanel
 from .menu import MenuBarBuilder, MenuNode
-from .outputs import ConsolePanel, DataTable, StatGrid
+from .outputs import ConsolePanel, DataTable, StatGrid, ImagePanel, show_image_window
 from .theme import Theme, apply_theme
 
 
@@ -74,6 +74,31 @@ class ToolView(ttk.Frame):
         """Helper to create a ConsolePanel."""
         p = parent or self._main_container
         return ConsolePanel(p, title=title, theme=self.theme, **kwargs)
+
+    def add_image_preview(
+        self,
+        title: Optional[str] = "Image Preview",
+        max_size: Tuple[int, int] = (450, 350),
+        parent: Optional[tk.Widget] = None,
+        **kwargs,
+    ) -> ImagePanel:
+        """Helper to create an ImagePanel for displaying scaled image previews."""
+        p = parent or self._main_container
+        return ImagePanel(p, title=title, max_size=max_size, theme=self.theme, **kwargs)
+
+    def show_image_window(
+        self,
+        image_or_path: Union[str, Any],
+        title: str = "Image Window",
+        max_display_size: Tuple[int, int] = (900, 700),
+    ) -> Optional[tk.Toplevel]:
+        """Opens a separate Tkinter window displaying the full converted image."""
+        return show_image_window(
+            image_or_path,
+            title=title,
+            parent_root=self.app.root,
+            max_display_size=max_display_size,
+        )
 
     def add_container(self, parent: Optional[tk.Widget] = None, padding: int = 0) -> ttk.Frame:
         """Creates a flexible styled container frame."""

@@ -6,9 +6,16 @@ Output components for QuickTk:
 """
 
 import csv
+import os
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+
+try:
+    from PIL import Image, ImageTk
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
 
 
 class StatGrid(ttk.Frame):
@@ -403,3 +410,186 @@ class ConsolePanel(ttk.Frame):
     def get_text(self) -> str:
         """Returns entire text content."""
         return self.text_widget.get("1.0", "end-1c")
+
+
+class ImagePanel(ttk.Frame):
+    """
+    A modern image preview container that automatically scales images to fit
+    within its frame bounds while preserving aspect ratio, and keeps PhotoImage
+    references alive to prevent garbage collection blanking.
+    """
+
+    def __init__(
+        self,
+        parent: tk.Widget,
+        title: Optional[str] = "Image Preview",
+        max_size: Tuple[int, int] = (450, 350),
+        theme: dict = None,
+        **kwargs,
+    ):
+        super().__init__(parent, style="Surface.TFrame", **kwargs)
+        self.theme = theme or {}
+        self.max_width, self.max_height = max_size
+        self._current_image = None
+        self._photo_ref = None  # Crucial: prevents Python GC from blanking image
+
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(1, weight=1)
+
+        row_idx = 0
+        if title:
+            header_bar = ttk.Frame(self, style="Surface.TFrame")
+            header_bar.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 4))
+            header_bar.columnconfigure(0, weight=1)
+
+            lbl = ttk.Label(header_bar, text=title, style="Heading.TLabel")
+            lbl.grid(row=0, column=0, sticky="w")
+            row_idx = 1
+
+        # Canvas/Label container for the image
+        self.image_container = ttk.Frame(self, style="Card.TFrame", padding=6)
+        self.image_container.grid(row=row_idx, column=0, sticky="nsew", padx=8, pady=4)
+        self.image_container.columnconfigure(0, weight=1)
+        self.image_container.rowconfigure(0, weight=1)
+
+        bg = self.theme.get("card_bg", "#1e1e2e")
+        self.img_label = tk.Label(
+            self.image_container,
+            text="No Image Loaded",
+            bg=bg,
+            fg=self.theme.get("text_dim", "#a6adc8"),
+            font=("Segoe UI", 10),
+            justify="center",
+        )
+        self.img_label.grid(row=0, column=0, sticky="nsew")
+
+        # Info subtitle bar (dimensions, filesize)
+        self.info_lbl = ttk.Label(self, text="Ready", style="Dim.TLabel", anchor="center")
+        self.info_lbl.grid(row=row_idx + 1, column=0, sticky="ew", padx=8, pady=(2, 6))
+
+    def set_image(self, image_or_path: Union[str, Any, None], info_text: Optional[str] = None):
+        """
+        Loads and displays an image from a filepath or PIL Image object.
+        Automatically scales the image proportionally to fit within max_size.
+        """
+        if not image_or_path:
+            self.clear()
+            return
+
+        if not HAS_PIL:
+            self.img_label.config(text="PIL (Pillow) required for image preview.\nInstall with: pip install Pillow", image="")
+            return
+
+        try:
+            if isinstance(image_or_path, str):
+                if not os.path.exists(image_or_path):
+                    self.img_label.config(text=f"File not found:\n{os.path.basename(image_or_path)}", image="")
+                    return
+                im = Image.open(image_or_path)
+                orig_w, orig_h = im.size
+                fsize = os.path.getsize(image_or_path) / 1024
+                details = f"{orig_w}x{orig_h} px | {fsize:.1f} KB | {os.path.basename(image_or_path)}"
+            else:
+                im = image_or_path
+                orig_w, orig_h = im.size
+                details = f"{orig_w}x{orig_h} px (In-Memory Image)"
+
+            # Scale to fit proportionally within max_width and max_height
+            scale = min(self.max_width / orig_w, self.max_height / orig_h, 1.0)
+            target_w = max(1, int(orig_w * scale))
+            target_h = max(1, int(orig_h * scale))
+
+            # Resample image
+            resample_filter = getattr(Image, "Resampling", Image).LANCZOS if hasattr(Image, "Resampling") else Image.ANTIALIAS
+            resized = im.resize((target_w, target_h), resample=resample_filter)
+
+            # Convert to ImageTk PhotoImage
+            photo = ImageTk.PhotoImage(resized)
+            self._photo_ref = photo  # Keep reference alive!
+            self._current_image = im
+
+            self.img_label.config(image=photo, text="")
+            self.info_lbl.config(text=info_text or details)
+
+        except Exception as ex:
+            self.img_label.config(text=f"Error previewing image:\n{ex}", image="")
+            self._photo_ref = None
+
+    def clear(self):
+        """Clears the image and displays empty placeholder."""
+        self._current_image = None
+        self._photo_ref = None
+        self.img_label.config(text="No Image Loaded", image="")
+        self.info_lbl.config(text="Ready")
+
+
+def show_image_window(
+    image_or_path: Union[str, Any],
+    title: str = "Converted Image",
+    parent_root: Optional[tk.Widget] = None,
+    max_display_size: Tuple[int, int] = (900, 700),
+) -> Optional[tk.Toplevel]:
+    """
+    Opens a clean, dedicated separate Tkinter window (Toplevel) displaying the image
+    scaled to fit the screen without requiring external default OS image viewers.
+    """
+    if not HAS_PIL:
+        messagebox.showerror("Pillow Required", "PIL (Pillow) is required to display image windows.")
+        return None
+
+    try:
+        if isinstance(image_or_path, str):
+            if not os.path.exists(image_or_path):
+                messagebox.showerror("File Error", f"Image file not found:\n{image_or_path}")
+                return None
+            im = Image.open(image_or_path)
+            win_title = f"{title} - {os.path.basename(image_or_path)}"
+            orig_w, orig_h = im.size
+            fsize = os.path.getsize(image_or_path) / 1024
+            info_str = f"Dimensions: {orig_w}x{orig_h} px | Size: {fsize:.1f} KB | Format: {im.format or os.path.splitext(image_or_path)[1].upper()}"
+        else:
+            im = image_or_path
+            orig_w, orig_h = im.size
+            win_title = title
+            info_str = f"Dimensions: {orig_w}x{orig_h} px"
+
+        # Create separate Toplevel window
+        win = tk.Toplevel(parent_root)
+        win.title(win_title)
+        win.configure(bg="#181825")
+
+        # Calculate proportional fit for window display
+        max_w, max_h = max_display_size
+        scale = min(max_w / orig_w, max_h / orig_h, 1.0)
+        disp_w = max(1, int(orig_w * scale))
+        disp_h = max(1, int(orig_h * scale))
+
+        resample_filter = getattr(Image, "Resampling", Image).LANCZOS if hasattr(Image, "Resampling") else Image.ANTIALIAS
+        disp_img = im.resize((disp_w, disp_h), resample=resample_filter)
+        photo = ImageTk.PhotoImage(disp_img)
+        win._photo_ref = photo  # Keep reference alive on window object
+
+        # Layout
+        win.columnconfigure(0, weight=1)
+        win.rowconfigure(0, weight=1)
+
+        # Image label
+        lbl = tk.Label(win, image=photo, bg="#181825")
+        lbl.grid(row=0, column=0, padx=12, pady=(12, 4), sticky="nsew")
+
+        # Bottom info and close bar
+        bar = ttk.Frame(win, padding=(12, 6))
+        bar.grid(row=1, column=0, sticky="ew")
+        bar.columnconfigure(0, weight=1)
+
+        meta_lbl = ttk.Label(bar, text=info_str, style="Dim.TLabel")
+        meta_lbl.grid(row=0, column=0, sticky="w")
+
+        close_btn = ttk.Button(bar, text="Close Window", command=win.destroy)
+        close_btn.grid(row=0, column=1, sticky="e")
+
+        return win
+
+    except Exception as e:
+        messagebox.showerror("Error Opening Image", f"Failed to load image:\n{e}")
+        return None

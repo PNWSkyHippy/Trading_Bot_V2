@@ -170,19 +170,7 @@ Usage examples:
         if infile != outfile:
             try:
                 with Image.open(infile) as img:
-                    if is_scaled:
-                        width = int(img.width * scale_fac)
-                        height = int(img.height * scale_fac)
-                        print(f'Original image Width: {img.width}, Height: {img.height}')
-                        out = img.resize((width, height))
-                        print(f'Converted image Width: {out.width}, Height: {out.height}')
-                    elif is_resize:
-                        print(f'Original image Width: {img.width}, Height: {img.height}')
-                        out = img.resize((width, height))
-                        print(f'Converted image Width: {out.width}, Height: {out.height}')
-                    else:
-                        # Fallback if is_resize is False so 'out' is always defined
-                        out = img
+ 
                     out.save(outfile)
             except OSError:
                 print("cannot convert", infile)

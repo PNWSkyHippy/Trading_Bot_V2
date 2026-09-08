@@ -4,7 +4,7 @@ Demonstrates FormPanel numeric inputs, live calculation callbacks, StatGrid badg
 """
 
 import os
-import sys
+import sys, io
 import tkinter as tk
 from tkinter import ttk
 from PIL import Image, ImageTk
@@ -17,56 +17,40 @@ sys.path.insert(0, BASE_DIR)
 
 from quick_tk import QuickApp, ToolView
 
+# Add parent directory and scratch root to sys.path
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+SCRATCH_DIR = os.path.dirname(BASE_DIR)
+sys.path.insert(0, SCRATCH_DIR)
+sys.path.insert(0, BASE_DIR)
 
-class PaintCanvas(tkinter.Canvas):
-    def __init__(self, master, image):
-        tkinter.Canvas.__init__(self, master,
-                                width=image.size[0], height=image.size[1])
-
-        # fill the canvas
-        self.tile = {}
-        self.tilesize = tilesize = 32
-        xsize, ysize = image.size
-        for x in range(0, xsize, tilesize):
-            for y in range(0, ysize, tilesize):
-                box = x, y, min(xsize, x+tilesize), min(ysize, y+tilesize)
-                tile = ImageTk.PhotoImage(image.crop(box))
-                self.create_image(x, y, image=tile, anchor=tkinter.NW)
-                self.tile[(x, y)] = box, tile
-
-        self.image = image
-
-        self.bind("<B1-Motion>", self.paint)
-
-    def paint(self, event):
-        xy = event.x - 10, event.y - 10, event.x + 10, event.y + 10
-        im = self.image.crop(xy)
-
-        # process the image in some fashion
-        im = im.convert("L")
-
-        self.image.paste(im, xy)
-        self.repair(xy)
-
-    def repair(self, box):
-        # update canvas
-        dx = box[0] % self.tilesize
-        dy = box[1] % self.tilesize
-        for x in range(box[0]-dx, box[2]+1, self.tilesize):
-            for y in range(box[1]-dy, box[3]+1, self.tilesize):
-                try:
-                    xy, tile = self.tile[(x, y)]
-                    tile.paste(self.image.crop(xy))
-                except KeyError:
-                    pass  # outside the image
-        self.update_idletasks()
 
 class ImageConvertFrontEnd(ToolView):
     title = "Image Convert"
     description = "Convert Graphical Images"
+
+    def create_ppm(self):
+        image_width = 256
+        image_height = 256
    
+        ppm_image = f'P3\n{image_width} {image_height}\n255\n'
+        for j in range(image_height):
+            row_rgb = ""
+            for i in range (image_width):
+                r = float(i) / (image_width-1)
+                g = float(j) / (image_height-1)
+                b = 0.0;
+
+                ir = int(255.999 * r)
+                ig = int(255.999 * g)
+                ib = int(255.999 * b)
+
+                row_rgb += f'{ir} {ig} {ib}\t\t'
+            ppm_image += f'{row_rgb}\n'  
+        return ppm_image
+ 
+                
     def build_ui(self):
-        self.is_resize = False
+#        self.is_resize = False
         self.columnconfigure(0, weight=0)
         self.columnconfigure(1, weight=1)
         self.rowconfigure(0, weight=1)
@@ -77,7 +61,7 @@ class ImageConvertFrontEnd(ToolView):
    
 
         self.form.add_dropdown("format", "Output Format", ["bmp", "jpg", "ppm", "gif", "pcx","tga","ico","png","tif"], default="ppm", on_change=self._auto_calc)
-        self.form.add_checkbox("is_demo", "Demo Mode", default=False, on_change=self._auto_calc)
+        self.form.add_checkbox("is_demo", "Demo Mode", default=False, on_change=self.demo_auto_calc)
 #        self.form.add_file_picker("outfile","Output File", default="ray_traced.ppm", mode="open")
         self.form.add_output_file_picker(
             name="outfile",
@@ -91,9 +75,9 @@ class ImageConvertFrontEnd(ToolView):
                     ("Png Files", "*.png"), ("Tif Files", "*.tif"),
                     ("All Files", "*.*")]
         )
-        self.form.add_file_picker("infile","Input File", default="", mode="open", on_change=self._auto_calc)
-        self.form.add_number("scalefac","Scale Factor", default=1, min_val=.1, max_val=10, step=.1, is_float=True, on_change=self._auto_calc)
-        self.form.add_number("width", "Wih of output at 15/9 aspect", default=400, min_val=100, max_val=1000, step=25, is_float=True, on_change=self._auto_calc)
+        self.form.add_file_picker("infile","Input File", default="", mode="open", on_change=self.infile_auto_calc)
+        self.form.add_number("scalefac","Scale Factor", default=1, min_val=.1, max_val=10, step=.1, is_float=True, on_change=self.scaled_auto_calc)
+        self.form.add_number("width", "Wih of output at 15/9 aspect", default=400, min_val=100, max_val=1000, step=25, is_float=True, on_change=self.resize_auto_calc)
         self.form.add_button("Convert Image", callback=self.on_view_clicked, variant="primary")
         
         # 2. Right Results Panel: StatGrid + Breakdown Table
@@ -103,126 +87,130 @@ class ImageConvertFrontEnd(ToolView):
         right_box.rowconfigure(0, weight=0)
         right_box.rowconfigure(1, weight=1)
         
+        self.preview = self.add_image_preview(
+            title="Input Preview",
+            max_size=(500, 380),
+            parent=right_box
+        )
+
+        self.preview.grid(row=0, column=0, sticky="nsew")
         # Initial calculation
         self.on_calculate(self.form.get_values())
         self.on_view_clicked(self.form.get_values())
+        
+        self.setup_menus()
 
     def _auto_calc(self, _=None):
         """Triggered automatically when any input changes."""
         self.on_calculate(self.form.get_values())
+ 
+    def scaled_auto_calc(self, _=None):
+        """Triggered automatically when any input changes."""
+        self.is_resize - False
+        self.is_scaled = True
+        self.on_calculate(self.form.get_values())
 
+    def resize_auto_calc(self, _=None):
+        """Triggered automatically when any input changes."""
+        self.is_resize - True
+        self.is_scaled = False
+        values = self.form.get_values()
+        self.width = values.get("width", self.width)
+        self.on_calculate(self.form.get_values())
+        
+    def demo_auto_calc(self, _=None):
+        breakpoint()
+        ppm_img = self.create_ppm()
+        breakpoint()
+        # 1. Convert your string buffer to bytes (if it isn't already bytes)
+        ppm_bytes = ppm_img.encode('utf-8') if isinstance(ppm_img, str) else ppm_img
+        # 2. Wrap the buffer in an in-memory stream
+        ppm_stream = io.BytesIO(ppm_bytes)
+        self.infile = ppm_stream
+        self.infile_auto_calc()
+
+        
+  
+
+
+
+    def infile_auto_calc(self, _=None):
+        """Triggered automatically when any input changes."""
+        values = self.form.get_values()
+        file_name = values.get("infile", None)
+        self.infile = file_name 
+        self.on_calculate(self.form.get_values())
+        
     def on_view_clicked(self, values: dict):
+        self.on_calculate(values)
         self.make_image(values)
 
 
     def make_image(self, values: dict):
-        # values["export_file"] contains the full, verified output Path!
-        self.outfile = values.get("export_file","ray_traced.ppm")
+        # values["outfile"] contains the full, verified output Path!
+        if not self.infile:
+            return
+        if values.get("outfile","image_converted.ppm"):
+            self.outfile = values.get("outfile","image_converted.ppm")
+        else:
+            self.outfile = "image_converted.ppm"
+        try:
+            f, e = self.outfile.split(".")
+            self.outfile = f + "." + self.format
+        except:
+            self.outfile = self.outfile + "." + self.format
+        try:
+            with Image.open(self.infile) as img: 
+                if self.is_scaled:
+                    width = int(float(img.width) * float(self.scale_fac))
+                    height = int(float(img.height) * float(self.scale_fac))
+                    out = img.resize((width, height))
+                elif self.is_resize:
+                    out = img.resize((self.width, self.height))
+                else:
+                    # Fallback if is_resize is False so 'out' is always defined
+                    out = img
+                if out.mode in ("RGBA", "P") and self.outfile.lower().endswith((".jpg", ".ppm")):
+                    out = out.convert("RGB")
+                out.save(self.outfile)       
+        except OSError:
+            return
+        im = Image.open(self.outfile)
+        self.show_image_window(
+            im,
+            title="Converted Output Preview",
+            max_display_size=(im.width, im.height)
+        )
  
-#        sys.stderr.write(f'Outfile is: {self.outfile}')
-#        sys.stderr.flush()
-#       with open(dest_path, "w") as f:
-#           f.write("id,symbol,pnl\n1,ES,500.00\n")
-
     
     def on_calculate(self, values: dict):
         self.format = values.get("format", "ppm")
         self.is_demo = values.get("is_demo", "False")
         self.scale_fac = float(values.get("scalefac", 1.0))
-        self.is_scaled = True if  self.scale_fac > 1 else False
+        self.is_scaled = True if  self.scale_fac !=  1 else False
             
-        self.width = int(values.get("width", 400))
+        self.width = int(values.get("width", None))
         self.height = int(self.width/(16/9)) if values.get("width") else 225
-        self.is_resize = True if self.width != 400 else False
-        self.outfile = values.get("outfile", "ray-traced.py")
-        self.infile =  values.get("infile", None)
-        if self.infile  :
-            root = tkinter.Tk()
-            root.title("PPM Image Display")
-            root.geometry("400x400")
-
-            # 2. Create the ttk.Frame panel
-            frame = ttk.Frame(root, padding="10")
-            frame.pack(fill="both", expand=True)
-
-            # 3. Load the PPM image using PhotoImage
-            # Replace 'example.ppm' with the actual path to your file
-            try:
-                ppm_image = tk.PhotoImage(file=self.infile)
-
-                # 4. Create a ttk.Label to hold the image
-                image_label = ttk.Label(frame, image=ppm_image)
-                image_label.pack(fill="both", expand=True)
-
-                # CRITICAL: Keep a reference to the image object to prevent garbage collection
-                image_label.image = ppm_image
-
-            except tk.TclError:
-                # Fallback error handling if the file is missing or invalid
-                error_label = ttk.Label(frame, text="Error: Could not load PPM image file.")
-                error_label.pack()
-
-            # Start the application loop
-#            root.mainloop()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-            img = Image.open(self.infile)
-            PaintCanvas(root, img).pack()
+        self.is_resize = True if self.width is not None else False
+        self.outfile = values.get("outfile", None)
+        if not self.is_demo:
+            self.infile =  values.get("infile", None)
+       # Update In-Frame Preview
+        if (self.infile and os.path.exists(self.infile)) or self.is_demo:
+            self.preview.set_image(self.infile)
+        else:
+            self.preview.clear()
    
             
-#        sys.stderr.write(f'format: {self.format}, is_demo: {self.is_demo}, Sclae_fac: {self.scale_fac}, is_scaled:'
-#                         f'{self.is_scaled}, Width: {self.width}, Height: {self.height}, Outfile: {self.outfile}'
-#                         f'Infile: {self.infile}.is_resize: {self.is_resize}\n'
-#        )
-            
-#       sys.stderr.flush()
-"""
-        # Weights: Quizzes 20%, HW 20%, Midterm 25%, Part 10%, Final 25%
-        q_pts = (q * 0.30)
-        part_pts = (part * 0.10)
-        final_pts = (final_est * 0.60)
-        final_bonus = (bonus * 0.10)
-        current_earned = q_pts + part_pts + final_bonus
-        total_projected = current_earned + final_pts
+        sys.stderr.write(f'format: {self.format}, is_demo: {self.is_demo}, Sclae_fac: {self.scale_fac}, is_scaled:'
+                         f'{self.is_scaled}, Width: {self.width}, Height: {self.height}, Outfile: {self.outfile}'
+                         f'Infile: {self.infile}.is_resize: {self.is_resize}\n'
+        )
 
-        # Determine target threshold
-        target_pct = 90.0
-        if "87" in target_str:
-            target_pct = 87.0
-        elif "83" in target_str:
-            target_pct = 83.0
-        elif "80" in target_str:
-            target_pct = 80.0
-        elif "70" in target_str:
-            target_pct = 70.0
-
-        # Needed on final: (target_pct - current_earned) / 0.25
-        needed_on_final = max(0.0, (target_pct - current_earned) / 0.25)
-"""
-"""       # Letter grade lookup
-        def _get_letter(score):
-            if score >= 93: return "A"
-            if score >= 90: return "A-"
-            if score >= 87: return "B+"
-            if score >= 83: return "B"
-            if score >= 80: return "B-"
-            if score >= 77: return "C+"
-            if score >= 70: return "C"
-            if score >= 60: return "D"
-            return "F"
-"""
+    def setup_menus(self):
+        # 1. FILE MENU (Fluent Chained Style)
+        file_menu = self.menu("File")
+        file_menu.add_item("Exit Application", self.app.root.quit, shortcut="Alt+F4")
 
 
 if __name__ == "__main__":

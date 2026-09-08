@@ -133,9 +133,9 @@
       "path": "Textures/WallTextures/water1.jpg"
     },
     {
-      "id": "water5",
-      "label": "Underwater 5",
-      "path": "Textures/WallTextures/water5.jpg"
+      "id": "water2",
+      "label": "Underwater 2",
+      "path": "Textures/WallTextures/water2.jpg"
     },
     {
       "id": "metal001_nm",

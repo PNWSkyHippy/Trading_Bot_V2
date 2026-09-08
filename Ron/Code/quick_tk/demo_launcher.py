@@ -49,6 +49,8 @@ class LauncherTool(ToolView):
             ("2. College Grade Estimator", "Live auto-calculating grade book with weighted components and target score estimator.", "examples/02_grade_calculator.py", "default"),
             ("3. Futures Tick & Sizing Calculator", "Interactive sliders for ES, MES, NQ, contracts, profit targets, stop loss risk, and tick table.", "examples/03_futures_tick_calc.py", "default"),
             ("4. Python Reference & Cheat Sheet", "Interactive topic guide, method table, and syntax-highlighted code console.", "examples/04_cheat_sheet_viewer.py", "default"),
+            ("5. Menu & Submenu Showcase", "Hierarchical menus, cascading submenus, checkbox toggles, radio groups, and file picker shortcuts.", "examples/06_menu_showcase.py", "default"),
+            ("6. Image Converter & Viewer", "Live in-frame input preview scaling and separate Tkinter window output viewer.", "examples/07_image_converter.py", "default"),
         ]
 
         for idx, (name, desc, script_path, variant) in enumerate(demos):
