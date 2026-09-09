@@ -1571,7 +1571,9 @@
         // Section-mapped panoramas are authored as discrete images. Blend only
         // their shared handoff edge; tiled/distance-run textures keep their
         // exact continuous UV mapping.
-        const TUNNEL_SECTION_TEXTURE_CROSSFADE_WORLD = 36;
+        // Scenic panorama pairs can differ radically in brightness and subject.
+        // Give them enough travel distance to dissolve rather than read as a ring.
+        const TUNNEL_SECTION_TEXTURE_CROSSFADE_WORLD = 72;
         // Flight already exposes the branch itself; the old ten-sided mouth overlay
         // became a field of distracting octagonal markers in dense junction maps.
         const TUNNEL_BRANCH_INDICATORS_ENABLED = false;

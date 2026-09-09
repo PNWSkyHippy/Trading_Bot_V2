@@ -53,7 +53,7 @@ const context = {
     WALL_TEXTURE_DISTANCE_MAX_SPAN: 50000,
     TUNNEL_HARD_TURN_MAX_DOT: 0.35,
     TUNNEL_SECTION_JOIN_OVERLAP: 18,
-    TUNNEL_SECTION_TEXTURE_CROSSFADE_WORLD: 36,
+    TUNNEL_SECTION_TEXTURE_CROSSFADE_WORLD: 72,
     TUNNEL_SEGMENT_JOIN_OVERLAP: 48,
     TUNNEL_TEXTURE_PANEL_OVERLAP: 1.006,
     TUNNEL_WEBGL_MESH_CACHE_VERSION: 'test',
@@ -360,8 +360,8 @@ const sectionBlendWidth = context.sectionTextureHandoffBlendWidth(
     { start: 1, end: 2 },
     [{ arc: 180 }, { arc: 360 }]
 );
-if (Math.abs(sectionBlendWidth - 0.2) > 1e-9) {
-    throw new Error('section texture handoff did not receive its 36u crossfade');
+if (Math.abs(sectionBlendWidth - 0.28) > 1e-9) {
+    throw new Error('short section texture handoff did not clamp its 72u crossfade at 28%');
 }
 sectionHandoffChunk.kind = 'distance';
 const distanceRouteSectionBlendWidth = context.sectionTextureHandoffBlendWidth(
@@ -369,7 +369,7 @@ const distanceRouteSectionBlendWidth = context.sectionTextureHandoffBlendWidth(
     { start: 1, end: 2 },
     [{ arc: 180 }, { arc: 360 }]
 );
-if (Math.abs(distanceRouteSectionBlendWidth - 0.2) > 1e-9) {
+if (Math.abs(distanceRouteSectionBlendWidth - 0.28) > 1e-9) {
     throw new Error('section image handoff in a distance-route bend did not crossfade');
 }
 sectionHandoffChunk.entries[0].seg.wallTextureId = 'distance_outgoing';
