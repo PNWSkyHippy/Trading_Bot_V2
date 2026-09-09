@@ -186,6 +186,22 @@ class EATStrategyTests(unittest.TestCase):
         with self.assertRaises(LookupError):
             engine.manual_close("EAT-PAPER-TEST")
 
+    def test_session_close_uses_last_live_price_and_eod_reason(self):
+        engine = self.engine()
+        engine.active_trade = EATTrade(
+            trade_id="EAT-PAPER-EOD", symbol="MNQ", direction="long", quantity=1,
+            entry_time="2026-09-08T16:00:00+00:00", entry_price=100.0,
+            stop_price=99.0, tp1_price=102.0, entry_bar_time="2026-09-08T05:05:00-07:00",
+            remaining_quantity=1, tp1_quantity=1,
+        )
+        engine.last_live_price = 101.0
+
+        closed = engine.session_close(BASE_TIME + timedelta(hours=7, minutes=50))
+
+        self.assertIsNone(engine.active_trade)
+        self.assertEqual(closed["exit_reason"], "futures_eod_close")
+        self.assertEqual(closed["exit_price"], 101.0)
+
     def test_db_mirror_receives_quantity_scaled_net_eat_result_and_fee(self):
         mirror = FakeMirrorDB()
         engine = EATStrategyEngine(

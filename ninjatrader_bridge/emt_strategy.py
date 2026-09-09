@@ -1009,6 +1009,22 @@ class EMTStrategyEngine:
             )
             return asdict(trade)
 
+    def session_close(self, stamp: Optional[datetime] = None) -> Optional[dict]:
+        """Flatten the exact active paper trade for the daily futures shutdown."""
+        with self.lock:
+            trade = self.active_trade
+            if trade is None:
+                return None
+            if not self.paper_only:
+                raise RuntimeError("automatic session close is not implemented for live EMT")
+            exit_price = _finite_number(self.last_live_price)
+            if exit_price <= 0:
+                raise ValueError("EMT session close needs a positive last live price")
+            self._close_trade(
+                exit_price, stamp or datetime.now(timezone.utc), "futures_eod_close"
+            )
+            return asdict(trade)
+
     def _refresh_runtime_enabled(self) -> None:
         if not self.control_state_key or self.db_mirror is None:
             return
