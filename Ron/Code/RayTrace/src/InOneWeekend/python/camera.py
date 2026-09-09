@@ -9,7 +9,7 @@
 # along with this software. If not, see <http://creativecommons.org/publicdomain/zero/1.0/>.
 
 import math
-import sys
+import sys, os
 from color import Color, write_color
 from hittable import HitRecord
 from interval import Interval
@@ -19,7 +19,34 @@ from vec3 import Point3, Vec3, cross, random_in_unit_disk, unit_vector
 from PIL import Image
 import io, logging
 
+
 logger = logging.getLogger(__name__)
+from concurrent.futures import ProcessPoolExecutor
+# Standalone worker function that runs in parallel on each CPU core
+
+def render_single_scanline(args):
+    j, image_width, samples_per_pixel, max_depth, pixel_samples_scale, cam_data, world = args
+    
+    # We unpack camera data to construct rays on the worker process
+    row_rgb = []
+    for i in range(image_width):
+        pixel_color = Color(0, 0, 0)
+        for _sample in range(samples_per_pixel):
+            r = cam_data.get_ray(i, j)
+            pixel_color += cam_data.ray_color(r, max_depth, world)
+        scaled_color = pixel_samples_scale * pixel_color
+        
+        # Linear-to-gamma transform
+        r_val = math.sqrt(scaled_color.x()) if scaled_color.x() > 0 else 0.0
+        g_val = math.sqrt(scaled_color.y()) if scaled_color.y() > 0 else 0.0
+        b_val = math.sqrt(scaled_color.z()) if scaled_color.z() > 0 else 0.0
+        # Translate to byte range [0, 255]
+        ir = int(256 * max(0.0, min(0.999, r_val)))
+        ig = int(256 * max(0.0, min(0.999, g_val)))
+        ib = int(256 * max(0.0, min(0.999, b_val)))
+        row_rgb.append(f"{ir} {ig} {ib}")
+    return j, "  ".join(row_rgb)
+
 
 class Camera:
     def __init__(self):
@@ -45,48 +72,44 @@ class Camera:
         self.scaled_width = 0
         self.scaled_height = 0
 
+
+
+    # fastmath=True is equivalent to -O3 -ffast-math
+    #parallel=True uses OpenMP across all your CPU cores!
     def render(self, world):
         self.initialize()
-        if self.printout:
-            sys.stdout.write(f"P3\n{self.image_width} {self.image_height}\n255\n")
+        
+        num_cores = os.cpu_count() or 4
+        if self.debug:
+            sys.stderr.write(f"\n[+] Rendering in parallel using {num_cores} CPU cores...\n")
+        # Prepare tasks for all scanlines
+        tasks = [
+            (j, self.image_width, self.samples_per_pixel, self.max_depth, 
+             self.pixel_samples_scale, self, world)
+            for j in range(self.image_height)
+        ]
+        results = {}
+        # Run across all CPU cores in parallel:
+        with ProcessPoolExecutor(max_workers=num_cores) as executor:
+            for j, row_str in executor.map(render_single_scanline, tasks):
+                results[j] = row_str
+                if self.debug:
+                    remaining = self.image_height - len(results)
+                    sys.stderr.write(f"\rScanlines remaining: {remaining} ")
+                    sys.stderr.flush()
+        # Assemble scanlines in correct top-to-bottom order
         ppm_lines = [f"P3\n{self.image_width} {self.image_height}\n255"]
         for j in range(self.image_height):
-            remaining = self.image_height - j
-            if self.debug:
-                sys.stderr.write(f"\rScanlines remaining: {remaining} ")
-                sys.stderr.flush()
-            row_rgb = []
-            for i in range(self.image_width):
-                pixel_color = Color(0, 0, 0)
-                for _sample in range(self.samples_per_pixel):
-                    r = self.get_ray(i, j)
-                    pixel_color += self.ray_color(r, self.max_depth, world)
-
-                scaled_color = self.pixel_samples_scale * pixel_color
-                # Apply linear-to-gamma transform
-                r_val = math.sqrt(scaled_color.x()) if scaled_color.x() > 0 else 0.0
-                g_val = math.sqrt(scaled_color.y()) if scaled_color.y() > 0 else 0.0
-                b_val = math.sqrt(scaled_color.z()) if scaled_color.z() > 0 else 0.0
-
-                # Translate to byte range [0, 255] with clamping
-                ir = int(256 * max(0.0, min(0.999, r_val)))
-                ig = int(256 * max(0.0, min(0.999, g_val)))
-                ib = int(256 * max(0.0, min(0.999, b_val)))
-
-                row_rgb.append(f"{ir} {ig} {ib}")
-
-            row_str = "  ".join(row_rgb)
-            ppm_lines.append(row_str)
-            if self.printout:
-                sys.stdout.write(f"{row_str}\n")
-
+            ppm_lines.append(results[j])
         ppm_image = "\n".join(ppm_lines) + "\n"
+        
         if self.outfile is not None:
             self.write_file(ppm_image)
+            
         if self.debug:
-            sys.stderr.write("\rDone.                 \n")
+            sys.stderr.write("\rDone! Render complete.                     \n")
             sys.stderr.flush()
-
+  
     def write_file(self, img):
         ppm_bytes = img.encode('utf-8') if isinstance(img, str) else img
         # 2. Wrap the buffer in an in-memory stream

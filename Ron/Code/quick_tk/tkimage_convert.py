@@ -15,7 +15,12 @@ SCRATCH_DIR = os.path.dirname(BASE_DIR)
 sys.path.insert(0, SCRATCH_DIR)
 sys.path.insert(0, BASE_DIR)
 
-from quick_tk import QuickApp, ToolView
+try:
+    from quick_tk import QuickApp, ToolView
+except ImportError:
+    # When running or compiling directly inside the quick_tk folder:
+    from core.app import QuickApp, ToolView
+
 
 # Add parent directory and scratch root to sys.path
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -119,19 +124,15 @@ class ImageConvertFrontEnd(ToolView):
         self.on_calculate(self.form.get_values())
         
     def demo_auto_calc(self, _=None):
-        breakpoint()
         ppm_img = self.create_ppm()
-        breakpoint()
         # 1. Convert your string buffer to bytes (if it isn't already bytes)
         ppm_bytes = ppm_img.encode('utf-8') if isinstance(ppm_img, str) else ppm_img
         # 2. Wrap the buffer in an in-memory stream
         ppm_stream = io.BytesIO(ppm_bytes)
-        self.infile = ppm_stream
+        self.infile = "default_image.ppm"
+        img = Image.open(ppm_stream)
+        img.save("default_image.ppm")
         self.infile_auto_calc()
-
-        
-  
-
 
 
     def infile_auto_calc(self, _=None):
@@ -202,10 +203,10 @@ class ImageConvertFrontEnd(ToolView):
             self.preview.clear()
    
             
-        sys.stderr.write(f'format: {self.format}, is_demo: {self.is_demo}, Sclae_fac: {self.scale_fac}, is_scaled:'
-                         f'{self.is_scaled}, Width: {self.width}, Height: {self.height}, Outfile: {self.outfile}'
-                         f'Infile: {self.infile}.is_resize: {self.is_resize}\n'
-        )
+#       sys.stderr.write(f'format: {self.format}, is_demo: {self.is_demo}, Sclae_fac: {self.scale_fac}, is_scaled:'
+#                        f'{self.is_scaled}, Width: {self.width}, Height: {self.height}, Outfile: {self.outfile}'
+#                        f'Infile: {self.infile}.is_resize: {self.is_resize}\n'
+#        )
 
     def setup_menus(self):
         # 1. FILE MENU (Fluent Chained Style)

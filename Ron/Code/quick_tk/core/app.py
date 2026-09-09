@@ -8,9 +8,10 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
+from .dialogs import prompt_choice, prompt_confirm, prompt_form, prompt_number, prompt_text
 from .forms import FormPanel
 from .menu import MenuBarBuilder, MenuNode
-from .outputs import ConsolePanel, DataTable, StatGrid, ImagePanel, show_image_window
+from .outputs import ConsolePanel, DataTable, ImagePanel, StatGrid, show_image_window
 from .theme import Theme, apply_theme
 
 
@@ -138,6 +139,26 @@ class ToolView(ttk.Frame):
     def build_menu_tree(self, tree: Dict[str, List[Union[str, Dict[str, Any]]]]):
         """Builds an entire menu tree declaratively from a nested dictionary."""
         self.app.build_menu_tree(tree)
+
+    def prompt_text(self, title: str = "Input Required", prompt: str = "Please enter a value:", default: str = "", password: bool = False) -> Optional[str]:
+        """Pops up a modal single-line text input dialog."""
+        return prompt_text(title=title, prompt=prompt, default=default, password=password, parent=self, theme=self.theme)
+
+    def prompt_number(self, title: str = "Numeric Input", prompt: str = "Please enter a number:", default: Union[int, float] = 0, is_float: bool = False, min_val: Optional[float] = None, max_val: Optional[float] = None, step: float = 1) -> Optional[Union[int, float]]:
+        """Pops up a modal numeric spinbox dialog."""
+        return prompt_number(title=title, prompt=prompt, default=default, is_float=is_float, min_val=min_val, max_val=max_val, step=step, parent=self, theme=self.theme)
+
+    def prompt_choice(self, title: str = "Select Option", prompt: str = "Please choose an option:", options: Optional[List[str]] = None, default: Optional[str] = None) -> Optional[str]:
+        """Pops up a modal dropdown selection dialog."""
+        return prompt_choice(title=title, prompt=prompt, options=options, default=default, parent=self, theme=self.theme)
+
+    def prompt_confirm(self, title: str = "Confirmation", message: str = "Are you sure you want to proceed?") -> bool:
+        """Pops up a modal confirmation dialog."""
+        return prompt_confirm(title=title, message=message, parent=self)
+
+    def prompt_form(self, title: str, form_builder_fn: Callable[[FormPanel], None], size: Tuple[int, int] = (460, 360), ok_text: str = "Submit", cancel_text: str = "Cancel") -> Optional[Dict[str, Any]]:
+        """Pops up a modal multi-field FormPanel dialog and returns clean dictionary of values or None."""
+        return prompt_form(title=title, form_builder_fn=form_builder_fn, parent=self, theme=self.theme, size=size, ok_text=ok_text, cancel_text=cancel_text)
 
     def set_status(self, text: str):
         """Updates the main app's status bar."""

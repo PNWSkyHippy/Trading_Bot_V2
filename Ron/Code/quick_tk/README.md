@@ -138,6 +138,56 @@ Build rich top menus either fluently or declaratively:
 - **`app.setup_tabs([Tool1, Tool2])`**: Tabbed notebook interface.
 - **`self.run_async(worker_fn, on_done, on_error)`**: Multithreaded background worker so DB queries or long scripts never freeze the GUI.
 
+### 7.Input Boxes
+# 7a. Text Prompt
+name = self.prompt_text(title="Scene Name", prompt="Enter scene title:", default="Sunset Spheres")
+if name:
+    print("User entered:", name)
+
+# 7b. Number Prompt
+samples = self.prompt_number(
+    title="Render Quality", 
+    prompt="Enter samples per pixel:", 
+    default=100, 
+    min_val=10, 
+    max_val=5000
+)
+
+# 7c. Dropdown Choice Prompt
+format_choice = self.prompt_choice(
+    title="Export Format", 
+    prompt="Choose image format:", 
+    options=["PNG", "JPG", "PPM", "TIFF", "EXR"], 
+    default="PNG"
+)
+
+# 7c. Confirmation Question
+if self.prompt_confirm(title="Overwrite File", message="File exists. Overwrite?"):
+    save_file()
+
+# 7d.  Multi-Field Popup Form Dialog
+...
+def open_post_processing_dialog(self):
+    # Define what fields should be on the popup dialog:
+    def build_filters(form):
+        form.add_slider("contrast", "Contrast Boost", min_val=0.5, max_val=2.5, default=1.0, step=0.1)
+        form.add_slider("brightness", "Brightness", min_val=0.5, max_val=2.0, default=1.0, step=0.1)
+        form.add_dropdown("filter", "Color Filter", ["None", "Warm Sunlight", "Cool Shadow", "Monochrome"])
+        form.add_checkbox("auto_gamma", "Apply Gamma Correction (sRGB)", default=True)
+
+    # Pops up the modal window, user adjusts sliders, clicks Submit or Cancel:
+    settings = self.prompt_form(
+        title="Post-Processing & PIL Adjustments",
+        form_builder_fn=build_filters,
+        size=(420, 320),
+        ok_text="Apply Filters"
+    )
+
+    if settings:
+        # settings is automatically: {'contrast': 1.2, 'brightness': 1.0, 'filter': 'Warm Sunlight', 'auto_gamma': True}
+        print("Applying settings:", settings)
+        self.apply_pil_adjustments(settings)
+...
 ---
 
 ## 🎮 How to Test the Demos

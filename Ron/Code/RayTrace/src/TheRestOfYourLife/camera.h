@@ -100,6 +100,14 @@ class camera {
                 row_str += pixel_str;
             }
             scanlines[j] = row_str;
+
+            if (printout) {
+                #pragma omp critical
+                {
+                    std::cout << "LINE " << j << " " << row_str << "\n" << std::flush;
+                }
+            }
+
             if (debug) {
                 int done = ++scanlines_completed;
                 #pragma omp critical
@@ -112,9 +120,6 @@ class camera {
         for (int j = 0; j < image_height; j++) {
             if (file_out.is_open()) {
                 file_out << scanlines[j] << "\n";
-            }
-            if (printout) {
-                std::cout << scanlines[j] << "\n";
             }
         }
 
