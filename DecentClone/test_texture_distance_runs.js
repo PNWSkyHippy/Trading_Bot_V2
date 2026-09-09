@@ -364,12 +364,22 @@ if (Math.abs(sectionBlendWidth - 0.2) > 1e-9) {
     throw new Error('section texture handoff did not receive its 36u crossfade');
 }
 sectionHandoffChunk.kind = 'distance';
+const distanceRouteSectionBlendWidth = context.sectionTextureHandoffBlendWidth(
+    sectionHandoffChunk,
+    { start: 1, end: 2 },
+    [{ arc: 180 }, { arc: 360 }]
+);
+if (Math.abs(distanceRouteSectionBlendWidth - 0.2) > 1e-9) {
+    throw new Error('section image handoff in a distance-route bend did not crossfade');
+}
+sectionHandoffChunk.entries[0].seg.wallTextureId = 'distance_outgoing';
+sectionHandoffChunk.entries[1].seg.wallTextureId = 'distance_incoming';
 if (context.sectionTextureHandoffBlendWidth(
     sectionHandoffChunk,
     { start: 1, end: 2 },
     [{ arc: 180 }, { arc: 360 }]
 ) !== 0) {
-    throw new Error('distance-run texture handoff incorrectly crossfades');
+    throw new Error('actual distance-run texture handoff incorrectly crossfades');
 }
 context.textureUsesSectionMapping = priorTextureUsesSectionMapping;
 context.getWallTextureEntry = priorGetWallTextureEntry;

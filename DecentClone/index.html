@@ -4863,7 +4863,7 @@
         }
 
         function sectionTextureHandoffBlendWidth(chunk, range, slice) {
-            if (chunk.kind !== 'corridor' || range.start <= 0 || slice.length < 2) return 0;
+            if (range.start <= 0 || slice.length < 2) return 0;
             const outgoing = chunk.entries[range.start - 1];
             const incoming = chunk.entries[range.start];
             const outgoingTexture = getWallTextureEntry(outgoing?.seg?.wallTextureId);
@@ -4872,6 +4872,9 @@
                 !textureUsesSectionMapping(incomingTexture)) {
                 return 0;
             }
+            // Scenic images retain normalized section UVs even when their route
+            // is distance-mapped. Let those image-to-image bends crossfade too;
+            // actual tiled/distance-run textures still fail the section test.
             const span = Math.max(0.0001, slice[slice.length - 1].arc - slice[0].arc);
             return Math.max(0.08, Math.min(0.28, TUNNEL_SECTION_TEXTURE_CROSSFADE_WORLD / span));
         }
@@ -10672,14 +10675,6 @@
                 !e.altKey &&
                 !e.metaKey &&
                 !e.repeat
-            if (
-                key === 'x' &&
-                !mapView &&
-                !builderMode &&
-                !e.ctrlKey &&
-                !e.altKey &&
-                !e.metaKey &&
-                !e.repeat
             ) {
                 fireRocket();
                 e.preventDefault();
@@ -10727,9 +10722,9 @@
             if (key === 's') {
                 disableAutoBoost('AutoBoost canceled by reverse thrust');
             }
-            if (key === ';' || key === 'tab') {
+            if (key === ';' || (key === 'tab' && !e.altKey)) {
+                if (key === 'tab') e.preventDefault();
                 if (toggleAutoBoost()) {
-                    e.preventDefault();
                     return;
                 }
             }
