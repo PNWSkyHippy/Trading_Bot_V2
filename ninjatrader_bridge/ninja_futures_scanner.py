@@ -209,6 +209,36 @@ class MarketState:
             executor.verify_account()
         return EMTStrategyEngine(settings, contract, ROOT, executor=executor)
 
+    def enforce_futures_session(self, stamp=None):
+        """Flatten scanner-owned paper trades whenever the futures session is closed."""
+        if futures_session_is_active(stamp):
+            return []
+        stamp = stamp or datetime.now(timezone.utc)
+        closed = []
+        with self.engine_lock:
+            groups = (("emt", self.emt_engines), ("eat", self.eat_engines))
+            for strategy, engines in groups:
+                for symbol, engine in engines.items():
+                    if engine.active_trade is None:
+                        continue
+                    try:
+                        trade = engine.session_close(stamp)
+                    except Exception as exc:
+                        print(
+                            f"{strategy.upper()} SESSION CLOSE FAILED · {symbol} · "
+                            f"{type(exc).__name__}: {exc}",
+                            flush=True,
+                        )
+                        continue
+                    if trade is not None:
+                        closed.append((strategy, symbol, trade["trade_id"]))
+                        print(
+                            f"{strategy.upper()} SESSION CLOSE · {symbol} · "
+                            f"{trade['trade_id']} · futures_eod_close",
+                            flush=True,
+                        )
+        return closed
+
     @staticmethod
     def _engine_replay_bar(bar, symbol):
         return {
