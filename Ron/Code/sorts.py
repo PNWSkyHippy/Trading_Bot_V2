@@ -5,8 +5,51 @@ from local_functions import (
 #    bubble_sort,
 #    insertion_sort,
 )
+recurse_count = 0
+debug = False
+def partition(arr, low, high):
+    # Choose the rightmost element as the pivot
+    pivot = arr[high]
+    
+    # Index of the smaller element (tracks where the next small item should go)
+    i = low - 1  
+    
+    for j in range(low, high):
+        # If the current element is smaller than or equal to the pivot
+        if arr[j] <= pivot:
+            i += 1
+            # Swap elements
+            arr[i], arr[j] = arr[j], arr[i]
+            
+    # Swap the pivot element with the greater element specified at i + 1
+    arr[i + 1], arr[high] = arr[high], arr[i + 1]
+    
+    # Return the position where the partition was made
+    return i + 1
 
-debug = True
+def quick_sort(arr, low, high):
+    global recurse_count
+    global debug
+    recurse_count += 1
+    local_loop = recurse_count
+    if debug:
+        print(f'In Recurse loop {recurse_count}')
+              
+#    tmp_list = arr.copy()
+    if low < high:
+        # Find pivot element such that elements smaller than pivot are on the left
+        # and elements greater than pivot are on the right
+        pi = partition(arr, low, high)
+        
+        # Recursive call on the left of pivot
+        quick_sort(arr, low, pi - 1)
+        
+        # Recursive call on the right of pivot
+        quick_sort(arr, pi + 1, high)
+    if debug:
+        print(f' End Loop {local_loop}, list: {arr}')
+    return(arr)
+
 
 def binary_search(nums, target):
     low = 0
@@ -22,6 +65,7 @@ def binary_search(nums, target):
     return -1
 
 def insertion_sort(arr):
+    global debug
     """ Takes a list and sorts a copy of it using insertion sort
         returns the sported list, leaving original intact
     """
@@ -51,6 +95,7 @@ def insertion_sort(arr):
     
     
 def bubble_sort(lst):
+    global debug
     tmp_lst = lst.copy()
     pass_count = 0
     for pass_num in range(1,len(tmp_lst)):
@@ -66,6 +111,7 @@ def bubble_sort(lst):
 
 
 def main():
+    global debug
     has_numbers = False
     has_strings = False
 
@@ -89,139 +135,83 @@ Usage examples:
         formatter_class=wide_formatter,
     )
 
-    parser.add_argument(
-        "-l",
-        "--list",
-        metavar="",
-        help="\tlist,of,comma,separated,items",
-    )
-    parser.add_argument(
-        "-b",
-        "--bubble",
-        action="store_true",
-        help="If given wll use bubble sort",
-    )
-    parser.add_argument(
-        "-i",
-        "--insert",
-        action="store_true",
-        help="If given will use insertion sort",
-    )
-    parser.add_argument(
-        "-d",
-        "--debug",
-        action="store_true",
-        help="If given prints debug statements",
-    )
-    parser.add_argument(
-        "-de",
-        "--demo",
-        action="store_true",
-        help="If given prints a demo",
-    )
+    parser.add_argument("-l","--list",metavar="",help="\tlist,of,comma,separated,items",)
+    parser.add_argument("-b","--bubble",action="store_true",help="If given wll use bubble sort",)
+    parser.add_argument("-q","--quick",action="store_true",help="If given wll use quick sort",)
+    parser.add_argument("-i", "--insert", action="store_true", help="If given will use insertion sort",)
+    parser.add_argument("-d", "--debug", action="store_true", help="If given prints debug statements",)
+    parser.add_argument("-de", "--demo", action="store_true",help="If given prints a demo",)
 
     args = parser.parse_args()
     debug = args.debug if args.debug else False
     bubble = args.bubble if args.bubble else False
-    insertion = (
-        args.insert if args.insert else False
-    )
-    demo_enabled = (
-        args.demo if args.demo else False
-    )
+    insertion = args.insert if args.insert else False
+    demo_enabled = args.demo if args.demo else False
+    quick = args.quick if args.quick else False
+        
     if args.list:
         my_list = args.list.split(",")
         assert my_list, "Error: Empty list given"
 
         for idx, my_args in enumerate(my_list):
-            if chkstr_isnum(my_args) == "float":
-                my_list[idx] = float(my_args)
-                has_numbers = True
-            elif chkstr_isnum(my_args) == "int":
+            if chkstr_isnum(my_args) == "int":
                 my_list[idx] = int(my_args)
+                has_numbers = True
+            elif chkstr_isnum(my_args) == "float":
+                my_list[idx] = float(my_args)
                 has_numbers - True
             else:
                 has_strings = True
-        assert not (
-            has_strings and has_numbers
-        ), "Error: Can't sort strings and numbers together"
+        assert not (has_strings and has_numbers), "Error: Can't sort strings and numbers together"
 
-    if (
-        insertion and not args.list
-    ) or demo_enabled:
-    
-        my_list = [
-            2,
-            3,
-            4,
-            7,
-            9,
-            5,
-            10,
-            11,
-        ]
-        print(
-            f"my_list pre insertion sorted:\n{my_list}"
-        )
+    if (insertion and not args.list) or demo_enabled:
+        my_list = [2,3,4,7,9,5,10,11,6]
+        print(f"my_list pre insertion sorted:\n{my_list}")
         sorted_list = insertion_sort(my_list)
-        print(
-            f"post insertion sorted list:\n{sorted_list}"
-        )
-        print(
-            f"verifying original list untouched:\n{my_list}"
-        )
+        print(f"post insertion sorted list:\n{sorted_list}")
+        print(f"verifying original list untouched:\n{my_list}")
 
     if (bubble and not args.list) or demo_enabled:
-        my_list = [
-            2,
-            3,
-            4,
-            7,
-            9,
-            5,
-            10,
-            11,
-        ]
-        print(
-            f"my_list pre bubble sort:\n{my_list}"
-        )
+        my_list = [2,3,4,7,9,5,10,11,]
+        print(f"my_list pre bubble sort:\n{my_list}")
         sorted_list = bubble_sort(my_list)
-        print(
-            f"post bubble sorted list:\n{sorted_list}"
-        )
-        print(
-            f"verifying original list untouched:\n{my_list}"
-        )
+        print(f"post bubble sorted list:\n{sorted_list}")
+        print(f"verifying original list untouched:\n{my_list}")
 
+    if (quick and not args.list) or demo_enabled:
+        my_list = [2,3,99,1,55,6,77,11]
+        print(f"my_list pre quick sort:\n{my_list}")
+        sorted_list = quick_sort(my_list,0,len(my_list) -1)
+        print(f"post quick sorted list:\n{sorted_list}")
+        print(f"verifying original list untouched:\n{my_list}")
+        
     if bubble and args.list:
-        res_list = bubble_sort(my_list)
+        res_list = bubble_sort(my_list, 0, len(my_list) - 1)
         if debug:
-            print(
-                f"Input list pre sort:\n\t{my_list}"
-            )
-            print(
-                f"Output Bubble Sorted list\n\t{res_list}"
-            )
-            print(
-                f"Proof original list unchanged:\n\t{my_list}"
-            )
+            print(f"Input list pre sort:\n\t{my_list}")
+            print(f"Output Bubble Sorted list\n\t{res_list}")
+            print(f"Proof original list unchanged:\n\t{my_list}")
         else:
             print(f"Bubble Sorted: {res_list}")
 
     if insertion and args.list:
         res_list = insertion_sort(my_list)
         if debug:
-            print(
-                f"Input list pre sort:\n\t{my_list}"
-            )
-            print(
-                f"Output Insertion Sorted list\n\t{res_list}"
-            )
-            print(
-                f"Proof original list unchanged:\n\t{my_list}"
-            )
+            print(f"Input list pre sort:\n\t{my_list}")
+            print(f"Output Insertion Sorted list\n\t{res_list}")
+            print(f"Proof original list unchanged:\n\t{my_list}")
         else:
             print(f"Insertion SortedL {res_list}")
+
+    if quick and args.list:
+        res_list = quick_sort(my_list, 0, len(my_list) - 1)
+        if debug:
+            print(f"Input list pre sort:\n\t{my_list}")
+            print(f"Output quick Sorted list\n\t{res_list}")
+            print(f"Proof original list unchanged:\n\t{my_list}")
+        else:
+            print(f"quick SortedL {res_list}")
+    # Example usage:
 
 
 if __name__ == "__main__":

@@ -849,12 +849,14 @@
             ['Arrows', 'pitch and yaw'],
             ['Q / E', 'roll left / right'],
             ['Shift', 'boost'],
-            [';', 'toggle AutoBoost / AutoCruise'],
-            ['V / RMB', 'fire (10% dmg/hit vs sentries)'],
+            ['Tab / ;', 'toggle AutoBoost / AutoCruise'],
+            ['V / RMB', 'fire primary lasers'],
+            ['X', 'fire rocket'],
             ['Hold LMB', 'mouse steer'],
             ['` / ~ (tilde key)', 'capture / release mouse steering (Esc also releases)'],
-            ['Shift+S @ junction', 'free-steer pivot / U-turn'],
-            ['Hold C', 'free-look turret'],
+            ['C / Space / Z', 'instant 180° reverse flip'],
+            ['Alt+D', 'toggle Defender arcade stage (Bonus 3)'],
+            ['B (in Defender)', 'detonate Smart Bomb'],
             ['1-6', 'snap view'],
             ['H', 'cycle HUD map plane'],
             ['K', 'reset cockpit controls/orientation'],
@@ -8643,6 +8645,1182 @@
             ctx.restore();
         }
 
+                /* =========================================================================
+         * BONUS STAGE 3: DEFENDER 3D ARCADE CLONE (PHASE 3)
+         * =========================================================================
+         * 1st-person 6DOF cockpit perspective open space defender game with
+         * toroidal horizontal wrapping, humanoids, landers, mutants, bombers,
+         * pods, swarmers, baiter, and smart bombs.
+         */
+        const DEFENDER = {
+            ORIGIN: { x: 0, y: -45000, z: 0 },
+            WIDTH: 7000,
+            HALF_W: 3500,
+            HEIGHT_TOP: -1800,     // stratosphere ceiling
+            HEIGHT_MUTATE: -1350,  // altitude where lander mutates
+            HEIGHT_FLOOR: 420,     // planetary surface
+            DEPTH_MIN: -650,
+            DEPTH_MAX: 650,
+            HIT_R: {
+                LANDER: 40,
+                MUTANT: 32,
+                BOMBER: 52,
+                MINE: 24,
+                POD: 50,
+                SWARMER: 22,
+                BAITER: 28,
+                HUMANOID: 32,
+                BULLET: 28,
+            },
+            COLLIDE_R: 45,
+            INTRO_MS: 2400,
+            RESULTS_MS: 4200,
+            WAVE_CLEAR_MS: 2200,
+            INVULN_MS: 2200,
+            BAITER_TIME_MS: 65000,
+            SCORES: {
+                LANDER: 150,
+                MUTANT: 250,
+                BOMBER: 300,
+                MINE: 50,
+                POD: 1000,
+                SWARMER: 150,
+                BAITER: 200,
+                HUMANOID_CATCH: 500,
+                HUMANOID_SURFACE: 500,
+                WAVE_CLEAR_HUMAN_BONUS: 200,
+            }
+        };
+
+        const DEFENDER_LEVEL_CONFIGS = {
+            1: { landers: 4, bombers: 1, pods: 0, mutantSpeed: 5.5, landerSpeed: 2.2, bomberSpeed: 1.5, bulletSpeed: 4.0, fireIntervalMs: 3200, baiterSpeed: 7.5 },
+            2: { landers: 5, bombers: 1, pods: 1, mutantSpeed: 6.2, landerSpeed: 2.5, bomberSpeed: 1.8, bulletSpeed: 4.6, fireIntervalMs: 2900, baiterSpeed: 8.0 },
+            3: { landers: 6, bombers: 2, pods: 1, mutantSpeed: 7.0, landerSpeed: 2.9, bomberSpeed: 2.1, bulletSpeed: 5.2, fireIntervalMs: 2600, baiterSpeed: 8.5 },
+            4: { landers: 7, bombers: 2, pods: 2, mutantSpeed: 7.8, landerSpeed: 3.3, bomberSpeed: 2.4, bulletSpeed: 5.8, fireIntervalMs: 2300, baiterSpeed: 9.0 },
+            5: { landers: 8, bombers: 3, pods: 2, mutantSpeed: 8.6, landerSpeed: 3.7, bomberSpeed: 2.7, bulletSpeed: 6.4, fireIntervalMs: 2000, baiterSpeed: 9.5 },
+            6: { landers: 9, bombers: 3, pods: 3, mutantSpeed: 9.4, landerSpeed: 4.1, bomberSpeed: 3.0, bulletSpeed: 7.0, fireIntervalMs: 1750, baiterSpeed: 10.0 },
+            7: { landers: 10, bombers: 4, pods: 3, mutantSpeed: 10.2, landerSpeed: 4.5, bomberSpeed: 3.3, bulletSpeed: 7.6, fireIntervalMs: 1500, baiterSpeed: 10.5 },
+            8: { landers: 11, bombers: 4, pods: 4, mutantSpeed: 11.0, landerSpeed: 4.9, bomberSpeed: 3.6, bulletSpeed: 8.2, fireIntervalMs: 1300, baiterSpeed: 11.0 },
+            9: { landers: 12, bombers: 5, pods: 4, mutantSpeed: 12.0, landerSpeed: 5.4, bomberSpeed: 3.9, bulletSpeed: 8.8, fireIntervalMs: 1100, baiterSpeed: 11.5 },
+            10: { landers: 14, bombers: 6, pods: 5, mutantSpeed: 13.0, landerSpeed: 6.0, bomberSpeed: 4.3, bulletSpeed: 9.5, fireIntervalMs: 900, baiterSpeed: 12.5 }
+        };
+
+        function defenderDifficulty(level = defenderPhase?.level || 1) {
+            const lvl = Math.max(1, Math.min(10, Math.round(Number(level) || 1)));
+            return { level: lvl, ...(DEFENDER_LEVEL_CONFIGS[lvl] || DEFENDER_LEVEL_CONFIGS[1]) };
+        }
+
+        const defenderPhase = {
+            active: false,
+            state: 'idle',
+            stateUntil: 0,
+            level: 1,
+            score: 0,
+            kills: 0,
+            smartBombs: 1,
+            saved: null,
+            invulnUntil: 0,
+            waveStartedAt: 0,
+            shockwave: null,
+            screenFlashUntil: 0,
+            landers: [],
+            mutants: [],
+            bombers: [],
+            mines: [],
+            pods: [],
+            swarmers: [],
+            baiters: [],
+            humanoids: [],
+            bullets: [],
+            stars: [],
+            carriedHumanoid: null,
+        };
+
+        function defenderWrapX(x) {
+            const half = DEFENDER.HALF_W;
+            const span = DEFENDER.WIDTH;
+            let rel = x - DEFENDER.ORIGIN.x;
+            while (rel < -half) rel += span;
+            while (rel > half) rel -= span;
+            return DEFENDER.ORIGIN.x + rel;
+        }
+
+        function defenderWrapDx(x1, x2) {
+            let dx = x1 - x2;
+            const half = DEFENDER.HALF_W;
+            const span = DEFENDER.WIDTH;
+            if (dx > half) dx -= span;
+            else if (dx < -half) dx += span;
+            return dx;
+        }
+
+        function defenderTerrainHeight(x) {
+            const relX = x - DEFENDER.ORIGIN.x;
+            return DEFENDER.ORIGIN.y + DEFENDER.HEIGHT_FLOOR +
+                Math.sin(relX * 0.003) * 65 +
+                Math.sin(relX * 0.008 + 1.2) * 35 +
+                Math.cos(relX * 0.015) * 20;
+        }
+
+        function initDefenderHumanoids() {
+            const humanoids = [];
+            const count = 8;
+            const step = DEFENDER.WIDTH / count;
+            for (let i = 0; i < count; i++) {
+                const x = DEFENDER.ORIGIN.x - DEFENDER.HALF_W + (i + 0.5) * step + (Math.random() - 0.5) * 200;
+                const groundY = defenderTerrainHeight(x);
+                humanoids.push({
+                    id: i + 1,
+                    pos: { x, y: groundY - 14, z: (Math.random() - 0.5) * 200 },
+                    state: 'ground', // ground, abducted, falling, carried, dead
+                    abductedBy: null,
+                    vy: 0
+                });
+            }
+            return humanoids;
+        }
+
+        function initDefenderStarfield() {
+            const stars = [];
+            for (let i = 0; i < 200; i++) {
+                stars.push({
+                    x: (Math.random() - 0.5) * DEFENDER.WIDTH,
+                    y: DEFENDER.ORIGIN.y + DEFENDER.HEIGHT_TOP - 200 + Math.random() * (DEFENDER.HEIGHT_FLOOR - DEFENDER.HEIGHT_TOP + 600),
+                    z: DEFENDER.ORIGIN.z + (Math.random() - 0.5) * 1400,
+                    size: 1 + Math.random() * 2,
+                    color: Math.random() > 0.35 ? '#88ccff' : (Math.random() > 0.5 ? '#ffcc88' : '#ffffff'),
+                    brightness: 0.4 + Math.random() * 0.6
+                });
+            }
+            return stars;
+        }
+
+        function defenderSpawnWave(level = 1) {
+            const diff = defenderDifficulty(level);
+            const O = DEFENDER.ORIGIN;
+            const landers = [];
+            const bombers = [];
+            const pods = [];
+
+            for (let i = 0; i < diff.landers; i++) {
+                landers.push({
+                    pos: {
+                        x: O.x + (Math.random() - 0.5) * (DEFENDER.WIDTH * 0.85),
+                        y: O.y + DEFENDER.HEIGHT_TOP + 300 + Math.random() * 600,
+                        z: O.z + (Math.random() - 0.5) * 400
+                    },
+                    vx: (Math.random() > 0.5 ? 1 : -1) * diff.landerSpeed,
+                    vy: (Math.random() - 0.5) * 0.5,
+                    vz: 0,
+                    state: 'patrol', // patrol, descending, abducting, mutating
+                    targetHumanoidId: null,
+                    nextDecisionAt: performance.now() + 2000 + Math.random() * 4000,
+                    nextFireAt: performance.now() + 1500 + Math.random() * diff.fireIntervalMs,
+                    hp: 1
+                });
+            }
+
+            for (let i = 0; i < diff.bombers; i++) {
+                bombers.push({
+                    pos: {
+                        x: O.x + (Math.random() - 0.5) * DEFENDER.WIDTH,
+                        y: O.y + DEFENDER.HEIGHT_TOP + 400 + Math.random() * 500,
+                        z: O.z + (Math.random() - 0.5) * 400
+                    },
+                    vx: (Math.random() > 0.5 ? 1 : -1) * diff.bomberSpeed,
+                    vy: (Math.random() - 0.5) * 0.4,
+                    nextMineAt: performance.now() + 2000 + Math.random() * 3000,
+                    hp: 2
+                });
+            }
+
+            for (let i = 0; i < diff.pods; i++) {
+                pods.push({
+                    pos: {
+                        x: O.x + (Math.random() - 0.5) * DEFENDER.WIDTH,
+                        y: O.y + DEFENDER.HEIGHT_TOP + 350 + Math.random() * 650,
+                        z: O.z + (Math.random() - 0.5) * 400
+                    },
+                    vx: (Math.random() - 0.5) * 1.2,
+                    vy: (Math.random() - 0.5) * 0.6,
+                    hp: 1
+                });
+            }
+
+            defenderPhase.landers = landers;
+            defenderPhase.bombers = bombers;
+            defenderPhase.pods = pods;
+            defenderPhase.mutants = [];
+            defenderPhase.mines = [];
+            defenderPhase.swarmers = [];
+            defenderPhase.baiters = [];
+            defenderPhase.bullets = [];
+            defenderPhase.waveStartedAt = performance.now();
+        }
+
+        function startDefenderPhase(level = 1) {
+            if (defenderPhase.active) return;
+            if (galagaPhase.active) endGalagaPhase(true);
+            if (gulletPhase.active) endGulletPhase(true);
+
+            defenderPhase.saved = {
+                x: posX, y: posY, z: posZ,
+                f: { ...shipForward }, r: { ...shipRight }, d: { ...shipDown },
+                roll: shipRollAngle, segIdx: shipSegmentIndex, hud: hudDisplayMode,
+            };
+
+            const O = DEFENDER.ORIGIN;
+            posX = O.x;
+            posY = O.y - 150;
+            posZ = O.z;
+            shipForward = { x: 1, y: 0, z: 0 };
+            shipRight   = { x: 0, y: 0, z: 1 };
+            shipDown    = { x: 0, y: 1, z: 0 };
+            shipRollAngle = 0;
+            repairBasis();
+            syncViewToShip();
+
+            defenderPhase.active = true;
+            defenderPhase.level = defenderDifficulty(level).level;
+            defenderPhase.state = 'intro';
+            defenderPhase.stateUntil = performance.now() + DEFENDER.INTRO_MS;
+            defenderPhase.score = 0;
+            defenderPhase.kills = 0;
+            defenderPhase.smartBombs = 1;
+            defenderPhase.carriedHumanoid = null;
+            defenderPhase.shockwave = null;
+            defenderPhase.screenFlashUntil = 0;
+            defenderPhase.invulnUntil = performance.now() + DEFENDER.INTRO_MS + DEFENDER.INVULN_MS;
+            defenderPhase.stars = initDefenderStarfield();
+            defenderPhase.humanoids = initDefenderHumanoids();
+
+            defenderSpawnWave(defenderPhase.level);
+
+            setHudMode('min');
+            playSfx('portal_whoosh', { worldPos: { x: posX, y: posY, z: posZ } });
+        }
+
+        function endDefenderPhase(restorePosition = true) {
+            if (!defenderPhase.active) return;
+            defenderPhase.active = false;
+            defenderPhase.state = 'idle';
+            defenderPhase.landers = [];
+            defenderPhase.mutants = [];
+            defenderPhase.bombers = [];
+            defenderPhase.mines = [];
+            defenderPhase.pods = [];
+            defenderPhase.swarmers = [];
+            defenderPhase.baiters = [];
+            defenderPhase.bullets = [];
+            defenderPhase.carriedHumanoid = null;
+            defenderPhase.shockwave = null;
+
+            const s = defenderPhase.saved;
+            if (s) {
+                if (restorePosition) {
+                    posX = s.x; posY = s.y; posZ = s.z;
+                    shipForward = { ...s.f }; shipRight = { ...s.r }; shipDown = { ...s.d };
+                    shipRollAngle = s.roll;
+                    shipSegmentIndex = s.segIdx;
+                    repairBasis();
+                    syncViewToShip();
+                }
+                setHudMode(s.hud || 'full');
+            }
+            defenderPhase.saved = null;
+            keyboardStatus.innerText =
+                `DEFENDER stage over — score +${defenderPhase.score} (${defenderPhase.kills} kills)`;
+        }
+
+        function toggleDefenderPhase() {
+            if (defenderPhase.active) endDefenderPhase(true);
+            else startDefenderPhase(1);
+        }
+
+        function fireDefenderSmartBomb() {
+            if (!defenderPhase.active || defenderPhase.state !== 'play') return;
+            if (defenderPhase.smartBombs <= 0) {
+                keyboardStatus.innerText = 'NO SMART BOMBS REMAINING';
+                return;
+            }
+            defenderPhase.smartBombs -= 1;
+            defenderPhase.shockwave = {
+                radius: 10,
+                maxRadius: 3200,
+                bornAt: performance.now(),
+                duration: 650
+            };
+            defenderPhase.screenFlashUntil = performance.now() + 250;
+            playSfx('target_explosion', { intensity: 2.0, worldPos: getPlayerWorldPos() });
+
+            let wiped = 0;
+            const killList = (arr, scoreKey) => {
+                for (let i = arr.length - 1; i >= 0; i--) {
+                    const e = arr[i];
+                    const dx = defenderWrapDx(e.pos.x, posX);
+                    if (Math.hypot(dx, e.pos.y - posY, e.pos.z - posZ) < 3600) {
+                        spawnTargetParticles(e.pos, shipRight, shipDown, '#00ffff', 36, 4.5, 40);
+                        const pts = DEFENDER.SCORES[scoreKey] || 150;
+                        defenderPhase.score += pts;
+                        defenderPhase.kills += 1;
+                        addTargetScore(pts);
+                        arr.splice(i, 1);
+                        wiped += 1;
+                    }
+                }
+            };
+            killList(defenderPhase.landers, 'LANDER');
+            killList(defenderPhase.mutants, 'MUTANT');
+            killList(defenderPhase.bombers, 'BOMBER');
+            killList(defenderPhase.pods, 'POD');
+            killList(defenderPhase.swarmers, 'SWARMER');
+            killList(defenderPhase.baiters, 'BAITER');
+            killList(defenderPhase.mines, 'MINE');
+            defenderPhase.bullets = [];
+
+            for (const h of defenderPhase.humanoids) {
+                if (h.state === 'abducted') {
+                    h.state = 'falling';
+                    h.abductedBy = null;
+                    h.vy = 0;
+                }
+            }
+
+            keyboardStatus.innerText = `SMART BOMB DETONATED! (${wiped} vaporized)`;
+        }
+
+        function defenderApplyPlayerHit(dmg = 20) {
+            if (gameOverState.active || !defenderPhase.active) return;
+            const now = performance.now();
+            if (now < defenderPhase.invulnUntil) return;
+
+            shieldHitFlashUntil = now + 320;
+            if (!shieldsBreached && shieldCurrent > 0) {
+                shieldCurrent = Math.max(0, shieldCurrent - dmg);
+                if (shieldCurrent <= 0) {
+                    shieldFlashUntil = now + 1600;
+                    shieldsBreached = true;
+                }
+                return;
+            }
+            hullCurrent = Math.max(0, hullCurrent - dmg);
+            hullFlashUntil = now + 900;
+            if (hullCurrent <= 0) {
+                defenderPhase.state = 'results';
+                defenderPhase.stateUntil = now + DEFENDER.RESULTS_MS;
+                triggerGameOver();
+            }
+        }
+
+        function checkLaserDefenderHits(laserPoint) {
+            if (!defenderPhase.active || defenderPhase.state !== 'play') return false;
+
+            const checkArray = (arr, hitRadius, scoreKey, onDeath) => {
+                for (let i = arr.length - 1; i >= 0; i--) {
+                    const e = arr[i];
+                    const dx = defenderWrapDx(e.pos.x, laserPoint.x);
+                    const dSq = dx * dx + (e.pos.y - laserPoint.y) ** 2 + (e.pos.z - laserPoint.z) ** 2;
+                    if (dSq <= hitRadius * hitRadius) {
+                        e.hp = (e.hp || 1) - 1;
+                        if (e.hp <= 0) {
+                            spawnTargetParticles(e.pos, shipRight, shipDown, '#ffaa33', 28, 4.0, 35);
+                            playSfx('target_explosion', { intensity: 0.8, worldPos: e.pos });
+                            const pts = DEFENDER.SCORES[scoreKey] || 100;
+                            defenderPhase.score += pts;
+                            defenderPhase.kills += 1;
+                            addTargetScore(pts);
+                            if (onDeath) onDeath(e, i);
+                            arr.splice(i, 1);
+                        } else {
+                            spawnTargetParticles(e.pos, shipRight, shipDown, '#ffffff', 10, 2.0, 15);
+                            playSfx('wall_bump', { intensity: 0.4, worldPos: e.pos });
+                        }
+                        return true;
+                    }
+                }
+                return false;
+            };
+
+            if (checkArray(defenderPhase.pods, DEFENDER.HIT_R.POD, 'POD', (pod) => {
+                for (let s = 0; s < 5; s++) {
+                    const ang = (s / 5) * Math.PI * 2;
+                    defenderPhase.swarmers.push({
+                        pos: { x: pod.pos.x + Math.cos(ang) * 20, y: pod.pos.y + Math.sin(ang) * 20, z: pod.pos.z },
+                        vx: Math.cos(ang) * 4.5 + (Math.random() - 0.5) * 2,
+                        vy: Math.sin(ang) * 4.5 + (Math.random() - 0.5) * 2,
+                        vz: (Math.random() - 0.5) * 3,
+                        hp: 1
+                    });
+                }
+                keyboardStatus.innerText = 'POD BURST! SWARM DETECTED';
+            })) return true;
+
+            if (checkArray(defenderPhase.landers, DEFENDER.HIT_R.LANDER, 'LANDER', (lander) => {
+                if (lander.targetHumanoidId) {
+                    const h = defenderPhase.humanoids.find(x => x.id === lander.targetHumanoidId);
+                    if (h && h.state === 'abducted') {
+                        h.state = 'falling';
+                        h.abductedBy = null;
+                        h.vy = 0;
+                        keyboardStatus.innerText = 'ASTRONAUT IN FREE-FALL! CATCH THEM!';
+                    }
+                }
+            })) return true;
+
+            if (checkArray(defenderPhase.mutants, DEFENDER.HIT_R.MUTANT, 'MUTANT')) return true;
+            if (checkArray(defenderPhase.bombers, DEFENDER.HIT_R.BOMBER, 'BOMBER')) return true;
+            if (checkArray(defenderPhase.swarmers, DEFENDER.HIT_R.SWARMER, 'SWARMER')) return true;
+            if (checkArray(defenderPhase.baiters, DEFENDER.HIT_R.BAITER, 'BAITER')) return true;
+            if (checkArray(defenderPhase.mines, DEFENDER.HIT_R.MINE, 'MINE')) return true;
+
+            return false;
+        }
+
+        function tickDefenderPhase(frameScale = 1) {
+            if (!defenderPhase.active) return;
+            if (gameOverState.active) { endDefenderPhase(false); return; }
+            const now = performance.now();
+            const diff = defenderDifficulty(defenderPhase.level);
+            const O = DEFENDER.ORIGIN;
+
+            // Handle State Transitions
+            if (defenderPhase.state === 'intro') {
+                if (now >= defenderPhase.stateUntil) {
+                    defenderPhase.state = 'play';
+                    defenderPhase.invulnUntil = now + DEFENDER.INVULN_MS;
+                }
+                return;
+            }
+            if (defenderPhase.state === 'wave_clear') {
+                if (now >= defenderPhase.stateUntil) {
+                    defenderPhase.level += 1;
+                    defenderPhase.smartBombs = Math.min(3, defenderPhase.smartBombs + 1);
+                    defenderSpawnWave(defenderPhase.level);
+                    defenderPhase.state = 'play';
+                    defenderPhase.invulnUntil = now + DEFENDER.INVULN_MS;
+                }
+                return;
+            }
+            if (defenderPhase.state === 'results') {
+                if (now >= defenderPhase.stateUntil) {
+                    endDefenderPhase(true);
+                }
+                return;
+            }
+            if (defenderPhase.state !== 'play') return;
+
+            // Wave Clear Check
+            const enemyCount = defenderPhase.landers.length +
+                               defenderPhase.mutants.length +
+                               defenderPhase.bombers.length +
+                               defenderPhase.pods.length +
+                               defenderPhase.swarmers.length +
+                               defenderPhase.baiters.length;
+            if (enemyCount === 0) {
+                let aliveHumans = 0;
+                for (const h of defenderPhase.humanoids) {
+                    if (h.state !== 'dead') aliveHumans++;
+                }
+                const bonus = aliveHumans * DEFENDER.SCORES.WAVE_CLEAR_HUMAN_BONUS;
+                defenderPhase.score += bonus;
+                addTargetScore(bonus);
+                defenderPhase.state = 'wave_clear';
+                defenderPhase.stateUntil = now + DEFENDER.WAVE_CLEAR_MS;
+                playSfx('target_chime', { intensity: 1.5 });
+                keyboardStatus.innerText = `DEFENDER WAVE ${defenderPhase.level} CLEARED! HUMAN SURVIVAL BONUS +${bonus}`;
+                return;
+            }
+
+            // Player Arena Bounds & Toroidal Wrapping
+            posX = defenderWrapX(posX);
+            posY = Math.max(O.y + DEFENDER.HEIGHT_TOP, Math.min(O.y + DEFENDER.HEIGHT_FLOOR, posY));
+            posZ = Math.max(O.z + DEFENDER.DEPTH_MIN, Math.min(O.z + DEFENDER.DEPTH_MAX, posZ));
+
+            // Anti-camping Baiter check
+            if (now - defenderPhase.waveStartedAt > DEFENDER.BAITER_TIME_MS && defenderPhase.baiters.length === 0) {
+                defenderPhase.baiters.push({
+                    pos: { x: defenderWrapX(posX + (Math.random() > 0.5 ? 1200 : -1200)), y: posY - 100, z: posZ },
+                    vx: 0, vy: 0, vz: 0,
+                    hp: 1
+                });
+                keyboardStatus.innerText = 'WARNING: BAITER DETECTED! INTERCEPTOR INCOMING!';
+            }
+
+            // 1. Update Landers
+            for (let i = defenderPhase.landers.length - 1; i >= 0; i--) {
+                const l = defenderPhase.landers[i];
+                l.pos.x = defenderWrapX(l.pos.x + l.vx * frameScale);
+                l.pos.y += l.vy * frameScale;
+
+                if (l.state === 'patrol') {
+                    l.vy = Math.sin(now * 0.002 + i) * 0.4;
+                    if (now >= l.nextDecisionAt) {
+                        l.nextDecisionAt = now + 3000 + Math.random() * 4000;
+                        // Find closest free ground humanoid
+                        let bestH = null, bestDist = 1800;
+                        for (const h of defenderPhase.humanoids) {
+                            if (h.state === 'ground') {
+                                const dist = Math.abs(defenderWrapDx(h.pos.x, l.pos.x));
+                                if (dist < bestDist) {
+                                    bestDist = dist;
+                                    bestH = h;
+                                }
+                            }
+                        }
+                        if (bestH) {
+                            l.state = 'descending';
+                            l.targetHumanoidId = bestH.id;
+                        }
+                    }
+                } else if (l.state === 'descending') {
+                    const h = defenderPhase.humanoids.find(x => x.id === l.targetHumanoidId);
+                    if (!h || h.state !== 'ground') {
+                        l.state = 'patrol';
+                        l.targetHumanoidId = null;
+                    } else {
+                        const dx = defenderWrapDx(h.pos.x, l.pos.x);
+                        l.vx = Math.sign(dx || 1) * diff.landerSpeed;
+                        l.vy = 2.4;
+                        if (Math.abs(dx) < 30 && (h.pos.y - l.pos.y) < 35) {
+                            l.state = 'abducting';
+                            h.state = 'abducted';
+                            h.abductedBy = l;
+                            l.vy = -1.2;
+                            l.vx = 0;
+                            keyboardStatus.innerText = 'ASTRONAUT ABDUCTION IN PROGRESS!';
+                        }
+                    }
+                } else if (l.state === 'abducting') {
+                    l.vy = -1.2;
+                    const h = defenderPhase.humanoids.find(x => x.id === l.targetHumanoidId);
+                    if (h && h.state === 'abducted') {
+                        h.pos.x = l.pos.x;
+                        h.pos.y = l.pos.y + 24;
+                        h.pos.z = l.pos.z;
+                    }
+                    if (l.pos.y <= O.y + DEFENDER.HEIGHT_MUTATE) {
+                        // MUTATION!
+                        if (h) h.state = 'dead';
+                        spawnTargetParticles(l.pos, shipRight, shipDown, '#ff00ff', 40, 5.0, 50);
+                        playSfx('target_explosion', { intensity: 1.2, worldPos: l.pos });
+                        defenderPhase.mutants.push({
+                            pos: { ...l.pos },
+                            vx: 0, vy: 0, vz: 0,
+                            hp: 1
+                        });
+                        defenderPhase.landers.splice(i, 1);
+                        keyboardStatus.innerText = 'MUTANT CREATED! HOSTILE HYPER-DRIVE ENGAGED!';
+                        continue;
+                    }
+                }
+
+                // Lander firing
+                if (now >= l.nextFireAt) {
+                    l.nextFireAt = now + diff.fireIntervalMs + Math.random() * 1500;
+                    const dx = defenderWrapDx(posX, l.pos.x);
+                    const dy = posY - l.pos.y;
+                    const dz = posZ - l.pos.z;
+                    const dist = Math.hypot(dx, dy, dz) || 1;
+                    if (dist < 2200) {
+                        defenderPhase.bullets.push({
+                            x: l.pos.x, y: l.pos.y, z: l.pos.z,
+                            vx: (dx / dist) * diff.bulletSpeed,
+                            vy: (dy / dist) * diff.bulletSpeed,
+                            vz: (dz / dist) * diff.bulletSpeed,
+                            life: 0
+                        });
+                    }
+                }
+
+                // Player collision with Lander
+                const cdx = defenderWrapDx(posX, l.pos.x);
+                if (Math.hypot(cdx, posY - l.pos.y, posZ - l.pos.z) < DEFENDER.COLLIDE_R) {
+                    defenderApplyPlayerHit(25);
+                }
+            }
+
+            // 2. Update Mutants
+            for (let i = defenderPhase.mutants.length - 1; i >= 0; i--) {
+                const m = defenderPhase.mutants[i];
+                const dx = defenderWrapDx(posX, m.pos.x);
+                const dy = posY - m.pos.y;
+                const dz = posZ - m.pos.z;
+                const dist = Math.hypot(dx, dy, dz) || 1;
+
+                m.vx += (dx / dist) * diff.mutantSpeed * 0.08 * frameScale;
+                m.vy += (dy / dist) * diff.mutantSpeed * 0.08 * frameScale;
+                m.vz += (dz / dist) * diff.mutantSpeed * 0.08 * frameScale;
+
+                const curSpeed = Math.hypot(m.vx, m.vy, m.vz);
+                if (curSpeed > diff.mutantSpeed) {
+                    m.vx = (m.vx / curSpeed) * diff.mutantSpeed;
+                    m.vy = (m.vy / curSpeed) * diff.mutantSpeed;
+                    m.vz = (m.vz / curSpeed) * diff.mutantSpeed;
+                }
+
+                m.pos.x = defenderWrapX(m.pos.x + m.vx * frameScale);
+                m.pos.y += m.vy * frameScale;
+                m.pos.z += m.vz * frameScale;
+
+                if (Math.hypot(dx, dy, dz) < DEFENDER.COLLIDE_R) {
+                    defenderApplyPlayerHit(30);
+                }
+            }
+
+            // 3. Update Bombers
+            for (let i = defenderPhase.bombers.length - 1; i >= 0; i--) {
+                const b = defenderPhase.bombers[i];
+                b.pos.x = defenderWrapX(b.pos.x + b.vx * frameScale);
+                b.pos.y += b.vy * frameScale;
+                if (b.pos.y < O.y + DEFENDER.HEIGHT_TOP + 200 || b.pos.y > O.y + DEFENDER.HEIGHT_FLOOR - 100) {
+                    b.vy = -b.vy;
+                }
+                if (now >= b.nextMineAt) {
+                    b.nextMineAt = now + 3500 + Math.random() * 3000;
+                    defenderPhase.mines.push({
+                        pos: { ...b.pos },
+                        bornAt: now,
+                        vx: (Math.random() - 0.5) * 0.3,
+                        vy: (Math.random() - 0.5) * 0.3
+                    });
+                }
+                const bdx = defenderWrapDx(posX, b.pos.x);
+                if (Math.hypot(bdx, posY - b.pos.y, posZ - b.pos.z) < DEFENDER.COLLIDE_R + 10) {
+                    defenderApplyPlayerHit(20);
+                }
+            }
+
+            // 4. Update Mines
+            for (let i = defenderPhase.mines.length - 1; i >= 0; i--) {
+                const m = defenderPhase.mines[i];
+                m.pos.x = defenderWrapX(m.pos.x + m.vx * frameScale);
+                m.pos.y += m.vy * frameScale;
+                const mdx = defenderWrapDx(posX, m.pos.x);
+                if (Math.hypot(mdx, posY - m.pos.y, posZ - m.pos.z) < DEFENDER.HIT_R.MINE + 15) {
+                    spawnTargetParticles(m.pos, shipRight, shipDown, '#ff8800', 20, 3.5, 25);
+                    playSfx('target_explosion', { intensity: 0.8, worldPos: m.pos });
+                    defenderApplyPlayerHit(25);
+                    defenderPhase.mines.splice(i, 1);
+                    continue;
+                }
+                if (now - m.bornAt > 18000) {
+                    defenderPhase.mines.splice(i, 1);
+                }
+            }
+
+            // 5. Update Pods
+            for (let i = defenderPhase.pods.length - 1; i >= 0; i--) {
+                const p = defenderPhase.pods[i];
+                p.pos.x = defenderWrapX(p.pos.x + p.vx * frameScale);
+                p.pos.y += p.vy * frameScale;
+                const pdx = defenderWrapDx(posX, p.pos.x);
+                if (Math.hypot(pdx, posY - p.pos.y, posZ - p.pos.z) < DEFENDER.COLLIDE_R + 10) {
+                    defenderApplyPlayerHit(20);
+                }
+            }
+
+            // 6. Update Swarmers
+            for (let i = defenderPhase.swarmers.length - 1; i >= 0; i--) {
+                const s = defenderPhase.swarmers[i];
+                const dx = defenderWrapDx(posX, s.pos.x);
+                const dy = posY - s.pos.y;
+                const dz = posZ - s.pos.z;
+                const dist = Math.hypot(dx, dy, dz) || 1;
+
+                s.vx += ((dx / dist) * 7.5 + Math.sin(now * 0.01 + i) * 3) * 0.06 * frameScale;
+                s.vy += ((dy / dist) * 7.5 + Math.cos(now * 0.01 + i) * 3) * 0.06 * frameScale;
+                s.vz += (dz / dist) * 2.0 * 0.06 * frameScale;
+
+                s.pos.x = defenderWrapX(s.pos.x + s.vx * frameScale);
+                s.pos.y += s.vy * frameScale;
+                s.pos.z += s.vz * frameScale;
+
+                if (Math.hypot(dx, dy, dz) < DEFENDER.COLLIDE_R) {
+                    defenderApplyPlayerHit(15);
+                }
+            }
+
+            // 7. Update Baiter
+            for (let i = defenderPhase.baiters.length - 1; i >= 0; i--) {
+                const b = defenderPhase.baiters[i];
+                const dx = defenderWrapDx(posX, b.pos.x);
+                const dy = posY - b.pos.y;
+                const dz = posZ - b.pos.z;
+                const dist = Math.hypot(dx, dy, dz) || 1;
+
+                b.vx = (dx / dist) * diff.baiterSpeed;
+                b.vy = (dy / dist) * diff.baiterSpeed;
+                b.vz = (dz / dist) * diff.baiterSpeed;
+
+                b.pos.x = defenderWrapX(b.pos.x + b.vx * frameScale);
+                b.pos.y += b.vy * frameScale;
+                b.pos.z += b.vz * frameScale;
+
+                if (Math.hypot(dx, dy, dz) < DEFENDER.COLLIDE_R) {
+                    defenderApplyPlayerHit(35);
+                }
+            }
+
+            // 8. Update Humanoids
+            for (let i = 0; i < defenderPhase.humanoids.length; i++) {
+                const h = defenderPhase.humanoids[i];
+                if (h.state === 'falling') {
+                    h.vy += 0.22 * frameScale;
+                    h.pos.y += h.vy * frameScale;
+
+                    // Check catch by player
+                    const dx = defenderWrapDx(posX, h.pos.x);
+                    if (Math.hypot(dx, posY - h.pos.y, posZ - h.pos.z) < 65) {
+                        h.state = 'carried';
+                        defenderPhase.carriedHumanoid = h;
+                        defenderPhase.score += DEFENDER.SCORES.HUMANOID_CATCH;
+                        addTargetScore(DEFENDER.SCORES.HUMANOID_CATCH);
+                        playSfx('target_chime', { intensity: 1.2 });
+                        keyboardStatus.innerText = 'ASTRONAUT SECURED! +500 PTS · RETURN TO SURFACE!';
+                    } else if (h.pos.y >= defenderTerrainHeight(h.pos.x)) {
+                        // Crashed!
+                        h.state = 'dead';
+                        spawnTargetParticles(h.pos, shipRight, shipDown, '#ff3333', 20, 3.0, 25);
+                        keyboardStatus.innerText = 'ASTRONAUT LOST ON IMPACT!';
+                    }
+                } else if (h.state === 'carried') {
+                    h.pos.x = posX;
+                    h.pos.y = posY + 22;
+                    h.pos.z = posZ;
+
+                    // Check landing on surface
+                    if (posY >= defenderTerrainHeight(posX) - 60) {
+                        h.state = 'ground';
+                        h.pos.y = defenderTerrainHeight(posX) - 14;
+                        defenderPhase.carriedHumanoid = null;
+                        defenderPhase.score += DEFENDER.SCORES.HUMANOID_SURFACE;
+                        addTargetScore(DEFENDER.SCORES.HUMANOID_SURFACE);
+                        playSfx('target_chime', { intensity: 1.5 });
+                        keyboardStatus.innerText = 'ASTRONAUT SAFELY RETURNED TO SURFACE! +500 PTS!';
+                    }
+                }
+            }
+
+            // 9. Update Enemy Bullets
+            for (let i = defenderPhase.bullets.length - 1; i >= 0; i--) {
+                const b = defenderPhase.bullets[i];
+                b.x = defenderWrapX(b.x + b.vx * frameScale);
+                b.y += b.vy * frameScale;
+                b.z += b.vz * frameScale;
+                b.life += 1;
+
+                const dx = defenderWrapDx(posX, b.x);
+                if (Math.hypot(dx, posY - b.y, posZ - b.z) < DEFENDER.HIT_R.BULLET) {
+                    defenderApplyPlayerHit(14);
+                    defenderPhase.bullets.splice(i, 1);
+                    continue;
+                }
+                if (b.life > 140) {
+                    defenderPhase.bullets.splice(i, 1);
+                }
+            }
+
+            // 10. Update Shockwave
+            if (defenderPhase.shockwave) {
+                const sw = defenderPhase.shockwave;
+                const elapsed = now - sw.bornAt;
+                if (elapsed >= sw.duration) {
+                    defenderPhase.shockwave = null;
+                } else {
+                    sw.radius = (elapsed / sw.duration) * sw.maxRadius;
+                }
+            }
+        }
+
+        function renderDefenderScanner(centerX, fov) {
+            const scannerW = Math.min(460, canvas.width - 40);
+            const scannerH = 38;
+            const x0 = centerX - scannerW / 2;
+            const y0 = 16;
+
+            ctx.save();
+            ctx.fillStyle = 'rgba(0, 12, 28, 0.85)';
+            ctx.fillRect(x0, y0, scannerW, scannerH);
+            ctx.strokeStyle = '#00ffcc';
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(x0, y0, scannerW, scannerH);
+
+            // Ceiling line
+            ctx.strokeStyle = 'rgba(255, 60, 60, 0.45)';
+            ctx.beginPath();
+            ctx.moveTo(x0, y0 + 3);
+            ctx.lineTo(x0 + scannerW, y0 + 3);
+            ctx.stroke();
+
+            // Ground line
+            ctx.strokeStyle = 'rgba(0, 255, 120, 0.55)';
+            ctx.beginPath();
+            ctx.moveTo(x0, y0 + scannerH - 4);
+            ctx.lineTo(x0 + scannerW, y0 + scannerH - 4);
+            ctx.stroke();
+
+            const mapX = (wx) => {
+                const relX = defenderWrapX(wx) - (DEFENDER.ORIGIN.x - DEFENDER.HALF_W);
+                return x0 + (relX / DEFENDER.WIDTH) * scannerW;
+            };
+            const mapY = (wy) => {
+                const relY = (wy - (DEFENDER.ORIGIN.y + DEFENDER.HEIGHT_TOP)) /
+                             (DEFENDER.HEIGHT_FLOOR - DEFENDER.HEIGHT_TOP);
+                return y0 + 4 + Math.max(0, Math.min(1, relY)) * (scannerH - 8);
+            };
+
+            // Ground humanoids
+            for (const h of defenderPhase.humanoids) {
+                if (h.state === 'dead') continue;
+                ctx.fillStyle = h.state === 'abducted' ? ((performance.now() % 200 < 100) ? '#ff2222' : '#00ff44') : '#00ff88';
+                ctx.fillRect(mapX(h.pos.x) - 1.5, mapY(h.pos.y) - 1.5, 3, 3);
+            }
+
+            // Landers
+            ctx.fillStyle = '#ffdd00';
+            for (const l of defenderPhase.landers) {
+                ctx.fillRect(mapX(l.pos.x) - 2, mapY(l.pos.y) - 2, 4, 4);
+            }
+
+            // Mutants
+            ctx.fillStyle = (performance.now() % 160 < 80) ? '#ff0055' : '#ff00ff';
+            for (const m of defenderPhase.mutants) {
+                ctx.fillRect(mapX(m.pos.x) - 2, mapY(m.pos.y) - 2, 4, 4);
+            }
+
+            // Bombers
+            ctx.fillStyle = '#3399ff';
+            for (const b of defenderPhase.bombers) {
+                ctx.fillRect(mapX(b.pos.x) - 2.5, mapY(b.pos.y) - 2.5, 5, 5);
+            }
+
+            // Pods / Swarmers
+            ctx.fillStyle = '#ff8800';
+            for (const p of defenderPhase.pods) {
+                ctx.fillRect(mapX(p.pos.x) - 2.5, mapY(p.pos.y) - 2.5, 5, 5);
+            }
+            for (const s of defenderPhase.swarmers) {
+                ctx.fillRect(mapX(s.pos.x) - 1, mapY(s.pos.y) - 1, 2, 2);
+            }
+
+            // Baiters
+            ctx.fillStyle = '#ffffff';
+            for (const bt of defenderPhase.baiters) {
+                ctx.fillRect(mapX(bt.pos.x) - 2, mapY(bt.pos.y) - 2, 4, 4);
+            }
+
+            // Player indicator
+            const px = mapX(posX);
+            const py = mapY(posY);
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(px - 2, py - 2, 4, 4);
+            ctx.strokeStyle = '#00ffcc';
+            ctx.strokeRect(px - 6, py - 5, 12, 10);
+
+            ctx.restore();
+        }
+
+        function renderDefenderPhase(centerX, centerY, fov) {
+            if (!defenderPhase.active) return;
+            const now = performance.now();
+            const O = DEFENDER.ORIGIN;
+
+            // Full screen flash for Smart Bomb
+            if (now < defenderPhase.screenFlashUntil) {
+                ctx.save();
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.restore();
+            }
+
+            // 1. Render Starfield
+            ctx.save();
+            for (const star of defenderPhase.stars) {
+                const dx = defenderWrapDx(star.x, posX);
+                const sp = projectPoint({ x: posX + dx * 0.35, y: star.y, z: star.z }, centerX, centerY, fov);
+                if (sp && sp.z > 8) {
+                    ctx.fillStyle = star.color;
+                    ctx.globalAlpha = star.brightness;
+                    ctx.fillRect(sp.x, sp.y, star.size, star.size);
+                }
+            }
+            ctx.restore();
+
+            // 2. Render Planetary Surface Ridge Wireframe
+            ctx.save();
+            ctx.strokeStyle = '#00bb55';
+            ctx.lineWidth = 2.5;
+            ctx.beginPath();
+            let firstPt = true;
+            for (let step = -2400; step <= 2400; step += 120) {
+                const wx = posX + step;
+                const wy = defenderTerrainHeight(wx);
+                const gp = projectPoint({ x: wx, y: wy, z: 0 }, centerX, centerY, fov);
+                if (gp && gp.z > 8) {
+                    if (firstPt) { ctx.moveTo(gp.x, gp.y); firstPt = false; }
+                    else { ctx.lineTo(gp.x, gp.y); }
+                } else {
+                    firstPt = true;
+                }
+            }
+            ctx.stroke();
+            ctx.restore();
+
+            // 3. Render Humanoids
+            for (const h of defenderPhase.humanoids) {
+                if (h.state === 'dead') continue;
+                const dx = defenderWrapDx(h.pos.x, posX);
+                const p = projectPoint({ x: posX + dx, y: h.pos.y, z: h.pos.z }, centerX, centerY, fov);
+                if (!p || p.z <= 8) continue;
+                const sz = Math.max(3, Math.min(60, (fov / Math.max(8, p.z)) * 14));
+                ctx.save();
+                ctx.fillStyle = h.state === 'abducted' ? ((now % 200 < 100) ? '#ff2222' : '#00ffff') : '#00ffff';
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.2;
+                // Head
+                ctx.beginPath();
+                ctx.arc(p.x, p.y - sz * 0.6, sz * 0.35, 0, Math.PI * 2);
+                ctx.fill();
+                // Body
+                ctx.fillRect(p.x - sz * 0.25, p.y - sz * 0.25, sz * 0.5, sz * 0.7);
+                // Visor
+                ctx.fillStyle = '#ffaa00';
+                ctx.fillRect(p.x - sz * 0.15, p.y - sz * 0.7, sz * 0.3, sz * 0.2);
+                ctx.restore();
+            }
+
+            // 4. Render Landers
+            for (const l of defenderPhase.landers) {
+                const dx = defenderWrapDx(l.pos.x, posX);
+                const p = projectPoint({ x: posX + dx, y: l.pos.y, z: l.pos.z }, centerX, centerY, fov);
+                if (!p || p.z <= 8) continue;
+                const sz = Math.max(5, Math.min(140, (fov / Math.max(8, p.z)) * 26));
+
+                ctx.save();
+                // Tractor beam if abducting
+                if (l.state === 'abducting' || l.state === 'descending') {
+                    const h = defenderPhase.humanoids.find(x => x.id === l.targetHumanoidId);
+                    if (h) {
+                        const hdx = defenderWrapDx(h.pos.x, posX);
+                        const hp = projectPoint({ x: posX + hdx, y: h.pos.y, z: h.pos.z }, centerX, centerY, fov);
+                        if (hp && hp.z > 8) {
+                            ctx.strokeStyle = `rgba(0, 255, 200, ${0.4 + 0.3 * Math.sin(now * 0.01)})`;
+                            ctx.lineWidth = 2.5;
+                            ctx.beginPath();
+                            ctx.moveTo(p.x, p.y);
+                            ctx.lineTo(hp.x, hp.y);
+                            ctx.stroke();
+                        }
+                    }
+                }
+
+                // Lander Body
+                ctx.fillStyle = '#ffdd00';
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.8;
+                ctx.beginPath();
+                ctx.strokeRect(p.x - sz * 0.6, p.y - sz * 0.4, sz * 1.2, sz * 0.8);
+                // Cockpit eye
+                ctx.fillStyle = '#00ffcc';
+                ctx.fillRect(p.x - sz * 0.25, p.y - sz * 0.2, sz * 0.5, sz * 0.4);
+                // Landing legs
+                ctx.strokeStyle = '#ffdd00';
+                ctx.beginPath();
+                ctx.moveTo(p.x - sz * 0.5, p.y + sz * 0.4);
+                ctx.lineTo(p.x - sz * 0.8, p.y + sz * 0.8);
+                ctx.moveTo(p.x + sz * 0.5, p.y + sz * 0.4);
+                ctx.lineTo(p.x + sz * 0.8, p.y + sz * 0.8);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // 5. Render Mutants
+            for (const m of defenderPhase.mutants) {
+                const dx = defenderWrapDx(m.pos.x, posX);
+                const p = projectPoint({ x: posX + dx, y: m.pos.y, z: m.pos.z }, centerX, centerY, fov);
+                if (!p || p.z <= 8) continue;
+                const sz = Math.max(5, Math.min(130, (fov / Math.max(8, p.z)) * 24));
+                ctx.save();
+                ctx.fillStyle = (now % 120 < 60) ? '#ff0055' : '#ff00aa';
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y - sz);
+                ctx.lineTo(p.x + sz * 0.8, p.y);
+                ctx.lineTo(p.x, p.y + sz);
+                ctx.lineTo(p.x - sz * 0.8, p.y);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // 6. Render Bombers
+            for (const b of defenderPhase.bombers) {
+                const dx = defenderWrapDx(b.pos.x, posX);
+                const p = projectPoint({ x: posX + dx, y: b.pos.y, z: b.pos.z }, centerX, centerY, fov);
+                if (!p || p.z <= 8) continue;
+                const sz = Math.max(6, Math.min(150, (fov / Math.max(8, p.z)) * 32));
+                ctx.save();
+                ctx.fillStyle = '#2277ee';
+                ctx.strokeStyle = '#00ddff';
+                ctx.lineWidth = 2;
+                ctx.fillRect(p.x - sz * 0.7, p.y - sz * 0.5, sz * 1.4, sz);
+                ctx.strokeRect(p.x - sz * 0.7, p.y - sz * 0.5, sz * 1.4, sz);
+                // Blinking red bomb bay
+                ctx.fillStyle = (now % 300 < 150) ? '#ff2222' : '#660000';
+                ctx.fillRect(p.x - sz * 0.25, p.y + sz * 0.1, sz * 0.5, sz * 0.35);
+                ctx.restore();
+            }
+
+            // 7. Render Mines
+            for (const m of defenderPhase.mines) {
+                const dx = defenderWrapDx(m.pos.x, posX);
+                const p = projectPoint({ x: posX + dx, y: m.pos.y, z: m.pos.z }, centerX, centerY, fov);
+                if (!p || p.z <= 8) continue;
+                const sz = Math.max(3, Math.min(70, (fov / Math.max(8, p.z)) * 14));
+                ctx.save();
+                ctx.strokeStyle = (now % 200 < 100) ? '#ffcc00' : '#ff4400';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(p.x - sz, p.y); ctx.lineTo(p.x + sz, p.y);
+                ctx.moveTo(p.x, p.y - sz); ctx.lineTo(p.x, p.y + sz);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // 8. Render Pods & Swarmers
+            for (const pod of defenderPhase.pods) {
+                const dx = defenderWrapDx(pod.pos.x, posX);
+                const p = projectPoint({ x: posX + dx, y: pod.pos.y, z: pod.pos.z }, centerX, centerY, fov);
+                if (!p || p.z <= 8) continue;
+                const sz = Math.max(6, Math.min(140, (fov / Math.max(8, p.z)) * 30));
+                ctx.save();
+                ctx.fillStyle = '#aa00ee';
+                ctx.strokeStyle = '#ff88ff';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, sz * 0.65, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+            for (const sw of defenderPhase.swarmers) {
+                const dx = defenderWrapDx(sw.pos.x, posX);
+                const p = projectPoint({ x: posX + dx, y: sw.pos.y, z: sw.pos.z }, centerX, centerY, fov);
+                if (!p || p.z <= 8) continue;
+                const sz = Math.max(3, Math.min(60, (fov / Math.max(8, p.z)) * 12));
+                ctx.save();
+                ctx.fillStyle = '#ff3300';
+                ctx.beginPath();
+                ctx.moveTo(p.x + sz, p.y);
+                ctx.lineTo(p.x - sz * 0.6, p.y - sz * 0.6);
+                ctx.lineTo(p.x - sz * 0.6, p.y + sz * 0.6);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // 9. Render Baiters
+            for (const bt of defenderPhase.baiters) {
+                const dx = defenderWrapDx(bt.pos.x, posX);
+                const p = projectPoint({ x: posX + dx, y: bt.pos.y, z: bt.pos.z }, centerX, centerY, fov);
+                if (!p || p.z <= 8) continue;
+                const sz = Math.max(4, Math.min(120, (fov / Math.max(8, p.z)) * 22));
+                ctx.save();
+                ctx.fillStyle = '#eeeeee';
+                ctx.strokeStyle = '#ff0033';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.ellipse(p.x, p.y, sz, sz * 0.4, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // 10. Render Enemy Bullets
+            for (const bolt of defenderPhase.bullets) {
+                const dx = defenderWrapDx(bolt.x, posX);
+                const p = projectPoint({ x: posX + dx, y: bolt.y, z: bolt.z }, centerX, centerY, fov);
+                if (!p || p.z <= 8) continue;
+                const sz = Math.max(2, Math.min(30, (fov / Math.max(8, p.z)) * 8));
+                ctx.save();
+                ctx.fillStyle = '#ff2233';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, sz, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // 11. Render Shockwave
+            if (defenderPhase.shockwave) {
+                const sw = defenderPhase.shockwave;
+                const sp = projectPoint({ x: posX, y: posY, z: posZ + 200 }, centerX, centerY, fov);
+                if (sp) {
+                    ctx.save();
+                    ctx.strokeStyle = 'rgba(0, 255, 255, 0.75)';
+                    ctx.lineWidth = 4;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, Math.min(canvas.width, sw.radius * 0.5), 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.restore();
+                }
+            }
+
+            // 12. Top Radar Scanner
+            renderDefenderScanner(centerX, fov);
+
+            // 13. State Banners (Intro / Wave Clear / Results)
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            let aliveCount = 0;
+            for (const h of defenderPhase.humanoids) if (h.state !== 'dead') aliveCount++;
+
+            // Status bar
+            ctx.font = 'bold 13px monospace';
+            ctx.fillStyle = '#00ffcc';
+            ctx.fillText(
+                `DEFENDER WAVE ${defenderPhase.level} · SCORE: ${defenderPhase.score} · KILLS: ${defenderPhase.kills} · SMART BOMBS: ${defenderPhase.smartBombs} · HUMANS: ${aliveCount}/8`,
+                centerX, 68
+            );
+            ctx.font = '11px monospace';
+            ctx.fillStyle = 'rgba(0, 255, 204, 0.65)';
+            ctx.fillText('[Z / Shift+S / X: 180° FLIP]  ·  [SPACE / B: SMART BOMB]  ·  [V / RMB: LASERS]', centerX, 84);
+
+            if (defenderPhase.state === 'intro') {
+                ctx.fillStyle = 'rgba(0, 15, 30, 0.85)';
+                ctx.fillRect(0, centerY - 65, canvas.width, 130);
+                ctx.font = 'bold 30px monospace';
+                ctx.fillStyle = '#ffd24a';
+                ctx.fillText(`DEFENDER — WAVE ${defenderPhase.level}`, centerX, centerY - 18);
+                ctx.font = '15px monospace';
+                ctx.fillStyle = '#c8f6ff';
+                ctx.fillText('PROTECT THE ASTRONAUTS · DESTROY THE LANDERS · AVOID MUTATION', centerX, centerY + 18);
+            } else if (defenderPhase.state === 'wave_clear') {
+                ctx.fillStyle = 'rgba(0, 25, 15, 0.85)';
+                ctx.fillRect(0, centerY - 65, canvas.width, 130);
+                ctx.font = 'bold 30px monospace';
+                ctx.fillStyle = '#00ff88';
+                ctx.fillText('WAVE CLEARED!', centerX, centerY - 18);
+                ctx.font = '15px monospace';
+                ctx.fillStyle = '#c8f6ff';
+                ctx.fillText(`PREPARING WAVE ${defenderPhase.level + 1} · SMART BOMB REPLENISHED`, centerX, centerY + 18);
+            } else if (defenderPhase.state === 'results') {
+                ctx.fillStyle = 'rgba(30, 5, 10, 0.85)';
+                ctx.fillRect(0, centerY - 65, canvas.width, 130);
+                ctx.font = 'bold 30px monospace';
+                ctx.fillStyle = '#ff6a7a';
+                ctx.fillText('MISSION COMPLETE', centerX, centerY - 18);
+                ctx.font = '15px monospace';
+                ctx.fillStyle = '#c8f6ff';
+                ctx.fillText(`FINAL DEFENDER SCORE: +${defenderPhase.score} · KILLS: ${defenderPhase.kills}`, centerX, centerY + 18);
+            }
+            ctx.restore();
+        }
+
+
         function triggerGameOver() {
             if (gameOverState.active) return;
             spawnTargetParticles(
@@ -8663,6 +9841,7 @@
                 return;
             }
             if (galagaPhase.active) endGalagaPhase(false);
+            if (defenderPhase.active) endDefenderPhase(false);
             livesRemaining = Math.max(0, livesRemaining - 1);
             savePlayerProfile();
             updatePlayerHud();
@@ -9386,6 +10565,11 @@
                 e.preventDefault();
                 return;
             }
+            if ((key === 'd' && e.altKey && !e.ctrlKey) || (key === 'd' && e.ctrlKey && e.shiftKey && !e.altKey)) {
+                toggleDefenderPhase();
+                e.preventDefault();
+                return;
+            }
             if (key === 'p' && e.altKey && !e.ctrlKey) {
                 if (e.shiftKey) exportGulletArenaBackup();
                 else toggleGulletPhase();
@@ -9488,8 +10672,40 @@
                 !e.altKey &&
                 !e.metaKey &&
                 !e.repeat
+            if (
+                key === 'x' &&
+                !mapView &&
+                !builderMode &&
+                !e.ctrlKey &&
+                !e.altKey &&
+                !e.metaKey &&
+                !e.repeat
             ) {
                 fireRocket();
+                e.preventDefault();
+                return;
+            }
+            if (
+                (key === 'c' || key === 'z' || key === ' ' || (key === 's' && e.shiftKey)) &&
+                !mapView &&
+                !builderMode &&
+                !e.ctrlKey &&
+                !e.altKey &&
+                !e.metaKey &&
+                !e.repeat
+            ) {
+                instant180Flip();
+                e.preventDefault();
+                return;
+            }
+            if (
+                defenderPhase.active &&
+                key === 'b' &&
+                !mapView &&
+                !builderMode &&
+                !e.repeat
+            ) {
+                fireDefenderSmartBomb();
                 e.preventDefault();
                 return;
             }
@@ -9511,7 +10727,7 @@
             if (key === 's') {
                 disableAutoBoost('AutoBoost canceled by reverse thrust');
             }
-            if (key === ';') {
+            if (key === ';' || key === 'tab') {
                 if (toggleAutoBoost()) {
                     e.preventDefault();
                     return;
@@ -10571,6 +11787,16 @@
             // actually still correct, which is what caused down to flip while right stayed put.
             const rightAgreement = dot(right, levelBasis.right);
             return rightAgreement < -0.25;
+        }
+
+        function instant180Flip() {
+            if (mapView || builderMode) return;
+            shipForward = { x: -shipForward.x, y: -shipForward.y, z: -shipForward.z };
+            shipRight   = { x: -shipRight.x,   y: -shipRight.y,   z: -shipRight.z };
+            repairBasis();
+            syncViewToShip();
+            playSfx('portal_whoosh', { intensity: 0.5, worldPos: getPlayerWorldPos() });
+            keyboardStatus.innerText = 'REVERSE 180° FLIP';
         }
 
         function cockpitBasisLooksSeverelyFlipped() {
@@ -28684,7 +29910,7 @@
                 thrust(forward, forwardAmount * currentSpeed * movementStepScale);
                 thrust(right, strafeAmount * strafeSpeed * movementStepScale);
                 thrust(up, liftAmount * strafeSpeed * movementStepScale);
-                if (!galagaPhase.active) {
+                if (!galagaPhase.active && !defenderPhase.active) {
                     containShipInTunnel();
                     checkTargetFlyThroughCollisions();
                 }
@@ -28710,6 +29936,7 @@
             tickSentryRegen();
             tickGalagaPhase(frameScale);
             tickGulletPhase(frameScale);
+            tickDefenderPhase(frameScale);
 
             // 4. Fire Dual Lasers on V Key (Stops hardware circuit locking)
             const shotNow = performance.now();
@@ -28821,7 +30048,7 @@
                         l.x += l.vx * laserStepScale;
                         l.y += l.vy * laserStepScale;
                         l.z += l.vz * laserStepScale;
-                        laserHit = checkLaserTargetHits(l) || checkLaserSentryHits(l) || checkLaserGalagaHits(l);
+                        laserHit = checkLaserTargetHits(l) || checkLaserSentryHits(l) || checkLaserGalagaHits(l) || checkLaserDefenderHits(l);
                         if (laserHit) break;
                     }
                     l.life += frameScale;
@@ -28872,6 +30099,7 @@
                 renderTunnelSentries(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderGalagaPhase(centerX, centerY, fov);
                 renderGulletPhase(centerX, centerY, fov);
+                renderDefenderPhase(centerX, centerY, fov);
                 renderLaserAimCrosshair(centerX, centerY, fov);
                 updateAndRenderParticles(centerX, centerY, fov, frameScale);
                 renderRocketBlastClouds(centerX, centerY, fov);

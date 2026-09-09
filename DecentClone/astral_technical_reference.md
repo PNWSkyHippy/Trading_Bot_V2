@@ -4,6 +4,15 @@
 
 ## Update Timeline (newest first)
 
+### 2026-09-08 — Defender 3D Arcade Stage (Bonus 3) & Instant 180° Reverse Flip
+
+- Added `defenderPhase` (toggle with `Alt+D` or `Ctrl+Shift+D`): 1st-person 6DOF open-space Defender arcade prototype featuring seamless horizontal toroidal wrapping ($X \in [-3500, +3500]$), starfield, and procedural planetary surface ridge.
+- Enemies include Landers (abducting ground humanoids toward stratosphere ceiling), Mutants (fast hyper-aggressive pursuit), Bombers (deploying space minefields), Pods (splitting into 5 Swarmers), Baiter (anti-camp interceptor), and enemy projectile fire.
+- Humanoid rescue mechanic: shooting an abducting Lander drops the astronaut; catching them mid-air awards +500 pts, returning them safely to the surface awards +500 pts.
+- Smart Bomb capability: press `Space` or `B` in Defender mode to vaporize visible threats.
+- Top-mounted long-range wrapping radar scanner displays all entities, terrain, and player ship.
+- Added `instant180Flip()` (`Z`, `Shift+S`, and `X` in Defender mode): cleanly reverses nose and right wing while preserving orthonormal up/down basis and camera sync.
+
 ### 2026-09-04 — Distance-mapping Apply no longer a silent no-op
 
 - V-dialog **Across distance** and **Fit one image** were rejecting Apply unless `selectionPath` matched the selection exactly and the path contained zero rooms/junctions. The dialog stayed open, so it looked like Apply did nothing. Legacy per-section mode never used that path check.

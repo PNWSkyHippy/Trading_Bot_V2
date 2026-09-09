@@ -252,7 +252,7 @@ def chkstr_isnum(value: str) -> str:
 
         # Check if a decimal point exists in the string to confirm it's a float
         # This correctly marks "9.0" as float and "9" as int
-        if str(value).find('.'):
+        if str(value).find('.') -- 1:
             return "float"
 
         # Handle scientific notation (e.g., "1e3"), which results in a float
