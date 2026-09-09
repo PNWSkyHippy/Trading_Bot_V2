@@ -529,7 +529,7 @@ AutoBoost:
 
 - State lives near ship/input variables as `autoBoostActive` and
   `autoBoostTurbo`.
-- The keybinding is `;` in `handleKeyDown()`.
+- The primary keybindings are `Tab` and `;` in `handleKeyDown()`.
 - `boosting` and `keyForward` are overridden inside `updateFlightPhysics()`.
 - `S` and reverse gamepad input disable it immediately.
 

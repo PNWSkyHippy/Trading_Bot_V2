@@ -183,7 +183,7 @@ Usage examples:
         print(f"my_list pre quick sort:\n{my_list}")
         sorted_list = quick_sort(my_list,0,len(my_list) -1)
         print(f"post quick sorted list:\n{sorted_list}")
-        print(f"verifying original list untouched:\n{my_list}")
+        print(f"verifying original list was sorted in place:\n{my_list}")
         
     if bubble and args.list:
         res_list = bubble_sort(my_list, 0, len(my_list) - 1)
@@ -201,16 +201,16 @@ Usage examples:
             print(f"Output Insertion Sorted list\n\t{res_list}")
             print(f"Proof original list unchanged:\n\t{my_list}")
         else:
-            print(f"Insertion SortedL {res_list}")
+            print(f"Insertion Sorted: {res_list}")
 
     if quick and args.list:
         res_list = quick_sort(my_list, 0, len(my_list) - 1)
         if debug:
             print(f"Input list pre sort:\n\t{my_list}")
             print(f"Output quick Sorted list\n\t{res_list}")
-            print(f"Proof original list unchanged:\n\t{my_list}")
+            print(f"Proof original list was sorted in place\n\t{my_list}")
         else:
-            print(f"quick SortedL {res_list}")
+            print(f"quick Sorted: {res_list}")
     # Example usage:
 
 

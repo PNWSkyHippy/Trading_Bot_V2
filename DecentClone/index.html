@@ -9551,24 +9551,53 @@
             }
             ctx.restore();
 
-            // 2. Render Planetary Surface Ridge Wireframe
+            // 2. Render Planetary Surface Vector Grid
             ctx.save();
-            ctx.strokeStyle = '#00bb55';
-            ctx.lineWidth = 2.5;
-            ctx.beginPath();
-            let firstPt = true;
-            for (let step = -2400; step <= 2400; step += 120) {
-                const wx = posX + step;
-                const wy = defenderTerrainHeight(wx);
-                const gp = projectPoint({ x: wx, y: wy, z: 0 }, centerX, centerY, fov);
-                if (gp && gp.z > 8) {
-                    if (firstPt) { ctx.moveTo(gp.x, gp.y); firstPt = false; }
-                    else { ctx.lineTo(gp.x, gp.y); }
-                } else {
-                    firstPt = true;
+            ctx.lineWidth = 1.8;
+            // Cross-ridges (lateral lines across field of view)
+            const ridgeDists = [220, 420, 720, 1150, 1750, 2500];
+            for (let i = 0; i < ridgeDists.length; i++) {
+                const d = ridgeDists[i];
+                const alpha = Math.max(0.12, 0.70 - (i / ridgeDists.length) * 0.55);
+                ctx.strokeStyle = `rgba(0, 220, 90, ${alpha.toFixed(2)})`;
+                ctx.beginPath();
+                let first = true;
+                for (let r = -2200; r <= 2200; r += 160) {
+                    const wx = posX + shipForward.x * d + shipRight.x * r;
+                    const wz = posZ + shipForward.z * d + shipRight.z * r;
+                    const wy = defenderTerrainHeight(wx) + Math.sin(wz * 0.006 + wx * 0.003) * 35;
+                    const gp = projectPoint({ x: wx, y: wy, z: wz }, centerX, centerY, fov);
+                    if (gp && gp.z > 8) {
+                        if (first) { ctx.moveTo(gp.x, gp.y); first = false; }
+                        else { ctx.lineTo(gp.x, gp.y); }
+                    } else {
+                        first = true;
+                    }
                 }
+                ctx.stroke();
             }
-            ctx.stroke();
+
+            // Longitudinal grid lines running forward to the horizon
+            const lateralOffsets = [-1500, -1000, -600, -250, 250, 600, 1000, 1500];
+            ctx.strokeStyle = 'rgba(0, 180, 75, 0.35)';
+            ctx.lineWidth = 1.2;
+            for (const off of lateralOffsets) {
+                ctx.beginPath();
+                let first = true;
+                for (let d = 180; d <= 2600; d += 180) {
+                    const wx = posX + shipForward.x * d + shipRight.x * off;
+                    const wz = posZ + shipForward.z * d + shipRight.z * off;
+                    const wy = defenderTerrainHeight(wx) + Math.sin(wz * 0.006 + wx * 0.003) * 35;
+                    const gp = projectPoint({ x: wx, y: wy, z: wz }, centerX, centerY, fov);
+                    if (gp && gp.z > 8) {
+                        if (first) { ctx.moveTo(gp.x, gp.y); first = false; }
+                        else { ctx.lineTo(gp.x, gp.y); }
+                    } else {
+                        first = true;
+                    }
+                }
+                ctx.stroke();
+            }
             ctx.restore();
 
             // 3. Render Humanoids
@@ -9792,7 +9821,7 @@
             );
             ctx.font = '11px monospace';
             ctx.fillStyle = 'rgba(0, 255, 204, 0.65)';
-            ctx.fillText('[Z / Shift+S / X: 180° FLIP]  ·  [SPACE / B: SMART BOMB]  ·  [V / RMB: LASERS]', centerX, 84);
+            ctx.fillText('[C / SPACE: 180° FLIP]  ·  [X: ROCKET]  ·  [TAB: AUTO-CRUISE]  ·  [B: SMART BOMB]  ·  [V / RMB: LASERS]', centerX, 84);
 
             if (defenderPhase.state === 'intro') {
                 ctx.fillStyle = 'rgba(0, 15, 30, 0.85)';
