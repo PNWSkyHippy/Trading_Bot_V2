@@ -56,6 +56,10 @@ class EATTrade:
     tp1_done: bool = False
     runner_stop: Optional[float] = None
     best_price: Optional[float] = None
+    # Percentage move from entry measured from observed bar extremes.  These
+    # are diagnostics, not a replacement for the strategy's exit ordering.
+    mfe_pct: float = 0.0
+    mae_pct: float = 0.0
     status: str = "open"
     exit_time: Optional[str] = None
     exit_price: Optional[float] = None
@@ -547,6 +551,7 @@ class EATStrategyEngine:
         same_entry_bar = bar["time"] == trade.entry_bar_time
         observed_low = bar["close"] if same_entry_bar else bar["low"]
         observed_high = bar["close"] if same_entry_bar else bar["high"]
+        self._update_trade_excursions(trade, observed_low, observed_high)
 
         if trade.direction == "long":
             original_stop_hit = observed_low <= trade.stop_price
@@ -605,6 +610,7 @@ class EATStrategyEngine:
         trade = self.active_trade
         if trade is None:
             return
+        self._update_trade_excursions(trade, price, price)
         if trade.remaining_quantity > 0:
             self._realize(trade, trade.remaining_quantity, price)
         # EAT is currently paper-only.  Its reported result must nevertheless
@@ -820,6 +826,47 @@ class EATStrategyEngine:
         except Exception as exc:
             self.last_execution_error = (
                 f"DB mirror close failed: {type(exc).__name__}: {exc}"
+            )
+
+    def _update_trade_excursions(
+        self, trade: EATTrade, observed_low: float, observed_high: float
+    ) -> None:
+        """Persist bar-based MFE/MAE without changing exit decisions.
+
+        A bar that is also the entry bar uses its close, matching the
+        strategy's existing no-lookahead exit policy.  Later bars contribute
+        their observed high and low.  Candle-internal order is unavailable, so
+        the values are explicitly bar-extrema diagnostics rather than a claim
+        about which price was visited first.
+        """
+        entry = float(trade.entry_price)
+        if entry <= 0:
+            return
+        if trade.direction == "long":
+            favorable = (float(observed_high) - entry) / entry * 100.0
+            adverse = (float(observed_low) - entry) / entry * 100.0
+        else:
+            favorable = (entry - float(observed_low)) / entry * 100.0
+            adverse = (entry - float(observed_high)) / entry * 100.0
+        mfe_pct = round(max(float(trade.mfe_pct), 0.0, favorable), 4)
+        mae_pct = round(min(float(trade.mae_pct), 0.0, adverse), 4)
+        if mfe_pct == trade.mfe_pct and mae_pct == trade.mae_pct:
+            return
+        trade.mfe_pct = mfe_pct
+        trade.mae_pct = mae_pct
+        self._mirror_trade_diagnostics(trade)
+
+    def _mirror_trade_diagnostics(self, trade: EATTrade) -> None:
+        if not self.mirror_to_bot_db or self.db_mirror is None:
+            return
+        update = getattr(self.db_mirror, "update_trade_diagnostics", None)
+        if not callable(update):
+            return
+        try:
+            update(trade.trade_id, mfe_pct=trade.mfe_pct, mae_pct=trade.mae_pct)
+        except Exception as exc:
+            self.last_execution_error = (
+                f"DB mirror diagnostics failed: {type(exc).__name__}: {exc}"
             )
 
     def snapshot(self) -> dict:

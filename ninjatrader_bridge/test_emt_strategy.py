@@ -38,6 +38,7 @@ class FakeMirrorDB:
     def __init__(self):
         self.opened = []
         self.closed = []
+        self.diagnostics = []
 
     def open_trade(self, trade):
         self.opened.append(trade)
@@ -51,6 +52,13 @@ class FakeMirrorDB:
             "pnl": pnl,
             "pnl_pct": pnl_pct,
             "fees_paid": fees_paid,
+        })
+
+    def update_trade_diagnostics(self, trade_id, mfe_pct=None, mae_pct=None):
+        self.diagnostics.append({
+            "trade_id": trade_id,
+            "mfe_pct": mfe_pct,
+            "mae_pct": mae_pct,
         })
 
 
@@ -290,6 +298,29 @@ class EMTStrategyTests(unittest.TestCase):
         self.assertEqual(mirror.closed[0]["pnl"], 94.24)
         self.assertEqual(mirror.closed[0]["pnl_pct"], 94.24)
         self.assertEqual(mirror.closed[0]["fees_paid"], 5.76)
+
+    def test_mirror_records_short_bar_extrema_as_mfe_and_mae(self):
+        mirror = FakeMirrorDB()
+        engine = EMTStrategyEngine(
+            dict(self.settings, mirror_to_bot_db=True), self.contract,
+            self.temp.name, db_mirror=mirror,
+        )
+        engine.active_trade = PaperTrade(
+            trade_id="EMT-MFE-MAE", symbol="ES", direction="short",
+            quantity=1, entry_time="2026-07-20T16:00:00+00:00",
+            entry_price=100.0, stop_price=105.0, target_price=90.0,
+            entry_bar_time=stamp(6, 45),
+        )
+
+        engine._update_trade_excursions(
+            bar(stamp(6, 46), 99.5, high=101.5, low=97.0)
+        )
+
+        self.assertEqual(engine.active_trade.mfe_pct, 3.0)
+        self.assertEqual(engine.active_trade.mae_pct, -1.5)
+        self.assertEqual(mirror.diagnostics[-1], {
+            "trade_id": "EMT-MFE-MAE", "mfe_pct": 3.0, "mae_pct": -1.5,
+        })
 
     def test_malformed_ohlc_is_rejected(self):
         bad = bar(stamp(6, 45), 100.0, high=99.0, low=98.0)

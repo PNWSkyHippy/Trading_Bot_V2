@@ -359,6 +359,11 @@ class PositionMonitor:
         """Bank one partial profit, then confirm protection before marking it done."""
         if not getattr(config, "BREAKOUT_PARTIAL_TP_ENABLED", True):
             return False
+        # The universal TP runner owns its first partial at the strategy's
+        # actual TP.  Do not mix its 50% lifecycle with the legacy early 35%
+        # scanner harvest.
+        if getattr(config, "UNIVERSAL_TP_RUNNER_ENABLED", False):
+            return False
         if not _is_breakout_trade(trade):
             return False
         if trade.get("asset_class") != "crypto":
@@ -425,6 +430,84 @@ class PositionMonitor:
                     f"unprotected-stop recovery state: {exc}"
                 )
         return True
+
+    def _runner_state_key(self, trade_id: str) -> str:
+        return f"universal_tp_runner_{trade_id}"
+
+    def _start_universal_tp_runner(
+        self, trade: Dict, current_price: float
+    ) -> bool:
+        """Sell half at TP, then create the remaining position's 2% trail."""
+        if not getattr(config, "UNIVERSAL_TP_RUNNER_ENABLED", False):
+            return False
+        if trade.get("asset_class") not in {"stock", "crypto"}:
+            return False
+        trade_id = trade["trade_id"]
+        if self._db.get_state(self._runner_state_key(trade_id), default=0):
+            return True
+        if int(trade.get("partial_exit_count") or 0) > 0:
+            # A legacy partial already owns this position; never stack a second
+            # partial that could over-close it.
+            return False
+
+        fraction = float(getattr(config, "UNIVERSAL_TP_RUNNER_FRACTION", 0.50))
+        outcome = self._get_executor().close_partial_trade(
+            trade, current_price, fraction, "take_profit_half_runner"
+        )
+        if not outcome or outcome.full_fill:
+            return False
+
+        # Both supported partial-close backends cancel the original bracket.
+        # Do not ask a replace call to cancel that now-gone order again; an
+        # empty ID tells the shared ratchet path to place the fresh runner stop.
+        self._db.update_trade_order_ids(trade_id, stop_order_id="")
+        trade["stop_order_id"] = ""
+        self._peak_prices[trade_id] = float(current_price)
+        self._db.set_state(self._runner_state_key(trade_id), {
+            "active": True,
+            "entry_take_profit": float(trade.get("take_profit") or current_price),
+            "partial_fill_price": float(outcome.fill_price or current_price),
+        })
+        self._advance_universal_tp_runner(trade, current_price)
+        logger.info(
+            f"[TP RUNNER] {trade['symbol']}: banked {fraction:.0%} at TP; "
+            f"remaining qty {float(trade.get('quantity') or 0):.6f} trails "
+            f"{float(getattr(config, 'UNIVERSAL_TP_RUNNER_TRAIL_PCT', 2.0)):.2f}% "
+            "behind peak"
+        )
+        return True
+
+    def _advance_universal_tp_runner(
+        self, trade: Dict, current_price: float
+    ) -> bool:
+        """Ratchet an active runner's stop only in the profitable direction."""
+        trade_id = trade["trade_id"]
+        if not self._db.get_state(self._runner_state_key(trade_id), default=0):
+            return False
+        direction = trade["direction"]
+        symbol = trade["symbol"]
+        old_stop = float(trade.get("stop_loss") or 0)
+        trail_pct = float(getattr(config, "UNIVERSAL_TP_RUNNER_TRAIL_PCT", 2.0))
+        peak = float(self._peak_prices.get(trade_id, current_price))
+        if direction == "long":
+            peak = max(peak, float(current_price))
+            new_stop = peak * (1 - trail_pct / 100)
+            improved = new_stop > old_stop
+        else:
+            peak = min(peak, float(current_price))
+            new_stop = peak * (1 + trail_pct / 100)
+            improved = old_stop <= 0 or new_stop < old_stop
+        self._peak_prices[trade_id] = peak
+        if not improved:
+            return True
+
+        new_stop = round(new_stop, 6)
+        self._db.update_trade_levels(trade_id, stop_loss=new_stop)
+        trade["stop_loss"] = new_stop
+        self._ratchet_update_exchange_stop(
+            trade, trade_id, symbol, direction, new_stop
+        )
+        return True
     def start(self):
         if self.running:
             return
@@ -487,8 +570,22 @@ class PositionMonitor:
         is the source of truth for the position monitor's 10s price check loop.
         """
         asset_class = trade.get("asset_class", "")
+        if asset_class == "stock":
+            try:
+                stop_id = self._get_executor().replace_stock_stop(
+                    trade, new_sl
+                )
+                if stop_id:
+                    self._db.update_trade_order_ids(trade_id, stop_order_id=stop_id)
+                    trade["stop_order_id"] = stop_id
+            except Exception as exc:
+                logger.warning(
+                    f"[RATCHET] {symbol}: stock runner stop update failed "
+                    f"({exc}); software monitor remains active"
+                )
+            return
         if asset_class != "crypto":
-            return   # stocks: Alpaca trailing stop handled separately
+            return
         try:
             import config as _cfg
             kraken_ex   = self._get_executor().kraken
@@ -1923,6 +2020,12 @@ class PositionMonitor:
             self._attempt_close(trade, sl_fill_price, sl_exit)
             return
 
+        # A TP runner owns the remaining position after its confirmed half
+        # close.  Its only ordinary exit is the 2%-from-peak protective stop;
+        # do not let time, stale, pivot, or legacy TP branches cap the runner.
+        if self._advance_universal_tp_runner(trade, current_price):
+            return
+
         # ── 4. ORB VWAP CROSS EXIT ──────────────────────────────────────
         if strategy == "orb_breakout":
             if self._check_vwap_cross_exit(trade, current_price):
@@ -2012,6 +2115,18 @@ class PositionMonitor:
             )
 
             if at_tp:
+                if (
+                    getattr(config, "UNIVERSAL_TP_RUNNER_ENABLED", False)
+                    and asset_class in {"stock", "crypto"}
+                ):
+                    if self._start_universal_tp_runner(trade, current_price):
+                        return
+                    logger.warning(
+                        f"[TP RUNNER] {symbol}: half-close was not confirmed; "
+                        "leaving the original position and protection intact"
+                    )
+                    return
+
                 rider_enabled  = getattr(config, "MOMENTUM_RIDER_ENABLED", True)
                 max_extensions = getattr(config, "MOMENTUM_RIDER_MAX_EXTENSIONS", 3)
                 min_score      = getattr(config, "MOMENTUM_RIDER_MIN_SCORE", 0.67)

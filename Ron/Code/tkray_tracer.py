@@ -216,6 +216,7 @@ class LiveRayTraceViewer(ToolView):
             pct = (drawn_count / height) * 100
             elapsed = time.time() - self.start_time
             self.set_status(f"⚡ Live Rendering: {pct:.1f}% ({drawn_count}/{height} rows) - {elapsed:.1f}s")
+            return(elapsed)
         except Exception:
             pass
 
@@ -266,4 +267,4 @@ class LiveRayTraceViewer(ToolView):
 if __name__ == "__main__":
     app = QuickApp(title="Progressive Ray-Tracer Studio", size=(1050, 780))
     app.set_single_tool(LiveRayTraceViewer)
-    app.run()
+    app.run()

@@ -242,6 +242,60 @@ class AlpacaExecutor:
                 logger.error(f"Failed to close {symbol}: {e2}")
                 return False
 
+    def close_partial_position(
+        self, symbol: str, qty: float, direction: str
+    ) -> Optional[Dict]:
+        """Cancel the bracket and submit an exact Alpaca partial close."""
+        self.cancel_open_orders(symbol)
+        try:
+            side = "sell" if direction == "long" else "buy"
+            order = self.api.submit_order(
+                symbol=symbol,
+                qty=int(qty) if qty >= 1 and float(qty).is_integer() else qty,
+                side=side,
+                type="market",
+                time_in_force="day",
+            )
+            # Alpaca commonly returns a filled market order immediately.  A
+            # terminal non-filled response is deliberately left unaccounted
+            # for so the caller can hold rather than fabricate a partial fill.
+            return {
+                "ok": str(order.status).lower() == "filled",
+                "status": order.status,
+                "broker_order_id": order.id,
+                "filled_qty": float(order.filled_qty or 0),
+                "filled_avg_price": float(order.filled_avg_price or 0),
+                # Never treat an accepted-but-unfilled partial as safe: its
+                # original bracket was cancelled, so the caller must hold for
+                # reconciliation instead of assuming the runner exists.
+                "resolution_failed": str(order.status).lower() != "filled",
+                "cancellation": {"matched": 0, "cancelled": 0,
+                                 "ambiguous": False, "errors": []},
+            }
+        except Exception as exc:
+            logger.error(f"Alpaca partial close failed for {symbol}: {exc}")
+            return None
+
+    def replace_stop_order(
+        self, symbol: str, qty: float, direction: str, stop_price: float
+    ) -> Optional[str]:
+        """Replace the runner's protective Alpaca stop after a partial fill."""
+        self.cancel_open_orders(symbol)
+        try:
+            side = "sell" if direction == "long" else "buy"
+            order = self.api.submit_order(
+                symbol=symbol,
+                qty=int(qty) if qty >= 1 and float(qty).is_integer() else qty,
+                side=side,
+                type="stop",
+                stop_price=str(round(float(stop_price), 2)),
+                time_in_force="gtc",
+            )
+            return str(order.id)
+        except Exception as exc:
+            logger.error(f"Alpaca runner stop failed for {symbol}: {exc}")
+            return None
+
     def get_position(self, symbol: str) -> Optional[Dict]:
         try:
             pos = self.api.get_position(symbol)
@@ -1795,15 +1849,18 @@ class TradeExecutor:
         if close_qty <= 0 or qty <= 0 or entry_price <= 0:
             return PartialCloseOutcome(False, "invalid_partial_request")
 
-        if asset_class != "crypto":
-            logger.info(
-                f"[PARTIAL SKIP] {symbol}: partial exits currently enabled "
-                f"only for crypto scanner trades"
-            )
-            return PartialCloseOutcome(False, "unsupported_asset_class")
-
         side = "buy" if direction == "long" else "sell"
-        if config.KRAKEN_ENABLED:
+        if asset_class == "stock":
+            if broker != "alpaca" or self.alpaca is None:
+                logger.warning(
+                    f"[PARTIAL SKIP] {symbol}: confirmed runner partials need "
+                    f"Alpaca ownership, found broker={broker!r}"
+                )
+                return PartialCloseOutcome(False, "unsupported_stock_broker")
+            broker_result = self.alpaca.close_partial_position(
+                symbol, close_qty, direction
+            )
+        elif asset_class == "crypto" and config.KRAKEN_ENABLED:
             try:
                 close_leverage = int(
                     json.loads(trade.get("indicators_json") or "{}").get(
@@ -1821,7 +1878,7 @@ class TradeExecutor:
             broker_result = self.kraken.close_scanner_partial(
                 symbol, close_qty, side, leverage=close_leverage
             )
-        else:
+        elif asset_class == "crypto":
             close_side = "sell" if direction == "long" else "buy"
             logger.info(
                 f"[PAPER] Simulated partial close: {symbol} "
@@ -1842,6 +1899,8 @@ class TradeExecutor:
                     "errors": [],
                 },
             }
+        else:
+            return PartialCloseOutcome(False, "unsupported_asset_class")
 
         if not isinstance(broker_result, dict):
             self._set_kraken_partial_reconcile_hold(
@@ -1969,10 +2028,16 @@ class TradeExecutor:
             pnl = (entry_price - broker_fill_price) * actual_close_qty
             pnl_pct = ((entry_price - broker_fill_price) / entry_price) * 100
 
-        fee_rt_pct = (
-            (config.BT_COMMISSION_CRYPTO_PCT + config.BT_SLIPPAGE_CRYPTO_PCT)
-            / 100 * 2
-        )
+        if asset_class == "crypto":
+            fee_rt_pct = (
+                (config.BT_COMMISSION_CRYPTO_PCT + config.BT_SLIPPAGE_CRYPTO_PCT)
+                / 100 * 2
+            )
+        else:
+            fee_rt_pct = (
+                (config.BT_COMMISSION_STOCK_PCT + config.BT_SLIPPAGE_STOCK_PCT)
+                / 100 * 2
+            )
         fees_paid = round(entry_price * actual_close_qty * fee_rt_pct, 4)
         pnl = pnl - fees_paid
         partial_value = entry_price * actual_close_qty
@@ -2073,6 +2138,23 @@ class TradeExecutor:
             stop_refresh_required=True,
             broker_order_id=broker_result.get("broker_order_id"),
             cancellation=cancellation,
+        )
+
+    def replace_stock_stop(self, trade: Dict, stop_price: float) -> Optional[str]:
+        """Replace an Alpaca-owned stock runner stop after a confirmed partial."""
+        if trade.get("asset_class") != "stock":
+            return None
+        if trade.get("broker", "alpaca") != "alpaca" or self.alpaca is None:
+            logger.warning(
+                f"[STOCK RUNNER STOP] {trade.get('symbol')}: Alpaca ownership "
+                "required for a replacement stop"
+            )
+            return None
+        qty = float(trade.get("quantity") or 0)
+        if qty <= 0:
+            return None
+        return self.alpaca.replace_stop_order(
+            trade["symbol"], qty, trade["direction"], stop_price
         )
 
     def close_all_stock_positions(self):

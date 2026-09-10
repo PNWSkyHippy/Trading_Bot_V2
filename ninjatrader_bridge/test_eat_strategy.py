@@ -25,6 +25,14 @@ class FakeMirrorDB:
     def __init__(self):
         self.closed = []
         self.results = []
+        self.diagnostics = []
+
+    def update_trade_diagnostics(self, trade_id, mfe_pct=None, mae_pct=None):
+        self.diagnostics.append({
+            "trade_id": trade_id,
+            "mfe_pct": mfe_pct,
+            "mae_pct": mae_pct,
+        })
 
     def close_trade(self, trade_id, exit_price, exit_reason, pnl, pnl_pct,
                     fees_paid=0.0):
@@ -228,6 +236,43 @@ class EATStrategyTests(unittest.TestCase):
         self.assertEqual(mirror.closed[0]["fees_paid"], 3.8)
         self.assertEqual(mirror.closed[0]["pnl"], 0.2)
         self.assertEqual(mirror.results, [True])
+
+    def test_mirror_records_long_bar_extrema_as_mfe_and_mae(self):
+        mirror = FakeMirrorDB()
+        engine = EATStrategyEngine(
+            dict(self.settings, mirror_to_bot_db=True), self.contract,
+            self.temp_dir.name, db_mirror=mirror,
+        )
+        engine.active_trade = EATTrade(
+            trade_id="EAT-MFE-MAE", symbol="MNQ", direction="long",
+            quantity=1, entry_time="2026-07-23T12:05:00+00:00",
+            entry_price=100.0, stop_price=90.0, tp1_price=110.0,
+            entry_bar_time="2026-07-23T05:05:00-07:00",
+            remaining_quantity=1, tp1_quantity=1,
+        )
+
+        engine._check_exit(minute_bar(10, close=100.5, high=103.0, low=98.5))
+
+        self.assertEqual(engine.active_trade.mfe_pct, 3.0)
+        self.assertEqual(engine.active_trade.mae_pct, -1.5)
+        self.assertEqual(mirror.diagnostics[-1], {
+            "trade_id": "EAT-MFE-MAE", "mfe_pct": 3.0, "mae_pct": -1.5,
+        })
+
+    def test_entry_bar_uses_close_not_unobserved_extremes(self):
+        engine = self.engine()
+        engine.active_trade = EATTrade(
+            trade_id="EAT-ENTRY-BAR", symbol="MNQ", direction="long",
+            quantity=1, entry_time="2026-07-23T12:05:00+00:00",
+            entry_price=100.0, stop_price=90.0, tp1_price=110.0,
+            entry_bar_time="2026-07-23T05:10:00-07:00",
+            remaining_quantity=1, tp1_quantity=1,
+        )
+
+        engine._check_exit(minute_bar(10, close=100.25, high=103.0, low=98.5))
+
+        self.assertEqual(engine.active_trade.mfe_pct, 0.25)
+        self.assertEqual(engine.active_trade.mae_pct, 0.0)
 
 
 if __name__ == "__main__":

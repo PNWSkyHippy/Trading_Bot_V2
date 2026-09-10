@@ -25,7 +25,7 @@ def ensure_sample_database(db_path: str = "sample_trades.db") -> str:
     full_path = os.path.abspath(os.path.join(os.path.dirname(__file__), db_path))
     conn = sqlite3.connect(full_path)
     cur = conn.cursor()
-    cur.execute("""
+    """    cur.execute(
         CREATE TABLE IF NOT EXISTS trades (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             trade_id TEXT,
@@ -45,7 +45,7 @@ def ensure_sample_database(db_path: str = "sample_trades.db") -> str:
             pnl_pct REAL,
             exit_reason TEXT,
             signal_score REAL,
-            indicators_json TEXT,
+             indicators_json TEXT,
             broker TEXT,
             strategy_name TEXT,
             is_overight BOOL,
@@ -62,7 +62,8 @@ def ensure_sample_database(db_path: str = "sample_trades.db") -> str:
             partial_exit_count REAL,
             event_id INTEGER
         )
-    """)
+    )
+    """
     cur.execute("SELECT COUNT(*) FROM trades")
     if cur.fetchone()[0] == 0:
         symbols = ["ES", "MES", "NQ", "MNQ", "CL", "GC"]
@@ -87,10 +88,10 @@ def ensure_sample_database(db_path: str = "sample_trades.db") -> str:
             dur = random.randint(3, 180)
             trades.append((dt, sym, strat, cnt, entry, exit_p, pnl, outcome, dur))
 
-        cur.executemany("""
+        cur.executemany(
             INSERT INTO trades (trade_date, symbol, strategy, contracts, entry_price, exit_price, pnl, outcome, duration_mins)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, trades)
+        , trades)
         conn.commit()
     conn.close()
     return full_path

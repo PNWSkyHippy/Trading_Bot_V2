@@ -54,6 +54,9 @@ class PaperTrade:
     stop_price: float
     target_price: float
     entry_bar_time: str
+    # Percentage move from entry measured from observed tick-bar extremes.
+    mfe_pct: float = 0.0
+    mae_pct: float = 0.0
     status: str = "open"
     exit_time: Optional[str] = None
     exit_price: Optional[float] = None
@@ -583,6 +586,7 @@ class EMTStrategyEngine:
         # leave stale in-memory state or permit a duplicate next session.
         if self.active_trade is not None and not self.paper_only:
             self._update_trade_extreme(bar)
+            self._update_trade_excursions(bar)
             self._reconcile_live_trade(bar, stamp_pacific)
             return
         if stamp_pacific < range_end:
@@ -629,6 +633,7 @@ class EMTStrategyEngine:
 
         if self.active_trade is not None:
             self._update_trade_extreme(bar)
+            self._update_trade_excursions(bar)
             self._check_exit(bar, stamp_pacific, complete)
             return
 
@@ -895,6 +900,7 @@ class EMTStrategyEngine:
         trade = self.active_trade
         if trade is None:
             return
+        self._record_trade_excursions(trade, observed_price, observed_price)
         trade.status = "closed"
         trade.exit_time = stamp_pacific.astimezone(timezone.utc).isoformat()
         trade.exit_price = round(observed_price, 8)
@@ -951,6 +957,7 @@ class EMTStrategyEngine:
         trade = self.active_trade
         if trade is None:
             return
+        self._record_trade_excursions(trade, price, price)
         points = (
             price - trade.entry_price
             if trade.direction == "long"
@@ -1137,6 +1144,49 @@ class EMTStrategyEngine:
         except Exception as exc:
             self.last_execution_error = (
                 f"DB mirror close failed: {type(exc).__name__}: {exc}"
+            )
+
+    def _update_trade_excursions(self, bar: dict) -> None:
+        trade = self.active_trade
+        if trade is None:
+            return
+        same_entry_bar = bar["time"] == trade.entry_bar_time
+        observed_low = bar["close"] if same_entry_bar else bar["low"]
+        observed_high = bar["close"] if same_entry_bar else bar["high"]
+        self._record_trade_excursions(trade, observed_low, observed_high)
+
+    def _record_trade_excursions(
+        self, trade: PaperTrade, observed_low: float, observed_high: float
+    ) -> None:
+        """Record bar-based MFE/MAE while leaving exit ordering untouched."""
+        entry = float(trade.entry_price)
+        if entry <= 0:
+            return
+        if trade.direction == "long":
+            favorable = (float(observed_high) - entry) / entry * 100.0
+            adverse = (float(observed_low) - entry) / entry * 100.0
+        else:
+            favorable = (entry - float(observed_low)) / entry * 100.0
+            adverse = (entry - float(observed_high)) / entry * 100.0
+        mfe_pct = round(max(float(trade.mfe_pct), 0.0, favorable), 4)
+        mae_pct = round(min(float(trade.mae_pct), 0.0, adverse), 4)
+        if mfe_pct == trade.mfe_pct and mae_pct == trade.mae_pct:
+            return
+        trade.mfe_pct = mfe_pct
+        trade.mae_pct = mae_pct
+        self._mirror_trade_diagnostics(trade)
+
+    def _mirror_trade_diagnostics(self, trade: PaperTrade) -> None:
+        if not self.mirror_to_bot_db or self.db_mirror is None:
+            return
+        update = getattr(self.db_mirror, "update_trade_diagnostics", None)
+        if not callable(update):
+            return
+        try:
+            update(trade.trade_id, mfe_pct=trade.mfe_pct, mae_pct=trade.mae_pct)
+        except Exception as exc:
+            self.last_execution_error = (
+                f"DB mirror diagnostics failed: {type(exc).__name__}: {exc}"
             )
 
     def snapshot(self) -> dict:

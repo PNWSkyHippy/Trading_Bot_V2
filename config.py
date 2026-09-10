@@ -276,6 +276,14 @@ BREAKOUT_PARTIAL_TP_ENABLED       = True
 BREAKOUT_PARTIAL_TP_TRIGGER_PCT   = 1.50
 BREAKOUT_PARTIAL_TP_FRACTION      = 0.35
 KRAKEN_PARTIAL_ZERO_RETRY_SEC     = 60
+
+# Shared managed-position runner: bank half at the strategy's original TP,
+# then trail the remaining half 2% behind its best price.  Futures EAT/EMT
+# retain their dedicated engine-owned partial/runner handling.
+UNIVERSAL_TP_RUNNER_ENABLED        = True
+UNIVERSAL_TP_RUNNER_FRACTION       = 0.50
+UNIVERSAL_TP_RUNNER_TRAIL_PCT      = 2.00
+
 BREAKOUT_EARLY_LOSS_CAP_ENABLED   = True
 BREAKOUT_EARLY_LOSS_CAP_SEC       = 2 * 60
 BREAKOUT_EARLY_LOSS_CAP_PCT       = -0.50
