@@ -14133,7 +14133,11 @@
             return true;
         }
 
-        function segmentsTouch(a, b) {
+        // This is intentionally separate from the index-based segmentsTouch()
+        // used by range selection below.  Reusing that name caused JavaScript's
+        // later function declaration to replace this object-based helper, which
+        // made G classify every authored segment as disconnected.
+        function segmentGeometryEndpointsTouch(a, b) {
             const threshold = Math.max(28, builder.radius * 0.45);
             const thresholdSq = threshold * threshold;
             return (
@@ -14194,7 +14198,14 @@
                 while (queue.length) {
                     const current = queue.shift();
                     for (const next of [...unvisited]) {
-                        if (segmentsTouch(builder.segments[current], builder.segments[next])) {
+                        if (
+                            segmentGeometryEndpointsTouch(
+                                builder.segments[current], builder.segments[next]
+                            ) ||
+                            tunnelSegmentsConnected(
+                                builder.segments[current], builder.segments[next]
+                            )
+                        ) {
                             unvisited.delete(next);
                             component.add(next);
                             queue.push(next);

@@ -3,7 +3,7 @@ import subprocess
 import time
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
-from PIL import Image
+from PIL import Image, ImageEnhance
 from quick_tk import QuickApp, ToolView
 
 
@@ -75,8 +75,27 @@ class LiveRayTraceViewer(ToolView):
             options=[label for _, label in SCENES_BOOK2],
             default=SCENES_BOOK2[0][1],
         )
-
+        self.form.add_dropdown("format", "Output Format", ["bmp", "jpg", "ppm", "gif", "pcx","tga","ico","png","tif"], default="ppm", on_change=self.update_live_preview)
         # Resolution controls
+        self.form.add_output_file_picker(
+            name="outfile",
+            label="Output File",
+            default_filename="ray_traced.ppm",
+            default_extension=".ppm",
+            on_change=self.update_live_preview,
+            filetypes=[("Ppm Files", "*.ppm"), ("Jpg Files", "*.jpg"), 
+                    ("Bmp Files", "*.bmp"), ("Gif Files", "*.gif"),
+                    ("Pcx Files", "*.pcx"), ("Tga Files", "*.tga"),
+                    ("Png Files", "*.png"), ("Tif Files", "*.tif"),
+                    ("All Files", "*.*")]
+        )       
+
+        self.form.add_slider("rotation", "Rotate (°)", min_val=0, max_val=360, step=1, default=0, on_change=self.update_live_preview)
+        self.form.add_slider("contrast", "Contrast", min_val=0.1, max_val=4.0, step=0.1, default=1.0, on_change=self.update_live_preview)
+        self.form.add_slider("color", "Color", min_val=0.1, max_val=1.0, step=0.1, default=1.0, on_change=self.update_live_preview)
+        self.form.add_slider("brightness", "Brightness", min_val=0.1, max_val=1.0, step=0.1, default=1.0, on_change=self.update_live_preview)
+        self.form.add_slider("sharpness", "Sharpness", min_val=0.1, max_val=2.0, step=0.1, default=1.0, on_change=self.update_live_preview)
+        self.form.add_slider("scalefac", "Scale Factor", min_val=0.1, max_val=10.0, step=0.1, default=1.0, on_change=self.scaled_auto_calc)
         self.form.add_slider("width", "Width (px)", min_val=100, max_val=1920, default=600, step=16)
         self.form.add_slider("height", "Height (px)", min_val=100, max_val=1080, default=600, step=16)
 
@@ -84,6 +103,7 @@ class LiveRayTraceViewer(ToolView):
         self.form.add_button("Start Progressive Render ▶", callback=self.on_start_render, variant="primary")
         self.form.add_button("Cancel / Stop Render ⏹", callback=self.on_stop_render, variant="outline")
         self.form.add_button("Save Rendered Image 💾", callback=self.on_save_image, variant="surface")
+        self.form.add_button("Convert Image", callback=self.on_view_clicked, variant="primary")
 
         # 2. Right Canvas: Live Drawing Image Surface
         right_box = self.add_container(parent=self)
@@ -104,8 +124,63 @@ class LiveRayTraceViewer(ToolView):
             self.scene_combo.config(state="disabled")
 
         w, h = config.get("default_res", (600, 600))
-        self.form.set_value("width", w)
-        self.form.set_value("height", h)
+#        self.form.set_value("width", w)
+#        self.form.set_value("height", h)
+        
+    def on_file_selected(self, filepath: str):
+        """Called the instant the user chooses a file."""
+        if filepath and os.path.exists(filepath):
+            try:
+                self.source_image = Image.open(filepath)
+                self.update_live_preview()
+            except Exception as e:
+                self.preview.clear()
+        self.filepath = filepath
+        
+    def update_live_preview(self, _=None):
+        """Transforms the in-memory buffer and updates the preview in 0.1ms."""
+        if self.source_image is None:
+            self.preview.clear()
+            return
+        values = self.form.get_values()
+        self.rotation = float(values.get("rotation", 0))
+        self.contrast = float(values.get("contrast", 1.0))
+        self.color = float(values.get("color", 1.0))
+        self.brightness = float(values.get("brightness", 1.0))
+        self.sharpness = float(values.get("sharpness", 1.0))
+        self.scale_fac = float(values.get("scalefac", 60))
+        self.image_width = int(values.get("width", 600))
+        self.image_height = int(values.get("height", 600))
+        # 1. Start from clean RAM copy
+        img = self.source_image.copy()
+        # 2. Apply In-Memory Transformations:
+        # Rotation
+        if self.rotation != 0:
+            img = img.rotate(self.rotation, expand=True)
+        # Contrast
+        if self.contrast != 1.0:
+            enhancer = ImageEnhance.Contrast(img)
+            img = enhancer.enhance(self.contrast)
+        if self.color != 1.0:
+            enhancer = ImageEnhance.Color(img)
+            img = enhancer.enhance(self.color)  
+        if self.brightness != 1.0:
+            enhancer = ImageEnhance.Brightness(img)
+            img = enhancer.enhance(self.brightness)
+        if self.sharpness != 1.0:
+            enhancer = ImageEnhance.Sharpness(img)
+            img = enhancer.enhance(self.sharpness)            
+        # Scaling / Resize
+        if self.is_scaled and self.scale_fac != 1.0:
+            new_w = max(1, int(img.width * self.scale_fac))
+            new_h = max(1, int(img.height * self.scale_fac))
+            img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+        elif self.is_resized and (self.image_width != img.width or self.image_height != img.height):    
+             img = img.resize((self.image_width, self.image_height))
+        # 3. Store current transformed buffer & push to preview!
+        self.current_transformed_image = img
+        self.preview.set_image(img, info_text=f"{img.width}x{img.height} px | In-Memory")
+
 
     def on_start_render(self, values: dict):
         if self.is_rendering:
@@ -263,6 +338,96 @@ class LiveRayTraceViewer(ToolView):
         except Exception as e:
             messagebox.showerror("Save Error", f"Failed to save image: {e}")
 
+    def scaled_auto_calc(self, _=None):
+        """Triggered automatically when any input changes."""
+        values = self.form.get_values()
+        self.scale_fac = float(values.get("scalefac", 1.0))
+        self.is_scaled = True
+        self.is_resized = False
+        self.update_live_preview()
+        
+    def on_view_clicked(self, values: dict):
+        self.update_live_preview()
+        self.make_image(values)
+       
+       
+    def make_image(self, values: dict):
+        # values["outfile"] contains the full, verified output Path!
+        if not self.filepath:
+            return
+        if values.get("outfile","image_converted.ppm"):
+            self.outfile = values.get("outfile","image_converted.ppm")
+        else:
+            self.outfile = "image_converted.ppm"
+        try:
+            f, e = self.outfile.split(".")
+            self.outfile = f + "." + self.format
+        except:
+            self.outfile = self.outfile + "." + self.format
+        try:
+            with Image.open(self.filepath) as img: 
+                values = self.form.get_values()
+                self.rotation = float(values.get("rotation", 0))
+                self.contrast = float(values.get("contrast", 1.0))
+                self.color = float(values.get("color", 1.0))
+                self.brightness = float(values.get("brightness", 1.0))
+                self.sharpness = float(values.get("sharpness", 1.0))
+                self.scale_fac = float(values.get("scalefac", 60))
+                self.image_width = int(values.get("width", 600))
+                self.image_height = int(values.get("height", 600))
+                # 1. Start from clean RAM copy
+                img = self.source_image.copy()
+                # 2. Apply In-Memory Transformations:
+                # Rotation
+                if self.rotation != 0:
+                    img = img.rotate(self.rotation, expand=True)
+                # Contrast
+                if self.contrast != 1.0:
+                    enhancer = ImageEnhance.Contrast(img)
+                    img = enhancer.enhance(self.contrast)
+                if self.color != 1.0:
+                    enhancer = ImageEnhance.Color(img)
+                    img = enhancer.enhance(self.color)
+                if self.brightness != 1.0:
+                    enhancer = ImageEnhance.Brightness(img)
+                    img = enhancer.enhance(self.brightness)
+                if self.sharpness != 1.0:
+                    enhancer = ImageEnhance.Sharpness(img)
+                    img = enhancer.enhance(self.sharpness) 
+             # Scaling / Resize
+                if self.is_scaled and self.scale_fac != 1.0:
+                    new_w = max(1, int(img.width * self.scale_fac))
+                    new_h = max(1, int(img.height * self.scale_fac))
+                    img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
+                elif self.is_resized and (self.image_width != img.width or self.image_height != img.height):
+                    img = img.resize((self.image_width, self.image_height))
+                # 3. Store current transformed buffer & push to preview!
+                if img.mode in ("RGBA", "P") and self.outfile.lower().endswith((".jpg", ".ppm")):
+                    img = img.convert("RGB")
+                breakpoint()
+                img.save(self.outfile)       
+                self.current_transformed_image = img
+        except OSError:
+            return
+        im = Image.open(self.outfile)
+        self.show_image_window(
+            im,
+            title="Converted Output Preview",
+            max_display_size=(im.width, im.height)
+        )
+     
+       
+    def pixel_buff_to_img(self, values: dict = None):
+        limg = Image.new("RGB", (self.current_width, self.current_height), color=(0, 0, 0))
+        for y, row_pixels in self.rendered_pixels.items():
+            if 0 <= y < self.current_height:
+                for x, rgb in enumerate(row_pixels):
+                    if 0 <= x < self.current_width:
+                        limg.putpixel((x, y), rgb)
+        return(limg)
+
+    def img_to_pixel_buffer(self, values: dict = None):
+        pass 
 
 if __name__ == "__main__":
     app = QuickApp(title="Progressive Ray-Tracer Studio", size=(1050, 780))

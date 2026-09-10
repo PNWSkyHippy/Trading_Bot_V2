@@ -13,6 +13,11 @@ graphify-out/20*/
 graphify-out/trading-bot-code-graph.html
 data/futures_history/
 watchlist/
+*.ppm
+*.jpg
+*.tga
+*.gif*
+*.ico.
 junk*
 data/junk.ps1
 data/candle*
