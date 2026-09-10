@@ -33,7 +33,9 @@ class ImageConvertFrontEnd(ToolView):
     title = "Image Convert"
     description = "Convert Graphical Images"
     rotated_deg = 0
+    infile = None
     is_rotated = False
+        
     def create_ppm(self):
         image_width = 600
         image_height = 600
@@ -67,8 +69,12 @@ class ImageConvertFrontEnd(ToolView):
    
 
         self.form.add_dropdown("format", "Output Format", ["bmp", "jpg", "ppm", "gif", "pcx","tga","ico","png","tif"], default="ppm", on_change=self.update_live_preview)
-        self.form.add_checkbox("is_demo", "Demo Mode", default=False, on_change=self.update_live_preview)
+        self.form.add_checkbox("is_blur", "Blur", default=False, on_change=self.blur_auto_calc)
+        self.form.add_checkbox("is_contour", "Contour", default=False, on_change=self.contour_auto_calc)
+        self.form.add_checkbox("sharpness", "Sharpen", default=False, on_change=self.sharpness_auto_calc)
+        self.form.add_checkbox("is_smooth", "Smooth", default=False, on_change=self.smooth_auto_calc)
 #        self.form.add_file_picker("outfile","Output File", default="ray_traced.ppm", mode="open")
+        self.form.add_file_picker("infile", "Input File", default="", mode="open",on_change=self.on_file_selected)
         self.form.add_output_file_picker(
             name="outfile",
             label="Output File",
@@ -80,20 +86,17 @@ class ImageConvertFrontEnd(ToolView):
                     ("Pcx Files", "*.pcx"), ("Tga Files", "*.tga"),
                     ("Png Files", "*.png"), ("Tif Files", "*.tif"),
                     ("All Files", "*.*")]
-        )
        # Left Form with on_change callbacks:
-        self.form.add_file_picker("infile", "Input File", on_change=self.on_file_selected)
+        )   
         self.form.add_slider("rotation", "Rotate (°)", min_val=0, max_val=360, step=1, default=0, on_change=self.update_live_preview)
         self.form.add_slider("contrast", "Contrast", min_val=0.1, max_val=4.0, step=0.1, default=1.0, on_change=self.update_live_preview)
         self.form.add_slider("color", "Color", min_val=0.1, max_val=1.0, step=0.1, default=1.0, on_change=self.update_live_preview)
         self.form.add_slider("brightness", "Brightness", min_val=0.1, max_val=1.0, step=0.1, default=1.0, on_change=self.update_live_preview)
-        self.form.add_slider("sharpness", "Sharpness", min_val=0.1, max_val=2.0, step=0.1, default=1.0, on_change=self.update_live_preview)
         self.form.add_slider("scalefac", "Scale Factor", min_val=0.1, max_val=10.0, step=0.1, default=1.0, on_change=self.scaled_auto_calc)
-#        self.form.add_number("width", "Widh of output at 15/9 aspect ratio", default=400, min_val=100, max_val=1000, step=25, is_float=True, on_change=self.update_live_preview)
-        self.form.add_slider("width", "Width (px)", min_val=100, max_val=8192, default=600, step=16,on_change=self.resizedw_auto_calc)
-        self.form.add_slider("height", "Height (px)", min_val=100, max_val=4915, default=360, step=16,on_change=self.resizedh_auto_calc)
+        self.form.add_number("width", "Width (px)", min_val=100, max_val=8192, default=600, step=16,on_change=self.resizedw_auto_calc)
+        self.form.add_number("height", "Height (px)", min_val=100, max_val=4915, default=360, step=16,on_change=self.resizedh_auto_calc)
         self.form.add_button("Convert Image", callback=self.on_view_clicked, variant="primary")
-
+        
         # 2. Right Results Panel: StatGrid + Breakdown Table
         right_box = ttk.Frame(self, style="TFrame")
         right_box.grid(row=0, column=1, sticky="nsew")
@@ -114,11 +117,40 @@ class ImageConvertFrontEnd(ToolView):
  #       self.on_view_clicked(self.form.get_values())
         
         self.setup_menus()
-
+ 
+  
     def _auto_calc(self, _=None):
         """Triggered automatically when any input changes."""
         self.on_calculate(self.form.get_values())
+        
+    def blur_auto_calc(self, _=None):
+        """Triggered automatically when any input changes."""
+        values = self.form.get_values()
+        self.blur - True if values.get("blur", False) else False
+        self.on_calculate(self.form.get_values())
+        self.update_live_preview()
 
+    def contour_auto_calc(self, _=None):
+        """Triggered automatically when any input changes."""
+        values = self.form.get_values()
+        self.contour - True if values.get("contour", False) else False
+        self.on_calculate(self.form.get_values())
+        self.update_live_preview()
+        
+    def smooth_auto_calc(self, _=None):
+        """Triggered automatically when any input changes."""
+        values = self.form.get_values()
+        self.smooth - True if values.get("smoth", False) else False
+        self.on_calculate(self.form.get_values())
+        self.update_live_preview()
+        
+    def sharpness_auto_calc(self, _=None):
+        """Triggered automatically when any input changes."""
+        values = self.form.get_values()
+        self.sharpness - True if values.get("sharpness", False) else False
+        self.on_calculate(self.form.get_values())
+        self.update_live_preview()
+        
     def scaled_auto_calc(self, _=None):
         """Triggered automatically when any input changes."""
         values = self.form.get_values()
@@ -131,18 +163,25 @@ class ImageConvertFrontEnd(ToolView):
         """Triggered automatically when any input changes."""
         values = self.form.get_values()
         self.image_width - int(values.get("width", 600))
+        self.image_height = int(self.image_width / (15.0 / 9.0))
+        values["height"] = self.image.height
         self.is_resized = True
         self.is_scaled = False
         self.update_live_preview()
-
+        self.resizedh()
+        
     def resizedh_auto_calc(self, _=None):
         """Triggered automatically when any input changes."""
         values = self.form.get_values()
         self.image_height - int(values.get("height", 600))
+        self.image_width = int(self.image_height * (15.0 / 9.0))
+        values["width"] = self.image_width
         self.is_resized = True
         self.is_scaled = False
         self.update_live_preview()
-        
+        self.resizedw()
+
+   
     def on_file_selected(self, filepath: str):
         """Called the instant the user chooses a file."""
         if filepath and os.path.exists(filepath):
@@ -151,6 +190,7 @@ class ImageConvertFrontEnd(ToolView):
                 self.update_live_preview()
             except Exception as e:
                 self.preview.clear()
+        
         self.filepath = filepath
 
     def update_live_preview(self, _=None):
@@ -164,6 +204,9 @@ class ImageConvertFrontEnd(ToolView):
         self.color = float(values.get("color", 1.0))
         self.brightness = float(values.get("brightness", 1.0))
         self.sharpness = float(values.get("sharpness", 1.0))
+        self.smooth = float(values.get("smooth", 1.0))
+        self.blur = float(values.get("blur", 1.0))
+        self.contour = float(values.get("contour", 1.0))
         self.scale_fac = float(values.get("scalefac", 60))
         self.image_width = int(values.get("width", 600))
         self.image_height = int(values.get("height", 600))
@@ -269,7 +312,6 @@ class ImageConvertFrontEnd(ToolView):
                 # 3. Store current transformed buffer & push to preview!
                 if img.mode in ("RGBA", "P") and self.outfile.lower().endswith((".jpg", ".ppm")):
                     img = img.convert("RGB")
-                breakpoint()
                 img.save(self.outfile)       
                 self.current_transformed_image = img
         except OSError:
@@ -290,13 +332,17 @@ class ImageConvertFrontEnd(ToolView):
         self.rotate_deg = int(values.get("rotate_deg", 0))
         self.is_rotated =True if values.get("rotate_deg", "False") else False    
         self.width = int(values.get("width", None))
+        self.smooth = int(values.get("smooth", 1))
+        self.sharpness = int(values.get("shapness", 1))
+        self.contour = int(values.get("contour", 1))
+        self.blur = int(values.get("blur", 1))
         self.height = int(self.width/(16/9)) if values.get("width") else 225
         self.is_resized = True if self.width is not None else False
         self.outfile = values.get("outfile", None)
         if not self.is_demo:
             self.infile =  values.get("infile", None)
        # Update In-Frame Preview
-        if (self.infile and os.path.exists(self.infile)) or self.is_demo:
+        if (self.infile and os.path.exists(self.infile)):
             self.preview.set_image(self.infile)
         else:
             self.preview.clear()

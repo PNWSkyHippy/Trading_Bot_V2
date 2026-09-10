@@ -96,9 +96,9 @@ class LiveRayTraceViewer(ToolView):
         self.form.add_slider("brightness", "Brightness", min_val=0.1, max_val=1.0, step=0.1, default=1.0, on_change=self.update_live_preview)
         self.form.add_slider("sharpness", "Sharpness", min_val=0.1, max_val=2.0, step=0.1, default=1.0, on_change=self.update_live_preview)
         self.form.add_slider("scalefac", "Scale Factor", min_val=0.1, max_val=10.0, step=0.1, default=1.0, on_change=self.scaled_auto_calc)
-        self.form.add_slider("width", "Width (px)", min_val=100, max_val=1920, default=600, step=16)
-        self.form.add_slider("height", "Height (px)", min_val=100, max_val=1080, default=600, step=16)
-
+        self.form.add_number("width", "Width (px)", min_val=100, max_val=1920, default=600, step=16)
+        self.form.add_number("height", "Height (px)", min_val=100, max_val=1080, default=600, step=16)
+        self.form.add_button("Convert Image", callback=self.on_view_clicked, variant="primary")
         # Action Buttons
         self.form.add_button("Start Progressive Render ▶", callback=self.on_start_render, variant="primary")
         self.form.add_button("Cancel / Stop Render ⏹", callback=self.on_stop_render, variant="outline")

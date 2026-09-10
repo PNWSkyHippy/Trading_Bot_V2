@@ -80,8 +80,8 @@ const context = {
     console: { warn: () => {} },
     containShipInExactGulletRooms: () => false,
     nearestTunnelPoint: () => ({ index: 1, seg: junctionBox, dist2: 0 }),
-    pointInJunctionBubble: () => null,
-    pointWithinBubbleJointFootprint: () => false,
+    pointInJunctionBubble: () => ({ segs: [0, 1] }),
+    pointWithinBubbleJointFootprint: () => true,
     tunnelSegmentsConnected: () => true,
     segmentIsRectRoom: seg => !!seg.rectRoom,
     segmentIsChamber: () => false,
@@ -126,9 +126,18 @@ if (context.posY !== 88) {
 }
 
 const source = extractFunction('containShipInTunnel');
-if (!source.includes('nearestRectContainsShip') ||
-    source.indexOf('nearestRectContainsShip') > source.indexOf('tunnelSegmentsConnected(priorSeg, nearest.seg)')) {
-    throw new Error('rectangular ownership guard is missing or ordered after prior-tube retention');
+const rectGuardIndex = source.indexOf('const nearestRectContainsShip');
+const bubbleIndex = source.indexOf('const bubble = pointInJunctionBubble(ship);');
+const staleOwnershipIndex = source.indexOf('tunnelSegmentsConnected(priorSeg, nearest.seg)');
+if (
+    rectGuardIndex < 0 ||
+    bubbleIndex < 0 ||
+    staleOwnershipIndex < 0 ||
+    rectGuardIndex > bubbleIndex ||
+    rectGuardIndex > staleOwnershipIndex ||
+    !source.includes('if (bubble && !nearestRectContainsShip && pointWithinBubbleJointFootprint(ship, bubble))')
+) {
+    throw new Error('rectangular ownership guard must precede bubble and prior-tube releases');
 }
 
-console.log('rect junction scrape handoff passed: a contained box owns collision before the old tube can release');
+console.log('rect junction scrape handoff passed: a contained box owns collision before bubble or old-tube release');

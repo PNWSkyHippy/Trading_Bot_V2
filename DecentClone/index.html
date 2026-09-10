@@ -16333,10 +16333,14 @@
             const priorSegmentIndex = shipSegmentIndex;
             const nearest = nearestTunnelPoint(ship, shipSegmentIndex, { preferContaining: true });
             if (!nearest) return;
+            // A rectangular junction that already contains the ship must clamp
+            // before the approximate joint bubble grants any free-flight space.
+            const nearestRectContainsShip = segmentIsRectRoom(nearest.seg) &&
+                rectRoomDistanceState(ship, nearest.seg).outsideDist <= 0.001;
 
             // Inside a junction bubble: free flight — no wall push. See getJunctionBubbles.
             const bubble = pointInJunctionBubble(ship);
-            if (bubble && pointWithinBubbleJointFootprint(ship, bubble)) {
+            if (bubble && !nearestRectContainsShip && pointWithinBubbleJointFootprint(ship, bubble)) {
                 shipSegmentIndex = nearest.index;
                 wallHit.active = false;
                 wallHit.intensity *= 0.9;
@@ -16353,8 +16357,6 @@
             // junction. At a 90-degree turn the old tube's open-mouth release can
             // otherwise run for one frame and push the ship through the box floor
             // or ceiling before the room's own solid-face clamp gets a chance.
-            const nearestRectContainsShip = segmentIsRectRoom(nearest.seg) &&
-                rectRoomDistanceState(ship, nearest.seg).outsideDist <= 0.001;
             if (
                 wallHit.active &&
                 priorSeg &&
