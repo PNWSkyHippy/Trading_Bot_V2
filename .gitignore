@@ -18,6 +18,7 @@ watchlist/
 *.tga
 *.gif*
 *.ico.
+*.pcx
 junk*
 data/junk.ps1
 data/candle*
