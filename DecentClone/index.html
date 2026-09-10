@@ -23661,6 +23661,12 @@
             return builder.sentries.filter(s => s.packId === sentry.packId && s.id !== sentry.id);
         }
 
+        function sentryPackMembers(sentry) {
+            if (!sentry) return [];
+            if (!sentry.packId) return [sentry];
+            return builder.sentries.filter(member => member.packId === sentry.packId);
+        }
+
         function findRuntimeSentryById(sentryId) {
             return tunnelSentries.find(sentry => sentry.id === sentryId) || null;
         }
@@ -24088,23 +24094,25 @@
             if (!sentry) return false;
             sentry.label = (label || '').trim();
             sentry.mode = mode === 'patrol' ? 'patrol' : 'guard';
-            sentry.shipTextureId = preservedTextureId(shipTextureId, 'ai', 'wire_star_destroyer');
-            sentry.effectTextureId = preservedTextureId(effectTextureId, 'effects', 'orange_laser');
+            const resolvedShipTextureId = preservedTextureId(shipTextureId, 'ai', 'wire_star_destroyer');
+            const resolvedEffectTextureId = preservedTextureId(effectTextureId, 'effects', 'orange_laser');
+            const styledMembers = applyStyleToPack ? sentryPackMembers(sentry) : [sentry];
+            for (const member of styledMembers) {
+                member.shipTextureId = resolvedShipTextureId;
+                member.effectTextureId = resolvedEffectTextureId;
+            }
             if (sentry.mode === 'patrol') {
                 sentry.path = sanitizeSentryPath(pathStages);
             } else {
                 sentry.path = [];
             }
-            const packmates = applyStyleToPack ? sentryPackmates(sentry) : [];
-            for (const mate of packmates) {
-                mate.shipTextureId = sentry.shipTextureId;
-                mate.effectTextureId = sentry.effectTextureId;
-            }
             rebuildTunnelSentries();
             saveTunnelMap();
             keyboardStatus.innerText =
                 `sentry updated (${sentry.mode}${sentry.mode === 'patrol' ? `, ${sentry.path.length} pts` : ''})` +
-                (packmates.length ? ` — visuals applied to ${packmates.length + 1} horde sentries` : '');
+                (applyStyleToPack && styledMembers.length > 1
+                    ? ` — visuals applied to ${styledMembers.length} horde sentries`
+                    : '');
             return true;
         }
 
@@ -24235,10 +24243,29 @@
                 applyStyleToPackCheck.checked = true;
                 const packStyleLabel = document.createElement('label');
                 packStyleLabel.textContent =
-                    `Apply Ship/Fire to whole horde (${packmates.length + 1} sentries)`;
+                    `Apply Ship/Fire to all ${packmates.length + 1} horde sentries`;
                 packStyleLabel.style.gridColumn = '2 / -1';
                 packStyleRow.append(applyStyleToPackCheck, packStyleLabel);
                 joinEditDialog.appendChild(packStyleRow);
+
+                const rosterRow = document.createElement('div');
+                rosterRow.className = 'join-grid';
+                const rosterTitle = document.createElement('div');
+                rosterTitle.style.gridColumn = '1 / -1';
+                rosterTitle.style.color = '#ffb040';
+                rosterTitle.textContent = 'Horde members — open one to customize its own Ship/Fire';
+                rosterRow.appendChild(rosterTitle);
+                for (const member of sentryPackMembers(sentry)) {
+                    const memberBtn = document.createElement('button');
+                    memberBtn.type = 'button';
+                    memberBtn.textContent = member.id === sentry.id
+                        ? `Editing: ${member.label || 'this sentry'}`
+                        : `Edit: ${member.label || 'unnamed sentry'}`;
+                    memberBtn.disabled = member.id === sentry.id;
+                    memberBtn.addEventListener('click', () => openSentryEditDialog(member.id));
+                    rosterRow.appendChild(memberBtn);
+                }
+                joinEditDialog.appendChild(rosterRow);
             }
 
             const pathSection = document.createElement('div');
