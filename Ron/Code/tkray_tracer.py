@@ -10,6 +10,54 @@ from quick_tk.core.forms import FormPanel
 
 IS_WINDOWS = sys.platform.startswith("win")
 IS_MAC = sys.platform == "darwin"
+import tkinter as tk
+
+class CanvasSelector:
+    """
+    Attaches rectangle selection to an existing canvas.
+    Returns normalized (x0, y0, x1, y1) to a callback function on release.
+    """
+    def __init__(self, canvas, callback):
+        self.canvas = canvas
+        self.callback = callback  # The function to run when mouse is released
+        self.start_x = None
+        self.start_y = None
+        self.rect_id = None
+
+        # Bind to the existing canvas passed into the class
+        self.canvas.bind("<ButtonPress-1>", self.on_press)
+        self.canvas.bind("<B1-Motion>", self.on_drag)
+        self.canvas.bind("<ButtonRelease-1>", self.on_release)
+
+    def on_press(self, event):
+        self.start_x = self.canvas.canvasx(event.x)
+        self.start_y = self.canvas.canvasy(event.y)
+        self.rect_id = self.canvas.create_rectangle(
+            self.start_x, self.start_y, self.start_x, self.start_y, 
+            outline="cyan", width=2, tags="selector"
+        )
+
+    def on_drag(self, event):
+        cur_x = self.canvas.canvasx(event.x)
+        cur_y = self.canvas.canvasy(event.y)
+        self.canvas.coords(self.rect_id, self.start_x, self.start_y, cur_x, cur_y)
+
+    def on_release(self, event):
+        end_x = self.canvas.canvasx(event.x)
+        end_y = self.canvas.canvasy(event.y)
+
+        # 1. Normalize corners
+        x0, x1 = sorted([self.start_x, end_x])
+        y0, y1 = sorted([self.start_y, end_y])
+
+        # 2. Clean up the drawing box right away if desired
+        self.canvas.delete(self.rect_id)
+        
+        # 3. Send coordinates back to your main project logic
+        if (x1 - x0) > 2 and (y1 - y0) > 2:  # Avoid accidental tiny clicks
+            self.callback(int(x0), int(y0), int(x1), int(y1))
+        else:
+            self.callback(-1, -1, -1, -1)
 
 
 SCENES_BOOK2 = [
@@ -83,26 +131,14 @@ class LiveRayTraceViewer(ToolView):
         self.scale_fac = 1.0
         self.source_image = None
         self.current_transformed_image = None
-        self.live_photo = None       
+        self.live_photo = None   
+        self.image_stack = []    
        
         self.form = self.add_form("Ray-Tracer Settings", parent=self)
         self.form.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
         
         self.setup_menus()
 
-        # Filters
-#        self.form.add_checkbox("blur", "Blur", default=False, on_change=self.blur_auto_calc)
-#        self.form.add_checkbox("contour", "Contour", default=False, on_change=self.contour_auto_calc)
-#        self.form.add_checkbox("smooth", "Smooth", default=False, on_change=self.smooth_auto_calc)
-#        self.form.add_checkbox("sharpen", "Sharpen", default=False, on_change=self.sharpen_auto_calc)
-
-        # Transforms & Sliders (all with two-way synced spinboxes)
-#        self.form.add_slider("rotation", "Rotate (°)", min_val=0, max_val=360, step=1, default=0, on_change=self.update_live_preview)
-#        self.form.add_slider("contrast", "Contrast", min_val=0.1, max_val=4.0, step=0.1, default=1.0, on_change=self.update_live_preview)
-#        self.form.add_slider("color", "Color", min_val=0.1, max_val=1.0, step=0.1, default=1.0, on_change=self.update_live_preview)
-#        self.form.add_slider("brightness", "Brightness", min_val=0.1, max_val=1.0, step=0.1, default=1.0, on_change=self.update_live_preview)
-#        self.form.add_slider("sharpness", "Sharpness", min_val=0.1, max_val=2.0, step=0.1, default=1.0, on_change=self.update_live_preview)
-#        self.form.add_slider("scalefac", "Scale Factor", min_val=0.1, max_val=10.0, step=0.1, default=1.0, on_change=self.scaled_auto_calc)
         self.form.add_dropdown("aspratio", "Aspect Ratio", ["16/9", "16/10", "21/9", "4/3", "5/4", "None/None"], default="None/None", on_change=self.aspratio_auto_calc)
         
         spin_w = self.form.add_number("width", "Width (px)", min_val=100, max_val=8192, default=600, step=16)
@@ -133,10 +169,10 @@ class LiveRayTraceViewer(ToolView):
  #       self.form.add_button("Save Rendered Image 💾", callback=self.on_save_image, variant="surface")
 
         # 2. Right Canvas: Live Drawing Image Surface
-        right_box = self.add_container(parent=self)
-        right_box.grid(row=0, column=1, sticky="nsew")
+        self.right_box = self.add_container(parent=self)
+        self.right_box.grid(row=0, column=1, sticky="nsew")
 
-        self.canvas_frame = ttk.Frame(right_box, style="Card.TFrame", padding=6)
+        self.canvas_frame = ttk.Frame(self.right_box, style="Card.TFrame", padding=6)
         self.canvas_frame.grid(row=0, column=0, sticky="nsew")
 
         self.img_label = tk.Label(self.canvas_frame, bg="#11111b", text="Select Book & Scene, then click Start Render")
@@ -158,8 +194,26 @@ class LiveRayTraceViewer(ToolView):
 
         tools_menu = self.menu("Tools")
         tools_menu.add_command("Image Adjustments 🎨", self.open_adjustments_window, shortcut="Ctrl+A")
+        tools_menu.add_command("Crop Image", self.crop_window, shortcut="Ctrl-B")
 
-
+    def crop_window(self):
+ #       breakpoint()
+        self.update_live_preview()
+         # 1. Start from clean RAM copy
+        if self.source_image is not None:
+            img = self.source_image.copy()
+        elif self.rendered_pixels:
+            img = self.buffer_to_img(self.rendered_pixels)
+        else:
+            sys.stderr.write("Error n file buffer tp crop~")
+            sys.exit(1)
+        photo = ImageTk.PhotoImage(img)
+        self.live_photo = photo
+        self.image_stack.append(self)
+#        if self.setup_image_workspace(self.live_photo, self.right_box):
+        if self.setup_image_workspace(self.live_photo):
+            pass
+        
     def _on_book_changed(self, selected_book: str):
         config = BOOK_BINARIES.get(selected_book, {})
         has_scenes = config.get("has_scenes", False)
@@ -525,6 +579,59 @@ class LiveRayTraceViewer(ToolView):
         self.scale_fac = float(val)
         self.is_scaled = True
         self.update_live_preview()
+
+
+    def setup_image_workspace(self, image, target_frame=None):
+        display_frame = target_frame if target_frame is not None else self.canvas_frame
+
+        self.live_photo = image 
+
+        overlay_canvas = tk.Canvas(
+            display_frame, 
+            width=image.width(), 
+            height=image.height(), 
+            highlightthickness=0
+        )
+    
+        # FIX CENTERING: Position the anchor point right in the middle (relx=0.5, rely=0.5)
+        # and set anchor="center" so it sits exactly on top of the original centered view.
+        overlay_canvas.place(
+            in_=display_frame, 
+            relx=0.5, rely=0.5, 
+            width=image.width(), 
+            height=image.height(), 
+            anchor="center"
+        )
+    
+        overlay_canvas.create_image(0, 0, anchor="nw", image=self.live_photo)
+
+        self.tk.call('raise', overlay_canvas._w)
+
+        # 3. Main project handler (This is where your crop/zoom/buffer logic goes)
+        def handle_selection(x0, y0, x1, y1):
+            print(f"Crop selection received: {x0, y0, x1, y1}")
+            overlay_canvas.destroy()
+       
+            if not self.current_transformed_image:
+                img = self.source_image
+            else:
+                img = self.current_transformed_image
+            box = (x0, y0, x1, y1)
+            img = img.crop(box)
+            self.source_image = img
+            self.current_transformed_image = img
+            self.form.set_value("width", img.width)
+            self.form.set_value("height", img.height) 
+         
+            self.update_live_preview()
+            
+            # TODO: Add your logic here
+            # - For Zoom: Push current state to a list/stack buffer, then crop & resize image
+            # - For Copy: Grab image bounding box slice to clipboard
+
+        # 4. Inject the selection tool seamlessly
+        CanvasSelector(overlay_canvas, callback=handle_selection)
+
 
     def open_adjustments_window(self):
         # If the window is already open, just bring it to the front
