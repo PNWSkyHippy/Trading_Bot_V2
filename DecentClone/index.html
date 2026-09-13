@@ -1127,6 +1127,8 @@
         let shipSegmentIndex = null;
         let tunnelCoreLatX = 0;
         let tunnelCoreLatY = 0;
+        let shipVelocity = { x: 0, y: 0, z: 0 };
+        let shipDriftActive = false;
         let lastThrustVector = { x: 0, y: 0, z: 0 };
         let lastForwardAmount = 0;
         let boostingForward = false;
@@ -1598,9 +1600,9 @@
         const JUNCTION_SNAP_TOL = 28;
         const JUNCTION_AXIS_DOT = 0.9;
         const TUNNEL_TEXTURE_PATHS = {
-            color: 'Textures/Rock1-060/Rock060_1K-JPG_Color.jpg',
-            normal: 'Textures/Rock1-060/Rock060_1K-JPG_NormalGL.jpg',
-            ao: 'Textures/Rock1-060/Rock060_1K-JPG_AmbientOcclusion.jpg'
+            color: 'Textures/WallTextures/Rock060_1K-JPG_Color.jpg',
+            normal: 'Textures/WallTextures/Rock060_1K-JPG_NormalGL.jpg',
+            ao: 'Textures/WallTextures/Rock060_1K-JPG_AmbientOcclusion.jpg'
         };
         const DEFAULT_WALL_TEXTURE_ID = 'rock060';
         const DEFAULT_RIB_COLOR = '#21c7c0';
@@ -2334,7 +2336,7 @@
                     : source === 'procedural'
                         ? (RUNNING_FROM_FILE
                             ? `rock walls: procedural (use start_astral.bat → ${ASTRAL_LOCAL_URL})`
-                            : 'rock walls: procedural (JPG load failed — check Textures/Rock1-060/*.jpg)')
+                            : 'rock walls: procedural (JPG load failed — check Textures/WallTextures/*.jpg)')
                         : 'rock walls: loading…';
             updateBuildStamp(label);
         }
@@ -6606,7 +6608,7 @@
         const GALAGA_SPRITE_PATHS = {
             bee: 'Textures/galaga/enemy1.png',
             butterfly: 'Textures/galaga/enemy2.png',
-            boss: 'Textures/frog_6343523.png',
+            boss: 'Textures/galaga/frog_6343523.png',
         };
         const galagaSpriteImages = {};
         for (const key in GALAGA_SPRITE_PATHS) {
@@ -11821,8 +11823,14 @@
             shipRight   = { x: -shipRight.x,   y: -shipRight.y,   z: -shipRight.z };
             repairBasis();
             syncViewToShip();
+            const currentSpeed = Math.hypot(shipVelocity.x, shipVelocity.y, shipVelocity.z);
+            if (currentSpeed > 0.05) {
+                shipDriftActive = true;
+                keyboardStatus.innerText = 'REVERSE 180° FLIP · INERTIAL DRIFT';
+            } else {
+                keyboardStatus.innerText = 'REVERSE 180° FLIP';
+            }
             playSfx('portal_whoosh', { intensity: 0.5, worldPos: getPlayerWorldPos() });
-            keyboardStatus.innerText = 'REVERSE 180° FLIP';
         }
 
         function cockpitBasisLooksSeverelyFlipped() {
@@ -13317,10 +13325,9 @@
             if (RUNNING_FROM_FILE) return { loaded: false, reason: 'file protocol' };
 
             const hasAutosave = !!localStorage.getItem(TUNNEL_MAP_STORAGE_KEY);
-            const libraryCount = loadMapLibrary().length;
+            let mergedAny = false;
 
             for (const path of MAP_DATA_BOOTSTRAP_FILES) {
-                if (libraryCount && hasAutosave) break;
                 try {
                     const response = await fetch(path);
                     if (!response.ok) continue;
@@ -13331,7 +13338,7 @@
                     });
                     if (result.ok) {
                         console.info(`Astral Drift: bootstrapped maps from ${path}`, result);
-                        return { loaded: true, path, ...result };
+                        mergedAny = true;
                     }
                 } catch (err) {
                     console.warn(`Astral Drift: failed to bootstrap ${path}`, err);
@@ -13354,7 +13361,7 @@
                 }
             }
 
-            return { loaded: false };
+            return { loaded: mergedAny };
         }
 
         async function bootstrapGulletMazeIfMissing() {
@@ -13371,6 +13378,14 @@
             } catch (err) {
                 console.warn('Astral Drift: Gullet maze bootstrap skipped', err);
             }
+        }
+
+        function exportMapLibraryBundleForDistribution() {
+            const bundle = buildMapLibraryBundle(true);
+            downloadJsonFile('map_library_bundle.json', bundle);
+            keyboardStatus.innerText =
+                `exported ${bundle.library.length} map(s) to map_library_bundle.json (copy into DecentClone/data/)`;
+            return true;
         }
 
         function exportMapLibraryBackup() {
@@ -13891,6 +13906,12 @@
             exportCurrentButton.textContent = 'Export Current';
             exportCurrentButton.addEventListener('click', exportCurrentTunnelMap);
 
+            const exportBundleButton = document.createElement('button');
+            exportBundleButton.type = 'button';
+            exportBundleButton.textContent = 'Export Game Bundle (data/map_library_bundle.json)';
+            exportBundleButton.title = 'Export all saved maps as map_library_bundle.json to ship with the game repository across all devices';
+            exportBundleButton.addEventListener('click', exportMapLibraryBundleForDistribution);
+
             const exportGulletButton = document.createElement('button');
             exportGulletButton.type = 'button';
             exportGulletButton.textContent = 'Export Gullet Maze';
@@ -13902,6 +13923,7 @@
             toolRow.append(
                 importLibraryButton,
                 importLibraryPasteButton,
+                exportBundleButton,
                 exportLibraryButton,
                 importButton,
                 exportCurrentButton,
@@ -29967,18 +29989,97 @@
                 addVec(scaleVec(forward, forwardAmount), scaleVec(right, strafeAmount)),
                 scaleVec(up, liftAmount)
             );
+            const targetVelX = forward.x * forwardAmount * currentSpeed + right.x * strafeAmount * strafeSpeed + up.x * liftAmount * strafeSpeed;
+            const targetVelY = forward.y * forwardAmount * currentSpeed + right.y * strafeAmount * strafeSpeed + up.y * liftAmount * strafeSpeed;
+            const targetVelZ = forward.z * forwardAmount * currentSpeed + right.z * strafeAmount * strafeSpeed + up.z * liftAmount * strafeSpeed;
+
+            if (shipDriftActive) {
+                if (forwardAmount > 0) {
+                    // Forward thrusters firing: smoothly brake backward momentum over ~1.8s (scaled by dt)
+                    // and accelerate forward
+                    const accelRate = (currentSpeed / 80) * frameScale * forwardAmount;
+                    shipVelocity.x += forward.x * accelRate;
+                    shipVelocity.y += forward.y * accelRate;
+                    shipVelocity.z += forward.z * accelRate;
+
+                    if (Math.abs(strafeAmount) > 0.01) {
+                        const strafeAccel = (strafeSpeed / 30) * frameScale * strafeAmount;
+                        shipVelocity.x += right.x * strafeAccel;
+                        shipVelocity.y += right.y * strafeAccel;
+                        shipVelocity.z += right.z * strafeAccel;
+                    }
+                    if (Math.abs(liftAmount) > 0.01) {
+                        const liftAccel = (strafeSpeed / 30) * frameScale * liftAmount;
+                        shipVelocity.x += up.x * liftAccel;
+                        shipVelocity.y += up.y * liftAccel;
+                        shipVelocity.z += up.z * liftAccel;
+                    }
+
+                    // Once velocity has aligned with forward heading and matched target speed, exit drift mode
+                    const forwardDot = dot(shipVelocity, forward);
+                    if (forwardDot >= currentSpeed * forwardAmount * 0.92) {
+                        shipDriftActive = false;
+                    }
+                } else if (forwardAmount < 0) {
+                    // Reverse thrust applied while drifting backwards: accelerate further backwards
+                    const accelRate = (currentSpeed / 50) * frameScale * Math.abs(forwardAmount);
+                    shipVelocity.x -= forward.x * accelRate;
+                    shipVelocity.y -= forward.y * accelRate;
+                    shipVelocity.z -= forward.z * accelRate;
+                } else {
+                    // Zero thrust / throttle cut: zero-g coasting in weightless space
+                    if (Math.abs(strafeAmount) > 0.01) {
+                        const strafeAccel = (strafeSpeed / 30) * frameScale * strafeAmount;
+                        shipVelocity.x += right.x * strafeAccel;
+                        shipVelocity.y += right.y * strafeAccel;
+                        shipVelocity.z += right.z * strafeAccel;
+                    }
+                    if (Math.abs(liftAmount) > 0.01) {
+                        const liftAccel = (strafeSpeed / 30) * frameScale * liftAmount;
+                        shipVelocity.x += up.x * liftAccel;
+                        shipVelocity.y += up.y * liftAccel;
+                        shipVelocity.z += up.z * liftAccel;
+                    }
+                }
+            } else {
+                shipVelocity.x = targetVelX;
+                shipVelocity.y = targetVelY;
+                shipVelocity.z = targetVelZ;
+            }
+
             // Keep collision checks at roughly the original 60 Hz distance even
             // when a textured frame takes longer. A single large dt-scaled leap
             // could otherwise pass through a wall or a target box.
             const movementSteps = Math.max(1, Math.ceil(frameScale));
             const movementStepScale = frameScale / movementSteps;
             for (let step = 0; step < movementSteps; step++) {
-                thrust(forward, forwardAmount * currentSpeed * movementStepScale);
-                thrust(right, strafeAmount * strafeSpeed * movementStepScale);
-                thrust(up, liftAmount * strafeSpeed * movementStepScale);
+                const prevX = posX, prevY = posY, prevZ = posZ;
+                posX += shipVelocity.x * movementStepScale;
+                posY += shipVelocity.y * movementStepScale;
+                posZ += shipVelocity.z * movementStepScale;
                 if (!galagaPhase.active && !defenderPhase.active) {
                     containShipInTunnel();
                     checkTargetFlyThroughCollisions();
+                    if (shipDriftActive) {
+                        const actualDx = posX - prevX;
+                        const actualDy = posY - prevY;
+                        const actualDz = posZ - prevZ;
+                        const actualDist = Math.hypot(actualDx, actualDy, actualDz);
+                        const intendedDist = Math.hypot(
+                            shipVelocity.x * movementStepScale,
+                            shipVelocity.y * movementStepScale,
+                            shipVelocity.z * movementStepScale
+                        );
+                        if (intendedDist > 0.01 && actualDist < intendedDist * 0.4) {
+                            // Wall containment absorbed velocity into the boundary
+                            shipVelocity.x = actualDx / (movementStepScale || 1);
+                            shipVelocity.y = actualDy / (movementStepScale || 1);
+                            shipVelocity.z = actualDz / (movementStepScale || 1);
+                            if (Math.hypot(shipVelocity.x, shipVelocity.y, shipVelocity.z) < 0.5) {
+                                shipDriftActive = false;
+                            }
+                        }
+                    }
                 }
             }
             ensureRocketCaches();
@@ -30021,11 +30122,6 @@
                 });
         
                 lastShotAt = shotNow;
-                const shipVelocity = {
-                    x: forward.x * forwardAmount * currentSpeed + right.x * strafeAmount * strafeSpeed + up.x * liftAmount * strafeSpeed,
-                    y: forward.y * forwardAmount * currentSpeed + right.y * strafeAmount * strafeSpeed + up.y * liftAmount * strafeSpeed,
-                    z: forward.z * forwardAmount * currentSpeed + right.z * strafeAmount * strafeSpeed + up.z * liftAmount * strafeSpeed
-                };
                 playSfx('laser', {
                     worldPos: {
                         x: posX + (muzzleLeft.x + muzzleRight.x) * 0.5,

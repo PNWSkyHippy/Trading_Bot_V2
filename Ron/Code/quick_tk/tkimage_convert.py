@@ -6,8 +6,8 @@ Demonstrates FormPanel numeric inputs, live calculation callbacks, StatGrid badg
 import os
 import sys, io
 import tkinter as tk
-from tkinter import ttk
-from PIL import Image, ImageTk, ImageEnhance
+from tkinter import ttk, filedialog, messagebox
+from PIL import Image, ImageTk, ImageEnhance, ImageFilter
 import tkinter
 # Add parent directory and scratch root to sys.path
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -33,32 +33,16 @@ class ImageConvertFrontEnd(ToolView):
     title = "Image Convert"
     description = "Convert Graphical Images"
     rotated_deg = 0
+    image_width = 600
+    image_height = 600
     infile = None
     is_rotated = False
-        
-    def create_ppm(self):
-        image_width = 600
-        image_height = 600
-   
-        ppm_image = f'P3\n{image_width} {image_height}\n255\n'
-        for j in range(image_height):
-            row_rgb = ""
-            for i in range (image_width):
-                r = float(i) / (image_width-1)
-                g = float(j) / (image_height-1)
-                b = 0.0;
-
-                ir = int(255.999 * r)
-                ig = int(255.999 * g)
-                ib = int(255.999 * b)
-
-                row_rgb += f'{ir} {ig} {ib}\t\t'
-            ppm_image += f'{row_rgb}\n'  
-        return ppm_image
- 
+    aspratio = "None/None"
                 
     def build_ui(self):
         self.source_image = None  # Holds th
+        self.orig_image_height = 600
+        self.orig_image_width = 600
         self.columnconfigure(0, weight=0)
         self.columnconfigure(1, weight=1)
         self.rowconfigure(0, weight=1)
@@ -69,33 +53,42 @@ class ImageConvertFrontEnd(ToolView):
    
 
         self.form.add_dropdown("format", "Output Format", ["bmp", "jpg", "ppm", "gif", "pcx","tga","ico","png","tif"], default="ppm", on_change=self.update_live_preview)
-        self.form.add_checkbox("is_blur", "Blur", default=False, on_change=self.blur_auto_calc)
-        self.form.add_checkbox("is_contour", "Contour", default=False, on_change=self.contour_auto_calc)
-        self.form.add_checkbox("sharpness", "Sharpen", default=False, on_change=self.sharpness_auto_calc)
-        self.form.add_checkbox("is_smooth", "Smooth", default=False, on_change=self.smooth_auto_calc)
-#        self.form.add_file_picker("outfile","Output File", default="ray_traced.ppm", mode="open")
+        self.form.add_checkbox("blur", "Blur", default=False, on_change=self.blur_auto_calc)
+        self.form.add_checkbox("contour", "Contour", default=False, on_change=self.contour_auto_calc)
+        self.form.add_checkbox("smooth", "Smooth", default=False, on_change=self.smooth_auto_calc)
+        self.form.add_checkbox("sharpen", "Sharpen", default=False, on_change=self.sharpen_auto_calc)
         self.form.add_file_picker("infile", "Input File", default="", mode="open",on_change=self.on_file_selected)
-        self.form.add_output_file_picker(
-            name="outfile",
-            label="Output File",
-            default_filename="ray_traced.ppm",
-            default_extension=".ppm",
-            on_change=self.update_live_preview,
-            filetypes=[("Ppm Files", "*.ppm"), ("Jpg Files", "*.jpg"), 
-                    ("Bmp Files", "*.bmp"), ("Gif Files", "*.gif"),
-                    ("Pcx Files", "*.pcx"), ("Tga Files", "*.tga"),
-                    ("Png Files", "*.png"), ("Tif Files", "*.tif"),
-                    ("All Files", "*.*")]
-       # Left Form with on_change callbacks:
-        )   
-        self.form.add_slider("rotation", "Rotate (°)", min_val=0, max_val=360, step=1, default=0, on_change=self.update_live_preview)
+        self.form.add_button("Save Image", callback=self.on_save_image, variant="primary")
         self.form.add_slider("contrast", "Contrast", min_val=0.1, max_val=4.0, step=0.1, default=1.0, on_change=self.update_live_preview)
         self.form.add_slider("color", "Color", min_val=0.1, max_val=1.0, step=0.1, default=1.0, on_change=self.update_live_preview)
         self.form.add_slider("brightness", "Brightness", min_val=0.1, max_val=1.0, step=0.1, default=1.0, on_change=self.update_live_preview)
-        self.form.add_slider("scalefac", "Scale Factor", min_val=0.1, max_val=10.0, step=0.1, default=1.0, on_change=self.scaled_auto_calc)
-        self.form.add_number("width", "Width (px)", min_val=100, max_val=8192, default=600, step=16,on_change=self.resizedw_auto_calc)
-        self.form.add_number("height", "Height (px)", min_val=100, max_val=4915, default=360, step=16,on_change=self.resizedh_auto_calc)
-        self.form.add_button("Convert Image", callback=self.on_view_clicked, variant="primary")
+        spin_s = self.form.add_number("scalefac", "Scale Factor", min_val=0.1, max_val=10.0, step=0.1, default=1.0)
+        spin_s.bind("<Return>", self.scaled_auto_calc)
+        spin_r = self.form.add_number("rotation", "Rotate (°)", min_val=0, max_val=360, step=1, default=0)
+        spin_r.bind("<Return>", self.rotated_auto_calc)
+        self.form.add_dropdown("aspratio", "Aspec Ratio", ["16/9", "16/10", "21/9", "4/3", "5/4", "None/None"], default="None/None", on_change=self.aspratio_auto_calc)
+        spin_w = self.form.add_number("width", "Width (px)", min_val=100, max_val=8192, default=600, step=16)
+        spin_w.bind("<Return>", self.resizedw_auto_calc)
+        spin_h = self.form.add_number("height", "Height (px)", min_val=100, max_val=8192, default=600, step=16)
+        spin_h.bind("<Return>", self.resizedh_auto_calc)
+
+       # 2. Right Results Panel: StatGrid + Breakdown Table
+        right_box = ttk.Frame(self, style="TFrame")
+        right_box.grid(row=0, column=1, sticky="nsew")
+        right_box.columnconfigure(0, weight=1)
+        right_box.rowconfigure(0, weight=0)
+        right_box.rowconfigure(1, weight=1)
+         # Right Preview Box:
+        self.preview = self.add_image_preview(
+            title="Input Preview",
+            max_size=(600, 600),
+            parent=right_box
+        )
+        self.preview.grid(row=0, column=0, sticky="nsew")
+        self.on_calculate(self.form.get_values())
+
+
+
         
         # 2. Right Results Panel: StatGrid + Breakdown Table
         right_box = ttk.Frame(self, style="TFrame")
@@ -114,7 +107,6 @@ class ImageConvertFrontEnd(ToolView):
         self.preview.grid(row=0, column=0, sticky="nsew")
         # Initial calculation
         self.on_calculate(self.form.get_values())
- #       self.on_view_clicked(self.form.get_values())
         
         self.setup_menus()
  
@@ -126,10 +118,19 @@ class ImageConvertFrontEnd(ToolView):
     def blur_auto_calc(self, _=None):
         """Triggered automatically when any input changes."""
         values = self.form.get_values()
-        self.blur - True if values.get("blur", False) else False
+        self.blur = True if values.get("blur", False) else False
         self.on_calculate(self.form.get_values())
         self.update_live_preview()
 
+    def aspratio_auto_calc(self, _=None):
+        """Triggered automatically when any input changes."""
+        values = self.form.get_values()
+        self.aspratio = values.get("aspratio", "16/9")
+        self.resizedh_auto_calc()
+        self.resizedw_auto_calc()
+#        self.on_calculate(self.form.get_values())
+        self.update_live_preview()
+        
     def contour_auto_calc(self, _=None):
         """Triggered automatically when any input changes."""
         values = self.form.get_values()
@@ -140,14 +141,14 @@ class ImageConvertFrontEnd(ToolView):
     def smooth_auto_calc(self, _=None):
         """Triggered automatically when any input changes."""
         values = self.form.get_values()
-        self.smooth - True if values.get("smoth", False) else False
+        self.smooth - True if values.get("smooth", False) else False
         self.on_calculate(self.form.get_values())
         self.update_live_preview()
         
-    def sharpness_auto_calc(self, _=None):
+    def sharpen_auto_calc(self, _=None):
         """Triggered automatically when any input changes."""
         values = self.form.get_values()
-        self.sharpness - True if values.get("sharpness", False) else False
+        self.sharpen = True if values.get("sharpen", False) else False
         self.on_calculate(self.form.get_values())
         self.update_live_preview()
         
@@ -158,28 +159,77 @@ class ImageConvertFrontEnd(ToolView):
         self.is_scaled = True
         self.is_resized = False
         self.update_live_preview()
-        
+
+    def rotated_auto_calc(self, _=None):
+        """Triggered automatically when any input changes."""
+        values = self.form.get_values()
+        self.rotation = float(values.get("rotation", 1.0))
+        self.update_live_preview()
+
+    def pre_on_file_selected(self):
+        self.update_live_preview()        
+        self.on_file_selected()
+
+    def on_save_image(self, values: dict = None):
+        if self.source_image is None:
+            messagebox.showwarning("Save Image", "No rendered image data to save yet!")
+            return
+
+        file_path = filedialog.asksaveasfilename(
+            title="Save Rendered Image",
+            defaultextension=".ppm",
+            filetypes=[("Ppm Files", "*.ppm"), ("Jpg Files", "*.jpg"), 
+                        ("Bmp Files", "*.bmp"), ("Gif Files", "*.gif"),
+                        ("Pcx Files", "*.pcx"), ("Tga Files", "*.tga"),
+                        ("Png Files", "*.png"), ("Tif Files", "*.tif"),
+                        ("All Files", "*.*")]
+                    )
+        if not file_path:
+            return
+
+        try:
+            img = self.current_transformed_image.copy()
+            img.save(file_path)
+            messagebox.showinfo("Image Saved", f"Successfully saved image to:\n{file_path}")
+            self.set_status(f"💾 Saved to {os.path.basename(file_path)}")
+        except Exception as e:
+            messagebox.showerror("Save Error", f"Failed to save image: {e}")
+
     def resizedw_auto_calc(self, _=None):
         """Triggered automatically when any input changes."""
         values = self.form.get_values()
-        self.image_width - int(values.get("width", 600))
-        self.image_height = int(self.image_width / (15.0 / 9.0))
-        values["height"] = self.image.height
+        self.image_width = int(values.get("width", self.orig_image_width))
+        aspa, aspb = self.aspratio.split("/")
+        if aspa != "None" and aspb != "None":
+            aspa = float(aspa)
+            aspb = float(aspb)
+            if aspa:
+                self.image_height = int(self.image_width / (aspa / aspb))
+            else:
+                self.image_height = self.image_height
+        self.form.set_value("height", self.image_height)
         self.is_resized = True
         self.is_scaled = False
         self.update_live_preview()
-        self.resizedh()
+#       self.resizedh()
         
     def resizedh_auto_calc(self, _=None):
         """Triggered automatically when any input changes."""
         values = self.form.get_values()
-        self.image_height - int(values.get("height", 600))
-        self.image_width = int(self.image_height * (15.0 / 9.0))
-        values["width"] = self.image_width
+        self.image_height = int(values.get("height", 600))
+        aspa, aspb = self.aspratio.split("/")
+        if aspa != "None" and aspb != "None":
+            aspa = float(aspa)
+            aspb = float(aspb)
+            if aspa:
+                self.image_width = int(self.image_height * (aspa / aspb))
+            else:
+                self.image_width = self.image_width
+        self.form.set_value("width", self.image_width)
         self.is_resized = True
         self.is_scaled = False
         self.update_live_preview()
-        self.resizedw()
+ #       self.resizedw()
 
    
     def on_file_selected(self, filepath: str):
@@ -187,10 +237,13 @@ class ImageConvertFrontEnd(ToolView):
         if filepath and os.path.exists(filepath):
             try:
                 self.source_image = Image.open(filepath)
+                self.orig_image_width = self.source_image.width
+                self.orig_image_height = self.source_image.height
                 self.update_live_preview()
             except Exception as e:
                 self.preview.clear()
-        
+        self.orig_image_width = self.source_image.width
+        self.orig_image_height = self.source_image.height
         self.filepath = filepath
 
     def update_live_preview(self, _=None):
@@ -203,17 +256,25 @@ class ImageConvertFrontEnd(ToolView):
         self.contrast = float(values.get("contrast", 1.0))
         self.color = float(values.get("color", 1.0))
         self.brightness = float(values.get("brightness", 1.0))
-        self.sharpness = float(values.get("sharpness", 1.0))
-        self.smooth = float(values.get("smooth", 1.0))
-        self.blur = float(values.get("blur", 1.0))
-        self.contour = float(values.get("contour", 1.0))
+        self.smooth = values.get("smooth", False)
+        self.blur = values.get("blur", False)
+        self.contour = values.get("contour", False)
+        self.sharpen = values.get("sharpen", False)
         self.scale_fac = float(values.get("scalefac", 60))
-        self.image_width = int(values.get("width", 600))
-        self.image_height = int(values.get("height", 600))
+ #       self.image_width = int(values.get("width", 600))
+#        self.image_height = int(values.get("height", 600))
         # 1. Start from clean RAM copy
         img = self.source_image.copy()
         # 2. Apply In-Memory Transformations:
         # Rotation
+        if self.blur:
+            img = img.filter(ImageFilter.BLUR)
+        if self.smooth:
+            img = img.filter(ImageFilter.SMOOTH)
+        if self.contour:
+            img = img.filter(ImageFilter.CONTOUR)
+        if self.sharpen:
+            img = img.filter(ImageFilter.SHARPEN)  
         if self.rotation != 0:
             img = img.rotate(self.rotation, expand=True)
         # Contrast
@@ -225,33 +286,19 @@ class ImageConvertFrontEnd(ToolView):
             img = enhancer.enhance(self.color)  
         if self.brightness != 1.0:
             enhancer = ImageEnhance.Brightness(img)
-            img = enhancer.enhance(self.brightness)
-        if self.sharpness != 1.0:
-            enhancer = ImageEnhance.Sharpness(img)
-            img = enhancer.enhance(self.sharpness)            
+            img = enhancer.enhance(self.brightness)       
         # Scaling / Resize
-        if self.is_scaled and self.scale_fac != 1.0:
+        if self.is_scaled:
             new_w = max(1, int(img.width * self.scale_fac))
             new_h = max(1, int(img.height * self.scale_fac))
             img = img.resize((new_w, new_h), Image.Resampling.LANCZOS)
         elif self.is_resized and (self.image_width != img.width or self.image_height != img.height):    
              img = img.resize((self.image_width, self.image_height))
+        elif (self.image_width != img.width) or (self.image_height != img.height):
+            img = img.resize(self.image_width, self.image_height)
         # 3. Store current transformed buffer & push to preview!
         self.current_transformed_image = img
         self.preview.set_image(img, info_text=f"{img.width}x{img.height} px | In-Memory")
-
-
-        
-    def demo_auto_calc(self, _=None):
-        ppm_img = self.create_ppm()
-        # 1. Convert your string buffer to bytes (if it isn't already bytes)
-        ppm_bytes = ppm_img.encode('utf-8') if isinstance(ppm_img, str) else ppm_img
-        # 2. Wrap the buffer in an in-memory stream
-        ppm_stream = io.BytesIO(ppm_bytes)
-        self.infile = "default_image.ppm"
-        img = Image.open(ppm_stream)
-        img.save("default_image.ppm")
-        self.infile_auto_calc()
 
         
     def on_view_clicked(self, values: dict):
@@ -279,7 +326,6 @@ class ImageConvertFrontEnd(ToolView):
                 self.contrast = float(values.get("contrast", 1.0))
                 self.color = float(values.get("color", 1.0))
                 self.brightness = float(values.get("brightness", 1.0))
-                self.sharpness = float(values.get("sharpness", 1.0))
                 self.scale_fac = float(values.get("scalefac", 60))
                 self.image_width = int(values.get("width", 600))
                 self.image_height = int(values.get("height", 600))
@@ -290,6 +336,15 @@ class ImageConvertFrontEnd(ToolView):
                 if self.rotation != 0:
                     img = img.rotate(self.rotation, expand=True)
                 # Contrast
+                if self.blur:
+                    img = img.filter(ImageFilter.BLUR)
+                if self.smooth:
+                    img = img.filter(ImageFilter.SMOOTH)
+                if self.contour:
+                    img = img.filter(ImageFilter.CONTOUR)
+                if self.sharpen:
+                    img = img.filter(ImageFilter.SHARPEN)  
+                    
                 if self.contrast != 1.0:
                     enhancer = ImageEnhance.Contrast(img)
                     img = enhancer.enhance(self.contrast)
@@ -298,10 +353,7 @@ class ImageConvertFrontEnd(ToolView):
                     img = enhancer.enhance(self.color)
                 if self.brightness != 1.0:
                     enhancer = ImageEnhance.Brightness(img)
-                    img = enhancer.enhance(self.brightness)
-                if self.sharpness != 1.0:
-                    enhancer = ImageEnhance.Sharpness(img)
-                    img = enhancer.enhance(self.sharpness) 
+                    img = enhancer.enhance(self.brightness) 
              # Scaling / Resize
                 if self.is_scaled and self.scale_fac != 1.0:
                     new_w = max(1, int(img.width * self.scale_fac))
@@ -332,12 +384,19 @@ class ImageConvertFrontEnd(ToolView):
         self.rotate_deg = int(values.get("rotate_deg", 0))
         self.is_rotated =True if values.get("rotate_deg", "False") else False    
         self.width = int(values.get("width", None))
-        self.smooth = int(values.get("smooth", 1))
-        self.sharpness = int(values.get("shapness", 1))
-        self.contour = int(values.get("contour", 1))
-        self.blur = int(values.get("blur", 1))
-        self.height = int(self.width/(16/9)) if values.get("width") else 225
-        self.is_resized = True if self.width is not None else False
+        self.smooth = values.get("smooth", False)
+        self.sharpen = values.get("sharpen", False)
+        self.contour = values.get("contour", False)
+        self.blur = values.get("blur", False)
+        aspa, aspb = self.aspratio.split("/")
+        if aspa != "None" and aspb != "None":
+            aspa = float(aspa)
+            aspb = float(aspb)
+            if aspa:
+                self.image_height = int(self.orig_image_width / (aspa / aspb))
+            else:
+                self.height = values.get("height")
+        self.is_resized = True if self.orig_image_width is not None else False
         self.outfile = values.get("outfile", None)
         if not self.is_demo:
             self.infile =  values.get("infile", None)
@@ -360,6 +419,6 @@ class ImageConvertFrontEnd(ToolView):
 
 
 if __name__ == "__main__":
-    app = QuickApp(title="Image Convert", size=(980, 780))
+    app = QuickApp(title="Image Convert", size=(980, 920))
     app.set_single_tool(ImageConvertFrontEnd)
     app.run()

@@ -542,16 +542,30 @@ class FormPanel(ttk.Frame):
                 result[name] = val_handler.get()
         return result
 
+    def get_value(self, name: str, default: Any = None) -> Any:
+        """Extracts the value of a single field by name."""
+        if name not in self._fields:
+            return default
+        ftype, widget, val_handler = self._fields[name]
+        if ftype == "custom":
+            getter, _ = val_handler
+            return getter()
+        return val_handler.get()
+
+    def set_value(self, name: str, val: Any):
+        """Sets the value of a single form field by name."""
+        if name in self._fields:
+            ftype, widget, val_handler = self._fields[name]
+            if ftype == "custom":
+                _, setter = val_handler
+                setter(val)
+            else:
+                val_handler.set(val)
+
     def set_values(self, data: Dict[str, Any]):
         """Sets form fields programmatically from a dictionary."""
         for name, val in data.items():
-            if name in self._fields:
-                ftype, widget, val_handler = self._fields[name]
-                if ftype == "custom":
-                    _, setter = val_handler
-                    setter(val)
-                else:
-                    val_handler.set(val)
+            self.set_value(name, val)
 
     def clear(self):
         """Resets all fields to empty/default values."""

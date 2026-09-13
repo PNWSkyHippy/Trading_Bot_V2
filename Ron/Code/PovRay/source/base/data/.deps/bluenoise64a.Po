@@ -1,0 +1,3 @@
+base/data/bluenoise64a.o: base/data/bluenoise64a.cpp \
+ /usr/include/stdc-predef.h
+/usr/include/stdc-predef.h:

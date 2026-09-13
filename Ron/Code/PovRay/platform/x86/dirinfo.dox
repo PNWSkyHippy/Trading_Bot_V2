@@ -1,0 +1,7 @@
+/**
+
+@dir
+@ingroup PovPlatform
+@brief Source code files for optimizations specific to x86-based hardware platforms.
+
+*/

@@ -768,9 +768,9 @@
         const TUNNEL_SEGMENT_JOIN_RADIUS_BOOST = 1.028;
         const TUNNEL_TEXTURE_GAP_RIB_ALPHA = 0.07;
         const TUNNEL_TEXTURE_PATHS = {
-            color: 'Textures/Rock1-060/Rock060_1K-JPG_Color.jpg',
-            normal: 'Textures/Rock1-060/Rock060_1K-JPG_NormalGL.jpg',
-            ao: 'Textures/Rock1-060/Rock060_1K-JPG_AmbientOcclusion.jpg'
+            color: 'Textures/WallTextures/Rock060_1K-JPG_Color.jpg',
+            normal: 'Textures/WallTextures/Rock060_1K-JPG_NormalGL.jpg',
+            ao: 'Textures/WallTextures/Rock060_1K-JPG_AmbientOcclusion.jpg'
         };
         const tunnelWallTextures = {
             color: null,
@@ -883,7 +883,7 @@
                     : source === 'procedural'
                         ? (RUNNING_FROM_FILE
                             ? `rock walls: procedural (use start_astral.bat → ${ASTRAL_LOCAL_URL})`
-                            : 'rock walls: procedural (JPG load failed — check Textures/Rock1-060/*.jpg)')
+                            : 'rock walls: procedural (JPG load failed — check Textures/WallTextures/*.jpg)')
                         : 'rock walls: loading…';
             buildStamp.textContent = `BUILD: ${BUILD_ID} | ${label}`;
         }

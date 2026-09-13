@@ -1,0 +1,366 @@
+.TH POV-Ray 1 "July 2021" "POV\-Team" "Version 3.8.0" \" -*- nroff -*-
+.\" man page written by Andreas Dilger
+.\" updated by Mark Gordon for POV-Ray v3.5
+.\" updated by Nicolas Calimet and Christoph Hormann for POV-Ray v3.6
+.\" updated by James Holsenback for POV-Ray v3.7
+.\" updated by William F. Pokorny and Christoph Lipka for POV-Ray v3.8
+
+.SH NAME
+povray \- POV\-Ray: The Persistence of Vision Ray Tracer
+
+.SH SYNOPSIS
+\fBpovray\fP [\fB+O\fP\fIoutput_file\fP] [\fB+/\-option\fP ...]
+[\fIinput_file\fP]
+.LP
+\fBpovray\fP [\fB+I\fP\fIinput_file\fP] [\fB+O\fP\fIoutput_file\fP]
+[\fB+/\-option\fP ...] [\fIINI_file\fP]
+
+.SH DESCRIPTION
+\fBPOV\-Ray\fP is a free, full\-featured ray tracer, written and maintained
+by a team of volunteers on the Internet.  On the UNIX platform \fBPOV\-Ray\fP
+can be compiled with support for preview capabilities using the Simple
+DirectMedia Layer V1.2 library (https://www.libsdl.org).
+.LP
+This manual page only lists the basic \fBPOV\-Ray\fP and UNIX specific
+features and command\-line options for this version of \fBPOV\-Ray\fP.
+For a complete description of the features of \fBPOV\-Ray\fP and
+its scene description language (a.k.a. \fBPOV\-Ray\fP SDL),
+or for a better explanation of the meaning of the
+command\-line and INI file options, please consult the online documentation
+at http://wiki.povray.org/content/Documentation:Contents or the documentation
+capture that should accompany all versions of \fBPOV\-Ray\fP. The documentation
+is installed in PREFIX/share/doc/povray-3.8, where PREFIX is /usr/local
+by default, or a path specified when configuring the source package for
+compilation and installation.
+.LP
+http://www.povray.org
+.LP
+Some of the UNIX\-specific features are:
+.IP
+ASCII graphics in the text\-mode version allow a basic view of
+the current rendering on text\-only terminals.
+.IP
+An interrupt handler allows rendering to be interrupted in a safe way,
+so that any data not currently written to disk will be saved before
+exiting.  Control\-C or SIGINT will cause a user abort, and save the
+current rendering, before exiting.  See \fIkill(1)\fP for more information.
+.IP
+Platform and architecture-independent rendering means that the same scene
+will render in the same way on all computers and operating systems
+(with the exception of the rendering speed, of course).
+
+.SH OPTIONS
+Options can be specified with either a leading '+' or a leading '\-'.
+Many options are switches, meaning a '+' turns the option on, and a '\-'
+turns the option off.  For other options, it doesn't matter if
+a '+' or a '\-' is used.  Most options cannot have spaces in them
+so you should specify \fB+FN\fP rather than \fB+F N\fP, and combining
+options is not allowed, so \fB+SC\fP is very different from \fB+S +C\fP.
+Options are not case sensitive.
+.LP
+The command\-line options are shown below with their corresponding INI
+file options.  If the same option is specified multiple times, whether
+in INI files or on the command\-line, the last such option overrides any
+previous ones, with the exception of the \fB+L\fP or \fBLibrary_Path\fP
+option, which is cumulative.
+
+.SS Parsing options:
+.TP
+\fBI\fP<\fIinput_file_name\fP> or \fBInput_File_Name\fP=\fIfile\fP
+Specifies the input file to use.  If the input file name is '\-', the
+scene description will be read from the standard input.  The
+.TP
+\fBHI\fP<\fIheader_include_file_name\fP> or \fBInclude_Header\fP=\fIfile\fP
+Specifies a file as the first include file of a scene file.  This can be
+used to always include a specific set of default include files used by
+all your scenes.
+.TP
+\fBL\fP<\fIlibrary_path\fP> or \fBLibrary_Path\fP=\fIpath\fP
+Specifies a directory to search for input files, include files,
+fonts, and image maps, if the specified file is not in the current
+directory.  This may be specified multiple times to increase the
+number of directories to search.
+.TP
+\fBMV\fP\fIn.n\fP or \fBVersion\fP=\fIfloat\fP
+Treat scene files as if they were version \fIn.n\fP instead of the
+current version.  This may be overridden from within the scene file.
+.TP
+\fBSU\fP or \fBSplit_Unions\fP=\fIbool\fP
+Split bounded CSG unions if children are finite.  This allows automatic
+bounding of CSG objects to take place.
+.TP
+\fBUR\fP or \fBRemove_Bounds\fP=\fIbool\fP
+Remove unnecessary bounding objects.  This allows automatic bounding of
+older scene files to take place.
+.TP
+\fBBM1\fP or \fBBounding_Method\fP=\fB1\fP
+Enable BVH (Bounding Volume Hierarchy) bounding (the default).
+.TP
+\fBBM2\fP or \fBBounding_Method\fP=\fB2\fP
+Enable BSP (Binary Space Partitioning) tree bounding.
+.SS Output options:
+.TP
+\fBH\fP\fIn\fP or \fBHeight\fP=\fIinteger\fP
+The image should be \fIn\fP pixels high.
+.TP
+\fBW\fP\fIn\fP or \fBWidth\fP=\fIinteger\fP
+The image should be \fIn\fP pixels wide.
+.TP
+\fBSR\fP\fIn\fP or \fBStart_Row\fP=\fIinteger\fP
+Start the rendering at row \fIn\fP from the top of the screen.
+.TP
+\fBSR\fP0.\fIn\fP or \fBStart_Row\fP=\fIfloat\fP
+Start the rendering \fIn\fP percent from the top of the screen.
+.TP
+\fBER\fP\fIn\fP or \fBEnd_Row\fP=\fIinteger\fP
+End the rendering at row \fIn\fP from the top of the screen.
+.TP
+\fBER\fP0.\fIn\fP or \fBEnd_Row\fP=\fIfloat\fP
+End the rendering at \fIn\fP percent from the top of the screen.
+.TP
+\fBSC\fP\fIn\fP or \fBStart_Column\fP=\fIinteger\fP
+Start the rendering at column \fIn\fP from the left of the screen.
+.TP
+\fBSC\fP0.\fIn\fP or \fBStart_Column\fP=\fIfloat\fP
+Start the rendering at \fIn\fP percent from the left of the screen.
+.TP
+\fBEC\fP\fIn\fP or \fBStart_Column\fP=\fIinteger\fP
+End the rendering at column \fIn\fP from the left of the screen.
+.TP
+\fBEC\fP0.\fIn\fP or \fBStart_Column\fP=\fIfloat\fP
+End the rendering at \fIn\fP percent from the left of the screen.
+.TP
+\fBC\fP or \fBContinue_Trace\fP=\fIbool\fP
+Continue a previously interrupted scene trace.
+.TP
+\fBCC\fP or \fBCreate_Continue_Trace_Log\fP=\fIbool\fP
+Create trace state file needed to later continue an interrupted scene trace.
+.TP
+\fBP\fP or \fBPause_When_Done\fP=\fIbool\fP
+If previewing, pause when the rendering is complete before closing the window.
+.TP
+\fBV\fP or \fBVerbose\fP=\fIbool\fP
+Output verbose status messages on the progress of the rendering.
+.TP
+\fBWL\fP\fIn\fP or \fBWarning_Level\fP=\fIinteger\fP
+Set warning level to \fIn\fP.
+
+.SS Output options \- display related:
+.TP
+\fBD\fP or \fBDisplay\fP=\fIbool\fP
+Turns graphic display on/off, if program built with Simple DirectMedia Layer library.
+.TP
+\fBSP\fP\fIn\fP or \fBPreview_Start_Size\fP=\fIinteger\fP
+Start mosaic preview with blocks \fIn\fP pixels square.
+.TP
+\fBEP\fP\fIn\fP or \fBPreview_End_Size\fP=\fIinteger\fP
+End mosaic preview with blocks \fIn\fP pixels square.
+.TP
+\fBUD\fP or \fBDraw_Vistas\fP=\fIbool\fP
+Draw vista rectangles before rendering has been deprecated.
+.SS Output options \- file related:
+.TP
+\fBF\fP[\fIBCEHJNPT\fP][\fIn\fP] or \fBOutput_to_File\fP=\fIbool\fP \fBOutput_File_Type\fP=\fIchar\fP
+Store the rendered image using one of the available formats, namely  \fIB\fPMP,
+\fIC\fPompressed TGA, Open\fIE\fPXR, Radiance \fIH\fPigh Dynamic-Range, \fIJ\fPPEG, P\fIN\fPG, \fIP\fPPM,
+and \fIT\fPGA given all the image libraries are available. If no image output option
+specified, output defaults to (PNG).
+.TP
+\fBO\fP<\fIoutput_file\fP> or \fBOutput_File_Name\fP=\fIfile\fP
+Write the output to the file named \fIoutput_file\fP, or the standard
+output if '\-' is given as the output file name.
+.TP
+\fBMI\fP\fIn\fP or \fBMax_Image_Buffer_Memory\fP=\fIn\fP
+Sets the allowable size of the output image cache in megabytes.
+.SS Tracing options:
+.TP
+\fBMB\fP\fIn\fP or \fBBounding\fP=\fIbool\fP \fBBounding_Threshold\fP=\fIinteger\fP
+Use automatic bounding slabs if more than \fIn\fP objects are in the scene.
+.TP
+\fBQ\fIn\fP or \fBQuality\fP=\fIinteger\fP
+Render at quality \fIn\fP.  Qualities range from \fI0\fP for rough images
+and \fI9\fP for complete ray\-tracing and textures, and \fI10\fP and \fI11\fP
+add radiosity.
+.TP
+\fBA\fP0.\fIn\fP or \fBAntialias\fP=\fIbool\fP \fBAntialias_Threshold\fP=\fIinteger\fP
+Do antialiasing on the pixels until the difference between adjacent pixels
+is less that 0.\fIn\fP, or the maximum recursion depth is reached.
+.TP
+\fBAM\fP\fIn\fP or \fBSampling_Method\fP=\fIinteger\fP
+Specify the method of antialiasing used, non\-adaptive (\fIn\fP = 1), or
+adaptive antialiasing (\fIn\fP = 2).
+.TP
+\fBJ\fP\fIn.n\fP or \fBJitter\fP=\fIbool\fP \fBJitter_Amount\fP=\fIfloat\fP
+Specify maximum radius, in pixels, that antialiased samples should be
+jittered from their true centers.
+.TP
+\fBR\fP\fIn\fP or \fBAntialias_Depth\fP=\fIinteger\fP
+Set the maximum recursion depth for antialiased pixel sub\-sampling.
+.TP
+\fBUA\fP or \fBOutput_Alpha\fP=\fIbool\fP
+Use alpha channel for transparency mask.
+.TP
+\fBUL\fP or \fBLight_Buffer\fP=\fIbool\fP
+Use light buffer to speed up rendering has been deprecated.
+.TP
+\fBUV\fP or \fBVista_Buffer\fP=\fIbool\fP
+Use vista buffer to speed up rendering has been deprecated.
+
+.SS Animation options:
+.TP
+\fBK\fP\fIn.n\fP or \fBClock\fP=\fIfloat\fP
+Render a single frame of an animation with the clock value \fIn.n\fP.
+.TP
+\fBKFI\fP\fIn\fP or \fBInitial_Frame\fP=\fIinteger\fP
+Specify the initial frame number for an animation.
+.TP
+\fBKFF\fP\fIn\fP or \fBFinal_Frame\fP=\fIinteger\fP
+Specify the final frame number for an animation.  This must be set at a
+value other that 1 in order to render multiple frames at once.
+.TP
+\fBKI\fP\fIn.n\fP or \fBInitial_Clock\fP=\fIfloat\fP
+Specify the clock value for the initial frame of an animation.
+.TP
+\fBKF\fP\fIn.n\fP or \fBFinal_Clock\fP=\fIfloat\fP
+Specify the clock value for the frame final of an animation.
+.TP
+\fBSF\fP\fIn\fP or \fBSubset_Start_Frame\fP=\fIinteger\fP
+Render a subset of frames from an animation, starting at frame \fIn\fP.
+.TP
+\fBSF\fP\fI0.n\fP or \fBSubset_Start_Frame\fP=\fIfloat\fP
+Render a subset of frames from an animation, starting \fIn\fP percent
+into the animation.
+.TP
+\fBEF\fP\fIn\fP or \fBSubset_End_Frame\fP=\fIinteger\fP
+Render a subset of frames from an animation, stopping at frame \fIn\fP.
+.TP
+\fBEF\fP\fI0.n\fP or \fBSubset_End_Frame\fP=\fIfloat\fP
+Render a subset of frames from an animation, stopping \fIn\fP percent
+into the animation.
+.TP
+\fBKC\fP or \fBCyclic_Animation\fP=\fIbool\fP
+Generate clock values for a cyclic animation.
+.TP
+\fBUF\fP or \fBField_Render\fP=\fIbool\fP
+Rendering alternate frames using odd/even fields has been deprecated.
+.TP
+\fBUO\fP or \fBOdd_Field\fP=\fIbool\fP
+Starting a field rendered animation on the odd field rather than the even field has been deprecated.
+
+.SS Redirecting options:
+.TP
+\fBGI<name>\fP or \fBCreate_Ini\fP=\fIbool\fP or \fBCreate_Ini\fP=\fIfile\fP
+Write all INI parameters to a file named after the input scene file, or one
+with the specified name.
+.TP
+\fBG\fP[\fIADFRSW\fP]<name> or \fB<Stream>_File\fP=\fIbool\fP or \fB<Stream>_File\fP=\fIfile\fP
+Write the stream to the console and/or the specified file.  The streams are
+\fIA\fPll_File (except status), \fID\fPebug_File, \fIF\fPatal_File,
+\fIR\fPender_File, \fIS\fPtatistics_File, and the \fIW\fParning_File.
+
+.SS Exit status:
+.TP
+\fB0\fP  if OK,
+.TP
+.TP
+\fB1\fP  if minor problems (e.g. invalid options),
+.TP
+.TP
+\fB>1\fP if serioues trouble (e.g. Sementation fault).
+
+.SH FILES
+.LP
+\fBPOV\-Ray\fP for UNIX allows a \fIpovray.ini\fP file in the current
+directory to override the individual setting in
+\fI$HOME/.povray/3.8/povray.ini\fP.
+\fBPOV\-Ray\fP looks for initial configuration information, like the
+Library_Path settings, which gives the location for the standard include
+files, first in the environment variable \fI$POVINI\fP, then in
+\fI./povray.ini\fP, then in \fI$HOME/.povray/3.8/povray.ini\fP, then in
+\fIPREFIX/etc/povray/3.8/povray.ini\fP. The PREFIX directory can be changed
+at compile\-time using the \-\-prefix option of the configure script.
+For backward compatibility with \fBPOV\-Ray\fP version 3.5 and earlier,
+the \fI$HOME/.povrayrc\fP and \fI$PREFIX/etc/povray.ini\fP files are also
+searched for when none of the above files were found.
+.LP
+Since version 3.5 \fBPOV\-Ray\fP features an I/O Restriction mechanism.
+I/O Restrictions attempt to at least partially protect a machine running
+\fBPOV-Ray\fP from having files read or written outside of a given set
+of directories. The settings are defined in two \fIconfiguration files\fP,
+a system-level \fIPREFIX/etc/povray/3.8/povray.conf\fP file and an user-level
+\fI$HOME/.povray/3.8/povray.conf\fP file with more restrictive settings.
+As of \fBPOV-Ray\fP v3.6 the format of these configuration files has changed,
+and no backward compatibility is retained with the configuration files
+in \fBPOV-Ray\fP 3.5. See the documentation for further details and
+examples of I/O Restriction settings.
+
+.SH SEE ALSO
+kill(1) and Full documentation at:
+  http://wiki.povray.org/content/Documentation:Contents
+
+
+.SH COPYRIGHT
+Persistence of Vision Ray Tracer ('POV-Ray') version 3.7.
+Copyright (c) 1991-2017 Persistence of Vision Raytracer Pty. Ltd.
+.LP
+POV-Ray is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+.LP
+POV-Ray is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+.LP
+You should have received a copy of the GNU Affero General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+.SH TRADEMARKS
+The terms \fIPersistence of Vision Ray Tracer\fP, \fIPOV-Team\fP and \fIPOV-Ray\fP
+are trademarks of Persistence of Vision Raytracer Pty. Ltd.
+
+UNIX is a registered trademark of The Open Group in the US and other
+countries.
+
+.SH BUGS
+Before reporting a bug to our bug-tracking system
+\fIhttps://github.com/POV-Ray/povray/issues\fP you
+should make sure you have the latest version of the software, in case the bug
+has already been fixed. There are a large number of \fBPOV\-Ray\fP users on the
+\fBPOV\-Ray\fP newsserver \fInews.povray.org\fP availble by a web interface at:
+http://news.povray.org/groups. You should try to find
+help and assistance in there before lodging a bug report.
+
+.SH AUTHORS
+Primary POV-Ray v3.8 Architects/Developers: (Alphabetically)
+.LP
+  Chris Cason         Christoph Lipka
+.LP
+With Assistance From: (Alphabetically)
+.LP
+  Jerome Grimbert     James Holsenback    William F. Pokorny
+.LP
+Past Contributors: (Alphabetically)
+.LP
+  Steve Anger         Eric Barish         Dieter Bayer
+  David K. Buck       Nicolas Calimet     Chris Cason
+  Aaron A. Collins    Chris Dailey        Steve Demlow
+  Andreas Dilger      Alexander Enzmann   Dan Farmer
+  Thorsten Froehlich  Mark Gordon         Jerome Grimbert
+  James Holsenback    Christoph Hormann   Mike Hough
+  Chris Huff          Kari Kivisalo       Nathan Kopp
+  Lutz Kretzschmar    Christoph Lipka     Jochen Lippert
+  Pascal Massimino    Jim McElhiney       Douglas Muir
+  Juha Nieminen       Ron Parker          William F. Pokorny
+  Bill Pulver         Eduard Schwan       Wlodzimierz Skiba
+  Robert Skinner      Yvo Smellenbergh    Zsolt Szalavari
+  Scott Taylor        Massimo Valentini   Timothy Wegner
+  Drew Wells          Chris Young
+.LP
+Other contributors are listed in the documentation at:
+  http://wiki.povray.org/content/Documentation
+
+.SH ACKNOWLEDGEMENT
+\fBPOV\-Ray\fP is based on DKBTrace 2.12 by David K. Buck and
+Aaron A. Collins.
