@@ -159,6 +159,7 @@ class LiveRayTraceViewer(ToolView):
         tools_menu = self.menu("Tools")
         tools_menu.add_command("Image Adjustments 🎨", self.open_adjustments_window, shortcut="Ctrl+A")
 
+
     def _on_book_changed(self, selected_book: str):
         config = BOOK_BINARIES.get(selected_book, {})
         has_scenes = config.get("has_scenes", False)
