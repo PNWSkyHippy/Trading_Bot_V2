@@ -4,6 +4,41 @@ Run the Output:./programIf
 in WSL for cpu thraded optimized speed run
 g++ -O3 -std=c++17 -fopenmp main.cc -o inoneweekend
 
+  /Users/ronh/Ron/Code/RayTrace/src/build_all_mac.sh
+g++ -O3 -std=c++17 -mcpu=native -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp main.cc -o therest
+or
+clang++ -O3 -std=c++17 -mcpu=native -Xpreprocessor -fopenmp -I/opt/homebrew/opt/libomp/include -L/opt/homebrew/opt/libomp/lib -lomp main.cc -o <binary_name>
+
+
+pip install nuitka
+python -m nuitka --standalone --onefile --windows-console-mode=disable --enable-plugin=dill-compat app.py
+
+cd C:\Users\Linda\Trading_Bot_V2\Ron\Code\RayTrace\src\InOneWeekend\python
+# Compile with all local directory imports bundled:
+python -m nuitka `
+    --standalone `
+    --onefile `
+    --include-module=camera,color,hittable_list,material,rtweekend,sphere,vec3,local_functions `
+    --windows-console-mode=force `
+    main.py
+  OR
+  python -m nuitka --standalone --onefile main.py
+  
+# Set PYTHONPATH so Nuitka can resolve quick_tk during compilation:
+$env:PYTHONPATH="C:\Users\Linda\.gemini\antigravity\scratch;C:\Users\Linda\Trading_Bot_V2\Ron\Code"
+
+# Compile with console enabled first so you can see any debug output/errors:
+python -m nuitka `
+    --standalone `
+    --onefile `
+    --enable-plugin=tk-inter `
+    --include-package=quick_tk `
+    --windows-console-mode=force `
+    C:\Users\Linda\Trading_Bot_V2\Ron\Code\quick_tk\tkimage_convert.py
+
+OR 
+
+
 Get-Module PSReadLine
 
 Import-Module -Name Microsoft.PowerShell.ConsoleGuiTools

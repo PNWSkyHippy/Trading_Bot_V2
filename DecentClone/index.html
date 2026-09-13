@@ -13920,7 +13920,22 @@
                 showMapLibraryDialog();
             });
 
+            const syncBundleButton = document.createElement('button');
+            syncBundleButton.type = 'button';
+            syncBundleButton.textContent = '🔄 Sync Maps from Server';
+            syncBundleButton.title = 'Force reload and merge all default maps from data/map_library_bundle.json';
+            syncBundleButton.addEventListener('click', async () => {
+                const res = await bootstrapMapStorageFromDataFolder();
+                showMapLibraryDialog();
+                if (res.loaded) {
+                    keyboardStatus.innerText = `synced map library from server (${loadMapLibrary().length} maps available)`;
+                } else {
+                    keyboardStatus.innerText = `sync: no new bundle files loaded (file mode or server unreachable)`;
+                }
+            });
+
             toolRow.append(
+                syncBundleButton,
                 importLibraryButton,
                 importLibraryPasteButton,
                 exportBundleButton,

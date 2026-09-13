@@ -163,8 +163,9 @@ class FormPanel(ttk.Frame):
         parent: Optional[tk.Widget] = None,
         on_change: Optional[Callable[[float], None]] = None,
     ) -> ttk.Scale:
-        """Adds a slider / scale with live value badge."""
+        """Adds a slider / scale with a live two-way synchronized numeric spinbox."""
         container = self._add_field_container(label, parent=parent)
+        is_int = (step >= 1) and (float(step).is_integer()) and (float(min_val).is_integer())
         var = tk.DoubleVar(value=default)
 
         slider_frame = ttk.Frame(container, style="Surface.TFrame")
@@ -181,22 +182,42 @@ class FormPanel(ttk.Frame):
         scale.grid(row=0, column=0, sticky="ew", padx=(0, 8 if show_value else 0))
 
         if show_value:
-            val_lbl = ttk.Label(slider_frame, text=f"{default:g}", style="Dim.TLabel", width=6, anchor="e")
-            val_lbl.grid(row=0, column=1, sticky="e")
+            spin = ttk.Spinbox(
+                slider_frame,
+                from_=min_val,
+                to=max_val,
+                increment=step,
+                textvariable=var,
+                width=6,
+            )
+            spin.grid(row=0, column=1, sticky="e")
 
-            def _update_label(*args):
+            def _on_var_write(*args):
                 try:
                     val = var.get()
-                    if step >= 1:
-                        val = round(val / step) * step
-                        var.set(val)
-                    val_lbl.config(text=f"{val:g}")
+                    if is_int:
+                        val = int(round(val))
                     if on_change:
                         on_change(val)
                 except Exception:
                     pass
 
-            var.trace_add("write", _update_label)
+            def _commit_spin(event=None):
+                try:
+                    raw = spin.get()
+                    val = float(raw)
+                    val = max(min_val, min(max_val, val))
+                    if is_int:
+                        val = int(round(val))
+                    var.set(val)
+                    if on_change:
+                        on_change(val)
+                except Exception:
+                    pass
+
+            spin.bind("<Return>", _commit_spin)
+            spin.bind("<FocusOut>", _commit_spin)
+            var.trace_add("write", _on_var_write)
         elif on_change:
             var.trace_add("write", lambda *args: on_change(var.get()))
 
