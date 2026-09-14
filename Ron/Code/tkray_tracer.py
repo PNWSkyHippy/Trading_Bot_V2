@@ -228,8 +228,8 @@ class LiveRayTraceViewer(ToolView):
             "rotation", "Rotate (°)", min_val=0, max_val=360, step=1,
             default=self.rotation
         )
- #       adj_r.bind("<Return>", self.on_rotation_change)
- #       adj_r.bind("<FocusOut>", self.on_rotation_change)
+        adj_r.bind("<Return>", self.on_rotation_change)
+        adj_r.bind("<FocusOut>", self.on_rotation_change)
    
         adj_form.add_slider(
             "contrast", "Contrast", min_val=0.1, max_val=4.0, step=0.1,
@@ -318,15 +318,15 @@ class LiveRayTraceViewer(ToolView):
         elif self.rendered_pixels:
             img = self.buffer_to_img(self.rendered_pixels)
         else:
-            sys.stderr.write("Error n file buffer tp crop~")
-            sys.exit(1)
+            messagebox.showinfo("Error n file buffer tp crop~")
+            return
         photo = ImageTk.PhotoImage(img)
         self.live_photo = photo
         self.img_label.config(image=self.live_photo, text="")
         img2 = self.get_cur_img()
         self.stack_add(img2, "Cropped")
         results =  self.setup_image_workspace(self.live_photo)
-        sys.stderr.write(f'setup_image_workspace returned: {results}')
+        sys.stdoutUT.write(f'setup_image_workspace returned: {results}')
  
     def _on_book_changed(self, selected_book: str):
         config = BOOK_BINARIES.get(selected_book, {})
@@ -362,7 +362,7 @@ class LiveRayTraceViewer(ToolView):
             if self.current_transformed_image is not None:
                 img - self.current_transformed_image
         except:
-            print(f"Eror opening {self.current_transformed_image}")
+            messagebox.showinfo(f"Eror opening {self.current_transformed_image}")
         if self.source_image is not None:
             img = self.source_image.copy()
         elif self.rendered_pixels:
@@ -414,7 +414,7 @@ class LiveRayTraceViewer(ToolView):
             self.live_photo = photo
             self.img_label.config(image=self.live_photo, text="")
         except Exception as e:
-            print(f"Preview display error: {e}")
+            messsagebox.showinfo(f"Preview display error: {e}")
 
     def on_start_render(self, values: dict):
         if self.is_rendering:
