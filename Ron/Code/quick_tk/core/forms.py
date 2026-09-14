@@ -27,6 +27,7 @@ class FormPanel(ttk.Frame):
         self.theme = theme or {}
         self._fields: Dict[str, Tuple[str, Any, Any]] = {}  # name -> (type, widget, getter/setter_or_var)
         self._callbacks: Dict[str, List[Callable]] = {}
+        self._slider_timers: Dict[str, Any] = {}
         self._row_count = 0
 
         self.columnconfigure(0, weight=1)
@@ -163,7 +164,7 @@ class FormPanel(ttk.Frame):
         parent: Optional[tk.Widget] = None,
         on_change: Optional[Callable[[float], None]] = None,
     ) -> ttk.Scale:
-        """Adds a slider / scale with a live two-way synchronized numeric spinbox."""
+        """Adds a slider / scale with a one-shot final callback after user interaction completes."""
         container = self._add_field_container(label, parent=parent)
         is_int = (step >= 1) and (float(step).is_integer()) and (float(min_val).is_integer())
         var = tk.DoubleVar(value=default)
@@ -181,6 +182,39 @@ class FormPanel(ttk.Frame):
         )
         scale.grid(row=0, column=0, sticky="ew", padx=(0, 8 if show_value else 0))
 
+        def _normalize_value(raw_value):
+            raw = float(raw_value)
+            raw = max(min_val, min(max_val, raw))
+            if is_int:
+                raw = int(round(raw))
+            return raw
+
+        def _fire_callback(value):
+            if not on_change:
+                return
+            try:
+                on_change(value)
+            except Exception:
+                pass
+
+        def _schedule_callback(value):
+            timer = self._slider_timers.get(name)
+            if timer is not None:
+                try:
+                    self.after_cancel(timer)
+                except Exception:
+                    pass
+            self._slider_timers[name] = self.after(150, lambda: _fire_callback(value))
+
+        def _commit_from_scale(event=None):
+            val = _normalize_value(var.get())
+            if var.get() != val:
+                var.set(val)
+            _schedule_callback(val)
+
+        scale.bind("<ButtonRelease-1>", _commit_from_scale)
+        scale.bind("<FocusOut>", _commit_from_scale)
+
         if show_value:
             spin = ttk.Spinbox(
                 slider_frame,
@@ -192,34 +226,17 @@ class FormPanel(ttk.Frame):
             )
             spin.grid(row=0, column=1, sticky="e")
 
-            def _on_var_write(*args):
-                try:
-                    val = var.get()
-                    if is_int:
-                        val = int(round(val))
-                    if on_change:
-                        on_change(val)
-                except Exception:
-                    pass
-
             def _commit_spin(event=None):
                 try:
                     raw = spin.get()
-                    val = float(raw)
-                    val = max(min_val, min(max_val, val))
-                    if is_int:
-                        val = int(round(val))
+                    val = _normalize_value(raw)
                     var.set(val)
-                    if on_change:
-                        on_change(val)
+                    _schedule_callback(val)
                 except Exception:
                     pass
 
             spin.bind("<Return>", _commit_spin)
             spin.bind("<FocusOut>", _commit_spin)
-            var.trace_add("write", _on_var_write)
-        elif on_change:
-            var.trace_add("write", lambda *args: on_change(var.get()))
 
         self._fields[name] = ("slider", scale, var)
         return scale

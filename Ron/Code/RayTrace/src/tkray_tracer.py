@@ -2,15 +2,20 @@ import os
 import sys
 import subprocess
 import time
+from pathlib import Path
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageEnhance, ImageFilter, ImageTk
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from quick_tk import QuickApp, ToolView
 from quick_tk.core.forms import FormPanel
 
 IS_WINDOWS = sys.platform.startswith("win")
 IS_MAC = sys.platform == "darwin"
-import tkinter as tk
 
 class CanvasSelector:
     """
@@ -74,26 +79,35 @@ SCENES_BOOK2 = [
 
 BOOK_BINARIES = {
     "Book 1: In One Weekend": {
-        "mac_dir": "/Users/ronh/Ron/Code/RayTrace/src/InOneWeekend",
-        "wsl_dir": "/mnt/c/Users/Linda/Trading_Bot_V2/Ron/Code/RayTrace/src/InOneWeekend",
+        "mac_dir": "/Users/ronh/Ron/Code/RayTrace/src",
+        "wsl_dir": "/mnt/c/Users/Linda/Trading_Bot_V2/Ron/Code/RayTrace/src",
         "binary": "inoneweekend",
         "has_scenes": False,
         "default_res": (672, 378),
+        "book_id": 1,
     },
     "Book 2: The Next Week": {
-        "mac_dir": "/Users/ronh/Ron/Code/RayTrace/src/TheNextWeek",
-        "wsl_dir": "/mnt/c/Users/Linda/Trading_Bot_V2/Ron/Code/RayTrace/src/TheNextWeek",
-        "binary": "thenextweek",
+        "mac_dir": "/Users/ronh/Ron/Code/RayTrace/src",
+        "wsl_dir": "/mnt/c/Users/Linda/Trading_Bot_V2/Ron/Code/RayTrace/src",
+        "binary": "inoneweekend",
         "has_scenes": True,
         "default_res": (600, 600),
+        "book_id": 2,
     },
     "Book 3: The Rest of Your Life": {
-        "mac_dir": "/Users/ronh/Ron/Code/RayTrace/src/TheRestOfYourLife",
-        "wsl_dir": "/mnt/c/Users/Linda/Trading_Bot_V2/Ron/Code/RayTrace/src/TheRestOfYourLife",
-        "binary": "therest",
+        "mac_dir": "/Users/ronh/Ron/Code/RayTrace/src",
+        "wsl_dir": "/mnt/c/Users/Linda/Trading_Bot_V2/Ron/Code/RayTrace/src",
+        "binary": "inoneweekend",
         "has_scenes": False,
         "default_res": (600, 600),
+        "book_id": 3,
     },
+}
+
+BOOK_SCENE_CHOICES = {
+    "Book 1: In One Weekend": ["1: Default Book 1 Scene"],
+    "Book 2: The Next Week": [label for _, label in SCENES_BOOK2],
+    "Book 3: The Rest of Your Life": ["1: Default Book 3 Scene"],
 }
 
 
@@ -139,6 +153,11 @@ class LiveRayTraceViewer(ToolView):
         self.form.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
         self.last_rotation_value = self.rotation
         self.rotation_timer_id = None
+        self.contrast_timer_id = None
+        self.color_timer_id = None
+        self.brightness_timer_id = None
+        self.sharpness_timer_id = None
+        self.scale_timer_id = None
         self.setup_menus()
 
         self.form.add_dropdown("aspratio", "Aspect Ratio", ["16/9", "16/10", "21/9", "4/3", "5/4", "None/None"], default="None/None", on_change=self.aspratio_auto_calc)
@@ -159,12 +178,12 @@ class LiveRayTraceViewer(ToolView):
             on_change=self._on_book_changed,
         )
 
-        # Scene Selection (for Book 2)
+        # Scene Selection (Book 1 and 3 have a single default render, Book 2 has the 9 scene presets)
         self.scene_combo = self.form.add_dropdown(
             "scene",
-            "Scene (Book 2)",
-            options=[label for _, label in SCENES_BOOK2],
-            default=SCENES_BOOK2[0][1],
+            "Scene",
+            options=BOOK_SCENE_CHOICES["Book 2: The Next Week"],
+            default=BOOK_SCENE_CHOICES["Book 2: The Next Week"][0],
         )
 
         # Action Buttons
@@ -197,7 +216,8 @@ class LiveRayTraceViewer(ToolView):
         self.contour_var = view_menu.add_toggle("Contour", default=False, on_toggle=self.contour_auto_calc)
         self.smooth_var = view_menu.add_toggle("Smooth", default=False, on_toggle=self.smooth_auto_calc)
         self.sharpen_var = view_menu.add_toggle("Sharpen", default=False, on_toggle=self.sharpen_auto_calc)
-
+        view_menu.add_separator()
+        self.debug_var = view_menu.add_toggle("Debug", default=False, on_toggle=self.show_debug_data)
         tools_menu = self.menu("Edit")
         tools_menu.add_command(label="Image Adjustments 🎨 <Ctrl-a>", command=self.open_adjustments_window)
         self.bind_all("<Control-a>", self.open_adjustments_window)
@@ -205,6 +225,10 @@ class LiveRayTraceViewer(ToolView):
         self.bind_all("<Control-b>", self.crop_window)
         tm3 = tools_menu.add_command(label=f"Undu ({len(self.image_stack)}) <Ctrl-z>", command=self.stack_pop)
         self.bind_all("<Control-z>", self.stack_pop)
+        
+    def show_debug_data(self,  argu):
+        values = self.form.get_values()
+        messagebox.showinfo(f'argu={argu}, Values-={values}')
         
     def open_adjustments_window(self, event=None):
         # If the window is already open, just bring it to the front
@@ -223,28 +247,22 @@ class LiveRayTraceViewer(ToolView):
         adj_form = self.add_form("Live Adjustments", parent=win)
         adj_form.pack(fill="both", expand=True, padx=8, pady=8)
 
-        # 3. Add your sliders (hooked straight to your update callbacks)
+        # 3. Add your sliders (callbacks only fire after the user finishes dragging or leaves the widget)
         adj_form.add_slider(
             "rotation", "Rotate (°)", min_val=0, max_val=360, step=1,
-            default=self.rotation
+            default=self.rotation, on_change=self.on_rotation_change
         )
-        adj_r.bind("<Return>", self.on_rotation_change)
-        adj_r.bind("<FocusOut>", self.on_rotation_change)
-   
+
         adj_form.add_slider(
             "contrast", "Contrast", min_val=0.1, max_val=4.0, step=0.1,
-            default=self.contrast
+            default=self.contrast, on_change=self.on_contrast_change
         )
- #       adj_s.bind("<Return>", self.on_contrast_change)
- #       adj_s.bind("<FocusOut>", self.on_contrast_change)
-               
+
         adj_form.add_slider(
             "color", "Color", min_val=0.1, max_val=1.0, step=0.1,
-            default=self.color
+            default=self.color, on_change=self.on_color_change
         )
- #       adj_c.bind("<Return>", self.on_color_change)
- #       adj_c.bind("<FocusOut>", self.on_color_change)
-        
+
         adj_form.add_slider(
             "brightness", "Brightness", min_val=0.1, max_val=1.0, step=0.1,
             default=self.brightness, on_change=self.on_brightness_change
@@ -281,23 +299,94 @@ class LiveRayTraceViewer(ToolView):
         self.img_label.config(image=self.live_photo)
 
  
-    def stack_pop(self,event=None):
-        if self.stack_cnt:
-            tmpimg = self.image_stack.pop()
-            tmpdesc = self.stack_desc.pop()
-            self.stack_cnt -= 1
-            messagebox.showinfo("Undu", f"removing ({tmpdesc}), there are now  ({self.stack_cnt}) Undus left.")
-            photo = ImageTk.PhotoImage(tmpimg)
+    def _snapshot_editor_state(self, reason="Generic"):
+        snapshot = {
+            "reason": reason,
+            "form_values": self.form.get_values().copy() if hasattr(self, "form") else {},
+            "source_image": self.source_image.copy() if self.source_image is not None else None,
+            "current_transformed_image": self.current_transformed_image.copy() if self.current_transformed_image is not None else None,
+            "rendered_pixels": {k: list(v) for k, v in (self.rendered_pixels or {}).items()},
+            "current_width": self.current_width,
+            "current_height": self.current_height,
+            "orig_image_width": self.orig_image_width,
+            "orig_image_height": self.orig_image_height,
+            "image_width": self.image_width,
+            "image_height": self.image_height,
+            "is_rendering": self.is_rendering,
+            "is_scaled": self.is_scaled,
+            "is_resized": self.is_resized,
+            "aspratio": self.aspratio,
+            "blur": self.blur,
+            "contour": self.contour,
+            "smooth": self.smooth,
+            "sharpen": self.sharpen,
+            "rotation": self.rotation,
+            "contrast": self.contrast,
+            "color": self.color,
+            "brightness": self.brightness,
+            "sharpness": self.sharpness,
+            "scale_fac": self.scale_fac,
+            "filepath": getattr(self, "filepath", ""),
+        }
+        return snapshot
+
+    def _restore_editor_state(self, snapshot):
+        if not snapshot:
+            return
+
+        self.source_image = snapshot.get("source_image")
+        self.current_transformed_image = snapshot.get("current_transformed_image")
+        self.rendered_pixels = snapshot.get("rendered_pixels", {})
+        self.current_width = snapshot.get("current_width", self.current_width)
+        self.current_height = snapshot.get("current_height", self.current_height)
+        self.orig_image_width = snapshot.get("orig_image_width", self.orig_image_width)
+        self.orig_image_height = snapshot.get("orig_image_height", self.orig_image_height)
+        self.image_width = snapshot.get("image_width", self.image_width)
+        self.image_height = snapshot.get("image_height", self.image_height)
+        self.is_rendering = snapshot.get("is_rendering", False)
+        self.is_scaled = snapshot.get("is_scaled", False)
+        self.is_resized = snapshot.get("is_resized", False)
+        self.aspratio = snapshot.get("aspratio", self.aspratio)
+        self.blur = snapshot.get("blur", self.blur)
+        self.contour = snapshot.get("contour", self.contour)
+        self.smooth = snapshot.get("smooth", self.smooth)
+        self.sharpen = snapshot.get("sharpen", self.sharpen)
+        self.rotation = snapshot.get("rotation", self.rotation)
+        self.contrast = snapshot.get("contrast", self.contrast)
+        self.color = snapshot.get("color", self.color)
+        self.brightness = snapshot.get("brightness", self.brightness)
+        self.sharpness = snapshot.get("sharpness", self.sharpness)
+        self.scale_fac = snapshot.get("scale_fac", self.scale_fac)
+        self.filepath = snapshot.get("filepath", getattr(self, "filepath", ""))
+
+        form_values = snapshot.get("form_values", {})
+        if form_values:
+            self.form.set_values(form_values)
+
+        preview_img = self.current_transformed_image or self.source_image or (self.buffer_to_img(self.rendered_pixels) if self.rendered_pixels else None)
+        if preview_img is not None:
+            photo = ImageTk.PhotoImage(preview_img)
             self.live_photo = photo
             self.img_label.config(image=self.live_photo, text="")
-            self.source_image = tmpimg
+        else:
+            self.img_label.config(image="", text="Select Book & Scene, then click Start Render")
+
+    def stack_pop(self,event=None):
+        if self.stack_cnt:
+            snapshot = self.image_stack.pop()
+            tmpdesc = self.stack_desc.pop()
+            self.stack_cnt -= 1
+            self._restore_editor_state(snapshot)
         else:
             messagebox.showinfo("Undu", f"There are ({self.stack_cnt}) Undus left.")
             return
-        return(tmpimg, tmpdesc)
+        return snapshot, tmpdesc
     
-    def stack_add(self, img, reason="Generic"):
-        self.image_stack.append(img)
+    def stack_add(self, img=None, reason="Generic"):
+        snapshot = self._snapshot_editor_state(reason)
+        if img is not None and not isinstance(img, dict):
+            snapshot["manual_image"] = img.copy() if hasattr(img, "copy") else img
+        self.image_stack.append(snapshot)
         self.stack_desc.append(reason)
         self.stack_cnt += 1
 
@@ -326,15 +415,18 @@ class LiveRayTraceViewer(ToolView):
         img2 = self.get_cur_img()
         self.stack_add(img2, "Cropped")
         results =  self.setup_image_workspace(self.live_photo)
-        sys.stdoutUT.write(f'setup_image_workspace returned: {results}')
+        sys.stdout.write(f'setup_image_workspace returned: {results}')
  
     def _on_book_changed(self, selected_book: str):
         config = BOOK_BINARIES.get(selected_book, {})
+        choices = BOOK_SCENE_CHOICES.get(selected_book, ["1: Default Scene"])
+        self.scene_combo['values'] = choices
+        self.scene_combo.set(choices[0])
         has_scenes = config.get("has_scenes", False)
         if has_scenes:
             self.scene_combo.config(state="readonly")
         else:
-            self.scene_combo.config(state="disabled")
+            self.scene_combo.config(state="readonly")
 
     def on_file_selected(self, filepath: str):
         """Called if a file is loaded."""
@@ -362,7 +454,7 @@ class LiveRayTraceViewer(ToolView):
             if self.current_transformed_image is not None:
                 img - self.current_transformed_image
         except:
-            messagebox.showinfo(f"Eror opening {self.current_transformed_image}")
+            pass
         if self.source_image is not None:
             img = self.source_image.copy()
         elif self.rendered_pixels:
@@ -440,9 +532,10 @@ class LiveRayTraceViewer(ToolView):
         self.live_photo = tk.PhotoImage(width=width, height=height)
         self.img_label.config(image=self.live_photo, text="")
 
-        # Determine Binary
+        # Determine unified binary
         book_info = BOOK_BINARIES.get(book_name, BOOK_BINARIES["Book 2: The Next Week"])
         binary_name = book_info["binary"]
+        book_id = int(book_info.get("book_id", 2))
 
         if IS_WINDOWS:
             # On Windows, run the Linux binary through WSL
@@ -450,8 +543,8 @@ class LiveRayTraceViewer(ToolView):
             cmd = [
                 "wsl",
                 wsl_binary,
+                "-b", str(book_id),
                 "-r", f"{width},{height}",
-                "-p",
             ]
         else:
             # On Mac / POSIX, run the compiled binary directly
@@ -464,13 +557,15 @@ class LiveRayTraceViewer(ToolView):
                 return
             cmd = [
                 mac_binary,
+                "-b", str(book_id),
                 "-r", f"{width},{height}",
-                "-p",
             ]
 
         if book_info.get("has_scenes", False):
             scene_num = scene_str.split(":")[0].strip()
             cmd.extend(["-c", scene_num])
+
+        cmd.extend(["-p"])
 
         self.is_rendering = True
         self.start_time = time.time()
@@ -690,62 +785,82 @@ class LiveRayTraceViewer(ToolView):
         img = self.get_cur_img()
         self.stack_add(img, "asp ratio")
 
+    def _schedule_adjustment(self, timer_name: str, value: float, callback, delay_ms: int = 180):
+        existing = getattr(self, timer_name, None)
+        if existing is not None:
+            try:
+                self.after_cancel(existing)
+            except Exception:
+                pass
+        setattr(self, timer_name, self.after(delay_ms, lambda: callback(value)))
+
     def on_rotation_change(self, val):
-        if self.rotation_timer_id is not None:
-            self.afer_cancel(self.roation_timer_id)
-        self.rotaion_timer_id = self.after(300, lambda: self.finalize_rot_stack(val))
-  
+        self._schedule_adjustment("rotation_timer_id", float(val), self.finalize_rot_stack)
+
     def finalize_rot_stack(self, finval):
-        self.rotation_timer_id == None
-        if float(finval) == self.rotation:
+        self.rotation_timer_id = None
+        if abs(float(finval) - self.rotation) < 1e-9:
             return
         self.rotation = float(finval)
         self.update_live_preview()
         img = self.get_cur_img()
         self.stack_add(img, "rotation")
-        
+
     def on_contrast_change(self, val):
-        if self.contrast_timer_id is not None:
-            self.afer_cancel(self.contrast_timer_id)
-        self.contrast_timer_id = self.after(300, lambda: self.finalize_cont_stack(val))
-        
+        self._schedule_adjustment("contrast_timer_id", float(val), self.finalize_cont_stack)
+
     def finalize_cont_stack(self, val):
-        if self.contrast_timer_id is not None:
-            self.afer_cancel(self.contrast_timer_id)
-        self.contrast_timer_id = self.after(300, lambda: self.finalize_cont_stack(val))
-             
-        self.contrast_color_id == None
-        if float(val) == self.contrast:
-            return    
+        self.contrast_timer_id = None
+        if abs(float(val) - self.contrast) < 1e-9:
+            return
         self.contrast = float(val)
         self.update_live_preview()
         img = self.get_cur_img()
         self.stack_add(img, "contrast")
-                 
+
     def on_color_change(self, val):
-        if self.contrast_timer_id is not None:
-            self.afer_cancel(self.contrast_timer_id)
-        self.contrast_timer_id = self.after(300, lambda: self.finalize_cont_stack(val))
-        
-        
+        self._schedule_adjustment("color_timer_id", float(val), self.finalize_color_stack)
+
+    def finalize_color_stack(self, val):
+        self.color_timer_id = None
+        if abs(float(val) - self.color) < 1e-9:
+            return
         self.color = float(val)
         self.update_live_preview()
         img = self.get_cur_img()
         self.stack_add(img, "color")
-        
+
     def on_brightness_change(self, val):
+        self._schedule_adjustment("brightness_timer_id", float(val), self.finalize_brightness_stack)
+
+    def finalize_brightness_stack(self, val):
+        self.brightness_timer_id = None
+        if abs(float(val) - self.brightness) < 1e-9:
+            return
         self.brightness = float(val)
         self.update_live_preview()
         img = self.get_cur_img()
         self.stack_add(img, "brightness")
-        
+
     def on_sharpness_change(self, val):
+        self._schedule_adjustment("sharpness_timer_id", float(val), self.finalize_sharpness_stack)
+
+    def finalize_sharpness_stack(self, val):
+        self.sharpness_timer_id = None
+        if abs(float(val) - self.sharpness) < 1e-9:
+            return
         self.sharpness = float(val)
         self.update_live_preview()
         img = self.get_cur_img()
-        self.stack_add(img, "sharness")
-        
+        self.stack_add(img, "sharpness")
+
     def on_scale_change(self, val):
+        self._schedule_adjustment("scale_timer_id", float(val), self.finalize_scale_stack)
+
+    def finalize_scale_stack(self, val):
+        self.scale_timer_id = None
+        if abs(float(val) - self.scale_fac) < 1e-9:
+            return
         self.scale_fac = float(val)
         self.is_scaled = True
         self.update_live_preview()
