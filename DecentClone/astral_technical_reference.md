@@ -540,3 +540,20 @@ Spy-vs-Spy gadgets:
 - Add deploy key handling near combat input.
 - Add effects to the simulation loop.
 - Add visible particles in render/update particle helpers.
+
+Modular In-Game Help & Cheatsheet Architecture:
+
+- Master Catalog: Defined in `HELP_CATALOG` with 9 modular categories:
+  - `flight`: Flight thrusters, strafe, roll, boost (`Shift`), AutoCruise (`Tab`), instant 180° flip (`C` / `Space`), recover (`0`), level (`K`).
+  - `combat`: Primary lasers (`V` / `RMB`), rockets (`X`), target boxes, sentry mechanics.
+  - `cockpit`: Mouse steering (`~`), inventory (`I`), snap views (`1-6`), map plane (`H`), panel toggles (`Ctrl+H`, `Alt+M`).
+  - `arcade`: Defender Bonus Stage (`Alt+D`), Smart Bomb (`B`), astronaut rescue, Galaga (`Ctrl+Shift+G`), Gullet maze (`Alt+P`).
+  - `map`: 3D map orbit, pan, zoom, view cubes, grid snap (`,`, `.`, `\`), center (`9` / `0`).
+  - `builder`: Segment extrusion (`T`), bend angles (`[` / `]`), planes (`Q`/`E`), branches (`O`), joins (`Y`), corkscrews (`Alt+N`), rooms & 6-port hubs (`V`).
+  - `portals`: Portal mode (`8`), gateways (`Shift+Y`), loot caches (`6`), locked 3D ruler/protractor (`/`).
+  - `sentries`: Sentry mode (`7`), spawn placement (`Ctrl+LMB`), patrol loops, guard/patrol inspection.
+  - `guides`: Interactive collapsible procedure accordions with step-by-step instructions.
+- Table of Contents / Category Pills: `.help-category-bar` with `.help-pill` buttons for instant filtering.
+- Live Search: `.help-search-input` performs real-time substring search on keys and descriptions across categories; isolated from flight controls via `isDialogInputTarget()`. Pressing `Escape` clears and blurs the search input, returning focus to the canvas.
+- Display Modes: Hides cleanly under `body.hud-mode-min` (vitals only) and `body.hud-mode-hidden`.
+- Backwards Compatibility: Populates legacy `flightCheats`, `mapCheats`, `builderCheats`, `builderProcedures`, `#mode-cheatsheet`, `#player-command-list`, and `#player-action-list`.

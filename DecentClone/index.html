@@ -72,6 +72,9 @@
         body.hud-mode-min #portal-quickref,
         body.hud-mode-min #sentry-quickref,
         body.hud-mode-min #mode-cheatsheet,
+        body.hud-mode-min .help-category-bar,
+        body.hud-mode-min .help-search-box,
+        body.hud-mode-min .modular-help-container,
         body.hud-mode-min #build-stamp { display: none; }
         body.hud-mode-min #ui-overlay {
             height: auto !important;
@@ -242,6 +245,186 @@
             grid-column: 1 / -1;
             margin-top: 6px;
             text-transform: uppercase;
+        }
+
+        /* Modern Modular In-Game Help & Category Navigation */
+        .help-search-box {
+            position: relative;
+            margin: 8px 0 6px;
+        }
+        .help-search-input {
+            width: 100%;
+            box-sizing: border-box;
+            background: rgba(3, 14, 28, 0.92);
+            border: 1px solid rgba(0, 255, 204, 0.45);
+            border-radius: 4px;
+            color: #00ffcc;
+            font-family: monospace;
+            font-size: 0.88em;
+            padding: 5px 24px 5px 8px;
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
+        }
+        .help-search-input:focus {
+            border-color: #00ffcc;
+            box-shadow: 0 0 8px rgba(0, 255, 204, 0.35);
+        }
+        .help-search-input::placeholder {
+            color: rgba(0, 255, 204, 0.4);
+        }
+        .help-search-clear {
+            position: absolute;
+            right: 6px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: rgba(0, 255, 204, 0.6);
+            cursor: pointer;
+            font-family: monospace;
+            font-size: 13px;
+            padding: 0;
+            line-height: 1;
+            display: none;
+        }
+        .help-search-clear:hover {
+            color: #ffffff;
+        }
+        .help-category-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            margin: 6px 0 10px;
+        }
+        .help-pill {
+            background: rgba(0, 255, 204, 0.08);
+            border: 1px solid rgba(0, 255, 204, 0.35);
+            border-radius: 12px;
+            color: #a0efe2;
+            font-family: monospace;
+            font-size: 0.78em;
+            padding: 2px 8px;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.15s ease;
+        }
+        .help-pill:hover {
+            background: rgba(0, 255, 204, 0.22);
+            color: #ffffff;
+            border-color: #00ffcc;
+        }
+        .help-pill.active {
+            background: #00ffcc;
+            color: #020b14;
+            font-weight: bold;
+            border-color: #00ffcc;
+            box-shadow: 0 0 6px rgba(0, 255, 204, 0.4);
+        }
+        .modular-help-container {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 4px;
+        }
+        .help-category-card {
+            background: rgba(4, 18, 32, 0.7);
+            border: 1px solid rgba(0, 255, 204, 0.25);
+            border-radius: 5px;
+            overflow: hidden;
+        }
+        .help-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 5px 8px;
+            background: rgba(0, 255, 204, 0.12);
+            border-bottom: 1px solid rgba(0, 255, 204, 0.2);
+            font-size: 0.85em;
+            font-weight: bold;
+            color: #00ffcc;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .help-card-body {
+            padding: 6px 8px;
+            display: grid;
+            grid-template-columns: max-content 1fr;
+            gap: 4px 10px;
+            align-items: baseline;
+        }
+        .help-cmd-keys {
+            font-weight: bold;
+            color: #ffffff;
+            white-space: nowrap;
+        }
+        .help-cmd-desc {
+            color: #bceae4;
+            font-size: 0.88em;
+            line-height: 1.3;
+        }
+        kbd.help-kbd {
+            display: inline-block;
+            background: #061e2a;
+            border: 1px solid #00aa99;
+            border-bottom: 2px solid #008877;
+            border-radius: 3px;
+            padding: 1px 4px;
+            font-family: monospace;
+            font-size: 0.95em;
+            color: #00ffcc;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+        }
+        /* Accordion for Procedures */
+        .help-accordion-item {
+            border-bottom: 1px solid rgba(0, 255, 204, 0.15);
+        }
+        .help-accordion-item:last-child {
+            border-bottom: none;
+        }
+        .help-accordion-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 6px 8px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 0.86em;
+            color: #d7fff8;
+            transition: background 0.12s;
+        }
+        .help-accordion-header:hover {
+            background: rgba(0, 255, 204, 0.1);
+            color: #ffffff;
+        }
+        .help-accordion-title {
+            font-weight: bold;
+            color: #7ef8dd;
+        }
+        .help-accordion-icon {
+            font-size: 0.8em;
+            color: #00ffcc;
+            transition: transform 0.15s ease;
+        }
+        .help-accordion-item.open .help-accordion-icon {
+            transform: rotate(90deg);
+        }
+        .help-accordion-body {
+            display: none;
+            padding: 6px 10px 8px 14px;
+            color: #bdebe5;
+            font-size: 0.85em;
+            line-height: 1.4;
+            background: rgba(0, 10, 20, 0.4);
+        }
+        .help-accordion-item.open .help-accordion-body {
+            display: block;
+        }
+        .help-empty-state {
+            padding: 14px;
+            text-align: center;
+            color: rgba(0, 255, 204, 0.6);
+            font-style: italic;
+            font-size: 0.88em;
         }
         #map-library-dialog {
             position: absolute;
@@ -692,13 +875,22 @@
                 <div id="hull-bar-track"><div id="hull-bar-fill"></div></div>
             </div>
             <p class="hud-mode-hint">Ctrl+H help &middot; Alt+M hide panel &middot; Shift+H hide map</p>
-            <div class="dev-section">
-                <h4>Flight Controls</h4>
-                <div id="player-command-list" class="hud-command-list"></div>
-            </div>
-            <div class="dev-section">
-                <h4>World Actions</h4>
-                <div id="player-action-list" class="hud-command-list"></div>
+            <div class="dev-section help-section">
+                <div class="help-search-box">
+                    <input type="text" id="player-help-search" class="help-search-input" placeholder="🔍 Search flight keys... (e.g. flip, boost, rocket)" autocomplete="off" spellcheck="false">
+                    <button type="button" class="help-search-clear" title="Clear search">×</button>
+                </div>
+                <div class="help-category-bar" id="player-category-bar" data-target="player-modular-help">
+                    <button type="button" class="help-pill active" data-cat="all">All</button>
+                    <button type="button" class="help-pill" data-cat="flight">Flight</button>
+                    <button type="button" class="help-pill" data-cat="combat">Combat</button>
+                    <button type="button" class="help-pill" data-cat="cockpit">Cockpit</button>
+                    <button type="button" class="help-pill" data-cat="arcade">Arcade</button>
+                </div>
+                <div id="player-modular-help" class="modular-help-container"></div>
+                <!-- Legacy hidden containers for backwards compatibility -->
+                <div id="player-command-list" style="display:none"></div>
+                <div id="player-action-list" style="display:none"></div>
             </div>
             <p class="hint">
                 Press <b>B</b> for builder cursor, <b>M</b> for full 3D map/developer tools.
@@ -717,24 +909,26 @@
                 <div class="hud-card"><label>Build Mode</label><span id="dev-mode-val">flight</span></div>
             </div>
             <p class="hud-mode-hint">Ctrl+H help &middot; Alt+M hide panel &middot; Shift+H hide map</p>
-            <div id="portal-quickref">
-                <b>Portal gateway</b> (3D map: press M first)<br>
-                LMB = entry A · Ctrl+LMB = exit B · <b>Shift+Y</b> = link portal<br>
-                Click portal <b>entry or exit</b> disc to edit (one-way toggle)<br>
-                In flight: click the disc within 100u to teleport (drive through to ignore)
-            </div>
-            <div id="sentry-quickref">
-                <b>AI Sentries</b> (3D map: press M, then 7)<br>
-                Ctrl+LMB = place sentry · click sentry = edit · patrol: click stagepoints, close loop at spawn<br>
-                Max 100 per level · Guard = stationary · Patrol = path loop · V/RMB = shoot (10%/hit, 5 min respawn)
-            </div>
-            <div class="dev-section">
-                <h4>Builder Procedures</h4>
-                <ol id="builder-procedure-list" class="procedure-list"></ol>
-            </div>
-            <div class="dev-section">
-                <h4>Command Reference</h4>
-                <div id="mode-cheatsheet"></div>
+            <div class="dev-section help-section">
+                <div class="help-search-box">
+                    <input type="text" id="dev-help-search" class="help-search-input" placeholder="🔍 Search tools & keys... (e.g. join, corkscrew, ruler)" autocomplete="off" spellcheck="false">
+                    <button type="button" class="help-search-clear" title="Clear search">×</button>
+                </div>
+                <div class="help-category-bar" id="dev-category-bar" data-target="dev-modular-help">
+                    <button type="button" class="help-pill active" data-cat="all">All</button>
+                    <button type="button" class="help-pill" data-cat="map">3D Map</button>
+                    <button type="button" class="help-pill" data-cat="builder">Builder</button>
+                    <button type="button" class="help-pill" data-cat="portals">Portals</button>
+                    <button type="button" class="help-pill" data-cat="sentries">Sentries</button>
+                    <button type="button" class="help-pill" data-cat="guides">Guides</button>
+                    <button type="button" class="help-pill" data-cat="flight">Flight</button>
+                </div>
+                <div id="dev-modular-help" class="modular-help-container"></div>
+                <!-- Legacy hidden containers for backwards compatibility -->
+                <div id="portal-quickref" style="display:none"></div>
+                <div id="sentry-quickref" style="display:none"></div>
+                <ol id="builder-procedure-list" style="display:none"></ol>
+                <div id="mode-cheatsheet" style="display:none"></div>
             </div>
         </section>
     </div>
@@ -839,194 +1033,373 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        const flightCheats = [
-            ['Ctrl+H', 'show full help / compact the left panel'],
-            ['Alt+M', 'hide / restore the entire left panel'],
-            ['Shift+H', 'hide / restore the upper-right HUD map'],
-            ['W / S', 'fly forward / backward'],
-            ['A / D', 'strafe left / right'],
-            ['R / F', 'strafe up / down'],
-            ['Arrows', 'pitch and yaw'],
-            ['Q / E', 'roll left / right'],
-            ['Shift', 'boost'],
-            ['Tab / ;', 'toggle AutoBoost / AutoCruise'],
-            ['V / RMB', 'fire primary lasers'],
-            ['X', 'fire rocket'],
-            ['Hold LMB', 'mouse steer'],
-            ['` / ~ (tilde key)', 'capture / release mouse steering (Esc also releases)'],
-            ['C / Space / Z', 'instant 180° reverse flip'],
-            ['Alt+D', 'toggle Defender arcade stage (Bonus 3)'],
-            ['B (in Defender)', 'detonate Smart Bomb'],
-            ['1-6', 'snap view'],
-            ['H', 'cycle HUD map plane'],
-            ['K', 'reset cockpit controls/orientation'],
-            ['I', 'open ship inventory / use carried items'],
-            ['0', 'recover ship to nearest tunnel'],
-            ['R after death', 'continue with a life / restart game'],
-            ['B / M', 'builder cursor / 3D map (M for portals)'],
-        ];
-        const portalCheats = [
-            ['M', 'open 3D map editor first'],
-            ['LMB', 'select portal entry A'],
-            ['Ctrl+LMB', 'set exit B (not B key!)'],
-            ['Shift+Y', 'link portal gateway'],
-            ['Click entry/exit disc', 'edit portal (one-way toggle)'],
-            ['Y', 'build tunnel tube instead'],
-            ['8', 'toggle portal / tunnel mode'],
-            ['Fly in', 'click disc within 100u to teleport'],
-        ];
-        const sentryCheats = [
-            ['7', 'toggle AI SENTRY placement mode'],
-            ['Ctrl+LMB', 'place sentry spawn (max 10)'],
-            ['Click sentry drone', 'edit mode / patrol path / linger'],
-            ['Patrol edit', 'LMB stagepoints → click near spawn to close loop'],
-            ['Esc', 'cancel sentry / patrol draft'],
-        ];
-        const builderCheats = [
-            ['Ctrl+H / Alt+M', 'compact help / hide the left panel'],
-            ['Shift+H', 'hide / restore the upper-right HUD map'],
-            ['6', 'toggle LOOT placement mode'],
-            ['Ctrl+LMB tunnel', 'place loot while loot mode is active'],
-            ['Click loot + V', 'edit item, quantity, and respawn timer'],
-            ['T', 'add straight tunnel'],
-            ['Q / E', 'rotate bend/branch plane'],
-            ['I / K', 'bend with / against spoke'],
-            ['J / L', 'bend left / right'],
-            ['O / Shift+O', 'add branch / opposite side'],
-            ['[ / ]', 'bend angle down / up'],
-            ['U', 'undo last segment'],
-            ['Del', 'delete anchored segment'],
-            ['C', 'cycle selected pipe kind'],
-            ['Shift+LMB target', 'toggle one target box in the selection'],
-            ['Shift+LMB target, then Ctrl+Shift target', 'start/finish target path selection'],
-            ['V with target(s)', 'edit one or batch edit selected target boxes'],
-            ['V with tunnel range', 'style it or convert it to a rectangular room'],
-            ['G', 'prune disconnected strays'],
-            ['Y', 'join tunnel A→B (optional bend C)'],
-            ['Shift+Y', 'link portal A→B (no tube)'],
-            ['N / Shift+N', 'route mode / pause route drawing'],
-            ['Alt+N', 'corkscrew/helix editable route generator'],
-            ['8', 'toggle portal vs tunnel mode'],
-            ['7', 'toggle AI sentry placement mode'],
-            ['Esc', 'cancel mode or clear selections/draft'],
-            ['Ctrl+Shift+S', 'save/update current named map'],
-            ['Ctrl+Shift+L', 'load saved map'],
-            ['Alt+T', 'toggle saved map style: textured / TRON wireframe'],
-            ['Shift+9', 'move ship to selected tunnel point'],
-            ['M', 'open 3D map']
-        ];
-        const combatCheats = [
-            ['V / RMB', 'fire at sentries (10% per hit, 10 hits = kill)'],
-            ['X', 'launch rocket (10 loaded; inventory packs auto-reload)'],
-            ['Ctrl+Shift+R', 'developer repair hull/shields'],
-            ['Ctrl+Shift+G', 'developer toggle Galaga stage'],
-            ['Alt+P', 'developer toggle Gullet maze stage'],
-            ['Alt+Shift+P', 'export Gullet maze as a shareable map backup'],
-            ['Sentries', 'guard spot or patrol; dead = 5 min respawn'],
-            ['Orange bolts', 'sentry fire drains shields — shoot first'],
-        ];
+        /*
+         * Modern Modular In-Game Help Catalog
+         * Clean, categorized, and searchable reference for flight, combat, systems, and builder.
+         */
+        const HELP_CATALOG = {
+            flight: {
+                id: 'flight',
+                title: 'Flight & Thrusters',
+                icon: '🚀',
+                panel: 'both',
+                items: [
+                    { keys: ['W', 'S'], desc: 'Fly forward / backward thrust' },
+                    { keys: ['A', 'D'], desc: 'Strafe left / right' },
+                    { keys: ['R', 'F'], desc: 'Strafe vertical up / down' },
+                    { keys: ['Arrows'], desc: 'Pitch up/down and yaw left/right' },
+                    { keys: ['Q', 'E'], desc: 'Bank roll left / right' },
+                    { keys: ['Shift'], desc: 'Boost / afterburner' },
+                    { keys: ['Tab', ';'], desc: 'Toggle AutoBoost / AutoCruise' },
+                    { keys: ['C', 'Space'], desc: 'Instant 180° reverse flip (also Z, Shift+S)' },
+                    { keys: ['0'], desc: 'Recover ship to nearest tunnel centerline' },
+                    { keys: ['K'], desc: 'Reset cockpit controls & level orientation' },
+                    { keys: ['R'], desc: 'Respawn with life / continue after destruction' }
+                ]
+            },
+            combat: {
+                id: 'combat',
+                title: 'Weapons & Combat',
+                icon: '⚔️',
+                panel: 'both',
+                items: [
+                    { keys: ['V', 'RMB'], desc: 'Fire primary pulse lasers (10% dmg/hit vs sentries)' },
+                    { keys: ['X'], desc: 'Launch rocket (10 loaded; inventory auto-reloads)' },
+                    { keys: ['Blue Targets'], desc: 'Shoot or fly through for score points' },
+                    { keys: ['Red Targets'], desc: 'Avoid hazards or destroy before contact' },
+                    { keys: ['Sentries'], desc: 'Automated patrol drones (10 hits to destroy; 5 min respawn)' },
+                    { keys: ['Orange Bolts'], desc: 'Sentry fire drains shields — evade or shoot first' }
+                ]
+            },
+            cockpit: {
+                id: 'cockpit',
+                title: 'Cockpit & Systems',
+                icon: '🕹️',
+                panel: 'both',
+                items: [
+                    { keys: ['Hold LMB'], desc: 'Mouse flight steering' },
+                    { keys: ['` / ~'], desc: 'Capture / release mouse steering (Esc also releases)' },
+                    { keys: ['I'], desc: 'Open ship inventory / inspect & use carried loot items' },
+                    { keys: ['1 - 6'], desc: 'Snap cockpit view (Forward, Left, Right, Rear, Up, Down)' },
+                    { keys: ['H'], desc: 'Cycle HUD map orientation plane' },
+                    { keys: ['Shift+H'], desc: 'Hide / restore upper-right 3D radar map' },
+                    { keys: ['Ctrl+H'], desc: 'Toggle help view (full panel <-> vitals-only compact)' },
+                    { keys: ['Alt+M'], desc: 'Hide / restore entire left HUD panel' }
+                ]
+            },
+            arcade: {
+                id: 'arcade',
+                title: 'Arcade Bonus Stages',
+                icon: '👾',
+                panel: 'both',
+                items: [
+                    { keys: ['Alt+D'], desc: 'Toggle Defender Bonus Stage (Bonus Level 3)' },
+                    { keys: ['B (in Defender)'], desc: 'Detonate Smart Bomb (clears all on-screen hostiles)' },
+                    { keys: ['Rescue Astronauts'], desc: 'Catch falling humanoids mid-air (+500), land on surface (+500)' },
+                    { keys: ['Radar Scanner'], desc: 'Top HUD scanner tracks Landers, Mutants, and Astronauts' },
+                    { keys: ['Ctrl+Shift+G'], desc: 'Developer toggle Galaga stage (Bonus Level 1)' },
+                    { keys: ['Alt+P'], desc: 'Developer toggle Gullet maze stage (Bonus Level 2)' },
+                    { keys: ['Alt+Shift+P'], desc: 'Export Gullet maze as a shareable map backup' }
+                ]
+            },
+            map: {
+                id: 'map',
+                title: '3D Map & Camera',
+                icon: '🗺️',
+                panel: 'dev',
+                items: [
+                    { keys: ['M'], desc: 'Toggle 3D Map View / Cockpit flight' },
+                    { keys: ['LMB Drag (empty)'], desc: 'Free orbit editor camera' },
+                    { keys: ['MMB / Alt+Drag'], desc: 'Orbit camera around selected A/B/C anchor' },
+                    { keys: ['W / S'], desc: 'Pan camera forward / back' },
+                    { keys: ['A / D'], desc: 'Pan camera left / right' },
+                    { keys: ['P / R'], desc: 'Pan camera up' },
+                    { keys: ['F'], desc: 'Pan camera down' },
+                    { keys: ['Z / X / Wheel'], desc: 'Zoom camera in / out' },
+                    { keys: ['Q / E'], desc: 'Roll camera view left / right' },
+                    { keys: ['9'], desc: 'Center camera view on point A, B, or ship' },
+                    { keys: ['Shift+9'], desc: 'Teleport ship directly to selected tunnel A point' },
+                    { keys: ['0'], desc: 'Frame camera to whole tunnel network' },
+                    { keys: ['Cube Face'], desc: 'Snap view to Front/Back/Left/Right/Top/Bottom + lock plane' },
+                    { keys: ['Cube Edge/Corner'], desc: '45° diagonal isometric view; preserves edit plane' },
+                    { keys: ['XY / YZ / XZ'], desc: 'Change active work plane while preserving camera view' },
+                    { keys: [', (comma)'], desc: 'Toggle active edit plane grid overlay' },
+                    { keys: ['. (period)'], desc: 'Snap free placed/dragged points to 50u grid' },
+                    { keys: ['\\ (backslash)'], desc: 'Force current plane lock; prevents edge-on fallback' },
+                    { keys: ['Space'], desc: 'Exit snapped cube-face view and resume free orbit' }
+                ]
+            },
+            builder: {
+                id: 'builder',
+                title: 'Tunnel & Room Builder',
+                icon: '🔨',
+                panel: 'dev',
+                items: [
+                    { keys: ['B'], desc: 'Toggle builder cursor mode' },
+                    { keys: ['T'], desc: 'Add straight tunnel segment along anchor vector' },
+                    { keys: ['[ / ]'], desc: 'Bend angle step down / up' },
+                    { keys: ['Q / E'], desc: 'Rotate bend / branch plane' },
+                    { keys: ['I / K'], desc: 'Bend pitch with / against spoke' },
+                    { keys: ['J / L'], desc: 'Bend yaw left / right' },
+                    { keys: ['O / Shift+O'], desc: 'Add branch junction / opposite side stub' },
+                    { keys: ['C'], desc: 'Cycle selected pipe kind (round, rectangular, ribbon)' },
+                    { keys: ['U'], desc: 'Undo last placed segment' },
+                    { keys: ['Del / Backspace'], desc: 'Delete anchored segment or selected range' },
+                    { keys: ['G'], desc: 'Prune disconnected stray segments' },
+                    { keys: ['Y'], desc: 'Join tunnel endpoint A → B (optional curve handle C)' },
+                    { keys: ['Alt+N'], desc: 'Open Corkscrew / Helix editable route generator' },
+                    { keys: ['N / Shift+N'], desc: 'Start multi-node spline route / pause node placement' },
+                    { keys: ['V (with tunnel)'], desc: 'Open Texture, Rib Color, & Room Conversion dialog' },
+                    { keys: ['Alt+T'], desc: 'Toggle map render style: Textured HD / TRON neon wireframe' },
+                    { keys: ['Ctrl+Shift+S'], desc: 'Save / update current named map' },
+                    { keys: ['Ctrl+Shift+L'], desc: 'Open map library / load saved map' }
+                ]
+            },
+            portals: {
+                id: 'portals',
+                title: 'Portals & World Objects',
+                icon: '🌀',
+                panel: 'dev',
+                items: [
+                    { keys: ['8'], desc: 'Toggle PORTAL vs TUNNEL creation mode' },
+                    { keys: ['LMB'], desc: 'Select entry portal point A' },
+                    { keys: ['Ctrl+LMB'], desc: 'Select exit portal target B (not B key!)' },
+                    { keys: ['Shift+Y'], desc: 'Link portal gateway A ↔ B' },
+                    { keys: ['Click Portal Disc'], desc: 'Edit portal settings (one-way toggle, colors)' },
+                    { keys: ['In Flight'], desc: 'Fly within 100u of disc to teleport (drive through to ignore)' },
+                    { keys: ['6'], desc: 'Toggle LOOT cache placement mode' },
+                    { keys: ['Ctrl+LMB (loot)'], desc: 'Place loot cache in tunnel or room' },
+                    { keys: ['Click Cache + V'], desc: 'Configure loot item, quantity, and respawn timer' },
+                    { keys: ['/ (slash)'], desc: 'Toggle LOCKED 3D Ruler/Protractor at current anchor' },
+                    { keys: ['Shift+/'], desc: 'Cycle quadrant for grid-snapped ruler legs' },
+                    { keys: ['Shift+[ / Shift+]'], desc: 'Swing ruler third free-angle leg 5° per step' },
+                    { keys: ['Ctrl+Shift+/'], desc: 'Snap ruler to current cursor / anchor position' }
+                ]
+            },
+            sentries: {
+                id: 'sentries',
+                title: 'AI Sentries & Patrols',
+                icon: '🤖',
+                panel: 'dev',
+                items: [
+                    { keys: ['7'], desc: 'Toggle AI SENTRY placement mode' },
+                    { keys: ['Ctrl+LMB'], desc: 'Place sentry spawn point in tunnel (max 100 per level)' },
+                    { keys: ['Click Sentry'], desc: 'Open sentry inspector (Guard vs Patrol, linger times)' },
+                    { keys: ['Patrol Mode'], desc: 'Click LMB waypoint stagepoints → click spawn to close loop' },
+                    { keys: ['Shift+Drag Sentry'], desc: 'Slide sentry spawn along tunnel centerline' },
+                    { keys: ['Esc'], desc: 'Cancel sentry draft or clear selection' }
+                ]
+            },
+            guides: {
+                id: 'guides',
+                title: 'Builder Procedures & Guides',
+                icon: '📋',
+                panel: 'dev',
+                procedures: [
+                    {
+                        title: 'Normal Tunnel Construction',
+                        steps: 'Select endpoint → set bend plane with Shift+Q/Shift+E → set bend angle with [ or ] → press T or I/K/J/L. Plain Q/E rolls view.'
+                    },
+                    {
+                        title: 'Connecting Two Endpoints (A → B)',
+                        steps: 'LMB sets entry A → Ctrl+LMB sets exit B → optional Shift+Ctrl+LMB sets curve C handle → press Y to build joint.'
+                    },
+                    {
+                        title: 'Branching Tunnels',
+                        steps: 'Select source endpoint → press O or Shift+O to spawn branch stub → select that stub to continue building outward.'
+                    },
+                    {
+                        title: 'Corkscrew / Helix Route Generator',
+                        steps: 'Select endpoint A → press Alt+N → enter diameter, pitch, turns, and axis → preview and adjust → press Y to commit.'
+                    },
+                    {
+                        title: 'Portal Gateways (Instant Teleportation)',
+                        steps: 'Press M for 3D map → press 8 for portal mode → LMB sets entry A → Ctrl+LMB sets exit B → press Shift+Y to link gateway.'
+                    },
+                    {
+                        title: 'Rectangular Rooms',
+                        steps: 'Alt+Shift+LMB range-select 2–5 tunnel segments → press V → set width, height, length, cap styles → click "Make Rectangular Room".'
+                    },
+                    {
+                        title: 'Round Six-Port Junctions',
+                        steps: 'Select one circular section → press V → click "Promote Section to Round Six-Port Junction" → build out any of 6 ports (Back/Forward/Right/Left/Down/Up) with T.'
+                    },
+                    {
+                        title: 'Joint Flush Alignment & Plane Normalization',
+                        steps: 'Alt+Shift+LMB select chain A→B → press V → click "Snap Chain Joints Flush" to weld seams; use "Normalize Selection to Plane" to re-level roll.'
+                    },
+                    {
+                        title: 'Scenic Panorama Textures Across Distance',
+                        steps: 'Range-select tunnel chain → press V → choose "Across distance" (default 1200u span) or "Fit one image" for continuous composition.'
+                    },
+                    {
+                        title: 'Saving and Loading Maps',
+                        steps: 'Ctrl+Shift+S saves/updates map (defaults to current name for quick overwrite) → Ctrl+Shift+L opens local map library to load.'
+                    }
+                ]
+            }
+        };
+
+        // Legacy compatibility arrays
+        const flightCheats = HELP_CATALOG.flight.items.map(x => [x.keys.join(' / '), x.desc]);
+        const combatCheats = HELP_CATALOG.combat.items.map(x => [x.keys.join(' / '), x.desc]);
+        const mapCheats = HELP_CATALOG.map.items.map(x => [x.keys.join(' / '), x.desc]);
+        const builderCheats = HELP_CATALOG.builder.items.map(x => [x.keys.join(' / '), x.desc]);
+        const portalCheats = HELP_CATALOG.portals.items.map(x => [x.keys.join(' / '), x.desc]);
+        const sentryCheats = HELP_CATALOG.sentries.items.map(x => [x.keys.join(' / '), x.desc]);
         const playerActionCheats = [
             ['Click portal disc', 'teleport when within 100u'],
             ['Fly through portal', 'ignore portal without clicking'],
             ['Blue target boxes', 'shoot or fly through for points'],
             ['Red target boxes', 'avoid or shoot before contact'],
             ['Loot caches', 'fly through a cache to add its contents to ship inventory'],
-            ['Buttons', 'click or fly close to activate when added'],
+            ['Buttons', 'click or fly close to activate when added']
         ];
-        const builderProcedures = [
-            'Enter developer mode: press B for build cursor or M for the full 3D map.',
-            'Build a normal tunnel: select an endpoint, set bend plane with Shift+Q/Shift+E, set bend angle with [ or ], then press T or I/K/J/L. Plain Q/E rolls your view, same as in flight.',
-'Ruler/protractor (map mode): / toggles it on at your current anchor point, then it stays LOCKED there — normal clicks (selecting tunnels, orbiting) never move it. Drag its lime crosshair handle to reposition, or Ctrl+Shift+/ to snap it to wherever your anchor/cursor is now. Shift+/ cycles which quadrant its two grid-snapped legs point, Shift+[ / Shift+] swing its third free-angle leg 5deg at a time. Coordinates label every 5th grid tick.',
-            'Create a branch: select the source endpoint, press O or Shift+O, then select that new stub later to continue the branch.',
-            'Connect two tunnel endpoints: LMB sets A, Ctrl+LMB sets B, optional Shift+Ctrl+LMB sets curve handle C, then press Y.',
-            'Create a corkscrew: select endpoint A, press Alt+N, enter diameter/pitch/turns/axis, create the editable preview, inspect or adjust it, then press Y.',
-            'Create a portal: in map mode press 8 for portal mode, LMB sets entry A, Ctrl+LMB sets exit B, then Shift+Y links them.',
-            'Edit textures/ring colors: in 3D map, click the first tunnel section, Alt+Shift+LMB the ending tunnel section, then press V.',
-            'Stretch scenic art across a route: in the V dialog choose Across distance, set Image span (1200u default), and inspect the joint-snapped image lengths before Apply. Use Fit one image for a single composition across the entire selection.',
-            'Delete tunnel sections: select one section or a tunnel range, then press Del/Backspace.',
-            'Edit target boxes: Shift+LMB selects the first box; with a target selection active, Ctrl+Shift+LMB the ending box selects every target along that connected path; then press V.',
-            'Place sentries: press M, then 7 for sentry tools, Ctrl+LMB places a spawn, click a sentry to edit guard or patrol behavior.',
-            'Place loot: press M, then 6, Ctrl+LMB a tunnel or room, click the cache and press V to set its item, quantity, and respawn time.',
-            'Build a room: create and range-select 2-5 detached sections, press V, enter room width/length/height and cap choices, then choose Make Rectangular Room.',
-            'Build a round six-port junction: select one circular tunnel section, press V, choose Promote Section to Round Six-Port Junction, reopen V, choose Build from Back/Forward/Right/Left/Down/Up, then press T. The cube junction remains available separately.',
-            'Fix misaligned sections: Alt+Shift+LMB range-select a touching chain A→B, press V, choose Snap Chain Joints Flush to weld every joint exactly (position + orientation); use Normalize Selection to Plane to re-level roll/twist without moving endpoints.',
-            'Save/load maps: Ctrl+Shift+S defaults to the current map name for quick update/overwrite; Ctrl+Shift+L opens the local map library.',
-            'Clean mistakes: Del deletes selected segment/range, U undoes the last placed segment, G prunes disconnected strays.',
-        ];
-        const mapCheats = [
-            ['Ctrl+H / Alt+M', 'compact help / hide the left panel'],
-            ['Shift+H', 'hide / restore the upper-right HUD map'],
-            ['LMB point', 'select A (no camera jump)'],
-            ['Ctrl+LMB', 'set join target B on edit plane'],
-            ['Shift+Ctrl+LMB', 'set optional bend point C'],
-            ['Dbl-RMB / Alt+LMB', 'snap camera to tunnel'],
-            ['Ctrl+Alt+LMB object', 'set object as tethered orbit anchor'],
-            ['Shift+LMB target', 'toggle one target box in the selection'],
-            ['Shift target, then Ctrl+Shift target', 'start/finish target path selection'],
-            ['V with target(s)', 'edit selected target boxes'],
-            ['9 (number nine)', 'center camera on A, B, or ship'],
-            ['Shift+9', 'place ship at selected A tunnel point'],
-            ['LMB-drag B / C marker', 'move that visible point on the edit plane'],
-            ['Click blue join line', 'edit A/B/C coordinates'],
-            ['LMB endpoint', 'activate build endpoint'],
-            ['LMB tunnel', 'select tunnel section A'],
-            ['Shift+LMB tunnel', 'add/remove one tunnel section'],
-            ['Alt+Shift+LMB tunnel', 'select tunnel range A→B'],
-            ['V', 'texture/rib color selected tunnel range'],
-            ['Alt+T', 'toggle saved map style: textured / TRON wireframe'],
-            ['Del', 'delete selected tunnel range'],
-            ['N', 'start/cancel multi-node spline tunnel draft'],
-            ['Alt+N', 'corkscrew/helix editable route generator'],
-            ['N, then LMB', 'start a draft path and place its R1/R2/... nodes'],
-            ['Shift+N while drafting', 'pause/resume adding spline nodes'],
-            ['U while route active', 'undo the last draft node/handle change'],
-            ['Ctrl+drag R node', 'snap spline node to tunnel/portal'],
-            ['Click draft curve', 'edit that span C handle / angle'],
-            ['Y while drafting', 'build tunnel pieces from the preview path'],
-            ['Alt+Shift empty', 'set free orbit anchor'],
-            ['Drag LMB (empty)', 'orbit view only'],
-            ['Ctrl+Alt+drag', 'tether orbit object'],
-            ['Alt+drag empty', 'orbit around A/B/C/free anchor'],
-            ['Arrows', 'orbit editor camera'],
-            ['W / S', 'pan forward / back'],
-            ['A / D', 'pan left / right'],
-            ['P / R', 'pan up'],
-            ['F', 'pan down'],
-            ['Z / X', 'zoom in / out'],
-            ['Q / E', 'roll camera left / right'],
-            ['0', 'frame whole tunnel'],
-            ['Cube face', 'front/back/left/right/top/bottom view + plane lock'],
-            ['Cube edge/corner', '45° diagonal view; preserve edit plane'],
-            ['XY / YZ / XZ buttons', 'change work plane; preserve camera view'],
-            [', (comma)', 'show / hide active-plane grid'],
-            ['. (period)', 'snap free placed/dragged points to 50u grid; anchors stay on tunnels'],
-            ['\\ (backslash)', 'force current plane; unlocked permits fallback if edge-on'],
-            ['Shift+drag', 'temporarily snap B/C to 50u grid'],
-            ['Gizmo solid X/Y/Z', 'axes lying in selected edit plane'],
-            ['Gizmo dashed axis ⟂', 'world axis normal to selected plane'],
-            ['Near-depth gizmo axis', 'drag mouse vertically; jump protection active'],
-            ['Alt+drag / MMB', 'orbit camera around A/B/C'],
-            ['Mouse wheel', 'zoom map camera'],
-            ['Space', 'leave a cube-face snapped view and resume free orbit'],
-            ['Del', 'delete anchored segment'],
-            ['C', 'cycle selected pipe kind'],
-            ['G', 'prune disconnected strays'],
-            ['Y', 'join tunnel A→B'],
-            ['Shift+Y', 'link portal A→B (no tube)'],
-            ['Click entry/exit disc', 'edit portal / one-way toggle'],
-            ['8', 'toggle PORTAL / TUNNEL mode'],
-            ['7', 'toggle AI SENTRY mode'],
-            ['Ctrl+LMB (sentry)', 'place sentry spawn'],
-            ['Click sentry', 'edit guard/patrol / linger times'],
-            ['Shift+drag sentry', 'move sentry spawn along tunnel'],
-            ['Esc', 'cancel mode or clear selections/draft/orbit anchor'],
-            ['Note', 'point B = Ctrl+LMB, not B key'],
-            ['Coords', 'HUD XYZ in 1 decimal; grid snap = integers @ 50u'],
-            ['Ctrl+Shift+S', 'save/update current named map'],
-            ['Ctrl+Shift+L', 'load saved map'],
-            ['B', 'toggle builder cursor'],
-            ['M', 'return to cockpit']
-        ];
+        const builderProcedures = HELP_CATALOG.guides.procedures.map(x => `${x.title}: ${x.steps}`);
+
+        // State for active category and search filter
+        const helpState = {
+            player: { cat: 'all', query: '' },
+            dev: { cat: 'all', query: '' }
+        };
+
+        function formatKeyBadges(keys) {
+            return keys.map(k => `<kbd class="help-kbd">${k}</kbd>`).join(' <span style="opacity:0.4">/</span> ');
+        }
+
+        function renderModularHelp(containerId, activeCategory, searchQuery, allowedCategoryIds) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const q = (searchQuery || '').trim().toLowerCase();
+            const matchingCategories = [];
+
+            for (const catId of allowedCategoryIds) {
+                const cat = HELP_CATALOG[catId];
+                if (!cat) continue;
+
+                // Category filter check (unless searching)
+                if (!q && activeCategory !== 'all' && activeCategory !== catId) {
+                    continue;
+                }
+
+                if (cat.items) {
+                    let items = cat.items;
+                    if (q) {
+                        items = items.filter(it => {
+                            const matchKey = it.keys.some(k => k.toLowerCase().includes(q));
+                            const matchDesc = it.desc.toLowerCase().includes(q);
+                            return matchKey || matchDesc;
+                        });
+                    }
+                    if (items.length > 0) {
+                        matchingCategories.push({ ...cat, filteredItems: items });
+                    }
+                } else if (cat.procedures) {
+                    let procs = cat.procedures;
+                    if (q) {
+                        procs = procs.filter(p => {
+                            return p.title.toLowerCase().includes(q) || p.steps.toLowerCase().includes(q);
+                        });
+                    }
+                    if (procs.length > 0) {
+                        matchingCategories.push({ ...cat, filteredProcs: procs });
+                    }
+                }
+            }
+
+            if (matchingCategories.length === 0) {
+                container.innerHTML = `<div class="help-empty-state">No matching commands or tools found for "${searchQuery}".</div>`;
+                return;
+            }
+
+            let html = '';
+            for (const cat of matchingCategories) {
+                const count = cat.filteredItems ? cat.filteredItems.length : cat.filteredProcs.length;
+                html += `<div class="help-category-card">`;
+                html += `  <div class="help-card-header">`;
+                html += `    <span>${cat.icon} ${cat.title}</span>`;
+                html += `    <span style="font-size:0.8em; opacity:0.65;">${count}</span>`;
+                html += `  </div>`;
+
+                if (cat.filteredItems) {
+                    html += `  <div class="help-card-body">`;
+                    for (const it of cat.filteredItems) {
+                        html += `    <div class="help-cmd-keys">${formatKeyBadges(it.keys)}</div>`;
+                        html += `    <div class="help-cmd-desc">${it.desc}</div>`;
+                    }
+                    html += `  </div>`;
+                } else if (cat.filteredProcs) {
+                    html += `  <div class="help-accordion-list">`;
+                    for (let idx = 0; idx < cat.filteredProcs.length; idx++) {
+                        const p = cat.filteredProcs[idx];
+                        const autoOpen = q.length > 0 || idx === 0;
+                        html += `    <div class="help-accordion-item ${autoOpen ? 'open' : ''}">`;
+                        html += `      <div class="help-accordion-header">`;
+                        html += `        <span class="help-accordion-title">${p.title}</span>`;
+                        html += `        <span class="help-accordion-icon">▶</span>`;
+                        html += `      </div>`;
+                        html += `      <div class="help-accordion-body">${p.steps}</div>`;
+                        html += `    </div>`;
+                    }
+                    html += `  </div>`;
+                }
+                html += `</div>`;
+            }
+
+            container.innerHTML = html;
+
+            // Wire up accordion header click events
+            const accHeaders = container.querySelectorAll('.help-accordion-header');
+            for (const hdr of accHeaders) {
+                hdr.addEventListener('click', (e) => {
+                    const item = hdr.closest('.help-accordion-item');
+                    if (item) item.classList.toggle('open');
+                });
+            }
+        }
+
+        function initModularHelp() {
+            // 1. Setup Category Pill Buttons
+            document.querySelectorAll('.help-category-bar').forEach(bar => {
+                const targetId = bar.dataset.target;
+                const panelType = targetId.startsWith('player') ? 'player' : 'dev';
+                bar.querySelectorAll('.help-pill').forEach(pill => {
+                    pill.addEventListener('click', () => {
+                        bar.querySelectorAll('.help-pill').forEach(p => p.classList.remove('active'));
+                        pill.classList.add('active');
+                        helpState[panelType].cat = pill.dataset.cat || 'all';
+                        updateCheatsheet(true);
+                    });
+                });
+            });
+
+            // 2. Setup Search Inputs
+            const wireSearch = (inputId, panelType) => {
+                const input = document.getElementById(inputId);
+                if (!input) return;
+                const clearBtn = input.parentElement.querySelector('.help-search-clear');
+
+                input.addEventListener('input', () => {
+                    helpState[panelType].query = input.value;
+                    if (clearBtn) clearBtn.style.display = input.value ? 'block' : 'none';
+                    updateCheatsheet(true);
+                });
+
+                if (clearBtn) {
+                    clearBtn.addEventListener('click', () => {
+                        input.value = '';
+                        helpState[panelType].query = '';
+                        clearBtn.style.display = 'none';
+                        updateCheatsheet(true);
+                        input.focus();
+                    });
+                }
+            };
+
+            wireSearch('player-help-search', 'player');
+            wireSearch('dev-help-search', 'dev');
+        }
 
         function renderCommandRows(container, rows) {
             if (!container) return;
@@ -1056,6 +1429,7 @@
         }
 
         function renderCheatsheetSection(title, rows) {
+            if (!modeCheatsheet) return;
             const titleNode = document.createElement('div');
             titleNode.className = 'hint cheat-title';
             titleNode.textContent = title;
@@ -1073,19 +1447,44 @@
             }
         }
 
-        function updateCheatsheet() {
+        function updateCheatsheet(force = false) {
             const mode = mapView ? 'map' : builderMode ? 'builder' : 'flight';
             const mapIdentity = currentMapStatusText();
-            if (modeCheatsheet.dataset.mode === mode && modeCheatsheet.dataset.mapIdentity === mapIdentity) return;
-            modeCheatsheet.dataset.mode = mode;
-            modeCheatsheet.dataset.mapIdentity = mapIdentity;
-            modeCheatsheet.innerHTML = '';
-            renderBuilderProcedures();
-            renderCommandRows(playerCommandList, flightCheats.slice(0, 9));
-            renderCommandRows(playerActionList, playerActionCheats);
+
+            if (!force && modeCheatsheet?.dataset?.mode === mode && modeCheatsheet?.dataset?.mapIdentity === mapIdentity) {
+                return;
+            }
+            if (modeCheatsheet) {
+                modeCheatsheet.dataset.mode = mode;
+                modeCheatsheet.dataset.mapIdentity = mapIdentity;
+                modeCheatsheet.innerHTML = '';
+            }
+
             if (playerHudPanel) playerHudPanel.classList.toggle('active', mode === 'flight');
             if (developerHudPanel) developerHudPanel.classList.toggle('active', mode !== 'flight');
             if (devModeVal) devModeVal.textContent = `${mode} | MAP: ${mapIdentity}`;
+
+            // Render Modern Modular Help
+            if (mode === 'flight') {
+                renderModularHelp(
+                    'player-modular-help',
+                    helpState.player.cat,
+                    helpState.player.query,
+                    ['flight', 'combat', 'cockpit', 'arcade']
+                );
+            } else {
+                renderModularHelp(
+                    'dev-modular-help',
+                    helpState.dev.cat,
+                    helpState.dev.query,
+                    ['map', 'builder', 'portals', 'sentries', 'guides', 'flight']
+                );
+            }
+
+            // Legacy fallbacks for any external listeners
+            renderBuilderProcedures();
+            renderCommandRows(playerCommandList, flightCheats.slice(0, 9));
+            renderCommandRows(playerActionList, playerActionCheats);
             if (mapView) {
                 renderCheatsheetSection('3D map movement', mapCheats);
                 renderCheatsheetSection('builder tools', builderCheats);
@@ -1101,7 +1500,6 @@
                 renderCheatsheetSection('combat', combatCheats);
             }
         }
-
         /*
          * Ship flight state.
          *
@@ -1425,7 +1823,6 @@
         const MAP_LIBRARY_BUNDLE_VERSION = 1;
         const MAP_DATA_BOOTSTRAP_FILES = [
             'data/map_library_bundle.json',
-            'data/map_library.json',
             'data/gullet-maze-library.json'
         ];
         const TUNNEL_DEFAULT_RADIUS = 120;
@@ -2416,7 +2813,7 @@
         const TUNNEL_WEBGL_BOOST_SCROLL_RATE = 0.006;
         const TUNNEL_WEBGL_ZERO_DRAW_FALLBACK_FRAMES = 45;
         const TUNNEL_WEBGL_BLANK_SAMPLE_INTERVAL = 20;
-        const TUNNEL_WEBGL_BLANK_FALLBACK_SAMPLES = 3;
+        const TUNNEL_WEBGL_BLANK_FALLBACK_SAMPLES = 10;
         const TUNNEL_WEBGL_BLANK_CHANNEL_MIN = 18;
         const TUNNEL_WEBGL_MESH_CACHE_MAX = 96;
         const TUNNEL_SWEEP_MIN_TURN_RAD = 7 * Math.PI / 180;
@@ -4412,7 +4809,8 @@
             // its black clear color behind the 2D rib overlay.
             const sampleFractions = [
                 [0.20, 0.20], [0.50, 0.16], [0.80, 0.20], [0.84, 0.50],
-                [0.80, 0.80], [0.50, 0.84], [0.20, 0.80], [0.16, 0.50]
+                [0.80, 0.80], [0.50, 0.84], [0.20, 0.80], [0.16, 0.50],
+                [0.35, 0.35], [0.65, 0.35], [0.65, 0.65], [0.35, 0.65]
             ];
             const pixel = new Uint8Array(4);
             let visibleSamples = 0;
@@ -5198,7 +5596,7 @@
                 tunnelWebGL.lastBlankFrameSample = renderFrameCounter;
                 if (webglFrameHasVisibleTunnelSurface(gl)) {
                     tunnelWebGL.blankFrameSamples = 0;
-                } else {
+                } else if (tunnelWebGL.textureLoading.size === 0) {
                     tunnelWebGL.blankFrameSamples += 1;
                     if (tunnelWebGL.blankFrameSamples >= TUNNEL_WEBGL_BLANK_FALLBACK_SAMPLES) {
                         console.warn(
@@ -10040,10 +10438,8 @@
 
         function isDialogInputTarget(el) {
             return !!el?.closest?.(
-                '#join-edit-dialog input, #join-edit-dialog textarea, #join-edit-dialog select, ' +
-                '#map-library-dialog input, #map-library-dialog textarea, #map-library-dialog select, ' +
-                '#game-over-overlay input, #game-over-overlay textarea, #game-over-overlay select, ' +
-                '#pilot-start-overlay input, #pilot-start-overlay textarea, #pilot-start-overlay select'
+                'input, textarea, select, ' +
+                '#join-edit-dialog, #map-library-dialog, #game-over-overlay, #pilot-start-overlay'
             );
         }
 
@@ -10518,9 +10914,20 @@
             const physicalKey = normalizeKey(e);
             if (isDialogInputTarget(e.target)) {
                 const dialogKey = normalizeKey(e);
-                if (dialogKey === 'escape' && isJoinEditDialogOpen()) {
-                    closeJoinEditDialog();
-                    e.preventDefault();
+                if (dialogKey === 'escape') {
+                    if (e.target?.classList?.contains('help-search-input')) {
+                        e.target.value = '';
+                        e.target.dispatchEvent(new Event('input'));
+                        e.target.blur();
+                        focusGameSurface();
+                        e.preventDefault();
+                        return;
+                    }
+                    if (isJoinEditDialogOpen()) {
+                        closeJoinEditDialog();
+                        e.preventDefault();
+                        return;
+                    }
                 }
                 return;
             }
@@ -13248,7 +13655,11 @@
         }
 
         function saveMapLibrary(library) {
-            localStorage.setItem(TUNNEL_MAP_LIBRARY_KEY, JSON.stringify(library));
+            try {
+                localStorage.setItem(TUNNEL_MAP_LIBRARY_KEY, JSON.stringify(library));
+            } catch (err) {
+                console.warn('Astral Drift: failed to save map library index:', err);
+            }
         }
 
         function downloadJsonFile(filename, data) {
@@ -13297,9 +13708,15 @@
             }
 
             const namedMaps = bundle.namedMaps && typeof bundle.namedMaps === 'object' ? bundle.namedMaps : {};
+            const successfullyStoredMapIds = new Set();
             for (const [id, mapData] of Object.entries(namedMaps)) {
                 if (mapData?.segments?.length) {
-                    localStorage.setItem(namedMapKey(id), JSON.stringify(mapData));
+                    try {
+                        localStorage.setItem(namedMapKey(id), JSON.stringify(mapData));
+                        successfullyStoredMapIds.add(id);
+                    } catch (err) {
+                        console.warn(`Astral Drift: skipped saving map "${id}" due to storage limit:`, err);
+                    }
                 }
             }
 
@@ -13307,7 +13724,9 @@
             const byId = new Map(library.map(entry => [entry.id, entry]));
             for (const entry of Array.isArray(bundle.library) ? bundle.library : []) {
                 if (!entry?.id || !namedMaps[entry.id]) continue;
-                byId.set(entry.id, entry);
+                if (successfullyStoredMapIds.has(entry.id) || localStorage.getItem(namedMapKey(entry.id))) {
+                    byId.set(entry.id, entry);
+                }
             }
             library = [...byId.values()].sort(
                 (a, b) => new Date(b.savedAt || 0) - new Date(a.savedAt || 0)
@@ -13315,7 +13734,11 @@
             saveMapLibrary(library);
 
             if (applyAutosave && bundle.autosave?.segments?.length) {
-                localStorage.setItem(TUNNEL_MAP_STORAGE_KEY, JSON.stringify(bundle.autosave));
+                try {
+                    localStorage.setItem(TUNNEL_MAP_STORAGE_KEY, JSON.stringify(bundle.autosave));
+                } catch (err) {
+                    console.warn('Astral Drift: failed to save autosave map:', err);
+                }
             }
 
             return { ok: true, maps: library.length, autosave: applyAutosave && !!bundle.autosave };
@@ -30372,7 +30795,8 @@
                 containShipInTunnel();
                 snapShipToTunnelCenterline(false);
             }
-            updateCheatsheet();
+            initModularHelp();
+        updateCheatsheet();
             updateRocketHud();
             showPilotStart(false);
             renderEngineLoop();

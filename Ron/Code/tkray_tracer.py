@@ -133,18 +133,22 @@ class LiveRayTraceViewer(ToolView):
         self.current_transformed_image = None
         self.live_photo = None   
         self.image_stack = []    
-       
+        self.stack_desc = []
+        self.stack_cnt = 0
         self.form = self.add_form("Ray-Tracer Settings", parent=self)
         self.form.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
-        
+        self.last_rotation_value = self.rotation
+        self.rotation_timer_id = None
         self.setup_menus()
 
         self.form.add_dropdown("aspratio", "Aspect Ratio", ["16/9", "16/10", "21/9", "4/3", "5/4", "None/None"], default="None/None", on_change=self.aspratio_auto_calc)
         
         spin_w = self.form.add_number("width", "Width (px)", min_val=100, max_val=8192, default=600, step=16)
         spin_w.bind("<Return>", self.resizedw_auto_calc)
+        spin_w.bind("<FocusOut>", self.resizedw_auto_calc)
         spin_h = self.form.add_number("height", "Height (px)", min_val=100, max_val=8192, default=600, step=16)
         spin_h.bind("<Return>", self.resizedh_auto_calc)
+        spin_h.bind("<FocusOut>", self.resizedh_auto_calc)
 
         # Book Selection
         self.form.add_dropdown(
@@ -181,10 +185,12 @@ class LiveRayTraceViewer(ToolView):
     def setup_menus(self):
         # 1. FILE MENU (Fluent Chained Style)
         file_menu = self.menu("File")
-        file_menu.add_command("Save Rendered Image 💾", self.on_save_image, shortcut="Ctrl+S")
+        file_menu.add_command(label="Save Rendered Image 💾 <Ctrl-s>", command=self.on_save_image)
+        self.bind_all("<Control-s>", self.on_save_image)
         file_menu.add_separator()
-        file_menu.add_item("Exit Application", self.app.root.quit, shortcut="Alt+F4")
-
+        file_menu.add_item("Exit Application <Alt-F4>", command=self.app.root.quit)
+        self.bind_all("<Alt-F4>", self.app.root.quit)
+        self.bind_all("<Control-p>", self.app.root.quit)
         # 3. VIEW MENU (With Toggle Checkboxes and Radio Groups)
         view_menu = self.menu("View")
         self.blur_var = view_menu.add_toggle("Blur", default=False, on_toggle=self.blur_auto_calc)
@@ -192,12 +198,119 @@ class LiveRayTraceViewer(ToolView):
         self.smooth_var = view_menu.add_toggle("Smooth", default=False, on_toggle=self.smooth_auto_calc)
         self.sharpen_var = view_menu.add_toggle("Sharpen", default=False, on_toggle=self.sharpen_auto_calc)
 
-        tools_menu = self.menu("Tools")
-        tools_menu.add_command("Image Adjustments 🎨", self.open_adjustments_window, shortcut="Ctrl+A")
-        tools_menu.add_command("Crop Image", self.crop_window, shortcut="Ctrl-B")
+        tools_menu = self.menu("Edit")
+        tools_menu.add_command(label="Image Adjustments 🎨 <Ctrl-a>", command=self.open_adjustments_window)
+        self.bind_all("<Control-a>", self.open_adjustments_window)
+        tools_menu.add_command(label="Crop Image <Ctrl-b>", command=self.crop_window)
+        self.bind_all("<Control-b>", self.crop_window)
+        tm3 = tools_menu.add_command(label=f"Undu ({len(self.image_stack)}) <Ctrl-z>", command=self.stack_pop)
+        self.bind_all("<Control-z>", self.stack_pop)
+        
+    def open_adjustments_window(self, event=None):
+        # If the window is already open, just bring it to the front
+        if getattr(self, "adjustments_win", None) and self.adjustments_win.winfo_exists():
+            self.adjustments_win.lift()
+            self.adjustments_win.focus_force()
+            return
 
-    def crop_window(self):
- #       breakpoint()
+        # 1. Create a floating Toplevel window
+        win = tk.Toplevel(self.app.root)
+        win.title("Image Adjustments")
+        win.geometry("360x520")
+        self.adjustments_win = win
+
+        # 2. Put a FormPanel inside the floating window
+        adj_form = self.add_form("Live Adjustments", parent=win)
+        adj_form.pack(fill="both", expand=True, padx=8, pady=8)
+
+        # 3. Add your sliders (hooked straight to your update callbacks)
+        adj_form.add_slider(
+            "rotation", "Rotate (°)", min_val=0, max_val=360, step=1,
+            default=self.rotation
+        )
+ #       adj_r.bind("<Return>", self.on_rotation_change)
+ #       adj_r.bind("<FocusOut>", self.on_rotation_change)
+   
+        adj_form.add_slider(
+            "contrast", "Contrast", min_val=0.1, max_val=4.0, step=0.1,
+            default=self.contrast
+        )
+ #       adj_s.bind("<Return>", self.on_contrast_change)
+ #       adj_s.bind("<FocusOut>", self.on_contrast_change)
+               
+        adj_form.add_slider(
+            "color", "Color", min_val=0.1, max_val=1.0, step=0.1,
+            default=self.color
+        )
+ #       adj_c.bind("<Return>", self.on_color_change)
+ #       adj_c.bind("<FocusOut>", self.on_color_change)
+        
+        adj_form.add_slider(
+            "brightness", "Brightness", min_val=0.1, max_val=1.0, step=0.1,
+            default=self.brightness, on_change=self.on_brightness_change
+        )
+        adj_form.add_slider(
+            "sharpness", "Sharpness", min_val=0.1, max_val=2.0, step=0.1,
+            default=self.sharpness, on_change=self.on_sharpness_change
+        )
+        adj_form.add_slider(
+            "scalefac", "Scale Factor", min_val=0.1, max_val=10.0, step=0.1,
+            default=self.scale_fac, on_change=self.on_scale_change
+        )
+
+    def apply_ui_zoom(self, x0, y0, x1, y1):
+        # 1. Store your current full-sized image in your history stack
+        img2 = self.get_cur_img()
+        self.stack_add(img2, "Zoom")
+ #       self.zoom_history_stack.append(self.current_full_image)
+        img = img2.copy()
+        # 2. Slice out the region using Pillow
+        cropped_slice = img.crop((x0, y0, x1, y1))
+    
+        # 3. GET DYNAMIC VALUES: Ask Tkinter for the exact width and height 
+        # that your layout engine has assigned to the frame right now
+        panel_width = self.canvas_frame.winfo_width()
+        panel_height = self.canvas_frame.winfo_height()
+    
+        # 4. Resize the crop to perfectly fill the frame's relative space
+        zoomed_view = cropped_slice.resize((panel_width, panel_height))
+    
+        # 5. Display the zoomed image on your label
+        photo = ImageTk.PhotoImage(zoomed_view)
+        self.live_photo = photo  # Prevent garbage collection
+        self.img_label.config(image=self.live_photo)
+
+ 
+    def stack_pop(self,event=None):
+        if self.stack_cnt:
+            tmpimg = self.image_stack.pop()
+            tmpdesc = self.stack_desc.pop()
+            self.stack_cnt -= 1
+            messagebox.showinfo("Undu", f"removing ({tmpdesc}), there are now  ({self.stack_cnt}) Undus left.")
+            photo = ImageTk.PhotoImage(tmpimg)
+            self.live_photo = photo
+            self.img_label.config(image=self.live_photo, text="")
+            self.source_image = tmpimg
+        else:
+            messagebox.showinfo("Undu", f"There are ({self.stack_cnt}) Undus left.")
+            return
+        return(tmpimg, tmpdesc)
+    
+    def stack_add(self, img, reason="Generic"):
+        self.image_stack.append(img)
+        self.stack_desc.append(reason)
+        self.stack_cnt += 1
+
+    def get_cur_img(self):
+        if self.current_transformed_image is not None:
+            img = self.current_transformed_image
+        elif self.source_image is not None:
+            img = self.source_image.copy()
+        elif self.rendered_pixels:
+            img = self.buffer_to_img(self.rendered_pixels)
+        return(img.copy())
+                
+    def crop_window(self, event=None):
         self.update_live_preview()
          # 1. Start from clean RAM copy
         if self.source_image is not None:
@@ -209,11 +322,12 @@ class LiveRayTraceViewer(ToolView):
             sys.exit(1)
         photo = ImageTk.PhotoImage(img)
         self.live_photo = photo
-        self.image_stack.append(self)
-#        if self.setup_image_workspace(self.live_photo, self.right_box):
-        if self.setup_image_workspace(self.live_photo):
-            pass
-        
+        self.img_label.config(image=self.live_photo, text="")
+        img2 = self.get_cur_img()
+        self.stack_add(img2, "Cropped")
+        results =  self.setup_image_workspace(self.live_photo)
+        sys.stderr.write(f'setup_image_workspace returned: {results}')
+ 
     def _on_book_changed(self, selected_book: str):
         config = BOOK_BINARIES.get(selected_book, {})
         has_scenes = config.get("has_scenes", False)
@@ -242,8 +356,13 @@ class LiveRayTraceViewer(ToolView):
         values = self.form.get_values()
         self.image_width = int(values.get("width", self.current_width))
         self.image_height = int(values.get("height", self.current_height))
-
+#        breakpoint()
         # 1. Start from clean RAM copy
+        try:
+            if self.current_transformed_image is not None:
+                img - self.current_transformed_image
+        except:
+            print(f"Eror opening {self.current_transformed_image}")
         if self.source_image is not None:
             img = self.source_image.copy()
         elif self.rendered_pixels:
@@ -440,7 +559,7 @@ class LiveRayTraceViewer(ToolView):
                 pass
             self.set_status("⏹ Render stopped by user.")
 
-    def on_save_image(self, values: dict = None):
+    def on_save_image(self,  event=None):
         img = self.current_transformed_image
         if img is None and self.rendered_pixels:
             img = self.buffer_to_img(self.rendered_pixels)
@@ -487,21 +606,29 @@ class LiveRayTraceViewer(ToolView):
     def blur_auto_calc(self, state=None):
         if state is not None:
             self.blur = bool(state)
+            img = self.get_cur_img()
+            self.stack_add(img, "blur")
         self.update_live_preview()
 
     def contour_auto_calc(self, state=None):
         if state is not None:
             self.contour = bool(state)
+            img = self.get_cur_img()
+            self.stack_add(img, "contour")
         self.update_live_preview()
 
     def smooth_auto_calc(self, state=None):
         if state is not None:
             self.smooth = bool(state)
+            img = self.get_cur_img()
+            self.stack_add(img, "smooth")
         self.update_live_preview()
 
     def sharpen_auto_calc(self, state=None):
         if state is not None:
             self.sharpen = bool(state)
+            img = self.get_cur_img()
+            self.stack_add(img, "sharpen")
         self.update_live_preview()
 
     def scaled_auto_calc(self, _=None):
@@ -509,6 +636,8 @@ class LiveRayTraceViewer(ToolView):
         self.scale_fac = min(10.0, max(0.1, float(values.get("scalefac", 1.0))))
         self.is_scaled = True
         self.is_resized = False
+        img = self.get_cur_img()
+        self.stack_add(img, "scaled")
         self.update_live_preview()
 
     def resizedw_auto_calc(self, _=None):
@@ -527,6 +656,8 @@ class LiveRayTraceViewer(ToolView):
                     pass
         self.is_resized = True
         self.is_scaled = False
+        img = self.get_cur_img()
+        self.stack_add(img, "resized")
         self.update_live_preview()
 
     def resizedh_auto_calc(self, _=None):
@@ -545,6 +676,8 @@ class LiveRayTraceViewer(ToolView):
                     pass
         self.is_resized = True
         self.is_scaled = False
+        img = self.get_cur_img()
+        self.stack_add(img, "resized")
         self.update_live_preview()
 
     def aspratio_auto_calc(self, _=None):
@@ -554,32 +687,70 @@ class LiveRayTraceViewer(ToolView):
             self.resizedw_auto_calc()
         else:
             self.update_live_preview()
+        img = self.get_cur_img()
+        self.stack_add(img, "asp ratio")
 
     def on_rotation_change(self, val):
-        self.rotation = float(val)
+        if self.rotation_timer_id is not None:
+            self.afer_cancel(self.roation_timer_id)
+        self.rotaion_timer_id = self.after(300, lambda: self.finalize_rot_stack(val))
+  
+    def finalize_rot_stack(self, finval):
+        self.rotation_timer_id == None
+        if float(finval) == self.rotation:
+            return
+        self.rotation = float(finval)
         self.update_live_preview()
-
+        img = self.get_cur_img()
+        self.stack_add(img, "rotation")
+        
     def on_contrast_change(self, val):
+        if self.contrast_timer_id is not None:
+            self.afer_cancel(self.contrast_timer_id)
+        self.contrast_timer_id = self.after(300, lambda: self.finalize_cont_stack(val))
+        
+    def finalize_cont_stack(self, val):
+        if self.contrast_timer_id is not None:
+            self.afer_cancel(self.contrast_timer_id)
+        self.contrast_timer_id = self.after(300, lambda: self.finalize_cont_stack(val))
+             
+        self.contrast_color_id == None
+        if float(val) == self.contrast:
+            return    
         self.contrast = float(val)
         self.update_live_preview()
-
+        img = self.get_cur_img()
+        self.stack_add(img, "contrast")
+                 
     def on_color_change(self, val):
+        if self.contrast_timer_id is not None:
+            self.afer_cancel(self.contrast_timer_id)
+        self.contrast_timer_id = self.after(300, lambda: self.finalize_cont_stack(val))
+        
+        
         self.color = float(val)
         self.update_live_preview()
-
+        img = self.get_cur_img()
+        self.stack_add(img, "color")
+        
     def on_brightness_change(self, val):
         self.brightness = float(val)
         self.update_live_preview()
-
+        img = self.get_cur_img()
+        self.stack_add(img, "brightness")
+        
     def on_sharpness_change(self, val):
         self.sharpness = float(val)
         self.update_live_preview()
-
+        img = self.get_cur_img()
+        self.stack_add(img, "sharness")
+        
     def on_scale_change(self, val):
         self.scale_fac = float(val)
         self.is_scaled = True
         self.update_live_preview()
-
+        img = self.get_cur_img()
+        self.stack_add(img, "scaled")
 
     def setup_image_workspace(self, image, target_frame=None):
         display_frame = target_frame if target_frame is not None else self.canvas_frame
@@ -609,7 +780,6 @@ class LiveRayTraceViewer(ToolView):
 
         # 3. Main project handler (This is where your crop/zoom/buffer logic goes)
         def handle_selection(x0, y0, x1, y1):
-            print(f"Crop selection received: {x0, y0, x1, y1}")
             overlay_canvas.destroy()
        
             if not self.current_transformed_image:
@@ -631,50 +801,6 @@ class LiveRayTraceViewer(ToolView):
 
         # 4. Inject the selection tool seamlessly
         CanvasSelector(overlay_canvas, callback=handle_selection)
-
-
-    def open_adjustments_window(self):
-        # If the window is already open, just bring it to the front
-        if getattr(self, "adjustments_win", None) and self.adjustments_win.winfo_exists():
-            self.adjustments_win.lift()
-            self.adjustments_win.focus_force()
-            return
-
-        # 1. Create a floating Toplevel window
-        win = tk.Toplevel(self.app.root)
-        win.title("Image Adjustments")
-        win.geometry("360x520")
-        self.adjustments_win = win
-
-        # 2. Put a FormPanel inside the floating window
-        adj_form = self.add_form("Live Adjustments", parent=win)
-        adj_form.pack(fill="both", expand=True, padx=8, pady=8)
-
-        # 3. Add your sliders (hooked straight to your update callbacks)
-        adj_form.add_slider(
-            "rotation", "Rotate (°)", min_val=0, max_val=360, step=1,
-            default=self.rotation, on_change=self.on_rotation_change
-        )
-        adj_form.add_slider(
-            "contrast", "Contrast", min_val=0.1, max_val=4.0, step=0.1,
-            default=self.contrast, on_change=self.on_contrast_change
-        )
-        adj_form.add_slider(
-        "color", "Color", min_val=0.1, max_val=1.0, step=0.1,
-            default=self.color, on_change=self.on_color_change
-        )
-        adj_form.add_slider(
-            "brightness", "Brightness", min_val=0.1, max_val=1.0, step=0.1,
-            default=self.brightness, on_change=self.on_brightness_change
-        )
-        adj_form.add_slider(
-            "sharpness", "Sharpness", min_val=0.1, max_val=2.0, step=0.1,
-            default=self.sharpness, on_change=self.on_sharpness_change
-        )
-        adj_form.add_slider(
-            "scalefac", "Scale Factor", min_val=0.1, max_val=10.0, step=0.1,
-            default=self.scale_fac, on_change=self.on_scale_change
-        )
 
 if __name__ == "__main__":
     app = QuickApp(title="Progressive Ray-Tracer Studio", size=(1050, 960))

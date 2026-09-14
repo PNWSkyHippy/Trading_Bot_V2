@@ -1425,7 +1425,6 @@
         const MAP_LIBRARY_BUNDLE_VERSION = 1;
         const MAP_DATA_BOOTSTRAP_FILES = [
             'data/map_library_bundle.json',
-            'data/map_library.json',
             'data/gullet-maze-library.json'
         ];
         const TUNNEL_DEFAULT_RADIUS = 120;
@@ -2416,7 +2415,7 @@
         const TUNNEL_WEBGL_BOOST_SCROLL_RATE = 0.006;
         const TUNNEL_WEBGL_ZERO_DRAW_FALLBACK_FRAMES = 45;
         const TUNNEL_WEBGL_BLANK_SAMPLE_INTERVAL = 20;
-        const TUNNEL_WEBGL_BLANK_FALLBACK_SAMPLES = 3;
+        const TUNNEL_WEBGL_BLANK_FALLBACK_SAMPLES = 10;
         const TUNNEL_WEBGL_BLANK_CHANNEL_MIN = 18;
         const TUNNEL_WEBGL_MESH_CACHE_MAX = 96;
         const TUNNEL_SWEEP_MIN_TURN_RAD = 7 * Math.PI / 180;
@@ -4412,7 +4411,8 @@
             // its black clear color behind the 2D rib overlay.
             const sampleFractions = [
                 [0.20, 0.20], [0.50, 0.16], [0.80, 0.20], [0.84, 0.50],
-                [0.80, 0.80], [0.50, 0.84], [0.20, 0.80], [0.16, 0.50]
+                [0.80, 0.80], [0.50, 0.84], [0.20, 0.80], [0.16, 0.50],
+                [0.35, 0.35], [0.65, 0.35], [0.65, 0.65], [0.35, 0.65]
             ];
             const pixel = new Uint8Array(4);
             let visibleSamples = 0;
@@ -5198,7 +5198,7 @@
                 tunnelWebGL.lastBlankFrameSample = renderFrameCounter;
                 if (webglFrameHasVisibleTunnelSurface(gl)) {
                     tunnelWebGL.blankFrameSamples = 0;
-                } else {
+                } else if (tunnelWebGL.textureLoading.size === 0) {
                     tunnelWebGL.blankFrameSamples += 1;
                     if (tunnelWebGL.blankFrameSamples >= TUNNEL_WEBGL_BLANK_FALLBACK_SAMPLES) {
                         console.warn(
@@ -13248,7 +13248,11 @@
         }
 
         function saveMapLibrary(library) {
-            localStorage.setItem(TUNNEL_MAP_LIBRARY_KEY, JSON.stringify(library));
+            try {
+                localStorage.setItem(TUNNEL_MAP_LIBRARY_KEY, JSON.stringify(library));
+            } catch (err) {
+                console.warn('Astral Drift: failed to save map library index:', err);
+            }
         }
 
         function downloadJsonFile(filename, data) {
@@ -13297,9 +13301,15 @@
             }
 
             const namedMaps = bundle.namedMaps && typeof bundle.namedMaps === 'object' ? bundle.namedMaps : {};
+            const successfullyStoredMapIds = new Set();
             for (const [id, mapData] of Object.entries(namedMaps)) {
                 if (mapData?.segments?.length) {
-                    localStorage.setItem(namedMapKey(id), JSON.stringify(mapData));
+                    try {
+                        localStorage.setItem(namedMapKey(id), JSON.stringify(mapData));
+                        successfullyStoredMapIds.add(id);
+                    } catch (err) {
+                        console.warn(`Astral Drift: skipped saving map "${id}" due to storage limit:`, err);
+                    }
                 }
             }
 
@@ -13307,7 +13317,9 @@
             const byId = new Map(library.map(entry => [entry.id, entry]));
             for (const entry of Array.isArray(bundle.library) ? bundle.library : []) {
                 if (!entry?.id || !namedMaps[entry.id]) continue;
-                byId.set(entry.id, entry);
+                if (successfullyStoredMapIds.has(entry.id) || localStorage.getItem(namedMapKey(entry.id))) {
+                    byId.set(entry.id, entry);
+                }
             }
             library = [...byId.values()].sort(
                 (a, b) => new Date(b.savedAt || 0) - new Date(a.savedAt || 0)
@@ -13315,7 +13327,11 @@
             saveMapLibrary(library);
 
             if (applyAutosave && bundle.autosave?.segments?.length) {
-                localStorage.setItem(TUNNEL_MAP_STORAGE_KEY, JSON.stringify(bundle.autosave));
+                try {
+                    localStorage.setItem(TUNNEL_MAP_STORAGE_KEY, JSON.stringify(bundle.autosave));
+                } catch (err) {
+                    console.warn('Astral Drift: failed to save autosave map:', err);
+                }
             }
 
             return { ok: true, maps: library.length, autosave: applyAutosave && !!bundle.autosave };
