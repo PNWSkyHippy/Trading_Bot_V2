@@ -4,6 +4,19 @@
 
 ## Update Timeline (newest first)
 
+### 2026-09-15 — Defender 3D Authentic 1981 Arcade Overhaul & Visual Scaling
+
+- **Orientation & Horizon Fix**: Rebuilt basis initialization in `startDefenderPhase` with right-handed basis (`shipForward = (1, 0, 0)`, `shipRight = (0, 0, -1)`, `shipDown = (0, 1, 0)`) so the player spawns upright with the planetary surface grid clearly visible in the lower windshield. Added artificial ground horizon telemetry (`▼ PLANET SURFACE: Xm BELOW ▼`).
+- **15 Ground Astronauts**: Initialized 15 humanoids spread evenly along the 7,000-unit toroidal planetary terrain ($X \in [-3500, +3500]$), tracked with live status dots on the top radar scanner.
+- **Visual Scaling ("Small & Distant" Fix)**: Increased base sizes by 2.2x–2.5x and clamped minimum screen sizes to `Math.max(16-22px)` so distant hostiles never become imperceptible specks. Added glowing vector halos and HUD targeting brackets.
+- **Towering Beacon Tractor Beams**: Abducting Landers project multi-layer glowing cyan energy pillars with ascending animated chevron rings and planetary surface illumination circles.
+- **Tactical Off-Screen Threat Chevrons**: Added edge HUD indicators (`◄◄ ABDUCTION 1.4km` / `►► BERSERKER 800m`) pointing towards threats anywhere around the 360° toroidal arena.
+- **Nearest Hostile Nav Compass**: Added HUD targeting guide (`TARGETING: [TYPE] [DIST]m [TURN LEFT/RIGHT]`) to prevent endless wandering when clearing waves.
+- **Procedural WebAudio Synthesizers**: Modulated 28Hz sawtooth bee buzzer during abductions, and chaotic 14Hz sweeping siren when Berserker Mutants are active, with clean decay and disconnect on exit.
+- **On-Screen Frustum Smart Bombs (`B`)**: 3 starting bombs; detonating checks camera frustum projection to vaporize visible targets only, safely dropping abductees on-screen into free-fall.
+- **Free-Fall Rescue & Splat Mechanics**: Mid-air catch awards +500 pts; surface landing awards +500 pts; uncaught astronauts splat violently on impact with red suit debris and crunch audio.
+- **Hostile Atmosphere Clamping & Kamikaze Destruction**: All hostiles (Landers, Mutants, Bombers, Pods, Swarmers, Baiters) are strictly clamped in altitude to prevent drifting into space. Baiters and Swarmers detonate upon player collision.
+
 ### 2026-09-08 — Defender 3D Arcade Stage (Bonus 3) & Instant 180° Reverse Flip
 
 - Added `defenderPhase` (toggle with `Alt+D` or `Ctrl+Shift+D`): 1st-person 6DOF open-space Defender arcade prototype featuring seamless horizontal toroidal wrapping ($X \in [-3500, +3500]$), starfield, and procedural planetary surface ridge.
@@ -544,7 +557,7 @@ Spy-vs-Spy gadgets:
 Modular In-Game Help & Cheatsheet Architecture:
 
 - Master Catalog: Defined in `HELP_CATALOG` with 9 modular categories:
-  - `flight`: Flight thrusters, strafe, roll, boost (`Shift`), AutoCruise (`Tab`), instant 180° flip (`C` / `Space`), recover (`0`), level (`K`).
+  - `flight`: Flight thrusters, strafe, roll, boost (`Shift`), AutoCruise (`Tab`), Speed Brake / Tokyo Drift (`Space`), instant 180° flip (`C` / `Z`), recover (`0`), level (`K`).
   - `combat`: Primary lasers (`V` / `RMB`), rockets (`X`), target boxes, sentry mechanics.
   - `cockpit`: Mouse steering (`~`), inventory (`I`), snap views (`1-6`), map plane (`H`), panel toggles (`Ctrl+H`, `Alt+M`).
   - `arcade`: Defender Bonus Stage (`Alt+D`), Smart Bomb (`B`), astronaut rescue, Galaga (`Ctrl+Shift+G`), Gullet maze (`Alt+P`).
@@ -557,3 +570,13 @@ Modular In-Game Help & Cheatsheet Architecture:
 - Live Search: `.help-search-input` performs real-time substring search on keys and descriptions across categories; isolated from flight controls via `isDialogInputTarget()`. Pressing `Escape` clears and blurs the search input, returning focus to the canvas.
 - Display Modes: Hides cleanly under `body.hud-mode-min` (vitals only) and `body.hud-mode-hidden`.
 - Backwards Compatibility: Populates legacy `flightCheats`, `mapCheats`, `builderCheats`, `builderProcedures`, `#mode-cheatsheet`, `#player-command-list`, and `#player-action-list`.
+
+Speed Brake & Tokyo Drift Flight Dynamics:
+
+- Keybinding: `Spacebar` (Hold) in flight.
+- Heading Decoupling: While `Space` is held, heading decouples from velocity vector, setting `shipDriftActive = true` and arming `driftSlingshotArmed = true`.
+- Turn Agility Multiplier: `driftTurnMult = 1.40` increases pitch, yaw, and roll sensitivity by 40% to rapidly align the nose with the corner apex.
+- Airbrake Retro-Drag: Directional retro-drag (`Math.pow(0.975, frameScale)`) smoothly decelerates forward speed while preserving lateral drift momentum.
+- HUD Drift Feedback: Displays `'DRIFT BRAKE // TOKYO DRIFT'` when the velocity vector diverges from the nose heading (`dot < 0.82`), or `'SPEED BRAKE // AIRBRAKE'` when braking along the forward axis.
+- Slingshot Acceleration: Releasing `Spacebar` and reapplying forward thrust (`W`) or Boost (`Shift`) applies a 1.35x–1.55x slingshot acceleration bite until velocity realigns with the new heading.
+- Reverse Flip Independence: `C` and `Z` remain dedicated to the instant 180° reverse flip.

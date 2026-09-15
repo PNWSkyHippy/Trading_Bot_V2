@@ -1050,8 +1050,9 @@
                     { keys: ['Arrows'], desc: 'Pitch up/down and yaw left/right' },
                     { keys: ['Q', 'E'], desc: 'Bank roll left / right' },
                     { keys: ['Shift'], desc: 'Boost / afterburner' },
+                    { keys: ['Space'], desc: 'Hold for Speed Brake / Tokyo Drift cornering' },
                     { keys: ['Tab', ';'], desc: 'Toggle AutoBoost / AutoCruise' },
-                    { keys: ['C', 'Space'], desc: 'Instant 180° reverse flip (also Z, Shift+S)' },
+                    { keys: ['C', 'Z'], desc: 'Instant 180° reverse flip (also Shift+S)' },
                     { keys: ['0'], desc: 'Recover ship to nearest tunnel centerline' },
                     { keys: ['K'], desc: 'Reset cockpit controls & level orientation' },
                     { keys: ['R'], desc: 'Respawn with life / continue after destruction' }
@@ -1527,6 +1528,7 @@
         let tunnelCoreLatY = 0;
         let shipVelocity = { x: 0, y: 0, z: 0 };
         let shipDriftActive = false;
+        let driftSlingshotArmed = false;
         let lastThrustVector = { x: 0, y: 0, z: 0 };
         let lastForwardAmount = 0;
         let boostingForward = false;
@@ -9067,22 +9069,22 @@
             DEPTH_MIN: -650,
             DEPTH_MAX: 650,
             HIT_R: {
-                LANDER: 40,
-                MUTANT: 32,
-                BOMBER: 52,
-                MINE: 24,
-                POD: 50,
-                SWARMER: 22,
-                BAITER: 28,
-                HUMANOID: 32,
-                BULLET: 28,
+                LANDER: 55,
+                MUTANT: 48,
+                BOMBER: 68,
+                MINE: 30,
+                POD: 65,
+                SWARMER: 34,
+                BAITER: 44,
+                HUMANOID: 48,
+                BULLET: 32,
             },
-            COLLIDE_R: 45,
+            COLLIDE_R: 52,
             INTRO_MS: 2400,
             RESULTS_MS: 4200,
-            WAVE_CLEAR_MS: 2200,
+            WAVE_CLEAR_MS: 2500,
             INVULN_MS: 2200,
-            BAITER_TIME_MS: 65000,
+            BAITER_TIME_MS: 110000, // Saucer spawns after ~1m50s
             SCORES: {
                 LANDER: 150,
                 MUTANT: 250,
@@ -9098,16 +9100,16 @@
         };
 
         const DEFENDER_LEVEL_CONFIGS = {
-            1: { landers: 4, bombers: 1, pods: 0, mutantSpeed: 5.5, landerSpeed: 2.2, bomberSpeed: 1.5, bulletSpeed: 4.0, fireIntervalMs: 3200, baiterSpeed: 7.5 },
-            2: { landers: 5, bombers: 1, pods: 1, mutantSpeed: 6.2, landerSpeed: 2.5, bomberSpeed: 1.8, bulletSpeed: 4.6, fireIntervalMs: 2900, baiterSpeed: 8.0 },
-            3: { landers: 6, bombers: 2, pods: 1, mutantSpeed: 7.0, landerSpeed: 2.9, bomberSpeed: 2.1, bulletSpeed: 5.2, fireIntervalMs: 2600, baiterSpeed: 8.5 },
-            4: { landers: 7, bombers: 2, pods: 2, mutantSpeed: 7.8, landerSpeed: 3.3, bomberSpeed: 2.4, bulletSpeed: 5.8, fireIntervalMs: 2300, baiterSpeed: 9.0 },
-            5: { landers: 8, bombers: 3, pods: 2, mutantSpeed: 8.6, landerSpeed: 3.7, bomberSpeed: 2.7, bulletSpeed: 6.4, fireIntervalMs: 2000, baiterSpeed: 9.5 },
-            6: { landers: 9, bombers: 3, pods: 3, mutantSpeed: 9.4, landerSpeed: 4.1, bomberSpeed: 3.0, bulletSpeed: 7.0, fireIntervalMs: 1750, baiterSpeed: 10.0 },
-            7: { landers: 10, bombers: 4, pods: 3, mutantSpeed: 10.2, landerSpeed: 4.5, bomberSpeed: 3.3, bulletSpeed: 7.6, fireIntervalMs: 1500, baiterSpeed: 10.5 },
-            8: { landers: 11, bombers: 4, pods: 4, mutantSpeed: 11.0, landerSpeed: 4.9, bomberSpeed: 3.6, bulletSpeed: 8.2, fireIntervalMs: 1300, baiterSpeed: 11.0 },
-            9: { landers: 12, bombers: 5, pods: 4, mutantSpeed: 12.0, landerSpeed: 5.4, bomberSpeed: 3.9, bulletSpeed: 8.8, fireIntervalMs: 1100, baiterSpeed: 11.5 },
-            10: { landers: 14, bombers: 6, pods: 5, mutantSpeed: 13.0, landerSpeed: 6.0, bomberSpeed: 4.3, bulletSpeed: 9.5, fireIntervalMs: 900, baiterSpeed: 12.5 }
+            1: { landers: 4, bombers: 1, pods: 0, mutantSpeed: 6.2, landerSpeed: 2.2, bomberSpeed: 1.5, bulletSpeed: 4.2, fireIntervalMs: 3200, baiterSpeed: 8.5 },
+            2: { landers: 5, bombers: 1, pods: 1, mutantSpeed: 7.0, landerSpeed: 2.5, bomberSpeed: 1.8, bulletSpeed: 4.8, fireIntervalMs: 2900, baiterSpeed: 9.0 },
+            3: { landers: 6, bombers: 2, pods: 1, mutantSpeed: 7.8, landerSpeed: 2.9, bomberSpeed: 2.1, bulletSpeed: 5.4, fireIntervalMs: 2600, baiterSpeed: 9.5 },
+            4: { landers: 7, bombers: 2, pods: 2, mutantSpeed: 8.6, landerSpeed: 3.3, bomberSpeed: 2.4, bulletSpeed: 6.0, fireIntervalMs: 2300, baiterSpeed: 10.0 },
+            5: { landers: 8, bombers: 3, pods: 2, mutantSpeed: 9.4, landerSpeed: 3.7, bomberSpeed: 2.7, bulletSpeed: 6.6, fireIntervalMs: 2000, baiterSpeed: 10.5 },
+            6: { landers: 9, bombers: 3, pods: 3, mutantSpeed: 10.2, landerSpeed: 4.1, bomberSpeed: 3.0, bulletSpeed: 7.2, fireIntervalMs: 1750, baiterSpeed: 11.0 },
+            7: { landers: 10, bombers: 4, pods: 3, mutantSpeed: 11.0, landerSpeed: 4.5, bomberSpeed: 3.3, bulletSpeed: 7.8, fireIntervalMs: 1500, baiterSpeed: 11.5 },
+            8: { landers: 11, bombers: 4, pods: 4, mutantSpeed: 11.8, landerSpeed: 4.9, bomberSpeed: 3.6, bulletSpeed: 8.4, fireIntervalMs: 1300, baiterSpeed: 12.0 },
+            9: { landers: 12, bombers: 5, pods: 4, mutantSpeed: 12.6, landerSpeed: 5.4, bomberSpeed: 3.9, bulletSpeed: 9.0, fireIntervalMs: 1100, baiterSpeed: 12.5 },
+            10: { landers: 14, bombers: 6, pods: 5, mutantSpeed: 13.5, landerSpeed: 6.0, bomberSpeed: 4.3, bulletSpeed: 9.8, fireIntervalMs: 900, baiterSpeed: 13.0 }
         };
 
         function defenderDifficulty(level = defenderPhase?.level || 1) {
@@ -9122,12 +9124,13 @@
             level: 1,
             score: 0,
             kills: 0,
-            smartBombs: 1,
+            smartBombs: 3,
             saved: null,
             invulnUntil: 0,
             waveStartedAt: 0,
             shockwave: null,
             screenFlashUntil: 0,
+            screenFlashColor: 'rgba(255, 255, 255, 0.55)',
             landers: [],
             mutants: [],
             bombers: [],
@@ -9140,6 +9143,145 @@
             stars: [],
             carriedHumanoid: null,
         };
+
+        /* =========================================================================
+         * PROCEDURAL DEFENDER AUDIO SYNTHESIZERS
+         * Classic Williams Defender alarms:
+         * 1. Angry Bee Buzzing: Modulated sawtooth buzzer when abduction is active
+         * 2. Frantic Berserker Siren: Wild sweeping siren when mutants are alive
+         * =========================================================================
+         */
+        const defenderAudio = {
+            beeOsc: null,
+            beeLfo: null,
+            beeLfoGain: null,
+            beeGain: null,
+            mutantOsc: null,
+            mutantLfo: null,
+            mutantLfoGain: null,
+            mutantGain: null,
+        };
+
+        function updateDefenderAudio(hasAbduction, hasMutant) {
+            if (!audioUnlocked || !defenderPhase.active || defenderPhase.state !== 'play') {
+                silenceDefenderAudio();
+                return;
+            }
+            const ctx = resumeWebAudioContext();
+            if (!ctx) return;
+            const now = ctx.currentTime;
+
+            // 1. Angry bee abduction alarm
+            if (hasAbduction) {
+                if (!defenderAudio.beeOsc) {
+                    try {
+                        const osc = ctx.createOscillator();
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(215, now);
+
+                        const lfo = ctx.createOscillator();
+                        lfo.type = 'square';
+                        lfo.frequency.setValueAtTime(28, now); // 28Hz angry buzz flutter
+
+                        const lfoGain = ctx.createGain();
+                        lfoGain.gain.setValueAtTime(85, now);
+                        lfo.connect(lfoGain);
+                        lfoGain.connect(osc.frequency);
+
+                        const gain = ctx.createGain();
+                        gain.gain.setValueAtTime(0.0001, now);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+
+                        lfo.start(now);
+                        osc.start(now);
+
+                        defenderAudio.beeOsc = osc;
+                        defenderAudio.beeLfo = lfo;
+                        defenderAudio.beeLfoGain = lfoGain;
+                        defenderAudio.beeGain = gain;
+                    } catch (_) {}
+                }
+                if (defenderAudio.beeGain) {
+                    defenderAudio.beeGain.gain.setTargetAtTime(0.15, now, 0.04);
+                }
+            } else {
+                if (defenderAudio.beeGain) {
+                    defenderAudio.beeGain.gain.setTargetAtTime(0.0001, now, 0.08);
+                }
+            }
+
+            // 2. Frantic mutant berserker siren
+            if (hasMutant) {
+                if (!defenderAudio.mutantOsc) {
+                    try {
+                        const osc = ctx.createOscillator();
+                        osc.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(540, now);
+
+                        const lfo = ctx.createOscillator();
+                        lfo.type = 'triangle';
+                        lfo.frequency.setValueAtTime(14, now); // frantic 14Hz sweep
+
+                        const lfoGain = ctx.createGain();
+                        lfoGain.gain.setValueAtTime(320, now); // sweeps 220Hz - 860Hz
+                        lfo.connect(lfoGain);
+                        lfoGain.connect(osc.frequency);
+
+                        const gain = ctx.createGain();
+                        gain.gain.setValueAtTime(0.0001, now);
+                        osc.connect(gain);
+                        gain.connect(ctx.destination);
+
+                        lfo.start(now);
+                        osc.start(now);
+
+                        defenderAudio.mutantOsc = osc;
+                        defenderAudio.mutantLfo = lfo;
+                        defenderAudio.mutantLfoGain = lfoGain;
+                        defenderAudio.mutantGain = gain;
+                    } catch (_) {}
+                }
+                if (defenderAudio.mutantGain) {
+                    defenderAudio.mutantGain.gain.setTargetAtTime(0.16, now, 0.04);
+                }
+            } else {
+                if (defenderAudio.mutantGain) {
+                    defenderAudio.mutantGain.gain.setTargetAtTime(0.0001, now, 0.08);
+                }
+            }
+        }
+
+        function silenceDefenderAudio() {
+            const ctx = getWebAudioContext();
+            const now = ctx ? ctx.currentTime : 0;
+            if (defenderAudio.beeGain && ctx) {
+                defenderAudio.beeGain.gain.setTargetAtTime(0.0001, now, 0.03);
+            }
+            if (defenderAudio.mutantGain && ctx) {
+                defenderAudio.mutantGain.gain.setTargetAtTime(0.0001, now, 0.03);
+            }
+        }
+
+        function stopDefenderAudio() {
+            silenceDefenderAudio();
+            setTimeout(() => {
+                try {
+                    if (defenderAudio.beeOsc) { defenderAudio.beeOsc.stop(); defenderAudio.beeOsc.disconnect(); }
+                    if (defenderAudio.beeLfo) { defenderAudio.beeLfo.stop(); defenderAudio.beeLfo.disconnect(); }
+                    if (defenderAudio.mutantOsc) { defenderAudio.mutantOsc.stop(); defenderAudio.mutantOsc.disconnect(); }
+                    if (defenderAudio.mutantLfo) { defenderAudio.mutantLfo.stop(); defenderAudio.mutantLfo.disconnect(); }
+                } catch (_) {}
+                defenderAudio.beeOsc = null;
+                defenderAudio.beeLfo = null;
+                defenderAudio.beeLfoGain = null;
+                defenderAudio.beeGain = null;
+                defenderAudio.mutantOsc = null;
+                defenderAudio.mutantLfo = null;
+                defenderAudio.mutantLfoGain = null;
+                defenderAudio.mutantGain = null;
+            }, 60);
+        }
 
         function defenderWrapX(x) {
             const half = DEFENDER.HALF_W;
@@ -9169,14 +9311,14 @@
 
         function initDefenderHumanoids() {
             const humanoids = [];
-            const count = 8;
+            const count = 15; // Authentic 15 ground astronauts spread across terrain
             const step = DEFENDER.WIDTH / count;
             for (let i = 0; i < count; i++) {
-                const x = DEFENDER.ORIGIN.x - DEFENDER.HALF_W + (i + 0.5) * step + (Math.random() - 0.5) * 200;
+                const x = DEFENDER.ORIGIN.x - DEFENDER.HALF_W + (i + 0.5) * step + (Math.random() - 0.5) * 140;
                 const groundY = defenderTerrainHeight(x);
                 humanoids.push({
                     id: i + 1,
-                    pos: { x, y: groundY - 14, z: (Math.random() - 0.5) * 200 },
+                    pos: { x, y: groundY - 16, z: (Math.random() - 0.5) * 160 },
                     state: 'ground', // ground, abducted, falling, carried, dead
                     abductedBy: null,
                     vy: 0
@@ -9209,18 +9351,20 @@
 
             for (let i = 0; i < diff.landers; i++) {
                 landers.push({
+                    id: i + 1,
                     pos: {
                         x: O.x + (Math.random() - 0.5) * (DEFENDER.WIDTH * 0.85),
-                        y: O.y + DEFENDER.HEIGHT_TOP + 300 + Math.random() * 600,
+                        y: O.y + DEFENDER.HEIGHT_TOP + 300 + Math.random() * 550,
                         z: O.z + (Math.random() - 0.5) * 400
                     },
                     vx: (Math.random() > 0.5 ? 1 : -1) * diff.landerSpeed,
-                    vy: (Math.random() - 0.5) * 0.5,
+                    vy: (Math.random() - 0.5) * 0.4,
                     vz: 0,
                     state: 'patrol', // patrol, descending, abducting, mutating
                     targetHumanoidId: null,
-                    nextDecisionAt: performance.now() + 2000 + Math.random() * 4000,
-                    nextFireAt: performance.now() + 1500 + Math.random() * diff.fireIntervalMs,
+                    // Calm start: patrol quietly for 3-6s before hunting astronauts
+                    nextDecisionAt: performance.now() + 3000 + Math.random() * 4500,
+                    nextFireAt: performance.now() + 2500 + Math.random() * diff.fireIntervalMs,
                     hp: 1
                 });
             }
@@ -9234,7 +9378,7 @@
                     },
                     vx: (Math.random() > 0.5 ? 1 : -1) * diff.bomberSpeed,
                     vy: (Math.random() - 0.5) * 0.4,
-                    nextMineAt: performance.now() + 2000 + Math.random() * 3000,
+                    nextMineAt: performance.now() + 2500 + Math.random() * 3000,
                     hp: 2
                 });
             }
@@ -9261,6 +9405,13 @@
             defenderPhase.baiters = [];
             defenderPhase.bullets = [];
             defenderPhase.waveStartedAt = performance.now();
+
+            // Check if astronauts need replenishment
+            let aliveCount = 0;
+            for (const h of defenderPhase.humanoids) if (h.state !== 'dead') aliveCount++;
+            if (aliveCount < 8) {
+                defenderPhase.humanoids = initDefenderHumanoids();
+            }
         }
 
         function startDefenderPhase(level = 1) {
@@ -9276,10 +9427,15 @@
 
             const O = DEFENDER.ORIGIN;
             posX = O.x;
-            posY = O.y - 150;
+            posY = O.y - 80; // Fly above ground level, with ground grid clearly visible in lower screen
             posZ = O.z;
+
+            // Correct right-handed basis for +Y downwards towards planetary surface:
+            // forward = (1, 0, 0)
+            // right   = (0, 0, -1)
+            // down    = cross(forward, right) = (0, 1, 0) pointing straight to ground!
             shipForward = { x: 1, y: 0, z: 0 };
-            shipRight   = { x: 0, y: 0, z: 1 };
+            shipRight   = { x: 0, y: 0, z: -1 };
             shipDown    = { x: 0, y: 1, z: 0 };
             shipRollAngle = 0;
             repairBasis();
@@ -9291,13 +9447,13 @@
             defenderPhase.stateUntil = performance.now() + DEFENDER.INTRO_MS;
             defenderPhase.score = 0;
             defenderPhase.kills = 0;
-            defenderPhase.smartBombs = 1;
+            defenderPhase.smartBombs = 3; // Start with 3 Smart Bombs
             defenderPhase.carriedHumanoid = null;
             defenderPhase.shockwave = null;
             defenderPhase.screenFlashUntil = 0;
             defenderPhase.invulnUntil = performance.now() + DEFENDER.INTRO_MS + DEFENDER.INVULN_MS;
             defenderPhase.stars = initDefenderStarfield();
-            defenderPhase.humanoids = initDefenderHumanoids();
+            defenderPhase.humanoids = initDefenderHumanoids(); // 15 astronauts
 
             defenderSpawnWave(defenderPhase.level);
 
@@ -9307,6 +9463,7 @@
 
         function endDefenderPhase(restorePosition = true) {
             if (!defenderPhase.active) return;
+            stopDefenderAudio();
             defenderPhase.active = false;
             defenderPhase.state = 'idle';
             defenderPhase.landers = [];
@@ -9351,47 +9508,68 @@
             defenderPhase.smartBombs -= 1;
             defenderPhase.shockwave = {
                 radius: 10,
-                maxRadius: 3200,
+                maxRadius: 3600,
                 bornAt: performance.now(),
-                duration: 650
+                duration: 750
             };
-            defenderPhase.screenFlashUntil = performance.now() + 250;
-            playSfx('target_explosion', { intensity: 2.0, worldPos: getPlayerWorldPos() });
+            defenderPhase.screenFlashColor = 'rgba(255, 255, 255, 0.65)';
+            defenderPhase.screenFlashUntil = performance.now() + 320;
+            playSfx('target_explosion', { intensity: 2.2, worldPos: getPlayerWorldPos() });
+
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const fov = 300 * getPortalTransitFovStretch();
+
+            // Frustum check: only destroys enemies visible in player's forward view
+            function isHostileOnScreen(pos) {
+                const dx = defenderWrapDx(pos.x, posX);
+                const p = projectPoint({ x: posX + dx, y: pos.y, z: pos.z }, centerX, centerY, fov);
+                return p !== null && p.z > 8 && p.x >= -40 && p.x <= canvas.width + 40 && p.y >= -40 && p.y <= canvas.height + 40;
+            }
 
             let wiped = 0;
-            const killList = (arr, scoreKey) => {
+            const killList = (arr, scoreKey, onDeath) => {
                 for (let i = arr.length - 1; i >= 0; i--) {
                     const e = arr[i];
-                    const dx = defenderWrapDx(e.pos.x, posX);
-                    if (Math.hypot(dx, e.pos.y - posY, e.pos.z - posZ) < 3600) {
-                        spawnTargetParticles(e.pos, shipRight, shipDown, '#00ffff', 36, 4.5, 40);
+                    if (isHostileOnScreen(e.pos)) {
+                        spawnTargetParticles(e.pos, shipRight, shipDown, '#00ffff', 40, 5.0, 45);
                         const pts = DEFENDER.SCORES[scoreKey] || 150;
                         defenderPhase.score += pts;
                         defenderPhase.kills += 1;
                         addTargetScore(pts);
+                        if (onDeath) onDeath(e);
                         arr.splice(i, 1);
                         wiped += 1;
                     }
                 }
             };
-            killList(defenderPhase.landers, 'LANDER');
+
+            killList(defenderPhase.landers, 'LANDER', (lander) => {
+                if (lander.targetHumanoidId) {
+                    const h = defenderPhase.humanoids.find(x => x.id === lander.targetHumanoidId);
+                    if (h && h.state === 'abducted') {
+                        h.state = 'falling';
+                        h.abductedBy = null;
+                        h.vy = 0;
+                    }
+                }
+            });
             killList(defenderPhase.mutants, 'MUTANT');
             killList(defenderPhase.bombers, 'BOMBER');
             killList(defenderPhase.pods, 'POD');
             killList(defenderPhase.swarmers, 'SWARMER');
             killList(defenderPhase.baiters, 'BAITER');
             killList(defenderPhase.mines, 'MINE');
-            defenderPhase.bullets = [];
 
-            for (const h of defenderPhase.humanoids) {
-                if (h.state === 'abducted') {
-                    h.state = 'falling';
-                    h.abductedBy = null;
-                    h.vy = 0;
+            // Vaporize on-screen enemy bullets
+            for (let i = defenderPhase.bullets.length - 1; i >= 0; i--) {
+                const b = defenderPhase.bullets[i];
+                if (isHostileOnScreen(b)) {
+                    defenderPhase.bullets.splice(i, 1);
                 }
             }
 
-            keyboardStatus.innerText = `SMART BOMB DETONATED! (${wiped} vaporized)`;
+            keyboardStatus.innerText = `SMART BOMB DETONATED! (${wiped} ON-SCREEN HOSTILES VAPORIZED)`;
         }
 
         function defenderApplyPlayerHit(dmg = 20) {
@@ -9428,8 +9606,8 @@
                     if (dSq <= hitRadius * hitRadius) {
                         e.hp = (e.hp || 1) - 1;
                         if (e.hp <= 0) {
-                            spawnTargetParticles(e.pos, shipRight, shipDown, '#ffaa33', 28, 4.0, 35);
-                            playSfx('target_explosion', { intensity: 0.8, worldPos: e.pos });
+                            spawnTargetParticles(e.pos, shipRight, shipDown, '#ffaa33', 32, 4.5, 40);
+                            playSfx('target_explosion', { intensity: 0.9, worldPos: e.pos });
                             const pts = DEFENDER.SCORES[scoreKey] || 100;
                             defenderPhase.score += pts;
                             defenderPhase.kills += 1;
@@ -9437,7 +9615,7 @@
                             if (onDeath) onDeath(e, i);
                             arr.splice(i, 1);
                         } else {
-                            spawnTargetParticles(e.pos, shipRight, shipDown, '#ffffff', 10, 2.0, 15);
+                            spawnTargetParticles(e.pos, shipRight, shipDown, '#ffffff', 12, 2.2, 18);
                             playSfx('wall_bump', { intensity: 0.4, worldPos: e.pos });
                         }
                         return true;
@@ -9454,6 +9632,7 @@
                         vx: Math.cos(ang) * 4.5 + (Math.random() - 0.5) * 2,
                         vy: Math.sin(ang) * 4.5 + (Math.random() - 0.5) * 2,
                         vz: (Math.random() - 0.5) * 3,
+                        bornAt: performance.now(),
                         hp: 1
                     });
                 }
@@ -9467,7 +9646,7 @@
                         h.state = 'falling';
                         h.abductedBy = null;
                         h.vy = 0;
-                        keyboardStatus.innerText = 'ASTRONAUT IN FREE-FALL! CATCH THEM!';
+                        keyboardStatus.innerText = '★ ASTRONAUT IN FREE-FALL! CATCH THEM!';
                     }
                 }
             })) return true;
@@ -9497,6 +9676,7 @@
                 return;
             }
             if (defenderPhase.state === 'wave_clear') {
+                silenceDefenderAudio();
                 if (now >= defenderPhase.stateUntil) {
                     defenderPhase.level += 1;
                     defenderPhase.smartBombs = Math.min(3, defenderPhase.smartBombs + 1);
@@ -9507,12 +9687,18 @@
                 return;
             }
             if (defenderPhase.state === 'results') {
+                silenceDefenderAudio();
                 if (now >= defenderPhase.stateUntil) {
                     endDefenderPhase(true);
                 }
                 return;
             }
             if (defenderPhase.state !== 'play') return;
+
+            // Audio Synthesis Update
+            const hasAbduction = defenderPhase.humanoids.some(h => h.state === 'abducted');
+            const hasMutant = defenderPhase.mutants.length > 0;
+            updateDefenderAudio(hasAbduction, hasMutant);
 
             // Wave Clear Check
             const enemyCount = defenderPhase.landers.length +
@@ -9531,9 +9717,36 @@
                 addTargetScore(bonus);
                 defenderPhase.state = 'wave_clear';
                 defenderPhase.stateUntil = now + DEFENDER.WAVE_CLEAR_MS;
-                playSfx('target_chime', { intensity: 1.5 });
+                playSfx('target_chime', { intensity: 1.8 });
                 keyboardStatus.innerText = `DEFENDER WAVE ${defenderPhase.level} CLEARED! HUMAN SURVIVAL BONUS +${bonus}`;
                 return;
+            }
+
+            // Check planetary destruction if all 15 astronauts are dead
+            let aliveHumanCount = 0;
+            for (const h of defenderPhase.humanoids) {
+                if (h.state !== 'dead') aliveHumanCount++;
+            }
+            if (aliveHumanCount === 0 && defenderPhase.humanoids.length > 0 && defenderPhase.landers.length > 0) {
+                // All 15 astronauts dead! All remaining landers instantly mutate!
+                for (let i = defenderPhase.landers.length - 1; i >= 0; i--) {
+                    const l = defenderPhase.landers[i];
+                    defenderPhase.mutants.push({
+                        id: Math.random() * 1000 | 0,
+                        pos: { ...l.pos },
+                        vx: (Math.random() - 0.5) * 8,
+                        vy: (Math.random() - 0.5) * 8,
+                        vz: (Math.random() - 0.5) * 8,
+                        bornAt: now,
+                        nextFireAt: now + 800 + Math.random() * 1000,
+                        hp: 1
+                    });
+                }
+                defenderPhase.landers = [];
+                defenderPhase.screenFlashColor = 'rgba(255, 0, 80, 0.7)';
+                defenderPhase.screenFlashUntil = now + 400;
+                playSfx('target_explosion', { intensity: 2.5 });
+                keyboardStatus.innerText = '☠ PLANET SURFACE DESTROYED! ALL ASTRONAUTS PERISHED · FULL MUTANT OUTBREAK!';
             }
 
             // Player Arena Bounds & Toroidal Wrapping
@@ -9541,28 +9754,31 @@
             posY = Math.max(O.y + DEFENDER.HEIGHT_TOP, Math.min(O.y + DEFENDER.HEIGHT_FLOOR, posY));
             posZ = Math.max(O.z + DEFENDER.DEPTH_MIN, Math.min(O.z + DEFENDER.DEPTH_MAX, posZ));
 
-            // Anti-camping Baiter check
+            // Anti-camping Baiter check (after ~1m50s in wave)
             if (now - defenderPhase.waveStartedAt > DEFENDER.BAITER_TIME_MS && defenderPhase.baiters.length === 0) {
                 defenderPhase.baiters.push({
-                    pos: { x: defenderWrapX(posX + (Math.random() > 0.5 ? 1200 : -1200)), y: posY - 100, z: posZ },
+                    pos: { x: defenderWrapX(posX + (Math.random() > 0.5 ? 1400 : -1400)), y: posY - 80, z: posZ },
                     vx: 0, vy: 0, vz: 0,
                     hp: 1
                 });
-                keyboardStatus.innerText = 'WARNING: BAITER DETECTED! INTERCEPTOR INCOMING!';
+                playSfx('target_explosion', { intensity: 1.4 });
+                keyboardStatus.innerText = '⚠️ WARNING: BAITER DETECTED! INTERCEPTOR INCOMING!';
             }
 
-            // 1. Update Landers
+            // 1. Update Landers (Calm Start -> Seek Astronaut -> Tractor Abduct -> Mutate)
             for (let i = defenderPhase.landers.length - 1; i >= 0; i--) {
                 const l = defenderPhase.landers[i];
                 l.pos.x = defenderWrapX(l.pos.x + l.vx * frameScale);
                 l.pos.y += l.vy * frameScale;
+                // Strict bounds clamp inside atmosphere
+                l.pos.y = Math.max(O.y + DEFENDER.HEIGHT_TOP + 100, Math.min(O.y + DEFENDER.HEIGHT_FLOOR - 20, l.pos.y));
 
                 if (l.state === 'patrol') {
-                    l.vy = Math.sin(now * 0.002 + i) * 0.4;
+                    l.vy = Math.sin(now * 0.002 + i) * 0.35;
                     if (now >= l.nextDecisionAt) {
-                        l.nextDecisionAt = now + 3000 + Math.random() * 4000;
+                        l.nextDecisionAt = now + 3500 + Math.random() * 4000;
                         // Find closest free ground humanoid
-                        let bestH = null, bestDist = 1800;
+                        let bestH = null, bestDist = 2400;
                         for (const h of defenderPhase.humanoids) {
                             if (h.state === 'ground') {
                                 const dist = Math.abs(defenderWrapDx(h.pos.x, l.pos.x));
@@ -9584,37 +9800,44 @@
                         l.targetHumanoidId = null;
                     } else {
                         const dx = defenderWrapDx(h.pos.x, l.pos.x);
-                        l.vx = Math.sign(dx || 1) * diff.landerSpeed;
-                        l.vy = 2.4;
-                        if (Math.abs(dx) < 30 && (h.pos.y - l.pos.y) < 35) {
+                        l.vx = Math.sign(dx || 1) * diff.landerSpeed * 1.1;
+                        l.vy = 2.6;
+                        if (Math.abs(dx) < 45 && (h.pos.y - l.pos.y) < 55) {
                             l.state = 'abducting';
                             h.state = 'abducted';
                             h.abductedBy = l;
-                            l.vy = -1.2;
+                            l.vy = -1.35; // Slow deliberate ascent to mutation ceiling
                             l.vx = 0;
-                            keyboardStatus.innerText = 'ASTRONAUT ABDUCTION IN PROGRESS!';
+                            keyboardStatus.innerText = '⚠️ ASTRONAUT ABDUCTION IN PROGRESS! RESCUE THEM!';
                         }
                     }
                 } else if (l.state === 'abducting') {
-                    l.vy = -1.2;
+                    l.vy = -1.35;
                     const h = defenderPhase.humanoids.find(x => x.id === l.targetHumanoidId);
                     if (h && h.state === 'abducted') {
                         h.pos.x = l.pos.x;
-                        h.pos.y = l.pos.y + 24;
+                        h.pos.y = l.pos.y + 36;
                         h.pos.z = l.pos.z;
                     }
                     if (l.pos.y <= O.y + DEFENDER.HEIGHT_MUTATE) {
                         // MUTATION!
                         if (h) h.state = 'dead';
-                        spawnTargetParticles(l.pos, shipRight, shipDown, '#ff00ff', 40, 5.0, 50);
-                        playSfx('target_explosion', { intensity: 1.2, worldPos: l.pos });
+                        spawnTargetParticles(l.pos, shipRight, shipDown, '#ff0055', 60, 6.0, 60);
+                        playSfx('target_explosion', { intensity: 2.0, worldPos: l.pos });
                         defenderPhase.mutants.push({
+                            id: Math.random() * 1000 | 0,
                             pos: { ...l.pos },
-                            vx: 0, vy: 0, vz: 0,
+                            vx: (Math.random() - 0.5) * 8,
+                            vy: (Math.random() - 0.5) * 8,
+                            vz: (Math.random() - 0.5) * 8,
+                            bornAt: now,
+                            nextFireAt: now + 800 + Math.random() * 900,
                             hp: 1
                         });
                         defenderPhase.landers.splice(i, 1);
-                        keyboardStatus.innerText = 'MUTANT CREATED! HOSTILE HYPER-DRIVE ENGAGED!';
+                        defenderPhase.screenFlashColor = 'rgba(255, 0, 120, 0.55)';
+                        defenderPhase.screenFlashUntil = now + 240;
+                        keyboardStatus.innerText = '⚡ MUTANT BERSERKER BORN! INCOMING ATTACK!';
                         continue;
                     }
                 }
@@ -9644,7 +9867,7 @@
                 }
             }
 
-            // 2. Update Mutants
+            // 2. Update Mutants (Berserkers) - Relentless pursuit & rapid erratic zig-zags
             for (let i = defenderPhase.mutants.length - 1; i >= 0; i--) {
                 const m = defenderPhase.mutants[i];
                 const dx = defenderWrapDx(posX, m.pos.x);
@@ -9652,23 +9875,43 @@
                 const dz = posZ - m.pos.z;
                 const dist = Math.hypot(dx, dy, dz) || 1;
 
-                m.vx += (dx / dist) * diff.mutantSpeed * 0.08 * frameScale;
-                m.vy += (dy / dist) * diff.mutantSpeed * 0.08 * frameScale;
-                m.vz += (dz / dist) * diff.mutantSpeed * 0.08 * frameScale;
+                // High speed homing with erratic perpendicular zig-zag darting
+                const mSpeed = diff.mutantSpeed * 1.35;
+                const erraticX = Math.sin(now * 0.018 + (m.id || i) * 3.7) * 11.0;
+                const erraticY = Math.cos(now * 0.024 + (m.id || i) * 2.1) * 8.5;
+                const erraticZ = Math.sin(now * 0.030 + (m.id || i) * 1.5) * 6.0;
+
+                m.vx += ((dx / dist) * mSpeed * 0.16 + erraticX * 0.10) * frameScale;
+                m.vy += ((dy / dist) * mSpeed * 0.16 + erraticY * 0.10) * frameScale;
+                m.vz += ((dz / dist) * mSpeed * 0.14 + erraticZ * 0.10) * frameScale;
 
                 const curSpeed = Math.hypot(m.vx, m.vy, m.vz);
-                if (curSpeed > diff.mutantSpeed) {
-                    m.vx = (m.vx / curSpeed) * diff.mutantSpeed;
-                    m.vy = (m.vy / curSpeed) * diff.mutantSpeed;
-                    m.vz = (m.vz / curSpeed) * diff.mutantSpeed;
+                if (curSpeed > mSpeed * 1.4) {
+                    m.vx = (m.vx / curSpeed) * (mSpeed * 1.4);
+                    m.vy = (m.vy / curSpeed) * (mSpeed * 1.4);
+                    m.vz = (m.vz / curSpeed) * (mSpeed * 1.4);
                 }
 
                 m.pos.x = defenderWrapX(m.pos.x + m.vx * frameScale);
                 m.pos.y += m.vy * frameScale;
                 m.pos.z += m.vz * frameScale;
+                m.pos.y = Math.max(O.y + DEFENDER.HEIGHT_TOP + 50, Math.min(O.y + DEFENDER.HEIGHT_FLOOR - 20, m.pos.y));
 
-                if (Math.hypot(dx, dy, dz) < DEFENDER.COLLIDE_R) {
+                // Mutant rapid firing when closing in on player
+                if (dist < 1800 && now >= (m.nextFireAt || 0)) {
+                    m.nextFireAt = now + 900 + Math.random() * 800;
+                    defenderPhase.bullets.push({
+                        x: m.pos.x, y: m.pos.y, z: m.pos.z,
+                        vx: (dx / dist) * (diff.bulletSpeed * 1.25),
+                        vy: (dy / dist) * (diff.bulletSpeed * 1.25),
+                        vz: (dz / dist) * (diff.bulletSpeed * 1.25),
+                        life: 0
+                    });
+                }
+
+                if (Math.hypot(dx, dy, dz) < DEFENDER.COLLIDE_R + 10) {
                     defenderApplyPlayerHit(30);
+                    spawnTargetParticles(m.pos, shipRight, shipDown, '#ff0055', 24, 4.0, 25);
                 }
             }
 
@@ -9680,6 +9923,8 @@
                 if (b.pos.y < O.y + DEFENDER.HEIGHT_TOP + 200 || b.pos.y > O.y + DEFENDER.HEIGHT_FLOOR - 100) {
                     b.vy = -b.vy;
                 }
+                b.pos.y = Math.max(O.y + DEFENDER.HEIGHT_TOP + 100, Math.min(O.y + DEFENDER.HEIGHT_FLOOR - 30, b.pos.y));
+
                 if (now >= b.nextMineAt) {
                     b.nextMineAt = now + 3500 + Math.random() * 3000;
                     defenderPhase.mines.push({
@@ -9700,9 +9945,11 @@
                 const m = defenderPhase.mines[i];
                 m.pos.x = defenderWrapX(m.pos.x + m.vx * frameScale);
                 m.pos.y += m.vy * frameScale;
+                m.pos.y = Math.max(O.y + DEFENDER.HEIGHT_TOP + 100, Math.min(O.y + DEFENDER.HEIGHT_FLOOR - 20, m.pos.y));
+
                 const mdx = defenderWrapDx(posX, m.pos.x);
                 if (Math.hypot(mdx, posY - m.pos.y, posZ - m.pos.z) < DEFENDER.HIT_R.MINE + 15) {
-                    spawnTargetParticles(m.pos, shipRight, shipDown, '#ff8800', 20, 3.5, 25);
+                    spawnTargetParticles(m.pos, shipRight, shipDown, '#ff8800', 22, 3.8, 25);
                     playSfx('target_explosion', { intensity: 0.8, worldPos: m.pos });
                     defenderApplyPlayerHit(25);
                     defenderPhase.mines.splice(i, 1);
@@ -9713,18 +9960,23 @@
                 }
             }
 
-            // 5. Update Pods
+            // 5. Update Pods (Bounded in atmosphere)
             for (let i = defenderPhase.pods.length - 1; i >= 0; i--) {
                 const p = defenderPhase.pods[i];
                 p.pos.x = defenderWrapX(p.pos.x + p.vx * frameScale);
                 p.pos.y += p.vy * frameScale;
+                if (p.pos.y < O.y + DEFENDER.HEIGHT_TOP + 150 || p.pos.y > O.y + DEFENDER.HEIGHT_FLOOR - 100) {
+                    p.vy = -p.vy;
+                }
+                p.pos.y = Math.max(O.y + DEFENDER.HEIGHT_TOP + 100, Math.min(O.y + DEFENDER.HEIGHT_FLOOR - 40, p.pos.y));
+
                 const pdx = defenderWrapDx(posX, p.pos.x);
                 if (Math.hypot(pdx, posY - p.pos.y, posZ - p.pos.z) < DEFENDER.COLLIDE_R + 10) {
                     defenderApplyPlayerHit(20);
                 }
             }
 
-            // 6. Update Swarmers
+            // 6. Update Swarmers (Destroy on player impact, lifespan limit)
             for (let i = defenderPhase.swarmers.length - 1; i >= 0; i--) {
                 const s = defenderPhase.swarmers[i];
                 const dx = defenderWrapDx(posX, s.pos.x);
@@ -9739,13 +9991,24 @@
                 s.pos.x = defenderWrapX(s.pos.x + s.vx * frameScale);
                 s.pos.y += s.vy * frameScale;
                 s.pos.z += s.vz * frameScale;
+                s.pos.y = Math.max(O.y + DEFENDER.HEIGHT_TOP + 80, Math.min(O.y + DEFENDER.HEIGHT_FLOOR - 20, s.pos.y));
 
+                // Explode on impact!
                 if (Math.hypot(dx, dy, dz) < DEFENDER.COLLIDE_R) {
-                    defenderApplyPlayerHit(15);
+                    defenderApplyPlayerHit(14);
+                    spawnTargetParticles(s.pos, shipRight, shipDown, '#ff3300', 16, 3.2, 16);
+                    playSfx('wall_bump', { intensity: 0.6, worldPos: s.pos });
+                    defenderPhase.swarmers.splice(i, 1);
+                    continue;
+                }
+                // Timeout after 28 seconds
+                if (s.bornAt && (now - s.bornAt > 28000)) {
+                    spawnTargetParticles(s.pos, shipRight, shipDown, '#ff6600', 10, 2.0, 10);
+                    defenderPhase.swarmers.splice(i, 1);
                 }
             }
 
-            // 7. Update Baiter
+            // 7. Update Baiter (Anti-camping flying saucer - Explodes on collision!)
             for (let i = defenderPhase.baiters.length - 1; i >= 0; i--) {
                 const b = defenderPhase.baiters[i];
                 const dx = defenderWrapDx(posX, b.pos.x);
@@ -9760,48 +10023,58 @@
                 b.pos.x = defenderWrapX(b.pos.x + b.vx * frameScale);
                 b.pos.y += b.vy * frameScale;
                 b.pos.z += b.vz * frameScale;
+                b.pos.y = Math.max(O.y + DEFENDER.HEIGHT_TOP + 80, Math.min(O.y + DEFENDER.HEIGHT_FLOOR - 20, b.pos.y));
 
+                // Kamikaze crash on player!
                 if (Math.hypot(dx, dy, dz) < DEFENDER.COLLIDE_R) {
                     defenderApplyPlayerHit(35);
+                    spawnTargetParticles(b.pos, shipRight, shipDown, '#ffffff', 32, 4.5, 30);
+                    playSfx('target_explosion', { intensity: 1.4, worldPos: b.pos });
+                    defenderPhase.baiters.splice(i, 1);
                 }
             }
 
-            // 8. Update Humanoids
+            // 8. Update Humanoids (Free-fall gravity, Mid-air Catch, Splat, and Ground Delivery)
             for (let i = 0; i < defenderPhase.humanoids.length; i++) {
                 const h = defenderPhase.humanoids[i];
                 if (h.state === 'falling') {
-                    h.vy += 0.22 * frameScale;
+                    h.vy += 0.32 * frameScale; // gravity acceleration
                     h.pos.y += h.vy * frameScale;
 
                     // Check catch by player
                     const dx = defenderWrapDx(posX, h.pos.x);
-                    if (Math.hypot(dx, posY - h.pos.y, posZ - h.pos.z) < 65) {
+                    const distToPlayer = Math.hypot(dx, posY - h.pos.y, posZ - h.pos.z);
+                    if (distToPlayer < 85) { // Intercept mid-air!
                         h.state = 'carried';
+                        h.vy = 0;
                         defenderPhase.carriedHumanoid = h;
                         defenderPhase.score += DEFENDER.SCORES.HUMANOID_CATCH;
                         addTargetScore(DEFENDER.SCORES.HUMANOID_CATCH);
-                        playSfx('target_chime', { intensity: 1.2 });
-                        keyboardStatus.innerText = 'ASTRONAUT SECURED! +500 PTS · RETURN TO SURFACE!';
-                    } else if (h.pos.y >= defenderTerrainHeight(h.pos.x)) {
-                        // Crashed!
+                        playSfx('target_chime', { intensity: 1.6 });
+                        keyboardStatus.innerText = '★ ASTRONAUT SECURED! +500 PTS · DESCEND TO SURFACE TO RESCUE!';
+                    } else if (h.pos.y >= defenderTerrainHeight(h.pos.x) - 10) {
+                        // Crashed / Splat on ground surface!
                         h.state = 'dead';
-                        spawnTargetParticles(h.pos, shipRight, shipDown, '#ff3333', 20, 3.0, 25);
-                        keyboardStatus.innerText = 'ASTRONAUT LOST ON IMPACT!';
+                        h.pos.y = defenderTerrainHeight(h.pos.x) - 5;
+                        spawnTargetParticles(h.pos, shipRight, shipDown, '#ff2222', 45, 5.5, 45);
+                        playSfx('wall_bump', { intensity: 1.4, worldPos: h.pos });
+                        keyboardStatus.innerText = '☠ ASTRONAUT SPLAT! CRUNCHED ON IMPACT!';
                     }
                 } else if (h.state === 'carried') {
                     h.pos.x = posX;
-                    h.pos.y = posY + 22;
+                    h.pos.y = posY + 28;
                     h.pos.z = posZ;
 
-                    // Check landing on surface
-                    if (posY >= defenderTerrainHeight(posX) - 60) {
+                    // Check landing safely on planetary surface
+                    const groundY = defenderTerrainHeight(posX);
+                    if (posY >= groundY - 65) {
                         h.state = 'ground';
-                        h.pos.y = defenderTerrainHeight(posX) - 14;
+                        h.pos.y = groundY - 16;
                         defenderPhase.carriedHumanoid = null;
                         defenderPhase.score += DEFENDER.SCORES.HUMANOID_SURFACE;
                         addTargetScore(DEFENDER.SCORES.HUMANOID_SURFACE);
-                        playSfx('target_chime', { intensity: 1.5 });
-                        keyboardStatus.innerText = 'ASTRONAUT SAFELY RETURNED TO SURFACE! +500 PTS!';
+                        playSfx('target_chime', { intensity: 2.0 });
+                        keyboardStatus.innerText = '★ ASTRONAUT SAFELY RETURNED TO SURFACE! +500 PTS!';
                     }
                 }
             }
@@ -9838,27 +10111,27 @@
         }
 
         function renderDefenderScanner(centerX, fov) {
-            const scannerW = Math.min(460, canvas.width - 40);
-            const scannerH = 38;
+            const scannerW = Math.min(520, canvas.width - 40);
+            const scannerH = 42;
             const x0 = centerX - scannerW / 2;
             const y0 = 16;
 
             ctx.save();
-            ctx.fillStyle = 'rgba(0, 12, 28, 0.85)';
+            ctx.fillStyle = 'rgba(0, 10, 24, 0.88)';
             ctx.fillRect(x0, y0, scannerW, scannerH);
             ctx.strokeStyle = '#00ffcc';
-            ctx.lineWidth = 1.5;
+            ctx.lineWidth = 1.6;
             ctx.strokeRect(x0, y0, scannerW, scannerH);
 
-            // Ceiling line
-            ctx.strokeStyle = 'rgba(255, 60, 60, 0.45)';
+            // Ceiling line (mutation stratosphere)
+            ctx.strokeStyle = 'rgba(255, 60, 60, 0.50)';
             ctx.beginPath();
             ctx.moveTo(x0, y0 + 3);
             ctx.lineTo(x0 + scannerW, y0 + 3);
             ctx.stroke();
 
-            // Ground line
-            ctx.strokeStyle = 'rgba(0, 255, 120, 0.55)';
+            // Ground line (planetary surface)
+            ctx.strokeStyle = 'rgba(0, 255, 120, 0.65)';
             ctx.beginPath();
             ctx.moveTo(x0, y0 + scannerH - 4);
             ctx.lineTo(x0 + scannerW, y0 + scannerH - 4);
@@ -9874,23 +10147,39 @@
                 return y0 + 4 + Math.max(0, Math.min(1, relY)) * (scannerH - 8);
             };
 
-            // Ground humanoids
+            // Ground humanoids (all 15)
             for (const h of defenderPhase.humanoids) {
                 if (h.state === 'dead') continue;
-                ctx.fillStyle = h.state === 'abducted' ? ((performance.now() % 200 < 100) ? '#ff2222' : '#00ff44') : '#00ff88';
-                ctx.fillRect(mapX(h.pos.x) - 1.5, mapY(h.pos.y) - 1.5, 3, 3);
+                const isAbducted = h.state === 'abducted';
+                const hx = mapX(h.pos.x);
+                const hy = mapY(h.pos.y);
+                if (isAbducted) {
+                    ctx.fillStyle = (performance.now() % 160 < 80) ? '#ff0033' : '#ffff00';
+                    ctx.fillRect(hx - 3, hy - 3, 6, 6);
+                    ctx.strokeStyle = '#ff0033';
+                    ctx.strokeRect(hx - 5, hy - 5, 10, 10);
+                } else {
+                    ctx.fillStyle = '#00ff88';
+                    ctx.fillRect(hx - 1.5, hy - 1.5, 3, 3);
+                }
             }
 
             // Landers
             ctx.fillStyle = '#ffdd00';
             for (const l of defenderPhase.landers) {
-                ctx.fillRect(mapX(l.pos.x) - 2, mapY(l.pos.y) - 2, 4, 4);
+                const lx = mapX(l.pos.x);
+                const ly = mapY(l.pos.y);
+                ctx.fillRect(lx - 2.5, ly - 2.5, 5, 5);
+                if (l.state === 'abducting') {
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.strokeRect(lx - 4.5, ly - 4.5, 9, 9);
+                }
             }
 
-            // Mutants
-            ctx.fillStyle = (performance.now() % 160 < 80) ? '#ff0055' : '#ff00ff';
+            // Mutants (flashing magenta)
+            ctx.fillStyle = (performance.now() % 140 < 70) ? '#ff0055' : '#ff00ff';
             for (const m of defenderPhase.mutants) {
-                ctx.fillRect(mapX(m.pos.x) - 2, mapY(m.pos.y) - 2, 4, 4);
+                ctx.fillRect(mapX(m.pos.x) - 3, mapY(m.pos.y) - 3, 6, 6);
             }
 
             // Bombers
@@ -9902,25 +10191,34 @@
             // Pods / Swarmers
             ctx.fillStyle = '#ff8800';
             for (const p of defenderPhase.pods) {
-                ctx.fillRect(mapX(p.pos.x) - 2.5, mapY(p.pos.y) - 2.5, 5, 5);
+                ctx.fillRect(mapX(p.pos.x) - 3, mapY(p.pos.y) - 3, 6, 6);
             }
             for (const s of defenderPhase.swarmers) {
-                ctx.fillRect(mapX(s.pos.x) - 1, mapY(s.pos.y) - 1, 2, 2);
+                ctx.fillRect(mapX(s.pos.x) - 1.5, mapY(s.pos.y) - 1.5, 3, 3);
             }
 
             // Baiters
             ctx.fillStyle = '#ffffff';
             for (const bt of defenderPhase.baiters) {
-                ctx.fillRect(mapX(bt.pos.x) - 2, mapY(bt.pos.y) - 2, 4, 4);
+                ctx.fillRect(mapX(bt.pos.x) - 2.5, mapY(bt.pos.y) - 2.5, 5, 5);
             }
 
-            // Player indicator
+            // Player position + Forward Frustum View Brackets
             const px = mapX(posX);
             const py = mapY(posY);
             ctx.fillStyle = '#ffffff';
-            ctx.fillRect(px - 2, py - 2, 4, 4);
+            ctx.fillRect(px - 2.5, py - 2.5, 5, 5);
+
+            // FOV brackets on scanner
+            const fovWidthHalf = (fov / 300) * 32;
             ctx.strokeStyle = '#00ffcc';
-            ctx.strokeRect(px - 6, py - 5, 12, 10);
+            ctx.lineWidth = 1.2;
+            ctx.beginPath();
+            ctx.moveTo(px - fovWidthHalf, y0 + 1);
+            ctx.lineTo(px - fovWidthHalf, y0 + scannerH - 1);
+            ctx.moveTo(px + fovWidthHalf, y0 + 1);
+            ctx.lineTo(px + fovWidthHalf, y0 + scannerH - 1);
+            ctx.stroke();
 
             ctx.restore();
         }
@@ -9930,10 +10228,10 @@
             const now = performance.now();
             const O = DEFENDER.ORIGIN;
 
-            // Full screen flash for Smart Bomb
+            // Full screen flash for Smart Bomb or Mutation
             if (now < defenderPhase.screenFlashUntil) {
                 ctx.save();
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
+                ctx.fillStyle = defenderPhase.screenFlashColor || 'rgba(255, 255, 255, 0.55)';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
                 ctx.restore();
             }
@@ -9954,15 +10252,14 @@
             // 2. Render Planetary Surface Vector Grid
             ctx.save();
             ctx.lineWidth = 1.8;
-            // Cross-ridges (lateral lines across field of view)
             const ridgeDists = [220, 420, 720, 1150, 1750, 2500];
             for (let i = 0; i < ridgeDists.length; i++) {
                 const d = ridgeDists[i];
-                const alpha = Math.max(0.12, 0.70 - (i / ridgeDists.length) * 0.55);
-                ctx.strokeStyle = `rgba(0, 220, 90, ${alpha.toFixed(2)})`;
+                const alpha = Math.max(0.14, 0.75 - (i / ridgeDists.length) * 0.55);
+                ctx.strokeStyle = `rgba(0, 230, 95, ${alpha.toFixed(2)})`;
                 ctx.beginPath();
                 let first = true;
-                for (let r = -2200; r <= 2200; r += 160) {
+                for (let r = -2400; r <= 2400; r += 160) {
                     const wx = posX + shipForward.x * d + shipRight.x * r;
                     const wz = posZ + shipForward.z * d + shipRight.z * r;
                     const wy = defenderTerrainHeight(wx) + Math.sin(wz * 0.006 + wx * 0.003) * 35;
@@ -9978,9 +10275,9 @@
             }
 
             // Longitudinal grid lines running forward to the horizon
-            const lateralOffsets = [-1500, -1000, -600, -250, 250, 600, 1000, 1500];
-            ctx.strokeStyle = 'rgba(0, 180, 75, 0.35)';
-            ctx.lineWidth = 1.2;
+            const lateralOffsets = [-1600, -1100, -700, -300, 300, 700, 1100, 1600];
+            ctx.strokeStyle = 'rgba(0, 190, 80, 0.38)';
+            ctx.lineWidth = 1.3;
             for (const off of lateralOffsets) {
                 ctx.beginPath();
                 let first = true;
@@ -10000,92 +10297,243 @@
             }
             ctx.restore();
 
-            // 3. Render Humanoids
+            // 3. Render Humanoids (15 Astronauts)
             for (const h of defenderPhase.humanoids) {
                 if (h.state === 'dead') continue;
                 const dx = defenderWrapDx(h.pos.x, posX);
                 const p = projectPoint({ x: posX + dx, y: h.pos.y, z: h.pos.z }, centerX, centerY, fov);
                 if (!p || p.z <= 8) continue;
-                const sz = Math.max(3, Math.min(60, (fov / Math.max(8, p.z)) * 14));
+                // High-visibility scaling: min clamp 14px!
+                const sz = Math.max(14, Math.min(90, (fov / Math.max(8, p.z)) * 28));
+
                 ctx.save();
-                ctx.fillStyle = h.state === 'abducted' ? ((now % 200 < 100) ? '#ff2222' : '#00ffff') : '#00ffff';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = h.state === 'abducted' ? '#ff0033' : '#00ffff';
+                ctx.fillStyle = h.state === 'abducted' ? ((now % 160 < 80) ? '#ff0033' : '#ffff00') : '#00ffff';
                 ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 1.2;
-                // Head
+                ctx.lineWidth = 1.6;
+
+                // Glowing beacon beam reaching up from astronaut so you can easily spot them from afar
+                if (h.state === 'ground') {
+                    ctx.strokeStyle = 'rgba(0, 255, 255, 0.45)';
+                    ctx.beginPath();
+                    ctx.moveTo(p.x, p.y);
+                    ctx.lineTo(p.x, p.y - sz * 1.6);
+                    ctx.stroke();
+                }
+
+                // Head / Helmet
                 ctx.beginPath();
-                ctx.arc(p.x, p.y - sz * 0.6, sz * 0.35, 0, Math.PI * 2);
+                ctx.arc(p.x, p.y - sz * 0.65, sz * 0.35, 0, Math.PI * 2);
                 ctx.fill();
-                // Body
-                ctx.fillRect(p.x - sz * 0.25, p.y - sz * 0.25, sz * 0.5, sz * 0.7);
-                // Visor
-                ctx.fillStyle = '#ffaa00';
-                ctx.fillRect(p.x - sz * 0.15, p.y - sz * 0.7, sz * 0.3, sz * 0.2);
+                ctx.stroke();
+
+                // Golden Visor
+                ctx.fillStyle = '#ffcc00';
+                ctx.fillRect(p.x - sz * 0.18, p.y - sz * 0.75, sz * 0.36, sz * 0.22);
+
+                // Body Suit
+                ctx.fillStyle = h.state === 'abducted' ? '#ff0033' : '#00ddff';
+                ctx.fillRect(p.x - sz * 0.28, p.y - sz * 0.30, sz * 0.56, sz * 0.70);
+
+                // Legs
+                ctx.strokeStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.moveTo(p.x - sz * 0.18, p.y + sz * 0.40);
+                ctx.lineTo(p.x - sz * 0.25, p.y + sz * 0.85);
+                ctx.moveTo(p.x + sz * 0.18, p.y + sz * 0.40);
+                ctx.lineTo(p.x + sz * 0.25, p.y + sz * 0.85);
+                ctx.stroke();
+
+                // Free-fall indicator / parachute flare
+                if (h.state === 'falling') {
+                    ctx.strokeStyle = (now % 120 < 60) ? '#ffcc00' : '#ff4400';
+                    ctx.lineWidth = 2.0;
+                    ctx.beginPath();
+                    ctx.moveTo(p.x - sz * 0.6, p.y - sz * 1.4);
+                    ctx.lineTo(p.x, p.y - sz * 0.8);
+                    ctx.lineTo(p.x + sz * 0.6, p.y - sz * 1.4);
+                    ctx.stroke();
+                }
+
                 ctx.restore();
             }
 
-            // 4. Render Landers
+            // 4. Render Landers & Towering Tractor Beams
             for (const l of defenderPhase.landers) {
                 const dx = defenderWrapDx(l.pos.x, posX);
                 const p = projectPoint({ x: posX + dx, y: l.pos.y, z: l.pos.z }, centerX, centerY, fov);
-                if (!p || p.z <= 8) continue;
-                const sz = Math.max(5, Math.min(140, (fov / Math.max(8, p.z)) * 26));
+                const isAbducting = l.state === 'abducting' || l.state === 'descending';
+                const distToPlayer = Math.round(Math.hypot(dx, posY - l.pos.y, posZ - l.pos.z));
 
-                ctx.save();
-                // Tractor beam if abducting
-                if (l.state === 'abducting' || l.state === 'descending') {
+                // A. TOWERING TRACTOR BEAM (Visible across the world!)
+                if (isAbducting) {
                     const h = defenderPhase.humanoids.find(x => x.id === l.targetHumanoidId);
                     if (h) {
                         const hdx = defenderWrapDx(h.pos.x, posX);
                         const hp = projectPoint({ x: posX + hdx, y: h.pos.y, z: h.pos.z }, centerX, centerY, fov);
-                        if (hp && hp.z > 8) {
-                            ctx.strokeStyle = `rgba(0, 255, 200, ${0.4 + 0.3 * Math.sin(now * 0.01)})`;
-                            ctx.lineWidth = 2.5;
+                        if (p && hp && p.z > 8 && hp.z > 8) {
+                            ctx.save();
+                            // Outer glowing energy sheath
+                            const pulseAlpha = 0.35 + 0.25 * Math.sin(now * 0.015);
+                            ctx.strokeStyle = `rgba(0, 255, 220, ${pulseAlpha})`;
+                            ctx.lineWidth = Math.max(10, (fov / Math.max(8, p.z)) * 18);
                             ctx.beginPath();
                             ctx.moveTo(p.x, p.y);
                             ctx.lineTo(hp.x, hp.y);
                             ctx.stroke();
+
+                            // Core white energy beam
+                            ctx.strokeStyle = '#ffffff';
+                            ctx.lineWidth = Math.max(2.5, (fov / Math.max(8, p.z)) * 4.5);
+                            ctx.beginPath();
+                            ctx.moveTo(p.x, p.y);
+                            ctx.lineTo(hp.x, hp.y);
+                            ctx.stroke();
+
+                            // Ascending pulse rings moving up into Lander
+                            const ringCount = 4;
+                            for (let r = 0; r < ringCount; r++) {
+                                const frac = ((now * 0.002 + r / ringCount) % 1.0);
+                                const rx = hp.x + (p.x - hp.x) * frac;
+                                const ry = hp.y + (p.y - hp.y) * frac;
+                                const rRadius = Math.max(6, (fov / Math.max(8, p.z)) * 12 * (1 - frac * 0.3));
+                                ctx.strokeStyle = `rgba(255, 255, 0, ${0.8 - frac * 0.5})`;
+                                ctx.lineWidth = 2.0;
+                                ctx.beginPath();
+                                ctx.ellipse(rx, ry, rRadius, rRadius * 0.4, 0, 0, Math.PI * 2);
+                                ctx.stroke();
+                            }
+
+                            // Ground shock ring under abductee
+                            ctx.strokeStyle = 'rgba(0, 255, 255, 0.7)';
+                            ctx.lineWidth = 2.5;
+                            ctx.beginPath();
+                            ctx.ellipse(hp.x, hp.y + 10, Math.max(14, (fov / Math.max(8, hp.z)) * 24), Math.max(6, (fov / Math.max(8, hp.z)) * 10), 0, 0, Math.PI * 2);
+                            ctx.stroke();
+                            ctx.restore();
                         }
                     }
                 }
 
-                // Lander Body
+                // B. Off-Screen Edge Warning Chevrons for Abductions
+                if (l.state === 'abducting') {
+                    const isBehind = !p || p.z <= 8;
+                    const isOffScreen = isBehind || p.x < 30 || p.x > canvas.width - 30 || p.y < 30 || p.y > canvas.height - 30;
+                    if (isOffScreen) {
+                        ctx.save();
+                        ctx.font = 'bold 13px monospace';
+                        ctx.textAlign = dx < 0 ? 'left' : 'right';
+                        ctx.fillStyle = (now % 180 < 90) ? '#ff0033' : '#00ffff';
+                        const edgeX = dx < 0 ? 28 : canvas.width - 28;
+                        const edgeY = Math.max(120, Math.min(canvas.height - 120, centerY + (l.pos.y - posY) * 0.2));
+                        const label = dx < 0 ? `◄◄ ABDUCTION ${distToPlayer}m` : `ABDUCTION ${distToPlayer}m ►►`;
+                        ctx.fillText(label, edgeX, edgeY);
+                        ctx.restore();
+                    }
+                }
+
+                if (!p || p.z <= 8) continue;
+
+                // High-visibility scaling: min clamp 18px!
+                const sz = Math.max(18, Math.min(180, (fov / Math.max(8, p.z)) * 52));
+
+                ctx.save();
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = l.state === 'abducting' ? '#00ffff' : '#ffdd00';
+
+                // Tactical Reticle if abducting
+                if (l.state === 'abducting') {
+                    ctx.strokeStyle = (now % 160 < 80) ? '#ff0033' : '#ffff00';
+                    ctx.lineWidth = 2.0;
+                    const bsz = sz * 1.3;
+                    ctx.strokeRect(p.x - bsz, p.y - bsz, bsz * 2, bsz * 2);
+                    ctx.font = 'bold 12px monospace';
+                    ctx.fillStyle = '#ffff00';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`⚠️ ABDUCTION ${distToPlayer}m`, p.x, p.y - bsz - 8);
+                }
+
+                // Lander Body (Classic Green/Yellow geometric ship)
                 ctx.fillStyle = '#ffdd00';
                 ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 1.8;
+                ctx.lineWidth = 2.2;
                 ctx.beginPath();
                 ctx.strokeRect(p.x - sz * 0.6, p.y - sz * 0.4, sz * 1.2, sz * 0.8);
-                // Cockpit eye
-                ctx.fillStyle = '#00ffcc';
+
+                // Cockpit eye / core
+                ctx.fillStyle = l.state === 'abducting' ? '#ff0055' : '#00ffcc';
                 ctx.fillRect(p.x - sz * 0.25, p.y - sz * 0.2, sz * 0.5, sz * 0.4);
-                // Landing legs
-                ctx.strokeStyle = '#ffdd00';
+
+                // Landing legs / grappling claws
+                ctx.strokeStyle = '#ffcc00';
+                ctx.lineWidth = 2.0;
                 ctx.beginPath();
                 ctx.moveTo(p.x - sz * 0.5, p.y + sz * 0.4);
-                ctx.lineTo(p.x - sz * 0.8, p.y + sz * 0.8);
+                ctx.lineTo(p.x - sz * 0.8, p.y + sz * 0.85);
                 ctx.moveTo(p.x + sz * 0.5, p.y + sz * 0.4);
-                ctx.lineTo(p.x + sz * 0.8, p.y + sz * 0.8);
+                ctx.lineTo(p.x + sz * 0.8, p.y + sz * 0.85);
                 ctx.stroke();
                 ctx.restore();
             }
 
-            // 5. Render Mutants
+            // 5. Render Mutants (Berserkers) - Energetic pulsing diamond with off-screen alerts
             for (const m of defenderPhase.mutants) {
                 const dx = defenderWrapDx(m.pos.x, posX);
                 const p = projectPoint({ x: posX + dx, y: m.pos.y, z: m.pos.z }, centerX, centerY, fov);
+                const distToPlayer = Math.round(Math.hypot(dx, posY - m.pos.y, posZ - m.pos.z));
+
+                // Off-screen edge alert for Berserkers
+                const isBehind = !p || p.z <= 8;
+                const isOffScreen = isBehind || p.x < 30 || p.x > canvas.width - 30 || p.y < 30 || p.y > canvas.height - 30;
+                if (isOffScreen) {
+                    ctx.save();
+                    ctx.font = 'bold 13px monospace';
+                    ctx.textAlign = dx < 0 ? 'left' : 'right';
+                    ctx.fillStyle = (now % 140 < 70) ? '#ff0055' : '#ffffff';
+                    const edgeX = dx < 0 ? 28 : canvas.width - 28;
+                    const edgeY = Math.max(140, Math.min(canvas.height - 140, centerY + (m.pos.y - posY) * 0.25));
+                    const label = dx < 0 ? `⚡ BERSERKER ${distToPlayer}m` : `BERSERKER ${distToPlayer}m ⚡`;
+                    ctx.fillText(label, edgeX, edgeY);
+                    ctx.restore();
+                }
+
                 if (!p || p.z <= 8) continue;
-                const sz = Math.max(5, Math.min(130, (fov / Math.max(8, p.z)) * 24));
+
+                // High-visibility scaling: min clamp 18px!
+                const sz = Math.max(18, Math.min(180, (fov / Math.max(8, p.z)) * 48));
+
                 ctx.save();
-                ctx.fillStyle = (now % 120 < 60) ? '#ff0055' : '#ff00aa';
+                ctx.shadowBlur = 16;
+                ctx.shadowColor = '#ff0055';
+
+                // Tactical Reticle
+                ctx.strokeStyle = (now % 100 < 50) ? '#ff0055' : '#ffffff';
+                ctx.lineWidth = 2.0;
+                ctx.strokeRect(p.x - sz * 1.2, p.y - sz * 1.2, sz * 2.4, sz * 2.4);
+                ctx.font = 'bold 11px monospace';
+                ctx.fillStyle = '#ff0055';
+                ctx.textAlign = 'center';
+                ctx.fillText(`⚡ BERSERKER ${distToPlayer}m`, p.x, p.y - sz * 1.2 - 6);
+
+                // Mutant Body: Pulsing aggressive geometric dart
+                ctx.fillStyle = (now % 100 < 50) ? '#ff0055' : '#ff00cc';
                 ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 2.4;
                 ctx.beginPath();
                 ctx.moveTo(p.x, p.y - sz);
-                ctx.lineTo(p.x + sz * 0.8, p.y);
+                ctx.lineTo(p.x + sz * 0.85, p.y);
                 ctx.lineTo(p.x, p.y + sz);
-                ctx.lineTo(p.x - sz * 0.8, p.y);
+                ctx.lineTo(p.x - sz * 0.85, p.y);
                 ctx.closePath();
                 ctx.fill();
                 ctx.stroke();
+
+                // Inner core spikes
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, sz * 0.28, 0, Math.PI * 2);
+                ctx.fill();
                 ctx.restore();
             }
 
@@ -10094,15 +10542,19 @@
                 const dx = defenderWrapDx(b.pos.x, posX);
                 const p = projectPoint({ x: posX + dx, y: b.pos.y, z: b.pos.z }, centerX, centerY, fov);
                 if (!p || p.z <= 8) continue;
-                const sz = Math.max(6, Math.min(150, (fov / Math.max(8, p.z)) * 32));
+                const sz = Math.max(22, Math.min(200, (fov / Math.max(8, p.z)) * 60));
+
                 ctx.save();
-                ctx.fillStyle = '#2277ee';
-                ctx.strokeStyle = '#00ddff';
-                ctx.lineWidth = 2;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#00ddff';
+                ctx.fillStyle = '#1e70e6';
+                ctx.strokeStyle = '#00ffff';
+                ctx.lineWidth = 2.2;
                 ctx.fillRect(p.x - sz * 0.7, p.y - sz * 0.5, sz * 1.4, sz);
                 ctx.strokeRect(p.x - sz * 0.7, p.y - sz * 0.5, sz * 1.4, sz);
-                // Blinking red bomb bay
-                ctx.fillStyle = (now % 300 < 150) ? '#ff2222' : '#660000';
+
+                // Blinking bomb bay
+                ctx.fillStyle = (now % 250 < 125) ? '#ff2222' : '#550000';
                 ctx.fillRect(p.x - sz * 0.25, p.y + sz * 0.1, sz * 0.5, sz * 0.35);
                 ctx.restore();
             }
@@ -10112,13 +10564,16 @@
                 const dx = defenderWrapDx(m.pos.x, posX);
                 const p = projectPoint({ x: posX + dx, y: m.pos.y, z: m.pos.z }, centerX, centerY, fov);
                 if (!p || p.z <= 8) continue;
-                const sz = Math.max(3, Math.min(70, (fov / Math.max(8, p.z)) * 14));
+                const sz = Math.max(10, Math.min(80, (fov / Math.max(8, p.z)) * 20));
+
                 ctx.save();
-                ctx.strokeStyle = (now % 200 < 100) ? '#ffcc00' : '#ff4400';
-                ctx.lineWidth = 2;
+                ctx.strokeStyle = (now % 160 < 80) ? '#ffcc00' : '#ff3300';
+                ctx.lineWidth = 2.4;
                 ctx.beginPath();
                 ctx.moveTo(p.x - sz, p.y); ctx.lineTo(p.x + sz, p.y);
                 ctx.moveTo(p.x, p.y - sz); ctx.lineTo(p.x, p.y + sz);
+                ctx.moveTo(p.x - sz * 0.7, p.y - sz * 0.7); ctx.lineTo(p.x + sz * 0.7, p.y + sz * 0.7);
+                ctx.moveTo(p.x - sz * 0.7, p.y + sz * 0.7); ctx.lineTo(p.x + sz * 0.7, p.y - sz * 0.7);
                 ctx.stroke();
                 ctx.restore();
             }
@@ -10128,11 +10583,14 @@
                 const dx = defenderWrapDx(pod.pos.x, posX);
                 const p = projectPoint({ x: posX + dx, y: pod.pos.y, z: pod.pos.z }, centerX, centerY, fov);
                 if (!p || p.z <= 8) continue;
-                const sz = Math.max(6, Math.min(140, (fov / Math.max(8, p.z)) * 30));
+                const sz = Math.max(22, Math.min(180, (fov / Math.max(8, p.z)) * 56));
+
                 ctx.save();
-                ctx.fillStyle = '#aa00ee';
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = '#ff88ff';
+                ctx.fillStyle = '#a000ee';
                 ctx.strokeStyle = '#ff88ff';
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 2.4;
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, sz * 0.65, 0, Math.PI * 2);
                 ctx.fill();
@@ -10143,32 +10601,44 @@
                 const dx = defenderWrapDx(sw.pos.x, posX);
                 const p = projectPoint({ x: posX + dx, y: sw.pos.y, z: sw.pos.z }, centerX, centerY, fov);
                 if (!p || p.z <= 8) continue;
-                const sz = Math.max(3, Math.min(60, (fov / Math.max(8, p.z)) * 12));
+                const sz = Math.max(12, Math.min(80, (fov / Math.max(8, p.z)) * 24));
+
                 ctx.save();
                 ctx.fillStyle = '#ff3300';
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.4;
                 ctx.beginPath();
                 ctx.moveTo(p.x + sz, p.y);
                 ctx.lineTo(p.x - sz * 0.6, p.y - sz * 0.6);
                 ctx.lineTo(p.x - sz * 0.6, p.y + sz * 0.6);
                 ctx.closePath();
                 ctx.fill();
+                ctx.stroke();
                 ctx.restore();
             }
 
-            // 9. Render Baiters
+            // 9. Render Baiters (Fast flat saucers)
             for (const bt of defenderPhase.baiters) {
                 const dx = defenderWrapDx(bt.pos.x, posX);
                 const p = projectPoint({ x: posX + dx, y: bt.pos.y, z: bt.pos.z }, centerX, centerY, fov);
                 if (!p || p.z <= 8) continue;
-                const sz = Math.max(4, Math.min(120, (fov / Math.max(8, p.z)) * 22));
+                const sz = Math.max(18, Math.min(140, (fov / Math.max(8, p.z)) * 42));
+
                 ctx.save();
-                ctx.fillStyle = '#eeeeee';
+                ctx.shadowBlur = 12;
+                ctx.shadowColor = '#ff0033';
+                ctx.fillStyle = '#ffffff';
                 ctx.strokeStyle = '#ff0033';
-                ctx.lineWidth = 2;
+                ctx.lineWidth = 2.5;
                 ctx.beginPath();
-                ctx.ellipse(p.x, p.y, sz, sz * 0.4, 0, 0, Math.PI * 2);
+                ctx.ellipse(p.x, p.y, sz, sz * 0.38, 0, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.stroke();
+                // Dome
+                ctx.fillStyle = '#00ffff';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y - sz * 0.15, sz * 0.35, Math.PI, 0);
+                ctx.fill();
                 ctx.restore();
             }
 
@@ -10177,34 +10647,54 @@
                 const dx = defenderWrapDx(bolt.x, posX);
                 const p = projectPoint({ x: posX + dx, y: bolt.y, z: bolt.z }, centerX, centerY, fov);
                 if (!p || p.z <= 8) continue;
-                const sz = Math.max(2, Math.min(30, (fov / Math.max(8, p.z)) * 8));
+                const sz = Math.max(4, Math.min(36, (fov / Math.max(8, p.z)) * 12));
+
                 ctx.save();
                 ctx.fillStyle = '#ff2233';
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = '#ff0000';
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, sz, 0, Math.PI * 2);
                 ctx.fill();
                 ctx.restore();
             }
 
-            // 11. Render Shockwave
+            // 11. Render Expanding Shockwave
             if (defenderPhase.shockwave) {
                 const sw = defenderPhase.shockwave;
-                const sp = projectPoint({ x: posX, y: posY, z: posZ + 200 }, centerX, centerY, fov);
-                if (sp) {
-                    ctx.save();
-                    ctx.strokeStyle = 'rgba(0, 255, 255, 0.75)';
-                    ctx.lineWidth = 4;
-                    ctx.beginPath();
-                    ctx.arc(centerX, centerY, Math.min(canvas.width, sw.radius * 0.5), 0, Math.PI * 2);
-                    ctx.stroke();
-                    ctx.restore();
-                }
+                ctx.save();
+                ctx.strokeStyle = 'rgba(0, 255, 255, 0.85)';
+                ctx.lineWidth = 5;
+                ctx.beginPath();
+                ctx.arc(centerX, centerY, Math.min(canvas.width, sw.radius * 0.5), 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.restore();
             }
 
             // 12. Top Radar Scanner
             renderDefenderScanner(centerX, fov);
 
-            // 13. State Banners (Intro / Wave Clear / Results)
+            // 13. Find Nearest Hostile Directional Nav Pointer (Prevents flying in circles!)
+            let nearestHostile = null;
+            let nearestDist = 999999;
+            const checkNearest = (arr, label) => {
+                for (const e of arr) {
+                    const dx = defenderWrapDx(e.pos.x, posX);
+                    const d = Math.hypot(dx, posY - e.pos.y, posZ - e.pos.z);
+                    if (d < nearestDist) {
+                        nearestDist = d;
+                        nearestHostile = { dx, dist: Math.round(d), label };
+                    }
+                }
+            };
+            checkNearest(defenderPhase.landers, 'LANDER');
+            checkNearest(defenderPhase.mutants, 'MUTANT');
+            checkNearest(defenderPhase.bombers, 'BOMBER');
+            checkNearest(defenderPhase.pods, 'POD');
+            checkNearest(defenderPhase.swarmers, 'SWARMER');
+            checkNearest(defenderPhase.baiters, 'BAITER');
+
+            // 14. In-Cockpit HUD Telemetry & Nearest Threat Pointer
             ctx.save();
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -10216,24 +10706,42 @@
             ctx.font = 'bold 13px monospace';
             ctx.fillStyle = '#00ffcc';
             ctx.fillText(
-                `DEFENDER WAVE ${defenderPhase.level} · SCORE: ${defenderPhase.score} · KILLS: ${defenderPhase.kills} · SMART BOMBS: ${defenderPhase.smartBombs} · HUMANS: ${aliveCount}/8`,
-                centerX, 68
+                `DEFENDER WAVE ${defenderPhase.level} · SCORE: ${defenderPhase.score} · KILLS: ${defenderPhase.kills} · SMART BOMBS: ${defenderPhase.smartBombs} · HUMANS: ${aliveCount}/15`,
+                centerX, 72
             );
             ctx.font = '11px monospace';
-            ctx.fillStyle = 'rgba(0, 255, 204, 0.65)';
-            ctx.fillText('[C / SPACE: 180° FLIP]  ·  [X: ROCKET]  ·  [TAB: AUTO-CRUISE]  ·  [B: SMART BOMB]  ·  [V / RMB: LASERS]', centerX, 84);
+            ctx.fillStyle = 'rgba(0, 255, 204, 0.70)';
+            ctx.fillText('[C/Z: 180° FLIP]  ·  [SPACE: DRIFT BRAKE]  ·  [X: ROCKET]  ·  [TAB: CRUISE]  ·  [B: SMART BOMB]  ·  [V: LASER]', centerX, 88);
 
+            // Nearest Hostile Compass Bar (Never get lost!)
+            if (nearestHostile && defenderPhase.state === 'play') {
+                ctx.font = 'bold 12px monospace';
+                const arrow = nearestHostile.dx < -100 ? '◄◄ TURN LEFT' : (nearestHostile.dx > 100 ? 'TURN RIGHT ►►' : '▲ FORWARD');
+                ctx.fillStyle = (now % 200 < 100) ? '#ffd24a' : '#ffffff';
+                ctx.fillText(`TARGETING: ${nearestHostile.label} ${nearestHostile.dist}m [ ${arrow} ]`, centerX, 108);
+            }
+
+            // Artificial Ground Surface Telemetry (Orients player immediately)
+            const groundDist = Math.round(defenderTerrainHeight(posX) - posY);
+            ctx.font = 'bold 12px monospace';
+            ctx.fillStyle = 'rgba(0, 255, 120, 0.75)';
+            ctx.fillText(`▼ PLANET SURFACE: ${Math.max(0, groundDist)}m BELOW ▼`, centerX, canvas.height - 24);
+
+            // State Banners (Intro / Wave Clear / Results)
             if (defenderPhase.state === 'intro') {
-                ctx.fillStyle = 'rgba(0, 15, 30, 0.85)';
-                ctx.fillRect(0, centerY - 65, canvas.width, 130);
-                ctx.font = 'bold 30px monospace';
+                ctx.fillStyle = 'rgba(0, 15, 30, 0.88)';
+                ctx.fillRect(0, centerY - 75, canvas.width, 150);
+                ctx.font = 'bold 32px monospace';
                 ctx.fillStyle = '#ffd24a';
-                ctx.fillText(`DEFENDER — WAVE ${defenderPhase.level}`, centerX, centerY - 18);
-                ctx.font = '15px monospace';
+                ctx.fillText(`DEFENDER — WAVE ${defenderPhase.level}`, centerX, centerY - 22);
+                ctx.font = '16px monospace';
+                ctx.fillStyle = '#00ffcc';
+                ctx.fillText('15 ASTRONAUTS ON PLANET SURFACE BELOW', centerX, centerY + 10);
+                ctx.font = '13px monospace';
                 ctx.fillStyle = '#c8f6ff';
-                ctx.fillText('PROTECT THE ASTRONAUTS · DESTROY THE LANDERS · AVOID MUTATION', centerX, centerY + 18);
+                ctx.fillText('PROTECT ASTRONAUTS · PREVENT MUTATION · CATCH FALLING ASTRONAUTS', centerX, centerY + 34);
             } else if (defenderPhase.state === 'wave_clear') {
-                ctx.fillStyle = 'rgba(0, 25, 15, 0.85)';
+                ctx.fillStyle = 'rgba(0, 25, 15, 0.88)';
                 ctx.fillRect(0, centerY - 65, canvas.width, 130);
                 ctx.font = 'bold 30px monospace';
                 ctx.fillStyle = '#00ff88';
@@ -10242,7 +10750,7 @@
                 ctx.fillStyle = '#c8f6ff';
                 ctx.fillText(`PREPARING WAVE ${defenderPhase.level + 1} · SMART BOMB REPLENISHED`, centerX, centerY + 18);
             } else if (defenderPhase.state === 'results') {
-                ctx.fillStyle = 'rgba(30, 5, 10, 0.85)';
+                ctx.fillStyle = 'rgba(30, 5, 10, 0.88)';
                 ctx.fillRect(0, centerY - 65, canvas.width, 130);
                 ctx.font = 'bold 30px monospace';
                 ctx.fillStyle = '#ff6a7a';
@@ -10255,7 +10763,7 @@
         }
 
 
-        function triggerGameOver() {
+                function triggerGameOver() {
             if (gameOverState.active) return;
             spawnTargetParticles(
                 { x: posX, y: posY, z: posZ },
@@ -11121,7 +11629,7 @@
                 return;
             }
             if (
-                (key === 'c' || key === 'z' || key === ' ' || (key === 's' && e.shiftKey)) &&
+                (key === 'c' || key === 'z' || (key === 's' && e.shiftKey)) &&
                 !mapView &&
                 !builderMode &&
                 !e.ctrlKey &&
@@ -30309,7 +30817,9 @@
             const keyYaw = (isKeyActive('arrowright') ? 1 : 0) - (isKeyActive('arrowleft') ? 1 : 0);
             branchSteerIntent.pitch = (INVERT_PITCH ? -mouseInput.pitch : mouseInput.pitch) + keyPitch + gamepad.pitch;
             branchSteerIntent.yaw = mouseInput.yaw + keyYaw + gamepad.yaw;
-            const turnSpeed = FLIGHT_TURN_SPEED * getBranchFlightContext(true).turnSpeedMult;
+            const speedBrakeHeld = (isKeyActive(' ', THRUST_KEY_HOLD_GRACE_MS) || !!gamepad.brake) && !mapView && !builderMode;
+            const driftTurnMult = speedBrakeHeld ? 1.40 : 1.0;
+            const turnSpeed = FLIGHT_TURN_SPEED * getBranchFlightContext(true).turnSpeedMult * driftTurnMult;
 
             // 1. Rotate ship orientation. W then flies along this nose vector.
             const keyRoll = (isKeyActive('e') ? 1 : 0) - (isKeyActive('q') ? 1 : 0);
@@ -30431,11 +30941,49 @@
             const targetVelY = forward.y * forwardAmount * currentSpeed + right.y * strafeAmount * strafeSpeed + up.y * liftAmount * strafeSpeed;
             const targetVelZ = forward.z * forwardAmount * currentSpeed + right.z * strafeAmount * strafeSpeed + up.z * liftAmount * strafeSpeed;
 
+            // Tokyo Drift / Speed Brake engagement
+            const curSpeedMag = Math.hypot(shipVelocity.x, shipVelocity.y, shipVelocity.z);
+            if (speedBrakeHeld && curSpeedMag > 0.15) {
+                if (!shipDriftActive) {
+                    shipDriftActive = true;
+                    driftSlingshotArmed = true;
+                }
+            }
+
             if (shipDriftActive) {
-                if (forwardAmount > 0) {
-                    // Forward thrusters firing: smoothly brake backward momentum over ~1.8s (scaled by dt)
-                    // and accelerate forward
-                    const accelRate = (currentSpeed / 80) * frameScale * forwardAmount;
+                if (speedBrakeHeld) {
+                    // Airbrake retro-drag: scrub speed smoothly (~2.5% per frame) while preserving slide vector
+                    const brakeDrag = Math.pow(0.975, frameScale);
+                    shipVelocity.x *= brakeDrag;
+                    shipVelocity.y *= brakeDrag;
+                    shipVelocity.z *= brakeDrag;
+
+                    // Lateral nudges while drifting
+                    if (Math.abs(strafeAmount) > 0.01) {
+                        const strafeAccel = (strafeSpeed / 25) * frameScale * strafeAmount;
+                        shipVelocity.x += right.x * strafeAccel;
+                        shipVelocity.y += right.y * strafeAccel;
+                        shipVelocity.z += right.z * strafeAccel;
+                    }
+                    if (Math.abs(liftAmount) > 0.01) {
+                        const liftAccel = (strafeSpeed / 25) * frameScale * liftAmount;
+                        shipVelocity.x += up.x * liftAccel;
+                        shipVelocity.y += up.y * liftAccel;
+                        shipVelocity.z += up.z * liftAccel;
+                    }
+
+                    // Drift HUD status indication
+                    const moveNorm = curSpeedMag > 0.001 ? normalize(shipVelocity) : forward;
+                    const alignDot = dot(moveNorm, forward);
+                    if (alignDot < 0.82) {
+                        keyboardStatus.innerText = 'DRIFT BRAKE // TOKYO DRIFT';
+                    } else {
+                        keyboardStatus.innerText = 'SPEED BRAKE // AIRBRAKE';
+                    }
+                } else if (forwardAmount > 0) {
+                    // Forward thrusters firing out of drift: slingshot boost bite
+                    const slingshotMult = (driftSlingshotArmed ? 1.35 : 1.0) * (boosting ? 1.15 : 1.0);
+                    const accelRate = (currentSpeed / 60) * frameScale * forwardAmount * slingshotMult;
                     shipVelocity.x += forward.x * accelRate;
                     shipVelocity.y += forward.y * accelRate;
                     shipVelocity.z += forward.z * accelRate;
@@ -30457,6 +31005,7 @@
                     const forwardDot = dot(shipVelocity, forward);
                     if (forwardDot >= currentSpeed * forwardAmount * 0.92) {
                         shipDriftActive = false;
+                        driftSlingshotArmed = false;
                     }
                 } else if (forwardAmount < 0) {
                     // Reverse thrust applied while drifting backwards: accelerate further backwards
