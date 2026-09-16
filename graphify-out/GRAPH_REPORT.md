@@ -1,16 +1,16 @@
-# Graph Report - Trading_Bot_V2  (2026-09-15)
+# Graph Report - Trading_Bot_V2  (2026-09-16)
 
 ## Corpus Check
-- 1189 files · ~7,704,958 words
+- 1190 files · ~7,711,278 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 21569 nodes · 45301 edges · 978 communities (859 shown, 119 thin omitted)
-- Extraction: 89% EXTRACTED · 11% INFERRED · 0% AMBIGUOUS · INFERRED: 4980 edges (avg confidence: 0.74)
+- 21623 nodes · 45398 edges · 979 communities (863 shown, 116 thin omitted)
+- Extraction: 89% EXTRACTED · 11% INFERRED · 0% AMBIGUOUS · INFERRED: 4983 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `e1f99f5f`
+- Built from commit: `77ef857c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -20,19 +20,19 @@
 - test_broker_routing_safety.py
 - panels.jsx
 - test_candle_validation.py
-- FormPanel
+- ._add_field_container
 - EMTStrategyIndicator
 - PythonFuturesBridge
 - StockCalendarAuthority
-- traderdev_gridbot_adx15.py
+- TradeSignal
 - Lt
-- .toJSON
+- i
 - TradeExecutor
 - BTCV6ChandelierStrategy
 - TradovateFeed
-- CandleManager
+- Vec3
 - Docs/three.min.js
-- ScanCutoff
+- candle_validation.py
 - .multiplyScalar
 - RSIDipSpikeV4Strategy
 - BreakoutSender
@@ -52,7 +52,7 @@
 - Part 1: Sub-Minute Signal Delivery
 - test_map_entity_sanitizers.js
 - EATStrategy
-- test_backtester_p1a_behavior.py
+- Parse_RValue
 - PLLCycleStrategy
 - BreakoutReceiver
 - DBPanel
@@ -65,20 +65,20 @@
 - test_breakout_event_durability.py
 - povms.c
 - PatternDetector
-- Parser::Parse_Num_Factor
+- parser_strings.cpp
 - RunLedger
 - ecb_strategy.py
 - AlertManager
 - ClaudeReviewer
 - ColourBlendMapConstPtr
-- .add_toggle
+- MenuNode
 - EMTStrategyTests
 - strategy_matrix.py
 - Scripts/remove_trade.py
-- ScannerEngine
+- .do_POST
 - test_kraken_scanner_partial.py
 - test_web_dashboard_backtest_behavior_profile.py
-- _real_stock_authority
+- ScanCutoff
 - ChatInterface
 - archive_db_rollover.py
 - St
@@ -96,7 +96,7 @@
 - test_candle_manager_session_hourly_resample.py
 - kds_mean_reversion.py
 - TradeMaintenanceEngine
-- Widget
+- ToolView
 - run_backtest_matrix.py
 - bot_functions.ps1
 - LiveRayTraceViewer
@@ -104,25 +104,25 @@
 - dxf_to_astral_map.py
 - exploration_api.py
 - BacktestRunContext
-- ToolView
-- TradeSignal
+- FormPanel
+- traderdev_day_trader_v3.py
 - analyze_trade_dump.py
 - BMR357Strategy
 - Job
 - ct
-- i
+- HFData
 - PythonEMTBridge
 - STBIDEF
 - Astral Drift Technical Reference
 - three.min.js
 - PriceData
-- Vec3
+- TheRestOfYourLife/python/material.py
 - StrategyOptimizer
 - FuturesScannerGui
 - PositionMonitor
 - full_strategy_stress_test.py
 - Scripts/market_scanner.py
-- RenderFrontend
+- vfe.h
 - vdmr_strategy.py
 - ExprNode
 - stbi__context
@@ -158,7 +158,7 @@
 - Astral Drift unified audit task list
 - TASKS_FOR_CODEX_AND_CLAIUDE.md
 - tweaks-panel.jsx
-- RenderFrontendBase
+- renderfrontend.cpp
 - set_api_key.py
 - trades_list2.py
 - BreakoutScanner.py
@@ -174,16 +174,16 @@
 - TheNextWeek/python/local_functions.py
 - test_map_import_segment_limit.js
 - CatalystChecker
-- bot_engine.py
-- STBIDEF
+- BotEngine
+- TheRestOfYourLife/external/stb_image.h
 - test_kraken_full_exit.py
 - VwapConfirmedOrb
 - data.jsx
 - window-manager.jsx
 - VBMStrategy
-- RtwImage
+- Interval
 - live_ticker_reference
-- RuntimeError
+- test_metrics.py
 - test_rect_junction_corner_handoff.js
 - quarterly_hourly_log_scan.py
 - setup_encryption.py
@@ -195,7 +195,7 @@
 - stbi__malloc
 - HistoricalFuturesExporter
 - test_gullet_exact_room_containment.js
-- scanners/market_scanner.py
+- inverse_etf_mapper.py
 - POVMS_Object
 - scalp_master.py
 - watchdog_bot_engine.py
@@ -218,10 +218,10 @@
 - log_event_context.py
 - .analyse
 - sn
-- Ray
+- Vec3
 - test_texture_distance_runs.js
 - quarterly_hourly_health_scan.ps1
-- dashboard.py
+- RiskManager
 - 3. Building, Running, and Testing
 - parser_tokenizer.cpp
 - Adversarial Systems Audit Log
@@ -278,8 +278,8 @@
 - test_webgl_cap_depth_path.js
 - Code/local_functions.py
 - RCRMeanReversionStrategy
-- view.cpp
-- vec3
+- test_backtester_p1_correctness.py
+- vfeplatform.cpp
 - SceneData
 - test_sweep_wall_scrape_padding.js
 - test_backtester_crypto_history_pagination.py
@@ -290,7 +290,7 @@
 - schoolproj.py
 - image_convert.py
 - 2026-08-16 15:18 PT - Exact Full Kraken Fill Still Escapes the P&L-Sanity Gate (Approval Required)
-- tema_crossover.py
+- Prism_Spline_Entry_Struct
 - square.py
 - Scheduler
 - def save_log_to_file(filename, content_l.py
@@ -301,39 +301,39 @@
 - 2026-08-17 02:34 PT - Confirmed Full Kraken Fill Remains Duplicate-Close Eligible (Approval Required)
 - At
 - ask_codex.sh
-- AlpacaExecutor
+- TradeExecutor
 - calculate_net_pnl
 - RenderBackend
 - GapScanner
-- BlendMap
+- FractalPattern
 - GenericRGBColour
 - DataTable
 - trading-bot-v2
-- TheRestOfYourLife/rtweekend.h
+- vec3
 - insertion_sort
 - fnintern.cpp
 - blob.cpp
 - rtw_image
 - PILDriver
-- _dec_hash
+- _save_users
 - photons.cpp
 - colourspace.cpp
 - quad
 - string
 - src/external/stb_image_write.h
-- src/main.cc
+- camera_options
 - TheNextWeek/external/stb_image_write.h
 - quad
 - stbi__malloc
 - IBKRExecutor
-- AlpacaExecutor
+- RSIDipSimpleStrategy
 - RtwImage
 - stbi__jpeg
-- daily_market_scanner.py
+- jpeg.cpp
 - sweep_tube_webgl.js
 - TheNextWeek/material.h
 - sphere
-- BaseStrategy
+- StrategyEngine
 - Hashable
 - NonlinearGrayImage
 - TheNextWeek/main.cc
@@ -344,11 +344,11 @@
 - bvh_node
 - interval
 - hittable_list
-- configcore.h
+- lathe.h
 - stbi__err
 - stbi__zbuf
 - stbi__zbuf
-- time
+- BaseEventScanner
 - Camera
 - constant_medium
 - .push
@@ -358,35 +358,35 @@
 - aabb
 - perlin
 - python/__init__.py
-- TheRestOfYourLife/external/stb_image.h
+- rtw_image
 - hittable_list
 - perlin
 - SolarSystem
 - tn
-- get_chart_data
-- syspovconfig.h
-- TheRestOfYourLife/external/stb_image_write.h
+- GenericRGBTColour
+- Sym_Table_Entry
+- is_bot_running
 - no
 - .do_pop
-- BreakoutSenderSafetyTests
+- RuntimeError
 - Task
 - ray
-- ._fetch_multi
+- CandleManager
 - PhotonSortingTask
 - update-trading-bot-map.sh
 - ray
 - NonlinearGrayAImage
-- DBL
+- Vector3d
 - frame.h
 - ImageConverterTool
 - Create_Transform
-- LightTargetCombo
+- ScenePhotonSettings
 - FileRGBFTImage
 - trading_bot_v2 — Project State Summary
-- base_strategy.py
+- MR02VEFStrategy
 - ConfigManager
 - ._schedule_next_run
-- position_monitor.py
+- is_us_equity_regular_session_now
 - ImageConvertFrontEnd
 - MenuShowcaseTool
 - datetime
@@ -397,19 +397,19 @@
 - bl
 - NonlinearRGBAImage
 - 🎮 How to Run and Interact with the Demos
-- Any
+- QuickApp
 - Interval
 - .execute
 - PaintCanvas
 - dither.cpp
 - UI
-- hypercomplex.cpp
-- ModalDialog
+- Sor_Spline_Entry_Struct
+- Mesh_Index
 - compile
-- MInvTransPoint
+- Sor
 - Enhance
 - UI
-- _normalise_tf
+- const_reference
 - UI
 - .do_color
 - .do_composite
@@ -432,7 +432,7 @@
 - NonlinearRGBImage
 - test_closed_tunnel_wall_containment.js
 - MATRIX
-- JuliaPattern
+- const_reverse_iterator
 - torus.cpp
 - test_sentry_horde_style.js
 - SFRStrategy
@@ -443,9 +443,9 @@
 - Prism
 - SphereSweep
 - UnixOptionsProcessor
-- renderfrontend.cpp
+- OptimizedNoiseInfo
 - textstream.cpp
-- Get
+- Write
 - UnixDisplay
 - triangle.cpp
 - Image
@@ -454,16 +454,16 @@
 - Lc
 - Parametric
 - test_prune_disconnected_segments.js
-- Copy_Identifier
+- povdebug.h
 - vfeUnixSession
 - Ray
 - cpuid.cpp
-- DBL
+- hypercomplex.cpp
 - Animation
 - vfeRenderOptions
 - parser.h
-- jpeg.cpp
-- MLSignalScorer
+- POV_JPEG_Read_Buffer
+- stock_calendar_authority.py
 - cross
 - T
 - GenericColour
@@ -472,37 +472,37 @@
 - povmain.cpp
 - Fractal
 - HammerReversal
-- Media
+- MediaFunction
 - Prop Combine Auto-Trader Prompt
 - jc
 - BitMapImage
-- Fog_Struct
-- param_sweep.py
+- Rainbow_Struct
+- RadiosityCache::BlockPool::PoolUnit
 - Perturb_Normal
-- intersect_mesh_triangle
+- viewthreaddata.cpp
 - ShelloutProcessing
 - UnixSDLDisplay
-- RGBAMapEntry
+- image.cpp
 - SlopePattern
 - polynomial.cpp
 - fnpovfpu.cpp
-- Cone
+- MInvTransPoint
 - povmscpp.h
 - SimpleVector
 - BSPTree
 - moov.cpp
 - Lemon
 - Polygon
-- coretypes.h
+- configcore.h
 - Finish_Struct
 - Timer
 - noise.cpp
-- Interior
+- Media
 - .IsNeutral
 - Sphere
 - AnimationProcessing
-- candle_manager.py
-- WT_AVG
+- GammaCurvePtr
+- radiosity.cpp
 - BACKTEST TEST MATRIX
 - pigment.cpp
 - Ovus
@@ -514,11 +514,11 @@
 - BasicPattern
 - LightSource
 - Box
-- TraceThreadData
+- Disc
 - Counter
 - SysQNode
-- GenericPigmentBlendMap
-- Rainbow_Struct
+- Read_Density_File
+- povray.cpp
 - Mesh_Data_Struct
 - PooledSimpleVector
 - TracePixel
@@ -532,17 +532,17 @@
 - SceneRadiositySettings
 - FunctionCode
 - TrueTypeInfo
-- TaskQueue
+- TraceThreadData
 - configure
-- CrackleCellCoord
-- ASCIItoUCS2String
+- BSphere_Tree_Struct
+- Path
 - BSPIntersectCondFunctor
-- FakeSessionDB
+- Any
 - vfeDisplay
 - ExchangeCapabilities
 - install
 - GenericMessenger
-- api_server.py
+- Image
 - GenericCustomFunction
 - SimpleFrontend
 - boundingtask.cpp
@@ -574,19 +574,19 @@
 - QualityFlags
 - warp.cpp
 - fix_trades.py
-- GenericRGBTColour
+- colour.h
 - PortableNoise
 - Read
 - BCyl_Struct
 - RadiosityCache
 - isosurface.cpp
-- CPUIDInfo
+- vfesession.h
 - IsoSurface
 - GenericTransColour
 - StockDataFetcher
 - radiosity.h
 - Solve_Polynomial
-- octree.h
+- ot_read_info_struct
 - LiveRayTraceViewer
 - IndustrialRobot
 - Autonomous Day Trading Bot v2
@@ -594,57 +594,57 @@
 - IndustrialRobot
 - Read
 - astral_wormhole.py
-- test_bmr357_no_live_state.py
+- SourceInfo
 - BlackHoleWarp
 - ISO_ThreadData
 - Code/trades_list.py
 - iterator
-- set_dashboard_password.py
-- povdebug.h
-- PointObjectCondition
+- Console
+- imagemessagehandler.cpp
+- Camera
 - mathutil.h
-- dither.h
-- povmsid.h
+- make_scene1
+- GetOutputFilename
 - vfecontrol.cpp
 - LiveRayTraceViewer
 - BreakoutSignal
 - Current Queue
-- FELSStrategy
+- BaseStrategy
 - pov_mem.cpp
 - Read
 - kde_install.sh
 - .Quantize
 - Timer
-- metrics.py
-- UniformRandomNumberGenerator
+- Noise
+- HybridNumberGenerator
 - TracePixel::FocalBlurData::FocalBlurData
 - Bezier_Node_Struct
 - ISO_Max_Gradient
-- stbi__gif_load_next
-- Skysphere_Struct
+- ot_node_struct
+- DefaultDisplay
 - EATStrategyTests
 - map_strategy.py
 - FrameSettings
-- RadiosityTask
-- Halton2dBasedGenerator
-- vwap_momentum.py
+- RenderTask
+- BYTE_XYZ
+- VWAPMomentum
 - Shape
 - Display
 - Vehicle
 - Vehicle
-- CPUInfo::Data
+- FUNCTION
 - ColourOffset
 - DitherStrategy::ColourOffset
 - boundingsphere.cpp
-- ToMathColour
+- render
 - ObjectDebugHelper
 - ShelloutAction
 - IStream
 - Read
-- .write
+- RayTraceTimer
 - chi2.cpp
 - DiffusionDither::Filter
-- CheatSheetTool
+- BlendMapEntry
 - Sphere
 - shelloutprocessing.cpp
 - POVRayVersion
@@ -652,7 +652,7 @@
 - pattern.cpp
 - render
 - KernData_struct
-- Project_Tree_Node_Struct
+- Decode
 - VTMRStrategy
 - configbase.h
 - PlanarWarp
@@ -660,13 +660,14 @@
 - side-panels.jsx
 - iff.cpp
 - SafeUnsignedProduct
-- PaintCanvas
+- quick_tk_shell2.py
 - CanvasSelector
-- _FakeCalendarApi
+- ot_id_struct
+- stbi__gif_load_next
 - bubble_sort.py
 - Vehicle
 - shapes.py
-- WoodPattern
+- Sphere
 - Stack
 - Circle
 - Function_Find_Root
@@ -675,24 +676,24 @@
 - BasicPattern::BasicPattern
 - KernStruct
 - Trading Bot V2 — Technical Reference
-- SourceLocation
+- ta
 - render
 - Serializer
-- .on_close
+- AVXFMA4Noise
 - TranscodingGammaCurve
-- _NoCalendarApi
+- Material_Struct
 - ar-lib
 - test_map_library_bundle_quota.js
-- NumberSequenceMetaFactory
+- scenedata.h
 - GenericWarp
 - CylindricalWarp
-- GradeCalculatorTool
-- ensure_sample_database
+- 02_grade_calculator.py
+- 01_trade_analyzer.py
 - missing
 - allanim.sh
 - allscene.sh
 - portfolio.sh
-- Menu
+- configvm.h
 - Car
 - Employee
 - bake.sh
@@ -713,13 +714,14 @@
 - Employee
 - mro.py
 - Worker
-- LauncherTool
+- math_div
 - Aircraft
 - Person
-- FuturesTickCalcTool
+- migrate_timestamps_to_pt.py
 - FloydSteinbergDither
-- .prompt_text
-- .prompt_choice
+- ColourChannelInvalidate
+- FNCode_Delete
+- GetDisplay
 - Square
 - bc
 - WeekDay
@@ -790,8 +792,8 @@
 5. `POVMS_Object` - 149 edges
 6. `BaseStrategy` - 126 edges
 7. `vt` - 125 edges
-8. `copy()` - 121 edges
-9. `Current Queue` - 116 edges
+8. `Current Queue` - 122 edges
+9. `copy()` - 121 edges
 10. `Trace` - 110 edges
 
 ## Surprising Connections (you probably didn't know these)
@@ -809,7 +811,7 @@
 ## Import Cycles
 - None detected.
 
-## Communities (978 total, 119 thin omitted)
+## Communities (979 total, 116 thin omitted)
 
 ### Community 0 - "{"
 Cohesion: 0.00
@@ -817,7 +819,7 @@ Nodes (921): {, 0ms, │, │, │, │, 119ms, { (+913 more)
 
 ### Community 1 - "Current Queue"
 Cohesion: 0.02
-Nodes (114): 2026-06-26 - Broker Cash Failure Must Fail Closed, 2026-06-28 - Kraken Broker Registry Rejoined Execution Routing, 2026-06-29 - Live Kraken Balance Failures Now Fail Closed, 2026-06-30 - Kraken Stop Ratchet Ignores Rounded No-Ops, 2026-07-01 - Kraken Stop Replacement Blocks Duplicate Live Stops, 2026-07-02 - Kraken Stop Replacement Clears Stale Cancelled IDs, 2026-07-03 - Missing Kraken Stops Restore With Backoff, 2026-07-14 - Kraken Recovery Reconciliation Guards Implemented (+106 more)
+Nodes (120): 2026-06-26 - Broker Cash Failure Must Fail Closed, 2026-06-28 - Kraken Broker Registry Rejoined Execution Routing, 2026-06-29 - Live Kraken Balance Failures Now Fail Closed, 2026-06-30 - Kraken Stop Ratchet Ignores Rounded No-Ops, 2026-07-01 - Kraken Stop Replacement Blocks Duplicate Live Stops, 2026-07-02 - Kraken Stop Replacement Clears Stale Cancelled IDs, 2026-07-03 - Missing Kraken Stops Restore With Backoff, 2026-07-14 - Kraken Recovery Reconciliation Guards Implemented (+112 more)
 
 ### Community 2 - "test_broker_routing_safety.py"
 Cohesion: 0.09
@@ -831,9 +833,9 @@ Nodes (63): BacktestCharts(), calcADX(), calcATR(), calcBB(), calcEMA(), calcMAC
 Cohesion: 0.06
 Nodes (75): ClosedCandleSeries, Capture the current instant as a new scan's fixed cutoff, with subsecond…, Persistent CLOSED-candle data for strategy analysis. Never used to supply…, Alias for the module-level validate_closed_candles() factory, kept for call-…, Strict, fail-closed closed-bar validator. THE public entry point for turning…, validate_closed_candles(), _bars(), _cutoff_after() (+67 more)
 
-### Community 5 - "FormPanel"
-Cohesion: 0.07
-Nodes (32): Button, Checkbutton, Combobox, FormPanel, Any, Entry, Frame, Widget (+24 more)
+### Community 5 - "._add_field_container"
+Cohesion: 0.08
+Nodes (24): Button, Checkbutton, Combobox, Entry, Frame, Widget, Adds a numeric spinbox field., Adds a slider / scale with a one-shot final callback after user interaction… (+16 more)
 
 ### Community 6 - "EMTStrategyIndicator"
 Cohesion: 0.18
@@ -844,20 +846,20 @@ Cohesion: 0.15
 Nodes (9): ConcurrentDictionary, bool, int, string, Thread, Timer, TimeSpan, OutboundMessage (+1 more)
 
 ### Community 8 - "StockCalendarAuthority"
+Cohesion: 0.11
+Nodes (62): _bar_close_epoch_in_session(), Authoritative close-time epoch for the bar opening at `open_epoch` within the…, Primary stock-session authority per B5's decided rule. See module docstring.…, StockCalendarAuthority, _et_epoch(), _FakeAPI, _FakeCalEntry, _mock_alerts() (+54 more)
+
+### Community 9 - "TradeSignal"
 Cohesion: 0.09
-Nodes (70): _bar_close_epoch_in_session(), _latest_closed_bar_open_in_session(), Enumerate the open-time epoch of every intraday bar in a session [open_epoch,…, Authoritative close-time epoch for the bar opening at `open_epoch` within the…, Open-time epoch of the latest bar in the session whose close time is at or…, Primary stock-session authority per B5's decided rule. See module docstring.…, _session_bar_opens(), StockCalendarAuthority (+62 more)
+Nodes (24): Convenience constructor for TradeSignal using this strategy's defaults.…, Represents a trade opportunity identified by a strategy., TradeSignal, BollingerSqueeze, DataFrame, bollinger_squeeze.py — Strategy: Bollinger Squeeze Trading Bot v2 Philosophy:…, # NOTE: self.logger already set by BaseStrategy.__init__ to the class name., DataFrame (+16 more)
 
-### Community 9 - "traderdev_gridbot_adx15.py"
-Cohesion: 0.31
-Nodes (7): _adx(), generate_signals(), DataFrame, Series, TraderDev GridBot Iter1 ADX15 lane. Parity-oriented port of the public…, _rma(), TraderDevGridBotADX15
-
-### Community 11 - ".toJSON"
+### Community 11 - "i"
 Cohesion: 0.03
-Nodes (16): ac, Al, dl, el, fl, ia, la, Ll (+8 more)
+Nodes (25): ac, Al, bindSkeletons(), dl, el, fl, go, i() (+17 more)
 
 ### Community 12 - "TradeExecutor"
-Cohesion: 0.06
-Nodes (22): derive_kraken_userref(), Kraken's userref field is a 32-bit integer, not a string, so it cannot reuse…, Fail closed when a filled broker order cannot claim its DB identity., Persist both the symbol-keyed and order-ID-keyed unresolved markers. The…, Fail-closed handling for a Kraken order whose final fill state KrakenExecutor…, Restore only an exactly known residual after a failed full close., Fail closed unless Kraken confirms an exact, priced full fill., Persist a fail-closed hold for an ambiguous scanner partial. (+14 more)
+Cohesion: 0.04
+Nodes (32): AlpacaExecutor, KrakenSpotExecutor, Fail closed when a filled broker order cannot claim its DB identity., Submit a stock order to Alpaca. Short tickers (1-2 chars) use plain market…, Persist both the symbol-keyed and order-ID-keyed unresolved markers. The…, Fail-closed handling for a Kraken order whose final fill state KrakenExecutor…, Plain market order — used for short tickers or as bracket fallback., Restore only an exactly known residual after a failed full close. (+24 more)
 
 ### Community 13 - "BTCV6ChandelierStrategy"
 Cohesion: 0.08
@@ -867,17 +869,17 @@ Nodes (28): _adx(), _atr(), BTCV6ChandelierParams, BTCV6ChandelierStrategy, _ema
 Cohesion: 0.06
 Nodes (23): get_feed(), init_feed(), _make_frame(), _parse_bar(), Tradovate real-time market data feed via WebSocket. Connects to Tradovate's md…, Start the background WebSocket thread., Stop the feed and WebSocket connection., Clear the auth-failed flag and update token so the feed can restart. Call this… (+15 more)
 
-### Community 15 - "CandleManager"
-Cohesion: 0.16
-Nodes (7): CandleManager, Single source of truth for OHLCV data. All consumers call get() — cache hit…, Remove a namespaced entry from the candle store., Force next get() to re-fetch (e.g. after a known stale period)., Return metadata for every (symbol, timeframe) in the cache. Proxies…, Remove all candles for (symbol, timeframe) from the main cache. Returns rows…, Return copy of in-memory source registry.
+### Community 15 - "Vec3"
+Cohesion: 0.05
+Nodes (10): Hittable, ABC, # NOTE: the parameter `outward_normal` is assumed to have unit length., RotateY, Translate, Perlin, Ray, degrees_to_radians() (+2 more)
 
 ### Community 16 - "Docs/three.min.js"
 Cohesion: 0.01
-Nodes (93): _a, Aa, _allocateTargets(), an, _applyPMREM(), Ba, _blur(), br() (+85 more)
+Nodes (92): _a, Aa, _allocateTargets(), _applyPMREM(), Ba, _blur(), br(), $c() (+84 more)
 
-### Community 17 - "ScanCutoff"
-Cohesion: 0.06
-Nodes (42): _coerce_ohlc_numeric(), HeldPositionPrice, _is_finite_positive(), DataFrame, ============================================================= CANDLE VALIDATION…, One fixed "now" captured at the start of a scan generation and reused for every…, Protocol a session/calendar authority (e.g. the Alpaca-backed stock calendar…, Return the open-time epoch of the most recent bar that should already be closed… (+34 more)
+### Community 17 - "candle_validation.py"
+Cohesion: 0.07
+Nodes (30): _coerce_ohlc_numeric(), HeldPositionPrice, _is_finite_positive(), DataFrame, ============================================================= CANDLE VALIDATION…, Protocol a session/calendar authority (e.g. the Alpaca-backed stock calendar…, Return the open-time epoch of the most recent bar that should already be closed…, Return True if the gap between a bar closing at `prior_bar_close_epoch` and the… (+22 more)
 
 ### Community 18 - ".multiplyScalar"
 Cohesion: 0.03
@@ -892,8 +894,8 @@ Cohesion: 0.08
 Nodes (15): BreakoutSender, datetime, Path, Live kill switch. The standalone scanner can keep running for alerts, but bot…, Return only an explicit valid direction. Direction inference belongs to the…, Non-blocking send in background thread. signal: BreakoutSignal from…, Build the API payload. Data priority for candle / analytical fields: 1.…, Return the best non-zero volume ratio plus raw volume diagnostics. (+7 more)
 
 ### Community 21 - "Vec3"
-Cohesion: 0.04
-Nodes (41): Aabb, BvhNode, Hittable, Camera, linear_to_gamma(), write_color(), ConstantMedium, Hittable (+33 more)
+Cohesion: 0.05
+Nodes (35): const point3& origin() const, Ray, Aabb, BvhNode, Hittable, Camera, ConstantMedium, Hittable (+27 more)
 
 ### Community 22 - "BrokerManager"
 Cohesion: 0.08
@@ -904,8 +906,8 @@ Cohesion: 0.11
 Nodes (16): bar(), EMTLiveTests, FakeExecutor, RecordingTradovate, stamp(), BrokerOrder, Fail-closed Tradovate execution adapter for the EMT strategy. The adapter…, Acquire a fresh token from official Tradovate API credentials. (+8 more)
 
 ### Community 25 - "Parser"
-Cohesion: 0.01
-Nodes (181): BraceStackEntry, COND_TYPE, CS_ENTRY, DebugTextStreamBuffer, DefaultsVersion, InputFileData, POV_ARRAY, Image (+173 more)
+Cohesion: 0.02
+Nodes (160): BraceStackEntry, CS_ENTRY, DebugTextStreamBuffer, DefaultsVersion, InputFileData, acosh(), asinh(), atanh() (+152 more)
 
 ### Community 26 - "boundingbox.cpp"
 Cohesion: 0.13
@@ -917,27 +919,27 @@ Nodes (18): Deque, _clean_bar(), _ema_last(), EMTEvent, EMTStrategyEngine, _fini
 
 ### Community 28 - "Database"
 Cohesion: 0.05
-Nodes (25): Database, _now_local(), Any, Insert a new scanner alert. Returns the alert_id., Update status and optional fields on an existing alert., Link the most recent unlinked alert for symbol to a trade, marking it fired., Query scanner alerts with optional filters., Return current local time (Pacific Time on Ron's machine). Used for all DB… (+17 more)
+Nodes (26): Database, _now_local(), Any, datetime, Insert a new scanner alert. Returns the alert_id., Update status and optional fields on an existing alert., Link the most recent unlinked alert for symbol to a trade, marking it fired., Query scanner alerts with optional filters. (+18 more)
 
 ### Community 29 - "TechnicalAnalysis"
-Cohesion: 0.12
-Nodes (12): Series, Pure technical indicator calculations. No external dependencies., TechnicalAnalysis, Backtester, BacktestResult, BacktestTrade, DataFrame, ============================================================= BACKTESTING… (+4 more)
+Cohesion: 0.08
+Nodes (20): _coingecko_price(), CryptoScanner, DataFrame, Series, Pure technical indicator calculations. No external dependencies., Return current USD price from CoinGecko for a /USD watchlist symbol. Returns…, Return the number of seconds in one bar for the given timeframe string., Remove the last bar from df if it is still forming (not yet closed). A bar… (+12 more)
 
 ### Community 30 - "db_panel_tui.py"
 Cohesion: 0.28
 Nodes (17): action_edit(), action_flush_ghost(), action_strategy(), _Con, _conn(), _inp(), _lookup_rowid(), main() (+9 more)
 
 ### Community 31 - "vec3"
-Cohesion: 0.13
-Nodes (17): color, hit_record, point3, ray, degrees_to_radians(), random_double(), cross(), dot() (+9 more)
+Cohesion: 0.14
+Nodes (17): color, hit_record, ray, metal, albedo, fuzz, cross(), dot() (+9 more)
 
 ### Community 32 - "CandleStore"
-Cohesion: 0.08
-Nodes (28): CandleStore, _cutoff_ts(), get_store(), _now_ts(), DataFrame, ============================================================= CANDLE STORE v1.0…, Return the shared CandleStore singleton (creates on first call)., Thread-safe persistent OHLCV cache backed by SQLite (WAL mode). Each connection… (+20 more)
+Cohesion: 0.07
+Nodes (36): CandleStore, _cutoff_ts(), get_store(), _now_ts(), DataFrame, ============================================================= CANDLE STORE v1.0…, Return the shared CandleStore singleton (creates on first call)., Thread-safe persistent OHLCV cache backed by SQLite (WAL mode). Each connection… (+28 more)
 
 ### Community 33 - "web_dashboard.py"
-Cohesion: 0.06
-Nodes (71): _auth_check(), build_snapshot(), chat_with_bot(), clear_injected_symbols(), db_flush_ghost(), db_log_context(), _db_path(), _delete_user_db() (+63 more)
+Cohesion: 0.08
+Nodes (49): test_config_advertises_both_versioned_profiles(), _backtest_result_payload(), _chart_bars_alpaca(), _chart_bars_coinbase(), _chart_bars_ibkr(), _chart_bars_kraken(), _chart_bars_tradovate(), _chart_bars_yfinance() (+41 more)
 
 ### Community 34 - "Part 1: Sub-Minute Signal Delivery"
 Cohesion: 0.06
@@ -951,9 +953,9 @@ Nodes (12): caches, context, duplicateSentry, fs, html, invalidForwardSentry, in
 Cohesion: 0.15
 Nodes (12): EatPhase, bool, DateTime, double, Execution, int, MarketPosition, string (+4 more)
 
-### Community 37 - "test_backtester_p1a_behavior.py"
-Cohesion: 0.11
-Nodes (22): _consecutive_loss_halt_reached(), _live_session_date(), Map a candle timestamp to RiskManager's verified Hostinger calendar day., Mirror RiskManager's configured same-session loss breaker., _AlwaysSignalStrategy, _bare_backtester(), _FakeTA, _frame() (+14 more)
+### Community 37 - "Parse_RValue"
+Cohesion: 0.08
+Nodes (31): RGBFTColour, TransColour, ToRGBFTColour(), ToTransColour(), SYM_ENTRY, ColourBlendMapPtr, MathColour, RGBColour (+23 more)
 
 ### Community 38 - "PLLCycleStrategy"
 Cohesion: 0.11
@@ -961,7 +963,7 @@ Nodes (20): _atr(), generate_signals(), PLLConservativeETHStrategy, PLLCycleMart
 
 ### Community 39 - "BreakoutReceiver"
 Cohesion: 0.07
-Nodes (34): ChecklistResult, escalation_meets_minimum(), is_breakout_stale(), core/breakout_decision.py ========================== Shared, pure decision…, True if `escalation` satisfies `min_escalation` (or no minimum is set). Shared…, Canonical result type for a single breakout-checklist step. Moved here from…, True if the breakout move is too many bars old to still be a valid entry.…, BreakoutReceiver (+26 more)
+Nodes (32): ChecklistResult, escalation_meets_minimum(), is_breakout_stale(), core/breakout_decision.py ========================== Shared, pure decision…, True if `escalation` satisfies `min_escalation` (or no minimum is set). Shared…, Canonical result type for a single breakout-checklist step. Moved here from…, True if the breakout move is too many bars old to still be a valid entry.…, BreakoutReceiver (+24 more)
 
 ### Community 40 - "DBPanel"
 Cohesion: 0.14
@@ -976,20 +978,20 @@ Cohesion: 0.14
 Nodes (13): NinjaTrader.NinjaScript.Strategies, NinjaTrader.NinjaScript.MarketAnalyzerColumns, NinjaTrader.NinjaScript.Indicators, EATStrategyIndicator, EMTStrategyIndicator, IndicatorRenderBase, MarketAnalyzerColumnBase, ISeries (+5 more)
 
 ### Community 43 - "timedelta"
-Cohesion: 0.10
-Nodes (20): date, Fetch a fresh window from Alpaca's get_calendar(), validate it for completeness…, True if `d` is a confirmed non-trading date per a fresh refresh, None if…, Walk backward from `start_date` (inclusive) up to `max_days` calendar days,…, Mirror of `_walk_back_to_prior_session`, walking forward. Used by…, Return (open_epoch, close_epoch) for date `d` if a fresh (per the configured…, Public accessor for the confirmed-closed-date fact. Returns None (unknown)…, True/False if the schedule for `cutoff`'s date is fresh enough to answer… (+12 more)
+Cohesion: 0.11
+Nodes (17): date, Fetch a fresh window from Alpaca's get_calendar(), validate it for completeness…, True if `d` is a confirmed non-trading date per a fresh refresh, None if…, Walk backward from `start_date` (inclusive) up to `max_days` calendar days,…, Mirror of `_walk_back_to_prior_session`, walking forward. Used by…, Return (open_epoch, close_epoch) for date `d` if a fresh (per the configured…, Public accessor for the confirmed-closed-date fact. Returns None (unknown)…, True/False if the schedule for `cutoff`'s date is fresh enough to answer… (+9 more)
 
 ### Community 44 - "Wn"
 Cohesion: 0.04
-Nodes (9): fi(), il(), ml, ms(), nl, ns(), ta, Wn (+1 more)
+Nodes (10): fi(), il(), Ll, ml, ms(), nl, ns(), Rl (+2 more)
 
 ### Community 45 - ".do_GET"
-Cohesion: 0.10
-Nodes (20): BaseHTTPRequestHandler, _api_keys_page(), _calc_fib_levels(), _clean_header_token(), db_quick(), get_candles(), get_manual_trade_config(), get_quick_status() (+12 more)
+Cohesion: 0.08
+Nodes (26): BaseHTTPRequestHandler, _api_keys_page(), _calc_fib_levels(), db_quick(), _dec_hash(), get_candles(), get_manual_trade_config(), get_quick_status() (+18 more)
 
 ### Community 46 - "copy"
 Cohesion: 0.02
-Nodes (35): ai, as(), bs, Ce, clone(), copy(), cs, Do (+27 more)
+Nodes (37): ai, an, as(), bs, Ce, clone(), copy(), cs (+29 more)
 
 ### Community 47 - "test_breakout_event_durability.py"
 Cohesion: 0.07
@@ -997,23 +999,23 @@ Nodes (32): derive_client_order_id(), hash_breakout_payload(), Stable sha256 of 
 
 ### Community 48 - "povms.c"
 Cohesion: 0.05
-Nodes (168): MessageClass, POVMS_CDECL, POVMS_EXPORT, POVMS_Sys_QueueNode_Default, POVMSAttributeList, POVMSAttributeListPtr, POVMSContextData, POVMSMemoryTraceHeader (+160 more)
+Nodes (144): MessageClass, POVMS_CDECL, POVMS_EXPORT, POVMS_Sys_QueueNode_Default, POVMSAttributeListPtr, POVMSContextData, POVMSMemoryTraceHeader, POVMSNode (+136 more)
 
 ### Community 49 - "PatternDetector"
 Cohesion: 0.09
 Nodes (18): PatternDetector, PatternResult, Slope of the first `frac` of the series — proxy for incoming trend., Both trendlines rising but converging — bearish regardless of context., Both trendlines falling but converging — bullish reversal/continuation., Strong up-pole + converging (symmetrical) consolidation., U-shaped base + small downward handle. Bullish., Small body near bottom + long upper wick after rally. Bearish. (+10 more)
 
-### Community 50 - "Parser::Parse_Num_Factor"
-Cohesion: 0.05
-Nodes (72): acosh(), asinh(), atanh(), DBL, Exception, UCS2, Vector3d, Parser::Parse_Float_Param() (+64 more)
+### Community 50 - "parser_strings.cpp"
+Cohesion: 0.07
+Nodes (55): Create_Float(), Exception, DBL, UCS2, Parser::Parse_Float_Param(), Parser::Parse_Float_Param2(), Parser::Parse_Function_Call(), Parser::Parse_Rel_String_Term() (+47 more)
 
 ### Community 51 - "RunLedger"
-Cohesion: 0.13
-Nodes (19): LedgerEvent, Append-only per-run/per-trade event ledger — backtester parity patch step 3…, Append-only event log for one backtest run. One RunLedger belongs to one run,…, RunLedger, main(), _make_synthetic_df(), Event-ledger shadow-parity tests — backtester parity patch step 3…, Each trade_id with an exit event must have exactly one earlier fill event… (+11 more)
+Cohesion: 0.08
+Nodes (34): LedgerEvent, Append-only per-run/per-trade event ledger — backtester parity patch step 3…, Append-only event log for one backtest run. One RunLedger belongs to one run,…, RunLedger, main(), _make_synthetic_df(), Event-ledger shadow-parity tests — backtester parity patch step 3…, Each trade_id with an exit event must have exactly one earlier fill event… (+26 more)
 
 ### Community 52 - "ecb_strategy.py"
-Cohesion: 0.16
-Nodes (20): backtest(), ECBParams, ECBStrategy, fetch_ohlcv_ccxt(), generate_signals(), print_stats(), DataFrame, Series (+12 more)
+Cohesion: 0.09
+Nodes (28): Mean Reversion 5-Strategy Viability Audit…, backtest(), ECBParams, ECBStrategy, fetch_ohlcv_ccxt(), generate_signals(), print_stats(), DataFrame (+20 more)
 
 ### Community 53 - "AlertManager"
 Cohesion: 0.10
@@ -1025,11 +1027,11 @@ Nodes (14): ClaudeReviewer, MarketContext, Autonomous signal review layer using 
 
 ### Community 55 - "ColourBlendMapConstPtr"
 Cohesion: 0.05
-Nodes (36): GetDefaultBlendMap, BrickPattern, brickSize, GetDefaultBlendMap, mortar, NumDiscreteBlendMapEntries, CheckerPattern, GetDefaultBlendMap (+28 more)
+Nodes (36): GetDefaultBlendMap, CheckerPattern, GetDefaultBlendMap, NumDiscreteBlendMapEntries, ColourBlendMapConstPtr, CubicPattern, GetDefaultBlendMap, NumDiscreteBlendMapEntries (+28 more)
 
-### Community 56 - ".add_toggle"
-Cohesion: 0.40
-Nodes (3): BooleanVar, Binds standard keyboard shortcuts like 'Ctrl+O', 'Ctrl+Shift+S', 'F5'., Adds a checkbox / toggle menu item. Returns the BooleanVar for tracking state.
+### Community 56 - "MenuNode"
+Cohesion: 0.08
+Nodes (23): BooleanVar, Menu, Adds a top-level menu dropdown (e.g. 'File', 'Edit') and returns MenuNode for…, Adds a top-level menu dropdown (e.g. 'File', 'Edit', 'Help') and returns…, MenuBarBuilder, MenuNode, Any, Tk (+15 more)
 
 ### Community 57 - "EMTStrategyTests"
 Cohesion: 0.15
@@ -1043,33 +1045,33 @@ Nodes (23): _get_cached_symbols(), main(), =====================================
 Cohesion: 0.13
 Nodes (23): connect(), get_alpaca_orders(), get_alpaca_positions(), get_db_open_trades(), main(), normalize_symbol(), reconcile_positions.py — Cross-reference DB open trades against actual broker…, Return dict of symbol -> position info from Alpaca. (+15 more)
 
-### Community 60 - "ScannerEngine"
-Cohesion: 0.09
-Nodes (14): FundingScanner, Pull latest funding rates from Kraken Futures. Bybit is geo-blocked for US IPs…, GET /v5/market/tickers?category=linear Returns {symbol: funding_rate_float} for…, GET /derivatives/api/v3/tickers (Kraken Futures, no auth required) Returns…, Fetch live spot price with three-source fallback chain: 1. ccxt Kraken spot —…, Convert Bybit perp format (BTCUSDT) → Kraken spot format (BTC/USD). Returns…, Scans perpetual futures funding rates on Bybit (fallback: Binance). Fires when…, Signal all scanners to stop (graceful shutdown). (+6 more)
+### Community 60 - ".do_POST"
+Cohesion: 0.08
+Nodes (28): chat_with_bot(), clear_injected_symbols(), db_flush_ghost(), export_tax_csv(), generate_daily_report(), get_current_price(), get_manual_trade_preview(), get_open_positions() (+20 more)
 
 ### Community 61 - "test_kraken_scanner_partial.py"
-Cohesion: 0.11
+Cohesion: 0.12
 Nodes (20): PartialCloseOutcome, Confirmed result returned to the scanner partial-close coordinator., FakeBrokerManager, FakeExchange, FakeRiskManager, make_database(), make_kraken(), make_trade_executor() (+12 more)
 
 ### Community 62 - "test_web_dashboard_backtest_behavior_profile.py"
-Cohesion: 0.10
-Nodes (19): _FakeBacktester, _NoDataBacktester, Deterministic API/UI contract tests for versioned backtest behavior., _run(), test_api_defaults_to_legacy_profile_and_returns_it(), test_api_forwards_live_parity_profile_and_returns_it(), test_api_rejects_unknown_profile_before_starting_a_run(), test_api_reports_data_failure_instead_of_misleading_empty_result() (+11 more)
+Cohesion: 0.19
+Nodes (8): _FakeBacktester, _NoDataBacktester, Deterministic API/UI contract tests for versioned backtest behavior., _run(), test_api_defaults_to_legacy_profile_and_returns_it(), test_api_forwards_live_parity_profile_and_returns_it(), test_api_rejects_unknown_profile_before_starting_a_run(), test_api_reports_data_failure_instead_of_misleading_empty_result()
 
-### Community 63 - "_real_stock_authority"
-Cohesion: 0.09
-Nodes (32): EntryQuoteSnapshot, Scan-scoped, entry-screening-only quote. Never used for held-position…, _all_weekdays_in_range(), _et_epoch(), _extended_hours_utc_grid_bars_for_date(), _FakeCalendarApi, _FakeCalEntry, _hourly_bars_for_session() (+24 more)
+### Community 63 - "ScanCutoff"
+Cohesion: 0.08
+Nodes (43): EntryQuoteSnapshot, One fixed "now" captured at the start of a scan generation and reused for every…, Scan-scoped, entry-screening-only quote. Never used for held-position…, Strict, fail-closed entry-quote validator. Returns None (never a…, ScanCutoff, validate_entry_quote(), _all_weekdays_in_range(), _et_epoch() (+35 more)
 
 ### Community 64 - "ChatInterface"
-Cohesion: 0.10
-Nodes (18): list_scanner_controls(), normalize_scanner_name(), Shared DB-backed controls for receiver/event scanners. These are not…, scanner_state_key(), set_scanner_enabled(), _state_enabled(), ChatInterface, Path (+10 more)
+Cohesion: 0.14
+Nodes (11): ChatInterface, Path, Read a watchlist file and return list of symbols, ignoring comments., Returns (master_stocks, injected_stocks). Master = from watchlists/stocks.txt…, Returns (master_crypto, injected_crypto). Master = from watchlists/crypto.txt…, Check if a specific symbol is in any watchlist and report where., Handle watchlist-related queries from the pre-parse layer. Returns formatted…, Reload temp watchlist files into the bot's in-memory lists. This picks up new… (+3 more)
 
 ### Community 65 - "archive_db_rollover.py"
 Cohesion: 0.22
 Nodes (23): archive_breakout_event_execution(), archive_scanner_alerts(), archive_session_state(), archive_simple_table(), archive_trades_and_children(), backup_live_db(), checkpoint_wal(), ensure_archive_table() (+15 more)
 
 ### Community 67 - "SettlementTracker"
-Cohesion: 0.12
-Nodes (14): _add_business_days(), date, ============================================================= T+1 SETTLEMENT…, Return the amount of stock capital available to trade right now. = Total stock…, Check if enough settled capital exists to open a stock trade. Returns (allowed:…, Record that a stock trade closed and its funds are now settling. Crypto trades…, Mark funds as settled if their settlement date has passed. Runs 24/7 — crypto…, Return a summary of current settlement status. (+6 more)
+Cohesion: 0.13
+Nodes (13): _add_business_days(), date, Return the amount of stock capital available to trade right now. = Total stock…, Check if enough settled capital exists to open a stock trade. Returns (allowed:…, Record that a stock trade closed and its funds are now settling. Crypto trades…, Mark funds as settled if their settlement date has passed. Runs 24/7 — crypto…, Return a summary of current settlement status., Total capital allocated to stock trading. (+5 more)
 
 ### Community 68 - "night_watch_log_digest.py"
 Cohesion: 0.20
@@ -1084,8 +1086,8 @@ Cohesion: 0.14
 Nodes (6): favorable_move_pct(), Refresh the gap watchlist pane. Primary source: scanner.gap_watchlist…, GUI update loop — runs on main tkinter thread every 30s. All network calls are…, Normalize move_pct so positive always means good for the trade direction.…, ScannerGUI, Treeview
 
 ### Community 71 - "vfe.cpp"
-Cohesion: 0.02
-Nodes (128): Console, POVMSType, SceneData, ParserMessageHandler, DebugInfo, Error, FatalError, HandleMessage (+120 more)
+Cohesion: 0.03
+Nodes (125): Console, POVMSType, SceneData, ParserMessageHandler, DebugInfo, Error, FatalError, HandleMessage (+117 more)
 
 ### Community 72 - "en"
 Cohesion: 0.03
@@ -1100,20 +1102,20 @@ Cohesion: 0.20
 Nodes (19): dtime, assign_time_block(), build_report(), compute_stats(), detect_patterns(), format_section(), format_stats_block(), format_table() (+11 more)
 
 ### Community 75 - "intelligence/claude_reviewer.py"
-Cohesion: 0.08
-Nodes (29): _build_market_snapshot(), ClaudeReviewer, _compact_signal_payload(), _extract_json_array(), _extract_json_object(), _fetch_alpha_movers(), MarketContext, _pct_change() (+21 more)
+Cohesion: 0.06
+Nodes (38): _build_market_snapshot(), ClaudeReviewer, _compact_signal_payload(), _extract_json_array(), _extract_json_object(), _fetch_alpha_movers(), MarketContext, _pct_change() (+30 more)
 
 ### Community 76 - "vfeSession"
 Cohesion: 0.02
-Nodes (102): ConsoleQueue, DisplayCreator, GenericQueue, vfeDisplay, condition, Console, mutex, POV_LONG (+94 more)
+Nodes (102): ConsoleQueue, DisplayCreator, GenericQueue, IOPathVector, POVMS_Init(), vfeDisplay, condition, Console (+94 more)
 
 ### Community 77 - "MarketState"
 Cohesion: 0.07
 Nodes (29): aggregate(), assess(), current_assessments(), dashboard(), ema(), emt_watchdog(), evaluate_symbols(), futures_session_is_active() (+21 more)
 
 ### Community 78 - "test_candle_manager_session_hourly_resample.py"
-Cohesion: 0.20
-Nodes (19): _et_epoch(), _FakeCalEntry, _get_manager(), main(), _mock_alerts(), Session-anchored hourly stock-bar resampling tests — Step 6b (Patch B data…, 30-minute bars for one trading day: `n_extra_extended_hours` hours of premarket…, Direct test of the resample function against a known 30m fixture: must produce… (+11 more)
+Cohesion: 0.11
+Nodes (25): Aggregate 30-minute bars already filtered to the regular session [open_epoch,…, resample_30m_to_session_hourly(), _et_epoch(), _FakeCalendarApi, _FakeCalEntry, _get_manager(), main(), _mock_alerts() (+17 more)
 
 ### Community 79 - "kds_mean_reversion.py"
 Cohesion: 0.18
@@ -1123,9 +1125,9 @@ Nodes (14): _adx(), _atr(), _ema(), generate_signals(), KDSMeanReversionParams, 
 Cohesion: 0.11
 Nodes (15): DipSignal, DipTracker, dip_tracker.py ============== Per-position dip detection and scale-in…, Call when a new position is opened to clear stale swing-high / dip history., True if the last 2 recorded dips PLUS the current one are each >20% deeper., Per-position dip analysis on low-timeframe bars (1m / 5m). Stateful: tracks…, Analyse recent bars for dip-confirmation trigger. bars — list of OHLCV dicts,…, MaintenanceSignal (+7 more)
 
-### Community 81 - "Widget"
-Cohesion: 0.12
-Nodes (10): Frame, Widget, Creates a flexible styled container frame., Creates a resizable PanedWindow split (left/right or top/bottom)., Override this method to construct the tool's widgets., Helper to create a FormPanel., Helper to create a DataTable., Helper to create a StatGrid. (+2 more)
+### Community 81 - "ToolView"
+Cohesion: 0.05
+Nodes (24): Frame, Widget, Creates a flexible styled container frame., Creates a resizable PanedWindow split (left/right or top/bottom)., Pops up a modal single-line text input dialog., Pops up a modal numeric spinbox dialog., Pops up a modal dropdown selection dialog., Pops up a modal confirmation dialog. (+16 more)
 
 ### Community 82 - "run_backtest_matrix.py"
 Cohesion: 0.23
@@ -1136,12 +1138,12 @@ Cohesion: 0.13
 Nodes (7): bot-pids(), go-bot(), run-bot(), run-break(), run-breakk(), run-www(), stop-trading()
 
 ### Community 84 - "LiveRayTraceViewer"
-Cohesion: 0.08
-Nodes (7): LiveRayTraceViewer, _summary_ The main class program loop This program is a python front end to…, _summary_ Build out the contents of the Gui, Move the current control's one snapshot into the Undo stack. The snapshot…, Start or continue an edit session for one named control. Re-entering the same…, Called if a file is loaded., Transforms the in-memory buffer and updates the preview.
+Cohesion: 0.06
+Nodes (10): LiveRayTraceViewer, Move the current control's one snapshot into the Undo stack. The snapshot…, Start or continue an edit session for one named control. Re-entering the same…, Make a Crop/Zoom result the next stable editing base., Called if a file is loaded., Transforms the in-memory buffer and updates the preview., Start one movie frame; the completion callback starts the next., Sort image1, image2 ... image10 in their visual frame order. (+2 more)
 
 ### Community 85 - "pattern.h"
 Cohesion: 0.03
-Nodes (86): DensityFileStruct, AgatePattern, agateTurbScale, GetDefaultBlendMap, Precompute, AOIPattern, BoxedPattern, BozoPattern (+78 more)
+Nodes (89): DensityFileStruct, AgatePattern, agateTurbScale, GetDefaultBlendMap, Precompute, AOIPattern, BoxedPattern, BozoPattern (+81 more)
 
 ### Community 86 - "dxf_to_astral_map.py"
 Cohesion: 0.24
@@ -1155,13 +1157,13 @@ Nodes (17): _decrypt_segments(), _encrypt_segments(), ExplorationPayload, _get_d
 Cohesion: 0.16
 Nodes (16): BacktestRunContext, clear_cancel(), Isolated cancel state for one backtest run. Two contexts never share an…, Signal the running backtest to stop at the next cancel checkpoint. Cancels the…, Reset the default context's cancel flag — call at the start of every new…, request_cancel(), main(), _make_synthetic_df() (+8 more)
 
-### Community 89 - "ToolView"
-Cohesion: 0.03
-Nodes (65): QuickApp, Main QuickApp and BaseTool class definitions for QuickTk. Handles application…, Adds a top-level menu dropdown (e.g. 'File', 'Edit') and returns MenuNode for…, Pops up a modal numeric spinbox dialog., Pops up a modal confirmation dialog., Main application shell that manages window state, themes, menus, and views., Base class for any utility tool view. Subclass this and implement `build_ui()`…, Sets up default top menus including theme picker. (+57 more)
+### Community 89 - "FormPanel"
+Cohesion: 0.05
+Nodes (48): Main QuickApp and BaseTool class definitions for QuickTk. Handles application…, ModalDialog, prompt_choice(), prompt_confirm(), prompt_form(), prompt_number(), prompt_text(), Any (+40 more)
 
-### Community 90 - "TradeSignal"
-Cohesion: 0.08
-Nodes (24): Convenience constructor for TradeSignal using this strategy's defaults.…, Represents a trade opportunity identified by a strategy., TradeSignal, DataFrame, BollingerSqueeze, DataFrame, bollinger_squeeze.py — Strategy: Bollinger Squeeze Trading Bot v2 Philosophy:…, # NOTE: self.logger already set by BaseStrategy.__init__ to the class name. (+16 more)
+### Community 90 - "traderdev_day_trader_v3.py"
+Cohesion: 0.24
+Nodes (11): _atr(), DayTraderV3Params, _ema(), generate_signals(), DataFrame, Series, TraderDev Day Trader v3 ======================= Faithful entry port of the…, _rma() (+3 more)
 
 ### Community 91 - "analyze_trade_dump.py"
 Cohesion: 0.26
@@ -1179,9 +1181,9 @@ Nodes (7): IntervalError, Job, A periodic job as used by :class:`Scheduler`. :pa
 Cohesion: 0.07
 Nodes (5): bt, ct(), es(), Xe(), zl
 
-### Community 95 - "i"
+### Community 95 - "HFData"
 Cohesion: 0.09
-Nodes (12): bindSkeletons(), go, i(), load(), ol, parse(), parseAnimations(), parseImages() (+4 more)
+Nodes (23): HF_Normals, HFBlock, xmax, xmin, ymax, ymin, zmax, zmin (+15 more)
 
 ### Community 96 - "PythonEMTBridge"
 Cohesion: 0.13
@@ -1193,7 +1195,7 @@ Nodes (33): FILE, stbi_io_callbacks, STBIDEF, stbi_convert_iphone_png_to_rgb(), 
 
 ### Community 98 - "Astral Drift Technical Reference"
 Cohesion: 0.06
-Nodes (34): 2026-08-19 — Track 1 baseline and safety inventory, 2026-08-24 — Collision and WebGL lifecycle review, 2026-08-24 — Map-import and entity admission guards, 2026-08-24 — Scoped large-map rendering optimization, 2026-08-25 — Gullet arcade maze phase, 2026-08-26 — Gullet Maze 1 hard copy + playtest fixes, 2026-09-04 — Distance-mapping Apply no longer a silent no-op, 2026-09-04 — Sweep-ribbon tunnel walls (gap-free texture runs) (+26 more)
+Nodes (35): 2026-08-19 — Track 1 baseline and safety inventory, 2026-08-24 — Collision and WebGL lifecycle review, 2026-08-24 — Map-import and entity admission guards, 2026-08-24 — Scoped large-map rendering optimization, 2026-08-25 — Gullet arcade maze phase, 2026-08-26 — Gullet Maze 1 hard copy + playtest fixes, 2026-09-04 — Distance-mapping Apply no longer a silent no-op, 2026-09-04 — Sweep-ribbon tunnel walls (gap-free texture runs) (+27 more)
 
 ### Community 99 - "three.min.js"
 Cohesion: 0.16
@@ -1203,13 +1205,13 @@ Nodes (13): applyState(), childrenConnectedCallback(), connectedCallback(), flus
 Cohesion: 0.16
 Nodes (10): BreakoutDetector, PriceData, Any, datetime, Merge overlapping snapshots by timestamp instead of replaying bars., Build the enrichment dict for a signal. Mirrors the logic previously in…, Full detection pipeline. Calls score(), then builds and returns a fully-…, Thin wrapper — delegates to BreakoutDetector._build_enrichment() which is the… (+2 more)
 
-### Community 101 - "Vec3"
-Cohesion: 0.04
-Nodes (34): vec3, Camera, linear_to_gamma(), write_color(), f(), main(), pdf(), Dielectric (+26 more)
+### Community 101 - "TheRestOfYourLife/python/material.py"
+Cohesion: 0.06
+Nodes (28): HittableList, Hittable, main(), Dielectric, DiffuseLight, Isotropic, Lambertian, Material (+20 more)
 
 ### Community 102 - "StrategyOptimizer"
 Cohesion: 0.06
-Nodes (38): main(), _NumpyEncoder, ============================================================= OPTIMIZER WORKER…, Serialize numpy scalars that standard json can't handle., Atomic-ish write: write to .tmp then rename., result_to_dict(), write_progress(), OptimizeResult (+30 more)
+Nodes (40): main(), _NumpyEncoder, ============================================================= OPTIMIZER WORKER…, Serialize numpy scalars that standard json can't handle., Atomic-ish write: write to .tmp then rename., result_to_dict(), write_progress(), OptimizeResult (+32 more)
 
 ### Community 103 - "FuturesScannerGui"
 Cohesion: 0.19
@@ -1217,19 +1219,19 @@ Nodes (3): FuturesScannerGui, number(), Click-driven, advisory-only Tkinter fron
 
 ### Community 104 - "PositionMonitor"
 Cohesion: 0.04
-Nodes (41): _get_position_age_seconds(), _is_breakout_trade(), PositionMonitor, DataFrame, Catch trades where the thesis was wrong from the start. At 30 minutes: if trade…, If 2+ consecutive CLOSED candles move against the trade direction within the…, Breakout-specific fast-fail: real breakouts move immediately. If price is flat…, Breakout-specific maximum loss guard. This is intentionally narrower than… (+33 more)
+Nodes (46): _get_position_age_seconds(), _is_breakout_trade(), _is_externally_managed_future(), _parse_entry_time_local(), PositionMonitor, DataFrame, datetime, Catch trades where the thesis was wrong from the start. At 30 minutes: if trade… (+38 more)
 
 ### Community 105 - "full_strategy_stress_test.py"
-Cohesion: 0.22
-Nodes (15): agg(), _exp(), main(), _pf(), DataFrame, ============================================================= FULL ADVERSARIAL…, Apply slippage friction. Returns adjusted PF and expectancy., Fetch OHLCV data from Yahoo Finance. (+7 more)
+Cohesion: 0.16
+Nodes (19): agg(), _exp(), main(), _pf(), DataFrame, ============================================================= FULL ADVERSARIAL…, Apply slippage friction. Returns adjusted PF and expectancy., Fetch OHLCV data from Yahoo Finance. (+11 more)
 
 ### Community 106 - "Scripts/market_scanner.py"
 Cohesion: 0.17
 Nodes (18): coingecko_get(), fetch_kraken_funding_rates(), fetch_stock_universe(), main(), print_table(), DataFrame, Series, Daily Market Scanner — Stocks + Crypto =======================================… (+10 more)
 
-### Community 107 - "RenderFrontend"
-Cohesion: 0.04
-Nodes (55): list, Path, POVMSType, SceneData, FileMessageHandler, CreatedFile, FindFile, FindFilePath (+47 more)
+### Community 107 - "vfe.h"
+Cohesion: 0.10
+Nodes (24): list, Path, POVMSType, SceneData, FileMessageHandler, CreatedFile, FindFile, FindFilePath (+16 more)
 
 ### Community 108 - "vdmr_strategy.py"
 Cohesion: 0.18
@@ -1237,11 +1239,11 @@ Nodes (16): backtest(), fetch_ohlcv_ccxt(), generate_signals(), print_stats(), D
 
 ### Community 109 - "ExprNode"
 Cohesion: 0.04
-Nodes (90): Parser, Post_Pigment(), DBL, FILE, FUNCTION, Instruction, ExprNode, child (+82 more)
+Nodes (99): COND_TYPE, Parser, DBL, FILE, FUNCTION, Instruction, ExprNode, child (+91 more)
 
 ### Community 110 - "stbi__context"
-Cohesion: 0.14
-Nodes (45): stbi__context, stbi__at_eof(), stbi__bmp_info(), stbi__bmp_load(), stbi__bmp_test(), stbi__bmp_test_raw(), stbi__check_png_header(), stbi__copyval() (+37 more)
+Cohesion: 0.11
+Nodes (50): stbi__context, stbi__gif, stbi__uint16, stbi__bitcount(), stbi__bmp_info(), stbi__bmp_load(), stbi__bmp_test(), stbi__bmp_test_raw() (+42 more)
 
 ### Community 111 - "app.jsx"
 Cohesion: 0.14
@@ -1256,12 +1258,12 @@ Cohesion: 0.24
 Nodes (17): adx_last(), aggregate_completed(), assess_confluence(), choppiness_last(), _clean_bars(), ema_series(), _number(), _parse_time() (+9 more)
 
 ### Community 114 - "test"
-Cohesion: 0.15
-Nodes (21): test(), main(), _hourly_df(), main(), _make_store(), CandleStore incremental-refresh retention test — Step 6 (Patch B data…, Two short refreshes in a row, each covering only their own recent tail, must…, test_retention_horizon_still_prunes_bars_beyond_the_window() (+13 more)
+Cohesion: 0.10
+Nodes (27): Grid Bot Iter4 quick audit — BTC only, 90 days Run: python…, test(), main(), main(), _make_oscillating_df(), _make_volatile_btc_df(), BMR-357 no-live-state test — backtester parity patch step 4…, Run one backtest with core.candle_manager.candle_manager.get() monkeypatched to… (+19 more)
 
 ### Community 115 - "parser_expressions.cpp"
-Cohesion: 0.03
-Nodes (107): ColourBlendMapData, GenericPigmentBlendMapPtr, NormalBlendMapData, PigmentBlendMapData, RGBFTColour, TransColour, ToRGBFTColour(), ToTransColour() (+99 more)
+Cohesion: 0.05
+Nodes (76): ColourBlendMapData, GenericPigmentBlendMapPtr, PigmentBlendMapData, BlendMapTypeId, ColourBlendMapConstPtr, EXPRESS, GenericNormalBlendMapPtr, GenericSpline (+68 more)
 
 ### Community 116 - "mr_04_fvg_strategy.py"
 Cohesion: 0.20
@@ -1284,24 +1286,24 @@ Cohesion: 0.16
 Nodes (10): HTMLParser, choose_example(), choose_key(), code_block(), concept_text(), esc(), lesson_text(), OutlineParser (+2 more)
 
 ### Community 121 - "stbi__context"
-Cohesion: 0.11
-Nodes (59): stbi__context, stbi__gif, stbi__uint16, stbi__at_eof(), stbi__bmp_info(), stbi__bmp_test(), stbi__bmp_test_raw(), stbi__check_png_header() (+51 more)
+Cohesion: 0.14
+Nodes (49): stbi__context, stbi__at_eof(), stbi__bmp_info(), stbi__bmp_test(), stbi__bmp_test_raw(), stbi__check_png_header(), stbi__get16be(), stbi__get16le() (+41 more)
 
 ### Community 123 - "xc"
 Cohesion: 0.05
 Nodes (4): jo, Ko, nc, xc
 
 ### Community 124 - "Destroy_Transform"
-Cohesion: 0.08
-Nodes (38): Copy_Transform(), Destroy_Transform(), Copy, ObjectPtr, ObjectPtr, Copy, ObjectPtr, Copy (+30 more)
+Cohesion: 0.07
+Nodes (44): Copy_Transform(), Destroy_Transform(), Copy, ObjectPtr, Copy, ObjectPtr, Copy, ObjectPtr (+36 more)
 
 ### Community 125 - "AdaptiveRegime"
-Cohesion: 0.16
-Nodes (9): AdaptiveRegime, DataFrame, Series, adaptive_regime.py — Strategy 12: Adaptive Regime (Trend-Long Stock Edition)…, Adaptive Regime — Trend-Long Stock-Only Edition. ADX + EMA alignment + Donchian…, Zero all per-run counters. Called by backtester before each symbol., Return a copy of the current diagnostic counters., Return MACD histogram value (fast=12, slow=26, signal=9). (+1 more)
+Cohesion: 0.18
+Nodes (8): AdaptiveRegime, DataFrame, Series, Adaptive Regime — Trend-Long Stock-Only Edition. ADX + EMA alignment + Donchian…, Zero all per-run counters. Called by backtester before each symbol., Return a copy of the current diagnostic counters., Return MACD histogram value (fast=12, slow=26, signal=9)., Trend-long stock-only exit: Exit when EMA20 crosses below EMA100. This is the…
 
 ### Community 126 - "parser.cpp"
-Cohesion: 0.08
-Nodes (93): BOUNDS_VOLUME(), DBL, Post_Textures(), ContainedByShape, GenericMessenger, Mesh, ObjectPtr, PIGMENT (+85 more)
+Cohesion: 0.09
+Nodes (89): BOUNDS_VOLUME(), DBL, ContainedByShape, DBL, GenericMessenger, Mesh, ObjectPtr, shared_ptr (+81 more)
 
 ### Community 127 - "The Blueprint: 3D Ray Tracing Technical Reference & Roadmap"
 Cohesion: 0.05
@@ -1336,8 +1338,8 @@ Cohesion: 0.09
 Nodes (42): stbi__gif, stbi_uc, stbi__uint16, resample_row_1(), stbi__bitcount(), stbi__bmp_load(), stbi__clamp(), stbi__compute_y() (+34 more)
 
 ### Community 135 - "ORBBreakout"
-Cohesion: 0.20
-Nodes (8): ORBBreakout, DataFrame, Series, orb_breakout.py — Strategy 11: Opening Range Breakout (ORB) Trading Bot v2…, Opening Range Breakout — Strategy 11. 5m bars (stocks) | 15m bars (crypto).…, Normalise timestamps for session calculations. Stocks → America/New_York (strip…, Return today's session bars only., Intraday VWAP anchored to session open.
+Cohesion: 0.23
+Nodes (7): ORBBreakout, DataFrame, Series, Opening Range Breakout — Strategy 11. 5m bars (stocks) | 15m bars (crypto).…, Normalise timestamps for session calculations. Stocks → America/New_York (strip…, Return today's session bars only., Intraday VWAP anchored to session open.
 
 ### Community 136 - "imageutil.cpp"
 Cohesion: 0.19
@@ -1348,8 +1350,8 @@ Cohesion: 0.24
 Nodes (10): _adx(), _atr(), _ema(), EMARibbonBreakoutParams, EMARibbonBreakoutStrategy, generate_signals(), DataFrame, Series (+2 more)
 
 ### Community 138 - "Interval"
-Cohesion: 0.04
-Nodes (33): Camera, interval, bvh_node, bbox, left, right, aabb, hit_record (+25 more)
+Cohesion: 0.06
+Nodes (19): interval, bvh_node, bbox, left, right, aabb, hit_record, hittable (+11 more)
 
 ### Community 139 - "hit_record"
 Cohesion: 0.09
@@ -1367,9 +1369,9 @@ Nodes (14): Astral Drift unified audit task list, Batch A — confirmed correctn
 Cohesion: 0.13
 Nodes (14): 1. General Flight-Control Jitter Polish, 2. ABC Existing-Tunnel Move Tool Stability, 3. 3D Gizmo Axis Consistency, 5. Free-Drag Yellow Build Handle, 6. Tunnel Range Operations, Astral Drift Current Work List, Builder Features To Keep / Already Working, Cache Rooms, Hidden Doors, And Quest Rooms (+6 more)
 
-### Community 144 - "RenderFrontendBase"
-Cohesion: 0.04
-Nodes (111): BackendAddressSet, OT_BLOCK, OT_ID, OT_NODE, ot_node_struct, Id, Kids, Values (+103 more)
+### Community 144 - "renderfrontend.cpp"
+Cohesion: 0.03
+Nodes (169): BackendAddressSet, Id, INI_Parser_Table, WriteSpecialOptionHandler, AnimationOptions(), Console, Path, POVMSAddress (+161 more)
 
 ### Community 145 - "set_api_key.py"
 Cohesion: 0.25
@@ -1384,20 +1386,20 @@ Cohesion: 0.07
 Nodes (29): Alert, AlertType, AssetType, CryptoDataFetcher, EscalationTracker, Enum, Ron's Market Breakout Scanner ============================== Scans stocks and…, SignalPhase (+21 more)
 
 ### Community 148 - "Trace"
-Cohesion: 0.07
-Nodes (110): LightColorCacheListList, TPATTERN, UnWarp_Normal(), Warp_EPoint(), Warp_Normal(), dot(), COLC, ColourChannel (+102 more)
+Cohesion: 0.08
+Nodes (106): LightColorCacheListList, dot(), COLC, ColourChannel, ConstObjectPtr, DBL, FINISH, FOG (+98 more)
 
 ### Community 149 - "intelligence/backtester.py"
 Cohesion: 0.05
-Nodes (48): BacktestResult, _BacktestCancelled, BacktestResult, BacktestTrade, _bt_eod_close(), _bt_orb_vwap(), _bt_pivot_break(), _bt_stale_adx() (+40 more)
+Nodes (48): BacktestResult, ============================================================= STRATEGY REGISTRY…, _BacktestCancelled, BacktestTrade, _bt_eod_close(), _bt_orb_vwap(), _bt_pivot_break(), _bt_stale_adx() (+40 more)
 
 ### Community 150 - "parser_materials.cpp"
 Cohesion: 0.06
-Nodes (48): IntVector3d, PATTERN_T, PavementPattern, AVXPortableDNoise(), AVXPortableNoise(), DBL, Vector3d, SceneData (+40 more)
+Nodes (53): IntVector3d, PATTERN_T, PavementPattern, TPATTERN, TRANSFORM, Rotate_Tpattern(), Scale_Tpattern(), Transform_Tpattern() (+45 more)
 
 ### Community 151 - "random_double"
-Cohesion: 0.09
-Nodes (15): f(), main(), pdf(), main(), Sample, icd(), main(), pdf() (+7 more)
+Cohesion: 0.06
+Nodes (21): Camera, ConstantMedium, Hittable, f(), main(), pdf(), f(), main() (+13 more)
 
 ### Community 152 - "import_log_events.py"
 Cohesion: 0.30
@@ -1431,21 +1433,21 @@ Nodes (11): assertAccepted(), context, fs, functionMatch, html, limit, limitMatc
 Cohesion: 0.20
 Nodes (7): CatalystChecker, CatalystResult, scanners/catalyst_checker.py ============================= Checks whether a…, Batch news sentiment checker using Alpha Vantage. One API call per gap…, Check news catalyst for a list of symbols in one API call. Returns dict of…, Check a single symbol. Uses one API call., Pass-through result when checker is disabled.
 
-### Community 160 - "bot_engine.py"
+### Community 160 - "BotEngine"
 Cohesion: 0.04
-Nodes (33): Start the API server in a background thread. Call this from bot_engine.py after…, start_api_server(), BotEngine, _et_now_str(), _is_market_open(), _paper_brokers_in_capital_breakdown(), Logger, bot_engine.py — Main entry point for the Autonomous Day Trading Bot Trading Bot… (+25 more)
+Nodes (47): BotEngine, _et_now_str(), _paper_brokers_in_capital_breakdown(), Return enabled paper brokers whose balances are separate simulations. Their…, Fire at 07:00 PT (10:00 ET) weekdays to pre-warm the Claude briefing cache., Run check_positions in a background thread so a slow price fetch can't block…, Start a scheduled job unless the prior run is still active., Close all open stock positions before market close. Two-pass approach: Pass 1:… (+39 more)
 
-### Community 161 - "STBIDEF"
+### Community 161 - "TheRestOfYourLife/external/stb_image.h"
 Cohesion: 0.07
-Nodes (41): FILE, stbi_io_callbacks, STBIDEF, stbi_convert_iphone_png_to_rgb(), stbi__do_zlib(), stbi_failure_reason(), stbi__fopen(), stbi_hdr_to_ldr_gamma() (+33 more)
+Nodes (63): FILE, stbi_io_callbacks, stbi_uc, STBIDEF, resample_row_1(), stbi__clamp(), stbi__compute_y(), stbi_convert_iphone_png_to_rgb() (+55 more)
 
 ### Community 162 - "test_kraken_full_exit.py"
 Cohesion: 0.09
 Nodes (21): BrokerStub, executor_for_result(), FakeExchange, full_trade(), FullExitDB, FullKrakenStub, live_executor(), Focused full-Kraken-exit regression tests; no network or production DB. (+13 more)
 
 ### Community 163 - "VwapConfirmedOrb"
-Cohesion: 0.26
-Nodes (5): DataFrame, Series, vwap_confirmed_orb.py --------------------- Standalone VWAP-confirmed Opening…, Normalize index for session calculations. - Stocks: convert tz-aware bars to…, VwapConfirmedOrb
+Cohesion: 0.32
+Nodes (4): DataFrame, Series, Normalize index for session calculations. - Stocks: convert tz-aware bars to…, VwapConfirmedOrb
 
 ### Community 164 - "data.jsx"
 Cohesion: 0.17
@@ -1459,17 +1461,17 @@ Nodes (9): backupLayoutState(), loadState(), MAIN_LAYOUT_20260617, RECOVERED_LAY
 Cohesion: 0.25
 Nodes (7): compute_indicators(), generate_entry_signals(), DataFrame, Strategy: VB-M -- Volatility Breakout Momentum…, Raw breakout triggers (the engine owns position state and dedup)., VB-M: Donchian+ATR breakout momentum with chandelier trailing exits., VBMStrategy
 
-### Community 167 - "RtwImage"
-Cohesion: 0.07
-Nodes (12): color, Perlin, RtwImage, ImageTexture, perlin, Perlin, CheckerTexture, ImageTexture (+4 more)
+### Community 167 - "Interval"
+Cohesion: 0.06
+Nodes (17): Interval, Isotropic, Perlin, RtwImage, CheckerTexture, ImageTexture, NoiseTexture, ABC (+9 more)
 
 ### Community 168 - "live_ticker_reference"
 Cohesion: 0.25
 Nodes (6): live_ticker_reference(), Any, Venue-local crypto quote helpers. Never use this helper to compare or…, Prefer a sane live bid/ask midpoint; otherwise return venue-local last., CryptoQuoteTests, Deterministic tests for venue-local live crypto quote selection.
 
-### Community 169 - "RuntimeError"
-Cohesion: 0.10
-Nodes (19): RuntimeError, build_prompt(), compact_digest(), installed_ollama_models(), load_digest(), main(), Path, run_ollama() (+11 more)
+### Community 169 - "test_metrics.py"
+Cohesion: 0.22
+Nodes (11): _mock_gate_alert(), Deterministic tests for core/metrics.py (Patch A telemetry). Covers: counter…, Defensive backstop: even if gate_failure() unexpectedly raises (a coding error,…, The corrected retry semantics, the crux of this fix: a FAILED delivery…, test_alert_gate_failure_always_counts_and_logs_even_when_delivery_fails(), test_alert_gate_failure_cooldown_is_per_category(), test_alert_gate_failure_delivery_exception_does_not_raise(), test_alert_gate_failure_rate_limits_external_send_on_success() (+3 more)
 
 ### Community 170 - "test_rect_junction_corner_handoff.js"
 Cohesion: 0.22
@@ -1484,8 +1486,8 @@ Cohesion: 0.33
 Nodes (10): cmd_import(), cmd_setup(), cmd_show(), cmd_verify(), _generate_and_store(), _load_key(), _print_next_steps(), Scripts/setup_encryption.py ============================ First-run encryption… (+2 more)
 
 ### Community 173 - "camera"
-Cohesion: 0.05
-Nodes (39): camera, aspect_ratio, background, center, debug, defocus_angle, defocus_disk_u, defocus_disk_v (+31 more)
+Cohesion: 0.06
+Nodes (38): camera, aspect_ratio, background, center, debug, defocus_angle, defocus_disk_u, defocus_disk_v (+30 more)
 
 ### Community 174 - "Test-EMTScannerPipeline.ps1"
 Cohesion: 0.44
@@ -1500,8 +1502,8 @@ Cohesion: 0.24
 Nodes (9): _generate_tone(), init_audio(), play_alert(), _play_pattern(), alert_sound.py ============== Cross-device audio alerts using pygame — works…, Non-blocking alert tone. Fires in a background thread. level : 0-3 (escalation…, Call once at startup. Returns True if audio is available., Generate a sine-wave tone as a pygame Sound object. (+1 more)
 
 ### Community 177 - "KrakenExecutor"
-Cohesion: 0.03
-Nodes (85): ============================================================= BROKER MANAGER…, ============================================================= EXCHANGE…, KrakenExecutor, ============================================================= KRAKEN EXECUTOR…, Extract a cumulative filled quantity from an order dict, treating a…, Resolve the definitive terminal state of a just-submitted order. 1. If the…, Append a durable, greppable record of an order whose final fill state could not…, Return exact CCXT and raw-Kraken aliases for an order pair. (+77 more)
+Cohesion: 0.04
+Nodes (74): KrakenExecutor, Extract a cumulative filled quantity from an order dict, treating a…, Resolve the definitive terminal state of a just-submitted order. 1. If the…, Append a durable, greppable record of an order whose final fill state could not…, Return exact CCXT and raw-Kraken aliases for an order pair., Cancel scanner-partial orders and report ambiguity explicitly., Close a scanner partial with fail-closed terminal-fill semantics., Cancel every open order on Kraken for the given symbol. Called before closing a… (+66 more)
 
 ### Community 178 - "stbi__malloc"
 Cohesion: 0.23
@@ -1515,13 +1517,13 @@ Nodes (5): AddOnBase, NinjaTrader.NinjaScript.AddOns, Bars, string, HistoricalFu
 Cohesion: 0.18
 Nodes (8): context, cube, floorShaft, fs, html, powerDurations, sideHall, vm
 
-### Community 181 - "scanners/market_scanner.py"
-Cohesion: 0.06
-Nodes (24): get_inverse(), get_leverage_factor(), get_leveraged(), is_leveraged_etf(), map_signal(), ============================================================= INVERSE ETF…, Map a stock signal to its inverse/leveraged ETF equivalent. Returns:…, Get the inverse ETF for a symbol, or None if not mapped. (+16 more)
+### Community 181 - "inverse_etf_mapper.py"
+Cohesion: 0.17
+Nodes (11): get_inverse(), get_leverage_factor(), get_leveraged(), is_leveraged_etf(), map_signal(), ============================================================= INVERSE ETF…, Map a stock signal to its inverse/leveraged ETF equivalent. Returns:…, Get the inverse ETF for a symbol, or None if not mapped. (+3 more)
 
 ### Community 182 - "POVMS_Object"
 Cohesion: 0.05
-Nodes (110): FunctionHandlerPtr, POVMSData, StartParser, GetFrameRenderOptions, ParserTime(), CreateScene, RenderOptions(), RenderTime() (+102 more)
+Nodes (114): FunctionHandlerPtr, POVMSAttributeList, POVMSData, StartParser, GetFrameRenderOptions, ParserTime(), CreateScene, RenderOptions() (+106 more)
 
 ### Community 183 - "scalp_master.py"
 Cohesion: 0.16
@@ -1533,7 +1535,7 @@ Nodes (9): get_target_pane(), is_bot_running(), log(), monitor(), Bot Engine Wat
 
 ### Community 185 - "TheNextWeek/hittable.h"
 Cohesion: 0.09
-Nodes (27): aabb, interval, point3, ray, shared_ptr, vec3, hit_record, front_face (+19 more)
+Nodes (28): aabb, interval, point3, ray, shared_ptr, vec3, hit_record, front_face (+20 more)
 
 ### Community 186 - "flush_candle_symbol.py"
 Cohesion: 0.42
@@ -1545,27 +1547,27 @@ Nodes (8): build_rollup(), iter_archived_digests(), main(), markdown_rollup(), p
 
 ### Community 188 - "UCS2toASCIIString"
 Cohesion: 0.03
-Nodes (94): BackendSceneData, backendAddress, CreateFile, FindFile, frontendAddress, ReadFile, sceneId, IStream (+86 more)
+Nodes (80): CheckIfFileExists(), IStream, Path, POV_OFF_T, UCS2String, GetFileExtension(), GetFileLength(), GetFileName() (+72 more)
 
 ### Community 189 - "scatter_record"
-Cohesion: 0.11
-Nodes (23): dielectric, refraction_index, diffuse_light, tex, color, hit_record, point3, ray (+15 more)
+Cohesion: 0.10
+Nodes (27): dielectric, refraction_index, diffuse_light, tex, color, hit_record, point3, ray (+19 more)
 
 ### Community 190 - "trade_blocker_snapshot.py"
 Cohesion: 0.42
 Nodes (8): _connect(), _json_value(), main(), _print_rows(), Connection, Path, _scan_log(), _tail_lines()
 
 ### Community 191 - "TraceTask"
-Cohesion: 0.06
-Nodes (58): SendProgress, Run, Run, ViewData, ViewId, GetViewData, RenderTask::RenderTask(), DBL (+50 more)
+Cohesion: 0.07
+Nodes (55): Run, Run, Run, GetViewData, DBL, GammaCurvePtr, RGBTColour, ViewData (+47 more)
 
 ### Community 192 - "camera"
 Cohesion: 0.06
 Nodes (36): camera, aspect_ratio, background, center, debug, defocus_angle, defocus_disk_u, defocus_disk_v (+28 more)
 
 ### Community 193 - "close_position"
-Cohesion: 0.11
-Nodes (24): close_position(), _enrich_futures_strategy_positions(), _find_open_trade(), _futures_strategy_identity(), get_current_price(), get_emt_status(), get_manual_trade_preview(), get_open_positions() (+16 more)
+Cohesion: 0.15
+Nodes (17): close_position(), _enrich_futures_strategy_positions(), _find_open_trade(), _futures_strategy_identity(), get_emt_status(), _paper_futures_identity(), Return (strategy, root symbol) for a DB-backed EAT/EMT futures row., Apply exact EAT/EMT live marks and futures contract P&L to DB rows. A mark is… (+9 more)
 
 ### Community 194 - "clear_stuck_trades.py"
 Cohesion: 0.32
@@ -1607,17 +1609,17 @@ Nodes (13): ConditionReport, MarketCondition, MarketConditionDetector, DataFrame
 Cohesion: 0.05
 Nodes (3): ls(), Na, sn
 
-### Community 204 - "Ray"
-Cohesion: 0.04
-Nodes (35): Ray, Color, write_color(), HittableList, HitRecord, Hittable, Ray, HitRecord (+27 more)
+### Community 204 - "Vec3"
+Cohesion: 0.05
+Nodes (28): Color, write_color(), HittableList, HitRecord, Hittable, Ray, HitRecord, Hittable (+20 more)
 
 ### Community 205 - "test_texture_distance_runs.js"
 Cohesion: 0.05
 Nodes (42): bendConnectors, bendMesh, clampedDegenerate, collectedRuns, context, cross(), cubeHost, diagonalShellPoint (+34 more)
 
-### Community 207 - "dashboard.py"
-Cohesion: 0.06
-Nodes (24): cache_data, DailyStatus, ============================================================= RISK MANAGER The…, Get today's starting capital. If not yet set (first call of the day), calculate…, Approve a trade signal and compute position sizing. Parameters ----------…, Update trailing stop for an open trade. When `bars` (a closed-bar DataFrame, at…, Guardian of the trading system. Nothing gets traded without approval here. All…, Profit-activation gate (Opus audit 2026-05-29). A trailing stop may move INTO… (+16 more)
+### Community 207 - "RiskManager"
+Cohesion: 0.12
+Nodes (11): DailyStatus, Get today's starting capital. If not yet set (first call of the day), calculate…, Approve a trade signal and compute position sizing. Parameters ----------…, Update trailing stop for an open trade. When `bars` (a closed-bar DataFrame, at…, Guardian of the trading system. Nothing gets traded without approval here. All…, Profit-activation gate (Opus audit 2026-05-29). A trailing stop may move INTO…, Update session state after a trade closes., Always re-read session from DB to get latest values. The dashboard runs as a… (+3 more)
 
 ### Community 208 - "3. Building, Running, and Testing"
 Cohesion: 0.12
@@ -1625,7 +1627,7 @@ Nodes (15): 1.1 Core Technologies, 1. Project Overview, 2.1 Workspace Structure,
 
 ### Community 210 - "parser_tokenizer.cpp"
 Cohesion: 0.04
-Nodes (76): Macro, DBL, IStream, OStream, POV_LONG, shared_ptr, UCS2String, Add_Entry (+68 more)
+Nodes (86): Macro, POV_ARRAY, ASCIItoUCS2String(), Destroy_Material(), IStream, OStream, TrueTypeFont, UCS2String (+78 more)
 
 ### Community 211 - "Adversarial Systems Audit Log"
 Cohesion: 0.40
@@ -1641,15 +1643,15 @@ Nodes (19): main(), print_help(), vec3, onb, axis, cosine_pdf, uvw, hittable (+1
 
 ### Community 216 - "ViewData"
 Cohesion: 0.03
-Nodes (60): BlockInfo, RGBTColour, Vector2d, BackendSceneData, BlockIdSet, BlockInfo, mutex, POVMSFloat (+52 more)
+Nodes (93): BBOX_TREE, BlockIdSet, BlockInfo, RGBTColour, shared_ptr, Vector2d, Vector3d, ViewData (+85 more)
 
 ### Community 217 - "signal_engine.py"
 Cohesion: 0.83
 Nodes (3): classify_signal(), continuation_probability(), determine_direction()
 
 ### Community 218 - "src/external/stb_image.h"
-Cohesion: 0.09
-Nodes (49): FILE, stbi_io_callbacks, STBIDEF, stbi__bitcount(), stbi__clamp(), stbi_convert_iphone_png_to_rgb(), stbi__do_zlib(), stbi_failure_reason() (+41 more)
+Cohesion: 0.10
+Nodes (47): FILE, stbi_io_callbacks, STBIDEF, stbi__clamp(), stbi_convert_iphone_png_to_rgb(), stbi__do_zlib(), stbi_failure_reason(), stbi__float_postprocess() (+39 more)
 
 ### Community 221 - "EATStrategyIndicator"
 Cohesion: 0.23
@@ -1684,8 +1686,8 @@ Cohesion: 0.40
 Nodes (4): Environment & Running, graphify, Key Modules (see AGENTS.md for full details), Quick Reference — Pending Work
 
 ### Community 244 - "Backtester"
-Cohesion: 0.09
-Nodes (30): Backtester, Series, Standard fixed % stop with symmetric trailing for both directions. Stop checks…, Simulates trading strategies on historical OHLCV data. - Supports 5m / 1h / 1d…, Return True if candles for this symbol are already in memory., _DummyStrategy, _flat_df(), main() (+22 more)
+Cohesion: 0.06
+Nodes (40): Backtester, BacktestResult, Series, Standard fixed % stop with symmetric trailing for both directions. Stop checks…, Return True only when cached candles are long enough for the request., Export every trade in result to CSV for manual analysis in Excel., Export all trades from multiple results into one combined CSV file., Simulates trading strategies on historical OHLCV data. - Supports 5m / 1h / 1d… (+32 more)
 
 ### Community 246 - "jn"
 Cohesion: 0.07
@@ -1700,8 +1702,8 @@ Cohesion: 0.10
 Nodes (18): checker_texture, even, inv_scale, odd, color, perlin, point3, rtw_image (+10 more)
 
 ### Community 316 - "stbi__err"
-Cohesion: 0.25
-Nodes (24): stbi__huffman, stbi__int16, stbi__jpeg, stbi__build_fast_ac(), stbi__build_huffman(), stbi__decode_jpeg_header(), stbi__decode_jpeg_image(), stbi__err() (+16 more)
+Cohesion: 0.19
+Nodes (29): stbi__huffman, stbi__int16, stbi__jpeg, load_jpeg_image(), stbi__build_fast_ac(), stbi__build_huffman(), stbi__cleanup_jpeg(), stbi__cpuid3() (+21 more)
 
 ### Community 317 - "TheNextWeek/texture.h"
 Cohesion: 0.11
@@ -1723,17 +1725,17 @@ Nodes (16): can_to_float(), can_to_int(), classify(), date_check(), insertion_so
 Cohesion: 0.21
 Nodes (10): _atr(), generate_signals(), DataFrame, Series, RCR Mean Reversion ================== Classification : INCUBATE Source : Trader…, Return Correlation Reversion. Detects mean-reverting market regimes via rolling…, Rolling autocorrelation of a series with given lag. Uses pandas rolling…, RCRMeanReversionParams (+2 more)
 
-### Community 322 - "view.cpp"
-Cohesion: 0.09
-Nodes (33): BBOX_TREE, BlockIdSet, shared_ptr, Vector3d, ViewData, ViewId, Mailbox, thread (+25 more)
+### Community 322 - "test_backtester_p1_correctness.py"
+Cohesion: 0.16
+Nodes (13): _bare_backtester(), _frame(), Deterministic regression tests for the approved P1-B/P1-C fixes., _Strategy, test_invalid_direction_never_becomes_short(), test_invalid_memory_cache_is_revalidated_before_use(), test_param_override_restores_absent_key_on_success_and_exception(), test_param_overrides_are_process_serialized() (+5 more)
 
-### Community 323 - "vec3"
-Cohesion: 0.17
-Nodes (13): random_double(), cross(), dot(), operator+(), random_cosine_direction(), random_in_unit_disk(), random_on_hemisphere(), random_unit_vector() (+5 more)
+### Community 323 - "vfeplatform.cpp"
+Cohesion: 0.19
+Nodes (18): POVMS_Sys_Thread_Type, string, GetThreadId(), UnixShelloutProcessing, CollectCommand, CommandPermitted, CommandRunning, ExecuteCommand (+10 more)
 
 ### Community 324 - "SceneData"
 Cohesion: 0.02
-Nodes (94): DeclaredVariablesMap, GenericFunctionContextFactoryIPtr, BSPTree, Fog_Struct, BBOX_TREE, Camera, DBL, GammaCurvePtr (+86 more)
+Nodes (90): DeclaredVariablesMap, GenericFunctionContextFactoryIPtr, BBOX_TREE, Camera, DBL, GammaCurvePtr, LightSource, MathColour (+82 more)
 
 ### Community 325 - "test_sweep_wall_scrape_padding.js"
 Cohesion: 0.25
@@ -1753,7 +1755,7 @@ Nodes (6): calculate_net_pnl(), pair_contracts(), Calculates gross profit/loss, 
 
 ### Community 329 - "BoundingBox"
 Cohesion: 0.04
-Nodes (70): Plane, BBox_Tree_Struct, BBox, Entries, Infinite, Node, BoundingBox, lowerLeft (+62 more)
+Nodes (73): Plane, BBox_Tree_Struct, BBox, Entries, Infinite, Node, BoundingBox, lowerLeft (+65 more)
 
 ### Community 330 - "data_structures_reference.py"
 Cohesion: 0.24
@@ -1767,9 +1769,9 @@ Nodes (7): compute_totals(), main(), print_summary(), Takes list of dictionaries
 Cohesion: 0.24
 Nodes (11): create_ppm(), main(), merge(), Image, Roll an image sideways., Call with direction FLIP_LEFT_RIGHT, FLIP_TOP_BOTTOM, ROTATE_90, ROTATE_180 or…, Rotate image angle defrees couter clockwise, resize_image() (+3 more)
 
-### Community 334 - "tema_crossover.py"
-Cohesion: 0.27
-Nodes (9): _adx(), _cmo(), DataFrame, Series, tema_crossover.py ================= Port of TEMA1h_09641 Jesse Port (Trader…, Dual TEMA trend-following with ADX + CMO momentum filters. Ported from…, _tema(), TEMACrossoverStrategy (+1 more)
+### Community 334 - "Prism_Spline_Entry_Struct"
+Cohesion: 0.11
+Nodes (18): PRISM_SPLINE_ENTRY, DBL, Vector2d, Prism_Spline_Entry_Struct, A, B, C, D (+10 more)
 
 ### Community 335 - "square.py"
 Cohesion: 0.50
@@ -1784,40 +1786,40 @@ Cohesion: 0.25
 Nodes (6): context, fs, html, nearLast, vm, withGlobal
 
 ### Community 341 - "math.inc"
-Cohesion: 0.08
-Nodes (21): hit_sphere(), f32, func, kernel, render(), sample_texture(), Dielectric, Isotropic (+13 more)
+Cohesion: 0.07
+Nodes (22): Ray, vec3, color, material, linear_to_gamma(), write_color(), ABC, # NOTE: the parameter `outward_normal` is assumed to have unit length. (+14 more)
 
 ### Community 343 - "At"
 Cohesion: 0.06
 Nodes (4): At, fe, ht(), ps()
 
-### Community 348 - "AlpacaExecutor"
-Cohesion: 0.11
-Nodes (9): AlpacaExecutor, CoinbaseExecutor, Close all open stock positions — called at end of day., Executes crypto trades via Coinbase Advanced Trade., Executes stock trades via Alpaca Markets API., Close an open position. Updates database and notifies risk manager., Submit a stock order to Alpaca. Alpaca silently rejects bracket orders for…, Get total account equity from Alpaca. (+1 more)
+### Community 348 - "TradeExecutor"
+Cohesion: 0.08
+Nodes (16): AlpacaExecutor, CoinbaseExecutor, Close all open stock positions — called at end of day., Executes crypto trades via Coinbase Advanced Trade., Unified executor that coordinates risk approval, order submission, and logging.…, Full pipeline: approve -> execute -> log -> return trade_id. Accepts a Signal…, Executes stock trades via Alpaca Markets API., Close an open position. Updates database and notifies risk manager. (+8 more)
 
 ### Community 351 - "RenderBackend"
 Cohesion: 0.06
-Nodes (85): Exception, POVMSAddress, POVMSContext, POVMSType, POVMSUCS2String, SceneId, ViewId, POVMSContext (+77 more)
+Nodes (73): Exception, POVMSAddress, POVMSContext, POVMSType, POVMSUCS2String, SceneId, ViewId, POVMSContext (+65 more)
 
 ### Community 352 - "GapScanner"
 Cohesion: 0.11
 Nodes (15): GapScanner, GapSetup, Any, DataFrame, datetime, Two-stage gap scanner. Stage 1: detect overnight gaps at market open, add to…, Fetch today's top gainers + losers from Alpha Vantage TOP_GAINERS_LOSERS.…, Alpaca ScreenerClient fallback when Alpha Vantage key is absent. (+7 more)
 
-### Community 353 - "BlendMap"
-Cohesion: 0.29
-Nodes (6): BlendMap, Blend_Map_Entries, Set, Type, BlendMapTypeId, Vector
+### Community 353 - "FractalPattern"
+Cohesion: 0.11
+Nodes (17): FractalPattern, Clone, EvaluateRaw, exteriorFactor, exteriorType, interiorFactor, interiorType, maxIterations (+9 more)
 
 ### Community 354 - "GenericRGBColour"
-Cohesion: 0.10
-Nodes (6): BIAS, QUANTIZE_TO_NEAREST, ColourChannelIsValid(), GenericRGBColour, mColour, max3()
+Cohesion: 0.11
+Nodes (5): BIAS, QUANTIZE_TO_NEAREST, GenericRGBColour, mColour, max3()
 
 ### Community 355 - "DataTable"
-Cohesion: 0.08
-Nodes (18): DataTable, Any, Toplevel, Widget, Sets the column headers and enables click-to-sort., Populates the table with rows (list of lists or list of dicts)., Rerenders rows inside treeview with zebra striping., Sorts data by the selected column header. (+10 more)
+Cohesion: 0.09
+Nodes (15): DataTable, Any, Widget, Sets the column headers and enables click-to-sort., Populates the table with rows (list of lists or list of dicts)., Rerenders rows inside treeview with zebra striping., Sorts data by the selected column header., Filters table data according to search string. (+7 more)
 
-### Community 364 - "TheRestOfYourLife/rtweekend.h"
-Cohesion: 0.10
-Nodes (21): f(), main(), pdf(), vec3, f(), main(), pdf(), compare_by_x() (+13 more)
+### Community 364 - "vec3"
+Cohesion: 0.06
+Nodes (35): vec3, color, ostream, linear_to_gamma(), write_color(), f(), main(), pdf() (+27 more)
 
 ### Community 365 - "insertion_sort"
 Cohesion: 0.67
@@ -1825,11 +1827,11 @@ Nodes (3): insertion_sort(), main(), Takes a list and sorts a copy of it susing 
 
 ### Community 366 - "fnintern.cpp"
 Cohesion: 0.07
-Nodes (87): DBL, Vector3d, Noise(), DBL, FPUContext, f_algbr_cyl1(), f_algbr_cyl2(), f_algbr_cyl3() (+79 more)
+Nodes (79): DBL, FPUContext, f_algbr_cyl1(), f_algbr_cyl2(), f_algbr_cyl3(), f_algbr_cyl4(), f_bicorn(), f_bifolia() (+71 more)
 
 ### Community 367 - "blob.cpp"
-Cohesion: 0.06
-Nodes (80): Blob_Interval_Struct, Blob, All_Intersections, Blob::Blob(), build_bounding_hierarchy, calculate_element_field, calculate_field_value, Compute_BBox (+72 more)
+Cohesion: 0.07
+Nodes (78): Blob_Interval_Struct, Blob, All_Intersections, Blob::Blob(), build_bounding_hierarchy, calculate_element_field, calculate_field_value, Compute_BBox (+70 more)
 
 ### Community 368 - "rtw_image"
 Cohesion: 0.14
@@ -1837,35 +1839,35 @@ Nodes (9): stbi_loadf(), string, rtw_image, bdata, bytes_per_pixel, bytes_per_sc
 
 ### Community 369 - "PILDriver"
 Cohesion: 0.12
-Nodes (9): PILDriver, object, usage: swap Swap the top-of-stack item with the next one down., usage: copy <image:pic1> Make and push a true copy of the top image., usage: extrema Push minimum and maximum pixel values of the top image., usage: save <string:filename> <image:pic1> Save image with default options., usage: show <image:pic1> Display and pop the top image., usage: size <image:pic1> Push the image size on the stack as (y, x). (+1 more)
+Nodes (9): PILDriver, object, usage: swap Swap the top-of-stack item with the next one down., usage: blend <image:pic1> <image:pic2> <float:alpha> Replace two images and an…, usage: copy <image:pic1> Make and push a true copy of the top image., usage: show <image:pic1> Display and pop the top image., usage: size <image:pic1> Push the image size on the stack as (y, x)., usage: verbose <int:num> Set verbosity flag from top of stack. (+1 more)
 
-### Community 370 - "_dec_hash"
-Cohesion: 0.33
-Nodes (6): _dec_hash(), _enc_hash(), _get_fernet(), Return a Fernet instance using the key from the OS credential store. Returns…, Encrypt a password hash string for DB storage. Falls back to plain: prefix if…, Decrypt a stored hash_enc value back to the raw sha256 hash string.
+### Community 370 - "_save_users"
+Cohesion: 0.18
+Nodes (13): _auth_check(), _db_path(), _delete_user_db(), _enc_hash(), _ensure_admin_seeded(), _get_fernet(), _hash_password(), Return a Fernet instance using the key from the OS credential store. Returns… (+5 more)
 
 ### Community 371 - "photons.cpp"
-Cohesion: 0.03
-Nodes (110): PhotonBlock, PhotonColour, PhotonVector3d, ChooseRay(), BasicRay, COLC, ColourChannel, DBL (+102 more)
+Cohesion: 0.05
+Nodes (80): PhotonBlock, PhotonColour, PhotonVector3d, Check_Photon_Light_Group(), ConstObjectPtr, ChooseRay(), BasicRay, COLC (+72 more)
 
 ### Community 372 - "colourspace.cpp"
 Cohesion: 0.05
-Nodes (68): GammaTypeId, BT1361GammaCurve, ApproximateDecodingGamma, Decode, Encode, Get, GetTypeId, instance (+60 more)
+Nodes (72): GammaTypeId, BT1361GammaCurve, ApproximateDecodingGamma, Decode, Encode, Get, GetTypeId, instance (+64 more)
 
 ### Community 373 - "quad"
 Cohesion: 0.12
 Nodes (21): box(), aabb, hit_record, hittable, hittable_list, interval, material, point3 (+13 more)
 
 ### Community 374 - "string"
-Cohesion: 0.24
-Nodes (12): Scene, View, thread, condition, BackendSceneData, Exception, list, string (+4 more)
+Cohesion: 0.10
+Nodes (20): Scene, View, thread, condition, Exception, list, string, intrusive_ptr (+12 more)
 
 ### Community 375 - "src/external/stb_image_write.h"
 Cohesion: 0.15
 Nodes (22): FILE, va_list, outfile(), stbi_write_bmp(), stbi_write_hdr(), stbi_write_png(), stbi_write_png_to_mem(), stbi_write_tga() (+14 more)
 
-### Community 376 - "src/main.cc"
-Cohesion: 0.17
-Nodes (26): apply_options(), book1_default_scene(), bouncing_spheres(), camera_options, debug, format, is_resize, is_scaled (+18 more)
+### Community 376 - "camera_options"
+Cohesion: 0.11
+Nodes (42): apply_extra_lights(), apply_options(), book1_default_scene(), bouncing_spheres(), camera_options, camera_position, debug, extra_lights (+34 more)
 
 ### Community 377 - "TheNextWeek/external/stb_image_write.h"
 Cohesion: 0.15
@@ -1876,16 +1878,16 @@ Cohesion: 0.12
 Nodes (20): box(), aabb, hit_record, hittable, hittable_list, interval, material, point3 (+12 more)
 
 ### Community 379 - "stbi__malloc"
-Cohesion: 0.24
-Nodes (15): stbi__png, stbi__pngchunk, stbi__uint32, stbi__compute_transparency(), stbi__create_png_image(), stbi__create_png_image_raw(), stbi__de_iphone(), stbi__do_png() (+7 more)
+Cohesion: 0.16
+Nodes (22): stbi__png, stbi__pngchunk, stbi__uint32, stbi__bitcount(), stbi__bmp_load(), stbi__compute_transparency(), stbi__convert_format(), stbi__create_png_image() (+14 more)
 
 ### Community 380 - "IBKRExecutor"
-Cohesion: 0.12
-Nodes (14): IBKRExecutor, ============================================================= IBKR EXECUTOR…, Check connection and reconnect if dropped. Uses backoff to avoid hammering TWS.…, Quick connectivity check — no connect/disconnect. Just checks if the persistent…, Reconciliation lookup by orderRef (our deterministic client-order identity).…, Submit a bracket order to IBKR. Uses persistent connection — no…, Cancel all open orders for a specific symbol. Filters by symbol so only orders…, Close an open IBKR position via market order. Always cancels all open orders… (+6 more)
+Cohesion: 0.13
+Nodes (13): IBKRExecutor, Check connection and reconnect if dropped. Uses backoff to avoid hammering TWS.…, Quick connectivity check — no connect/disconnect. Just checks if the persistent…, Reconciliation lookup by orderRef (our deterministic client-order identity).…, Submit a bracket order to IBKR. Uses persistent connection — no…, Cancel all open orders for a specific symbol. Filters by symbol so only orders…, Close an open IBKR position via market order. Always cancels all open orders…, Fetch account balance from IBKR. Strategy: 1. accountValues() — auto-subscribed… (+5 more)
 
-### Community 381 - "AlpacaExecutor"
-Cohesion: 0.14
-Nodes (10): AlpacaExecutor, Submit a stock order to Alpaca. Short tickers (1-2 chars) use plain market…, Plain market order — used for short tickers or as bracket fallback., Cancel all open orders for a symbol before closing the position. This is…, Close a position at Alpaca. ALWAYS cancels open orders first (bracket legs)…, Replace an Alpaca-owned stock runner stop after a confirmed partial., Cancel the bracket and submit an exact Alpaca partial close., Replace the runner's protective Alpaca stop after a partial fill. (+2 more)
+### Community 381 - "RSIDipSimpleStrategy"
+Cohesion: 0.19
+Nodes (12): _atr(), generate_signals(), DataFrame, Series, RSI Dip Simple ============== Classification : INCUBATE Source : Pine Script…, Naked RSI(7) dip entry — no trend/ADX filter. Long only. Exit: RSI crosses…, Pre-compute RSI + ATR signals on the FULL df before the bar loop. Called once…, O(1) signal lookup — replaces per-bar analyze() call inside _simulate. Uses… (+4 more)
 
 ### Community 382 - "RtwImage"
 Cohesion: 0.14
@@ -1895,25 +1897,25 @@ Nodes (12): _open_rgb(), Load an image as 8-bit RGB bytes. Returns (bytearray, w
 Cohesion: 0.16
 Nodes (31): stbi__huffman, stbi_inline, stbi__int16, stbi__jpeg, load_jpeg_image(), stbi__bitreverse16(), stbi__build_fast_ac(), stbi__build_huffman() (+23 more)
 
-### Community 384 - "daily_market_scanner.py"
-Cohesion: 0.13
-Nodes (23): _cg_get(), _dated_filename(), fetch_kraken_funding_rates(), fetch_stock_universe(), inject_scan_results_into_config(), load_scan_results(), _print_table(), DataFrame (+15 more)
+### Community 384 - "jpeg.cpp"
+Cohesion: 0.18
+Nodes (14): j_common_ptr, j_compress_ptr, j_decompress_ptr, read_error_exit(), read_fill_input_buffer(), read_init_source(), read_output_message(), read_skip_input_data() (+6 more)
 
 ### Community 385 - "sweep_tube_webgl.js"
 Cohesion: 0.24
 Nodes (20): buildSweepPathSamples(), buildSweepTubeGpuMesh(), collectCorridorSweepChunks(), collectDistanceSweepChunks(), collectSweepChainFrom(), emitSweepFillet(), emitSweepStraight(), planSweepFillet() (+12 more)
 
 ### Community 386 - "TheNextWeek/material.h"
-Cohesion: 0.15
-Nodes (14): dielectric, refraction_index, diffuse_light, tex, shared_ptr, texture, isotropic, tex (+6 more)
+Cohesion: 0.16
+Nodes (12): dielectric, refraction_index, diffuse_light, tex, point3, shared_ptr, texture, isotropic (+4 more)
 
 ### Community 387 - "sphere"
 Cohesion: 0.17
 Nodes (14): aabb, hit_record, hittable, interval, material, point3, ray, shared_ptr (+6 more)
 
-### Community 388 - "BaseStrategy"
-Cohesion: 0.04
-Nodes (51): Grid Bot Iter4 quick audit — BTC only, 90 days Run: python…, Grid Bot Iter4 audit — BBW compression filter Compares Baseline (Iter3) vs…, run_basket(), BaseStrategy, DataFrame, Abstract base class for all trading strategies. Subclasses must define: -…, Analyze candle data for a symbol and return a TradeSignal if conditions are…, Log the final computed score vs the minimum required score. Call this at the… (+43 more)
+### Community 388 - "StrategyEngine"
+Cohesion: 0.06
+Nodes (23): BollingerBreakout, DataFrame, DCAAccumulator, DataFrame, EMACrossover, DataFrame, GridBot, DataFrame (+15 more)
 
 ### Community 389 - "Hashable"
 Cohesion: 0.15
@@ -1924,16 +1926,16 @@ Cohesion: 0.04
 Nodes (9): GammaCurvePtr, IntEncode(), T, GrayImage, pixels, NonlinearGrayImage, gamma, gammaLUT (+1 more)
 
 ### Community 391 - "TheNextWeek/main.cc"
-Cohesion: 0.17
-Nodes (25): apply_options(), bouncing_spheres(), camera_options, debug, format, is_resize, is_scaled, outfile (+17 more)
+Cohesion: 0.15
+Nodes (27): apply_options(), bouncing_spheres(), camera_options, debug, format, is_resize, is_scaled, outfile (+19 more)
 
 ### Community 392 - "config.py"
-Cohesion: 0.05
-Nodes (30): ============================================================= CLAUDE AUTONOMOUS…, _db_key(), _decrypt(), _load_fernet_key(), _load_watchlist(), config.py — All settings, API keys, and tunable parameters Trading Bot v2, Load Fernet key from .env first, then from the OS keyring if available., Load a watchlist from a text file, falling back to hardcoded list. (+22 more)
+Cohesion: 0.02
+Nodes (122): BreakoutSignalPayload, control(), ControlPayload, get_open_positions(), health(), BaseModel, field_validator, get (+114 more)
 
 ### Community 393 - "stbi_uc"
-Cohesion: 0.11
-Nodes (36): stbi__png, stbi__pngchunk, stbi_uc, stbi__uint32, resample_row_1(), stbi__compute_transparency(), stbi__compute_y(), stbi__convert_format() (+28 more)
+Cohesion: 0.10
+Nodes (42): stbi__png, stbi__pngchunk, stbi_uc, stbi__uint32, resample_row_1(), stbi__at_eof(), stbi__compute_transparency(), stbi__compute_y() (+34 more)
 
 ### Community 394 - "interval"
 Cohesion: 0.14
@@ -1948,16 +1950,16 @@ Cohesion: 0.22
 Nodes (11): bvh_node, bbox, left, right, aabb, hit_record, hittable, hittable_list (+3 more)
 
 ### Community 397 - "interval"
-Cohesion: 0.14
-Nodes (10): color, ostream, linear_to_gamma(), write_color(), interval, empty, max, min (+2 more)
+Cohesion: 0.20
+Nodes (6): interval, empty, max, min, universe, operator+()
 
 ### Community 398 - "hittable_list"
 Cohesion: 0.18
 Nodes (11): aabb, hit_record, hittable, interval, point3, ray, shared_ptr, vec3 (+3 more)
 
-### Community 399 - "configcore.h"
-Cohesion: 0.03
-Nodes (56): DATA_T, LATHE_SPLINE_ENTRY, BSphere_Tree_Struct, C, Entries, Node, r2, BSPHERE_TREE (+48 more)
+### Community 399 - "lathe.h"
+Cohesion: 0.13
+Nodes (14): LATHE_SPLINE_ENTRY, BCyl_Struct, BCYL, Vector2d, Lathe_Spline_Entry_Struct, A, B, C (+6 more)
 
 ### Community 400 - "stbi__err"
 Cohesion: 0.32
@@ -1971,9 +1973,9 @@ Nodes (18): stbi_inline, stbi__zbuf, stbi__zhuffman, stbi__bit_reverse(), stbi__
 Cohesion: 0.27
 Nodes (18): stbi_inline, stbi__zbuf, stbi__zhuffman, stbi__bit_reverse(), stbi__bitreverse16(), stbi__compute_huffman_codes(), stbi__fill_bits(), stbi__init_zdefaults() (+10 more)
 
-### Community 403 - "time"
+### Community 403 - "BaseEventScanner"
 Cohesion: 0.04
-Nodes (41): breakout_sender.py (hardened v2) ================================== Sends…, canonicalize_breakout_payload(), derive_breakout_event_ids(), ensure_breakout_event_identity(), _identity_component(), Any, core/event_identity.py ======================= Shared helpers for durable…, Raise ValueError on any NaN/Infinity found anywhere in the payload. (+33 more)
+Nodes (28): BaseEventScanner, datetime, Start the scanner in a background daemon thread., Override in subclass. Called every check_interval_sec., Get current price via the wired market_scanner., Base class for event-driven scanners. Subclasses implement: run_once() --…, Wire to breakout_receiver (or any receiver with .receive_signal())., Wire to market_scanner for live price lookups. (+20 more)
 
 ### Community 404 - "Camera"
 Cohesion: 0.05
@@ -1985,7 +1987,7 @@ Nodes (13): constant_medium, boundary, neg_inv_density, phase_function, aabb, co
 
 ### Community 406 - ".push"
 Cohesion: 0.12
-Nodes (8): usage: blend <image:pic1> <image:pic2> <float:alpha> Replace two images and an…, usage: filter <string:filtername> <image:pic1> Process the top image with the…, usage: resize <int:xsize> <int:ysize> <image:pic1> Resize the top image., usage: invert <image:pic1> Invert the top image., usage: multiply <image:pic1> <image:pic2> Pop the two top images, push the…, usage: sharpness <image:pic1> Enhance sharpness in the top image., Push an argument onto the evaluation stack., usage: dup Duplicate the top-of-stack item.
+Nodes (8): usage: filter <string:filtername> <image:pic1> Process the top image with the…, usage: resize <int:xsize> <int:ysize> <image:pic1> Resize the top image., usage: invert <image:pic1> Invert the top image., usage: multiply <image:pic1> <image:pic2> Pop the two top images, push the…, usage: add <image:pic1> <image:pic2> <int:offset> <float:scale> Pop the two top…, usage: sharpness <image:pic1> Enhance sharpness in the top image., Push an argument onto the evaluation stack., usage: dup Duplicate the top-of-stack item.
 
 ### Community 407 - "aabb"
 Cohesion: 0.22
@@ -2011,17 +2013,17 @@ Nodes (9): point3, vec3, perlin, perm_x, perm_y, perm_z, point_count, randvec (+
 Cohesion: 0.29
 Nodes (11): _open_rgb(), Load an image as 8-bit RGB bytes. Returns (bytearray, width, height,…, Load an image as linear-ish float RGB in [0, 1]. Returns (list[float], width,…, stbi_load(), stbi_loadf(), _mode_for_comp(), stbi_write_bmp(), stbi_write_jpg() (+3 more)
 
-### Community 413 - "TheRestOfYourLife/external/stb_image.h"
-Cohesion: 0.09
-Nodes (38): stbi_uc, load_jpeg_image(), resample_row_1(), stbi__bitcount(), stbi__bmp_load(), stbi__clamp(), stbi__cleanup_jpeg(), stbi__compute_y() (+30 more)
+### Community 413 - "rtw_image"
+Cohesion: 0.17
+Nodes (8): string, rtw_image, bdata, bytes_per_pixel, bytes_per_scanline, fdata, image_height, image_width
 
 ### Community 414 - "hittable_list"
 Cohesion: 0.23
 Nodes (9): aabb, hit_record, hittable, interval, ray, shared_ptr, hittable_list, bbox (+1 more)
 
 ### Community 415 - "perlin"
-Cohesion: 0.19
-Nodes (9): point3, vec3, perlin, perm_x, perm_y, perm_z, point_count, randvec (+1 more)
+Cohesion: 0.21
+Nodes (8): point3, vec3, perlin, perm_x, perm_y, perm_z, point_count, randvec
 
 ### Community 416 - "SolarSystem"
 Cohesion: 0.29
@@ -2031,17 +2033,17 @@ Nodes (5): data_oriented, main(), func, kernel, SolarSystem
 Cohesion: 0.07
 Nodes (7): dt(), $e(), ic, Ke(), Qe(), tn, ut()
 
-### Community 418 - "get_chart_data"
-Cohesion: 0.13
-Nodes (20): _chart_bars_alpaca(), _chart_bars_coinbase(), _chart_bars_ibkr(), _chart_bars_kraken(), _chart_bars_tradovate(), _chart_bars_yfinance(), _chart_open_positions_for_symbol(), _contract_root() (+12 more)
-
-### Community 419 - "syspovconfig.h"
-Cohesion: 0.08
-Nodes (9): TOKEN, Reserved_Word_Struct, sinceVersion, Token_Name, Token_Number, T, pov_isinf(), pov_isnan() (+1 more)
-
-### Community 420 - "TheRestOfYourLife/external/stb_image_write.h"
+### Community 418 - "GenericRGBTColour"
 Cohesion: 0.15
-Nodes (22): FILE, va_list, outfile(), stbi_write_bmp(), stbi_write_hdr(), stbi_write_png(), stbi_write_png_to_mem(), stbi_write_tga() (+14 more)
+Nodes (4): GenericRGBTColour, mColour, mTransm, Sqr()
+
+### Community 419 - "Sym_Table_Entry"
+Cohesion: 0.13
+Nodes (15): SYM_ENTRY, TOKEN, Sym_Table_Entry, Data, deprecated, deprecatedOnce, deprecatedShown, Deprecation_Message (+7 more)
+
+### Community 420 - "is_bot_running"
+Cohesion: 0.15
+Nodes (15): build_snapshot(), db_log_context(), find_bot_pids_windows(), get_overview_data(), is_bot_running(), Path, Stop bot_engine.py process(es)., Top-level status metrics. (+7 more)
 
 ### Community 421 - "no"
 Cohesion: 0.13
@@ -2049,23 +2051,23 @@ Nodes (14): co(), eo(), ho(), io(), ja(), ka(), no(), oo() (+6 more)
 
 ### Community 422 - ".do_pop"
 Cohesion: 0.12
-Nodes (8): usage: crop <int:left> <int:upper> <int:right> <int:lower> <image:pic1> Crop…, usage: save2 <string:filename> <string:options> <image:pic1> Save image with…, usage: difference <image:pic1> <image:pic2> Pop the two top images, push the…, usage: add <image:pic1> <image:pic2> <int:offset> <float:scale> Pop the two top…, usage: contrast <image:pic1> Enhance contrast in the top image., usage: brightness <image:pic1> Enhance brightness in the top image., usage: verbose <int:num> Set verbosity flag from top of stack., usage: pop Discard the top element on the stack.
+Nodes (8): usage: crop <int:left> <int:upper> <int:right> <int:lower> <image:pic1> Crop…, usage: extrema Push minimum and maximum pixel values of the top image., usage: save <string:filename> <image:pic1> Save image with default options., usage: save2 <string:filename> <string:options> <image:pic1> Save image with…, usage: difference <image:pic1> <image:pic2> Pop the two top images, push the…, usage: contrast <image:pic1> Enhance contrast in the top image., usage: brightness <image:pic1> Enhance brightness in the top image., usage: pop Discard the top element on the stack.
 
-### Community 423 - "BreakoutSenderSafetyTests"
-Cohesion: 0.23
-Nodes (5): BreakoutSenderSafetyTests, _payload(), Offline regression tests for BreakoutSender containment and validation., _Response, _signal()
+### Community 423 - "RuntimeError"
+Cohesion: 0.07
+Nodes (27): _db_key(), _decrypt(), Decrypt a Fernet-encrypted API key loaded from .env. - Empty string → returned…, Load a key from the DB api_keys table, decrypt it, fall back to env., RuntimeError, build_prompt(), compact_digest(), installed_ollama_models() (+19 more)
 
 ### Community 424 - "Task"
 Cohesion: 0.05
-Nodes (50): CALLABLE_T, Finish, Finish, Finish, Finish, Finish, Finish, Finish (+42 more)
+Nodes (57): CALLABLE_T, Finish, Timer, Finish, Finish, Finish, DBL, ViewData (+49 more)
 
 ### Community 425 - "ray"
-Cohesion: 0.31
+Cohesion: 0.27
 Nodes (6): point3, vec3, ray, dir, orig, tm
 
-### Community 426 - "._fetch_multi"
-Cohesion: 0.14
-Nodes (9): Update both in-memory dict and DB row., Return sources in preferred order — try last-known-good first., Try all sources in preferred order. Cache on first success., Append to unreachable_symbols.log — for manual cleanup., Return True for symbols that can never be fetched (Tradovate futures, etc.)., Namespace stock symbols in the candle store to prevent collision with any same-…, Get OHLCV candles for a symbol/timeframe. Returns cached data if fresh,…, Force-fetch and cache. Returns True if successful. (+1 more)
+### Community 426 - "CandleManager"
+Cohesion: 0.06
+Nodes (32): _alpaca_tf(), _bars_to_days(), CandleManager, _normalise_tf(), DataFrame, ============================================================= CANDLE MANAGER…, Convert a bar limit to approximate number of days needed., Normalise timeframe to CCXT/yfinance format (e.g. '5Min' → '5m'). (+24 more)
 
 ### Community 427 - "PhotonSortingTask"
 Cohesion: 0.13
@@ -2076,44 +2078,44 @@ Cohesion: 0.90
 Nodes (4): fail(), log(), require_graph_files(), update-trading-bot-map.sh script
 
 ### Community 429 - "ray"
-Cohesion: 0.27
+Cohesion: 0.31
 Nodes (6): point3, vec3, ray, dir, orig, tm
 
 ### Community 430 - "NonlinearGrayAImage"
 Cohesion: 0.04
 Nodes (6): GrayAImage, pixels, NonlinearGrayAImage, gamma, gammaLUT, pixels
 
-### Community 431 - "DBL"
-Cohesion: 0.13
-Nodes (73): Sqr(), EvaluateRaw, EvaluateRaw, Evaluate, EvaluateRaw, Evaluate, EvaluateRaw, Evaluate (+65 more)
+### Community 431 - "Vector3d"
+Cohesion: 0.12
+Nodes (71): Sqr(), EvaluateRaw, EvaluateRaw, Evaluate, EvaluateRaw, Evaluate, EvaluateRaw, Evaluate (+63 more)
 
 ### Community 432 - "frame.h"
-Cohesion: 0.05
-Nodes (49): SceneData, TraceThreadData, CompoundObject, Destroy_Float(), DBL, Intersection, Project_Struct, x1 (+41 more)
+Cohesion: 0.04
+Nodes (46): PROJECT, PROJECT_TREE_NODE, POVMSAddress, SceneId, ViewId, GenericMessenger, POVMSAddress, SceneId (+38 more)
 
 ### Community 433 - "ImageConverterTool"
-Cohesion: 0.24
-Nodes (5): create_demo_image(), ImageConverterTool, Called when a new input file is picked., Automatically updates the output filename extension when format dropdown…, Creates a sample test image if the user doesn't have one ready.
+Cohesion: 0.21
+Nodes (6): create_demo_image(), ImageConverterTool, Image Converter & Format Utility Tool Demonstrates in-frame image preview with…, Called when a new input file is picked., Automatically updates the output filename extension when format dropdown…, Creates a sample test image if the user doesn't have one ready.
 
 ### Community 435 - "Create_Transform"
-Cohesion: 0.08
-Nodes (80): Destroy_Tnormal(), Destroy_Pigment(), Copy_Finish(), Copy_Texture_Pointer(), Copy_Textures(), FINISH, TEXTURE, Create_Finish() (+72 more)
-
-### Community 436 - "LightTargetCombo"
 Cohesion: 0.07
-Nodes (33): CooperateFunctor, PhotonGatherer, SceneData, shared_ptr, TraceThreadData, LightSource, ObjectPtr, Vector3d (+25 more)
+Nodes (91): NormalBlendMapData, Copy_Tnormal(), Create_Tnormal(), Destroy_Tnormal(), Copy_TPat_Fields(), Init_TPat_Fields(), PigmentPattern::PigmentPattern(), Copy_Pigment() (+83 more)
+
+### Community 436 - "ScenePhotonSettings"
+Cohesion: 0.04
+Nodes (65): GatheredPhotons, numFound, photonDistances, photonGatherList, swapWith, DBL, LightSource, ObjectPtr (+57 more)
 
 ### Community 437 - "FileRGBFTImage"
-Cohesion: 0.04
-Nodes (6): PixelContainer, GammaCurvePtr, FileRGBFTImage, pixels, RGBFTImage, pixels
+Cohesion: 0.05
+Nodes (6): PixelContainer, FileRGBFTImage, pixels, SetIndexedValue, RGBFTImage, pixels
 
 ### Community 438 - "trading_bot_v2 — Project State Summary"
 Cohesion: 0.05
 Nodes (37): 1. scalp_master.py — CRITICAL f-string crash, 2. bollinger_squeeze.py — CRITICAL stop/TP decimal vs percent bug, 3. ecb_strategy.py — Wrong timeframe producing garbage signals, 4. trade_executor.py — DCA structural stop override, 5. hammer_reversal.py — Whitelist too narrow, 6. vwap_momentum.py — Missing ml_exempt, Also pending (separate project, same docs folder), Apr 2026 Backtest Results (30d, 25 symbols each) (+29 more)
 
-### Community 439 - "base_strategy.py"
-Cohesion: 0.13
-Nodes (17): _injected_symbols(), _normalise_whitelist(), ABC, base_strategy.py — Abstract base class for all 8 trading strategies. Trading…, Log the result of a single signal condition check. Only writes to the log when…, _read_symbol_file(), _symbol_variants(), _atr() (+9 more)
+### Community 439 - "MR02VEFStrategy"
+Cohesion: 0.22
+Nodes (10): _atr(), generate_signals(), MR02Params, MR02VEFStrategy, DataFrame, Series, MR-02 v2 Volatility Exhaustion Fade =====================================…, MR-02 v2 Volatility Exhaustion Fade — ATR spike + failed continuation + SMA200… (+2 more)
 
 ### Community 440 - "ConfigManager"
 Cohesion: 0.11
@@ -2123,9 +2125,9 @@ Nodes (8): ConfigManager, _db_fallback(), _decrypt_cfg(), _encrypt_cfg(), Massiv
 Cohesion: 0.22
 Nodes (6): Exception, Base schedule exception, Specifies the job_func that should be called every time the job runs. Any…, Run the job and immediately reschedule it. If the job's deadline is reached…, Compute the instant when this job should run next., ScheduleError
 
-### Community 442 - "position_monitor.py"
-Cohesion: 0.11
-Nodes (27): _easter_date(), is_us_equity_market_holiday(), is_us_equity_regular_session_now(), _last_weekday(), _nth_weekday(), _observed(), date, datetime (+19 more)
+### Community 442 - "is_us_equity_regular_session_now"
+Cohesion: 0.16
+Nodes (19): _is_market_open(), _easter_date(), is_us_equity_market_holiday(), is_us_equity_regular_session_now(), _last_weekday(), _nth_weekday(), _observed(), date (+11 more)
 
 ### Community 443 - "ImageConvertFrontEnd"
 Cohesion: 0.11
@@ -2163,37 +2165,33 @@ Nodes (7): Allocator, NonlinearRGBAImage, gamma, gammaLUT, pixels, RGBAImage, pi
 Cohesion: 0.25
 Nodes (7): 1. Interactive Demo Launcher (Try all tools from one menu), 2. Master All-In-One Dashboard (Sidebar with all 4 tools mounted), 3. Individual Standalone Utility Apps, 🧑‍💻 How to Build Your Next Tool in 30 Seconds, 🎮 How to Run and Interact with the Demos, QuickTk Framework Walkthrough & Interactive Showcase, 🌟 What QuickTk Gives You
 
-### Community 453 - "Any"
-Cohesion: 0.10
-Nodes (13): Any, Exception, Toplevel, Builds an entire menu tree declaratively from a nested dictionary., Pops up a modal multi-field FormPanel dialog and returns clean dictionary of…, Updates the main app's status bar., Runs a heavy Python task in the background without freezing the UI., Sets the status bar text. (+5 more)
+### Community 453 - "QuickApp"
+Cohesion: 0.05
+Nodes (26): Any, Exception, Toplevel, QuickApp, Builds an entire menu tree declaratively from a nested dictionary., Pops up a modal multi-field FormPanel dialog and returns clean dictionary of…, Updates the main app's status bar., Runs a heavy Python task in the background without freezing the UI. (+18 more)
 
 ### Community 455 - ".execute"
 Cohesion: 0.33
 Nodes (3): usage: thumbnail <int:xsize> <int:ysize> <image:pic1> Modify the top image in…, Interpret a list of PILDriver commands., Return the top-of-stack element.
 
 ### Community 457 - "dither.cpp"
+Cohesion: 0.13
+Nodes (15): DitherMethodId, DitherStrategySPtr, initializer_list, ColourChannel, Pattern, T, DiffusionDither::Filter::Filter(), GetDitherOffset() (+7 more)
+
+### Community 459 - "Sor_Spline_Entry_Struct"
 Cohesion: 0.14
-Nodes (14): DitherMethodId, DitherStrategySPtr, initializer_list, ColourChannel, Pattern, T, DiffusionDither::Filter::Filter(), GetDitherStrategy() (+6 more)
+Nodes (13): BCyl_Struct, BCYL, DBL, Sor_Spline_Entry_Struct, A, B, C, D (+5 more)
 
-### Community 459 - "hypercomplex.cpp"
-Cohesion: 0.29
-Nodes (19): Complex, Complex_ACos(), Complex_ACosh(), Complex_ASin(), Complex_ASinh(), Complex_ATan(), Complex_ATanh(), Complex_Cos() (+11 more)
-
-### Community 460 - "ModalDialog"
-Cohesion: 0.16
-Nodes (15): ModalDialog, prompt_choice(), prompt_confirm(), prompt_form(), prompt_number(), prompt_text(), Any, Widget (+7 more)
+### Community 460 - "Mesh_Index"
+Cohesion: 0.21
+Nodes (12): Matrix3x3, MInvers3(), Mesh_Index, HASH_TABLE, MeshUVVector, MeshVector, TEXTURE, mesh_hash (+4 more)
 
 ### Community 461 - "compile"
 Cohesion: 0.31
 Nodes (8): compile script, func_cl_dashL(), func_cl_wrapper(), func_file_conv(), load_helper(), main(), Offline regression checks for the broker/DB capital-comparison domain., Load only the pure helper, avoiding BotEngine's startup dependencies.
 
-### Community 462 - "MInvTransPoint"
-Cohesion: 0.07
-Nodes (58): BasicRay, TRANSFORM, Vector3d, MInvTransDirection(), MInvTransNormal(), MInvTransPoint(), MInvTransRay(), MTransDirection() (+50 more)
-
-### Community 465 - "_normalise_tf"
-Cohesion: 0.19
-Nodes (9): _normalise_tf(), DataFrame, Normalise timeframe to CCXT/yfinance format (e.g. '5Min' → '5m')., Fetch from Kraken via CCXT., 1-hour stock bars can't be sliced from Alpaca's native 1Hour endpoint into a…, Fetch from yfinance with semaphore + exponential backoff retry., Fetch from KuCoin via CCXT — no auth required (public endpoint). KuCoin uses…, Dispatch to the correct fetcher. (+1 more)
+### Community 462 - "Sor"
+Cohesion: 0.11
+Nodes (31): BasicRay, DBL, Intersection, IStack, Ray, TraceThreadData, TRANSFORM, Vector2d (+23 more)
 
 ### Community 490 - "NonlinearRGBImage"
 Cohesion: 0.04
@@ -2206,10 +2204,6 @@ Nodes (6): containmentSource, context, fs, html, seg, vm
 ### Community 492 - "MATRIX"
 Cohesion: 0.06
 Nodes (34): Octree, PhotonShootingUnit, LightSource, ObjectPtr, SceneData, shared_ptr, iterator, LightSource (+26 more)
-
-### Community 493 - "JuliaPattern"
-Cohesion: 0.12
-Nodes (12): Vector2d, Julia3Pattern, Julia3Pattern::Julia3Pattern(), Julia4Pattern, Julia4Pattern::Julia4Pattern(), JuliaPattern, juliaCoord, JuliaPattern::JuliaPattern() (+4 more)
 
 ### Community 494 - "torus.cpp"
 Cohesion: 0.08
@@ -2225,23 +2219,23 @@ Nodes (13): _atr(), _get_market_sentiment(), DataFrame, Series, SFR — Structur
 
 ### Community 497 - "BicubicPatch"
 Cohesion: 0.10
-Nodes (59): BEZIER_CHILDREN, BEZIER_VERTICES, BEZIER_WEIGHTS, midpoint(), BicubicPatch, accuracy, All_Intersections, bezier_bounding_sphere (+51 more)
+Nodes (58): BEZIER_CHILDREN, BEZIER_VERTICES, BEZIER_WEIGHTS, BicubicPatch, accuracy, All_Intersections, bezier_bounding_sphere, bezier_split_left_right (+50 more)
 
 ### Community 498 - "heightfield.cpp"
-Cohesion: 0.07
-Nodes (56): HF_Normals, BasicRay, DBL, HF_VAL, ImageData, Intersection, IStack, Ray (+48 more)
+Cohesion: 0.15
+Nodes (33): BasicRay, DBL, HF_VAL, ImageData, Intersection, IStack, Ray, TraceThreadData (+25 more)
 
 ### Community 499 - "ProcessOptions"
-Cohesion: 0.08
-Nodes (70): const_iterator, UCS2String, UTF8String, DecodeUTF8Character(), DecodeUTF8CharacterRaw(), pov_stricmp(), pov_tsprintf(), UTF8toUCS2String() (+62 more)
+Cohesion: 0.04
+Nodes (124): Parameter_Code_Table, ProcessOptions, BuildInitInfo(), ConnectToFrontend(), POVMSObjectPtr, DisconnectFromFrontend(), const_iterator, UTF8String (+116 more)
 
 ### Community 500 - "Point_In_Clip"
-Cohesion: 0.07
-Nodes (52): Recompute_BBox(), Check_Photon_Light_Group(), CompoundObject, ConstObjectPtr, CSG, LightSource, Promote_Local_Lights(), Promote_Local_Lights_Recursive() (+44 more)
+Cohesion: 0.09
+Nodes (45): Recompute_BBox(), TraceThreadData, Inside_Object(), Point_In_Clip(), Ray_In_Bound(), CompoundObject, ConstObjectPtr, Intersection (+37 more)
 
 ### Community 501 - "Prism"
-Cohesion: 0.05
-Nodes (54): PRISM_SPLINE, PRISM_SPLINE_ENTRY, DBL, Intersection, IStack, Ray, TraceThreadData, TRANSFORM (+46 more)
+Cohesion: 0.09
+Nodes (36): PRISM_SPLINE, DBL, Intersection, IStack, Ray, TraceThreadData, TRANSFORM, Vector2d (+28 more)
 
 ### Community 502 - "SphereSweep"
 Cohesion: 0.06
@@ -2251,17 +2245,17 @@ Nodes (53): BasicRay, DBL, Intersection, IStack, Ray, SPHSWEEP_SEG, SPHSWEEP_SPH
 Cohesion: 0.08
 Nodes (53): Conf_Option, FileIO, istream, list, Option_Info, string, UnixPath, list (+45 more)
 
-### Community 504 - "renderfrontend.cpp"
-Cohesion: 0.07
-Nodes (63): Parameter_Code_Table, ProcessOptions, INI_Parser_Table, POVMSObjectPtr, POVMSType, ProcessOptions::Cmd_Parser_Table, ProcessOptions::INI_Parser_Table, ProcessRenderOptions (+55 more)
+### Community 504 - "OptimizedNoiseInfo"
+Cohesion: 0.18
+Nodes (10): DNoiseFunction, NoiseFunction, string, GetOptimizedNoise(), OptimizedNoiseInfo, dNoise, enabled, info (+2 more)
 
 ### Community 505 - "textstream.cpp"
 Cohesion: 0.06
 Nodes (50): FilePos, IStream, OStream, POV_LONG, UCS2, IStream, OStream, POV_ULONG (+42 more)
 
-### Community 506 - "Get"
-Cohesion: 0.15
-Nodes (34): ptime, GetMatching, Get, GetByEncodingGamma, Get, OStream, WriteOptions, Write() (+26 more)
+### Community 506 - "Write"
+Cohesion: 0.17
+Nodes (32): ptime, OStream, WriteOptions, Write(), WriteOptions, Write(), string, Metadata (+24 more)
 
 ### Community 507 - "UnixDisplay"
 Cohesion: 0.06
@@ -2272,16 +2266,16 @@ Cohesion: 0.08
 Nodes (48): BasicRay, DBL, Intersection, IStack, ObjectPtr, Ray, TraceThreadData, TRANSFORM (+40 more)
 
 ### Community 509 - "Image"
-Cohesion: 0.03
-Nodes (66): ColourMapType, ImageChannelDataType, ImageChannelLayout, ImageFileType, MapEntry, Image, IStream, OStream (+58 more)
+Cohesion: 0.04
+Nodes (46): ColourMapType, MapEntry, ImageDataType, RGBAMapEntry, RGBFTMapEntry, RGBMapEntry, Image, colormap (+38 more)
 
 ### Community 510 - "vfesession.cpp"
-Cohesion: 0.07
-Nodes (47): GenericMessage, MessageBase, vfeSession::RenderStopped(), vfeSession::StartRender(), Display, format, MessageType, shared_ptr (+39 more)
+Cohesion: 0.08
+Nodes (44): GenericMessage, MessageBase, vfeSession::RenderStopped(), vfeSession::StartRender(), format, MessageType, State, string (+36 more)
 
 ### Community 511 - "spline.cpp"
 Cohesion: 0.08
-Nodes (46): Acquire_Spline_Reference(), catmull_rom_interpolate(), CatmullRomSpline, CatmullRomSpline::CatmullRomSpline(), Get, Copy_Spline(), DBL, EXPRESS (+38 more)
+Nodes (48): Acquire_Spline_Reference(), catmull_rom_interpolate(), CatmullRomSpline, CatmullRomSpline::CatmullRomSpline(), Get, Copy_Spline(), DBL, EXPRESS (+40 more)
 
 ### Community 512 - "Lc"
 Cohesion: 0.10
@@ -2289,71 +2283,71 @@ Nodes (3): getInput(), getOutput(), Lc
 
 ### Community 513 - "Parametric"
 Cohesion: 0.07
-Nodes (49): DBL, GenericScalarFunctionInstance, Intersection, IStack, PRECOMP_PAR_DATA, Ray, TraceThreadData, TRANSFORM (+41 more)
+Nodes (48): DBL, GenericScalarFunctionInstance, Intersection, IStack, PRECOMP_PAR_DATA, Ray, TraceThreadData, TRANSFORM (+40 more)
 
 ### Community 514 - "test_prune_disconnected_segments.js"
 Cohesion: 0.25
 Nodes (5): confirmed, context, fs, html, vm
 
-### Community 515 - "Copy_Identifier"
-Cohesion: 0.15
-Nodes (27): Copy_Fog(), Copy_Rainbow(), Copy_Skysphere(), FOG, RAINBOW, SKYSPHERE, TRANSFORM, Vector3d (+19 more)
+### Community 515 - "povdebug.h"
+Cohesion: 0.08
+Nodes (33): AVXPortableDNoise(), AVXPortableNoise(), DBL, Vector3d, SceneData, GenericColour<ColourChannel>, GenericColour<PreciseColourChannel>, Pattern (+25 more)
 
 ### Community 516 - "vfeUnixSession"
-Cohesion: 0.07
-Nodes (43): IOPathVector, shared_ptr, Register, Path, POV_LONG, POVMS_Sys_Thread_Type, string, UCS2String (+35 more)
+Cohesion: 0.11
+Nodes (22): Path, POV_LONG, UCS2String, POV_LONG, shared_ptr, ShelloutProcessing, string, UnixOptionsProcessor (+14 more)
 
 ### Community 517 - "Ray"
 Cohesion: 0.05
 Nodes (32): RayType, SpectralBand, bandwidth, wavelength, Interior, Ray, RayInteriorVector, TraceTicket (+24 more)
 
 ### Community 518 - "cpuid.cpp"
-Cohesion: 0.17
-Nodes (17): string, CPUInfo, CPUInfo::GetDetails(), GetFeatures, gpData, IsAMD, IsIntel, IsVM (+9 more)
+Cohesion: 0.06
+Nodes (37): CPUVendorId, string, CPUIDInfo, avx, avx2, fma3, fma4, osxsave (+29 more)
 
-### Community 519 - "DBL"
-Cohesion: 0.16
-Nodes (23): COMPLEX_FUNCTION_METHOD, Complex, BasicRay, DBL, Fractal, Vector3d, HReciprocal(), HypercomplexBaseFractalRules (+15 more)
+### Community 519 - "hypercomplex.cpp"
+Cohesion: 0.11
+Nodes (41): Complex, COMPLEX_FUNCTION_METHOD, Complex_ACos(), Complex_ACosh(), Complex_ASin(), Complex_ASinh(), Complex_ATan(), Complex_ATanh() (+33 more)
 
 ### Community 520 - "Animation"
 Cohesion: 0.07
 Nodes (44): Animation, Animation::Animation(), AppendFrame, blurMatrix, blurMatrixRadius, ClearWarnings, codec, ComputeBlurMask (+36 more)
 
 ### Community 521 - "vfeRenderOptions"
-Cohesion: 0.07
-Nodes (20): queue, Display, Path, ShelloutProcessing, string, UCS2String, IOPath, m_Path (+12 more)
+Cohesion: 0.08
+Nodes (16): Path, ShelloutProcessing, string, UCS2String, IOPath, m_Path, m_Recursive, vfeRenderOptions (+8 more)
 
 ### Community 522 - "parser.h"
-Cohesion: 0.05
-Nodes (40): BetaFlags, realTimeRaytracing, videoCapture, Blob_Element, ContainedByShape, ExperimentalFlags, backsideIllumination, functionHf (+32 more)
+Cohesion: 0.04
+Nodes (45): PIGMENT, BlendMap<DATA_T>::BlendMap(), BlendMap<DATA_T>::Set(), Copy_Blend_Map(), BlendMapTypeId, ColourBlendMapPtr, MAP_T, NormalBlendMapPtr (+37 more)
 
-### Community 523 - "jpeg.cpp"
-Cohesion: 0.05
-Nodes (48): j_common_ptr, j_compress_ptr, j_decompress_ptr, jmp_buf, jpeg_destination_mgr, jpeg_source_mgr, JSAMPROW, Image (+40 more)
+### Community 523 - "POV_JPEG_Read_Buffer"
+Cohesion: 0.08
+Nodes (28): jmp_buf, jpeg_destination_mgr, jpeg_source_mgr, JSAMPROW, OStream, string, POV_JPEG_Read_Buffer, buffer (+20 more)
 
-### Community 524 - "MLSignalScorer"
-Cohesion: 0.14
-Nodes (10): MLSignalScorer, ndarray, Build training dataset from closed trade history., Train (or retrain) the Random Forest on all closed trade history. Called by the…, Return ML system status for dashboard display., Convert value to float, substituting default for None or unconvertible values.…, Random Forest model trained on your actual trade outcomes. Features: RSI, MACD…, Load previously trained model if it exists. (+2 more)
+### Community 524 - "stock_calendar_authority.py"
+Cohesion: 0.22
+Nodes (9): _latest_closed_bar_open_in_session(), ============================================================= STOCK CALENDAR…, Enumerate the open-time epoch of every intraday bar in a session [open_epoch,…, Open-time epoch of the latest bar in the session whose close time is at or…, _session_bar_opens(), 5-minute bars remain session-open-aligned as a CONSEQUENCE of the UTC-wall-…, The corrected convention: 1-hour bars align to the UTC/ET clock hour, NOT to…, test_fixture_1h_bars_have_a_partial_first_bar_not_session_open_relative() (+1 more)
 
 ### Community 525 - "cross"
 Cohesion: 0.09
-Nodes (20): Assign_Vector_4D(), Create_Vector_4D(), cross(), Destroy_Vector_4D(), GenericVector2d, vect, GenericVector3d, vect (+12 more)
+Nodes (21): Assign_Vector_4D(), Create_Vector_4D(), cross(), Destroy_Vector_4D(), GenericVector2d, vect, GenericVector3d, vect (+13 more)
 
 ### Community 526 - "T"
-Cohesion: 0.14
+Cohesion: 0.15
 Nodes (5): GenericRGBFTColour, mColour, mFilter, mTransm, T
 
 ### Community 527 - "GenericColour"
-Cohesion: 0.08
-Nodes (5): ColourChannelInvalidate(), GenericColour, channels, mColour, mkDefaultWavelengths
+Cohesion: 0.09
+Nodes (5): ColourChannelIsValid(), GenericColour, channels, mColour, mkDefaultWavelengths
 
 ### Community 529 - "trace.h"
 Cohesion: 0.05
 Nodes (35): Fog_Struct, LightSource, RayObjectCondition, LightSourceEntry, light, s0, s1, LightSourceIntersectionEntry (+27 more)
 
 ### Community 530 - "povmain.cpp"
-Cohesion: 0.06
-Nodes (22): Console, Initialise, lineoutput, Output, TextStreamBuffer, Path, SceneData, SceneData (+14 more)
+Cohesion: 0.09
+Nodes (13): Path, SceneData, SceneData, ViewData, Console, SceneData, Console, SceneData (+5 more)
 
 ### Community 531 - "Fractal"
 Cohesion: 0.08
@@ -2363,9 +2357,9 @@ Nodes (36): FractalRulesPtr, Complex, x, y, DBL, Intersection, TraceThreadData, 
 Cohesion: 0.13
 Nodes (11): make(), Hammer Reversal audit — baseline + filter relaxation sweep Run: python…, HammerReversal, DataFrame, Series, Hammer Reversal Strategy (Strategy 10) =======================================…, Tiered ROI ladder exit + Fisher RSI exit. Signature matches…, On-Balance Volume (OBV). OBV rises when close > previous close (buying… (+3 more)
 
-### Community 533 - "Media"
-Cohesion: 0.04
-Nodes (83): LitIntervalVector, Media, AA_Level, AA_Threshold, Absorption, Confidence, Density, Eccentricity (+75 more)
+### Community 533 - "MediaFunction"
+Cohesion: 0.08
+Nodes (54): LitIntervalVector, BasicRay, ColourChannel, DBL, Intersection, LightSource, LightSourceEntryVector, MathColour (+46 more)
 
 ### Community 534 - "Prop Combine Auto-Trader Prompt"
 Cohesion: 0.07
@@ -2375,61 +2369,61 @@ Nodes (29): Account Order, Contract Month Selection, Contract Specs, Core Missio
 Cohesion: 0.06
 Nodes (5): bind(), getValue(), jc, setValue(), vc
 
-### Community 537 - "Fog_Struct"
-Cohesion: 0.12
-Nodes (16): Fog_Struct, Alt, colour, Distance, Next, Offset, Turb, Turb_Depth (+8 more)
+### Community 537 - "Rainbow_Struct"
+Cohesion: 0.06
+Nodes (37): Fog_Struct, Alt, colour, Distance, Next, Offset, Turb, Turb_Depth (+29 more)
 
-### Community 538 - "param_sweep.py"
-Cohesion: 0.16
-Nodes (15): cmd_list_params(), cmd_sweep(), _Encoder, get_strategy_params(), _param_range(), print_summary(), ================================================================= PARAM SWEEP…, Return (lo, hi, step) for a single numeric default value. (+7 more)
+### Community 538 - "RadiosityCache::BlockPool::PoolUnit"
+Cohesion: 0.22
+Nodes (9): ot_block_struct, ot_node_struct, PoolUnit, AverageNearBlock, RadiosityCache::BlockPool::NewBlock(), RadiosityCache::BlockPool::PoolUnit, blocks, next (+1 more)
 
 ### Community 539 - "Perturb_Normal"
-Cohesion: 0.12
-Nodes (36): DNoise(), bumps(), DBL, Intersection, Ray, TNORMAL, TraceThreadData, Vector2d (+28 more)
+Cohesion: 0.08
+Nodes (46): BlendMap, Blend_Map_Entries, Set, Type, BlendMapTypeId, Vector, DNoise(), Vector3d (+38 more)
 
-### Community 540 - "intersect_mesh_triangle"
-Cohesion: 0.26
-Nodes (16): BasicRay, DBL, Intersection, IStack, Ray, TraceThreadData, WeightedTextureVector, All_Intersections (+8 more)
+### Community 540 - "viewthreaddata.cpp"
+Cohesion: 0.24
+Nodes (8): ViewData, TraceThreadData, ViewData, ViewThreadData, GetHeight, GetWidth, viewData, ViewThreadData::ViewThreadData()
 
 ### Community 541 - "ShelloutProcessing"
 Cohesion: 0.05
 Nodes (33): ShelloutProcessing, cancelCommand, cancelFormat, cancelOutput, cancelParameters, cancelPhase, cancelReason, cancelRender (+25 more)
 
 ### Community 542 - "UnixSDLDisplay"
-Cohesion: 0.11
-Nodes (37): RGBA8, Option_Info, UnixSDLDisplay, Clear, Close, DrawFilledRectangle, DrawPixel, DrawPixelBlock (+29 more)
+Cohesion: 0.10
+Nodes (38): RGBA8, Option_Info, UnixSDLDisplay, Clear, Close, DrawFilledRectangle, DrawPixel, DrawPixelBlock (+30 more)
 
-### Community 543 - "RGBAMapEntry"
-Cohesion: 0.19
-Nodes (12): ImageDataType, RGBAMapEntry, RGBFTMapEntry, RGBMapEntry, Create, SetColourMap, RGBAMap2RGBFTMap(), RGBAMap2RGBMap() (+4 more)
+### Community 543 - "image.cpp"
+Cohesion: 0.12
+Nodes (23): ImageChannelDataType, ImageChannelLayout, ImageDataType, RGBAMapEntry, RGBFTMapEntry, RGBMapEntry, Create, GetColourMap (+15 more)
 
 ### Community 544 - "SlopePattern"
-Cohesion: 0.05
-Nodes (35): CrackleCacheEntry, aCellNuclei, lastUsed, CracklePattern, crackleForm, crackleIsSolid, crackleMetric, crackleOffset (+27 more)
+Cohesion: 0.06
+Nodes (32): BrickPattern, brickSize, GetDefaultBlendMap, mortar, NumDiscreteBlendMapEntries, CrackleCacheEntry, aCellNuclei, lastUsed (+24 more)
 
 ### Community 545 - "polynomial.cpp"
 Cohesion: 0.12
 Nodes (33): BasicRay, BBoxDirection, BBoxScalar, BBoxVector3d, DBL, Intersection, IStack, Ray (+25 more)
 
 ### Community 546 - "fnpovfpu.cpp"
-Cohesion: 0.10
-Nodes (37): DBL, FPUContext, FUNCTION, FUNCTION_PTR, FunctionVM, GenericFunctionContextPtr, GenericScalarFunctionPtr, TraceThreadData (+29 more)
+Cohesion: 0.14
+Nodes (23): DBL, FUNCTION_PTR, FunctionVM, GenericFunctionContextPtr, GenericScalarFunctionPtr, TraceThreadData, FPUContext::FPUContext(), FPUContext::GetLocal() (+15 more)
 
-### Community 547 - "Cone"
-Cohesion: 0.10
-Nodes (33): CONE_INT, Cone, All_Intersections, apex, apex_radius, base, base_radius, Cone::CalcUV() (+25 more)
+### Community 547 - "MInvTransPoint"
+Cohesion: 0.07
+Nodes (57): CONE_INT, BasicRay, TRANSFORM, Vector3d, MInvTransDirection(), MInvTransNormal(), MInvTransPoint(), MInvTransRay() (+49 more)
 
 ### Community 548 - "povmscpp.h"
 Cohesion: 0.11
 Nodes (20): MemberHandlerPtr, HandlerOO, InputStream, OutputStream, POVMSObjectPtr, POVMSType, T, InputStreamT (+12 more)
 
 ### Community 549 - "SimpleVector"
-Cohesion: 0.12
-Nodes (9): allocator_type, const_reference, reference, size_type, SimpleVector, alloc, m_End, m_First (+1 more)
+Cohesion: 0.14
+Nodes (8): allocator_type, ContainerType, MyType, SimpleVector, alloc, m_End, m_First, m_Last
 
 ### Community 550 - "BSPTree"
 Cohesion: 0.06
-Nodes (49): Node, BSPInsideCondFunctor::BSPInsideCondFunctor(), operator(), BSPIntersectCondFunctor::BSPIntersectCondFunctor(), BSPIntersectFunctor::BSPIntersectFunctor(), BSPTree, baseAccessCost, bmax (+41 more)
+Nodes (50): Node, BSPInsideCondFunctor::BSPInsideCondFunctor(), operator(), BSPIntersectCondFunctor::BSPIntersectCondFunctor(), BSPIntersectFunctor::BSPIntersectFunctor(), BSPTree, baseAccessCost, bmax (+42 more)
 
 ### Community 551 - "moov.cpp"
 Cohesion: 0.12
@@ -2440,32 +2434,32 @@ Cohesion: 0.10
 Nodes (31): LEMON_INT, FilePos, GenericMessenger, Intersection, TraceThreadData, TRANSFORM, Vector2d, Vector3d (+23 more)
 
 ### Community 553 - "Polygon"
-Cohesion: 0.14
-Nodes (28): POLYGON_DATA, BasicRay, DBL, Intersection, IStack, ObjectPtr, Ray, TraceThreadData (+20 more)
+Cohesion: 0.11
+Nodes (31): POLYGON_DATA, BasicRay, DBL, Intersection, IStack, Ray, TraceThreadData, TRANSFORM (+23 more)
 
-### Community 554 - "coretypes.h"
-Cohesion: 0.07
-Nodes (26): BasicPattern, Finish_Struct, Fractal, GenericFunctionContext, GenericFunctionContextFactory, CreateFunctionContext, mRefCounter, ConstObjectPtr (+18 more)
+### Community 554 - "configcore.h"
+Cohesion: 0.04
+Nodes (35): BasicPattern, Finish_Struct, Fractal, GenericFunctionContext, GenericFunctionContextFactory, CreateFunctionContext, mRefCounter, ConstObjectPtr (+27 more)
 
 ### Community 555 - "Finish_Struct"
 Cohesion: 0.06
 Nodes (35): Finish_Struct, AlphaKnockout, Ambient, Brilliance, BrillianceAdjust, BrillianceAdjustRad, Conserve_Energy, Crand (+27 more)
 
 ### Community 556 - "Timer"
-Cohesion: 0.12
-Nodes (31): clockid_t, ClockGettimeMillisec(), POV_LONG, POV_ULONG, GetrusageMillisec(), GettimeofdayMillisec(), POV_ULONG, Timer (+23 more)
+Cohesion: 0.06
+Nodes (53): clockid_t, ClockGettimeMillisec(), POV_LONG, POV_ULONG, GetrusageMillisec(), GettimeofdayMillisec(), POV_ULONG, Timer (+45 more)
 
 ### Community 557 - "noise.cpp"
-Cohesion: 0.11
-Nodes (31): DNoiseFunction, NoiseFunction, AVXFMA4DNoise(), AVXFMA4Noise(), DBL, Vector3d, DBL, string (+23 more)
+Cohesion: 0.26
+Nodes (17): GenericTurbulenceWarp, DBL, Vector3d, Free_Noise_Tables(), GetRecommendedOptimizedNoise(), Initialise_NoiseDispatch(), Initialize_Noise(), InitSolidNoise() (+9 more)
 
-### Community 558 - "Interior"
-Cohesion: 0.11
-Nodes (18): MathColour, shared_ptr, SNGL, Interior, Caustics, Disp_NElems, Dispersion, Fade_Colour (+10 more)
+### Community 558 - "Media"
+Cohesion: 0.04
+Nodes (47): MathColour, shared_ptr, SNGL, Interior, Caustics, Disp_NElems, Dispersion, Fade_Colour (+39 more)
 
 ### Community 559 - ".IsNeutral"
-Cohesion: 0.11
-Nodes (36): GammaCurve, ApproximateDecodingGamma, cache, Decode, Encode, GetLookupTable, lookupTable16, lookupTable8 (+28 more)
+Cohesion: 0.09
+Nodes (40): GammaCurve, ApproximateDecodingGamma, cache, Decode, Encode, GetLookupTable, lookupTable16, lookupTable8 (+32 more)
 
 ### Community 560 - "Sphere"
 Cohesion: 0.11
@@ -2475,33 +2469,29 @@ Nodes (30): BasicRay, BBoxDirection, BBoxScalar, BBoxVector3d, DBL, Intersection
 Cohesion: 0.09
 Nodes (32): AnimationProcessing, AnimationProcessing, AnimationProcessing::AnimationProcessing(), clockDelta, clockValue, ComputeNextFrame, fieldRenderFlag, finalClock (+24 more)
 
-### Community 562 - "candle_manager.py"
-Cohesion: 0.20
-Nodes (9): _alpaca_tf(), _bars_to_days(), ============================================================= CANDLE MANAGER…, Convert a bar limit to approximate number of days needed., Convert any timeframe to Alpaca format., get_authority(), Aggregate 30-minute bars already filtered to the regular session [open_epoch,…, Shared StockCalendarAuthority singleton. `api` is only used on the first call… (+1 more)
-
-### Community 563 - "WT_AVG"
-Cohesion: 0.18
-Nodes (11): WT_AVG, Brilliance, Current_Error_Bound, Good_Count, N, P, Pass, TileId (+3 more)
+### Community 563 - "radiosity.cpp"
+Cohesion: 0.10
+Nodes (28): DBL, MathColour, OStream, TraceTicket, Vector3d, RadiosityCache::BlockPool::Save(), FindReusableBlock, RadiosityCache::RadiosityCache() (+20 more)
 
 ### Community 564 - "BACKTEST TEST MATRIX"
 Cohesion: 0.07
 Nodes (27): A. Single-Symbol Sanity Tests, All crypto — 365 days, All crypto — 730 days, All stocks — 365 days, All stocks — 730 days, B. Broad All-Symbol Runs, BACKTEST TEST MATRIX, C. AdaptiveRegime Mode & Side Matrix (+19 more)
 
 ### Community 565 - "pigment.cpp"
-Cohesion: 0.19
-Nodes (30): Search, ColourBlendMap, ColourBlendMap::ColourBlendMap(), Compute, ComputeAverage, ComputeUVMapped, Post, Compute_Pigment() (+22 more)
+Cohesion: 0.09
+Nodes (45): Search, ColourBlendMap, ColourBlendMap::ColourBlendMap(), Compute, ComputeAverage, ComputeUVMapped, Post, Compute_Pigment() (+37 more)
 
 ### Community 566 - "Ovus"
 Cohesion: 0.11
-Nodes (29): DBL, Intersection, TraceThreadData, TRANSFORM, Vector2d, Vector3d, DBL, ObjectBase (+21 more)
+Nodes (32): DBL, Intersection, IStack, Ray, TraceThreadData, TRANSFORM, Vector2d, Vector3d (+24 more)
 
 ### Community 567 - "plane.cpp"
 Cohesion: 0.11
-Nodes (30): BasicRay, BBoxDirection, BBoxScalar, BBoxVector3d, DBL, Intersection, IStack, ObjectPtr (+22 more)
+Nodes (29): BasicRay, BBoxDirection, BBoxScalar, BBoxVector3d, DBL, Intersection, IStack, ObjectPtr (+21 more)
 
 ### Community 568 - "superellipsoid.cpp"
 Cohesion: 0.17
-Nodes (32): BasicRay, DBL, Intersection, IStack, ObjectPtr, Ray, TraceThreadData, TRANSFORM (+24 more)
+Nodes (31): BasicRay, DBL, Intersection, IStack, Ray, TraceThreadData, TRANSFORM, Vector3d (+23 more)
 
 ### Community 569 - "T"
 Cohesion: 0.21
@@ -2512,8 +2502,8 @@ Cohesion: 0.17
 Nodes (10): Animal, Bird, Cat, Dog, Eagle, Fish, Mammal, Penguin (+2 more)
 
 ### Community 571 - "randomsequence.cpp"
-Cohesion: 0.05
-Nodes (37): IndexedDoubleGeneratorPtr, ParameterStruct, RadiosityFunction::SampleDirectionGenerator::Reset(), DBL, SequentialVectorGeneratorPtr, GetIndexedRandomDoubleGenerator(), GetRandomIntGenerator(), GetSubRandomCosWeightedDirectionGenerator() (+29 more)
+Cohesion: 0.04
+Nodes (62): FactoryTable, HaltonDoubleGenerator, IndexedDoubleGeneratorPtr, ParameterStruct, RadiosityFunction::SampleDirectionGenerator::Reset(), CosWeighted3dOnHemisphere(), DBL, SequentialDoubleGeneratorPtr (+54 more)
 
 ### Community 572 - "BasicPattern"
 Cohesion: 0.06
@@ -2521,15 +2511,15 @@ Nodes (28): AveragePattern, CanMap, HasSpecialTurbulenceHandling, NumDiscreteBle
 
 ### Community 573 - "LightSource"
 Cohesion: 0.02
-Nodes (136): FORCEINLINE, operator(), operator(), TEXTURE, ObjectPattern::ObjectPattern(), PotentialPattern::PotentialPattern(), TRANSFORM, Transform_Textures() (+128 more)
+Nodes (137): FORCEINLINE, operator(), operator(), TEXTURE, Initialize_Waves(), ObjectPattern::ObjectPattern(), PotentialPattern::PotentialPattern(), TRANSFORM (+129 more)
 
 ### Community 574 - "Box"
-Cohesion: 0.12
-Nodes (30): Box, All_Intersections, bounds, Box::Box(), Compute_BBox, Copy, Inside, Intersect (+22 more)
+Cohesion: 0.13
+Nodes (28): Box, All_Intersections, bounds, Box::Box(), Compute_BBox, Inside, Intersect, Intersect_BBox (+20 more)
 
-### Community 575 - "TraceThreadData"
-Cohesion: 0.10
-Nodes (29): TraceThreadData, AfterTile, BasicRay, DBL, Intersection, IStack, Ray, TraceThreadData (+21 more)
+### Community 575 - "Disc"
+Cohesion: 0.12
+Nodes (27): BasicRay, DBL, Intersection, IStack, Ray, TraceThreadData, TRANSFORM, Vector3d (+19 more)
 
 ### Community 576 - "Counter"
 Cohesion: 0.08
@@ -2537,31 +2527,31 @@ Nodes (21): FPStatistics, FPStatsIndex, IntStatistics, numElem, Counter, SafeRea
 
 ### Community 577 - "SysQNode"
 Cohesion: 0.09
-Nodes (27): condition, mutex, POVMS_Sys_Thread_Type, POVMSAddress, _DataNode, Data, Len, Next (+19 more)
+Nodes (26): condition, mutex, POVMS_Sys_Thread_Type, POVMSAddress, _DataNode, Data, Len, Next (+18 more)
 
-### Community 578 - "GenericPigmentBlendMap"
-Cohesion: 0.07
-Nodes (28): PatternPtr, Pattern_Struct, Flags, pattern, Type, GenericNormalBlendMapPtr, SNGL, Tnormal_Struct (+20 more)
+### Community 578 - "Read_Density_File"
+Cohesion: 0.31
+Nodes (9): DENSITY_FILE, Copy_Density_File(), IStream, Create_Density_File(), DensityFilePattern::DensityFilePattern(), Destroy_Density_File(), Read_Density_File(), ReadUInt() (+1 more)
 
-### Community 579 - "Rainbow_Struct"
-Cohesion: 0.13
-Nodes (14): RAINBOW, Rainbow_Struct, Angle, Antisolar_Vector, Arc_Angle, Distance, Falloff_Angle, Falloff_Width (+6 more)
+### Community 579 - "povray.cpp"
+Cohesion: 0.25
+Nodes (7): function0, POVMSAddress, thread, ExtractLibraryVersion(), povray_init(), povray_terminate(), ValidateFrontendAddress()
 
 ### Community 580 - "Mesh_Data_Struct"
 Cohesion: 0.07
 Nodes (28): BBox_Tree_Struct, BBOX_TREE, HASH_TABLE, MESH_TRIANGLE, MeshUVVector, MeshVector, Vector3d, Hash_Table_Struct (+20 more)
 
 ### Community 581 - "PooledSimpleVector"
-Cohesion: 0.10
-Nodes (10): const_reverse_iterator, reverse_iterator, Interior, VECTOR_T, PooledSimpleVector, mpVector, VectorPool, mPool (+2 more)
+Cohesion: 0.18
+Nodes (7): VECTOR_T, PooledSimpleVector, mpVector, VectorPool, mPool, mSizeHint, VectorType
 
 ### Community 582 - "TracePixel"
-Cohesion: 0.07
-Nodes (43): FocalBlurData, GenericScalarFunctionInstancePtr, Inside_BBox(), ToRGBColour(), DBL, Jitter2d(), BBOX_TREE, DBL (+35 more)
+Cohesion: 0.06
+Nodes (48): FocalBlurData, GenericScalarFunctionInstancePtr, Inside_BBox(), MathColour, MathColour, RGBColour, SpectralBand::GetHueIntegral(), ToMathColour() (+40 more)
 
 ### Community 583 - "octree.cpp"
-Cohesion: 0.15
-Nodes (27): ot_id_struct, OT_READ_INFO, OT_READ_PARAM, OStream, RadiosityCache::BlockPool::Save(), GetNode, DBL, IStream (+19 more)
+Cohesion: 0.17
+Nodes (25): ot_id_struct, OT_READ_INFO, OT_READ_PARAM, GetNode, DBL, IStream, OStream, OT_BLOCK (+17 more)
 
 ### Community 584 - "FileBackedPixelContainer"
 Cohesion: 0.14
@@ -2572,8 +2562,8 @@ Cohesion: 0.11
 Nodes (16): setup_filter.py =============== Low-float + news catalyst + relative-volume…, TODO: wire to Polygon.io /v3/reference/tickers/{symbol} → field:…, Relative volume = current bar volume / average bar volume in window. Proper…, TODO: wire to Polygon.io /v2/reference/news?ticker={symbol}&limit=5 Check if…, Momentum day-trade setup qualifier. Thresholds are conservative defaults — tune…, Score a symbol against the three setup criteria. bars — recent OHLCV bars used…, SetupFilter, SetupScore (+8 more)
 
 ### Community 586 - "RadiosityFunction"
-Cohesion: 0.06
-Nodes (43): RecursionParameters, DBL, MathColour, TraceTicket, Vector3d, DBL, PhotonGatherer, RadiosityFunctor (+35 more)
+Cohesion: 0.07
+Nodes (28): RecursionParameters, DBL, PhotonGatherer, RadiosityFunctor, TraceThreadData, Vector3d, RadiosityFunction, cacheBlockPool (+20 more)
 
 ### Community 587 - "TrueType"
 Cohesion: 0.14
@@ -2588,36 +2578,36 @@ Cohesion: 0.06
 Nodes (30): CooperateFunctor, shared_ptr, TraceThreadData, RadiosityFunction::RadiosityFunction(), SceneRadiositySettings, adcBailout, alwaysSample, brightness (+22 more)
 
 ### Community 591 - "FunctionCode"
-Cohesion: 0.08
-Nodes (26): FNCODE_PRIVATE_COPY_METHOD, FNCODE_PRIVATE_DESTROY_METHOD, FilePos, UCS2, SourceInfo, col, filename, filepos (+18 more)
+Cohesion: 0.11
+Nodes (18): FNCODE_PRIVATE_COPY_METHOD, FNCODE_PRIVATE_DESTROY_METHOD, FNCode::FNCode(), FunctionCode, flags, localvar, localvar_cnt, localvar_pos (+10 more)
 
 ### Community 592 - "TrueTypeInfo"
 Cohesion: 0.06
 Nodes (35): GlyphPtrMap, KernTables, longHorMetric, CSG, StringEncoding, UCS2String, IStream, TrueTypeFont (+27 more)
 
-### Community 593 - "TaskQueue"
-Cohesion: 0.15
-Nodes (24): recursive_mutex, function1, Task, condition, TaskQueue, activeTasks, AppendFunction, AppendMessage (+16 more)
+### Community 593 - "TraceThreadData"
+Cohesion: 0.06
+Nodes (50): recursive_mutex, POVMSAddress, SceneId, shared_ptr, ViewId, BackendSceneData, POVMSAddress, shared_ptr (+42 more)
 
 ### Community 594 - "configure"
 Cohesion: 0.19
 Nodes (24): configure script, ac_fn_c_check_func(), ac_fn_c_check_header_compile(), ac_fn_c_check_header_mongrel(), ac_fn_c_find_intX_t(), ac_fn_c_try_compile(), ac_fn_c_try_cpp(), ac_fn_c_try_link() (+16 more)
 
-### Community 595 - "CrackleCellCoord"
-Cohesion: 0.18
-Nodes (9): CrackleCellCoord, mRepeatX, mRepeatY, mRepeatZ, mX, mY, mZ, hash_value() (+1 more)
+### Community 595 - "BSphere_Tree_Struct"
+Cohesion: 0.22
+Nodes (8): BSphere_Tree_Struct, C, Entries, Node, r2, BSPHERE_TREE, DBL, Vector3d
 
-### Community 596 - "ASCIItoUCS2String"
-Cohesion: 0.17
-Nodes (26): Path, string, UCS2, UCS2String, UCS2String, Path, AppendFolder, Clear (+18 more)
+### Community 596 - "Path"
+Cohesion: 0.18
+Nodes (25): Path, string, UCS2, UCS2String, UCS2String, Path, AppendFolder, Clear (+17 more)
 
 ### Community 597 - "BSPIntersectCondFunctor"
 Cohesion: 0.10
 Nodes (25): BSPInsideCondFunctor, found, origin, threadData, BSPIntersectCondFunctor, found, invdir, origin (+17 more)
 
-### Community 598 - "FakeSessionDB"
-Cohesion: 0.14
-Nodes (4): FakeSessionDB, trades.stop_order_id / trades.tp_order_id are referenced by…, Stands in for the module-level `db` imported inside core.risk_manager, so…, test_update_trade_order_ids_persists_stop_and_tp_ids()
+### Community 598 - "Any"
+Cohesion: 0.25
+Nodes (5): Any, Extracts current values of all registered fields as a clean dictionary., Extracts the value of a single field by name., Sets the value of a single form field by name., Sets form fields programmatically from a dictionary.
 
 ### Community 599 - "vfeDisplay"
 Cohesion: 0.09
@@ -2635,9 +2625,9 @@ Nodes (20): install script, abort_install(), add_libpath_ini(), add_read_conf(),
 Cohesion: 0.19
 Nodes (23): Exception, POV_LONG, POV_OFF_T, string, UCS2, va_list, WarningLevel, Exception (+15 more)
 
-### Community 603 - "api_server.py"
-Cohesion: 0.23
-Nodes (12): BreakoutSignalPayload, control(), ControlPayload, get_open_positions(), health(), BaseModel, field_validator, get (+4 more)
+### Community 603 - "Image"
+Cohesion: 0.29
+Nodes (8): ImageFileType, Image, IStream, OStream, ReadOptions, WriteOptions, Read, Write
 
 ### Community 604 - "GenericCustomFunction"
 Cohesion: 0.12
@@ -2645,11 +2635,11 @@ Nodes (19): ARG_T, RETURN_T, Evaluate(), GenericCustomFunction, AcquireContext, 
 
 ### Community 605 - "SimpleFrontend"
 Cohesion: 0.06
-Nodes (44): FILE_MH, IMAGE_MH, PARSER_MH, RENDER_MH, AnimationProcessing, Console, Display, POVMSAddress (+36 more)
+Nodes (43): FILE_MH, IMAGE_MH, PARSER_MH, RENDER_MH, AnimationProcessing, Console, Display, POVMSAddress (+35 more)
 
 ### Community 606 - "boundingtask.cpp"
-Cohesion: 0.08
-Nodes (23): AppendObject, BoundingTask::BoundingTask(), Run, SendFatalError, BSPProgress, frontendAddress, lastProgressTime, sceneId (+15 more)
+Cohesion: 0.07
+Nodes (32): BoundingTask, AppendObject, BoundingTask::BoundingTask(), boundingThreshold, Finish, Run, sceneData, SendFatalError (+24 more)
 
 ### Community 607 - "TextStreamBuffer"
 Cohesion: 0.15
@@ -2664,8 +2654,8 @@ Cohesion: 0.15
 Nodes (18): FractalRules, Bound, CalcNormal, Iterate, BasicRay, BasicRay, DBL, Fractal (+10 more)
 
 ### Community 610 - "Texture_Struct"
-Cohesion: 0.09
-Nodes (22): GenericTurbulenceWarp, BlendMap, COLC, FINISH, PIGMENT, TEXTURE, TextureBlendMapPtr, TexturePtr (+14 more)
+Cohesion: 0.07
+Nodes (28): PatternPtr, Pattern_Struct, Flags, pattern, Type, GenericNormalBlendMapPtr, SNGL, Tnormal_Struct (+20 more)
 
 ### Community 611 - "GlyphOutline"
 Cohesion: 0.09
@@ -2688,20 +2678,20 @@ Cohesion: 0.26
 Nodes (21): compare_tag4(), ConvertOutlineToGlyph(), GlyphPtr, TrueTypeFont, ExtractGlyphInfo(), ExtractGlyphOutline(), ProcessCharacter(), ProcessCharMap() (+13 more)
 
 ### Community 616 - "ImageData"
-Cohesion: 0.09
-Nodes (22): COLC, SNGL, Vector2d, Vector3d, ImageData, AllFilter, AllTransmit, AllTransmitLegacyMode (+14 more)
+Cohesion: 0.10
+Nodes (21): COLC, SNGL, Vector2d, Vector3d, ImageData, AllFilter, AllTransmit, AllTransmitLegacyMode (+13 more)
 
 ### Community 617 - "Parser::Parse_Obj"
 Cohesion: 0.09
-Nodes (32): Copy_Material(), Interior, InteriorPtr, MATERIAL, TRANSFORM, Create_Material(), Destroy_Interior(), Destroy_Material() (+24 more)
+Nodes (31): Copy_Material(), Interior, InteriorPtr, MATERIAL, TRANSFORM, Create_Material(), Destroy_Interior(), Interior::Interior() (+23 more)
 
 ### Community 618 - "FunctionEntry"
-Cohesion: 0.09
-Nodes (19): FPUContext, FunctionEntry, FNCode_Delete, POVFPU_Exception, POVFPU_Opcodes, POVFPU_RunDefault, POVFPU_Sys1Table, POVFPU_Sys1TableSize (+11 more)
+Cohesion: 0.11
+Nodes (18): FunctionEntry, FNCode_Delete, POVFPU_Exception, POVFPU_Opcodes, POVFPU_RunDefault, POVFPU_Sys1Table, POVFPU_Sys1TableSize, POVFPU_Sys2Table (+10 more)
 
 ### Community 619 - "Type"
-Cohesion: 0.08
-Nodes (29): GeneratorPtr, shared_ptr, Type, HaltonGenerator, base, minval, operator[], scale (+21 more)
+Cohesion: 0.09
+Nodes (26): BoostGenerator, GeneratorPtr, shared_ptr, Type, HaltonGenerator<Type>::HaltonGenerator(), HaltonGenerator<Type>::ParameterStruct::ParameterStruct(), HybridNumberGenerator<Type>::GetSequence(), HybridNumberGenerator<Type>::operator()() (+18 more)
 
 ### Community 620 - "ot_block_struct"
 Cohesion: 0.10
@@ -2709,19 +2699,19 @@ Nodes (22): OT_DEPTH, OT_PASS, OT_TILE, AddBlock, SNGL, Vector3d, ot_block_struc
 
 ### Community 621 - "Mesh"
 Cohesion: 0.10
-Nodes (48): Matrix3x3, MESH_DATA, MInvers3(), Mesh_Index, HASH_TABLE, MESH_TRIANGLE, MeshUVVector, MeshVector (+40 more)
+Nodes (54): MESH_DATA, BasicRay, DBL, Intersection, IStack, MESH_TRIANGLE, ObjectPtr, Ray (+46 more)
 
 ### Community 622 - "ray_tracer9_spatial.py"
 Cohesion: 0.16
 Nodes (15): hit_ring(), hit_sphere(), main(), MeteorSpawner, pseudo_random_stars(), f32, func, kernel (+7 more)
 
 ### Community 623 - "GenericTurbulenceWarp"
-Cohesion: 0.10
-Nodes (15): GenericTurbulenceWarp, DTurbulence(), ClassicTurbulence, handledByPattern, GenericTurbulenceWarp, Clone, Lambda, Octaves (+7 more)
+Cohesion: 0.12
+Nodes (12): ClassicTurbulence, handledByPattern, GenericTurbulenceWarp, Clone, Lambda, Octaves, Omega, Turbulence (+4 more)
 
 ### Community 624 - "FixedSimpleVector"
 Cohesion: 0.17
-Nodes (7): ContainerType, MyType, pointer, FixedSimpleVector, m_Data, m_End, m_Last
+Nodes (6): pointer, FixedSimpleVector, m_Data, m_End, m_Last, size_type
 
 ### Community 625 - "backfill_eat_emt_fees.py"
 Cohesion: 0.17
@@ -2736,8 +2726,8 @@ Cohesion: 0.32
 Nodes (17): BacktesterPanel(), BrokerPanel(), ChatPanel(), cls(), DailyPerfPanel(), exportCsv(), fmt$(), fmt$Sign() (+9 more)
 
 ### Community 628 - "PhotonShootingTask"
-Cohesion: 0.09
-Nodes (29): LightTargetCombo, DBL, LightSource, PhotonMap, PhotonShootingStrategy, Ray, ViewData, CooperateFunction (+21 more)
+Cohesion: 0.08
+Nodes (32): LightTargetCombo, DBL, LightSource, PhotonMap, PhotonShootingStrategy, Ray, ViewData, CooperateFunction (+24 more)
 
 ### Community 629 - ".SetRGBValue"
 Cohesion: 0.11
@@ -2756,16 +2746,16 @@ Cohesion: 0.10
 Nodes (19): QualityFlags, ambientOnly, areaLights, media, normals, photons, quickColour, radiosity (+11 more)
 
 ### Community 633 - "warp.cpp"
-Cohesion: 0.17
-Nodes (15): Vector3d, CubicWarp, UnwarpNormal, WarpNormal, WarpPoint, TRANSFORM, IdentityWarp, UnwarpNormal (+7 more)
+Cohesion: 0.16
+Nodes (17): DTurbulence(), Vector3d, CubicWarp, UnwarpNormal, WarpNormal, WarpPoint, WarpPoint, TRANSFORM (+9 more)
 
 ### Community 634 - "fix_trades.py"
 Cohesion: 0.31
 Nodes (9): compute_financials(), connect(), fix_trade(), get_closed_trades(), main(), print_table(), fix_trade.py — Correct a closed trade's exit price (e.g. a bad-tick/phantom…, Recompute financials for one trade and adjust all dependent tables/rows. (+1 more)
 
-### Community 635 - "GenericRGBTColour"
-Cohesion: 0.20
-Nodes (12): ColourDistance(), ColourDistanceRGBT(), Cos(), Exp(), GenericRGBTColour, mColour, mTransm, EXPRESS (+4 more)
+### Community 635 - "colour.h"
+Cohesion: 0.29
+Nodes (8): ColourDistance(), ColourDistanceRGBT(), Cos(), Exp(), EXPRESS, operator*(), Pow(), Sqrt()
 
 ### Community 636 - "PortableNoise"
 Cohesion: 0.13
@@ -2780,23 +2770,23 @@ Cohesion: 0.11
 Nodes (18): BCyl_Entry_Struct, h1, h2, r1, r2, BCyl_Intersection_Struct, d, n (+10 more)
 
 ### Community 639 - "RadiosityCache"
-Cohesion: 0.08
-Nodes (28): ot_block_struct, ot_node_struct, PoolUnit, BlockPool, Path, BlockPool, MathColour, OStream (+20 more)
+Cohesion: 0.13
+Nodes (19): BlockPool, Path, BlockPool, MathColour, OStream, RadiosityCache, AcquireBlockPool, blockPools (+11 more)
 
 ### Community 640 - "isosurface.cpp"
 Cohesion: 0.22
 Nodes (18): GenericScalarFunctionInstance, Intersection, IStack, Ray, TRANSFORM, Vector3d, All_Intersections, Compute_BBox (+10 more)
 
-### Community 641 - "CPUIDInfo"
-Cohesion: 0.14
-Nodes (14): CPUVendorId, CPUIDInfo, avx, avx2, fma3, fma4, osxsave, sse2 (+6 more)
+### Community 641 - "vfesession.h"
+Cohesion: 0.25
+Nodes (6): queue, Display, vfeAuthInfo, vfeDestInfo, vfeDisplay, VirtualFrontEnd
 
 ### Community 642 - "IsoSurface"
 Cohesion: 0.11
 Nodes (18): IsosurfaceMaxTrace, ContainedByShape, GenericScalarFunctionPtr, ObjectBase, shared_ptr, IsoSurface, accuracy, closed (+10 more)
 
 ### Community 643 - "GenericTransColour"
-Cohesion: 0.11
+Cohesion: 0.14
 Nodes (6): GenericTransColour, mColour, mFilter, mTransm, ColourChannel, T2
 
 ### Community 644 - "StockDataFetcher"
@@ -2811,9 +2801,9 @@ Nodes (17): ot_block_struct, ot_id_struct, ot_node_struct, Path, RadiosityRecurs
 Cohesion: 0.31
 Nodes (17): buildsturm(), DBL, difficult_coeffs(), modp(), numchanges(), polyeval(), polynomial, coef (+9 more)
 
-### Community 647 - "octree.h"
-Cohesion: 0.12
-Nodes (16): DBL, MathColour, IStream, OStream, ot_id_struct, Size, x, y (+8 more)
+### Community 647 - "ot_read_info_struct"
+Cohesion: 0.22
+Nodes (9): DBL, MathColour, ot_read_info_struct, Brightness, FirstRadiosityPass, Gather_Total, Gather_Total_Count, ot_read_param_struct (+1 more)
 
 ### Community 648 - "LiveRayTraceViewer"
 Cohesion: 0.14
@@ -2843,9 +2833,9 @@ Nodes (16): Pixel, ConvertColor(), DitherStrategy, GammaCurvePtr, Image, IStream
 Cohesion: 0.18
 Nodes (12): fractal_noise_3d(), get_path(), HyperspaceAudioEngine, main(), f32, func, kernel, ===============================================================================… (+4 more)
 
-### Community 655 - "test_bmr357_no_live_state.py"
-Cohesion: 0.22
-Nodes (13): main(), _make_oscillating_df(), _make_volatile_btc_df(), BMR-357 no-live-state test — backtester parity patch step 4…, Run one backtest with core.candle_manager.candle_manager.get() monkeypatched to…, Report §5 item 2's exact test: backtest a non-BTC symbol twice with different…, Backtesting BTC/USD itself with bmr_357 must still work (uses its own candles…, Repeating sharp-crash / slow-recovery cycles so price repeatedly breaches… (+5 more)
+### Community 655 - "SourceInfo"
+Cohesion: 0.25
+Nodes (8): FilePos, UCS2, SourceInfo, col, filename, filepos, name, FunctionVM::CustomFunction::GetSourceInfo()
 
 ### Community 656 - "BlackHoleWarp"
 Cohesion: 0.12
@@ -2859,36 +2849,36 @@ Nodes (16): DBL, GenericScalarFunctionInstance, Vector3d, ISO_Pair, f, t, ISO_Th
 Cohesion: 0.13
 Nodes (24): chkstr_isnum(), Distinguishes if a string represents an integer or a float. Returns 'float',…, build_hdr_list(), connect(), format_group_summary(), get_closed_trades(), get_open_trades(), main() (+16 more)
 
-### Community 660 - "set_dashboard_password.py"
-Cohesion: 0.30
-Nodes (10): cmd_delete(), cmd_list(), cmd_set_password(), _dec_hash(), _enc_hash(), _get_fernet(), _hash(), _load() (+2 more)
+### Community 660 - "Console"
+Cohesion: 0.32
+Nodes (5): Console, Initialise, lineoutput, Output, TextStreamBuffer
 
-### Community 661 - "povdebug.h"
-Cohesion: 0.09
-Nodes (26): Encoding, IMemStream, Param_Block, GenericColour<ColourChannel>, GenericColour<PreciseColourChannel>, UCS2String, InferFileTypeFromExt(), Internal_Font_File() (+18 more)
+### Community 661 - "imagemessagehandler.cpp"
+Cohesion: 0.33
+Nodes (12): Encoding, DitherStrategy, POVMSType, SceneData, ViewData, ImageMessageHandler, DrawFilledRectangleSet, DrawPixelBlockSet (+4 more)
 
-### Community 662 - "PointObjectCondition"
-Cohesion: 0.25
-Nodes (8): PointObjectCondition, ContainingInteriorsPointObjectCondition, operator(), ConstObjectPtr, Vector3d, RayInteriorVector, HasInteriorPointObjectCondition, operator()
+### Community 662 - "Camera"
+Cohesion: 0.23
+Nodes (9): Camera, PointObjectCondition, ContainingInteriorsPointObjectCondition, operator(), ConstObjectPtr, Vector3d, RayInteriorVector, HasInteriorPointObjectCondition (+1 more)
 
 ### Community 663 - "mathutil.h"
-Cohesion: 0.13
-Nodes (24): clipToType(), forcePrecision(), T, T1, T2, IsFinite(), IsInRange(), min3() (+16 more)
+Cohesion: 0.12
+Nodes (21): clipToType(), forcePrecision(), T, T1, T2, IsFinite(), IsInRange(), min3() (+13 more)
 
-### Community 664 - "dither.h"
-Cohesion: 0.16
-Nodes (13): DiffusionDither, maaErrorBuffer, mImageWidth, DitherStrategy, GetOffset, Filter, Image, NoDither (+5 more)
+### Community 664 - "make_scene1"
+Cohesion: 0.29
+Nodes (8): lerp(), lerp_point(), make_scene1(), point_text(), Return a value t of the way from a to b., Interpolate an (x, y, z) point., Turn (x, y, z) into the C++ command format: x,y,z., Create the scene1 list that your existing render button already uses.…
 
-### Community 665 - "povmsid.h"
-Cohesion: 0.08
-Nodes (28): POVMSAddress, SceneId, ViewId, GenericMessenger, POVMSAddress, SceneId, ViewId, MessageFactory (+20 more)
+### Community 665 - "GetOutputFilename"
+Cohesion: 0.23
+Nodes (12): POVMSInt, shared_ptr, UCS2String, shared_ptr, Image, ImageProcessing, GetOutputFilename, image (+4 more)
 
 ### Community 666 - "vfecontrol.cpp"
 Cohesion: 0.18
 Nodes (14): string, UCS2String, GetPT(), ProcessOptions::INI_Parser_Table, ProcessRenderOptions::Output_FileType_Table, vfeSession::GetBoolOption(), vfeSession::GetFloatOption(), vfeSession::GetIntOption() (+6 more)
 
 ### Community 667 - "LiveRayTraceViewer"
-Cohesion: 0.21
+Cohesion: 0.19
 Nodes (3): LiveRayTraceViewer, Transforms the in-memory rendered buffer and updates the preview., Triggered automatically when any input changes.
 
 ### Community 668 - "BreakoutSignal"
@@ -2899,9 +2889,9 @@ Nodes (10): AlertSystem, BreakoutSignal, classify_signal(), move_pct(), Compatib
 Cohesion: 0.09
 Nodes (21): 2026-06-24 - Alpaca Cash Split-Brain, 2026-06-24 - Stock Scan Overlap, 2026-06-26 - Broker Cash Failure Must Fail Closed, 2026-06-28 - Kraken Broker Registry Rejoined Execution Routing, 2026-06-29 - Live Kraken Balance Failures Now Fail Closed, 2026-06-30 - Kraken Stop Ratchet Ignores Rounded No-Ops, 2026-07-01 - Kraken Stop Replacement Blocks Duplicate Live Stops, 2026-07-02 - Kraken Stop Replacement Clears Stale Cancelled IDs (+13 more)
 
-### Community 670 - "FELSStrategy"
-Cohesion: 0.07
-Nodes (28): Mean Reversion 5-Strategy Viability Audit…, CBAEShortTF, make_fels_short(), Short-Timeframe Mean Reversion Audit -- FELS & CBAE…, Override: drop the contradictory macro-trend direction filter. Original logic…, CBAE with short-TF parameters and no macro-trend direction filter., CBAEParams, CBAEStrategy (+20 more)
+### Community 670 - "BaseStrategy"
+Cohesion: 0.05
+Nodes (46): CBAEShortTF, make_fels_short(), Short-Timeframe Mean Reversion Audit -- FELS & CBAE…, Override: drop the contradictory macro-trend direction filter. Original logic…, CBAE with short-TF parameters and no macro-trend direction filter., adaptive_regime.py — Strategy 12: Adaptive Regime (Trend-Long Stock Edition)…, BaseStrategy, _injected_symbols() (+38 more)
 
 ### Community 671 - "pov_mem.cpp"
 Cohesion: 0.28
@@ -2920,16 +2910,16 @@ Cohesion: 0.23
 Nodes (4): GenericRGBEColour, mData, DATA, RGBColour
 
 ### Community 675 - "Timer"
-Cohesion: 0.17
-Nodes (10): POV_LONG, Delay(), POV_LONG, Timer, ElapsedRealTime, mRealTimeStart, Reset, Timer::Timer() (+2 more)
+Cohesion: 0.19
+Nodes (9): POV_LONG, POV_LONG, Timer, ElapsedRealTime, mRealTimeStart, Reset, Timer::Timer(), FunctionVM::FunctionVM() (+1 more)
 
-### Community 676 - "metrics.py"
-Cohesion: 0.22
-Nodes (9): alert_gate_failure(), get_snapshot(), increment(), ============================================================= METRICS — Patch A…, Increment a named counter. Thread-safe., Return a copy of all counters (for dashboards/tests)., Clear all counters and alert-cooldown state. Test use only., Report a fail-closed gate failure (e.g. calendar authority stale, broker… (+1 more)
+### Community 676 - "Noise"
+Cohesion: 0.29
+Nodes (7): DBL, Noise(), f_hetero_mf(), f_noise3d(), f_noise_generator(), f_ridge(), f_ridged_mf()
 
-### Community 677 - "UniformRandomNumberGenerator"
-Cohesion: 0.10
-Nodes (19): BoostGenerator, Generator, shared_ptr, Type, IndexedNumberGenerator, MaxIndex, operator[], NumberSequenceFactory<Type>::NumberSequenceFactory() (+11 more)
+### Community 677 - "HybridNumberGenerator"
+Cohesion: 0.09
+Nodes (22): Generator, shared_ptr, Type, HaltonGenerator, base, minval, operator[], scale (+14 more)
 
 ### Community 678 - "TracePixel::FocalBlurData::FocalBlurData"
 Cohesion: 0.18
@@ -2943,13 +2933,13 @@ Nodes (14): Bezier_Child_Struct, Children, Bezier_Node_Struct, Center, Count, Da
 Cohesion: 0.13
 Nodes (13): GenericMessenger, intrusive_ptr_add_ref(), intrusive_ptr_release(), ISO_Max_Gradient, eval_cnt, eval_gradient_sum, eval_max, eval_var (+5 more)
 
-### Community 681 - "stbi__gif_load_next"
-Cohesion: 0.36
-Nodes (9): stbi__gif, stbi__uint16, stbi__fill_gif_background(), stbi__gif_header(), stbi__gif_load(), stbi__gif_load_next(), stbi__gif_parse_colortable(), stbi__out_gif_code() (+1 more)
+### Community 681 - "ot_node_struct"
+Cohesion: 0.29
+Nodes (6): OT_BLOCK, OT_ID, OT_NODE, ot_node_struct, Kids, Values
 
-### Community 682 - "Skysphere_Struct"
-Cohesion: 0.25
-Nodes (7): MathColour, PIGMENT, TRANSFORM, Skysphere_Struct, Emission, Pigments, Trans
+### Community 682 - "DefaultDisplay"
+Cohesion: 0.29
+Nodes (4): Display, RGBA8, CreateDefaultDisplay(), DefaultDisplay
 
 ### Community 684 - "map_strategy.py"
 Cohesion: 0.25
@@ -2959,17 +2949,17 @@ Nodes (11): _adx(), _atr(), generate_signals(), MAPParams, MAPStrategy, DataFram
 Cohesion: 0.14
 Nodes (14): FrameSettings, Clock_Value, Field_Render_Flag, FinalClock, FinalFrame, FrameNumber, FrameNumWidth, InitialClock (+6 more)
 
-### Community 686 - "RadiosityTask"
+### Community 686 - "RenderTask"
 Cohesion: 0.05
-Nodes (36): BoundingTask, boundingThreshold, sceneData, Stopped, BackendSceneData, View, DBL, ViewData (+28 more)
+Nodes (40): LightSource, ObjectPtr, ViewData, CooperateFunction, DBL, PhotonEstimationTask, cooperate, EstimatePhotonsForObjectAndLight (+32 more)
 
-### Community 687 - "Halton2dBasedGenerator"
-Cohesion: 0.12
-Nodes (24): HaltonDoubleGenerator, CosWeighted3dOnHemisphere(), SequentialDoubleGeneratorPtr, Vector2d, Vector3d, GetSubRandomDoubleGenerator(), Halton2dBasedGenerator, generatorA (+16 more)
+### Community 687 - "BYTE_XYZ"
+Cohesion: 0.22
+Nodes (9): BYTE_XYZ, x, y, z, Vector3d, VUnpack(), LegacyCosWeightedDirectionGenerator, NumEntries (+1 more)
 
-### Community 688 - "vwap_momentum.py"
-Cohesion: 0.36
-Nodes (6): _calc_adx(), _calc_vwap(), DataFrame, vwap_momentum.py — Strategy 9: VWAP Momentum Trading Bot v2 Combines the EMA…, Intraday VWAP from available bars. Returns current value or None., ADX value from pandas_ta. Returns current value or None.
+### Community 688 - "VWAPMomentum"
+Cohesion: 0.25
+Nodes (8): _calc_adx(), _calc_vwap(), DataFrame, vwap_momentum.py — Strategy 9: VWAP Momentum Trading Bot v2 Combines the EMA…, Intraday VWAP from available bars. Returns current value or None., ADX value from pandas_ta. Returns current value or None., VWAP + EMA 5/13/34 momentum strategy. Stock-only, 5-minute bars, trending…, VWAPMomentum
 
 ### Community 689 - "Shape"
 Cohesion: 0.19
@@ -2987,13 +2977,13 @@ Nodes (3): Car, Motorcycle, Vehicle
 Cohesion: 0.19
 Nodes (3): Car, Motorcycle, Vehicle
 
-### Community 693 - "CPUInfo::Data"
-Cohesion: 0.29
-Nodes (6): CPUInfo::Data, cpuidInfo, osInfo, OSInfo, xcr0_avx, xcr0_sse
+### Community 693 - "FUNCTION"
+Cohesion: 0.38
+Nodes (7): FPUContext, FUNCTION, FunctionVM::AddFunction(), FunctionVM::GetFunction(), FunctionVM::GetFunctionAndReference(), POVFPU_Exception(), POVFPU_RunDefault()
 
 ### Community 694 - "ColourOffset"
-Cohesion: 0.21
-Nodes (11): ColourOffset, DiffusionDither1D, GetOffset, lastErr, SetError, ColourOffset, SierraLiteDither, GetOffset (+3 more)
+Cohesion: 0.13
+Nodes (19): ColourOffset, DiffusionDither1D, GetOffset, lastErr, SetError, DitherStrategy, GetOffset, ColourOffset (+11 more)
 
 ### Community 695 - "DitherStrategy::ColourOffset"
 Cohesion: 0.27
@@ -3003,9 +2993,9 @@ Nodes (6): DitherStrategy::ColourOffset, alpha, blue, green, ColourChannel, RGBC
 Cohesion: 0.36
 Nodes (10): build_area_table(), Build_Bounding_Sphere_Hierarchy(), BSPHERE_TREE, DBL, Vector3d, Destroy_Bounding_Sphere_Hierarchy(), find_axis(), merge_spheres() (+2 more)
 
-### Community 697 - "ToMathColour"
-Cohesion: 0.29
-Nodes (5): MathColour, MathColour, RGBColour, SpectralBand::GetHueIntegral(), ToMathColour()
+### Community 697 - "render"
+Cohesion: 0.43
+Nodes (6): hit_sphere(), f32, func, kernel, render(), sample_texture()
 
 ### Community 698 - "ObjectDebugHelper"
 Cohesion: 0.29
@@ -3023,24 +3013,28 @@ Nodes (11): LONG, IStream, StringEncoding, UCS2String, readLONG(), readSHORT(), 
 Cohesion: 0.31
 Nodes (10): NetpbmDataFormat, POV_UINT16, POV_UINT32, Image, IStream, ReadOptions, Read(), ReadNetpbmAsciiChar() (+2 more)
 
-### Community 702 - ".write"
-Cohesion: 0.33
-Nodes (3): Appends text to the console, optionally with a style tag., Appends a line of text., Appends a styled section header.
+### Community 702 - "RayTraceTimer"
+Cohesion: 0.29
+Nodes (3): Pollable progress reporter. Prints updates only after a set time interval., Call this immediately after the loop finishes., RayTraceTimer
 
 ### Community 703 - "chi2.cpp"
 Cohesion: 0.51
 Nodes (10): Media::PostProcess(), chdtri(), DBL, igam(), igamc(), igami(), lgam(), ndtri() (+2 more)
 
 ### Community 704 - "DiffusionDither::Filter"
-Cohesion: 0.24
-Nodes (9): Filter, DiffusionDither::DiffusionDither(), DiffusionDither::Filter, maData, mCols, mColX, mRows, GetOffset (+1 more)
+Cohesion: 0.17
+Nodes (13): Filter, DiffusionDither, DiffusionDither::DiffusionDither(), DiffusionDither::Filter, maData, mCols, mColX, mRows (+5 more)
+
+### Community 705 - "BlendMapEntry"
+Cohesion: 0.33
+Nodes (5): DATA_T, BlendMapEntry, Vals, value, SNGL
 
 ### Community 706 - "Sphere"
-Cohesion: 0.29
+Cohesion: 0.33
 Nodes (4): HitRecord, Hittable, Ray, Sphere
 
 ### Community 707 - "shelloutprocessing.cpp"
-Cohesion: 0.21
+Cohesion: 0.23
 Nodes (10): shelloutEvent, string, ExpandParameters, ExecuteCommand, ExtractCommand, GetCancelMessage, GetPhaseName, GetSkipMessage (+2 more)
 
 ### Community 708 - "POVRayVersion"
@@ -3052,8 +3046,8 @@ Cohesion: 0.20
 Nodes (8): RepeatWarp, Axis, Flip, Offset, UnwarpNormal, WarpNormal, WarpPoint, Width
 
 ### Community 710 - "pattern.cpp"
-Cohesion: 0.05
-Nodes (60): DENSITY_FILE, EntryConstPtr, BlendMap<DATA_T>::Search(), Copy_Density_File(), IStream, TPATTERN, TRANSFORM, Create_Density_File() (+52 more)
+Cohesion: 0.06
+Nodes (58): EntryConstPtr, setWrapInt(), BlendMap<DATA_T>::Search(), DBL, InitialiseCrackleCubeTable(), InitializeBinomialCoefficients(), InitializePatternGenerators(), intp3() (+50 more)
 
 ### Community 711 - "render"
 Cohesion: 0.30
@@ -3063,21 +3057,21 @@ Nodes (11): hit_ring(), hit_sphere(), pseudo_random_stars(), f32, func, kernel, 
 Cohesion: 0.22
 Nodes (9): FWord, KernData_struct, left, right, value, longHorMertric, advanceWidth, lsb (+1 more)
 
-### Community 713 - "Project_Tree_Node_Struct"
-Cohesion: 0.22
-Nodes (9): PROJECT, PROJECT_TREE_NODE, BBOX_TREE, Project_Tree_Node_Struct, Entries, Entry, is_leaf, Node (+1 more)
+### Community 713 - "Decode"
+Cohesion: 0.47
+Nodes (5): Param_Block, Image, IStream, Decode(), get_next_code()
 
 ### Community 714 - "VTMRStrategy"
 Cohesion: 0.33
 Nodes (6): compute_indicators(), generate_signals(), DataFrame, Strategy v7: VTRT - Volatility-Triggered Reversion in Trend…, VTRT/VTM-R: RSI(2) trend reversion with strategy-owned EMA/max-hold exits., VTMRStrategy
 
 ### Community 715 - "configbase.h"
-Cohesion: 0.07
-Nodes (18): T, pov_isinf(), pov_isnan(), IMemStream, IStream, POV_File_Extensions, ext, DitherStrategy (+10 more)
+Cohesion: 0.06
+Nodes (23): IMemStream, T, pov_isinf(), pov_isnan(), UCS2String, IMemStream, InferFileTypeFromExt(), Internal_Font_File() (+15 more)
 
 ### Community 716 - "PlanarWarp"
-Cohesion: 0.22
-Nodes (7): Vector3d, PlanarWarp, OffSet, Orientation_Vector, UnwarpNormal, WarpNormal, WarpPoint
+Cohesion: 0.25
+Nodes (6): PlanarWarp, OffSet, Orientation_Vector, UnwarpNormal, WarpNormal, WarpPoint
 
 ### Community 717 - "ToroidalWarp"
 Cohesion: 0.22
@@ -3099,6 +3093,14 @@ Nodes (7): T, T1, T2, T3, SafeSignedProduct(), SafeUnsignedProduct(), T4
 Cohesion: 0.20
 Nodes (6): CanvasSelector, Attaches rectangle selection to an existing canvas. Returns normalized (x0, y0,…, Initialize class varaibles Args: canvas (_type_): _description_ callback…, _summary_ Triggered on mouse clicks in canvas Happpends anytime mouse clicked…, _summary_ nouse depressed and drgged Args: event (_type_): _description_, _summary_ Mouse released ending defining a rectangle selection Args: event…
 
+### Community 723 - "ot_id_struct"
+Cohesion: 0.33
+Nodes (5): ot_id_struct, Size, x, y, z
+
+### Community 724 - "stbi__gif_load_next"
+Cohesion: 0.53
+Nodes (6): stbi__gif, stbi__uint16, stbi__fill_gif_background(), stbi__gif_load_next(), stbi__out_gif_code(), stbi__process_gif_raster()
+
 ### Community 725 - "bubble_sort.py"
 Cohesion: 0.70
 Nodes (3): bubble_sort(), insert_sort(), main()
@@ -3111,9 +3113,9 @@ Nodes (4): Aircraft, Car, FlyingCar, Vehicle
 Cohesion: 0.18
 Nodes (3): Circle, PositiveNumber, Square
 
-### Community 728 - "WoodPattern"
+### Community 728 - "Sphere"
 Cohesion: 0.33
-Nodes (5): WoodPattern, GetDefaultBlendMap, HasSpecialTurbulenceHandling, hasTurbulence, Precompute
+Nodes (4): HitRecord, Hittable, Ray, Sphere
 
 ### Community 729 - "Stack"
 Cohesion: 0.20
@@ -3124,7 +3126,7 @@ Cohesion: 0.73
 Nodes (6): ISO_ThreadData, DBL, TraceThreadData, Float_Function, Function_Find_Root, Function_Find_Root_R
 
 ### Community 732 - "string"
-Cohesion: 0.21
+Cohesion: 0.19
 Nodes (3): shelloutEvent, string, postProcessEvent
 
 ### Community 733 - "depcomp"
@@ -3143,10 +3145,6 @@ Nodes (5): KernData, KernStruct, coverage, kern_pairs, nPairs
 Cohesion: 0.11
 Nodes (18): 10. Scheduled Jobs, 11. Signal & Trade Lifecycle, 13. Multi-Timeframe Candle System, 14. Risk Rules (Hardcoded), 15. Broker Routing Logic, 16. Exit Priority Order, 17. ML Scorer Progression, 19. IBC / IB Gateway Headless Setup (+10 more)
 
-### Community 737 - "SourceLocation"
-Cohesion: 0.40
-Nodes (3): SourceLocation, file, line
-
 ### Community 738 - "render"
 Cohesion: 0.40
 Nodes (9): hit_ring(), hit_sphere(), pseudo_random_stars(), f32, func, kernel, render(), sample_ring_density() (+1 more)
@@ -3155,13 +3153,17 @@ Nodes (9): hit_ring(), hit_sphere(), pseudo_random_stars(), f32, func, kernel, r
 Cohesion: 0.24
 Nodes (3): Employee, Person, Serializer
 
-### Community 740 - ".on_close"
-Cohesion: 0.40
-Nodes (3): Registers a custom handler when the user clicks the OS window close (X) button.…, main(), Quick standalone test — connects to Tradovate demo WS and shows raw server…
+### Community 740 - "AVXFMA4Noise"
+Cohesion: 0.50
+Nodes (4): AVXFMA4DNoise(), AVXFMA4Noise(), DBL, Vector3d
 
 ### Community 741 - "TranscodingGammaCurve"
 Cohesion: 0.13
 Nodes (14): TranscodingGammaCurve, ApproximateDecodingGamma, Decode, encGamma, Encode, workGamma, Image, IStream (+6 more)
+
+### Community 742 - "Material_Struct"
+Cohesion: 0.40
+Nodes (5): InteriorPtr, Material_Struct, interior, Interior_Texture, Texture
 
 ### Community 743 - "ar-lib"
 Cohesion: 0.70
@@ -3171,9 +3173,9 @@ Nodes (4): ar-lib script, func_at_file(), func_error(), func_file_conv()
 Cohesion: 0.22
 Nodes (7): bundle, context, fs, html, result, store, vm
 
-### Community 745 - "NumberSequenceMetaFactory"
-Cohesion: 0.50
-Nodes (4): FactoryTable, NumberSequenceMetaFactory, GetFactory, lookupTable
+### Community 745 - "scenedata.h"
+Cohesion: 0.40
+Nodes (4): BSPTree, Fog_Struct, Rainbow_Struct, Skysphere_Struct
 
 ### Community 746 - "GenericWarp"
 Cohesion: 0.22
@@ -3183,9 +3185,13 @@ Nodes (5): GenericWarp, Clone, UnwarpNormal, WarpNormal, WarpPoint
 Cohesion: 0.22
 Nodes (7): CylindricalWarp, DistExp, Orientation_Vector, UnwarpNormal, WarpNormal, WarpPoint, DBL
 
-### Community 749 - "ensure_sample_database"
+### Community 748 - "02_grade_calculator.py"
 Cohesion: 0.38
-Nodes (4): ensure_sample_database(), Fetches from SQLite database with applied filters and updates UI., Generates a realistic SQLite trade database if it doesn't already exist., TradeAnalyzerTool
+Nodes (3): GradeCalculatorTool, College Grade Calculator Tool Demonstrates FormPanel numeric inputs, live…, Triggered automatically when any input changes.
+
+### Community 749 - "01_trade_analyzer.py"
+Cohesion: 0.31
+Nodes (5): ensure_sample_database(), Trade Analyzer Tool - SQLite Trade Filtering and Reporting GUI Demonstrates…, Fetches from SQLite database with applied filters and updates UI., Generates a realistic SQLite trade database if it doesn't already exist., TradeAnalyzerTool
 
 ### Community 750 - "missing"
 Cohesion: 0.83
@@ -3204,8 +3210,8 @@ Cohesion: 0.50
 Nodes (4): BBoxDirection, BBoxScalar, BBoxVector3d, Intersect_BBox
 
 ### Community 872 - "SphericalWarp"
-Cohesion: 0.25
-Nodes (6): SphericalWarp, DistExp, Orientation_Vector, UnwarpNormal, WarpNormal, WarpPoint
+Cohesion: 0.22
+Nodes (7): Vector3d, SphericalWarp, DistExp, Orientation_Vector, UnwarpNormal, WarpNormal, WarpPoint
 
 ### Community 873 - "KernTableStruct"
 Cohesion: 0.50
@@ -3235,13 +3241,29 @@ Nodes (3): Employee, Person, SerializerMixin
 Cohesion: 0.39
 Nodes (4): A, B, C, D
 
+### Community 881 - "math_div"
+Cohesion: 0.67
+Nodes (4): math_div(), math_int(), SYS_MATH_PARAM, SYS_MATH_RETURN
+
 ### Community 883 - "Person"
 Cohesion: 0.29
 Nodes (3): Person, setter, list_sort()
 
+### Community 884 - "migrate_timestamps_to_pt.py"
+Cohesion: 0.67
+Nodes (3): migrate(), migrate_timestamps_to_pt.py ============================ One-time migration:…, shift_timestamp()
+
 ### Community 885 - "FloydSteinbergDither"
 Cohesion: 0.33
 Nodes (6): FloydSteinbergDither, GetOffset, imageWidth, maErr, mErrX, SetError
+
+### Community 887 - "FNCode_Delete"
+Cohesion: 0.67
+Nodes (3): FNCode_Delete(), FunctionVM::RemoveFunction(), FunctionVM::Reset()
+
+### Community 888 - "GetDisplay"
+Cohesion: 0.67
+Nodes (3): Display, shared_ptr, GetDisplay
 
 ### Community 917 - "Trading Bot Chat Command Reference"
 Cohesion: 0.15
@@ -3400,9 +3422,9 @@ Cohesion: 0.67
 Nodes (3): route, update_grade(), validate_json()
 
 ## Knowledge Gaps
-- **4367 isolated node(s):** `start_astral.sh script`, `fs`, `vm`, `html`, `seg` (+4362 more)
+- **4382 isolated node(s):** `start_astral.sh script`, `fs`, `vm`, `html`, `seg` (+4377 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **119 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **116 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
@@ -3411,13 +3433,13 @@ _Questions this graph is uniquely positioned to answer:_
   _High betweenness centrality (0.017) - this node is a cross-community bridge._
 - **Why does `BSPTree` connect `BSPTree` to `BSPIntersectCondFunctor`?**
   _High betweenness centrality (0.016) - this node is a cross-community bridge._
-- **Why does `Trace` connect `Trace` to `radiosity.h`, `UniformRandomNumberGenerator`, `TracePixel`, `RadiosityFunction`, `PhotonSortingTask`, `frame.h`, `trace.h`, `photons.cpp`, `PhotonShootingTask`, `LightTargetCombo`, `Media`, `PointObjectCondition`, `QualityFlags`, `parser_expressions.cpp`, `boundingbox.cpp`, `randomsequence.cpp`, `TraceTask`?**
+- **Why does `TradeSignal` connect `TradeSignal` to `StrategyEngine`, `ORBBreakout`, `ema_ribbon_breakout.py`, `BTCV6ChandelierStrategy`, `RSIDipSpikeV4Strategy`, `HammerReversal`, `BaseStrategy`, `VwapConfirmedOrb`, `PLLCycleStrategy`, `VBMStrategy`, `map_strategy.py`, `VWAPMomentum`, `ecb_strategy.py`, `MR02VEFStrategy`, `scalp_master.py`, `RCRMeanReversionStrategy`, `VTMRStrategy`, `kds_mean_reversion.py`, `traderdev_day_trader_v3.py`, `BMR357Strategy`, `MR03FBSStrategy`, `vdmr_strategy.py`, `SFRStrategy`, `Backtester`, `mr_04_fvg_strategy.py`, `AdaptiveRegime`, `RSIDipSimpleStrategy`?**
   _High betweenness centrality (0.013) - this node is a cross-community bridge._
 - **Are the 69 inferred relationships involving `TradeSignal` (e.g. with `_DummyStrategy` and `AdaptiveRegime`) actually correct?**
   _`TradeSignal` has 69 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `start_astral.sh script`, `fs`, `vm` to the rest of the system?**
-  _4367 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _4382 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `{` be split into smaller, more focused modules?**
   _Cohesion score 0.002145922746781116 - nodes in this community are weakly interconnected._
 - **Should `Current Queue` be split into smaller, more focused modules?**
-  _Cohesion score 0.017543859649122806 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.016666666666666666 - nodes in this community are weakly interconnected._
