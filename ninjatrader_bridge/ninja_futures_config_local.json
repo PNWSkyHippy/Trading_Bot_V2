@@ -160,8 +160,8 @@
     "instances": {
       "ES": {
         "enabled": false,
-        "instrument": "ES 09-26",
-        "broker_symbol": "ESU6",
+        "instrument": "ES 12-26",
+        "broker_symbol": "ESZ6",
         "ledger_path": "emt_trades_local.jsonl",
         "control_state_key": "scanner_emt_enabled_local"
       },
@@ -181,8 +181,8 @@
       },
       "MNQ": {
         "enabled": false,
-        "instrument": "MNQ 09-26",
-        "broker_symbol": "MNQU6",
+        "instrument": "MNQ 12-26",
+        "broker_symbol": "MNQZ6",
         "ledger_path": "emt_trades_mnq_local.jsonl",
         "control_state_key": "scanner_emt_mnq_enabled_local"
       },

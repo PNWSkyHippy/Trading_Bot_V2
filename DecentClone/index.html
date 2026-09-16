@@ -6663,11 +6663,13 @@
             lastShieldTickAt = now;
             if (mapView || wallHit.active || gameOverState.active) return;
             if (isPlayerUnderActiveSentryFire()) return;
+            // In Defender, pause shield regeneration for 4.5s after taking damage
+            if (defenderPhase.active && (now - (defenderPhase.lastHitAt || 0) < 4500)) return;
             if (shieldCurrent < SHIELD_MAX) {
-                shieldCurrent = Math.min(SHIELD_MAX, shieldCurrent + SHIELD_REGEN_PER_SEC * dt);
-                // any charge at all should absorb hits again -- don't make the
-                // player wait for a full 100% recharge before shields matter
-                if (shieldCurrent > 0) {
+                const regenRate = defenderPhase.active ? 4.0 : SHIELD_REGEN_PER_SEC;
+                shieldCurrent = Math.min(SHIELD_MAX, shieldCurrent + regenRate * dt);
+                // In Defender, shields must reach 25% to recover from breach
+                if (shieldCurrent >= (defenderPhase.active ? 25 : 1)) {
                     shieldsBreached = false;
                 }
             }
@@ -9068,6 +9070,7 @@
             HEIGHT_FLOOR: 420,     // planetary surface
             DEPTH_MIN: -650,
             DEPTH_MAX: 650,
+            MAX_CAMPAIGN_WAVES: 5, // 5 waves to achieve Defender victory!
             HIT_R: {
                 LANDER: 55,
                 MUTANT: 48,
@@ -9082,7 +9085,7 @@
             COLLIDE_R: 52,
             INTRO_MS: 2400,
             RESULTS_MS: 4200,
-            WAVE_CLEAR_MS: 2500,
+            WAVE_CLEAR_MS: 2800,
             INVULN_MS: 2200,
             BAITER_TIME_MS: 110000, // Saucer spawns after ~1m50s
             SCORES: {
@@ -9096,6 +9099,7 @@
                 HUMANOID_CATCH: 500,
                 HUMANOID_SURFACE: 500,
                 WAVE_CLEAR_HUMAN_BONUS: 200,
+                CAMPAIGN_VICTORY_BONUS: 5000,
             }
         };
 
@@ -9119,7 +9123,7 @@
 
         const defenderPhase = {
             active: false,
-            state: 'idle',
+            state: 'idle', // idle, intro, play, wave_clear, mission_complete, results
             stateUntil: 0,
             level: 1,
             score: 0,
@@ -9131,6 +9135,7 @@
             shockwave: null,
             screenFlashUntil: 0,
             screenFlashColor: 'rgba(255, 255, 255, 0.55)',
+            lastHitAt: 0,
             landers: [],
             mutants: [],
             bombers: [],
@@ -9141,7 +9146,7 @@
             humanoids: [],
             bullets: [],
             stars: [],
-            carriedHumanoid: null,
+            carriedHumanoids: [], // Multi-carry array (support picking up 2-3+ astronauts simultaneously!)
         };
 
         /* =========================================================================
@@ -9404,14 +9409,11 @@
             defenderPhase.swarmers = [];
             defenderPhase.baiters = [];
             defenderPhase.bullets = [];
+            defenderPhase.carriedHumanoids = [];
             defenderPhase.waveStartedAt = performance.now();
 
-            // Check if astronauts need replenishment
-            let aliveCount = 0;
-            for (const h of defenderPhase.humanoids) if (h.state !== 'dead') aliveCount++;
-            if (aliveCount < 8) {
-                defenderPhase.humanoids = initDefenderHumanoids();
-            }
+            // Replenish colony astronauts to 15 at wave start
+            defenderPhase.humanoids = initDefenderHumanoids();
         }
 
         function startDefenderPhase(level = 1) {
@@ -9438,6 +9440,8 @@
             shipRight   = { x: 0, y: 0, z: -1 };
             shipDown    = { x: 0, y: 1, z: 0 };
             shipRollAngle = 0;
+            viewAssist.blend = 0;
+            viewAssist.basis = null;
             repairBasis();
             syncViewToShip();
 
@@ -9448,9 +9452,10 @@
             defenderPhase.score = 0;
             defenderPhase.kills = 0;
             defenderPhase.smartBombs = 3; // Start with 3 Smart Bombs
-            defenderPhase.carriedHumanoid = null;
+            defenderPhase.carriedHumanoids = [];
             defenderPhase.shockwave = null;
             defenderPhase.screenFlashUntil = 0;
+            defenderPhase.lastHitAt = 0;
             defenderPhase.invulnUntil = performance.now() + DEFENDER.INTRO_MS + DEFENDER.INVULN_MS;
             defenderPhase.stars = initDefenderStarfield();
             defenderPhase.humanoids = initDefenderHumanoids(); // 15 astronauts
@@ -9474,7 +9479,7 @@
             defenderPhase.swarmers = [];
             defenderPhase.baiters = [];
             defenderPhase.bullets = [];
-            defenderPhase.carriedHumanoid = null;
+            defenderPhase.carriedHumanoids = [];
             defenderPhase.shockwave = null;
 
             const s = defenderPhase.saved;
@@ -9550,7 +9555,7 @@
                     if (h && h.state === 'abducted') {
                         h.state = 'falling';
                         h.abductedBy = null;
-                        h.vy = 0;
+                        h.vy = 0; // Gentle float drop
                     }
                 }
             });
@@ -9577,6 +9582,7 @@
             const now = performance.now();
             if (now < defenderPhase.invulnUntil) return;
 
+            defenderPhase.lastHitAt = now; // Pauses shield regeneration for 4.5s
             shieldHitFlashUntil = now + 320;
             if (!shieldsBreached && shieldCurrent > 0) {
                 shieldCurrent = Math.max(0, shieldCurrent - dmg);
@@ -9645,8 +9651,8 @@
                     if (h && h.state === 'abducted') {
                         h.state = 'falling';
                         h.abductedBy = null;
-                        h.vy = 0;
-                        keyboardStatus.innerText = '★ ASTRONAUT IN FREE-FALL! CATCH THEM!';
+                        h.vy = 0; // Gentle float drop
+                        keyboardStatus.innerText = '★ ASTRONAUT IN FREE-FALL! SWOOP IN TO CATCH!';
                     }
                 }
             })) return true;
@@ -9686,6 +9692,10 @@
                 }
                 return;
             }
+            if (defenderPhase.state === 'mission_complete') {
+                silenceDefenderAudio();
+                return; // Pauses here waiting for user choice (Enter / C)
+            }
             if (defenderPhase.state === 'results') {
                 silenceDefenderAudio();
                 if (now >= defenderPhase.stateUntil) {
@@ -9700,7 +9710,7 @@
             const hasMutant = defenderPhase.mutants.length > 0;
             updateDefenderAudio(hasAbduction, hasMutant);
 
-            // Wave Clear Check
+            // Wave Clear & Campaign Victory Check
             const enemyCount = defenderPhase.landers.length +
                                defenderPhase.mutants.length +
                                defenderPhase.bombers.length +
@@ -9715,10 +9725,22 @@
                 const bonus = aliveHumans * DEFENDER.SCORES.WAVE_CLEAR_HUMAN_BONUS;
                 defenderPhase.score += bonus;
                 addTargetScore(bonus);
+
+                // Check if all campaign waves (1-5) are cleared!
+                if (defenderPhase.level >= DEFENDER.MAX_CAMPAIGN_WAVES) {
+                    defenderPhase.score += DEFENDER.SCORES.CAMPAIGN_VICTORY_BONUS;
+                    addTargetScore(DEFENDER.SCORES.CAMPAIGN_VICTORY_BONUS);
+                    defenderPhase.state = 'mission_complete';
+                    defenderPhase.stateUntil = now + 9999999;
+                    playSfx('target_chime', { intensity: 2.5 });
+                    keyboardStatus.innerText = '★ ★ ★ DEFENDER LEVEL 1 VICTORIOUS! 5/5 WAVES COMPLETE ★ ★ ★';
+                    return;
+                }
+
                 defenderPhase.state = 'wave_clear';
                 defenderPhase.stateUntil = now + DEFENDER.WAVE_CLEAR_MS;
                 playSfx('target_chime', { intensity: 1.8 });
-                keyboardStatus.innerText = `DEFENDER WAVE ${defenderPhase.level} CLEARED! HUMAN SURVIVAL BONUS +${bonus}`;
+                keyboardStatus.innerText = `DEFENDER WAVE ${defenderPhase.level}/5 CLEARED! HUMAN SURVIVAL BONUS +${bonus}`;
                 return;
             }
 
@@ -10034,24 +10056,27 @@
                 }
             }
 
-            // 8. Update Humanoids (Free-fall gravity, Mid-air Catch, Splat, and Ground Delivery)
+            // 8. Update Humanoids (Gentle float descent, Multi-carry support, Splat & Group Delivery)
             for (let i = 0; i < defenderPhase.humanoids.length; i++) {
                 const h = defenderPhase.humanoids[i];
                 if (h.state === 'falling') {
-                    h.vy += 0.32 * frameScale; // gravity acceleration
+                    // Gentle float fall: slow acceleration with terminal speed 1.6
+                    h.vy = Math.min(1.6, h.vy + 0.045 * frameScale);
                     h.pos.y += h.vy * frameScale;
 
-                    // Check catch by player
+                    // Check catch by player (generous 110-unit radius for smooth interception)
                     const dx = defenderWrapDx(posX, h.pos.x);
                     const distToPlayer = Math.hypot(dx, posY - h.pos.y, posZ - h.pos.z);
-                    if (distToPlayer < 85) { // Intercept mid-air!
+                    if (distToPlayer < 110) {
                         h.state = 'carried';
                         h.vy = 0;
-                        defenderPhase.carriedHumanoid = h;
+                        if (!defenderPhase.carriedHumanoids.includes(h)) {
+                            defenderPhase.carriedHumanoids.push(h);
+                        }
                         defenderPhase.score += DEFENDER.SCORES.HUMANOID_CATCH;
                         addTargetScore(DEFENDER.SCORES.HUMANOID_CATCH);
                         playSfx('target_chime', { intensity: 1.6 });
-                        keyboardStatus.innerText = '★ ASTRONAUT SECURED! +500 PTS · DESCEND TO SURFACE TO RESCUE!';
+                        keyboardStatus.innerText = `★ ASTRONAUT SECURED (${defenderPhase.carriedHumanoids.length} CARRIED) · DESCEND TO SURFACE TO RESCUE!`;
                     } else if (h.pos.y >= defenderTerrainHeight(h.pos.x) - 10) {
                         // Crashed / Splat on ground surface!
                         h.state = 'dead';
@@ -10061,22 +10086,35 @@
                         keyboardStatus.innerText = '☠ ASTRONAUT SPLAT! CRUNCHED ON IMPACT!';
                     }
                 } else if (h.state === 'carried') {
-                    h.pos.x = posX;
+                    // Offset multiple carried astronauts side-by-side on the under-hull rescue rack
+                    const idx = defenderPhase.carriedHumanoids.indexOf(h);
+                    const total = Math.max(1, defenderPhase.carriedHumanoids.length);
+                    const offset = (idx - (total - 1) / 2) * 26;
+                    h.pos.x = posX + offset * shipRight.x;
                     h.pos.y = posY + 28;
-                    h.pos.z = posZ;
-
-                    // Check landing safely on planetary surface
-                    const groundY = defenderTerrainHeight(posX);
-                    if (posY >= groundY - 65) {
-                        h.state = 'ground';
-                        h.pos.y = groundY - 16;
-                        defenderPhase.carriedHumanoid = null;
-                        defenderPhase.score += DEFENDER.SCORES.HUMANOID_SURFACE;
-                        addTargetScore(DEFENDER.SCORES.HUMANOID_SURFACE);
-                        playSfx('target_chime', { intensity: 2.0 });
-                        keyboardStatus.innerText = '★ ASTRONAUT SAFELY RETURNED TO SURFACE! +500 PTS!';
-                    }
+                    h.pos.z = posZ + offset * shipRight.z;
                 }
+            }
+
+            // Safe landing check for ALL carried astronauts when descending near planetary surface
+            const groundY = defenderTerrainHeight(posX);
+            if (posY >= groundY - 65 && defenderPhase.carriedHumanoids.length > 0) {
+                const count = defenderPhase.carriedHumanoids.length;
+                const bonus = count * DEFENDER.SCORES.HUMANOID_SURFACE;
+                for (let k = 0; k < count; k++) {
+                    const ch = defenderPhase.carriedHumanoids[k];
+                    ch.state = 'ground';
+                    ch.pos.x = defenderWrapX(posX + (k - (count - 1) / 2) * 45);
+                    ch.pos.y = defenderTerrainHeight(ch.pos.x) - 16;
+                    ch.vy = 0;
+                }
+                defenderPhase.carriedHumanoids = [];
+                defenderPhase.score += bonus;
+                addTargetScore(bonus);
+                playSfx('target_chime', { intensity: 2.2 });
+                keyboardStatus.innerText = count > 1
+                    ? `★ ${count} ASTRONAUTS SAFELY RETURNED TO SURFACE! +${bonus} PTS!`
+                    : `★ ASTRONAUT SAFELY RETURNED TO SURFACE! +${bonus} PTS!`;
             }
 
             // 9. Update Enemy Bullets
@@ -10158,6 +10196,9 @@
                     ctx.fillRect(hx - 3, hy - 3, 6, 6);
                     ctx.strokeStyle = '#ff0033';
                     ctx.strokeRect(hx - 5, hy - 5, 10, 10);
+                } else if (h.state === 'carried') {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(hx - 2, hy - 2, 4, 4);
                 } else {
                     ctx.fillStyle = '#00ff88';
                     ctx.fillRect(hx - 1.5, hy - 1.5, 3, 3);
@@ -10333,7 +10374,7 @@
                 ctx.fillRect(p.x - sz * 0.18, p.y - sz * 0.75, sz * 0.36, sz * 0.22);
 
                 // Body Suit
-                ctx.fillStyle = h.state === 'abducted' ? '#ff0033' : '#00ddff';
+                ctx.fillStyle = h.state === 'abducted' ? '#ff0033' : (h.state === 'carried' ? '#ffffff' : '#00ddff');
                 ctx.fillRect(p.x - sz * 0.28, p.y - sz * 0.30, sz * 0.56, sz * 0.70);
 
                 // Legs
@@ -10702,11 +10743,16 @@
             let aliveCount = 0;
             for (const h of defenderPhase.humanoids) if (h.state !== 'dead') aliveCount++;
 
-            // Status bar
+            // Status bar showing clear campaign wave progress: WAVE N / 5
+            const totalWaves = DEFENDER.MAX_CAMPAIGN_WAVES;
+            const waveDisplay = defenderPhase.level <= totalWaves ? `${defenderPhase.level}/${totalWaves}` : `${defenderPhase.level} (ENDLESS)`;
+            const carriedCount = defenderPhase.carriedHumanoids.length;
+            const carriedTag = carriedCount > 0 ? ` · CARRIED: ${carriedCount} [TOUCH DOWN TO SAVE]` : '';
+
             ctx.font = 'bold 13px monospace';
             ctx.fillStyle = '#00ffcc';
             ctx.fillText(
-                `DEFENDER WAVE ${defenderPhase.level} · SCORE: ${defenderPhase.score} · KILLS: ${defenderPhase.kills} · SMART BOMBS: ${defenderPhase.smartBombs} · HUMANS: ${aliveCount}/15`,
+                `DEFENDER · WAVE ${waveDisplay} · SCORE: ${defenderPhase.score} · KILLS: ${defenderPhase.kills} · SMART BOMBS: ${defenderPhase.smartBombs} · HUMANS: ${aliveCount}/15${carriedTag}`,
                 centerX, 72
             );
             ctx.font = '11px monospace';
@@ -10727,28 +10773,50 @@
             ctx.fillStyle = 'rgba(0, 255, 120, 0.75)';
             ctx.fillText(`▼ PLANET SURFACE: ${Math.max(0, groundDist)}m BELOW ▼`, centerX, canvas.height - 24);
 
-            // State Banners (Intro / Wave Clear / Results)
+            // State Banners (Intro / Wave Clear / Mission Complete / Results)
             if (defenderPhase.state === 'intro') {
                 ctx.fillStyle = 'rgba(0, 15, 30, 0.88)';
                 ctx.fillRect(0, centerY - 75, canvas.width, 150);
                 ctx.font = 'bold 32px monospace';
                 ctx.fillStyle = '#ffd24a';
-                ctx.fillText(`DEFENDER — WAVE ${defenderPhase.level}`, centerX, centerY - 22);
+                ctx.fillText(`DEFENDER — WAVE ${waveDisplay}`, centerX, centerY - 22);
                 ctx.font = '16px monospace';
                 ctx.fillStyle = '#00ffcc';
                 ctx.fillText('15 ASTRONAUTS ON PLANET SURFACE BELOW', centerX, centerY + 10);
                 ctx.font = '13px monospace';
                 ctx.fillStyle = '#c8f6ff';
-                ctx.fillText('PROTECT ASTRONAUTS · PREVENT MUTATION · CATCH FALLING ASTRONAUTS', centerX, centerY + 34);
+                ctx.fillText('PROTECT ASTRONAUTS · PREVENT MUTATION · CATCH MULTIPLE FALLING HUMANS', centerX, centerY + 34);
             } else if (defenderPhase.state === 'wave_clear') {
                 ctx.fillStyle = 'rgba(0, 25, 15, 0.88)';
                 ctx.fillRect(0, centerY - 65, canvas.width, 130);
                 ctx.font = 'bold 30px monospace';
                 ctx.fillStyle = '#00ff88';
-                ctx.fillText('WAVE CLEARED!', centerX, centerY - 18);
+                ctx.fillText(`WAVE ${defenderPhase.level} OF ${totalWaves} CLEARED!`, centerX, centerY - 18);
                 ctx.font = '15px monospace';
                 ctx.fillStyle = '#c8f6ff';
-                ctx.fillText(`PREPARING WAVE ${defenderPhase.level + 1} · SMART BOMB REPLENISHED`, centerX, centerY + 18);
+                ctx.fillText(`PREPARING WAVE ${defenderPhase.level + 1} OF ${totalWaves} · SMART BOMB REPLENISHED`, centerX, centerY + 18);
+            } else if (defenderPhase.state === 'mission_complete') {
+                ctx.fillStyle = 'rgba(0, 20, 35, 0.92)';
+                ctx.fillRect(0, centerY - 95, canvas.width, 190);
+                ctx.strokeStyle = '#00ffcc';
+                ctx.lineWidth = 2.5;
+                ctx.strokeRect(40, centerY - 95, canvas.width - 80, 190);
+
+                ctx.font = 'bold 32px monospace';
+                ctx.fillStyle = '#ffd24a';
+                ctx.fillText('★ ★ ★ DEFENDER LEVEL 1 VICTORIOUS! ★ ★ ★', centerX, centerY - 50);
+
+                ctx.font = 'bold 18px monospace';
+                ctx.fillStyle = '#00ff88';
+                ctx.fillText(`ALL 5 WAVES CLEARED · TROPHY BONUS +5,000 PTS!`, centerX, centerY - 16);
+
+                ctx.font = '15px monospace';
+                ctx.fillStyle = '#c8f6ff';
+                ctx.fillText(`FINAL DEFENDER SCORE: +${defenderPhase.score} · TOTAL KILLS: ${defenderPhase.kills}`, centerX, centerY + 14);
+
+                ctx.font = 'bold 14px monospace';
+                ctx.fillStyle = '#ffff00';
+                ctx.fillText('[PRESS ENTER TO RETURN TO TUNNEL]    [PRESS C OR SPACE FOR ENDLESS MODE]', centerX, centerY + 52);
             } else if (defenderPhase.state === 'results') {
                 ctx.fillStyle = 'rgba(30, 5, 10, 0.88)';
                 ctx.fillRect(0, centerY - 65, canvas.width, 130);
@@ -11515,6 +11583,22 @@
                 toggleGalagaPhase();
                 e.preventDefault();
                 return;
+            }
+            if (defenderPhase.active && defenderPhase.state === 'mission_complete') {
+                if (key === 'Enter') {
+                    endDefenderPhase(true);
+                    e.preventDefault();
+                    return;
+                }
+                if (key === 'c' || key === ' ' || key === 'C') {
+                    defenderPhase.level = 6;
+                    defenderSpawnWave(6);
+                    defenderPhase.state = 'play';
+                    defenderPhase.invulnUntil = performance.now() + DEFENDER.INVULN_MS;
+                    keyboardStatus.innerText = 'ENTERING ENDLESS SURVIVAL MODE · WAVE 6';
+                    e.preventDefault();
+                    return;
+                }
             }
             if ((key === 'd' && e.altKey && !e.ctrlKey) || (key === 'd' && e.ctrlKey && e.shiftKey && !e.altKey)) {
                 toggleDefenderPhase();
@@ -12734,10 +12818,23 @@
 
         function instant180Flip() {
             if (mapView || builderMode) return;
-            shipForward = { x: -shipForward.x, y: -shipForward.y, z: -shipForward.z };
-            shipRight   = { x: -shipRight.x,   y: -shipRight.y,   z: -shipRight.z };
-            repairBasis();
-            syncViewToShip();
+            if (defenderPhase.active) {
+                // Horizon-locked 180° yaw reverse around vertical planetary normal (Y = +1 pointing towards surface)
+                // Reverses horizontal heading cleanly without any 45° off-kilter roll or pitch skew
+                shipForward = { x: -shipForward.x, y: shipForward.y, z: -shipForward.z };
+                shipRight   = { x: -shipRight.x,   y: shipRight.y,   z: -shipRight.z };
+                shipDown    = { x: 0, y: 1, z: 0 };
+                shipRollAngle = 0;
+                viewAssist.blend = 0;
+                viewAssist.basis = null;
+                repairBasis();
+                syncViewToShip();
+            } else {
+                shipForward = { x: -shipForward.x, y: -shipForward.y, z: -shipForward.z };
+                shipRight   = { x: -shipRight.x,   y: -shipRight.y,   z: -shipRight.z };
+                repairBasis();
+                syncViewToShip();
+            }
             const currentSpeed = Math.hypot(shipVelocity.x, shipVelocity.y, shipVelocity.z);
             if (currentSpeed > 0.05) {
                 shipDriftActive = true;
@@ -17021,7 +17118,7 @@
                 turnSpeedMult: 1,
                 containRelax: 0
             };
-            if (!builder.segments.length || mapView || builderMode || portalTransit.active) {
+            if (!builder.segments.length || mapView || builderMode || portalTransit.active || defenderPhase.active || galagaPhase.active) {
                 branchFlightContext = ctx;
                 return ctx;
             }

@@ -4,6 +4,24 @@
 
 ## Update Timeline (newest first)
 
+### 2026-09-16 — Defender Arcade V2: Multi-Carry Rescue, Shield Cooldown, Horizon 180° Flip & 5-Wave Campaign
+
+- **Astronaut Gentle Float & Multi-Carry Rescue**:
+  - Reduced astronaut free-fall gravity to a gentle float (`vy = Math.min(1.6, vy + 0.045)`), providing a 12–15s window to swoop in and intercept falling astronauts after shooting Landers or detonating Smart Bombs.
+  - Replaced single-carry slot with `carriedHumanoids: []` multi-carry array, allowing players to rescue 2, 3, or more astronauts simultaneously (ideal after clearing multiple Landers with a Smart Bomb).
+  - Under-hull rescue rack visual positioning offsets multiple carried astronauts laterally along the ship's right axis (`posX + offset * shipRight.x`).
+  - Descending near the planetary surface (`posY >= groundY - 65`) safely delivers all carried astronauts simultaneously with cumulative score bonuses (+500 pts each).
+- **Combat Shield Damage Cooldown & Breach Threshold**:
+  - Taking hostile hits in Defender mode records `defenderPhase.lastHitAt = now` and triggers a 4.5-second shield recharge cooldown.
+  - Lowered Defender shield regen rate from 8.0/s to 4.0/s and required at least 25% shield charge to recover from breached state, eliminating invulnerability and making defensive evasion critical.
+- **Horizon-Locked 180° Reverse Flip (`C` / `Z`)**:
+  - In Defender mode, `instant180Flip()` locks pitch and roll to the world vertical gravity vector (`shipDown = {0, 1, 0}`, `shipRollAngle = 0`), performing a pure horizontal yaw reverse around the planetary normal.
+  - Cleared `viewAssist.blend` and `viewAssist.basis`, and guarded `getBranchFlightContext()` against `defenderPhase.active` and `galagaPhase.active`, completely eliminating the ~45° off-kilter tilt when flipping heading.
+- **5-Wave Campaign Structure & Victory Screen**:
+  - Established a 5-Wave Campaign structure (`DEFENDER.MAX_CAMPAIGN_WAVES = 5`).
+  - Status HUD displays explicit wave progress (`WAVE X/5`).
+  - Clearing Wave 5 awards a +5,000 pts victory trophy, displays the celebratory `★ ★ ★ DEFENDER LEVEL 1 VICTORIOUS! ★ ★ ★` banner, and provides clear prompt options: press `Enter` to return triumphantly to the main flight tunnel or press `Space`/`C` to enter Endless Survival Mode (Wave 6+).
+
 ### 2026-09-15 — Defender 3D Authentic 1981 Arcade Overhaul & Visual Scaling
 
 - **Orientation & Horizon Fix**: Rebuilt basis initialization in `startDefenderPhase` with right-handed basis (`shipForward = (1, 0, 0)`, `shipRight = (0, 0, -1)`, `shipDown = (0, 1, 0)`) so the player spawns upright with the planetary surface grid clearly visible in the lower windshield. Added artificial ground horizon telemetry (`▼ PLANET SURFACE: Xm BELOW ▼`).

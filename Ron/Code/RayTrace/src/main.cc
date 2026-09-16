@@ -12,6 +12,7 @@
 
 #include <cstdlib>
 #include <iostream>
+#include <sstream>
 #include <string>
 #include <vector>
 
@@ -19,6 +20,11 @@ const std::vector<std::string> file_formats = {
     "bmp", "gif", "ico",
     "jpg", "pcx", "png",
     "ppm", "tga", "tif"
+};
+
+struct extra_light_options {
+    point3 position = point3(0, 0, 0);
+    double power = 1.0;
 };
 
 struct camera_options {
@@ -31,7 +37,47 @@ struct camera_options {
     double scale_fac = 1.0;
     bool is_resize = false;
     int resize_w = 0, resize_h = 0;
+    bool has_camera_position = false;
+    point3 camera_position = point3(0, 0, 0);
+    bool has_look_at = false;
+    point3 look_at = point3(0, 0, 0);
+    bool has_vfov = false;
+    double vfov = 0.0;
+    std::vector<extra_light_options> extra_lights;
 };
+
+bool parse_number_list(const std::string& text, std::vector<double>& values) {
+    values.clear();
+    std::istringstream stream(text);
+    std::string field;
+    while (std::getline(stream, field, ',')) {
+        try {
+            size_t consumed = 0;
+            const double value = std::stod(field, &consumed);
+            if (consumed != field.size()) return false;
+            values.push_back(value);
+        } catch (...) {
+            return false;
+        }
+    }
+    return !values.empty();
+}
+
+bool parse_point3(const std::string& text, point3& point) {
+    std::vector<double> values;
+    if (!parse_number_list(text, values) || values.size() != 3) return false;
+    point = point3(values[0], values[1], values[2]);
+    return true;
+}
+
+bool parse_extra_light(const std::string& text, extra_light_options& light) {
+    std::vector<double> values;
+    if (!parse_number_list(text, values) || values.size() != 4) return false;
+    if (values[3] < 0.0 || values[3] > 1.0) return false;
+    light.position = point3(values[0], values[1], values[2]);
+    light.power = values[3];
+    return true;
+}
 
 inline void apply_options(camera& cam, const camera_options& opt) {
     if (opt.is_resize && opt.resize_w > 0 && opt.resize_h > 0) {
@@ -52,6 +98,24 @@ inline void apply_options(camera& cam, const camera_options& opt) {
     cam.is_resize = opt.is_resize;
     cam.scaled_width = opt.resize_w;
     cam.scaled_height = opt.resize_h;
+    if (opt.has_camera_position) cam.lookfrom = opt.camera_position;
+    if (opt.has_look_at) cam.lookat = opt.look_at;
+    if (opt.has_vfov) cam.vfov = opt.vfov;
+}
+
+void apply_extra_lights(hittable_list& world, const camera_options& opt) {
+    for (const auto& light : opt.extra_lights) {
+        if (light.power <= 0.0) continue;
+        const double emission = 15.0 * light.power;
+        auto material = make_shared<diffuse_light>(color(emission, emission, emission));
+        world.add(make_shared<sphere>(light.position, 0.25, material));
+    }
+}
+
+void render_scene(hittable_list& world, camera& cam, const camera_options& opt) {
+    apply_options(cam, opt);
+    apply_extra_lights(world, opt);
+    cam.render(world);
 }
 
 void book1_default_scene(const camera_options& opt) {
@@ -104,8 +168,7 @@ void book1_default_scene(const camera_options& opt) {
     cam.vup = vec3(0, 1, 0);
     cam.defocus_angle = 0.6;
     cam.focus_dist = 10.0;
-    apply_options(cam, opt);
-    cam.render(world);
+    render_scene(world, cam, opt);
 }
 
 void bouncing_spheres(const camera_options& opt) {
@@ -156,8 +219,7 @@ void bouncing_spheres(const camera_options& opt) {
     cam.vup = vec3(0, 1, 0);
     cam.defocus_angle = 0.6;
     cam.focus_dist = 10.0;
-    apply_options(cam, opt);
-    cam.render(world);
+    render_scene(world, cam, opt);
 }
 
 void checkered_spheres(const camera_options& opt) {
@@ -177,8 +239,7 @@ void checkered_spheres(const camera_options& opt) {
     cam.lookat = point3(0, 0, 0);
     cam.vup = vec3(0, 1, 0);
     cam.defocus_angle = 0;
-    apply_options(cam, opt);
-    cam.render(world);
+    render_scene(world, cam, opt);
 }
 
 void earth_scene(const camera_options& opt) {
@@ -197,8 +258,9 @@ void earth_scene(const camera_options& opt) {
     cam.lookat = point3(0, 0, 0);
     cam.vup = vec3(0, 1, 0);
     cam.defocus_angle = 0;
-    apply_options(cam, opt);
-    cam.render(hittable_list(globe));
+    hittable_list world;
+    world.add(globe);
+    render_scene(world, cam, opt);
 }
 
 void perlin_spheres(const camera_options& opt) {
@@ -218,8 +280,7 @@ void perlin_spheres(const camera_options& opt) {
     cam.lookat = point3(0, 0, 0);
     cam.vup = vec3(0, 1, 0);
     cam.defocus_angle = 0;
-    apply_options(cam, opt);
-    cam.render(world);
+    render_scene(world, cam, opt);
 }
 
 void quads_scene(const camera_options& opt) {
@@ -248,8 +309,7 @@ void quads_scene(const camera_options& opt) {
     cam.lookat = point3(0, 0, 0);
     cam.vup = vec3(0, 1, 0);
     cam.defocus_angle = 0;
-    apply_options(cam, opt);
-    cam.render(world);
+    render_scene(world, cam, opt);
 }
 
 void simple_light_scene(const camera_options& opt) {
@@ -273,8 +333,7 @@ void simple_light_scene(const camera_options& opt) {
     cam.lookat = point3(0, 2, 0);
     cam.vup = vec3(0, 1, 0);
     cam.defocus_angle = 0;
-    apply_options(cam, opt);
-    cam.render(world);
+    render_scene(world, cam, opt);
 }
 
 void cornell_box_scene(const camera_options& opt) {
@@ -313,8 +372,7 @@ void cornell_box_scene(const camera_options& opt) {
     cam.lookat = point3(278, 278, 0);
     cam.vup = vec3(0, 1, 0);
     cam.defocus_angle = 0;
-    apply_options(cam, opt);
-    cam.render(world);
+    render_scene(world, cam, opt);
 }
 
 void cornell_smoke_scene(const camera_options& opt) {
@@ -354,8 +412,7 @@ void cornell_smoke_scene(const camera_options& opt) {
     cam.lookat = point3(278, 278, 0);
     cam.vup = vec3(0, 1, 0);
     cam.defocus_angle = 0;
-    apply_options(cam, opt);
-    cam.render(world);
+    render_scene(world, cam, opt);
 }
 
 void final_scene(const camera_options& opt, int image_width = 800, int samples_per_pixel = 10000, int max_depth = 40) {
@@ -426,8 +483,7 @@ void final_scene(const camera_options& opt, int image_width = 800, int samples_p
     cam.lookat = point3(278, 278, 0);
     cam.vup = vec3(0, 1, 0);
     cam.defocus_angle = 0;
-    apply_options(cam, opt);
-    cam.render(world);
+    render_scene(world, cam, opt);
 }
 
 void print_help(const char* prog) {
@@ -442,6 +498,10 @@ void print_help(const char* prog) {
               << "  -r, --resize <w,h>      Width, Height to resize image to\n"
               << "  -w, --width <w>         Width to create the initial image (overrides scene default)\n"
               << "  -s, --scale <factor>    Factor to scale image by (0.1 to 10)\n"
+              << "      --camera <x,y,z>    Override the scene camera position\n"
+              << "      --look-at <x,y,z>   Override the point the camera looks at\n"
+              << "      --vfov <degrees>    Override vertical field of view (0 < degrees < 180)\n"
+              << "      --light <x,y,z,p>   Add a white light; p is brightness from 0.0 to 1.0\n"
               << "  -h, --help              Show this help message\n";
 }
 
@@ -486,6 +546,37 @@ int main(int argc, char* argv[]) {
                 opt.resize_w = std::atoi(res_str.substr(0, comma_pos).c_str());
                 opt.resize_h = std::atoi(res_str.substr(comma_pos + 1).c_str());
             }
+        } else if (arg == "--camera" && i + 1 < argc) {
+            if (!parse_point3(argv[++i], opt.camera_position)) {
+                std::cerr << "Error: --camera requires x,y,z\n";
+                return 2;
+            }
+            opt.has_camera_position = true;
+        } else if (arg == "--look-at" && i + 1 < argc) {
+            if (!parse_point3(argv[++i], opt.look_at)) {
+                std::cerr << "Error: --look-at requires x,y,z\n";
+                return 2;
+            }
+            opt.has_look_at = true;
+        } else if (arg == "--vfov" && i + 1 < argc) {
+            try {
+                opt.vfov = std::stod(argv[++i]);
+            } catch (...) {
+                std::cerr << "Error: --vfov requires a number between 0 and 180\n";
+                return 2;
+            }
+            if (opt.vfov <= 0.0 || opt.vfov >= 180.0) {
+                std::cerr << "Error: --vfov must be between 0 and 180\n";
+                return 2;
+            }
+            opt.has_vfov = true;
+        } else if (arg == "--light" && i + 1 < argc) {
+            extra_light_options light;
+            if (!parse_extra_light(argv[++i], light)) {
+                std::cerr << "Error: --light requires x,y,z,p where p is 0.0 to 1.0\n";
+                return 2;
+            }
+            opt.extra_lights.push_back(light);
         }
     }
 

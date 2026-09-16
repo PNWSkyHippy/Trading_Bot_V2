@@ -125,6 +125,7 @@ preview operation, snapshot, restore, then focused validation.
 """
 
 import os
+import re
 import sys
 import subprocess
 import time
@@ -146,6 +147,354 @@ from quick_tk.core.forms import FormPanel
 
 IS_WINDOWS = sys.platform.startswith("win")
 IS_MAC = sys.platform == "darwin"
+
+import time
+"""
+scene1 = [
+    {
+        "filename": "scene1.image1.ppm",
+        "book": "2",
+        "chapter": "6",
+        "light1": "2,7,3,0.8",
+        "light2": "-3,4,1,0.2",
+        "camera": "26,3,16",
+        "lookat": "0,2,0",
+        "vfov": "28",
+    },
+    {
+        "filename": "scene1.image2.ppm",
+        "book": "2",
+        "chapter": "6",
+        "light1": "2,7,3,0.8",
+        "light2": "-3,4,1,0.2",
+        "camera": "22,3,12",
+        "lookat": "0,2,0",
+        "vfov": "26",
+    },
+    {
+        "filename": "scene1.image3.ppm",
+        "book": "2",
+        "chapter": "6",
+        "light1": "2,7,3,0.8",
+        "light2": "-3,4,1,0.2",
+        "camera": "16,4,7",
+        "lookat": "0,2,0",
+        "vfov": "24",
+    },
+    {
+        "filename": "scene1.image4.ppm",
+        "book": "2",
+        "chapter": "6",
+        "light1": "2,7,3,0.8",
+        "light2": "-3,4,1,0.2",
+        "camera": "9,6,2",
+        "lookat": "0,2,0",
+        "vfov": "22",
+    },
+    {
+        "filename": "scene1.image5.ppm",
+        "book": "2",
+        "chapter": "6",
+        "light1": "2,7,3,0.8",
+        "light2": "-3,4,1,0.2",
+        "camera": "3,9,-3",
+        "lookat": "0,1.5,0",
+        "vfov": "25",
+    },
+    {
+        "filename": "scene1.image6.ppm",
+        "book": "2",
+        "chapter": "6",
+        "light1": "2,7,3,0.8",
+        "light2": "-3,4,1,0.2",
+        "camera": "-4,12,-7",
+        "lookat": "0,0.5,0",
+        "vfov": "30",
+    },
+]
+"""
+def lerp(a, b, t):
+    """Return a value t of the way from a to b."""
+    return a + (b - a) * t
+
+
+def lerp_point(start, end, t):
+    """Interpolate an (x, y, z) point."""
+    return tuple(lerp(a, b, t) for a, b in zip(start, end))
+
+
+def point_text(point):
+    """Turn (x, y, z) into the C++ command format: x,y,z."""
+    return ",".join(f"{value:.3f}" for value in point)
+
+
+def make_scene1(keyframes, common_settings):
+    """
+    Create the scene1 list that your existing render button already uses.
+
+    keyframes:
+        A list of important camera poses.  Frame numbers can be any distance
+        apart; all missing frames are generated automatically.
+    """
+    frames = []
+
+    for keyframe_index in range(len(keyframes) - 1):
+        start = keyframes[keyframe_index]
+        end = keyframes[keyframe_index + 1]
+
+        start_frame = start["frame"]
+        end_frame = end["frame"]
+        frame_count = end_frame - start_frame
+
+        if frame_count <= 0:
+            raise ValueError("Each keyframe frame number must be larger than the one before it.")
+
+        # First segment includes its start frame. Later segments do not,
+        # because that keyframe was already added as the previous segment's end.
+        first_frame = start_frame if keyframe_index == 0 else start_frame + 1
+
+        for frame_number in range(first_frame, end_frame + 1):
+            t = (frame_number - start_frame) / frame_count
+
+            camera = lerp_point(start["camera"], end["camera"], t)
+            lookat = lerp_point(start["lookat"], end["lookat"], t)
+            vfov = lerp(start["vfov"], end["vfov"], t)
+
+            frames.append({
+                **common_settings,
+                "filename": f"scene_data/scene1.image{frame_number:03d}.ppm",
+                "camera": point_text(camera),
+                "lookat": point_text(lookat),
+                "vfov": f"{vfov:.2f}",
+            })
+
+    return frames
+
+
+# These remain the same for every frame in this particular shot.
+common_scene1_settings = {
+    "book": "2",
+    "chapter": "6",
+    "light1": "2,7,3,0.8",
+    "light2": "-3,4,1,0.2",
+}
+
+
+# These are the only camera poses you direct by hand.
+# Python generates every frame between them.
+scene1_keyframes192f = [
+    {
+        "frame": 1,
+        "camera": (46, 3, 32),
+        "lookat": (0, 2, 0),
+        "vfov": 28,
+    },
+    {
+        "frame": 16,
+        "camera": (40, 3, 28),
+        "lookat": (0, 2, 0),
+        "vfov": 26,
+    },
+    {
+        "frame": 32,
+        "camera": (32, 6, 16),
+        "lookat": (0, 2, 0),
+        "vfov": 22,
+    },
+    {
+        "frame": 48,
+        "camera": (16, 12, 8),
+        "lookat": (0, 0.5, 0),
+        "vfov": 30,
+    },
+    {
+        "frame": 64,
+        "camera": (9, 6, 2),
+        "lookat": (0, 2, 0),
+        "vfov": 28,
+    },
+    {
+        "frame": 80,
+        "camera": (4,12,-7),
+        "lookat": (0, 2, 0),
+        "vfov": 26,
+    },
+    {
+        "frame": 96,
+        "camera": (9, 18, -14),
+        "lookat": (0, 2, 0),
+        "vfov": 22,
+    },
+    {
+        "frame": 112,
+        "camera": (15, 24, -12),
+        "lookat": (0, 0.5, 0),
+        "vfov": 30,
+    },
+       {
+            "frame": 128,
+            "camera": (15, 24, -12),
+            "lookat": (0.1, 0.6, 0),
+            "vfov": 32,
+        },
+   {
+        "frame": 144,
+        "camera": (15, 24, -12),
+        "lookat": (.2, 0.7, 0),
+        "vfov": 34,
+    },
+      {
+            "frame": 160,
+            "camera": (15, 24, -12),
+            "lookat": (0.3, 0.8, 0),
+            "vfov": 36,
+        },
+      {
+            "frame": 1176,
+            "camera": (15, 24, -12),
+            "lookat": (0.4, 0.9, 0),
+            "vfov": 38,
+        },
+  {
+        "frame": 192,
+        "camera": (15, 24, -12),
+        "lookat": (0.5, 1.0, 0),
+        "vfov": 40,
+    },
+]
+
+scene1_keyframes112f = [
+    {
+        "frame": 1,
+        "camera": (46, 3, 32),
+        "lookat": (0, 2, 0),
+        "vfov": 28,
+    },
+    {
+        "frame": 16,
+        "camera": (40, 3, 28),
+        "lookat": (0, 2, 0),
+        "vfov": 26,
+    },
+    {
+        "frame": 32,
+        "camera": (32, 6, 16),
+        "lookat": (0, 2, 0),
+        "vfov": 22,
+    },
+    {
+        "frame": 48,
+        "camera": (16, 12, 8),
+        "lookat": (0, 0.5, 0),
+        "vfov": 30,
+    },
+    {
+        "frame": 64,
+        "camera": (9, 6, 2),
+        "lookat": (0, 2, 0),
+        "vfov": 28,
+    },
+    {
+        "frame": 80,
+        "camera": (4,12,-7),
+        "lookat": (0, 2, 0),
+        "vfov": 26,
+    },
+    {
+        "frame": 96,
+        "camera": (9, 18, -14),
+        "lookat": (0, 2, 0),
+        "vfov": 22,
+    },
+    {
+        "frame": 112,
+        "camera": (15, 24, -12),
+        "lookat": (0, 0.5, 0),
+        "vfov": 30,
+    },
+    
+]
+
+scene1_keyframes48f = [
+    {
+        "frame": 1,
+        "camera": (26, 3, 16),
+        "lookat": (0, 2, 0),
+        "vfov": 28,
+    },
+    {
+        "frame": 16,
+        "camera": (22, 3, 12),
+        "lookat": (0, 2, 0),
+        "vfov": 26,
+    },
+    {
+        "frame": 32,
+        "camera": (9, 6, 2),
+        "lookat": (0, 2, 0),
+        "vfov": 22,
+    },
+    {
+        "frame": 48,
+        "camera": (-4, 12, -7),
+        "lookat": (0, 0.5, 0),
+        "vfov": 30,
+    },
+]
+scene1_keyframes24f = [
+    {
+        "frame": 1,
+        "camera": (26, 3, 16),
+        "lookat": (0, 2, 0),
+        "vfov": 28,
+    },
+    {
+        "frame": 8,
+        "camera": (22, 3, 12),
+        "lookat": (0, 2, 0),
+        "vfov": 26,
+    },
+    {
+        "frame": 16,
+        "camera": (9, 6, 2),
+        "lookat": (0, 2, 0),
+        "vfov": 22,
+    },
+    {
+        "frame": 24,
+        "camera": (-4, 12, -7),
+        "lookat": (0, 0.5, 0),
+        "vfov": 30,
+    },
+]
+
+
+# This is the same scene1 list your existing six-frame render code expects.
+scene1 = make_scene1(scene1_keyframes192f, common_scene1_settings)
+
+class RayTraceTimer:
+    def __init__(self, total_pixels=None):
+        if total_pixels is not None:
+            self.total_pixels = total_pixels
+        # Start the clock
+        self.start_time = time.perf_counter()
+        self.last_report_time = self.start_time
+
+    def report_progress(self, current_pixel=0, interval_seconds=10):
+        """Pollable progress reporter. Prints updates only after a set time interval."""
+        current_time = time.perf_counter()
+        
+        # Only print updates every X seconds to avoid slowing down the render loop
+        if current_time - self.last_report_time >= interval_seconds:
+            elapsed = current_time - self.start_time
+            self.last_report_time = current_time
+            return(f"Elapsed: {elapsed / 60:.1f}m")
+
+    def print_final(self):
+        """Call this immediately after the loop finishes."""
+        end_time = time.perf_counter()
+        total_duration = end_time - self.start_time
+        return (f"\n--- Render Complete ---\nTotal Time: {total_duration / 60:.2f} minutes ({total_duration:.2f} seconds)")
 
 class CanvasSelector:
     """
@@ -241,7 +590,7 @@ SCENES_BOOK2 = [
 #  with proper arguments  
 BOOK_BINARIES = {
     "Book 1: In One Weekend": {
-        "mac_dir": "/Users/ronh/Ron/Code/RayTrace/src",
+        "mac_dir": "/Users/ronh/Trading_Bot_V2/Ron/Code/RayTrace/src",
         "wsl_dir": "/mnt/c/Users/Linda/Trading_Bot_V2/Ron/Code/RayTrace/src",
         "binary": "inoneweekend",
         "has_scenes": False,
@@ -249,7 +598,7 @@ BOOK_BINARIES = {
         "book_id": 1,
     },
     "Book 2: The Next Week": {
-        "mac_dir": "/Users/ronh/Ron/Code/RayTrace/src",
+        "mac_dir": "/Users/ronh/Trading_Bot_V2/Ron/Code/RayTrace/src",
         "wsl_dir": "/mnt/c/Users/Linda/Trading_Bot_V2/Ron/Code/RayTrace/src",
         "binary": "inoneweekend",
         "has_scenes": True,
@@ -257,7 +606,7 @@ BOOK_BINARIES = {
         "book_id": 2,
     },
     "Book 3: The Rest of Your Life": {
-        "mac_dir": "/Users/ronh/Ron/Code/RayTrace/src",
+        "mac_dir": "/Users/ronh/Trading_Bot_V2/Ron/Code/RayTrace/src",
         "wsl_dir": "/mnt/c/Users/Linda/Trading_Bot_V2/Ron/Code/RayTrace/src",
         "binary": "inoneweekend",
         "has_scenes": False,
@@ -296,7 +645,9 @@ class LiveRayTraceViewer(ToolView):
         self.columnconfigure(0, weight=0)
         self.columnconfigure(1, weight=1)
         self.rowconfigure(0, weight=1)
-
+        self.debug_win: tk.Toplevel | None = None
+        self.debug_console = None
+#        self.debug_win = None
         self.filepath = ""  #H for output file
         self.rendered_pixels = {}  # memory buffer of image being ray traced 
         self.current_width = 600      # to hold current image dimensions
@@ -321,8 +672,17 @@ class LiveRayTraceViewer(ToolView):
         self.sharpness = 1.0
         self.scale_fac = 1.0
         self.source_image = None   #holds current pre edited image
+        self.edit_base_image = None  # committed Crop/Zoom base
         self.current_transformed_image = None #holds edit progression of image
         self.live_photo = None   # Holds TKinter canvas ready copy of image
+        self.sequence_images = []
+        self.sequence_paths = []
+        self.sequence_index = 0
+        self.sequence_playing = False
+        self.sequence_after_id = None
+        self.sequence_photo = None
+        self.sequence_fps_var = tk.IntVar(value=8)
+        self.sequence_frame_var = tk.IntVar(value=0)
         self.image_stack = []    # Holds list  of Undue states
         self.stack_desc = []     # Holds matching list of triggering event
         self.stack_cnt = 0       # Same as len(image_stack)
@@ -343,6 +703,7 @@ class LiveRayTraceViewer(ToolView):
         self.scale_timer_id = None
         self.setup_menus()
 
+        
         self.form.add_dropdown("aspratio", "Aspect Ratio", ["16/9", "16/10", "21/9", "4/3", "5/4", "None/None"], default="None/None", on_change=self.aspratio_auto_calc)
         
         spin_w = self.form.add_number("width", "Width (px)", min_val=100, max_val=8192, default=600, step=16)
@@ -371,18 +732,54 @@ class LiveRayTraceViewer(ToolView):
 
         # Action Buttons
         self.form.add_button("Start Progressive Render ▶", callback=self.on_start_render, variant="primary")
+        self.form.add_button("Start Homemade Render ▶", callback=self.on_click_render2, variant="primary")
         self.form.add_button("Cancel / Stop Render ⏹", callback=self.on_stop_render, variant="outline")
+        self.form.add_button("Load Image Sequence 📂", callback=self.on_load_image_sequence, variant="surface")
+        self.form.add_button("Export Sequence as GIF 🎞", callback=self.on_export_sequence_gif, variant="surface")
  #       self.form.add_button("Save Rendered Image 💾", callback=self.on_save_image, variant="surface")
 
         # 2. Right Canvas: Live Drawing Image Surface
         self.right_box = self.add_container(parent=self)
         self.right_box.grid(row=0, column=1, sticky="nsew")
+        self.right_box.columnconfigure(0, weight=1)
+        self.right_box.rowconfigure(0, weight=1)
 
         self.canvas_frame = ttk.Frame(self.right_box, style="Card.TFrame", padding=6)
         self.canvas_frame.grid(row=0, column=0, sticky="nsew")
 
         self.img_label = tk.Label(self.canvas_frame, bg="#11111b", text="Select Book & Scene, then click Start Render")
         self.img_label.pack(expand=True)
+
+        # Playback strip for rendered image sequences.  It deliberately lives
+        # outside the renderer so the same player can later feed GIF or MP4 export.
+        sequence_bar = ttk.Frame(self.right_box, padding=(6, 4))
+        sequence_bar.grid(row=1, column=0, sticky="ew")
+        sequence_bar.columnconfigure(2, weight=1)
+
+        ttk.Button(sequence_bar, text="▶ Play", command=self.on_play_sequence).grid(row=0, column=0, padx=(0, 4))
+        ttk.Button(sequence_bar, text="■ Stop", command=self.on_stop_sequence).grid(row=0, column=1, padx=(0, 10))
+
+        self.sequence_scrubber = ttk.Scale(
+            sequence_bar,
+            from_=0,
+            to=0,
+            orient="horizontal",
+            variable=self.sequence_frame_var,
+            command=self.on_sequence_scrub,
+        )
+        self.sequence_scrubber.grid(row=0, column=2, sticky="ew", padx=(0, 10))
+
+        ttk.Label(sequence_bar, text="FPS").grid(row=0, column=3, padx=(0, 3))
+        self.sequence_fps_spin = ttk.Spinbox(
+            sequence_bar,
+            from_=1,
+            to=60,
+            width=4,
+            textvariable=self.sequence_fps_var,
+        )
+        self.sequence_fps_spin.grid(row=0, column=4, padx=(0, 8))
+        self.sequence_info_label = ttk.Label(sequence_bar, text="No sequence loaded")
+        self.sequence_info_label.grid(row=0, column=5, sticky="e")
 
     def setup_menus(self):
         # 1. FILE MENU (Fluent Chained Style)
@@ -400,7 +797,8 @@ class LiveRayTraceViewer(ToolView):
         self.smooth_var = view_menu.add_toggle("Smooth", default=False, on_toggle=self.smooth_auto_calc)
         self.sharpen_var = view_menu.add_toggle("Sharpen", default=False, on_toggle=self.sharpen_auto_calc)
         view_menu.add_separator()
-        self.debug_var = view_menu.add_toggle("Debug", default=False, on_toggle=self.show_debug_data)
+        self.debug_var = view_menu.add_toggle("Debug", default=False, on_toggle=self.open_debug_window)
+        self.bind_all("<Control-d>", self.open_debug_window)
         tools_menu = self.menu("Edit")
         tools_menu.add_command(label="Image Adjustments 🎨 <Ctrl-a>", command=self.open_adjustments_window)
         self.bind_all("<Control-a>", self.open_adjustments_window)
@@ -414,10 +812,42 @@ class LiveRayTraceViewer(ToolView):
         tm3 = tools_menu.add_command(label=f"Undu ({len(self.image_stack)}) <Ctrl-z>", command=self.stack_pop)
         self.bind_all("<Control-z>", self.stack_pop)
         
-    def show_debug_data(self,  argu):
-        values = self.form.get_values()
-        messagebox.showinfo(f'argu={argu}, Values-={values}')
+    def close_debug_window(self):
+        if self.debug_win is not None:
+            self.debug_win.destroy()
+
+        self.debug_win = None
+        self.debug_console = None
+        self.debug_var.set(False)
         
+    def open_debug_window(self, state=None):
+        win = self.debug_win
+
+        if win is not None and win.winfo_exists():
+            win.lift()
+            win.focus_force()
+            if state == False:
+                self.close_debug_window()
+            return
+
+
+        win = tk.Toplevel(self.app.root)
+        win.title("Debug Data")
+        win.geometry("520x520")
+        self.debug_win = win
+        win.protocol("WM_DELETE_WINDOW", self.close_debug_window)
+        # This is a text console, not a form/input panel.
+        self.debug_console = self.add_console(
+            "Ray Tracer Debug Data",
+            parent=cast(tk.Widget, win),
+        )
+        self.debug_console.pack(fill="both", expand=True, padx=8, pady=8)
+
+        # Avoid holding references to widgets after the user closes the window.
+        win.protocol("WM_DELETE_WINDOW", self.close_debug_window)
+    
+
+ 
     def open_adjustments_window(self, event=None):
         # If the window is already open, just bring it to the front
         if getattr(self, "adjustments_win", None) and self.adjustments_win.winfo_exists():
@@ -434,6 +864,7 @@ class LiveRayTraceViewer(ToolView):
         # 2. Put a FormPanel inside the floating window
         adj_form = self.add_form("Live Adjustments", parent=cast(tk.Widget, win))
         adj_form.pack(fill="both", expand=True, padx=8, pady=8)
+        self.adjustments_form = adj_form
 
         # 3. Add your sliders (callbacks only fire after the user finishes dragging or leaves the widget)
         adj_form.add_slider(
@@ -464,36 +895,14 @@ class LiveRayTraceViewer(ToolView):
             default=self.scale_fac, on_change=self.on_scale_change
         )
 
-    def apply_ui_zoom(self, x0, y0, x1, y1):
-        # 1. Store your current full-sized image in your history stack
-        img2 = self.get_cur_img()
-        if img2 is None:
-            return
-        self.stack_add(img2, "Zoom")
-        
-        img = img2.copy()
-        # 2. Slice out the region using Pillow
-        cropped_slice = img.crop((x0, y0, x1, y1))
-    
-        # 3. GET DYNAMIC VALUES: Ask Tkinter for the exact width and height 
-        # that your layout engine has assigned to the frame right now
-        panel_width = self.canvas_frame.winfo_width()
-        panel_height = self.canvas_frame.winfo_height()
-    
-        # 4. Resize the crop to perfectly fill the frame's relative space
-        zoomed_view = cropped_slice.resize((panel_width, panel_height))
-    
-        # 5. Display the zoomed image on your label
-        photo = ImageTk.PhotoImage(zoomed_view)
-        self.live_photo = photo  # Prevent garbage collection
-        self.img_label.config(image=self.live_photo)
-
+  
  
     def _snapshot_editor_state(self, reason="Generic"):
         snapshot = {
             "reason": reason,
             "form_values": self.form.get_values().copy() if hasattr(self, "form") else {},
             "source_image": self.source_image.copy() if self.source_image is not None else None,
+            "edit_base_image": self.edit_base_image.copy() if self.edit_base_image is not None else None,
             "current_transformed_image": self.current_transformed_image.copy() if self.current_transformed_image is not None else None,
             "rendered_pixels": {k: list(v) for k, v in (self.rendered_pixels or {}).items()},
             "current_width": self.current_width,
@@ -525,6 +934,7 @@ class LiveRayTraceViewer(ToolView):
             return
 
         self.source_image = snapshot.get("source_image")
+        self.edit_base_image = snapshot.get("edit_base_image")
         self.current_transformed_image = snapshot.get("current_transformed_image")
 
         manual_image = snapshot.get("manual_image")
@@ -553,10 +963,31 @@ class LiveRayTraceViewer(ToolView):
         self.sharpness = snapshot.get("sharpness", self.sharpness)
         self.scale_fac = snapshot.get("scale_fac", self.scale_fac)
         self.filepath = snapshot.get("filepath", getattr(self, "filepath", ""))
-
+ 
         form_values = snapshot.get("form_values", {})
         if form_values:
             self.form.set_values(form_values)
+
+        self.blur_var.set(self.blur)
+        self.contour_var.set(self.contour)
+        self.smooth_var.set(self.smooth)
+        self.sharpen_var.set(self.sharpen)
+
+        adjustments_form = getattr(self, "adjustments_form", None)
+        if adjustments_form is not None:
+            try:
+                if adjustments_form.winfo_exists():
+                    adjustments_form.set_values({
+                        "rotation": self.rotation,
+                        "contrast": self.contrast,
+                        "color": self.color,
+                        "brightness": self.brightness,
+                        "sharpness": self.sharpness,
+                        "scalefac": self.scale_fac,
+                    })
+            except tk.TclError:
+                self.adjustments_form = None
+
 
         preview_img = self.current_transformed_image or self.source_image or (self.buffer_to_img(self.rendered_pixels) if self.rendered_pixels else None)
         if preview_img is not None:
@@ -634,6 +1065,38 @@ class LiveRayTraceViewer(ToolView):
             return None
         return img.copy()
 
+    def _commit_discrete_image(self, image):
+        """Make a Crop/Zoom result the next stable editing base."""
+        if image is None:
+            return
+
+        self.edit_base_image = image.copy()
+        self.current_transformed_image = image.copy()
+        self.rotation = 0.0
+        self.contrast = self.color = self.brightness = self.sharpness = 1.0
+        self.scale_fac = 1.0
+        self.blur = self.contour = self.smooth = self.sharpen = False
+        self.is_scaled = self.is_resized = False
+        self.aspratio = "None/None"
+        self.image_width, self.image_height = image.size
+        self.form.set_values({"width": self.image_width, "height": self.image_height, "aspratio": self.aspratio})
+        self.blur_var.set(False)
+        self.contour_var.set(False)
+        self.smooth_var.set(False)
+        self.sharpen_var.set(False)
+
+        adjustments_form = getattr(self, "adjustments_form", None)
+        if adjustments_form is not None:
+            try:
+                if adjustments_form.winfo_exists():
+                    adjustments_form.set_values({
+                        "rotation": self.rotation, "contrast": self.contrast,
+                        "color": self.color, "brightness": self.brightness,
+                        "sharpness": self.sharpness, "scalefac": self.scale_fac,
+                    })
+            except tk.TclError:
+                self.adjustments_form = None
+        self.update_live_preview()
     def zoom_in_window(self, event=None):
         img = self.get_cur_img()
         if img is None:
@@ -646,8 +1109,7 @@ class LiveRayTraceViewer(ToolView):
                     max(1, int(current.height * 1.10)))
 
         zoomed = current.resize(new_size, Image.Resampling.LANCZOS)
-        self.current_transformed_image = zoomed
-        self.update_live_preview()
+        self._commit_discrete_image(zoomed)
         
     def zoom_out_window(self, event=None):
         img = self.get_cur_img()
@@ -661,18 +1123,12 @@ class LiveRayTraceViewer(ToolView):
                    max(1, int(current.height * 0.90)))
 
         zoomed = current.resize(new_size, Image.Resampling.LANCZOS)
-        self.current_transformed_image = zoomed
-        self.update_live_preview()
+        self._commit_discrete_image(zoomed)
 
     def zoom_select_window(self, event=None):
-        self.update_live_preview()
-         # 1. Start from clean RAM copy
-        if self.source_image is not None:
-            img = self.source_image.copy()
-        elif self.rendered_pixels:
-            img = self.buffer_to_img(self.rendered_pixels)
-        else:
-            messagebox.showinfo("Error in file buffer to crop~")
+#       self.update_live_preview()
+        img = self.get_cur_img()
+        if img is None:
             return
         photo = ImageTk.PhotoImage(img)
         self.live_photo = photo
@@ -680,17 +1136,16 @@ class LiveRayTraceViewer(ToolView):
         img2 = self.get_cur_img()
         self.stack_add(img2, "Select Zoom")
         results =  self.setup_zoom_image_workspace(self.live_photo)
- 
+
               
     def crop_window(self, event=None):
-        self.update_live_preview()
+#       self.update_live_preview()
          # 1. Start from clean RAM copy
-        if self.source_image is not None:
-            img = self.source_image.copy()
-        elif self.rendered_pixels:
-            img = self.buffer_to_img(self.rendered_pixels)
-        else:
-            messagebox.showinfo("Error in file buffer to crop~")
+        img = self.get_cur_img()
+        if self.debug_console is not None:
+            self.debug_console.write_line(f"In crop_window:\n" 
+                                f"img = self.get_cur_img() returned: {img}")
+        if img is None:
             return
         photo = ImageTk.PhotoImage(img)
         self.live_photo = photo
@@ -698,6 +1153,7 @@ class LiveRayTraceViewer(ToolView):
         img2 = self.get_cur_img()
         self.stack_add(img2, "Cropped")
         results =  self.setup_image_workspace(self.live_photo)
+
  
     def _on_book_changed(self, selected_book: str):
         config = BOOK_BINARIES.get(selected_book, {})
@@ -714,6 +1170,7 @@ class LiveRayTraceViewer(ToolView):
         """Called if a file is loaded."""
         if filepath and os.path.exists(filepath):
             try:
+                self.edit_base_image = None
                 self.source_image = Image.open(filepath)
                 self.orig_image_width, self.orig_image_height = self.source_image.size
                 self.current_width, self.current_height = self.source_image.size
@@ -733,15 +1190,20 @@ class LiveRayTraceViewer(ToolView):
         # 1. Start from the current working image so discrete edits like crop
         # and zoom become the new base for follow-up adjustments without
         # reapplying transforms to the original render.
-        if self.current_transformed_image is not None:
-            img = self.current_transformed_image.copy()
+        # Always rebuild a live adjustment from the unedited source/render
+        # pixels. current_transformed_image is preview output only; using it
+        # as input causes every active effect to compound on every callback.
+        # Start from the currently edited image so the next transformation
+        # works on the result of every previous transformation.
+        if self.edit_base_image is not None:
+            img = self.edit_base_image.copy()
         elif self.source_image is not None:
             img = self.source_image.copy()
         elif self.rendered_pixels:
             img = self.buffer_to_img(self.rendered_pixels)
         else:
             return
-
+ 
         # 2. Apply In-Memory Transformations
         if self.blur:
             img = img.filter(ImageFilter.BLUR)
@@ -805,6 +1267,7 @@ class LiveRayTraceViewer(ToolView):
         self.image_width = width
         self.image_height = height
         self.rendered_pixels = {}
+        self.edit_base_image = None
         self.current_transformed_image = None
         self.source_image = None
 
@@ -853,6 +1316,8 @@ class LiveRayTraceViewer(ToolView):
 
         self.is_rendering = True
         self.start_time = time.time()
+        
+        raytimer = RayTraceTimer()
 
         def _render_stream():
             """Read one renderer scanline at a time on the worker thread.
@@ -863,6 +1328,7 @@ class LiveRayTraceViewer(ToolView):
             ``root.after`` instead of being drawn here.
             """
             lines_drawn = 0
+         
             try:
                 proc = subprocess.Popen(
                     cmd,
@@ -917,6 +1383,10 @@ class LiveRayTraceViewer(ToolView):
                         r_idx = target_row
                         self.app.root.after(0, lambda r=r_idx, data=row_hex_string: self._draw_row(r, data, width, height))
                         lines_drawn += 1
+                        if self.debug_console is not None:
+                            msg = raytimer.report_progress(interval_seconds=10)
+                            if msg:
+                                self.debug_console.write_line(msg)
                 proc.wait()
             except Exception as e:
                 self.app.root.after(0, lambda err=e: self.set_status(f"Error: {err}"))
@@ -925,10 +1395,203 @@ class LiveRayTraceViewer(ToolView):
                 self.current_proc = None
                 elapsed = time.time() - self.start_time
                 self.app.root.after(0, lambda el=elapsed, ld=lines_drawn, h=height: self.set_status(f"✨ Render Finished in {el:.2f}s ({ld}/{h} scanlines)"))
-
+                if self.is_rendering == False and self.debug_console is not None:
+                    self.debug_console.write(f'{raytimer.print_final()}')
         platform_label = "WSL" if IS_WINDOWS else "Native Mac"
         self.run_async(_render_stream, status_msg=f"Rendering {book_name} ({width}x{height}) via OpenMP ({platform_label})...")
+        
+    def on_click_render2(self, argumen=None):
+        if self.is_rendering:
+            messagebox.showinfo("Rendering", "A render is already in progress. Stop it first if you want to start a new one.")
+            return
 
+        self._scene_render_values = self.form.get_values()
+        self._scene_render_queue = iter(scene1)
+        self._start_next_scene_render()
+
+    def _start_next_scene_render(self):
+        """Start one movie frame; the completion callback starts the next."""
+        try:
+            scene = next(self._scene_render_queue)
+        except StopIteration:
+            self.set_status("✨ All scene frames finished.")
+            return
+
+        render_args = [
+            "-o", scene["filename"],
+            "-b", scene["book"],
+            "-c", scene["chapter"],
+            "--light", scene["light1"],
+            "--light", scene["light2"],
+            "--camera", scene["camera"],
+            "--look-at", scene["lookat"],
+            "--vfov", scene["vfov"],
+            "-r", "600,600",
+            "-p",
+        ]
+
+        if self.debug_console is not None:
+            self.debug_console.write(f"Starting frame: {' '.join(render_args)}\n\n")
+
+        self.on_start_render2(
+            self._scene_render_values,
+            render_args,
+            on_complete=self._start_next_scene_render,
+        )
+
+    def on_start_render2(self, values: dict, render_args: list[str], on_complete=None):
+        if self.is_rendering:
+            messagebox.showinfo("Rendering", "A render is already in progress. Stop it first if you want to start a new one.")
+            return
+ 
+
+        width = 600
+        height = 600
+
+        self.current_width = width
+        self.current_height = height
+        self.orig_image_width = width
+        self.orig_image_height = height
+        self.image_width = width
+        self.image_height = height
+        self.rendered_pixels = {}
+        self.edit_base_image = None
+        self.current_transformed_image = None
+        self.source_image = None
+
+        # Reset PhotoImage
+        self.live_photo = tk.PhotoImage(width=width, height=height)
+        self.img_label.config(image=self.live_photo, text="")
+        WIN_EXEC_PATH = "/mnt/c/Users/Linda/Trading_Bot_V2/Ron/Code/RayTrace/src"
+        MAC_EXEC_PATH = "/Users/ronh/Trading_Bot_V2/Ron/Code/RayTrace/src"
+        # Determine unified binary
+
+        binary_name = "inoneweekend"
+
+        if IS_WINDOWS:
+            # On Windows, run the Linux binary through WSL
+            wsl_binary = f"{WIN_EXEC_PATH}/{binary_name}"
+            cmd = ["wsl", wsl_binary, *render_args]
+        else:
+            # On Mac / POSIX, run the compiled binary directly
+            mac_binary = f"{MAC_EXEC_PATH}/{binary_name}"
+            if not os.path.exists(mac_binary):
+                messagebox.showerror(
+                    "Binary Not Found",
+                    f"Executable not found:\n{mac_binary}\nPlease compile it first.",
+                )
+                return
+            cmd = [mac_binary, *render_args]
+
+        if self.debug_console is not None:
+            self.debug_console.write(f'In on_render 2, cmd={cmd}')
+   #     cmd.extend(["-p"])
+
+        self.is_rendering = True
+        self.start_time = time.time()
+        
+        raytimer = RayTraceTimer()
+
+        def _render_stream():
+            """Read one renderer scanline at a time on the worker thread.
+
+            The C++ program writes a P3 header followed by lines in the form
+            ``LINE row red green blue ...``. Tk widgets must only be changed
+            on the main thread, so each parsed row is scheduled with
+            ``root.after`` instead of being drawn here.
+            """
+            lines_drawn = 0
+            completed = False
+            render_error = None
+         
+            try:
+                proc = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    text=True,
+                    bufsize=1,
+                )
+                self.current_proc = proc
+                if proc.stdout is None:
+                    raise RuntimeError("Renderer did not provide stdout")
+                stdout = proc.stdout
+
+                # Skip header lines if P3 is sent
+                first_line = stdout.readline()
+                if "P3" in first_line:
+                    stdout.readline()  # dimensions
+                    stdout.readline()  # max val
+
+                for line in stdout:
+                    if not self.is_rendering:
+                        break
+
+                    line = line.strip()
+                    if not line:
+                        continue
+
+                    tokens = line.split()
+                    if not tokens:
+                        continue
+
+                    if tokens[0] == "LINE" and len(tokens) > 2 and tokens[1].isdigit():
+                        target_row = int(tokens[1])
+                        pixel_tokens = tokens[2:]
+                    else:
+                        target_row = lines_drawn
+                        pixel_tokens = tokens
+
+                    nums = [int(t) for t in pixel_tokens if t.isdigit()]
+                    if len(nums) >= 3:
+                        hex_colors = []
+                        row_rgb = []
+                        for k in range(0, len(nums), 3):
+                            if k + 2 < len(nums):
+                                r, g, b = nums[k], nums[k + 1], nums[k + 2]
+                                hex_colors.append(f"#{r:02x}{g:02x}{b:02x}")
+                                row_rgb.append((r, g, b))
+
+                        self.rendered_pixels[target_row] = row_rgb
+                        row_hex_string = "{" + " ".join(hex_colors) + "}"
+
+                        r_idx = target_row
+                        self.app.root.after(0, lambda r=r_idx, data=row_hex_string: self._draw_row(r, data, width, height))
+                        lines_drawn += 1
+                        if self.debug_console is not None:
+                            msg = raytimer.report_progress(interval_seconds=10)
+                            if msg:
+                                self.debug_console.write_line(msg)
+                return_code = proc.wait()
+                if return_code != 0:
+                    stderr_text = proc.stderr.read() if proc.stderr is not None else ""
+                    raise RuntimeError(
+                        f"Renderer exited with code {return_code}: {stderr_text.strip()}"
+                    )
+                completed = self.is_rendering
+            except Exception as e:
+                render_error = e
+            finally:
+                elapsed = time.time() - self.start_time
+                if self.debug_console is not None:
+                    self.debug_console.write(f'{raytimer.print_final()}')
+
+                def finish_render():
+                    self.is_rendering = False
+                    self.current_proc = None
+                    if render_error is not None:
+                        self.set_status(f"Render error: {render_error}")
+                    elif not completed:
+                        self.set_status("⏹ Render stopped by user.")
+                    elif on_complete is not None:
+                        on_complete()
+                    else:
+                        self.set_status(f"✨ Render Finished in {elapsed:.2f}s ({lines_drawn}/{height} scanlines)")
+
+                self.app.root.after(0, finish_render)
+        platform_label = "WSL" if IS_WINDOWS else "Native Mac"
+        self.run_async(_render_stream, status_msg=f"Rendering an image ({width}x{height}) via OpenMP ({platform_label})...")
+      
     def _draw_row(self, row_idx, row_hex_string, width, height):
         try:
             if self.live_photo is None:
@@ -953,6 +1616,141 @@ class LiveRayTraceViewer(ToolView):
             except Exception:
                 pass
             self.set_status("⏹ Render stopped by user.")
+
+    @staticmethod
+    def _natural_path_key(path):
+        """Sort image1, image2 ... image10 in their visual frame order."""
+        return [
+            int(part) if part.isdigit() else part.lower()
+            for part in re.split(r"(\d+)", os.path.basename(path))
+        ]
+
+    def on_load_image_sequence(self, event=None):
+        paths = filedialog.askopenfilenames(
+            title="Select Rendered Frames",
+            filetypes=[
+                ("Image Files", "*.ppm;*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.tif;*.tiff"),
+                ("All Files", "*.*"),
+            ],
+        )
+        if not paths:
+            return
+
+        loaded_images = []
+        loaded_paths = []
+        failures = []
+        for path in sorted(paths, key=self._natural_path_key):
+            try:
+                with Image.open(path) as image:
+                    loaded_images.append(image.convert("RGB").copy())
+                    loaded_paths.append(path)
+            except Exception as exc:
+                failures.append(f"{os.path.basename(path)}: {exc}")
+
+        if not loaded_images:
+            messagebox.showerror("Load Image Sequence", "None of the selected files could be opened.")
+            return
+
+        self.on_stop_sequence()
+        self.sequence_images = loaded_images
+        self.sequence_paths = loaded_paths
+        self.sequence_index = 0
+        self.sequence_scrubber.configure(to=len(loaded_images) - 1)
+        self.sequence_frame_var.set(0)
+        self.show_sequence_frame(0)
+
+        if failures:
+            messagebox.showwarning(
+                "Some Frames Were Skipped",
+                "The usable frames were loaded, but these files could not be read:\n\n" + "\n".join(failures),
+            )
+
+    def show_sequence_frame(self, frame_index):
+        if not self.sequence_images:
+            return
+
+        frame_index = max(0, min(int(frame_index), len(self.sequence_images) - 1))
+        self.sequence_index = frame_index
+        image = self.sequence_images[frame_index]
+        self.sequence_photo = ImageTk.PhotoImage(image)
+        self.live_photo = self.sequence_photo
+        self.img_label.config(image=self.sequence_photo, text="")
+        self.sequence_frame_var.set(frame_index)
+        self.sequence_info_label.config(
+            text=f"Frame {frame_index + 1}/{len(self.sequence_images)}  {image.width}x{image.height}"
+        )
+
+    def on_sequence_scrub(self, value):
+        if self.sequence_images:
+            self.show_sequence_frame(round(float(value)))
+
+    def _sequence_fps(self):
+        try:
+            return max(1, min(60, int(self.sequence_fps_var.get())))
+        except (ValueError, tk.TclError):
+            self.sequence_fps_var.set(8)
+            return 8
+
+    def on_play_sequence(self):
+        if not self.sequence_images:
+            messagebox.showinfo("Image Sequence", "Load rendered frames first.")
+            return
+        if self.sequence_playing:
+            return
+
+        self.sequence_playing = True
+        self._play_sequence_tick()
+
+    def _play_sequence_tick(self):
+        if not self.sequence_playing or not self.sequence_images:
+            return
+
+        self.show_sequence_frame(self.sequence_index)
+        self.sequence_index = (self.sequence_index + 1) % len(self.sequence_images)
+        interval_ms = round(1000 / self._sequence_fps())
+        self.sequence_after_id = self.after(interval_ms, self._play_sequence_tick)
+
+    def on_stop_sequence(self):
+        self.sequence_playing = False
+        if self.sequence_after_id is not None:
+            try:
+                self.after_cancel(self.sequence_after_id)
+            except tk.TclError:
+                pass
+            self.sequence_after_id = None
+
+    def on_export_sequence_gif(self, event=None):
+        if not self.sequence_images:
+            messagebox.showinfo("Export GIF", "Load rendered frames first.")
+            return
+
+        output_path = filedialog.asksaveasfilename(
+            title="Save Animated GIF",
+            defaultextension=".gif",
+            filetypes=[("Animated GIF", "*.gif")],
+        )
+        if not output_path:
+            return
+
+        base_size = self.sequence_images[0].size
+        frames = [
+            image if image.size == base_size else image.resize(base_size, Image.Resampling.LANCZOS)
+            for image in self.sequence_images
+        ]
+        duration_ms = round(1000 / self._sequence_fps())
+        try:
+            frames[0].save(
+                output_path,
+                save_all=True,
+                append_images=frames[1:],
+                duration=duration_ms,
+                loop=0,
+                disposal=2,
+            )
+            self.set_status(f"🎞 Saved {len(frames)}-frame GIF: {os.path.basename(output_path)}")
+            messagebox.showinfo("GIF Saved", f"Saved {len(frames)} frames at {self._sequence_fps()} fps:\n{output_path}")
+        except Exception as exc:
+            messagebox.showerror("GIF Export Error", f"Could not save GIF:\n{exc}")
 
     def on_save_image(self,  event=None):
         img = self.current_transformed_image
@@ -1198,11 +1996,7 @@ class LiveRayTraceViewer(ToolView):
             width = img.width
             height = img.height
             img_swap = img.crop(box)
-            self.current_transformed_image = img_swap.resize((width, height), Image.Resampling.LANCZOS)
-            self.form.set_value("width", img.width)
-            self.form.set_value("height", img.height) 
-         
-            self.update_live_preview()
+            self._commit_discrete_image(img_swap.resize((width, height), Image.Resampling.LANCZOS))
             
         # 4. Inject the selection tool seamlessly
         CanvasSelector(overlay_canvas, callback=handle_selection)
@@ -1244,11 +2038,7 @@ class LiveRayTraceViewer(ToolView):
             if img is None or x0 < 0 or y0 < 0:
                 return
             box = (x0, y0, x1, y1)
-            self.current_transformed_image = img.crop(box)
-            self.form.set_value("width", self.current_transformed_image.width)
-            self.form.set_value("height", self.current_transformed_image.height) 
-         
-            self.update_live_preview()
+            self._commit_discrete_image(img.crop(box))
             
         # 4. Inject the selection tool seamlessly
         CanvasSelector(overlay_canvas, callback=handle_selection)
@@ -1257,3 +2047,4 @@ if __name__ == "__main__":
     app = QuickApp(title="Progressive Ray-Tracer Studio", size=(1050, 960))
     app.set_single_tool(LiveRayTraceViewer)
     app.run()
+

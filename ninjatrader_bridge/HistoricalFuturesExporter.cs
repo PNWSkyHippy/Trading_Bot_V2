@@ -27,8 +27,8 @@ namespace NinjaTrader.NinjaScript.AddOns
         private const string OutputDir = @"C:\Users\Linda\trading_bot_v2\data\futures_history";
 
         private readonly string[] instruments = {
-            "MES 09-26", "ES 09-26",
-            "MNQ 09-26", "NQ 09-26",
+            "MES 09-26", "ES 12-26",
+            "MNQ 12-26", "NQ 09-26",
             "MYM 09-26", "YM 09-26", 
             "M2K 09-26", "RTY 09-26",
             "MGC 12-26", "GC 12-26", "MNK 09-26",
