@@ -993,8 +993,8 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1-sharpTurnOcclusionFix1-sixPortJunction1-roundSixPortJunction1-sidePortalHandoffFix1-distanceBendConnector1-distanceScenicRibSuppression1-roundJunctionHubShell1-roundHubRenderOwnership1-roundJunctionSphereRoom2-roundJunctionPortalCoverage1-gulletP1-gulletPlayFix1-gulletHallBlock2-rectCornerHandoff1-gulletExactRooms1-gulletSurgeClarity1';
-        const BUILD_LABEL = 'v0.6 · Astral Builder';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1-sharpTurnOcclusionFix1-sixPortJunction1-roundSixPortJunction1-sidePortalHandoffFix1-distanceBendConnector1-distanceScenicRibSuppression1-roundJunctionHubShell1-roundHubRenderOwnership1-roundJunctionSphereRoom2-roundJunctionPortalCoverage1-gulletP1-gulletPlayFix1-gulletHallBlock2-rectCornerHandoff1-gulletExactRooms1-gulletSurgeClarity1-tunnelArcadeFix2';
+        const BUILD_LABEL = 'v0.6 · Astral Arcade & Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
         function updateBuildStamp(status) {
@@ -25016,6 +25016,23 @@
                 keyboardStatus.innerText = '★ STEALTH TAKEDOWN! RUNNER ELIMINATED (+500 PTS) · ALARM PREVENTED ★';
                 spawnTargetParticles({ x: sentry.x, y: sentry.y, z: sentry.z }, sentry.right, sentry.down, '#00ffcc', 40, 5.0, 45);
             }
+
+            // Sentry Captain Cipher Card Drop / Acquisition
+            if (sentry.captainKey && !tunnelMission.keys[sentry.captainKey]) {
+                const kType = sentry.captainKey;
+                tunnelMission.keys[kType] = true;
+                for (const k of tunnelMission.keyItems) {
+                    if (k.type === kType) k.collected = true;
+                }
+                addTargetScore(1500);
+                playSfx('target_chime', { intensity: 2.5 });
+                const col = kType === 'crimson' ? '#ff3355' : (kType === 'cobalt' ? '#00ccff' : '#ffcc00');
+                screenFlashUntil = performance.now() + 350;
+                screenFlashColor = col;
+                spawnTargetParticles({ x: sentry.x, y: sentry.y, z: sentry.z }, sentry.right, sentry.down, col, 50, 6.0, 50);
+                keyboardStatus.innerText = `★ ${kType.toUpperCase()} CIPHER CARD SECURED FROM PATROL CAPTAIN! (+1,500 PTS) ★`;
+                checkExitVaultUnlock();
+            }
         }
 
         function respawnSentry(sentry) {
@@ -26364,40 +26381,77 @@
             keyboardStatus.innerText = `DECOY FLARE LAUNCHED (${shipInventory.items.smokeBomb} REMAINING) · TRACKING DIVERTED`;
         }
 
+        function getSegmentMidpoint(seg) {
+            if (!seg) return { x: 0, y: 0, z: 0 };
+            if (seg.from && seg.to) {
+                return {
+                    x: (seg.from.x + seg.to.x) * 0.5,
+                    y: (seg.from.y + seg.to.y) * 0.5,
+                    z: (seg.from.z + seg.to.z) * 0.5
+                };
+            }
+            if (seg.from) return copyVec(seg.from);
+            if (seg.to) return copyVec(seg.to);
+            return { x: 0, y: 0, z: 0 };
+        }
+
+        function checkExitVaultUnlock() {
+            if (tunnelMission.keys.crimson && tunnelMission.keys.cobalt && tunnelMission.keys.amber) {
+                for (const b of tunnelMission.bulkheads) b.opened = true;
+                if (!tunnelBoss.active && tunnelBoss.alive) {
+                    tunnelBoss.active = true;
+                    keyboardStatus.innerText = '⚠️ ALL 3 CIPHER CARDS SECURED! EXIT VAULT UNLOCKED · BOSS DETECTED!';
+                    playSfx('target_explosion', { intensity: 2.5 });
+                }
+            }
+        }
+
         function initTunnelMission() {
             if (tunnelMission.initialized && tunnelMission.keyItems.length) return;
             const segs = builder.segments;
             if (!segs || segs.length < 3) return;
 
             const n = segs.length;
-            const idx1 = Math.max(1, Math.floor(n * 0.25));
-            const idx2 = Math.max(1, Math.floor(n * 0.55));
-            const idx3 = Math.max(1, Math.floor(n * 0.82));
+            const idx1 = Math.max(0, Math.min(n - 1, Math.floor(n * 0.25)));
+            const idx2 = Math.max(0, Math.min(n - 1, Math.floor(n * 0.55)));
+            const idx3 = Math.max(0, Math.min(n - 1, Math.floor(n * 0.82)));
             const lastIdx = n - 1;
 
-            const p1 = segs[idx1].p1;
-            const p2 = segs[idx2].p1;
-            const p3 = segs[idx3].p1;
-            const pBoss = segs[lastIdx].p2 || segs[lastIdx].p1;
+            const p1 = getSegmentMidpoint(segs[idx1]);
+            const p2 = getSegmentMidpoint(segs[idx2]);
+            const p3 = getSegmentMidpoint(segs[idx3]);
+            const pBoss = segs[lastIdx]?.to ? copyVec(segs[lastIdx].to) : getSegmentMidpoint(segs[lastIdx]);
 
             tunnelMission.keyItems = [
-                { id: 'key_crimson', type: 'crimson', label: 'Crimson Alpha', color: '#ff3355', x: p1.x, y: p1.y, z: p1.z, collected: false },
-                { id: 'key_cobalt',  type: 'cobalt',  label: 'Cobalt Beta',  color: '#00ccff', x: p2.x, y: p2.y, z: p2.z, collected: false },
-                { id: 'key_amber',   type: 'amber',   label: 'Amber Gamma',  color: '#ffcc00', x: p3.x, y: p3.y, z: p3.z, collected: false }
+                { id: 'key_crimson', type: 'crimson', label: 'Crimson Alpha', color: '#ff3355', x: p1.x, y: p1.y, z: p1.z, segmentIndex: idx1, collected: false },
+                { id: 'key_cobalt',  type: 'cobalt',  label: 'Cobalt Beta',  color: '#00ccff', x: p2.x, y: p2.y, z: p2.z, segmentIndex: idx2, collected: false },
+                { id: 'key_amber',   type: 'amber',   label: 'Amber Gamma',  color: '#ffcc00', x: p3.x, y: p3.y, z: p3.z, segmentIndex: idx3, collected: false }
             ];
 
-            // Bulkheads at 40% and 70% corridors
-            const bIdx1 = Math.max(1, Math.floor(n * 0.40));
-            const bIdx2 = Math.max(1, Math.floor(n * 0.70));
+            // Assign keycard carrier roles to strategic sentry captains if sentries exist
+            const keyTypes = ['crimson', 'cobalt', 'amber'];
+            let keyIdx = 0;
+            for (let i = 0; i < tunnelSentries.length && keyIdx < keyTypes.length; i++) {
+                const s = tunnelSentries[i];
+                if (!s || s.isReinforcement) continue;
+                s.captainKey = keyTypes[keyIdx];
+                s.label = keyTypes[keyIdx] === 'crimson' ? '[ 🔴 CRIMSON CAPTAIN ]' : (keyTypes[keyIdx] === 'cobalt' ? '[ 🔵 COBALT CAPTAIN ]' : '[ 🟡 AMBER CAPTAIN ]');
+                s.health = Math.max(s.health, 140);
+                keyIdx++;
+            }
+
+            // Exit Vault Door placed at entrance to final boss chamber
+            const exitSeg = segs[lastIdx];
+            const exitDoorPoint = exitSeg?.from ? copyVec(exitSeg.from) : pBoss;
             tunnelMission.bulkheads = [
-                { id: 'bulk_crimson', requiredKey: 'crimson', x: segs[bIdx1].p1.x, y: segs[bIdx1].p1.y, z: segs[bIdx1].p1.z, radius: segs[bIdx1].radius || 120, opened: false },
-                { id: 'bulk_cobalt',  requiredKey: 'cobalt',  x: segs[bIdx2].p1.x, y: segs[bIdx2].p1.y, z: segs[bIdx2].p1.z, radius: segs[bIdx2].radius || 120, opened: false }
+                { id: 'bulk_vault', requiredKey: 'all', x: exitDoorPoint.x, y: exitDoorPoint.y, z: exitDoorPoint.z, segmentIndex: lastIdx, radius: exitSeg?.radius || 120, opened: false }
             ];
 
             // Initialize Boss in final chamber/segment
             tunnelBoss.x = pBoss.x;
             tunnelBoss.y = pBoss.y;
             tunnelBoss.z = pBoss.z;
+            tunnelBoss.segmentIndex = lastIdx;
             tunnelBoss.exitPortalPoint = copyVec(pBoss);
             tunnelBoss.initialized = true;
             tunnelBoss.active = false;
@@ -26484,36 +26538,20 @@
                     playSfx('target_chime', { intensity: 2.2 });
                     screenFlashUntil = now + 320;
                     screenFlashColor = key.color;
-                    keyboardStatus.innerText = `★ ${key.label.toUpperCase()} DATA CORE ACQUIRED! (+1,000 PTS) · BULKHEAD UNLOCKED ★`;
+                    keyboardStatus.innerText = `★ ${key.label.toUpperCase()} DATA CORE ACQUIRED! (+1,000 PTS) ★`;
                     spawnTargetParticles(key, shipRight, shipDown, key.color, 45, 5.5, 45);
-
-                    // Unlock matching bulkhead
-                    for (const b of tunnelMission.bulkheads) {
-                        if (b.requiredKey === key.type) b.opened = true;
-                    }
-
-                    // Check if all 3 keys collected -> Wake Boss!
-                    if (tunnelMission.keys.crimson && tunnelMission.keys.cobalt && tunnelMission.keys.amber) {
-                        tunnelBoss.active = true;
-                        keyboardStatus.innerText = '⚠️ ALL 3 DATA CORES SECURED! EXIT VAULT UNLOCKED · WARNING: BOSS DETECTED!';
-                        playSfx('target_explosion', { intensity: 2.5 });
-                    }
+                    checkExitVaultUnlock();
                 }
             }
 
-            // 7. Security Bulkhead Collisions
+            // 7. Security Bulkhead (Exit Vault Forcefield)
             for (const b of tunnelMission.bulkheads) {
                 if (b.opened) continue;
+                // Only check if player is in the same segment as the bulkhead
+                if (b.segmentIndex !== null && b.segmentIndex !== undefined && shipSegmentIndex !== b.segmentIndex) continue;
                 const d = Math.hypot(posX - b.x, posY - b.y, posZ - b.z);
-                if (d < 55) {
-                    // Repel ship backwards
-                    posX -= shipForward.x * 12;
-                    posY -= shipForward.y * 12;
-                    posZ -= shipForward.z * 12;
-                    shieldCurrent = Math.max(0, shieldCurrent - 10);
-                    shieldHitFlashUntil = now + 250;
-                    playSfx('wall_bump', { intensity: 1.0 });
-                    keyboardStatus.innerText = `⛔ SECURITY BULKHEAD LOCKED · REQUIRES ${b.requiredKey.toUpperCase()} KEY TO BREACH`;
+                if (d < 50) {
+                    keyboardStatus.innerText = '🔒 EXIT VAULT LOCKED · REQUIRES ALL 3 DATA CORES (ALPHA, BETA, GAMMA)';
                 }
             }
 
@@ -26625,9 +26663,7 @@
                     playSfx('target_chime', { intensity: 2.2 });
                     keyboardStatus.innerText = `★ ${key.label.toUpperCase()} DATA CORE ACQUIRED! (+1,000 PTS) ★`;
                     spawnTargetParticles(key, shipRight, shipDown, key.color, 45, 5.5, 45);
-                    for (const b of tunnelMission.bulkheads) {
-                        if (b.requiredKey === key.type) b.opened = true;
-                    }
+                    checkExitVaultUnlock();
                     return true;
                 }
             }
@@ -26668,19 +26704,27 @@
             }
         }
 
-        function renderTunnelArcadeSystems(centerX, centerY, fov) {
+        function renderTunnelArcadeSystems(centerX, centerY, fov, texturedSegmentIndices = null, forwardPathOverlaySet = null) {
             if (mapView || builderMode) return;
             const now = performance.now();
 
-            // 1. Render Oil Slicks (Viscous purple/black glowing disc on tunnel cross-section)
+            // 1. Render Oil Slicks (Viscous purple glowing disc on tunnel floor/cross-section)
             ctx.save();
             for (const slick of tunnelOilSlicks) {
+                const cam = worldToCamera(slick);
+                if (!cam || cam.z <= 8 || cam.z > 600) continue;
+                const segIdx = overlaySegmentIndexForPoint(slick);
+                if (shouldSuppressOpaqueOverlay(segIdx, texturedSegmentIndices, forwardPathOverlaySet)) continue;
+                if (!pointVisibleThroughCurrentTunnel(slick)) continue;
+
                 const p = projectPoint(slick, centerX, centerY, fov);
-                if (!p || p.z <= 8) continue;
+                if (!p) continue;
                 const elapsed = now - slick.bornAt;
                 const curRad = Math.min(slick.maxRadius, slick.radius + (elapsed / 1000) * 16);
-                const sz = (fov / Math.max(8, p.z)) * curRad;
+                const sz = (fov / Math.max(12, cam.z)) * curRad;
+                const alpha = Math.max(0.2, Math.min(0.85, 1 - cam.z / 600));
 
+                ctx.globalAlpha = alpha;
                 ctx.shadowBlur = 14;
                 ctx.shadowColor = '#bb33ff';
                 ctx.strokeStyle = 'rgba(187, 51, 255, 0.85)';
@@ -26703,14 +26747,18 @@
             // 2. Render EMP Shockwaves
             ctx.save();
             for (const emp of tunnelEmpShockwaves) {
+                const cam = worldToCamera(emp);
+                if (!cam || cam.z <= 8 || cam.z > 700) continue;
+                const segIdx = overlaySegmentIndexForPoint(emp);
+                if (shouldSuppressOpaqueOverlay(segIdx, texturedSegmentIndices, forwardPathOverlaySet)) continue;
                 const p = projectPoint(emp, centerX, centerY, fov);
-                if (!p || p.z <= 8) continue;
+                if (!p) continue;
                 const elapsed = now - emp.bornAt;
                 const frac = elapsed / emp.durationMs;
-                const r = (fov / Math.max(8, p.z)) * (frac * emp.maxRadius);
+                const r = (fov / Math.max(12, cam.z)) * (frac * emp.maxRadius);
 
-                ctx.strokeStyle = `rgba(0, 220, 255, ${1 - frac})`;
-                ctx.lineWidth = 4.0;
+                ctx.strokeStyle = `rgba(0, 220, 255, ${Math.max(0, 1 - frac)})`;
+                ctx.lineWidth = 3.5;
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
                 ctx.stroke();
@@ -26720,9 +26768,13 @@
             // 3. Render Decoy Flares
             ctx.save();
             for (const flare of tunnelDecoyFlares) {
+                const cam = worldToCamera(flare);
+                if (!cam || cam.z <= 8 || cam.z > 600) continue;
+                const segIdx = overlaySegmentIndexForPoint(flare);
+                if (shouldSuppressOpaqueOverlay(segIdx, texturedSegmentIndices, forwardPathOverlaySet)) continue;
                 const p = projectPoint(flare, centerX, centerY, fov);
-                if (!p || p.z <= 8) continue;
-                const sz = Math.max(8, (fov / Math.max(8, p.z)) * 16);
+                if (!p) continue;
+                const sz = Math.max(8, (fov / Math.max(12, cam.z)) * 16);
                 ctx.shadowBlur = 18;
                 ctx.shadowColor = '#ffffff';
                 ctx.fillStyle = (now % 100 < 50) ? '#ffffff' : '#ffffaa';
@@ -26732,14 +26784,23 @@
             }
             ctx.restore();
 
-            // 4. Render Tri-Key Data Cores (Floating rotating glowing crystals)
+            // 4. Render Tri-Key Data Cores (Floating rotating glowing crystals, with corridor occlusion)
             for (const key of tunnelMission.keyItems) {
                 if (key.collected) continue;
+                const cam = worldToCamera(key);
+                if (!cam || cam.z <= 8 || cam.z > 450) continue;
+
+                const segIdx = overlaySegmentIndexForPoint(key, key.segmentIndex);
+                if (shouldSuppressOpaqueOverlay(segIdx, texturedSegmentIndices, forwardPathOverlaySet)) continue;
+                if (!pointVisibleThroughCurrentTunnel(key)) continue;
+
                 const p = projectPoint(key, centerX, centerY, fov);
-                if (!p || p.z <= 8) continue;
-                const sz = Math.max(16, (fov / Math.max(8, p.z)) * 36);
+                if (!p) continue;
+                const sz = Math.max(10, Math.min(32, (fov / Math.max(16, cam.z)) * 26));
+                const alpha = Math.max(0.25, Math.min(1.0, 1 - cam.z / 450));
 
                 ctx.save();
+                ctx.globalAlpha = alpha;
                 ctx.shadowBlur = 16;
                 ctx.shadowColor = key.color;
                 ctx.strokeStyle = key.color;
@@ -26761,112 +26822,138 @@
                 ctx.arc(p.x, p.y, sz * 0.35, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Label
-                ctx.font = 'bold 11px monospace';
-                ctx.textAlign = 'center';
-                ctx.fillStyle = '#ffffff';
-                ctx.fillText(`[ ${key.label.toUpperCase()} ]`, p.x, p.y - sz - 6);
+                // Label (only when close to prevent screen clutter)
+                if (cam.z < 180) {
+                    ctx.font = 'bold 11px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(`[ ${key.label.toUpperCase()} ]`, p.x, p.y - sz - 6);
+                }
                 ctx.restore();
             }
 
-            // 5. Render Security Bulkheads
+            // 5. Render Security Bulkhead (Exit Vault Forcefield, with corridor occlusion)
             for (const b of tunnelMission.bulkheads) {
                 if (b.opened) continue;
+                const cam = worldToCamera(b);
+                if (!cam || cam.z <= 8 || cam.z > 500) continue;
+
+                const segIdx = overlaySegmentIndexForPoint(b, b.segmentIndex);
+                if (shouldSuppressOpaqueOverlay(segIdx, texturedSegmentIndices, forwardPathOverlaySet)) continue;
+                if (!pointVisibleThroughCurrentTunnel(b)) continue;
+
                 const p = projectPoint(b, centerX, centerY, fov);
-                if (!p || p.z <= 8) continue;
-                const sz = Math.max(20, (fov / Math.max(8, p.z)) * (b.radius || 120));
+                if (!p) continue;
+                const sz = Math.max(16, Math.min(180, (fov / Math.max(16, cam.z)) * (b.radius || 120)));
+                const alpha = Math.max(0.25, Math.min(0.95, 1 - cam.z / 500));
 
                 ctx.save();
+                ctx.globalAlpha = alpha;
                 ctx.strokeStyle = 'rgba(255, 0, 40, 0.75)';
-                ctx.lineWidth = 3.0;
-                ctx.strokeRect(p.x - sz, p.y - sz, sz * 2, sz * 2);
+                ctx.lineWidth = 2.5;
 
-                // Laser Grid Lines
-                const lines = 6;
+                // Subtle circular laser iris barrier
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, sz, 0, Math.PI * 2);
+                ctx.stroke();
+
+                // Scanning laser bar
+                const barY = p.y + Math.sin(now * 0.004) * sz * 0.75;
+                const halfW = Math.sqrt(Math.max(0, sz * sz - (barY - p.y) * (barY - p.y)));
                 ctx.strokeStyle = (now % 160 < 80) ? '#ff0033' : '#ffaa00';
                 ctx.lineWidth = 1.8;
-                for (let i = 1; i < lines; i++) {
-                    const ly = p.y - sz + (i / lines) * (sz * 2);
-                    ctx.beginPath();
-                    ctx.moveTo(p.x - sz, ly);
-                    ctx.lineTo(p.x + sz, ly);
-                    ctx.stroke();
-                }
+                ctx.beginPath();
+                ctx.moveTo(p.x - halfW, barY);
+                ctx.lineTo(p.x + halfW, barY);
+                ctx.stroke();
 
-                ctx.font = 'bold 12px monospace';
-                ctx.textAlign = 'center';
-                ctx.fillStyle = '#ff3366';
-                ctx.fillText(`⛔ LOCKED: ${b.requiredKey.toUpperCase()} KEY REQUIRED`, p.x, p.y - sz - 8);
+                if (cam.z < 220) {
+                    ctx.font = 'bold 11px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#ff3366';
+                    ctx.fillText('🔒 EXIT VAULT · ALL 3 CIPHER CARDS REQUIRED', p.x, p.y - sz - 8);
+                }
                 ctx.restore();
             }
 
             // 6. Render Aegis Core Dreadnought Boss
             if (tunnelBoss.active) {
-                const p = projectPoint(tunnelBoss, centerX, centerY, fov);
-                if (p && p.z > 8) {
-                    const sz = Math.max(30, (fov / Math.max(8, p.z)) * 95);
+                const cam = worldToCamera(tunnelBoss);
+                if (cam && cam.z > 8 && cam.z < 1200) {
+                    const segIdx = overlaySegmentIndexForPoint(tunnelBoss, tunnelBoss.segmentIndex);
+                    if (!shouldSuppressOpaqueOverlay(segIdx, texturedSegmentIndices, forwardPathOverlaySet) ||
+                        (shipSegmentIndex === tunnelBoss.segmentIndex)) {
+                        const p = projectPoint(tunnelBoss, centerX, centerY, fov);
+                        if (p) {
+                            const sz = Math.max(20, Math.min(220, (fov / Math.max(16, cam.z)) * 95));
 
-                    ctx.save();
-                    ctx.shadowBlur = 20;
-                    ctx.shadowColor = tunnelBoss.phase === 3 ? '#ff0033' : '#00ddff';
+                            ctx.save();
+                            ctx.shadowBlur = 20;
+                            ctx.shadowColor = tunnelBoss.phase === 3 ? '#ff0033' : '#00ddff';
 
-                    // Shield Aura Ring
-                    if (tunnelBoss.shields > 0) {
-                        ctx.strokeStyle = 'rgba(0, 220, 255, 0.65)';
-                        ctx.lineWidth = 3.5;
-                        ctx.beginPath();
-                        ctx.arc(p.x, p.y, sz * 1.25, 0, Math.PI * 2);
-                        ctx.stroke();
+                            // Shield Aura Ring
+                            if (tunnelBoss.shields > 0) {
+                                ctx.strokeStyle = 'rgba(0, 220, 255, 0.65)';
+                                ctx.lineWidth = 3.5;
+                                ctx.beginPath();
+                                ctx.arc(p.x, p.y, sz * 1.25, 0, Math.PI * 2);
+                                ctx.stroke();
+                            }
+
+                            // Heavy Hull Octagon
+                            ctx.fillStyle = '#101525';
+                            ctx.strokeStyle = tunnelBoss.phase === 3 ? '#ff0033' : '#00aaff';
+                            ctx.lineWidth = 3.0;
+                            ctx.beginPath();
+                            for (let a = 0; a < 8; a++) {
+                                const ang = (a / 8) * Math.PI * 2;
+                                const hx = p.x + Math.cos(ang) * sz;
+                                const hy = p.y + Math.sin(ang) * sz;
+                                if (a === 0) ctx.moveTo(hx, hy);
+                                else ctx.lineTo(hx, hy);
+                            }
+                            ctx.closePath();
+                            ctx.fill();
+                            ctx.stroke();
+
+                            // Glowing Reactor Core
+                            ctx.fillStyle = tunnelBoss.phase === 3 ? ((now % 100 < 50) ? '#ffffff' : '#ff0033') : '#ffaa00';
+                            ctx.beginPath();
+                            ctx.arc(p.x, p.y, sz * 0.45, 0, Math.PI * 2);
+                            ctx.fill();
+
+                            // Twin Turret Barrels
+                            ctx.strokeStyle = '#ffffff';
+                            ctx.lineWidth = 2.5;
+                            ctx.strokeRect(p.x - sz * 0.8, p.y - sz * 0.2, sz * 0.35, sz * 0.4);
+                            ctx.strokeRect(p.x + sz * 0.45, p.y - sz * 0.2, sz * 0.35, sz * 0.4);
+                            ctx.restore();
+                        }
                     }
-
-                    // Heavy Hull Octagon
-                    ctx.fillStyle = '#101525';
-                    ctx.strokeStyle = tunnelBoss.phase === 3 ? '#ff0033' : '#00aaff';
-                    ctx.lineWidth = 3.0;
-                    ctx.beginPath();
-                    for (let a = 0; a < 8; a++) {
-                        const ang = (a / 8) * Math.PI * 2;
-                        const hx = p.x + Math.cos(ang) * sz;
-                        const hy = p.y + Math.sin(ang) * sz;
-                        if (a === 0) ctx.moveTo(hx, hy);
-                        else ctx.lineTo(hx, hy);
-                    }
-                    ctx.closePath();
-                    ctx.fill();
-                    ctx.stroke();
-
-                    // Glowing Reactor Core
-                    ctx.fillStyle = tunnelBoss.phase === 3 ? ((now % 100 < 50) ? '#ffffff' : '#ff0033') : '#ffaa00';
-                    ctx.beginPath();
-                    ctx.arc(p.x, p.y, sz * 0.45, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    // Twin Turret Barrels
-                    ctx.strokeStyle = '#ffffff';
-                    ctx.lineWidth = 2.5;
-                    ctx.strokeRect(p.x - sz * 0.8, p.y - sz * 0.2, sz * 0.35, sz * 0.4);
-                    ctx.strokeRect(p.x + sz * 0.45, p.y - sz * 0.2, sz * 0.35, sz * 0.4);
-                    ctx.restore();
                 }
 
                 // Render Boss Bullets
                 for (const bb of tunnelBoss.bullets) {
+                    const cam = worldToCamera(bb);
+                    if (!cam || cam.z <= 8 || cam.z > 700) continue;
                     const bp = projectPoint(bb, centerX, centerY, fov);
-                    if (!bp || bp.z <= 8) continue;
+                    if (!bp) continue;
                     ctx.save();
                     ctx.fillStyle = '#ff2244';
                     ctx.shadowBlur = 10;
                     ctx.shadowColor = '#ff0000';
                     ctx.beginPath();
-                    ctx.arc(bp.x, bp.y, Math.max(4, (fov / Math.max(8, bp.z)) * 12), 0, Math.PI * 2);
+                    ctx.arc(bp.x, bp.y, Math.max(4, (fov / Math.max(12, cam.z)) * 12), 0, Math.PI * 2);
                     ctx.fill();
                     ctx.restore();
                 }
 
                 // Render Boss Mines
                 for (const bm of tunnelBoss.mines) {
+                    const cam = worldToCamera(bm);
+                    if (!cam || cam.z <= 8 || cam.z > 600) continue;
                     const mp = projectPoint(bm, centerX, centerY, fov);
-                    if (!mp || mp.z <= 8) continue;
+                    if (!mp) continue;
                     ctx.save();
                     ctx.strokeStyle = (now % 140 < 70) ? '#ff0033' : '#ffaa00';
                     ctx.lineWidth = 2.2;
@@ -26879,25 +26966,28 @@
             if (tunnelBoss.defeatedAt) {
                 const ep = tunnelBoss.exitPortalPoint;
                 if (ep) {
-                    const pp = projectPoint(ep, centerX, centerY, fov);
-                    if (pp && pp.z > 8) {
-                        const sz = Math.max(25, (fov / Math.max(8, pp.z)) * 80);
-                        ctx.save();
-                        ctx.shadowBlur = 25;
-                        ctx.shadowColor = '#00ffcc';
-                        ctx.strokeStyle = '#00ffcc';
-                        ctx.lineWidth = 4.0;
-                        ctx.fillStyle = 'rgba(0, 255, 200, 0.45)';
-                        ctx.beginPath();
-                        ctx.arc(pp.x, pp.y, sz, 0, Math.PI * 2);
-                        ctx.fill();
-                        ctx.stroke();
+                    const cam = worldToCamera(ep);
+                    if (cam && cam.z > 8 && cam.z < 900) {
+                        const pp = projectPoint(ep, centerX, centerY, fov);
+                        if (pp) {
+                            const sz = Math.max(25, (fov / Math.max(16, cam.z)) * 80);
+                            ctx.save();
+                            ctx.shadowBlur = 25;
+                            ctx.shadowColor = '#00ffcc';
+                            ctx.strokeStyle = '#00ffcc';
+                            ctx.lineWidth = 4.0;
+                            ctx.fillStyle = 'rgba(0, 255, 200, 0.45)';
+                            ctx.beginPath();
+                            ctx.arc(pp.x, pp.y, sz, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.stroke();
 
-                        ctx.font = 'bold 13px monospace';
-                        ctx.textAlign = 'center';
-                        ctx.fillStyle = '#ffffff';
-                        ctx.fillText('★ EXIT PORTAL OPEN · FLY THROUGH TO WIN ★', pp.x, pp.y - sz - 10);
-                        ctx.restore();
+                            ctx.font = 'bold 13px monospace';
+                            ctx.textAlign = 'center';
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fillText('★ EXIT PORTAL OPEN · FLY THROUGH TO WIN ★', pp.x, pp.y - sz - 10);
+                            ctx.restore();
+                        }
                     }
                 }
             }
@@ -26906,25 +26996,30 @@
             ctx.save();
             for (const sentry of tunnelSentries) {
                 if (!sentryIsActive(sentry) || !sentry.engaged) continue;
+                const dist = Math.hypot(sentry.x - posX, sentry.y - posY, sentry.z - posZ);
+                if (dist > 380) continue;
                 const cam = worldToCamera(sentry);
                 const p = projectPoint(sentry, centerX, centerY, fov);
                 const isBehind = !cam || cam.z <= 8;
                 const isOffScreen = isBehind || !p || p.x < 35 || p.x > canvas.width - 35 || p.y < 35 || p.y > canvas.height - 35;
                 if (isOffScreen) {
-                    const dist = Math.round(Math.hypot(sentry.x - posX, sentry.y - posY, sentry.z - posZ));
+                    const dInt = Math.round(dist);
                     const isLeft = cam ? cam.x < 0 : true;
-                    ctx.font = 'bold 12px monospace';
+                    ctx.font = 'bold 11px monospace';
                     ctx.textAlign = isLeft ? 'left' : 'right';
                     const edgeX = isLeft ? 26 : canvas.width - 26;
                     const edgeY = Math.max(120, Math.min(canvas.height - 120, centerY + (sentry.y - posY) * 0.25));
 
                     if (sentry.isRunner) {
                         ctx.fillStyle = (now % 140 < 70) ? '#ffcc00' : '#ff0033';
-                        ctx.fillText(isLeft ? `◄◄ RUNNER ${dist}m` : `RUNNER ${dist}m ►►`, edgeX, edgeY);
+                        ctx.fillText(isLeft ? `◄◄ RUNNER ${dInt}m` : `RUNNER ${dInt}m ►►`, edgeX, edgeY);
+                    } else if (sentry.captainKey) {
+                        ctx.fillStyle = sentry.captainKey === 'crimson' ? '#ff3355' : (sentry.captainKey === 'cobalt' ? '#00ccff' : '#ffcc00');
+                        ctx.fillText(isLeft ? `◄◄ CAPTAIN ${dInt}m` : `CAPTAIN ${dInt}m ►►`, edgeX, edgeY);
                     } else {
                         ctx.fillStyle = sentry.isReinforcement ? '#ff0033' : '#ff8800';
-                        const label = sentry.isReinforcement ? 'REINFORCEMENT' : 'HOSTILE';
-                        ctx.fillText(isLeft ? `◄◄ ${label} ${dist}m` : `${label} ${dist}m ►►`, edgeX, edgeY);
+                        const label = sentry.isReinforcement ? 'REINFORCE' : 'HOSTILE';
+                        ctx.fillText(isLeft ? `◄◄ ${label} ${dInt}m` : `${label} ${dInt}m ►►`, edgeX, edgeY);
                     }
                 }
             }
@@ -27246,7 +27341,7 @@
                 ctx.font = 'bold 12px monospace';
                 ctx.textAlign = 'left';
                 ctx.textBaseline = 'bottom';
-                ctx.fillStyle = '#ffd0b0';
+                ctx.fillStyle = sentry.captainKey ? (sentry.captainKey === 'crimson' ? '#ff3355' : (sentry.captainKey === 'cobalt' ? '#00ccff' : '#ffcc00')) : '#ffd0b0';
                 ctx.fillText(sentry.label, projected.x + 8, projected.y - 6);
             }
             if (!mapMode && sentry.health < SENTRY_HEALTH_MAX) {
@@ -32513,7 +32608,7 @@
                 renderGalagaPhase(centerX, centerY, fov);
                 renderGulletPhase(centerX, centerY, fov);
                 renderDefenderPhase(centerX, centerY, fov);
-                renderTunnelArcadeSystems(centerX, centerY, fov);
+                renderTunnelArcadeSystems(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
                 renderLaserAimCrosshair(centerX, centerY, fov);
                 updateAndRenderParticles(centerX, centerY, fov, frameScale);
                 renderRocketBlastClouds(centerX, centerY, fov);

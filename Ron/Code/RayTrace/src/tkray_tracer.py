@@ -638,15 +638,15 @@ class LiveRayTraceViewer(ToolView):
         tools_menu.add_command(label="Image Adjustments 🎨 <Ctrl-a>", command=self.open_adjustments_window)
         self.bind_all("<Control-a>", self.open_adjustments_window)
         tools_menu.add_command(label="Zoom to Selection", command=self.zoom_select_window)
-        tools_menu.add_command(label="Zoom In <Shift-+>", command=self.zoom_in_window)
-        self.bind_all("<Shift-+>", self.zoom_in_window)
-        tools_menu.add_command(label="Zoom Out <Control-+", command=self.zoom_out_window)
-        self.bind_all("<Control-+>", self.zoom_out_window)
+        tools_menu.add_command(label="Zoom In < [ >", command=self.zoom_in_window)
+        self.bind_all("<KeyPress-bracketleft>", self.zoom_in_window)
+        tools_menu.add_command(label="Zoom Out < ] >", command=self.zoom_out_window)   
+        self.bind_all("<KeyPress-bracketright>", self.zoom_in_window)
         tools_menu.add_command(label="Crop Window <Ctrl-b>", command=self.crop_window)
         self.bind_all("<Control-b>", self.crop_window)
         tm3 = tools_menu.add_command(label=f"Undu ({len(self.image_stack)}) <Ctrl-z>", command=self.stack_pop)
         self.bind_all("<Control-z>", self.stack_pop)
-    
+#        self.bind_all("<Shift-KeyPress-plus>", self.zoom_in_window)
     def restore_def_ctrls(self):
         self.pending_control = None
         self.pending_snapshot = None
