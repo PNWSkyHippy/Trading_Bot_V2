@@ -102,7 +102,7 @@ union {
    superellipsoid {
       0.15
       texture {
-         pigment {image_map {"sign.jpg"} scale 2 translate -1}
+         pigment {image_map {"/mnt/c/users/linda/trading_bot_v2/Ron/Code/PovRay/Scenes/advanced/cliche/sign.jpg"} scale 2 translate -1}
          finish {ambient 0.1 diffuse 0.8 phong 1}
       }
       texture { // dirt layer

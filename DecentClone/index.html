@@ -1066,6 +1066,9 @@
                 items: [
                     { keys: ['V', 'RMB'], desc: 'Fire primary pulse lasers (10% dmg/hit vs sentries)' },
                     { keys: ['X'], desc: 'Launch rocket (10 loaded; inventory auto-reloads)' },
+                    { keys: ['G / 4'], desc: 'Deploy Oil / Plasma Slick behind ship (spins chasers into walls)' },
+                    { keys: ['T / 5'], desc: 'Detonate EMP Shockwave (stuns sentries 5s & strips boss shields)' },
+                    { keys: ['6'], desc: 'Deploy Decoy Flare (diverts enemy laser tracking)' },
                     { keys: ['Blue Targets'], desc: 'Shoot or fly through for score points' },
                     { keys: ['Red Targets'], desc: 'Avoid hazards or destroy before contact' },
                     { keys: ['Sentries'], desc: 'Automated patrol drones (10 hits to destroy; 5 min respawn)' },
@@ -1567,21 +1570,29 @@
                 color: '#ffad32',
                 usable: true
             },
-            smokeBomb: {
-                label: 'Smoke Bomb',
-                shortLabel: 'SMOKE',
-                description: 'Reserved for the ship-upgrade/equipment system.',
+            oilSlick: {
+                label: 'Oil / Plasma Slick',
+                shortLabel: 'SLICK',
+                description: 'Deploys an expanding viscous slick behind ship causing chasers to spin out into walls.',
                 maxStack: 99,
-                color: '#b8c4ca',
-                usable: false
+                color: '#bb44ff',
+                usable: true
             },
             empBomb: {
-                label: 'EMP Bomb',
+                label: 'EMP Shockwave',
                 shortLabel: 'EMP',
-                description: 'Reserved for the ship-upgrade/equipment system.',
+                description: 'Detonates an electromagnetic shockwave disabling nearby sentries and stripping shields.',
                 maxStack: 99,
                 color: '#55ccff',
-                usable: false
+                usable: true
+            },
+            smokeBomb: {
+                label: 'Decoy Flare',
+                shortLabel: 'DECOY',
+                description: 'Deploys a burning magnesium decoy flare diverting enemy laser tracking.',
+                maxStack: 99,
+                color: '#ffffaa',
+                usable: true
             }
         });
         const ROCKET_SPEED = 12.5;
@@ -6362,6 +6373,11 @@
                 shipInventory.items[itemType] = 0;
                 if (def.maxStack < 0) shipInventory.items[itemType] = 0;
             }
+            // Starting countermeasure charges for arcade tactical combat
+            shipInventory.items.rocketPack = 2;
+            shipInventory.items.oilSlick = 3;
+            shipInventory.items.empBomb = 2;
+            shipInventory.items.smokeBomb = 3;
             updateRocketHud();
         }
 
@@ -6429,6 +6445,27 @@
                 keyboardStatus.innerText =
                     `rocket pack loaded — ${rocketInventory.reservePacks} reserve`;
                 updateRocketHud();
+                savePlayerProfile();
+                renderInventoryOverlay();
+                return true;
+            }
+            if (itemType === 'oilSlick') {
+                shipInventory.items.oilSlick = available - 1;
+                deployTunnelOilSlick();
+                savePlayerProfile();
+                renderInventoryOverlay();
+                return true;
+            }
+            if (itemType === 'empBomb') {
+                shipInventory.items.empBomb = available - 1;
+                detonateTunnelEmpShockwave();
+                savePlayerProfile();
+                renderInventoryOverlay();
+                return true;
+            }
+            if (itemType === 'smokeBomb') {
+                shipInventory.items.smokeBomb = available - 1;
+                deployTunnelDecoyFlare();
                 savePlayerProfile();
                 renderInventoryOverlay();
                 return true;
@@ -11698,6 +11735,61 @@
                 keyboardStatus.innerText = 'map: nothing else to cancel';
                 e.preventDefault();
                 return;
+            }
+            // Countermeasures: Oil Slick (G / 4), EMP (T / 5), Decoy (6)
+            if (
+                (key === 'g' || key === '4') &&
+                !mapView &&
+                !builderMode &&
+                !e.ctrlKey &&
+                !e.altKey &&
+                !e.metaKey &&
+                !e.repeat
+            ) {
+                if (useShipInventoryItem('oilSlick')) {
+                    e.preventDefault();
+                    return;
+                } else {
+                    keyboardStatus.innerText = 'NO OIL SLICKS REMAINING · FIND CACHES OR ELIMINATE GUARDS';
+                    e.preventDefault();
+                    return;
+                }
+            }
+            if (
+                (key === 't' || key === '5') &&
+                !mapView &&
+                !builderMode &&
+                !e.ctrlKey &&
+                !e.altKey &&
+                !e.metaKey &&
+                !e.repeat
+            ) {
+                if (useShipInventoryItem('empBomb')) {
+                    e.preventDefault();
+                    return;
+                } else {
+                    keyboardStatus.innerText = 'NO EMP BOMBS REMAINING · FIND CACHES OR ELIMINATE GUARDS';
+                    e.preventDefault();
+                    return;
+                }
+            }
+            if (
+                key === '6' &&
+                !mapView &&
+                !builderMode &&
+                !e.ctrlKey &&
+                !e.altKey &&
+                !e.metaKey &&
+                !e.repeat
+            ) {
+                if (useShipInventoryItem('smokeBomb')) {
+                    e.preventDefault();
+                    return;
+                } else {
+                    keyboardStatus.innerText = 'NO DECOY FLARES REMAINING';
+                    e.preventDefault();
+                    return;
+                }
             }
             if (
                 key === 'x' &&
@@ -23314,6 +23406,13 @@
                 );
                 kills += 1;
             }
+            if (tunnelBoss.active && tunnelBoss.alive) {
+                const bDistSq = distanceSq(origin, tunnelBoss);
+                if (bDistSq <= blastSq * 1.5) {
+                    applyBossDamage(120, 'rocket');
+                    spawnTargetParticles(tunnelBoss, shipRight, shipDown, '#ffaa00', 45, 6.0, 45);
+                }
+            }
             if (galagaPhase.active && galagaPhase.state === 'play') {
                 let bossIndex = -1;
                 for (let i = 0; i < galagaPhase.fighters.length; i++) {
@@ -24818,7 +24917,15 @@
                 engaged: false,
                 patrolBroken: false,
                 lastFireAt: 0,
-                lastSeenAt: 0
+                lastSeenAt: 0,
+                isRunner: false,
+                fleeStartedAt: 0,
+                alarmTriggered: false,
+                empStunnedUntil: 0,
+                slippingUntil: 0,
+                slipVx: 0, slipVy: 0, slipVz: 0,
+                spinAngle: 0,
+                isReinforcement: false
             };
         }
 
@@ -24901,6 +25008,14 @@
                 52
             );
             addTargetScore(SCORE_SENTRY_KILL);
+
+            // Stealth intercept bonus if destroying a runner before alarm
+            if (sentry.isRunner && !sentry.alarmTriggered) {
+                addTargetScore(500);
+                playSfx('target_chime', { intensity: 1.8 });
+                keyboardStatus.innerText = '★ STEALTH TAKEDOWN! RUNNER ELIMINATED (+500 PTS) · ALARM PREVENTED ★';
+                spawnTargetParticles({ x: sentry.x, y: sentry.y, z: sentry.z }, sentry.right, sentry.down, '#00ffcc', 40, 5.0, 45);
+            }
         }
 
         function respawnSentry(sentry) {
@@ -25773,6 +25888,32 @@
         function tickSentryAI(sentry, ship, dt) {
             if (!sentryIsActive(sentry)) return;
             const now = performance.now();
+
+            // 1. Check EMP Stun
+            if (sentry.empStunnedUntil && now < sentry.empStunnedUntil) {
+                sentry.engaged = false;
+                sentry.spinAngle = (sentry.spinAngle || 0) + 2.5 * dt;
+                return;
+            }
+
+            // 2. Check Oil Slick Slip & Spin
+            if (sentry.slippingUntil && now < sentry.slippingUntil) {
+                sentry.spinAngle = (sentry.spinAngle || 0) + 18.0 * dt;
+                sentry.x += (sentry.slipVx || 0) * dt * 60;
+                sentry.y += (sentry.slipVy || 0) * dt * 60;
+                sentry.z += (sentry.slipVz || 0) * dt * 60;
+                // Soft wall collision check
+                const nearest = nearestTunnelPoint(sentry);
+                if (nearest && nearest.dist > 75) {
+                    sentry.health = Math.max(0, sentry.health - 25);
+                    spawnTargetParticles(sentry, sentry.right, sentry.down, '#bb33ff', 16, 3.5, 20);
+                    playSfx('wall_bump', { intensity: 1.2, worldPos: sentry });
+                    sentry.slippingUntil = 0;
+                    if (sentry.health <= 0) destroySentry(sentry);
+                }
+                return;
+            }
+
             const dist = sentryDistanceToPlayer(sentry, ship);
             const seesPlayer = sentryCanSeePlayer(sentry, ship);
             const wasEngaged = sentry.engaged;
@@ -25782,6 +25923,44 @@
                 sentry.patrolBroken = true;
                 sentry.lastSeenAt = now;
                 if (!wasEngaged) alertNearbySentries(sentry, ship, now);
+            }
+
+            // 3. Runner / Alarm Scout Behavior
+            if (sentry.engaged && !sentry.isRunner && !tunnelSectorAlarm.active) {
+                // If this sentry's squad has no runner yet and takes damage or has low HP, designate as runner
+                if (sentry.health < SENTRY_HEALTH_MAX * 0.65 || (sentry.id && sentry.id.endsWith('_runner'))) {
+                    sentry.isRunner = true;
+                    sentry.fleeStartedAt = now;
+                    keyboardStatus.innerText = '⚠️ SCOUT FLEEING TO SOUND SECTOR ALARM! INTERCEPT! [120m]';
+                }
+            }
+
+            if (sentry.isRunner) {
+                if (!sentry.fleeStartedAt) sentry.fleeStartedAt = now;
+                const awayVector = {
+                    x: sentry.x - ship.x,
+                    y: sentry.y - ship.y,
+                    z: sentry.z - ship.z
+                };
+                const awayDist = Math.hypot(awayVector.x, awayVector.y, awayVector.z) || 1;
+                const fleeSpeed = SENTRY_CHASE_SPEED * 1.85;
+                moveSentryToward(sentry, {
+                    x: sentry.x + (awayVector.x / awayDist) * 400,
+                    y: sentry.y + (awayVector.y / awayDist) * 400,
+                    z: sentry.z + (awayVector.z / awayDist) * 400
+                }, fleeSpeed, dt);
+                sentryFaceToward(sentry, {
+                    x: sentry.x + (awayVector.x / awayDist) * 400,
+                    y: sentry.y + (awayVector.y / awayDist) * 400,
+                    z: sentry.z + (awayVector.z / awayDist) * 400
+                });
+
+                // Runner escaped to sound alarm!
+                if (!sentry.alarmTriggered && (now - sentry.fleeStartedAt > 6500 || awayDist > 350)) {
+                    sentry.alarmTriggered = true;
+                    soundTunnelSectorAlarm(sentry, now);
+                }
+                return;
             }
 
             if (sentry.engaged && !seesPlayer && sentry.lastSeenAt > 0 && now - sentry.lastSeenAt > 4000) {
@@ -25880,6 +26059,993 @@
         function flightSentryAiActive() {
             return !mapView && !portalTransit.active && !gameOverState.active && !gulletPhase.active && !galagaPhase.active;
         }
+
+
+        /* =========================================================================
+         * 3D TUNNEL ARCADE SYSTEMS MODULE
+         * High-octane arcade action for the main tunnel:
+         * 1. Procedural Klaxon Alarm Synthesizer & Sector Alert Network
+         * 2. Countermeasures: Oil/Plasma Slicks, EMP Shockwaves, Decoy Flares
+         * 3. Tri-Key Security Matrix: 3 Data Cores, Bulkheads, Checkpoints
+         * 4. Exit Vault Climax: Aegis Core Dreadnought Boss Guardian
+         * 5. Tactical Screen-Edge Threat Chevrons & Arcade Callouts
+         * =========================================================================
+         */
+
+        const tunnelSectorAlarm = {
+            active: false,
+            startedAt: 0,
+            until: 0,
+            reinforcementsSpawned: 0,
+        };
+
+        const tunnelOilSlicks = [];
+        const tunnelEmpShockwaves = [];
+        const tunnelDecoyFlares = [];
+
+        const tunnelMission = {
+            active: true,
+            keys: {
+                crimson: false,
+                cobalt: false,
+                amber: false
+            },
+            keyItems: [],
+            bulkheads: [],
+            initialized: false
+        };
+
+        const tunnelBoss = {
+            active: false,
+            initialized: false,
+            x: 0, y: 0, z: 0,
+            vx: 0, vy: 0, vz: 0,
+            hp: 1200,
+            maxHp: 1200,
+            shields: 600,
+            maxShields: 600,
+            phase: 1, // 1: Plasma salvos, 2: Mines & tracking beam, 3: Enraged core meltdown
+            lastFireAt: 0,
+            lastMineAt: 0,
+            stunnedUntil: 0,
+            alive: true,
+            defeatedAt: 0,
+            bullets: [],
+            mines: [],
+            escorts: [],
+            exitPortalPoint: null
+        };
+
+        const tunnelKlaxonAudio = {
+            osc1: null,
+            osc2: null,
+            gain: null,
+            active: false
+        };
+
+        function updateTunnelKlaxonAudio() {
+            if (!audioUnlocked || !tunnelSectorAlarm.active || mapView || builderMode) {
+                stopTunnelKlaxonAudio();
+                return;
+            }
+            const ctx = resumeWebAudioContext();
+            if (!ctx) return;
+            const now = ctx.currentTime;
+            if (!tunnelKlaxonAudio.active) {
+                try {
+                    const osc1 = ctx.createOscillator();
+                    const osc2 = ctx.createOscillator();
+                    const gain = ctx.createGain();
+
+                    osc1.type = 'sawtooth';
+                    osc2.type = 'square';
+                    osc1.frequency.setValueAtTime(440, now);
+                    osc2.frequency.setValueAtTime(660, now);
+
+                    gain.gain.setValueAtTime(0.0001, now);
+                    gain.gain.setTargetAtTime(0.12, now, 0.08);
+
+                    osc1.connect(gain);
+                    osc2.connect(gain);
+                    gain.connect(ctx.destination);
+
+                    osc1.start(now);
+                    osc2.start(now);
+
+                    tunnelKlaxonAudio.osc1 = osc1;
+                    tunnelKlaxonAudio.osc2 = osc2;
+                    tunnelKlaxonAudio.gain = gain;
+                    tunnelKlaxonAudio.active = true;
+                } catch (_) {}
+            }
+            if (tunnelKlaxonAudio.osc1 && tunnelKlaxonAudio.osc2) {
+                const step = Math.floor(now / 0.38) % 2;
+                const f1 = step === 0 ? 440 : 660;
+                const f2 = step === 0 ? 660 : 440;
+                tunnelKlaxonAudio.osc1.frequency.setTargetAtTime(f1, now, 0.02);
+                tunnelKlaxonAudio.osc2.frequency.setTargetAtTime(f2, now, 0.02);
+            }
+        }
+
+        function stopTunnelKlaxonAudio() {
+            if (!tunnelKlaxonAudio.active) return;
+            const ctx = getWebAudioContext();
+            if (ctx && tunnelKlaxonAudio.gain) {
+                tunnelKlaxonAudio.gain.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.04);
+            }
+            setTimeout(() => {
+                try {
+                    if (tunnelKlaxonAudio.osc1) { tunnelKlaxonAudio.osc1.stop(); tunnelKlaxonAudio.osc1.disconnect(); }
+                    if (tunnelKlaxonAudio.osc2) { tunnelKlaxonAudio.osc2.stop(); tunnelKlaxonAudio.osc2.disconnect(); }
+                } catch (_) {}
+                tunnelKlaxonAudio.osc1 = null;
+                tunnelKlaxonAudio.osc2 = null;
+                tunnelKlaxonAudio.gain = null;
+                tunnelKlaxonAudio.active = false;
+            }, 60);
+        }
+
+        function playProceduralEmpAudio() {
+            if (!audioUnlocked) return;
+            const ctx = resumeWebAudioContext();
+            if (!ctx) return;
+            const now = ctx.currentTime;
+            try {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(160, now);
+                osc.frequency.exponentialRampToValueAtTime(36, now + 0.45);
+                gain.gain.setValueAtTime(0.35, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.5);
+
+                const noiseOsc = ctx.createOscillator();
+                const noiseGain = ctx.createGain();
+                noiseOsc.type = 'sawtooth';
+                noiseOsc.frequency.setValueAtTime(1600, now);
+                noiseOsc.frequency.exponentialRampToValueAtTime(140, now + 0.3);
+                noiseGain.gain.setValueAtTime(0.25, now);
+                noiseGain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+                noiseOsc.connect(noiseGain);
+                noiseGain.connect(ctx.destination);
+                noiseOsc.start(now);
+                noiseOsc.stop(now + 0.35);
+            } catch (_) {}
+        }
+
+        function playProceduralSlickAudio() {
+            if (!audioUnlocked) return;
+            const ctx = resumeWebAudioContext();
+            if (!ctx) return;
+            const now = ctx.currentTime;
+            try {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(360, now);
+                osc.frequency.exponentialRampToValueAtTime(80, now + 0.35);
+                gain.gain.setValueAtTime(0.20, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.4);
+            } catch (_) {}
+        }
+
+        function soundTunnelSectorAlarm(sourceSentry, now) {
+            tunnelSectorAlarm.active = true;
+            tunnelSectorAlarm.startedAt = now;
+            tunnelSectorAlarm.until = now + 24000;
+            playSfx('target_explosion', { intensity: 2.0, worldPos: sourceSentry || getPlayerWorldPos() });
+            keyboardStatus.innerText = '🚨 SECTOR ALARM ACTIVATED! EMERGENCY STROBES ON · REINFORCEMENTS INBOUND! 🚨';
+
+            // Spawn 2-3 fast interceptor reinforcement drones near the player
+            const count = 3;
+            for (let i = 0; i < count; i++) {
+                const angle = (i / count) * Math.PI * 2;
+                const offsetDist = 240 + Math.random() * 80;
+                const spawnPos = {
+                    x: posX + Math.cos(angle) * offsetDist,
+                    y: posY + (Math.random() - 0.5) * 60,
+                    z: posZ + Math.sin(angle) * offsetDist
+                };
+                const newSentry = {
+                    id: `reinforcement_${Date.now()}_${i}`,
+                    x: spawnPos.x, y: spawnPos.y, z: spawnPos.z,
+                    spawn: { point: copyVec(spawnPos), right: copyVec(shipRight), down: copyVec(shipDown), forward: copyVec(shipForward) },
+                    right: copyVec(shipRight), down: copyVec(shipDown), forward: copyVec(shipForward),
+                    health: 80,
+                    mode: 'guard',
+                    path: [],
+                    waypointIndex: 0,
+                    lingerUntil: 0,
+                    engaged: true,
+                    patrolBroken: true,
+                    lastFireAt: now + 800 + Math.random() * 800,
+                    lastSeenAt: now,
+                    isRunner: false,
+                    fleeStartedAt: 0,
+                    alarmTriggered: true,
+                    empStunnedUntil: 0,
+                    slippingUntil: 0,
+                    slipVx: 0, slipVy: 0, slipVz: 0,
+                    spinAngle: 0,
+                    isReinforcement: true
+                };
+                tunnelSentries.push(newSentry);
+                spawnTargetParticles(spawnPos, shipRight, shipDown, '#ff0044', 30, 4.5, 30);
+            }
+        }
+
+        function deployTunnelOilSlick() {
+            const origin = {
+                x: posX - shipForward.x * 35,
+                y: posY - shipForward.y * 35,
+                z: posZ - shipForward.z * 35
+            };
+            tunnelOilSlicks.push({
+                x: origin.x,
+                y: origin.y,
+                z: origin.z,
+                radius: 14,
+                maxRadius: 75,
+                bornAt: performance.now(),
+                durationMs: 16000
+            });
+            playProceduralSlickAudio();
+            spawnTargetParticles(origin, shipRight, shipDown, '#bb33ff', 35, 4.0, 35);
+            keyboardStatus.innerText = `OIL SLICK DEPLOYED (${shipInventory.items.oilSlick} REMAINING) · CHASM TRAP ARMED`;
+        }
+
+        function detonateTunnelEmpShockwave() {
+            const now = performance.now();
+            const origin = { x: posX, y: posY, z: posZ };
+            tunnelEmpShockwaves.push({
+                x: origin.x,
+                y: origin.y,
+                z: origin.z,
+                radius: 15,
+                maxRadius: 380,
+                bornAt: now,
+                durationMs: 700
+            });
+            playProceduralEmpAudio();
+            screenFlashUntil = now + 240;
+            screenFlashColor = 'rgba(0, 220, 255, 0.45)';
+
+            let stunnedCount = 0;
+            for (const sentry of tunnelSentries) {
+                if (!sentryIsActive(sentry)) continue;
+                const d = Math.hypot(sentry.x - origin.x, sentry.y - origin.y, sentry.z - origin.z);
+                if (d <= 380) {
+                    sentry.empStunnedUntil = now + 5000;
+                    sentry.engaged = false;
+                    sentry.spinAngle = (Math.random() - 0.5) * 6;
+                    spawnTargetParticles(sentry, sentry.right, sentry.down, '#00ffff', 25, 4.5, 30);
+                    stunnedCount++;
+                }
+            }
+
+            if (tunnelBoss.active && tunnelBoss.hp > 0) {
+                const bd = Math.hypot(tunnelBoss.x - origin.x, tunnelBoss.y - origin.y, tunnelBoss.z - origin.z);
+                if (bd <= 450) {
+                    tunnelBoss.stunnedUntil = now + 2500;
+                    tunnelBoss.shields = Math.max(0, tunnelBoss.shields - 200);
+                    spawnTargetParticles(tunnelBoss, shipRight, shipDown, '#00ffff', 45, 6.0, 45);
+                }
+            }
+
+            keyboardStatus.innerText = `⚡ EMP SHOCKWAVE DETONATED! (${stunnedCount} SENTRIES STUNNED) · SYSTEMS OFFLINE 5s`;
+        }
+
+        function deployTunnelDecoyFlare() {
+            const origin = {
+                x: posX - shipForward.x * 25,
+                y: posY - shipForward.y * 25,
+                z: posZ - shipForward.z * 25
+            };
+            tunnelDecoyFlares.push({
+                x: origin.x,
+                y: origin.y,
+                z: origin.z,
+                vx: -shipForward.x * 4 + (Math.random() - 0.5) * 2,
+                vy: -shipForward.y * 4 + (Math.random() - 0.5) * 2,
+                vz: -shipForward.z * 4 + (Math.random() - 0.5) * 2,
+                bornAt: performance.now(),
+                durationMs: 4500
+            });
+            playSfx('wall_bump', { intensity: 1.2, worldPos: origin });
+            spawnTargetParticles(origin, shipRight, shipDown, '#ffffaa', 25, 3.5, 25);
+            keyboardStatus.innerText = `DECOY FLARE LAUNCHED (${shipInventory.items.smokeBomb} REMAINING) · TRACKING DIVERTED`;
+        }
+
+        function initTunnelMission() {
+            if (tunnelMission.initialized && tunnelMission.keyItems.length) return;
+            const segs = builder.segments;
+            if (!segs || segs.length < 3) return;
+
+            const n = segs.length;
+            const idx1 = Math.max(1, Math.floor(n * 0.25));
+            const idx2 = Math.max(1, Math.floor(n * 0.55));
+            const idx3 = Math.max(1, Math.floor(n * 0.82));
+            const lastIdx = n - 1;
+
+            const p1 = segs[idx1].p1;
+            const p2 = segs[idx2].p1;
+            const p3 = segs[idx3].p1;
+            const pBoss = segs[lastIdx].p2 || segs[lastIdx].p1;
+
+            tunnelMission.keyItems = [
+                { id: 'key_crimson', type: 'crimson', label: 'Crimson Alpha', color: '#ff3355', x: p1.x, y: p1.y, z: p1.z, collected: false },
+                { id: 'key_cobalt',  type: 'cobalt',  label: 'Cobalt Beta',  color: '#00ccff', x: p2.x, y: p2.y, z: p2.z, collected: false },
+                { id: 'key_amber',   type: 'amber',   label: 'Amber Gamma',  color: '#ffcc00', x: p3.x, y: p3.y, z: p3.z, collected: false }
+            ];
+
+            // Bulkheads at 40% and 70% corridors
+            const bIdx1 = Math.max(1, Math.floor(n * 0.40));
+            const bIdx2 = Math.max(1, Math.floor(n * 0.70));
+            tunnelMission.bulkheads = [
+                { id: 'bulk_crimson', requiredKey: 'crimson', x: segs[bIdx1].p1.x, y: segs[bIdx1].p1.y, z: segs[bIdx1].p1.z, radius: segs[bIdx1].radius || 120, opened: false },
+                { id: 'bulk_cobalt',  requiredKey: 'cobalt',  x: segs[bIdx2].p1.x, y: segs[bIdx2].p1.y, z: segs[bIdx2].p1.z, radius: segs[bIdx2].radius || 120, opened: false }
+            ];
+
+            // Initialize Boss in final chamber/segment
+            tunnelBoss.x = pBoss.x;
+            tunnelBoss.y = pBoss.y;
+            tunnelBoss.z = pBoss.z;
+            tunnelBoss.exitPortalPoint = copyVec(pBoss);
+            tunnelBoss.initialized = true;
+            tunnelBoss.active = false;
+            tunnelBoss.alive = true;
+            tunnelBoss.hp = 1200;
+            tunnelBoss.maxHp = 1200;
+            tunnelBoss.shields = 600;
+            tunnelBoss.maxShields = 600;
+
+            tunnelMission.initialized = true;
+        }
+
+        function tickTunnelArcadeSystems(frameScale = 1) {
+            if (mapView || builderMode || portalTransit.active) return;
+            const now = performance.now();
+            initTunnelMission();
+
+            // 1. Update Procedural Klaxon Audio
+            updateTunnelKlaxonAudio();
+
+            // 2. Sector Alarm Expiry
+            if (tunnelSectorAlarm.active && now > tunnelSectorAlarm.until) {
+                tunnelSectorAlarm.active = false;
+                keyboardStatus.innerText = 'SECTOR ALARM DEACTIVATED · AREA SECURED';
+            }
+
+            // 3. Update Oil Slicks & Sentry Slip Collisions
+            for (let i = tunnelOilSlicks.length - 1; i >= 0; i--) {
+                const slick = tunnelOilSlicks[i];
+                const elapsed = now - slick.bornAt;
+                if (elapsed > slick.durationMs) {
+                    tunnelOilSlicks.splice(i, 1);
+                    continue;
+                }
+                const curRad = Math.min(slick.maxRadius, slick.radius + (elapsed / 1000) * 16);
+                for (const sentry of tunnelSentries) {
+                    if (!sentryIsActive(sentry) || (sentry.slippingUntil && sentry.slippingUntil > now)) continue;
+                    const d = Math.hypot(sentry.x - slick.x, sentry.y - slick.y, sentry.z - slick.z);
+                    if (d <= curRad) {
+                        sentry.slippingUntil = now + 3200;
+                        const dx = (sentry.x - slick.x) || (Math.random() - 0.5);
+                        const dy = (sentry.y - slick.y) || (Math.random() - 0.5);
+                        const dz = (sentry.z - slick.z) || (Math.random() - 0.5);
+                        const mag = Math.hypot(dx, dy, dz) || 1;
+                        sentry.slipVx = (dx / mag) * 16;
+                        sentry.slipVy = (dy / mag) * 16;
+                        sentry.slipVz = (dz / mag) * 16;
+                        sentry.health = Math.max(0, sentry.health - 45);
+                        playSfx('wall_bump', { intensity: 1.5, worldPos: sentry });
+                        spawnTargetParticles(sentry, sentry.right, sentry.down, '#bb33ff', 24, 3.8, 25);
+                        keyboardStatus.innerText = '★ PURSUING SENTRY HIT OIL SLICK! SPUN OUT INTO WALL (-45 HP) ★';
+                        if (sentry.health <= 0) destroySentry(sentry);
+                    }
+                }
+            }
+
+            // 4. Update EMP Shockwaves
+            for (let i = tunnelEmpShockwaves.length - 1; i >= 0; i--) {
+                const emp = tunnelEmpShockwaves[i];
+                if (now - emp.bornAt > emp.durationMs) {
+                    tunnelEmpShockwaves.splice(i, 1);
+                }
+            }
+
+            // 5. Update Decoy Flares
+            for (let i = tunnelDecoyFlares.length - 1; i >= 0; i--) {
+                const flare = tunnelDecoyFlares[i];
+                flare.x += flare.vx * frameScale;
+                flare.y += flare.vy * frameScale;
+                flare.z += flare.vz * frameScale;
+                if (now - flare.bornAt > flare.durationMs) {
+                    tunnelDecoyFlares.splice(i, 1);
+                }
+            }
+
+            // 6. Tri-Key Pickups
+            for (const key of tunnelMission.keyItems) {
+                if (key.collected) continue;
+                const d = Math.hypot(posX - key.x, posY - key.y, posZ - key.z);
+                if (d < 50) {
+                    key.collected = true;
+                    tunnelMission.keys[key.type] = true;
+                    addTargetScore(1000);
+                    playSfx('target_chime', { intensity: 2.2 });
+                    screenFlashUntil = now + 320;
+                    screenFlashColor = key.color;
+                    keyboardStatus.innerText = `★ ${key.label.toUpperCase()} DATA CORE ACQUIRED! (+1,000 PTS) · BULKHEAD UNLOCKED ★`;
+                    spawnTargetParticles(key, shipRight, shipDown, key.color, 45, 5.5, 45);
+
+                    // Unlock matching bulkhead
+                    for (const b of tunnelMission.bulkheads) {
+                        if (b.requiredKey === key.type) b.opened = true;
+                    }
+
+                    // Check if all 3 keys collected -> Wake Boss!
+                    if (tunnelMission.keys.crimson && tunnelMission.keys.cobalt && tunnelMission.keys.amber) {
+                        tunnelBoss.active = true;
+                        keyboardStatus.innerText = '⚠️ ALL 3 DATA CORES SECURED! EXIT VAULT UNLOCKED · WARNING: BOSS DETECTED!';
+                        playSfx('target_explosion', { intensity: 2.5 });
+                    }
+                }
+            }
+
+            // 7. Security Bulkhead Collisions
+            for (const b of tunnelMission.bulkheads) {
+                if (b.opened) continue;
+                const d = Math.hypot(posX - b.x, posY - b.y, posZ - b.z);
+                if (d < 55) {
+                    // Repel ship backwards
+                    posX -= shipForward.x * 12;
+                    posY -= shipForward.y * 12;
+                    posZ -= shipForward.z * 12;
+                    shieldCurrent = Math.max(0, shieldCurrent - 10);
+                    shieldHitFlashUntil = now + 250;
+                    playSfx('wall_bump', { intensity: 1.0 });
+                    keyboardStatus.innerText = `⛔ SECURITY BULKHEAD LOCKED · REQUIRES ${b.requiredKey.toUpperCase()} KEY TO BREACH`;
+                }
+            }
+
+            // 8. Update Aegis Core Dreadnought Boss
+            if (tunnelBoss.active && tunnelBoss.alive) {
+                const bdx = posX - tunnelBoss.x;
+                const bdy = posY - tunnelBoss.y;
+                const bdz = posZ - tunnelBoss.z;
+                const distToPlayer = Math.hypot(bdx, bdy, bdz) || 1;
+
+                // Boss Phases
+                if (tunnelBoss.hp <= tunnelBoss.maxHp * 0.25) tunnelBoss.phase = 3;
+                else if (tunnelBoss.hp <= tunnelBoss.maxHp * 0.60) tunnelBoss.phase = 2;
+                else tunnelBoss.phase = 1;
+
+                // Movement: Face and slowly advance toward player
+                if (!tunnelBoss.stunnedUntil || now > tunnelBoss.stunnedUntil) {
+                    const bossSpeed = tunnelBoss.phase === 3 ? 3.8 : 2.0;
+                    tunnelBoss.x += (bdx / distToPlayer) * bossSpeed * frameScale;
+                    tunnelBoss.y += (bdy / distToPlayer) * bossSpeed * frameScale;
+                    tunnelBoss.z += (bdz / distToPlayer) * bossSpeed * frameScale;
+
+                    // Weapons Fire
+                    const fireInterval = tunnelBoss.phase === 3 ? 1200 : (tunnelBoss.phase === 2 ? 1800 : 2200);
+                    if (now - tunnelBoss.lastFireAt > fireInterval && distToPlayer < 900) {
+                        tunnelBoss.lastFireAt = now;
+                        // Fire twin plasma spread
+                        const bSpeed = 7.5;
+                        for (let s = -1; s <= 1; s += 2) {
+                            tunnelBoss.bullets.push({
+                                x: tunnelBoss.x + s * 25,
+                                y: tunnelBoss.y,
+                                z: tunnelBoss.z,
+                                vx: (bdx / distToPlayer) * bSpeed + (Math.random() - 0.5) * 1.5,
+                                vy: (bdy / distToPlayer) * bSpeed + (Math.random() - 0.5) * 1.5,
+                                vz: (bdz / distToPlayer) * bSpeed + (Math.random() - 0.5) * 1.5,
+                                life: 0
+                            });
+                        }
+                    }
+
+                    // Phase 2 & 3: Deploy Proximity Mines
+                    if (tunnelBoss.phase >= 2 && now - tunnelBoss.lastMineAt > 4000) {
+                        tunnelBoss.lastMineAt = now;
+                        tunnelBoss.mines.push({
+                            x: tunnelBoss.x + (Math.random() - 0.5) * 80,
+                            y: tunnelBoss.y + (Math.random() - 0.5) * 80,
+                            z: tunnelBoss.z + (Math.random() - 0.5) * 80,
+                            bornAt: now
+                        });
+                        playSfx('wall_bump', { intensity: 1.0, worldPos: tunnelBoss });
+                    }
+                }
+
+                // Update Boss Bullets
+                for (let i = tunnelBoss.bullets.length - 1; i >= 0; i--) {
+                    const bb = tunnelBoss.bullets[i];
+                    bb.x += bb.vx * frameScale;
+                    bb.y += bb.vy * frameScale;
+                    bb.z += bb.vz * frameScale;
+                    bb.life += 1;
+                    if (Math.hypot(posX - bb.x, posY - bb.y, posZ - bb.z) < 32) {
+                        shieldCurrent = Math.max(0, shieldCurrent - 18);
+                        shieldHitFlashUntil = now + 280;
+                        if (shieldCurrent <= 0) hullCurrent = Math.max(0, hullCurrent - 15);
+                        tunnelBoss.bullets.splice(i, 1);
+                        continue;
+                    }
+                    if (bb.life > 140) tunnelBoss.bullets.splice(i, 1);
+                }
+
+                // Update Boss Mines
+                for (let i = tunnelBoss.mines.length - 1; i >= 0; i--) {
+                    const bm = tunnelBoss.mines[i];
+                    if (Math.hypot(posX - bm.x, posY - bm.y, posZ - bm.z) < 42) {
+                        spawnTargetParticles(bm, shipRight, shipDown, '#ff0033', 35, 5.0, 35);
+                        playSfx('target_explosion', { intensity: 1.5, worldPos: bm });
+                        shieldCurrent = Math.max(0, shieldCurrent - 30);
+                        shieldHitFlashUntil = now + 350;
+                        tunnelBoss.mines.splice(i, 1);
+                        continue;
+                    }
+                    if (now - bm.bornAt > 22000) tunnelBoss.mines.splice(i, 1);
+                }
+            }
+
+            // 9. Exit Portal Transition on Boss Defeat
+            if (tunnelBoss.defeatedAt && now - tunnelBoss.defeatedAt > 2000) {
+                const ep = tunnelBoss.exitPortalPoint;
+                if (ep && Math.hypot(posX - ep.x, posY - ep.y, posZ - ep.z) < 65) {
+                    // Triumphant Level Victory!
+                    keyboardStatus.innerText = '★ ★ ★ MISSION COMPLETE! SECTOR CLEARED! ★ ★ ★';
+                    playSfx('target_chime', { intensity: 3.0 });
+                    addTargetScore(5000);
+                    startPortalHyperspaceTransit(null, null, 'exit_vault', 'MISSION ACCOMPLISHED');
+                    tunnelBoss.defeatedAt = 0;
+                }
+            }
+        }
+
+        function checkLaserArcadeHits(laserPoint) {
+            // Check Tri-Keys
+            for (const key of tunnelMission.keyItems) {
+                if (key.collected) continue;
+                if (Math.hypot(laserPoint.x - key.x, laserPoint.y - key.y, laserPoint.z - key.z) < 42) {
+                    key.collected = true;
+                    tunnelMission.keys[key.type] = true;
+                    addTargetScore(1000);
+                    playSfx('target_chime', { intensity: 2.2 });
+                    keyboardStatus.innerText = `★ ${key.label.toUpperCase()} DATA CORE ACQUIRED! (+1,000 PTS) ★`;
+                    spawnTargetParticles(key, shipRight, shipDown, key.color, 45, 5.5, 45);
+                    for (const b of tunnelMission.bulkheads) {
+                        if (b.requiredKey === key.type) b.opened = true;
+                    }
+                    return true;
+                }
+            }
+
+            // Check Boss
+            if (tunnelBoss.active && tunnelBoss.alive) {
+                const bd = Math.hypot(laserPoint.x - tunnelBoss.x, laserPoint.y - tunnelBoss.y, laserPoint.z - tunnelBoss.z);
+                if (bd < 75) {
+                    applyBossDamage(14, 'laser');
+                    spawnTargetParticles(laserPoint, shipRight, shipDown, '#ff8800', 14, 2.5, 18);
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        function applyBossDamage(dmg, type = 'laser') {
+            if (!tunnelBoss.active || !tunnelBoss.alive) return;
+            const now = performance.now();
+            if (tunnelBoss.shields > 0) {
+                tunnelBoss.shields = Math.max(0, tunnelBoss.shields - dmg);
+                playSfx('wall_bump', { intensity: 0.6, worldPos: tunnelBoss });
+            } else {
+                tunnelBoss.hp = Math.max(0, tunnelBoss.hp - dmg);
+                playSfx('target_explosion', { intensity: 0.8, worldPos: tunnelBoss });
+            }
+
+            if (tunnelBoss.hp <= 0) {
+                tunnelBoss.alive = false;
+                tunnelBoss.defeatedAt = now;
+                addTargetScore(10000);
+                playSfx('target_explosion', { intensity: 3.0 });
+                screenFlashUntil = now + 500;
+                screenFlashColor = 'rgba(255, 200, 50, 0.75)';
+                keyboardStatus.innerText = '★ ★ ★ AEGIS CORE DREADNOUGHT ANNIHILATED! +10,000 PTS! EXIT PORTAL UNLOCKED! ★ ★ ★';
+                spawnTargetParticles(tunnelBoss, shipRight, shipDown, '#ffcc00', 90, 8.0, 80);
+            }
+        }
+
+        function renderTunnelArcadeSystems(centerX, centerY, fov) {
+            if (mapView || builderMode) return;
+            const now = performance.now();
+
+            // 1. Render Oil Slicks (Viscous purple/black glowing disc on tunnel cross-section)
+            ctx.save();
+            for (const slick of tunnelOilSlicks) {
+                const p = projectPoint(slick, centerX, centerY, fov);
+                if (!p || p.z <= 8) continue;
+                const elapsed = now - slick.bornAt;
+                const curRad = Math.min(slick.maxRadius, slick.radius + (elapsed / 1000) * 16);
+                const sz = (fov / Math.max(8, p.z)) * curRad;
+
+                ctx.shadowBlur = 14;
+                ctx.shadowColor = '#bb33ff';
+                ctx.strokeStyle = 'rgba(187, 51, 255, 0.85)';
+                ctx.lineWidth = 3.0;
+                ctx.fillStyle = 'rgba(40, 5, 60, 0.55)';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, sz, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // Inner ripple ring
+                ctx.strokeStyle = 'rgba(255, 100, 255, 0.7)';
+                ctx.lineWidth = 1.6;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, sz * 0.6, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // 2. Render EMP Shockwaves
+            ctx.save();
+            for (const emp of tunnelEmpShockwaves) {
+                const p = projectPoint(emp, centerX, centerY, fov);
+                if (!p || p.z <= 8) continue;
+                const elapsed = now - emp.bornAt;
+                const frac = elapsed / emp.durationMs;
+                const r = (fov / Math.max(8, p.z)) * (frac * emp.maxRadius);
+
+                ctx.strokeStyle = `rgba(0, 220, 255, ${1 - frac})`;
+                ctx.lineWidth = 4.0;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            // 3. Render Decoy Flares
+            ctx.save();
+            for (const flare of tunnelDecoyFlares) {
+                const p = projectPoint(flare, centerX, centerY, fov);
+                if (!p || p.z <= 8) continue;
+                const sz = Math.max(8, (fov / Math.max(8, p.z)) * 16);
+                ctx.shadowBlur = 18;
+                ctx.shadowColor = '#ffffff';
+                ctx.fillStyle = (now % 100 < 50) ? '#ffffff' : '#ffffaa';
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, sz * 0.5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+            ctx.restore();
+
+            // 4. Render Tri-Key Data Cores (Floating rotating glowing crystals)
+            for (const key of tunnelMission.keyItems) {
+                if (key.collected) continue;
+                const p = projectPoint(key, centerX, centerY, fov);
+                if (!p || p.z <= 8) continue;
+                const sz = Math.max(16, (fov / Math.max(8, p.z)) * 36);
+
+                ctx.save();
+                ctx.shadowBlur = 16;
+                ctx.shadowColor = key.color;
+                ctx.strokeStyle = key.color;
+                ctx.lineWidth = 2.4;
+                ctx.fillStyle = '#ffffff';
+
+                // Diamond Crystal
+                ctx.beginPath();
+                ctx.moveTo(p.x, p.y - sz);
+                ctx.lineTo(p.x + sz * 0.65, p.y);
+                ctx.lineTo(p.x, p.y + sz);
+                ctx.lineTo(p.x - sz * 0.65, p.y);
+                ctx.closePath();
+                ctx.stroke();
+
+                // Core pulse
+                ctx.fillStyle = key.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, sz * 0.35, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Label
+                ctx.font = 'bold 11px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(`[ ${key.label.toUpperCase()} ]`, p.x, p.y - sz - 6);
+                ctx.restore();
+            }
+
+            // 5. Render Security Bulkheads
+            for (const b of tunnelMission.bulkheads) {
+                if (b.opened) continue;
+                const p = projectPoint(b, centerX, centerY, fov);
+                if (!p || p.z <= 8) continue;
+                const sz = Math.max(20, (fov / Math.max(8, p.z)) * (b.radius || 120));
+
+                ctx.save();
+                ctx.strokeStyle = 'rgba(255, 0, 40, 0.75)';
+                ctx.lineWidth = 3.0;
+                ctx.strokeRect(p.x - sz, p.y - sz, sz * 2, sz * 2);
+
+                // Laser Grid Lines
+                const lines = 6;
+                ctx.strokeStyle = (now % 160 < 80) ? '#ff0033' : '#ffaa00';
+                ctx.lineWidth = 1.8;
+                for (let i = 1; i < lines; i++) {
+                    const ly = p.y - sz + (i / lines) * (sz * 2);
+                    ctx.beginPath();
+                    ctx.moveTo(p.x - sz, ly);
+                    ctx.lineTo(p.x + sz, ly);
+                    ctx.stroke();
+                }
+
+                ctx.font = 'bold 12px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#ff3366';
+                ctx.fillText(`⛔ LOCKED: ${b.requiredKey.toUpperCase()} KEY REQUIRED`, p.x, p.y - sz - 8);
+                ctx.restore();
+            }
+
+            // 6. Render Aegis Core Dreadnought Boss
+            if (tunnelBoss.active) {
+                const p = projectPoint(tunnelBoss, centerX, centerY, fov);
+                if (p && p.z > 8) {
+                    const sz = Math.max(30, (fov / Math.max(8, p.z)) * 95);
+
+                    ctx.save();
+                    ctx.shadowBlur = 20;
+                    ctx.shadowColor = tunnelBoss.phase === 3 ? '#ff0033' : '#00ddff';
+
+                    // Shield Aura Ring
+                    if (tunnelBoss.shields > 0) {
+                        ctx.strokeStyle = 'rgba(0, 220, 255, 0.65)';
+                        ctx.lineWidth = 3.5;
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, sz * 1.25, 0, Math.PI * 2);
+                        ctx.stroke();
+                    }
+
+                    // Heavy Hull Octagon
+                    ctx.fillStyle = '#101525';
+                    ctx.strokeStyle = tunnelBoss.phase === 3 ? '#ff0033' : '#00aaff';
+                    ctx.lineWidth = 3.0;
+                    ctx.beginPath();
+                    for (let a = 0; a < 8; a++) {
+                        const ang = (a / 8) * Math.PI * 2;
+                        const hx = p.x + Math.cos(ang) * sz;
+                        const hy = p.y + Math.sin(ang) * sz;
+                        if (a === 0) ctx.moveTo(hx, hy);
+                        else ctx.lineTo(hx, hy);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Glowing Reactor Core
+                    ctx.fillStyle = tunnelBoss.phase === 3 ? ((now % 100 < 50) ? '#ffffff' : '#ff0033') : '#ffaa00';
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, sz * 0.45, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Twin Turret Barrels
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2.5;
+                    ctx.strokeRect(p.x - sz * 0.8, p.y - sz * 0.2, sz * 0.35, sz * 0.4);
+                    ctx.strokeRect(p.x + sz * 0.45, p.y - sz * 0.2, sz * 0.35, sz * 0.4);
+                    ctx.restore();
+                }
+
+                // Render Boss Bullets
+                for (const bb of tunnelBoss.bullets) {
+                    const bp = projectPoint(bb, centerX, centerY, fov);
+                    if (!bp || bp.z <= 8) continue;
+                    ctx.save();
+                    ctx.fillStyle = '#ff2244';
+                    ctx.shadowBlur = 10;
+                    ctx.shadowColor = '#ff0000';
+                    ctx.beginPath();
+                    ctx.arc(bp.x, bp.y, Math.max(4, (fov / Math.max(8, bp.z)) * 12), 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.restore();
+                }
+
+                // Render Boss Mines
+                for (const bm of tunnelBoss.mines) {
+                    const mp = projectPoint(bm, centerX, centerY, fov);
+                    if (!mp || mp.z <= 8) continue;
+                    ctx.save();
+                    ctx.strokeStyle = (now % 140 < 70) ? '#ff0033' : '#ffaa00';
+                    ctx.lineWidth = 2.2;
+                    ctx.strokeRect(mp.x - 12, mp.y - 12, 24, 24);
+                    ctx.restore();
+                }
+            }
+
+            // 7. Render Radiant Exit Portal (When Boss is Defeated)
+            if (tunnelBoss.defeatedAt) {
+                const ep = tunnelBoss.exitPortalPoint;
+                if (ep) {
+                    const pp = projectPoint(ep, centerX, centerY, fov);
+                    if (pp && pp.z > 8) {
+                        const sz = Math.max(25, (fov / Math.max(8, pp.z)) * 80);
+                        ctx.save();
+                        ctx.shadowBlur = 25;
+                        ctx.shadowColor = '#00ffcc';
+                        ctx.strokeStyle = '#00ffcc';
+                        ctx.lineWidth = 4.0;
+                        ctx.fillStyle = 'rgba(0, 255, 200, 0.45)';
+                        ctx.beginPath();
+                        ctx.arc(pp.x, pp.y, sz, 0, Math.PI * 2);
+                        ctx.fill();
+                        ctx.stroke();
+
+                        ctx.font = 'bold 13px monospace';
+                        ctx.textAlign = 'center';
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillText('★ EXIT PORTAL OPEN · FLY THROUGH TO WIN ★', pp.x, pp.y - sz - 10);
+                        ctx.restore();
+                    }
+                }
+            }
+
+            // 8. Tactical Screen-Edge Threat Chevrons (Eliminates getting blindsided in 6DOF!)
+            ctx.save();
+            for (const sentry of tunnelSentries) {
+                if (!sentryIsActive(sentry) || !sentry.engaged) continue;
+                const cam = worldToCamera(sentry);
+                const p = projectPoint(sentry, centerX, centerY, fov);
+                const isBehind = !cam || cam.z <= 8;
+                const isOffScreen = isBehind || !p || p.x < 35 || p.x > canvas.width - 35 || p.y < 35 || p.y > canvas.height - 35;
+                if (isOffScreen) {
+                    const dist = Math.round(Math.hypot(sentry.x - posX, sentry.y - posY, sentry.z - posZ));
+                    const isLeft = cam ? cam.x < 0 : true;
+                    ctx.font = 'bold 12px monospace';
+                    ctx.textAlign = isLeft ? 'left' : 'right';
+                    const edgeX = isLeft ? 26 : canvas.width - 26;
+                    const edgeY = Math.max(120, Math.min(canvas.height - 120, centerY + (sentry.y - posY) * 0.25));
+
+                    if (sentry.isRunner) {
+                        ctx.fillStyle = (now % 140 < 70) ? '#ffcc00' : '#ff0033';
+                        ctx.fillText(isLeft ? `◄◄ RUNNER ${dist}m` : `RUNNER ${dist}m ►►`, edgeX, edgeY);
+                    } else {
+                        ctx.fillStyle = sentry.isReinforcement ? '#ff0033' : '#ff8800';
+                        const label = sentry.isReinforcement ? 'REINFORCEMENT' : 'HOSTILE';
+                        ctx.fillText(isLeft ? `◄◄ ${label} ${dist}m` : `${label} ${dist}m ►►`, edgeX, edgeY);
+                    }
+                }
+            }
+            ctx.restore();
+
+            // 9. Render Arcade HUD Overlay (Tri-Key Matrix, Countermeasures, Boss Bar)
+            renderTunnelArcadeHud(centerX, centerY);
+        }
+
+        function renderTunnelArcadeHud(centerX, centerY) {
+            const now = performance.now();
+
+            // A. Tri-Key Status Bar (Top Center)
+            ctx.save();
+            const keyBoxW = 340;
+            const keyBoxH = 26;
+            const kx0 = centerX - keyBoxW / 2;
+            const ky0 = 14;
+            ctx.fillStyle = 'rgba(0, 15, 30, 0.85)';
+            ctx.fillRect(kx0, ky0, keyBoxW, keyBoxH);
+            ctx.strokeStyle = '#00ffff';
+            ctx.lineWidth = 1.4;
+            ctx.strokeRect(kx0, ky0, keyBoxW, keyBoxH);
+
+            ctx.font = 'bold 11px monospace';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#88ffff';
+            ctx.fillText('SECURITY MATRIX:', kx0 + 8, ky0 + keyBoxH / 2);
+
+            const keysDef = [
+                { id: 'crimson', label: '🔴 ALPHA', color: '#ff3355' },
+                { id: 'cobalt',  label: '🔵 BETA',  color: '#00ccff' },
+                { id: 'amber',   label: '🟡 GAMMA', color: '#ffcc00' }
+            ];
+            let keyX = kx0 + 130;
+            for (const kd of keysDef) {
+                const got = tunnelMission.keys[kd.id];
+                ctx.fillStyle = got ? kd.color : 'rgba(120, 120, 120, 0.45)';
+                if (got) {
+                    ctx.shadowColor = kd.color;
+                    ctx.shadowBlur = 8;
+                }
+                ctx.fillText(kd.label, keyX, ky0 + keyBoxH / 2);
+                ctx.shadowBlur = 0;
+                keyX += 70;
+            }
+            ctx.restore();
+
+            // B. Countermeasures Status Bar
+            ctx.save();
+            ctx.font = 'bold 11px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#00ffcc';
+            const slickCount = shipInventory.items.oilSlick || 0;
+            const empCount = shipInventory.items.empBomb || 0;
+            const decoyCount = shipInventory.items.smokeBomb || 0;
+            const rocketCount = shipInventory.rocketLoaded || 0;
+            ctx.fillText(
+                `[G: SLICK (${slickCount})]   [T: EMP (${empCount})]   [6: DECOY (${decoyCount})]   [X: ROCKETS (${rocketCount})]`,
+                centerX, 48
+            );
+            ctx.restore();
+
+            // C. Sector Alarm Active Banner
+            if (tunnelSectorAlarm.active) {
+                const flash = Math.sin(now * 0.015) > 0;
+                ctx.save();
+                ctx.fillStyle = flash ? 'rgba(255, 0, 40, 0.88)' : 'rgba(80, 0, 10, 0.88)';
+                ctx.fillRect(centerX - 240, 58, 480, 26);
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 1.5;
+                ctx.strokeRect(centerX - 240, 58, 480, 26);
+                ctx.font = 'bold 12px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText('🚨 SECTOR ALARM ACTIVE · REINFORCEMENTS INBOUND 🚨', centerX, 71);
+                ctx.restore();
+            }
+
+            // D. Boss Health Bar
+            if (tunnelBoss.active && tunnelBoss.hp > 0) {
+                const barW = Math.min(620, canvas.width - 60);
+                const barH = 22;
+                const bx = centerX - barW / 2;
+                const by = 88;
+
+                ctx.save();
+                ctx.fillStyle = 'rgba(10, 5, 20, 0.90)';
+                ctx.fillRect(bx, by, barW, barH);
+                ctx.strokeStyle = '#ff3366';
+                ctx.lineWidth = 1.8;
+                ctx.strokeRect(bx, by, barW, barH);
+
+                const hullFrac = Math.max(0, tunnelBoss.hp / tunnelBoss.maxHp);
+                const shieldFrac = Math.max(0, tunnelBoss.shields / tunnelBoss.maxShields);
+
+                ctx.fillStyle = tunnelBoss.phase === 3 ? '#ff0033' : '#ff6600';
+                ctx.fillRect(bx + 2, by + 2, (barW - 4) * hullFrac, barH - 4);
+
+                if (shieldFrac > 0) {
+                    ctx.fillStyle = 'rgba(0, 220, 255, 0.65)';
+                    ctx.fillRect(bx + 2, by + 2, (barW - 4) * shieldFrac, (barH - 4) * 0.5);
+                }
+
+                ctx.font = 'bold 11px monospace';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#ffffff';
+                ctx.shadowColor = '#000000';
+                ctx.shadowBlur = 4;
+                const phaseLabel = tunnelBoss.phase === 3 ? 'ENRAGED MELTDOWN' : (tunnelBoss.phase === 2 ? 'PHASE 2: MINES' : 'PHASE 1: ASSAULT');
+                ctx.fillText(
+                    `AEGIS CORE DREADNOUGHT [${phaseLabel}] — SHIELD ${Math.round(shieldFrac * 100)}% | HULL ${Math.round(hullFrac * 100)}%`,
+                    centerX, by + barH / 2
+                );
+                ctx.restore();
+            }
+        }
+
 
         function tickSentries(frameScale = 1) {
             if (!flightSentryAiActive()) return;
@@ -31240,6 +32406,7 @@
                 updateCheatsheet();
                 updatePortalTransit();
                 tickSentries(frameScale);
+                tickTunnelArcadeSystems(frameScale);
 
                 updateWebGLCanvasVisibility();
                 const webglTunnelActive =
@@ -31294,7 +32461,7 @@
                         l.x += l.vx * laserStepScale;
                         l.y += l.vy * laserStepScale;
                         l.z += l.vz * laserStepScale;
-                        laserHit = checkLaserTargetHits(l) || checkLaserSentryHits(l) || checkLaserGalagaHits(l) || checkLaserDefenderHits(l);
+                        laserHit = checkLaserTargetHits(l) || checkLaserSentryHits(l) || checkLaserGalagaHits(l) || checkLaserDefenderHits(l) || checkLaserArcadeHits(l);
                         if (laserHit) break;
                     }
                     l.life += frameScale;
@@ -31346,6 +32513,7 @@
                 renderGalagaPhase(centerX, centerY, fov);
                 renderGulletPhase(centerX, centerY, fov);
                 renderDefenderPhase(centerX, centerY, fov);
+                renderTunnelArcadeSystems(centerX, centerY, fov);
                 renderLaserAimCrosshair(centerX, centerY, fov);
                 updateAndRenderParticles(centerX, centerY, fov, frameScale);
                 renderRocketBlastClouds(centerX, centerY, fov);

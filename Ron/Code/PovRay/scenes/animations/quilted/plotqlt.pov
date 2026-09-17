@@ -19,7 +19,7 @@ global_settings { assumed_gamma 1.0 }
 #declare Xval=-0.5;
 
 camera {
-    location  <0, 0, -150>
+    location  <0, 0, -15>
     direction <0, 0,  12>
     look_at   <0, 0,   0>
 }

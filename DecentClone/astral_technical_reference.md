@@ -4,6 +4,35 @@
 
 ## Update Timeline (newest first)
 
+### 2026-09-16 — 3D Tunnel Arcade Overhaul: Guard AI & Alarms, Tri-Key Protocol, Countermeasures & Exit Boss
+
+- **Tactical Sentry AI & Runner Alarm Network**:
+  - Sentries now feature active awareness states: Green/Cyan (patrol), Red (engaged), and Gold/White (fleeing runner).
+  - When a guard squad is engaged or a sentry drops below 65% HP, a scout drone breaks off and sprints away down the corridor (`sentry.isRunner = true`) to sound the sector alarm.
+  - **Stealth Takedown**: Intercepting and destroying the runner within 6.5s awards **★ STEALTH TAKEDOWN +500 PTS ★** and prevents the sector alarm.
+  - **Sector Alarm Lockdown**: If the runner escapes, the procedural 2-tone WebAudio klaxon alarm blares (440Hz / 660Hz alternating), emergency red strobes activate, and fast reinforcement interceptor drones spawn to swarm the player.
+- **Tactical Countermeasures Arsenal**:
+  - **Oil / Plasma Slick (`G` or `4`)**: Drops an expanding, viscous purple-black slick on the tunnel floor behind the ship. Pursuing sentries hit the slick, lose inertial damping, spin out violently (`sentry.spinAngle += 18*dt`), crash into curved tunnel walls with sparks and explosion damage (-45 HP), and are destroyed.
+  - **EMP Shockwave (`T` or `5`)**: Detonates an electromagnetic burst (radius 380) with a sub-bass thump and capacitor crackle. Stuns all sentries in range for 5.0 seconds (offline thrusters, locked weapons, crackling blue electrical arcs) and strips 200 points from boss shields.
+  - **Decoy Flare (`6`)**: Launches a burning magnesium flare behind the ship, diverting enemy tracking beams.
+  - Cockpit displays remaining charges: `[G: SLICK (3)]  [T: EMP (2)]  [6: DECOY (3)]  [X: ROCKETS (10)]`.
+- **Tri-Key Security Protocol & Laser Bulkheads**:
+  - 3 rotating holographic Data Cores placed in guarded tunnel wings: **🔴 Crimson Alpha**, **🔵 Cobalt Beta**, and **🟡 Amber Gamma**.
+  - Collecting keys awards +1,000 pts and lights up the upper cockpit **SECURITY MATRIX** HUD bar.
+  - Unlocks laser bulkhead checkpoints that block corridors; approaching a locked gate without the key repels the ship with impact feedback.
+- **Exit Vault Climax Encounter (Aegis Core Dreadnought Boss)**:
+  - Collecting all 3 keys breaches the final vault door, activating the **Aegis Core Dreadnought**.
+  - Prominent Arcade Boss Health Bar rendered at top center:
+    `AEGIS CORE DREADNOUGHT [PHASE] — SHIELD X% | HULL Y%`.
+  - **3 Combat Phases**:
+    - *Phase 1 (100%–60% HP)*: Twin heavy plasma spread salvos.
+    - *Phase 2 (60%–25% HP)*: Deploys proximity mines throughout the chamber + tracking beam.
+    - *Phase 3 (<25% HP)*: Core meltdown! Searing red core, ramming acceleration, and 6-way spread bursts.
+  - **Victory Climax**: On defeat, triggers sequential hull detonations, screen rumble, +10,000 pts victory trophy, and spawns the radiant **Exit Portal** to complete the mission!
+- **Defender-Style Tactical Threat Chevrons**:
+  - Off-screen and rear hostiles display screen-edge warning chevrons:
+    `◄◄ REAR SENTRY [35m]` or `◄◄ RUNNER [110m]` or `🚨 REINFORCEMENTS INBOUND`.
+
 ### 2026-09-16 — Defender Arcade V2: Multi-Carry Rescue, Shield Cooldown, Horizon 180° Flip & 5-Wave Campaign
 
 - **Astronaut Gentle Float & Multi-Carry Rescue**:

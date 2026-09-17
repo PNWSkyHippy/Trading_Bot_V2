@@ -17,7 +17,7 @@
 #define BUILTIN_XWIN_DISPLAY "enabled (using SDL)"
 
 /* Who compiled this binary. */
-#define BUILT_BY "SkyHippy"
+#define BUILT_BY "your name <email@address>"
 
 /* Host platform. */
 #define BUILT_FOR "x86_64-pc-linux-gnu (using -march=native)"

@@ -134,7 +134,7 @@ from typing import Any, cast
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageEnhance, ImageFilter, ImageTk
-
+import rayincludes as ri
 # This file is in Code/RayTrace/src, while quick_tk is in Code/quick_tk.
 # Adding Code to sys.path lets this script work when launched directly rather
 # than only when launched as part of a larger Python package.
@@ -148,71 +148,60 @@ from quick_tk.core.forms import FormPanel
 IS_WINDOWS = sys.platform.startswith("win")
 IS_MAC = sys.platform == "darwin"
 
+
+def _read_pov_ppm(stream):
+    """Read a binary PPM pipe, returning dimensions and an iterator of RGB rows."""
+    def token():
+        value = bytearray()
+        while True:
+            char = stream.read(1)
+            if not char:
+                if value:
+                    return bytes(value)
+                raise RuntimeError("POV-Ray ended before completing its PPM image.")
+            if char == b"#":
+                stream.readline()
+                if value:
+                    return bytes(value)
+            elif char in b" \t\r\n\v\f":
+                if value:
+                    # Consume only the header separator, never binary pixels.
+                    return bytes(value)
+            else:
+                value.extend(char)
+
+    magic = token()
+    if magic not in (b"P3", b"P6"):
+        raise RuntimeError(f"Expected a POV-Ray P3 or P6 image stream, received {magic!r}.")
+    width, height, maximum = (int(token()) for _ in range(3))
+    if width <= 0 or height <= 0 or not 1 <= maximum <= 65535:
+        raise RuntimeError(f"Invalid PPM header: {width}x{height}, maximum {maximum}.")
+
+    def rows():
+        sample_bytes = 1 if maximum < 256 else 2
+        for row in range(height):
+            if magic == b"P6":
+                needed = width * 3 * sample_bytes
+                data = bytearray()
+                while len(data) < needed:
+                    chunk = stream.read(needed - len(data))
+                    if not chunk:
+                        raise RuntimeError(f"POV-Ray P6 stream ended partway through row {row + 1}/{height}.")
+                    data.extend(chunk)
+                channels = (list(data) if sample_bytes == 1 else
+                            [int.from_bytes(data[i:i + 2], "big") for i in range(0, len(data), 2)])
+            else:
+                channels = [int(token()) for _ in range(width * 3)]
+            if any(channel < 0 or channel > maximum for channel in channels):
+                raise RuntimeError(f"Invalid PPM pixel value in row {row + 1}.")
+            if maximum != 255:
+                channels = [(channel * 255 + maximum // 2) // maximum for channel in channels]
+            yield [tuple(channels[i:i + 3]) for i in range(0, len(channels), 3)]
+
+    return width, height, rows()
+
 import time
-"""
-scene1 = [
-    {
-        "filename": "scene1.image1.ppm",
-        "book": "2",
-        "chapter": "6",
-        "light1": "2,7,3,0.8",
-        "light2": "-3,4,1,0.2",
-        "camera": "26,3,16",
-        "lookat": "0,2,0",
-        "vfov": "28",
-    },
-    {
-        "filename": "scene1.image2.ppm",
-        "book": "2",
-        "chapter": "6",
-        "light1": "2,7,3,0.8",
-        "light2": "-3,4,1,0.2",
-        "camera": "22,3,12",
-        "lookat": "0,2,0",
-        "vfov": "26",
-    },
-    {
-        "filename": "scene1.image3.ppm",
-        "book": "2",
-        "chapter": "6",
-        "light1": "2,7,3,0.8",
-        "light2": "-3,4,1,0.2",
-        "camera": "16,4,7",
-        "lookat": "0,2,0",
-        "vfov": "24",
-    },
-    {
-        "filename": "scene1.image4.ppm",
-        "book": "2",
-        "chapter": "6",
-        "light1": "2,7,3,0.8",
-        "light2": "-3,4,1,0.2",
-        "camera": "9,6,2",
-        "lookat": "0,2,0",
-        "vfov": "22",
-    },
-    {
-        "filename": "scene1.image5.ppm",
-        "book": "2",
-        "chapter": "6",
-        "light1": "2,7,3,0.8",
-        "light2": "-3,4,1,0.2",
-        "camera": "3,9,-3",
-        "lookat": "0,1.5,0",
-        "vfov": "25",
-    },
-    {
-        "filename": "scene1.image6.ppm",
-        "book": "2",
-        "chapter": "6",
-        "light1": "2,7,3,0.8",
-        "light2": "-3,4,1,0.2",
-        "camera": "-4,12,-7",
-        "lookat": "0,0.5,0",
-        "vfov": "30",
-    },
-]
-"""
+
 def lerp(a, b, t):
     """Return a value t of the way from a to b."""
     return a + (b - a) * t
@@ -228,7 +217,7 @@ def point_text(point):
     return ",".join(f"{value:.3f}" for value in point)
 
 
-def make_scene1(keyframes, common_settings):
+def make_scene1(keyframes, common_settings, total_frames=None):
     """
     Create the scene1 list that your existing render button already uses.
 
@@ -236,6 +225,40 @@ def make_scene1(keyframes, common_settings):
         A list of important camera poses.  Frame numbers can be any distance
         apart; all missing frames are generated automatically.
     """
+    keyframes = [dict(keyframe) for keyframe in keyframes]
+    if len(keyframes) < 2:
+        raise ValueError("A camera path needs at least two keyframes.")
+
+    # The frame values in the include file are timing markers: they describe
+    # where the director wants each key pose to occur relative to the others.
+    # Rescale those markers to any requested total frame count.
+    if total_frames is not None:
+        total_frames = int(total_frames)
+        if total_frames < len(keyframes):
+            raise ValueError(
+                f"Movie Frames must be at least {len(keyframes)} for this {len(keyframes)}-keyframe path."
+            )
+        first_marker = keyframes[0]["frame"]
+        last_marker = keyframes[-1]["frame"]
+        marker_span = last_marker - first_marker
+        if marker_span <= 0:
+            raise ValueError("Camera-path keyframe markers must increase from first to last.")
+
+        previous_frame = 0
+        for index, keyframe in enumerate(keyframes):
+            if index == 0:
+                scaled_frame = 1
+            elif index == len(keyframes) - 1:
+                scaled_frame = total_frames
+            else:
+                progress = (keyframe["frame"] - first_marker) / marker_span
+                scaled_frame = 1 + round(progress * (total_frames - 1))
+                # Leave one frame for every remaining keyframe.
+                scaled_frame = max(previous_frame + 1, scaled_frame)
+                scaled_frame = min(scaled_frame, total_frames - (len(keyframes) - 1 - index))
+            keyframe["frame"] = scaled_frame
+            previous_frame = scaled_frame
+
     frames = []
 
     for keyframe_index in range(len(keyframes) - 1):
@@ -271,206 +294,11 @@ def make_scene1(keyframes, common_settings):
     return frames
 
 
-# These remain the same for every frame in this particular shot.
-common_scene1_settings = {
-    "book": "2",
-    "chapter": "6",
-    "light1": "2,7,3,0.8",
-    "light2": "-3,4,1,0.2",
-}
 
-
-# These are the only camera poses you direct by hand.
-# Python generates every frame between them.
-scene1_keyframes192f = [
-    {
-        "frame": 1,
-        "camera": (46, 3, 32),
-        "lookat": (0, 2, 0),
-        "vfov": 28,
-    },
-    {
-        "frame": 16,
-        "camera": (40, 3, 28),
-        "lookat": (0, 2, 0),
-        "vfov": 26,
-    },
-    {
-        "frame": 32,
-        "camera": (32, 6, 16),
-        "lookat": (0, 2, 0),
-        "vfov": 22,
-    },
-    {
-        "frame": 48,
-        "camera": (16, 12, 8),
-        "lookat": (0, 0.5, 0),
-        "vfov": 30,
-    },
-    {
-        "frame": 64,
-        "camera": (9, 6, 2),
-        "lookat": (0, 2, 0),
-        "vfov": 28,
-    },
-    {
-        "frame": 80,
-        "camera": (4,12,-7),
-        "lookat": (0, 2, 0),
-        "vfov": 26,
-    },
-    {
-        "frame": 96,
-        "camera": (9, 18, -14),
-        "lookat": (0, 2, 0),
-        "vfov": 22,
-    },
-    {
-        "frame": 112,
-        "camera": (15, 24, -12),
-        "lookat": (0, 0.5, 0),
-        "vfov": 30,
-    },
-       {
-            "frame": 128,
-            "camera": (15, 24, -12),
-            "lookat": (0.1, 0.6, 0),
-            "vfov": 32,
-        },
-   {
-        "frame": 144,
-        "camera": (15, 24, -12),
-        "lookat": (.2, 0.7, 0),
-        "vfov": 34,
-    },
-      {
-            "frame": 160,
-            "camera": (15, 24, -12),
-            "lookat": (0.3, 0.8, 0),
-            "vfov": 36,
-        },
-      {
-            "frame": 1176,
-            "camera": (15, 24, -12),
-            "lookat": (0.4, 0.9, 0),
-            "vfov": 38,
-        },
-  {
-        "frame": 192,
-        "camera": (15, 24, -12),
-        "lookat": (0.5, 1.0, 0),
-        "vfov": 40,
-    },
-]
-
-scene1_keyframes112f = [
-    {
-        "frame": 1,
-        "camera": (46, 3, 32),
-        "lookat": (0, 2, 0),
-        "vfov": 28,
-    },
-    {
-        "frame": 16,
-        "camera": (40, 3, 28),
-        "lookat": (0, 2, 0),
-        "vfov": 26,
-    },
-    {
-        "frame": 32,
-        "camera": (32, 6, 16),
-        "lookat": (0, 2, 0),
-        "vfov": 22,
-    },
-    {
-        "frame": 48,
-        "camera": (16, 12, 8),
-        "lookat": (0, 0.5, 0),
-        "vfov": 30,
-    },
-    {
-        "frame": 64,
-        "camera": (9, 6, 2),
-        "lookat": (0, 2, 0),
-        "vfov": 28,
-    },
-    {
-        "frame": 80,
-        "camera": (4,12,-7),
-        "lookat": (0, 2, 0),
-        "vfov": 26,
-    },
-    {
-        "frame": 96,
-        "camera": (9, 18, -14),
-        "lookat": (0, 2, 0),
-        "vfov": 22,
-    },
-    {
-        "frame": 112,
-        "camera": (15, 24, -12),
-        "lookat": (0, 0.5, 0),
-        "vfov": 30,
-    },
-    
-]
-
-scene1_keyframes48f = [
-    {
-        "frame": 1,
-        "camera": (26, 3, 16),
-        "lookat": (0, 2, 0),
-        "vfov": 28,
-    },
-    {
-        "frame": 16,
-        "camera": (22, 3, 12),
-        "lookat": (0, 2, 0),
-        "vfov": 26,
-    },
-    {
-        "frame": 32,
-        "camera": (9, 6, 2),
-        "lookat": (0, 2, 0),
-        "vfov": 22,
-    },
-    {
-        "frame": 48,
-        "camera": (-4, 12, -7),
-        "lookat": (0, 0.5, 0),
-        "vfov": 30,
-    },
-]
-scene1_keyframes24f = [
-    {
-        "frame": 1,
-        "camera": (26, 3, 16),
-        "lookat": (0, 2, 0),
-        "vfov": 28,
-    },
-    {
-        "frame": 8,
-        "camera": (22, 3, 12),
-        "lookat": (0, 2, 0),
-        "vfov": 26,
-    },
-    {
-        "frame": 16,
-        "camera": (9, 6, 2),
-        "lookat": (0, 2, 0),
-        "vfov": 22,
-    },
-    {
-        "frame": 24,
-        "camera": (-4, 12, -7),
-        "lookat": (0, 0.5, 0),
-        "vfov": 30,
-    },
-]
-
-
-# This is the same scene1 list your existing six-frame render code expects.
-scene1 = make_scene1(scene1_keyframes192f, common_scene1_settings)
+# The include file is the editable camera-path skeleton.  This module-level
+# default preserves compatibility; the render buttons regenerate it using the
+# Movie Frames field immediately before each movie render.
+scene1 = make_scene1(ri.scene1_keyframes192f, ri.common_scene1_settings)
 
 class RayTraceTimer:
     def __init__(self, total_pixels=None):
@@ -647,7 +475,6 @@ class LiveRayTraceViewer(ToolView):
         self.rowconfigure(0, weight=1)
         self.debug_win: tk.Toplevel | None = None
         self.debug_console = None
-#        self.debug_win = None
         self.filepath = ""  #H for output file
         self.rendered_pixels = {}  # memory buffer of image being ray traced 
         self.current_width = 600      # to hold current image dimensions
@@ -681,6 +508,7 @@ class LiveRayTraceViewer(ToolView):
         self.sequence_playing = False
         self.sequence_after_id = None
         self.sequence_photo = None
+        self.pov_scene_path = None
         self.sequence_fps_var = tk.IntVar(value=8)
         self.sequence_frame_var = tk.IntVar(value=0)
         self.image_stack = []    # Holds list  of Undue states
@@ -712,6 +540,10 @@ class LiveRayTraceViewer(ToolView):
         spin_h = self.form.add_number("height", "Height (px)", min_val=100, max_val=8192, default=600, step=16)
         spin_h.bind("<Return>", self.resizedh_auto_calc)
         spin_h.bind("<FocusOut>", self.resizedh_auto_calc)
+        self.form.add_number(
+            "movie_frames", "Movie Frames", min_val=2, max_val=2000,
+            default=48, step=1,
+        )
 
         # Book Selection
         self.form.add_dropdown(
@@ -733,6 +565,9 @@ class LiveRayTraceViewer(ToolView):
         # Action Buttons
         self.form.add_button("Start Progressive Render ▶", callback=self.on_start_render, variant="primary")
         self.form.add_button("Start Homemade Render ▶", callback=self.on_click_render2, variant="primary")
+        self.form.add_button("Load POV-Ray Scene 📂", callback=self.on_load_pov_scene, variant="surface")
+        self.form.add_button("Render POV Still ▶", callback=self.on_click_povray_still, variant="primary")
+        self.form.add_button("Render POV Camera Strip ▶", callback=self.on_click_povray_strip, variant="primary")
         self.form.add_button("Cancel / Stop Render ⏹", callback=self.on_stop_render, variant="outline")
         self.form.add_button("Load Image Sequence 📂", callback=self.on_load_image_sequence, variant="surface")
         self.form.add_button("Export Sequence as GIF 🎞", callback=self.on_export_sequence_gif, variant="surface")
@@ -804,13 +639,39 @@ class LiveRayTraceViewer(ToolView):
         self.bind_all("<Control-a>", self.open_adjustments_window)
         tools_menu.add_command(label="Zoom to Selection", command=self.zoom_select_window)
         tools_menu.add_command(label="Zoom In <Shift-+>", command=self.zoom_in_window)
-        self.bind_all("<Shift-KeyPress-plus>", self.zoom_in_window)
-        tools_menu.add_command(label="Zoom Out <Shift-->", command=self.zoom_out_window)
-        self.bind_all("<Shift-KeyPress-minus>", self.zoom_out_window)
+        self.bind_all("<Shift-+>", self.zoom_in_window)
+        tools_menu.add_command(label="Zoom Out <Control-+", command=self.zoom_out_window)
+        self.bind_all("<Control-+>", self.zoom_out_window)
         tools_menu.add_command(label="Crop Window <Ctrl-b>", command=self.crop_window)
         self.bind_all("<Control-b>", self.crop_window)
         tm3 = tools_menu.add_command(label=f"Undu ({len(self.image_stack)}) <Ctrl-z>", command=self.stack_pop)
         self.bind_all("<Control-z>", self.stack_pop)
+    
+    def restore_def_ctrls(self):
+        self.pending_control = None
+        self.pending_snapshot = None
+        self.last_rotation_value = self.rotation
+        self.rotation_timer_id = None
+        self.contrast_timer_id = None
+        self.color_timer_id = None
+        self.brightness_timer_id = None
+        self.sharpness_timer_id = None
+        self.scale_timer_id = None
+        self.is_scaled = False          # Has image been scaled
+        self.is_resized = False         # Has height/width been edited
+        self.aspratio = "None/None"     # Has ap ration been edited
+        self.blur = False               # Has blue been applied
+        self.contour = False            # Think te next few are obvious
+        self.smooth = False
+        self.sharpen = False
+        self.rotation = 0.0
+        self.contrast = 1.0
+        self.color = 1.0
+        self.brightness = 1.0
+        self.sharpness = 1.0
+        self.scale_fac = 1.0
+        self.debug_win: tk.Toplevel | None = None
+        self.debug_console = None
         
     def close_debug_window(self):
         if self.debug_win is not None:
@@ -997,6 +858,13 @@ class LiveRayTraceViewer(ToolView):
         else:
             self.img_label.config(image="", text="Select Book & Scene, then click Start Render")
 
+    def clear_stack(self):
+        self.stack_cnt = 0
+        self.image_stack.clear()
+        self.stack_desc.clear()
+        self.pending_control = None
+        self.pending_snapshot = None
+        
     def stack_pop(self,event=None):
         # Undo must include the edit currently being adjusted, even if the
         # user presses Undo before touching another control.
@@ -1254,7 +1122,7 @@ class LiveRayTraceViewer(ToolView):
         if self.is_rendering:
             messagebox.showinfo("Rendering", "A render is already in progress. Stop it first if you want to start a new one.")
             return
-
+        self.clear_stack()
         book_name = values.get("book", "Book 2: The Next Week")
         scene_str = values.get("scene", SCENES_BOOK2[0][1])
         width = int(values.get("width", 600))
@@ -1399,16 +1267,236 @@ class LiveRayTraceViewer(ToolView):
                     self.debug_console.write(f'{raytimer.print_final()}')
         platform_label = "WSL" if IS_WINDOWS else "Native Mac"
         self.run_async(_render_stream, status_msg=f"Rendering {book_name} ({width}x{height}) via OpenMP ({platform_label})...")
+
+    def on_load_pov_scene(self, event=None):
+        chosen_path = filedialog.askopenfilename(
+            title="Select POV-Ray Scene",
+            filetypes=[("POV-Ray Scene", "*.pov"), ("All Files", "*.*")],
+        )
+        if not chosen_path:
+            return False
+
+        self.pov_scene_path = Path(chosen_path).resolve()
+        self.set_status(f"POV-Ray scene loaded: {self.pov_scene_path.name}")
+        if self.debug_console is not None:
+            self.debug_console.write(f"Loaded POV-Ray scene: {self.pov_scene_path}\n")
+        return True
+
+    def _require_pov_scene(self):
+        scene_path = self.pov_scene_path
+        if scene_path is not None and scene_path.is_file():
+            return scene_path
+        if self.on_load_pov_scene():
+            return self.pov_scene_path
+        return None
+
+    def _start_pov_render(self, frames, output_suffix):
+        if self.is_rendering:
+            messagebox.showinfo("Rendering", "A render is already in progress. Stop it first if you want to start a new one.")
+            return
+
+        scene_path = self._require_pov_scene()
+        if scene_path is None:
+            return
+
+        self.clear_stack()
+        self._scene_render_values = self.form.get_values()
+        self._pov_render_queue = iter(self._build_pov_render_queue([
+            {
+                "template_path": scene_path,
+                "frames": frames,
+                "output_prefix": f"{scene_path.stem}_{output_suffix}",
+            },
+        ]))
+        self._start_next_povray_scene_render()
+
+    def _requested_scene1_frames(self):
+        """Build this render's frame list from the shared keyframe skeleton."""
+        values = self.form.get_values()
+        try:
+            total_frames = int(values.get("movie_frames", 48))
+            return make_scene1(
+                ri.scene1_keyframes192f,
+                ri.common_scene1_settings,
+                total_frames=total_frames,
+            )
+        except (TypeError, ValueError) as exc:
+            messagebox.showerror("Movie Frames", f"Could not generate the camera path:\n{exc}")
+            return None
+
+    def on_click_povray_still(self, argument=None):
+        self._start_pov_render(frames=None, output_suffix="still")
+
+    def on_click_povray_strip(self, argument=None):
+        frames = self._requested_scene1_frames()
+        if frames is not None:
+            self._start_pov_render(frames=frames, output_suffix="strip")
+
+    # Compatibility for any existing binding that still references this name.
+    def on_click_povray(self, argument=None):
+        self.on_click_povray_still(argument)
         
     def on_click_render2(self, argumen=None):
         if self.is_rendering:
             messagebox.showinfo("Rendering", "A render is already in progress. Stop it first if you want to start a new one.")
             return
-
+        self.clear_stack()
         self._scene_render_values = self.form.get_values()
-        self._scene_render_queue = iter(scene1)
+        frames = self._requested_scene1_frames()
+        if frames is None:
+            return
+        self._scene_render_queue = iter(frames)
         self._start_next_scene_render()
 
+    def _start_next_povray_scene_render(self):
+        try:
+            render_job = next(self._pov_render_queue)
+        except StopIteration:
+            self.set_status("✨ All POV-Ray frames finished.")
+            return
+        except Exception as exc:
+            messagebox.showerror("POV-Ray Setup Error", str(exc))
+            self.set_status(f"POV-Ray setup error: {exc}")
+            return
+
+        try:
+            template_path = render_job["template_path"]
+            frame = render_job["frame"]
+            if frame is None:
+                pov_input_path = template_path
+            else:
+                pov_input_path = template_path.with_name("__active_frame.pov")
+                self._write_pov_camera_frame(template_path, pov_input_path, frame)
+        except Exception as exc:
+            messagebox.showerror("POV-Ray Template Error", str(exc))
+            self.set_status(f"POV-Ray template error: {exc}")
+            return
+
+        render_args = [
+            f"+I{pov_input_path.name}",
+            "+FP",
+            "Compression=0",
+            "-o-",
+        ]
+        if self.debug_console is not None:
+            self.debug_console.write(f"Starting frame: {' '.join(render_args)}\n\n")
+
+        self.on_start_render_povray(
+            self._scene_render_values,
+            render_args,
+            output_path=render_job["output_path"],
+            frame_label=render_job["label"],
+            working_dir=template_path.parent,
+            on_complete=self._start_next_povray_scene_render,
+        )
+
+    def _build_pov_render_queue(self, jobs):
+        """Expand one still job or one camera-path job into renderable frames."""
+        for job in jobs:
+            template_path = Path(job["template_path"])
+            if not template_path.is_file():
+                raise FileNotFoundError(f"POV-Ray scene file was not found: {template_path}")
+
+            output_dir = template_path.parent / "pov_frames"
+            prefix = job.get("output_prefix", template_path.stem)
+            frames = job.get("frames")
+            if frames is None:
+                yield {
+                    "template_path": template_path,
+                    "frame": None,
+                    # A one-off still is kept in the live preview and can be
+                    # saved through Save Image. Do not create a movie folder.
+                    "output_path": None,
+                    "label": template_path.name,
+                }
+                continue
+
+            for index, frame in enumerate(frames, start=1):
+                yield {
+                    "template_path": template_path,
+                    "frame": frame,
+                    "output_path": output_dir / f"{prefix}_{index:04d}.ppm",
+                    "label": f"{template_path.name} frame {index}/{len(frames)}",
+                }
+
+    @staticmethod
+    def _pov_vector(value):
+        if isinstance(value, str):
+            parts = [part.strip() for part in value.split(",")]
+        else:
+            parts = [str(part) for part in value]
+        if len(parts) != 3:
+            raise ValueError(f"POV-Ray camera vectors need three values, got {value!r}")
+        return "<" + ", ".join(parts) + ">"
+
+    @staticmethod
+    def _windows_path_to_wsl(path):
+        resolved_path = Path(path).resolve()
+        drive = resolved_path.drive.rstrip(":").lower()
+        if not drive:
+            raise ValueError(f"Cannot convert {resolved_path} to a WSL path.")
+        return "/mnt/" + drive + resolved_path.as_posix()[2:]
+
+    def _write_pov_camera_frame(self, template_path, output_path, frame):
+        """Copy a normal POV scene and replace only its first camera block."""
+        scene_text = template_path.read_text(encoding="utf-8")
+        camera_match = re.search(r"\bcamera\s*\{", scene_text, flags=re.IGNORECASE)
+        if camera_match is None:
+            raise ValueError(f"No camera {{ ... }} block was found in {template_path.name}.")
+
+        open_brace = scene_text.find("{", camera_match.start())
+        depth = 0
+        close_brace = None
+        for index in range(open_brace, len(scene_text)):
+            if scene_text[index] == "{":
+                depth += 1
+            elif scene_text[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    close_brace = index
+                    break
+        if close_brace is None:
+            raise ValueError(f"The first camera block in {template_path.name} has no closing brace.")
+
+        camera_block = scene_text[camera_match.start():close_brace + 1]
+        camera_vector = self._pov_vector(frame["camera"])
+        lookat_vector = self._pov_vector(frame["lookat"])
+        vfov = str(frame.get("vfov", 45))
+
+        camera_block, locations = re.subn(
+            r"(\blocation\s*)<[^>]*>",
+            lambda match: match.group(1) + camera_vector,
+            camera_block,
+            count=1,
+            flags=re.IGNORECASE,
+        )
+        camera_block, lookats = re.subn(
+            r"(\blook_at\s*)<[^>]*>",
+            lambda match: match.group(1) + lookat_vector,
+            camera_block,
+            count=1,
+            flags=re.IGNORECASE,
+        )
+        if not locations or not lookats:
+            raise ValueError(
+                f"{template_path.name} must have location <x,y,z> and look_at <x,y,z> in its first camera block."
+            )
+
+        camera_block, angles = re.subn(
+            r"(\bangle\s+)[^\s}]+",
+            lambda match: match.group(1) + vfov,
+            camera_block,
+            count=1,
+            flags=re.IGNORECASE,
+        )
+        if not angles:
+            camera_block = camera_block[:-1] + f"\n  angle {vfov}\n}}"
+
+        output_path.write_text(
+            scene_text[:camera_match.start()] + camera_block + scene_text[close_brace + 1:],
+            encoding="utf-8",
+        )
+        
     def _start_next_scene_render(self):
         """Start one movie frame; the completion callback starts the next."""
         try:
@@ -1591,7 +1679,168 @@ class LiveRayTraceViewer(ToolView):
                 self.app.root.after(0, finish_render)
         platform_label = "WSL" if IS_WINDOWS else "Native Mac"
         self.run_async(_render_stream, status_msg=f"Rendering an image ({width}x{height}) via OpenMP ({platform_label})...")
-      
+
+
+    def on_start_render_povray(
+        self,
+        values: dict,
+        render_args: list[str],
+        output_path: Path | None = None,
+        frame_label: str = "POV-Ray scene",
+        working_dir: Path | None = None,
+        on_complete=None,
+    ):
+        if self.is_rendering:
+            messagebox.showinfo("Rendering", "A render is already in progress. Stop it first if you want to start a new one.")
+            return
+ 
+
+        width = 600
+        height = 600
+
+        self.current_width = width
+        self.current_height = height
+        self.orig_image_width = width
+        self.orig_image_height = height
+        self.image_width = width
+        self.image_height = height
+        self.rendered_pixels = {}
+        self.edit_base_image = None
+        self.current_transformed_image = None
+        self.source_image = None
+
+        # Reset PhotoImage
+        self.live_photo = tk.PhotoImage(width=width, height=height)
+        self.img_label.config(image=self.live_photo, text="")
+        binary_name = "povray"
+        working_dir = Path(working_dir or Path(__file__).resolve().parent).resolve()
+        popen_cwd = None
+
+        if IS_WINDOWS:
+            # POV-Ray is on the WSL PATH. --cd makes relative #include files,
+            # the selected scene, and __active_frame.pov resolve together.
+            cmd = ["wsl", "--cd", self._windows_path_to_wsl(working_dir), binary_name, *render_args]
+        else:
+            # Native POV-Ray is expected to be on the Mac/POSIX PATH.
+            cmd = [binary_name, *render_args]
+            popen_cwd = str(working_dir)
+
+        if self.debug_console is not None:
+            self.debug_console.write(f'In on_render povray, cmd={cmd}')
+   #     cmd.extend(["-p"])
+
+        self.is_rendering = True
+        self.start_time = time.time()
+        
+        raytimer = RayTraceTimer()
+
+        def _render_stream():
+            """Read ASCII or binary POV-Ray pixels and schedule Tk preview rows."""
+
+            lines_drawn = 0
+            completed = False
+            render_error = None
+            proc = None
+         
+            try:
+                stats_path = working_dir / "render_stats.txt"
+                with open(stats_path, "w", encoding="utf-8", errors="replace") as stats_file:
+                    proc = subprocess.Popen(
+                        cmd,
+                        stdout=subprocess.PIPE,
+                        stderr=stats_file,
+                        text=False,
+                        cwd=popen_cwd,
+                    )
+                    self.current_proc = proc
+                    if proc.stdout is None:
+                        raise RuntimeError("POV-Ray did not provide stdout")
+                    stdout = proc.stdout
+
+                    width, height, rows = _read_pov_ppm(stdout)
+
+                    # Replace the temporary preview with the actual dimensions.
+                    self.current_width = width
+                    self.current_height = height
+                    self.orig_image_width = width
+                    self.orig_image_height = height
+                    self.image_width = width
+                    self.image_height = height
+                    self.app.root.after(0, lambda w=width, h=height: self._prepare_pov_preview(w, h))
+
+                    completed_rows = []
+                    for row_rgb in rows:
+                        if not self.is_rendering:
+                            break
+                        self.rendered_pixels[lines_drawn] = row_rgb
+                        completed_rows.append(row_rgb)
+                        row_hex_string = "{" + " ".join(
+                            f"#{r:02x}{g:02x}{b:02x}" for r, g, b in row_rgb
+                        ) + "}"
+                        self.app.root.after(
+                            0,
+                            lambda r=lines_drawn, data=row_hex_string, w=width, h=height:
+                                self._draw_row(r, data, w, h),
+                        )
+                        lines_drawn += 1
+                        if self.debug_console is not None:
+                            msg = raytimer.report_progress(interval_seconds=10)
+                            if msg:
+                                self.debug_console.write_line(msg)
+
+                    if not self.is_rendering and proc.poll() is None:
+                        proc.kill()
+                    return_code = proc.wait()
+                if lines_drawn != height:
+                    raise RuntimeError(
+                        f"POV-Ray PPM stream contained {lines_drawn} rows; expected {height}. See {stats_path} for details."
+                    )
+                if return_code != 0:
+                    raise RuntimeError(
+                        f"POV-Ray exited with code {return_code}. See {stats_path} for details."
+                    )
+                if output_path is not None:
+                    output_path.parent.mkdir(parents=True, exist_ok=True)
+                    completed_image = Image.new("RGB", (width, height))
+                    completed_image.putdata([pixel for row in completed_rows for pixel in row])
+                    completed_image.save(output_path)
+                completed = self.is_rendering
+            except Exception as e:
+                render_error = RuntimeError(f"{e} See {working_dir / 'render_stats.txt'} for POV-Ray details.")
+            finally:
+                if proc is not None:
+                    if proc.poll() is None:
+                        proc.kill()
+                    proc.wait()
+                    if proc.stdout is not None:
+                        proc.stdout.close()
+                elapsed = time.time() - self.start_time
+                if self.debug_console is not None:
+                    self.debug_console.write(f'{raytimer.print_final()}')
+
+                def finish_render():
+                    self.is_rendering = False
+                    self.current_proc = None
+                    if render_error is not None:
+                        self.set_status(f"Render error: {render_error}")
+                    elif not completed:
+                        self.set_status("⏹ Render stopped by user.")
+                    elif on_complete is not None:
+                        self.set_status(f"✨ Finished {frame_label}; starting next POV-Ray frame...")
+                        on_complete()
+                    else:
+                        self.set_status(f"✨ Render Finished in {elapsed:.2f}s ({lines_drawn}/{height} scanlines)")
+
+                self.app.root.after(0, finish_render)
+        platform_label = "WSL" if IS_WINDOWS else "Native Mac"
+        self.run_async(_render_stream, status_msg=f"Rendering an image ({width}x{height}) via OpenMP ({platform_label})...")
+       
+    def _prepare_pov_preview(self, width, height):
+        """Create the Tk image after the POV-Ray PPM header reveals its size."""
+        self.live_photo = tk.PhotoImage(width=width, height=height)
+        self.img_label.config(image=self.live_photo, text="")
+
+       
     def _draw_row(self, row_idx, row_hex_string, width, height):
         try:
             if self.live_photo is None:
@@ -1652,6 +1901,9 @@ class LiveRayTraceViewer(ToolView):
             return
 
         self.on_stop_sequence()
+        # A newly loaded frame sequence is a new document, so old image undo
+        # snapshots must never be allowed to modify one of its frames.
+        self.clear_stack()
         self.sequence_images = loaded_images
         self.sequence_paths = loaded_paths
         self.sequence_index = 0
@@ -2047,4 +2299,3 @@ if __name__ == "__main__":
     app = QuickApp(title="Progressive Ray-Tracer Studio", size=(1050, 960))
     app.set_single_tool(LiveRayTraceViewer)
     app.run()
-
