@@ -128,6 +128,7 @@ import os
 import re
 import sys
 import subprocess
+import threading
 import time
 from pathlib import Path
 from typing import Any, cast
@@ -503,11 +504,17 @@ class LiveRayTraceViewer(ToolView):
         self.current_transformed_image = None #holds edit progression of image
         self.live_photo = None   # Holds TKinter canvas ready copy of image
         self.sequence_images = []
+        self.sequence_original_images = []
         self.sequence_paths = []
         self.sequence_index = 0
         self.sequence_playing = False
         self.sequence_after_id = None
         self.sequence_photo = None
+        self.sequence_multi_edit_confirmed = False
+        self.sequence_edit_in_progress = False
+        self.sequence_edit_history = []
+        self.sequence_undo_history = []
+        self.sequence_generation = 0
         self.pov_scene_path = None
         self.sequence_fps_var = tk.IntVar(value=8)
         self.sequence_frame_var = tk.IntVar(value=0)
@@ -570,6 +577,7 @@ class LiveRayTraceViewer(ToolView):
         self.form.add_button("Render POV Camera Strip ▶", callback=self.on_click_povray_strip, variant="primary")
         self.form.add_button("Cancel / Stop Render ⏹", callback=self.on_stop_render, variant="outline")
         self.form.add_button("Load Image Sequence 📂", callback=self.on_load_image_sequence, variant="surface")
+        self.form.add_button("Save Edited Sequence 📂", callback=self.on_save_edited_sequence, variant="surface")
         self.form.add_button("Export Sequence as GIF 🎞", callback=self.on_export_sequence_gif, variant="surface")
  #       self.form.add_button("Save Rendered Image 💾", callback=self.on_save_image, variant="surface")
 
@@ -868,6 +876,36 @@ class LiveRayTraceViewer(ToolView):
         self.pending_snapshot = None
         
     def stack_pop(self,event=None):
+        if self.sequence_images:
+            if self.sequence_edit_in_progress:
+                messagebox.showinfo("Undo", "Please let the current sequence edit finish first.")
+                return
+            if not self.sequence_undo_history:
+                messagebox.showinfo("Undo", "There are (0) sequence Undos remaining.")
+                return
+
+            self.sequence_edit_history = self.sequence_undo_history.pop()
+            history = list(self.sequence_edit_history)
+            generation = self.sequence_generation
+            visible_index = self.sequence_index
+            visible_image = self._apply_sequence_history(
+                self.sequence_original_images[visible_index], history
+            )
+            self.sequence_images[visible_index] = visible_image
+            self.show_sequence_frame(visible_index)
+            self.sequence_edit_in_progress = True
+            originals = list(self.sequence_original_images)
+
+            def worker():
+                edited = [
+                    self._apply_sequence_history(original, history)
+                    for original in originals
+                ]
+                self.after(0, lambda: self._finish_sequence_edit(edited, generation, "Undo"))
+
+            threading.Thread(target=worker, name="sequence-image-undo", daemon=True).start()
+            return
+
         # Undo must include the edit currently being adjusted, even if the
         # user presses Undo before touching another control.
         if self.pending_snapshot is not None:
@@ -925,7 +963,9 @@ class LiveRayTraceViewer(ToolView):
         self.stack_cnt += 1
 
     def get_cur_img(self):
-        if self.current_transformed_image is not None:
+        if self.sequence_images:
+            img = self.sequence_images[self.sequence_index]
+        elif self.current_transformed_image is not None:
             img = self.current_transformed_image
         elif self.source_image is not None:
             img = self.source_image.copy()
@@ -972,6 +1012,17 @@ class LiveRayTraceViewer(ToolView):
         if img is None:
             return
 
+        if self.sequence_images:
+            self._submit_sequence_edit(
+                f"zoom-in-{len(self.sequence_edit_history)}",
+                "Zoom In",
+                lambda frame: frame.resize(
+                    (max(1, int(frame.width * 1.10)), max(1, int(frame.height * 1.10))),
+                    Image.Resampling.LANCZOS,
+                ),
+            )
+            return
+
         self.stack_add(img.copy(), "Zoom In")
 
         current = img.copy()
@@ -984,6 +1035,17 @@ class LiveRayTraceViewer(ToolView):
     def zoom_out_window(self, event=None):
         img = self.get_cur_img()
         if img is None:
+            return
+
+        if self.sequence_images:
+            self._submit_sequence_edit(
+                f"zoom-out-{len(self.sequence_edit_history)}",
+                "Zoom Out",
+                lambda frame: frame.resize(
+                    (max(1, int(frame.width * 0.90)), max(1, int(frame.height * 0.90))),
+                    Image.Resampling.LANCZOS,
+                ),
+            )
             return
 
         self.stack_add(img.copy(), "Zoom Out")
@@ -1004,23 +1066,27 @@ class LiveRayTraceViewer(ToolView):
         self.live_photo = photo
         self.img_label.config(image=self.live_photo, text="")
         img2 = self.get_cur_img()
-        self.stack_add(img2, "Select Zoom")
-        results =  self.setup_zoom_image_workspace(self.live_photo)
+        if not self.sequence_images:
+            self.stack_add(img2, "Select Zoom")
+        self.setup_zoom_image_workspace(self.live_photo,working_image=img)
 
     def bokeh_window(self, event=None):
          # 1. Start from clean RAM copy
         img = self.get_cur_img()
-        if self.debug_console is not None:
-            self.debug_console.write_line(f"In bokeh_window:\n" 
-                                f"img = self.get_cur_img() returned: {img}")
         if img is None:
             return
+
         photo = ImageTk.PhotoImage(img)
         self.live_photo = photo
         self.img_label.config(image=self.live_photo, text="")
-        img2 = self.get_cur_img()
-        self.stack_add(img2, "Bokehed")
-        results =  self.setup_bokeh_image_workspace(self.live_photo)
+
+        if not self.sequence_images:
+            self.stack_add(img, "Bokehed")
+
+        self.setup_bokeh_image_workspace(
+        self.live_photo,
+            working_image=img,
+        )
 
     
     
@@ -1036,8 +1102,9 @@ class LiveRayTraceViewer(ToolView):
         self.live_photo = photo
         self.img_label.config(image=self.live_photo, text="")
         img2 = self.get_cur_img()
-        self.stack_add(img2, "Cropped")
-        results =  self.setup_image_workspace(self.live_photo)
+        if not self.sequence_images:
+            self.stack_add(img2, "Cropped")
+        self.setup_image_workspace(self.live_photo,working_image=img)
 
  
     def _on_book_changed(self, selected_book: str):
@@ -1051,10 +1118,26 @@ class LiveRayTraceViewer(ToolView):
         else:
             self.scene_combo.config(state="readonly")
 
+    def _clear_loaded_sequence(self):
+        self.on_stop_sequence()
+        self.sequence_generation += 1
+        self.sequence_images = []
+        self.sequence_original_images = []
+        self.sequence_paths = []
+        self.sequence_index = 0
+        self.sequence_multi_edit_confirmed = False
+        self.sequence_edit_in_progress = False
+        self.sequence_edit_history = []
+        self.sequence_undo_history = []
+        self.sequence_frame_var.set(0)
+        self.sequence_scrubber.configure(to=0)
+        self.sequence_info_label.config(text="No sequence loaded")
+
     def on_file_selected(self, filepath: str):
         """Called if a file is loaded."""
         if filepath and os.path.exists(filepath):
             try:
+                self._clear_loaded_sequence()
                 self.edit_base_image = None
                 self.source_image = Image.open(filepath)
                 self.orig_image_width, self.orig_image_height = self.source_image.size
@@ -1139,6 +1222,7 @@ class LiveRayTraceViewer(ToolView):
         if self.is_rendering:
             messagebox.showinfo("Rendering", "A render is already in progress. Stop it first if you want to start a new one.")
             return
+        self._clear_loaded_sequence()
         self.clear_stack()
         book_name = values.get("book", "Book 2: The Next Week")
         scene_str = values.get("scene", SCENES_BOOK2[0][1])
@@ -1548,7 +1632,7 @@ class LiveRayTraceViewer(ToolView):
         if self.is_rendering:
             messagebox.showinfo("Rendering", "A render is already in progress. Stop it first if you want to start a new one.")
             return
- 
+        self._clear_loaded_sequence()
 
         width = 600
         height = 600
@@ -1710,7 +1794,7 @@ class LiveRayTraceViewer(ToolView):
         if self.is_rendering:
             messagebox.showinfo("Rendering", "A render is already in progress. Stop it first if you want to start a new one.")
             return
- 
+        self._clear_loaded_sequence()
 
         width = 600
         height = 600
@@ -1921,9 +2005,18 @@ class LiveRayTraceViewer(ToolView):
         # A newly loaded frame sequence is a new document, so old image undo
         # snapshots must never be allowed to modify one of its frames.
         self.clear_stack()
+        self.sequence_generation += 1
+        self.sequence_multi_edit_confirmed = False
+        self.sequence_edit_in_progress = False
+        self.sequence_edit_history = []
+        self.sequence_undo_history = []
+        self.sequence_original_images = [image.copy() for image in loaded_images]
         self.sequence_images = loaded_images
         self.sequence_paths = loaded_paths
         self.sequence_index = 0
+        self.image_width, self.image_height = loaded_images[0].size
+        self.current_width, self.current_height = loaded_images[0].size
+        self.orig_image_width, self.orig_image_height = loaded_images[0].size
         self.sequence_scrubber.configure(to=len(loaded_images) - 1)
         self.sequence_frame_var.set(0)
         self.show_sequence_frame(0)
@@ -1933,6 +2026,156 @@ class LiveRayTraceViewer(ToolView):
                 "Some Frames Were Skipped",
                 "The usable frames were loaded, but these files could not be read:\n\n" + "\n".join(failures),
             )
+
+    def _confirm_sequence_multi_edit(self):
+        """Ask once before allowing edits to affect the loaded sequence."""
+        if not self.sequence_images:
+            return False
+        if self.sequence_multi_edit_confirmed:
+            return True
+
+        confirmed = messagebox.askyesno(
+            "Edit Entire Sequence",
+            "Apply this edit to every image in the loaded sequence?\n\n"
+            "The edited frames will stay in memory until you save them.",
+            parent=self.winfo_toplevel(),
+        )
+        if confirmed:
+            self.sequence_multi_edit_confirmed = True
+        return confirmed
+
+    @staticmethod
+    def _apply_sequence_history(image, history):
+        result = image.copy()
+        for edit in history:
+            result = edit["transform"](result)
+        return result
+
+    def _submit_sequence_edit(self, key, description, transform, replace=False, remove=False):
+        """Apply one captured edit recipe to the visible frame and then the rest."""
+        if not self.sequence_images:
+            return False
+        if self.sequence_edit_in_progress:
+            messagebox.showinfo(
+                "Sequence Edit In Progress",
+                "Please let the current sequence edit finish before starting another.",
+                parent=self.winfo_toplevel(),
+            )
+            return False
+        if not self._confirm_sequence_multi_edit():
+            return False
+
+        previous_history = list(self.sequence_edit_history)
+        new_history = list(previous_history)
+        existing_index = next((i for i, edit in enumerate(new_history) if edit["key"] == key), None)
+
+        if remove:
+            if existing_index is not None:
+                new_history.pop(existing_index)
+        else:
+            edit = {"key": key, "description": description, "transform": transform}
+            if replace and existing_index is not None:
+                new_history[existing_index] = edit
+            else:
+                new_history.append(edit)
+
+        if new_history == previous_history:
+            return True
+
+        self.sequence_undo_history.append(previous_history)
+        self.sequence_edit_history = new_history
+        self.sequence_edit_in_progress = True
+        self.on_stop_sequence()
+        generation = self.sequence_generation
+        visible_index = self.sequence_index
+
+        visible_image = self._apply_sequence_history(
+            self.sequence_original_images[visible_index], new_history
+        )
+        self.sequence_images[visible_index] = visible_image
+        self.show_sequence_frame(visible_index)
+        self.sequence_info_label.config(
+            text=f"Editing sequence… 1/{len(self.sequence_images)}"
+        )
+
+        originals = list(self.sequence_original_images)
+
+        def worker():
+            edited = [None] * len(originals)
+            edited[visible_index] = visible_image
+            try:
+                for index, original in enumerate(originals):
+                    if index == visible_index:
+                        continue
+                    edited[index] = self._apply_sequence_history(original, new_history)
+            except Exception as exc:
+                self.after(0, lambda error=exc: self._finish_sequence_edit_error(error, generation))
+                return
+            self.after(0, lambda: self._finish_sequence_edit(edited, generation, description))
+
+        threading.Thread(target=worker, name="sequence-image-edit", daemon=True).start()
+        return True
+
+    def _finish_sequence_edit(self, edited_images, generation, description):
+        if generation != self.sequence_generation:
+            return
+        self.sequence_images = edited_images
+        self.sequence_edit_in_progress = False
+        self.show_sequence_frame(self.sequence_index)
+        self.set_status(f"Applied {description} to {len(edited_images)} sequence frames in memory.")
+
+    def _finish_sequence_edit_error(self, error, generation):
+        if generation != self.sequence_generation:
+            return
+        self.sequence_edit_in_progress = False
+        if self.sequence_undo_history:
+            self.sequence_edit_history = self.sequence_undo_history.pop()
+        self.sequence_images[self.sequence_index] = self._apply_sequence_history(
+            self.sequence_original_images[self.sequence_index], self.sequence_edit_history
+        )
+        messagebox.showerror(
+            "Sequence Edit Error",
+            f"The sequence edit could not be completed:\n{error}",
+            parent=self.winfo_toplevel(),
+        )
+        self.show_sequence_frame(self.sequence_index)
+
+    def on_save_edited_sequence(self, event=None):
+        if not self.sequence_images:
+            messagebox.showinfo("Save Edited Sequence", "Load an image sequence first.")
+            return
+        if self.sequence_edit_in_progress:
+            messagebox.showinfo(
+                "Save Edited Sequence",
+                "Please wait for the current sequence edit to finish.",
+            )
+            return
+
+        output_dir = filedialog.askdirectory(title="Select Folder for Edited Sequence")
+        if not output_dir:
+            return
+
+        failures = []
+        for index, image in enumerate(self.sequence_images):
+            original_name = os.path.basename(self.sequence_paths[index])
+            output_path = os.path.join(output_dir, original_name)
+            try:
+                image.save(output_path)
+            except Exception as exc:
+                failures.append(f"{original_name}: {exc}")
+
+        saved_count = len(self.sequence_images) - len(failures)
+        if failures:
+            messagebox.showwarning(
+                "Sequence Save Completed with Errors",
+                f"Saved {saved_count}/{len(self.sequence_images)} frames.\n\n" + "\n".join(failures),
+            )
+        else:
+            messagebox.showinfo(
+                "Edited Sequence Saved",
+                f"Saved {saved_count} edited frames to:\n{output_dir}",
+            )
+        self.set_status(f"Saved {saved_count} edited sequence frames.")
 
     def show_sequence_frame(self, frame_index):
         if not self.sequence_images:
@@ -2066,33 +2309,94 @@ class LiveRayTraceViewer(ToolView):
         return img
 
     def blur_auto_calc(self, state=None):
+        if state is not None and self.sequence_images:
+            enabled = bool(state)
+            accepted = self._submit_sequence_edit(
+                "filter-blur",
+                "Blur" if enabled else "Remove Blur",
+                lambda image: image.filter(ImageFilter.BLUR),
+                replace=True,
+                remove=not enabled,
+            )
+            if accepted:
+                self.blur = enabled
+            else:
+                self.blur_var.set(self.blur)
+            return
         if state is not None:
             self._begin_control_edit("blur")
             self.blur = bool(state)
         self.update_live_preview()
 
     def contour_auto_calc(self, state=None):
+        if state is not None and self.sequence_images:
+            enabled = bool(state)
+            accepted = self._submit_sequence_edit(
+                "filter-contour", "Contour" if enabled else "Remove Contour",
+                lambda image: image.filter(ImageFilter.CONTOUR), replace=True, remove=not enabled,
+            )
+            if accepted:
+                self.contour = enabled
+            else:
+                self.contour_var.set(self.contour)
+            return
         if state is not None:
             self._begin_control_edit("contour")
             self.contour = bool(state)
         self.update_live_preview()
 
     def smooth_auto_calc(self, state=None):
+        if state is not None and self.sequence_images:
+            enabled = bool(state)
+            accepted = self._submit_sequence_edit(
+                "filter-smooth", "Smooth" if enabled else "Remove Smooth",
+                lambda image: image.filter(ImageFilter.SMOOTH), replace=True, remove=not enabled,
+            )
+            if accepted:
+                self.smooth = enabled
+            else:
+                self.smooth_var.set(self.smooth)
+            return
         if state is not None:
             self._begin_control_edit("smooth")
             self.smooth = bool(state)
         self.update_live_preview()
 
     def sharpen_auto_calc(self, state=None):
+        if state is not None and self.sequence_images:
+            enabled = bool(state)
+            accepted = self._submit_sequence_edit(
+                "filter-sharpen", "Sharpen" if enabled else "Remove Sharpen",
+                lambda image: image.filter(ImageFilter.SHARPEN), replace=True, remove=not enabled,
+            )
+            if accepted:
+                self.sharpen = enabled
+            else:
+                self.sharpen_var.set(self.sharpen)
+            return
         if state is not None:
             self._begin_control_edit("sharpen")
             self.sharpen = bool(state)
         self.update_live_preview()
 
     def scaled_auto_calc(self, _=None):
-        self._begin_control_edit("scale")
         values = self.form.get_values()
-        self.scale_fac = min(10.0, max(0.1, float(values.get("scalefac", 1.0))))
+        new_scale = min(10.0, max(0.1, float(values.get("scalefac", 1.0))))
+        if self.sequence_images:
+            if self._submit_sequence_edit(
+                "adjust-scale", "Scale",
+                lambda image, amount=new_scale: image.resize(
+                    (max(1, int(image.width * amount)), max(1, int(image.height * amount))),
+                    Image.Resampling.LANCZOS,
+                ),
+                replace=True,
+                remove=abs(new_scale - 1.0) < 1e-9,
+            ):
+                self.scale_fac = new_scale
+                self.is_scaled = abs(new_scale - 1.0) >= 1e-9
+            return
+        self._begin_control_edit("scale")
+        self.scale_fac = new_scale
         self.is_scaled = True
         self.is_resized = False
         self.update_live_preview()
@@ -2101,8 +2405,6 @@ class LiveRayTraceViewer(ToolView):
         pass
  
     def resizedw_auto_calc(self, _, control_name: str | None = "resize"):
-        if control_name:
-            self._begin_control_edit(control_name)
         values = self.form.get_values()
         self.image_width = int(values.get("width", self.orig_image_width))
         if "/" in self.aspratio:
@@ -2116,13 +2418,21 @@ class LiveRayTraceViewer(ToolView):
                         self.form.set_value("height", self.image_height)
                 except Exception:
                     pass
+        if self.sequence_images:
+            target_size = (max(1, self.image_width), max(1, self.image_height))
+            self._submit_sequence_edit(
+                "adjust-resize", "Resize",
+                lambda image, size=target_size: image.resize(size, Image.Resampling.LANCZOS),
+                replace=True,
+            )
+            return
+        if control_name:
+            self._begin_control_edit(control_name)
         self.is_resized = True
         self.is_scaled = False
         self.update_live_preview()
 
     def resizedh_auto_calc(self, _, control_name: str | None = "resize"):
-        if control_name:
-            self._begin_control_edit(control_name)
         values = self.form.get_values()
         self.image_height = int(values.get("height", self.orig_image_height))
         if "/" in self.aspratio:
@@ -2136,16 +2446,29 @@ class LiveRayTraceViewer(ToolView):
                         self.form.set_value("width", self.image_width)
                 except Exception:
                     pass
+        if self.sequence_images:
+            target_size = (max(1, self.image_width), max(1, self.image_height))
+            self._submit_sequence_edit(
+                "adjust-resize", "Resize",
+                lambda image, size=target_size: image.resize(size, Image.Resampling.LANCZOS),
+                replace=True,
+            )
+            return
+        if control_name:
+            self._begin_control_edit(control_name)
         self.is_resized = True
         self.is_scaled = False
         self.update_live_preview()
 
     def aspratio_auto_calc(self, _=None):
-        self._begin_control_edit("aspect ratio")
+        if not self.sequence_images:
+            self._begin_control_edit("aspect ratio")
         values = self.form.get_values()
         self.aspratio = values.get("aspratio", "None/None")
         if self.aspratio != "None/None":
             self.resizedw_auto_calc(None, control_name=None)
+        elif self.sequence_images:
+            return
         else:
             self.update_live_preview()
 
@@ -2165,6 +2488,15 @@ class LiveRayTraceViewer(ToolView):
         self.rotation_timer_id = None
         if abs(float(finval) - self.rotation) < 1e-9:
             return
+        if self.sequence_images:
+            value = float(finval)
+            if self._submit_sequence_edit(
+                "adjust-rotation", "Rotation",
+                lambda image, angle=value: image.rotate(angle, expand=True), replace=True,
+                remove=abs(value) < 1e-9,
+            ):
+                self.rotation = value
+            return
         self._begin_control_edit("rotation")
         self.rotation = float(finval)
         self.update_live_preview()
@@ -2175,6 +2507,15 @@ class LiveRayTraceViewer(ToolView):
     def finalize_cont_stack(self, val):
         self.contrast_timer_id = None
         if abs(float(val) - self.contrast) < 1e-9:
+            return
+        if self.sequence_images:
+            value = float(val)
+            if self._submit_sequence_edit(
+                "adjust-contrast", "Contrast",
+                lambda image, amount=value: ImageEnhance.Contrast(image).enhance(amount), replace=True,
+                remove=abs(value - 1.0) < 1e-9,
+            ):
+                self.contrast = value
             return
         self._begin_control_edit("contrast")
         self.contrast = float(val)
@@ -2187,6 +2528,15 @@ class LiveRayTraceViewer(ToolView):
         self.color_timer_id = None
         if abs(float(val) - self.color) < 1e-9:
             return
+        if self.sequence_images:
+            value = float(val)
+            if self._submit_sequence_edit(
+                "adjust-color", "Color",
+                lambda image, amount=value: ImageEnhance.Color(image).enhance(amount), replace=True,
+                remove=abs(value - 1.0) < 1e-9,
+            ):
+                self.color = value
+            return
         self._begin_control_edit("color")
         self.color = float(val)
         self.update_live_preview()
@@ -2197,6 +2547,15 @@ class LiveRayTraceViewer(ToolView):
     def finalize_brightness_stack(self, val):
         self.brightness_timer_id = None
         if abs(float(val) - self.brightness) < 1e-9:
+            return
+        if self.sequence_images:
+            value = float(val)
+            if self._submit_sequence_edit(
+                "adjust-brightness", "Brightness",
+                lambda image, amount=value: ImageEnhance.Brightness(image).enhance(amount), replace=True,
+                remove=abs(value - 1.0) < 1e-9,
+            ):
+                self.brightness = value
             return
         self._begin_control_edit("brightness")
         self.brightness = float(val)
@@ -2209,6 +2568,15 @@ class LiveRayTraceViewer(ToolView):
         self.sharpness_timer_id = None
         if abs(float(val) - self.sharpness) < 1e-9:
             return
+        if self.sequence_images:
+            value = float(val)
+            if self._submit_sequence_edit(
+                "adjust-sharpness", "Sharpness",
+                lambda image, amount=value: ImageEnhance.Sharpness(image).enhance(amount), replace=True,
+                remove=abs(value - 1.0) < 1e-9,
+            ):
+                self.sharpness = value
+            return
         self._begin_control_edit("sharpness")
         self.sharpness = float(val)
         self.update_live_preview()
@@ -2220,12 +2588,25 @@ class LiveRayTraceViewer(ToolView):
         self.scale_timer_id = None
         if abs(float(val) - self.scale_fac) < 1e-9:
             return
+        if self.sequence_images:
+            value = float(val)
+            if self._submit_sequence_edit(
+                "adjust-scale", "Scale",
+                lambda image, amount=value: image.resize(
+                    (max(1, int(image.width * amount)), max(1, int(image.height * amount))),
+                    Image.Resampling.LANCZOS,
+                ),
+                replace=True,
+                remove=abs(value - 1.0) < 1e-9,
+            ):
+                self.scale_fac = value
+            return
         self._begin_control_edit("scale")
         self.scale_fac = float(val)
         self.is_scaled = True
         self.update_live_preview()
 
-    def setup_zoom_image_workspace(self, image, target_frame=None):
+    def setup_zoom_image_workspace(self, image, working_image,target_frame=None):
         display_frame = target_frame if target_frame is not None else self.canvas_frame
 
         self.live_photo = image 
@@ -2258,19 +2639,28 @@ class LiveRayTraceViewer(ToolView):
         def handle_selection(x0, y0, x1, y1):
             overlay_canvas.destroy()
        
-            img = self.current_transformed_image or self.source_image
+            img =  working_image.copy()
             if img is None or x0 < 0 or y0 < 0:
                 return
             box = (x0, y0, x1, y1)
             width = img.width
             height = img.height
+            if self.sequence_images:
+                self._submit_sequence_edit(
+                    f"select-zoom-{len(self.sequence_edit_history)}",
+                    "Select Zoom",
+                    lambda frame, selected_box=box: frame.crop(selected_box).resize(
+                        frame.size, Image.Resampling.LANCZOS
+                    ),
+                )
+                return
             img_swap = img.crop(box)
             self._commit_discrete_image(img_swap.resize((width, height), Image.Resampling.LANCZOS))
             
         # 4. Inject the selection tool seamlessly
         CanvasSelector(overlay_canvas, callback=handle_selection)
 
-    def setup_bokeh_image_workspace(self, image, target_frame=None):
+    def setup_bokeh_image_workspace( self,image,working_image,target_frame=None):
         display_frame = target_frame if target_frame is not None else self.canvas_frame
 
         self.live_photo = image 
@@ -2303,12 +2693,14 @@ class LiveRayTraceViewer(ToolView):
         def handle_selection(x0, y0, x1, y1):
             blur_amt = simpledialog.askfloat(
                "Bokeh Blur",
-                "Enter a blur amount between 0 and 1:",
+                "Enter a blur amount between 0 and 1: (Suggsted range .2-.3)",
                 parent=self.winfo_toplevel(),
+                initialvalue=0.25,
                 minvalue=0.0,
                 maxvalue=1.0,
             )     
-            breakpoint()
+            if self.debug_console is not None:
+                self.debug_console.write(f'Input received for blur amount was: {blur_amt}')
             if blur_amt is None:
                 overlay_canvas.destroy()
                 return
@@ -2317,21 +2709,36 @@ class LiveRayTraceViewer(ToolView):
        
             if blur_amt is None:
                 return
-            
-            img = self.current_transformed_image or self.source_image
+            img = working_image.copy()
+
             if img is None or x0 < 0 or y0 < 0:
                 return
             box = (x0, y0, x1, y1)
+            blur_radius = blur_amt * 20.0
+            if self.sequence_images:
+                def apply_bokeh(frame, selected_box=box, radius=blur_radius):
+                    sharp_region = frame.crop(selected_box)
+                    blurred = frame.filter(ImageFilter.GaussianBlur(radius=radius))
+                    blurred.paste(sharp_region, selected_box)
+                    return blurred
+
+                self._submit_sequence_edit(
+                    f"bokeh-{len(self.sequence_edit_history)}",
+                    "Bokeh",
+                    apply_bokeh,
+                )
+                return
       
             img_cpy = img.copy()
             img_cropped = img_cpy.crop(box)
             img_cropped.save("cropped_img.jpg")
-            # Saved he region not to blur
-            img_blurred = img_cpy.filter(ImageFilter.BLUR)
+            # Saved he region not to blu
+ #           img_blurred = img_cpy.filter(ImageFilter.BLUR)
+
+            img_blurred = img_cpy.filter(
+                 ImageFilter.GaussianBlur(radius=blur_radius)
+            )
             img_blurred.save("blurred_img.jpg")
-#            img_blurred = img_cpy.filter(
-#                 ImageFilter.GaussianBlur(radius=blur_amt)
-#            )
             img_blurred.paste(img_cropped, box)
             img_blurred.save("BlurandPasted.jpg")   
             self._commit_discrete_image(img_blurred)
@@ -2339,7 +2746,7 @@ class LiveRayTraceViewer(ToolView):
         # 4. Inject the selection tool seamlessly
         CanvasSelector(overlay_canvas, callback=handle_selection)
 
-    def setup_image_workspace(self, image, target_frame=None):
+    def setup_image_workspace(self, image, working_image,target_frame=None):
         display_frame = target_frame if target_frame is not None else self.canvas_frame
 
         self.live_photo = image 
@@ -2371,11 +2778,17 @@ class LiveRayTraceViewer(ToolView):
         # 3. Main project handler (This is where your crop/zoom/buffer logic goes)
         def handle_selection(x0, y0, x1, y1):
             overlay_canvas.destroy()
-       
-            img = self.current_transformed_image or self.source_image
+            img = working_image.copy()
             if img is None or x0 < 0 or y0 < 0:
                 return
             box = (x0, y0, x1, y1)
+            if self.sequence_images:
+                self._submit_sequence_edit(
+                    f"crop-{len(self.sequence_edit_history)}",
+                    "Crop",
+                    lambda frame, selected_box=box: frame.crop(selected_box),
+                )
+                return
             self._commit_discrete_image(img.crop(box))
             
         # 4. Inject the selection tool seamlessly
