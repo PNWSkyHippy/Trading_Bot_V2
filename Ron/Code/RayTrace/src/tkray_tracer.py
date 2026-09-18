@@ -132,7 +132,7 @@ import time
 from pathlib import Path
 from typing import Any, cast
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import ttk, filedialog, messagebox, simpledialog
 from PIL import Image, ImageEnhance, ImageFilter, ImageTk
 import rayincludes as ri
 # This file is in Code/RayTrace/src, while quick_tk is in Code/quick_tk.
@@ -298,7 +298,7 @@ def make_scene1(keyframes, common_settings, total_frames=None):
 # The include file is the editable camera-path skeleton.  This module-level
 # default preserves compatibility; the render buttons regenerate it using the
 # Movie Frames field immediately before each movie render.
-scene1 = make_scene1(ri.scene1_keyframes192f, ri.common_scene1_settings)
+scene1 = make_scene1(ri.scene1_keyframes, ri.common_scene1_settings)
 
 class RayTraceTimer:
     def __init__(self, total_pixels=None):
@@ -488,7 +488,7 @@ class LiveRayTraceViewer(ToolView):
         self.is_scaled = False          # Has image been scaled
         self.is_resized = False         # Has height/width been edited
         self.aspratio = "None/None"     # Has ap ration been edited
-        self.blur = False               # Has blue been applied
+        self.blur = False               # Has blur been applied
         self.contour = False            # Think te next few are obvious
         self.smooth = False
         self.sharpen = False
@@ -641,7 +641,9 @@ class LiveRayTraceViewer(ToolView):
         tools_menu.add_command(label="Zoom In < [ >", command=self.zoom_in_window)
         self.bind_all("<KeyPress-bracketleft>", self.zoom_in_window)
         tools_menu.add_command(label="Zoom Out < ] >", command=self.zoom_out_window)   
-        self.bind_all("<KeyPress-bracketright>", self.zoom_in_window)
+        self.bind_all("<KeyPress-bracketright>", self.zoom_out_window)
+        tools_menu.add_command(label="Bokeh effect <Ctrl-e>", command=self.bokeh_window)
+        self.bind_all("<Control-e>", self.bokeh_window)
         tools_menu.add_command(label="Crop Window <Ctrl-b>", command=self.crop_window)
         self.bind_all("<Control-b>", self.crop_window)
         tm3 = tools_menu.add_command(label=f"Undu ({len(self.image_stack)}) <Ctrl-z>", command=self.stack_pop)
@@ -660,7 +662,7 @@ class LiveRayTraceViewer(ToolView):
         self.is_scaled = False          # Has image been scaled
         self.is_resized = False         # Has height/width been edited
         self.aspratio = "None/None"     # Has ap ration been edited
-        self.blur = False               # Has blue been applied
+        self.blur = False               # Has blur been applied
         self.contour = False            # Think te next few are obvious
         self.smooth = False
         self.sharpen = False
@@ -1005,9 +1007,24 @@ class LiveRayTraceViewer(ToolView):
         self.stack_add(img2, "Select Zoom")
         results =  self.setup_zoom_image_workspace(self.live_photo)
 
-              
+    def bokeh_window(self, event=None):
+         # 1. Start from clean RAM copy
+        img = self.get_cur_img()
+        if self.debug_console is not None:
+            self.debug_console.write_line(f"In bokeh_window:\n" 
+                                f"img = self.get_cur_img() returned: {img}")
+        if img is None:
+            return
+        photo = ImageTk.PhotoImage(img)
+        self.live_photo = photo
+        self.img_label.config(image=self.live_photo, text="")
+        img2 = self.get_cur_img()
+        self.stack_add(img2, "Bokehed")
+        results =  self.setup_bokeh_image_workspace(self.live_photo)
+
+    
+    
     def crop_window(self, event=None):
-#       self.update_live_preview()
          # 1. Start from clean RAM copy
         img = self.get_cur_img()
         if self.debug_console is not None:
@@ -1316,7 +1333,7 @@ class LiveRayTraceViewer(ToolView):
         try:
             total_frames = int(values.get("movie_frames", 48))
             return make_scene1(
-                ri.scene1_keyframes192f,
+                ri.scene1_keyframes,
                 ri.common_scene1_settings,
                 total_frames=total_frames,
             )
@@ -2250,6 +2267,75 @@ class LiveRayTraceViewer(ToolView):
             img_swap = img.crop(box)
             self._commit_discrete_image(img_swap.resize((width, height), Image.Resampling.LANCZOS))
             
+        # 4. Inject the selection tool seamlessly
+        CanvasSelector(overlay_canvas, callback=handle_selection)
+
+    def setup_bokeh_image_workspace(self, image, target_frame=None):
+        display_frame = target_frame if target_frame is not None else self.canvas_frame
+
+        self.live_photo = image 
+
+        overlay_canvas = tk.Canvas(
+            display_frame, 
+            width=image.width(), 
+            height=image.height(), 
+            highlightthickness=0
+        )
+    
+        # FIX CENTERING: Position the anchor point right in the middle (relx=0.5, rely=0.5)
+        # and set anchor="center" so it sits exactly on top of the original centered view.
+        overlay_canvas.place(
+            in_=display_frame, 
+            relx=0.5, rely=0.5, 
+            width=image.width(), 
+            height=image.height(), 
+            anchor="center"
+        )
+    
+        overlay_canvas.create_image(0, 0, anchor="nw", image=self.live_photo)
+
+        # Tk stores the native window identifier in _w. It is available at
+        # runtime but intentionally absent from the public Canvas type stub.
+        canvas_widget = cast(Any, overlay_canvas)
+        self.tk.call('raise', canvas_widget._w)
+
+        # 3. Main project handler (This is where your crop/zoom/buffer logic goes)
+        def handle_selection(x0, y0, x1, y1):
+            blur_amt = simpledialog.askfloat(
+               "Bokeh Blur",
+                "Enter a blur amount between 0 and 1:",
+                parent=self.winfo_toplevel(),
+                minvalue=0.0,
+                maxvalue=1.0,
+            )     
+            breakpoint()
+            if blur_amt is None:
+                overlay_canvas.destroy()
+                return
+            
+            overlay_canvas.destroy()
+       
+            if blur_amt is None:
+                return
+            
+            img = self.current_transformed_image or self.source_image
+            if img is None or x0 < 0 or y0 < 0:
+                return
+            box = (x0, y0, x1, y1)
+      
+            img_cpy = img.copy()
+            img_cropped = img_cpy.crop(box)
+            img_cropped.save("cropped_img.jpg")
+            # Saved he region not to blur
+            img_blurred = img_cpy.filter(ImageFilter.BLUR)
+            img_blurred.save("blurred_img.jpg")
+#            img_blurred = img_cpy.filter(
+#                 ImageFilter.GaussianBlur(radius=blur_amt)
+#            )
+            img_blurred.paste(img_cropped, box)
+            img_blurred.save("BlurandPasted.jpg")   
+            self._commit_discrete_image(img_blurred)
+        
         # 4. Inject the selection tool seamlessly
         CanvasSelector(overlay_canvas, callback=handle_selection)
 

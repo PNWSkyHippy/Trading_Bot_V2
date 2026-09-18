@@ -993,7 +993,7 @@
         const inventoryOverlay = document.getElementById('inventory-overlay');
         const inventoryCard = document.getElementById('inventory-card');
         const inventoryBtn = document.getElementById('inventory-btn');
-        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1-sharpTurnOcclusionFix1-sixPortJunction1-roundSixPortJunction1-sidePortalHandoffFix1-distanceBendConnector1-distanceScenicRibSuppression1-roundJunctionHubShell1-roundHubRenderOwnership1-roundJunctionSphereRoom2-roundJunctionPortalCoverage1-gulletP1-gulletPlayFix1-gulletHallBlock2-rectCornerHandoff1-gulletExactRooms1-gulletSurgeClarity1-tunnelArcadeFix2';
+        const BUILD_ID = 'v0.6-sentryAi1-20260623-webglOnlyFix1-flightBoundsFix1-webglVisibleFix1-controlsFix2-tunnelCoverageFix1-sentryCombat2-hullHud1-leaderboard1-sentryMapEdit1-sdSilhouette2-hudLayerFix1-sentryEditFix1-blankFix1-sentryClickFix2-sentrySnapFix1-tunnelSplitFix1-tunnelCoupledFix1-tunnelFollowFix1-tunnelPolishFix1-sentryEngageFix2-sentryPackFix1-sentryChaseFix4-sentryBeamFix3-sentryHullFix1-sentryTacticsFix1-spatialAudioFix1-worldUpLockFix1-mouseSteerFix1-branchFlightFix2-shipRollFix1-flightFreedomFix2-renderNotLockFix1-mapBuildFix1-mapBuildFix2-mapBuildFix3-renderRegressionFix1-mapAutogenStretchFix1-mapCoordUxFix1-controlsFix3-poleCrossFix1-sectionTextureFix1-doorFrameRibFix1-tronMapMode1-frameRatePhysicsFix1-shipRelocate1-auditSafetyFix1-rocketObliteration1-targetSelectionFix1-cachePlacement1-targetColorFix1-controlConflictFix1-galagaPacingFix1-galagaPacingFix2-escapeBlackoutFix1-mapEscapeGuard1-lootInventory1-rectRoom1-roomSurfaces1-roomLevelFix1-roomRibFix1-lootMapDotFix1-junctionCube1-roomRotate1-junctionRectDoorway1-facePortalDistFix1-roomRotateHarmonizeFix1-rollBendPlaneShiftFix1-rulerTool1-rulerHandleLockFix1-slashShiftKeyFix1-sentryHordeStyleFix1-mapCameraRoll1-distanceTextureRun1-sharpTurnOcclusionFix1-sixPortJunction1-roundSixPortJunction1-sidePortalHandoffFix1-distanceBendConnector1-distanceScenicRibSuppression1-roundJunctionHubShell1-roundHubRenderOwnership1-roundJunctionSphereRoom2-roundJunctionPortalCoverage1-gulletP1-gulletPlayFix1-gulletHallBlock2-rectCornerHandoff1-gulletExactRooms1-gulletSurgeClarity1-tunnelArcadeFix4';
         const BUILD_LABEL = 'v0.6 · Astral Arcade & Builder';
         const RUNNING_FROM_FILE = window.location.protocol === 'file:';
         const ASTRAL_LOCAL_URL = 'http://localhost:8127/index.html';
@@ -1603,9 +1603,10 @@
         const shipInventory = {
             rocketLoaded: ROCKET_MAGAZINE_SIZE,
             items: {
-                rocketPack: 0,
-                smokeBomb: 0,
-                empBomb: 0
+                rocketPack: 2,
+                smokeBomb: 3,
+                empBomb: 2,
+                oilSlick: 3
             }
         };
         // Compatibility facade for the rocket code while inventory becomes a
@@ -6395,10 +6396,12 @@
                 const legacyValue = itemType === 'rocketPack'
                     ? rawInventory.reservePacks
                     : undefined;
-                shipInventory.items[itemType] = sanitizeInventoryCount(
+                const defaultCount = (itemType === 'oilSlick' || itemType === 'smokeBomb') ? 3 : (itemType === 'empBomb' ? 2 : (itemType === 'rocketPack' ? 2 : 0));
+                const parsedVal = sanitizeInventoryCount(
                     rawItems[itemType] ?? legacyValue,
                     def.maxStack
                 );
+                shipInventory.items[itemType] = Math.max(defaultCount, parsedVal);
             }
             updateRocketHud();
         }
@@ -6781,6 +6784,12 @@
             }
             sentryBeams.length = 0;
             sentryMuzzleFlashes.length = 0;
+            if (typeof tunnelSectorAlarm !== 'undefined') {
+                tunnelSectorAlarm.active = false;
+            }
+            if (typeof ensureTunnelMissionSquadrons === 'function') {
+                ensureTunnelMissionSquadrons();
+            }
         }
 
         function loadLeaderboard() {
@@ -24947,7 +24956,17 @@
                     patrolBroken: sentry.patrolBroken,
                     lingerUntil: sentry.lingerUntil,
                     lastFireAt: sentry.lastFireAt,
-                    lastSeenAt: sentry.lastSeenAt
+                    lastSeenAt: sentry.lastSeenAt,
+                    captainKey: sentry.captainKey,
+                    isRunner: sentry.isRunner,
+                    isReinforcement: sentry.isReinforcement,
+                    label: sentry.label,
+                    empStunnedUntil: sentry.empStunnedUntil,
+                    slippingUntil: sentry.slippingUntil,
+                    slipVx: sentry.slipVx,
+                    slipVy: sentry.slipVy,
+                    slipVz: sentry.slipVz,
+                    spinAngle: sentry.spinAngle
                 }])
             );
             tunnelSentries.length = 0;
@@ -24970,9 +24989,22 @@
                         runtime.lingerUntil = prior.lingerUntil ?? 0;
                         runtime.lastFireAt = prior.lastFireAt ?? 0;
                         runtime.lastSeenAt = prior.lastSeenAt ?? 0;
+                        runtime.captainKey = prior.captainKey ?? null;
+                        runtime.isRunner = prior.isRunner ?? false;
+                        runtime.isReinforcement = prior.isReinforcement ?? false;
+                        if (prior.label) runtime.label = prior.label;
+                        runtime.empStunnedUntil = prior.empStunnedUntil ?? 0;
+                        runtime.slippingUntil = prior.slippingUntil ?? 0;
+                        runtime.slipVx = prior.slipVx ?? 0;
+                        runtime.slipVy = prior.slipVy ?? 0;
+                        runtime.slipVz = prior.slipVz ?? 0;
+                        runtime.spinAngle = prior.spinAngle ?? 0;
                     }
                 }
                 tunnelSentries.push(runtime);
+            }
+            if (typeof ensureTunnelMissionSquadrons === 'function') {
+                ensureTunnelMissionSquadrons();
             }
         }
 
@@ -26406,15 +26438,70 @@
             }
         }
 
-        function initTunnelMission() {
-            if (tunnelMission.initialized && tunnelMission.keyItems.length) return;
+        function getActiveTunnelMissionTarget() {
+            if (!tunnelMission.keys.crimson) {
+                const keyItem = tunnelMission.keyItems.find(k => k.type === 'crimson');
+                const captain = tunnelSentries.find(s => s.captainKey === 'crimson' && sentryIsActive(s));
+                return {
+                    type: 'crimson',
+                    pos: captain ? { x: captain.x, y: captain.y, z: captain.z } : (keyItem ? { x: keyItem.x, y: keyItem.y, z: keyItem.z } : null),
+                    title: captain ? '🔴 CRIMSON PATROL CAPTAIN' : '🔴 CRIMSON ALPHA CIPHER CORE',
+                    directive: 'INTERCEPT CRIMSON CAPTAIN · SECURE ALPHA CIPHER',
+                    color: '#ff3355'
+                };
+            }
+            if (!tunnelMission.keys.cobalt) {
+                const keyItem = tunnelMission.keyItems.find(k => k.type === 'cobalt');
+                const captain = tunnelSentries.find(s => s.captainKey === 'cobalt' && sentryIsActive(s));
+                return {
+                    type: 'cobalt',
+                    pos: captain ? { x: captain.x, y: captain.y, z: captain.z } : (keyItem ? { x: keyItem.x, y: keyItem.y, z: keyItem.z } : null),
+                    title: captain ? '🔵 COBALT PATROL CAPTAIN' : '🔵 COBALT BETA CIPHER CORE',
+                    directive: 'INTERCEPT COBALT CAPTAIN · SECURE BETA CIPHER',
+                    color: '#00ccff'
+                };
+            }
+            if (!tunnelMission.keys.amber) {
+                const keyItem = tunnelMission.keyItems.find(k => k.type === 'amber');
+                const captain = tunnelSentries.find(s => s.captainKey === 'amber' && sentryIsActive(s));
+                return {
+                    type: 'amber',
+                    pos: captain ? { x: captain.x, y: captain.y, z: captain.z } : (keyItem ? { x: keyItem.x, y: keyItem.y, z: keyItem.z } : null),
+                    title: captain ? '🟡 AMBER PATROL CAPTAIN' : '🟡 AMBER GAMMA CIPHER CORE',
+                    directive: 'INTERCEPT AMBER CAPTAIN · SECURE GAMMA CIPHER',
+                    color: '#ffcc00'
+                };
+            }
+            if (tunnelBoss.alive && !tunnelBoss.defeatedAt) {
+                return {
+                    type: 'boss',
+                    pos: { x: tunnelBoss.x, y: tunnelBoss.y, z: tunnelBoss.z },
+                    title: '⚠️ AEGIS CORE DREADNOUGHT',
+                    directive: 'BREACH EXIT VAULT · DESTROY AEGIS DREADNOUGHT BOSS',
+                    color: '#ff0033'
+                };
+            }
+            if (tunnelBoss.defeatedAt && tunnelBoss.exitPortalPoint) {
+                return {
+                    type: 'portal',
+                    pos: tunnelBoss.exitPortalPoint,
+                    title: '★ EXTRACTION PORTAL',
+                    directive: 'MISSION COMPLETE · FLY INTO RADIANT EXIT PORTAL',
+                    color: '#00ffcc'
+                };
+            }
+            return null;
+        }
+
+        function ensureTunnelMissionSquadrons(force = false) {
             const segs = builder.segments;
             if (!segs || segs.length < 3) return;
 
             const n = segs.length;
-            const idx1 = Math.max(0, Math.min(n - 1, Math.floor(n * 0.25)));
-            const idx2 = Math.max(0, Math.min(n - 1, Math.floor(n * 0.55)));
-            const idx3 = Math.max(0, Math.min(n - 1, Math.floor(n * 0.82)));
+            const idxScout = Math.min(n - 1, Math.max(1, Math.min(3, Math.floor(n * 0.06))));
+            const idx1 = Math.max(0, Math.min(n - 1, Math.floor(n * 0.22)));
+            const idx2 = Math.max(0, Math.min(n - 1, Math.floor(n * 0.52)));
+            const idx3 = Math.max(0, Math.min(n - 1, Math.floor(n * 0.80)));
             const lastIdx = n - 1;
 
             const p1 = getSegmentMidpoint(segs[idx1]);
@@ -26422,46 +26509,137 @@
             const p3 = getSegmentMidpoint(segs[idx3]);
             const pBoss = segs[lastIdx]?.to ? copyVec(segs[lastIdx].to) : getSegmentMidpoint(segs[lastIdx]);
 
-            tunnelMission.keyItems = [
-                { id: 'key_crimson', type: 'crimson', label: 'Crimson Alpha', color: '#ff3355', x: p1.x, y: p1.y, z: p1.z, segmentIndex: idx1, collected: false },
-                { id: 'key_cobalt',  type: 'cobalt',  label: 'Cobalt Beta',  color: '#00ccff', x: p2.x, y: p2.y, z: p2.z, segmentIndex: idx2, collected: false },
-                { id: 'key_amber',   type: 'amber',   label: 'Amber Gamma',  color: '#ffcc00', x: p3.x, y: p3.y, z: p3.z, segmentIndex: idx3, collected: false }
-            ];
-
-            // Assign keycard carrier roles to strategic sentry captains if sentries exist
-            const keyTypes = ['crimson', 'cobalt', 'amber'];
-            let keyIdx = 0;
-            for (let i = 0; i < tunnelSentries.length && keyIdx < keyTypes.length; i++) {
-                const s = tunnelSentries[i];
-                if (!s || s.isReinforcement) continue;
-                s.captainKey = keyTypes[keyIdx];
-                s.label = keyTypes[keyIdx] === 'crimson' ? '[ 🔴 CRIMSON CAPTAIN ]' : (keyTypes[keyIdx] === 'cobalt' ? '[ 🔵 COBALT CAPTAIN ]' : '[ 🟡 AMBER CAPTAIN ]');
-                s.health = Math.max(s.health, 140);
-                keyIdx++;
+            if (force || !tunnelMission.initialized || !tunnelMission.keyItems.length) {
+                tunnelMission.keyItems = [
+                    { id: 'key_crimson', type: 'crimson', label: 'Crimson Alpha', color: '#ff3355', x: p1.x, y: p1.y, z: p1.z, segmentIndex: idx1, collected: false },
+                    { id: 'key_cobalt',  type: 'cobalt',  label: 'Cobalt Beta',  color: '#00ccff', x: p2.x, y: p2.y, z: p2.z, segmentIndex: idx2, collected: false },
+                    { id: 'key_amber',   type: 'amber',   label: 'Amber Gamma',  color: '#ffcc00', x: p3.x, y: p3.y, z: p3.z, segmentIndex: idx3, collected: false }
+                ];
+                const exitSeg = segs[lastIdx];
+                const exitDoorPoint = exitSeg?.from ? copyVec(exitSeg.from) : pBoss;
+                tunnelMission.bulkheads = [
+                    { id: 'bulk_vault', requiredKey: 'all', x: exitDoorPoint.x, y: exitDoorPoint.y, z: exitDoorPoint.z, segmentIndex: lastIdx, radius: exitSeg?.radius || 120, opened: false }
+                ];
+                tunnelBoss.x = pBoss.x;
+                tunnelBoss.y = pBoss.y;
+                tunnelBoss.z = pBoss.z;
+                tunnelBoss.segmentIndex = lastIdx;
+                tunnelBoss.exitPortalPoint = copyVec(pBoss);
+                tunnelBoss.initialized = true;
+                tunnelBoss.active = false;
+                tunnelBoss.alive = true;
+                tunnelBoss.hp = 1200;
+                tunnelBoss.maxHp = 1200;
+                tunnelBoss.shields = 600;
+                tunnelBoss.maxShields = 600;
+                tunnelMission.initialized = true;
             }
 
-            // Exit Vault Door placed at entrance to final boss chamber
-            const exitSeg = segs[lastIdx];
-            const exitDoorPoint = exitSeg?.from ? copyVec(exitSeg.from) : pBoss;
-            tunnelMission.bulkheads = [
-                { id: 'bulk_vault', requiredKey: 'all', x: exitDoorPoint.x, y: exitDoorPoint.y, z: exitDoorPoint.z, segmentIndex: lastIdx, radius: exitSeg?.radius || 120, opened: false }
-            ];
+            // Always check if sentries exist; if < 6 or force, generate forward scout and 3 tactical squadrons
+            const hasCaptains = tunnelSentries.some(s => s.captainKey);
+            if (!hasCaptains || tunnelSentries.length < 6 || force) {
+                if (force) tunnelSentries.length = 0;
 
-            // Initialize Boss in final chamber/segment
-            tunnelBoss.x = pBoss.x;
-            tunnelBoss.y = pBoss.y;
-            tunnelBoss.z = pBoss.z;
-            tunnelBoss.segmentIndex = lastIdx;
-            tunnelBoss.exitPortalPoint = copyVec(pBoss);
-            tunnelBoss.initialized = true;
-            tunnelBoss.active = false;
-            tunnelBoss.alive = true;
-            tunnelBoss.hp = 1200;
-            tunnelBoss.maxHp = 1200;
-            tunnelBoss.shields = 600;
-            tunnelBoss.maxShields = 600;
+                // 0. Forward Recon Drone near start (segment 2 or 3) so player sees action immediately upon flight!
+                const scoutSeg = segs[idxScout];
+                if (scoutSeg && !tunnelSentries.some(s => s.id && s.id.startsWith('forward_recon'))) {
+                    const smid = getSegmentMidpoint(scoutSeg);
+                    const sfwd = copyVec(scoutSeg.forward);
+                    const srgt = copyVec(scoutSeg.right);
+                    const sdwn = copyVec(scoutSeg.down);
+                    tunnelSentries.push({
+                        id: `forward_recon_${Date.now()}`,
+                        x: smid.x, y: smid.y, z: smid.z,
+                        spawn: { point: copyVec(smid), right: copyVec(srgt), down: copyVec(sdwn), forward: copyVec(sfwd), segmentIndex: idxScout, segmentT: 0.5 },
+                        right: copyVec(srgt), down: copyVec(sdwn), forward: copyVec(sfwd),
+                        health: 80, maxHealth: 80,
+                        mode: 'guard', path: [], waypointIndex: 0, lingerUntil: 0,
+                        engaged: false, patrolBroken: false, lastFireAt: 0, lastSeenAt: 0,
+                        isRunner: false, fleeStartedAt: 0, alarmTriggered: false,
+                        empStunnedUntil: 0, slippingUntil: 0, slipVx: 0, slipVy: 0, slipVz: 0, spinAngle: 0,
+                        isReinforcement: false, captainKey: null,
+                        label: '[ ⚡ FORWARD RECON ]'
+                    });
+                }
 
-            tunnelMission.initialized = true;
+                // 3 Strategic Squadrons
+                const squads = [
+                    { idx: idx1, type: 'crimson', name: 'CRIMSON', badge: '🔴', color: '#ff3355' },
+                    { idx: idx2, type: 'cobalt',  name: 'COBALT',  badge: '🔵', color: '#00ccff' },
+                    { idx: idx3, type: 'amber',   name: 'AMBER',   badge: '🟡', color: '#ffcc00' }
+                ];
+
+                for (const sq of squads) {
+                    if (tunnelSentries.some(s => s.captainKey === sq.type)) continue;
+                    const seg = segs[sq.idx];
+                    const mid = getSegmentMidpoint(seg);
+                    const fwd = seg ? copyVec(seg.forward) : { x: 0, y: 0, z: 1 };
+                    const rgt = seg ? copyVec(seg.right) : { x: 1, y: 0, z: 0 };
+                    const dwn = seg ? copyVec(seg.down) : { x: 0, y: 1, z: 0 };
+
+                    // 1. Patrol Captain (Carries cipher card, elite armor)
+                    tunnelSentries.push({
+                        id: `captain_${sq.type}_${Date.now()}`,
+                        x: mid.x, y: mid.y, z: mid.z,
+                        spawn: { point: copyVec(mid), right: copyVec(rgt), down: copyVec(dwn), forward: copyVec(fwd), segmentIndex: sq.idx, segmentT: 0.5 },
+                        right: copyVec(rgt), down: copyVec(dwn), forward: copyVec(fwd),
+                        health: 160, maxHealth: 160,
+                        mode: 'guard', path: [], waypointIndex: 0, lingerUntil: 0,
+                        engaged: false, patrolBroken: false, lastFireAt: 0, lastSeenAt: 0,
+                        isRunner: false, fleeStartedAt: 0, alarmTriggered: false,
+                        empStunnedUntil: 0, slippingUntil: 0, slipVx: 0, slipVy: 0, slipVz: 0, spinAngle: 0,
+                        isReinforcement: false, captainKey: sq.type,
+                        label: `[ ${sq.badge} ${sq.name} CAPTAIN ]`
+                    });
+
+                    // 2. Runner Scout (Flees when attacked to sound sector alarm!)
+                    const scoutPos = {
+                        x: mid.x + rgt.x * 32 - fwd.x * 24,
+                        y: mid.y + dwn.y * 14,
+                        z: mid.z + rgt.z * 32 - fwd.z * 24
+                    };
+                    tunnelSentries.push({
+                        id: `runner_${sq.type}_${Date.now()}`,
+                        x: scoutPos.x, y: scoutPos.y, z: scoutPos.z,
+                        spawn: { point: copyVec(scoutPos), right: copyVec(rgt), down: copyVec(dwn), forward: copyVec(fwd), segmentIndex: sq.idx, segmentT: 0.5 },
+                        right: copyVec(rgt), down: copyVec(dwn), forward: copyVec(fwd),
+                        health: 75, maxHealth: 75,
+                        mode: 'guard', path: [], waypointIndex: 0, lingerUntil: 0,
+                        engaged: false, patrolBroken: false, lastFireAt: 0, lastSeenAt: 0,
+                        isRunner: false, fleeStartedAt: 0, alarmTriggered: false,
+                        empStunnedUntil: 0, slippingUntil: 0, slipVx: 0, slipVy: 0, slipVz: 0, spinAngle: 0,
+                        isReinforcement: false, captainKey: null,
+                        label: `[ ⚠️ ${sq.name} RUNNER ]`
+                    });
+
+                    // 3. Wingman Guard
+                    const wingPos = {
+                        x: mid.x - rgt.x * 32 - fwd.x * 24,
+                        y: mid.y - dwn.y * 14,
+                        z: mid.z - rgt.z * 32 - fwd.z * 24
+                    };
+                    tunnelSentries.push({
+                        id: `guard_${sq.type}_${Date.now()}`,
+                        x: wingPos.x, y: wingPos.y, z: wingPos.z,
+                        spawn: { point: copyVec(wingPos), right: copyVec(rgt), down: copyVec(dwn), forward: copyVec(fwd), segmentIndex: sq.idx, segmentT: 0.5 },
+                        right: copyVec(rgt), down: copyVec(dwn), forward: copyVec(fwd),
+                        health: 90, maxHealth: 90,
+                        mode: 'guard', path: [], waypointIndex: 0, lingerUntil: 0,
+                        engaged: false, patrolBroken: false, lastFireAt: 0, lastSeenAt: 0,
+                        isRunner: false, fleeStartedAt: 0, alarmTriggered: false,
+                        empStunnedUntil: 0, slippingUntil: 0, slipVx: 0, slipVy: 0, slipVz: 0, spinAngle: 0,
+                        isReinforcement: false, captainKey: null,
+                        label: `[ ⚔️ ${sq.name} GUARD ]`
+                    });
+                }
+            }
+        }
+
+        function initTunnelMission(force = false) {
+            ensureTunnelMissionSquadrons(force);
+            if (keyboardStatus && !keyboardStatus.innerText) {
+                keyboardStatus.innerText = '★ MISSION ACTIVE: INTERCEPT 3 SENTRY SQUADRONS · ACQUIRE CIPHER CARDS TO BREACH EXIT VAULT ★';
+            }
         }
 
         function tickTunnelArcadeSystems(frameScale = 1) {
@@ -26712,17 +26890,16 @@
             ctx.save();
             for (const slick of tunnelOilSlicks) {
                 const cam = worldToCamera(slick);
-                if (!cam || cam.z <= 8 || cam.z > 600) continue;
+                if (!cam || cam.z <= 8 || cam.z > 700) continue;
                 const segIdx = overlaySegmentIndexForPoint(slick);
                 if (shouldSuppressOpaqueOverlay(segIdx, texturedSegmentIndices, forwardPathOverlaySet)) continue;
-                if (!pointVisibleThroughCurrentTunnel(slick)) continue;
 
                 const p = projectPoint(slick, centerX, centerY, fov);
                 if (!p) continue;
                 const elapsed = now - slick.bornAt;
                 const curRad = Math.min(slick.maxRadius, slick.radius + (elapsed / 1000) * 16);
                 const sz = (fov / Math.max(12, cam.z)) * curRad;
-                const alpha = Math.max(0.2, Math.min(0.85, 1 - cam.z / 600));
+                const alpha = Math.max(0.2, Math.min(0.85, 1 - cam.z / 700));
 
                 ctx.globalAlpha = alpha;
                 ctx.shadowBlur = 14;
@@ -26748,7 +26925,7 @@
             ctx.save();
             for (const emp of tunnelEmpShockwaves) {
                 const cam = worldToCamera(emp);
-                if (!cam || cam.z <= 8 || cam.z > 700) continue;
+                if (!cam || cam.z <= 8 || cam.z > 800) continue;
                 const segIdx = overlaySegmentIndexForPoint(emp);
                 if (shouldSuppressOpaqueOverlay(segIdx, texturedSegmentIndices, forwardPathOverlaySet)) continue;
                 const p = projectPoint(emp, centerX, centerY, fov);
@@ -26769,7 +26946,7 @@
             ctx.save();
             for (const flare of tunnelDecoyFlares) {
                 const cam = worldToCamera(flare);
-                if (!cam || cam.z <= 8 || cam.z > 600) continue;
+                if (!cam || cam.z <= 8 || cam.z > 700) continue;
                 const segIdx = overlaySegmentIndexForPoint(flare);
                 if (shouldSuppressOpaqueOverlay(segIdx, texturedSegmentIndices, forwardPathOverlaySet)) continue;
                 const p = projectPoint(flare, centerX, centerY, fov);
@@ -26788,16 +26965,15 @@
             for (const key of tunnelMission.keyItems) {
                 if (key.collected) continue;
                 const cam = worldToCamera(key);
-                if (!cam || cam.z <= 8 || cam.z > 450) continue;
+                if (!cam || cam.z <= 8 || cam.z > 850) continue;
 
                 const segIdx = overlaySegmentIndexForPoint(key, key.segmentIndex);
                 if (shouldSuppressOpaqueOverlay(segIdx, texturedSegmentIndices, forwardPathOverlaySet)) continue;
-                if (!pointVisibleThroughCurrentTunnel(key)) continue;
 
                 const p = projectPoint(key, centerX, centerY, fov);
                 if (!p) continue;
-                const sz = Math.max(10, Math.min(32, (fov / Math.max(16, cam.z)) * 26));
-                const alpha = Math.max(0.25, Math.min(1.0, 1 - cam.z / 450));
+                const sz = Math.max(10, Math.min(36, (fov / Math.max(16, cam.z)) * 28));
+                const alpha = Math.max(0.3, Math.min(1.0, 1 - cam.z / 850));
 
                 ctx.save();
                 ctx.globalAlpha = alpha;
@@ -26822,8 +26998,8 @@
                 ctx.arc(p.x, p.y, sz * 0.35, 0, Math.PI * 2);
                 ctx.fill();
 
-                // Label (only when close to prevent screen clutter)
-                if (cam.z < 180) {
+                // Label (when within 220m)
+                if (cam.z < 220) {
                     ctx.font = 'bold 11px monospace';
                     ctx.textAlign = 'center';
                     ctx.fillStyle = '#ffffff';
@@ -26836,16 +27012,15 @@
             for (const b of tunnelMission.bulkheads) {
                 if (b.opened) continue;
                 const cam = worldToCamera(b);
-                if (!cam || cam.z <= 8 || cam.z > 500) continue;
+                if (!cam || cam.z <= 8 || cam.z > 950) continue;
 
                 const segIdx = overlaySegmentIndexForPoint(b, b.segmentIndex);
                 if (shouldSuppressOpaqueOverlay(segIdx, texturedSegmentIndices, forwardPathOverlaySet)) continue;
-                if (!pointVisibleThroughCurrentTunnel(b)) continue;
 
                 const p = projectPoint(b, centerX, centerY, fov);
                 if (!p) continue;
                 const sz = Math.max(16, Math.min(180, (fov / Math.max(16, cam.z)) * (b.radius || 120)));
-                const alpha = Math.max(0.25, Math.min(0.95, 1 - cam.z / 500));
+                const alpha = Math.max(0.25, Math.min(0.95, 1 - cam.z / 950));
 
                 ctx.save();
                 ctx.globalAlpha = alpha;
@@ -26867,8 +27042,8 @@
                 ctx.lineTo(p.x + halfW, barY);
                 ctx.stroke();
 
-                if (cam.z < 220) {
-                    ctx.font = 'bold 11px monospace';
+                if (cam.z < 260) {
+                    ctx.font = 'bold 12px monospace';
                     ctx.textAlign = 'center';
                     ctx.fillStyle = '#ff3366';
                     ctx.fillText('🔒 EXIT VAULT · ALL 3 CIPHER CARDS REQUIRED', p.x, p.y - sz - 8);
@@ -27025,7 +27200,125 @@
             }
             ctx.restore();
 
-            // 9. Render Arcade HUD Overlay (Tri-Key Matrix, Countermeasures, Boss Bar)
+            // 9. Active Navigational Waypoint Reticle & Edge Indicator
+            const targetObj = getActiveTunnelMissionTarget();
+            if (targetObj && targetObj.pos) {
+                const tPos = targetObj.pos;
+                const dist = Math.hypot(tPos.x - posX, tPos.y - posY, tPos.z - posZ);
+                const cam = worldToCamera(tPos);
+                const p = projectPoint(tPos, centerX, centerY, fov);
+                const inFront = cam && cam.z > 8;
+                const onScreen = inFront && p && p.x >= 60 && p.x <= canvas.width - 60 && p.y >= 60 && p.y <= canvas.height - 60;
+
+                ctx.save();
+                if (onScreen) {
+                    // On-screen HUD reticle: targeting brackets + diamond
+                    const pulse = Math.sin(now * 0.006) * 3;
+                    const rSize = Math.max(18, Math.min(48, (fov / Math.max(20, cam.z)) * 32)) + pulse;
+
+                    ctx.strokeStyle = targetObj.color;
+                    ctx.shadowColor = targetObj.color;
+                    ctx.shadowBlur = 12;
+                    ctx.lineWidth = 2.0;
+
+                    // Brackets [ ]
+                    const bLen = rSize * 0.4;
+                    // Top-left
+                    ctx.beginPath();
+                    ctx.moveTo(p.x - rSize, p.y - rSize + bLen);
+                    ctx.lineTo(p.x - rSize, p.y - rSize);
+                    ctx.lineTo(p.x - rSize + bLen, p.y - rSize);
+                    ctx.stroke();
+                    // Top-right
+                    ctx.beginPath();
+                    ctx.moveTo(p.x + rSize - bLen, p.y - rSize);
+                    ctx.lineTo(p.x + rSize, p.y - rSize);
+                    ctx.lineTo(p.x + rSize, p.y - rSize + bLen);
+                    ctx.stroke();
+                    // Bottom-left
+                    ctx.beginPath();
+                    ctx.moveTo(p.x - rSize, p.y + rSize - bLen);
+                    ctx.lineTo(p.x - rSize, p.y + rSize);
+                    ctx.lineTo(p.x - rSize + bLen, p.y + rSize);
+                    ctx.stroke();
+                    // Bottom-right
+                    ctx.beginPath();
+                    ctx.moveTo(p.x + rSize - bLen, p.y + rSize);
+                    ctx.lineTo(p.x + rSize, p.y + rSize);
+                    ctx.lineTo(p.x + rSize, p.y + rSize - bLen);
+                    ctx.stroke();
+
+                    // Central diamond
+                    const dSize = Math.max(5, rSize * 0.35);
+                    ctx.beginPath();
+                    ctx.moveTo(p.x, p.y - dSize);
+                    ctx.lineTo(p.x + dSize, p.y);
+                    ctx.lineTo(p.x, p.y + dSize);
+                    ctx.lineTo(p.x - dSize, p.y);
+                    ctx.closePath();
+                    ctx.stroke();
+
+                    // Target label and distance
+                    ctx.font = 'bold 11px monospace';
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillText(targetObj.title, p.x, p.y - rSize - 6);
+
+                    ctx.font = '10px monospace';
+                    ctx.fillStyle = targetObj.color;
+                    ctx.fillText(`${Math.round(dist)}m`, p.x, p.y + rSize + 14);
+                } else {
+                    // Off-screen or behind camera: draw Edge Nav Pointer
+                    let dx = 0;
+                    let dy = 0;
+                    if (inFront && p) {
+                        dx = p.x - centerX;
+                        dy = p.y - centerY;
+                    } else if (cam) {
+                        dx = -cam.x;
+                        dy = cam.y;
+                    } else {
+                        dx = tPos.x - posX;
+                        dy = tPos.y - posY;
+                    }
+                    const angle = Math.atan2(dy, dx);
+                    const padX = 70;
+                    const padY = 70;
+                    const edgeRadiusX = Math.max(80, centerX - padX);
+                    const edgeRadiusY = Math.max(80, centerY - padY);
+
+                    const edgeX = centerX + Math.cos(angle) * edgeRadiusX;
+                    const edgeY = centerY + Math.sin(angle) * edgeRadiusY;
+
+                    ctx.shadowColor = targetObj.color;
+                    ctx.shadowBlur = 10;
+                    ctx.fillStyle = targetObj.color;
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1.5;
+
+                    ctx.save();
+                    ctx.translate(edgeX, edgeY);
+                    ctx.rotate(angle);
+                    ctx.beginPath();
+                    ctx.moveTo(14, 0);
+                    ctx.lineTo(-10, -8);
+                    ctx.lineTo(-6, 0);
+                    ctx.lineTo(-10, 8);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.restore();
+
+                    ctx.font = 'bold 10px monospace';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.textAlign = edgeX > centerX ? 'right' : 'left';
+                    const tx = edgeX > centerX ? edgeX - 18 : edgeX + 18;
+                    ctx.fillText(`${targetObj.title} [${Math.round(dist)}m]`, tx, edgeY + 4);
+                }
+                ctx.restore();
+            }
+
+            // 10. Render Arcade HUD Overlay (Tri-Key Matrix, Countermeasures, Boss Bar)
             renderTunnelArcadeHud(centerX, centerY);
         }
 
@@ -27089,24 +27382,58 @@
                 const flash = Math.sin(now * 0.015) > 0;
                 ctx.save();
                 ctx.fillStyle = flash ? 'rgba(255, 0, 40, 0.88)' : 'rgba(80, 0, 10, 0.88)';
-                ctx.fillRect(centerX - 240, 58, 480, 26);
+                ctx.fillRect(centerX - 240, 58, 480, 24);
                 ctx.strokeStyle = '#ffffff';
                 ctx.lineWidth = 1.5;
-                ctx.strokeRect(centerX - 240, 58, 480, 26);
+                ctx.strokeRect(centerX - 240, 58, 480, 24);
                 ctx.font = 'bold 12px monospace';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 ctx.fillStyle = '#ffffff';
-                ctx.fillText('🚨 SECTOR ALARM ACTIVE · REINFORCEMENTS INBOUND 🚨', centerX, 71);
+                ctx.fillText('🚨 SECTOR ALARM ACTIVE · REINFORCEMENTS INBOUND 🚨', centerX, 70);
                 ctx.restore();
             }
 
-            // D. Boss Health Bar
+            // D. Active Mission Directive Banner
+            const targetObj = getActiveTunnelMissionTarget();
+            const bannerY = tunnelSectorAlarm.active ? 86 : 64;
+            if (targetObj && targetObj.directive) {
+                const dist = targetObj.pos ? Math.hypot(targetObj.pos.x - posX, targetObj.pos.y - posY, targetObj.pos.z - posZ) : 0;
+                const dText = `DIRECTIVE: ${targetObj.directive} [${Math.round(dist)}m]`;
+                ctx.save();
+                ctx.font = 'bold 11px monospace';
+                const textW = ctx.measureText(dText).width + 36;
+                const boxW = Math.max(400, Math.min(canvas.width - 40, textW));
+                const bx = centerX - boxW / 2;
+
+                ctx.fillStyle = 'rgba(5, 12, 25, 0.82)';
+                ctx.fillRect(bx, bannerY, boxW, 22);
+                ctx.strokeStyle = targetObj.color || '#00ffff';
+                ctx.lineWidth = 1.2;
+                ctx.strokeRect(bx, bannerY, boxW, 22);
+
+                // Pulsing status dot
+                const dotAlpha = 0.5 + 0.5 * Math.sin(now * 0.008);
+                ctx.fillStyle = targetObj.color || '#00ffff';
+                ctx.globalAlpha = dotAlpha;
+                ctx.beginPath();
+                ctx.arc(bx + 14, bannerY + 11, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.globalAlpha = 1.0;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#ffffff';
+                ctx.fillText(dText, centerX + 6, bannerY + 11);
+                ctx.restore();
+            }
+
+            // E. Boss Health Bar
             if (tunnelBoss.active && tunnelBoss.hp > 0) {
                 const barW = Math.min(620, canvas.width - 60);
                 const barH = 22;
                 const bx = centerX - barW / 2;
-                const by = 88;
+                const by = tunnelSectorAlarm.active ? 114 : 92;
 
                 ctx.save();
                 ctx.fillStyle = 'rgba(10, 5, 20, 0.90)';

@@ -10,7 +10,7 @@ common_scene1_settings = {
 
 # These are the only camera poses you direct by hand.
 # Python generates every frame between them.
-scene1_keyframes192f = [
+scene1_keyframes = [
     {
         "frame": 1,
         "camera": (46, 3, 32),
@@ -91,107 +91,3 @@ scene1_keyframes192f = [
     },
 ]
 
-scene1_keyframes112f = [
-    {
-        "frame": 1,
-        "camera": (46, 3, 32),
-        "lookat": (0, 2, 0),
-        "vfov": 28,
-    },
-    {
-        "frame": 16,
-        "camera": (40, 3, 28),
-        "lookat": (0, 2, 0),
-        "vfov": 26,
-    },
-    {
-        "frame": 32,
-        "camera": (32, 6, 16),
-        "lookat": (0, 2, 0),
-        "vfov": 22,
-    },
-    {
-        "frame": 48,
-        "camera": (16, 12, 8),
-        "lookat": (0, 0.5, 0),
-        "vfov": 30,
-    },
-    {
-        "frame": 64,
-        "camera": (9, 6, 2),
-        "lookat": (0, 2, 0),
-        "vfov": 28,
-    },
-    {
-        "frame": 80,
-        "camera": (4,12,-7),
-        "lookat": (0, 2, 0),
-        "vfov": 26,
-    },
-    {
-        "frame": 96,
-        "camera": (9, 18, -14),
-        "lookat": (0, 2, 0),
-        "vfov": 22,
-    },
-    {
-        "frame": 112,
-        "camera": (15, 24, -12),
-        "lookat": (0, 0.5, 0),
-        "vfov": 30,
-    },
-    
-]
-
-scene1_keyframes48f = [
-    {
-        "frame": 1,
-        "camera": (26, 3, 16),
-        "lookat": (0, 2, 0),
-        "vfov": 28,
-    },
-    {
-        "frame": 16,
-        "camera": (22, 3, 12),
-        "lookat": (0, 2, 0),
-        "vfov": 26,
-    },
-    {
-        "frame": 32,
-        "camera": (9, 6, 2),
-        "lookat": (0, 2, 0),
-        "vfov": 22,
-    },
-    {
-        "frame": 48,
-        "camera": (-4, 12, -7),
-        "lookat": (0, 0.5, 0),
-        "vfov": 30,
-    },
-]
-scene1_keyframes24f = [
-    {
-        "frame": 1,
-        "camera": (26, 3, 16),
-        "lookat": (0, 2, 0),
-        "vfov": 28,
-    },
-    {
-        "frame": 8,
-        "camera": (22, 3, 12),
-        "lookat": (0, 2, 0),
-        "vfov": 26,
-    },
-    {
-        "frame": 16,
-        "camera": (9, 6, 2),
-        "lookat": (0, 2, 0),
-        "vfov": 22,
-    },
-    {
-        "frame": 24,
-        "camera": (-4, 12, -7),
-        "lookat": (0, 0.5, 0),
-        "vfov": 30,
-    },
-]

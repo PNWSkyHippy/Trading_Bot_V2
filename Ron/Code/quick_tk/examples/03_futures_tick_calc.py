@@ -28,6 +28,7 @@ FUTURES_SPECS = {
     "GC (Gold)": {"tick_size": 0.10, "tick_value": 10.00, "point_value": 100.0},
     "RTY (E-mini Russell 2000)": {"tick_size": 0.10, "tick_value": 5.00, "point_value": 50.0},
     "M2K (Micro E-mini Russell)": {"tick_size": 0.10, "tick_value": 0.50, "point_value": 5.0},
+    "MBT (Micro Bitcoin)": {"tick_size": 0.20, "tick_value": 0.50, "point_value": 0.1},
 }
 
 

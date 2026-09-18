@@ -237,13 +237,13 @@ am__DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/config.h.in \
 	$(top_srcdir)/unix/config/depcomp    \
 	 
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} "/mnt/c/users/linda/trading_bot_v2/Ron/Code/Povray/unix/config"/missing aclocal-1.16
+ACLOCAL = ${SHELL} "/mnt/c/users/linda/trading_bot_v2/Ron/Code/PovRay/unix/config"/missing aclocal-1.16
 AMTAR = $${TAR-tar}
 AM_DEFAULT_VERBOSITY = 1
 AR = ar
-AUTOCONF = ${SHELL} "/mnt/c/users/linda/trading_bot_v2/Ron/Code/Povray/unix/config"/missing autoconf
-AUTOHEADER = ${SHELL} "/mnt/c/users/linda/trading_bot_v2/Ron/Code/Povray/unix/config"/missing autoheader
-AUTOMAKE = ${SHELL} "/mnt/c/users/linda/trading_bot_v2/Ron/Code/Povray/unix/config"/missing automake-1.16
+AUTOCONF = ${SHELL} "/mnt/c/users/linda/trading_bot_v2/Ron/Code/PovRay/unix/config"/missing autoconf
+AUTOHEADER = ${SHELL} "/mnt/c/users/linda/trading_bot_v2/Ron/Code/PovRay/unix/config"/missing autoheader
+AUTOMAKE = ${SHELL} "/mnt/c/users/linda/trading_bot_v2/Ron/Code/PovRay/unix/config"/missing automake-1.16
 AWK = gawk
 BOOST_CPPFLAGS = -pthread -I/usr/include
 BOOST_LDFLAGS = -L/usr/lib/x86_64-linux-gnu
@@ -252,14 +252,14 @@ C99_COMPATIBLE_RADIOSITY =
 CC = gcc
 CCDEPMODE = depmode=gcc3
 CFLAGS = -g -O2
-COMPILED_BY = your name <email@address>
+COMPILED_BY = lindaron <no contact address>
 CPLUS_INCLUDE_PATH = 
 CPP = gcc -E
 CPPFLAGS = -I/usr/include/SDL -D_GNU_SOURCE=1 -D_REENTRANT -I/usr/include/OpenEXR -pthread -I/usr/include/Imath   -pthread -I/usr/include  -I/usr/include
 CXX = g++
 CXXCPP = g++ -E
 CXXDEPMODE = depmode=gcc3
-CXXFLAGS = -pipe -Wno-multichar -Wno-write-strings -fno-enforce-eh-specs -Wno-non-template-friend -s -O3 -ffast-math -march=native -pthread
+CXXFLAGS = -pipe -Wno-multichar -Wno-write-strings -fno-enforce-eh-specs -Wno-non-template-friend -s -O3 -ffast-math -march=native -O3 -fno-fast-math -pthread
 CYGPATH_W = echo
 C_INCLUDE_PATH = 
 DEFS = -DHAVE_CONFIG_H
@@ -281,7 +281,7 @@ LIBOBJS =
 LIBS = -lSDL -lSDL  -lSM -lICE -lX11  -lOpenEXR-3_1 -lOpenEXRUtil-3_1 -lOpenEXRCore-3_1 -lIex-3_1 -lIlmThread-3_1 -lImath-3_1  -ltiff -ljpeg -lpng -lz -lrt -lm -lboost_thread  -pthread  
 LTLIBOBJS = 
 MAINT = #
-MAKEINFO = ${SHELL} "/mnt/c/users/linda/trading_bot_v2/Ron/Code/Povray/unix/config"/missing makeinfo
+MAKEINFO = ${SHELL} "/mnt/c/users/linda/trading_bot_v2/Ron/Code/PovRay/unix/config"/missing makeinfo
 MKDIR_P = /usr/bin/mkdir -p
 NON_REDISTRIBUTABLE_BUILD = 
 OBJEXT = o
@@ -310,10 +310,10 @@ X_CFLAGS =  -I/usr/include
 X_EXTRA_LIBS = 
 X_LIBS =  -L/usr/lib
 X_PRE_LIBS =  -lSM -lICE
-abs_builddir = /mnt/c/users/linda/trading_bot_v2/Ron/Code/Povray/unix
-abs_srcdir = /mnt/c/users/linda/trading_bot_v2/Ron/Code/Povray/unix
-abs_top_builddir = /mnt/c/users/linda/trading_bot_v2/Ron/Code/Povray
-abs_top_srcdir = /mnt/c/users/linda/trading_bot_v2/Ron/Code/Povray
+abs_builddir = /mnt/c/users/linda/trading_bot_v2/Ron/Code/PovRay/unix
+abs_srcdir = /mnt/c/users/linda/trading_bot_v2/Ron/Code/PovRay/unix
+abs_top_builddir = /mnt/c/users/linda/trading_bot_v2/Ron/Code/PovRay
+abs_top_srcdir = /mnt/c/users/linda/trading_bot_v2/Ron/Code/PovRay
 ac_ct_AR = ar
 ac_ct_CC = gcc
 ac_ct_CXX = g++
@@ -343,7 +343,7 @@ host_vendor = pc
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = ${SHELL} /mnt/c/users/linda/trading_bot_v2/Ron/Code/Povray/unix/config/install-sh
+install_sh = ${SHELL} /mnt/c/users/linda/trading_bot_v2/Ron/Code/PovRay/unix/config/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale

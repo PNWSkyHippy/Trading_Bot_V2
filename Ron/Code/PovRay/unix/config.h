@@ -17,7 +17,7 @@
 #define BUILTIN_XWIN_DISPLAY "enabled (using SDL)"
 
 /* Who compiled this binary. */
-#define BUILT_BY "your name <email@address>"
+#define BUILT_BY "lindaron <no contact address>"
 
 /* Host platform. */
 #define BUILT_FOR "x86_64-pc-linux-gnu (using -march=native)"
@@ -32,7 +32,7 @@
 #define COMPILER_VERSION "g++ 13"
 
 /* Compiler flags. */
-#define CXXFLAGS "-pipe -Wno-multichar -Wno-write-strings -fno-enforce-eh-specs -Wno-non-template-friend -s -O3 -ffast-math -march=native -pthread"
+#define CXXFLAGS "-pipe -Wno-multichar -Wno-write-strings -fno-enforce-eh-specs -Wno-non-template-friend -s -O3 -ffast-math -march=native -O3 -fno-fast-math -pthread"
 
 /* Define to 1 if you have the `asinh' function. */
 #define HAVE_ASINH 1
@@ -87,7 +87,7 @@
 #define HAVE_DECL_RUSAGE_THREAD 1
 
 /* infinities can be identified by comparison to the maximum value */
-#define HAVE_EMULATED_ISINF /**/
+/* #undef HAVE_EMULATED_ISINF */
 
 /* NaNs can be identified by comparison to themselves */
 /* #undef HAVE_EMULATED_ISNAN */
@@ -150,7 +150,7 @@
 #define HAVE_MEMORY_H 1
 
 /* NaN floating point values are supported */
-/* #undef HAVE_NAN */
+#define HAVE_NAN /**/
 
 /* Define to 1 if you have the `nanosleep' function. */
 #define HAVE_NANOSLEEP 1
@@ -171,10 +171,10 @@
 #define HAVE_STDLIB_H 1
 
 /* intinities can be identified using std::isinf() */
-/* #undef HAVE_STD_ISINF */
+#define HAVE_STD_ISINF /**/
 
 /* NaNs can be identified using std::isnan() */
-/* #undef HAVE_STD_ISNAN */
+#define HAVE_STD_ISNAN /**/
 
 /* Define to 1 if you have the <strings.h> header file. */
 #define HAVE_STRINGS_H 1
