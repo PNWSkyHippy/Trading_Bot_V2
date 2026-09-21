@@ -37,7 +37,10 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
     description = "Query SQLite trades DB, filter strategies, compute metrics, and export reports"
   
     def build_ui(self):
-        self.trades_list = self.main_loop()
+        self.trades_list, self.main_values= self.main_loop()
+        sys.stderr.write(f'{self.main_values["args"]}\n\n')
+        sys.stderr.write(f'{self.main_values["list_values"]}\n\n')
+        sys.stderr.flush()
         self.rows = []
         self.key_list = []
         self.key_list1 = []
@@ -58,13 +61,9 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
         # 1. Left 
         self.form = self.add_form("Filter Criteria", parent=self)
         self.form.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
-       
+        
         self.db_path_var =  self.form.add_file_picker("db_path", "SQLite Database", default='c:/Users/Linda/Trading_Bot_v2/data/trading_bot.db', mode="open", filetypes=[("SQLite DB", "*.db")])
-        self.open_debug_window(state=True)
-       # self.on_analyze(self.form.get_values())
- 
-        self.on_analyze(self.form.get_values())
-        self.key_list = build_hdr_list(self.trades_list)
+        self.key_list = self.main_values["hdr_list"]
         
         self.start_date_entry = self.form.add_custom_widget(
             name="start_date",
@@ -177,9 +176,9 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             enable_export_csv=True,
         )
         self.table.grid(row=1, column=0, sticky="nsew")
-#        self.open_debug_window(state=True)
         # Initial run
-
+        self.on_analyze(self.form.get_values())
+        
     def setup_menus(self):
         # 1. FILE MENU (Fluent Chained Style)
         file_menu = self.menu("File")
@@ -210,12 +209,9 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
         self.on_analyze(self.form.get_values())
 
     def on_analyze(self, values: dict):
-        
- #       breakpoint()
+        """Fetch from SQLite with the form filters and update the UI."""
         if self.debug_console is not None:
-            self.debug_console.write(f"StartDate: {values.get("start_date", "None")} - End Date: {values.get("end_date", "None")}\n\n")
-
-        """Fetches from SQLite database with applied filters and updates UI."""
+            self.debug_console.write(f"StartDate: {values.get('start_date', 'None')} - End Date: {values.get('end_date', 'None')}\n\n")
         self.db_path = values.get("db_path_var", "")
         self.db_path = 'c:/Users/Linda/Trading_Bot_v2/data/trading_bot.db'
         if self.debug_console is not None:
@@ -231,9 +227,6 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
 
             query = "SELECT id, entry_time, symbol, strategy_name, quantity, pnl, status, exit_time FROM trades WHERE 1=1"
             params = []
-            
-            if self.debug_console is not None:
-                self.debug_console.write(f"In Query: query =  {query}\n\n")
 
             if values.get("strategy_name") and values["strategy_name"] != "ALL":
                 query += " AND strategy_name = ?"
@@ -261,21 +254,18 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             elif sort == "Duration":
                 query += " ORDER BY exit_time DESC"
             cur.execute(query, params)
-            self.rows = cur.fetchall()
+            rows = cur.fetchall()
             conn.close()
-            cnt = 1
-            tmins = 0
             # Calculate metrics
-            for i in range(0,len(self.rows)):
+            for i in range(len(rows)):
                 # for each row replace duration column with xxh:yym
-                days, hours, mins, seconds = length_time(self.rows[i][1], self.rows[i][7])
+                days, hours, mins, seconds = length_time(rows[i][1], rows[i][7])
                 hours,mins = hours_mins(days, hours, mins, seconds)
                 # Convert back to tuple
-#                breakpoint()
-                self.rows[i]= update_tuple(self.rows[i], 7,f'{hours}h:{mins}' )
-            total_trades = len(self.rows)
+                rows[i] = update_tuple(rows[i], 7, f'{hours}h:{mins}')
+            total_trades = len(rows)
             if total_trades > 0:
-                pnls = [r[5] for r in self.rows]
+                pnls = [r[5] for r in rows]
                 wins = [p for p in pnls if p > 0]
                 losses = [p for p in pnls if p <= 0]
                 total_pnl = sum(pnls)
@@ -289,7 +279,9 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
                 total_pnl = win_rate = biggest_win = biggest_loss = profit_factor = 0
 
             return {
-                "rows": self.rows,
+                "rows": rows,
+                "query": query,
+                "params": params,
                 "metrics": {
                     "Total PnL": (f"${total_pnl:,.2f}", "success" if total_pnl >= 0 else "danger"),
                     "Win Rate": (f"{win_rate:.1f}%", "success" if win_rate >= 50 else "warning"),
@@ -301,6 +293,10 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             }
 
         def _on_done(res):
+            self.rows = res["rows"]
+            if self.debug_console is not None:
+                self.debug_console.write(f"Query: {res['query']}\n")
+                self.debug_console.write(f"Parameters: {res['params']}\n")
             self.stats.set_metrics(res["metrics"])
             # Format row data
             formatted_rows = [
@@ -309,9 +305,21 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             ]
             self.table.set_data(formatted_rows)
             self.set_status(f"Loaded {len(formatted_rows)} trades.")
+            if self.debug_console is not None:
+                self.debug_console.write(f"Loaded {len(formatted_rows)} trades.\n\n")
+
+        def _on_error(error):
+            self.set_status("Analysis failed.")
+            if self.debug_console is not None:
+                self.debug_console.write(f"Analysis failed: {error}\n\n")
 
         # Run via async task runner so large DB queries never lock UI
-        self.run_async(_query_worker, on_done=_on_done, status_msg="Querying SQLite Database...")
+        self.run_async(
+            _query_worker,
+            on_done=_on_done,
+            on_error=_on_error,
+            status_msg="Querying SQLite Database...",
+        )
 
     def close_debug_window(self):
         if self.debug_win is not None:
@@ -327,10 +335,22 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
         if win is not None and win.winfo_exists():
             win.lift()
             win.focus_force()
-            if state == False:
+            if state is False:
                 self.close_debug_window()
             return
-        
+
+        win = tk.Toplevel(self.app.root)
+        win.title("Debug Data")
+        win.geometry("520x520")
+        self.debug_win = win
+
+        self.debug_console = self.add_console(
+            "Trades List Tracer Debug Data",
+            parent=cast(tk.Widget, win),
+        )
+        self.debug_console.pack(fill="both", expand=True, padx=8, pady=8)
+        win.protocol("WM_DELETE_WINDOW", self.close_debug_window)
+
     def open_sort_reverse(self, state=None):
         pass
     
@@ -346,30 +366,23 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
     def  on_save_report(self, state=None):
         pass
     
-        win = tk.Toplevel(self.app.root)
-        win.title("Debug Data")
-        win.geometry("520x520")
-        self.debug_win = win
-        win.protocol("WM_DELETE_WINDOW", self.close_debug_window)
-        # This is a text console, not a form/input panel.
-        self.debug_console = self.add_console(
-            "Trades  List Tracer Debug Data",
-            parent=cast(tk.Widget, win),
-        )
-        self.debug_console.pack(fill="both", expand=True, padx=8, pady=8)
-
-        # Avoid holding references to widgets after the user closes the window.
-        win.protocol("WM_DELETE_WINDOW", self.close_debug_window)
- 
- 
- 
-    
     def main_loop(self):
         main_values = {}
         # Standard library approach to handle Windows initialization safely
         if sys.platform == "win32":
-            os.system("")  # Crucial trick: This forces the Windows terminal engine to enable ANSI parsing natively
+            import ctypes
 
+            kernel32 = ctypes.windll.kernel32
+            stdout_handle = kernel32.GetStdHandle(-11)  # STD_OUTPUT_HANDLE
+
+            console_mode = ctypes.c_uint()
+            if kernel32.GetConsoleMode(stdout_handle, ctypes.byref(console_mode)):
+                ENABLE_VIRTUAL_TERMINAL_PROCESSING = 0x0004
+                kernel32.SetConsoleMode(
+                    stdout_handle,
+                    console_mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING,
+                )
+               
         DEF_OUTFIELDS = {
             "trade_id":         "ID",
             "entry_time":       "Entry",
@@ -416,9 +429,11 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             "partial_exit_count":   "ParExtCnt",
             "event_id":             "EventId"
         }
-    
+        
+        main_values["DEF_OUTFIELDS"] = DEF_OUTFIELDS
+        main_values["ALL_OUTFIELDS"] = ALL_OUTFIELDS
         output_file = ""
-        is_sorted = False
+        is_sorted = False 
         default_key_list = [
             "strategy_name",
             "symbol",
@@ -427,8 +442,9 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             "broker_order_id",
         ]
         # Connect to DB and load the trades table into the trades_list dictionary
-        main_values[output_file] = output_file
-        main_values[is_sorted] = is_sorted
+        main_values["output_file"] = output_file
+        main_values["is_sorted"] = is_sorted
+        main_values["default_key_list"] = default_key_list
         def wide_formatter(prog):
             return (argparse.RawDescriptionHelpFormatter(prog,width=110,max_help_position=46,))
 
@@ -503,15 +519,21 @@ Usage examples:
         args = parser.parse_args()
         global csv_true
         global extended
-
+  
         csv_true = args.csv if args.csv else False
-
         extended = args.Ext if args.Ext else False
-
+        
+        main_values["csv_true"] = csv_true
+        main_values["extended"] = extended
+        main_values["args"] = args
+        
         mode = "open" if args.open else "closed"
         is_sorted = args.sort_keys if args.sort_keys else False
         rev_sort = args.Reverse if args.Reverse else False
-
+        main_values["is_sorted"] = is_sorted
+        main_values["rev_sort"] = rev_sort
+        main_values["mode"] = mode
+        
         conn = connect()
         if mode == "closed":
             try:
@@ -538,15 +560,20 @@ Usage examples:
 
   
         hdr_list = build_hdr_list(trades_list)
-
+        main_values["hdr_list"] = hdr_list
+        
         if args.Names:
             print_col_headers(trades_list)
             sys.exit(2)
         DEF_START_DATE = "1980-01-01T00:00"
         DEF_END_DATE = "4050-01-01T00:00"
-
+        main_values["Names"] = args.Names
+        
         start_date = args.start if args.start else DEF_START_DATE
         end_date = args.end if args.end else DEF_END_DATE
+        main_values["start_date"] = start_date
+        main_values["end_date"] = end_date
+        
         if args.start and (not date_check(start_date)):
             print("Invalid start date. use format YYYY-MM-DDTHH:MM")
             sys.exit(4)
@@ -556,14 +583,15 @@ Usage examples:
             sys.exit(4)
 
         date_range_given = start_date != DEF_START_DATE or end_date != DEF_END_DATE
-
+        main_values["date_range_given"] = date_range_given
+        
         output_file = args.outfile
         if csv_true:
             try:
                 output_file, extension = output_file.split(".")
             except:
                 pass
-
+        main_values["output_file"] = output_file
         # Build a list of list options skipping those not given
         list_values = [
             args.list1.split(",") if args.list1 else [],
@@ -572,14 +600,16 @@ Usage examples:
             args.list4.split(",") if args.list4 else [],
             args.list5.split(",") if args.list5 else [],
         ]
-
+        main_values["list_values"] = list_values
         key_list =  args.key.split(",") if args.key else []
-
+        main_values["key_list"] = key_list
+        
         if len(key_list) > 5:
             print("\nError: maximum of 5 keys is supported.\n")
             sys.exit(1)
         
         output_fields = args.outfields.split(",") if args.outfields else False
+        main_values["output_fields"] = output_fields
         output_dict = {}
         if not output_fields:
             output_dict = DEF_OUTFIELDS
@@ -593,9 +623,9 @@ Usage examples:
                     if key_name == fields:
                         output_dict[key_name] = descr
                         continue
-        
+        main_values["output_dict"] = output_dict
         sort_list = args.sort_keys.split(",") if args.sort_keys else []
-
+        main_values["sort_list"] = sort_list
         if len(sort_list) > 5:
             print("\nError: maximum of 5 sort keys is supported.\n")
             sys.exit(1)
@@ -640,6 +670,7 @@ Usage examples:
                         ttrades_list[i].sort(key=lambda r: (isinstance(r[sort_list[i]], str), r[sort_list[i]]), reverse=False)
                 except ValueError:
                     None
+            main_values["key_list"] = key_list
         if (not args.Names) and (len(key_list) < 1):
             print(
                 "\nError: Please provide at least 1 key , separated by a ,   \n"
@@ -687,6 +718,7 @@ Usage examples:
         # Build one generic list of grouped trade dictionaries
         dict_of_trades = []
 
+        
         for idx, key_name in enumerate(key_list):
             grouped_trades = {}
             for trade in ttrades_list[idx]:
@@ -694,7 +726,7 @@ Usage examples:
                 grouped_trades.setdefault(group_value, []).append(copy.deepcopy(trade))
 
             dict_of_trades.append({"key": key_name, "selected": ( list_values[idx] if idx < len(list_values) else [] ), "groups": grouped_trades})
-
+        main_values["dict_of_trades"] = dict_of_trades
         for trade_group in dict_of_trades:
             key_name = trade_group["key"]
             selected_values = trade_group["selected"]
@@ -706,14 +738,15 @@ Usage examples:
 
                 if selected_values[0] == "ALL" or value_in_selected(group_name, selected_values):
                     print_group_summary(group_name, trade_list, key_name, output_file, start_date, end_date, output_dict)
-
+        
+        main_values["dict_of_ttrades"] = dict_of_trades
         main_values["selected_values"] = selected_values                    
         main_values["output_file"] = output_file
-        main_values["is_sorted"] = str(is_sorted)
+        main_values["is_sorted"] = is_sorted
 
 
 
-        return(trades_list)
+        return(trades_list,main_values)
         
 extended = False
 csv_true = False
@@ -1023,6 +1056,8 @@ def tk_build_hdr_list(trades_lst2):
 
     return headers
 
+
+
 def build_hdr_list(trades_lst2):
     """Collect unique column header names from all rows, preserving order."""
     # (Previous bug: returned repeated list due to nested loop — fixed by using single comprehension)
@@ -1036,6 +1071,10 @@ def build_hdr_list(trades_lst2):
                 headers.append(key)
 
     return headers
+ 
+"""Collect unique column header names from all rows, preserving order."""
+    # (Previous bug: returned repeated list due to nested loop — fixed by using single comprehension)
+  
 
 
 def format_group_summary(res_dict):

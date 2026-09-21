@@ -876,17 +876,34 @@ class FormPanel(ttk.Frame):
         self._fields[name] = ("custom", sl, (getter, setter))
         return sl
 
+    def _parse_progress_val(self, v: Any) -> float:
+        """Parses float, int, or string like '45%' or '0.45' into a 0.0 - 1.0 float."""
+        if v is None:
+            return 0.0
+        if isinstance(v, str):
+            v_clean = v.replace('%', '').strip()
+            try:
+                num = float(v_clean)
+                return num / 100.0 if num > 1.0 else num
+            except ValueError:
+                return 0.0
+        try:
+            num = float(v)
+            return num / 100.0 if num > 1.0 else num
+        except (ValueError, TypeError):
+            return 0.0
+
     def add_ctk_progress(
         self,
         name: str,
         label: str,
-        default: float = 0.0,
+        default: Union[float, str] = 0.0,
         orientation: str = "horizontal",
         mode: str = "determinate",
         parent: Optional[tk.Widget] = None,
         **kwargs,
     ) -> Any:
-        """Adds a modern rounded progress bar."""
+        """Adds a modern rounded CustomTkinter progress bar."""
         self._require_ctk()
         container = self._add_field_container(label, parent=parent)
         pb = ctk.CTkProgressBar(
@@ -895,14 +912,51 @@ class FormPanel(ttk.Frame):
             mode=mode,
             **kwargs,
         )
-        pb.set(default)
+        init_val = self._parse_progress_val(default)
+        pb.set(init_val)
         pb.grid(row=1, column=0, sticky="ew", pady=(4, 4))
         container.columnconfigure(0, weight=1)
 
         getter = lambda: float(pb.get())
-        setter = lambda v: pb.set(float(v) if v is not None else 0.0)
+        setter = lambda v: pb.set(self._parse_progress_val(v))
         self._fields[name] = ("custom", pb, (getter, setter))
         return pb
+
+    # Aliases
+    addCTkProgressBar = add_ctk_progress
+    add_ctk_progressbar = add_ctk_progress
+
+    def add_progress(
+        self,
+        name: str,
+        label: str,
+        default: Union[float, str] = 0.0,
+        maximum: float = 100.0,
+        orientation: str = "horizontal",
+        mode: str = "determinate",
+        parent: Optional[tk.Widget] = None,
+        **kwargs,
+    ) -> ttk.Progressbar:
+        """Adds a standard ttk.Progressbar."""
+        container = self._add_field_container(label, parent=parent)
+        pb = ttk.Progressbar(
+            container,
+            orient=orientation,
+            maximum=maximum,
+            mode=mode,
+            **kwargs,
+        )
+        init_val = self._parse_progress_val(default) * maximum
+        pb["value"] = init_val
+        pb.grid(row=1, column=0, sticky="ew", pady=(4, 4))
+        container.columnconfigure(0, weight=1)
+
+        getter = lambda: float(pb["value"]) / maximum
+        setter = lambda v: pb.configure(value=self._parse_progress_val(v) * maximum)
+        self._fields[name] = ("custom", pb, (getter, setter))
+        return pb
+
+    add_progressbar = add_progress
 
     def add_ctk_entry(
         self,
@@ -1045,10 +1099,13 @@ class FormPanel(ttk.Frame):
     def add_button(
         self,
         label: str,
-        callback: Callable,
+        callback: Optional[Callable] = None,
         variant: str = "primary",  # "primary", "default", "danger"
+        command: Optional[Callable] = None,
+        **kwargs,
     ) -> ttk.Button:
         """Adds an action button that triggers a callback with form values."""
+        cb = callback if callback is not None else command
         frame = ttk.Frame(self.inner_frame, style="Surface.TFrame")
         frame.grid(row=self._inner_row, column=0, sticky="ew", pady=(10, 4))
         frame.columnconfigure(0, weight=1)
@@ -1059,14 +1116,28 @@ class FormPanel(ttk.Frame):
 
         def _on_click():
             values = self.get_values()
-            try:
-                callback(values)
-            except TypeError:
-                callback()
+            if cb:
+                try:
+                    cb(values)
+                except TypeError:
+                    cb()
 
         btn = ttk.Button(frame, text=label, style=style_name, command=_on_click)
         btn.grid(row=0, column=0, sticky="ew")
         return btn
+
+    def add_command(
+        self,
+        label: str,
+        command: Optional[Callable] = None,
+        callback: Optional[Callable] = None,
+        variant: str = "primary",
+        **kwargs,
+    ) -> ttk.Button:
+        """Alias for add_button() supporting standard Tkinter command syntax."""
+        cb = command if command is not None else callback
+        return self.add_button(label=label, callback=cb, variant=variant, **kwargs)
+
 
     def add_button_group(
         self,

@@ -1598,7 +1598,7 @@
         const ROCKET_SPEED = 12.5;
         const ROCKET_MAX_LIFE = 210;
         const ROCKET_DIRECT_HIT_RADIUS = 34;
-        const ROCKET_BLAST_RADIUS = 145;
+        const ROCKET_BLAST_RADIUS = 220;
         const ROCKET_CONCUSSION_RADIUS = 300;
         const shipInventory = {
             rocketLoaded: ROCKET_MAGAZINE_SIZE,
@@ -1638,7 +1638,7 @@
         const SENTRY_REGEN_MS = TARGET_REGEN_MS;
         const SENTRY_HEALTH_MAX = 100;
         const SENTRY_DAMAGE_PER_HIT = 10;
-        const SENTRY_HIT_RADIUS = 28;
+        const SENTRY_HIT_RADIUS = 46;
         const SCORE_FLY_THROUGH_FULL = 100;
         const SCORE_FLY_THROUGH_PARTIAL = 40;
         const SCORE_LASER_HIT = 150;
@@ -2037,7 +2037,11 @@
             ],
             doorFrames: [],
             ai: [
-                { id: 'wire_star_destroyer', label: 'Solid 3D Gunship', path: '' }
+                { id: 'wire_star_destroyer', label: 'Solid 3D Gunship', path: '' },
+                { id: 'sentry_3d_crimson', label: '3D Crimson Fighter', path: '' },
+                { id: 'sentry_3d_cobalt', label: '3D Cobalt Interceptor', path: '' },
+                { id: 'sentry_3d_amber', label: '3D Amber Heavy Cruiser', path: '' },
+                { id: 'sentry_3d_recon', label: '3D Stealth Recon Drone', path: '' }
             ],
             effects: [
                 { id: 'orange_laser', label: 'Orange Laser', path: '', color: '#ff5500' }
@@ -2523,6 +2527,14 @@
 
         function preservedTextureId(id, group, fallback) {
             const raw = String(id || '').trim();
+            if (group === 'ai') {
+                const low = raw.toLowerCase();
+                if (low.includes('crimson') || low.includes('red')) return 'sentry_3d_crimson';
+                if (low.includes('cobalt') || low.includes('blue')) return 'sentry_3d_cobalt';
+                if (low.includes('amber') || low.includes('yellow') || low.includes('green')) return 'sentry_3d_amber';
+                if (low.includes('recon') || low.includes('black')) return 'sentry_3d_recon';
+                if (low.includes('ufo') || low.includes('enemy')) return 'wire_star_destroyer';
+            }
             return raw || fallback;
         }
 
@@ -9205,6 +9217,46 @@
         };
 
         /* =========================================================================
+         * DEFENDER BITMAP TEXTURES & SPRITES
+         * ========================================================================= */
+        const DEFENDER_TEXTURE_PATHS = {
+            spaceBg: 'Textures/WallTextures/deep-space-01.jpg',
+            planet: 'Textures/Space Textures/planet02.jpeg',
+            astronaut: 'Textures/AI Textures/PNG/Sprites/Astronauts/spaceAstronauts_001.png',
+            lander: 'Textures/AI Textures/PNG/Sprites/Ships/spaceShips_003.png',
+            mutant: 'Textures/AI Textures/PNG/Sprites/Ships/spaceShips_008.png',
+            bomber: 'Textures/AI Textures/PNG/Sprites/Ships/spaceShips_007.png',
+            pod: 'Textures/AI Textures/PNG/Sprites/Meteors/spaceMeteors_001.png',
+            swarmer: 'Textures/AI Textures/PNG/Sprites/Ships/spaceShips_002.png',
+            baiter: 'Textures/AI Textures/PNG/Sprites/Ships/spaceShips_006.png',
+        };
+        const defenderTextures = {};
+        if (typeof Image !== 'undefined') {
+            for (const [key, path] of Object.entries(DEFENDER_TEXTURE_PATHS)) {
+                try {
+                    const img = new Image();
+                    img.src = path;
+                    defenderTextures[key] = img;
+                } catch (_) {}
+            }
+        }
+
+        function drawDefenderSprite(renderCtx, img, px, py, width, height, glowColor = null, flipH = false, rotation = 0) {
+            if (!img || !img.complete || !img.naturalWidth) return false;
+            renderCtx.save();
+            renderCtx.translate(px, py);
+            if (rotation) renderCtx.rotate(rotation);
+            if (flipH) renderCtx.scale(-1, 1);
+            if (glowColor) {
+                renderCtx.shadowColor = glowColor;
+                renderCtx.shadowBlur = 14;
+            }
+            renderCtx.drawImage(img, -width / 2, -height / 2, width, height);
+            renderCtx.restore();
+            return true;
+        }
+
+        /* =========================================================================
          * PROCEDURAL DEFENDER AUDIO SYNTHESIZERS
          * Classic Williams Defender alarms:
          * 1. Angry Bee Buzzing: Modulated sawtooth buzzer when abduction is active
@@ -10324,6 +10376,211 @@
             ctx.restore();
         }
 
+        /* =========================================================================
+         * DEFENDER 3D COSMIC ENCLOSURE & DEEP SPACE PANORAMA
+         * ========================================================================= */
+        function renderDefenderDeepSpaceBackdrop(centerX, centerY, fov) {
+            const bgImg = defenderTextures.spaceBg;
+            const w = canvas.width;
+            const h = canvas.height;
+
+            if (bgImg && bgImg.complete && bgImg.naturalWidth) {
+                // Parallax horizontal wrapping: map world posX to texture X
+                const imgW = bgImg.naturalWidth;
+                const imgH = bgImg.naturalHeight;
+                const scrollX = (-posX * 0.38) % imgW;
+                const startX = ((scrollX % imgW) + imgW) % imgW - imgW;
+
+                // Pitch shift: looking up or down tilts the skybox
+                const pitchShift = Math.max(-h * 0.35, Math.min(h * 0.35, (shipForward.y || 0) * (h * 0.5)));
+                const drawY = (h - imgH) / 2 + pitchShift;
+
+                ctx.save();
+                ctx.globalAlpha = 0.95;
+                for (let x = startX; x < w + imgW; x += imgW) {
+                    ctx.drawImage(bgImg, x, drawY, imgW, imgH);
+                }
+                ctx.restore();
+            } else {
+                // Procedural deep space gradient
+                ctx.save();
+                const grad = ctx.createLinearGradient(0, 0, 0, h);
+                grad.addColorStop(0, '#020312');
+                grad.addColorStop(0.5, '#070b24');
+                grad.addColorStop(1, '#01050e');
+                ctx.fillStyle = grad;
+                ctx.fillRect(0, 0, w, h);
+                ctx.restore();
+            }
+
+            // Distant celestial planet outside the mega-tunnel
+            const planetImg = defenderTextures.planet;
+            if (planetImg && planetImg.complete && planetImg.naturalWidth) {
+                const planetDx = defenderWrapDx(DEFENDER.ORIGIN.x + 1600, posX);
+                // Position far in the cosmic void outside the mega-tunnel
+                const planetP = projectPoint({
+                    x: posX + planetDx * 0.10,
+                    y: DEFENDER.ORIGIN.y - 2800,
+                    z: DEFENDER.ORIGIN.z + 2400
+                }, centerX, centerY, fov);
+
+                if (planetP && planetP.z > 8) {
+                    const pr = Math.max(35, Math.min(180, (fov / Math.max(8, planetP.z)) * 650));
+                    ctx.save();
+                    // Soft atmospheric halo
+                    const halo = ctx.createRadialGradient(planetP.x, planetP.y, pr * 0.7, planetP.x, planetP.y, pr * 1.35);
+                    halo.addColorStop(0, 'rgba(80, 160, 255, 0.45)');
+                    halo.addColorStop(0.7, 'rgba(40, 100, 220, 0.18)');
+                    halo.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                    ctx.fillStyle = halo;
+                    ctx.beginPath();
+                    ctx.arc(planetP.x, planetP.y, pr * 1.35, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Planet disk
+                    ctx.beginPath();
+                    ctx.arc(planetP.x, planetP.y, pr, 0, Math.PI * 2);
+                    ctx.clip();
+                    ctx.drawImage(planetImg, planetP.x - pr, planetP.y - pr, pr * 2, pr * 2);
+
+                    // Planet night-side shadow crescent
+                    const shadowGrad = ctx.createLinearGradient(planetP.x - pr, planetP.y - pr, planetP.x + pr, planetP.y + pr);
+                    shadowGrad.addColorStop(0, 'rgba(0, 0, 0, 0)');
+                    shadowGrad.addColorStop(0.65, 'rgba(0, 0, 0, 0.45)');
+                    shadowGrad.addColorStop(1, 'rgba(0, 0, 0, 0.90)');
+                    ctx.fillStyle = shadowGrad;
+                    ctx.fillRect(planetP.x - pr, planetP.y - pr, pr * 2, pr * 2);
+                    ctx.restore();
+                }
+            }
+        }
+
+        function renderDefender3DTunnel(centerX, centerY, fov) {
+            const now = performance.now();
+            const O = DEFENDER.ORIGIN;
+            const tunnelCenterY = O.y - 690;
+            const step = 320;
+            const fwdX = shipForward.x >= 0 ? 1 : -1;
+            const baseChunk = Math.floor(posX / step) * step;
+
+            // Collect active ribs ahead of player
+            const ribs = [];
+            for (let k = -1; k <= 9; k++) {
+                const wx = baseChunk + k * step * fwdX;
+                const dx = defenderWrapDx(wx, posX);
+                const forwardDist = dx * fwdX;
+                if (forwardDist >= 30 && forwardDist <= 2900) {
+                    ribs.push({ wx, dx, forwardDist });
+                }
+            }
+            // Sort back-to-front for proper depth layering
+            ribs.sort((a, b) => b.forwardDist - a.forwardDist);
+
+            // Ring node angles & offsets across 13 key nodes defining the vaulted tunnel enclosure
+            const archProfile = [
+                { dy: 420,  dz: -1420 }, // 0: Left ground base
+                { dy: 200,  dz: -1450 }, // 1: Left lower wall
+                { dy: -200, dz: -1450 }, // 2: Left mid wall
+                { dy: -600, dz: -1300 }, // 3: Left upper wall
+                { dy: -950, dz: -950  }, // 4: Left shoulder
+                { dy: -1200, dz: -500 }, // 5: Left vault
+                { dy: -1300, dz: 0    }, // 6: Apex ceiling
+                { dy: -1200, dz: 500  }, // 7: Right vault
+                { dy: -950, dz: 950   }, // 8: Right shoulder
+                { dy: -600, dz: 1300  }, // 9: Right upper wall
+                { dy: -200, dz: 1450  }, // 10: Right mid wall
+                { dy: 200,  dz: 1450  }, // 11: Right lower wall
+                { dy: 420,  dz: 1420 }  // 12: Right ground base
+            ];
+
+            // Project each rib's 3D points
+            const projectedRibs = [];
+            for (const rib of ribs) {
+                const groundY = defenderTerrainHeight(rib.wx);
+                const pts = [];
+                for (let i = 0; i < archProfile.length; i++) {
+                    const node = archProfile[i];
+                    let wy = tunnelCenterY + node.dy;
+                    if (i === 0 || i === archProfile.length - 1) {
+                        wy = groundY + 15;
+                    }
+                    const wz = O.z + node.dz;
+                    const p = projectPoint({ x: posX + rib.dx, y: wy, z: wz }, centerX, centerY, fov);
+                    pts.push(p);
+                }
+                projectedRibs.push({ ...rib, pts });
+            }
+
+            ctx.save();
+
+            // 1. Draw Longitudinal Structural Spines connecting adjacent ribs
+            const spineIndices = [2, 4, 6, 8, 10];
+            for (let i = 0; i < projectedRibs.length - 1; i++) {
+                const ribA = projectedRibs[i];     // further
+                const ribB = projectedRibs[i + 1]; // closer
+                const avgDist = (ribA.forwardDist + ribB.forwardDist) * 0.5;
+                const alpha = Math.max(0.10, Math.min(0.65, 1.0 - (avgDist / 2800) * 0.75));
+
+                ctx.strokeStyle = `rgba(0, 200, 255, ${alpha.toFixed(2)})`;
+                ctx.lineWidth = Math.max(1.0, Math.min(3.0, (fov / Math.max(10, avgDist)) * 2.2));
+
+                for (const sIdx of spineIndices) {
+                    const pa = ribA.pts[sIdx];
+                    const pb = ribB.pts[sIdx];
+                    if (pa && pb && pa.z > 8 && pb.z > 8) {
+                        ctx.beginPath();
+                        ctx.moveTo(pa.x, pa.y);
+                        ctx.lineTo(pb.x, pb.y);
+                        ctx.stroke();
+                    }
+                }
+            }
+
+            // 2. Draw 3D Arch Ribs
+            for (const rib of projectedRibs) {
+                const isBulkhead = Math.round(rib.wx / step) % 4 === 0;
+                const distFrac = rib.forwardDist / 2800;
+                const alpha = Math.max(0.15, Math.min(0.85, (1.0 - distFrac * 0.75)));
+                const lineWidth = isBulkhead
+                    ? Math.max(2.2, Math.min(6.0, (fov / Math.max(10, rib.forwardDist)) * 5.0))
+                    : Math.max(1.4, Math.min(4.0, (fov / Math.max(10, rib.forwardDist)) * 3.2));
+
+                ctx.lineWidth = lineWidth;
+                ctx.strokeStyle = isBulkhead
+                    ? `rgba(255, 190, 0, ${alpha.toFixed(2)})`
+                    : `rgba(0, 230, 255, ${alpha.toFixed(2)})`;
+
+                ctx.beginPath();
+                let first = true;
+                for (const p of rib.pts) {
+                    if (p && p.z > 8) {
+                        if (first) { ctx.moveTo(p.x, p.y); first = false; }
+                        else { ctx.lineTo(p.x, p.y); }
+                    } else {
+                        first = true;
+                    }
+                }
+                ctx.stroke();
+
+                // On Bulkhead Gate ribs: Draw glowing sector identification sign overhead
+                if (isBulkhead && rib.pts[6] && rib.pts[6].z > 8 && rib.forwardDist < 2200) {
+                    const apex = rib.pts[6];
+                    const sectorNum = Math.abs(Math.floor(rib.wx / 1280)) % 10 + 1;
+                    const signSz = Math.max(9, Math.min(18, (fov / Math.max(10, rib.forwardDist)) * 14));
+                    ctx.save();
+                    ctx.font = `bold ${signSz.toFixed(0)}px monospace`;
+                    ctx.textAlign = 'center';
+                    ctx.fillStyle = `rgba(255, 210, 50, ${alpha.toFixed(2)})`;
+                    ctx.shadowColor = '#ffbb00';
+                    ctx.shadowBlur = 8;
+                    ctx.fillText(`◄ BULKHEAD SECTOR 0${sectorNum} ►`, apex.x, apex.y + signSz * 1.5);
+                    ctx.restore();
+                }
+            }
+
+            ctx.restore();
+        }
+
         function renderDefenderPhase(centerX, centerY, fov) {
             if (!defenderPhase.active) return;
             const now = performance.now();
@@ -10337,7 +10594,10 @@
                 ctx.restore();
             }
 
-            // 1. Render Starfield
+            // 1. Render Surrounding Deep Space Background & Celestial Bodies
+            renderDefenderDeepSpaceBackdrop(centerX, centerY, fov);
+
+            // 2. Render Starfield Particles
             ctx.save();
             for (const star of defenderPhase.stars) {
                 const dx = defenderWrapDx(star.x, posX);
@@ -10350,7 +10610,10 @@
             }
             ctx.restore();
 
-            // 2. Render Planetary Surface Vector Grid
+            // 3. Render Large 3D Cylindrical Mega-Tunnel Enclosure
+            renderDefender3DTunnel(centerX, centerY, fov);
+
+            // 4. Render Planetary Surface Vector Grid & Colony Landing Pads
             ctx.save();
             ctx.lineWidth = 1.8;
             const ridgeDists = [220, 420, 720, 1150, 1750, 2500];
@@ -10396,71 +10659,120 @@
                 }
                 ctx.stroke();
             }
+
+            // Colony landing pads & rescue beacons for ground astronauts
+            for (const h of defenderPhase.humanoids) {
+                if (h.state !== 'ground') continue;
+                const dx = defenderWrapDx(h.pos.x, posX);
+                const groundY = defenderTerrainHeight(h.pos.x);
+                const padP = projectPoint({ x: posX + dx, y: groundY - 2, z: h.pos.z }, centerX, centerY, fov);
+                if (padP && padP.z > 8) {
+                    const padR = Math.max(12, Math.min(70, (fov / Math.max(8, padP.z)) * 24));
+                    ctx.save();
+                    ctx.strokeStyle = '#00ffcc';
+                    ctx.lineWidth = 1.6;
+                    ctx.fillStyle = 'rgba(0, 40, 60, 0.45)';
+                    ctx.beginPath();
+                    ctx.ellipse(padP.x, padP.y, padR, padR * 0.35, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Runway perimeter edge lights
+                    const lightCount = 6;
+                    for (let li = 0; li < lightCount; li++) {
+                        const ang = (li / lightCount) * Math.PI * 2;
+                        const lx = padP.x + Math.cos(ang) * padR;
+                        const ly = padP.y + Math.sin(ang) * (padR * 0.35);
+                        ctx.fillStyle = ((now + li * 200) % 600 < 300) ? '#00ffff' : '#ffcc00';
+                        ctx.beginPath();
+                        ctx.arc(lx, ly, Math.max(1.5, padR * 0.08), 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    ctx.restore();
+                }
+            }
             ctx.restore();
 
-            // 3. Render Humanoids (15 Astronauts)
+            // 5. Render Humanoids (15 Astronauts)
             for (const h of defenderPhase.humanoids) {
                 if (h.state === 'dead') continue;
                 const dx = defenderWrapDx(h.pos.x, posX);
                 const p = projectPoint({ x: posX + dx, y: h.pos.y, z: h.pos.z }, centerX, centerY, fov);
                 if (!p || p.z <= 8) continue;
-                // High-visibility scaling: min clamp 14px!
-                const sz = Math.max(14, Math.min(90, (fov / Math.max(8, p.z)) * 28));
+                // High-visibility scaling: min clamp 16px!
+                const sz = Math.max(16, Math.min(100, (fov / Math.max(8, p.z)) * 32));
 
                 ctx.save();
+                const glow = h.state === 'abducted' ? '#ff0033' : '#00ffff';
                 ctx.shadowBlur = 10;
-                ctx.shadowColor = h.state === 'abducted' ? '#ff0033' : '#00ffff';
-                ctx.fillStyle = h.state === 'abducted' ? ((now % 160 < 80) ? '#ff0033' : '#ffff00') : '#00ffff';
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 1.6;
+                ctx.shadowColor = glow;
 
                 // Glowing beacon beam reaching up from astronaut so you can easily spot them from afar
                 if (h.state === 'ground') {
-                    ctx.strokeStyle = 'rgba(0, 255, 255, 0.45)';
+                    ctx.strokeStyle = 'rgba(0, 255, 255, 0.55)';
+                    ctx.lineWidth = 1.8;
                     ctx.beginPath();
                     ctx.moveTo(p.x, p.y);
-                    ctx.lineTo(p.x, p.y - sz * 1.6);
+                    ctx.lineTo(p.x, p.y - sz * 2.0);
                     ctx.stroke();
                 }
 
-                // Head / Helmet
-                ctx.beginPath();
-                ctx.arc(p.x, p.y - sz * 0.65, sz * 0.35, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
-
-                // Golden Visor
-                ctx.fillStyle = '#ffcc00';
-                ctx.fillRect(p.x - sz * 0.18, p.y - sz * 0.75, sz * 0.36, sz * 0.22);
-
-                // Body Suit
-                ctx.fillStyle = h.state === 'abducted' ? '#ff0033' : (h.state === 'carried' ? '#ffffff' : '#00ddff');
-                ctx.fillRect(p.x - sz * 0.28, p.y - sz * 0.30, sz * 0.56, sz * 0.70);
-
-                // Legs
-                ctx.strokeStyle = '#ffffff';
-                ctx.beginPath();
-                ctx.moveTo(p.x - sz * 0.18, p.y + sz * 0.40);
-                ctx.lineTo(p.x - sz * 0.25, p.y + sz * 0.85);
-                ctx.moveTo(p.x + sz * 0.18, p.y + sz * 0.40);
-                ctx.lineTo(p.x + sz * 0.25, p.y + sz * 0.85);
-                ctx.stroke();
-
-                // Free-fall indicator / parachute flare
+                // Free-fall parachute canopy
                 if (h.state === 'falling') {
-                    ctx.strokeStyle = (now % 120 < 60) ? '#ffcc00' : '#ff4400';
+                    ctx.save();
+                    ctx.strokeStyle = (now % 160 < 80) ? '#ffcc00' : '#ff5500';
+                    ctx.fillStyle = 'rgba(255, 140, 0, 0.42)';
                     ctx.lineWidth = 2.0;
                     ctx.beginPath();
-                    ctx.moveTo(p.x - sz * 0.6, p.y - sz * 1.4);
-                    ctx.lineTo(p.x, p.y - sz * 0.8);
-                    ctx.lineTo(p.x + sz * 0.6, p.y - sz * 1.4);
+                    ctx.arc(p.x, p.y - sz * 1.3, sz * 0.75, Math.PI, 0);
+                    ctx.closePath();
+                    ctx.fill();
                     ctx.stroke();
+
+                    // Suspension lines
+                    ctx.beginPath();
+                    ctx.moveTo(p.x - sz * 0.75, p.y - sz * 1.3);
+                    ctx.lineTo(p.x, p.y - sz * 0.5);
+                    ctx.moveTo(p.x + sz * 0.75, p.y - sz * 1.3);
+                    ctx.lineTo(p.x, p.y - sz * 0.5);
+                    ctx.stroke();
+                    ctx.restore();
                 }
 
+                // Carried on undercarriage
+                if (h.state === 'carried') {
+                    ctx.strokeStyle = '#00ff66';
+                    ctx.lineWidth = 1.5;
+                    ctx.strokeRect(p.x - sz * 0.6, p.y - sz * 0.8, sz * 1.2, sz * 1.5);
+                }
+
+                // Try drawing high-res astronaut bitmap sprite
+                const drawn = drawDefenderSprite(ctx, defenderTextures.astronaut, p.x, p.y, sz * 0.9, sz * 1.25, glow);
+                if (!drawn) {
+                    // Procedural vector fallback
+                    ctx.fillStyle = h.state === 'abducted' ? ((now % 160 < 80) ? '#ff0033' : '#ffff00') : '#00ffff';
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1.6;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y - sz * 0.65, sz * 0.35, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    ctx.fillStyle = '#ffcc00';
+                    ctx.fillRect(p.x - sz * 0.18, p.y - sz * 0.75, sz * 0.36, sz * 0.22);
+                    ctx.fillStyle = h.state === 'abducted' ? '#ff0033' : (h.state === 'carried' ? '#ffffff' : '#00ddff');
+                    ctx.fillRect(p.x - sz * 0.28, p.y - sz * 0.30, sz * 0.56, sz * 0.70);
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.moveTo(p.x - sz * 0.18, p.y + sz * 0.40);
+                    ctx.lineTo(p.x - sz * 0.25, p.y + sz * 0.85);
+                    ctx.moveTo(p.x + sz * 0.18, p.y + sz * 0.40);
+                    ctx.lineTo(p.x + sz * 0.25, p.y + sz * 0.85);
+                    ctx.stroke();
+                }
                 ctx.restore();
             }
 
-            // 4. Render Landers & Towering Tractor Beams
+            // 6. Render Landers & Towering Tractor Beams
             for (const l of defenderPhase.landers) {
                 const dx = defenderWrapDx(l.pos.x, posX);
                 const p = projectPoint({ x: posX + dx, y: l.pos.y, z: l.pos.z }, centerX, centerY, fov);
@@ -10537,11 +10849,12 @@
                 if (!p || p.z <= 8) continue;
 
                 // High-visibility scaling: min clamp 18px!
-                const sz = Math.max(18, Math.min(180, (fov / Math.max(8, p.z)) * 52));
+                const sz = Math.max(18, Math.min(180, (fov / Math.max(8, p.z)) * 54));
 
                 ctx.save();
+                const landerGlow = l.state === 'abducting' ? '#00ffff' : '#ffdd00';
                 ctx.shadowBlur = 12;
-                ctx.shadowColor = l.state === 'abducting' ? '#00ffff' : '#ffdd00';
+                ctx.shadowColor = landerGlow;
 
                 // Tactical Reticle if abducting
                 if (l.state === 'abducting') {
@@ -10555,30 +10868,42 @@
                     ctx.fillText(`⚠️ ABDUCTION ${distToPlayer}m`, p.x, p.y - bsz - 8);
                 }
 
-                // Lander Body (Classic Green/Yellow geometric ship)
-                ctx.fillStyle = '#ffdd00';
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2.2;
+                // Try drawing high-tech alien scout bitmap sprite
+                const flipH = l.vx < 0;
+                // Engine exhaust flare
+                const exhaustX = p.x + (flipH ? sz * 0.6 : -sz * 0.6);
+                ctx.fillStyle = (now % 100 < 50) ? '#00ffff' : '#0088ff';
                 ctx.beginPath();
-                ctx.strokeRect(p.x - sz * 0.6, p.y - sz * 0.4, sz * 1.2, sz * 0.8);
+                ctx.arc(exhaustX, p.y, Math.max(3, sz * 0.18), 0, Math.PI * 2);
+                ctx.fill();
 
-                // Cockpit eye / core
-                ctx.fillStyle = l.state === 'abducting' ? '#ff0055' : '#00ffcc';
-                ctx.fillRect(p.x - sz * 0.25, p.y - sz * 0.2, sz * 0.5, sz * 0.4);
+                const landerDrawn = drawDefenderSprite(ctx, defenderTextures.lander, p.x, p.y, sz * 1.35, sz * 1.15, landerGlow, flipH);
+                if (!landerDrawn) {
+                    // Lander Body (Classic Yellow geometric ship fallback)
+                    ctx.fillStyle = '#ffdd00';
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2.2;
+                    ctx.beginPath();
+                    ctx.strokeRect(p.x - sz * 0.6, p.y - sz * 0.4, sz * 1.2, sz * 0.8);
 
-                // Landing legs / grappling claws
-                ctx.strokeStyle = '#ffcc00';
-                ctx.lineWidth = 2.0;
-                ctx.beginPath();
-                ctx.moveTo(p.x - sz * 0.5, p.y + sz * 0.4);
-                ctx.lineTo(p.x - sz * 0.8, p.y + sz * 0.85);
-                ctx.moveTo(p.x + sz * 0.5, p.y + sz * 0.4);
-                ctx.lineTo(p.x + sz * 0.8, p.y + sz * 0.85);
-                ctx.stroke();
+                    // Cockpit eye / core
+                    ctx.fillStyle = l.state === 'abducting' ? '#ff0055' : '#00ffcc';
+                    ctx.fillRect(p.x - sz * 0.25, p.y - sz * 0.2, sz * 0.5, sz * 0.4);
+
+                    // Landing legs / grappling claws
+                    ctx.strokeStyle = '#ffcc00';
+                    ctx.lineWidth = 2.0;
+                    ctx.beginPath();
+                    ctx.moveTo(p.x - sz * 0.5, p.y + sz * 0.4);
+                    ctx.lineTo(p.x - sz * 0.8, p.y + sz * 0.85);
+                    ctx.moveTo(p.x + sz * 0.5, p.y + sz * 0.4);
+                    ctx.lineTo(p.x + sz * 0.8, p.y + sz * 0.85);
+                    ctx.stroke();
+                }
                 ctx.restore();
             }
 
-            // 5. Render Mutants (Berserkers) - Energetic pulsing diamond with off-screen alerts
+            // 7. Render Mutants (Berserkers) - Energetic pulsing diamond with off-screen alerts
             for (const m of defenderPhase.mutants) {
                 const dx = defenderWrapDx(m.pos.x, posX);
                 const p = projectPoint({ x: posX + dx, y: m.pos.y, z: m.pos.z }, centerX, centerY, fov);
@@ -10602,10 +10927,10 @@
                 if (!p || p.z <= 8) continue;
 
                 // High-visibility scaling: min clamp 18px!
-                const sz = Math.max(18, Math.min(180, (fov / Math.max(8, p.z)) * 48));
+                const sz = Math.max(18, Math.min(180, (fov / Math.max(8, p.z)) * 50));
 
                 ctx.save();
-                ctx.shadowBlur = 16;
+                ctx.shadowBlur = 18;
                 ctx.shadowColor = '#ff0055';
 
                 // Tactical Reticle
@@ -10617,50 +10942,75 @@
                 ctx.textAlign = 'center';
                 ctx.fillText(`⚡ BERSERKER ${distToPlayer}m`, p.x, p.y - sz * 1.2 - 6);
 
-                // Mutant Body: Pulsing aggressive geometric dart
-                ctx.fillStyle = (now % 100 < 50) ? '#ff0055' : '#ff00cc';
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 2.4;
-                ctx.beginPath();
-                ctx.moveTo(p.x, p.y - sz);
-                ctx.lineTo(p.x + sz * 0.85, p.y);
-                ctx.lineTo(p.x, p.y + sz);
-                ctx.lineTo(p.x - sz * 0.85, p.y);
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
+                // Berserker crackling electric plasma arcs
+                const arcCount = 5;
+                ctx.strokeStyle = (now % 100 < 50) ? '#ff0088' : '#00ffff';
+                ctx.lineWidth = 1.8;
+                for (let a = 0; a < arcCount; a++) {
+                    const ang = now * 0.008 + (a / arcCount) * Math.PI * 2;
+                    const r1 = sz * 0.55;
+                    const r2 = sz * (0.85 + 0.3 * Math.sin(now * 0.02 + a * 2));
+                    ctx.beginPath();
+                    ctx.moveTo(p.x + Math.cos(ang) * r1, p.y + Math.sin(ang) * r1);
+                    ctx.lineTo(p.x + Math.cos(ang + 0.2) * (r1 + r2) * 0.5, p.y + Math.sin(ang + 0.2) * (r1 + r2) * 0.5);
+                    ctx.lineTo(p.x + Math.cos(ang) * r2, p.y + Math.sin(ang) * r2);
+                    ctx.stroke();
+                }
 
-                // Inner core spikes
-                ctx.fillStyle = '#ffffff';
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, sz * 0.28, 0, Math.PI * 2);
-                ctx.fill();
+                // Try drawing high-res mutant bitmap sprite
+                const flipH = m.vx < 0;
+                const mutantDrawn = drawDefenderSprite(ctx, defenderTextures.mutant, p.x, p.y, sz * 1.35, sz * 1.15, '#ff0055', flipH);
+                if (!mutantDrawn) {
+                    // Mutant Body: Pulsing aggressive geometric dart fallback
+                    ctx.fillStyle = (now % 100 < 50) ? '#ff0055' : '#ff00cc';
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2.4;
+                    ctx.beginPath();
+                    ctx.moveTo(p.x, p.y - sz);
+                    ctx.lineTo(p.x + sz * 0.85, p.y);
+                    ctx.lineTo(p.x, p.y + sz);
+                    ctx.lineTo(p.x - sz * 0.85, p.y);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+
+                    // Inner core spikes
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, sz * 0.28, 0, Math.PI * 2);
+                    ctx.fill();
+                }
                 ctx.restore();
             }
 
-            // 6. Render Bombers
+            // 8. Render Bombers
             for (const b of defenderPhase.bombers) {
                 const dx = defenderWrapDx(b.pos.x, posX);
                 const p = projectPoint({ x: posX + dx, y: b.pos.y, z: b.pos.z }, centerX, centerY, fov);
                 if (!p || p.z <= 8) continue;
-                const sz = Math.max(22, Math.min(200, (fov / Math.max(8, p.z)) * 60));
+                const sz = Math.max(22, Math.min(200, (fov / Math.max(8, p.z)) * 62));
 
                 ctx.save();
-                ctx.shadowBlur = 10;
+                ctx.shadowBlur = 12;
                 ctx.shadowColor = '#00ddff';
-                ctx.fillStyle = '#1e70e6';
-                ctx.strokeStyle = '#00ffff';
-                ctx.lineWidth = 2.2;
-                ctx.fillRect(p.x - sz * 0.7, p.y - sz * 0.5, sz * 1.4, sz);
-                ctx.strokeRect(p.x - sz * 0.7, p.y - sz * 0.5, sz * 1.4, sz);
 
-                // Blinking bomb bay
+                const flipH = b.vx < 0;
+                const bomberDrawn = drawDefenderSprite(ctx, defenderTextures.bomber, p.x, p.y, sz * 1.4, sz * 1.2, '#00ddff', flipH);
+                if (!bomberDrawn) {
+                    ctx.fillStyle = '#1e70e6';
+                    ctx.strokeStyle = '#00ffff';
+                    ctx.lineWidth = 2.2;
+                    ctx.fillRect(p.x - sz * 0.7, p.y - sz * 0.5, sz * 1.4, sz);
+                    ctx.strokeRect(p.x - sz * 0.7, p.y - sz * 0.5, sz * 1.4, sz);
+                }
+
+                // Blinking bomb bay indicator
                 ctx.fillStyle = (now % 250 < 125) ? '#ff2222' : '#550000';
-                ctx.fillRect(p.x - sz * 0.25, p.y + sz * 0.1, sz * 0.5, sz * 0.35);
+                ctx.fillRect(p.x - sz * 0.25, p.y + sz * 0.25, sz * 0.5, sz * 0.25);
                 ctx.restore();
             }
 
-            // 7. Render Mines
+            // 9. Render Mines
             for (const m of defenderPhase.mines) {
                 const dx = defenderWrapDx(m.pos.x, posX);
                 const p = projectPoint({ x: posX + dx, y: m.pos.y, z: m.pos.z }, centerX, centerY, fov);
@@ -10679,67 +11029,89 @@
                 ctx.restore();
             }
 
-            // 8. Render Pods & Swarmers
+            // 10. Render Pods & Swarmers
             for (const pod of defenderPhase.pods) {
                 const dx = defenderWrapDx(pod.pos.x, posX);
                 const p = projectPoint({ x: posX + dx, y: pod.pos.y, z: pod.pos.z }, centerX, centerY, fov);
                 if (!p || p.z <= 8) continue;
-                const sz = Math.max(22, Math.min(180, (fov / Math.max(8, p.z)) * 56));
+                const sz = Math.max(22, Math.min(180, (fov / Math.max(8, p.z)) * 58));
 
                 ctx.save();
-                ctx.shadowBlur = 12;
+                ctx.shadowBlur = 14;
                 ctx.shadowColor = '#ff88ff';
-                ctx.fillStyle = '#a000ee';
-                ctx.strokeStyle = '#ff88ff';
-                ctx.lineWidth = 2.4;
-                ctx.beginPath();
-                ctx.arc(p.x, p.y, sz * 0.65, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.stroke();
+                const podDrawn = drawDefenderSprite(ctx, defenderTextures.pod, p.x, p.y, sz * 1.25, sz * 1.25, '#ff88ff', false, now * 0.001);
+                if (!podDrawn) {
+                    ctx.fillStyle = '#a000ee';
+                    ctx.strokeStyle = '#ff88ff';
+                    ctx.lineWidth = 2.4;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, sz * 0.65, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                }
                 ctx.restore();
             }
             for (const sw of defenderPhase.swarmers) {
                 const dx = defenderWrapDx(sw.pos.x, posX);
                 const p = projectPoint({ x: posX + dx, y: sw.pos.y, z: sw.pos.z }, centerX, centerY, fov);
                 if (!p || p.z <= 8) continue;
-                const sz = Math.max(12, Math.min(80, (fov / Math.max(8, p.z)) * 24));
+                const sz = Math.max(12, Math.min(80, (fov / Math.max(8, p.z)) * 26));
 
                 ctx.save();
-                ctx.fillStyle = '#ff3300';
-                ctx.strokeStyle = '#ffffff';
-                ctx.lineWidth = 1.4;
-                ctx.beginPath();
-                ctx.moveTo(p.x + sz, p.y);
-                ctx.lineTo(p.x - sz * 0.6, p.y - sz * 0.6);
-                ctx.lineTo(p.x - sz * 0.6, p.y + sz * 0.6);
-                ctx.closePath();
-                ctx.fill();
-                ctx.stroke();
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = '#ff4400';
+                const swFlip = sw.vx < 0;
+                const swDrawn = drawDefenderSprite(ctx, defenderTextures.swarmer, p.x, p.y, sz * 1.2, sz * 1.0, '#ff4400', swFlip);
+                if (!swDrawn) {
+                    ctx.fillStyle = '#ff3300';
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 1.4;
+                    ctx.beginPath();
+                    ctx.moveTo(p.x + sz, p.y);
+                    ctx.lineTo(p.x - sz * 0.6, p.y - sz * 0.6);
+                    ctx.lineTo(p.x - sz * 0.6, p.y + sz * 0.6);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                }
                 ctx.restore();
             }
 
-            // 9. Render Baiters (Fast flat saucers)
+            // 11. Render Baiters (Fast saucers)
             for (const bt of defenderPhase.baiters) {
                 const dx = defenderWrapDx(bt.pos.x, posX);
                 const p = projectPoint({ x: posX + dx, y: bt.pos.y, z: bt.pos.z }, centerX, centerY, fov);
                 if (!p || p.z <= 8) continue;
-                const sz = Math.max(18, Math.min(140, (fov / Math.max(8, p.z)) * 42));
+                const sz = Math.max(18, Math.min(140, (fov / Math.max(8, p.z)) * 44));
 
                 ctx.save();
-                ctx.shadowBlur = 12;
+                ctx.shadowBlur = 14;
                 ctx.shadowColor = '#ff0033';
-                ctx.fillStyle = '#ffffff';
-                ctx.strokeStyle = '#ff0033';
-                ctx.lineWidth = 2.5;
+
+                const btFlip = bt.vx < 0;
+                // Dual afterburner jet plumes
+                const jetX = p.x + (btFlip ? sz * 0.7 : -sz * 0.7);
+                ctx.fillStyle = (now % 80 < 40) ? '#00ffff' : '#ffffff';
                 ctx.beginPath();
-                ctx.ellipse(p.x, p.y, sz, sz * 0.38, 0, 0, Math.PI * 2);
+                ctx.arc(jetX, p.y - sz * 0.15, Math.max(3, sz * 0.16), 0, Math.PI * 2);
+                ctx.arc(jetX, p.y + sz * 0.15, Math.max(3, sz * 0.16), 0, Math.PI * 2);
                 ctx.fill();
-                ctx.stroke();
-                // Dome
-                ctx.fillStyle = '#00ffff';
-                ctx.beginPath();
-                ctx.arc(p.x, p.y - sz * 0.15, sz * 0.35, Math.PI, 0);
-                ctx.fill();
+
+                const btDrawn = drawDefenderSprite(ctx, defenderTextures.baiter, p.x, p.y, sz * 1.35, sz * 1.1, '#ff0033', btFlip);
+                if (!btDrawn) {
+                    ctx.fillStyle = '#ffffff';
+                    ctx.strokeStyle = '#ff0033';
+                    ctx.lineWidth = 2.5;
+                    ctx.beginPath();
+                    ctx.ellipse(p.x, p.y, sz, sz * 0.38, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.stroke();
+                    // Dome
+                    ctx.fillStyle = '#00ffff';
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y - sz * 0.15, sz * 0.35, Math.PI, 0);
+                    ctx.fill();
+                }
                 ctx.restore();
             }
 
@@ -22907,19 +23279,47 @@
             return fullInside ? 'full' : 'partial';
         }
 
-        function laserTargetHitQuality(target, point) {
-            const local = worldToTargetLocal(target, point);
+        function laserTargetHitQuality(target, point, prevPoint = null) {
+            if (!target || !point) return null;
             const ext = targetBoxHalfExtents(target);
+            const extRight = ext.right * 1.15;
+            const extDown = ext.down * 1.15;
+            const extForward = Math.max(ext.forward * 1.5, 20);
+
+            // Point check
+            const local = worldToTargetLocal(target, point);
             if (
-                Math.abs(local.right) > ext.right ||
-                Math.abs(local.down) > ext.down ||
-                Math.abs(local.forward) > ext.forward * 1.15
+                Math.abs(local.right) <= extRight &&
+                Math.abs(local.down) <= extDown &&
+                Math.abs(local.forward) <= extForward
             ) {
-                return null;
+                return 'hit';
             }
-            const centerDist = Math.hypot(local.right, local.down);
-            const maxCenter = Math.min(ext.right, ext.down);
-            return centerDist <= maxCenter * 0.58 ? 'center' : null;
+
+            // Swept segment check between prevPoint and point
+            if (prevPoint) {
+                const prevLocal = worldToTargetLocal(target, prevPoint);
+                const dx = local.right - prevLocal.right;
+                const dy = local.down - prevLocal.down;
+                const dz = local.forward - prevLocal.forward;
+                const lenSq = dx * dx + dy * dy + dz * dz;
+                let t = 0;
+                if (lenSq > 0.0001) {
+                    t = Math.max(0, Math.min(1, -(prevLocal.right * dx + prevLocal.down * dy + prevLocal.forward * dz) / lenSq));
+                }
+                const cx = prevLocal.right + t * dx;
+                const cy = prevLocal.down + t * dy;
+                const cz = prevLocal.forward + t * dz;
+                if (
+                    Math.abs(cx) <= extRight &&
+                    Math.abs(cy) <= extDown &&
+                    Math.abs(cz) <= extForward
+                ) {
+                    return 'hit';
+                }
+            }
+
+            return null;
         }
 
         function makeTargetId() {
@@ -23240,21 +23640,37 @@
         }
 
         function spawnRocketSmoke(rocket) {
-            const tail = addVec(rocketWorldPoint(rocket), scaleVec(rocket.forward, -10));
-            const drift = 0.22 + Math.random() * 0.28;
+            const tail = addVec(rocketWorldPoint(rocket), scaleVec(rocket.forward, -12));
+            const drift = 0.28 + Math.random() * 0.32;
+            // Dense billowing white/slate smoke cloud
             vfxParticles.push({
-                x: tail.x + (Math.random() - 0.5) * 2.5,
-                y: tail.y + (Math.random() - 0.5) * 2.5,
-                z: tail.z + (Math.random() - 0.5) * 2.5,
-                vx: -rocket.forward.x * drift + (Math.random() - 0.5) * 0.18,
-                vy: -rocket.forward.y * drift + (Math.random() - 0.5) * 0.18,
-                vz: -rocket.forward.z * drift + (Math.random() - 0.5) * 0.18,
+                x: tail.x + (Math.random() - 0.5) * 3.2,
+                y: tail.y + (Math.random() - 0.5) * 3.2,
+                z: tail.z + (Math.random() - 0.5) * 3.2,
+                vx: -rocket.forward.x * drift + (Math.random() - 0.5) * 0.24,
+                vy: -rocket.forward.y * drift + (Math.random() - 0.5) * 0.24,
+                vz: -rocket.forward.z * drift + (Math.random() - 0.5) * 0.24,
                 life: 0,
-                maxLife: 52 + Math.random() * 34,
+                maxLife: 60 + Math.random() * 40,
                 kind: 'smoke',
-                color: 'rgba(80,88,92,',
-                size: 5 + Math.random() * 4,
-                growth: 0.16 + Math.random() * 0.1
+                color: 'rgba(215,225,235,',
+                size: 6.5 + Math.random() * 5.0,
+                growth: 0.28 + Math.random() * 0.16
+            });
+            // Fiery plasma exhaust spark
+            vfxParticles.push({
+                x: tail.x + (Math.random() - 0.5) * 1.6,
+                y: tail.y + (Math.random() - 0.5) * 1.6,
+                z: tail.z + (Math.random() - 0.5) * 1.6,
+                vx: -rocket.forward.x * (drift * 1.5) + (Math.random() - 0.5) * 0.5,
+                vy: -rocket.forward.y * (drift * 1.5) + (Math.random() - 0.5) * 0.5,
+                vz: -rocket.forward.z * (drift * 1.5) + (Math.random() - 0.5) * 0.5,
+                life: 0,
+                maxLife: 16 + Math.random() * 12,
+                kind: 'spark',
+                color: Math.random() > 0.35 ? '#ffaa00' : '#ff3300',
+                size: 3.5 + Math.random() * 2.5,
+                growth: -0.1
             });
         }
 
@@ -23266,7 +23682,25 @@
             }
             for (const sentry of tunnelSentries) {
                 if (!sentryIsActive(sentry)) continue;
-                if (distanceSq(point, sentry) <= ROCKET_DIRECT_HIT_RADIUS * ROCKET_DIRECT_HIT_RADIUS) return true;
+                const hitRadius = Math.max(ROCKET_DIRECT_HIT_RADIUS, SENTRY_HIT_RADIUS);
+                if (distanceSq(point, sentry) <= hitRadius * hitRadius) return true;
+            }
+            if (tunnelBoss.active && tunnelBoss.alive) {
+                if (distanceSq(point, tunnelBoss) <= 75 * 75) return true;
+            }
+            if (defenderPhase.active && defenderPhase.state === 'play') {
+                const defArrays = [
+                    defenderPhase.landers, defenderPhase.mutants, defenderPhase.bombers,
+                    defenderPhase.pods, defenderPhase.swarmers, defenderPhase.baiters
+                ];
+                for (const arr of defArrays) {
+                    if (!arr) continue;
+                    for (const e of arr) {
+                        const dx = defenderWrapDx(e.pos.x, point.x);
+                        const dSq = dx * dx + (e.pos.y - point.y) ** 2 + (e.pos.z - point.z) ** 2;
+                        if (dSq <= 36 * 36) return true;
+                    }
+                }
             }
             if (galagaPhase.active && galagaPhase.state === 'play') {
                 for (const fighter of galagaPhase.fighters) {
@@ -23409,6 +23843,9 @@
         function obliterateRocketEnemies(origin) {
             const blastSq = ROCKET_BLAST_RADIUS * ROCKET_BLAST_RADIUS;
             let kills = 0;
+            const now = performance.now();
+
+            // 1. Tunnel Targets
             for (const target of tunnelTargets) {
                 if (!targetIsActive(target) || distanceSq(origin, target.point) > blastSq) continue;
                 destroyTarget(target);
@@ -23416,27 +23853,119 @@
                 addTargetScore(SCORE_LASER_HIT);
                 kills += 1;
             }
+
+            // 2. Tunnel Sentries (Proportional splash damage across 220 units)
             for (const sentry of tunnelSentries) {
-                if (!sentryIsActive(sentry) || distanceSq(origin, sentry) > blastSq) continue;
-                destroySentry(sentry);
-                spawnTargetParticles(
-                    { x: sentry.x, y: sentry.y, z: sentry.z },
-                    sentry.right,
-                    sentry.down,
-                    '#fff0a0',
-                    68,
-                    6.8,
-                    70
-                );
-                kills += 1;
+                if (!sentryIsActive(sentry)) continue;
+                const dSq = distanceSq(origin, sentry);
+                if (dSq > blastSq) continue;
+                const dist = Math.sqrt(dSq);
+                sentry.engaged = true;
+                sentry.patrolBroken = true;
+                sentry.lastSeenAt = now;
+                sentry.hitFlashUntil = now + 350;
+                hudHitMarkerUntil = now + 200;
+
+                // Inner core <= 120 units: instant obliteration (>240 HP)
+                // Outer zone 120..220 units: 75 to 140 HP falloff
+                const splashFactor = Math.max(0, 1 - (dist / ROCKET_BLAST_RADIUS));
+                const damage = dist <= 120 ? 250 : Math.round(75 + splashFactor * 125);
+                sentry.health = Math.max(0, (sentry.health || SENTRY_HEALTH_MAX) - damage);
+
+                if (sentry.health <= 0) {
+                    destroySentry(sentry);
+                    spawnTargetParticles(
+                        { x: sentry.x, y: sentry.y, z: sentry.z },
+                        sentry.right,
+                        sentry.down,
+                        '#fff0a0',
+                        68,
+                        6.8,
+                        70
+                    );
+                    kills += 1;
+                } else {
+                    spawnTargetParticles(
+                        { x: sentry.x, y: sentry.y, z: sentry.z },
+                        sentry.right,
+                        sentry.down,
+                        '#ffaa44',
+                        28,
+                        4.5,
+                        35
+                    );
+                    playSfx('wall_bump', { intensity: 0.9, worldPos: sentry });
+                }
             }
+
+            // 3. Tunnel Boss
             if (tunnelBoss.active && tunnelBoss.alive) {
                 const bDistSq = distanceSq(origin, tunnelBoss);
                 if (bDistSq <= blastSq * 1.5) {
-                    applyBossDamage(120, 'rocket');
-                    spawnTargetParticles(tunnelBoss, shipRight, shipDown, '#ffaa00', 45, 6.0, 45);
+                    const dist = Math.sqrt(bDistSq);
+                    const dmg = Math.round(200 * Math.max(0.4, 1 - dist / (ROCKET_BLAST_RADIUS * 1.2)));
+                    applyBossDamage(dmg, 'rocket');
+                    spawnTargetParticles(tunnelBoss, shipRight, shipDown, '#ffaa00', 50, 6.5, 50);
                 }
             }
+
+            // 4. Defender Phase Enemies
+            if (defenderPhase.active && defenderPhase.state === 'play') {
+                const damageDefenderList = (arr, scoreKey, onDeath) => {
+                    if (!arr) return;
+                    for (let i = arr.length - 1; i >= 0; i--) {
+                        const e = arr[i];
+                        const dx = defenderWrapDx(e.pos.x, origin.x);
+                        const dSq = dx * dx + (e.pos.y - origin.y) ** 2 + (e.pos.z - origin.z) ** 2;
+                        if (dSq <= blastSq) {
+                            spawnTargetParticles(e.pos, shipRight, shipDown, '#ffaa33', 34, 4.8, 42);
+                            playSfx('target_explosion', { intensity: 1.0, worldPos: e.pos });
+                            const pts = DEFENDER.SCORES[scoreKey] || 100;
+                            defenderPhase.score += pts;
+                            defenderPhase.kills += 1;
+                            addTargetScore(pts);
+                            if (onDeath) onDeath(e, i);
+                            arr.splice(i, 1);
+                            kills += 1;
+                        }
+                    }
+                };
+
+                damageDefenderList(defenderPhase.pods, 'POD', (pod) => {
+                    for (let s = 0; s < 5; s++) {
+                        const ang = (s / 5) * Math.PI * 2;
+                        defenderPhase.swarmers.push({
+                            pos: { x: pod.pos.x + Math.cos(ang) * 20, y: pod.pos.y + Math.sin(ang) * 20, z: pod.pos.z },
+                            vx: Math.cos(ang) * 4.5 + (Math.random() - 0.5) * 2,
+                            vy: Math.sin(ang) * 4.5 + (Math.random() - 0.5) * 2,
+                            vz: (Math.random() - 0.5) * 3,
+                            bornAt: performance.now(),
+                            hp: 1
+                        });
+                    }
+                    keyboardStatus.innerText = 'POD BURST! SWARM DETECTED';
+                });
+
+                damageDefenderList(defenderPhase.landers, 'LANDER', (lander) => {
+                    if (lander.targetHumanoidId) {
+                        const h = defenderPhase.humanoids.find(x => x.id === lander.targetHumanoidId);
+                        if (h && h.state === 'abducted') {
+                            h.state = 'falling';
+                            h.abductedBy = null;
+                            h.vy = 0;
+                            keyboardStatus.innerText = '★ ASTRONAUT IN FREE-FALL! SWOOP IN TO CATCH!';
+                        }
+                    }
+                });
+
+                damageDefenderList(defenderPhase.mutants, 'MUTANT');
+                damageDefenderList(defenderPhase.bombers, 'BOMBER');
+                damageDefenderList(defenderPhase.swarmers, 'SWARMER');
+                damageDefenderList(defenderPhase.baiters, 'BAITER');
+                damageDefenderList(defenderPhase.mines, 'MINE');
+            }
+
+            // 5. Galaga Phase Enemies
             if (galagaPhase.active && galagaPhase.state === 'play') {
                 let bossIndex = -1;
                 for (let i = 0; i < galagaPhase.fighters.length; i++) {
@@ -23457,6 +23986,7 @@
                     }
                 }
             }
+
             if (kills > 0) {
                 keyboardStatus.innerText = kills === 1
                     ? 'ENEMY OBLITERATED'
@@ -23566,105 +24096,252 @@
                 )) continue;
                 const projected = projectPoint(scorch.point, centerX, centerY, fov);
                 if (!projected) continue;
-                const radius = Math.max(4, Math.min(150, scorch.radius * fov / Math.max(35, projected.z)));
-                const gradient = ctx.createRadialGradient(
+                const radius = Math.max(4, Math.min(160, scorch.radius * fov / Math.max(35, projected.z)));
+
+                // 1. Carbon Soot Starburst Blast Rim (20-spoke jagged starburst)
+                const sootGradient = ctx.createRadialGradient(
                     projected.x,
                     projected.y,
-                    radius * 0.1,
+                    radius * 0.08,
                     projected.x,
                     projected.y,
-                    radius
+                    radius * 1.15
                 );
-                gradient.addColorStop(0, 'rgba(4,3,2,0.94)');
-                gradient.addColorStop(0.46, 'rgba(28,12,5,0.82)');
-                gradient.addColorStop(0.72, 'rgba(114,42,10,0.44)');
-                gradient.addColorStop(1, 'rgba(25,8,2,0)');
-                ctx.fillStyle = gradient;
+                sootGradient.addColorStop(0, 'rgba(5,7,10,0.96)');
+                sootGradient.addColorStop(0.35, 'rgba(14,18,24,0.88)');
+                sootGradient.addColorStop(0.68, 'rgba(28,34,44,0.52)');
+                sootGradient.addColorStop(0.92, 'rgba(38,44,56,0.18)');
+                sootGradient.addColorStop(1, 'rgba(10,12,16,0)');
+                ctx.fillStyle = sootGradient;
                 ctx.beginPath();
-                for (let step = 0; step <= 22; step++) {
-                    const a = step / 22 * Math.PI * 2;
-                    const jag = 0.82 + Math.sin(scorch.seed + step * 2.37) * 0.13 +
-                        Math.sin(scorch.seed * 0.7 + step * 4.11) * 0.06;
-                    const x = projected.x + Math.cos(a) * radius * jag;
-                    const y = projected.y + Math.sin(a) * radius * jag * 0.72;
+                const starPoints = 20;
+                for (let step = 0; step <= starPoints; step++) {
+                    const a = (step / starPoints) * Math.PI * 2;
+                    const spokeVar = 0.62 +
+                        0.48 * Math.abs(Math.sin(scorch.seed * 3.1 + step * 4.7)) +
+                        0.18 * Math.sin(scorch.seed * 0.9 + step * 9.1);
+                    const r = radius * spokeVar;
+                    const x = projected.x + Math.cos(a) * r;
+                    const y = projected.y + Math.sin(a) * r * 0.85;
                     if (step === 0) ctx.moveTo(x, y);
                     else ctx.lineTo(x, y);
                 }
                 ctx.closePath();
                 ctx.fill();
-                ctx.globalAlpha = 0.5;
-                ctx.strokeStyle = '#d1571a';
-                ctx.lineWidth = Math.max(1, radius * 0.08);
-                for (let ring = 0; ring < 3; ring++) {
+
+                // 2. High-Contrast Radial Spall Fracture Fissures (carbon cracks)
+                ctx.strokeStyle = 'rgba(7,9,13,0.92)';
+                ctx.lineWidth = Math.max(1.2, radius * 0.05);
+                const crackCount = 9;
+                for (let c = 0; c < crackCount; c++) {
+                    const baseAng = (c / crackCount) * Math.PI * 2 + Math.sin(scorch.seed + c * 2.3) * 0.28;
+                    const crackLen = radius * (0.85 + 0.55 * Math.abs(Math.sin(scorch.seed * 1.7 + c * 3.7)));
+                    const midAng = baseAng + (Math.sin(scorch.seed * 2.1 + c) > 0 ? 0.18 : -0.18);
+                    const midR = crackLen * 0.55;
                     ctx.beginPath();
-                    ctx.ellipse(
-                        projected.x + Math.sin(scorch.seed + ring) * radius * 0.08,
-                        projected.y + Math.cos(scorch.seed * 1.4 + ring) * radius * 0.05,
-                        radius * (0.35 + ring * 0.18),
-                        radius * (0.18 + ring * 0.11),
-                        Math.sin(scorch.seed) * 0.7,
-                        0,
-                        Math.PI * 2
+                    ctx.moveTo(projected.x, projected.y);
+                    ctx.lineTo(
+                        projected.x + Math.cos(midAng) * midR,
+                        projected.y + Math.sin(midAng) * midR * 0.85
+                    );
+                    ctx.lineTo(
+                        projected.x + Math.cos(baseAng) * crackLen,
+                        projected.y + Math.sin(baseAng) * crackLen * 0.85
                     );
                     ctx.stroke();
                 }
-                ctx.globalAlpha = 1;
+
+                // 3. Incandescent Molten Slag Crater Core
+                const coreRadius = Math.max(2, radius * 0.38);
+                const coreGrad = ctx.createRadialGradient(
+                    projected.x,
+                    projected.y,
+                    coreRadius * 0.05,
+                    projected.x,
+                    projected.y,
+                    coreRadius
+                );
+                coreGrad.addColorStop(0, 'rgba(255,255,255,0.98)');
+                coreGrad.addColorStop(0.22, 'rgba(255,200,60,0.92)');
+                coreGrad.addColorStop(0.55, 'rgba(255,75,18,0.78)');
+                coreGrad.addColorStop(0.82, 'rgba(120,20,5,0.45)');
+                coreGrad.addColorStop(1, 'rgba(25,5,2,0)');
+                ctx.fillStyle = coreGrad;
+                ctx.beginPath();
+                ctx.arc(projected.x, projected.y, coreRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                // 4. Molten thermal heat flecks / embers
+                const emberCount = 5;
+                for (let e = 0; e < emberCount; e++) {
+                    const eAng = scorch.seed * 4.3 + e * 1.38;
+                    const eDist = radius * (0.28 + 0.42 * Math.abs(Math.sin(scorch.seed + e * 2.7)));
+                    const ex = projected.x + Math.cos(eAng) * eDist;
+                    const ey = projected.y + Math.sin(eAng) * eDist * 0.85;
+                    const eSize = Math.max(1, radius * 0.035);
+                    ctx.fillStyle = e % 2 === 0 ? '#ffcf44' : '#ff4812';
+                    ctx.beginPath();
+                    ctx.arc(ex, ey, eSize, 0, Math.PI * 2);
+                    ctx.fill();
+                }
             }
             ctx.restore();
         }
 
         function renderRocketBody(rocket, centerX, centerY, fov) {
             const center = rocketWorldPoint(rocket);
-            const nose = addVec(center, scaleVec(rocket.forward, 10));
+            const nose = addVec(center, scaleVec(rocket.forward, 12));
             const tail = addVec(center, scaleVec(rocket.forward, -10));
-            const finLeft = addVec(addVec(center, scaleVec(rocket.forward, -5)), scaleVec(rocket.right, -5.5));
-            const finRight = addVec(addVec(center, scaleVec(rocket.forward, -5)), scaleVec(rocket.right, 5.5));
+            const mid = addVec(center, scaleVec(rocket.forward, -1));
+
+            // Cruciform 4-fin chassis at tail (Top, Bottom, Left, Right)
+            const finSpan = 7.5;
+            const finR = addVec(tail, scaleVec(rocket.right, finSpan));
+            const finL = addVec(tail, scaleVec(rocket.right, -finSpan));
+            const finU = addVec(tail, scaleVec(rocket.down, -finSpan));
+            const finD = addVec(tail, scaleVec(rocket.down, finSpan));
+
+            // Mid-body canard guidance fins
+            const canSpan = 4.2;
+            const canR = addVec(mid, scaleVec(rocket.right, canSpan));
+            const canL = addVec(mid, scaleVec(rocket.right, -canSpan));
+            const canU = addVec(mid, scaleVec(rocket.down, -canSpan));
+            const canD = addVec(mid, scaleVec(rocket.down, canSpan));
+
+            // Thruster flame exhaust tip
+            const flameTip = addVec(tail, scaleVec(rocket.forward, -13));
+
             const pCenter = projectPoint(center, centerX, centerY, fov);
             const pNose = projectPoint(nose, centerX, centerY, fov);
             const pTail = projectPoint(tail, centerX, centerY, fov);
-            const pLeft = projectPoint(finLeft, centerX, centerY, fov);
-            const pRight = projectPoint(finRight, centerX, centerY, fov);
+            const pMid = projectPoint(mid, centerX, centerY, fov);
+            const pFlame = projectPoint(flameTip, centerX, centerY, fov);
+
+            const pFinR = projectPoint(finR, centerX, centerY, fov);
+            const pFinL = projectPoint(finL, centerX, centerY, fov);
+            const pFinU = projectPoint(finU, centerX, centerY, fov);
+            const pFinD = projectPoint(finD, centerX, centerY, fov);
+
+            const pCanR = projectPoint(canR, centerX, centerY, fov);
+            const pCanL = projectPoint(canL, centerX, centerY, fov);
+            const pCanU = projectPoint(canU, centerX, centerY, fov);
+            const pCanD = projectPoint(canD, centerX, centerY, fov);
+
             if (!pCenter || !pNose || !pTail) return;
-            const width = Math.max(2.5, Math.min(15, 5.5 * fov / Math.max(70, pCenter.z)));
+
+            const bodyW = Math.max(3.0, Math.min(22, 6.5 * fov / Math.max(45, pCenter.z)));
+
             ctx.save();
+
+            // A. Cruciform Tail Stabilizer Fins (Bold 3D Cross in perspective)
+            const drawFin = (pFin, pCan, finColor, tipColor) => {
+                if (!pFin) return;
+                ctx.beginPath();
+                ctx.moveTo(pTail.x, pTail.y);
+                ctx.lineTo(pFin.x, pFin.y);
+                if (pCan) ctx.lineTo(pCan.x, pCan.y);
+                else if (pMid) ctx.lineTo(pMid.x, pMid.y);
+                ctx.closePath();
+                ctx.fillStyle = finColor;
+                ctx.fill();
+                ctx.strokeStyle = tipColor;
+                ctx.lineWidth = Math.max(1, bodyW * 0.25);
+                ctx.stroke();
+            };
+
+            drawFin(pFinL, pCanL, '#263238', '#ff7043');
+            drawFin(pFinR, pCanR, '#37474f', '#ff7043');
+            drawFin(pFinU, pCanU, '#455a64', '#ffab91');
+            drawFin(pFinD, pCanD, '#1e272c', '#ff5722');
+
+            // B. Cylindrical Fuselage Hull (with metallic highlight and hazard striping)
             ctx.lineCap = 'round';
-            ctx.shadowColor = '#ff7a22';
-            ctx.shadowBlur = 14;
-            ctx.strokeStyle = '#ffb12e';
-            ctx.lineWidth = width * 1.75;
+            // Dark fuselage silhouette
+            ctx.strokeStyle = '#212529';
+            ctx.lineWidth = bodyW * 1.5;
             ctx.beginPath();
             ctx.moveTo(pTail.x, pTail.y);
             ctx.lineTo(pNose.x, pNose.y);
             ctx.stroke();
-            ctx.shadowColor = '#eaffff';
-            ctx.shadowBlur = 7;
-            ctx.strokeStyle = '#d9eef2';
-            ctx.lineWidth = width;
+
+            // Titanium hull plating
+            ctx.strokeStyle = '#90a4ae';
+            ctx.lineWidth = bodyW * 1.0;
+            ctx.beginPath();
+            ctx.moveTo(pTail.x, pTail.y);
+            ctx.lineTo(pNose.x, pNose.y);
             ctx.stroke();
-            ctx.strokeStyle = '#667b84';
-            ctx.lineWidth = Math.max(1, width * 0.22);
-            ctx.stroke();
-            if (pLeft && pRight) {
-                ctx.shadowBlur = 3;
-                ctx.fillStyle = '#e34924';
+
+            // High-visibility hazard accent stripe
+            if (pMid) {
+                ctx.strokeStyle = '#ffc107';
+                ctx.lineWidth = bodyW * 1.0;
                 ctx.beginPath();
-                ctx.moveTo(pTail.x, pTail.y);
-                ctx.lineTo(pLeft.x, pLeft.y);
-                ctx.lineTo(pRight.x, pRight.y);
-                ctx.closePath();
-                ctx.fill();
-            }
-            const flameTail = projectPoint(addVec(tail, scaleVec(rocket.forward, -9)), centerX, centerY, fov);
-            if (flameTail) {
-                ctx.shadowColor = '#ff4b13';
-                ctx.shadowBlur = 18;
-                ctx.strokeStyle = '#fff2a8';
-                ctx.lineWidth = Math.max(2, width * 0.7);
-                ctx.beginPath();
-                ctx.moveTo(pTail.x, pTail.y);
-                ctx.lineTo(flameTail.x, flameTail.y);
+                ctx.moveTo(pTail.x * 0.45 + pNose.x * 0.55, pTail.y * 0.45 + pNose.y * 0.55);
+                ctx.lineTo(pTail.x * 0.3 + pNose.x * 0.7, pTail.y * 0.3 + pNose.y * 0.7);
                 ctx.stroke();
             }
+
+            // Top specular shine streak
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = Math.max(1, bodyW * 0.25);
+            ctx.beginPath();
+            ctx.moveTo(pTail.x * 0.6 + pNose.x * 0.4, pTail.y * 0.6 + pNose.y * 0.4);
+            ctx.lineTo(pNose.x, pNose.y);
+            ctx.stroke();
+
+            // Crimson Warhead Nose Cap
+            ctx.strokeStyle = '#e63946';
+            ctx.lineWidth = bodyW * 1.15;
+            ctx.beginPath();
+            ctx.moveTo(pTail.x * 0.15 + pNose.x * 0.85, pTail.y * 0.15 + pNose.y * 0.85);
+            ctx.lineTo(pNose.x, pNose.y);
+            ctx.stroke();
+
+            // C. Volumetric Ion Thruster Corona & Lens Flare (Dominant Rear View)
+            const coronaR = Math.max(5.5, bodyW * (1.8 + 0.35 * Math.sin(rocket.age * 1.5)));
+            const thrusterGrad = ctx.createRadialGradient(
+                pTail.x, pTail.y, coronaR * 0.08,
+                pTail.x, pTail.y, coronaR
+            );
+            thrusterGrad.addColorStop(0, 'rgba(255,255,255,1.0)');
+            thrusterGrad.addColorStop(0.25, 'rgba(255,230,100,0.95)');
+            thrusterGrad.addColorStop(0.55, 'rgba(255,110,25,0.75)');
+            thrusterGrad.addColorStop(0.85, 'rgba(255,45,10,0.35)');
+            thrusterGrad.addColorStop(1, 'rgba(255,20,0,0)');
+            ctx.fillStyle = thrusterGrad;
+            ctx.beginPath();
+            ctx.arc(pTail.x, pTail.y, coronaR, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 4-Point Lens Flare Cross at nozzle
+            ctx.strokeStyle = 'rgba(255,255,230,0.85)';
+            ctx.lineWidth = Math.max(1, bodyW * 0.22);
+            const flareLen = coronaR * 2.4;
+            ctx.beginPath();
+            ctx.moveTo(pTail.x - flareLen, pTail.y);
+            ctx.lineTo(pTail.x + flareLen, pTail.y);
+            ctx.moveTo(pTail.x, pTail.y - flareLen);
+            ctx.lineTo(pTail.x, pTail.y + flareLen);
+            ctx.stroke();
+
+            // D. Tapered Plasma Exhaust Flame
+            if (pFlame) {
+                ctx.strokeStyle = '#ff9800';
+                ctx.lineWidth = Math.max(2, bodyW * 0.85);
+                ctx.beginPath();
+                ctx.moveTo(pTail.x, pTail.y);
+                ctx.lineTo(pFlame.x, pFlame.y);
+                ctx.stroke();
+
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = Math.max(1, bodyW * 0.35);
+                ctx.beginPath();
+                ctx.moveTo(pTail.x, pTail.y);
+                ctx.lineTo(pTail.x * 0.4 + pFlame.x * 0.6, pTail.y * 0.4 + pFlame.y * 0.6);
+                ctx.stroke();
+            }
+
             ctx.restore();
         }
 
@@ -23674,10 +24351,103 @@
                 const steps = Math.max(1, Math.ceil(frameScale * 1.4));
                 const stepScale = frameScale / steps;
                 let detonated = false;
+
                 for (let step = 0; step < steps; step++) {
                     rocket.age += stepScale;
-                    const wobble = Math.sin(rocket.phase + rocket.age * 0.31) * 0.34;
-                    const swap = Math.cos(rocket.phase * 1.7 + rocket.age * 0.23) * 0.26;
+
+                    // 1. Descent-Style Active Homing Target Acquisition
+                    let bestTargetPos = null;
+                    let bestScore = -Infinity;
+                    const rPos = { x: rocket.x, y: rocket.y, z: rocket.z };
+
+                    const considerTarget = (targetPos, priority = 1.0) => {
+                        let dx = targetPos.x - rPos.x;
+                        let dy = targetPos.y - rPos.y;
+                        let dz = targetPos.z - rPos.z;
+                        if (defenderPhase.active) {
+                            dx = defenderWrapDx(targetPos.x, rPos.x);
+                        }
+                        const dSq = dx * dx + dy * dy + dz * dz;
+                        if (dSq > 1400 * 1400 || dSq < 9) return;
+                        const dist = Math.sqrt(dSq);
+                        const dir = { x: dx / dist, y: dy / dist, z: dz / dist };
+                        const align = dot(rocket.forward, dir);
+                        // Forward acquisition cone (~80 deg half-angle)
+                        if (align > 0.15) {
+                            const score = (align * 2.5 + priority) / (dist + 60);
+                            if (score > bestScore) {
+                                bestScore = score;
+                                bestTargetPos = { x: rPos.x + dx, y: rPos.y + dy, z: rPos.z + dz };
+                            }
+                        }
+                    };
+
+                    // Check Sentries
+                    for (const s of tunnelSentries) {
+                        if (sentryIsActive(s)) {
+                            considerTarget({ x: s.x, y: s.y, z: s.z }, 1.8);
+                        }
+                    }
+                    // Check Tunnel Boss
+                    if (tunnelBoss.active && tunnelBoss.alive) {
+                        considerTarget(tunnelBoss, 2.4);
+                    }
+                    // Check Targets
+                    for (const t of tunnelTargets) {
+                        if (targetIsActive(t)) {
+                            considerTarget(t.point, 1.0);
+                        }
+                    }
+                    // Check Defender Enemies
+                    if (defenderPhase.active && defenderPhase.state === 'play') {
+                        const defGroups = [
+                            defenderPhase.landers, defenderPhase.mutants, defenderPhase.bombers,
+                            defenderPhase.pods, defenderPhase.swarmers, defenderPhase.baiters
+                        ];
+                        for (const grp of defGroups) {
+                            if (!grp) continue;
+                            for (const e of grp) {
+                                considerTarget(e.pos, 1.6);
+                            }
+                        }
+                    }
+                    // Check Galaga Fighters
+                    if (galagaPhase.active && galagaPhase.state === 'play') {
+                        for (const f of galagaPhase.fighters) {
+                            considerTarget(f.pos, 1.4);
+                        }
+                    }
+
+                    // 2. Active Steering Toward Target
+                    if (bestTargetPos) {
+                        const toTarget = subVec(bestTargetPos, rPos);
+                        const dist = Math.hypot(toTarget.x, toTarget.y, toTarget.z);
+                        if (dist > 1) {
+                            const targetDir = scaleVec(toTarget, 1 / dist);
+                            const turnRate = 0.088 * stepScale;
+                            rocket.forward = normalize({
+                                x: rocket.forward.x + targetDir.x * turnRate,
+                                y: rocket.forward.y + targetDir.y * turnRate,
+                                z: rocket.forward.z + targetDir.z * turnRate
+                            });
+                            // Orthonormalize right and down axes
+                            const projRight = subVec(rocket.right, scaleVec(rocket.forward, dot(rocket.right, rocket.forward)));
+                            if (Math.hypot(projRight.x, projRight.y, projRight.z) > 0.01) {
+                                rocket.right = normalize(projRight);
+                            } else {
+                                const upRef = Math.abs(dot(rocket.forward, { x: 0, y: 1, z: 0 })) > 0.92
+                                    ? { x: 1, y: 0, z: 0 }
+                                    : { x: 0, y: 1, z: 0 };
+                                rocket.right = normalize(cross(upRef, rocket.forward));
+                            }
+                            rocket.down = normalize(cross(rocket.forward, rocket.right));
+                        }
+                    }
+
+                    // 3. Movement with aerodynamic damping during lock
+                    const wobbleDamp = bestTargetPos ? 0.22 : 1.0;
+                    const wobble = Math.sin(rocket.phase + rocket.age * 0.31) * 0.34 * wobbleDamp;
+                    const swap = Math.cos(rocket.phase * 1.7 + rocket.age * 0.23) * 0.26 * wobbleDamp;
                     rocket.x += (
                         rocket.forward.x * ROCKET_SPEED +
                         rocket.right.x * wobble +
@@ -23693,6 +24463,7 @@
                         rocket.right.z * wobble +
                         rocket.down.z * swap
                     ) * stepScale;
+
                     rocket.smokeClock += stepScale;
                     if (rocket.smokeClock >= 1.4) {
                         rocket.smokeClock = 0;
@@ -24530,7 +25301,7 @@
             if (!targetIsActive(target)) return false;
             if (gulletPhase.active) return false;
             playSfx('target_explosion', {
-                intensity: target.explosive ? 1 : 0.72,
+                intensity: target.explosive ? 1 : 0.85,
                 worldPos: { ...target.point }
             });
             const color = target.explosive ? TARGET_EXPLOSIVE_COLOR : TARGET_NORMAL_COLOR;
@@ -24545,6 +25316,11 @@
             );
             addTargetScore(SCORE_LASER_HIT);
             destroyTarget(target);
+            if (keyboardStatus) {
+                keyboardStatus.innerText = target.explosive
+                    ? `💥 EXPLOSIVE MINE DETONATED (+${SCORE_LASER_HIT} PTS)`
+                    : `🎯 TARGET DESTROYED (+${SCORE_LASER_HIT} PTS)`;
+            }
             return true;
         }
 
@@ -24558,10 +25334,11 @@
             }
         }
 
-        function checkLaserTargetHits(laserPoint) {
+        function checkLaserTargetHits(laserPoint, prevPoint = null) {
             for (const target of tunnelTargets) {
                 if (!targetIsActive(target)) continue;
-                if (laserTargetHitQuality(target, laserPoint) === 'center') {
+                const hitQuality = laserTargetHitQuality(target, laserPoint, prevPoint);
+                if (hitQuality === 'center' || hitQuality === 'hit') {
                     return handleTargetLaserHit(target);
                 }
             }
@@ -25055,6 +25832,9 @@
                 52
             );
             addTargetScore(SCORE_SENTRY_KILL);
+            if (!sentry.isRunner && !sentry.captainKey) {
+                keyboardStatus.innerText = `💥 ${sentry.label || 'ENEMY SENTRY'} DESTROYED! (+${SCORE_SENTRY_KILL} PTS)`;
+            }
 
             // Stealth intercept bonus if destroying a runner before alarm
             if (sentry.isRunner && !sentry.alarmTriggered) {
@@ -25099,26 +25879,59 @@
             }
         }
 
-        function laserSentryHitQuality(sentry, point) {
-            const dist = Math.sqrt(distanceSq(point, { x: sentry.x, y: sentry.y, z: sentry.z }));
-            return dist <= SENTRY_HIT_RADIUS ? 'hit' : null;
+        let hudHitMarkerUntil = 0;
+
+        function laserSentryHitQuality(sentry, point, prevPoint = null) {
+            if (!sentry || !point) return null;
+            const sentryPos = { x: sentry.x, y: sentry.y, z: sentry.z };
+            const hitR = Math.max(SENTRY_HIT_RADIUS, 46);
+            const hitRSq = hitR * hitR;
+
+            // 1. Direct point collision
+            if (distanceSq(point, sentryPos) <= hitRSq) return 'hit';
+
+            // 2. Continuous swept line-segment collision from prevPoint to point
+            if (prevPoint) {
+                const vx = point.x - prevPoint.x;
+                const vy = point.y - prevPoint.y;
+                const vz = point.z - prevPoint.z;
+                const lenSq = vx * vx + vy * vy + vz * vz;
+                if (lenSq > 0.0001) {
+                    const wx = sentryPos.x - prevPoint.x;
+                    const wy = sentryPos.y - prevPoint.y;
+                    const wz = sentryPos.z - prevPoint.z;
+                    const t = Math.max(0, Math.min(1, (wx * vx + wy * vy + wz * vz) / lenSq));
+                    const closeX = prevPoint.x + t * vx;
+                    const closeY = prevPoint.y + t * vy;
+                    const closeZ = prevPoint.z + t * vz;
+                    if (distanceSq({ x: closeX, y: closeY, z: closeZ }, sentryPos) <= hitRSq) {
+                        return 'hit';
+                    }
+                }
+            }
+            return null;
         }
 
-        function handleSentryLaserHit(sentry) {
+        function handleSentryLaserHit(sentry, impactPoint = null) {
             if (!sentryIsActive(sentry)) return false;
             const now = performance.now();
             sentry.engaged = true;
             sentry.patrolBroken = true;
             sentry.lastSeenAt = now;
+            sentry.hitFlashUntil = now + 200;
+            hudHitMarkerUntil = now + 150;
+            const hitPos = impactPoint || { x: sentry.x, y: sentry.y, z: sentry.z };
             sentry.health = Math.max(0, sentry.health - SENTRY_DAMAGE_PER_HIT);
+            addTargetScore(25);
+            playSfx('wall_bump', { intensity: 0.75, worldPos: hitPos });
             spawnTargetParticles(
-                { x: sentry.x, y: sentry.y, z: sentry.z },
+                hitPos,
                 sentry.right,
                 sentry.down,
                 '#ffaa44',
-                10,
-                2.6,
-                20
+                14,
+                3.2,
+                24
             );
             if (sentry.health <= 0) {
                 destroySentry(sentry);
@@ -25126,12 +25939,12 @@
             return true;
         }
 
-        function checkLaserSentryHits(laserPoint) {
+        function checkLaserSentryHits(laserPoint, prevPoint = null) {
             for (const sentry of tunnelSentries) {
                 if (!sentryIsActive(sentry)) continue;
                 if (!sentryCorridorVisibleToPlayer(sentry)) continue;
-                if (laserSentryHitQuality(sentry, laserPoint) === 'hit') {
-                    return handleSentryLaserHit(sentry);
+                if (laserSentryHitQuality(sentry, laserPoint, prevPoint) === 'hit') {
+                    return handleSentryLaserHit(sentry, laserPoint);
                 }
             }
             return false;
@@ -27715,6 +28528,169 @@
             return nearest?.index ?? sentry.spawn?.segmentIndex ?? null;
         }
 
+        const SENTRY_3D_SPRITE_CACHE = {};
+        const SENTRY_SPRITE_DIRECTIONS = 16;
+        const SENTRY_SPRITE_ELEVATIONS = [
+            { id: 'level', pitch: 0, label: 'Level' },
+            { id: 'dorsal', pitch: -0.42, label: 'Dorsal (+24 deg)' },
+            { id: 'ventral', pitch: 0.38, label: 'Ventral (-22 deg)' }
+        ];
+
+        function getSentryMultiAngleBitmap(sqType, elevationId, dirIndex) {
+            const cacheKey = `${sqType}_${elevationId}_${dirIndex}`;
+            if (SENTRY_3D_SPRITE_CACHE[cacheKey]) return SENTRY_3D_SPRITE_CACHE[cacheKey];
+            if (typeof document === 'undefined') return null;
+
+            const c = document.createElement('canvas');
+            c.width = 128;
+            c.height = 128;
+            const bctx = c.getContext('2d');
+            if (!bctx) return null;
+
+            const elev = SENTRY_SPRITE_ELEVATIONS.find(e => e.id === elevationId) || SENTRY_SPRITE_ELEVATIONS[0];
+            const pitch = elev.pitch;
+            // Angle around ship in radians: 0 is front nose, Math.PI/2 is right flank, Math.PI is rear engines
+            const yaw = (dirIndex / SENTRY_SPRITE_DIRECTIONS) * Math.PI * 2;
+
+            // Virtual camera looking at ship origin (0, 0, 0)
+            const dist = 3.6;
+            const cosP = Math.cos(pitch), sinP = Math.sin(pitch);
+            const eyeX = dist * cosP * Math.cos(yaw);
+            const eyeY = dist * cosP * Math.sin(yaw);
+            const eyeZ = dist * sinP;
+
+            // Camera frame vectors (looking at origin from eye)
+            const camFwd = normalize({ x: -eyeX, y: -eyeY, z: -eyeZ });
+            let camRight = normalize({ x: -camFwd.y, y: camFwd.x, z: 0 });
+            if (Math.hypot(camRight.x, camRight.y, camRight.z) < 0.01) camRight = { x: 0, y: 1, z: 0 };
+            const camDown = cross(camFwd, camRight);
+
+            // Project 3D vertex to 2D bitmap
+            const bmpFov = 130;
+            const bcx = 64, bcy = 64;
+            const projectVert = (vx, vy, vz) => {
+                const rx = vx - eyeX, ry = vy - eyeY, rz = vz - eyeZ;
+                const camZ = rx * camFwd.x + ry * camFwd.y + rz * camFwd.z;
+                if (camZ <= 0.1) return null;
+                const camX = rx * camRight.x + ry * camRight.y + rz * camRight.z;
+                const camY = rx * camDown.x + ry * camDown.y + rz * camDown.z;
+                return {
+                    x: bcx + (camX / camZ) * bmpFov,
+                    y: bcy + (camY / camZ) * bmpFov,
+                    z: camZ
+                };
+            };
+
+            const sq = getSentrySquadronInfo({ captainKey: sqType, id: sqType, label: sqType.toUpperCase() });
+            const lightDir = normalize({ x: 0.35, y: -0.65, z: -0.70 }); // Key light from upper-port
+
+            // Render all faces with depth sorting
+            const facesToDraw = [];
+            for (const f of SENTRY_GUNSHIP_FACES) {
+                // Backface culling: face normal towards camera eye
+                const cull = (eyeX - f.center[0]) * f.normal[0] +
+                             (eyeY - f.center[1]) * f.normal[1] +
+                             (eyeZ - f.center[2]) * f.normal[2];
+                if (cull <= 0) continue;
+
+                const pts = f.pts.map(k => {
+                    const v = SENTRY_GUNSHIP_VERTS[k];
+                    return projectVert(v[0], v[1], v[2]);
+                });
+                if (pts.some(p => !p)) continue;
+
+                const nDotL = Math.max(0, f.normal[0] * lightDir.x + f.normal[1] * lightDir.y + f.normal[2] * lightDir.z);
+                const intensity = Math.max(0.28, Math.min(1.0, 0.35 + 0.65 * nDotL));
+
+                let fillStyle = shadeRgb([34, 40, 48], intensity);
+                let isGlow = false;
+                if (f.type === 'visor') {
+                    fillStyle = sq.visor;
+                    isGlow = true;
+                } else if (f.type === 'livery') {
+                    fillStyle = shadeRgb(sq.primaryRgb, intensity);
+                } else if (f.type === 'armor') {
+                    fillStyle = shadeRgb([56, 64, 76], intensity);
+                }
+
+                const depth = pts.reduce((sum, p) => sum + p.z, 0) / pts.length;
+                facesToDraw.push({ pts, fillStyle, isGlow, depth });
+            }
+
+            // Painter's algorithm
+            facesToDraw.sort((a, b) => b.depth - a.depth);
+
+            for (const face of facesToDraw) {
+                bctx.beginPath();
+                bctx.moveTo(face.pts[0].x, face.pts[0].y);
+                for (let i = 1; i < face.pts.length; i++) {
+                    bctx.lineTo(face.pts[i].x, face.pts[i].y);
+                }
+                bctx.closePath();
+                bctx.fillStyle = face.fillStyle;
+                if (face.isGlow) {
+                    bctx.save();
+                    bctx.shadowColor = sq.visor;
+                    bctx.shadowBlur = 10;
+                    bctx.fill();
+                    bctx.restore();
+                } else {
+                    bctx.fill();
+                }
+                bctx.strokeStyle = 'rgba(15, 20, 28, 0.75)';
+                bctx.lineWidth = 1;
+                bctx.stroke();
+            }
+
+            // Draw twin ion engines if viewing from rear half
+            if (eyeX < 0.6) {
+                const pEngL = projectVert(-1.06, -0.25, 0.05);
+                const pEngR = projectVert(-1.06, 0.25, 0.05);
+                const pFlameL = projectVert(-1.42, -0.25, 0.05);
+                const pFlameR = projectVert(-1.42, 0.25, 0.05);
+
+                if (pEngL && pFlameL) {
+                    bctx.save();
+                    bctx.shadowColor = sq.thruster;
+                    bctx.shadowBlur = 12;
+                    bctx.fillStyle = sq.thruster;
+                    bctx.beginPath();
+                    bctx.moveTo(pEngL.x - 3, pEngL.y);
+                    bctx.lineTo(pFlameL.x, pFlameL.y);
+                    bctx.lineTo(pEngL.x + 3, pEngL.y);
+                    bctx.closePath();
+                    bctx.fill();
+                    bctx.restore();
+
+                    bctx.fillStyle = '#ffffff';
+                    bctx.beginPath();
+                    bctx.arc(pEngL.x, pEngL.y, 2.5, 0, Math.PI * 2);
+                    bctx.fill();
+                }
+                if (pEngR && pFlameR) {
+                    bctx.save();
+                    bctx.shadowColor = sq.thruster;
+                    bctx.shadowBlur = 12;
+                    bctx.fillStyle = sq.thruster;
+                    bctx.beginPath();
+                    bctx.moveTo(pEngR.x - 3, pEngR.y);
+                    bctx.lineTo(pFlameR.x, pFlameR.y);
+                    bctx.lineTo(pEngR.x + 3, pEngR.y);
+                    bctx.closePath();
+                    bctx.fill();
+                    bctx.restore();
+
+                    bctx.fillStyle = '#ffffff';
+                    bctx.beginPath();
+                    bctx.arc(pEngR.x, pEngR.y, 2.5, 0, Math.PI * 2);
+                    bctx.fill();
+                }
+            }
+
+            SENTRY_3D_SPRITE_CACHE[cacheKey] = c;
+            return c;
+        }
+
         function renderSentryDrone(sentry, centerX, centerY, fov, mapMode = false, texturedSegmentIndices = null, forwardPathSet = null) {
             if (!mapMode && !sentryIsActive(sentry)) return;
             if (!mapMode &&
@@ -27722,6 +28698,12 @@
             const pos = mapMode && mapMouse.sentrySpawnMoveId === sentry.id
                 ? sentry.spawn.point
                 : { x: sentry.x, y: sentry.y, z: sentry.z };
+            if (!mapMode) {
+                const frame = getFlightCameraFrame();
+                const camEye = frame?.eye || getPlayerWorldPos();
+                const sentrySegIdx = sentryOverlaySegmentIndex(sentry);
+                if (!tunnelSightlineClear(camEye, pos, shipSegmentIndex, sentrySegIdx)) return;
+            }
             const cameraPoint = mapMode ? projectMapPoint(pos, centerX, centerY, fov) : worldToCamera(pos);
             if (!cameraPoint) return;
             const projected = mapMode
@@ -27787,22 +28769,11 @@
             }
             ctx.save();
             ctx.globalAlpha = alpha;
-            const shipImage = getTextureImage(getSentryTextureEntry(sentry.shipTextureId));
-            const hasShipImage = shipImage?.complete && shipImage.naturalWidth > 0;
-            if (hasShipImage) {
-                const spriteSize = mapMode ? Math.max(12, size * 1.8) : screenSize;
-                ctx.shadowColor = engaged ? '#ff2200' : '#ff7733';
-                ctx.shadowBlur = mapMode ? 5 : Math.max(4, screenSize * 0.18);
-                ctx.drawImage(
-                    shipImage,
-                    projected.x - spriteSize * 0.5,
-                    projected.y - spriteSize * 0.5,
-                    spriteSize,
-                    spriteSize
-                );
-            } else {
-                const sq = getSentrySquadronInfo(sentry);
-                // Precompute screen projections for all gunship vertices
+            const sq = getSentrySquadronInfo(sentry);
+            const sqType = sq.name.toLowerCase();
+
+            if (mapMode) {
+                // Map mode: render clean solid tactical gunship silhouette with squadron livery
                 const vertScreen = {};
                 let anyVertProjected = false;
                 for (const k in SENTRY_GUNSHIP_VERTS) {
@@ -27816,60 +28787,119 @@
                     return;
                 }
 
-                if (mapMode) {
-                    // Map mode: render clean solid tactical gunship silhouette with squadron livery
-                    ctx.shadowColor = engaged ? '#ff2200' : sq.accent;
-                    ctx.shadowBlur = 4;
-                    for (const f of SENTRY_GUNSHIP_FACES) {
-                        if (f.normal[2] > 0.15) continue; // Skip ventral underside in 2D top-down view
-                        const pts = f.pts.map(k => vertScreen[k]).filter(Boolean);
-                        if (pts.length !== f.pts.length) continue;
-                        ctx.beginPath();
-                        ctx.moveTo(pts[0].x, pts[0].y);
-                        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-                        ctx.closePath();
-                        if (f.type === 'visor') {
-                            ctx.fillStyle = sq.visor;
-                        } else if (f.type === 'livery') {
-                            ctx.fillStyle = sq.accent;
-                        } else if (f.type === 'armor') {
-                            ctx.fillStyle = '#485464';
-                        } else {
-                            ctx.fillStyle = '#2c3440';
-                        }
-                        ctx.fill();
-                        ctx.strokeStyle = engaged ? '#ff3311' : '#141c24';
-                        ctx.lineWidth = 1;
-                        ctx.stroke();
+                ctx.shadowColor = engaged ? '#ff2200' : sq.accent;
+                ctx.shadowBlur = 4;
+                for (const f of SENTRY_GUNSHIP_FACES) {
+                    if (f.normal[2] > 0.15) continue; // Skip ventral underside in 2D top-down view
+                    const pts = f.pts.map(k => vertScreen[k]).filter(Boolean);
+                    if (pts.length !== f.pts.length) continue;
+                    ctx.beginPath();
+                    ctx.moveTo(pts[0].x, pts[0].y);
+                    for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+                    ctx.closePath();
+                    if (f.type === 'visor') {
+                        ctx.fillStyle = sq.visor;
+                    } else if (f.type === 'livery') {
+                        ctx.fillStyle = sq.accent;
+                    } else if (f.type === 'armor') {
+                        ctx.fillStyle = '#485464';
+                    } else {
+                        ctx.fillStyle = '#2c3440';
                     }
+                    ctx.fill();
+                    ctx.strokeStyle = engaged ? '#ff3311' : '#141c24';
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                }
+            } else {
+                // Flight mode: 3D Multi-Angle Directional Sprite Billboard
+                const frame = getFlightCameraFrame();
+                const camEye = frame?.eye || getPlayerWorldPos();
+
+                // Compute camera-relative viewing vector in sentry coordinate space
+                const relX = camEye.x - pos.x;
+                const relY = camEye.y - pos.y;
+                const relZ = camEye.z - pos.z;
+                const lx = relX * fwd.x + relY * fwd.y + relZ * fwd.z;
+                const ly = relX * right.x + relY * right.y + relZ * right.z;
+                const lz = relX * down.x + relY * down.y + relZ * down.z;
+
+                // Azimuth angle (yaw around ship up axis)
+                const relYaw = Math.atan2(ly, lx);
+                const dirIndex = Math.round(((relYaw / (Math.PI * 2) + 1) % 1) * SENTRY_SPRITE_DIRECTIONS) % SENTRY_SPRITE_DIRECTIONS;
+
+                // Elevation angle (pitch)
+                const horizDist = Math.hypot(lx, ly);
+                const relPitch = Math.atan2(lz, Math.max(1, horizDist));
+                const elevId = relPitch < -0.22 ? 'dorsal' : (relPitch > 0.22 ? 'ventral' : 'level');
+
+                const sprite3d = getSentryMultiAngleBitmap(sqType, elevId, dirIndex);
+                if (sprite3d) {
+                    const spriteSize = screenSize;
+                    const isHitFlashing = sentry.hitFlashUntil && performance.now() < sentry.hitFlashUntil;
+                    ctx.save();
+                    if (isHitFlashing) {
+                        ctx.shadowColor = '#ffffff';
+                        ctx.shadowBlur = Math.max(16, screenSize * 0.45);
+                    } else if (engaged) {
+                        ctx.shadowColor = sq.accent;
+                        ctx.shadowBlur = Math.max(6, screenSize * 0.22);
+                    }
+                    // Align sprite roll with camera orientation
+                    if (frame) {
+                        const pUp = projectPoint(addVec(pos, scaleVec(down, -10)), centerX, centerY, fov);
+                        if (pUp) {
+                            const rollAngle = Math.atan2(pUp.x - projected.x, -(pUp.y - projected.y));
+                            ctx.translate(projected.x, projected.y);
+                            ctx.rotate(rollAngle);
+                            ctx.drawImage(sprite3d, -spriteSize * 0.5, -spriteSize * 0.5, spriteSize, spriteSize);
+                            if (isHitFlashing) {
+                                ctx.strokeStyle = '#ffffff';
+                                ctx.lineWidth = 2.5;
+                                ctx.beginPath();
+                                ctx.arc(0, 0, spriteSize * 0.48, 0, Math.PI * 2);
+                                ctx.stroke();
+                            }
+                        } else {
+                            ctx.drawImage(sprite3d, projected.x - spriteSize * 0.5, projected.y - spriteSize * 0.5, spriteSize, spriteSize);
+                        }
+                    } else {
+                        ctx.drawImage(sprite3d, projected.x - spriteSize * 0.5, projected.y - spriteSize * 0.5, spriteSize, spriteSize);
+                    }
+                    ctx.restore();
                 } else {
-                    // Flight mode: Full 3D faceted rendering with lighting, backface culling, depth sorting
-                    const frame = getFlightCameraFrame();
-                    const camEye = frame?.eye || getPlayerWorldPos();
-                    const lightKeyCam = { x: 0.35, y: -0.75, z: -0.55 }; // Light from camera's upper-right
+                    // Fallback to real-time faceted mesh rendering when sprite is unavailable (e.g. headless tests)
+                    const vertScreen = {};
+                    let anyVertProjected = false;
+                    for (const k in SENTRY_GUNSHIP_VERTS) {
+                        const [vlx, vly, vlz] = SENTRY_GUNSHIP_VERTS[k];
+                        const pt = toScreen(vlx, vly, vlz);
+                        vertScreen[k] = pt;
+                        if (pt) anyVertProjected = true;
+                    }
+                    if (!anyVertProjected) {
+                        ctx.restore();
+                        return;
+                    }
+                    const lightKeyCam = { x: 0.35, y: -0.75, z: -0.55 };
                     const facesToRender = [];
 
                     for (const f of SENTRY_GUNSHIP_FACES) {
-                        // World-space normal rotated by sentry orientation
                         const nx = f.normal[0] * fwd.x + f.normal[1] * right.x + f.normal[2] * down.x;
                         const ny = f.normal[0] * fwd.y + f.normal[1] * right.y + f.normal[2] * down.y;
                         const nz = f.normal[0] * fwd.z + f.normal[1] * right.z + f.normal[2] * down.z;
 
-                        // World-space face center
                         const cx = pos.x + (f.center[0] * fwd.x + f.center[1] * right.x + f.center[2] * down.x) * size;
                         const cy = pos.y + (f.center[0] * fwd.y + f.center[1] * right.y + f.center[2] * down.y) * size;
                         const cz = pos.z + (f.center[0] * fwd.z + f.center[1] * right.z + f.center[2] * down.z) * size;
 
-                        // Vector from face center to camera eye
                         const vx = camEye.x - cx;
                         const vy = camEye.y - cy;
                         const vz = camEye.z - cz;
 
-                        // Backface culling: face normal must point towards eye
                         const cullDot = nx * vx + ny * vy + nz * vz;
                         if (cullDot <= 0) continue;
 
-                        // Collect projected screen points
                         const screenPts = [];
                         let allProj = true;
                         for (let i = 0; i < f.pts.length; i++) {
@@ -27879,12 +28909,10 @@
                         }
                         if (!allProj) continue;
 
-                        // Depth along view axis for Painter's algorithm
                         const depth = frame
                             ? (cx - frame.eye.x) * frame.forward.x + (cy - frame.eye.y) * frame.forward.y + (cz - frame.eye.z) * frame.forward.z
                             : Math.hypot(vx, vy, vz);
 
-                        // Directional lighting in camera space
                         let diffuse = 0.5;
                         if (frame) {
                             const nCamX = nx * frame.right.x + ny * frame.right.y + nz * frame.right.z;
@@ -27895,7 +28923,6 @@
                         }
                         const lightIntensity = Math.max(0.30, Math.min(1.0, 0.35 + 0.65 * diffuse));
 
-                        // Material color
                         let fillStyle;
                         let isGlow = false;
                         if (f.type === 'visor') {
@@ -27917,10 +28944,8 @@
                         });
                     }
 
-                    // Sort back to front (Painter's algorithm)
                     facesToRender.sort((a, b) => b.depth - a.depth);
 
-                    // Render shaded faces
                     for (const rf of facesToRender) {
                         ctx.beginPath();
                         ctx.moveTo(rf.pts[0].x, rf.pts[0].y);
@@ -27943,7 +28968,6 @@
                         ctx.stroke();
                     }
 
-                    // Twin Ion Thrusters & Exhaust Flames at stern
                     const pEngL = vertScreen.engineL;
                     const pEngR = vertScreen.engineR;
                     if (pEngL && pEngR && frame) {
@@ -28005,17 +29029,26 @@
                 ctx.fillStyle = sentry.captainKey ? (sentry.captainKey === 'crimson' ? '#ff3355' : (sentry.captainKey === 'cobalt' ? '#00ccff' : '#ffcc00')) : '#ffd0b0';
                 ctx.fillText(sentry.label, projected.x + 8, projected.y - 6);
             }
-            if (!mapMode && sentry.health < SENTRY_HEALTH_MAX) {
-                const barW = Math.max(20, screenSize * 1.1);
-                const barH = 3;
+            const maxHp = sentry.maxHealth || SENTRY_HEALTH_MAX;
+            const showHealth = !mapMode && (sentry.health < maxHp || (sentry.hitFlashUntil && performance.now() < sentry.hitFlashUntil + 5000));
+            if (showHealth) {
+                const barW = Math.max(28, Math.min(84, screenSize * 1.25));
+                const barH = 5;
                 const barX = projected.x - barW * 0.5;
-                const barY = projected.y - screenSize * 0.5 - 8;
-                const pct = sentry.health / SENTRY_HEALTH_MAX;
+                const barY = projected.y - screenSize * 0.5 - 12;
+                const pct = Math.max(0, Math.min(1, sentry.health / maxHp));
+                ctx.save();
                 ctx.globalAlpha = alpha * 0.95;
-                ctx.fillStyle = 'rgba(20, 0, 0, 0.75)';
-                ctx.fillRect(barX, barY, barW, barH);
-                ctx.fillStyle = pct <= 0.3 ? '#ff2200' : '#ff8844';
+                ctx.fillStyle = 'rgba(8, 12, 18, 0.85)';
+                ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
+                ctx.strokeStyle = '#28384a';
+                ctx.lineWidth = 1;
+                ctx.strokeRect(barX - 1, barY - 1, barW + 2, barH + 2);
+                const isHitFlashing = sentry.hitFlashUntil && performance.now() < sentry.hitFlashUntil;
+                const hpCol = isHitFlashing ? '#ffffff' : (pct > 0.5 ? '#00e676' : (pct > 0.25 ? '#ffaa00' : '#ff1744'));
+                ctx.fillStyle = hpCol;
                 ctx.fillRect(barX, barY, barW * pct, barH);
+                ctx.restore();
             }
             ctx.restore();
         }
@@ -28117,11 +29150,15 @@
 
         function renderSentryMuzzleFlashes(centerX, centerY, fov, texturedSegmentIndices = null, forwardPathSet = null) {
             if (!sentryMuzzleFlashes.length) return;
+            const frame = getFlightCameraFrame();
+            const camEye = frame?.eye || getPlayerWorldPos();
             for (const flash of sentryMuzzleFlashes) {
                 const source = flash.sentryId ? findRuntimeSentryById(flash.sentryId) : null;
-                if (source && shouldSuppressOpaqueOverlay(
-                    sentryOverlaySegmentIndex(source), texturedSegmentIndices, forwardPathSet
+                const sourceSegIdx = source ? sentryOverlaySegmentIndex(source) : overlaySegmentIndexForPoint(flash);
+                if (shouldSuppressOpaqueOverlay(
+                    sourceSegIdx, texturedSegmentIndices, forwardPathSet
                 )) continue;
+                if (!tunnelSightlineClear(camEye, flash, shipSegmentIndex, sourceSegIdx)) continue;
                 const pp = projectPoint(flash, centerX, centerY, fov);
                 if (!pp) continue;
                 const lifeFrac = flash.life / flash.maxLife;
@@ -28148,6 +29185,8 @@
 
         function renderSentryBeams(centerX, centerY, fov, texturedSegmentIndices = null, forwardPathSet = null) {
             if (!sentryBeams.length) return;
+            const frame = getFlightCameraFrame();
+            const camEye = frame?.eye || getPlayerWorldPos();
             ctx.save();
             ctx.globalCompositeOperation = 'source-over';
             ctx.lineCap = 'round';
@@ -28155,9 +29194,11 @@
 
             for (const beam of sentryBeams) {
                 const beamSentry = beam.sentryId ? findRuntimeSentryById(beam.sentryId) : null;
+                const sentrySegIdx = beamSentry ? sentryOverlaySegmentIndex(beamSentry) : null;
                 if (beamSentry && shouldSuppressOpaqueOverlay(
-                    sentryOverlaySegmentIndex(beamSentry), texturedSegmentIndices, forwardPathSet
+                    sentrySegIdx, texturedSegmentIndices, forwardPathSet
                 )) continue;
+                if (beamSentry && !tunnelSightlineClear(camEye, beam.from, shipSegmentIndex, sentrySegIdx)) continue;
                 const effectEntry = getEffectTextureEntry(beamSentry?.effectTextureId);
                 const beamColor = normalizeHexColor(effectEntry.color, '#ff5500');
                 const fromCam = worldToCamera(beam.from);
@@ -29635,7 +30676,7 @@
             return radialAt(tExit) <= radius;
         }
 
-        function tunnelSightlineClear(p1, p2, segAIndex, segBIndex, maxHops = 3) {
+        function tunnelSightlineClear(p1, p2, segAIndex, segBIndex, maxHops = 14) {
             if (!p1 || !p2) return false;
             if (!Number.isInteger(segAIndex) || !builder.segments[segAIndex]) return true;
             const segA = builder.segments[segAIndex];
@@ -29655,10 +30696,11 @@
 
         function sentryCorridorVisibleToPlayer(sentry) {
             if (!sentry) return false;
+            if (sentry.engaged) return true;
             const sentryPos = { x: sentry.x, y: sentry.y, z: sentry.z };
             const shipPos = getPlayerWorldPos();
             const sentrySegIdx = sentryOverlaySegmentIndex(sentry);
-            return tunnelSightlineClear(shipPos, sentryPos, shipSegmentIndex, sentrySegIdx);
+            return tunnelSightlineClear(shipPos, sentryPos, shipSegmentIndex, sentrySegIdx, 14);
         }
 
         function pointVisibleThroughCurrentTunnel(
@@ -32655,13 +33697,15 @@
 
         function renderTunnelTargets(centerX, centerY, fov, texturedSegmentIndices = null, forwardPathSet = null) {
             if (!tunnelTargets.length) return;
+            const frame = getFlightCameraFrame();
+            const camEye = frame?.eye || getPlayerWorldPos();
             for (const target of tunnelTargets) {
                 if (!targetIsActive(target)) continue;
                 if (gulletPhase.active) {
                     if (!gulletPointVisible(target.point, target.segmentIndex)) continue;
                 } else {
                     if (shouldSuppressOpaqueOverlay(target.segmentIndex, texturedSegmentIndices, forwardPathSet)) continue;
-                    if (!pointVisibleThroughCurrentTunnel(target.point)) continue;
+                    if (!tunnelSightlineClear(camEye, target.point, shipSegmentIndex, target.segmentIndex)) continue;
                 }
                 const cameraPoint = worldToCamera(target.point);
                 if (cameraPoint.z <= 16 || cameraPoint.z > 1500) continue;
@@ -32677,10 +33721,20 @@
 
                 const alpha = Math.max(0.25, Math.min(1, 1 - cameraPoint.z / 1600));
                 let strokeColor = TARGET_NORMAL_COLOR;
-                if (target.explosive) strokeColor = TARGET_EXPLOSIVE_COLOR;
-                else if (target.gulletPower) strokeColor = TARGET_GULLET_POWER_COLOR;
-                else if (target.branch) strokeColor = TARGET_BRANCH_COLOR;
-                else if (target.junction) strokeColor = TARGET_JUNCTION_COLOR;
+                let defaultLabel = '[ TARGET +50 ]';
+                if (target.explosive) {
+                    strokeColor = TARGET_EXPLOSIVE_COLOR;
+                    defaultLabel = '[ ⚠ MINE ]';
+                } else if (target.gulletPower) {
+                    strokeColor = TARGET_GULLET_POWER_COLOR;
+                    defaultLabel = '[ POWER CORE ]';
+                } else if (target.branch) {
+                    strokeColor = TARGET_BRANCH_COLOR;
+                    defaultLabel = '[ BRANCH ]';
+                } else if (target.junction) {
+                    strokeColor = TARGET_JUNCTION_COLOR;
+                    defaultLabel = '[ JUNCTION ]';
+                }
                 ctx.globalAlpha = alpha;
                 ctx.strokeStyle = strokeColor;
                 ctx.lineWidth = target.explosive || target.gulletPower ? 3 : (target.branch || target.junction ? 3 : 2);
@@ -32690,6 +33744,7 @@
                 ctx.closePath();
                 ctx.stroke();
 
+                // Holographic inner reticle cross
                 ctx.globalAlpha = alpha * 0.7;
                 ctx.beginPath();
                 ctx.moveTo(corners[0].x, corners[0].y);
@@ -32698,21 +33753,21 @@
                 ctx.lineTo(corners[3].x, corners[3].y);
                 ctx.stroke();
 
-                if (target.label) {
-                    const labelX = corners.reduce((sum, point) => sum + point.x, 0) / corners.length;
-                    const labelY = corners.reduce((sum, point) => sum + point.y, 0) / corners.length;
-                    const labelFill = target.explosive ? '#ffd0d0' : '#e8f8ff';
-                    const labelOutline = target.explosive ? '#ff2828' : '#1a78ff';
-                    ctx.font = 'bold 13px "Segoe UI", system-ui, sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'bottom';
-                    ctx.globalAlpha = alpha;
-                    ctx.strokeStyle = labelOutline;
-                    ctx.lineWidth = 3;
-                    ctx.strokeText(target.label, labelX, labelY - 8);
-                    ctx.fillStyle = labelFill;
-                    ctx.fillText(target.label, labelX, labelY - 8);
-                }
+                // Clear informative HUD text above target
+                const labelText = target.label || defaultLabel;
+                const labelX = corners.reduce((sum, point) => sum + point.x, 0) / corners.length;
+                const labelY = corners.reduce((sum, point) => sum + point.y, 0) / corners.length;
+                const labelFill = target.explosive ? '#ffd0d0' : '#e8f8ff';
+                const labelOutline = target.explosive ? '#ff2828' : '#1a78ff';
+                ctx.font = 'bold 12px "Segoe UI", monospace, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.globalAlpha = alpha;
+                ctx.strokeStyle = labelOutline;
+                ctx.lineWidth = 3;
+                ctx.strokeText(labelText, labelX, labelY - 8);
+                ctx.fillStyle = labelFill;
+                ctx.fillText(labelText, labelX, labelY - 8);
                 ctx.globalAlpha = 1;
             }
         }
@@ -32783,6 +33838,27 @@
             ctx.beginPath();
             ctx.arc(x, y, 2.25, 0, Math.PI * 2);
             ctx.fill();
+
+            // Dynamic FPS Hit Marker ticks on confirmed damage
+            if (typeof hudHitMarkerUntil === 'number' && performance.now() < hudHitMarkerUntil) {
+                const tickLen = 6;
+                const tickDist = radius + 6;
+                ctx.strokeStyle = '#ffffff';
+                ctx.shadowColor = '#ff3300';
+                ctx.shadowBlur = 10;
+                ctx.lineWidth = 2.5;
+                ctx.beginPath();
+                ctx.moveTo(x - tickDist, y - tickDist);
+                ctx.lineTo(x - tickDist - tickLen, y - tickDist - tickLen);
+                ctx.moveTo(x + tickDist, y - tickDist);
+                ctx.lineTo(x + tickDist + tickLen, y - tickDist - tickLen);
+                ctx.moveTo(x - tickDist, y + tickDist);
+                ctx.lineTo(x - tickDist - tickLen, y + tickDist + tickLen);
+                ctx.moveTo(x + tickDist, y + tickDist);
+                ctx.lineTo(x + tickDist + tickLen, y + tickDist + tickLen);
+                ctx.stroke();
+            }
+
             ctx.restore();
         }
 
@@ -33234,10 +34310,11 @@
                     const laserStepScale = frameScale / laserSteps;
                     let laserHit = false;
                     for (let step = 0; step < laserSteps; step++) {
+                        const prevPoint = { x: l.x, y: l.y, z: l.z };
                         l.x += l.vx * laserStepScale;
                         l.y += l.vy * laserStepScale;
                         l.z += l.vz * laserStepScale;
-                        laserHit = checkLaserTargetHits(l) || checkLaserSentryHits(l) || checkLaserGalagaHits(l) || checkLaserDefenderHits(l) || checkLaserArcadeHits(l);
+                        laserHit = checkLaserTargetHits(l, prevPoint) || checkLaserSentryHits(l, prevPoint) || checkLaserGalagaHits(l) || checkLaserDefenderHits(l) || checkLaserArcadeHits(l);
                         if (laserHit) break;
                     }
                     l.life += frameScale;

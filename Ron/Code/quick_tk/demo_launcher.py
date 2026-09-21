@@ -53,6 +53,7 @@ class LauncherTool(ToolView):
             ("6. Image Converter & Viewer", "Live in-frame input preview scaling and separate Tkinter window output viewer.", "examples/07_image_converter.py", "default"),
             ("7. Multi-Select Dropdown Showcase", "Compact single-row dropdowns with live search filter, bulk actions, and smart count badges.", "examples/08_multi_select_showcase.py", "default"),
             ("8. CustomTkinter (CTk) Modern Showcase", "Modern Win10/11 shell, animated switches, segmented pill buttons, smooth progress bars, and sliders.", "examples/09_customtkinter_showcase.py", "primary"),
+            ("9. Menu-Driven Popup Dialogs", "Moves bulky dropdowns, file pickers, and buttons to a popup dialog launched from a menu choice.", "examples/10_menu_popup_form_showcase.py", "default"),
         ]
 
         for idx, (name, desc, script_path, variant) in enumerate(demos):

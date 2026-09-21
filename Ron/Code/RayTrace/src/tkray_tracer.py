@@ -123,10 +123,13 @@ Current file architecture:
 When extending this file, keep the same mental order: state, UI, callback,
 preview operation, snapshot, restore, then focused validation.
 """
-
+import sys
+quick_tk_dir = r"C:\Users\Linda\Trading_Bot_V2\Ron\Code"
+if quick_tk_dir not in sys.path:
+    sys.path.insert(0, quick_tk_dir)
+from quick_tk import QuickApp, ToolView, FormPanel
 import os
 import re
-import sys
 import subprocess
 import threading
 import time
@@ -145,8 +148,6 @@ RAYTRACE_SRC_DIR = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from quick_tk import QuickApp, ToolView
-from quick_tk.core.forms import FormPanel
 
 IS_WINDOWS = sys.platform.startswith("win")
 IS_MAC = sys.platform == "darwin"
@@ -631,6 +632,17 @@ class LiveRayTraceViewer(ToolView):
             "movie_frames", "Movie Frames", min_val=2, max_val=2000,
             default=48, step=1,
         )
+#        self.stats.set_metrics({
+#            "Active Feed": ("Not Selected", "info"),
+#             "Input File": ("None", "warning"),
+#            "Status": ("Ready", "success")
+#        })
+ # 2. Large Console Panel occupying the main window space
+ #       self.console = self.add_console("Workspace Log & Output Stream", parent=self)
+ #       self.console.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
+ #       self.console.write_heading("CLEAN MAIN WINDOW")
+ #       self.console.write_line("All parameter inputs, dropdowns, and file pickers have been moved to the menu.", "dim")
+ #       self.console.write_line("Click 'Configuration' -> 'Open Input & File Dialog...' in the menu bar to set up parameters.\n", "primary")
 
         # Book Selection
         self.form.add_dropdown(
@@ -652,17 +664,12 @@ class LiveRayTraceViewer(ToolView):
         # Action Buttons
         self.form.add_button("Start Progressive Render ▶", callback=self.on_start_render, variant="primary")
         self.form.add_button("Start Homemade Render ▶", callback=self.on_click_render2, variant="primary")
-        self.form.add_button("Load POV-Ray Scene 📂", callback=self.on_load_pov_scene, variant="surface")
+      
         self.form.add_button("Render POV Still ▶", callback=self.on_click_povray_still, variant="primary")
         self.form.add_button("Render POV Camera Strip ▶", callback=self.on_click_povray_strip, variant="primary")
         self.form.add_button("Cancel / Stop Render ⏹", callback=self.on_stop_render, variant="outline")
-        self.form.add_file_picker("infile", "Pre Rendered Image to edit", default="", mode="open",on_change=self.on_file_selected)
-        self.form.add_button("Load Image Sequence 📂", callback=self.on_load_image_sequence, variant="surface")
-        self.form.add_button("Save Edited Sequence 📂", callback=self.on_save_edited_sequence, variant="surface")
-        self.form.add_button("Export Sequence as GIF 🎞", callback=self.on_export_sequence_gif, variant="surface")
- #       self.form.add_button("Save Rendered Image 💾", callback=self.on_save_image, variant="surface")
-
-        # 2. Right Canvas: Live Drawing Image Surface
+        self.prog_bar = self.form.addCTkProgressBar("scan_progress", "Scan Progress", default=0.0)
+        # 2. Right Canvas: Live Drawing Image Surface self.form.set_values({"infile": filepath}
         self.right_box = self.add_container(parent=self)
         self.right_box.grid(row=0, column=1, sticky="nsew")
         self.right_box.columnconfigure(0, weight=1)
@@ -708,9 +715,25 @@ class LiveRayTraceViewer(ToolView):
     def setup_menus(self):
         # 1. FILE MENU (Fluent Chained Style)
         file_menu = self.menu("File")
-        file_menu.add_command(label="Save Rendered Image 💾 <Ctrl-s>", command=self.on_save_image)
-        self.bind_all("<Control-s>", self.on_save_image)
-
+               # Top-level Menu: Configuration
+        file_menu = self.menu("Configuration")
+        file_menu.add_item(
+            "Open Input & File Dialog... (Modal)",
+            self.open_modal_inputs,
+            shortcut="Ctrl+P"
+        )
+        file_menu.add_item(
+            "Image settings",
+            self.open_floating_window,
+            shortcut="Ctrl+Shift+P"
+        )
+        file_menu.add_separator()
+        file_menu.add_item("Exit", self.app.root.quit, shortcut="Alt+F4")
+        file_menu.add_item(
+            "Iamge Opering/Closing features",
+            self.open_floating_window,
+            shortcut="Ctrl+Shift+P"
+        )
         file_menu.add_separator()
         file_menu.add_item("Exit Application <Alt-F4>", command=self.app.root.quit)
         self.bind_all("<Alt-F4>", lambda _event: self.app.root.quit())
@@ -739,6 +762,73 @@ class LiveRayTraceViewer(ToolView):
         tm3 = tools_menu.add_command(label=f"Undu ({len(self.image_stack)}) <Ctrl-z>", command=self.stack_pop)
         self.bind_all("<Control-z>", self.stack_pop)
 #        self.bind_all("<Shift-KeyPress-plus>", self.zoom_in_window)
+  
+    # =========================================================================
+    # OPTION 1: MODAL POPUP DIALOG (self.prompt_form)
+    # Recommended for straightforward configuration steps
+    # =========================================================================
+    def open_modal_inputs(self):
+        pass
+        # Opens popup dialog centered over the main window
+        """        results = self.prompt_form(
+            title="Configure Sources & File Pickers",
+            form_builder_fn=build_inputs,
+            size=(480, 420),
+            ok_text="Apply & Ingest",
+            cancel_text="Cancel"
+        )
+        if results:
+            self.on_apply_inputs(results)
+        """
+    # =========================================================================
+    # OPTION 2: PERSISTENT FLOATING WINDOW (tk.Toplevel)
+    # Use if you want the window to stay open while working on the main screen
+    # =========================================================================
+    def open_floating_window(self):
+        popup = tk.Toplevel(self)
+        popup.title("Floating Configuration Palette")
+        popup.geometry("480x440")
+        popup.configure(bg=self.theme.get("bg", "#181825"))
+
+        container = ttk.Frame(popup, style="Surface.TFrame", padding=14)
+        container.pack(fill="both", expand=True)
+
+        form = FormPanel(container, theme=self.theme)
+        form.pack(fill="both", expand=True)
+
+
+        form.add_button("Save Rendered Image 💾 <Ctrl-s>", callback=self.on_save_image, variant="primary")
+        self.bind_all("<Control-s>", self.on_save_image)
+        form.add_button("Export Sequence as GIF 🎞", callback=self.on_export_sequence_gif, variant="surface")
+        form.add_button("Load Image Sequence 📂", callback=self.on_load_image_sequence, variant="surface")
+        form.add_button("Load POV-Ray Scene 📂", callback=self.on_load_pov_scene, variant="surface")
+        form.add_button("Save Edited Sequence 📂", callback=self.on_save_edited_sequence, variant="surface")
+
+        form.add_file_picker("infile", "Pre Rendered Image to edit", default="", mode="open",on_change=self.on_file_selected)          
+
+        # Action Buttons inside the popup
+        def _on_submit():
+            vals = form.get_values()
+            self.on_apply_inputs(vals)
+            popup.destroy()
+
+        form.add_button("Execute with Selected Files", callback=_on_submit, variant="primary")
+
+  
+    def run_progressbarr(self, *args):
+        """Smoothly animates the CTkProgressBar on a background thread without freezing GUI."""
+        def _worker():
+            for p in range(0, 101, 5):
+                self.prog_bar.set(p / 100.0)
+                time.sleep(0.04)
+            return True
+
+        def _on_done(res):
+            self.on_run()
+            self.set_status("Scan complete: 100% processed!")
+
+        self.run_async(_worker, on_done=_on_done, status_msg="Running simulation scan...")
+
     def restore_def_ctrls(self):
         self.pending_control = None
         self.pending_snapshot = None
@@ -764,7 +854,8 @@ class LiveRayTraceViewer(ToolView):
         self.scale_fac = 1.0
         self.debug_win: tk.Toplevel | None = None
         self.debug_console = None
-        
+        self.scan_progress = 0.45
+
     def close_debug_window(self):
         if self.debug_win is not None:
             self.debug_win.destroy()
@@ -1562,7 +1653,8 @@ class LiveRayTraceViewer(ToolView):
         if self.is_rendering:
             messagebox.showinfo("Rendering", "A render is already in progress. Stop it first if you want to start a new one.")
             return
-
+        
+        self. run_progressbarr()
         scene_path = self._require_pov_scene()
         if scene_path is None:
             return
@@ -1656,6 +1748,7 @@ class LiveRayTraceViewer(ToolView):
         self._start_next_scene_render()
 
     def _start_next_povray_scene_render(self):
+        self.run_progressbarr()
         try:
             render_job = next(self._pov_render_queue)
         except StopIteration:
@@ -1856,7 +1949,7 @@ class LiveRayTraceViewer(ToolView):
 
         width = int(values.get("width", 600))
         height = int(values.get("height", 600))
-
+#RON HERE
         self.current_width = width
         self.current_height = height
         self.orig_image_width = width

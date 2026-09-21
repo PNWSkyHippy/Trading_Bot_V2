@@ -469,9 +469,12 @@ class QuickApp:
                 self.root.after(0, lambda: self.set_status("Ready"))
             except Exception as ex:
                 if on_error:
-                    self.root.after(0, lambda: on_error(ex))
+                    self.root.after(0, lambda error=ex: on_error(error))
                 else:
-                    self.root.after(0, lambda: messagebox.showerror("Task Error", str(ex)))
+                    self.root.after(
+                        0,
+                        lambda error=ex: messagebox.showerror("Task Error", str(error)),
+                    )
                 self.root.after(0, lambda: self.set_status("Error occurred."))
 
         t = threading.Thread(target=_thread_target, daemon=True)

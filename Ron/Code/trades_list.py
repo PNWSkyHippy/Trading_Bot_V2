@@ -303,22 +303,6 @@ def print_col_headers(trades_lst):
 
 # ...existing code...
 
-
-def build_hdr_list(trades_lst2):
-    """Collect unique column header names from all rows, preserving order."""
-    # (Previous bug: returned repeated list due to nested loop — fixed by using single comprehension)
-    seen = set()
-    headers = []
-
-    for row in trades_lst2:
-        for key in row.keys():
-            if key not in seen:
-                seen.add(key)
-                headers.append(key)
-
-    return headers
-
-
 def format_group_summary(res_dict):
     """color and format the results dictionary"""
     lhigh_tot = colorize(f'{res_dict["high_sym"]["total"]:.2f}', "green",)
@@ -626,11 +610,6 @@ Usage examples:
             output_file, extension = output_file.split(".")
         except:
             pass
-#    if csv_true:
-#        output_file, _, extension = output_file.rpartition(".")
-#        if not extension:
-#            extension = "csv"
-#            output_file = args.outfile
 
     # Build a list of list options skipping those not given
     list_values = [
@@ -686,9 +665,7 @@ Usage examples:
 
     for sort_name in sort_list:
         if sort_name not in hdr_list:
-            print(
-                f"\nError: {sort_name} is not a valid entry. please run with -N to see a list of valid choices\n"
-            )
+            print(f"\nError: {sort_name} is not a valid entry. please run with -N to see a list of valid choices\n")
             sys.exit()
     ttrades_list = []
     for i in range(len(key_list)):
@@ -745,34 +722,13 @@ Usage examples:
                     except ValueError:
                         pass
                 try:
-                    combined_list.sort(
-                        key=lambda r: (isinstance(r[sort_key], str), r[sort_key]),
-                        reverse=rev_sort,
-                    )
+                    combined_list.sort(key=lambda r: (isinstance(r[sort_key], str), r[sort_key]), reverse=rev_sort)
                 except ValueError:
                     None
 
-        label_parts = [
-            f'{key_name}={",".join(selected)}'
-            for key_name, selected in zip(
-                key_list, list_values
-            )
-            if selected
-        ]
-        combined_label = (
-            " & ".join(label_parts)
-            if label_parts
-            else "ALL"
-        )
-        print_group_summary(
-            combined_label,
-            combined_list,
-            "ALL",
-            output_file,
-            start_date,
-            end_date,
-            output_dict,
-        )
+        label_parts = [ f'{key_name}={",".join(selected)}' for key_name, selected in zip(key_list, list_values) if selected ]
+        combined_label = (" & ".join(label_parts) if label_parts else "ALL" )
+        print_group_summary(combined_label, combined_list, "ALL", output_file, start_date, end_date, output_dict)
         return
 
     # Build one generic list of grouped trade dictionaries
@@ -782,48 +738,21 @@ Usage examples:
         grouped_trades = {}
         for trade in ttrades_list[idx]:
             group_value = trade[key_name]
-            grouped_trades.setdefault(
-                group_value, []
-          ).append(copy.deepcopy(trade))
+            grouped_trades.setdefault(group_value, []).append(copy.deepcopy(trade))
 
-        dict_of_trades.append(
-            {
-                "key": key_name,
-                "selected": (
-                    list_values[idx]
-                    if idx < len(list_values)
-                    else []
-                ),
-                "groups": grouped_trades,
-            }
-        )
+        dict_of_trades.append({"key": key_name, "selected": ( list_values[idx] if idx < len(list_values) else [] ), "groups": grouped_trades})
 
     for trade_group in dict_of_trades:
         key_name = trade_group["key"]
         selected_values = trade_group["selected"]
         grouped_trades = trade_group["groups"]
 
-        for (
-            group_name,
-            trade_list,
-        ) in grouped_trades.items():
+        for (group_name,trade_list,) in grouped_trades.items():
             if not selected_values:
                 continue
 
-            if selected_values[
-                0
-            ] == "ALL" or value_in_selected(
-                group_name, selected_values
-            ):
-                print_group_summary(
-                    group_name,
-                    trade_list,
-                    key_name,
-                    output_file,
-                    start_date,
-                    end_date,
-                    output_dict
-                )
+            if selected_values[0] == "ALL" or value_in_selected(group_name, selected_values):
+                print_group_summary(group_name, trade_list, key_name, output_file, start_date, end_date, output_dict)
 
 
 if __name__ == "__main__":

@@ -258,48 +258,28 @@
   "ai": [
     {
       "id": "wire_star_destroyer",
-      "label": "Wire Star Destroyer",
+      "label": "Solid 3D Gunship",
       "path": ""
     },
     {
-      "id": "enemy_black_1",
-      "label": "Enemy Black 1",
-      "path": "Textures/AI Textures/PNG/Enemies/enemyBlack1.png"
+      "id": "sentry_3d_crimson",
+      "label": "3D Crimson Fighter",
+      "path": ""
     },
     {
-      "id": "enemy_blue_1",
-      "label": "Enemy Blue 1",
-      "path": "Textures/AI Textures/PNG/Enemies/enemyBlue1.png"
+      "id": "sentry_3d_cobalt",
+      "label": "3D Cobalt Interceptor",
+      "path": ""
     },
     {
-      "id": "enemy_green_1",
-      "label": "Enemy Green 1",
-      "path": "Textures/AI Textures/PNG/Enemies/enemyGreen1.png"
+      "id": "sentry_3d_amber",
+      "label": "3D Amber Heavy Cruiser",
+      "path": ""
     },
     {
-      "id": "enemy_red_1",
-      "label": "Enemy Red 1",
-      "path": "Textures/AI Textures/PNG/Enemies/enemyRed1.png"
-    },
-    {
-      "id": "ufo_blue",
-      "label": "UFO Blue",
-      "path": "Textures/AI Textures/PNG/ufoBlue.png"
-    },
-    {
-      "id": "ufo_green",
-      "label": "UFO Green",
-      "path": "Textures/AI Textures/PNG/ufoGreen.png"
-    },
-    {
-      "id": "ufo_red",
-      "label": "UFO Red",
-      "path": "Textures/AI Textures/PNG/ufoRed.png"
-    },
-    {
-      "id": "ufo_yellow",
-      "label": "UFO Yellow",
-      "path": "Textures/AI Textures/PNG/ufoYellow.png"
+      "id": "sentry_3d_recon",
+      "label": "3D Stealth Recon Drone",
+      "path": ""
     }
   ],
   "effects": [

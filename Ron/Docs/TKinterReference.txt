@@ -1,0 +1,47 @@
+
+
+Classic Widgets
+  Button: Simple clickable button.
+  Canvas: Area for drawing shapes, lines, and text.
+  Checkbutton: On/off toggle box.Entry: Single-line text input field.
+  Frame: Container to group and hold other widgets.
+  Label: Text or image display box.
+  Listbox: Selectable list of strings.
+  Menu: Dropdown, pull-down, or popup menus.
+  Message: Multi-line text display box.
+  Radiobutton: One-of-many mutually exclusive selection button.S
+  cale: Sliding bar to pick numeric values.
+  Scrollbar: Navigation control for scrolling views.
+  Text: Multi-line formatted text editor/display.
+  Toplevel: Independent secondary window.
+  
+ Themed Widgets (tkinter.ttk)
+   Button, Checkbutton, Entry, Frame, Label, Radiobutton, Scale, Scrollbar: Modern styled equivalents of classic widgets.
+   Combobox: Combination entry field and drop-down list.
+   Notebook: Tabbed container panes.
+   Progressbar: Loading or processing status indicator.
+   Separator: Horizontal or vertical dividing line.
+   Sizegrip: Corner handle for resizing windows.
+   Spinbox: Entry field with step up/down arrows.
+   Treeview: Hierarchical item tree or data table.
+   
+ Common Widget Options
+ Because individual widgets share overlapping standard configuration options (like bg, fg, font, command, relief, width, and height),
+ the official Python documentation does not maintain a static flat list of every option per widget. Instead, options depend on the underlying 
+ Tcl/Tk man pages. You can dynamically print all available options for any instantiated widget in Python using the .keys() or .config() method:
+
+from tkinter import Tk, Button
+
+root = Tk()
+btn = Button(root)
+print(btn.keys())  # Prints a list of all valid option strings for a Button
+
+
+Official Documentation Sites
+Official Python Tkinter Documentation: This is the main page on docs.python.org. It provides the foundational 
+  guide, module details, and links to underlying  ehaviors.
+Official Python Tkinter ttk Documentation: This page focuses entirely on the modern, themed widget set (ttk), detailing 
+  classes like Treeview, Notebook, and Combobox.Official 
+ Tcl/Tk Core Manual Pages: Because Tkinter maps directly to Tcl/Tk commands, this is the definitive, exhaustive 
+   site listing every single option, subcommand, and configuration flag for every control type.
+   
