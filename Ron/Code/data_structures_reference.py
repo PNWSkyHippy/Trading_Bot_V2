@@ -1273,86 +1273,22 @@ def main():
 
     # Build a list of lists [[arg name, True/False],[],..]
     list_values = [
-        (
-            [a.dest, args.quickref]
-            if args.quickref
-            else [a.dest, False]
-        ),
-        (
-            [b.dest, args.basic]
-            if args.basic
-            else [b.dest, False]
-        ),
-        (
-            [c.dest, args.listsdicts]
-            if args.listsdicts
-            else [c.dest, False]
-        ),
-        (
-            [d.dest, args.tuples]
-            if args.tuples
-            else [d.dest, False]
-        ),
-        (
-            [e.dest, args.listsmixed]
-            if args.listsmixed
-            else [e.dest, False]
-        ),
-        (
-            [f.dest, args.listlists]
-            if args.listlists
-            else [f.dest, False]
-        ),
-        (
-            [g.dest, args.dicts]
-            if args.dicts
-            else [g.dest, False]
-        ),
-        (
-            [h.dest, args.dictlists]
-            if args.dictlists
-            else [h.dest, False]
-        ),
-        (
-            [i.dest, args.dictdicts]
-            if args.dictdicts
-            else [i.dest, False]
-        ),
-        (
-            [j.dest, args.dictlistdict]
-            if args.dictlistdict
-            else [j.dest, False]
-        ),
-        (
-            [k.dest, args.dictdictlist]
-            if args.dictdictlist
-            else [k.dest, False]
-        ),
-        (
-            [q.dest, args.patterns]
-            if args.patterns
-            else [q.dest, False]
-        ),
-        (
-            [m.dest, args.cheatcode]
-            if args.cheatcode
-            else [m.dest, False]
-        ),
-        (
-            [n.dest, args.mapping]
-            if args.mapping
-            else [n.dest, False]
-        ),
-        (
-            [o.dest, args.cheatcard]
-            if args.cheatcard
-            else [o.dest, False]
-        ),
-        (
-            [p.dest, args.comprehensions]
-            if args.comprehensions
-            else [p.dest, False]
-        ),
+        ([a.dest, args.quickref] if args.quickref else [a.dest, False]),
+        ([b.dest, args.basic] if args.basic else [b.dest, False] ),
+        ([c.dest, args.listsdicts] if args.listsdicts else [c.dest, False] ),
+        ([d.dest, args.tuples] if args.tuples else [d.dest, False] ),
+        ([e.dest, args.listsmixed] if args.listsmixed else [e.dest, False] ),
+        ([f.dest, args.listlists] if args.listlists else [f.dest, False] ),
+        ([g.dest, args.dicts] if args.dicts else [g.dest, False]),
+        ([h.dest, args.dictlists] if args.dictlists else [h.dest, False]),
+        ([i.dest, args.dictdicts] if args.dictdicts else [i.dest, False]),
+        ([j.dest, args.dictlistdict] if args.dictlistdict else [j.dest, False]),
+        ([k.dest, args.dictdictlist] if args.dictdictlist else [k.dest, False]),
+        ([q.dest, args.patterns] if args.patterns else [q.dest, False] ),
+        ([m.dest, args.cheatcode] if args.cheatcode else [m.dest, False] ),
+        ([n.dest, args.mapping] if args.mapping else [n.dest, False]),
+        ([o.dest, args.cheatcard] if args.cheatcard else [o.dest, False] ),
+        ([p.dest, args.comprehensions] if args.comprehensions else [p.dest, False]),
     ]
     # If any flags give we only print the else we print everything
     switch_given = False

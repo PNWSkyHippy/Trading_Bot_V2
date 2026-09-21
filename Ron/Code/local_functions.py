@@ -3,7 +3,84 @@ import re
 import argparse
 import os
 import logging
+import time
+import types
+from functools import wraps
+from datetime import datetime
 
+
+
+def update_tuple(tup, idx, val):
+    # Convert to list
+    temp = list(tup)
+    temp[idx] = val
+    # Convert back to tuple
+    tup= tuple(temp)
+    return tup
+    
+def hours_mins(days, hours, minutes, seconds=0):
+    hours = (days * 24) + hours
+    return   hours, minutes
+  
+def length_time(starting_date: str, ending_date: str):
+    # Parse the strings into datetime objects
+    start = datetime.fromisoformat(starting_date)
+    end = datetime.fromisoformat(ending_date)
+    
+    # Calculate difference
+    delta = end - start
+    
+    # delta.days handles full calendar days
+    days = delta.days
+    
+    # delta.seconds contains the remaining time within that day
+    hours, remainder = divmod(delta.seconds, 3600)
+    mins, secs = divmod(remainder, 60)
+    
+    return days, hours, mins, secs
+
+class Timed:
+    """A bulletproof timing decorator that works on functions and class methods."""
+    def __init__(self, func):
+        self.func = func
+        self.elapsed = 0.0
+        wraps(func)(self)
+
+    def __call__(self, *args, **kwargs):
+        start = time.perf_counter()
+        result = self.func(*args, **kwargs)
+        self.elapsed = time.perf_counter() - start
+        return result
+
+    # This allows it to work seamlessly on class methods too!
+    def __get__(self, instance, cls):
+        if instance is None:
+            return self
+        return types.MethodType(self, instance)
+    """ How to use it
+    # 1. On a regular function:
+@Timed
+def bubble_sort(arr):
+    arr.sort()
+    return arr
+
+result = bubble_sort([5, 2, 8, 1])
+print("Result:", result)
+print("Elapsed:", bubble_sort.elapsed)  #  Works cleanly! No errors!
+
+
+# 2. On a class method:
+class TradeProcessor:
+    @Timed
+    def execute(self, symbol):
+        # do trade logic
+        return f"Bought {symbol}"
+
+bot = TradeProcessor()
+res = bot.execute("NVDA")
+print(res)
+print("Execution time:", bot.execute.elapsed)  #  Works on methods too!
+   """
 colors = {
     # Text Modifiers
     "clear": "\033[0m",

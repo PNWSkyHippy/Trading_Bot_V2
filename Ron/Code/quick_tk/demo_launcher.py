@@ -6,8 +6,8 @@ Run this script to test all 4 interactive prototype tools or the unified Master 
 import os
 import subprocess
 import sys
-import tkinter as tk
 from tkinter import ttk
+from quick_tk import QuickApp, ToolView
 
 # Add scratch root to sys.path so 'import quick_tk' works directly
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -15,7 +15,7 @@ SCRATCH_DIR = os.path.dirname(BASE_DIR)
 sys.path.insert(0, SCRATCH_DIR)
 sys.path.insert(0, BASE_DIR)
 
-from quick_tk import QuickApp, ToolView
+
 
 
 class LauncherTool(ToolView):
@@ -51,6 +51,8 @@ class LauncherTool(ToolView):
             ("4. Python Reference & Cheat Sheet", "Interactive topic guide, method table, and syntax-highlighted code console.", "examples/04_cheat_sheet_viewer.py", "default"),
             ("5. Menu & Submenu Showcase", "Hierarchical menus, cascading submenus, checkbox toggles, radio groups, and file picker shortcuts.", "examples/06_menu_showcase.py", "default"),
             ("6. Image Converter & Viewer", "Live in-frame input preview scaling and separate Tkinter window output viewer.", "examples/07_image_converter.py", "default"),
+            ("7. Multi-Select Dropdown Showcase", "Compact single-row dropdowns with live search filter, bulk actions, and smart count badges.", "examples/08_multi_select_showcase.py", "default"),
+            ("8. CustomTkinter (CTk) Modern Showcase", "Modern Win10/11 shell, animated switches, segmented pill buttons, smooth progress bars, and sliders.", "examples/09_customtkinter_showcase.py", "primary"),
         ]
 
         for idx, (name, desc, script_path, variant) in enumerate(demos):

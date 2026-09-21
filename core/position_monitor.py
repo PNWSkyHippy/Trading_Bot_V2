@@ -51,12 +51,12 @@
 
 import json as _json
 import logging
+import math
 import time
 import threading
 from datetime import datetime, timedelta, timezone
 from typing import List, Dict, Optional, Callable
 
-import numpy as np
 import pandas as pd
 
 import config
@@ -445,6 +445,10 @@ class PositionMonitor:
         trade_id = trade["trade_id"]
         if self._db.get_state(self._runner_state_key(trade_id), default=0):
             return True
+        if self._db.get_state(f"alpaca_partial_reconcile_{trade_id}", default=0):
+            # A nonterminal Alpaca partial must be reconciled before another
+            # runner attempt can cancel protection or submit duplicate shares.
+            return False
         if int(trade.get("partial_exit_count") or 0) > 0:
             # A legacy partial already owns this position; never stack a second
             # partial that could over-close it.
@@ -1435,7 +1439,7 @@ class PositionMonitor:
             f"Open 3+ hrs | ADX={adx:.1f} +DI={plus_di:.1f} -DI={minus_di:.1f}"
         )
 
-        if not all(np.isfinite(v) for v in (adx, plus_di, minus_di)):
+        if not all(math.isfinite(v) for v in (adx, plus_di, minus_di)):
             logger.warning(
                 f"[STALE EXIT] {symbol}: invalid ADX/DI data "
                 f"ADX={adx} +DI={plus_di} -DI={minus_di} — closing"
@@ -1720,7 +1724,7 @@ class PositionMonitor:
             loss     = -delta.clip(upper=0)
             avg_gain = gain.ewm(com=13, adjust=False).mean()
             avg_loss = loss.ewm(com=13, adjust=False).mean()
-            rs       = avg_gain / avg_loss.replace(0, np.nan)
+            rs       = avg_gain / avg_loss.replace(0, pd.NA)
             rsi      = 100 - (100 / (1 + rs))
             rsi_now  = rsi.iloc[-1]
             rsi_prev = rsi.iloc[-4]

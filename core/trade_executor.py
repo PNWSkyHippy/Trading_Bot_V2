@@ -245,7 +245,7 @@ class AlpacaExecutor:
     def close_partial_position(
         self, symbol: str, qty: float, direction: str
     ) -> Optional[Dict]:
-        """Cancel the bracket and submit an exact Alpaca partial close."""
+        """Cancel the bracket, submit, and resolve an Alpaca partial close."""
         self.cancel_open_orders(symbol)
         try:
             side = "sell" if direction == "long" else "buy"
@@ -256,25 +256,50 @@ class AlpacaExecutor:
                 type="market",
                 time_in_force="day",
             )
-            # Alpaca commonly returns a filled market order immediately.  A
-            # terminal non-filled response is deliberately left unaccounted
-            # for so the caller can hold rather than fabricate a partial fill.
+            terminal_statuses = {
+                "filled", "canceled", "cancelled", "rejected", "expired",
+                "done_for_day",
+            }
+            attempts = max(
+                1, int(getattr(config, "ALPACA_PARTIAL_FILL_POLL_ATTEMPTS", 5))
+            )
+            interval = max(
+                0.0,
+                float(getattr(config, "ALPACA_PARTIAL_FILL_POLL_INTERVAL_SEC", 0.25)),
+            )
+            for _ in range(attempts - 1):
+                if str(order.status).lower() in terminal_statuses:
+                    break
+                if interval:
+                    time.sleep(interval)
+                order = self.api.get_order(order.id)
+
+            status = str(order.status).lower()
             return {
-                "ok": str(order.status).lower() == "filled",
-                "status": order.status,
+                "ok": status == "filled",
+                "status": status,
                 "broker_order_id": order.id,
                 "filled_qty": float(order.filled_qty or 0),
                 "filled_avg_price": float(order.filled_avg_price or 0),
-                # Never treat an accepted-but-unfilled partial as safe: its
-                # original bracket was cancelled, so the caller must hold for
-                # reconciliation instead of assuming the runner exists.
-                "resolution_failed": str(order.status).lower() != "filled",
+                # A terminal zero fill is retryable.  Only an order which is
+                # still nonterminal after the bounded poll needs reconciliation.
+                "resolution_failed": status not in terminal_statuses,
                 "cancellation": {"matched": 0, "cancelled": 0,
                                  "ambiguous": False, "errors": []},
             }
         except Exception as exc:
             logger.error(f"Alpaca partial close failed for {symbol}: {exc}")
-            return None
+            return {
+                "ok": False,
+                "reason": "submission_rejected",
+                "status": "rejected",
+                "broker_order_id": None,
+                "filled_qty": 0.0,
+                "filled_avg_price": 0.0,
+                "resolution_failed": False,
+                "cancellation": {"matched": 0, "cancelled": 0,
+                                 "ambiguous": False, "errors": []},
+            }
 
     def replace_stop_order(
         self, symbol: str, qty: float, direction: str, stop_price: float
@@ -283,13 +308,17 @@ class AlpacaExecutor:
         self.cancel_open_orders(symbol)
         try:
             side = "sell" if direction == "long" else "buy"
+            # Alpaca rejects fractional GTC stop orders.  A DAY stop still
+            # protects fractional runner remainders through the session;
+            # whole-share stops retain the intended GTC lifetime.
+            time_in_force = "gtc" if float(qty).is_integer() else "day"
             order = self.api.submit_order(
                 symbol=symbol,
                 qty=int(qty) if qty >= 1 and float(qty).is_integer() else qty,
                 side=side,
                 type="stop",
                 stop_price=str(round(float(stop_price), 2)),
-                time_in_force="gtc",
+                time_in_force=time_in_force,
             )
             return str(order.id)
         except Exception as exc:
@@ -746,15 +775,15 @@ class TradeExecutor:
             broker_name_hint == "ibkr"
             and self._classify_ibkr_result(broker_result) == "confirmed_full"
         )
+        _is_confirmed_alpaca_fill = (
+            broker_name_hint == "alpaca"
+            and str(broker_result.get("status") or "").lower() == "filled"
+            and float(broker_result.get("filled_qty") or 0) > 0
+        )
 
-        if _is_live_kraken or _is_confirmed_ibkr_fill:
-            # Live Kraken: broker_result["filled_qty"] is the confirmed
-            # base-asset amount actually bought/sold — this is what was
-            # really sent to Kraken (post leverage-scaling for shorts, see
-            # _submit()), not the pre-scaling approval.quantity/position_value.
-            # Trusting the reconstructed position_value/entry_price formula
-            # here would silently record the full unscaled size for a
-            # leveraged short even though only a fraction was really opened.
+        if _is_live_kraken or _is_confirmed_ibkr_fill or _is_confirmed_alpaca_fill:
+            # A confirmed broker fill is authoritative.  In particular,
+            # Alpaca rounds whole-share orders while sizing remains fractional.
             actual_quantity = round(float(broker_result.get("filled_qty", 0)), 8)
         elif entry_price > 0 and approval.position_value > 0:
             # Recalculate quantity from actual fill price.
@@ -772,7 +801,7 @@ class TradeExecutor:
         # position by the same factor the quantity was scaled down.
         open_position_value = (
             round(actual_quantity * entry_price, 4)
-            if (_is_live_kraken or _is_confirmed_ibkr_fill)
+            if (_is_live_kraken or _is_confirmed_ibkr_fill or _is_confirmed_alpaca_fill)
             else approval.position_value
         )
 
@@ -1825,6 +1854,92 @@ class TradeExecutor:
                 f"[KRAKEN PARTIAL HOLD] {symbol}: risk halt failed ({exc})"
             )
 
+    def _set_alpaca_partial_reconcile_hold(
+        self,
+        trade: Dict,
+        reason: str,
+        requested_qty: float,
+        broker_result: Optional[Dict] = None,
+    ) -> None:
+        """Quarantine one unresolved stock partial without halting other markets."""
+        trade_id = trade["trade_id"]
+        symbol = trade["symbol"]
+        result = broker_result if isinstance(broker_result, dict) else {}
+        marker = {
+            "required": True,
+            "trade_id": trade_id,
+            "symbol": symbol,
+            "reason": reason,
+            "requested_qty": float(requested_qty),
+            "broker_order_id": result.get("broker_order_id"),
+            "status": result.get("status"),
+            "last_known_filled_qty": result.get("filled_qty"),
+            "last_known_fill_price": result.get("filled_avg_price"),
+            "timestamp": datetime.now().isoformat(),
+        }
+        state_key = f"alpaca_partial_reconcile_{trade_id}"
+        try:
+            if not self._db.get_state(state_key, default=0):
+                self._db.set_state(state_key, marker)
+        except Exception as exc:
+            logger.critical(
+                f"[ALPACA PARTIAL HOLD] {symbol}: failed to persist "
+                f"{state_key} ({exc})"
+            )
+        logger.critical(
+            f"[ALPACA PARTIAL HOLD] {symbol}: {reason}; only this stock "
+            "partial is quarantined pending reconciliation"
+        )
+
+    def _set_partial_reconcile_hold(
+        self,
+        trade: Dict,
+        reason: str,
+        requested_qty: float,
+        broker_result: Optional[Dict] = None,
+    ) -> None:
+        """Use broker-specific containment; never label stock failures Kraken."""
+        asset_class = trade.get("asset_class")
+        broker = trade.get("broker")
+        if (
+            asset_class == "crypto"
+            and broker == "kraken"
+            and not getattr(self.kraken, "paper", False)
+        ):
+            self._set_kraken_partial_reconcile_hold(
+                trade, reason, requested_qty, broker_result
+            )
+        elif asset_class == "stock" and broker == "alpaca":
+            self._set_alpaca_partial_reconcile_hold(
+                trade, reason, requested_qty, broker_result
+            )
+        else:
+            logger.critical(
+                f"[PARTIAL HOLD] {trade.get('symbol')}: unresolved {asset_class} "
+                f"partial for broker={broker!r}: {reason}"
+            )
+
+    def _restore_alpaca_partial_stop(self, trade: Dict) -> Optional[str]:
+        """Restore the pre-partial stock stop after a definite zero fill."""
+        qty = float(trade.get("quantity") or 0)
+        stop_price = float(trade.get("stop_loss") or 0)
+        if self.alpaca is None or qty <= 0 or stop_price <= 0:
+            logger.critical(
+                f"[ALPACA PARTIAL] {trade.get('symbol')}: cannot restore "
+                "stock protection after zero fill"
+            )
+            return None
+        stop_id = self.alpaca.replace_stop_order(
+            trade["symbol"], qty, trade["direction"], stop_price
+        )
+        if stop_id:
+            self._db.update_trade_order_ids(trade["trade_id"], stop_order_id=stop_id)
+            trade["stop_order_id"] = stop_id
+            logger.warning(
+                f"[ALPACA PARTIAL] {trade['symbol']}: zero fill; restored stop {stop_id}"
+            )
+        return stop_id
+
     def close_partial_trade(
         self, trade: Dict, current_price: float, fraction: float,
         exit_reason: str = "partial_take_profit"
@@ -1903,7 +2018,7 @@ class TradeExecutor:
             return PartialCloseOutcome(False, "unsupported_asset_class")
 
         if not isinstance(broker_result, dict):
-            self._set_kraken_partial_reconcile_hold(
+            self._set_partial_reconcile_hold(
                 trade, "missing broker result", close_qty, None
             )
             return PartialCloseOutcome(
@@ -1925,7 +2040,7 @@ class TradeExecutor:
                 "fill_resolution_failed",
             }
         ):
-            self._set_kraken_partial_reconcile_hold(
+            self._set_partial_reconcile_hold(
                 trade, result_reason, close_qty, broker_result
             )
             return PartialCloseOutcome(
@@ -1947,7 +2062,7 @@ class TradeExecutor:
             actual_close_qty = float("nan")
             broker_fill_price = float("nan")
         if not math.isfinite(actual_close_qty) or actual_close_qty < 0:
-            self._set_kraken_partial_reconcile_hold(
+            self._set_partial_reconcile_hold(
                 trade, "invalid confirmed fill quantity", close_qty, broker_result
             )
             return PartialCloseOutcome(
@@ -1958,6 +2073,8 @@ class TradeExecutor:
             )
 
         if actual_close_qty == 0:
+            if asset_class == "stock" and broker == "alpaca":
+                self._restore_alpaca_partial_stop(trade)
             logger.warning(
                 f"[PARTIAL ZERO FILL] {symbol}: terminal broker result "
                 f"confirmed no fill; partial may retry after backoff"
@@ -1978,7 +2095,7 @@ class TradeExecutor:
             if getattr(self.kraken, "paper", False):
                 broker_fill_price = float(current_price)
             else:
-                self._set_kraken_partial_reconcile_hold(
+                self._set_partial_reconcile_hold(
                     trade,
                     "positive fill has no confirmed average price",
                     close_qty,
@@ -1995,7 +2112,7 @@ class TradeExecutor:
 
         qty_tolerance = max(1e-8, qty * 1e-8)
         if actual_close_qty > qty + qty_tolerance:
-            self._set_kraken_partial_reconcile_hold(
+            self._set_partial_reconcile_hold(
                 trade,
                 "confirmed close fill exceeds tracked position quantity",
                 close_qty,
@@ -2057,7 +2174,7 @@ class TradeExecutor:
         except Exception as exc:
             failed_result = dict(broker_result)
             failed_result["accounting_error"] = str(exc)
-            self._set_kraken_partial_reconcile_hold(
+            self._set_partial_reconcile_hold(
                 trade,
                 "confirmed fill could not be recorded atomically",
                 close_qty,

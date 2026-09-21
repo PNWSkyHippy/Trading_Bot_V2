@@ -1,10 +1,6 @@
 import sys
 import argparse
-from local_functions import (
-    chkstr_isnum,
-#    bubble_sort,
-#    insertion_sort,
-)
+from local_functions import Timed , chkstr_isnum
 recurse_count = 0
 debug = False
 def partition(arr, low, high):
@@ -27,6 +23,7 @@ def partition(arr, low, high):
     # Return the position where the partition was made
     return i + 1
 
+@Timed
 def quick_sort(arr, low, high):
     global recurse_count
     global debug
@@ -50,7 +47,7 @@ def quick_sort(arr, low, high):
         print(f' End Loop {local_loop}, list: {arr}')
     return(arr)
 
-
+@Timed
 def binary_search(nums, target):
     low = 0
     high = len(nums) - 1
@@ -64,6 +61,7 @@ def binary_search(nums, target):
             high = mid - 1
     return -1
 
+@Timed
 def insertion_sort(arr):
     global debug
     """ Takes a list and sorts a copy of it using insertion sort
@@ -93,7 +91,7 @@ def insertion_sort(arr):
         print(f'Insertion: after inner loop {pass_count}: {tmp_list}')
     return(tmp_list)
     
-    
+@Timed    
 def bubble_sort(lst):
     global debug
     tmp_lst = lst.copy()
@@ -170,21 +168,21 @@ Usage examples:
         sorted_list = insertion_sort(my_list)
         print(f"post insertion sorted list:\n{sorted_list}")
         print(f"verifying original list untouched:\n{my_list}")
-
+        print("Elapsed:", insertion_sort.elapsed) 
     if (bubble and not args.list) or demo_enabled:
         my_list = [2,3,4,7,9,5,10,11,]
         print(f"my_list pre bubble sort:\n{my_list}")
         sorted_list = bubble_sort(my_list)
         print(f"post bubble sorted list:\n{sorted_list}")
         print(f"verifying original list untouched:\n{my_list}")
-
+        print("Elapsed:", bubble_sort.elapsed) 
     if (quick and not args.list) or demo_enabled:
         my_list = [2,3,99,1,55,6,77,11]
         print(f"my_list pre quick sort:\n{my_list}")
         sorted_list = quick_sort(my_list,0,len(my_list) -1)
         print(f"post quick sorted list:\n{sorted_list}")
         print(f"verifying original list was sorted in place:\n{my_list}")
-        
+        print("Elapsed:",   quick_sort.elapsed) 
     if bubble and args.list:
         res_list = bubble_sort(my_list, 0, len(my_list) - 1)
         if debug:

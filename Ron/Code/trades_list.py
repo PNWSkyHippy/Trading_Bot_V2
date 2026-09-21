@@ -5,10 +5,9 @@ import os
 import copy
 import argparse
 import csv
-import re
-   
+import re   
 
-from local_functions import ( colorize, chkstr_isnum, clean_ansi,  date_check,  STAT_LABEL_VALUE_RE,)
+from local_functions import ( colorize, chkstr_isnum, clean_ansi,  date_check,  STAT_LABEL_VALUE_RE, Timed)
 
 extended = False
 csv_true = False
@@ -88,7 +87,7 @@ def get_open_trades(conn):
     return [dict(r) for r in c.fetchall()]
 
 
-    
+@Timed    
 def proc_dict(loc_trade_list, strat_name, ikey, output_file, start_date, end_date, output_dict):
     """Process the provided dictionary of trades"""
     # Initialize Locals
@@ -428,7 +427,7 @@ def print_group_summary(
             BL_EQUALSTR + "\n\n", output_file
         )
 
-
+@Timed
 def main():
 
     # Standard library approach to handle Windows initialization safely
@@ -829,4 +828,5 @@ Usage examples:
 
 if __name__ == "__main__":
     main()
+    print(main.elapsed)
 # ...existing code...

@@ -5,7 +5,6 @@ Demonstrates hierarchical topic browsing, ConsolePanel syntax highlighting, and 
 
 import os
 import sys
-import tkinter as tk
 from tkinter import ttk
 
 # Add parent directory and scratch root to sys.path

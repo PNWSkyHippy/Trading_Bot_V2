@@ -5,7 +5,6 @@ Demonstrates FormPanel numeric inputs, live calculation callbacks, StatGrid badg
 
 import os
 import sys
-import tkinter as tk
 from tkinter import ttk
 
 # Add parent directory and scratch root to sys.path

@@ -284,6 +284,12 @@ UNIVERSAL_TP_RUNNER_ENABLED        = True
 UNIVERSAL_TP_RUNNER_FRACTION       = 0.50
 UNIVERSAL_TP_RUNNER_TRAIL_PCT      = 2.00
 
+# Alpaca returns newly submitted market orders as pending_new before the fill
+# is final.  A bounded poll keeps that transient state from being treated as
+# an unresolved live exposure.
+ALPACA_PARTIAL_FILL_POLL_ATTEMPTS     = 5
+ALPACA_PARTIAL_FILL_POLL_INTERVAL_SEC = 0.25
+
 BREAKOUT_EARLY_LOSS_CAP_ENABLED   = True
 BREAKOUT_EARLY_LOSS_CAP_SEC       = 2 * 60
 BREAKOUT_EARLY_LOSS_CAP_PCT       = -0.50

@@ -5,7 +5,6 @@ Demonstrates in-frame image preview with auto-scaling and separate Toplevel popu
 
 import os
 import sys
-import tkinter as tk
 from tkinter import ttk, messagebox
 
 # Add parent directory and scratch root to sys.path

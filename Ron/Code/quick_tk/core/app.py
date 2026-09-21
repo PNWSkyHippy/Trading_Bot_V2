@@ -9,7 +9,7 @@ from tkinter import ttk, messagebox
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
 from .dialogs import prompt_choice, prompt_confirm, prompt_form, prompt_number, prompt_text
-from .forms import FormPanel
+from .forms import FormPanel, HAS_CTK, ctk
 from .menu import MenuBarBuilder, MenuNode
 from .outputs import ConsolePanel, DataTable, ImagePanel, StatGrid, show_image_window
 from .theme import Theme, apply_theme
@@ -108,6 +108,29 @@ class ToolView(ttk.Frame):
         f.columnconfigure(0, weight=1)
         return f
 
+    def add_ctk_scrollable_container(
+        self,
+        parent: Optional[tk.Widget] = None,
+        label_text: str = "",
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        **kwargs,
+    ) -> Any:
+        """Creates an autoscrollable modern CTk container with native smooth scrolling."""
+        if not HAS_CTK:
+            raise ImportError(
+                "customtkinter is required to use this container. "
+                "Install it using: pip install customtkinter"
+            )
+        p = parent or self._main_container
+        frame_kwargs = {"label_text": label_text, **kwargs}
+        if width is not None:
+            frame_kwargs["width"] = width
+        if height is not None:
+            frame_kwargs["height"] = height
+        sf = ctk.CTkScrollableFrame(p, **frame_kwargs)
+        return sf
+
     def add_split_view(
         self,
         orientation: str = "horizontal",
@@ -186,8 +209,24 @@ class QuickApp:
         size: Tuple[int, int] = (1000, 680),
         theme: str = "Dark Obsidian",
         resizable: bool = True,
+        width: Optional[int] = None,
+        height: Optional[int] = None,
+        use_ctk: bool = False,
     ):
-        self.root = tk.Tk()
+        if width is not None or height is not None:
+            w = width if width is not None else size[0]
+            h = height if height is not None else size[1]
+            size = (w, h)
+
+        self.use_ctk = bool(use_ctk and HAS_CTK)
+        if self.use_ctk:
+            is_light = (theme == "Clean Light")
+            ctk.set_appearance_mode("Light" if is_light else "Dark")
+            ctk.set_default_color_theme("blue")
+            self.root = ctk.CTk()
+        else:
+            self.root = tk.Tk()
+
         self.root.title(title)
         self.root.geometry(f"{size[0]}x{size[1]}")
         self.root.minsize(700, 480)
@@ -259,6 +298,12 @@ class QuickApp:
         else:
             self.current_theme = theme_input
         apply_theme(self.root, self.current_theme)
+
+        if HAS_CTK:
+            is_light = (isinstance(theme_input, str) and theme_input == "Clean Light") or (
+                isinstance(theme_input, dict) and "light" in theme_input.get("name", "").lower()
+            )
+            ctk.set_appearance_mode("Light" if is_light else "Dark")
 
     def toggle_theme(self):
         """Toggles between Dark Obsidian and Clean Light."""

@@ -89,15 +89,21 @@ def ensure_sample_database(db_path: str = "sample_trades.db") -> str:
             trades.append((dt, sym, strat, cnt, entry, exit_p, pnl, outcome, dur))
 
         cur.executemany(
-            INSERT INTO trades (trade_date, symbol, strategy, contracts, entry_price, exit_price, pnl, outcome, duration_mins)
+            """
+            INSERT INTO trades (
+                trade_date, symbol, strategy, contracts, entry_price,
+                exit_price, pnl, outcome, duration_mins
+            )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        , trades)
+            """,
+            trades,
+        )
         conn.commit()
     conn.close()
     return full_path
 
 
-class TradeAnalyzerTool(ToolView):
+class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
     title = "Trade Analyzer"
     description = "Query SQLite trades DB, filter strategies, compute metrics, and export reports"
 

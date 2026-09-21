@@ -8,6 +8,235 @@ import tkinter as tk
 from tkinter import ttk, filedialog, colorchooser, messagebox
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+try:
+    import customtkinter as ctk
+    HAS_CTK = True
+except ImportError:
+    ctk = None
+    HAS_CTK = False
+
+
+class MultiSelectDropdown(ttk.Frame):
+    """
+    A compact multi-select combobox dropdown with checkboxes,
+    search filtering, and Select All / Clear All toggles.
+    Designed for uncluttered forms with large option lists.
+    """
+
+    def __init__(
+        self,
+        parent: tk.Widget,
+        options: List[str],
+        default: Optional[List[str]] = None,
+        placeholder: str = "Select options...",
+        max_display: int = 2,
+        theme: Optional[dict] = None,
+        on_change: Optional[Callable[[List[str]], None]] = None,
+        **kwargs,
+    ):
+        super().__init__(parent, style="Surface.TFrame", **kwargs)
+        self.options = list(options)
+        self.placeholder = placeholder
+        self.max_display = max_display
+        self.theme = theme or {}
+        self.on_change = on_change
+
+        self.selected_vars: Dict[str, tk.BooleanVar] = {
+            opt: tk.BooleanVar(value=(opt in (default or []))) for opt in self.options
+        }
+        self.summary_var = tk.StringVar()
+
+        self.columnconfigure(0, weight=1)
+        self.entry = ttk.Entry(self, textvariable=self.summary_var, state="readonly", cursor="hand2")
+        self.entry.grid(row=0, column=0, sticky="ew")
+        self.entry.bind("<Button-1>", lambda e: self.toggle_popup())
+
+        self.btn = ttk.Button(self, text="▼", width=3, command=self.toggle_popup)
+        self.btn.grid(row=0, column=1, sticky="e", padx=(2, 0))
+
+        self.popup: Optional[tk.Toplevel] = None
+        self._filter_var = tk.StringVar()
+        self._check_widgets: Dict[str, ttk.Checkbutton] = {}
+        self._update_summary()
+
+    def _update_summary(self):
+        sel = self.get()
+        if not sel:
+            self.summary_var.set(self.placeholder)
+        elif len(sel) == len(self.options) and len(self.options) > 1:
+            self.summary_var.set(f"All selected ({len(sel)})")
+        elif len(sel) <= self.max_display:
+            self.summary_var.set(", ".join(sel))
+        else:
+            shown = ", ".join(sel[: self.max_display])
+            rem = len(sel) - self.max_display
+            self.summary_var.set(f"{shown} (+{rem} more)")
+
+    def get(self) -> List[str]:
+        """Returns the list of currently selected string values."""
+        return [opt for opt in self.options if self.selected_vars[opt].get()]
+
+    def set(self, values: List[str]):
+        """Sets the selected items programmatically."""
+        val_set = set(values or [])
+        for opt, var in self.selected_vars.items():
+            var.set(opt in val_set)
+        self._update_summary()
+        if self.on_change:
+            self.on_change(self.get())
+
+    def clear_all(self):
+        """Deselects all options."""
+        for var in self.selected_vars.values():
+            var.set(False)
+        self._on_changed()
+
+    clear = clear_all
+
+    def select_all(self):
+        """Selects all options."""
+        for var in self.selected_vars.values():
+            var.set(True)
+        self._on_changed()
+
+    all = select_all
+
+    def set_options(self, new_options: List[str], default: Optional[List[str]] = None):
+        """Dynamically updates the available options list."""
+        self.options = list(new_options)
+        self.selected_vars = {
+            opt: tk.BooleanVar(value=(opt in (default or []))) for opt in self.options
+        }
+        self._update_summary()
+        if self.popup and self.popup.winfo_exists():
+            self._close_popup()
+
+    def toggle_popup(self):
+        if self.popup and self.popup.winfo_exists():
+            self._close_popup()
+        else:
+            self.show_popup()
+
+    def _close_popup(self):
+        if self.popup and self.popup.winfo_exists():
+            self.popup.destroy()
+        self.popup = None
+
+    def show_popup(self):
+        self._close_popup()
+        root = self.winfo_toplevel()
+        self.popup = tk.Toplevel(root)
+        self.popup.overrideredirect(True)
+        self.popup.attributes("-topmost", True)
+
+        # Geometry calculation
+        x = self.entry.winfo_rootx()
+        y = self.entry.winfo_rooty() + self.entry.winfo_height() + 2
+        w = max(240, self.winfo_width())
+        h = min(320, 75 + len(self.options) * 26)
+
+        # Screen boundary clamping (flip up if near bottom of screen)
+        screen_h = root.winfo_screenheight()
+        if y + h > screen_h - 40:
+            y = max(10, self.entry.winfo_rooty() - h - 2)
+
+        self.popup.geometry(f"{w}x{h}+{x}+{y}")
+
+        bg = self.theme.get("surface_bg", "#1e1e2e")
+        fg = self.theme.get("text", "#cdd6f4")
+        border = self.theme.get("border", "#45475a")
+
+        container = tk.Frame(self.popup, bg=bg, highlightbackground=border, highlightthickness=1)
+        container.pack(fill="both", expand=True)
+
+        # Live Search / Filter Bar (if 6 or more options)
+        if len(self.options) >= 6:
+            search_frame = tk.Frame(container, bg=bg)
+            search_frame.pack(fill="x", padx=6, pady=(6, 2))
+            search_entry = ttk.Entry(search_frame, textvariable=self._filter_var)
+            search_entry.pack(fill="x", expand=True)
+            self._filter_var.trace_add("write", self._apply_filter)
+
+        # Quick Actions Bar
+        act_frame = tk.Frame(container, bg=bg)
+        act_frame.pack(fill="x", padx=6, pady=4)
+        ttk.Button(act_frame, text="All", width=5, command=self.select_all).pack(side="left", padx=(0, 4))
+        ttk.Button(act_frame, text="None", width=5, command=self.clear_all).pack(side="left")
+
+        self._count_lbl = tk.Label(
+            act_frame,
+            text=f"{len(self.get())}/{len(self.options)} selected",
+            bg=bg,
+            fg=fg,
+            font=("Segoe UI", 9),
+        )
+        self._count_lbl.pack(side="right", padx=(0, 4))
+
+        # Scrollable Checklist Canvas
+        canvas = tk.Canvas(container, bg=bg, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
+        scroll_frame = tk.Frame(canvas, bg=bg)
+
+        scroll_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True, padx=(6, 2), pady=(2, 6))
+        if len(self.options) > 7:
+            scrollbar.pack(side="right", fill="y", pady=(2, 6))
+
+        # Windows mousewheel binding scoped to popup elements
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
+        canvas.bind("<MouseWheel>", _on_mousewheel)
+        scroll_frame.bind("<MouseWheel>", _on_mousewheel)
+        self.popup.bind("<MouseWheel>", _on_mousewheel)
+
+        # Checkbuttons
+        self._check_widgets.clear()
+        for opt in self.options:
+            cb = ttk.Checkbutton(
+                scroll_frame,
+                text=opt,
+                variable=self.selected_vars[opt],
+                style="TCheckbutton",
+                command=self._on_changed,
+            )
+            cb.pack(anchor="w", fill="x", padx=4, pady=2)
+            cb.bind("<MouseWheel>", _on_mousewheel)
+            self._check_widgets[opt] = cb
+
+        root.bind_all("<Button-1>", self._on_root_click, add="+")
+        self.popup.bind("<Escape>", lambda e: self._close_popup())
+
+    def _apply_filter(self, *args):
+        query = self._filter_var.get().lower().strip()
+        for opt, cb in self._check_widgets.items():
+            if not query or query in opt.lower():
+                cb.pack(anchor="w", fill="x", padx=4, pady=2)
+            else:
+                cb.pack_forget()
+
+    def _on_changed(self):
+        self._update_summary()
+        if hasattr(self, "_count_lbl") and self._count_lbl.winfo_exists():
+            self._count_lbl.config(text=f"{len(self.get())}/{len(self.options)} selected")
+        if self.on_change:
+            self.on_change(self.get())
+
+    def _on_root_click(self, event):
+        if not self.popup or not self.popup.winfo_exists():
+            return
+        x, y = event.x_root, event.y_root
+        px, py = self.popup.winfo_rootx(), self.popup.winfo_rooty()
+        pw, ph = self.popup.winfo_width(), self.popup.winfo_height()
+        sx, sy = self.winfo_rootx(), self.winfo_rooty()
+        sw, sh = self.winfo_width(), self.winfo_height()
+
+        if not ((px <= x <= px + pw and py <= y <= py + ph) or (sx <= x <= sx + sw and sy <= y <= sy + sh)):
+            self._close_popup()
+
 
 class FormPanel(ttk.Frame):
     """
@@ -270,6 +499,38 @@ class FormPanel(ttk.Frame):
         self._fields[name] = ("dropdown", combo, var)
         return combo
 
+    def add_multi_select(
+        self,
+        name: str,
+        label: str,
+        options: List[str],
+        default: Optional[List[str]] = None,
+        placeholder: str = "Select options...",
+        max_display: int = 2,
+        parent: Optional[tk.Widget] = None,
+        on_change: Optional[Callable[[List[str]], None]] = None,
+    ) -> MultiSelectDropdown:
+        """
+        Adds a compact, multi-selectable dropdown combobox with checkboxes,
+        instant search/filter, and 'Select All' / 'Clear All' quick toggles.
+        Keeps menus completely uncluttered while supporting single, multiple, or all selections.
+        """
+        container = self._add_field_container(label, parent=parent)
+        ms = MultiSelectDropdown(
+            container,
+            options=options,
+            default=default,
+            placeholder=placeholder,
+            max_display=max_display,
+            theme=self.theme,
+            on_change=on_change,
+        )
+        ms.grid(row=1, column=0, sticky="ew")
+        container.columnconfigure(0, weight=1)
+
+        self._fields[name] = ("multi_select", ms, ms)
+        return ms
+
     def add_radio(
         self,
         name: str,
@@ -513,6 +774,274 @@ class FormPanel(ttk.Frame):
 
         return row_frame
 
+    # -------------------------------------------------------------
+    # CustomTkinter (CTk) Modern Controls Integration
+    # -------------------------------------------------------------
+    def _require_ctk(self):
+        if not HAS_CTK:
+            raise ImportError(
+                "customtkinter is required to use this modern control. "
+                "Install it using: pip install customtkinter"
+            )
+
+    def add_ctk_switch(
+        self,
+        name: str,
+        label: str,
+        text: str = "",
+        default: bool = False,
+        on_change: Optional[Callable[[bool], None]] = None,
+        parent: Optional[tk.Widget] = None,
+        **kwargs,
+    ) -> Any:
+        """Adds a modern iOS/Win11 style animated toggle switch."""
+        self._require_ctk()
+        container = self._add_field_container(label, parent=parent)
+        sw = ctk.CTkSwitch(
+            container,
+            text=text,
+            command=(lambda: on_change(bool(sw.get()))) if on_change else None,
+            **kwargs,
+        )
+        if default:
+            sw.select()
+        else:
+            sw.deselect()
+        sw.grid(row=1, column=0, sticky="w", pady=(2, 4))
+
+        getter = lambda: bool(sw.get())
+        setter = lambda v: sw.select() if v else sw.deselect()
+        self._fields[name] = ("custom", sw, (getter, setter))
+        return sw
+
+    def add_ctk_segmented(
+        self,
+        name: str,
+        label: str,
+        values: List[str],
+        default: Optional[str] = None,
+        on_change: Optional[Callable[[str], None]] = None,
+        parent: Optional[tk.Widget] = None,
+        **kwargs,
+    ) -> Any:
+        """Adds a modern rounded segmented pill button group (e.g. for timeframes)."""
+        self._require_ctk()
+        container = self._add_field_container(label, parent=parent)
+        seg = ctk.CTkSegmentedButton(
+            container,
+            values=values,
+            command=on_change,
+            **kwargs,
+        )
+        initial_val = default if (default and default in values) else (values[0] if values else "")
+        if initial_val:
+            seg.set(initial_val)
+        seg.grid(row=1, column=0, sticky="ew", pady=(2, 4))
+        container.columnconfigure(0, weight=1)
+
+        getter = lambda: seg.get()
+        setter = lambda v: seg.set(v if v is not None else initial_val)
+        self._fields[name] = ("custom", seg, (getter, setter))
+        return seg
+
+    def add_ctk_slider(
+        self,
+        name: str,
+        label: str,
+        from_: float = 0,
+        to: float = 100,
+        default: float = 50,
+        number_of_steps: Optional[int] = None,
+        on_change: Optional[Callable[[float], None]] = None,
+        parent: Optional[tk.Widget] = None,
+        **kwargs,
+    ) -> Any:
+        """Adds a modern rounded thumb slider."""
+        self._require_ctk()
+        container = self._add_field_container(label, parent=parent)
+        slider_kwargs = {"from_": from_, "to": to, **kwargs}
+        if number_of_steps is not None:
+            slider_kwargs["number_of_steps"] = number_of_steps
+        sl = ctk.CTkSlider(
+            container,
+            command=on_change,
+            **slider_kwargs,
+        )
+        sl.set(default)
+        sl.grid(row=1, column=0, sticky="ew", pady=(2, 4))
+        container.columnconfigure(0, weight=1)
+
+        getter = lambda: float(sl.get())
+        setter = lambda v: sl.set(float(v) if v is not None else from_)
+        self._fields[name] = ("custom", sl, (getter, setter))
+        return sl
+
+    def add_ctk_progress(
+        self,
+        name: str,
+        label: str,
+        default: float = 0.0,
+        orientation: str = "horizontal",
+        mode: str = "determinate",
+        parent: Optional[tk.Widget] = None,
+        **kwargs,
+    ) -> Any:
+        """Adds a modern rounded progress bar."""
+        self._require_ctk()
+        container = self._add_field_container(label, parent=parent)
+        pb = ctk.CTkProgressBar(
+            container,
+            orientation=orientation,
+            mode=mode,
+            **kwargs,
+        )
+        pb.set(default)
+        pb.grid(row=1, column=0, sticky="ew", pady=(4, 4))
+        container.columnconfigure(0, weight=1)
+
+        getter = lambda: float(pb.get())
+        setter = lambda v: pb.set(float(v) if v is not None else 0.0)
+        self._fields[name] = ("custom", pb, (getter, setter))
+        return pb
+
+    def add_ctk_entry(
+        self,
+        name: str,
+        label: str,
+        placeholder: str = "",
+        default: str = "",
+        parent: Optional[tk.Widget] = None,
+        **kwargs,
+    ) -> Any:
+        """Adds a modern rounded text entry with integrated placeholder text."""
+        self._require_ctk()
+        container = self._add_field_container(label, parent=parent)
+        en = ctk.CTkEntry(
+            container,
+            placeholder_text=placeholder,
+            **kwargs,
+        )
+        if default:
+            en.insert(0, default)
+        en.grid(row=1, column=0, sticky="ew", pady=(2, 4))
+        container.columnconfigure(0, weight=1)
+
+        def _set(v):
+            en.delete(0, "end")
+            if v is not None and str(v) != "":
+                en.insert(0, str(v))
+
+        getter = lambda: en.get()
+        setter = _set
+        self._fields[name] = ("custom", en, (getter, setter))
+        return en
+
+    def add_ctk_textbox(
+        self,
+        name: str,
+        label: str,
+        default: str = "",
+        height: int = 100,
+        parent: Optional[tk.Widget] = None,
+        **kwargs,
+    ) -> Any:
+        """Adds a modern multi-line text editor with native rounded dark/light styling."""
+        self._require_ctk()
+        container = self._add_field_container(label, parent=parent)
+        tb = ctk.CTkTextbox(
+            container,
+            height=height,
+            **kwargs,
+        )
+        if default:
+            tb.insert("0.0", default)
+        tb.grid(row=1, column=0, sticky="ew", pady=(2, 4))
+        container.columnconfigure(0, weight=1)
+
+        def _set(v):
+            tb.delete("0.0", "end")
+            if v is not None and str(v) != "":
+                tb.insert("0.0", str(v))
+
+        getter = lambda: tb.get("0.0", "end-1c")
+        setter = _set
+        self._fields[name] = ("custom", tb, (getter, setter))
+        return tb
+
+    def add_ctk_checkbox(
+        self,
+        name: str,
+        label: str,
+        text: str = "",
+        default: bool = False,
+        on_change: Optional[Callable[[bool], None]] = None,
+        parent: Optional[tk.Widget] = None,
+        **kwargs,
+    ) -> Any:
+        """Adds a modern rounded checkbox with hover highlights."""
+        self._require_ctk()
+        container = self._add_field_container(label, parent=parent)
+        cb = ctk.CTkCheckBox(
+            container,
+            text=text or label,
+            command=(lambda: on_change(bool(cb.get()))) if on_change else None,
+            **kwargs,
+        )
+        if default:
+            cb.select()
+        else:
+            cb.deselect()
+        cb.grid(row=1, column=0, sticky="w", pady=(2, 4))
+
+        getter = lambda: bool(cb.get())
+        setter = lambda v: cb.select() if v else cb.deselect()
+        self._fields[name] = ("custom", cb, (getter, setter))
+        return cb
+
+    def add_ctk_button(
+        self,
+        label: str,
+        callback: Callable,
+        variant: str = "primary",  # "primary", "secondary", "danger", "success"
+        width: int = 140,
+        parent: Optional[tk.Widget] = None,
+        **kwargs,
+    ) -> Any:
+        """Adds a modern pill-shaped button with smooth hover glow effects."""
+        self._require_ctk()
+        p = parent or self.inner_frame
+        frame = ttk.Frame(p, style="Surface.TFrame")
+        frame.grid(row=self._inner_row, column=0, sticky="ew", pady=(8, 4))
+        frame.columnconfigure(0, weight=1)
+        self._inner_row += 1
+
+        color_map = {
+            "primary": ("#3b82f6", "#2563eb"),
+            "secondary": ("#475569", "#334155"),
+            "danger": ("#ef4444", "#dc2626"),
+            "success": ("#10b981", "#059669"),
+        }
+        fg_col, hover_col = color_map.get(variant, ("#3b82f6", "#2563eb"))
+
+        def _on_click():
+            values = self.get_values()
+            try:
+                callback(values)
+            except TypeError:
+                callback()
+
+        btn = ctk.CTkButton(
+            frame,
+            text=label,
+            command=_on_click,
+            fg_color=fg_col,
+            hover_color=hover_col,
+            width=width,
+            **kwargs,
+        )
+        btn.grid(row=0, column=0, sticky="ew")
+        return btn
+
     def add_button(
         self,
         label: str,
@@ -612,6 +1141,8 @@ class FormPanel(ttk.Frame):
                 val_handler.set(False)
             elif ftype == "number" or ftype == "slider":
                 val_handler.set(0)
+            elif ftype == "multi_select":
+                val_handler.clear_all()
             elif ftype == "custom":
                 pass
             else:

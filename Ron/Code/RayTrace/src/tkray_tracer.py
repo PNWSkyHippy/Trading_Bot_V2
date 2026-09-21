@@ -130,16 +130,18 @@ import sys
 import subprocess
 import threading
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any, cast
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox, simpledialog
-from PIL import Image, ImageEnhance, ImageFilter, ImageTk
+from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageTk
 import rayincludes as ri
 # This file is in Code/RayTrace/src, while quick_tk is in Code/quick_tk.
 # Adding Code to sys.path lets this script work when launched directly rather
 # than only when launched as part of a larger Python package.
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+RAYTRACE_SRC_DIR = Path(__file__).resolve().parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
@@ -327,10 +329,14 @@ class RayTraceTimer:
 
 class CanvasSelector:
     """
-    Attaches rectangle selection to an existing canvas.
-    Returns normalized (x0, y0, x1, y1) to a callback function on release.
+    Attach a rectangle or point-by-point freehand selector to a canvas.
+
+    ``selection_mode="box"`` returns normalized ``x0, y0, x1, y1`` values.
+    ``selection_mode="freehand"`` returns a list of closed-loop ``(x, y)``
+    points. In freehand mode, click to place each point and click near the
+    first point to close the loop. Escape cancels and returns an empty list.
     """
-    def __init__(self, canvas, callback):
+    def __init__(self, canvas, callback, selection_mode="box"):
         """Initialize class varaibles
 
         Args:
@@ -339,14 +345,29 @@ class CanvasSelector:
         """        
         self.canvas = canvas      # Main window drawing cntainer
         self.callback = callback  # The function to run when mouse is released
+        if selection_mode not in {"box", "freehand"}:
+            raise ValueError("selection_mode must be 'box' or 'freehand'")
+        self.selection_mode = selection_mode
         self.start_x = None    # For renderer
         self.start_y = None
         self.rect_id = None
+        self.points = []
+        self.rubber_line_id = None
+        self.close_distance = 10
 
         # Bind to the existing canvas passed into the class
-        self.canvas.bind("<ButtonPress-1>", self.on_press)
-        self.canvas.bind("<B1-Motion>", self.on_drag)
-        self.canvas.bind("<ButtonRelease-1>", self.on_release)
+        if self.selection_mode == "box":
+            self.canvas.bind("<ButtonPress-1>", self.on_press)
+            self.canvas.bind("<B1-Motion>", self.on_drag)
+            self.canvas.bind("<ButtonRelease-1>", self.on_release)
+        else:
+            self.canvas.bind("<Button-1>", self.on_freehand_click)
+            self.canvas.bind("<Motion>", self.on_freehand_motion)
+            self.canvas.bind("<Escape>", self.on_cancel)
+            self.canvas.focus_set()
+
+    def _canvas_point(self, event):
+        return self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
 
     def on_press(self, event):
         """_summary_ Triggered on mouse clicks in canvas
@@ -399,6 +420,64 @@ class CanvasSelector:
             self.callback(int(x0), int(y0), int(x1), int(y1))
         else:
             self.callback(-1, -1, -1, -1)
+
+    def on_freehand_click(self, event):
+        """Place one lasso point, or close the loop near its first point."""
+        x, y = self._canvas_point(event)
+
+        if len(self.points) >= 3:
+            first_x, first_y = self.points[0]
+            distance = ((x - first_x) ** 2 + (y - first_y) ** 2) ** 0.5
+            if distance <= self.close_distance:
+                last_x, last_y = self.points[-1]
+                self.canvas.create_line(
+                    last_x, last_y, first_x, first_y,
+                    fill="cyan", width=2, tags="selector",
+                )
+                if self.rubber_line_id is not None:
+                    self.canvas.delete(self.rubber_line_id)
+                    self.rubber_line_id = None
+                closed_points = [
+                    (int(point_x), int(point_y))
+                    for point_x, point_y in self.points
+                ]
+                self.callback(closed_points)
+                return
+
+        if self.points:
+            last_x, last_y = self.points[-1]
+            self.canvas.create_line(
+                last_x, last_y, x, y,
+                fill="cyan", width=2, tags="selector",
+            )
+
+        self.points.append((x, y))
+        self.canvas.create_oval(
+            x - 3, y - 3, x + 3, y + 3,
+            fill="cyan", outline="cyan", tags="selector",
+        )
+
+        if self.rubber_line_id is not None:
+            self.canvas.delete(self.rubber_line_id)
+        self.rubber_line_id = self.canvas.create_line(
+            x, y, x, y,
+            fill="cyan", width=2, dash=(4, 3), tags="selector",
+        )
+
+    def on_freehand_motion(self, event):
+        """Rubber-band from the most recently placed point to the mouse."""
+        if not self.points or self.rubber_line_id is None:
+            return
+        x, y = self._canvas_point(event)
+        last_x, last_y = self.points[-1]
+        self.canvas.coords(self.rubber_line_id, last_x, last_y, x, y)
+
+    def on_cancel(self, _event=None):
+        """Cancel a freehand selection without changing the image."""
+        self.canvas.delete("selector")
+        self.points = []
+        self.rubber_line_id = None
+        self.callback([])
 
 # List of premade scenes to render
 # credit https://github.com/RayTracing
@@ -477,6 +556,7 @@ class LiveRayTraceViewer(ToolView):
         self.debug_win: tk.Toplevel | None = None
         self.debug_console = None
         self.filepath = ""  #H for output file
+        self._ignore_infile_change = False
         self.rendered_pixels = {}  # memory buffer of image being ray traced 
         self.current_width = 600      # to hold current image dimensions
         self.current_height = 600
@@ -576,6 +656,7 @@ class LiveRayTraceViewer(ToolView):
         self.form.add_button("Render POV Still ▶", callback=self.on_click_povray_still, variant="primary")
         self.form.add_button("Render POV Camera Strip ▶", callback=self.on_click_povray_strip, variant="primary")
         self.form.add_button("Cancel / Stop Render ⏹", callback=self.on_stop_render, variant="outline")
+        self.form.add_file_picker("infile", "Pre Rendered Image to edit", default="", mode="open",on_change=self.on_file_selected)
         self.form.add_button("Load Image Sequence 📂", callback=self.on_load_image_sequence, variant="surface")
         self.form.add_button("Save Edited Sequence 📂", callback=self.on_save_edited_sequence, variant="surface")
         self.form.add_button("Export Sequence as GIF 🎞", callback=self.on_export_sequence_gif, variant="surface")
@@ -629,6 +710,7 @@ class LiveRayTraceViewer(ToolView):
         file_menu = self.menu("File")
         file_menu.add_command(label="Save Rendered Image 💾 <Ctrl-s>", command=self.on_save_image)
         self.bind_all("<Control-s>", self.on_save_image)
+
         file_menu.add_separator()
         file_menu.add_item("Exit Application <Alt-F4>", command=self.app.root.quit)
         self.bind_all("<Alt-F4>", lambda _event: self.app.root.quit())
@@ -862,7 +944,7 @@ class LiveRayTraceViewer(ToolView):
 
         preview_img = self.current_transformed_image or self.source_image or (self.buffer_to_img(self.rendered_pixels) if self.rendered_pixels else None)
         if preview_img is not None:
-            photo = ImageTk.PhotoImage(preview_img)
+            photo = ImageTk.PhotoImage(preview_img)  # type: ignore[arg-type]
             self.live_photo = photo
             self.img_label.config(image=self.live_photo, text="")
         else:
@@ -1133,19 +1215,102 @@ class LiveRayTraceViewer(ToolView):
         self.sequence_scrubber.configure(to=0)
         self.sequence_info_label.config(text="No sequence loaded")
 
-    def on_file_selected(self, filepath: str):
-        """Called if a file is loaded."""
-        if filepath and os.path.exists(filepath):
+    def _reset_editor_controls_for_new_source(self, width, height):
+        """Reset edits when a static image or sequence becomes the new document."""
+        self.pending_control = None
+        self.pending_snapshot = None
+        self.rotation = 0.0
+        self.contrast = 1.0
+        self.color = 1.0
+        self.brightness = 1.0
+        self.sharpness = 1.0
+        self.scale_fac = 1.0
+        self.blur = False
+        self.contour = False
+        self.smooth = False
+        self.sharpen = False
+        self.is_scaled = False
+        self.is_resized = False
+        self.aspratio = "None/None"
+        self.current_width = width
+        self.current_height = height
+        self.orig_image_width = width
+        self.orig_image_height = height
+        self.image_width = width
+        self.image_height = height
+
+        self.form.set_values({
+            "width": width,
+            "height": height,
+            "aspratio": self.aspratio,
+        })
+        self.blur_var.set(False)
+        self.contour_var.set(False)
+        self.smooth_var.set(False)
+        self.sharpen_var.set(False)
+
+        adjustments_form = getattr(self, "adjustments_form", None)
+        if adjustments_form is not None:
             try:
-                self._clear_loaded_sequence()
-                self.edit_base_image = None
-                self.source_image = Image.open(filepath)
-                self.orig_image_width, self.orig_image_height = self.source_image.size
-                self.current_width, self.current_height = self.source_image.size
-                self.update_live_preview()
-            except Exception as e:
-                self.set_status(f"Error loading image: {e}")
+                if adjustments_form.winfo_exists():
+                    adjustments_form.set_values({
+                        "rotation": self.rotation,
+                        "contrast": self.contrast,
+                        "color": self.color,
+                        "brightness": self.brightness,
+                        "sharpness": self.sharpness,
+                        "scalefac": self.scale_fac,
+                    })
+            except tk.TclError:
+                self.adjustments_form = None
+
+    def _set_static_file_field(self, filepath):
+        """Change the picker text without treating it as a new user selection."""
+        self._ignore_infile_change = True
+        try:
+            self.form.set_values({"infile": filepath})
+        finally:
+            self._ignore_infile_change = False
+
+    def on_file_selected(self, filepath: str):
+        """Load one static image as a new editable document."""
+        if self._ignore_infile_change:
+            return
+        if not filepath:
+            return
+        if (
+            filepath == self.filepath
+            and self.source_image is not None
+            and not self.sequence_images
+        ):
+            return
+        if self.is_rendering:
+            messagebox.showinfo(
+                "Rendering",
+                "Stop the active render before loading a static image.",
+            )
+            self._set_static_file_field(self.filepath)
+            return
+
+        try:
+            with Image.open(filepath) as image:
+                loaded_image = image.copy()
+        except Exception as exc:
+            messagebox.showerror("Load Image", f"Could not open the selected image:\n{exc}")
+            self.set_status(f"Error loading image: {exc}")
+            self._set_static_file_field(self.filepath)
+            return
+
+        self._clear_loaded_sequence()
+        self.clear_stack()
+        self.rendered_pixels = {}
+        self.source_image = loaded_image
+        self.edit_base_image = None
+        self.current_transformed_image = None
         self.filepath = filepath
+        self._reset_editor_controls_for_new_source(*loaded_image.size)
+        self.update_live_preview()
+        self.set_status(f"Loaded static image: {os.path.basename(filepath)}")
 
     def update_live_preview(self, _=None):
         """Transforms the in-memory buffer and updates the preview."""
@@ -1239,6 +1404,8 @@ class LiveRayTraceViewer(ToolView):
         self.edit_base_image = None
         self.current_transformed_image = None
         self.source_image = None
+        self.filepath = ""
+        self._set_static_file_field("")
 
         # Reset PhotoImage
         self.live_photo = tk.PhotoImage(width=width, height=height)
@@ -1402,11 +1569,23 @@ class LiveRayTraceViewer(ToolView):
 
         self.clear_stack()
         self._scene_render_values = self.form.get_values()
+        output_dir = None
+        if frames is not None:
+            timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+            folder_name = f"{scene_path.stem}_{output_suffix}_{timestamp}"
+            output_dir = scene_path.parent / "pov_frames" / folder_name
+            suffix = 2
+            while output_dir.exists():
+                output_dir = scene_path.parent / "pov_frames" / f"{folder_name}_{suffix}"
+                suffix += 1
+            output_dir.mkdir(parents=True)
+        self._pov_output_dir = output_dir
         self._pov_render_queue = iter(self._build_pov_render_queue([
             {
                 "template_path": scene_path,
                 "frames": frames,
                 "output_prefix": f"{scene_path.stem}_{output_suffix}",
+                "output_dir": output_dir,
             },
         ]))
         self._start_next_povray_scene_render()
@@ -1437,15 +1616,42 @@ class LiveRayTraceViewer(ToolView):
     def on_click_povray(self, argument=None):
         self.on_click_povray_still(argument)
         
-    def on_click_render2(self, argumen=None):
+    def on_click_render2(self, argument=None):
         if self.is_rendering:
             messagebox.showinfo("Rendering", "A render is already in progress. Stop it first if you want to start a new one.")
             return
+
         self.clear_stack()
         self._scene_render_values = self.form.get_values()
+        book_name = self._scene_render_values.get("book", "Book 2: The Next Week")
+        scene_str = self._scene_render_values.get("scene", SCENES_BOOK2[0][1])
+        book_info = BOOK_BINARIES.get(book_name, BOOK_BINARIES["Book 2: The Next Week"])
+        scene_num = scene_str.split(":")[0].strip()
         frames = self._requested_scene1_frames()
         if frames is None:
             return
+
+        book_id = str(book_info.get("book_id", 2))
+        scene_id = scene_num if book_info.get("has_scenes", False) else "default"
+        timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+        folder_name = f"book{book_id}_scene{scene_id}_{timestamp}"
+        output_dir = RAYTRACE_SRC_DIR / "scene_data" / folder_name
+        suffix = 2
+        while output_dir.exists():
+            output_dir = RAYTRACE_SRC_DIR / "scene_data" / f"{folder_name}_{suffix}"
+            suffix += 1
+        output_dir.mkdir(parents=True)
+        self._homemade_output_dir = output_dir
+
+        # The camera path supplies the changing camera values. The selected
+        # Book and Scene supply the actual subject rendered in every frame.
+        for frame_number, frame in enumerate(frames, start=1):
+            frame["filename"] = (
+                Path("scene_data") / output_dir.name / f"frame_{frame_number:04d}.ppm"
+            ).as_posix()
+            frame["book"] = book_id
+            frame["chapter"] = scene_num
+
         self._scene_render_queue = iter(frames)
         self._start_next_scene_render()
 
@@ -1453,7 +1659,11 @@ class LiveRayTraceViewer(ToolView):
         try:
             render_job = next(self._pov_render_queue)
         except StopIteration:
-            self.set_status("✨ All POV-Ray frames finished.")
+            output_dir = getattr(self, "_pov_output_dir", None)
+            if output_dir is None:
+                self.set_status("✨ POV-Ray still finished.")
+            else:
+                self.set_status(f"✨ All POV-Ray frames finished: {output_dir}")
             return
         except Exception as exc:
             messagebox.showerror("POV-Ray Setup Error", str(exc))
@@ -1498,7 +1708,7 @@ class LiveRayTraceViewer(ToolView):
             if not template_path.is_file():
                 raise FileNotFoundError(f"POV-Ray scene file was not found: {template_path}")
 
-            output_dir = template_path.parent / "pov_frames"
+            output_dir = job.get("output_dir") or template_path.parent / "pov_frames"
             prefix = job.get("output_prefix", template_path.stem)
             frames = job.get("frames")
             if frames is None:
@@ -1603,21 +1813,31 @@ class LiveRayTraceViewer(ToolView):
         try:
             scene = next(self._scene_render_queue)
         except StopIteration:
-            self.set_status("✨ All scene frames finished.")
+            output_dir = getattr(self, "_homemade_output_dir", None)
+            if output_dir is None:
+                self.set_status("✨ All scene frames finished.")
+            else:
+                self.set_status(f"✨ All scene frames finished: {output_dir}")
             return
+
+        width = int(self._scene_render_values.get("width", 600))
+        height = int(self._scene_render_values.get("height", 600))
+        book_name = self._scene_render_values.get("book", "Book 2: The Next Week")
+        book_info = BOOK_BINARIES.get(book_name, BOOK_BINARIES["Book 2: The Next Week"])
 
         render_args = [
             "-o", scene["filename"],
             "-b", scene["book"],
-            "-c", scene["chapter"],
             "--light", scene["light1"],
             "--light", scene["light2"],
             "--camera", scene["camera"],
             "--look-at", scene["lookat"],
             "--vfov", scene["vfov"],
-            "-r", "600,600",
-            "-p",
+            "-r", f"{width},{height}",
         ]
+        if book_info.get("has_scenes", False):
+            render_args.extend(["-c", scene["chapter"]])
+        render_args.append("-p")
 
         if self.debug_console is not None:
             self.debug_console.write(f"Starting frame: {' '.join(render_args)}\n\n")
@@ -1634,8 +1854,8 @@ class LiveRayTraceViewer(ToolView):
             return
         self._clear_loaded_sequence()
 
-        width = 600
-        height = 600
+        width = int(values.get("width", 600))
+        height = int(values.get("height", 600))
 
         self.current_width = width
         self.current_height = height
@@ -1647,23 +1867,23 @@ class LiveRayTraceViewer(ToolView):
         self.edit_base_image = None
         self.current_transformed_image = None
         self.source_image = None
+        self.filepath = ""
+        self._set_static_file_field("")
 
         # Reset PhotoImage
         self.live_photo = tk.PhotoImage(width=width, height=height)
         self.img_label.config(image=self.live_photo, text="")
-        WIN_EXEC_PATH = "/mnt/c/Users/Linda/Trading_Bot_V2/Ron/Code/RayTrace/src"
-        MAC_EXEC_PATH = "/Users/ronh/Trading_Bot_V2/Ron/Code/RayTrace/src"
-        # Determine unified binary
-
-        binary_name = "inoneweekend"
+        book_name = values.get("book", "Book 2: The Next Week")
+        book_info = BOOK_BINARIES.get(book_name, BOOK_BINARIES["Book 2: The Next Week"])
+        binary_name = book_info["binary"]
 
         if IS_WINDOWS:
             # On Windows, run the Linux binary through WSL
-            wsl_binary = f"{WIN_EXEC_PATH}/{binary_name}"
+            wsl_binary = f"{book_info['wsl_dir']}/{binary_name}"
             cmd = ["wsl", wsl_binary, *render_args]
         else:
             # On Mac / POSIX, run the compiled binary directly
-            mac_binary = f"{MAC_EXEC_PATH}/{binary_name}"
+            mac_binary = f"{book_info['mac_dir']}/{binary_name}"
             if not os.path.exists(mac_binary):
                 messagebox.showerror(
                     "Binary Not Found",
@@ -1700,6 +1920,7 @@ class LiveRayTraceViewer(ToolView):
                     stderr=subprocess.PIPE,
                     text=True,
                     bufsize=1,
+                    cwd=RAYTRACE_SRC_DIR,
                 )
                 self.current_proc = proc
                 if proc.stdout is None:
@@ -1809,6 +2030,8 @@ class LiveRayTraceViewer(ToolView):
         self.edit_base_image = None
         self.current_transformed_image = None
         self.source_image = None
+        self.filepath = ""
+        self._set_static_file_field("")
 
         # Reset PhotoImage
         self.live_photo = tk.PhotoImage(width=width, height=height)
@@ -1976,6 +2199,13 @@ class LiveRayTraceViewer(ToolView):
         ]
 
     def on_load_image_sequence(self, event=None):
+        if self.is_rendering:
+            messagebox.showinfo(
+                "Rendering",
+                "Stop the active render before loading an image sequence.",
+            )
+            return
+
         paths = filedialog.askopenfilenames(
             title="Select Rendered Frames",
             filetypes=[
@@ -2014,9 +2244,13 @@ class LiveRayTraceViewer(ToolView):
         self.sequence_images = loaded_images
         self.sequence_paths = loaded_paths
         self.sequence_index = 0
-        self.image_width, self.image_height = loaded_images[0].size
-        self.current_width, self.current_height = loaded_images[0].size
-        self.orig_image_width, self.orig_image_height = loaded_images[0].size
+        self.rendered_pixels = {}
+        self.source_image = None
+        self.edit_base_image = None
+        self.current_transformed_image = None
+        self.filepath = ""
+        self._set_static_file_field("")
+        self._reset_editor_controls_for_new_source(*loaded_images[0].size)
         self.sequence_scrubber.configure(to=len(loaded_images) - 1)
         self.sequence_frame_var.set(0)
         self.show_sequence_frame(0)
@@ -2265,11 +2499,7 @@ class LiveRayTraceViewer(ToolView):
             messagebox.showerror("GIF Export Error", f"Could not save GIF:\n{exc}")
 
     def on_save_image(self,  event=None):
-        img = self.current_transformed_image
-        if img is None and self.rendered_pixels:
-            img = self.buffer_to_img(self.rendered_pixels)
-        if img is None and self.source_image is not None:
-            img = self.source_image
+        img = self.get_cur_img()
 
         if img is None:
             messagebox.showwarning("Save Image", "No rendered image data to save yet!")
@@ -2690,7 +2920,11 @@ class LiveRayTraceViewer(ToolView):
         self.tk.call('raise', canvas_widget._w)
 
         # 3. Main project handler (This is where your crop/zoom/buffer logic goes)
-        def handle_selection(x0, y0, x1, y1):
+        def handle_selection(points):
+            if len(points) < 3:
+                overlay_canvas.destroy()
+                return
+
             blur_amt = simpledialog.askfloat(
                "Bokeh Blur",
                 "Enter a blur amount between 0 and 1: (Suggsted range .2-.3)",
@@ -2711,40 +2945,35 @@ class LiveRayTraceViewer(ToolView):
                 return
             img = working_image.copy()
 
-            if img is None or x0 < 0 or y0 < 0:
+            if img is None:
                 return
-            box = (x0, y0, x1, y1)
             blur_radius = blur_amt * 20.0
-            if self.sequence_images:
-                def apply_bokeh(frame, selected_box=box, radius=blur_radius):
-                    sharp_region = frame.crop(selected_box)
-                    blurred = frame.filter(ImageFilter.GaussianBlur(radius=radius))
-                    blurred.paste(sharp_region, selected_box)
-                    return blurred
 
+            def apply_bokeh(frame, selected_points=tuple(points), radius=blur_radius):
+                mask = Image.new("L", frame.size, 0)
+                mask.save("Makedimage.png")
+                ImageDraw.Draw(mask).polygon(selected_points, fill=255)
+                mask.save("PostMaskedImage.png")
+                blurred = frame.filter(ImageFilter.GaussianBlur(radius=radius))
+                blurred.save("blurred-image.png")
+                return Image.composite(frame, blurred, mask)
+
+            if self.sequence_images:
                 self._submit_sequence_edit(
                     f"bokeh-{len(self.sequence_edit_history)}",
                     "Bokeh",
                     apply_bokeh,
                 )
                 return
-      
-            img_cpy = img.copy()
-            img_cropped = img_cpy.crop(box)
-            img_cropped.save("cropped_img.jpg")
-            # Saved he region not to blu
- #           img_blurred = img_cpy.filter(ImageFilter.BLUR)
 
-            img_blurred = img_cpy.filter(
-                 ImageFilter.GaussianBlur(radius=blur_radius)
-            )
-            img_blurred.save("blurred_img.jpg")
-            img_blurred.paste(img_cropped, box)
-            img_blurred.save("BlurandPasted.jpg")   
-            self._commit_discrete_image(img_blurred)
+            self._commit_discrete_image(apply_bokeh(img))
         
         # 4. Inject the selection tool seamlessly
-        CanvasSelector(overlay_canvas, callback=handle_selection)
+        CanvasSelector(
+            overlay_canvas,
+            callback=handle_selection,
+            selection_mode="freehand",
+        )
 
     def setup_image_workspace(self, image, working_image,target_frame=None):
         display_frame = target_frame if target_frame is not None else self.canvas_frame

@@ -2037,7 +2037,7 @@
             ],
             doorFrames: [],
             ai: [
-                { id: 'wire_star_destroyer', label: 'Wire Star Destroyer', path: '' }
+                { id: 'wire_star_destroyer', label: 'Solid 3D Gunship', path: '' }
             ],
             effects: [
                 { id: 'orange_laser', label: 'Orange Laser', path: '', color: '#ff5500' }
@@ -6306,18 +6306,18 @@
         const SENTRY_FIRE_RANGE = 340;
         const SENTRY_FIRE_COOLDOWN_MS = 850;
         const SENTRY_FIRE_COOLDOWN_ENGAGED_MS = 720;
-        const SENTRY_SHIELD_DAMAGE = 9;
-        const SENTRY_SHIELD_DAMAGE_FRONT = 9;
-        const SENTRY_SHIELD_DAMAGE_REAR = 14;
+        const SENTRY_SHIELD_DAMAGE = 5;
+        const SENTRY_SHIELD_DAMAGE_FRONT = 4;
+        const SENTRY_SHIELD_DAMAGE_REAR = 7;
         const SENTRY_BEAM_MAX_LIFE = 24;
         const SENTRY_BEAM_BOLT_COUNT = 4;
         const SENTRY_BEAM_BOLT_LEN = 16;
         const SENTRY_BEAM_BOLT_GAP = 12;
-        const SENTRY_PACK_ALERT_RANGE = 450;
+        const SENTRY_PACK_ALERT_RANGE = 220;
         const SENTRY_GUARD_CHASE_MULT = 0.85;
         const SENTRY_PACK_SPACING = 58;
         let sentryPackSize = 1;
-        const SENTRY_HULL_DAMAGE = 20;
+        const SENTRY_HULL_DAMAGE = 10;
         // Flight thrust is per-frame (~4 cruise / 14 boost); sentry AI uses dt seconds — scale to match.
         const SENTRY_PHYSICS_FPS = 60;
         const SENTRY_PATROL_FRAME_SPEED = 1.6;
@@ -6348,6 +6348,7 @@
         let shieldHitFlashUntil = 0;
         let hullFlashUntil = 0;
         let lastShieldTickAt = performance.now();
+        let playerSpawnInvulnUntil = performance.now() + 6000;
         const shieldBarFill = document.getElementById('shield-bar-fill');
         const shieldVal = document.getElementById('shield-val');
         const shieldLowWarn = document.getElementById('shield-low-warn');
@@ -6729,7 +6730,11 @@
                 if (pct <= 0.55) shieldBarFill.classList.add('mid');
             }
             const now = performance.now();
-            if (now < shieldHitFlashUntil) {
+            if (now < playerSpawnInvulnUntil) {
+                const spawnPulse = 0.55 + 0.45 * Math.sin(now * 0.008);
+                shieldBarFill.style.boxShadow = `0 0 ${16 + spawnPulse * 10}px rgba(0, 220, 255, ${0.8 + spawnPulse * 0.2})`;
+                shieldBarFill.style.filter = `brightness(${1.3 + spawnPulse * 0.3})`;
+            } else if (now < shieldHitFlashUntil) {
                 const hitPulse = 0.55 + 0.45 * Math.sin((shieldHitFlashUntil - now) * 0.04);
                 shieldBarFill.style.boxShadow = `0 0 ${12 + hitPulse * 8}px rgba(255, 110, 30, ${0.75 + hitPulse * 0.2})`;
                 shieldBarFill.style.filter = `brightness(${1.15 + hitPulse * 0.25})`;
@@ -6769,6 +6774,7 @@
             shieldFlashUntil = 0;
             shieldHitFlashUntil = 0;
             hullFlashUntil = 0;
+            playerSpawnInvulnUntil = performance.now() + 6000;
             gameOverState.active = false;
             gameOverState.rank = null;
             gameOverState.entryId = null;
@@ -6951,6 +6957,9 @@
 
         function applySentryDamageToPlayer(sentry) {
             if (gameOverState.active) return;
+            if (defenderPhase?.active || galagaPhase?.active || gulletPhase?.active) return;
+            const now = performance.now();
+            if (now < playerSpawnInvulnUntil) return;
             const ship = getPlayerWorldPos();
             const shieldDamage = sentryShieldDamageForHit(sentry, ship);
             shieldHitFlashUntil = performance.now() + 320;
@@ -9505,6 +9514,11 @@
             defenderPhase.invulnUntil = performance.now() + DEFENDER.INTRO_MS + DEFENDER.INVULN_MS;
             defenderPhase.stars = initDefenderStarfield();
             defenderPhase.humanoids = initDefenderHumanoids(); // 15 astronauts
+            sentryBeams.length = 0;
+            sentryMuzzleFlashes.length = 0;
+            if (typeof tunnelSectorAlarm !== 'undefined') {
+                tunnelSectorAlarm.active = false;
+            }
 
             defenderSpawnWave(defenderPhase.level);
 
@@ -23178,6 +23192,7 @@
 
         function fireRocket() {
             if (gameOverState.active || portalTransit.active || mapView || builderMode) return false;
+            playerSpawnInvulnUntil = 0;
             if (rocketInventory.loaded <= 0) {
                 if (rocketInventory.reservePacks <= 0) {
                     keyboardStatus.innerText = 'ROCKETS EMPTY — find loot or open inventory';
@@ -25690,13 +25705,14 @@
                 const fwd = sentry.forward || sentry.spawn.forward || sentryForwardAxis(sentry);
                 const mapSize = Math.max(5, SENTRY_SIZE * 0.22 * (fov / Math.max(60, pp.z)));
                 let pickRadius = Math.max(strict ? 16 : 14, mapSize * 1.35 + SENTRY_MAP_PICK_PAD);
-                for (const [[ax, ay, az], [bx, by, bz]] of SENTRY_STAR_DESTROYER_SEGMENTS) {
-                    for (const [lx, ly, lz] of [[ax, ay, az], [bx, by, bz]]) {
-                        const world = sentryLocalWorldPoint(pos, fwd, right, down, lx, ly, lz, mapSize);
-                        const sp = projectMapPoint(world, centerX, centerY, fov);
-                        if (!sp) continue;
-                        pickRadius = Math.max(pickRadius, Math.hypot(sp.x - pp.x, sp.y - pp.y) + SENTRY_MAP_PICK_PAD);
-                    }
+                const vertsToTest = typeof SENTRY_GUNSHIP_VERTS !== 'undefined'
+                    ? Object.values(SENTRY_GUNSHIP_VERTS)
+                    : SENTRY_STAR_DESTROYER_SEGMENTS.flatMap(s => s);
+                for (const [lx, ly, lz] of vertsToTest) {
+                    const world = sentryLocalWorldPoint(pos, fwd, right, down, lx, ly, lz, mapSize);
+                    const sp = projectMapPoint(world, centerX, centerY, fov);
+                    if (!sp) continue;
+                    pickRadius = Math.max(pickRadius, Math.hypot(sp.x - pp.x, sp.y - pp.y) + SENTRY_MAP_PICK_PAD);
                 }
                 if (mapMouse.selectedSentryId === sentry.id) pickRadius += 6;
                 const dist = Math.hypot(screenX - pp.x, screenY - pp.y);
@@ -25797,7 +25813,10 @@
                 const dy = sentry.y - sourceSentry.y;
                 const dz = sentry.z - sourceSentry.z;
                 if (Math.hypot(dx, dy, dz) > range) continue;
-                if (!sentry.engaged) newlyAlerted += 1;
+                if (!sentry.engaged) {
+                    newlyAlerted += 1;
+                    if (!sentry.lastFireAt || sentry.lastFireAt < now) sentry.lastFireAt = now + 1200;
+                }
                 sentry.engaged = true;
                 sentry.patrolBroken = true;
                 sentry.lastSeenAt = now;
@@ -26106,7 +26125,7 @@
         }
 
         function flightSentryAiActive() {
-            return !mapView && !portalTransit.active && !gameOverState.active && !gulletPhase.active && !galagaPhase.active;
+            return !mapView && !portalTransit.active && !gameOverState.active && !gulletPhase.active && !galagaPhase.active && !defenderPhase.active;
         }
 
 
@@ -26498,10 +26517,10 @@
             if (!segs || segs.length < 3) return;
 
             const n = segs.length;
-            const idxScout = Math.min(n - 1, Math.max(1, Math.min(3, Math.floor(n * 0.06))));
-            const idx1 = Math.max(0, Math.min(n - 1, Math.floor(n * 0.22)));
-            const idx2 = Math.max(0, Math.min(n - 1, Math.floor(n * 0.52)));
-            const idx3 = Math.max(0, Math.min(n - 1, Math.floor(n * 0.80)));
+            const idxScout = Math.min(n - 1, Math.max(6, Math.min(10, Math.floor(n * 0.18))));
+            const idx1 = Math.max(idxScout + 4, Math.min(n - 1, Math.floor(n * 0.38)));
+            const idx2 = Math.max(idx1 + 4, Math.min(n - 1, Math.floor(n * 0.65)));
+            const idx3 = Math.max(idx2 + 4, Math.min(n - 1, Math.floor(n * 0.85)));
             const lastIdx = n - 1;
 
             const p1 = getSegmentMidpoint(segs[idx1]);
@@ -26643,7 +26662,7 @@
         }
 
         function tickTunnelArcadeSystems(frameScale = 1) {
-            if (mapView || builderMode || portalTransit.active) return;
+            if (mapView || builderMode || portalTransit.active || defenderPhase.active || galagaPhase.active || gulletPhase.active) return;
             const now = performance.now();
             initTunnelMission();
 
@@ -27518,7 +27537,7 @@
         }
 
         const SENTRY_STAR_DESTROYER_SEGMENTS = [
-            // Wedge hull — top silhouette (nose forward, wide stern)
+            // Legacy wireframe segment references kept for backwards compatibility
             [[1.65, 0, 0], [-0.9, 0.52, 0]],
             [[1.65, 0, 0], [-0.9, -0.52, 0]],
             [[-0.9, 0.52, 0], [-0.9, -0.52, 0]],
@@ -27527,14 +27546,12 @@
             [[0.1, 0.95, 0], [-0.9, 0.52, 0]],
             [[0.1, -0.95, 0], [-0.9, -0.52, 0]],
             [[0.1, 0.95, 0], [0.1, -0.95, 0]],
-            // Lower hull / belly taper
             [[1.65, 0, 0.16], [-0.9, 0, 0.18]],
             [[1.65, 0, 0.16], [0.35, 0.28, 0.12]],
             [[1.65, 0, 0.16], [0.35, -0.28, 0.12]],
             [[-0.9, 0, 0.18], [-0.9, 0.52, 0]],
             [[-0.9, 0, 0.18], [-0.9, -0.52, 0]],
             [[1.65, 0, 0], [-0.9, 0, 0]],
-            // Bridge superstructure (flat island, negative lz = up)
             [[-0.44, 0.24, -0.26], [-0.44, -0.24, -0.26]],
             [[-0.44, 0.24, -0.26], [-0.72, 0.18, -0.26]],
             [[-0.44, -0.24, -0.26], [-0.72, -0.18, -0.26]],
@@ -27543,11 +27560,151 @@
             [[-0.44, -0.24, -0.26], [-0.44, -0.24, 0]],
             [[-0.72, 0.18, -0.26], [-0.72, 0.18, 0]],
             [[-0.72, -0.18, -0.26], [-0.72, -0.18, 0]],
-            // Stern ion housings
             [[-0.9, 0.24, 0.1], [-0.98, 0.34, 0.1]],
             [[-0.9, -0.24, 0.1], [-0.98, -0.34, 0.1]],
             [[-0.9, 0, 0.1], [-1.02, 0, 0.14]]
         ];
+
+        /* =========================================================================
+         * SOLID 3D FACETED GUNSHIP MESH SPECIFICATION
+         * High-poly faceted geometry replacing legacy wireframe models:
+         * - Aerodynamic wedge nose and chined hull
+         * - Swept combat delta wings with squadron livery
+         * - Elevated cockpit canopy with glowing sensor visor
+         * - Dorsal spine and canted twin vertical stabilizers
+         * - Ventral faceted keel and armor belly plates
+         * - Dual ion thruster bells with dynamic flickering exhaust plumes
+         * =========================================================================
+         */
+        const SENTRY_GUNSHIP_VERTS = {
+            noseTip:       [ 1.70,   0.00,  0.02],
+            noseChineL:    [ 1.10,  -0.28,  0.00],
+            noseChineR:    [ 1.10,   0.28,  0.00],
+            canopyNose:    [ 0.95,   0.00, -0.20],
+            canopyApex:    [ 0.25,   0.00, -0.38],
+            canopyL:       [ 0.45,  -0.20, -0.22],
+            canopyR:       [ 0.45,   0.20, -0.22],
+            canopyAft:     [-0.10,   0.00, -0.32],
+            keelNose:      [ 1.25,   0.00,  0.18],
+            keelMid:       [ 0.00,   0.00,  0.30],
+            keelAft:       [-0.90,   0.00,  0.20],
+            shoulderL:     [ 0.35,  -0.52, -0.06],
+            shoulderR:     [ 0.35,   0.52, -0.06],
+            wingRootL:     [-0.15,  -0.55, -0.08],
+            wingRootR:     [-0.15,   0.55, -0.08],
+            wingTipL:      [-0.45,  -1.35,  0.04],
+            wingTipR:      [-0.45,   1.35,  0.04],
+            wingAftL:      [-0.95,  -1.10,  0.08],
+            wingAftR:      [-0.95,   1.10,  0.08],
+            wingTrailL:    [-0.90,  -0.52,  0.04],
+            wingTrailR:    [-0.90,   0.52,  0.04],
+            spineTop:      [-0.50,   0.00, -0.34],
+            finTopL:       [-0.95,  -0.38, -0.52],
+            finTopR:       [-0.95,   0.38, -0.52],
+            transomTop:    [-1.02,   0.00, -0.14],
+            engineL:       [-1.06,  -0.25,  0.05],
+            engineR:       [-1.06,   0.25,  0.05],
+            transomL:      [-1.00,  -0.42,  0.06],
+            transomR:      [-1.00,   0.42,  0.06]
+        };
+
+        const SENTRY_RAW_FACES = [
+            // Top Nose Deck
+            { id: 'nose_top_L', pts: ['noseTip', 'noseChineL', 'canopyNose'], type: 'armor' },
+            { id: 'nose_top_R', pts: ['noseTip', 'canopyNose', 'noseChineR'], type: 'armor' },
+            // Cockpit Visor (Self-illuminating Glowing Sensor Eye)
+            { id: 'visor_L', pts: ['canopyNose', 'canopyL', 'canopyApex'], type: 'visor' },
+            { id: 'visor_R', pts: ['canopyNose', 'canopyApex', 'canopyR'], type: 'visor' },
+            { id: 'visor_aft_L', pts: ['canopyApex', 'canopyL', 'canopyAft'], type: 'visor' },
+            { id: 'visor_aft_R', pts: ['canopyApex', 'canopyAft', 'canopyR'], type: 'visor' },
+            // Dorsal Shoulders
+            { id: 'shoulder_top_L', pts: ['canopyNose', 'noseChineL', 'shoulderL', 'canopyL'], type: 'hull' },
+            { id: 'shoulder_top_R', pts: ['canopyNose', 'canopyR', 'shoulderR', 'noseChineR'], type: 'hull' },
+            // Wings Upper Surface (Squadron Livery Accents)
+            { id: 'wing_main_L', pts: ['shoulderL', 'wingTipL', 'wingRootL'], type: 'livery' },
+            { id: 'wing_main_R', pts: ['shoulderR', 'wingRootR', 'wingTipR'], type: 'livery' },
+            { id: 'wing_aft_L', pts: ['wingRootL', 'wingTipL', 'wingAftL', 'wingTrailL'], type: 'hull' },
+            { id: 'wing_aft_R', pts: ['wingRootR', 'wingTrailR', 'wingAftR', 'wingTipR'], type: 'hull' },
+            // Dorsal Spine & Armor Deck
+            { id: 'spine_mid_L', pts: ['canopyAft', 'canopyL', 'shoulderL', 'wingRootL'], type: 'armor' },
+            { id: 'spine_mid_R', pts: ['canopyAft', 'wingRootR', 'shoulderR', 'canopyR'], type: 'armor' },
+            { id: 'spine_top_L', pts: ['canopyAft', 'wingRootL', 'spineTop'], type: 'armor' },
+            { id: 'spine_top_R', pts: ['canopyAft', 'spineTop', 'wingRootR'], type: 'armor' },
+            { id: 'spine_aft_L', pts: ['spineTop', 'wingRootL', 'wingTrailL', 'transomTop'], type: 'armor' },
+            { id: 'spine_aft_R', pts: ['spineTop', 'transomTop', 'wingTrailR', 'wingRootR'], type: 'armor' },
+            // Twin Vertical Stabilizer Fins
+            { id: 'fin_outer_L', pts: ['wingTrailL', 'finTopL', 'transomL'], type: 'livery' },
+            { id: 'fin_inner_L', pts: ['wingTrailL', 'transomL', 'finTopL'], type: 'hull' },
+            { id: 'fin_outer_R', pts: ['wingTrailR', 'transomR', 'finTopR'], type: 'livery' },
+            { id: 'fin_inner_R', pts: ['wingTrailR', 'finTopR', 'transomR'], type: 'hull' },
+            // Ventral Keel & Forward Belly
+            { id: 'belly_nose_L', pts: ['noseTip', 'keelNose', 'noseChineL'], type: 'hull' },
+            { id: 'belly_nose_R', pts: ['noseTip', 'noseChineR', 'keelNose'], type: 'hull' },
+            { id: 'belly_mid_L', pts: ['keelNose', 'keelMid', 'shoulderL', 'noseChineL'], type: 'hull' },
+            { id: 'belly_mid_R', pts: ['keelNose', 'noseChineR', 'shoulderR', 'keelMid'], type: 'hull' },
+            { id: 'belly_aft_mid_L', pts: ['keelMid', 'keelAft', 'wingTrailL', 'wingRootL'], type: 'hull' },
+            { id: 'belly_aft_mid_R', pts: ['keelMid', 'wingRootR', 'wingTrailR', 'keelAft'], type: 'hull' },
+            { id: 'belly_aft_ch_L', pts: ['keelMid', 'wingRootL', 'shoulderL'], type: 'hull' },
+            { id: 'belly_aft_ch_R', pts: ['keelMid', 'shoulderR', 'wingRootR'], type: 'hull' },
+            // Wings Lower Underside
+            { id: 'wing_bot_L', pts: ['shoulderL', 'wingRootL', 'wingTipL'], type: 'hull' },
+            { id: 'wing_bot_aft_L', pts: ['wingRootL', 'wingTrailL', 'wingAftL', 'wingTipL'], type: 'hull' },
+            { id: 'wing_bot_R', pts: ['shoulderR', 'wingTipR', 'wingRootR'], type: 'hull' },
+            { id: 'wing_bot_aft_R', pts: ['wingRootR', 'wingTipR', 'wingAftR', 'wingTrailR'], type: 'hull' },
+            // Aft Transom Bulkhead
+            { id: 'transom', pts: ['transomTop', 'transomL', 'keelAft', 'transomR'], type: 'armor' }
+        ];
+
+        const SENTRY_GUNSHIP_FACES = SENTRY_RAW_FACES.map(f => {
+            const p0 = SENTRY_GUNSHIP_VERTS[f.pts[0]];
+            const p1 = SENTRY_GUNSHIP_VERTS[f.pts[1]];
+            const p2 = SENTRY_GUNSHIP_VERTS[f.pts[2]];
+            const v10 = [p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2]];
+            const v20 = [p2[0] - p0[0], p2[1] - p0[1], p2[2] - p0[2]];
+            const cp = [
+                v10[1] * v20[2] - v10[2] * v20[1],
+                v10[2] * v20[0] - v10[0] * v20[2],
+                v10[0] * v20[1] - v10[1] * v20[0]
+            ];
+            const len = Math.hypot(cp[0], cp[1], cp[2]) || 1;
+            const norm = [cp[0] / len, cp[1] / len, cp[2] / len];
+            let cx = 0, cy = 0, cz = 0;
+            for (const k of f.pts) {
+                const p = SENTRY_GUNSHIP_VERTS[k];
+                cx += p[0]; cy += p[1]; cz += p[2];
+            }
+            const inv = 1 / f.pts.length;
+            return {
+                id: f.id,
+                pts: f.pts,
+                type: f.type,
+                normal: norm,
+                center: [cx * inv, cy * inv, cz * inv]
+            };
+        });
+
+        function getSentrySquadronInfo(sentry) {
+            if (sentry.captainKey === 'crimson' || sentry.id?.includes('crimson') || sentry.label?.includes('CRIMSON')) {
+                return { name: 'CRIMSON', primary: '#b81428', primaryRgb: [184, 20, 40], accent: '#ff3355', visor: '#ff1133', thruster: '#ff4400' };
+            }
+            if (sentry.captainKey === 'cobalt' || sentry.id?.includes('cobalt') || sentry.label?.includes('COBALT')) {
+                return { name: 'COBALT', primary: '#0c528f', primaryRgb: [12, 82, 143], accent: '#00c0ff', visor: '#00e5ff', thruster: '#0088ff' };
+            }
+            if (sentry.captainKey === 'amber' || sentry.id?.includes('amber') || sentry.label?.includes('AMBER')) {
+                return { name: 'AMBER', primary: '#a6680a', primaryRgb: [166, 104, 10], accent: '#ffaa00', visor: '#ffe033', thruster: '#ff8800' };
+            }
+            if (sentry.id?.includes('forward_recon') || sentry.label?.includes('RECON')) {
+                return { name: 'RECON', primary: '#0c6b6b', primaryRgb: [12, 107, 107], accent: '#00e5ff', visor: '#55ffff', thruster: '#00ffaa' };
+            }
+            return { name: 'DEFENSE', primary: '#3a4454', primaryRgb: [58, 68, 84], accent: '#ff6622', visor: '#ff7733', thruster: '#ff5500' };
+        }
+
+        function shadeRgb(rgb, intensity) {
+            const r = Math.min(255, Math.max(0, Math.floor(rgb[0] * intensity)));
+            const g = Math.min(255, Math.max(0, Math.floor(rgb[1] * intensity)));
+            const b = Math.min(255, Math.max(0, Math.floor(rgb[2] * intensity)));
+            return 'rgb(' + r + ',' + g + ',' + b + ')';
+        }
 
         function sentryOverlaySegmentIndex(sentry) {
             const pos = sentry
@@ -27644,23 +27801,200 @@
                     spriteSize
                 );
             } else {
-                ctx.strokeStyle = engaged ? SENTRY_COLOR_CORE : SENTRY_COLOR;
-                ctx.lineWidth = engaged ? 2.5 : (mapMode ? 2 : 1.75);
-                ctx.lineJoin = 'round';
-                ctx.lineCap = 'round';
-                ctx.shadowColor = engaged ? '#ff2200' : '#ff7733';
-                ctx.shadowBlur = mapMode ? 5 : Math.max(4, screenSize * 0.18);
-                ctx.beginPath();
-                let drewAny = false;
-                for (const [[ax, ay, az], [bx, by, bz]] of SENTRY_STAR_DESTROYER_SEGMENTS) {
-                    const pa = toScreen(ax, ay, az);
-                     const pb = toScreen(bx, by, bz);
-                    if (!pa || !pb) continue;
-                    ctx.moveTo(pa.x, pa.y);
-                    ctx.lineTo(pb.x, pb.y);
-                    drewAny = true;
+                const sq = getSentrySquadronInfo(sentry);
+                // Precompute screen projections for all gunship vertices
+                const vertScreen = {};
+                let anyVertProjected = false;
+                for (const k in SENTRY_GUNSHIP_VERTS) {
+                    const [lx, ly, lz] = SENTRY_GUNSHIP_VERTS[k];
+                    const pt = toScreen(lx, ly, lz);
+                    vertScreen[k] = pt;
+                    if (pt) anyVertProjected = true;
                 }
-                if (drewAny) ctx.stroke();
+                if (!anyVertProjected) {
+                    ctx.restore();
+                    return;
+                }
+
+                if (mapMode) {
+                    // Map mode: render clean solid tactical gunship silhouette with squadron livery
+                    ctx.shadowColor = engaged ? '#ff2200' : sq.accent;
+                    ctx.shadowBlur = 4;
+                    for (const f of SENTRY_GUNSHIP_FACES) {
+                        if (f.normal[2] > 0.15) continue; // Skip ventral underside in 2D top-down view
+                        const pts = f.pts.map(k => vertScreen[k]).filter(Boolean);
+                        if (pts.length !== f.pts.length) continue;
+                        ctx.beginPath();
+                        ctx.moveTo(pts[0].x, pts[0].y);
+                        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+                        ctx.closePath();
+                        if (f.type === 'visor') {
+                            ctx.fillStyle = sq.visor;
+                        } else if (f.type === 'livery') {
+                            ctx.fillStyle = sq.accent;
+                        } else if (f.type === 'armor') {
+                            ctx.fillStyle = '#485464';
+                        } else {
+                            ctx.fillStyle = '#2c3440';
+                        }
+                        ctx.fill();
+                        ctx.strokeStyle = engaged ? '#ff3311' : '#141c24';
+                        ctx.lineWidth = 1;
+                        ctx.stroke();
+                    }
+                } else {
+                    // Flight mode: Full 3D faceted rendering with lighting, backface culling, depth sorting
+                    const frame = getFlightCameraFrame();
+                    const camEye = frame?.eye || getPlayerWorldPos();
+                    const lightKeyCam = { x: 0.35, y: -0.75, z: -0.55 }; // Light from camera's upper-right
+                    const facesToRender = [];
+
+                    for (const f of SENTRY_GUNSHIP_FACES) {
+                        // World-space normal rotated by sentry orientation
+                        const nx = f.normal[0] * fwd.x + f.normal[1] * right.x + f.normal[2] * down.x;
+                        const ny = f.normal[0] * fwd.y + f.normal[1] * right.y + f.normal[2] * down.y;
+                        const nz = f.normal[0] * fwd.z + f.normal[1] * right.z + f.normal[2] * down.z;
+
+                        // World-space face center
+                        const cx = pos.x + (f.center[0] * fwd.x + f.center[1] * right.x + f.center[2] * down.x) * size;
+                        const cy = pos.y + (f.center[0] * fwd.y + f.center[1] * right.y + f.center[2] * down.y) * size;
+                        const cz = pos.z + (f.center[0] * fwd.z + f.center[1] * right.z + f.center[2] * down.z) * size;
+
+                        // Vector from face center to camera eye
+                        const vx = camEye.x - cx;
+                        const vy = camEye.y - cy;
+                        const vz = camEye.z - cz;
+
+                        // Backface culling: face normal must point towards eye
+                        const cullDot = nx * vx + ny * vy + nz * vz;
+                        if (cullDot <= 0) continue;
+
+                        // Collect projected screen points
+                        const screenPts = [];
+                        let allProj = true;
+                        for (let i = 0; i < f.pts.length; i++) {
+                            const sp = vertScreen[f.pts[i]];
+                            if (!sp) { allProj = false; break; }
+                            screenPts.push(sp);
+                        }
+                        if (!allProj) continue;
+
+                        // Depth along view axis for Painter's algorithm
+                        const depth = frame
+                            ? (cx - frame.eye.x) * frame.forward.x + (cy - frame.eye.y) * frame.forward.y + (cz - frame.eye.z) * frame.forward.z
+                            : Math.hypot(vx, vy, vz);
+
+                        // Directional lighting in camera space
+                        let diffuse = 0.5;
+                        if (frame) {
+                            const nCamX = nx * frame.right.x + ny * frame.right.y + nz * frame.right.z;
+                            const nCamY = nx * frame.down.x + ny * frame.down.y + nz * frame.down.z;
+                            const nCamZ = nx * frame.forward.x + ny * frame.forward.y + nz * frame.forward.z;
+                            const dotL = nCamX * lightKeyCam.x + nCamY * lightKeyCam.y + nCamZ * lightKeyCam.z;
+                            diffuse = Math.max(0, dotL);
+                        }
+                        const lightIntensity = Math.max(0.30, Math.min(1.0, 0.35 + 0.65 * diffuse));
+
+                        // Material color
+                        let fillStyle;
+                        let isGlow = false;
+                        if (f.type === 'visor') {
+                            fillStyle = sq.visor;
+                            isGlow = true;
+                        } else if (f.type === 'livery') {
+                            fillStyle = shadeRgb(sq.primaryRgb, lightIntensity);
+                        } else if (f.type === 'armor') {
+                            fillStyle = shadeRgb([56, 64, 76], lightIntensity);
+                        } else {
+                            fillStyle = shadeRgb([34, 40, 48], lightIntensity);
+                        }
+
+                        facesToRender.push({
+                            pts: screenPts,
+                            depth: depth,
+                            fillStyle: fillStyle,
+                            isGlow: isGlow
+                        });
+                    }
+
+                    // Sort back to front (Painter's algorithm)
+                    facesToRender.sort((a, b) => b.depth - a.depth);
+
+                    // Render shaded faces
+                    for (const rf of facesToRender) {
+                        ctx.beginPath();
+                        ctx.moveTo(rf.pts[0].x, rf.pts[0].y);
+                        for (let i = 1; i < rf.pts.length; i++) {
+                            ctx.lineTo(rf.pts[i].x, rf.pts[i].y);
+                        }
+                        ctx.closePath();
+                        ctx.fillStyle = rf.fillStyle;
+                        if (rf.isGlow) {
+                            ctx.save();
+                            ctx.shadowColor = sq.visor;
+                            ctx.shadowBlur = Math.max(6, screenSize * 0.22);
+                            ctx.fill();
+                            ctx.restore();
+                        } else {
+                            ctx.fill();
+                        }
+                        ctx.strokeStyle = engaged ? 'rgba(255, 60, 20, 0.45)' : 'rgba(12, 16, 22, 0.65)';
+                        ctx.lineWidth = engaged ? 1.5 : 1;
+                        ctx.stroke();
+                    }
+
+                    // Twin Ion Thrusters & Exhaust Flames at stern
+                    const pEngL = vertScreen.engineL;
+                    const pEngR = vertScreen.engineR;
+                    if (pEngL && pEngR && frame) {
+                        const viewFwdDot = fwd.x * frame.forward.x + fwd.y * frame.forward.y + fwd.z * frame.forward.z;
+                        if (viewFwdDot > -0.25) {
+                            const thrusterRadius = Math.max(2.5, screenSize * 0.055);
+                            const flameScale = engaged ? 1.4 : 1.0;
+                            const flamePulse = 0.45 + 0.35 * Math.sin(performance.now() * 0.035 + (sentry.health || 0));
+                            const flameLen = (0.40 + flamePulse * 0.30) * size * flameScale;
+
+                            const pFlameL = toScreen(-1.06 - flameLen / size, -0.25, 0.05);
+                            const pFlameR = toScreen(-1.06 - flameLen / size, 0.25, 0.05);
+
+                            if (pFlameL && pFlameR) {
+                                ctx.save();
+                                ctx.shadowColor = sq.thruster;
+                                ctx.shadowBlur = Math.max(8, screenSize * 0.28);
+
+                                ctx.beginPath();
+                                ctx.moveTo(pEngL.x - thrusterRadius * 0.8, pEngL.y);
+                                ctx.lineTo(pFlameL.x, pFlameL.y);
+                                ctx.lineTo(pEngL.x + thrusterRadius * 0.8, pEngL.y);
+                                ctx.closePath();
+                                ctx.fillStyle = sq.thruster;
+                                ctx.globalAlpha = alpha * 0.75;
+                                ctx.fill();
+
+                                ctx.beginPath();
+                                ctx.moveTo(pEngR.x - thrusterRadius * 0.8, pEngR.y);
+                                ctx.lineTo(pFlameR.x, pFlameR.y);
+                                ctx.lineTo(pEngR.x + thrusterRadius * 0.8, pEngR.y);
+                                ctx.closePath();
+                                ctx.fillStyle = sq.thruster;
+                                ctx.globalAlpha = alpha * 0.75;
+                                ctx.fill();
+
+                                ctx.restore();
+                            }
+
+                            ctx.save();
+                            ctx.shadowColor = sq.thruster;
+                            ctx.shadowBlur = Math.max(6, screenSize * 0.20);
+                            ctx.fillStyle = '#ffffff';
+                            ctx.beginPath();
+                            ctx.arc(pEngL.x, pEngL.y, thrusterRadius * 0.65, 0, Math.PI * 2);
+                            ctx.arc(pEngR.x, pEngR.y, thrusterRadius * 0.65, 0, Math.PI * 2);
+                            ctx.fill();
+                            ctx.restore();
+                        }
+                    }
+                }
             }
 
             if (sentry.label) {
@@ -29161,7 +29495,7 @@
             };
         }
 
-        function findNextForwardSegmentIndex(exitPoint, travelDir, seen, candidateIndices = null) {
+        function findNextForwardSegmentIndex(exitPoint, travelDir, seen, candidateIndices = null, lookDir = null) {
             const radius = builder.radius;
             const dir = normalize(travelDir);
             let best = null;
@@ -29188,7 +29522,11 @@
                 // that turns mostly back toward the section we just left.
                 if (align < -0.15) continue;
                 const dist = segmentDistanceToShip(seg, i);
-                const score = align * 2 - dist * 0.002;
+                let score = align * 2 - dist * 0.002;
+                if (lookDir) {
+                    const lookAlign = dot(normalize(segTravel), lookDir);
+                    score += lookAlign * 1.8;
+                }
                 if (!best || score > best.score) {
                     best = { index: i, seg, segTravel, exitPoint: nextExitPoint, score };
                 }
@@ -29210,24 +29548,17 @@
             const thrustDir = thrustMag > 0.01 ? scaleVec(lastThrustVector, 1 / thrustMag) : null;
             const fwdAlign = dot(shipForward, local.forward);
             const thrustAlign = thrustDir ? dot(thrustDir, local.forward) : fwdAlign;
-            const exitViaTo = thrustAlign >= -0.12 || fwdAlign >= -0.12 || local.localZ >= local.length * 0.3;
+            const exitViaTo = thrustMag > 0.05 ? (thrustAlign >= 0) : (fwdAlign >= 0);
             let exitPoint = exitViaTo ? currentSeg.to : currentSeg.from;
             let travelDir = exitViaTo ? currentSeg.forward : scaleVec(currentSeg.forward, -1);
-            if (thrustDir && dot(thrustDir, travelDir) < 0.15 && fwdAlign > 0.2) {
-                exitPoint = currentSeg.to;
-                travelDir = currentSeg.forward;
-            }
             let currentIndex = shipSegmentIndex;
             for (let step = 0; step < maxAhead; step++) {
-                // The old implementation rescanned every segment in the map for
-                // every look-ahead hop. On a 1,000-section map, 48 hops meant about
-                // 48,000 candidate checks per rendered frame. The topology graph is
-                // already cached, so only inspect the few sections joined here.
                 const next = findNextForwardSegmentIndex(
                     exitPoint,
                     travelDir,
                     seen,
-                    topologyNeighbors[currentIndex]
+                    topologyNeighbors[currentIndex],
+                    step === 0 ? shipForward : null
                 );
                 if (!next) break;
                 indices.push(next.index);
@@ -29274,8 +29605,60 @@
             return !segmentWallOpaque(shipSeg) && !segmentWallOpaque(targetSeg);
         }
 
+        function pointVisibleThroughSegment(fromPoint, toPoint, seg, apertureScale = 0.96) {
+            if (!seg || !segmentWallOpaque(seg) || segmentIsChamber(seg) || segmentIsRectRoom(seg)) return true;
+            const fromLocal = shipSegmentLocal(fromPoint, seg);
+            const toLocal = shipSegmentLocal(toPoint, seg);
+            if (
+                segmentIsRoundJunction(seg) &&
+                roundJunctionSightlinePassesOpenPortal(seg, fromPoint, toPoint, apertureScale)
+            ) return true;
+            const lateral = p => {
+                const rel = { x: p.x - seg.from.x, y: p.y - seg.from.y, z: p.z - seg.from.z };
+                return { x: dot(rel, seg.right), y: dot(rel, seg.down) };
+            };
+            const fromSide = lateral(fromPoint);
+            const toSide = lateral(toPoint);
+            const radius = (seg.radius || builder.radius) * apertureScale;
+            const radialAt = t => Math.hypot(
+                fromSide.x + (toSide.x - fromSide.x) * t,
+                fromSide.y + (toSide.y - fromSide.y) * t
+            );
+            const dz = toLocal.localZ - fromLocal.localZ;
+            if (toLocal.localZ >= 0 && toLocal.localZ <= fromLocal.length) {
+                return radialAt(1) <= radius;
+            }
+            if (Math.abs(dz) < 0.0001) return false;
+            const exitZ = toLocal.localZ < 0 ? 0 : fromLocal.length;
+            const tExit = (exitZ - fromLocal.localZ) / dz;
+            if (tExit < 0 || tExit > 1) return false;
+            return radialAt(tExit) <= radius;
+        }
+
+        function tunnelSightlineClear(p1, p2, segAIndex, segBIndex, maxHops = 3) {
+            if (!p1 || !p2) return false;
+            if (!Number.isInteger(segAIndex) || !builder.segments[segAIndex]) return true;
+            const segA = builder.segments[segAIndex];
+            if (!Number.isInteger(segBIndex) || !builder.segments[segBIndex]) {
+                return pointVisibleThroughSegment(p1, p2, segA);
+            }
+            if (segAIndex === segBIndex) {
+                return pointVisibleThroughSegment(p1, p2, segA);
+            }
+            const segB = builder.segments[segBIndex];
+            if (!segmentWallOpaque(segA) || !segmentWallOpaque(segB)) return true;
+            if (!segmentsWithinTopologyHops(segAIndex, segBIndex, maxHops)) return false;
+            if (!pointVisibleThroughSegment(p1, p2, segA)) return false;
+            if (!pointVisibleThroughSegment(p2, p1, segB)) return false;
+            return true;
+        }
+
         function sentryCorridorVisibleToPlayer(sentry) {
-            return segmentVisibleFromShipRoute(sentryOverlaySegmentIndex(sentry));
+            if (!sentry) return false;
+            const sentryPos = { x: sentry.x, y: sentry.y, z: sentry.z };
+            const shipPos = getPlayerWorldPos();
+            const sentrySegIdx = sentryOverlaySegmentIndex(sentry);
+            return tunnelSightlineClear(shipPos, sentryPos, shipSegmentIndex, sentrySegIdx);
         }
 
         function pointVisibleThroughCurrentTunnel(
@@ -29285,38 +29668,8 @@
         ) {
             if (!point || !Number.isInteger(visibilityOwnerIndex)) return true;
             const seg = builder.segments[visibilityOwnerIndex];
-            if (!seg || !segmentWallOpaque(seg) || segmentIsChamber(seg) || segmentIsRectRoom(seg)) return true;
             const ship = { x: posX, y: posY, z: posZ };
-            const shipLocal = shipSegmentLocal(ship, seg);
-            const targetLocal = shipSegmentLocal(point, seg);
-            if (
-                segmentIsRoundJunction(seg) &&
-                roundJunctionSightlinePassesOpenPortal(seg, ship, point, apertureScale)
-            ) return true;
-            const lateral = p => {
-                const rel = { x: p.x - seg.from.x, y: p.y - seg.from.y, z: p.z - seg.from.z };
-                return { x: dot(rel, seg.right), y: dot(rel, seg.down) };
-            };
-            const shipSide = lateral(ship);
-            const targetSide = lateral(point);
-            const radius = (seg.radius || builder.radius) * apertureScale;
-            const radialAt = t => Math.hypot(
-                shipSide.x + (targetSide.x - shipSide.x) * t,
-                shipSide.y + (targetSide.y - shipSide.y) * t
-            );
-            const dz = targetLocal.localZ - shipLocal.localZ;
-
-            // A point whose projection stays inside this cylinder is directly visible.
-            if (targetLocal.localZ >= 0 && targetLocal.localZ <= shipLocal.length) {
-                return radialAt(1) <= radius;
-            }
-            if (Math.abs(dz) < 0.0001) return false;
-            const exitZ = targetLocal.localZ < 0 ? 0 : shipLocal.length;
-            const tExit = (exitZ - shipLocal.localZ) / dz;
-            if (tExit < 0 || tExit > 1) return false;
-            // The sightline must pass through the circular tunnel mouth. At a sharp bend
-            // it instead intersects the opaque side wall, hiding future ribs and targets.
-            return radialAt(tExit) <= radius;
+            return pointVisibleThroughSegment(ship, point, seg, apertureScale);
         }
 
         function overlaySegmentIndexForPoint(point, preferredIndex = null) {
@@ -32225,7 +32578,7 @@
                 const ribTimes = segmentIsRectRoom(seg) || scenicDistanceRun
                     ? []
                     : segmentHasWallCover
-                        ? [0.5]
+                        ? ((segIndex === shipSegmentIndex || segmentsWithinTopologyHops(shipSegmentIndex, segIndex, 1)) ? [0.5] : [])
                         : Array.from(
                             { length: Math.max(1, Math.floor(length / 120)) },
                             (_, rib) => (rib + 1) / (Math.max(1, Math.floor(length / 120)) + 1)
@@ -32233,7 +32586,7 @@
 
                 for (const t of ribTimes) {
                     const ribCenter = pointOnSegment(seg, t);
-                    if (!pointVisibleThroughCurrentTunnel(ribCenter)) continue;
+                    if (!tunnelSightlineClear({ x: posX, y: posY, z: posZ }, ribCenter, shipSegmentIndex, segIndex)) continue;
                     const cameraPoint = worldToCamera(ribCenter);
                     if (cameraPoint.z <= 18 || cameraPoint.z > 1250) continue;
 
@@ -32780,6 +33133,7 @@
             // 4. Fire Dual Lasers on V Key (Stops hardware circuit locking)
             const shotNow = performance.now();
             if ((isKeyActive('v') || gamepad.fire || mouseInput.fire) && shotNow - lastShotAt > 150) {
+                playerSpawnInvulnUntil = 0;
                 const aimLocalToWorld = (freelook || snapMode) ? viewLocalToWorld : localToWorld;
                 const muzzleLeft = aimLocalToWorld(-18, -8, 14);
                 const muzzleRight = aimLocalToWorld(18, -8, 14);
@@ -32930,19 +33284,28 @@
                 }
 
                 updateAndRenderRockets(centerX, centerY, fov, frameScale);
-                renderTunnelTargets(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
-                renderTunnelSentries(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
+                const inBonusPhase = defenderPhase.active || galagaPhase.active || gulletPhase.active;
+                if (!inBonusPhase) {
+                    renderTunnelTargets(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
+                    renderTunnelSentries(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
+                }
                 renderGalagaPhase(centerX, centerY, fov);
                 renderGulletPhase(centerX, centerY, fov);
                 renderDefenderPhase(centerX, centerY, fov);
-                renderTunnelArcadeSystems(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
+                if (!inBonusPhase) {
+                    renderTunnelArcadeSystems(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
+                }
                 renderLaserAimCrosshair(centerX, centerY, fov);
                 updateAndRenderParticles(centerX, centerY, fov, frameScale);
                 renderRocketBlastClouds(centerX, centerY, fov);
-                renderPortalGatewaysFlight(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
+                if (!inBonusPhase) {
+                    renderPortalGatewaysFlight(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
+                }
                 renderPortalTransitVfx(centerX, centerY);
-                renderSentryBeams(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
-                renderSentryMuzzleFlashes(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
+                if (!inBonusPhase) {
+                    renderSentryBeams(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
+                    renderSentryMuzzleFlashes(centerX, centerY, fov, texturedSegmentIndices, forwardPathOverlaySet);
+                }
 
                 // Text telemetry is human-readable at 10 Hz; rebuilding it at the
                 // display refresh rate only creates DOM/layout and garbage pressure.
@@ -32961,10 +33324,11 @@
                         isKeyActive('c') ? 'turret freelook' :
                         'nose locked';
                     const autoBoostText = autoBoostActive ? ` ${autoBoostLabel().toUpperCase()}` : '';
+                    const spawnShieldText = (typeof playerSpawnInvulnUntil === 'number' && performance.now() < playerSpawnInvulnUntil) ? ' [🛡️ SPAWN SHIELD]' : '';
                     viewModeStatus.innerText =
                         `${viewLabel} | ${tunnelVisualMode === 'wireframe' ? 'TRON' : 'TEXTURED'} | builder ${builderMode ? 'ON' : 'off'} ` +
                         `map ${mapView ? 'ON' : 'off'} bend ${builder.bendDeg}/${builder.bendRollDeg} segs ${builder.segments.length} portals ${builder.portals.length} sentries ${tunnelSentries.length}` +
-                        `${autoBoostText}${wallHit.active ? ' WALL' : ''}${shieldCurrent <= 0 ? ' SHIELD DEPLETED' : ''}${hullCurrent <= 25 ? ' HULL CRITICAL' : ''}${getPortalProximityHint()}`;
+                        `${autoBoostText}${spawnShieldText}${wallHit.active ? ' WALL' : ''}${shieldCurrent <= 0 ? ' SHIELD DEPLETED' : ''}${hullCurrent <= 25 ? ' HULL CRITICAL' : ''}${getPortalProximityHint()}`;
                 }
 
                 updateShieldHud();
