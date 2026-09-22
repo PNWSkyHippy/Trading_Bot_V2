@@ -33,7 +33,9 @@ class MenuNode:
             self._bind_shortcut(shortcut, command)
         return self
 
-    def add_item(self, label: str, command: Callable, shortcut: Optional[str] = None) -> "MenuNode":
+    def add_item(
+        self, label: str, command: Callable, shortcut: Optional[str] = None
+    ) -> "MenuNode":
         """Alias for add_command."""
         return self.add_command(label, command, shortcut=shortcut)
 
@@ -56,12 +58,16 @@ class MenuNode:
                 on_toggle(var.get())
 
         accel = shortcut if shortcut else ""
-        self.menu.add_checkbutton(label=label, variable=var, command=_on_click, accelerator=accel)
+        self.menu.add_checkbutton(
+            label=label, variable=var, command=_on_click, accelerator=accel
+        )
 
         if shortcut:
+
             def _shortcut_handler():
                 var.set(not var.get())
                 _on_click()
+
             self._bind_shortcut(shortcut, _shortcut_handler)
 
         return var
@@ -73,11 +79,14 @@ class MenuNode:
         on_change: Optional[Callable[[str], None]] = None,
     ) -> tk.StringVar:
         """Adds a group of mutually exclusive radio button choices."""
-        default_val = default if default is not None else (options[0] if options else "")
+        default_val = (
+            default if default is not None else (options[0] if options else "")
+        )
         var = tk.StringVar(value=default_val)
         self._vars.append(var)
 
         for opt in options:
+
             def _make_handler(val=opt):
                 if on_change:
                     on_change(val)
@@ -86,7 +95,9 @@ class MenuNode:
                 label=opt,
                 value=opt,
                 variable=var,
-                command=(lambda v=var, cb=on_change: cb(v.get())) if on_change else None,
+                command=(lambda v=var, cb=on_change: cb(v.get()))
+                if on_change
+                else None,
             )
         return var
 
@@ -98,6 +109,7 @@ class MenuNode:
         shortcut: Optional[str] = None,
     ) -> "MenuNode":
         """Adds a menu action that automatically opens a file browser and passes the selected path."""
+
         def _handler():
             ft = filetypes or [("All Files", "*.*")]
             path = filedialog.askopenfilename(filetypes=ft, title=label)
@@ -116,6 +128,7 @@ class MenuNode:
         shortcut: Optional[str] = None,
     ) -> "MenuNode":
         """Adds a menu action that automatically opens a Save As dialog and passes the selected path."""
+
         def _handler():
             ft = filetypes or [("All Files", "*.*")]
             path = filedialog.asksaveasfilename(
@@ -152,6 +165,7 @@ class MenuNode:
         - confirm: If True, asks 'Are you sure you want to exit?'
         - on_before_exit: Optional callback. If returns False, aborts exit.
         """
+
         def _exit_handler():
             if on_before_exit:
                 proceed = on_before_exit()
@@ -159,7 +173,9 @@ class MenuNode:
                     return
 
             if confirm:
-                ans = messagebox.askyesno("Confirm Exit", "Are you sure you want to exit the application?")
+                ans = messagebox.askyesno(
+                    "Confirm Exit", "Are you sure you want to exit the application?"
+                )
                 if not ans:
                     return
 
@@ -227,7 +243,7 @@ class MenuBarBuilder:
         """
         Declarative tree builder.
         Accepts a dictionary mapping top-level menu names to lists of item dicts or '---' separators.
-        
+
         Example:
         app.build_menu_tree({
             "File": [
@@ -254,7 +270,9 @@ class MenuBarBuilder:
             menu_node = self.add_menu(top_name)
             self._populate_items(menu_node, items)
 
-    def _populate_items(self, parent_node: MenuNode, items: List[Union[str, Dict[str, Any]]]):
+    def _populate_items(
+        self, parent_node: MenuNode, items: List[Union[str, Dict[str, Any]]]
+    ):
         for item in items:
             if item == "---":
                 parent_node.add_separator()

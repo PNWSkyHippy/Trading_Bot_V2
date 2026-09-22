@@ -32,9 +32,15 @@ class UI(tkinter.Frame):
         self.canvas.create_image(0, 0, image=self.backdrop, anchor=tkinter.NW)
         self.canvas.pack()
 
-        scale = tkinter.Scale(self, orient=tkinter.HORIZONTAL, from_=0, to=255,
-                              resolution=1, command=self.update_scale,
-                              length=256)
+        scale = tkinter.Scale(
+            self,
+            orient=tkinter.HORIZONTAL,
+            from_=0,
+            to=255,
+            resolution=1,
+            command=self.update_scale,
+            length=256,
+        )
         scale.set(value)
         scale.bind("<ButtonRelease-1>", self.redraw)
         scale.pack()
@@ -56,8 +62,10 @@ class UI(tkinter.Frame):
 
         # update canvas
         self.canvas.delete("overlay")
-        self.canvas.create_image(0, 0, image=self.overlay, anchor=tkinter.NW,
-                                 tags="overlay")
+        self.canvas.create_image(
+            0, 0, image=self.overlay, anchor=tkinter.NW, tags="overlay"
+        )
+
 
 # --------------------------------------------------------------------
 # main

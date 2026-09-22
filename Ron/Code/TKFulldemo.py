@@ -12,24 +12,14 @@ def show_info():
 
     if age_restriction == 1:
         if selected_name == "Gru":
-            gru_photo_label.grid(
-                row=6, columnspan=3
-            )
+            gru_photo_label.grid(row=6, columnspan=3)
         elif selected_name == "Bob":
-            bob_photo_label.grid(
-                row=6, columnspan=3
-            )
+            bob_photo_label.grid(row=6, columnspan=3)
         elif selected_name == "Kevin":
-            kevin_photo_label.grid(
-                row=6, columnspan=3
-            )
+            kevin_photo_label.grid(row=6, columnspan=3)
     else:
-        message_txt.insert(
-            0.0, "You are not authorized!"
-        )
-        restricted_photo_label.grid(
-            row=6, columnspan=3
-        )
+        message_txt.insert(0.0, "You are not authorized!")
+        restricted_photo_label.grid(row=6, columnspan=3)
 
 
 rootWindow = Tk()
@@ -96,24 +86,16 @@ message_txt = Text(
 )
 
 restricted_imag = PhotoImage(file="no_minion.png")
-restricted_photo_label = Label(
-    rootWindow, image=restricted_imag
-)
+restricted_photo_label = Label(rootWindow, image=restricted_imag)
 
 gru_imag = PhotoImage(file="gru.png")
-gru_photo_label = Label(
-    rootWindow, image=gru_imag
-)
+gru_photo_label = Label(rootWindow, image=gru_imag)
 
 bob_imag = PhotoImage(file="bob.png")
-bob_photo_label = Label(
-    rootWindow, image=bob_imag
-)
+bob_photo_label = Label(rootWindow, image=bob_imag)
 
 kevin_imag = PhotoImage(file="kevin.png")
-kevin_photo_label = Label(
-    rootWindow, image=kevin_imag
-)
+kevin_photo_label = Label(rootWindow, image=kevin_imag)
 
 lets_see_button = Button(
     rootWindow,
@@ -134,9 +116,7 @@ radio_button_no.grid(row=2, column=2, sticky=W)
 
 rootWindow.grid_rowconfigure(3, minsize=20)
 
-message_txt.grid(
-    row=5, columnspan=3, sticky=N, rowspan=1
-)
+message_txt.grid(row=5, columnspan=3, sticky=N, rowspan=1)
 
 lets_see_button.grid(row=4, columnspan=3)
 

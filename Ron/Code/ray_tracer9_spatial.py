@@ -59,6 +59,7 @@ planet_refl = 0.3
 ring_inner = 2.2
 ring_outer = 4.2
 
+
 # ---------------------------------------------------------------------------
 # Ray Tracing GPU Functions
 # ---------------------------------------------------------------------------
@@ -74,6 +75,7 @@ def hit_sphere(ray_origin, ray_dir, center, radius):
         t = (-b - ti.sqrt(discriminant)) / (2.0 * a)
     return t
 
+
 @ti.func
 def hit_ring(ray_origin, ray_dir):
     t = -1.0
@@ -88,6 +90,7 @@ def hit_ring(ray_origin, ray_dir):
                 t = -1.0
     return t
 
+
 @ti.func
 def sample_texture(normal):
     u = 0.5 + (ti.atan2(normal.z, normal.x) / (2.0 * math.pi))
@@ -95,6 +98,7 @@ def sample_texture(normal):
     px = ti.max(0, ti.min(int(u * (tex_w - 1)), tex_w - 1))
     py = ti.max(0, ti.min(int(v * (tex_h - 1)), tex_h - 1))
     return texture_field[px, py]
+
 
 @ti.func
 def sample_ring_density(ray_origin, ray_dir, t_ring):
@@ -106,6 +110,7 @@ def sample_ring_density(ray_origin, ray_dir, t_ring):
     ring_color = ti.Vector([0.8, 0.6, 0.7]) * density
     return ring_color, density
 
+
 @ti.func
 def pseudo_random_stars(direction):
     scale = direction * 150.0
@@ -115,6 +120,7 @@ def pseudo_random_stars(direction):
     if noise > 0.994:
         star = 1.0
     return ti.Vector([star, star, star])
+
 
 # ---------------------------------------------------------------------------
 # Main Ray Tracing Render Kernel
@@ -128,7 +134,7 @@ def render(
     moons_packed: ti.types.vector(3, ti.f32),
     sun_pos: ti.types.vector(3, ti.f32),
     meteor_pos: ti.types.vector(3, ti.f32),
-    meteor_active: ti.f32
+    meteor_active: ti.f32,
 ):
     m1_pos = ti.Vector([moons_packed.x, moons_packed.y, moons_packed.z])
     m2_pos = ti.Vector([-moons_packed.x * 0.6, -moons_packed.y, moons_packed.z * 0.6])
@@ -172,33 +178,53 @@ def render(
             if hit_obj != -1:
                 if hit_obj == 3:
                     # Rings Shading Channel
-                    ring_col, opacity = sample_ring_density(ray_orig, ray_dir, t_closest)
+                    ring_col, opacity = sample_ring_density(
+                        ray_orig, ray_dir, t_closest
+                    )
                     hit_point = ray_orig + t_closest * ray_dir
                     light_dir = (sun_pos - hit_point).normalized()
                     light_dist = (sun_pos - hit_point).norm()
 
                     shadow_orig = hit_point + ti.Vector([0.0, 1.0, 0.0]) * 0.002
                     shadow_hit = False
-                    if 0.0 < hit_sphere(shadow_orig, light_dir, planet_pos, planet_rad) < light_dist:
+                    if (
+                        0.0
+                        < hit_sphere(shadow_orig, light_dir, planet_pos, planet_rad)
+                        < light_dist
+                    ):
                         shadow_hit = True
 
                     illumination = ti.Vector([0.02, 0.02, 0.04])
                     if not shadow_hit:
-                        illumination += (ti.Vector([1.0, 0.95, 0.85]) * 1.5) * ti.abs(ti.Vector([0.0, 1.0, 0.0]).dot(light_dir))
+                        illumination += (ti.Vector([1.0, 0.95, 0.85]) * 1.5) * ti.abs(
+                            ti.Vector([0.0, 1.0, 0.0]).dot(light_dir)
+                        )
 
-                    final_color += ring_col * illumination * reflection_throughput * opacity
-                    reflection_throughput *= (1.0 - opacity)
+                    final_color += (
+                        ring_col * illumination * reflection_throughput * opacity
+                    )
+                    reflection_throughput *= 1.0 - opacity
                     ray_orig = hit_point + ray_dir * 0.002
 
                 else:
                     # Spheres (Planet / Moons) Shading Channel
-                    obj_center = planet_pos if hit_obj == 0 else (m1_pos if hit_obj == 1 else m2_pos)
-                    obj_radius = planet_rad if hit_obj == 0 else (0.4 if hit_obj == 1 else 0.22)
+                    obj_center = (
+                        planet_pos
+                        if hit_obj == 0
+                        else (m1_pos if hit_obj == 1 else m2_pos)
+                    )
+                    obj_radius = (
+                        planet_rad if hit_obj == 0 else (0.4 if hit_obj == 1 else 0.22)
+                    )
                     obj_refl = planet_refl if hit_obj == 0 else 0.5
 
                     hit_point = ray_orig + t_closest * ray_dir
                     normal = (hit_point - obj_center).normalized()
-                    base_color = sample_texture(normal) if hit_obj == 0 else ti.Vector([0.6, 0.6, 0.65])
+                    base_color = (
+                        sample_texture(normal)
+                        if hit_obj == 0
+                        else ti.Vector([0.6, 0.6, 0.65])
+                    )
                     refl = obj_refl
 
                     light_dir = (sun_pos - hit_point).normalized()
@@ -208,32 +234,54 @@ def render(
                     shadow_hit = False
 
                     if hit_obj == 0:
-                        if 0.0 < hit_sphere(shadow_orig, light_dir, m1_pos, 0.4) < light_dist:
+                        if (
+                            0.0
+                            < hit_sphere(shadow_orig, light_dir, m1_pos, 0.4)
+                            < light_dist
+                        ):
                             shadow_hit = True
-                        if 0.0 < hit_sphere(shadow_orig, light_dir, m2_pos, 0.22) < light_dist:
+                        if (
+                            0.0
+                            < hit_sphere(shadow_orig, light_dir, m2_pos, 0.22)
+                            < light_dist
+                        ):
                             shadow_hit = True
                         t_ring_shadow = hit_ring(shadow_orig, light_dir)
                         if 0.0 < t_ring_shadow < light_dist:
-                            _, ring_opacity = sample_ring_density(shadow_orig, light_dir, t_ring_shadow)
+                            _, ring_opacity = sample_ring_density(
+                                shadow_orig, light_dir, t_ring_shadow
+                            )
                             if ring_opacity > 0.4:
                                 shadow_hit = True
                     else:
-                        if 0.0 < hit_sphere(shadow_orig, light_dir, planet_pos, planet_rad) < light_dist:
+                        if (
+                            0.0
+                            < hit_sphere(shadow_orig, light_dir, planet_pos, planet_rad)
+                            < light_dist
+                        ):
                             shadow_hit = True
 
                     illumination = ti.Vector([0.02, 0.02, 0.04])
                     if not shadow_hit:
-                        illumination += (ti.Vector([1.0, 0.95, 0.85]) * 1.5) * ti.max(normal.dot(light_dir), 0.0)
+                        illumination += (ti.Vector([1.0, 0.95, 0.85]) * 1.5) * ti.max(
+                            normal.dot(light_dir), 0.0
+                        )
 
-                    final_color += base_color * illumination * reflection_throughput * (1.0 - refl)
+                    final_color += (
+                        base_color * illumination * reflection_throughput * (1.0 - refl)
+                    )
                     reflection_throughput *= refl
 
-                    ray_dir = (ray_dir - 2.0 * ray_dir.dot(normal) * normal).normalized()
+                    ray_dir = (
+                        ray_dir - 2.0 * ray_dir.dot(normal) * normal
+                    ).normalized()
                     ray_orig = hit_point + normal * 0.002
             else:
                 space_bg = pseudo_random_stars(ray_dir)
                 if disc_halo > 0.0 and t0 < 0.0:
-                    glow_factor = ti.max(0.0, ray_dir.dot((sun_pos - planet_pos).normalized()))
+                    glow_factor = ti.max(
+                        0.0, ray_dir.dot((sun_pos - planet_pos).normalized())
+                    )
                     space_bg += ti.Vector([0.2, 0.5, 1.0]) * glow_factor * 0.4
 
                 final_color += space_bg * reflection_throughput
@@ -267,7 +315,10 @@ class SpatialAudioEngine:
 
         try:
             import pygame
-            pygame.mixer.init(frequency=self.sample_rate, size=-16, channels=2, buffer=1024)
+
+            pygame.mixer.init(
+                frequency=self.sample_rate, size=-16, channels=2, buffer=1024
+            )
             pygame.mixer.set_num_channels(8)
             self.has_audio = True
 
@@ -277,7 +328,9 @@ class SpatialAudioEngine:
             # Synthesize seamless 3-second warm cosmic drone loop
             duration = 3.0
             num_samples = int(self.sample_rate * duration)
-            t = np.linspace(0.0, duration, num_samples, endpoint=False, dtype=np.float32)
+            t = np.linspace(
+                0.0, duration, num_samples, endpoint=False, dtype=np.float32
+            )
 
             # Harmonics: 55 Hz (Fundamental), 110 Hz (Octave), 165 Hz (Fifth)
             w1 = np.sin(2.0 * np.pi * 55.0 * t) * 0.5
@@ -286,13 +339,17 @@ class SpatialAudioEngine:
             drone_wave = (w1 + w2 + w3) * 0.4
 
             # Create clean looping stereo sound
-            stereo_drone = np.column_stack((drone_wave * 32767, drone_wave * 32767)).astype(np.int16)
+            stereo_drone = np.column_stack(
+                (drone_wave * 32767, drone_wave * 32767)
+            ).astype(np.int16)
             self.drone_sound = pygame.sndarray.make_sound(stereo_drone)
 
             # Start infinite loop on drone channel
             self.drone_channel.play(self.drone_sound, loops=-1)
             self.drone_channel.set_volume(0.2, 0.2)
-            print("🔊 3D Spatial Audio: [Dual-Channel Mixer Active] Planetary Hum & Meteors Live!")
+            print(
+                "🔊 3D Spatial Audio: [Dual-Channel Mixer Active] Planetary Hum & Meteors Live!"
+            )
         except Exception as e:
             print(f"⚠️ Audio initialization bypassed: {e}")
 
@@ -321,6 +378,7 @@ class SpatialAudioEngine:
 
         def _synth_and_play():
             import pygame
+
             duration = 2.4
             num_samples = int(self.sample_rate * duration)
             t = np.linspace(0.0, duration, num_samples, dtype=np.float32)
@@ -333,7 +391,7 @@ class SpatialAudioEngine:
             # Volume Gaussian envelope centered at closest approach
             min_idx = np.argmin(dists)
             t_closest = t[min_idx]
-            vol_curve = np.exp(-((t - t_closest) ** 2) / (2.0 * (0.35 ** 2)))
+            vol_curve = np.exp(-((t - t_closest) ** 2) / (2.0 * (0.35**2)))
             vol_curve *= np.clip(3.5 / dists, 0.0, 1.0)
 
             # Binaural Panning: Left (-1) to Right (+1) over time
@@ -343,12 +401,12 @@ class SpatialAudioEngine:
             vol_right = vol_curve * np.sqrt(np.maximum(0.0, (1.0 + pans) * 0.5))
 
             # Doppler Frequency Drop: High approach (380 Hz) -> Low departure (120 Hz)
-            freq_curve = 380.0 - (260.0 / (1.0 + np.exp(- (t - t_closest) * 8.0)))
+            freq_curve = 380.0 - (260.0 / (1.0 + np.exp(-(t - t_closest) * 8.0)))
             phase = np.cumsum(2.0 * np.pi * freq_curve / self.sample_rate)
 
             # Warm Organic Noise + Harmonic Tone (Smooth Jet / Meteor Roar)
             noise = np.random.uniform(-0.35, 0.35, num_samples).astype(np.float32)
-            wave = (np.sin(phase) * 0.5 + noise * 0.5)
+            wave = np.sin(phase) * 0.5 + noise * 0.5
 
             left_channel = np.clip(wave * vol_left, -1.0, 1.0) * 32767
             right_channel = np.clip(wave * vol_right, -1.0, 1.0) * 32767
@@ -363,6 +421,7 @@ class SpatialAudioEngine:
         if self.has_audio:
             try:
                 import pygame
+
                 pygame.mixer.stop()
             except Exception:
                 pass
@@ -386,22 +445,64 @@ class MeteorSpawner:
             # Spawn a meteor streaking across the visible viewport
             spawn_side = random.choice(["left", "right", "top", "front"])
             if spawn_side == "left":
-                self.pos = np.array([-11.0, random.uniform(-1.0, 3.0), random.uniform(-6.0, 2.0)], dtype=np.float32)
-                self.vel = np.array([random.uniform(10.0, 15.0), random.uniform(-1.0, 1.0), random.uniform(-3.0, 3.0)], dtype=np.float32)
+                self.pos = np.array(
+                    [-11.0, random.uniform(-1.0, 3.0), random.uniform(-6.0, 2.0)],
+                    dtype=np.float32,
+                )
+                self.vel = np.array(
+                    [
+                        random.uniform(10.0, 15.0),
+                        random.uniform(-1.0, 1.0),
+                        random.uniform(-3.0, 3.0),
+                    ],
+                    dtype=np.float32,
+                )
             elif spawn_side == "right":
-                self.pos = np.array([11.0, random.uniform(-1.0, 3.0), random.uniform(-6.0, 2.0)], dtype=np.float32)
-                self.vel = np.array([random.uniform(-15.0, -10.0), random.uniform(-1.0, 1.0), random.uniform(-3.0, 3.0)], dtype=np.float32)
+                self.pos = np.array(
+                    [11.0, random.uniform(-1.0, 3.0), random.uniform(-6.0, 2.0)],
+                    dtype=np.float32,
+                )
+                self.vel = np.array(
+                    [
+                        random.uniform(-15.0, -10.0),
+                        random.uniform(-1.0, 1.0),
+                        random.uniform(-3.0, 3.0),
+                    ],
+                    dtype=np.float32,
+                )
             elif spawn_side == "top":
-                self.pos = np.array([random.uniform(-5.0, 5.0), 8.0, random.uniform(-8.0, 0.0)], dtype=np.float32)
-                self.vel = np.array([random.uniform(-3.0, 3.0), random.uniform(-14.0, -9.0), random.uniform(-4.0, 4.0)], dtype=np.float32)
+                self.pos = np.array(
+                    [random.uniform(-5.0, 5.0), 8.0, random.uniform(-8.0, 0.0)],
+                    dtype=np.float32,
+                )
+                self.vel = np.array(
+                    [
+                        random.uniform(-3.0, 3.0),
+                        random.uniform(-14.0, -9.0),
+                        random.uniform(-4.0, 4.0),
+                    ],
+                    dtype=np.float32,
+                )
             else:
-                self.pos = np.array([random.uniform(-5.0, 5.0), random.uniform(-1.0, 3.0), -14.0], dtype=np.float32)
-                self.vel = np.array([random.uniform(-2.0, 2.0), random.uniform(-1.0, 2.0), random.uniform(11.0, 16.0)], dtype=np.float32)
+                self.pos = np.array(
+                    [random.uniform(-5.0, 5.0), random.uniform(-1.0, 3.0), -14.0],
+                    dtype=np.float32,
+                )
+                self.vel = np.array(
+                    [
+                        random.uniform(-2.0, 2.0),
+                        random.uniform(-1.0, 2.0),
+                        random.uniform(11.0, 16.0),
+                    ],
+                    dtype=np.float32,
+                )
 
             self.active = True
             self.lifetime = 0.0
             # Play dedicated smooth 3D Doppler audio for this meteor!
-            self.audio.play_meteor_whoosh(self.pos, self.vel, listener_pos, listener_right)
+            self.audio.play_meteor_whoosh(
+                self.pos, self.vel, listener_pos, listener_right
+            )
             self.next_spawn_time = now + random.uniform(2.5, 4.5)
 
         if self.active:
@@ -424,7 +525,9 @@ def main():
     cam_pitch = 0.0
     base_speed = 7.0
 
-    gui = ti.GUI("Ray-Tracer 9: 6-DOF Space Flight & 3D Spatial Audio", res=(res_x, res_y))
+    gui = ti.GUI(
+        "Ray-Tracer 9: 6-DOF Space Flight & 3D Spatial Audio", res=(res_x, res_y)
+    )
 
     is_left_dragging = False
     is_right_thrusting = False
@@ -474,17 +577,22 @@ def main():
             dy = cur_mouse[1] - last_mouse_pos[1]
             sensitivity = 3.0
             cam_yaw += dx * sensitivity
-            cam_pitch = float(np.clip(cam_pitch + dy * sensitivity, -math.pi * 0.48, math.pi * 0.48))
+            cam_pitch = float(
+                np.clip(cam_pitch + dy * sensitivity, -math.pi * 0.48, math.pi * 0.48)
+            )
             last_mouse_pos = cur_mouse
 
         # -------------------------------------------------------------
         # 2. Camera Orientation Vectors
         # -------------------------------------------------------------
-        forward = np.array([
-            math.sin(cam_yaw) * math.cos(cam_pitch),
-            math.sin(cam_pitch),
-            -math.cos(cam_yaw) * math.cos(cam_pitch)
-        ], dtype=np.float32)
+        forward = np.array(
+            [
+                math.sin(cam_yaw) * math.cos(cam_pitch),
+                math.sin(cam_pitch),
+                -math.cos(cam_yaw) * math.cos(cam_pitch),
+            ],
+            dtype=np.float32,
+        )
         forward = forward / np.linalg.norm(forward)
 
         world_up = np.array([0.0, 1.0, 0.0], dtype=np.float32)
@@ -505,17 +613,17 @@ def main():
             move_dir += forward
 
         # Optional Keyboard Controls
-        if gui.is_pressed(ti.GUI.UP, 'w', 'W'):
+        if gui.is_pressed(ti.GUI.UP, "w", "W"):
             move_dir += forward
-        if gui.is_pressed(ti.GUI.DOWN, 's', 'S'):
+        if gui.is_pressed(ti.GUI.DOWN, "s", "S"):
             move_dir -= forward
-        if gui.is_pressed(ti.GUI.LEFT, 'a', 'A'):
+        if gui.is_pressed(ti.GUI.LEFT, "a", "A"):
             move_dir -= right
-        if gui.is_pressed(ti.GUI.RIGHT, 'd', 'D'):
+        if gui.is_pressed(ti.GUI.RIGHT, "d", "D"):
             move_dir += right
-        if gui.is_pressed(ti.GUI.SPACE, 'r', 'R'):
+        if gui.is_pressed(ti.GUI.SPACE, "r", "R"):
             move_dir += world_up
-        if gui.is_pressed('f', 'F'):
+        if gui.is_pressed("f", "F"):
             move_dir -= world_up
 
         if np.linalg.norm(move_dir) > 0.01:
@@ -556,17 +664,29 @@ def main():
             moons_packed_vec,
             sun_pos_vec,
             meteor_pos_vec,
-            meteor_active_val
+            meteor_active_val,
         )
 
         # -------------------------------------------------------------
         # 6. Render HUD & Blit
         # -------------------------------------------------------------
         gui.set_image(pixels)
-        gui.text(content=f"FPS: {fps:.1f}", pos=(0.04, 0.95), color=0x00FF00, font_size=18)
-        gui.text(content="[Left Drag] Steer  [Right Hold] Thrust Forward  [SHIFT] Turbo", pos=(0.04, 0.06), color=0x88CCFF, font_size=14)
+        gui.text(
+            content=f"FPS: {fps:.1f}", pos=(0.04, 0.95), color=0x00FF00, font_size=18
+        )
+        gui.text(
+            content="[Left Drag] Steer  [Right Hold] Thrust Forward  [SHIFT] Turbo",
+            pos=(0.04, 0.06),
+            color=0x88CCFF,
+            font_size=14,
+        )
         if meteor.active:
-            gui.text(content="☄️ METEOR INCOMING!", pos=(0.36, 0.92), color=0xFFAA00, font_size=18)
+            gui.text(
+                content="☄️ METEOR INCOMING!",
+                pos=(0.36, 0.92),
+                color=0xFFAA00,
+                font_size=18,
+            )
 
         gui.show()
 

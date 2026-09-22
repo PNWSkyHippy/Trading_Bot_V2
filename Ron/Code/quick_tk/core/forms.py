@@ -10,6 +10,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 try:
     import customtkinter as ctk
+
     HAS_CTK = True
 except ImportError:
     ctk = None
@@ -47,7 +48,9 @@ class MultiSelectDropdown(ttk.Frame):
         self.summary_var = tk.StringVar()
 
         self.columnconfigure(0, weight=1)
-        self.entry = ttk.Entry(self, textvariable=self.summary_var, state="readonly", cursor="hand2")
+        self.entry = ttk.Entry(
+            self, textvariable=self.summary_var, state="readonly", cursor="hand2"
+        )
         self.entry.grid(row=0, column=0, sticky="ew")
         self.entry.bind("<Button-1>", lambda e: self.toggle_popup())
 
@@ -146,7 +149,9 @@ class MultiSelectDropdown(ttk.Frame):
         fg = self.theme.get("text", "#cdd6f4")
         border = self.theme.get("border", "#45475a")
 
-        container = tk.Frame(self.popup, bg=bg, highlightbackground=border, highlightthickness=1)
+        container = tk.Frame(
+            self.popup, bg=bg, highlightbackground=border, highlightthickness=1
+        )
         container.pack(fill="both", expand=True)
 
         # Live Search / Filter Bar (if 6 or more options)
@@ -160,8 +165,12 @@ class MultiSelectDropdown(ttk.Frame):
         # Quick Actions Bar
         act_frame = tk.Frame(container, bg=bg)
         act_frame.pack(fill="x", padx=6, pady=4)
-        ttk.Button(act_frame, text="All", width=5, command=self.select_all).pack(side="left", padx=(0, 4))
-        ttk.Button(act_frame, text="None", width=5, command=self.clear_all).pack(side="left")
+        ttk.Button(act_frame, text="All", width=5, command=self.select_all).pack(
+            side="left", padx=(0, 4)
+        )
+        ttk.Button(act_frame, text="None", width=5, command=self.clear_all).pack(
+            side="left"
+        )
 
         self._count_lbl = tk.Label(
             act_frame,
@@ -177,7 +186,9 @@ class MultiSelectDropdown(ttk.Frame):
         scrollbar = ttk.Scrollbar(container, orient="vertical", command=canvas.yview)
         scroll_frame = tk.Frame(canvas, bg=bg)
 
-        scroll_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        scroll_frame.bind(
+            "<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
         canvas.create_window((0, 0), window=scroll_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
 
@@ -221,7 +232,9 @@ class MultiSelectDropdown(ttk.Frame):
     def _on_changed(self):
         self._update_summary()
         if hasattr(self, "_count_lbl") and self._count_lbl.winfo_exists():
-            self._count_lbl.config(text=f"{len(self.get())}/{len(self.options)} selected")
+            self._count_lbl.config(
+                text=f"{len(self.get())}/{len(self.options)} selected"
+            )
         if self.on_change:
             self.on_change(self.get())
 
@@ -234,7 +247,10 @@ class MultiSelectDropdown(ttk.Frame):
         sx, sy = self.winfo_rootx(), self.winfo_rooty()
         sw, sh = self.winfo_width(), self.winfo_height()
 
-        if not ((px <= x <= px + pw and py <= y <= py + ph) or (sx <= x <= sx + sw and sy <= y <= sy + sh)):
+        if not (
+            (px <= x <= px + pw and py <= y <= py + ph)
+            or (sx <= x <= sx + sw and sy <= y <= sy + sh)
+        ):
             self._close_popup()
 
 
@@ -254,7 +270,9 @@ class FormPanel(ttk.Frame):
     ):
         super().__init__(parent, style="Surface.TFrame", **kwargs)
         self.theme = theme or {}
-        self._fields: Dict[str, Tuple[str, Any, Any]] = {}  # name -> (type, widget, getter/setter_or_var)
+        self._fields: Dict[
+            str, Tuple[str, Any, Any]
+        ] = {}  # name -> (type, widget, getter/setter_or_var)
         self._callbacks: Dict[str, List[Callable]] = {}
         self._slider_timers: Dict[str, Any] = {}
         self._row_count = 0
@@ -264,16 +282,30 @@ class FormPanel(ttk.Frame):
         # Optional Card/Title Header
         if title:
             header = ttk.Label(self, text=title, style="Heading.TLabel")
-            header.grid(row=self._row_count, column=0, sticky="w", padx=padding, pady=(padding, 10))
+            header.grid(
+                row=self._row_count,
+                column=0,
+                sticky="w",
+                padx=padding,
+                pady=(padding, 10),
+            )
             self._row_count += 1
 
         self.inner_frame = ttk.Frame(self, style="Surface.TFrame")
-        self.inner_frame.grid(row=self._row_count, column=0, sticky="nsew", padx=padding, pady=(0, padding))
+        self.inner_frame.grid(
+            row=self._row_count,
+            column=0,
+            sticky="nsew",
+            padx=padding,
+            pady=(0, padding),
+        )
         self.inner_frame.columnconfigure(0, weight=1)
         self._row_count += 1
         self._inner_row = 0
 
-    def _add_field_container(self, label_text: str, parent: Optional[tk.Widget] = None) -> ttk.Frame:
+    def _add_field_container(
+        self, label_text: str, parent: Optional[tk.Widget] = None
+    ) -> ttk.Frame:
         """Helper to create a standard labeled container row."""
         p = parent if parent is not None else self.inner_frame
         frame = ttk.Frame(p, style="Surface.TFrame")
@@ -324,7 +356,15 @@ class FormPanel(ttk.Frame):
         bg = self.theme.get("entry_bg", "#11111b")
         fg = self.theme.get("entry_fg", "#cdd6f4")
 
-        txt = tk.Text(container, height=height, bg=bg, fg=fg, insertbackground=fg, relief="flat", font=("Segoe UI", 10))
+        txt = tk.Text(
+            container,
+            height=height,
+            bg=bg,
+            fg=fg,
+            insertbackground=fg,
+            relief="flat",
+            font=("Segoe UI", 10),
+        )
         txt.insert("1.0", default)
         txt.grid(row=1, column=0, sticky="ew")
         container.columnconfigure(0, weight=1)
@@ -369,7 +409,9 @@ class FormPanel(ttk.Frame):
         container.columnconfigure(0, weight=1)
 
         if on_change:
-            var.trace_add("write", lambda *args: self._safe_num_callback(var, on_change, is_float))
+            var.trace_add(
+                "write", lambda *args: self._safe_num_callback(var, on_change, is_float)
+            )
 
         self._fields[name] = ("number", spin, var)
         return spin
@@ -395,7 +437,9 @@ class FormPanel(ttk.Frame):
     ) -> ttk.Scale:
         """Adds a slider / scale with a one-shot final callback after user interaction completes."""
         container = self._add_field_container(label, parent=parent)
-        is_int = (step >= 1) and (float(step).is_integer()) and (float(min_val).is_integer())
+        is_int = (
+            (step >= 1) and (float(step).is_integer()) and (float(min_val).is_integer())
+        )
         var = tk.DoubleVar(value=default)
 
         slider_frame = ttk.Frame(container, style="Surface.TFrame")
@@ -481,7 +525,9 @@ class FormPanel(ttk.Frame):
     ) -> ttk.Combobox:
         """Adds a dropdown combobox."""
         container = self._add_field_container(label, parent=parent)
-        default_val = default if default is not None else (options[0] if options else "")
+        default_val = (
+            default if default is not None else (options[0] if options else "")
+        )
         var = tk.StringVar(value=default_val)
 
         combo = ttk.Combobox(
@@ -543,7 +589,9 @@ class FormPanel(ttk.Frame):
     ) -> ttk.Frame:
         """Adds radio button choices."""
         container = self._add_field_container(label, parent=parent)
-        default_val = default if default is not None else (options[0] if options else "")
+        default_val = (
+            default if default is not None else (options[0] if options else "")
+        )
         var = tk.StringVar(value=default_val)
 
         radio_frame = ttk.Frame(container, style="Surface.TFrame")
@@ -556,7 +604,9 @@ class FormPanel(ttk.Frame):
                 value=opt,
                 variable=var,
                 style="TRadiobutton",
-                command=(lambda v=var, cb=on_change: cb(v.get())) if on_change else None,
+                command=(lambda v=var, cb=on_change: cb(v.get()))
+                if on_change
+                else None,
             )
             if horizontal:
                 rb.grid(row=0, column=idx, sticky="w", padx=(0, 10))
@@ -569,26 +619,66 @@ class FormPanel(ttk.Frame):
     def add_checkbox(
         self,
         name: str,
-        label: str,
+        label: Optional[str] = None,
         default: bool = False,
         parent: Optional[tk.Widget] = None,
         on_change: Optional[Callable[[bool], None]] = None,
+        command: Optional[Callable] = None,
+        **kwargs,
     ) -> ttk.Checkbutton:
-        """Adds a boolean checkbutton."""
+        """Adds a boolean checkbutton with set/get helper methods."""
+        callback = (
+            command
+            or on_change
+            or kwargs.pop("commande", None)
+            or kwargs.pop("command", None)
+            or kwargs.pop("on_change", None)
+            or kwargs.pop("callback", None)
+        )
+        display_label = label if label is not None else name
+        field_name = name if label is not None else name.lower().replace(" ", "_")
         container = self._add_field_container("", parent=parent)
         var = tk.BooleanVar(value=default)
 
+        def _on_toggle():
+            if callback:
+                val = bool(var.get())
+                try:
+                    callback(val)
+                except TypeError:
+                    try:
+                        callback()
+                    except Exception:
+                        pass
+
         cb = ttk.Checkbutton(
             container,
-            text=label,
+            text=display_label,
             variable=var,
             style="TCheckbutton",
-            command=(lambda v=var, fn=on_change: fn(v.get())) if on_change else None,
+            command=_on_toggle if callback else None,
+            **kwargs,
         )
         cb.grid(row=0, column=0, sticky="w", pady=(2, 2))
 
-        self._fields[name] = ("checkbox", cb, var)
+        cb.var = var
+        orig_var_set = var.set
+
+        def _safe_set(v):
+            try:
+                orig_var_set(bool(v))
+            except Exception:
+                pass
+
+        cb.set = _safe_set
+        cb.get = var.get
+
+        self._fields[field_name] = ("checkbox", cb, var)
         return cb
+
+    # Aliases for add_checkbox
+    addCheckBox = add_checkbox
+    CheckBox = add_checkbox
 
     def add_file_picker(
         self,
@@ -666,7 +756,7 @@ class FormPanel(ttk.Frame):
 
         def _browse_output():
             ft = filetypes or [("All Files", "*.*")]
-            
+
             # Initial setup for save dialog
             init_dir = os.path.dirname(var.get()) if var.get() else ""
             init_file = os.path.basename(var.get()) if var.get() else default_filename
@@ -686,7 +776,9 @@ class FormPanel(ttk.Frame):
             # 1. Check folder directory validity
             target_dir = os.path.dirname(chosen_path)
             if not os.path.exists(target_dir):
-                messagebox.showerror("Invalid Directory", f"The directory does not exist:\n{target_dir}")
+                messagebox.showerror(
+                    "Invalid Directory", f"The directory does not exist:\n{target_dir}"
+                )
                 return
 
             # 2. Check for file existence & prompt overwrite
@@ -697,7 +789,10 @@ class FormPanel(ttk.Frame):
                     icon="warning",
                 )
                 if not proceed:
-                    messagebox.showinfo("Cancelled", "File selection cancelled. Please choose another file name.")
+                    messagebox.showinfo(
+                        "Cancelled",
+                        "File selection cancelled. Please choose another file name.",
+                    )
                     return
 
                 # Test writeability on existing file (e.g. check if locked by Excel/another process)
@@ -758,7 +853,11 @@ class FormPanel(ttk.Frame):
         container.columnconfigure(0, weight=1)
 
         getter = lambda: get_value_fn(custom_widget)
-        setter = (lambda v: set_value_fn(custom_widget, v)) if set_value_fn else (lambda v: None)
+        setter = (
+            (lambda v: set_value_fn(custom_widget, v))
+            if set_value_fn
+            else (lambda v: None)
+        )
 
         self._fields[name] = ("custom", custom_widget, (getter, setter))
         return custom_widget
@@ -814,6 +913,10 @@ class FormPanel(ttk.Frame):
         self._fields[name] = ("custom", sw, (getter, setter))
         return sw
 
+    # Aliases
+    CTkSwitch = add_ctk_switch
+    addCTkSwitch = add_ctk_switch
+
     def add_ctk_segmented(
         self,
         name: str,
@@ -833,7 +936,11 @@ class FormPanel(ttk.Frame):
             command=on_change,
             **kwargs,
         )
-        initial_val = default if (default and default in values) else (values[0] if values else "")
+        initial_val = (
+            default
+            if (default and default in values)
+            else (values[0] if values else "")
+        )
         if initial_val:
             seg.set(initial_val)
         seg.grid(row=1, column=0, sticky="ew", pady=(2, 4))
@@ -843,6 +950,10 @@ class FormPanel(ttk.Frame):
         setter = lambda v: seg.set(v if v is not None else initial_val)
         self._fields[name] = ("custom", seg, (getter, setter))
         return seg
+
+    # Aliases
+    CTkSegmentedButton = add_ctk_segmented
+    addCTkSegmentedButton = add_ctk_segmented
 
     def add_ctk_slider(
         self,
@@ -871,17 +982,21 @@ class FormPanel(ttk.Frame):
         sl.grid(row=1, column=0, sticky="ew", pady=(2, 4))
         container.columnconfigure(0, weight=1)
 
-        getter = lambda: float(sl.get())
-        setter = lambda v: sl.set(float(v) if v is not None else from_)
+        getter = lambda: sl.get()
+        setter = lambda v: sl.set(float(v) if v is not None else default)
         self._fields[name] = ("custom", sl, (getter, setter))
         return sl
+
+    # Aliases
+    CTkSlider = add_ctk_slider
+    addCTkSlider = add_ctk_slider
 
     def _parse_progress_val(self, v: Any) -> float:
         """Parses float, int, or string like '45%' or '0.45' into a 0.0 - 1.0 float."""
         if v is None:
             return 0.0
         if isinstance(v, str):
-            v_clean = v.replace('%', '').strip()
+            v_clean = v.replace("%", "").strip()
             try:
                 num = float(v_clean)
                 return num / 100.0 if num > 1.0 else num
@@ -896,7 +1011,7 @@ class FormPanel(ttk.Frame):
     def add_ctk_progress(
         self,
         name: str,
-        label: str,
+        label: Optional[str] = None,
         default: Union[float, str] = 0.0,
         orientation: str = "horizontal",
         mode: str = "determinate",
@@ -905,7 +1020,9 @@ class FormPanel(ttk.Frame):
     ) -> Any:
         """Adds a modern rounded CustomTkinter progress bar."""
         self._require_ctk()
-        container = self._add_field_container(label, parent=parent)
+        display_label = label if label is not None else name
+        field_name = name if label is not None else name.lower().replace(" ", "_")
+        container = self._add_field_container(display_label, parent=parent)
         pb = ctk.CTkProgressBar(
             container,
             orientation=orientation,
@@ -919,10 +1036,11 @@ class FormPanel(ttk.Frame):
 
         getter = lambda: float(pb.get())
         setter = lambda v: pb.set(self._parse_progress_val(v))
-        self._fields[name] = ("custom", pb, (getter, setter))
+        self._fields[field_name] = ("custom", pb, (getter, setter))
         return pb
 
     # Aliases
+    CTkProgressBar = add_ctk_progress
     addCTkProgressBar = add_ctk_progress
     add_ctk_progressbar = add_ctk_progress
 
@@ -990,6 +1108,10 @@ class FormPanel(ttk.Frame):
         self._fields[name] = ("custom", en, (getter, setter))
         return en
 
+    # Aliases
+    CTkEntry = add_ctk_entry
+    addCTkEntry = add_ctk_entry
+
     def add_ctk_textbox(
         self,
         name: str,
@@ -1022,35 +1144,125 @@ class FormPanel(ttk.Frame):
         self._fields[name] = ("custom", tb, (getter, setter))
         return tb
 
+    # Aliases
+    CTkTextbox = add_ctk_textbox
+    addCTkTextbox = add_ctk_textbox
+
     def add_ctk_checkbox(
         self,
-        name: str,
-        label: str,
+        name: Any,
+        label: Optional[str] = None,
         text: str = "",
         default: bool = False,
         on_change: Optional[Callable[[bool], None]] = None,
+        command: Optional[Callable] = None,
         parent: Optional[tk.Widget] = None,
         **kwargs,
     ) -> Any:
         """Adds a modern rounded checkbox with hover highlights."""
         self._require_ctk()
-        container = self._add_field_container(label, parent=parent)
+
+        # If user passed a widget master as the first argument, e.g. adj_form.CTkCheckBox(cb_frame, "Blur", ...)
+        if not isinstance(name, str) and hasattr(name, "winfo_id"):
+            parent = name
+            name = label if label is not None else (text or "checkbox")
+            label = None
+
+        row = kwargs.pop("row", None)
+        col = kwargs.pop("column", kwargs.pop("col", None))
+        columnspan = kwargs.pop("columnspan", kwargs.pop("colspan", 1))
+        grid_sticky = kwargs.pop("sticky", "w")
+        grid_padx = kwargs.pop("padx", 4)
+        grid_pady = kwargs.pop("pady", (2, 4))
+
+        callback = (
+            command
+            or on_change
+            or kwargs.pop("commande", None)
+            or kwargs.pop("command", None)
+            or kwargs.pop("on_change", None)
+            or kwargs.pop("callback", None)
+        )
+
+        if "checkbox_color" in kwargs:
+            kwargs.setdefault("checkmark_color", kwargs.pop("checkbox_color"))
+
+        display_text = text or (label if label is not None else str(name))
+        field_name = str(name) if label is not None else str(name).lower().replace(" ", "_")
+
+        if parent is not None:
+            master = parent
+        else:
+            master = self._add_field_container("", parent=None)
+
+        def _on_toggle():
+            if callback:
+                val = bool(cb.get())
+                try:
+                    callback(val)
+                except TypeError:
+                    try:
+                        callback()
+                    except Exception:
+                        pass
+
         cb = ctk.CTkCheckBox(
-            container,
-            text=text or label,
-            command=(lambda: on_change(bool(cb.get()))) if on_change else None,
+            master,
+            text=display_text,
+            command=_on_toggle if callback else None,
             **kwargs,
         )
+
+        orig_set = cb.set
+
+        def _safe_set(v, *args, **kwargs_set):
+            try:
+                if hasattr(cb, "winfo_exists") and not cb.winfo_exists():
+                    return
+                return orig_set(bool(v), *args, **kwargs_set)
+            except Exception:
+                pass
+
+        cb.set = _safe_set
+
+        orig_get = cb.get
+
+        def _safe_get(*args, **kwargs_get):
+            try:
+                if hasattr(cb, "winfo_exists") and not cb.winfo_exists():
+                    return 0
+                return orig_get(*args, **kwargs_get)
+            except Exception:
+                return 0
+
+        cb.get = _safe_get
+
         if default:
             cb.select()
         else:
             cb.deselect()
-        cb.grid(row=1, column=0, sticky="w", pady=(2, 4))
+
+        if row is not None and col is not None:
+            cb.grid(
+                row=row,
+                column=col,
+                columnspan=columnspan,
+                sticky=grid_sticky,
+                padx=grid_padx,
+                pady=grid_pady,
+            )
+        elif parent is None:
+            cb.grid(row=1, column=0, sticky="w", pady=(2, 4))
 
         getter = lambda: bool(cb.get())
-        setter = lambda v: cb.select() if v else cb.deselect()
-        self._fields[name] = ("custom", cb, (getter, setter))
+        setter = lambda v: cb.set(bool(v))
+        self._fields[field_name] = ("custom", cb, (getter, setter))
         return cb
+
+    # Aliases for CTkCheckBox
+    CTkCheckBox = add_ctk_checkbox
+    addCTkCheckBox = add_ctk_checkbox
+    add_ctkcheckbox = add_ctk_checkbox
 
     def add_ctk_button(
         self,
@@ -1075,14 +1287,19 @@ class FormPanel(ttk.Frame):
             "danger": ("#ef4444", "#dc2626"),
             "success": ("#10b981", "#059669"),
         }
-        fg_col, hover_col = color_map.get(variant, ("#3b82f6", "#2563eb"))
+        default_fg, default_hover = color_map.get(variant, ("#3b82f6", "#2563eb"))
+        fg_col = kwargs.pop("fg_color", default_fg)
+        hover_col = kwargs.pop("hover_color", default_hover)
+
+        cb = callback or kwargs.pop("command", None)
 
         def _on_click():
             values = self.get_values()
-            try:
-                callback(values)
-            except TypeError:
-                callback()
+            if cb:
+                try:
+                    cb(values)
+                except TypeError:
+                    cb()
 
         btn = ctk.CTkButton(
             frame,
@@ -1095,6 +1312,10 @@ class FormPanel(ttk.Frame):
         )
         btn.grid(row=0, column=0, sticky="ew")
         return btn
+
+    # Aliases for CTkButton
+    CTkButton = add_ctk_button
+    addCTkButton = add_ctk_button
 
     def add_button(
         self,
@@ -1111,7 +1332,11 @@ class FormPanel(ttk.Frame):
         frame.columnconfigure(0, weight=1)
         self._inner_row += 1
 
-        style_map = {"primary": "Primary.TButton", "danger": "Danger.TButton", "default": "TButton"}
+        style_map = {
+            "primary": "Primary.TButton",
+            "danger": "Danger.TButton",
+            "default": "TButton",
+        }
         style_name = style_map.get(variant, "TButton")
 
         def _on_click():
@@ -1138,7 +1363,6 @@ class FormPanel(ttk.Frame):
         cb = command if command is not None else callback
         return self.add_button(label=label, callback=cb, variant=variant, **kwargs)
 
-
     def add_button_group(
         self,
         buttons: List[Tuple[str, Callable, str]],
@@ -1148,7 +1372,11 @@ class FormPanel(ttk.Frame):
         frame.grid(row=self._inner_row, column=0, sticky="ew", pady=(8, 4))
         self._inner_row += 1
 
-        style_map = {"primary": "Primary.TButton", "danger": "Danger.TButton", "default": "TButton"}
+        style_map = {
+            "primary": "Primary.TButton",
+            "danger": "Danger.TButton",
+            "default": "TButton",
+        }
 
         for idx, item in enumerate(buttons):
             lbl, cb, *rest = item
@@ -1162,9 +1390,12 @@ class FormPanel(ttk.Frame):
                         handler(self.get_values())
                     except TypeError:
                         handler()
+
                 return _h
 
-            btn = ttk.Button(frame, text=lbl, style=style_name, command=_make_handler(cb))
+            btn = ttk.Button(
+                frame, text=lbl, style=style_name, command=_make_handler(cb)
+            )
             btn.grid(row=0, column=idx, sticky="ew", padx=(0 if idx == 0 else 4, 0))
 
         return frame
@@ -1218,3 +1449,20 @@ class FormPanel(ttk.Frame):
                 pass
             else:
                 val_handler.set("")
+
+    def get_widget(self, name: str) -> Optional[Any]:
+        """Returns the underlying widget instance for a field by name."""
+        if name in self._fields:
+            return self._fields[name][1]
+        cleaned = name.lower().replace(" ", "_")
+        if cleaned in self._fields:
+            return self._fields[cleaned][1]
+        return None
+
+    def configure_field(self, name: str, **kwargs) -> Optional[Any]:
+        """Convenience method to configure an underlying field widget by name."""
+        widget = self.get_widget(name)
+        if widget is not None and hasattr(widget, "configure"):
+            widget.configure(**kwargs)
+            return widget
+        return None

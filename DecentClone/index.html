@@ -16307,7 +16307,8 @@
         }
 
         function portalDisplayRadius(frame, portal = null) {
-            const base = frame.radius || builder.radius;
+            if (!frame) return builder.radius || TUNNEL_DEFAULT_RADIUS;
+            const base = frame.radius || builder.radius || TUNNEL_DEFAULT_RADIUS;
             if (portal?.door) {
                 return Math.max(
                     PORTAL_DOOR_RADIUS_MIN,
@@ -16318,21 +16319,22 @@
         }
 
         function portalVisualPoint(frame, portal = null) {
-            if (!portal?.door) return frame.point;
+            if (!frame) return { x: 0, y: 0, z: 0 };
+            if (!portal?.door) return frame.point || { x: 0, y: 0, z: 0 };
             const seg = Number.isInteger(frame.segmentIndex) ? builder.segments[frame.segmentIndex] : null;
             if (segmentIsRectRoom(seg)) {
                 const room = rectRoomDimensions(seg);
                 return addVec(
-                    frame.point,
+                    frame.point || { x: 0, y: 0, z: 0 },
                     scaleVec(frame.right || seg.right || builder.right, room.halfWidth * 0.92)
                 );
             }
             if (segmentIsChamber(seg)) {
                 const center = chamberCenterPoint(seg);
                 const fromCenter = normalize({
-                    x: frame.point.x - center.x,
-                    y: frame.point.y - center.y,
-                    z: frame.point.z - center.z
+                    x: (frame.point?.x || 0) - center.x,
+                    y: (frame.point?.y || 0) - center.y,
+                    z: (frame.point?.z || 0) - center.z
                 });
                 const dir = Math.hypot(fromCenter.x, fromCenter.y, fromCenter.z) > 0.01
                     ? fromCenter
@@ -16343,19 +16345,25 @@
                 ? chamberProfileRadius(seg, (frame.segmentT ?? 0.5) * (seg.length || builder.length), 1)
                 : (frame.radius || builder.radius);
             const wallRadius = frameRadius * 0.92;
-            return addVec(frame.point, scaleVec(frame.right || builder.right, wallRadius));
+            return addVec(frame.point || { x: 0, y: 0, z: 0 }, scaleVec(frame.right || builder.right, wallRadius));
         }
 
         function portalDoorAxes(frame, portal = null) {
+            if (!frame) {
+                return {
+                    horizontal: copyVec(builder.right || { x: 1, y: 0, z: 0 }),
+                    vertical: copyVec(builder.down || { x: 0, y: 1, z: 0 })
+                };
+            }
             if (!portal?.door) {
                 return {
-                    horizontal: frame.right || builder.right,
-                    vertical: frame.down || builder.down
+                    horizontal: frame.right || builder.right || { x: 1, y: 0, z: 0 },
+                    vertical: frame.down || builder.down || { x: 0, y: 1, z: 0 }
                 };
             }
             return {
-                horizontal: frame.forward || builder.forward,
-                vertical: frame.down || builder.down
+                horizontal: frame.forward || builder.forward || { x: 0, y: 0, z: 1 },
+                vertical: frame.down || builder.down || { x: 0, y: 1, z: 0 }
             };
         }
 
@@ -16364,6 +16372,7 @@
         }
 
         function shipWithinPortalActivateRange(ship, frame, portal = null) {
+            if (!frame || !frame.point) return false;
             const seg = Number.isInteger(frame.segmentIndex) ? builder.segments[frame.segmentIndex] : null;
             const range = segmentIsRectRoom(seg)
                 ? Math.max(
@@ -16413,16 +16422,38 @@
         }
 
         function pickFlightPortalClick(screenX, screenY, centerX, centerY, fov) {
-            if (mapView || !builder.portals.length) return null;
+            if (mapView) return null;
             const ship = { x: posX, y: posY, z: posZ };
+            // Check radiant exit portal first if boss defeated
+            if (tunnelBoss.defeatedAt && tunnelBoss.exitPortalPoint) {
+                const ep = tunnelBoss.exitPortalPoint;
+                const cam = worldToCamera(ep);
+                if (cam && cam.z > 8 && cam.z < 900) {
+                    const p = projectPoint(ep, centerX, centerY, fov);
+                    if (p) {
+                        const sz = Math.max(25, (fov / Math.max(16, cam.z)) * 80);
+                        if (Math.hypot(screenX - p.x, screenY - p.y) <= sz * 1.35) {
+                            return {
+                                from: null,
+                                to: null,
+                                id: 'exit_vault',
+                                dist: Math.hypot(ship.x - ep.x, ship.y - ep.y, ship.z - ep.z),
+                                label: 'MISSION ACCOMPLISHED'
+                            };
+                        }
+                    }
+                }
+            }
+            if (!builder.portals.length) return null;
             let best = null;
             for (const portal of builder.portals) {
-                if (portal.hidden) continue;
+                if (!portal || portal.hidden || !portal.entry || !portal.exit) continue;
                 const pairs = [{ from: portal.entry, to: portal.exit, forwardOnly: portalIsOneWay(portal) }];
                 if (portalIsBidirectional(portal)) {
                     pairs.push({ from: portal.exit, to: portal.entry, forwardOnly: false });
                 }
                 for (const pair of pairs) {
+                    if (!pair.from || !pair.to) continue;
                     if (!shipWithinPortalActivateRange(ship, pair.from, portal)) continue;
                     const poly = projectPortalDiscFlightScreen(pair.from, centerX, centerY, fov, portal);
                     if (!poly) continue;
@@ -16475,12 +16506,13 @@
             let bestLabel = '';
             let bestCanActivate = false;
             for (const portal of builder.portals) {
-                if (portal.hidden) continue;
+                if (!portal || portal.hidden || !portal.entry || !portal.exit) continue;
                 const sides = [
                     { frame: portal.entry, canActivate: true, tag: portalIsOneWay(portal) ? 'one-way' : 'two-way' },
                     { frame: portal.exit, canActivate: portalIsBidirectional(portal), tag: 'return' }
                 ];
                 for (const side of sides) {
+                    if (!side.frame) continue;
                     const d = Math.sqrt(distanceSq(ship, portalVisualPoint(side.frame, portal)));
                     if (d < bestDist) {
                         bestDist = d;
@@ -16493,12 +16525,13 @@
                 if (bestCanActivate) {
                     return ` | portal ${Math.round(bestDist)}u - click door/disc to jump`;
                 }
-                return ` | portal exit ${Math.round(bestDist)}u — no return (one-way)`;
+                return ` | portal exit ${Math.round(bestDist)}u (one-way)`;
             }
             return '';
         }
 
         function remapShipBasisThroughPortal(fromFrame, toFrame) {
+            if (!toFrame || !fromFrame) return;
             const remapAxis = (vec) => normalize(addVec(addVec(
                 scaleVec(toFrame.right, dot(vec, fromFrame.right)),
                 scaleVec(toFrame.down, dot(vec, fromFrame.down))
@@ -16511,21 +16544,50 @@
         }
 
         function computePortalDestination(fromFrame, toFrame) {
-            const inset = Math.max(18, toFrame.radius * 0.32);
+            if (!toFrame) {
+                // Exit vault extraction portal: teleport back to starting area with full shields & ammo
+                const startSeg = builder.segments[0];
+                const spawn = builder.spawnPoint || (startSeg?.from ? copyVec(startSeg.from) : { x: 0, y: 0, z: 0 });
+                const fwd = startSeg?.forward ? copyVec(startSeg.forward) : (builder.forward ? copyVec(builder.forward) : { x: 0, y: 0, z: 1 });
+                const rgt = startSeg?.right ? copyVec(startSeg.right) : (builder.right ? copyVec(builder.right) : { x: 1, y: 0, z: 0 });
+                const dwn = startSeg?.down ? copyVec(startSeg.down) : (builder.down ? copyVec(builder.down) : { x: 0, y: 1, z: 0 });
+                return {
+                    pos: copyVec(spawn),
+                    yaw: 0,
+                    pitch: 0,
+                    roll: 0,
+                    shipForward: fwd,
+                    shipRight: rgt,
+                    shipDown: dwn,
+                    exitForward: fwd,
+                    exitRight: rgt,
+                    exitDown: dwn,
+                    segmentIndex: 0
+                };
+            }
+            const targetRadius = toFrame.radius || builder.radius || TUNNEL_DEFAULT_RADIUS;
+            const inset = Math.max(18, targetRadius * 0.32);
+            const toPoint = toFrame.point || { x: 0, y: 0, z: 0 };
+            const toFwd = toFrame.forward || builder.forward || { x: 0, y: 0, z: 1 };
+            const toRgt = toFrame.right || builder.right || { x: 1, y: 0, z: 0 };
+            const toDwn = toFrame.down || builder.down || { x: 0, y: 1, z: 0 };
             const pos = {
-                x: toFrame.point.x + toFrame.forward.x * inset,
-                y: toFrame.point.y + toFrame.forward.y * inset,
-                z: toFrame.point.z + toFrame.forward.z * inset
+                x: toPoint.x + toFwd.x * inset,
+                y: toPoint.y + toFwd.y * inset,
+                z: toPoint.z + toFwd.z * inset
             };
-            const remapAxis = (vec) => normalize(addVec(addVec(
-                scaleVec(toFrame.right, dot(vec, fromFrame.right)),
-                scaleVec(toFrame.down, dot(vec, fromFrame.down))
-            ), scaleVec(toFrame.forward, dot(vec, fromFrame.forward))));
+            const remapAxis = (vec) => {
+                if (!fromFrame || !fromFrame.right || !fromFrame.down || !fromFrame.forward) return vec;
+                return normalize(addVec(addVec(
+                    scaleVec(toRgt, dot(vec, fromFrame.right)),
+                    scaleVec(toDwn, dot(vec, fromFrame.down))
+                ), scaleVec(toFwd, dot(vec, fromFrame.forward))));
+            };
             const shipForwardNext = remapAxis(shipForward);
             const shipRightNext = remapAxis(shipRight);
             const shipDownNext = remapAxis(shipDown);
             const nearest = nearestTunnelPoint(pos);
-            const exitBasis = buildWorldUpBasis(toFrame.forward, toFrame.right);
+            const exitBasis = buildWorldUpBasis(toFwd, toRgt);
             return {
                 pos,
                 yaw,
@@ -16537,7 +16599,7 @@
                 exitForward: exitBasis.forward,
                 exitRight: exitBasis.right,
                 exitDown: exitBasis.down,
-                segmentIndex: nearest ? nearest.index : shipSegmentIndex
+                segmentIndex: nearest ? nearest.index : (Number.isInteger(toFrame.segmentIndex) ? toFrame.segmentIndex : shipSegmentIndex)
             };
         }
 
@@ -16571,6 +16633,7 @@
 
         function completePortalTransit() {
             const pending = portalTransit.pendingTeleport;
+            const wasExitVault = portalTransit.portalId === 'exit_vault';
             if (pending) {
                 posX = pending.pos.x;
                 posY = pending.pos.y;
@@ -16595,7 +16658,17 @@
             portalTransit.toFrame = null;
             portalTransit.portalId = null;
             portalTransit.streaks = [];
-            keyboardStatus.innerText = 'hyperspace transit complete';
+
+            if (wasExitVault) {
+                keyboardStatus.innerText = '★ ★ ★ SECTOR CLEARED! RE-ENTERING PATROL CORRIDOR WITH FULL SHIELDS & AMMO ★ ★ ★';
+                playSfx('target_chime', { intensity: 2.5 });
+                shipInventory.rocketLoaded = ROCKET_MAGAZINE_SIZE;
+                updateRocketHud();
+                ensureTunnelMissionSquadrons(true);
+                savePlayerProfile();
+            } else {
+                keyboardStatus.innerText = 'hyperspace transit complete';
+            }
         }
 
         function updatePortalTransit() {
@@ -22891,10 +22964,12 @@
             const fov = 520;
             let best = null;
             for (const portal of builder.portals) {
+                if (!portal || !portal.entry || !portal.exit) continue;
                 for (const side of [
                     { frame: portal.entry, portalSide: 'entry', label: `${portal.label} entry` },
                     { frame: portal.exit, portalSide: 'exit', label: `${portal.label} exit` }
                 ]) {
+                    if (!side.frame) continue;
                     const ringSides = 14;
                     const ring = [];
                     for (let i = 0; i < ringSides; i++) {
@@ -22967,18 +23042,23 @@
                 }
             }
             for (const portal of builder.portals) {
-                candidates.push({
-                    point: copyVec(portal.entry.point),
-                    label: `${portal.label} entry`,
-                    portalId: portal.id,
-                    portalSide: 'entry'
-                });
-                candidates.push({
-                    point: copyVec(portal.exit.point),
-                    label: `${portal.label} exit`,
-                    portalId: portal.id,
-                    portalSide: 'exit'
-                });
+                if (!portal) continue;
+                if (portal.entry?.point) {
+                    candidates.push({
+                        point: copyVec(portal.entry.point),
+                        label: `${portal.label} entry`,
+                        portalId: portal.id,
+                        portalSide: 'entry'
+                    });
+                }
+                if (portal.exit?.point) {
+                    candidates.push({
+                        point: copyVec(portal.exit.point),
+                        label: `${portal.label} exit`,
+                        portalId: portal.id,
+                        portalSide: 'exit'
+                    });
+                }
             }
 
             let best = null;
@@ -23025,18 +23105,18 @@
                         continue;
                     }
                     if (prevScreen) {
-                        const lineDist = distancePointToSegment2D(
+                        const lineDist = pointToSegmentDistance2D(
                             screenX, screenY,
                             prevScreen.x, prevScreen.y,
                             projected.x, projected.y
                         );
                         if (lineDist <= pickRadius) {
-                            const midT = (prevT + t) * 0.5;
-                            const midPoint = pointOnSegment(seg, midT);
-                            const weighted = lineDist + projected.z * 0.0015;
+                            const segT = step / steps;
+                            const midT = (prevT + segT) * 0.5;
+                            const weighted = lineDist + projected.z * 0.001;
                             if (!best || weighted < best.weighted) {
                                 best = {
-                                    point: copyVec(midPoint),
+                                    point: pointOnSegment(seg, midT),
                                     label: `seg ${i + 1} edge`,
                                     segmentIndex: i,
                                     endKind: null,
@@ -23055,10 +23135,12 @@
             }
 
             for (const portal of builder.portals) {
+                if (!portal) continue;
                 for (const side of [
-                    { point: portal.entry.point, label: `${portal.label} entry`, radius: portal.entry.radius },
-                    { point: portal.exit.point, label: `${portal.label} exit`, radius: portal.exit.radius }
+                    { point: portal.entry?.point, label: `${portal.label} entry`, radius: portal.entry?.radius || builder.radius },
+                    { point: portal.exit?.point, label: `${portal.label} exit`, radius: portal.exit?.radius || builder.radius }
                 ]) {
+                    if (!side.point) continue;
                     const projected = projectMapPoint(side.point, centerX, centerY, fov);
                     if (!projected) continue;
                     const dist = Math.hypot(projected.x - screenX, projected.y - screenY);

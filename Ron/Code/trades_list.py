@@ -5,9 +5,16 @@ import os
 import copy
 import argparse
 import csv
-import re   
+import re
 
-from local_functions import ( colorize, chkstr_isnum, clean_ansi,  date_check,  STAT_LABEL_VALUE_RE, Timed)
+from local_functions import (
+    colorize,
+    chkstr_isnum,
+    clean_ansi,
+    date_check,
+    STAT_LABEL_VALUE_RE,
+    Timed,
+)
 
 extended = False
 csv_true = False
@@ -16,9 +23,19 @@ EQUALSTR = "=" * 175 + "\n"
 BL_EQUALSTR = colorize(EQUALSTR, "blue")
 # Find path to the trading bot DB
 if os.name == "nt":
-    DB_PATH = os.path.join( os.path.dirname(__file__), "..\\..", "data", "trading_bot.db",)
+    DB_PATH = os.path.join(
+        os.path.dirname(__file__),
+        "..\\..",
+        "data",
+        "trading_bot.db",
+    )
 else:
-    DB_PATH = os.path.join(os.path.dirname(__file__), "../..", "data", "trading_bot.db",)
+    DB_PATH = os.path.join(
+        os.path.dirname(__file__),
+        "../..",
+        "data",
+        "trading_bot.db",
+    )
 # End Globals
 
 
@@ -32,23 +49,44 @@ def print_outfile(text, output_file):
         clean_text = clean_ansi(text)
         try:
             if csv_true:
-                with open(output_file + ".csv", "a", newline="", ) as csvfile:
-                    spamwriter = csv.writer(csvfile, delimiter=",", quotechar=" ", quoting=csv.QUOTE_MINIMAL,)
-                    for ( line ) in clean_text.splitlines():
+                with open(
+                    output_file + ".csv",
+                    "a",
+                    newline="",
+                ) as csvfile:
+                    spamwriter = csv.writer(
+                        csvfile,
+                        delimiter=",",
+                        quotechar=" ",
+                        quoting=csv.QUOTE_MINIMAL,
+                    )
+                    for line in clean_text.splitlines():
                         stripped = line.strip()
-                        if not stripped or set( stripped ) == {"="}:
-                            spamwriter.writerow( [] )
-                        elif ( stripped.count(":") >= 2):
+                        if not stripped or set(stripped) == {"="}:
+                            spamwriter.writerow([])
+                        elif stripped.count(":") >= 2:
                             # summary lines like "Total Trades: 54   Total P&L: -1320.00 ..."
                             pairs = STAT_LABEL_VALUE_RE.findall(stripped)
-                            row = [ part.strip() for label, value in pairs for part in ( label, value,)]
-                            spamwriter.writerow( row or stripped.split() )
+                            row = [
+                                part.strip()
+                                for label, value in pairs
+                                for part in (
+                                    label,
+                                    value,
+                                )
+                            ]
+                            spamwriter.writerow(row or stripped.split())
                         else:
-                            spamwriter.writerow( stripped.split() )
+                            spamwriter.writerow(stripped.split())
             else:
-                with open( output_file, "a", encoding="utf-8", ) as file: file.write(clean_text)
+                with open(
+                    output_file,
+                    "a",
+                    encoding="utf-8",
+                ) as file:
+                    file.write(clean_text)
         except OSError as e:
-            print( f"Error writing to output file: {e}" )
+            print(f"Error writing to output file: {e}")
             sys.exit(1)
     else:
         print(text, end="")
@@ -59,9 +97,7 @@ def connect():
     try:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
-        conn.execute(
-            "SELECT 1 FROM trades LIMIT 1"
-        )
+        conn.execute("SELECT 1 FROM trades LIMIT 1")
     except sqlite3.OperationalError as e:
         print(f"Database error: {DB_PATH}: {e}")
         sys.exit()
@@ -87,8 +123,10 @@ def get_open_trades(conn):
     return [dict(r) for r in c.fetchall()]
 
 
-@Timed    
-def proc_dict(loc_trade_list, strat_name, ikey, output_file, start_date, end_date, output_dict):
+@Timed
+def proc_dict(
+    loc_trade_list, strat_name, ikey, output_file, start_date, end_date, output_dict
+):
     """Process the provided dictionary of trades"""
     # Initialize Locals
     col_pnl = ""
@@ -113,20 +151,22 @@ def proc_dict(loc_trade_list, strat_name, ikey, output_file, start_date, end_dat
     for trade in loc_trade_list:
         t_sli = 38 if extended else 20
         t_idx = -len(trade["trade_id"]) if extended else -16
- #       for my_idx, my_key in trade.items():
- #           field_lens[my_idx] =  len(str(my_key)) + 4
+        #       for my_idx, my_key in trade.items():
+        #           field_lens[my_idx] =  len(str(my_key)) + 4
         break  # only look at one record
     for trade_dict in loc_trade_list:
-        entry_time = (
-            trade_dict["entry_time"] or ""
-        )
+        entry_time = trade_dict["entry_time"] or ""
         exit_time = trade_dict["exit_time"] or ""
         if entry_time[0:16] >= start_date and exit_time[0:16] <= end_date:
-            if ikey == "ALL" or trade_dict.get(ikey, "None") == strat_name or strat_name == "ALL":
+            if (
+                ikey == "ALL"
+                or trade_dict.get(ikey, "None") == strat_name
+                or strat_name == "ALL"
+            ):
                 tot_fees += trade_dict["fees_paid"]
                 symbol = trade_dict["symbol"]
                 trade_pnl = float(trade_dict["pnl"] or 0.0)
-                sym_total_pnl[symbol] = sym_total_pnl.get(symbol, 0.0) + trade_pnl 
+                sym_total_pnl[symbol] = sym_total_pnl.get(symbol, 0.0) + trade_pnl
                 #  entry contains strat were after total the PnL
                 total_pnl += trade_pnl
                 # Running total the number of wins or losses and trace the total of each
@@ -144,58 +184,60 @@ def proc_dict(loc_trade_list, strat_name, ikey, output_file, start_date, end_dat
                 # Track the number of trades processed
                 trade_count += 1
                 if trade_pnl < 0:
-                    col_pnl = colorize( f"{trade_pnl:<20.2f}","red",)
+                    col_pnl = colorize(
+                        f"{trade_pnl:<20.2f}",
+                        "red",
+                    )
                 else:
-                    col_pnl = colorize(f"{trade_pnl:<20.2f}","green",)
- 
+                    col_pnl = colorize(
+                        f"{trade_pnl:<20.2f}",
+                        "green",
+                    )
+
                 head_str = ""
                 tail_str = ""
                 for key, idx in output_dict.items():
- #                   key_len = field_lens[key]
+                    #                   key_len = field_lens[key]
                     if key == "trade_id" and extended:
-                        head_str += f'{key[t_idx:]:<{t_sli}}'
+                        head_str += f"{key[t_idx:]:<{t_sli}}"
                     elif key == "exit_reason":
-                         head_str += f'{key:<27}'
+                        head_str += f"{key:<27}"
                     else:
-                        head_str += f'{key:<20}'
+                        head_str += f"{key:<20}"
                     if key == "trade_id":
-                        tail_str += f'{trade_dict[key][t_idx:]:{t_sli}}'
+                        tail_str += f"{trade_dict[key][t_idx:]:{t_sli}}"
                     elif key == "exit_reason":
-                         tail_str += f'{trade_dict[key]:<27}'
+                        tail_str += f"{trade_dict[key]:<27}"
                     elif key == "entry_time" or key == "exit_time":
-                        tail_str += f'{trade_dict[key][0:16]:<20}'
-                    elif  chkstr_isnum(trade_dict[key]) == "float":
+                        tail_str += f"{trade_dict[key][0:16]:<20}"
+                    elif chkstr_isnum(trade_dict[key]) == "float":
                         if float(trade_dict[key]) >= 0:
                             stii = float(trade_dict[key])
                             stii2 = colorize(f"{stii:<20.6f}", "green")
-                            tail_str += f'{stii2}'
+                            tail_str += f"{stii2}"
                         else:
                             stii = float(trade_dict[key])
                             stii2 = colorize(f"{stii:<20.6f}", "red")
-                            tail_str += f'{stii2}'
-#                             tail_str += f'{colorize({float(trade_dict[key]):<20.6f}}, "red")'
+                            tail_str += f"{stii2}"
+                    #                             tail_str += f'{colorize({float(trade_dict[key]):<20.6f}}, "red")'
                     else:
-                        tail_str += f'{trade_dict[key]:<20}'
+                        tail_str += f"{trade_dict[key]:<20}"
                 head_str += "\n"
                 tail_str += "\n"
- 
+
                 if passes == 1:
                     print_outfile(
-                        f'List of {colorize(strat_name, "red")} Trades\n',
+                        f"List of {colorize(strat_name, 'red')} Trades\n",
                         output_file,
                     )
+                    print_outfile(BL_EQUALSTR, output_file)
                     print_outfile(
-                        BL_EQUALSTR, output_file
+                        colorize(f"{head_str}", "magenta"),
+                        output_file,
                     )
-                    print_outfile(
-                        colorize(f'{head_str}', "magenta"),
-                     output_file,
-                    )
-                    print_outfile(
-                        BL_EQUALSTR, output_file
-                    ) 
-                    passes += 1 
- 
+                    print_outfile(BL_EQUALSTR, output_file)
+                    passes += 1
+
                 print_outfile(tail_str, output_file)
 
     # Select the best and worst complete symbol totals after every matching
@@ -204,12 +246,27 @@ def proc_dict(loc_trade_list, strat_name, ikey, output_file, start_date, end_dat
     # Print  Tttle , header graphics and column headers
 
     if sym_total_pnl:
-        high_symbol, high_total = max(sym_total_pnl.items(), key=lambda item: item[1],)
-        low_symbol, low_total = min(sym_total_pnl.items(), key=lambda item: item[1],)
-        high_sym = {"symbol": high_symbol, "total": high_total,}
-        low_sym = {"symbol": low_symbol, "total": low_total,}
+        high_symbol, high_total = max(
+            sym_total_pnl.items(),
+            key=lambda item: item[1],
+        )
+        low_symbol, low_total = min(
+            sym_total_pnl.items(),
+            key=lambda item: item[1],
+        )
+        high_sym = {
+            "symbol": high_symbol,
+            "total": high_total,
+        }
+        low_sym = {
+            "symbol": low_symbol,
+            "total": low_total,
+        }
     else:
-        high_sym = {"symbol": "None", "total": 0.0,}
+        high_sym = {
+            "symbol": "None",
+            "total": 0.0,
+        }
         low_sym = {"symbol": "None", "total": 0.0}
 
     # Prevent div by zero excetions then calculate avg wins and losses
@@ -237,35 +294,17 @@ def proc_dict(loc_trade_list, strat_name, ikey, output_file, start_date, end_dat
 
     # Properly color the Tot PnL red for neg, green for pos
     if total_pnl >= 0:
-        ret_dict["total_pnl"] = colorize(
-            f"{total_pnl:<19.2f}", "green"
-        )
+        ret_dict["total_pnl"] = colorize(f"{total_pnl:<19.2f}", "green")
     else:
-        ret_dict["total_pnl"] = colorize(
-            f"{total_pnl:<19.2f}", "red"
-        )
+        ret_dict["total_pnl"] = colorize(f"{total_pnl:<19.2f}", "red")
 
-    ret_dict["max_win"] = colorize(
-        f"{max_win:<14.2f}", "green"
-    )
-    ret_dict["max_loss"] = colorize(
-        f"{max_loss:>3.2f}", "red"
-    )
-    ret_dict["avg_wins"] = colorize(
-        f"{avg_wins:<14.2f}", "green"
-    )
-    ret_dict["avg_loss"] = colorize(
-        f"{avg_loss:<19.2f}", "red"
-    )
-    ret_dict["tot_wins"] = colorize(
-        f"{tot_winners:>3}", "green"
-    )
-    ret_dict["tot_losers"] = colorize(
-        f"{tot_losers:<11}", "red"
-    )
-    ret_dict["tot_fees"] = colorize(
-        f"{tot_fees:<9.2f}", "red"
-    )
+    ret_dict["max_win"] = colorize(f"{max_win:<14.2f}", "green")
+    ret_dict["max_loss"] = colorize(f"{max_loss:>3.2f}", "red")
+    ret_dict["avg_wins"] = colorize(f"{avg_wins:<14.2f}", "green")
+    ret_dict["avg_loss"] = colorize(f"{avg_loss:<19.2f}", "red")
+    ret_dict["tot_wins"] = colorize(f"{tot_winners:>3}", "green")
+    ret_dict["tot_losers"] = colorize(f"{tot_losers:<11}", "red")
+    ret_dict["tot_fees"] = colorize(f"{tot_fees:<9.2f}", "red")
     ret_dict["high_sym"] = high_sym
     ret_dict["low_sym"] = low_sym
     # Pass back our pre color formatted dictionary of results
@@ -290,35 +329,43 @@ def print_col_headers(trades_lst):
         final_list += f"{my_key:<20}"
 
         if local_counter % 5 == 0:
-            print(
-                f'{colorize(final_list, "blue")}'
-            )
+            print(f"{colorize(final_list, 'blue')}")
             final_list = ""
 
         local_counter += 1
     # If num of columns not divisible by 5 print the remaining odd headers
     if final_list:
-        print(f'{colorize(final_list, "blue")}')
+        print(f"{colorize(final_list, 'blue')}")
 
 
 # ...existing code...
 
+
 def format_group_summary(res_dict):
     """color and format the results dictionary"""
-    lhigh_tot = colorize(f'{res_dict["high_sym"]["total"]:.2f}', "green",)
-    llow_tot = colorize(f'{res_dict["low_sym"]["total"]:.2f}', "red",)
-    lhigh_sym = colorize(f'{res_dict["high_sym"]["symbol"]}', "cyan",)
-    llow_sym = colorize(f'{res_dict["low_sym"]["symbol"]}', "cyan")
+    lhigh_tot = colorize(
+        f"{res_dict['high_sym']['total']:.2f}",
+        "green",
+    )
+    llow_tot = colorize(
+        f"{res_dict['low_sym']['total']:.2f}",
+        "red",
+    )
+    lhigh_sym = colorize(
+        f"{res_dict['high_sym']['symbol']}",
+        "cyan",
+    )
+    llow_sym = colorize(f"{res_dict['low_sym']['symbol']}", "cyan")
 
     return (
-        f'{"Total Trades:":>16} {res_dict["trade_count"]}    {"Total P&L:":<13}   {res_dict["total_pnl"]}'
-        f'{"Max Win:":<10} {res_dict["max_win"]}'
-        f'{"Max Loss:":>10}{"":<5}{res_dict["max_loss"]}\n'
-        f'{"Avg Win:":>16} {res_dict["avg_wins"]}     {"Avg Loss:":<13}  {res_dict["avg_loss"]}'
-        f'{"":<4}W/L: {res_dict["tot_wins"]}/{res_dict["tot_losers"]}{"":<6}W/L%:{"":<5}{res_dict["win_pct"]}'
-        f'%/{res_dict["loss_pct"]}%\n'
-        f'{"High Sym:":>16} {lhigh_sym:>10} ({lhigh_tot:>16})'
-        f'{"Low Sym:":>13} {llow_sym} ({llow_tot}){"Tot. Fees:":>19} {res_dict["tot_fees"]}\n'
+        f"{'Total Trades:':>16} {res_dict['trade_count']}    {'Total P&L:':<13}   {res_dict['total_pnl']}"
+        f"{'Max Win:':<10} {res_dict['max_win']}"
+        f"{'Max Loss:':>10}{'':<5}{res_dict['max_loss']}\n"
+        f"{'Avg Win:':>16} {res_dict['avg_wins']}     {'Avg Loss:':<13}  {res_dict['avg_loss']}"
+        f"{'':<4}W/L: {res_dict['tot_wins']}/{res_dict['tot_losers']}{'':<6}W/L%:{'':<5}{res_dict['win_pct']}"
+        f"%/{res_dict['loss_pct']}%\n"
+        f"{'High Sym:':>16} {lhigh_sym:>10} ({lhigh_tot:>16})"
+        f"{'Low Sym:':>13} {llow_sym} ({llow_tot}){'Tot. Fees:':>19} {res_dict['tot_fees']}\n"
     )
 
 
@@ -364,22 +411,22 @@ def value_in_selected(actual, selected):
                 bound = numeric_value(val[len(op) :])
                 if bound is None:
                     break
-                if (op == "!=" and actual_num != bound):
+                if op == "!=" and actual_num != bound:
                     return True
-                if (op == "<=" and actual_num <= bound):
+                if op == "<=" and actual_num <= bound:
                     return True
-                if (op == ">=" and actual_num >= bound):
+                if op == ">=" and actual_num >= bound:
                     return True
-                if (op == "<" and actual_num < bound):
+                if op == "<" and actual_num < bound:
                     return True
-                if (op == ">" and actual_num > bound):
+                if op == ">" and actual_num > bound:
                     return True
                 break
         else:
             if actual_str == val:
                 return True
             selected_num = numeric_value(val)
-            if ( actual_num is not None and selected_num is not None ):
+            if actual_num is not None and selected_num is not None:
                 if actual_num == selected_num:
                     return True
     return False
@@ -406,65 +453,69 @@ def print_group_summary(
     )
     if int(res_dict["trade_count"]) >= 1:
         print_outfile(BL_EQUALSTR, output_file)
-        print_outfile(format_group_summary(res_dict),output_file,)
         print_outfile(
-            BL_EQUALSTR + "\n\n", output_file
+            format_group_summary(res_dict),
+            output_file,
         )
+        print_outfile(BL_EQUALSTR + "\n\n", output_file)
+
 
 @Timed
 def main():
 
     # Standard library approach to handle Windows initialization safely
     if sys.platform == "win32":
-        os.system("")  # Crucial trick: This forces the Windows terminal engine to enable ANSI parsing natively
+        os.system(
+            ""
+        )  # Crucial trick: This forces the Windows terminal engine to enable ANSI parsing natively
 
     DEF_OUTFIELDS = {
-        "trade_id":         "ID",
-        "entry_time":       "Entry",
-        "exit_time":        "Exit",
-        "symbol":           "Symbol",
-        "direction":        "Direct",
-        "entry_price":      "EntryPrice",
-        "exit_price":       "ExitPrice",
-        "pnl":              "PNL",
+        "trade_id": "ID",
+        "entry_time": "Entry",
+        "exit_time": "Exit",
+        "symbol": "Symbol",
+        "direction": "Direct",
+        "entry_price": "EntryPrice",
+        "exit_price": "ExitPrice",
+        "pnl": "PNL",
     }
-    
+
     ALL_OUTFIELDS = {
-        "trade_id":             "ID",
-        "symbol":               "Symbol",
-        "asset_class":          "Asset",
-        "direction":            "Direct",
-        "status":               "Status",
-        "entry_time":           "EntryTime",
-        "exit_time":            "ExitTime",
-        "entry_price":          "EntryPrice",
-        "exit_price":           "ExitPrice",
-        "quantity":             "Quantity",
-        "position_value":       "PosVal",
-        "stop_loss":            "topLoss",
-        "take_profit":          "TakeProf",
-        "pnl":                  "PnL",
-        "pnl_pct":              "PnLPct",
-        "exit_reason":          "ExitReas",
-        "signal_score":         "SigScore",
-        "indicators_json":      "IndJSON",
-        "broker":               "Broker",
-        "strategy_name":        "Strat",
-        "is_overnight":         "OverNite",
-        "broker_order_id":      "BrokerID",
-        "tp_hit_count":         "TPHitCnt",
-        "stop_order_id":        "StopID",
-        "tp_order_id":          "TPId",
-        "entry_timeframe":      "EnterTFrm",
-        "fees_paid":            "FeesPd",
-        "mfe_pct":              "MfePct",
-        "mae_pct":              "MaePct",
-        "partial_pnl":          "PartPnL",
-        "partial_fees_paid":    "ParFeePd",
-        "partial_exit_count":   "ParExtCnt",
-        "event_id":             "EventId"
+        "trade_id": "ID",
+        "symbol": "Symbol",
+        "asset_class": "Asset",
+        "direction": "Direct",
+        "status": "Status",
+        "entry_time": "EntryTime",
+        "exit_time": "ExitTime",
+        "entry_price": "EntryPrice",
+        "exit_price": "ExitPrice",
+        "quantity": "Quantity",
+        "position_value": "PosVal",
+        "stop_loss": "topLoss",
+        "take_profit": "TakeProf",
+        "pnl": "PnL",
+        "pnl_pct": "PnLPct",
+        "exit_reason": "ExitReas",
+        "signal_score": "SigScore",
+        "indicators_json": "IndJSON",
+        "broker": "Broker",
+        "strategy_name": "Strat",
+        "is_overnight": "OverNite",
+        "broker_order_id": "BrokerID",
+        "tp_hit_count": "TPHitCnt",
+        "stop_order_id": "StopID",
+        "tp_order_id": "TPId",
+        "entry_timeframe": "EnterTFrm",
+        "fees_paid": "FeesPd",
+        "mfe_pct": "MfePct",
+        "mae_pct": "MaePct",
+        "partial_pnl": "PartPnL",
+        "partial_fees_paid": "ParFeePd",
+        "partial_exit_count": "ParExtCnt",
+        "event_id": "EventId",
     }
-    
+
     output_file = ""
     is_sorted = False
     default_key_list = [
@@ -477,7 +528,11 @@ def main():
     # Connect to DB and load the trades table into the trades_list dictionary
 
     def wide_formatter(prog):
-        return (argparse.RawDescriptionHelpFormatter(prog,width=110,max_help_position=46,))
+        return argparse.RawDescriptionHelpFormatter(
+            prog,
+            width=110,
+            max_help_position=46,
+        )
 
     parser = argparse.ArgumentParser(
         description="List PnL based on search criteria",
@@ -492,58 +547,110 @@ Usage examples:
         formatter_class=wide_formatter,
     )
 
-    parser.add_argument("-o", "--outfile", metavar="",
+    parser.add_argument(
+        "-o",
+        "--outfile",
+        metavar="",
         help="\tpath and name of output file",
     )
-    parser.add_argument("-op", "--open", action="store_true",
+    parser.add_argument(
+        "-op",
+        "--open",
+        action="store_true",
         help="List open trades instead of closed",
     )
-    parser.add_argument("-csv", "--csv",  action="store_true",
+    parser.add_argument(
+        "-csv",
+        "--csv",
+        action="store_true",
         help="\tuse to have output file be a csv",
     )
 
-    parser.add_argument("-1", "--list1", metavar="",
+    parser.add_argument(
+        "-1",
+        "--list1",
+        metavar="",
         help="ALL or comma-separated values for the first key; numeric values also accept !=, <, >,"
         "<=, >= (quote these in PowerShell)",
     )
-    parser.add_argument("-2", "--list2", metavar="",
+    parser.add_argument(
+        "-2",
+        "--list2",
+        metavar="",
         help="ALL or a <Comma separated list of values found in second provided key>",
     )
-    parser.add_argument("-3", "--list3", metavar="",
+    parser.add_argument(
+        "-3",
+        "--list3",
+        metavar="",
         help="ALL or a <Comma separated list of values found in third provided key>",
     )
-    parser.add_argument("-4", "--list4", metavar="",
+    parser.add_argument(
+        "-4",
+        "--list4",
+        metavar="",
         help="ALL or a <Comma separated list of values found in fourth provided key>",
     )
-    parser.add_argument("-5", "--list5", metavar="",
+    parser.add_argument(
+        "-5",
+        "--list5",
+        metavar="",
         help="ALL or a <Comma separated list of values found in fifth provided key>",
     )
-    parser.add_argument("-s", "--start", metavar="",
+    parser.add_argument(
+        "-s",
+        "--start",
+        metavar="",
         help="Starting date and time. Format YYYY:MM:DDTHH:MM T being a literal T",
     )
-    parser.add_argument("-e", "--end", metavar="",
+    parser.add_argument(
+        "-e",
+        "--end",
+        metavar="",
         help="Ending date and time. Format YYYY:MM:DDTHH:MM T being a literal T",
     )
-    parser.add_argument("-k", "--key", metavar="",
+    parser.add_argument(
+        "-k",
+        "--key",
+        metavar="",
         help="ALL or a <Comma separated list of DB table keys to index and search>",
     )
-    parser.add_argument("-of", "--outfields", metavar="",
+    parser.add_argument(
+        "-of",
+        "--outfields",
+        metavar="",
         help="ALL or a <Comma separated list of DB table output fields to display",
     )
-    parser.add_argument("-sk", "--sort-keys", metavar="",
+    parser.add_argument(
+        "-sk",
+        "--sort-keys",
+        metavar="",
         help="<Comma separated list of DB table keys to sort results. one entry per key from -k>",
     )
-    parser.add_argument("-R", "--Reverse", action="store_true",
+    parser.add_argument(
+        "-R",
+        "--Reverse",
+        action="store_true",
         help="If given, sort order is reversed",
     )
-    parser.add_argument("-N", "--Names", action="store_true",
+    parser.add_argument(
+        "-N",
+        "--Names",
+        action="store_true",
         help="If given, prints a list of all trade table key names you can use",
     )
-    parser.add_argument("-A", "--and", dest="and_filter", action="store_true",
+    parser.add_argument(
+        "-A",
+        "--and",
+        dest="and_filter",
+        action="store_true",
         help="If given with multiple --key values, require trades to match ALL selected key/value "
         "filters at once (e.g. symbol=MSFT AND direction=long) instead of printing a separate breakdown per key",
     )
-    parser.add_argument("-E", "--Ext", action="store_true",
+    parser.add_argument(
+        "-E",
+        "--Ext",
+        action="store_true",
         help="Extended Trade Id , default is shortened Id (Useful when you need the full trade Id for a lookup)",
     )
 
@@ -578,12 +685,13 @@ Usage examples:
             sys.exit(1)
 
     if not trades_list:
-        print("No closed trades found.") if (mode == "closed") else print("No open trades found.")
-        
+        print("No closed trades found.") if (mode == "closed") else print(
+            "No open trades found."
+        )
+
         conn.close()
         return
 
-  
     hdr_list = build_hdr_list(trades_list)
 
     if args.Names:
@@ -620,27 +728,29 @@ Usage examples:
         args.list5.split(",") if args.list5 else [],
     ]
 
-    key_list =  args.key.split(",") if args.key else []
+    key_list = args.key.split(",") if args.key else []
 
     if len(key_list) > 5:
         print("\nError: maximum of 5 keys is supported.\n")
         sys.exit(1)
-        
+
     output_fields = args.outfields.split(",") if args.outfields else False
     output_dict = {}
     if not output_fields:
         output_dict = DEF_OUTFIELDS
     else:
         for outpt in output_fields:
-                if outpt not in hdr_list:
-                    print(f"\nError: {outpt} is not a valid entry. please run with -N to see a list of valid choices\n")
-                    sys.exit()
+            if outpt not in hdr_list:
+                print(
+                    f"\nError: {outpt} is not a valid entry. please run with -N to see a list of valid choices\n"
+                )
+                sys.exit()
         for fields in output_fields:
-            for key_name, descr in ALL_OUTFIELDS.items():   
+            for key_name, descr in ALL_OUTFIELDS.items():
                 if key_name == fields:
                     output_dict[key_name] = descr
                     continue
-        
+
     sort_list = args.sort_keys.split(",") if args.sort_keys else []
 
     if len(sort_list) > 5:
@@ -655,17 +765,24 @@ Usage examples:
         key_list = default_key_list
 
     if ((not len(list_values)) or (not len(key_list))) and (not date_range_given):
-         parser.print_help()
-         parser.exit(2,"\nError: provide --key key1,key2,... and at least one --list option per key given.\n")
-  
+        parser.print_help()
+        parser.exit(
+            2,
+            "\nError: provide --key key1,key2,... and at least one --list option per key given.\n",
+        )
+
     for key_name in key_list:
         if key_name not in hdr_list:
-            print(f"\nError: {key_name} is not a valid entry. please run with -N to see a list of valid choices\n")
+            print(
+                f"\nError: {key_name} is not a valid entry. please run with -N to see a list of valid choices\n"
+            )
             sys.exit()
 
     for sort_name in sort_list:
         if sort_name not in hdr_list:
-            print(f"\nError: {sort_name} is not a valid entry. please run with -N to see a list of valid choices\n")
+            print(
+                f"\nError: {sort_name} is not a valid entry. please run with -N to see a list of valid choices\n"
+            )
             sys.exit()
     ttrades_list = []
     for i in range(len(key_list)):
@@ -682,15 +799,25 @@ Usage examples:
                     pass
             try:
                 if rev_sort:
-                    ttrades_list[i].sort(key=lambda r: (isinstance(r[sort_list[i]], str), r[sort_list[i]]), reverse=True)
+                    ttrades_list[i].sort(
+                        key=lambda r: (
+                            isinstance(r[sort_list[i]], str),
+                            r[sort_list[i]],
+                        ),
+                        reverse=True,
+                    )
                 else:
-                    ttrades_list[i].sort(key=lambda r: (isinstance(r[sort_list[i]], str), r[sort_list[i]]), reverse=False)
+                    ttrades_list[i].sort(
+                        key=lambda r: (
+                            isinstance(r[sort_list[i]], str),
+                            r[sort_list[i]],
+                        ),
+                        reverse=False,
+                    )
             except ValueError:
                 None
     if (not args.Names) and (len(key_list) < 1):
-        print(
-            "\nError: Please provide at least 1 key , separated by a ,   \n"
-        )
+        print("\nError: Please provide at least 1 key , separated by a ,   \n")
         sys.exit()
 
     # -A/--and: one combined report where a trade must match every selected
@@ -700,7 +827,7 @@ Usage examples:
         combined_list = []
         for trade in trades_list:
             matches_all = True
-            for key_name, selected in zip( key_list, list_values):
+            for key_name, selected in zip(key_list, list_values):
                 if not selected:
                     continue
                 if selected[0] == "ALL":
@@ -722,13 +849,28 @@ Usage examples:
                     except ValueError:
                         pass
                 try:
-                    combined_list.sort(key=lambda r: (isinstance(r[sort_key], str), r[sort_key]), reverse=rev_sort)
+                    combined_list.sort(
+                        key=lambda r: (isinstance(r[sort_key], str), r[sort_key]),
+                        reverse=rev_sort,
+                    )
                 except ValueError:
                     None
 
-        label_parts = [ f'{key_name}={",".join(selected)}' for key_name, selected in zip(key_list, list_values) if selected ]
-        combined_label = (" & ".join(label_parts) if label_parts else "ALL" )
-        print_group_summary(combined_label, combined_list, "ALL", output_file, start_date, end_date, output_dict)
+        label_parts = [
+            f"{key_name}={','.join(selected)}"
+            for key_name, selected in zip(key_list, list_values)
+            if selected
+        ]
+        combined_label = " & ".join(label_parts) if label_parts else "ALL"
+        print_group_summary(
+            combined_label,
+            combined_list,
+            "ALL",
+            output_file,
+            start_date,
+            end_date,
+            output_dict,
+        )
         return
 
     # Build one generic list of grouped trade dictionaries
@@ -740,19 +882,38 @@ Usage examples:
             group_value = trade[key_name]
             grouped_trades.setdefault(group_value, []).append(copy.deepcopy(trade))
 
-        dict_of_trades.append({"key": key_name, "selected": ( list_values[idx] if idx < len(list_values) else [] ), "groups": grouped_trades})
+        dict_of_trades.append(
+            {
+                "key": key_name,
+                "selected": (list_values[idx] if idx < len(list_values) else []),
+                "groups": grouped_trades,
+            }
+        )
 
     for trade_group in dict_of_trades:
         key_name = trade_group["key"]
         selected_values = trade_group["selected"]
         grouped_trades = trade_group["groups"]
 
-        for (group_name,trade_list,) in grouped_trades.items():
+        for (
+            group_name,
+            trade_list,
+        ) in grouped_trades.items():
             if not selected_values:
                 continue
 
-            if selected_values[0] == "ALL" or value_in_selected(group_name, selected_values):
-                print_group_summary(group_name, trade_list, key_name, output_file, start_date, end_date, output_dict)
+            if selected_values[0] == "ALL" or value_in_selected(
+                group_name, selected_values
+            ):
+                print_group_summary(
+                    group_name,
+                    trade_list,
+                    key_name,
+                    output_file,
+                    start_date,
+                    end_date,
+                    output_dict,
+                )
 
 
 if __name__ == "__main__":

@@ -17,9 +17,7 @@ try:
     # 2. Open the CSV file and read rows
     with open("users.csv", "r") as file:
         csv_reader = csv.reader(file)
-        next(
-            csv_reader
-        )  # Skip the header row if your CSV has one
+        next(csv_reader)  # Skip the header row if your CSV has one
 
         # 3. Bulk insert the rows safely using placeholders
         cursor.executemany(
@@ -28,9 +26,7 @@ try:
         )
 
     conn.commit()
-    print(
-        "Data inserted successfully using pure Python!"
-    )
+    print("Data inserted successfully using pure Python!")
 
 except sqlite3.Error as e:
     print(f"Database error: {e}")

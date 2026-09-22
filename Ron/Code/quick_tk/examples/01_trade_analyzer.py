@@ -67,7 +67,13 @@ def ensure_sample_database(db_path: str = "sample_trades.db") -> str:
     cur.execute("SELECT COUNT(*) FROM trades")
     if cur.fetchone()[0] == 0:
         symbols = ["ES", "MES", "NQ", "MNQ", "CL", "GC"]
-        strategies = ["Breakout", "Mean Reversion", "Trend Scalp", "VWAP Bounce", "Opening Range"]
+        strategies = [
+            "Breakout",
+            "Mean Reversion",
+            "Trend Scalp",
+            "VWAP Bounce",
+            "Opening Range",
+        ]
         start_dt = datetime(2026, 1, 1)
 
         trades = []
@@ -75,7 +81,14 @@ def ensure_sample_database(db_path: str = "sample_trades.db") -> str:
             sym = random.choice(symbols)
             strat = random.choice(strategies)
             cnt = random.choice([1, 2, 4, 5, 10])
-            dt = (start_dt + timedelta(days=random.randint(0, 180), hours=random.randint(9, 16), minutes=random.randint(0, 59))).strftime("%Y-%m-%d %H:%M")
+            dt = (
+                start_dt
+                + timedelta(
+                    days=random.randint(0, 180),
+                    hours=random.randint(9, 16),
+                    minutes=random.randint(0, 59),
+                )
+            ).strftime("%Y-%m-%d %H:%M")
             win = random.random() < 0.62
             if win:
                 pnl = round(random.uniform(50.0, 1250.0), 2)
@@ -105,7 +118,9 @@ def ensure_sample_database(db_path: str = "sample_trades.db") -> str:
 
 class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
     title = "Trade Analyzer"
-    description = "Query SQLite trades DB, filter strategies, compute metrics, and export reports"
+    description = (
+        "Query SQLite trades DB, filter strategies, compute metrics, and export reports"
+    )
 
     def build_ui(self):
         # Top-level horizontal split: Left Form (320px) / Right Results
@@ -118,14 +133,54 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
         self.form = self.add_form("Filter Criteria", parent=self)
         self.form.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
 
-        self.form.add_file_picker("db_path", "SQLite Database", default=sample_db, mode="open", filetypes=[("SQLite DB", "*.db")])
-        self.form.add_dropdown("strategy", "Strategy Filter", ["ALL", "Breakout", "Mean Reversion", "Trend Scalp", "VWAP Bounce", "Opening Range"], default="ALL")
-        self.form.add_dropdown("symbol", "Symbol", ["ALL", "ES", "MES", "NQ", "MNQ", "CL", "GC"], default="ALL")
-        self.form.add_number("min_pnl", "Minimum PnL ($)", default=-1000, min_val=-5000, max_val=10000, step=50, is_float=True)
-        self.form.add_radio("outcome", "Trade Outcome", ["ALL", "WIN", "LOSS"], default="ALL")
-        self.form.add_dropdown("sort_by", "Sort Order", ["Date (Newest)", "PnL (Highest)", "PnL (Lowest)", "Duration"], default="Date (Newest)")
+        self.form.add_file_picker(
+            "db_path",
+            "SQLite Database",
+            default=sample_db,
+            mode="open",
+            filetypes=[("SQLite DB", "*.db")],
+        )
+        self.form.add_dropdown(
+            "strategy",
+            "Strategy Filter",
+            [
+                "ALL",
+                "Breakout",
+                "Mean Reversion",
+                "Trend Scalp",
+                "VWAP Bounce",
+                "Opening Range",
+            ],
+            default="ALL",
+        )
+        self.form.add_dropdown(
+            "symbol",
+            "Symbol",
+            ["ALL", "ES", "MES", "NQ", "MNQ", "CL", "GC"],
+            default="ALL",
+        )
+        self.form.add_number(
+            "min_pnl",
+            "Minimum PnL ($)",
+            default=-1000,
+            min_val=-5000,
+            max_val=10000,
+            step=50,
+            is_float=True,
+        )
+        self.form.add_radio(
+            "outcome", "Trade Outcome", ["ALL", "WIN", "LOSS"], default="ALL"
+        )
+        self.form.add_dropdown(
+            "sort_by",
+            "Sort Order",
+            ["Date (Newest)", "PnL (Highest)", "PnL (Lowest)", "Duration"],
+            default="Date (Newest)",
+        )
 
-        self.form.add_button("Run Analysis", callback=self.on_analyze, variant="primary")
+        self.form.add_button(
+            "Run Analysis", callback=self.on_analyze, variant="primary"
+        )
         self.form.add_button("Reset Filters", callback=self.on_reset, variant="default")
 
         # 2. Right Container: StatGrid + DataTable
@@ -141,7 +196,16 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
 
         # Data Table
         self.table = self.add_data_table(
-            columns=["ID", "Date/Time", "Symbol", "Strategy", "Contracts", "PnL ($)", "Outcome", "Duration (m)"],
+            columns=[
+                "ID",
+                "Date/Time",
+                "Symbol",
+                "Strategy",
+                "Contracts",
+                "PnL ($)",
+                "Outcome",
+                "Duration (m)",
+            ],
             parent=right_box,
             enable_search=True,
             enable_export_csv=True,
@@ -153,13 +217,15 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
 
     def on_reset(self, _=None):
         self.form.clear()
-        self.form.set_values({
-            "strategy": "ALL",
-            "symbol": "ALL",
-            "outcome": "ALL",
-            "min_pnl": -1000,
-            "sort_by": "Date (Newest)",
-        })
+        self.form.set_values(
+            {
+                "strategy": "ALL",
+                "symbol": "ALL",
+                "outcome": "ALL",
+                "min_pnl": -1000,
+                "sort_by": "Date (Newest)",
+            }
+        )
         self.on_analyze(self.form.get_values())
 
     def on_analyze(self, values: dict):
@@ -225,13 +291,22 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             return {
                 "rows": rows,
                 "metrics": {
-                    "Total PnL": (f"${total_pnl:,.2f}", "success" if total_pnl >= 0 else "danger"),
-                    "Win Rate": (f"{win_rate:.1f}%", "success" if win_rate >= 50 else "warning"),
-                    "Profit Factor": (f"{profit_factor:.2f}", "success" if profit_factor >= 1.5 else "info"),
+                    "Total PnL": (
+                        f"${total_pnl:,.2f}",
+                        "success" if total_pnl >= 0 else "danger",
+                    ),
+                    "Win Rate": (
+                        f"{win_rate:.1f}%",
+                        "success" if win_rate >= 50 else "warning",
+                    ),
+                    "Profit Factor": (
+                        f"{profit_factor:.2f}",
+                        "success" if profit_factor >= 1.5 else "info",
+                    ),
                     "Biggest Win": (f"${biggest_win:,.2f}", "success"),
                     "Biggest Loss": (f"${biggest_loss:,.2f}", "danger"),
                     "Total Trades": (f"{total_trades}", "info"),
-                }
+                },
             }
 
         def _on_done(res):
@@ -245,7 +320,9 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             self.set_status(f"Loaded {len(formatted_rows)} trades.")
 
         # Run via async task runner so large DB queries never lock UI
-        self.run_async(_query_worker, on_done=_on_done, status_msg="Querying SQLite Database...")
+        self.run_async(
+            _query_worker, on_done=_on_done, status_msg="Querying SQLite Database..."
+        )
 
 
 if __name__ == "__main__":

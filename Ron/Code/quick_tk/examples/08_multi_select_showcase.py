@@ -45,15 +45,26 @@ class MultiSelectShowcase(ToolView):
 
         # Large Option List with Filter
         indicator_list = [
-            "SMA (20)", "SMA (50)", "SMA (200)",
-            "EMA (9)", "EMA (21)", "EMA (55)",
-            "RSI (14)", "Stochastic RSI",
-            "MACD (12, 26, 9)", "MACD Histogram",
-            "Bollinger Bands (20, 2)", "Keltner Channels",
-            "ATR (14)", "Chaikin Money Flow",
-            "VWAP (Session)", "VWAP Bands",
-            "Volume Profile (POC)", "Delta Volume",
-            "SuperTrend (10, 3)", "Ichimoku Cloud"
+            "SMA (20)",
+            "SMA (50)",
+            "SMA (200)",
+            "EMA (9)",
+            "EMA (21)",
+            "EMA (55)",
+            "RSI (14)",
+            "Stochastic RSI",
+            "MACD (12, 26, 9)",
+            "MACD Histogram",
+            "Bollinger Bands (20, 2)",
+            "Keltner Channels",
+            "ATR (14)",
+            "Chaikin Money Flow",
+            "VWAP (Session)",
+            "VWAP Bands",
+            "Volume Profile (POC)",
+            "Delta Volume",
+            "SuperTrend (10, 3)",
+            "Ichimoku Cloud",
         ]
         self.indicators_dd = self.form.add_multi_select(
             name="indicators",
@@ -68,16 +79,24 @@ class MultiSelectShowcase(ToolView):
         self.formats_dd = self.form.add_multi_select(
             name="formats",
             label="Export Targets",
-            options=["CSV Spreadsheet", "JSON Payload", "Parquet Table", "SQLite Database", "Excel XLSX"],
+            options=[
+                "CSV Spreadsheet",
+                "JSON Payload",
+                "Parquet Table",
+                "SQLite Database",
+                "Excel XLSX",
+            ],
             default=["CSV Spreadsheet", "JSON Payload"],
         )
 
         # Action Buttons
-        self.form.add_button_group([
-            ("Apply Selection", self.on_run, "primary"),
-            ("Select All Indicators", self.on_select_all_indicators, "secondary"),
-            ("Reset Defaults", self.on_reset, "secondary")
-        ])
+        self.form.add_button_group(
+            [
+                ("Apply Selection", self.on_run, "primary"),
+                ("Select All Indicators", self.on_select_all_indicators, "secondary"),
+                ("Reset Defaults", self.on_reset, "secondary"),
+            ]
+        )
 
         # 2. Right Results Panel: StatGrid + DataTable
         right_box = ttk.Frame(self, style="TFrame")
@@ -105,18 +124,27 @@ class MultiSelectShowcase(ToolView):
 
     def setup_menus(self):
         file_menu = self.menu("File")
-        file_menu.add_item("Apply Selection", lambda: self.on_run(self.form.get_values()), shortcut="Ctrl+R")
+        file_menu.add_item(
+            "Apply Selection",
+            lambda: self.on_run(self.form.get_values()),
+            shortcut="Ctrl+R",
+        )
         file_menu.add_separator()
         file_menu.add_item("Exit", self.app.root.quit, shortcut="Alt+F4")
 
         preset_menu = self.menu("Presets")
         preset_menu.add_item("Select All Indicators", self.on_select_all_indicators)
-        preset_menu.add_item("Clear All Indicators", lambda: (self.indicators_dd.clear(), self.on_run(self.form.get_values())))
+        preset_menu.add_item(
+            "Clear All Indicators",
+            lambda: (self.indicators_dd.clear(), self.on_run(self.form.get_values())),
+        )
         preset_menu.add_separator()
         preset_menu.add_item("Reset to Defaults", self.on_reset)
 
         view_menu = self.menu("View")
-        view_menu.add_item("Refresh Table", lambda: self.on_run(self.form.get_values()), shortcut="F5")
+        view_menu.add_item(
+            "Refresh Table", lambda: self.on_run(self.form.get_values()), shortcut="F5"
+        )
 
     def on_run(self, inputs: dict):
         if not isinstance(inputs, dict):
@@ -125,16 +153,33 @@ class MultiSelectShowcase(ToolView):
         indicators = inputs.get("indicators", [])
         formats = inputs.get("formats", [])
 
-        self.stats.set_metrics({
-            "Watchlist Size": (f"{len(symbols)} tickers", "info"),
-            "Active Indicators": (f"{len(indicators)} active", "success" if len(indicators) > 0 else "warning"),
-            "Export Formats": (f"{len(formats)} targets", "info"),
-        })
+        self.stats.set_metrics(
+            {
+                "Watchlist Size": (f"{len(symbols)} tickers", "info"),
+                "Active Indicators": (
+                    f"{len(indicators)} active",
+                    "success" if len(indicators) > 0 else "warning",
+                ),
+                "Export Formats": (f"{len(formats)} targets", "info"),
+            }
+        )
 
         table_rows = [
-            ["Watchlist", str(len(symbols)), ", ".join(symbols) if symbols else "(None)"],
-            ["Indicators", str(len(indicators)), ", ".join(indicators) if indicators else "(None)"],
-            ["Export Targets", str(len(formats)), ", ".join(formats) if formats else "(None)"],
+            [
+                "Watchlist",
+                str(len(symbols)),
+                ", ".join(symbols) if symbols else "(None)",
+            ],
+            [
+                "Indicators",
+                str(len(indicators)),
+                ", ".join(indicators) if indicators else "(None)",
+            ],
+            [
+                "Export Targets",
+                str(len(formats)),
+                ", ".join(formats) if formats else "(None)",
+            ],
         ]
         self.table.set_data(table_rows)
 

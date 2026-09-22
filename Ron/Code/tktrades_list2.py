@@ -4,42 +4,50 @@ Demonstrates FormPanel, DataTable, StatGrid, and SQLite data integration.
 """
 
 import os
-import random
 import sqlite3
 import sys
-from datetime import datetime, timedelta
 import tkinter as tk
+from datetime import datetime
 from tkinter import ttk
+from typing import cast
+
 from quick_tk import QuickApp, ToolView
-from quick_tk.core.forms import FormPanel
-from typing import Any, cast
+
 # Add parent directory and scratch root to sys.path
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRATCH_DIR = os.path.dirname(BASE_DIR)
 sys.path.insert(0, SCRATCH_DIR)
 sys.path.insert(0, BASE_DIR)
-from local_functions import length_time ,hours_mins, update_tuple,colorize, chkstr_isnum, clean_ansi,  date_check,  STAT_LABEL_VALUE_RE, Timed
-from quick_tk import QuickApp, ToolView
-import copy
 import argparse
+import copy
 import csv
-import re   
-from tkcalendar import Calendar, DateEntry
-from datetime import date
+import re
 
-import tkinter as tk
 from tkcalendar import DateEntry
 
+from local_functions import (
+    STAT_LABEL_VALUE_RE,
+    Timed,
+    chkstr_isnum,
+    clean_ansi,
+    colorize,
+    date_check,
+    hours_mins,
+    length_time,
+    update_tuple,
+)
 
 
 class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
     title = "Trade Analyzer"
-    description = "Query SQLite trades DB, filter strategies, compute metrics, and export reports"
-  
+    description = (
+        "Query SQLite trades DB, filter strategies, compute metrics, and export reports"
+    )
+
     def build_ui(self):
-        self.trades_list, self.main_values= self.main_loop()
-        sys.stderr.write(f'{self.main_values["args"]}\n\n')
-        sys.stderr.write(f'{self.main_values["list_values"]}\n\n')
+        self.trades_list, self.main_values = self.main_loop()
+        sys.stderr.write(f"{self.main_values['args']}\n\n")
+        sys.stderr.write(f"{self.main_values['list_values']}\n\n")
         sys.stderr.flush()
         self.rows = []
         self.key_list = []
@@ -48,8 +56,8 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
         self.key_list3 = []
         self.key_list4 = []
         self.key_list5 = []
-        self.db_path_var = 'c:/Users/Linda/Trading_Bot_v2/data/trading_bot.db'
-#        self.db_path.set('c:/Users/Linda/Trading_Bot_v2/data/trading_bot.db')
+        self.db_path_var = "c:/Users/Linda/Trading_Bot_v2/data/trading_bot.db"
+        #        self.db_path.set('c:/Users/Linda/Trading_Bot_v2/data/trading_bot.db')
         self.db_path = ""
         self.debug_win: tk.Toplevel | None = None
         self.debug_console = None
@@ -58,13 +66,19 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
         self.columnconfigure(1, weight=1)
         self.rowconfigure(0, weight=1)
 
-        # 1. Left 
+        # 1. Left
         self.form = self.add_form("Filter Criteria", parent=self)
         self.form.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
-        
-        self.db_path_var =  self.form.add_file_picker("db_path", "SQLite Database", default='c:/Users/Linda/Trading_Bot_v2/data/trading_bot.db', mode="open", filetypes=[("SQLite DB", "*.db")])
+
+        self.db_path_var = self.form.add_file_picker(
+            "db_path",
+            "SQLite Database",
+            default="c:/Users/Linda/Trading_Bot_v2/data/trading_bot.db",
+            mode="open",
+            filetypes=[("SQLite DB", "*.db")],
+        )
         self.key_list = self.main_values["hdr_list"]
-        
+
         self.start_date_entry = self.form.add_custom_widget(
             name="start_date",
             label="Start Date",
@@ -76,9 +90,9 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             get_value_fn=lambda widget: datetime.combine(
                 widget.get_date(),
                 datetime.min.time(),
-            ).isoformat(timespec="microseconds"), 
+            ).isoformat(timespec="microseconds"),
             set_value_fn=lambda widget, value: widget.set_date(
-                    datetime.fromisoformat(value).date()
+                datetime.fromisoformat(value).date()
                 if isinstance(value, str)
                 else value
             ),
@@ -88,7 +102,7 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             name="end_date",
             label="End Date",
             widget_factory=lambda parent: DateEntry(
-             parent,
+                parent,
                 width=12,
                 date_pattern="yyyy-mm-dd",
             ),
@@ -101,10 +115,10 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
                 if isinstance(value, str)
                 else value
             ),
-        )       
-          
+        )
+
         self.keys_id = self.form.add_multi_select(
-            name="keys",    
+            name="keys",
             label="Search Keys (Max 5)",
             options=self.key_list,
             default=["strategy_name"],
@@ -112,15 +126,15 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             max_display=3,
         )
         self.list1_id = self.form.add_multi_select(
-            name="list1",    
+            name="list1",
             label="Search Keys 1 values",
             options=self.key_list1,
             default=["strategy_name"],
             placeholder="Select keys...",
             max_display=3,
-                )
+        )
         self.list2_id = self.form.add_multi_select(
-            name="list2",    
+            name="list2",
             label="Search Keyss 2 values",
             options=self.key_list2,
             default=["strategy_name"],
@@ -128,7 +142,7 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             max_display=3,
         )
         self.list3_id = self.form.add_multi_select(
-            name="keys3",    
+            name="keys3",
             label="Search Keys 3 values",
             options=self.key_list3,
             default=["strategy_name"],
@@ -136,7 +150,7 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             max_display=3,
         )
         self.list4_id = self.form.add_multi_select(
-            name="list4",    
+            name="list4",
             label="Search Keys 4 values",
             options=self.key_list4,
             default=["strategy_name"],
@@ -144,17 +158,24 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             max_display=3,
         )
         self.list5_id = self.form.add_multi_select(
-            name="list5",    
+            name="list5",
             label="Search Keys 5 values",
             options=self.key_list5,
             default=["strategy_name"],
             placeholder="Select keys...",
             max_display=3,
         )
-       
-        self.form.add_dropdown("sort_by", "Sort Order", ["Date (Newest)", "PnL (Highest)", "PnL (Lowest)", "Duration"], default="Date (Newest)")
 
-        self.form.add_button("Run Analysis", callback=self.on_analyze, variant="primary")
+        self.form.add_dropdown(
+            "sort_by",
+            "Sort Order",
+            ["Date (Newest)", "PnL (Highest)", "PnL (Lowest)", "Duration"],
+            default="Date (Newest)",
+        )
+
+        self.form.add_button(
+            "Run Analysis", callback=self.on_analyze, variant="primary"
+        )
         self.form.add_button("Reset Filters", callback=self.on_reset, variant="default")
 
         # 2. Right Container: StatGrid + DataTable
@@ -170,7 +191,16 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
         self.setup_menus()
         # Data Table
         self.table = self.add_data_table(
-            columns=["ID", "Date/Time", "Symbol", "Strategy", "Contracts", "PnL ($)", "Outcome", "Duration (m)"],
+            columns=[
+                "ID",
+                "Date/Time",
+                "Symbol",
+                "Strategy",
+                "Contracts",
+                "PnL ($)",
+                "Outcome",
+                "Duration (m)",
+            ],
             parent=right_box,
             enable_search=True,
             enable_export_csv=True,
@@ -178,11 +208,13 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
         self.table.grid(row=1, column=0, sticky="nsew")
         # Initial run
         self.on_analyze(self.form.get_values())
-        
+
     def setup_menus(self):
         # 1. FILE MENU (Fluent Chained Style)
         file_menu = self.menu("File")
-        file_menu.add_command(label="Save Report to 💾 <Ctrl-s>", command=self.on_save_report)
+        file_menu.add_command(
+            label="Save Report to 💾 <Ctrl-s>", command=self.on_save_report
+        )
         self.bind_all("<Control-s>", self.on_save_report)
 
         file_menu.add_separator()
@@ -191,29 +223,44 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
         self.bind_all("<Control-p>", lambda _event: self.app.root.quit())
         # 3. VIEW MENU (With Toggle Checkboxes and Radio Groups)
         view_menu = self.menu("View")
-        self.debug_var = view_menu.add_toggle("Debug",  default=False, on_toggle=self.open_debug_window)
+        self.debug_var = view_menu.add_toggle(
+            "Debug", default=False, on_toggle=self.open_debug_window
+        )
         self.bind_all("<Control-d>", self.open_debug_window)
-        self.rev_sort =  view_menu.add_toggle("Rev Sort", default=False, on_toggle=self.open_sort_reverse)
-        self.ext_id =  view_menu.add_toggle("Extended ID", default=False, on_toggle=self.open_ext_id)
-        self.and_res =  view_menu.add_toggle("AND results", default=False, on_toggle=self.open_and_results)
-        self.csv_out =  view_menu.add_toggle("CSV Output", default=False, on_toggle=self.open_csv_results)
+        self.rev_sort = view_menu.add_toggle(
+            "Rev Sort", default=False, on_toggle=self.open_sort_reverse
+        )
+        self.ext_id = view_menu.add_toggle(
+            "Extended ID", default=False, on_toggle=self.open_ext_id
+        )
+        self.and_res = view_menu.add_toggle(
+            "AND results", default=False, on_toggle=self.open_and_results
+        )
+        self.csv_out = view_menu.add_toggle(
+            "CSV Output", default=False, on_toggle=self.open_csv_results
+        )
+
     def on_reset(self, _=None):
         self.form.clear()
-        self.form.set_values({
-            "strategy": "ALL",
-            "symbol": "ALL",
-            "status": "ALL",
-            "min_pnl": -1000,
-            "sort_by": "Date (Newest)",
-        })
+        self.form.set_values(
+            {
+                "strategy": "ALL",
+                "symbol": "ALL",
+                "status": "ALL",
+                "min_pnl": -1000,
+                "sort_by": "Date (Newest)",
+            }
+        )
         self.on_analyze(self.form.get_values())
 
     def on_analyze(self, values: dict):
         """Fetch from SQLite with the form filters and update the UI."""
         if self.debug_console is not None:
-            self.debug_console.write(f"StartDate: {values.get('start_date', 'None')} - End Date: {values.get('end_date', 'None')}\n\n")
+            self.debug_console.write(
+                f"StartDate: {values.get('start_date', 'None')} - End Date: {values.get('end_date', 'None')}\n\n"
+            )
         self.db_path = values.get("db_path_var", "")
-        self.db_path = 'c:/Users/Linda/Trading_Bot_v2/data/trading_bot.db'
+        self.db_path = "c:/Users/Linda/Trading_Bot_v2/data/trading_bot.db"
         if self.debug_console is not None:
             self.debug_console.write(f"DB Path: {self.db_path}\n\n")
         if not os.path.exists(self.db_path):
@@ -221,6 +268,7 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             if self.debug_console is not None:
                 self.debug_console.write(f"File not found DB Path: {self.db_path}\n\n")
             return
+
         def _query_worker():
             conn = sqlite3.connect(self.db_path)
             cur = conn.cursor()
@@ -260,9 +308,9 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             for i in range(len(rows)):
                 # for each row replace duration column with xxh:yym
                 days, hours, mins, seconds = length_time(rows[i][1], rows[i][7])
-                hours,mins = hours_mins(days, hours, mins, seconds)
+                hours, mins = hours_mins(days, hours, mins, seconds)
                 # Convert back to tuple
-                rows[i] = update_tuple(rows[i], 7, f'{hours}h:{mins}')
+                rows[i] = update_tuple(rows[i], 7, f"{hours}h:{mins}")
             total_trades = len(rows)
             if total_trades > 0:
                 pnls = [r[5] for r in rows]
@@ -283,13 +331,22 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
                 "query": query,
                 "params": params,
                 "metrics": {
-                    "Total PnL": (f"${total_pnl:,.2f}", "success" if total_pnl >= 0 else "danger"),
-                    "Win Rate": (f"{win_rate:.1f}%", "success" if win_rate >= 50 else "warning"),
-                    "Profit Factor": (f"{profit_factor:.2f}", "success" if profit_factor >= 1.5 else "info"),
+                    "Total PnL": (
+                        f"${total_pnl:,.2f}",
+                        "success" if total_pnl >= 0 else "danger",
+                    ),
+                    "Win Rate": (
+                        f"{win_rate:.1f}%",
+                        "success" if win_rate >= 50 else "warning",
+                    ),
+                    "Profit Factor": (
+                        f"{profit_factor:.2f}",
+                        "success" if profit_factor >= 1.5 else "info",
+                    ),
                     "Biggest Win": (f"${biggest_win:,.2f}", "success"),
                     "Biggest Loss": (f"${biggest_loss:,.2f}", "danger"),
                     "Total Trades": (f"{total_trades}", "info"),
-                }
+                },
             }
 
         def _on_done(res):
@@ -328,7 +385,7 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
         self.debug_win = None
         self.debug_console = None
         self.debug_var.set(False)
-        
+
     def open_debug_window(self, state=None):
         win = self.debug_win
 
@@ -353,19 +410,19 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
 
     def open_sort_reverse(self, state=None):
         pass
-    
-    def  open_ext_id(self, state=None):
+
+    def open_ext_id(self, state=None):
         pass
-    
+
     def open_and_results(self, state=None):
         pass
-    
+
     def open_csv_results(self, state=None):
         pass
-    
-    def  on_save_report(self, state=None):
+
+    def on_save_report(self, state=None):
         pass
-    
+
     def main_loop(self):
         main_values = {}
         # Standard library approach to handle Windows initialization safely
@@ -382,58 +439,58 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
                     stdout_handle,
                     console_mode.value | ENABLE_VIRTUAL_TERMINAL_PROCESSING,
                 )
-               
+
         DEF_OUTFIELDS = {
-            "trade_id":         "ID",
-            "entry_time":       "Entry",
-           "exit_time":        "Exit",
-            "symbol":           "Symbol",
-            "direction":        "Direct",
-           "entry_price":      "EntryPrice",
-            "exit_price":       "ExitPrice",
-            "pnl":              "PNL",
+            "trade_id": "ID",
+            "entry_time": "Entry",
+            "exit_time": "Exit",
+            "symbol": "Symbol",
+            "direction": "Direct",
+            "entry_price": "EntryPrice",
+            "exit_price": "ExitPrice",
+            "pnl": "PNL",
         }
-    
+
         ALL_OUTFIELDS = {
-            "trade_id":             "ID",
-            "symbol":               "Symbol",
-           "asset_class":          "Asset",
-            "direction":            "Direct",
-            "status":               "Status",
-            "entry_time":           "EntryTime",
-            "exit_time":            "ExitTime",
-            "entry_price":          "EntryPrice",
-           "exit_price":           "ExitPrice",
-            "quantity":             "Quantity",
-            "position_value":       "PosVal",
-           "stop_loss":            "topLoss",
-            "take_profit":          "TakeProf",
-            "pnl":                  "PnL",
-           "pnl_pct":              "PnLPct",
-            "exit_reason":          "ExitReas",
-            "signal_score":         "SigScore",
-           "indicators_json":      "IndJSON",
-            "broker":               "Broker",
-            "strategy_name":        "Strat",
-            "is_overnight":         "OverNite",
-            "broker_order_id":      "BrokerID",
-            "tp_hit_count":         "TPHitCnt",
-           "stop_order_id":        "StopID",
-            "tp_order_id":          "TPId",
-            "entry_timeframe":      "EnterTFrm",
-            "fees_paid":            "FeesPd",
-            "mfe_pct":              "MfePct",
-            "mae_pct":              "MaePct",
-            "partial_pnl":          "PartPnL",
-            "partial_fees_paid":    "ParFeePd",
-            "partial_exit_count":   "ParExtCnt",
-            "event_id":             "EventId"
+            "trade_id": "ID",
+            "symbol": "Symbol",
+            "asset_class": "Asset",
+            "direction": "Direct",
+            "status": "Status",
+            "entry_time": "EntryTime",
+            "exit_time": "ExitTime",
+            "entry_price": "EntryPrice",
+            "exit_price": "ExitPrice",
+            "quantity": "Quantity",
+            "position_value": "PosVal",
+            "stop_loss": "topLoss",
+            "take_profit": "TakeProf",
+            "pnl": "PnL",
+            "pnl_pct": "PnLPct",
+            "exit_reason": "ExitReas",
+            "signal_score": "SigScore",
+            "indicators_json": "IndJSON",
+            "broker": "Broker",
+            "strategy_name": "Strat",
+            "is_overnight": "OverNite",
+            "broker_order_id": "BrokerID",
+            "tp_hit_count": "TPHitCnt",
+            "stop_order_id": "StopID",
+            "tp_order_id": "TPId",
+            "entry_timeframe": "EnterTFrm",
+            "fees_paid": "FeesPd",
+            "mfe_pct": "MfePct",
+            "mae_pct": "MaePct",
+            "partial_pnl": "PartPnL",
+            "partial_fees_paid": "ParFeePd",
+            "partial_exit_count": "ParExtCnt",
+            "event_id": "EventId",
         }
-        
+
         main_values["DEF_OUTFIELDS"] = DEF_OUTFIELDS
         main_values["ALL_OUTFIELDS"] = ALL_OUTFIELDS
         output_file = ""
-        is_sorted = False 
+        is_sorted = False
         default_key_list = [
             "strategy_name",
             "symbol",
@@ -445,8 +502,13 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
         main_values["output_file"] = output_file
         main_values["is_sorted"] = is_sorted
         main_values["default_key_list"] = default_key_list
+
         def wide_formatter(prog):
-            return (argparse.RawDescriptionHelpFormatter(prog,width=110,max_help_position=46,))
+            return argparse.RawDescriptionHelpFormatter(
+                prog,
+                width=110,
+                max_help_position=46,
+            )
 
         parser = argparse.ArgumentParser(
             description="List PnL based on search criteria",
@@ -458,82 +520,134 @@ Usage examples:
   trades_list.py -k strategy_name -1 ALL -o report.txt
   trades_list.py -N
 """,
-           formatter_class=wide_formatter,
+            formatter_class=wide_formatter,
         )
 
-        parser.add_argument("-o", "--outfile", metavar="",
+        parser.add_argument(
+            "-o",
+            "--outfile",
+            metavar="",
             help="\tpath and name of output file",
         )
-        parser.add_argument("-op", "--open", action="store_true",
+        parser.add_argument(
+            "-op",
+            "--open",
+            action="store_true",
             help="List open trades instead of closed",
         )
-        parser.add_argument("-csv", "--csv",  action="store_true",
+        parser.add_argument(
+            "-csv",
+            "--csv",
+            action="store_true",
             help="\tuse to have output file be a csv",
         )
 
-        parser.add_argument("-1", "--list1", metavar="",
+        parser.add_argument(
+            "-1",
+            "--list1",
+            metavar="",
             help="ALL or comma-separated values for the first key; numeric values also accept !=, <, >,"
             "<=, >= (quote these in PowerShell)",
         )
-        parser.add_argument("-2", "--list2", metavar="",
+        parser.add_argument(
+            "-2",
+            "--list2",
+            metavar="",
             help="ALL or a <Comma separated list of values found in second provided key>",
         )
-        parser.add_argument("-3", "--list3", metavar="",
+        parser.add_argument(
+            "-3",
+            "--list3",
+            metavar="",
             help="ALL or a <Comma separated list of values found in third provided key>",
         )
-        parser.add_argument("-4", "--list4", metavar="",
+        parser.add_argument(
+            "-4",
+            "--list4",
+            metavar="",
             help="ALL or a <Comma separated list of values found in fourth provided key>",
         )
-        parser.add_argument("-5", "--list5", metavar="",
+        parser.add_argument(
+            "-5",
+            "--list5",
+            metavar="",
             help="ALL or a <Comma separated list of values found in fifth provided key>",
         )
-        parser.add_argument("-s", "--start", metavar="",
+        parser.add_argument(
+            "-s",
+            "--start",
+            metavar="",
             help="Starting date and time. Format YYYY:MM:DDTHH:MM T being a literal T",
         )
-        parser.add_argument("-e", "--end", metavar="",
+        parser.add_argument(
+            "-e",
+            "--end",
+            metavar="",
             help="Ending date and time. Format YYYY:MM:DDTHH:MM T being a literal T",
         )
-        parser.add_argument("-k", "--key", metavar="",
+        parser.add_argument(
+            "-k",
+            "--key",
+            metavar="",
             help="ALL or a <Comma separated list of DB table keys to index and search>",
         )
-        parser.add_argument("-of", "--outfields", metavar="",
+        parser.add_argument(
+            "-of",
+            "--outfields",
+            metavar="",
             help="ALL or a <Comma separated list of DB table output fields to display",
         )
-        parser.add_argument("-sk", "--sort-keys", metavar="",
+        parser.add_argument(
+            "-sk",
+            "--sort-keys",
+            metavar="",
             help="<Comma separated list of DB table keys to sort results. one entry per key from -k>",
         )
-        parser.add_argument("-R", "--Reverse", action="store_true",
+        parser.add_argument(
+            "-R",
+            "--Reverse",
+            action="store_true",
             help="If given, sort order is reversed",
         )
-        parser.add_argument("-N", "--Names", action="store_true",
+        parser.add_argument(
+            "-N",
+            "--Names",
+            action="store_true",
             help="If given, prints a list of all trade table key names you can use",
         )
-        parser.add_argument("-A", "--and", dest="and_filter", action="store_true",
+        parser.add_argument(
+            "-A",
+            "--and",
+            dest="and_filter",
+            action="store_true",
             help="If given with multiple --key values, require trades to match ALL selected key/value "
             "filters at once (e.g. symbol=MSFT AND direction=long) instead of printing a separate breakdown per key",
         )
-        parser.add_argument("-E", "--Ext", action="store_true",
+        parser.add_argument(
+            "-E",
+            "--Ext",
+            action="store_true",
             help="Extended Trade Id , default is shortened Id (Useful when you need the full trade Id for a lookup)",
         )
 
         args = parser.parse_args()
         global csv_true
         global extended
-  
+
         csv_true = args.csv if args.csv else False
         extended = args.Ext if args.Ext else False
-        
+
         main_values["csv_true"] = csv_true
         main_values["extended"] = extended
         main_values["args"] = args
-        
+
         mode = "open" if args.open else "closed"
         is_sorted = args.sort_keys if args.sort_keys else False
         rev_sort = args.Reverse if args.Reverse else False
         main_values["is_sorted"] = is_sorted
         main_values["rev_sort"] = rev_sort
         main_values["mode"] = mode
-        
+
         conn = connect()
         if mode == "closed":
             try:
@@ -553,27 +667,28 @@ Usage examples:
                 sys.exit(1)
 
         if not trades_list:
-            print("No closed trades found.") if (mode == "closed") else print("No open trades found.")
-        
+            print("No closed trades found.") if (mode == "closed") else print(
+                "No open trades found."
+            )
+
             conn.close()
             return
 
-  
         hdr_list = build_hdr_list(trades_list)
         main_values["hdr_list"] = hdr_list
-        
+
         if args.Names:
             print_col_headers(trades_list)
             sys.exit(2)
         DEF_START_DATE = "1980-01-01T00:00"
         DEF_END_DATE = "4050-01-01T00:00"
         main_values["Names"] = args.Names
-        
+
         start_date = args.start if args.start else DEF_START_DATE
         end_date = args.end if args.end else DEF_END_DATE
         main_values["start_date"] = start_date
         main_values["end_date"] = end_date
-        
+
         if args.start and (not date_check(start_date)):
             print("Invalid start date. use format YYYY-MM-DDTHH:MM")
             sys.exit(4)
@@ -584,11 +699,11 @@ Usage examples:
 
         date_range_given = start_date != DEF_START_DATE or end_date != DEF_END_DATE
         main_values["date_range_given"] = date_range_given
-        
+
         output_file = args.outfile
         if csv_true:
             try:
-                output_file, extension = output_file.split(".")
+                output_file, _extension = output_file.split(".")
             except:
                 pass
         main_values["output_file"] = output_file
@@ -601,13 +716,13 @@ Usage examples:
             args.list5.split(",") if args.list5 else [],
         ]
         main_values["list_values"] = list_values
-        key_list =  args.key.split(",") if args.key else []
+        key_list = args.key.split(",") if args.key else []
         main_values["key_list"] = key_list
-        
+
         if len(key_list) > 5:
             print("\nError: maximum of 5 keys is supported.\n")
             sys.exit(1)
-        
+
         output_fields = args.outfields.split(",") if args.outfields else False
         main_values["output_fields"] = output_fields
         output_dict = {}
@@ -615,11 +730,13 @@ Usage examples:
             output_dict = DEF_OUTFIELDS
         else:
             for outpt in output_fields:
-                    if outpt not in hdr_list:
-                        print(f"\nError: {outpt} is not a valid entry. please run with -N to see a list of valid choices\n")
-                        sys.exit()
+                if outpt not in hdr_list:
+                    print(
+                        f"\nError: {outpt} is not a valid entry. please run with -N to see a list of valid choices\n"
+                    )
+                    sys.exit()
             for fields in output_fields:
-                for key_name, descr in ALL_OUTFIELDS.items():   
+                for key_name, descr in ALL_OUTFIELDS.items():
                     if key_name == fields:
                         output_dict[key_name] = descr
                         continue
@@ -638,17 +755,24 @@ Usage examples:
             key_list = default_key_list
 
         if ((not len(list_values)) or (not len(key_list))) and (not date_range_given):
-             parser.print_help()
-             parser.exit(2,"\nError: provide --key key1,key2,... and at least one --list option per key given.\n")
-  
+            parser.print_help()
+            parser.exit(
+                2,
+                "\nError: provide --key key1,key2,... and at least one --list option per key given.\n",
+            )
+
         for key_name in key_list:
             if key_name not in hdr_list:
-                print(f"\nError: {key_name} is not a valid entry. please run with -N to see a list of valid choices\n")
+                print(
+                    f"\nError: {key_name} is not a valid entry. please run with -N to see a list of valid choices\n"
+                )
                 sys.exit()
 
         for sort_name in sort_list:
             if sort_name not in hdr_list:
-                print(f"\nError: {sort_name} is not a valid entry. please run with -N to see a list of valid choices\n")
+                print(
+                    f"\nError: {sort_name} is not a valid entry. please run with -N to see a list of valid choices\n"
+                )
                 sys.exit()
         ttrades_list = []
         for i in range(len(key_list)):
@@ -665,16 +789,26 @@ Usage examples:
                         pass
                 try:
                     if rev_sort:
-                        ttrades_list[i].sort(key=lambda r: (isinstance(r[sort_list[i]], str), r[sort_list[i]]), reverse=True)
+                        ttrades_list[i].sort(
+                            key=lambda r: (
+                                isinstance(r[sort_list[i]], str),
+                                r[sort_list[i]],
+                            ),
+                            reverse=True,
+                        )
                     else:
-                        ttrades_list[i].sort(key=lambda r: (isinstance(r[sort_list[i]], str), r[sort_list[i]]), reverse=False)
+                        ttrades_list[i].sort(
+                            key=lambda r: (
+                                isinstance(r[sort_list[i]], str),
+                                r[sort_list[i]],
+                            ),
+                            reverse=False,
+                        )
                 except ValueError:
-                    None
+                    pass
             main_values["key_list"] = key_list
         if (not args.Names) and (len(key_list) < 1):
-            print(
-                "\nError: Please provide at least 1 key , separated by a ,   \n"
-            )
+            print("\nError: Please provide at least 1 key , separated by a ,   \n")
             sys.exit()
 
         # -A/--and: one combined report where a trade must match every selected
@@ -684,9 +818,9 @@ Usage examples:
             combined_list = []
             for trade in trades_list:
                 matches_all = True
-                for key_name, selected in zip( key_list, list_values):
+                for key_name, selected in zip(key_list, list_values):
                     if not selected:
-                       continue
+                        continue
                     if selected[0] == "ALL":
                         continue
                     if not value_in_selected(trade[key_name], selected):
@@ -706,48 +840,80 @@ Usage examples:
                         except ValueError:
                             pass
                     try:
-                        combined_list.sort(key=lambda r: (isinstance(r[sort_key], str), r[sort_key]), reverse=rev_sort)
+                        combined_list.sort(
+                            key=lambda r: (isinstance(r[sort_key], str), r[sort_key]),
+                            reverse=rev_sort,
+                        )
                     except ValueError:
-                        None
+                        pass
 
-            label_parts = [ f'{key_name}={",".join(selected)}' for key_name, selected in zip(key_list, list_values) if selected ]
-            combined_label = (" & ".join(label_parts) if label_parts else "ALL" )
-            print_group_summary(combined_label, combined_list, "ALL", output_file, start_date, end_date, output_dict)
+            label_parts = [
+                f"{key_name}={','.join(selected)}"
+                for key_name, selected in zip(key_list, list_values)
+                if selected
+            ]
+            combined_label = " & ".join(label_parts) if label_parts else "ALL"
+            print_group_summary(
+                combined_label,
+                combined_list,
+                "ALL",
+                output_file,
+                start_date,
+                end_date,
+                output_dict,
+            )
             return
 
         # Build one generic list of grouped trade dictionaries
         dict_of_trades = []
 
-        
         for idx, key_name in enumerate(key_list):
             grouped_trades = {}
             for trade in ttrades_list[idx]:
                 group_value = trade[key_name]
                 grouped_trades.setdefault(group_value, []).append(copy.deepcopy(trade))
 
-            dict_of_trades.append({"key": key_name, "selected": ( list_values[idx] if idx < len(list_values) else [] ), "groups": grouped_trades})
+            dict_of_trades.append(
+                {
+                    "key": key_name,
+                    "selected": (list_values[idx] if idx < len(list_values) else []),
+                    "groups": grouped_trades,
+                }
+            )
         main_values["dict_of_trades"] = dict_of_trades
         for trade_group in dict_of_trades:
             key_name = trade_group["key"]
             selected_values = trade_group["selected"]
             grouped_trades = trade_group["groups"]
 
-            for (group_name,trade_list,) in grouped_trades.items():
+            for (
+                group_name,
+                trade_list,
+            ) in grouped_trades.items():
                 if not selected_values:
                     continue
 
-                if selected_values[0] == "ALL" or value_in_selected(group_name, selected_values):
-                    print_group_summary(group_name, trade_list, key_name, output_file, start_date, end_date, output_dict)
-        
+                if selected_values[0] == "ALL" or value_in_selected(
+                    group_name, selected_values
+                ):
+                    print_group_summary(
+                        group_name,
+                        trade_list,
+                        key_name,
+                        output_file,
+                        start_date,
+                        end_date,
+                        output_dict,
+                    )
+
         main_values["dict_of_ttrades"] = dict_of_trades
-        main_values["selected_values"] = selected_values                    
+        main_values["selected_values"] = selected_values
         main_values["output_file"] = output_file
         main_values["is_sorted"] = is_sorted
 
+        return (trades_list, main_values)
 
 
-        return(trades_list,main_values)
-        
 extended = False
 csv_true = False
 
@@ -755,9 +921,19 @@ EQUALSTR = "=" * 175 + "\n"
 BL_EQUALSTR = colorize(EQUALSTR, "blue")
 # Find path to the trading bot DB
 if os.name == "nt":
-    DB_PATH = os.path.join( os.path.dirname(__file__), "..\\..", "data", "trading_bot.db",)
+    DB_PATH = os.path.join(
+        os.path.dirname(__file__),
+        "..\\..",
+        "data",
+        "trading_bot.db",
+    )
 else:
-    DB_PATH = os.path.join(os.path.dirname(__file__), "../..", "data", "trading_bot.db",)
+    DB_PATH = os.path.join(
+        os.path.dirname(__file__),
+        "../..",
+        "data",
+        "trading_bot.db",
+    )
 # End Globals
 
 
@@ -771,23 +947,44 @@ def print_outfile(text, output_file):
         clean_text = clean_ansi(text)
         try:
             if csv_true:
-                with open(output_file + ".csv", "a", newline="", ) as csvfile:
-                    spamwriter = csv.writer(csvfile, delimiter=",", quotechar=" ", quoting=csv.QUOTE_MINIMAL,)
-                    for ( line ) in clean_text.splitlines():
+                with open(
+                    output_file + ".csv",
+                    "a",
+                    newline="",
+                ) as csvfile:
+                    spamwriter = csv.writer(
+                        csvfile,
+                        delimiter=",",
+                        quotechar=" ",
+                        quoting=csv.QUOTE_MINIMAL,
+                    )
+                    for line in clean_text.splitlines():
                         stripped = line.strip()
-                        if not stripped or set( stripped ) == {"="}:
-                            spamwriter.writerow( [] )
-                        elif ( stripped.count(":") >= 2):
+                        if not stripped or set(stripped) == {"="}:
+                            spamwriter.writerow([])
+                        elif stripped.count(":") >= 2:
                             # summary lines like "Total Trades: 54   Total P&L: -1320.00 ..."
                             pairs = STAT_LABEL_VALUE_RE.findall(stripped)
-                            row = [ part.strip() for label, value in pairs for part in ( label, value,)]
-                            spamwriter.writerow( row or stripped.split() )
+                            row = [
+                                part.strip()
+                                for label, value in pairs
+                                for part in (
+                                    label,
+                                    value,
+                                )
+                            ]
+                            spamwriter.writerow(row or stripped.split())
                         else:
-                            spamwriter.writerow( stripped.split() )
+                            spamwriter.writerow(stripped.split())
             else:
-                with open( output_file, "a", encoding="utf-8", ) as file: file.write(clean_text)
+                with open(
+                    output_file,
+                    "a",
+                    encoding="utf-8",
+                ) as file:
+                    file.write(clean_text)
         except OSError as e:
-            print( f"Error writing to output file: {e}" )
+            print(f"Error writing to output file: {e}")
             sys.exit(1)
     else:
         print(text, end="")
@@ -798,9 +995,7 @@ def connect():
     try:
         conn = sqlite3.connect(DB_PATH)
         conn.row_factory = sqlite3.Row
-        conn.execute(
-            "SELECT 1 FROM trades LIMIT 1"
-        )
+        conn.execute("SELECT 1 FROM trades LIMIT 1")
     except sqlite3.OperationalError as e:
         print(f"Database error: {DB_PATH}: {e}")
         sys.exit()
@@ -826,11 +1021,12 @@ def get_open_trades(conn):
     return [dict(r) for r in c.fetchall()]
 
 
-@Timed    
-def proc_dict(loc_trade_list, strat_name, ikey, output_file, start_date, end_date, output_dict):
+@Timed
+def proc_dict(
+    loc_trade_list, strat_name, ikey, output_file, start_date, end_date, output_dict
+):
     """Process the provided dictionary of trades"""
     # Initialize Locals
-    col_pnl = ""
     total_pnl = 0
     tot_winners = 0
     tot_losers = 0
@@ -845,97 +1041,101 @@ def proc_dict(loc_trade_list, strat_name, ikey, output_file, start_date, end_dat
     # One entry per symbol processed by this proc_dict call:
     # {"AAPL": 12.50, "MSFT": -3.25, ...}
     sym_total_pnl = {}
-    field_lens = {}
     # Search the dict for Key  provided
     trade_count = 0
     tot_fees = 0
     for trade in loc_trade_list:
         t_sli = 38 if extended else 20
         t_idx = -len(trade["trade_id"]) if extended else -16
- #       for my_idx, my_key in trade.items():
- #           field_lens[my_idx] =  len(str(my_key)) + 4
+        #       for my_idx, my_key in trade.items():
+        #           field_lens[my_idx] =  len(str(my_key)) + 4
         break  # only look at one record
     for trade_dict in loc_trade_list:
-        entry_time = (
-            trade_dict["entry_time"] or ""
-        )
+        entry_time = trade_dict["entry_time"] or ""
         exit_time = trade_dict["exit_time"] or ""
-        if entry_time[0:16] >= start_date and exit_time[0:16] <= end_date:
-            if ikey == "ALL" or trade_dict.get(ikey, "None") == strat_name or strat_name == "ALL":
-                tot_fees += trade_dict["fees_paid"]
-                symbol = trade_dict["symbol"]
-                trade_pnl = float(trade_dict["pnl"] or 0.0)
-                sym_total_pnl[symbol] = sym_total_pnl.get(symbol, 0.0) + trade_pnl 
-                #  entry contains strat were after total the PnL
-                total_pnl += trade_pnl
-                # Running total the number of wins or losses and trace the total of each
-                if trade_pnl >= 0:
-                    tot_winners += 1
-                    tot_wins += trade_pnl
+        if (
+            entry_time[0:16] >= start_date
+            and exit_time[0:16] <= end_date
+            and (
+                ikey == "ALL"
+                or trade_dict.get(ikey, "None") == strat_name
+                or strat_name == "ALL"
+            )
+        ):
+            tot_fees += trade_dict["fees_paid"]
+            symbol = trade_dict["symbol"]
+
+            trade_pnl = float(trade_dict["pnl"] or 0.0)
+            sym_total_pnl[symbol] = sym_total_pnl.get(symbol, 0.0) + trade_pnl
+            #  entry contains strat were after total the PnL
+            total_pnl += trade_pnl
+            # Running total the number of wins or losses and trace the total of each
+            if trade_pnl >= 0:
+                tot_winners += 1
+                tot_wins += trade_pnl
+            else:
+                tot_losers += 1
+                tot_losses += trade_pnl
+            # Track the biggst win and biggest loss
+            max_win = max(max_win, trade_pnl)
+            max_loss = min(max_loss, trade_pnl)
+            # Track the number of trades processed
+            trade_count += 1
+            if trade_pnl < 0:
+                colorize(
+                    f"{trade_pnl:<20.2f}",
+                    "red",
+                )
+            else:
+                colorize(
+                    f"{trade_pnl:<20.2f}",
+                    "green",
+                )
+            head_str = ""
+            tail_str = ""
+            for key in output_dict:
+                #                   key_len = field_lens[key]
+                if key == "trade_id" and extended:
+                    head_str += f"{key[t_idx:]:<{t_sli}}"
+                elif key == "exit_reason":
+                    head_str += f"{key:<27}"
                 else:
-                    tot_losers += 1
-                    tot_losses += trade_pnl
-                # Track the biggst win and biggest loss
-                if max_win < trade_pnl:
-                    max_win = trade_pnl
-                if max_loss > trade_pnl:
-                    max_loss = trade_pnl
-                # Track the number of trades processed
-                trade_count += 1
-                if trade_pnl < 0:
-                    col_pnl = colorize( f"{trade_pnl:<20.2f}","red",)
+                    head_str += f"{key:<20}"
+                if key == "trade_id":
+                    tail_str += f"{trade_dict[key][t_idx:]:{t_sli}}"
+                elif key == "exit_reason":
+                    tail_str += f"{trade_dict[key]:<27}"
+                elif key == "entry_time" or key == "exit_time":
+                    tail_str += f"{trade_dict[key][0:16]:<20}"
+                elif chkstr_isnum(trade_dict[key]) == "float":
+                    if float(trade_dict[key]) >= 0:
+                        stii = float(trade_dict[key])
+                        stii2 = colorize(f"{stii:<20.6f}", "green")
+                        tail_str += f"{stii2}"
+                    else:
+                        stii = float(trade_dict[key])
+                        stii2 = colorize(f"{stii:<20.6f}", "red")
+                        tail_str += f"{stii2}"
+                #                             tail_str += f'{colorize({float(trade_dict[key]):<20.6f}}, "red")'
                 else:
-                    col_pnl = colorize(f"{trade_pnl:<20.2f}","green",)
- 
-                head_str = ""
-                tail_str = ""
-                for key, idx in output_dict.items():
- #                   key_len = field_lens[key]
-                    if key == "trade_id" and extended:
-                        head_str += f'{key[t_idx:]:<{t_sli}}'
-                    elif key == "exit_reason":
-                         head_str += f'{key:<27}'
-                    else:
-                        head_str += f'{key:<20}'
-                    if key == "trade_id":
-                        tail_str += f'{trade_dict[key][t_idx:]:{t_sli}}'
-                    elif key == "exit_reason":
-                         tail_str += f'{trade_dict[key]:<27}'
-                    elif key == "entry_time" or key == "exit_time":
-                        tail_str += f'{trade_dict[key][0:16]:<20}'
-                    elif  chkstr_isnum(trade_dict[key]) == "float":
-                        if float(trade_dict[key]) >= 0:
-                            stii = float(trade_dict[key])
-                            stii2 = colorize(f"{stii:<20.6f}", "green")
-                            tail_str += f'{stii2}'
-                        else:
-                            stii = float(trade_dict[key])
-                            stii2 = colorize(f"{stii:<20.6f}", "red")
-                            tail_str += f'{stii2}'
-#                             tail_str += f'{colorize({float(trade_dict[key]):<20.6f}}, "red")'
-                    else:
-                        tail_str += f'{trade_dict[key]:<20}'
-                head_str += "\n"
-                tail_str += "\n"
- 
-                if passes == 1:
-                    print_outfile(
-                        f'List of {colorize(strat_name, "red")} Trades\n',
-                        output_file,
-                    )
-                    print_outfile(
-                        BL_EQUALSTR, output_file
-                    )
-                    print_outfile(
-                        colorize(f'{head_str}', "magenta"),
-                     output_file,
-                    )
-                    print_outfile(
-                        BL_EQUALSTR, output_file
-                    ) 
-                    passes += 1 
- 
-                print_outfile(tail_str, output_file)
+                    tail_str += f"{trade_dict[key]:<20}"
+            head_str += "\n"
+            tail_str += "\n"
+
+            if passes == 1:
+                print_outfile(
+                    f"List of {colorize(strat_name, 'red')} Trades\n",
+                    output_file,
+                )
+                print_outfile(BL_EQUALSTR, output_file)
+                print_outfile(
+                    colorize(f"{head_str}", "magenta"),
+                    output_file,
+                )
+                print_outfile(BL_EQUALSTR, output_file)
+                passes += 1
+
+            print_outfile(tail_str, output_file)
 
     # Select the best and worst complete symbol totals after every matching
     # trade has been accumulated. This also works when every symbol is a loss
@@ -943,12 +1143,27 @@ def proc_dict(loc_trade_list, strat_name, ikey, output_file, start_date, end_dat
     # Print  Tttle , header graphics and column headers
 
     if sym_total_pnl:
-        high_symbol, high_total = max(sym_total_pnl.items(), key=lambda item: item[1],)
-        low_symbol, low_total = min(sym_total_pnl.items(), key=lambda item: item[1],)
-        high_sym = {"symbol": high_symbol, "total": high_total,}
-        low_sym = {"symbol": low_symbol, "total": low_total,}
+        high_symbol, high_total = max(
+            sym_total_pnl.items(),
+            key=lambda item: item[1],
+        )
+        low_symbol, low_total = min(
+            sym_total_pnl.items(),
+            key=lambda item: item[1],
+        )
+        high_sym = {
+            "symbol": high_symbol,
+            "total": high_total,
+        }
+        low_sym = {
+            "symbol": low_symbol,
+            "total": low_total,
+        }
     else:
-        high_sym = {"symbol": "None", "total": 0.0,}
+        high_sym = {
+            "symbol": "None",
+            "total": 0.0,
+        }
         low_sym = {"symbol": "None", "total": 0.0}
 
     # Prevent div by zero excetions then calculate avg wins and losses
@@ -976,35 +1191,17 @@ def proc_dict(loc_trade_list, strat_name, ikey, output_file, start_date, end_dat
 
     # Properly color the Tot PnL red for neg, green for pos
     if total_pnl >= 0:
-        ret_dict["total_pnl"] = colorize(
-            f"{total_pnl:<19.2f}", "green"
-        )
+        ret_dict["total_pnl"] = colorize(f"{total_pnl:<19.2f}", "green")
     else:
-        ret_dict["total_pnl"] = colorize(
-            f"{total_pnl:<19.2f}", "red"
-        )
+        ret_dict["total_pnl"] = colorize(f"{total_pnl:<19.2f}", "red")
 
-    ret_dict["max_win"] = colorize(
-        f"{max_win:<14.2f}", "green"
-    )
-    ret_dict["max_loss"] = colorize(
-        f"{max_loss:>3.2f}", "red"
-    )
-    ret_dict["avg_wins"] = colorize(
-        f"{avg_wins:<14.2f}", "green"
-    )
-    ret_dict["avg_loss"] = colorize(
-        f"{avg_loss:<19.2f}", "red"
-    )
-    ret_dict["tot_wins"] = colorize(
-        f"{tot_winners:>3}", "green"
-    )
-    ret_dict["tot_losers"] = colorize(
-        f"{tot_losers:<11}", "red"
-    )
-    ret_dict["tot_fees"] = colorize(
-        f"{tot_fees:<9.2f}", "red"
-    )
+    ret_dict["max_win"] = colorize(f"{max_win:<14.2f}", "green")
+    ret_dict["max_loss"] = colorize(f"{max_loss:>3.2f}", "red")
+    ret_dict["avg_wins"] = colorize(f"{avg_wins:<14.2f}", "green")
+    ret_dict["avg_loss"] = colorize(f"{avg_loss:<19.2f}", "red")
+    ret_dict["tot_wins"] = colorize(f"{tot_winners:>3}", "green")
+    ret_dict["tot_losers"] = colorize(f"{tot_losers:<11}", "red")
+    ret_dict["tot_fees"] = colorize(f"{tot_fees:<9.2f}", "red")
     ret_dict["high_sym"] = high_sym
     ret_dict["low_sym"] = low_sym
     # Pass back our pre color formatted dictionary of results
@@ -1029,15 +1226,13 @@ def print_col_headers(trades_lst):
         final_list += f"{my_key:<20}"
 
         if local_counter % 5 == 0:
-            print(
-                f'{colorize(final_list, "blue")}'
-            )
+            print(f"{colorize(final_list, 'blue')}")
             final_list = ""
 
         local_counter += 1
     # If num of columns not divisible by 5 print the remaining odd headers
     if final_list:
-        print(f'{colorize(final_list, "blue")}')
+        print(f"{colorize(final_list, 'blue')}")
 
 
 # ...existing code...
@@ -1057,7 +1252,6 @@ def tk_build_hdr_list(trades_lst2):
     return headers
 
 
-
 def build_hdr_list(trades_lst2):
     """Collect unique column header names from all rows, preserving order."""
     # (Previous bug: returned repeated list due to nested loop — fixed by using single comprehension)
@@ -1065,34 +1259,43 @@ def build_hdr_list(trades_lst2):
     headers = []
 
     for row in trades_lst2:
-        for key in row.keys():
+        for key in row:
             if key not in seen:
                 seen.add(key)
                 headers.append(key)
 
     return headers
- 
+
+
 """Collect unique column header names from all rows, preserving order."""
-    # (Previous bug: returned repeated list due to nested loop — fixed by using single comprehension)
-  
+# (Previous bug: returned repeated list due to nested loop — fixed by using single comprehension)
 
 
 def format_group_summary(res_dict):
     """color and format the results dictionary"""
-    lhigh_tot = colorize(f'{res_dict["high_sym"]["total"]:.2f}', "green",)
-    llow_tot = colorize(f'{res_dict["low_sym"]["total"]:.2f}', "red",)
-    lhigh_sym = colorize(f'{res_dict["high_sym"]["symbol"]}', "cyan",)
-    llow_sym = colorize(f'{res_dict["low_sym"]["symbol"]}', "cyan")
+    lhigh_tot = colorize(
+        f"{res_dict['high_sym']['total']:.2f}",
+        "green",
+    )
+    llow_tot = colorize(
+        f"{res_dict['low_sym']['total']:.2f}",
+        "red",
+    )
+    lhigh_sym = colorize(
+        f"{res_dict['high_sym']['symbol']}",
+        "cyan",
+    )
+    llow_sym = colorize(f"{res_dict['low_sym']['symbol']}", "cyan")
 
     return (
-        f'{"Total Trades:":>16} {res_dict["trade_count"]}    {"Total P&L:":<13}   {res_dict["total_pnl"]}'
-        f'{"Max Win:":<10} {res_dict["max_win"]}'
-        f'{"Max Loss:":>10}{"":<5}{res_dict["max_loss"]}\n'
-        f'{"Avg Win:":>16} {res_dict["avg_wins"]}     {"Avg Loss:":<13}  {res_dict["avg_loss"]}'
-        f'{"":<4}W/L: {res_dict["tot_wins"]}/{res_dict["tot_losers"]}{"":<6}W/L%:{"":<5}{res_dict["win_pct"]}'
-        f'%/{res_dict["loss_pct"]}%\n'
-        f'{"High Sym:":>16} {lhigh_sym:>10} ({lhigh_tot:>16})'
-        f'{"Low Sym:":>13} {llow_sym} ({llow_tot}){"Tot. Fees:":>19} {res_dict["tot_fees"]}\n'
+        f"{'Total Trades:':>16} {res_dict['trade_count']}    {'Total P&L:':<13}   {res_dict['total_pnl']}"
+        f"{'Max Win:':<10} {res_dict['max_win']}"
+        f"{'Max Loss:':>10}{'':<5}{res_dict['max_loss']}\n"
+        f"{'Avg Win:':>16} {res_dict['avg_wins']}     {'Avg Loss:':<13}  {res_dict['avg_loss']}"
+        f"{'':<4}W/L: {res_dict['tot_wins']}/{res_dict['tot_losers']}{'':<6}W/L%:{'':<5}{res_dict['win_pct']}"
+        f"%/{res_dict['loss_pct']}%\n"
+        f"{'High Sym:':>16} {lhigh_sym:>10} ({lhigh_tot:>16})"
+        f"{'Low Sym:':>13} {llow_sym} ({llow_tot}){'Tot. Fees:':>19} {res_dict['tot_fees']}\n"
     )
 
 
@@ -1138,24 +1341,25 @@ def value_in_selected(actual, selected):
                 bound = numeric_value(val[len(op) :])
                 if bound is None:
                     break
-                if (op == "!=" and actual_num != bound):
+                if op == "!=" and actual_num != bound:
                     return True
-                if (op == "<=" and actual_num <= bound):
+                if op == "<=" and actual_num <= bound:
                     return True
-                if (op == ">=" and actual_num >= bound):
+                if op == ">=" and actual_num >= bound:
                     return True
-                if (op == "<" and actual_num < bound):
+                if op == "<" and actual_num < bound:
                     return True
-                if (op == ">" and actual_num > bound):
+                if op == ">" and actual_num > bound:
                     return True
                 break
         else:
             if actual_str == val:
                 return True
             selected_num = numeric_value(val)
-            if ( actual_num is not None and selected_num is not None ):
-                if actual_num == selected_num:
-                    return True
+            if (actual_num is not None and selected_num is not None) and (
+                actual_num == selected_num
+            ):
+                return True
     return False
 
 
@@ -1180,10 +1384,11 @@ def print_group_summary(
     )
     if int(res_dict["trade_count"]) >= 1:
         print_outfile(BL_EQUALSTR, output_file)
-        print_outfile(format_group_summary(res_dict),output_file,)
         print_outfile(
-            BL_EQUALSTR + "\n\n", output_file
+            format_group_summary(res_dict),
+            output_file,
         )
+        print_outfile(BL_EQUALSTR + "\n\n", output_file)
 
 
 if __name__ == "__main__":

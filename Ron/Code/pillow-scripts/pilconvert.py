@@ -40,6 +40,7 @@ def usage():
     print("  -f           list supported file formats")
     sys.exit(1)
 
+
 if len(sys.argv) == 1:
     usage()
 
@@ -55,16 +56,15 @@ convert = None
 options = {}
 
 for o, a in opt:
-
     if o == "-f":
         Image.init()
         id = sorted(Image.ID)
         print("Supported formats (* indicates output format):")
         for i in id:
             if i in Image.SAVE:
-                print(i+"*", end=' ')
+                print(i + "*", end=" ")
             else:
-                print(i, end=' ')
+                print(i, end=" ")
         sys.exit(1)
 
     elif o == "-c":
@@ -95,5 +95,5 @@ try:
     else:
         im.save(argv[1], **options)
 except:
-    print("cannot convert image", end=' ')
+    print("cannot convert image", end=" ")
     print("(%s:%s)" % (sys.exc_info()[0], sys.exc_info()[1]))

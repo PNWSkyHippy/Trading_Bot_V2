@@ -28,12 +28,11 @@ colors = {
 }
 
 # Flawless regex compilation targeting all ANSI controls
-ANSI_ESCAPE_RE = re.compile(
-    r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])"
-)
+ANSI_ESCAPE_RE = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
 STAT_LABEL_VALUE_RE = re.compile(
     r"([A-Za-z][\w &/%]*:)\s+(.*?)(?=(?:\s{2,}[A-Za-z][\w &/%]*:)|\s*$)"
 )
+
 
 class SkipErrors(logging.Filter):
     """Keep INFO/WARNING on stdout; errors go to stderr instead."""
@@ -61,7 +60,6 @@ def setup_logging(log_filename: str) -> logging.Logger:
     file_handler = logging.FileHandler(log_filename, encoding="utf-8")
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(file_fmt)
-
 
     stdout_handler = logging.StreamHandler(sys.stdout)
     stdout_handler.setLevel(logging.INFO)
@@ -101,22 +99,14 @@ def colorize(
 
     if text_col:
         if text_col not in colors:
-            raise ValueError(
-                f"Invalid text color: {text_col}"
-            )
+            raise ValueError(f"Invalid text color: {text_col}")
         # Extract just the number from the string (e.g., '\033[31m' -> '31')
-        codes.append(
-            colors[text_col].strip("\033[m")
-        )
+        codes.append(colors[text_col].strip("\033[m"))
 
     if bg_col:
         if bg_col not in colors:
-            raise ValueError(
-                f"Invalid background color: {bg_col}"
-            )
-        codes.append(
-            colors[bg_col].strip("\033[m")
-        )
+            raise ValueError(f"Invalid background color: {bg_col}")
+        codes.append(colors[bg_col].strip("\033[m"))
 
     # If no styles are passed, return the plain string
     if not codes:
@@ -129,99 +119,62 @@ def colorize(
 
 def parse_time(mtime: str) -> tuple[int, int]:
     if not isinstance(mtime, str):
-        raise TypeError(
-            "Time must be a string in HH:MM format"
-        )
+        raise TypeError("Time must be a string in HH:MM format")
 
     parts = mtime.strip().split(":")
 
     if len(parts) != 2:
-        raise ValueError(
-            "Time must be in HH:MM format"
-        )
+        raise ValueError("Time must be in HH:MM format")
 
     hour_text, minute_text = parts
 
     if not hour_text or not minute_text:
-        raise ValueError(
-            "Both hour and minute are required"
-        )
+        raise ValueError("Both hour and minute are required")
 
-    if (
-        not hour_text.isdigit()
-        or not minute_text.isdigit()
-    ):
-        raise ValueError(
-            "Hour and minute must be numbers"
-        )
+    if not hour_text.isdigit() or not minute_text.isdigit():
+        raise ValueError("Hour and minute must be numbers")
 
     hour = int(hour_text)
     minute = int(minute_text)
 
     if not 0 <= hour <= 23:
-        raise ValueError(
-            "Hour must be between 0 and 23"
-        )
+        raise ValueError("Hour must be between 0 and 23")
 
     if not 0 <= minute <= 59:
-        raise ValueError(
-            "Minute must be between 0 and 59"
-        )
+        raise ValueError("Minute must be between 0 and 59")
 
     return hour, minute
 
 
 def parse_date(mday: str) -> tuple[int, int]:
     if not isinstance(mday, str):
-        raise TypeError(
-            "Date must be a string in YYYY-MM-DD format"
-        )
+        raise TypeError("Date must be a string in YYYY-MM-DD format")
 
     parts = mday.strip().split("-")
 
     if len(parts) != 3:
-        raise ValueError(
-            "Date must be in YYYY-MM-DD format"
-        )
+        raise ValueError("Date must be in YYYY-MM-DD format")
 
     year_text, month_text, day_text = parts
 
-    if (
-        not year_text
-        or not month_text
-        or not day_text
-    ):
-        raise ValueError(
-            "Year and Monh and Day are required"
-        )
+    if not year_text or not month_text or not day_text:
+        raise ValueError("Year and Monh and Day are required")
 
-    if (
-        not year_text.isdigit()
-        or not month_text.isdigit()
-        or not day_text.isdigit()
-    ):
-        raise ValueError(
-            "Year, Month, and Day must be numbers"
-        )
+    if not year_text.isdigit() or not month_text.isdigit() or not day_text.isdigit():
+        raise ValueError("Year, Month, and Day must be numbers")
 
     year = int(year_text)
     month = int(month_text)
     day = int(day_text)
 
     if not 1980 <= year <= 4000:
-        raise ValueError(
-            "Year must be between 1980 and 4000"
-        )
+        raise ValueError("Year must be between 1980 and 4000")
 
     if not 1 <= month <= 12:
-        raise ValueError(
-            "Month must be between 1 and 12"
-        )
+        raise ValueError("Month must be between 1 and 12")
 
     if not 1 <= day <= 31:
-        raise ValueError(
-            "Day must be between 1 and 31"
-        )
+        raise ValueError("Day must be between 1 and 31")
 
     return year, month, day
 
@@ -252,12 +205,12 @@ def chkstr_isnum(value: str) -> str:
 
         # Check if a decimal point exists in the string to confirm it's a float
         # This correctly marks "9.0" as float and "9" as int
-        if str(value).find('.'):
+        if str(value).find("."):
             return "float"
 
         # Handle scientific notation (e.g., "1e3"), which results in a float
-#        elif "e" in value.lower():
-#            return "float"
+        #        elif "e" in value.lower():
+        #            return "float"
 
         else:
             return "int"
@@ -332,13 +285,9 @@ def insertion_sort(arr):
         # Insert our current term into the correct spot
         tmp_list[pos + 1] = key
         if debug:
-            print(
-                f"inner loop {pass_count}: {tmp_list}"
-            )
+            print(f"inner loop {pass_count}: {tmp_list}")
     if debug:
-        print(
-            f"after inner loop {pass_count}: {tmp_list}"
-        )
+        print(f"after inner loop {pass_count}: {tmp_list}")
         print(f"Passes made: {pass_count}")
     return tmp_list
 
@@ -356,25 +305,19 @@ def bubble_sort(lst):
                 )
             pass_count += 1
         if debug:
-            print(
-                f"inside inner loop {pass_count}: {tmp_lst}"
-            )
+            print(f"inside inner loop {pass_count}: {tmp_lst}")
     if debug:
-        print(
-            f"after all loops {pass_count}: {tmp_lst}"
-        )
+        print(f"after all loops {pass_count}: {tmp_lst}")
         print(f"Passes made: {pass_count}")
     return tmp_lst
 
 
 def main():
     def wide_formatter(prog):
-        return (
-            argparse.RawDescriptionHelpFormatter(
-                prog,
-                width=110,
-                max_help_position=46,
-            )
+        return argparse.RawDescriptionHelpFormatter(
+            prog,
+            width=110,
+            max_help_position=46,
         )
 
     parser = argparse.ArgumentParser(
@@ -455,9 +398,7 @@ Usage examples:
 
     if args.color:
         if args.color not in colors:
-            print(
-                f"Invalid text color: {args.color}"
-            )
+            print(f"Invalid text color: {args.color}")
             sys.exit(1)
         else:
             text_color = args.color
@@ -465,9 +406,7 @@ Usage examples:
         text_color = None
     if args.bkcolor:
         if args.bkcolor not in colors:
-            print(
-                f"Invalid background color: {args.bkcolor}"
-            )
+            print(f"Invalid background color: {args.bkcolor}")
             sys.exit(1)
         else:
             bg_color = args.bkcolor
@@ -498,15 +437,11 @@ Usage examples:
                     )
                 )
         except FileNotFoundError:
-            print(
-                f"File not found: {args.infile}"
-            )
+            print(f"File not found: {args.infile}")
             sys.exit(1)
     else:
         for line in sys.stdin:
-            if (
-                line == "\n"
-            ):  # end of file and exit if found
+            if line == "\n":  # end of file and exit if found
                 break
             else:  # still here? Only store lines containing the search pattern
                 print(

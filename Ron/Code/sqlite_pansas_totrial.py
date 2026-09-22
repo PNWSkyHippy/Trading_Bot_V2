@@ -10,9 +10,7 @@ with sqlite3.connect("company.db") as conn:
 
 # Now you can instantly use Pandas features on your data
 print(df.head())  # Preview the first few rows
-print(
-    df.describe()
-)  # Get instant statistics (mean, max, min salary)
+print(df.describe())  # Get instant statistics (mean, max, min salary)
 
 # Convert a DataFrame instantly into an SQLite table
 # 'fail', 'replace', or 'append' if the table already exists

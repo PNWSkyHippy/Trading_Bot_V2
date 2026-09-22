@@ -19,9 +19,7 @@ class Employee:
     def compute_age(self):
         today = datetime.today()
         age = today.year - self.birth_date.year
-        birthday = datetime(
-            today.year, self.birth_date.month, self.birth_date.day
-        )
+        birthday = datetime(today.year, self.birth_date.month, self.birth_date.day)
         if today < birthday:
             age -= 1
         return age

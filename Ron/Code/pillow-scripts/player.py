@@ -19,8 +19,8 @@ from PIL import Image, ImageTk
 # --------------------------------------------------------------------
 # an image animation player
 
-class UI(tkinter.Label):
 
+class UI(tkinter.Label):
     def __init__(self, master, im):
         self.im = im
         if isinstance(self.im, list):
@@ -42,7 +42,6 @@ class UI(tkinter.Label):
     def next(self):
 
         if isinstance(self.im, list):
-
             try:
                 im = self.im[0]
                 del self.im[0]
@@ -51,7 +50,6 @@ class UI(tkinter.Label):
                 return  # end of list
 
         else:
-
             try:
                 im = self.im
                 im.seek(im.tell() + 1)
@@ -69,7 +67,6 @@ class UI(tkinter.Label):
 # script interface
 
 if __name__ == "__main__":
-
     if not sys.argv[1:]:
         print("Syntax: python player.py imagefile(s)")
         sys.exit(1)

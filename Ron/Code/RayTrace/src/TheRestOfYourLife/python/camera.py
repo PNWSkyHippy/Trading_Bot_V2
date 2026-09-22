@@ -98,9 +98,13 @@ class Camera:
         viewport_upper_left = (
             self.center - (self.focus_dist * self.w) - viewport_u / 2 - viewport_v / 2
         )
-        self.pixel00_loc = viewport_upper_left + 0.5 * (self.pixel_delta_u + self.pixel_delta_v)
+        self.pixel00_loc = viewport_upper_left + 0.5 * (
+            self.pixel_delta_u + self.pixel_delta_v
+        )
 
-        defocus_radius = self.focus_dist * math.tan(degrees_to_radians(self.defocus_angle / 2))
+        defocus_radius = self.focus_dist * math.tan(
+            degrees_to_radians(self.defocus_angle / 2)
+        )
         self.defocus_disk_u = self.u * defocus_radius
         self.defocus_disk_v = self.v * defocus_radius
 
@@ -112,7 +116,9 @@ class Camera:
             + ((j + offset.y()) * self.pixel_delta_v)
         )
 
-        ray_origin = self.center if self.defocus_angle <= 0 else self.defocus_disk_sample()
+        ray_origin = (
+            self.center if self.defocus_angle <= 0 else self.defocus_disk_sample()
+        )
         ray_direction = pixel_sample - ray_origin
         ray_time = random_double()
 
@@ -149,7 +155,9 @@ class Camera:
             return color_from_emission
 
         if srec.skip_pdf:
-            return srec.attenuation * self.ray_color(srec.skip_pdf_ray, depth - 1, world, lights)
+            return srec.attenuation * self.ray_color(
+                srec.skip_pdf_ray, depth - 1, world, lights
+            )
 
         light_ptr = HittablePdf(lights, rec.p)
         p = MixturePdf(light_ptr, srec.pdf_ptr)
@@ -160,6 +168,8 @@ class Camera:
         scattering_pdf = rec.mat.scattering_pdf(r, rec, scattered)
 
         sample_color = self.ray_color(scattered, depth - 1, world, lights)
-        color_from_scatter = (srec.attenuation * scattering_pdf * sample_color) / pdf_value
+        color_from_scatter = (
+            srec.attenuation * scattering_pdf * sample_color
+        ) / pdf_value
 
         return color_from_emission + color_from_scatter

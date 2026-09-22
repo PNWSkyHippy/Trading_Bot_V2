@@ -34,9 +34,7 @@ for attendee in attendees:
 sorted_by_key = sorted(dict_of_lists.items())
 for country, attendees in sorted_by_key:
     print(f"Country: {country}")
-    print(
-        f"Number of Attendees: {len(attendees)}"
-    )
+    print(f"Number of Attendees: {len(attendees)}")
     names = ""
     for attendee in attendees:
         names += attendee["name"] + " "

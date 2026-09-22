@@ -8,7 +8,13 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union
 
-from .dialogs import prompt_choice, prompt_confirm, prompt_form, prompt_number, prompt_text
+from .dialogs import (
+    prompt_choice,
+    prompt_confirm,
+    prompt_form,
+    prompt_number,
+    prompt_text,
+)
 from .forms import FormPanel, HAS_CTK, ctk
 from .menu import MenuBarBuilder, MenuNode
 from .outputs import ConsolePanel, DataTable, ImagePanel, StatGrid, show_image_window
@@ -42,7 +48,9 @@ class ToolView(ttk.Frame):
         """Override this method to construct the tool's widgets."""
         pass
 
-    def add_form(self, title: Optional[str] = None, parent: Optional[tk.Widget] = None, **kwargs) -> FormPanel:
+    def add_form(
+        self, title: Optional[str] = None, parent: Optional[tk.Widget] = None, **kwargs
+    ) -> FormPanel:
         """Helper to create a FormPanel."""
         p = parent or self._main_container
         return FormPanel(p, title=title, theme=self.theme, **kwargs)
@@ -66,12 +74,19 @@ class ToolView(ttk.Frame):
             **kwargs,
         )
 
-    def add_stat_grid(self, columns: int = 4, parent: Optional[tk.Widget] = None, **kwargs) -> StatGrid:
+    def add_stat_grid(
+        self, columns: int = 4, parent: Optional[tk.Widget] = None, **kwargs
+    ) -> StatGrid:
         """Helper to create a StatGrid."""
         p = parent or self._main_container
         return StatGrid(p, columns=columns, theme=self.theme, **kwargs)
 
-    def add_console(self, title: Optional[str] = "Output Console", parent: Optional[tk.Widget] = None, **kwargs) -> ConsolePanel:
+    def add_console(
+        self,
+        title: Optional[str] = "Output Console",
+        parent: Optional[tk.Widget] = None,
+        **kwargs,
+    ) -> ConsolePanel:
         """Helper to create a ConsolePanel."""
         p = parent or self._main_container
         return ConsolePanel(p, title=title, theme=self.theme, **kwargs)
@@ -101,7 +116,9 @@ class ToolView(ttk.Frame):
             max_display_size=max_display_size,
         )
 
-    def add_container(self, parent: Optional[tk.Widget] = None, padding: int = 0) -> ttk.Frame:
+    def add_container(
+        self, parent: Optional[tk.Widget] = None, padding: int = 0
+    ) -> ttk.Frame:
         """Creates a flexible styled container frame."""
         p = parent or self._main_container
         f = ttk.Frame(p, style="TFrame", padding=padding)
@@ -163,25 +180,89 @@ class ToolView(ttk.Frame):
         """Builds an entire menu tree declaratively from a nested dictionary."""
         self.app.build_menu_tree(tree)
 
-    def prompt_text(self, title: str = "Input Required", prompt: str = "Please enter a value:", default: str = "", password: bool = False) -> Optional[str]:
+    def prompt_text(
+        self,
+        title: str = "Input Required",
+        prompt: str = "Please enter a value:",
+        default: str = "",
+        password: bool = False,
+    ) -> Optional[str]:
         """Pops up a modal single-line text input dialog."""
-        return prompt_text(title=title, prompt=prompt, default=default, password=password, parent=self, theme=self.theme)
+        return prompt_text(
+            title=title,
+            prompt=prompt,
+            default=default,
+            password=password,
+            parent=self,
+            theme=self.theme,
+        )
 
-    def prompt_number(self, title: str = "Numeric Input", prompt: str = "Please enter a number:", default: Union[int, float] = 0, is_float: bool = False, min_val: Optional[float] = None, max_val: Optional[float] = None, step: float = 1) -> Optional[Union[int, float]]:
+    def prompt_number(
+        self,
+        title: str = "Numeric Input",
+        prompt: str = "Please enter a number:",
+        default: Union[int, float] = 0,
+        is_float: bool = False,
+        min_val: Optional[float] = None,
+        max_val: Optional[float] = None,
+        step: float = 1,
+    ) -> Optional[Union[int, float]]:
         """Pops up a modal numeric spinbox dialog."""
-        return prompt_number(title=title, prompt=prompt, default=default, is_float=is_float, min_val=min_val, max_val=max_val, step=step, parent=self, theme=self.theme)
+        return prompt_number(
+            title=title,
+            prompt=prompt,
+            default=default,
+            is_float=is_float,
+            min_val=min_val,
+            max_val=max_val,
+            step=step,
+            parent=self,
+            theme=self.theme,
+        )
 
-    def prompt_choice(self, title: str = "Select Option", prompt: str = "Please choose an option:", options: Optional[List[str]] = None, default: Optional[str] = None) -> Optional[str]:
+    def prompt_choice(
+        self,
+        title: str = "Select Option",
+        prompt: str = "Please choose an option:",
+        options: Optional[List[str]] = None,
+        default: Optional[str] = None,
+    ) -> Optional[str]:
         """Pops up a modal dropdown selection dialog."""
-        return prompt_choice(title=title, prompt=prompt, options=options, default=default, parent=self, theme=self.theme)
+        return prompt_choice(
+            title=title,
+            prompt=prompt,
+            options=options,
+            default=default,
+            parent=self,
+            theme=self.theme,
+        )
 
-    def prompt_confirm(self, title: str = "Confirmation", message: str = "Are you sure you want to proceed?") -> bool:
+    def prompt_confirm(
+        self,
+        title: str = "Confirmation",
+        message: str = "Are you sure you want to proceed?",
+    ) -> bool:
         """Pops up a modal confirmation dialog."""
         return prompt_confirm(title=title, message=message, parent=self)
 
-    def prompt_form(self, title: str, form_builder_fn: Callable[[FormPanel], None], size: Tuple[int, int] = (460, 360), ok_text: str = "Submit", cancel_text: str = "Cancel") -> Optional[Dict[str, Any]]:
+    def prompt_form(
+        self,
+        title: str,
+        form_builder_fn: Callable[[FormPanel], None],
+        size: Tuple[int, int] = (460, 360),
+        ok_text: str = "Submit",
+        cancel_text: str = "Cancel",
+    ) -> Optional[Dict[str, Any]]:
         """Pops up a modal multi-field FormPanel dialog and returns clean dictionary of values or None."""
-        return prompt_form(title=title, form_builder_fn=form_builder_fn, parent=self, theme=self.theme, size=size, ok_text=ok_text, cancel_text=cancel_text)
+        return prompt_form(
+            title=title,
+            form_builder_fn=form_builder_fn,
+            parent=self,
+            theme=self.theme,
+            size=size,
+            ok_text=ok_text,
+            cancel_text=cancel_text,
+        )
 
     def set_status(self, text: str):
         """Updates the main app's status bar."""
@@ -195,7 +276,9 @@ class ToolView(ttk.Frame):
         status_msg: str = "Processing...",
     ):
         """Runs a heavy Python task in the background without freezing the UI."""
-        self.app.run_async(worker_func, on_done=on_done, on_error=on_error, status_msg=status_msg)
+        self.app.run_async(
+            worker_func, on_done=on_done, on_error=on_error, status_msg=status_msg
+        )
 
 
 class QuickApp:
@@ -220,7 +303,7 @@ class QuickApp:
 
         self.use_ctk = bool(use_ctk and HAS_CTK)
         if self.use_ctk:
-            is_light = (theme == "Clean Light")
+            is_light = theme == "Clean Light"
             ctk.set_appearance_mode("Light" if is_light else "Dark")
             ctk.set_default_color_theme("blue")
             self.root = ctk.CTk()
@@ -262,7 +345,9 @@ class QuickApp:
         t_lbl = ttk.Label(theme_box, text="Theme:", style="Dim.TLabel")
         t_lbl.grid(row=0, column=0, padx=(0, 4))
 
-        self._theme_var = tk.StringVar(value=theme if theme in Theme.PRESETS else "Dark Obsidian")
+        self._theme_var = tk.StringVar(
+            value=theme if theme in Theme.PRESETS else "Dark Obsidian"
+        )
         theme_cb = ttk.Combobox(
             theme_box,
             textvariable=self._theme_var,
@@ -271,7 +356,9 @@ class QuickApp:
             width=16,
         )
         theme_cb.grid(row=0, column=1)
-        theme_cb.bind("<<ComboboxSelected>>", lambda e: self.set_theme(self._theme_var.get()))
+        theme_cb.bind(
+            "<<ComboboxSelected>>", lambda e: self.set_theme(self._theme_var.get())
+        )
 
         self.menu_builder = MenuBarBuilder(self.root)
         self._menu_bar = self.menu_builder.menu_bar
@@ -300,21 +387,30 @@ class QuickApp:
         apply_theme(self.root, self.current_theme)
 
         if HAS_CTK:
-            is_light = (isinstance(theme_input, str) and theme_input == "Clean Light") or (
-                isinstance(theme_input, dict) and "light" in theme_input.get("name", "").lower()
+            is_light = (
+                isinstance(theme_input, str) and theme_input == "Clean Light"
+            ) or (
+                isinstance(theme_input, dict)
+                and "light" in theme_input.get("name", "").lower()
             )
             ctk.set_appearance_mode("Light" if is_light else "Dark")
 
     def toggle_theme(self):
         """Toggles between Dark Obsidian and Clean Light."""
-        new_theme = "Clean Light" if "Dark" in self.theme_name or "Cyber" in self.theme_name else "Dark Obsidian"
+        new_theme = (
+            "Clean Light"
+            if "Dark" in self.theme_name or "Cyber" in self.theme_name
+            else "Dark Obsidian"
+        )
         self.set_theme(new_theme)
 
     def set_status(self, text: str):
         """Sets the status bar text."""
         self._status_lbl.config(text=text)
 
-    def add_menu(self, label: str, items: Optional[List[Tuple[str, Optional[Callable]]]] = None) -> MenuNode:
+    def add_menu(
+        self, label: str, items: Optional[List[Tuple[str, Optional[Callable]]]] = None
+    ) -> MenuNode:
         """
         Adds a top-level menu dropdown (e.g. 'File', 'Edit', 'Help') and returns MenuNode.
         If items is provided, populates legacy list of (label, callback).
@@ -341,7 +437,9 @@ class QuickApp:
     def exit(self, confirm: bool = False):
         """Cleanly closes the application window with optional confirmation."""
         if confirm:
-            ans = messagebox.askyesno("Confirm Exit", "Are you sure you want to exit the application?")
+            ans = messagebox.askyesno(
+                "Confirm Exit", "Are you sure you want to exit the application?"
+            )
             if not ans:
                 return
         try:
@@ -354,6 +452,7 @@ class QuickApp:
         Registers a custom handler when the user clicks the OS window close (X) button.
         If callback returns False, the close action is aborted.
         """
+
         def _handler():
             res = callback()
             if res is not False:
@@ -385,12 +484,19 @@ class QuickApp:
         self._content_area.rowconfigure(0, weight=1)
 
         # Sidebar Frame
-        sidebar = ttk.Frame(self._content_area, style="Sidebar.TFrame", width=220, padding=10)
+        sidebar = ttk.Frame(
+            self._content_area, style="Sidebar.TFrame", width=220, padding=10
+        )
         sidebar.grid(row=0, column=0, sticky="nsew")
         sidebar.grid_propagate(False)
 
         # Header in sidebar
-        app_title_lbl = ttk.Label(sidebar, text="UTILITY HUB", style="Title.TLabel", font=("Segoe UI", 12, "bold"))
+        app_title_lbl = ttk.Label(
+            sidebar,
+            text="UTILITY HUB",
+            style="Title.TLabel",
+            font=("Segoe UI", 12, "bold"),
+        )
         app_title_lbl.pack(fill="x", pady=(8, 16), padx=4)
 
         # Container for tool views

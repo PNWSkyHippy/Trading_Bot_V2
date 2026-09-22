@@ -17,7 +17,7 @@ It is located in:
    - No `tk.StringVar()` or manual `.get()`.
    - A single call to `form.get_values()` gives you a clean Python dictionary:
      ```python
-     {'symbol': 'ES', 'contracts': 2, 'target_profit': 500.0}
+     {"symbol": "ES", "contracts": 2, "target_profit": 500.0}
      ```
 
 3. **Custom Widget Freedom**:
@@ -86,9 +86,11 @@ python C:\Users\Linda\.gemini\antigravity\scratch\quick_tk\examples\05_all_in_on
 
 ```python
 import os, sys
+
 sys.path.insert(0, r"C:\Users\Linda\.gemini\antigravity\scratch\quick_tk")
 
 from quick_tk import QuickApp, ToolView
+
 
 class MyQuickTool(ToolView):
     title = "My Utility"
@@ -107,8 +109,11 @@ class MyQuickTool(ToolView):
     def on_run(self, inputs: dict):
         # 3. Your logic!
         print("Inputs received:", inputs)
-        self.stats.set_metrics({"Total Found": (42, "success"), "Query": (inputs["query"], "info")})
+        self.stats.set_metrics(
+            {"Total Found": (42, "success"), "Query": (inputs["query"], "info")}
+        )
         self.table.set_data([[1, "Item A", "Active"], [2, "Item B", "Pending"]])
+
 
 if __name__ == "__main__":
     app = QuickApp(title="My Tool")

@@ -22,27 +22,19 @@ def get_positive_float(prompt):
                 return value
             print("Must be greater than zero.")
         except ValueError:
-            print(
-                "Invalid — please enter a number."
-            )
+            print("Invalid — please enter a number.")
 
 
 while True:
     # Get choice for Stocks or crypto , until a
     # valid entry is received
     try:
-        trade_type = int(
-            input(
-                "(1) for Crypto or (2) for Stocks: "
-            )
-        )
+        trade_type = int(input("(1) for Crypto or (2) for Stocks: "))
         if trade_type in range(1, 3):
             break  # valid — exit the loop
         print("Please enter 1 or 2.")
     except ValueError:
-        print(
-            "That's not a number. Please enter 1 or 2."
-        )
+        print("That's not a number. Please enter 1 or 2.")
 
 #  set proper tax rate based on choice , crypto or stocks
 if trade_type == 2:
@@ -51,41 +43,27 @@ else:
     trade_fees = 0.62
 
 
-while (
-    True
-):  # Get choice for Trade direction, long or short
+while True:  # Get choice for Trade direction, long or short
     try:
         trade_direction = int(
-            input(
-                "Trade direction (1) for long, "
-                + "(2) for short): "
-            )
+            input("Trade direction (1) for long, " + "(2) for short): ")
         )
         if trade_direction in range(1, 3):
             break  # valid — exit the loop
         print("Please enter 1 or 2.")
     except ValueError:
-        print(
-            "That's not a number. Please enter 1 or 2."
-        )
+        print("That's not a number. Please enter 1 or 2.")
 
 
 # Gather trade details from the user
-trade_entry = get_positive_float(
-    "Enter the trade entry price: "
-)
-trade_exit = get_positive_float(
-    "Enter the trade exit price: "
-)
-trade_qty = get_positive_float(
-    "Enter the trade quantity: "
-)
+trade_entry = get_positive_float("Enter the trade entry price: ")
+trade_exit = get_positive_float("Enter the trade exit price: ")
+trade_qty = get_positive_float("Enter the trade quantity: ")
 
 
 # echo entered values back to user
 print(
-    f"Entry Value: {trade_entry}, Exit Value: {trade_exit},"
-    + f"Quantity: {trade_qty}"
+    f"Entry Value: {trade_entry}, Exit Value: {trade_exit}," + f"Quantity: {trade_qty}"
 )
 
 # Calculate the cost of entry  exit, and fees and echo result to the user

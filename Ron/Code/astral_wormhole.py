@@ -31,6 +31,7 @@ except Exception:
 res_x, res_y = 800, 600
 pixels = ti.Vector.field(3, dtype=ti.f32, shape=(res_x, res_y))
 
+
 # ---------------------------------------------------------------------------
 # GPU Volumetric Ray Marching Shader Functions
 # ---------------------------------------------------------------------------
@@ -41,6 +42,7 @@ def get_path(z: ti.f32, t: ti.f32) -> ti.types.vector(2, ti.f32):
     y = ti.cos(z * 0.10 + t * 0.25) * 2.4 + ti.cos(z * 0.06) * 1.0
     return ti.Vector([x, y])
 
+
 @ti.func
 def fractal_noise_3d(p: ti.types.vector(3, ti.f32), t: ti.f32) -> ti.f32:
     """Multi-octave trigonometric noise for plasma filaments and nebula clouds."""
@@ -50,6 +52,7 @@ def fractal_noise_3d(p: ti.types.vector(3, ti.f32), t: ti.f32) -> ti.f32:
     n3 = ti.sin(q.x * 8.5 - q.y * 5.2 + q.z * 6.1) * 0.25
     return n1 + n2 + n3
 
+
 @ti.kernel
 def render_wormhole(
     c_pos: ti.types.vector(3, ti.f32),
@@ -57,7 +60,7 @@ def render_wormhole(
     c_right: ti.types.vector(3, ti.f32),
     c_up: ti.types.vector(3, ti.f32),
     t_clock: ti.f32,
-    warp_boost: ti.f32
+    warp_boost: ti.f32,
 ):
     for x, y in pixels:
         nx = (2.0 * x - res_x) / res_y
@@ -90,7 +93,11 @@ def render_wormhole(
             angle = ti.atan2(rel_p.y, rel_p.x)
 
             # Rhythmic tunnel radius with breathing dilation waves
-            tunnel_radius = 3.6 + 0.6 * ti.sin(p.z * 0.25 - t_clock * 3.0) + 0.3 * ti.cos(angle * 4.0 + p.z * 0.5)
+            tunnel_radius = (
+                3.6
+                + 0.6 * ti.sin(p.z * 0.25 - t_clock * 3.0)
+                + 0.3 * ti.cos(angle * 4.0 + p.z * 0.5)
+            )
 
             # Tunnel Wall Density
             wall_dist = rad_dist - tunnel_radius
@@ -101,11 +108,20 @@ def render_wormhole(
             if wall_dist > -1.4:
                 # Gas / energy density increases toward the walls
                 norm_d = (wall_dist + 1.4) / 1.4
-                density = (norm_d * norm_d * 0.65 + plasma_noise * 0.3)
+                density = norm_d * norm_d * 0.65 + plasma_noise * 0.3
                 density = ti.max(0.0, density)
 
             # Floating cosmic dust particles inside the tunnel core
-            core_dust = ti.max(0.0, ti.sin(p.x * 10.0) * ti.cos(p.y * 10.0) * ti.sin(p.z * 4.0 + t_clock * 8.0) - 0.75) * 2.2
+            core_dust = (
+                ti.max(
+                    0.0,
+                    ti.sin(p.x * 10.0)
+                    * ti.cos(p.y * 10.0)
+                    * ti.sin(p.z * 4.0 + t_clock * 8.0)
+                    - 0.75,
+                )
+                * 2.2
+            )
             density += core_dust
 
             if density > 0.001:
@@ -128,7 +144,9 @@ def render_wormhole(
 
         # Deep Space Void & Distant Dimensional Horizon
         if transmittance > 0.0:
-            distant_glow = ti.Vector([0.18, 0.08, 0.35]) * (1.0 + ti.sin(t_clock * 2.0) * 0.3)
+            distant_glow = ti.Vector([0.18, 0.08, 0.35]) * (
+                1.0 + ti.sin(t_clock * 2.0) * 0.3
+            )
             acc_color += distant_glow * transmittance
 
         # Chromatic Warp Flare on Speed Boost
@@ -153,7 +171,10 @@ class HyperspaceAudioEngine:
 
         try:
             import pygame
-            pygame.mixer.init(frequency=self.sample_rate, size=-16, channels=2, buffer=1024)
+
+            pygame.mixer.init(
+                frequency=self.sample_rate, size=-16, channels=2, buffer=1024
+            )
             pygame.mixer.set_num_channels(8)
             self.has_audio = True
 
@@ -169,7 +190,10 @@ class HyperspaceAudioEngine:
             h1 = np.sin(2.0 * np.pi * 65.0 * t) * 0.4
             h2 = np.sin(2.0 * np.pi * 130.0 * t) * 0.3
             h3 = np.sin(2.0 * np.pi * 195.0 * t) * 0.2
-            h4 = np.sin(2.0 * np.pi * 260.0 * t + np.sin(2.0 * np.pi * 0.5 * t) * 2.0) * 0.15
+            h4 = (
+                np.sin(2.0 * np.pi * 260.0 * t + np.sin(2.0 * np.pi * 0.5 * t) * 2.0)
+                * 0.15
+            )
             drone = (h1 + h2 + h3 + h4) * 0.45
 
             stereo = np.column_stack((drone * 32767, drone * 32767)).astype(np.int16)
@@ -178,10 +202,14 @@ class HyperspaceAudioEngine:
             self.drone_ch.set_volume(0.35, 0.35)
 
             # Background Crackle Thread for wall ionization
-            self.crackle_thread = threading.Thread(target=self._crackle_loop, daemon=True)
+            self.crackle_thread = threading.Thread(
+                target=self._crackle_loop, daemon=True
+            )
             self.crackle_thread.start()
 
-            print("🔊 3D Hyperspace Audio: [Binaural Resonance Engine] Active & Streaming!")
+            print(
+                "🔊 3D Hyperspace Audio: [Binaural Resonance Engine] Active & Streaming!"
+            )
         except Exception as e:
             print(f"⚠️ Hyperspace Audio note: {e}")
 
@@ -200,6 +228,7 @@ class HyperspaceAudioEngine:
     def _crackle_loop(self):
         """Generates soft plasma ionization crackles when skimming close to the wormhole walls."""
         import pygame
+
         while self.running:
             if self.wall_dist < 1.2 and self.has_audio:
                 dur = 0.12
@@ -207,8 +236,12 @@ class HyperspaceAudioEngine:
                 noise = np.random.uniform(-0.15, 0.15, n).astype(np.float32)
                 vol = (1.2 - self.wall_dist) * 0.4
                 pan = float(np.clip(self.bank_angle, -1.0, 1.0))
-                l = (noise * vol * np.sqrt(max(0.0, (1.0 - pan) * 0.5)) * 32767).astype(np.int16)
-                r = (noise * vol * np.sqrt(max(0.0, (1.0 + pan) * 0.5)) * 32767).astype(np.int16)
+                l = (noise * vol * np.sqrt(max(0.0, (1.0 - pan) * 0.5)) * 32767).astype(
+                    np.int16
+                )
+                r = (noise * vol * np.sqrt(max(0.0, (1.0 + pan) * 0.5)) * 32767).astype(
+                    np.int16
+                )
                 snd = pygame.sndarray.make_sound(np.column_stack((l, r)))
                 ch = pygame.mixer.Channel(2)
                 if ch:
@@ -220,6 +253,7 @@ class HyperspaceAudioEngine:
         if self.has_audio:
             try:
                 import pygame
+
                 pygame.mixer.stop()
             except Exception:
                 pass
@@ -285,8 +319,14 @@ def main():
         # 3. Dynamic Serpentine Wormhole Spine Tracking
         # -------------------------------------------------------------
         # Calculate where the tunnel center is at our current Z depth
-        spine_x = math.sin(cam_pos[2] * 0.12 + time_clock * 0.35) * 3.2 + math.sin(cam_pos[2] * 0.04) * 1.5
-        spine_y = math.cos(cam_pos[2] * 0.10 + time_clock * 0.25) * 2.4 + math.cos(cam_pos[2] * 0.06) * 1.0
+        spine_x = (
+            math.sin(cam_pos[2] * 0.12 + time_clock * 0.35) * 3.2
+            + math.sin(cam_pos[2] * 0.04) * 1.5
+        )
+        spine_y = (
+            math.cos(cam_pos[2] * 0.10 + time_clock * 0.25) * 2.4
+            + math.cos(cam_pos[2] * 0.06) * 1.0
+        )
 
         # User steering offsets within the tunnel cylinder
         user_offset_x += (target_yaw * 1.4 - user_offset_x) * 0.08
@@ -298,7 +338,7 @@ def main():
 
         # Forward Flight Velocity
         is_warp = gui.is_pressed(ti.GUI.SHIFT)
-        is_brake = gui.is_pressed(ti.GUI.LMB, ti.GUI.RMB, ti.GUI.DOWN, 's', 'S')
+        is_brake = gui.is_pressed(ti.GUI.LMB, ti.GUI.RMB, ti.GUI.DOWN, "s", "S")
         speed_multiplier = 2.6 if is_warp else (0.4 if is_brake else 1.0)
 
         # Advance forward through the spacetime tube
@@ -307,11 +347,14 @@ def main():
         # -------------------------------------------------------------
         # 4. Camera Orientation Vectors
         # -------------------------------------------------------------
-        forward = np.array([
-            math.sin(cam_yaw) * math.cos(cam_pitch),
-            math.sin(cam_pitch),
-            math.cos(cam_yaw) * math.cos(cam_pitch)
-        ], dtype=np.float32)
+        forward = np.array(
+            [
+                math.sin(cam_yaw) * math.cos(cam_pitch),
+                math.sin(cam_pitch),
+                math.cos(cam_yaw) * math.cos(cam_pitch),
+            ],
+            dtype=np.float32,
+        )
         forward = forward / np.linalg.norm(forward)
 
         world_up = np.array([0.0, 1.0, 0.0], dtype=np.float32)
@@ -322,11 +365,11 @@ def main():
         # -------------------------------------------------------------
         # 5. Audio Engine Sync
         # -------------------------------------------------------------
-        wall_proximity = max(0.0, 3.6 - math.sqrt(user_offset_x ** 2 + user_offset_y ** 2))
+        wall_proximity = max(0.0, 3.6 - math.sqrt(user_offset_x**2 + user_offset_y**2))
         audio.update_flight(
             speed_factor=speed_multiplier,
             wall_proximity=wall_proximity,
-            bank=user_offset_x / 2.5
+            bank=user_offset_x / 2.5,
         )
 
         # -------------------------------------------------------------
@@ -339,22 +382,32 @@ def main():
         warp_val = 1.0 if is_warp else 0.0
 
         render_wormhole(
-            c_pos_vec,
-            c_forward_vec,
-            c_right_vec,
-            c_up_vec,
-            time_clock,
-            warp_val
+            c_pos_vec, c_forward_vec, c_right_vec, c_up_vec, time_clock, warp_val
         )
 
         # -------------------------------------------------------------
         # 7. Render HUD & Blit
         # -------------------------------------------------------------
         gui.set_image(pixels)
-        gui.text(content=f"HYPERSPACE ENGINE: {fps:.1f} FPS", pos=(0.04, 0.95), color=0x00FFDD, font_size=18)
-        gui.text(content="[Move Trackpad] Steer  [SHIFT] Warp Speed  [Click] Brake", pos=(0.04, 0.06), color=0xFFAAFF, font_size=14)
+        gui.text(
+            content=f"HYPERSPACE ENGINE: {fps:.1f} FPS",
+            pos=(0.04, 0.95),
+            color=0x00FFDD,
+            font_size=18,
+        )
+        gui.text(
+            content="[Move Trackpad] Steer  [SHIFT] Warp Speed  [Click] Brake",
+            pos=(0.04, 0.06),
+            color=0xFFAAFF,
+            font_size=14,
+        )
         if is_warp:
-            gui.text(content="⚡ WARP SPEED ENGAGED! ⚡", pos=(0.34, 0.92), color=0xFFFF44, font_size=18)
+            gui.text(
+                content="⚡ WARP SPEED ENGAGED! ⚡",
+                pos=(0.34, 0.92),
+                color=0xFFFF44,
+                font_size=18,
+            )
 
         gui.show()
 

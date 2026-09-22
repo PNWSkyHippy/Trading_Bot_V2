@@ -3,14 +3,15 @@ from PIL import Image, ImageTk, ImageEnhance
 import PIL
 from tkinter import *
 import tkinter
+
 sys.path.insert(0, r"C:\Users\Linda\trading_bot_v2\Ron\Code\quick_tk")
 
 from quick_tk import QuickApp, ToolView
 
+
 class PaintCanvas(tkinter.Canvas):
     def __init__(self, master, image):
-        tkinter.Canvas.__init__(self, master,
-                                width=image.size[0], height=image.size[1])
+        tkinter.Canvas.__init__(self, master, width=image.size[0], height=image.size[1])
 
         # fill the canvas
         self.tile = {}
@@ -18,7 +19,7 @@ class PaintCanvas(tkinter.Canvas):
         xsize, ysize = image.size
         for x in range(0, xsize, tilesize):
             for y in range(0, ysize, tilesize):
-                box = x, y, min(xsize, x+tilesize), min(ysize, y+tilesize)
+                box = x, y, min(xsize, x + tilesize), min(ysize, y + tilesize)
                 tile = ImageTk.PhotoImage(image.crop(box))
                 self.create_image(x, y, image=tile, anchor=tkinter.NW)
                 self.tile[(x, y)] = box, tile
@@ -41,8 +42,8 @@ class PaintCanvas(tkinter.Canvas):
         # update canvas
         dx = box[0] % self.tilesize
         dy = box[1] % self.tilesize
-        for x in range(box[0]-dx, box[2]+1, self.tilesize):
-            for y in range(box[1]-dy, box[3]+1, self.tilesize):
+        for x in range(box[0] - dx, box[2] + 1, self.tilesize):
+            for y in range(box[1] - dy, box[3] + 1, self.tilesize):
                 try:
                     xy, tile = self.tile[(x, y)]
                     tile.paste(self.image.crop(xy))
@@ -70,15 +71,16 @@ class MyQuickTool(ToolView):
         im = PIL.Image.open(sys.argv[1])
         mycanvas = self.tk
         PaintCanvas(self, im)
-        
-  
-        
+
     def on_run(self, inputs: dict):
         # 3. Your logic!
-       
+
         print("Inputs received:", inputs)
-        self.stats.set_metrics({"Total Found": (42, "success"), "Query": (inputs["query"], "info")})
+        self.stats.set_metrics(
+            {"Total Found": (42, "success"), "Query": (inputs["query"], "info")}
+        )
         self.table.set_data([[1, "Item A", "Active"], [2, "Item B", "Pending"]])
+
 
 if __name__ == "__main__":
     app = QuickApp(title="My Tool")

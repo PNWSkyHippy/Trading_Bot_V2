@@ -20,25 +20,23 @@ from PIL import Image, ImageTk
 
 
 class UI(tkinter.Label):
-
     def __init__(self, master, im):
 
         if im.mode == "1":
             # bitmap image
             self.image = ImageTk.BitmapImage(im, foreground="white")
-            tkinter.Label.__init__(self, master, image=self.image, bd=0,
-                                   bg="black")
+            tkinter.Label.__init__(self, master, image=self.image, bd=0, bg="black")
 
         else:
             # photo image
             self.image = ImageTk.PhotoImage(im)
             tkinter.Label.__init__(self, master, image=self.image, bd=0)
 
+
 #
 # script interface
 
 if __name__ == "__main__":
-
     if not sys.argv[1:]:
         print("Syntax: python viewer.py imagefile")
         sys.exit(1)

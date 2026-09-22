@@ -49,7 +49,9 @@ def main():
     # Light Sources
     empty_material = None
     lights = HittableList()
-    lights.add(Quad(Point3(343, 554, 332), Vec3(-130, 0, 0), Vec3(0, 0, -105), empty_material))
+    lights.add(
+        Quad(Point3(343, 554, 332), Vec3(-130, 0, 0), Vec3(0, 0, -105), empty_material)
+    )
     lights.add(Sphere(Point3(190, 90, 190), 90, empty_material))
 
     cam = Camera()

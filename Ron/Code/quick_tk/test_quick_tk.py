@@ -11,7 +11,15 @@ sys.path.insert(0, SCRATCH_DIR)
 sys.path.insert(0, BASE_DIR)
 
 import quick_tk
-from quick_tk import QuickApp, ToolView, FormPanel, DataTable, StatGrid, ConsolePanel, Theme
+from quick_tk import (
+    QuickApp,
+    ToolView,
+    FormPanel,
+    DataTable,
+    StatGrid,
+    ConsolePanel,
+    Theme,
+)
 
 print("=== QuickTk Verification Success ===")
 print("Version:", quick_tk.__version__)

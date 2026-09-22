@@ -42,6 +42,7 @@ Every utility you build inherits from `ToolView` and implements `build_ui()`:
 ```python
 from quick_tk import QuickApp, ToolView
 
+
 class MyUtilityTool(ToolView):
     title = "Data Processing Utility"
 
@@ -50,7 +51,9 @@ class MyUtilityTool(ToolView):
         self.form = self.add_form("Settings")
         self.form.add_text("username", "Operator Name", default="Linda")
         self.form.add_dropdown("mode", "Operation Mode", ["Quick", "Thorough", "Deep"])
-        self.form.add_slider("threads", "Worker Threads", min_val=1, max_val=16, default=4)
+        self.form.add_slider(
+            "threads", "Worker Threads", min_val=1, max_val=16, default=4
+        )
         self.form.add_file_picker("file_path", "Target File", mode="open")
         self.form.add_button("Execute", callback=self.on_run, variant="primary")
 
@@ -61,8 +64,11 @@ class MyUtilityTool(ToolView):
         # 3. Drop in your backend logic!
         # inputs is automatically a clean dict: {'username': '...', 'mode': '...', 'file_path': '...'}
         self.console.write_heading("Starting Task")
-        self.console.write_line(f"Running mode {inputs['mode']} on {inputs['file_path']}...")
+        self.console.write_line(
+            f"Running mode {inputs['mode']} on {inputs['file_path']}..."
+        )
         self.set_status("Task completed successfully!")
+
 
 if __name__ == "__main__":
     app = QuickApp(title="My Standalone Tool", size=(900, 600), theme="Dark Obsidian")
@@ -127,7 +133,9 @@ Define top-level application menus either fluently or declaratively:
 file_menu = self.menu("File")
 file_menu.add_item("New Project", self.on_new, shortcut="Ctrl+N")
 file_menu.add_file_open("Open Data File...", self.on_open, shortcut="Ctrl+O")
-file_menu.add_file_save("Save Report As...", self.on_save, default_ext=".csv", shortcut="Ctrl+S")
+file_menu.add_file_save(
+    "Save Report As...", self.on_save, default_ext=".csv", shortcut="Ctrl+S"
+)
 file_menu.add_separator()
 
 # Cascading Submenu
@@ -137,26 +145,35 @@ export_sub.add_item("Export to JSON", self.export_json)
 
 # Checkbox Toggles and Radio Groups
 view_menu = self.menu("View")
-view_menu.add_toggle("Include Timestamps", default=True, on_toggle=self.toggle_timestamps, shortcut="Ctrl+T")
+view_menu.add_toggle(
+    "Include Timestamps",
+    default=True,
+    on_toggle=self.toggle_timestamps,
+    shortcut="Ctrl+T",
+)
 density_sub = view_menu.add_submenu("Density")
-density_sub.add_radio_group(["Compact", "Normal", "Wide"], default="Normal", on_change=self.set_density)
+density_sub.add_radio_group(
+    ["Compact", "Normal", "Wide"], default="Normal", on_change=self.set_density
+)
 ```
 
 #### Declarative Tree Style
 ```python
-self.build_menu_tree({
-    "Tools": [
-        {"label": "Run Diagnostics", "command": self.run_diag, "shortcut": "F5"},
-        "---",
-        {
-            "label": "Database Operations",
-            "submenu": [
-                {"label": "Vacuum Database", "command": self.db_vacuum},
-                {"label": "Re-index Tables", "command": self.db_reindex},
-            ]
-        }
-    ]
-})
+self.build_menu_tree(
+    {
+        "Tools": [
+            {"label": "Run Diagnostics", "command": self.run_diag, "shortcut": "F5"},
+            "---",
+            {
+                "label": "Database Operations",
+                "submenu": [
+                    {"label": "Vacuum Database", "command": self.db_vacuum},
+                    {"label": "Re-index Tables", "command": self.db_reindex},
+                ],
+            },
+        ]
+    }
+)
 ```
 
 ---
@@ -168,13 +185,26 @@ Keep your main window uncluttered by moving secondary forms, file selectors, and
 #### Single Input Prompts
 ```python
 # 1. Text Prompt
-name = self.prompt_text(title="Project Name", prompt="Enter title:", default="Alpha Scan")
+name = self.prompt_text(
+    title="Project Name", prompt="Enter title:", default="Alpha Scan"
+)
 
 # 2. Number Prompt
-limit = self.prompt_number(title="Row Limit", prompt="Max rows to fetch:", default=500, min_val=10, max_val=10000)
+limit = self.prompt_number(
+    title="Row Limit",
+    prompt="Max rows to fetch:",
+    default=500,
+    min_val=10,
+    max_val=10000,
+)
 
 # 3. Dropdown Choice
-choice = self.prompt_choice(title="Format", prompt="Select output type:", options=["CSV", "JSON", "Parquet"], default="CSV")
+choice = self.prompt_choice(
+    title="Format",
+    prompt="Select output type:",
+    options=["CSV", "JSON", "Parquet"],
+    default="CSV",
+)
 
 # 4. Confirmation
 if self.prompt_confirm(title="Confirm", message="Delete selected record?"):
@@ -186,17 +216,28 @@ Pop up an entire form window (with dropdowns, file pickers, sliders, and buttons
 ```python
 def on_open_settings(self):
     def build_settings_form(form):
-        form.add_dropdown("feed", "Market Data Feed", ["Alpaca Paper", "Alpaca Live", "Interactive Brokers"])
+        form.add_dropdown(
+            "feed",
+            "Market Data Feed",
+            ["Alpaca Paper", "Alpaca Live", "Interactive Brokers"],
+        )
         form.add_file_picker("input_file", "Historical CSV", mode="open")
         form.add_file_picker("export_dir", "Export Directory", mode="directory")
-        form.add_slider("risk_pct", "Account Risk %", min_val=0.5, max_val=5.0, default=2.0, step=0.5)
+        form.add_slider(
+            "risk_pct",
+            "Account Risk %",
+            min_val=0.5,
+            max_val=5.0,
+            default=2.0,
+            step=0.5,
+        )
 
     # Opens modal dialog, centers over main window, blocks until user clicks Submit or Cancel
     settings = self.prompt_form(
         title="Data Source & Path Configuration",
         form_builder_fn=build_settings_form,
         size=(480, 360),
-        ok_text="Apply Configuration"
+        ok_text="Apply Configuration",
     )
 
     if settings:

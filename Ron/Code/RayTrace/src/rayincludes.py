@@ -1,4 +1,3 @@
-
 # These remain the same for every frame in this particular shot.
 common_scene1_settings = {
     "book": "2",
@@ -43,7 +42,7 @@ scene1_keyframes = [
     },
     {
         "frame": 80,
-        "camera": (20,12,-15),
+        "camera": (20, 12, -15),
         "lookat": (0, 2, 0),
         "vfov": 26,
     },
@@ -60,10 +59,10 @@ scene1_keyframes = [
         "vfov": 30,
     },
     {
-            "frame": 128,
-            "camera": (20, 24, -12),
-            "lookat": (5, 0.6, 0),
-            "vfov": 32,
+        "frame": 128,
+        "camera": (20, 24, -12),
+        "lookat": (5, 0.6, 0),
+        "vfov": 32,
     },
     {
         "frame": 144,
@@ -72,16 +71,16 @@ scene1_keyframes = [
         "vfov": 34,
     },
     {
-            "frame": 160,
-            "camera": (15, 24, -12),
-            "lookat": (2, 1,5, 0),
-            "vfov": 36,
+        "frame": 160,
+        "camera": (15, 24, -12),
+        "lookat": (2, 1, 5, 0),
+        "vfov": 36,
     },
     {
-            "frame": 176,
-            "camera": (15, 24, -12),
-            "lookat": (2, 1.5, 0),
-            "vfov": 38,
+        "frame": 176,
+        "camera": (15, 24, -12),
+        "lookat": (2, 1.5, 0),
+        "vfov": 38,
     },
     {
         "frame": 192,
@@ -90,7 +89,6 @@ scene1_keyframes = [
         "vfov": 40,
     },
 ]
-
 
 
 # List of premade scenes to render
@@ -109,7 +107,7 @@ SCENES_BOOK2 = [
 
 # As this is a front end to a c++ ray tracing engine
 #  we define the parameters needed for calling the tracer
-#  with proper arguments  
+#  with proper arguments
 BOOK_BINARIES = {
     "Book 1: In One Weekend": {
         "mac_dir": "/Users/ronh/Trading_Bot_V2/Ron/Code/RayTrace/src",

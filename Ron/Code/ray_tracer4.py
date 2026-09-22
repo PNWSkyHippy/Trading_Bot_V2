@@ -8,9 +8,7 @@ ti.init(arch=ti.cpu)
 
 # Screen Dimensions
 res_x, res_y = 800, 600
-pixels = ti.Vector.field(
-    3, dtype=ti.f32, shape=(res_x, res_y)
-)
+pixels = ti.Vector.field(3, dtype=ti.f32, shape=(res_x, res_y))
 
 # ---------------------------------------------------------
 # Load PNG Texture using Pillow and copy to Taichi Field
@@ -19,22 +17,16 @@ try:
     img = Image.open("texture.png").convert("RGB")
 except FileNotFoundError:
     # Fallback placeholder image if no local texture.png exists
-    img = Image.new(
-        "RGB", (512, 512), color=(255, 200, 50)
-    )
+    img = Image.new("RGB", (512, 512), color=(255, 200, 50))
     print(
         "Warning: 'texture.png' not found. Generated a solid orange placeholder texture."
     )
 
 tex_w, tex_h = img.size
-img_data = (
-    np.array(img).astype(np.float32) / 255.0
-)  # Normalize colors to [0.0, 1.0]
+img_data = np.array(img).astype(np.float32) / 255.0  # Normalize colors to [0.0, 1.0]
 
 # Allocate texture memory space on the GPU
-texture_field = ti.Vector.field(
-    3, dtype=ti.f32, shape=(tex_w, tex_h)
-)
+texture_field = ti.Vector.field(3, dtype=ti.f32, shape=(tex_w, tex_h))
 texture_field.from_numpy(img_data)
 
 # ---------------------------------------------------------
@@ -56,30 +48,20 @@ s1_pos, s1_rad, s1_refl, s1_type = (
 
 # Multi-Light System (2 light sources with distinct colors and positions)
 num_lights = 2
-light_positions = ti.Vector.field(
-    3, dtype=ti.f32, shape=num_lights
-)
-light_colors = ti.Vector.field(
-    3, dtype=ti.f32, shape=num_lights
-)
+light_positions = ti.Vector.field(3, dtype=ti.f32, shape=num_lights)
+light_colors = ti.Vector.field(3, dtype=ti.f32, shape=num_lights)
 
 # Light 1: Cool Blue Main Light (Top Right)
 light_positions[0] = ti.Vector([5.0, 5.0, -2.0])
-light_colors[0] = (
-    ti.Vector([0.6, 0.8, 1.0]) * 1.2
-)  # Brightness multiplier embedded
+light_colors[0] = ti.Vector([0.6, 0.8, 1.0]) * 1.2  # Brightness multiplier embedded
 
 # Light 2: Warm Red-Orange Fill Light (Left Side)
 light_positions[1] = ti.Vector([-6.0, 2.0, -3.0])
-light_colors[1] = (
-    ti.Vector([1.0, 0.5, 0.3]) * 0.7
-)  # Dimmer spread fill
+light_colors[1] = ti.Vector([1.0, 0.5, 0.3]) * 0.7  # Dimmer spread fill
 
 
 @ti.func
-def hit_sphere(
-    ray_origin, ray_dir, center, radius
-):
+def hit_sphere(ray_origin, ray_dir, center, radius):
     """Calculates ray-sphere intersection. Returns distance t (-1.0 if miss)."""
     oc = ray_origin - center
     a = ray_dir.dot(ray_dir)
@@ -88,19 +70,14 @@ def hit_sphere(
     discriminant = b * b - 4.0 * a * c
     t = -1.0
     if discriminant > 0.0:
-        t = (-b - ti.sqrt(discriminant)) / (
-            2.0 * a
-        )
+        t = (-b - ti.sqrt(discriminant)) / (2.0 * a)
     return t
 
 
 @ti.func
 def sample_texture(normal):
     """Maps sphere surface normals into 2D UV pixels from loaded PNG image."""
-    u = 0.5 + (
-        ti.atan2(normal.z, normal.x)
-        / (2.0 * math.pi)
-    )
+    u = 0.5 + (ti.atan2(normal.z, normal.x) / (2.0 * math.pi))
     v = 0.5 - (ti.asin(normal.y) / math.pi)
 
     # Scale normalized [0,1] coordinates to match image pixel boundaries
@@ -121,22 +98,14 @@ def render():
         ny = (2.0 * y - res_y) / res_y
 
         ray_orig = ti.Vector([0.0, 0.0, 0.0])
-        ray_dir = ti.Vector(
-            [nx, ny, -1.0]
-        ).normalized()
+        ray_dir = ti.Vector([nx, ny, -1.0]).normalized()
 
         final_color = ti.Vector([0.0, 0.0, 0.0])
-        reflection_throughput = ti.Vector(
-            [1.0, 1.0, 1.0]
-        )
+        reflection_throughput = ti.Vector([1.0, 1.0, 1.0])
 
         for bounce in range(3):
-            t0 = hit_sphere(
-                ray_orig, ray_dir, s0_pos, s0_rad
-            )
-            t1 = hit_sphere(
-                ray_orig, ray_dir, s1_pos, s1_rad
-            )
+            t0 = hit_sphere(ray_orig, ray_dir, s0_pos, s0_rad)
+            t1 = hit_sphere(ray_orig, ray_dir, s1_pos, s1_rad)
 
             hit_obj = -1
             t_closest = 1e9
@@ -148,63 +117,29 @@ def render():
                 hit_obj = 1
 
             if hit_obj != -1:
-                obj_center = (
-                    s0_pos
-                    if hit_obj == 0
-                    else s1_pos
-                )
-                obj_radius = (
-                    s0_rad
-                    if hit_obj == 0
-                    else s1_rad
-                )
-                obj_refl = (
-                    s0_refl
-                    if hit_obj == 0
-                    else s1_refl
-                )
-                obj_type = (
-                    s0_type
-                    if hit_obj == 0
-                    else s1_type
-                )
+                obj_center = s0_pos if hit_obj == 0 else s1_pos
+                obj_radius = s0_rad if hit_obj == 0 else s1_rad
+                obj_refl = s0_refl if hit_obj == 0 else s1_refl
+                obj_type = s0_type if hit_obj == 0 else s1_type
 
-                hit_point = (
-                    ray_orig + t_closest * ray_dir
-                )
-                normal = (
-                    hit_point - obj_center
-                ).normalized()
+                hit_point = ray_orig + t_closest * ray_dir
+                normal = (hit_point - obj_center).normalized()
 
                 # Determine Surface Base Color (PNG image sample vs Flat Shiny Purple)
-                base_color = ti.Vector(
-                    [0.5, 0.2, 0.8]
-                )
+                base_color = ti.Vector([0.5, 0.2, 0.8])
                 if obj_type == 0:
-                    base_color = sample_texture(
-                        normal
-                    )
+                    base_color = sample_texture(normal)
 
                 # Process Lighting Accumulation from ALL Light Sources
-                illumination = ti.Vector(
-                    [0.0, 0.0, 0.0]
-                )
+                illumination = ti.Vector([0.0, 0.0, 0.0])
 
                 for l in range(num_lights):
-                    light_dir = (
-                        light_positions[l]
-                        - hit_point
-                    ).normalized()
-                    light_dist = (
-                        light_positions[l]
-                        - hit_point
-                    ).norm()
+                    light_dir = (light_positions[l] - hit_point).normalized()
+                    light_dist = (light_positions[l] - hit_point).norm()
 
                     # --- SHADOW RAY TESTING ---
                     # Offset ray origin slightly along normal vector to avoid local acne artifacts
-                    shadow_orig = (
-                        hit_point + normal * 0.002
-                    )
+                    shadow_orig = hit_point + normal * 0.002
 
                     # See if shadow ray hits the alternate sphere blocking this light
                     shadow_hit = -1
@@ -239,50 +174,27 @@ def render():
                             normal.dot(light_dir),
                             0.0,
                         )
-                        illumination += (
-                            light_colors[l]
-                            * diffuse_strength
-                        )
+                        illumination += light_colors[l] * diffuse_strength
 
                 # Add constant ambient lighting so shadowed faces aren't pitch black
-                illumination += ti.Vector(
-                    [0.08, 0.08, 0.08]
-                )
-                surface_shading = (
-                    base_color * illumination
-                )
+                illumination += ti.Vector([0.08, 0.08, 0.08])
+                surface_shading = base_color * illumination
 
                 final_color += (
-                    surface_shading
-                    * reflection_throughput
-                    * (1.0 - obj_refl)
+                    surface_shading * reflection_throughput * (1.0 - obj_refl)
                 )
                 reflection_throughput *= obj_refl
 
                 # Bounce Ray Setup
-                ray_dir = (
-                    ray_dir
-                    - 2.0
-                    * ray_dir.dot(normal)
-                    * normal
-                ).normalized()
-                ray_orig = (
-                    hit_point + normal * 0.002
-                )
+                ray_dir = (ray_dir - 2.0 * ray_dir.dot(normal) * normal).normalized()
+                ray_orig = hit_point + normal * 0.002
             else:
                 # Sky background
                 t_bg = 0.5 * (ray_dir.y + 1.0)
-                sky_color = (
-                    1.0 - t_bg
-                ) * ti.Vector(
+                sky_color = (1.0 - t_bg) * ti.Vector(
                     [1.0, 1.0, 1.0]
-                ) + t_bg * ti.Vector(
-                    [0.6, 0.7, 0.8]
-                )
-                final_color += (
-                    sky_color
-                    * reflection_throughput
-                )
+                ) + t_bg * ti.Vector([0.6, 0.7, 0.8])
+                final_color += sky_color * reflection_throughput
                 break
 
         pixels[x, y] = final_color

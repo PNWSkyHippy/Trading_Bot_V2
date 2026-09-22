@@ -70,9 +70,17 @@ class LiveRayTraceViewer(ToolView):
         # 1. Left Controls Panel
         self.form = self.add_form("Ray-Tracer Settings", parent=self)
         self.form.grid(row=0, column=0, sticky="nsew", padx=(0, 12))
-        self.form.add_button("Start Progressive Render ▶", callback=self.on_start_render, variant="primary")
-        self.form.add_button("Cancel / Stop Render ⏹", callback=self.on_stop_render, variant="outline")
-        self.form.add_button("Save Rendered Image 💾", callback=self.on_save_image, variant="surface")
+        self.form.add_button(
+            "Start Progressive Render ▶",
+            callback=self.on_start_render,
+            variant="primary",
+        )
+        self.form.add_button(
+            "Cancel / Stop Render ⏹", callback=self.on_stop_render, variant="outline"
+        )
+        self.form.add_button(
+            "Save Rendered Image 💾", callback=self.on_save_image, variant="surface"
+        )
 
         # Book Selection
         self.form.add_dropdown(
@@ -91,16 +99,68 @@ class LiveRayTraceViewer(ToolView):
             default=SCENES_BOOK2[0][1],
         )
 
-        self.form.add_slider("rotation", "Rotate (°)", min_val=0, max_val=360, step=1, default=0, on_change=self.update_live_preview)
-        self.form.add_slider("contrast", "Contrast", min_val=0.1, max_val=4.0, step=0.1, default=1.0, on_change=self.update_live_preview)
-        self.form.add_slider("color", "Color", min_val=0.1, max_val=1.0, step=0.1, default=1.0, on_change=self.update_live_preview)
-        self.form.add_slider("brightness", "Brightness", min_val=0.1, max_val=1.0, step=0.1, default=1.0, on_change=self.update_live_preview)
-        self.form.add_slider("sharpness", "Sharpness", min_val=0.1, max_val=2.0, step=0.1, default=1.0, on_change=self.update_live_preview)
-        self.form.add_slider("scalefac", "Scale Factor", min_val=0.1, max_val=10.0, step=0.1, default=1.0, on_change=self.scaled_auto_calc)
-        self.form.add_number("width", "Width (px)", min_val=100, max_val=1920, default=600, step=16)
-        self.form.add_number("height", "Height (px)", min_val=100, max_val=1080, default=600, step=16)
+        self.form.add_slider(
+            "rotation",
+            "Rotate (°)",
+            min_val=0,
+            max_val=360,
+            step=1,
+            default=0,
+            on_change=self.update_live_preview,
+        )
+        self.form.add_slider(
+            "contrast",
+            "Contrast",
+            min_val=0.1,
+            max_val=4.0,
+            step=0.1,
+            default=1.0,
+            on_change=self.update_live_preview,
+        )
+        self.form.add_slider(
+            "color",
+            "Color",
+            min_val=0.1,
+            max_val=1.0,
+            step=0.1,
+            default=1.0,
+            on_change=self.update_live_preview,
+        )
+        self.form.add_slider(
+            "brightness",
+            "Brightness",
+            min_val=0.1,
+            max_val=1.0,
+            step=0.1,
+            default=1.0,
+            on_change=self.update_live_preview,
+        )
+        self.form.add_slider(
+            "sharpness",
+            "Sharpness",
+            min_val=0.1,
+            max_val=2.0,
+            step=0.1,
+            default=1.0,
+            on_change=self.update_live_preview,
+        )
+        self.form.add_slider(
+            "scalefac",
+            "Scale Factor",
+            min_val=0.1,
+            max_val=10.0,
+            step=0.1,
+            default=1.0,
+            on_change=self.scaled_auto_calc,
+        )
+        self.form.add_number(
+            "width", "Width (px)", min_val=100, max_val=1920, default=600, step=16
+        )
+        self.form.add_number(
+            "height", "Height (px)", min_val=100, max_val=1080, default=600, step=16
+        )
         # Action Buttons
- 
+
         # 2. Right Canvas: Live Drawing Image Surface
         right_box = self.add_container(parent=self)
         right_box.grid(row=0, column=1, sticky="nsew")
@@ -110,7 +170,11 @@ class LiveRayTraceViewer(ToolView):
         self.canvas_frame = ttk.Frame(right_box, style="Card.TFrame", padding=6)
         self.canvas_frame.grid(row=0, column=0, sticky="nsew")
 
-        self.img_label = tk.Label(self.canvas_frame, bg="#11111b", text="Select Book & Scene, then click Start Render")
+        self.img_label = tk.Label(
+            self.canvas_frame,
+            bg="#11111b",
+            text="Select Book & Scene, then click Start Render",
+        )
         self.img_label.pack(expand=True)
 
     def _on_book_changed(self, selected_book: str):
@@ -170,7 +234,10 @@ class LiveRayTraceViewer(ToolView):
 
     def on_start_render(self, values: dict):
         if self.is_rendering:
-            messagebox.showinfo("Rendering", "A render is already in progress. Stop it first if you want to start a new one.")
+            messagebox.showinfo(
+                "Rendering",
+                "A render is already in progress. Stop it first if you want to start a new one.",
+            )
             return
 
         book_name = values.get("book", "Book 2: The Next Week")
@@ -197,7 +264,8 @@ class LiveRayTraceViewer(ToolView):
             cmd = [
                 "wsl",
                 wsl_binary,
-                "-r", f"{width},{height}",
+                "-r",
+                f"{width},{height}",
                 "-p",
             ]
         else:
@@ -211,7 +279,8 @@ class LiveRayTraceViewer(ToolView):
                 return
             cmd = [
                 mac_binary,
-                "-r", f"{width},{height}",
+                "-r",
+                f"{width},{height}",
                 "-p",
             ]
 
@@ -274,7 +343,12 @@ class LiveRayTraceViewer(ToolView):
                         row_hex_string = "{" + " ".join(hex_colors) + "}"
 
                         r_idx = target_row
-                        self.app.root.after(0, lambda r=r_idx, data=row_hex_string: self._draw_row(r, data, width, height))
+                        self.app.root.after(
+                            0,
+                            lambda r=r_idx, data=row_hex_string: self._draw_row(
+                                r, data, width, height
+                            ),
+                        )
                         lines_drawn += 1
 
                 proc.wait()
@@ -284,10 +358,15 @@ class LiveRayTraceViewer(ToolView):
                 self.is_rendering = False
                 self.current_proc = None
                 elapsed = time.time() - self.start_time
-                self.set_status(f"✨ Render Finished in {elapsed:.2f}s ({lines_drawn}/{height} scanlines)")
+                self.set_status(
+                    f"✨ Render Finished in {elapsed:.2f}s ({lines_drawn}/{height} scanlines)"
+                )
 
         platform_label = "WSL" if IS_WINDOWS else "Native Mac"
-        self.run_async(_render_stream, status_msg=f"Rendering {book_name} ({width}x{height}) via OpenMP ({platform_label})...")
+        self.run_async(
+            _render_stream,
+            status_msg=f"Rendering {book_name} ({width}x{height}) via OpenMP ({platform_label})...",
+        )
 
     def _draw_row(self, row_idx, row_hex_string, width, height):
         try:
@@ -295,7 +374,9 @@ class LiveRayTraceViewer(ToolView):
             drawn_count = len(self.rendered_pixels)
             pct = (drawn_count / height) * 100
             elapsed = time.time() - self.start_time
-            self.set_status(f"⚡ Live Rendering: {pct:.1f}% ({drawn_count}/{height} rows) - {elapsed:.1f}s")
+            self.set_status(
+                f"⚡ Live Rendering: {pct:.1f}% ({drawn_count}/{height} rows) - {elapsed:.1f}s"
+            )
             return elapsed
         except Exception:
             pass
@@ -333,22 +414,31 @@ class LiveRayTraceViewer(ToolView):
             return
 
         try:
-            if hasattr(self, "current_transformed_image") and self.current_transformed_image is not None:
+            if (
+                hasattr(self, "current_transformed_image")
+                and self.current_transformed_image is not None
+            ):
                 img = self.current_transformed_image
             else:
                 img = self.buffer_to_img(self.rendered_pixels)
 
-            if img.mode != "RGB" and file_path.lower().endswith((".jpg", ".jpeg", ".ppm", ".bmp")):
+            if img.mode != "RGB" and file_path.lower().endswith(
+                (".jpg", ".jpeg", ".ppm", ".bmp")
+            ):
                 img = img.convert("RGB")
 
             img.save(file_path)
-            messagebox.showinfo("Image Saved", f"Successfully saved image to:\n{file_path}")
+            messagebox.showinfo(
+                "Image Saved", f"Successfully saved image to:\n{file_path}"
+            )
             self.set_status(f"💾 Saved to {os.path.basename(file_path)}")
         except Exception as e:
             messagebox.showerror("Save Error", f"Failed to save image: {e}")
 
     def buffer_to_img(self, rendered_pixels):
-        img = Image.new("RGB", (self.current_width, self.current_height), color=(0, 0, 0))
+        img = Image.new(
+            "RGB", (self.current_width, self.current_height), color=(0, 0, 0)
+        )
         for y, row_pixels in rendered_pixels.items():
             if 0 <= y < self.current_height:
                 for x, rgb in enumerate(row_pixels):
@@ -362,7 +452,8 @@ class LiveRayTraceViewer(ToolView):
         self.scale_fac = float(values.get("scalefac", 1.0))
         self.is_scaled = True
         self.is_resized = False
-        self.update_live_preview() 
+        self.update_live_preview()
+
 
 if __name__ == "__main__":
     app = QuickApp(title="Progressive Ray-Tracer Studio", size=(1050, 960))

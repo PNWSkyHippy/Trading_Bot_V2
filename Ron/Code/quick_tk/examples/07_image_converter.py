@@ -17,6 +17,7 @@ from quick_tk import QuickApp, ToolView
 
 try:
     from PIL import Image, ImageDraw
+
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
@@ -54,7 +55,13 @@ class ImageConverterTool(ToolView):
             label="Input File",
             default=demo_img,
             mode="open",
-            filetypes=[("Image Files", "*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.ppm;*.tif;*.pcx;*.tga"), ("All Files", "*.*")],
+            filetypes=[
+                (
+                    "Image Files",
+                    "*.png;*.jpg;*.jpeg;*.bmp;*.gif;*.ppm;*.tif;*.pcx;*.tga",
+                ),
+                ("All Files", "*.*"),
+            ],
             on_change=self._on_input_changed,
         )
 
@@ -75,11 +82,35 @@ class ImageConverterTool(ToolView):
             on_change=self._auto_calc,
         )
 
-        self.form.add_dropdown("format", "Target Format", ["JPG", "PNG", "PPM", "BMP", "GIF", "TIFF"], default="JPG", on_change=self._on_format_changed)
-        self.form.add_number("width", "Resize Width (px)", default=600, min_val=50, max_val=4000, step=50, on_change=self._auto_calc)
-        self.form.add_slider("scalefac", "Scale Factor", min_val=0.25, max_val=3.0, default=1.0, step=0.25, on_change=self._auto_calc)
+        self.form.add_dropdown(
+            "format",
+            "Target Format",
+            ["JPG", "PNG", "PPM", "BMP", "GIF", "TIFF"],
+            default="JPG",
+            on_change=self._on_format_changed,
+        )
+        self.form.add_number(
+            "width",
+            "Resize Width (px)",
+            default=600,
+            min_val=50,
+            max_val=4000,
+            step=50,
+            on_change=self._auto_calc,
+        )
+        self.form.add_slider(
+            "scalefac",
+            "Scale Factor",
+            min_val=0.25,
+            max_val=3.0,
+            default=1.0,
+            step=0.25,
+            on_change=self._auto_calc,
+        )
 
-        self.form.add_button("Convert & View Image ▶", callback=self.on_view_clicked, variant="primary")
+        self.form.add_button(
+            "Convert & View Image ▶", callback=self.on_view_clicked, variant="primary"
+        )
 
         # 2. Right Side: In-Frame Input Preview + Status Info
         right_box = ttk.Frame(self, style="TFrame")
@@ -133,19 +164,27 @@ class ImageConverterTool(ToolView):
 
     def make_image(self, values: dict):
         if not self.infile or not os.path.exists(self.infile):
-            messagebox.showwarning("Missing Input", "Please select a valid input image file first.")
+            messagebox.showwarning(
+                "Missing Input", "Please select a valid input image file first."
+            )
             return
 
         if not HAS_PIL:
-            messagebox.showerror("PIL Missing", "Pillow is required for image conversion.")
+            messagebox.showerror(
+                "PIL Missing", "Pillow is required for image conversion."
+            )
             return
 
         try:
             # 1. Perform Image Processing with Pillow
             im = Image.open(self.infile)
-            
+
             # Convert RGBA to RGB if saving to JPG/PPM
-            if self.target_format.upper() in ("JPG", "JPEG", "PPM") and im.mode in ("RGBA", "LA", "P"):
+            if self.target_format.upper() in ("JPG", "JPEG", "PPM") and im.mode in (
+                "RGBA",
+                "LA",
+                "P",
+            ):
                 im = im.convert("RGB")
 
             # Apply scale factor or custom width
@@ -159,7 +198,11 @@ class ImageConverterTool(ToolView):
                 im = im.resize((self.target_width, new_h), resample=Image.LANCZOS)
 
             # Save converted output
-            out_format = "JPEG" if self.target_format.upper() == "JPG" else self.target_format.upper()
+            out_format = (
+                "JPEG"
+                if self.target_format.upper() == "JPG"
+                else self.target_format.upper()
+            )
             im.save(self.outfile, format=out_format)
 
             self.set_status(f"Successfully converted to {self.outfile}")
@@ -168,7 +211,7 @@ class ImageConverterTool(ToolView):
             self.show_image_window(
                 self.outfile,
                 title="Converted Image Output",
-                max_display_size=(800, 600)
+                max_display_size=(800, 600),
             )
 
         except Exception as e:
@@ -176,6 +219,8 @@ class ImageConverterTool(ToolView):
 
 
 if __name__ == "__main__":
-    app = QuickApp(title="QuickTk Image Converter", size=(980, 640), theme="Dark Obsidian")
+    app = QuickApp(
+        title="QuickTk Image Converter", size=(980, 640), theme="Dark Obsidian"
+    )
     app.set_single_tool(ImageConverterTool)
     app.run()

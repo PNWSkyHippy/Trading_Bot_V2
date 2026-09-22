@@ -25,11 +25,14 @@ def launch_suite():
     app = QuickApp(title="Master Python Utility Suite", size=(1200, 780), theme="dark")
 
     # Add Top Menu
-    app.add_menu("File", [
-        ("Switch Theme (Dark/Light)", app.toggle_theme),
-        ("---", None),
-        ("Exit", app.root.quit),
-    ])
+    app.add_menu(
+        "File",
+        [
+            ("Switch Theme (Dark/Light)", app.toggle_theme),
+            ("---", None),
+            ("Exit", app.root.quit),
+        ],
+    )
 
     tools = [
         trade_mod.TradeAnalyzerTool,

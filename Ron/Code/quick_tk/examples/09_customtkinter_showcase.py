@@ -10,7 +10,6 @@ Demonstrates:
 import os
 import sys
 import time
-import tkinter as tk
 from tkinter import ttk
 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -18,7 +17,7 @@ SCRATCH_DIR = os.path.dirname(BASE_DIR)
 sys.path.insert(0, SCRATCH_DIR)
 sys.path.insert(0, BASE_DIR)
 
-from quick_tk import QuickApp, ToolView, HAS_CTK
+from quick_tk import QuickApp, ToolView
 
 
 class CustomTkinterShowcase(ToolView):
@@ -131,7 +130,11 @@ class CustomTkinterShowcase(ToolView):
         self.stats.grid(row=0, column=0, sticky="ew", pady=(0, 10))
 
         self.table = self.add_data_table(
-            columns=["Control Type", "Field Name", "Extracted Value (form.get_values())"],
+            columns=[
+                "Control Type",
+                "Field Name",
+                "Extracted Value (form.get_values())",
+            ],
             parent=right_box,
             enable_search=True,
             enable_export_csv=True,
@@ -146,7 +149,9 @@ class CustomTkinterShowcase(ToolView):
 
     def setup_menus(self):
         file_menu = self.menu("File")
-        file_menu.add_item("Apply Configuration", lambda: self.on_run(), shortcut="Ctrl+R")
+        file_menu.add_item(
+            "Apply Configuration", lambda: self.on_run(), shortcut="Ctrl+R"
+        )
         file_menu.add_separator()
         file_menu.add_item("Exit", self.app.root.quit, shortcut="Alt+F4")
 
@@ -164,28 +169,46 @@ class CustomTkinterShowcase(ToolView):
         symbols = inputs.get("symbols", [])
 
         # Update KPI cards
-        self.stats.set_metrics({
-            "Mode": ("PAPER" if paper else "LIVE", "success" if paper else "danger"),
-            "Timeframe": (tf, "info"),
-            "Risk / Trade": (f"{risk:.1f}%", "warning" if risk > 5.0 else "info"),
-            "Watchlist": (f"{len(symbols)} tickers", "info"),
-        })
+        self.stats.set_metrics(
+            {
+                "Mode": (
+                    "PAPER" if paper else "LIVE",
+                    "success" if paper else "danger",
+                ),
+                "Timeframe": (tf, "info"),
+                "Risk / Trade": (f"{risk:.1f}%", "warning" if risk > 5.0 else "info"),
+                "Watchlist": (f"{len(symbols)} tickers", "info"),
+            }
+        )
 
         # Update Data Table showing real-time form.get_values()
         table_rows = [
             ["CTkEntry", "strategy_name", str(inputs.get("strategy_name", ""))],
-            ["MultiSelectDropdown", "symbols", ", ".join(symbols) if symbols else "(None)"],
+            [
+                "MultiSelectDropdown",
+                "symbols",
+                ", ".join(symbols) if symbols else "(None)",
+            ],
             ["CTkSegmentedButton", "timeframe", str(tf)],
-            ["CTkSwitch", "paper_trading", f"{paper} (Safety {'Active' if paper else 'Disabled'})"],
+            [
+                "CTkSwitch",
+                "paper_trading",
+                f"{paper} (Safety {'Active' if paper else 'Disabled'})",
+            ],
             ["CTkSwitch", "telegram_alerts", str(inputs.get("telegram_alerts", False))],
             ["CTkSlider", "risk_pct", f"{risk:.2f}%"],
-            ["CTkProgressBar", "scan_progress", f"{float(inputs.get('scan_progress', 0.0)):.1%}"],
+            [
+                "CTkProgressBar",
+                "scan_progress",
+                f"{float(inputs.get('scan_progress', 0.0)):.1%}",
+            ],
             ["CTkTextbox", "notes", str(inputs.get("notes", "")).strip()],
         ]
         self.table.set_data(table_rows)
 
     def simulate_scan(self, *args):
         """Smoothly animates the CTkProgressBar on a background thread without freezing GUI."""
+
         def _worker():
             for p in range(0, 101, 5):
                 self.prog_bar.set(p / 100.0)
@@ -196,7 +219,9 @@ class CustomTkinterShowcase(ToolView):
             self.on_run()
             self.set_status("Scan complete: 100% processed!")
 
-        self.run_async(_worker, on_done=_on_done, status_msg="Running simulation scan...")
+        self.run_async(
+            _worker, on_done=_on_done, status_msg="Running simulation scan..."
+        )
 
     def on_reset(self, *args):
         self.form.clear()
@@ -207,7 +232,9 @@ class CustomTkinterShowcase(ToolView):
         self.form.set_value("telegram_alerts", False)
         self.form.set_value("risk_pct", 2.5)
         self.form.set_value("scan_progress", 0.45)
-        self.form.set_value("notes", "Observing resistance at 50 EMA. Bracket orders armed.")
+        self.form.set_value(
+            "notes", "Observing resistance at 50 EMA. Bracket orders armed."
+        )
         self.prog_bar.set(0.45)
         self.on_run()
 

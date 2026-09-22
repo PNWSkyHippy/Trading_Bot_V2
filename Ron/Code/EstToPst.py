@@ -12,9 +12,7 @@ def Est_To_Pst(opening_minutes):
         hour_str = "0{mod_hour}"
     else:
         hour_str = str(mod_hour)
-    return opening_minutes.replace(
-        opening_minutes[:2], hour_str
-    )
+    return opening_minutes.replace(opening_minutes[:2], hour_str)
 
 
 def main():

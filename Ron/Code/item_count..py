@@ -6,11 +6,7 @@ while not done:
     str_buffer = input(
         "Please enter an iem name and its price: (just hit enter when done):"
     )
-    item, price = (
-        str_buffer.split()
-        if len(str_buffer) > 0
-        else (None, None)
-    )
+    item, price = str_buffer.split() if len(str_buffer) > 0 else (None, None)
     price = float(price) if price else None
     if not item and not price:
         done = True

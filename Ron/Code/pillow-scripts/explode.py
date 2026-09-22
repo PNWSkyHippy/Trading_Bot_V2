@@ -14,7 +14,6 @@ import sys
 
 
 class Interval(object):
-
     def __init__(self, interval="0"):
 
         self.setinterval(interval)
@@ -34,7 +33,7 @@ class Interval(object):
                     lo = hi = v
             except ValueError:
                 i = s.find("-")
-                lo, hi = int(s[:i]), int(s[i+1:])
+                lo, hi = int(s[:i]), int(s[i + 1 :])
 
             self.hilo.append((hi, lo))
 
@@ -47,6 +46,7 @@ class Interval(object):
             if hi >= index >= lo:
                 return 1
         return 0
+
 
 # --------------------------------------------------------------------
 # main program
@@ -90,26 +90,27 @@ im = Image.open(infile)
 
 if html:
     file, ext = os.path.splitext(outfile)
-    html = open(file.split("%")[0]+".html", "w")
-    html.write("""<!DOCTYPE html>
+    html = open(file.split("%")[0] + ".html", "w")
+    html.write(
+        """<!DOCTYPE html>
 <html lang="en">
 <head>
 <title>%s</title>
 </head>
 <body>
-""" % file.split('%')[0])
+"""
+        % file.split("%")[0]
+    )
 
 htmlImgs = []
 
 while True:
-
     if frames[ix]:
         im.save(outfile % ix)
         print(outfile % ix)
 
         if html:
-            htmlImgs.append("<img src=\"%s\" alt=\"%s\">" % (outfile % ix,
-                                                             file % ix))
+            htmlImgs.append('<img src="%s" alt="%s">' % (outfile % ix, file % ix))
 
     try:
         im.seek(ix)

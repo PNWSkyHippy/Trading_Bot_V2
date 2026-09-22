@@ -54,7 +54,6 @@ from PIL import Image
 
 
 class PILDriver(object):
-
     verbose = 0
 
     def do_verbose(self):
@@ -66,7 +65,7 @@ class PILDriver(object):
 
     # The evaluation stack (internal only)
 
-    stack = []          # Stack of pending operations
+    stack = []  # Stack of pending operations
 
     def push(self, item):
         "Push an argument onto the evaluation stack."
@@ -97,7 +96,7 @@ class PILDriver(object):
 
         Duplicate the top-of-stack item.
         """
-        if hasattr(self, 'format'):     # If it's an image, do a real copy
+        if hasattr(self, "format"):  # If it's an image, do a real copy
             dup = self.stack[0].copy()
         else:
             dup = self.stack[0]
@@ -208,6 +207,7 @@ class PILDriver(object):
         Process the top image with the given filter.
         """
         from PIL import ImageFilter
+
         imageFilter = getattr(ImageFilter, self.do_pop().upper())
         image = self.do_pop()
         self.push(image.filter(imageFilter))
@@ -354,6 +354,7 @@ class PILDriver(object):
         Invert the top image.
         """
         from PIL import ImageChops
+
         self.push(ImageChops.invert(self.do_pop()))
 
     def do_lighter(self):
@@ -362,6 +363,7 @@ class PILDriver(object):
         Pop the two top images, push an image of the lighter pixels of both.
         """
         from PIL import ImageChops
+
         image1 = self.do_pop()
         image2 = self.do_pop()
         self.push(ImageChops.lighter(image1, image2))
@@ -372,6 +374,7 @@ class PILDriver(object):
         Pop the two top images, push an image of the darker pixels of both.
         """
         from PIL import ImageChops
+
         image1 = self.do_pop()
         image2 = self.do_pop()
         self.push(ImageChops.darker(image1, image2))
@@ -382,6 +385,7 @@ class PILDriver(object):
         Pop the two top images, push the difference image
         """
         from PIL import ImageChops
+
         image1 = self.do_pop()
         image2 = self.do_pop()
         self.push(ImageChops.difference(image1, image2))
@@ -392,6 +396,7 @@ class PILDriver(object):
         Pop the two top images, push the multiplication image.
         """
         from PIL import ImageChops
+
         image1 = self.do_pop()
         image2 = self.do_pop()
         self.push(ImageChops.multiply(image1, image2))
@@ -402,6 +407,7 @@ class PILDriver(object):
         Pop the two top images, superimpose their inverted versions.
         """
         from PIL import ImageChops
+
         image2 = self.do_pop()
         image1 = self.do_pop()
         self.push(ImageChops.screen(image1, image2))
@@ -412,6 +418,7 @@ class PILDriver(object):
         Pop the two top images, produce the scaled sum with offset.
         """
         from PIL import ImageChops
+
         image1 = self.do_pop()
         image2 = self.do_pop()
         scale = float(self.do_pop())
@@ -424,6 +431,7 @@ class PILDriver(object):
         Pop the two top images, produce the scaled difference with offset.
         """
         from PIL import ImageChops
+
         image1 = self.do_pop()
         image2 = self.do_pop()
         scale = float(self.do_pop())
@@ -438,6 +446,7 @@ class PILDriver(object):
         Enhance color in the top image.
         """
         from PIL import ImageEnhance
+
         factor = float(self.do_pop())
         image = self.do_pop()
         enhancer = ImageEnhance.Color(image)
@@ -449,6 +458,7 @@ class PILDriver(object):
         Enhance contrast in the top image.
         """
         from PIL import ImageEnhance
+
         factor = float(self.do_pop())
         image = self.do_pop()
         enhancer = ImageEnhance.Contrast(image)
@@ -460,6 +470,7 @@ class PILDriver(object):
         Enhance brightness in the top image.
         """
         from PIL import ImageEnhance
+
         factor = float(self.do_pop())
         image = self.do_pop()
         enhancer = ImageEnhance.Brightness(image)
@@ -471,6 +482,7 @@ class PILDriver(object):
         Enhance sharpness in the top image.
         """
         from PIL import ImageEnhance
+
         factor = float(self.do_pop())
         image = self.do_pop()
         enhancer = ImageEnhance.Sharpness(image)
@@ -497,7 +509,8 @@ class PILDriver(object):
                 func = getattr(self, funcname)
                 func()
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     import sys
 
     # If we see command-line arguments, interpret them as a stack state
@@ -511,9 +524,9 @@ if __name__ == '__main__':
         while True:
             try:
                 if sys.version_info[0] >= 3:
-                    line = input('pildriver> ')
+                    line = input("pildriver> ")
                 else:
-                    line = raw_input('pildriver> ')
+                    line = raw_input("pildriver> ")
             except EOFError:
                 print("\nPILDriver says goodbye.")
                 break

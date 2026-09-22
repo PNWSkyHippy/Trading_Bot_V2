@@ -16,8 +16,6 @@ sys.path.insert(0, SCRATCH_DIR)
 sys.path.insert(0, BASE_DIR)
 
 
-
-
 class LauncherTool(ToolView):
     title = "QuickTk Showcase Launcher"
     description = "Launch any individual utility tool or the Master All-In-One Suite"
@@ -31,7 +29,12 @@ class LauncherTool(ToolView):
         main_card.columnconfigure(0, weight=1)
 
         # Title & Subtitle
-        t_lbl = ttk.Label(main_card, text="QuickTk Utility Framework", style="Title.TLabel", font=("Segoe UI", 18, "bold"))
+        t_lbl = ttk.Label(
+            main_card,
+            text="QuickTk Utility Framework",
+            style="Title.TLabel",
+            font=("Segoe UI", 18, "bold"),
+        )
         t_lbl.grid(row=0, column=0, sticky="w", pady=(0, 4))
 
         sub_lbl = ttk.Label(
@@ -44,16 +47,66 @@ class LauncherTool(ToolView):
 
         # Demos list
         demos = [
-            ("Master All-in-One Dashboard", "Combines all 4 tools below into a single unified sidebar application.", "examples/05_all_in_one_suite.py", "primary"),
-            ("1. SQLite Trade Analyzer", "Filters trades by strategy, dates, min PnL; computes Win Rate / Drawdown, and exports CSV.", "examples/01_trade_analyzer.py", "default"),
-            ("2. College Grade Estimator", "Live auto-calculating grade book with weighted components and target score estimator.", "examples/02_grade_calculator.py", "default"),
-            ("3. Futures Tick & Sizing Calculator", "Interactive sliders for ES, MES, NQ, contracts, profit targets, stop loss risk, and tick table.", "examples/03_futures_tick_calc.py", "default"),
-            ("4. Python Reference & Cheat Sheet", "Interactive topic guide, method table, and syntax-highlighted code console.", "examples/04_cheat_sheet_viewer.py", "default"),
-            ("5. Menu & Submenu Showcase", "Hierarchical menus, cascading submenus, checkbox toggles, radio groups, and file picker shortcuts.", "examples/06_menu_showcase.py", "default"),
-            ("6. Image Converter & Viewer", "Live in-frame input preview scaling and separate Tkinter window output viewer.", "examples/07_image_converter.py", "default"),
-            ("7. Multi-Select Dropdown Showcase", "Compact single-row dropdowns with live search filter, bulk actions, and smart count badges.", "examples/08_multi_select_showcase.py", "default"),
-            ("8. CustomTkinter (CTk) Modern Showcase", "Modern Win10/11 shell, animated switches, segmented pill buttons, smooth progress bars, and sliders.", "examples/09_customtkinter_showcase.py", "primary"),
-            ("9. Menu-Driven Popup Dialogs", "Moves bulky dropdowns, file pickers, and buttons to a popup dialog launched from a menu choice.", "examples/10_menu_popup_form_showcase.py", "default"),
+            (
+                "Master All-in-One Dashboard",
+                "Combines all 4 tools below into a single unified sidebar application.",
+                "examples/05_all_in_one_suite.py",
+                "primary",
+            ),
+            (
+                "1. SQLite Trade Analyzer",
+                "Filters trades by strategy, dates, min PnL; computes Win Rate / Drawdown, and exports CSV.",
+                "examples/01_trade_analyzer.py",
+                "default",
+            ),
+            (
+                "2. College Grade Estimator",
+                "Live auto-calculating grade book with weighted components and target score estimator.",
+                "examples/02_grade_calculator.py",
+                "default",
+            ),
+            (
+                "3. Futures Tick & Sizing Calculator",
+                "Interactive sliders for ES, MES, NQ, contracts, profit targets, stop loss risk, and tick table.",
+                "examples/03_futures_tick_calc.py",
+                "default",
+            ),
+            (
+                "4. Python Reference & Cheat Sheet",
+                "Interactive topic guide, method table, and syntax-highlighted code console.",
+                "examples/04_cheat_sheet_viewer.py",
+                "default",
+            ),
+            (
+                "5. Menu & Submenu Showcase",
+                "Hierarchical menus, cascading submenus, checkbox toggles, radio groups, and file picker shortcuts.",
+                "examples/06_menu_showcase.py",
+                "default",
+            ),
+            (
+                "6. Image Converter & Viewer",
+                "Live in-frame input preview scaling and separate Tkinter window output viewer.",
+                "examples/07_image_converter.py",
+                "default",
+            ),
+            (
+                "7. Multi-Select Dropdown Showcase",
+                "Compact single-row dropdowns with live search filter, bulk actions, and smart count badges.",
+                "examples/08_multi_select_showcase.py",
+                "default",
+            ),
+            (
+                "8. CustomTkinter (CTk) Modern Showcase",
+                "Modern Win10/11 shell, animated switches, segmented pill buttons, smooth progress bars, and sliders.",
+                "examples/09_customtkinter_showcase.py",
+                "primary",
+            ),
+            (
+                "9. Menu-Driven Popup Dialogs",
+                "Moves bulky dropdowns, file pickers, and buttons to a popup dialog launched from a menu choice.",
+                "examples/10_menu_popup_form_showcase.py",
+                "default",
+            ),
         ]
 
         for idx, (name, desc, script_path, variant) in enumerate(demos):
@@ -65,7 +118,12 @@ class LauncherTool(ToolView):
             btn_frame.grid(row=0, column=0, sticky="ew")
             btn_frame.columnconfigure(0, weight=1)
 
-            demo_title = ttk.Label(btn_frame, text=name, style="Heading.TLabel", font=("Segoe UI", 11, "bold"))
+            demo_title = ttk.Label(
+                btn_frame,
+                text=name,
+                style="Heading.TLabel",
+                font=("Segoe UI", 11, "bold"),
+            )
             demo_title.grid(row=0, column=0, sticky="w")
 
             btn_style = "Primary.TButton" if variant == "primary" else "TButton"

@@ -28,7 +28,9 @@ def main():
             if x * x + y * y < 1:
                 inside_circle_stratified += 1
 
-    print(f"Regular    Estimate of Pi = {(4.0 * inside_circle) / (sqrt_n * sqrt_n):.12f}")
+    print(
+        f"Regular    Estimate of Pi = {(4.0 * inside_circle) / (sqrt_n * sqrt_n):.12f}"
+    )
     print(
         f"Stratified Estimate of Pi = {(4.0 * inside_circle_stratified) / (sqrt_n * sqrt_n):.12f}"
     )

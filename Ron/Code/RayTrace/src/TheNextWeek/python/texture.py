@@ -39,7 +39,9 @@ class CheckerTexture(Texture):
     def __init__(self, scale, even, odd=None):
         self.inv_scale = 1.0 / scale
         if odd is None:
-            raise TypeError("CheckerTexture(scale, even, odd) or CheckerTexture(scale, c1, c2)")
+            raise TypeError(
+                "CheckerTexture(scale, even, odd) or CheckerTexture(scale, c1, c2)"
+            )
         if hasattr(even, "value"):
             self.even = even
             self.odd = odd
@@ -74,7 +76,9 @@ class ImageTexture(Texture):
         pixel = self.image.pixel_data(i, j)
 
         color_scale = 1.0 / 255.0
-        return Color(color_scale * pixel[0], color_scale * pixel[1], color_scale * pixel[2])
+        return Color(
+            color_scale * pixel[0], color_scale * pixel[1], color_scale * pixel[2]
+        )
 
 
 class NoiseTexture(Texture):
@@ -83,4 +87,6 @@ class NoiseTexture(Texture):
         self.scale = scale
 
     def value(self, u, v, p):
-        return Color(0.5, 0.5, 0.5) * (1 + math.sin(self.scale * p.z() + 10 * self.noise.turb(p, 7)))
+        return Color(0.5, 0.5, 0.5) * (
+            1 + math.sin(self.scale * p.z() + 10 * self.noise.turb(p, 7))
+        )

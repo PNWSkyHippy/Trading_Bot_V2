@@ -13,6 +13,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 try:
     from PIL import Image, ImageTk
+
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
@@ -23,7 +24,9 @@ class StatGrid(ttk.Frame):
     A grid of modern metric / KPI cards displaying key stats (e.g. Win Rate, Max Drawdown).
     """
 
-    def __init__(self, parent: tk.Widget, columns: int = 4, theme: dict = None, **kwargs):
+    def __init__(
+        self, parent: tk.Widget, columns: int = 4, theme: dict = None, **kwargs
+    ):
         super().__init__(parent, style="TFrame", **kwargs)
         self.theme = theme or {}
         self.num_columns = columns
@@ -52,7 +55,12 @@ class StatGrid(ttk.Frame):
             card.columnconfigure(0, weight=1)
 
             # Title label
-            t_lbl = ttk.Label(card, text=title.upper(), style="DimCard.TLabel", font=("Segoe UI", 8, "bold"))
+            t_lbl = ttk.Label(
+                card,
+                text=title.upper(),
+                style="DimCard.TLabel",
+                font=("Segoe UI", 8, "bold"),
+            )
             t_lbl.grid(row=0, column=0, sticky="w")
 
             # Value label
@@ -144,9 +152,13 @@ class DataTable(ttk.Frame):
         self.tree = ttk.Treeview(table_container, show="headings", selectmode="browse")
         self.tree.grid(row=0, column=0, sticky="nsew")
 
-        v_scroll = ttk.Scrollbar(table_container, orient="vertical", command=self.tree.yview)
+        v_scroll = ttk.Scrollbar(
+            table_container, orient="vertical", command=self.tree.yview
+        )
         v_scroll.grid(row=0, column=1, sticky="ns")
-        h_scroll = ttk.Scrollbar(table_container, orient="horizontal", command=self.tree.xview)
+        h_scroll = ttk.Scrollbar(
+            table_container, orient="horizontal", command=self.tree.xview
+        )
         h_scroll.grid(row=1, column=0, sticky="ew")
 
         self.tree.configure(xscrollcommand=h_scroll.set, yscrollcommand=v_scroll.set)
@@ -212,7 +224,9 @@ class DataTable(ttk.Frame):
             val = r[col_idx]
             try:
                 # Try numeric sort first
-                clean_val = str(val).replace("$", "").replace("%", "").replace(",", "").strip()
+                clean_val = (
+                    str(val).replace("$", "").replace("%", "").replace(",", "").strip()
+                )
                 return (0, float(clean_val))
             except Exception:
                 return (1, str(val).lower())
@@ -223,13 +237,18 @@ class DataTable(ttk.Frame):
 
     def _apply_search(self):
         """Filters table data according to search string."""
-        query = self._search_var.get().lower().strip() if hasattr(self, "_search_var") else ""
+        query = (
+            self._search_var.get().lower().strip()
+            if hasattr(self, "_search_var")
+            else ""
+        )
         if not query:
             self._refresh_view(self._raw_data)
             return
 
         filtered = [
-            row for row in self._raw_data
+            row
+            for row in self._raw_data
             if any(query in str(cell).lower() for cell in row)
         ]
         self._refresh_view(filtered)
@@ -278,7 +297,9 @@ class DataTable(ttk.Frame):
                 if self._columns:
                     writer.writerow(self._columns)
                 writer.writerows(self._raw_data)
-            messagebox.showinfo("Export Successful", f"Saved {len(self._raw_data)} rows to {filepath}")
+            messagebox.showinfo(
+                "Export Successful", f"Saved {len(self._raw_data)} rows to {filepath}"
+            )
         except Exception as e:
             messagebox.showerror("Export Failed", f"Error exporting CSV: {e}")
 
@@ -288,7 +309,13 @@ class ConsolePanel(ttk.Frame):
     A scrollable terminal / log / syntax-highlighted code console.
     """
 
-    def __init__(self, parent: tk.Widget, title: Optional[str] = None, theme: dict = None, **kwargs):
+    def __init__(
+        self,
+        parent: tk.Widget,
+        title: Optional[str] = None,
+        theme: dict = None,
+        **kwargs,
+    ):
         super().__init__(parent, style="Surface.TFrame", **kwargs)
         self.theme = theme or {}
         self.columnconfigure(0, weight=1)
@@ -340,15 +367,35 @@ class ConsolePanel(ttk.Frame):
     def _setup_tags(self):
         t = self.theme
         self.text_widget.tag_configure("info", foreground=t.get("text", "#cdd6f4"))
-        self.text_widget.tag_configure("success", foreground=t.get("success", "#a6e3a1"))
+        self.text_widget.tag_configure(
+            "success", foreground=t.get("success", "#a6e3a1")
+        )
         self.text_widget.tag_configure("danger", foreground=t.get("danger", "#f38ba8"))
-        self.text_widget.tag_configure("warning", foreground=t.get("warning", "#f9e2af"))
-        self.text_widget.tag_configure("primary", foreground=t.get("primary", "#89b4fa"))
+        self.text_widget.tag_configure(
+            "warning", foreground=t.get("warning", "#f9e2af")
+        )
+        self.text_widget.tag_configure(
+            "primary", foreground=t.get("primary", "#89b4fa")
+        )
         self.text_widget.tag_configure("dim", foreground=t.get("text_dim", "#a6adc8"))
-        self.text_widget.tag_configure("heading", foreground=t.get("primary", "#89b4fa"), font=("Consolas", 11, "bold"))
-        self.text_widget.tag_configure("code_kw", foreground=t.get("danger", "#f38ba8"), font=("Consolas", 10, "bold"))
-        self.text_widget.tag_configure("code_str", foreground=t.get("success", "#a6e3a1"))
-        self.text_widget.tag_configure("code_comment", foreground=t.get("text_dim", "#a6adc8"), font=("Consolas", 10, "italic"))
+        self.text_widget.tag_configure(
+            "heading",
+            foreground=t.get("primary", "#89b4fa"),
+            font=("Consolas", 11, "bold"),
+        )
+        self.text_widget.tag_configure(
+            "code_kw",
+            foreground=t.get("danger", "#f38ba8"),
+            font=("Consolas", 10, "bold"),
+        )
+        self.text_widget.tag_configure(
+            "code_str", foreground=t.get("success", "#a6e3a1")
+        )
+        self.text_widget.tag_configure(
+            "code_comment",
+            foreground=t.get("text_dim", "#a6adc8"),
+            font=("Consolas", 10, "italic"),
+        )
 
     def write(self, text: str, tag: Optional[str] = None):
         """Appends text to the console, optionally with a style tag."""
@@ -372,7 +419,25 @@ class ConsolePanel(ttk.Frame):
     def write_code(self, code_str: str):
         """Appends code with basic syntax highlighting."""
         self.text_widget.config(state="normal")
-        keywords = {"def", "class", "import", "from", "return", "if", "elif", "else", "for", "while", "in", "try", "except", "with", "as", "lambda", "yield"}
+        keywords = {
+            "def",
+            "class",
+            "import",
+            "from",
+            "return",
+            "if",
+            "elif",
+            "else",
+            "for",
+            "while",
+            "in",
+            "try",
+            "except",
+            "with",
+            "as",
+            "lambda",
+            "yield",
+        }
 
         lines = code_str.split("\n")
         for line in lines:
@@ -385,7 +450,9 @@ class ConsolePanel(ttk.Frame):
             for idx, tok in enumerate(tokens):
                 if tok in keywords:
                     self.text_widget.insert("end", tok, "code_kw")
-                elif (tok.startswith('"') and tok.endswith('"')) or (tok.startswith("'") and tok.endswith("'")):
+                elif (tok.startswith('"') and tok.endswith('"')) or (
+                    tok.startswith("'") and tok.endswith("'")
+                ):
                     self.text_widget.insert("end", tok, "code_str")
                 else:
                     self.text_widget.insert("end", tok)
@@ -464,10 +531,14 @@ class ImagePanel(ttk.Frame):
         self.img_label.grid(row=0, column=0, sticky="nsew")
 
         # Info subtitle bar (dimensions, filesize)
-        self.info_lbl = ttk.Label(self, text="Ready", style="Dim.TLabel", anchor="center")
+        self.info_lbl = ttk.Label(
+            self, text="Ready", style="Dim.TLabel", anchor="center"
+        )
         self.info_lbl.grid(row=row_idx + 1, column=0, sticky="ew", padx=8, pady=(2, 6))
 
-    def set_image(self, image_or_path: Union[str, Any, None], info_text: Optional[str] = None):
+    def set_image(
+        self, image_or_path: Union[str, Any, None], info_text: Optional[str] = None
+    ):
         """
         Loads and displays an image from a filepath or PIL Image object.
         Automatically scales the image proportionally to fit within max_size.
@@ -477,13 +548,19 @@ class ImagePanel(ttk.Frame):
             return
 
         if not HAS_PIL:
-            self.img_label.config(text="PIL (Pillow) required for image preview.\nInstall with: pip install Pillow", image="")
+            self.img_label.config(
+                text="PIL (Pillow) required for image preview.\nInstall with: pip install Pillow",
+                image="",
+            )
             return
 
         try:
             if isinstance(image_or_path, str):
                 if not os.path.exists(image_or_path):
-                    self.img_label.config(text=f"File not found:\n{os.path.basename(image_or_path)}", image="")
+                    self.img_label.config(
+                        text=f"File not found:\n{os.path.basename(image_or_path)}",
+                        image="",
+                    )
                     return
                 im = Image.open(image_or_path)
                 orig_w, orig_h = im.size
@@ -500,7 +577,11 @@ class ImagePanel(ttk.Frame):
             target_h = max(1, int(orig_h * scale))
 
             # Resample image
-            resample_filter = getattr(Image, "Resampling", Image).LANCZOS if hasattr(Image, "Resampling") else Image.ANTIALIAS
+            resample_filter = (
+                getattr(Image, "Resampling", Image).LANCZOS
+                if hasattr(Image, "Resampling")
+                else Image.ANTIALIAS
+            )
             resized = im.resize((target_w, target_h), resample=resample_filter)
 
             # Convert to ImageTk PhotoImage
@@ -534,13 +615,17 @@ def show_image_window(
     scaled to fit the screen without requiring external default OS image viewers.
     """
     if not HAS_PIL:
-        messagebox.showerror("Pillow Required", "PIL (Pillow) is required to display image windows.")
+        messagebox.showerror(
+            "Pillow Required", "PIL (Pillow) is required to display image windows."
+        )
         return None
 
     try:
         if isinstance(image_or_path, str):
             if not os.path.exists(image_or_path):
-                messagebox.showerror("File Error", f"Image file not found:\n{image_or_path}")
+                messagebox.showerror(
+                    "File Error", f"Image file not found:\n{image_or_path}"
+                )
                 return None
             im = Image.open(image_or_path)
             win_title = f"{title} - {os.path.basename(image_or_path)}"
@@ -564,7 +649,11 @@ def show_image_window(
         disp_w = max(1, int(orig_w * scale))
         disp_h = max(1, int(orig_h * scale))
 
-        resample_filter = getattr(Image, "Resampling", Image).LANCZOS if hasattr(Image, "Resampling") else Image.ANTIALIAS
+        resample_filter = (
+            getattr(Image, "Resampling", Image).LANCZOS
+            if hasattr(Image, "Resampling")
+            else Image.ANTIALIAS
+        )
         disp_img = im.resize((disp_w, disp_h), resample=resample_filter)
         photo = ImageTk.PhotoImage(disp_img)
         win._photo_ref = photo  # Keep reference alive on window object

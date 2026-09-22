@@ -18,7 +18,9 @@ class Perlin:
     point_count = 256
 
     def __init__(self):
-        self.randvec = [unit_vector(Vec3.random(-1, 1)) for _ in range(self.point_count)]
+        self.randvec = [
+            unit_vector(Vec3.random(-1, 1)) for _ in range(self.point_count)
+        ]
         self.perm_x = self.perlin_generate_perm()
         self.perm_y = self.perlin_generate_perm()
         self.perm_z = self.perlin_generate_perm()

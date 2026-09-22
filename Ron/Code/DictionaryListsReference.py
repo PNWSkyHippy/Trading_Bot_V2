@@ -15,15 +15,9 @@ print(
 )
 
 
-print(
-    f"users[0] = {users[0]}"
-)  # first dictionary
-print(
-    f'users[0]["name"] = {users[0]["name"]}'
-)  # "Ron"
-print(
-    f'users[1]["score"] = {users[1]["score"]}'
-)  # 88
+print(f"users[0] = {users[0]}")  # first dictionary
+print(f'users[0]["name"] = {users[0]["name"]}')  # "Ron"
+print(f'users[1]["score"] = {users[1]["score"]}')  # 88
 
 
 # And a dictionary containing lists:
@@ -41,9 +35,7 @@ print(
 )
 
 
-print(
-    f'classes["students"][0] = {classes["students"][0]}\n'
-)  # "Ron"
+print(f'classes["students"][0] = {classes["students"][0]}\n')  # "Ron"
 
 # A good practice project would be a tiny paper-trade journal: a list of trade dictionaries, with functions to add trades
 # and calculate total P&L. That directly reinforces what you learned using data you already understand extremely well.
@@ -73,30 +65,20 @@ print(
 
 
 for trade in trades:
-    print(
-        f"trade['symbol'] = {trade['symbol']} trade['pnl'] = {trade['pnl']}"
-    )
+    print(f"trade['symbol'] = {trade['symbol']} trade['pnl'] = {trade['pnl']}")
     print(trade["symbol"], trade["pnl"])
 
 print(f"trades = {trades}\n")
 print(f"trades[0] = {trades[0]}\n")
-print(
-    f'trades[0]["symbol"] = {trades[0]["symbol"]}\n\n'
-)
+print(f'trades[0]["symbol"] = {trades[0]["symbol"]}\n\n')
 
 
 for trade in trades:
     if trade["symbol"] == "ETH/USD":
-        print(
-            f'"Found:", trade) = "Found:", {trade}'
-        )
+        print(f'"Found:", trade) = "Found:", {trade}')
 
-winners = [
-    trade for trade in trades if trade["won"]
-]
-print(
-    'winners = [trade for trade in trades if trade["won"]]'
-)
+winners = [trade for trade in trades if trade["won"]]
+print('winners = [trade for trade in trades if trade["won"]]')
 print(f"Winners:  {winners}")
 
 
@@ -106,33 +88,23 @@ print(
     + "======================================================\n\n"
 )
 
-print(
-    'total_pnl = sum(trade["pnl"] for trade in trades)'
-)
+print('total_pnl = sum(trade["pnl"] for trade in trades)')
 total_pnl = sum(trade["pnl"] for trade in trades)
 print("Total P&L:\n\n", total_pnl)
 # Then deliberately break expressions—try trades["symbol"] or trades[0][0]—and study the errors. Understanding why those fail will
 # drive home the distinction between numeric list indexes and dictionary keys very quickly.
 
 my_list = [1, 2, 3]
-print(
-    "my_list = {my_list}\ntype(my_list) = {type(my_list)}"
-)
+print("my_list = {my_list}\ntype(my_list) = {type(my_list)}")
 print("for nums in my_list:")
 for nums in my_list:
     print(f"nums = {nums}")
 
 my_dict = {"a": 1, "b": 2, "c": 3}
-print(
-    f"\nmy_dict = {my_dict}\ntype(my_dict) = {type(my_dict)}"
-)
-print(
-    "for my_keys, my_values in my_dict.items():"
-)
+print(f"\nmy_dict = {my_dict}\ntype(my_dict) = {type(my_dict)}")
+print("for my_keys, my_values in my_dict.items():")
 for my_keys, my_values in my_dict.items():
-    print(
-        f"my_keys = {my_keys} my_values = {my_values}"
-    )
+    print(f"my_keys = {my_keys} my_values = {my_values}")
 
 
 my_list_of_dicts = [{"a": 1}, {"b": 2}, {"c": 3}]
@@ -143,9 +115,7 @@ print("for trade in my_list_of_dicts:")
 for trade in my_list_of_dicts:
     print(f"trade = {trade}")
     for my_keys, my_values in trade.items():
-        print(
-            f"my_keys = {my_keys} my_values = {my_values}"
-        )
+        print(f"my_keys = {my_keys} my_values = {my_values}")
 
 my_dict_of_lists = {
     "a": [1, 2, 3],

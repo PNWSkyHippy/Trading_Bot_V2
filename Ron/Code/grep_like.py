@@ -2,9 +2,7 @@ import sys
 
 if len(sys.argv) < 2:
     print("Error: Missing arguments!")
-    print(
-        f"Usage: python {sys.argv[0]} [pattern]"
-    )
+    print(f"Usage: python {sys.argv[0]} [pattern]")
     sys.exit(1)
 
 

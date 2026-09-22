@@ -46,7 +46,9 @@ class RtwImage:
             return
         if self.load(os.path.join("..", "..", "..", "..", "..", "images", filename)):
             return
-        if self.load(os.path.join("..", "..", "..", "..", "..", "..", "images", filename)):
+        if self.load(
+            os.path.join("..", "..", "..", "..", "..", "..", "images", filename)
+        ):
             return
 
         sys.stderr.write(f"ERROR: Could not load image file '{image_filename}'.\n")

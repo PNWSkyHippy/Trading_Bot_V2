@@ -129,11 +129,17 @@ def prompt_number(
     lbl = ttk.Label(dlg.main_frame, text=prompt, style="Heading.TLabel")
     lbl.grid(row=0, column=0, sticky="w", pady=(0, 8))
 
-    var = tk.DoubleVar(value=float(default)) if is_float else tk.IntVar(value=int(default))
+    var = (
+        tk.DoubleVar(value=float(default))
+        if is_float
+        else tk.IntVar(value=int(default))
+    )
     from_ = min_val if min_val is not None else -999999999
     to = max_val if max_val is not None else 999999999
 
-    spin = ttk.Spinbox(dlg.main_frame, from_=from_, to=to, increment=step, textvariable=var)
+    spin = ttk.Spinbox(
+        dlg.main_frame, from_=from_, to=to, increment=step, textvariable=var
+    )
     spin.grid(row=1, column=0, sticky="ew", pady=(0, 16))
     spin.focus_set()
 
@@ -146,7 +152,9 @@ def prompt_number(
             dlg.result = val
             dlg.destroy()
         except Exception:
-            messagebox.showerror("Invalid Input", "Please enter a valid number.", parent=dlg)
+            messagebox.showerror(
+                "Invalid Input", "Please enter a valid number.", parent=dlg
+            )
 
     cancel_btn = ttk.Button(btn_box, text="Cancel", command=dlg.on_cancel)
     cancel_btn.pack(side="right", padx=(6, 0))
@@ -172,8 +180,12 @@ def prompt_choice(
     lbl = ttk.Label(dlg.main_frame, text=prompt, style="Heading.TLabel")
     lbl.grid(row=0, column=0, sticky="w", pady=(0, 8))
 
-    var = tk.StringVar(value=default if default is not None else (opts[0] if opts else ""))
-    combo = ttk.Combobox(dlg.main_frame, textvariable=var, values=opts, state="readonly")
+    var = tk.StringVar(
+        value=default if default is not None else (opts[0] if opts else "")
+    )
+    combo = ttk.Combobox(
+        dlg.main_frame, textvariable=var, values=opts, state="readonly"
+    )
     combo.grid(row=1, column=0, sticky="ew", pady=(0, 16))
     combo.focus_set()
 
@@ -215,7 +227,7 @@ def prompt_form(
     Pops up a full multi-field FormPanel inside a modal dialog window.
     Accepts a builder function that configures the form inputs.
     Returns a clean dictionary of values or None if cancelled.
-    
+
     Example:
         def build_fields(form):
             form.add_text("db_name", "Database Name", default="trades.db")

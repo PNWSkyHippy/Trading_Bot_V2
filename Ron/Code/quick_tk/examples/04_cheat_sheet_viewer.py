@@ -41,7 +41,7 @@ print("Even squares:", squares)
 words = ["python", "tkinter", "oop", "gui"]
 words.sort(key=len, reverse=True)
 print("Sorted by length:", words)
-"""
+""",
     },
     "Dictionaries": {
         "summary": "Key-value associative mappings with fast O(1) average hash lookup.",
@@ -72,12 +72,15 @@ for key, value in trade.items():
 # 3. Dictionary Comprehension
 multipliers = {sym: mult for sym, mult in [("ES", 50), ("NQ", 20), ("MES", 5)]}
 print("Tick Multipliers:", multipliers)
-"""
+""",
     },
     "Lists of Dictionaries": {
         "summary": "Common data structure for tabular records, SQLite results, and JSON APIs.",
         "methods": [
-            ("Filtering", "Using list comprehensions: [r for r in rows if r['pnl'] > 100]"),
+            (
+                "Filtering",
+                "Using list comprehensions: [r for r in rows if r['pnl'] > 100]",
+            ),
             ("Sorting", "Using sorted(rows, key=lambda x: x['pnl'], reverse=True)"),
             ("Extracting Column", "[r['symbol'] for r in rows]"),
             ("Aggregating", "sum(r['pnl'] for r in rows)"),
@@ -99,7 +102,7 @@ sorted_trades = sorted(trades, key=lambda x: x["pnl"], reverse=True)
 # 3. Compute Total PnL
 total_pnl = sum(t["pnl"] for t in trades)
 print(f"Total PnL across {len(trades)} trades: ${total_pnl:,.2f}")
-"""
+""",
     },
     "String Operations & Formatting": {
         "summary": "Immutable character sequences with powerful formatting and manipulation methods.",
@@ -125,12 +128,15 @@ raw_csv_line = "2026-08-31,ES,Breakout,2,450.00"
 fields = raw_csv_line.split(",")
 rejoined = " | ".join(fields)
 print(rejoined)
-"""
+""",
     },
     "OOP Classes & Inheritance": {
         "summary": "Object-Oriented Programming structures encapsulating data and behavior.",
         "methods": [
-            ("__init__(self, ...)", "Constructor method for initializing instance attributes."),
+            (
+                "__init__(self, ...)",
+                "Constructor method for initializing instance attributes.",
+            ),
             ("self", "Reference to the current instance of the class."),
             ("super().__init__()", "Calls parent class constructor in inheritance."),
             ("@classmethod", "Method bound to the class rather than instance."),
@@ -156,14 +162,16 @@ class TradeFilterTool(BaseUtilityTool):
 # Usage
 filter_tool = TradeFilterTool(min_pnl=100.0)
 print(f"Initialized tool: {filter_tool.name}")
-"""
-    }
+""",
+    },
 }
 
 
 class CheatSheetTool(ToolView):
     title = "Python Reference & Cheat Sheet"
-    description = "Interactive Python documentation, syntax guide, and method cheat-sheets"
+    description = (
+        "Interactive Python documentation, syntax guide, and method cheat-sheets"
+    )
 
     def build_ui(self):
         self.columnconfigure(0, weight=0)
@@ -175,8 +183,17 @@ class CheatSheetTool(ToolView):
         self.form.grid(row=0, column=0, sticky="nsew", padx=(0, 10))
 
         topics = list(TOPIC_DATA.keys())
-        self.form.add_radio("topic", "Select Category", topics, default=topics[0], horizontal=False, on_change=self.on_topic_selected)
-        self.form.add_button("View Quick Guide", callback=self.on_view_clicked, variant="primary")
+        self.form.add_radio(
+            "topic",
+            "Select Category",
+            topics,
+            default=topics[0],
+            horizontal=False,
+            on_change=self.on_topic_selected,
+        )
+        self.form.add_button(
+            "View Quick Guide", callback=self.on_view_clicked, variant="primary"
+        )
 
         # 2. Right Split: Method Table on top + Console Code Viewer on bottom
         right_box = ttk.Frame(self, style="TFrame")
@@ -193,7 +210,9 @@ class CheatSheetTool(ToolView):
         )
         self.method_table.grid(row=0, column=0, sticky="nsew", pady=(0, 8))
 
-        self.console = self.add_console(title="Code Reference & Interactive Examples", parent=right_box)
+        self.console = self.add_console(
+            title="Code Reference & Interactive Examples", parent=right_box
+        )
         self.console.grid(row=1, column=0, sticky="nsew")
 
         # Load initial topic

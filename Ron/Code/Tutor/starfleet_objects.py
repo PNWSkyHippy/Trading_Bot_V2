@@ -12,4 +12,3 @@ class Employee:
 kirk = Employee("James Kirk", 34, "Captain", 2265)
 spock = Employee("Spock", 35, "Science Officer", 2254)
 mccoy = Employee("Leonard McCoy", 137, "Chief Medical Officer", 2266)
-    

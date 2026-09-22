@@ -168,12 +168,30 @@ def apply_theme(root: tk.Tk, theme_dict: dict):
 
     # Labels
     style.configure("TLabel", background=t["bg"], foreground=t["text"], font=font_main)
-    style.configure("Surface.TLabel", background=t["surface"], foreground=t["text"], font=font_main)
-    style.configure("Card.TLabel", background=t["card_bg"], foreground=t["text"], font=font_main)
-    style.configure("Heading.TLabel", background=t["bg"], foreground=t["text_highlight"], font=font_heading)
-    style.configure("Title.TLabel", background=t["bg"], foreground=t["primary"], font=font_title)
-    style.configure("Dim.TLabel", background=t["bg"], foreground=t["text_dim"], font=("Segoe UI", 9))
-    style.configure("DimCard.TLabel", background=t["card_bg"], foreground=t["text_dim"], font=("Segoe UI", 9))
+    style.configure(
+        "Surface.TLabel", background=t["surface"], foreground=t["text"], font=font_main
+    )
+    style.configure(
+        "Card.TLabel", background=t["card_bg"], foreground=t["text"], font=font_main
+    )
+    style.configure(
+        "Heading.TLabel",
+        background=t["bg"],
+        foreground=t["text_highlight"],
+        font=font_heading,
+    )
+    style.configure(
+        "Title.TLabel", background=t["bg"], foreground=t["primary"], font=font_title
+    )
+    style.configure(
+        "Dim.TLabel", background=t["bg"], foreground=t["text_dim"], font=("Segoe UI", 9)
+    )
+    style.configure(
+        "DimCard.TLabel",
+        background=t["card_bg"],
+        foreground=t["text_dim"],
+        font=("Segoe UI", 9),
+    )
 
     # Standard Buttons
     style.configure(
@@ -269,13 +287,31 @@ def apply_theme(root: tk.Tk, theme_dict: dict):
         arrowcolor=t["text"],
         padding=5,
     )
-    style.map("TCombobox", fieldbackground=[("readonly", t["entry_bg"])], selectbackground=[("readonly", t["primary"])])
+    style.map(
+        "TCombobox",
+        fieldbackground=[("readonly", t["entry_bg"])],
+        selectbackground=[("readonly", t["primary"])],
+    )
 
     # Checkbutton & Radiobutton
-    style.configure("TCheckbutton", background=t["bg"], foreground=t["text"], font=font_main)
-    style.configure("TRadiobutton", background=t["bg"], foreground=t["text"], font=font_main)
-    style.configure("Card.TCheckbutton", background=t["card_bg"], foreground=t["text"], font=font_main)
-    style.configure("Card.TRadiobutton", background=t["card_bg"], foreground=t["text"], font=font_main)
+    style.configure(
+        "TCheckbutton", background=t["bg"], foreground=t["text"], font=font_main
+    )
+    style.configure(
+        "TRadiobutton", background=t["bg"], foreground=t["text"], font=font_main
+    )
+    style.configure(
+        "Card.TCheckbutton",
+        background=t["card_bg"],
+        foreground=t["text"],
+        font=font_main,
+    )
+    style.configure(
+        "Card.TRadiobutton",
+        background=t["card_bg"],
+        foreground=t["text"],
+        font=font_main,
+    )
 
     # LabelFrames
     style.configure(

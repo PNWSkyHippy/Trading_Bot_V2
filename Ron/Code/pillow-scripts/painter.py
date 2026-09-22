@@ -24,8 +24,7 @@ from PIL import Image, ImageTk
 
 class PaintCanvas(tkinter.Canvas):
     def __init__(self, master, image):
-        tkinter.Canvas.__init__(self, master,
-                                width=image.size[0], height=image.size[1])
+        tkinter.Canvas.__init__(self, master, width=image.size[0], height=image.size[1])
 
         # fill the canvas
         self.tile = {}
@@ -33,7 +32,7 @@ class PaintCanvas(tkinter.Canvas):
         xsize, ysize = image.size
         for x in range(0, xsize, tilesize):
             for y in range(0, ysize, tilesize):
-                box = x, y, min(xsize, x+tilesize), min(ysize, y+tilesize)
+                box = x, y, min(xsize, x + tilesize), min(ysize, y + tilesize)
                 tile = ImageTk.PhotoImage(image.crop(box))
                 self.create_image(x, y, image=tile, anchor=tkinter.NW)
                 self.tile[(x, y)] = box, tile
@@ -56,14 +55,15 @@ class PaintCanvas(tkinter.Canvas):
         # update canvas
         dx = box[0] % self.tilesize
         dy = box[1] % self.tilesize
-        for x in range(box[0]-dx, box[2]+1, self.tilesize):
-            for y in range(box[1]-dy, box[3]+1, self.tilesize):
+        for x in range(box[0] - dx, box[2] + 1, self.tilesize):
+            for y in range(box[1] - dy, box[3] + 1, self.tilesize):
                 try:
                     xy, tile = self.tile[(x, y)]
                     tile.paste(self.image.crop(xy))
                 except KeyError:
                     pass  # outside the image
         self.update_idletasks()
+
 
 #
 # main

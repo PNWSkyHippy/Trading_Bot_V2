@@ -51,7 +51,7 @@ for o, a in opt:
         id = sorted(Image.ID)
         print("Supported formats:")
         for i in id:
-            print(i, end=' ')
+            print(i, end=" ")
         sys.exit(1)
     elif o == "-i":
         verbose = 1
@@ -77,25 +77,27 @@ def globfix(files):
         return out
     return files
 
+
 for file in globfix(args):
     try:
         im = Image.open(file)
-        print("%s:" % file, im.format, "%dx%d" % im.size, im.mode, end=' ')
+        print("%s:" % file, im.format, "%dx%d" % im.size, im.mode, end=" ")
         if verbose:
-            print(im.info, im.tile, end=' ')
+            print(im.info, im.tile, end=" ")
         print()
         if verify:
             try:
                 im.verify()
             except:
                 if not quiet:
-                    print("failed to verify image", end=' ')
+                    print("failed to verify image", end=" ")
                     print("(%s:%s)" % (sys.exc_info()[0], sys.exc_info()[1]))
     except IOError as v:
         if not quiet:
             print(file, "failed:", v)
     except:
         import traceback
+
         if not quiet:
             print(file, "failed:", "unexpected error")
             traceback.print_exc(file=sys.stdout)

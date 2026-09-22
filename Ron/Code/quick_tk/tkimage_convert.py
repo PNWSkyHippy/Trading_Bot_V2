@@ -5,7 +5,8 @@ Demonstrates FormPanel numeric inputs, live calculation callbacks, StatGrid badg
 
 import os
 import sys
-from tkinter import ttk, filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
+
 from PIL import Image, ImageEnhance, ImageFilter
 
 # Add parent directory and scratch root to sys.path
@@ -173,7 +174,7 @@ class ImageConvertFrontEnd(ToolView):
     def blur_auto_calc(self, _=None):
         """Triggered automatically when any input changes."""
         values = self.form.get_values()
-        self.blur = True if values.get("blur", False) else False
+        self.blur = bool(values.get("blur", False))
         self.on_calculate(self.form.get_values())
         self.update_live_preview()
 
@@ -203,7 +204,7 @@ class ImageConvertFrontEnd(ToolView):
     def sharpen_auto_calc(self, _=None):
         """Triggered automatically when any input changes."""
         values = self.form.get_values()
-        self.sharpen = True if values.get("sharpen", False) else False
+        self.sharpen = bool(values.get("sharpen", False))
         self.on_calculate(self.form.get_values())
         self.update_live_preview()
 
@@ -225,7 +226,7 @@ class ImageConvertFrontEnd(ToolView):
         self.update_live_preview()
         self.on_file_selected()
 
-    def on_save_image(self, values: dict = None):
+    def on_save_image(self, values: dict | None = None):
         if self.source_image is None:
             messagebox.showwarning("Save Image", "No rendered image data to save yet!")
             return
@@ -372,9 +373,9 @@ class ImageConvertFrontEnd(ToolView):
         #       self.format = values.get("format", "ppm")
         self.is_demo = values.get("is_demo", "False")
         self.scale_fac = min(10, float(values.get("scalefac", 1.0)))
-        self.is_scaled = True if self.scale_fac != 1 else False
+        self.is_scaled = self.scale_fac != 1
         self.rotate_deg = int(values.get("rotate_deg", 0))
-        self.is_rotated = True if values.get("rotate_deg", "False") else False
+        self.is_rotated = bool(values.get("rotate_deg", "False"))
         self.width = int(values.get("width", None))
         self.smooth = values.get("smooth", False)
         self.sharpen = values.get("sharpen", False)
@@ -388,7 +389,7 @@ class ImageConvertFrontEnd(ToolView):
                 self.image_height = int(self.orig_image_width / (aspa / aspb))
             else:
                 self.height = values.get("height")
-        self.is_resized = True if self.orig_image_width is not None else False
+        self.is_resized = self.orig_image_width is not None
         self.outfile = values.get("outfile", None)
         if not self.is_demo:
             self.infile = values.get("infile", None)

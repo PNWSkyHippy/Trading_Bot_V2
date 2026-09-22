@@ -40,7 +40,9 @@ class Sphere(Hittable):
             box2 = Aabb(self.center.at(1) - rvec, self.center.at(1) + rvec)
             self.bbox = Aabb(box1, box2)
         else:
-            raise TypeError("Sphere(center, radius, mat) or Sphere(center1, center2, radius, mat)")
+            raise TypeError(
+                "Sphere(center, radius, mat) or Sphere(center1, center2, radius, mat)"
+            )
 
     def hit(self, r, ray_t, rec):
         current_center = self.center.at(r.time())

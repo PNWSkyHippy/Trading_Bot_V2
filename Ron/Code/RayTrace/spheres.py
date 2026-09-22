@@ -10,7 +10,7 @@ class Sphere(Hittable):
         self.radius = max(0.0, float(radius))
 
     def hit(self, r: Ray, ray_tmin: float, ray_tmax: float, rec: HitRecord) -> bool:
- 
+
         oc = self.center - r.origin()
         a = r.direction().length_squared()
         h = dot(r.direction(), oc)
@@ -35,7 +35,8 @@ class Sphere(Hittable):
         rec.normal = (rec.p - self.center) / self.radius
 
         return True
-    
+
+
 def hit_sphere(center, radius, r):
     oc = center - r.origin()
     a = r.direction().length_squared()
@@ -43,9 +44,7 @@ def hit_sphere(center, radius, r):
     c = oc.length_squared() - radius * radius
     discriminant = (h * h) - (a * c)
 
-    if (discriminant < 0):
+    if discriminant < 0:
         return -1.0
     else:
         return (h - sqrt(discriminant)) / a
-
-

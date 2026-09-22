@@ -33,15 +33,22 @@ class Enhance(tkinter.Frame):
         tkinter.Label(self, image=self.tkim).pack()
 
         # scale
-        s = tkinter.Scale(self, label=name, orient=tkinter.HORIZONTAL,
-                  from_=lo, to=hi, resolution=0.01,
-                  command=self.update)
+        s = tkinter.Scale(
+            self,
+            label=name,
+            orient=tkinter.HORIZONTAL,
+            from_=lo,
+            to=hi,
+            resolution=0.01,
+            command=self.update,
+        )
         s.set(self.value)
         s.pack()
 
     def update(self, value):
         self.value = float(value)
         self.tkim.paste(self.enhancer.enhance(self.value))
+
 
 #
 # main
@@ -54,7 +61,7 @@ root = tkinter.Tk()
 
 im = Image.open(sys.argv[1])
 
-#im.thumbnail((200, 200))
+# im.thumbnail((200, 200))
 
 Enhance(root, im, "Color", ImageEnhance.Color, 0.0, 4.0).pack()
 Enhance(tkinter.Toplevel(), im, "Sharpness", ImageEnhance.Sharpness, -2.0, 2.0).pack()

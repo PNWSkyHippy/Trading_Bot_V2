@@ -21,9 +21,7 @@ def insertion_sort(arr):
 
 def main():
     my_list = [5, 2, 4, 6, 1, 3]
-    print(
-        f"Sorte List:\n{insertion_sort(my_list)}"
-    )
+    print(f"Sorte List:\n{insertion_sort(my_list)}")
     print(f"Original list intact:\n{my_list}")
 
 

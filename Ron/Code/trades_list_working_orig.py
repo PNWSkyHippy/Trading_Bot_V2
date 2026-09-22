@@ -55,9 +55,7 @@ def print_outfile(text, output_file):
     if output_file:
         # Automatically strip ANSI colors before writing to the text file
         clean_text = clean_ansi(text)
-        with open(
-            output_file, "a", encoding="utf-8"
-        ) as file:
+        with open(output_file, "a", encoding="utf-8") as file:
             file.write(clean_text)
     else:
         print(text, end="")
@@ -84,9 +82,7 @@ def get_closed_trades(conn):
     return [dict(r) for r in c.fetchall()]
 
 
-def proc_dict(
-    loc_trade_list, strat_name, key, output_file
-):
+def proc_dict(loc_trade_list, strat_name, key, output_file):
     """Process the provided dictionary of trades"""
     # Initialize Locals
     counter = 1
@@ -105,13 +101,13 @@ def proc_dict(
 
     # Print  Tttle , header graphics and column headers
     print_outfile(
-        f'List of {colorize(strat_name,"red")} Trades\n',
+        f"List of {colorize(strat_name, 'red')} Trades\n",
         output_file,
     )
     print_outfile(BL_EQUALSTR, output_file)
     print_outfile(
         colorize(
-            f'{"Id:":<16}{"Entry":<24}{"Exit":<24}{"Symbol":<16}{"Direct":<9}{"Entry Price":<15}{"Exit Price":<17}{"PnL":<10}\n',
+            f"{'Id:':<16}{'Entry':<24}{'Exit':<24}{'Symbol':<16}{'Direct':<9}{'Entry Price':<15}{'Exit Price':<17}{'PnL':<10}\n",
             "magenta",
         ),
         output_file,
@@ -120,10 +116,7 @@ def proc_dict(
 
     # Search the dict for Key  provided
     for trade_dict in loc_trade_list:
-        if (
-            trade_dict[key] == strat_name
-            or strat_name == "ALL"
-        ):
+        if trade_dict[key] == strat_name or strat_name == "ALL":
             #  entry contains strat were after total the PnL
             total_pnl += trade_dict["pnl"]
             # Running total the umber of wins or losses and tracj the total of each
@@ -143,36 +136,36 @@ def proc_dict(
             # Combine 3 sections onto one line then print it
             if trade_dict["pnl"] < 0:
                 col_pnl = colorize(
-                    f'{float(trade_dict["pnl"]):8.2f}',
+                    f"{float(trade_dict['pnl']):8.2f}",
                     "red",
                 )
             else:
                 col_pnl = colorize(
-                    f'{float(trade_dict["pnl"]):8.2f}',
+                    f"{float(trade_dict['pnl']):8.2f}",
                     "green",
                 )
             if counter % 3 == 0:
                 print_outfile(  # 3rd pass - end building 3 rows
-                    f'{trade_dict["trade_id"][-12:]:<7}'
-                    f'\t{trade_dict["entry_time"][0:16]:<10}'
-                    f'\t{trade_dict["exit_time"][0:16]:<10}'
-                    f'{colorize(f"\t{trade_dict["symbol"]:<10}", "cyan")}'
-                    f'\t{trade_dict["direction"]:<5}'
-                    f'\t{float(trade_dict["entry_price"]):>8.2f}'
-                    f'\t{float(trade_dict["exit_price"]):>8.2f}  '
+                    f"{trade_dict['trade_id'][-12:]:<7}"
+                    f"\t{trade_dict['entry_time'][0:16]:<10}"
+                    f"\t{trade_dict['exit_time'][0:16]:<10}"
+                    f"{colorize(f'\t{trade_dict["symbol"]:<10}', 'cyan')}"
+                    f"\t{trade_dict['direction']:<5}"
+                    f"\t{float(trade_dict['entry_price']):>8.2f}"
+                    f"\t{float(trade_dict['exit_price']):>8.2f}  "
                     f"\t{col_pnl}\t\n",
                     output_file,
                 )
                 counter += 1
             else:
                 print_outfile(  # Pass 1 and 2 builde side by side
-                    f'{trade_dict["trade_id"][-12:]:<7}'
-                    + f'\t{trade_dict["entry_time"][0:16]:<10}'
-                    + f'\t{trade_dict["exit_time"][0:16]:<10}'
-                    + f'{colorize(f"\t{trade_dict["symbol"]:<10}", "cyan")}'
-                    + f'\t{trade_dict["direction"]:<5}'
-                    + f'\t{trade_dict["entry_price"]:>8.2f}'
-                    + f'\t{trade_dict["exit_price"]:>8.2f}'
+                    f"{trade_dict['trade_id'][-12:]:<7}"
+                    + f"\t{trade_dict['entry_time'][0:16]:<10}"
+                    + f"\t{trade_dict['exit_time'][0:16]:<10}"
+                    + f"{colorize(f'\t{trade_dict["symbol"]:<10}', 'cyan')}"
+                    + f"\t{trade_dict['direction']:<5}"
+                    + f"\t{trade_dict['entry_price']:>8.2f}"
+                    + f"\t{trade_dict['exit_price']:>8.2f}"
                     + f"\t{col_pnl}\t\n",
                     output_file,
                 )
@@ -188,41 +181,25 @@ def proc_dict(
 
     ret_dict = {}
     ret_dict["loss_pct"] = colorize(
-        f"{(tot_losers  / trade_count) * 100:.0f}",
+        f"{(tot_losers / trade_count) * 100:.0f}",
         "red",
     )
     ret_dict["win_pct"] = colorize(
-        f"{(tot_winners  / trade_count) * 100:>3.0f}",
+        f"{(tot_winners / trade_count) * 100:>3.0f}",
         "green",
     )
     ret_dict["trade_count"] = f"{trade_count:<12}"
 
     if total_pnl >= 0:
-        ret_dict["total_pnl"] = colorize(
-            f"{total_pnl:<14.2f}", "green"
-        )
+        ret_dict["total_pnl"] = colorize(f"{total_pnl:<14.2f}", "green")
     else:
-        ret_dict["total_pnl"] = colorize(
-            f"{total_pnl:<14.2f}", "red"
-        )
-    ret_dict["max_win"] = colorize(
-        f"{max_win:<14.2f}", "green"
-    )
-    ret_dict["max_loss"] = colorize(
-        f"{max_loss:>3.2f}", "red"
-    )
-    ret_dict["avg_wins"] = colorize(
-        f"{avg_wins:<12.2f}", "green"
-    )
-    ret_dict["avg_loss"] = colorize(
-        f"{avg_loss:<14.2f}", "red"
-    )
-    ret_dict["tot_wins"] = colorize(
-        f"{tot_winners:>3}", "green"
-    )
-    ret_dict["tot_losers"] = colorize(
-        f"{tot_losers:<11}", "red"
-    )
+        ret_dict["total_pnl"] = colorize(f"{total_pnl:<14.2f}", "red")
+    ret_dict["max_win"] = colorize(f"{max_win:<14.2f}", "green")
+    ret_dict["max_loss"] = colorize(f"{max_loss:>3.2f}", "red")
+    ret_dict["avg_wins"] = colorize(f"{avg_wins:<12.2f}", "green")
+    ret_dict["avg_loss"] = colorize(f"{avg_loss:<14.2f}", "red")
+    ret_dict["tot_wins"] = colorize(f"{tot_winners:>3}", "green")
+    ret_dict["tot_losers"] = colorize(f"{tot_losers:<11}", "red")
     #   print(ret_dict)
 
     return ret_dict
@@ -260,11 +237,7 @@ def print_col_headers(trades_lst):
 def build_hdr_list(trades_lst2):
     """Collect the column header names in trades table"""
     # Flattens the nested structure into a single list of keys in one line
-    return [
-        my2_key
-        for key2_lst in trades_lst2
-        for my2_key in key2_lst
-    ]
+    return [my2_key for key2_lst in trades_lst2 for my2_key in key2_lst]
 
 
 def main():
@@ -282,12 +255,10 @@ def main():
     hdr_list = build_hdr_list(trades_list)
 
     def wide_formatter(prog):
-        return (
-            argparse.RawDescriptionHelpFormatter(
-                prog,
-                width=110,
-                max_help_position=46,
-            )
+        return argparse.RawDescriptionHelpFormatter(
+            prog,
+            width=110,
+            max_help_position=46,
         )
 
     parser = argparse.ArgumentParser(
@@ -344,11 +315,9 @@ Usage examples:
         print_col_headers(trades_list)
         sys.exit(2)
 
-    if (
-        not args.list1
-        and not args.list2
-        and not args.list3
-    ) or (not (len(args.key) >= 1)):
+    if (not args.list1 and not args.list2 and not args.list3) or (
+        not (len(args.key) >= 1)
+    ):
         parser.print_help()
         parser.exit(
             2,
@@ -356,26 +325,10 @@ Usage examples:
         )
 
     output_file = args.outfile
-    strat_list = (
-        args.list1.split(",")
-        if args.list1
-        else []
-    )
-    ticker_list = (
-        args.list2.split(",")
-        if args.list2
-        else []
-    )
-    asset_list = (
-        args.list3.split(",")
-        if args.list3
-        else []
-    )
-    key_list = (
-        args.key.split(",")
-        if args.key
-        else ["None"]
-    )
+    strat_list = args.list1.split(",") if args.list1 else []
+    ticker_list = args.list2.split(",") if args.list2 else []
+    asset_list = args.list3.split(",") if args.list3 else []
+    key_list = args.key.split(",") if args.key else ["None"]
 
     for keys in key_list:
         if keys not in hdr_list:
@@ -388,37 +341,26 @@ Usage examples:
     dict_of_trades_by_list2 = {}
     dict_of_trades_by_list3 = {}
     if (not args.Names) and (len(key_list) < 1):
-        print(
-            f"\nError: Please provide at least 1 key , seperated by a ,\n"
-        )
+        print(f"\nError: Please provide at least 1 key , seperated by a ,\n")
         sys.exit()
 
     key1 = key_list[0]
-    key2 = (
-        key_list[1] if (len(key_list) > 1) else []
-    )
-    key3 = (
-        key_list[2] if (len(key_list) > 2) else []
-    )
+    key2 = key_list[1] if (len(key_list) > 1) else []
+    key3 = key_list[2] if (len(key_list) > 2) else []
 
     for trade in trades_list:
         strat_name = trade[key1]
-        dict_of_trades_by_list1.setdefault(
-            strat_name, []
-        ).append(
+        dict_of_trades_by_list1.setdefault(strat_name, []).append(
             copy.deepcopy(trade)
         )  # Deep copy of trade
 
     res_dict = {}
     for strat in dict_of_trades_by_list1:
         # "fetch the list of dicts" — this is what you were missing
-        trade_list = dict_of_trades_by_list1[
-            strat
-        ]
+        trade_list = dict_of_trades_by_list1[strat]
         strat_name = trade_list[0][key1]
         if (len(strat_list) >= 1) and (
-            (strat_name in strat_list)
-            or (strat_list[0] == "ALL")
+            (strat_name in strat_list) or (strat_list[0] == "ALL")
         ):
             res_dict = proc_dict(
                 trade_list,
@@ -426,37 +368,27 @@ Usage examples:
                 key1,
                 output_file,
             )
+            print_outfile(BL_EQUALSTR, output_file)
             print_outfile(
-                BL_EQUALSTR, output_file
-            )
-            print_outfile(
-                f'{"Total Trades:":>13} {res_dict["trade_count"]} {"Total P&L:":<11}  {res_dict["total_pnl"]}{"Max Win:":<10} {res_dict["max_win"]}'
-                f'{"Max Loss:":>10}{"":<5}{res_dict["max_loss"]}\n'
-                f'{"Avg Win:":>13} {res_dict["avg_wins"]} {" Avg Loss:":<11}  {res_dict["avg_loss"]}'
-                f'{"":<4}W/L: {res_dict["tot_wins"]}/{res_dict["tot_losers"]}{"":<7}W/L%{"":<5}{res_dict["win_pct"]}%/{res_dict["loss_pct"]}%\n',
+                f"{'Total Trades:':>13} {res_dict['trade_count']} {'Total P&L:':<11}  {res_dict['total_pnl']}{'Max Win:':<10} {res_dict['max_win']}"
+                f"{'Max Loss:':>10}{'':<5}{res_dict['max_loss']}\n"
+                f"{'Avg Win:':>13} {res_dict['avg_wins']} {' Avg Loss:':<11}  {res_dict['avg_loss']}"
+                f"{'':<4}W/L: {res_dict['tot_wins']}/{res_dict['tot_losers']}{'':<7}W/L%{'':<5}{res_dict['win_pct']}%/{res_dict['loss_pct']}%\n",
                 output_file,
             )
-            print_outfile(
-                BL_EQUALSTR + "\n\n", output_file
-            )
+            print_outfile(BL_EQUALSTR + "\n\n", output_file)
 
     res_dict.clear()
     if (len(key_list)) > 1:
         for trade in trades_list:
             symbol_name = trade[key2]
-            dict_of_trades_by_list2.setdefault(
-                symbol_name, []
-            ).append(trade)
+            dict_of_trades_by_list2.setdefault(symbol_name, []).append(trade)
 
         for symbol in dict_of_trades_by_list2:
-
-            trade_list = dict_of_trades_by_list2[
-                symbol
-            ]
+            trade_list = dict_of_trades_by_list2[symbol]
             symbol_name = trade_list[0][key2]
             if (len(ticker_list) >= 1) and (
-                (symbol_name in ticker_list)
-                or (ticker_list[0] == "ALL")
+                (symbol_name in ticker_list) or (ticker_list[0] == "ALL")
             ):
                 res_dict = proc_dict(
                     trade_list,
@@ -464,14 +396,12 @@ Usage examples:
                     key2,
                     output_file,
                 )
+                print_outfile(BL_EQUALSTR, output_file)
                 print_outfile(
-                    BL_EQUALSTR, output_file
-                )
-                print_outfile(
-                    f'{"Total Trades:":>13} {res_dict["trade_count"]} {"Total P&L:":<11}  {res_dict["total_pnl"]}{"Max Win:":<10} {res_dict["max_win"]}'
-                    f'{"Max Loss:":<10}{"":<5}{res_dict["max_loss"]}\n'
-                    f'{"Avg Win:":>13} {res_dict["avg_wins"]} {" Avg Loss:":<11}  {res_dict["avg_loss"]}'
-                    f'{"":<4}W/L: {res_dict["tot_wins"]}/{res_dict["tot_losers"]}{"":<7}W/L%{"":<5}{res_dict["win_pct"]}%/{res_dict["loss_pct"]}%\n',
+                    f"{'Total Trades:':>13} {res_dict['trade_count']} {'Total P&L:':<11}  {res_dict['total_pnl']}{'Max Win:':<10} {res_dict['max_win']}"
+                    f"{'Max Loss:':<10}{'':<5}{res_dict['max_loss']}\n"
+                    f"{'Avg Win:':>13} {res_dict['avg_wins']} {' Avg Loss:':<11}  {res_dict['avg_loss']}"
+                    f"{'':<4}W/L: {res_dict['tot_wins']}/{res_dict['tot_losers']}{'':<7}W/L%{'':<5}{res_dict['win_pct']}%/{res_dict['loss_pct']}%\n",
                     output_file,
                 )
                 print_outfile(
@@ -484,18 +414,13 @@ Usage examples:
     if (len(key_list)) > 2:
         for trade in trades_list:
             asset_name = trade[key3]
-            dict_of_trades_by_list3.setdefault(
-                asset_name, []
-            ).append(trade)
+            dict_of_trades_by_list3.setdefault(asset_name, []).append(trade)
 
         for asset in dict_of_trades_by_list3:
-            trade_list = dict_of_trades_by_list3[
-                asset
-            ]
+            trade_list = dict_of_trades_by_list3[asset]
             asset_name = trade_list[0][key3]
             if (len(asset_list) >= 1) and (
-                (asset_name in asset_list)
-                or (asset_list[0] == "ALL")
+                (asset_name in asset_list) or (asset_list[0] == "ALL")
             ):
                 res_dict = proc_dict(
                     trade_list,
@@ -503,14 +428,12 @@ Usage examples:
                     key3,
                     output_file,
                 )
+                print_outfile(BL_EQUALSTR, output_file)
                 print_outfile(
-                    BL_EQUALSTR, output_file
-                )
-                print_outfile(
-                    f'{"Total Trades:":>13} {res_dict["trade_count"]:<6} {"Total P&L:":<11} {res_dict["total_pnl"]}{"Max Win:":<10} {res_dict["max_win"]}'
-                    f'{"Max Loss:":<10}{"":<5}{res_dict["max_loss"]}\n'
-                    f'{"Avg Win:":>13} {res_dict["avg_wins"]:<6} {" Avg Loss:":<11}  {res_dict["avg_loss"]}'
-                    f'{"":<4}W/L: {res_dict["tot_wins"]}/{res_dict["tot_losers"]}{"":<7}W/L%{"":<5}{res_dict["win_pct"]}%/{res_dict["loss_pct"]}%\n',
+                    f"{'Total Trades:':>13} {res_dict['trade_count']:<6} {'Total P&L:':<11} {res_dict['total_pnl']}{'Max Win:':<10} {res_dict['max_win']}"
+                    f"{'Max Loss:':<10}{'':<5}{res_dict['max_loss']}\n"
+                    f"{'Avg Win:':>13} {res_dict['avg_wins']:<6} {' Avg Loss:':<11}  {res_dict['avg_loss']}"
+                    f"{'':<4}W/L: {res_dict['tot_wins']}/{res_dict['tot_losers']}{'':<7}W/L%{'':<5}{res_dict['win_pct']}%/{res_dict['loss_pct']}%\n",
                     output_file,
                 )
                 print_outfile(

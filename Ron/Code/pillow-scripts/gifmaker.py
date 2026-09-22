@@ -19,7 +19,6 @@ from __future__ import print_function
 from PIL import Image
 
 if __name__ == "__main__":
-
     import sys
 
     if len(sys.argv) < 3:

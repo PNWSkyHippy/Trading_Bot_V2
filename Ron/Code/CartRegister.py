@@ -28,33 +28,19 @@ while Q_Pressed == False:
         + "(S)how Cart\n"
         + "(Q)uit             : "
     )
-    if isinstance(users_choice, str) and (
-        len(users_choice) > 0
-    ):
+    if isinstance(users_choice, str) and (len(users_choice) > 0):
         if users_choice[0].upper() == "Q":
-            print(
-                f"\nTotal Items in the Cart: {len(cart)}"
-            )
+            print(f"\nTotal Items in the Cart: {len(cart)}")
             Q_Pressed = True
         elif users_choice[0].upper() == "A":
-            item = input(
-                "\nEnter the Item to Add: "
-            )
+            item = input("\nEnter the Item to Add: ")
             cart = add_item(cart, item)
         elif users_choice[0].upper() == "R":
-            item = input(
-                "\nEnter the Item to Remove: "
-            )
-            cart, bool_flag = remove_item(
-                cart, item
-            )
+            item = input("\nEnter the Item to Remove: ")
+            cart, bool_flag = remove_item(cart, item)
             if bool_flag == False:
-                print(
-                    "\nIm sorry that item is not in the list"
-                )
+                print("\nIm sorry that item is not in the list")
         elif users_choice[0].upper() == "S":
             list_cart(cart)
         else:
-            print(
-                "\nIm sorry that was an invalid entry please try again"
-            )
+            print("\nIm sorry that was an invalid entry please try again")

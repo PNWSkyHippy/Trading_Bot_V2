@@ -82,9 +82,7 @@ radio_button_no.grid(row=2, column=2, sticky=W)
 
 rootWindow.grid_rowconfigure(3, minsize=20)
 
-message_txt.grid(
-    row=5, columnspan=3, sticky=N, rowspan=1
-)
+message_txt.grid(row=5, columnspan=3, sticky=N, rowspan=1)
 
 lets_see_button.grid(row=4, columnspan=3)
 

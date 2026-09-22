@@ -31,15 +31,23 @@ def reset():
 
 @ti.func
 def laplacian(i, j):
-    return (-4 * height[i, j] + height[i, j - 1] + height[i, j + 1] + height[i + 1, j] + height[i - 1, j]) / (4 * dx**2)
+    return (
+        -4 * height[i, j]
+        + height[i, j - 1]
+        + height[i, j + 1]
+        + height[i + 1, j]
+        + height[i - 1, j]
+    ) / (4 * dx**2)
 
 
 @ti.func
 def gradient(i, j):
     return ti.Vector(
         [
-            (height[i + 1, j] if i < shape[0] - 1 else 0) - (height[i - 1, j] if i > 1 else 0),
-            (height[i, j + 1] if j < shape[1] - 1 else 0) - (height[i, j - 1] if j > 1 else 0),
+            (height[i + 1, j] if i < shape[0] - 1 else 0)
+            - (height[i - 1, j] if i > 1 else 0),
+            (height[i, j + 1] if j < shape[1] - 1 else 0)
+            - (height[i, j - 1] if j > 1 else 0),
         ]
     ) * (0.5 / dx)
 
@@ -95,4 +103,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()  
+    main()

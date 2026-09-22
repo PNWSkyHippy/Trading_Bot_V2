@@ -3,9 +3,7 @@ import importlib
 import pydoc
 import sys
 
-parser = argparse.ArgumentParser(
-    description="Search names inside a Python module"
-)
+parser = argparse.ArgumentParser(description="Search names inside a Python module")
 parser.add_argument(
     "-l",
     "--list",
@@ -43,9 +41,7 @@ def resolve_dotted_name(dotted_name):
         module_name = ".".join(parts[:split_at])
         attr_parts = parts[split_at:]
         try:
-            obj = importlib.import_module(
-                module_name
-            )
+            obj = importlib.import_module(module_name)
         except ModuleNotFoundError as exc:
             last_error = exc
             continue
@@ -60,9 +56,7 @@ def resolve_dotted_name(dotted_name):
                 raise SystemExit(1)
         return obj
 
-    print(
-        f"Module or object not found: {dotted_name}"
-    )
+    print(f"Module or object not found: {dotted_name}")
     if last_error:
         print(last_error)
     raise SystemExit(1)
@@ -72,29 +66,17 @@ def inspect_module(module_name):
     module = resolve_dotted_name(module_name)
 
     if "." in module_name and not args.search:
-        print(
-            pydoc.plain(
-                pydoc.render_doc(
-                    module, title="Help on %s"
-                )
-            )
-        )
+        print(pydoc.plain(pydoc.render_doc(module, title="Help on %s")))
         return
 
-    matches = [
-        name
-        for name in dir(module)
-        if args.search.lower() in name.lower()
-    ]
+    matches = [name for name in dir(module) if args.search.lower() in name.lower()]
 
     if not matches:
         print("No matches found.")
     else:
         for name in matches:
             obj = getattr(module, name)
-            print(
-                f"{name:30} {type(obj).__name__}"
-            )
+            print(f"{name:30} {type(obj).__name__}")
 
 
 if args.list:
@@ -102,6 +84,4 @@ if args.list:
 elif args.module_name:
     inspect_module(args.module_name)
 else:
-    parser.error(
-        "give a module_name or use -l/--list"
-    )
+    parser.error("give a module_name or use -l/--list")

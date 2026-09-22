@@ -15,6 +15,4 @@ with sqlite3.connect("CshHistory.db") as conn:
         index=False,
     )
 
-print(
-    "CSV data successfully loaded into SQLite table!"
-)
+print("CSV data successfully loaded into SQLite table!")
