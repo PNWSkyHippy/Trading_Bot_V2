@@ -934,7 +934,9 @@ class LiveRayTraceViewer(ToolView):
         # Action Buttons inside the popup
         def _on_submit():
             vals = form.get_values()
-            self.on_apply_inputs(vals)
+            # Browsing already loads the image; this also handles a typed path.
+            # The image loader safely skips a file that is already open.
+            self.on_file_selected(vals.get("infile", ""))
             popup.destroy()
 
         form.add_button(

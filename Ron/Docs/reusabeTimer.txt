@@ -1,0 +1,165 @@
+Here is how you build a reusable timing decorator that returns the elapsed time instead of printing it.
+
+In Python, we use:
+
+time.perf_counter(): The highest-precision clock in Python (benchmarking standard).
+*args, **kwargs: Allows the decorator to work on any function, regardless of what arguments it takes.
+@functools.wraps: Preserves the original function's name and documentation.
+Pattern 1: Returns Just the Elapsed Time
+If your function (like bubble_sort) modifies data in-place and you only care about getting the execution time back:
+
+python
+
+
+import time
+from functools import wraps
+def timed_duration(func):
+    """Decorator that executes the function and returns elapsed time in seconds."""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        func(*args, **kwargs)
+        end = time.perf_counter()
+        
+        return end - start  # Returns elapsed seconds (e.g. 0.00342)
+    return wrapper
+How to use it:
+python
+
+
+@timed_duration
+def bubble_sort(arr):
+    n = len(arr)
+    for i in range(n):
+        for j in range(0, n - i - 1):
+            if arr[j] > arr[j + 1]:
+                arr[j], arr[j + 1] = arr[j + 1], arr[j]
+numbers = [64, 34, 25, 12, 22, 11, 90] * 50
+# Calling the function gives you the elapsed time directly:
+elapsed_time = bubble_sort(numbers)
+print(f"Sort completed in {elapsed_time:.6f} seconds")
+# Output: Sort completed in 0.002814 seconds
+Pattern 2: Returning BOTH the Result AND the Elapsed Time (Most Useful)
+What if your function returns calculated data (e.g. calculating an EMA or fetching ticker data)? If the wrapper only returns the time, you'd lose your function's answer.
+
+You can have the wrapper return a tuple: (result, elapsed_time):
+
+python
+
+
+def timed_result(func):
+    """Returns a tuple: (function_result, elapsed_seconds)."""
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        end = time.perf_counter()
+        
+        return result, (end - start)
+    return wrapper
+How to use it:
+python
+
+
+@timed_result
+def calculate_pnl(prices, shares):
+    # Some computation
+    return sum(prices) * shares
+# Unpack both the return value AND the timer:
+total_val, elapsed = calculate_pnl([150.2, 151.0, 149.8], 10)
+print(f"Result: ${total_val} | Took: {elapsed:.6f}s")
+
+
+Pattern 3: The "Stealth Attribute" Trick (Doesn't Change Return Value)
+Because functions in Python are objects (just like structs in C), you can actually attach properties directly onto the function itself!
+
+This lets the function return its normal value, but you can inspect func.elapsed whenever you want:
+
+python
+
+
+def timed_inspect(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        # Attach the elapsed time directly onto the wrapper object!
+        wrapper.elapsed = time.perf_counter() - start
+        return result
+    wrapper.elapsed = 0.0
+    return wrapper
+How to use it:
+python
+
+
+@timed_inspect
+def generate_signals(ticker):
+    # do logic...
+    return ["BUY", "HOLD", "BUY"]
+signals = generate_signals("AAPL")    # Normal return value
+print("Signals:", signals)
+print("Time taken:", generate_signals.elapsed)  # Read the attached timer!
+Why *args, **kwargs is your best friend here:
+Notice how in all three patterns, the wrapper takes (*args, **kwargs) and passes them to func(*args, **kwargs).
+
+*args catches any positional arguments (5, 10, "AAPL").
+**kwargs catches any keyword arguments (symbol="ES", limit=100).
+This makes your decorator 100% reusable across any function in your codebase without writing custom wrappers for each one!
+
+
+BINGO! That is the classic real-world superpower of Decorators!
+
+In software architecture, this is called the "Open-Closed Principle":
+
+"Your code should be open for new features, but closed for editing working code."
+
+Imagine how horrifying it would be to manually edit 100 different functions:
+
+You could introduce typos.
+You could break existing unit tests.
+And if the legal department changes the wording next month, you’d have to go back and edit 100 functions all over again!
+How That Looked in Practice
+1. Your 100 existing report functions:
+python
+
+
+def daily_trade_report():
+    return "Daily PnL: +$1,450.00 | Win Rate: 68%"
+def risk_exposure_report():
+    return "Exposure: 42% Net Long | Value-at-Risk: $320"
+def tax_lot_report():
+    return "Short-Term Gains: $4,200 | Unrealized: -$150"
+2. The new compliance mandate arrives:
+"All reports must now include a legal disclaimer and timestamp addendum at the bottom."
+
+3. You write ONE decorator:
+python
+
+
+from datetime import datetime
+from functools import wraps
+def with_compliance_addendum(report_func):
+    @wraps(report_func)
+    def wrapper(*args, **kwargs):
+        # 1. Run the original report untouched
+        original_text = report_func(*args, **kwargs)
+        
+        # 2. Forge the new mandatory addendum
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        addendum = (
+            f"\n----------------------------------------\n"
+            f"[LEGAL ADDENDUM - GENERATED {timestamp}]\n"
+            f"Not financial advice. Past performance != future returns."
+        )
+        
+        # 3. Return both combined!
+        return original_text + addendum
+    return wrapper
+4. The magic: You just tag the reports!
+python
+
+
+@with_compliance_addendum
+def daily_trade_report():
+    return "Daily PnL: +$1,450.00 | Win Rate: 68%"
+print(daily_trade_report())

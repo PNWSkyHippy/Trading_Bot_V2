@@ -1,0 +1,86 @@
+| Setting | Current value |
+|---|---|
+| Camera position | `(13, 2, 3)` |
+| Look-at target | `(0, 0, 0)` |
+| Vertical FOV | `20°` |
+| Camera up | `(0, 1, 0)` |
+| Explicit lights | None; it relies on sky/background illumination |
+| Meaningful object area | Roughly `X -12 to +12`, `Y 0 to 2`, `Z -12 to +12` |
+| Ground | Huge sphere centered at `(0, -1000, 0)`, radius `1000` |
+
+| Scene | Name | Camera position | Look-at | FOV | Meaningful coordinate range |
+|---|---|---:|---:|---:|---|
+| 1 | Bouncing Spheres | `(13, 2, 3)` | `(0, 0, 0)` | `20°` | roughly X/Z `-12 to +12`, Y `0 to 2` |
+| 2 | Checkered Spheres | `(13, 2, 3)` | `(0, 0, 0)` | `20°` | roughly X/Y/Z `-10 to +10` |
+| 3 | Earth Globe | `(0, 0, 12)` | `(0, 0, 0)` | `20°` | globe centered at origin, radius `2` |
+| 4 | Perlin Spheres | `(13, 2, 3)` | `(0, 0, 0)` | `20°` | main sphere around `(0, 2, 0)`, radius `2` |
+| 5 | Quads | `(0, 0, 9)` | `(0, 0, 0)` | `80°` | roughly X `-3 to +3`, Y `-3 to +3`, Z `-3 to +5` |
+| 6 | Simple Light | `(26, 3, 6)` | `(0, 2, 0)` | `20°` | roughly X `-2 to +5`, Y `0 to +9`, Z `-2 to +2` |
+| 7 | Cornell Box | `(278, 278, -800)` | `(278, 278, 0)` | `40°` | enclosed room from `0` to `555` on each axis |
+| 8 | Cornell Smoke | `(278, 278, -800)` | `(278, 278, 0)` | `40°` | enclosed room from `0` to `555` on each axis |
+| 9 | Final Scene | `(478, 278, -600)` | `(278, 278, 0)` | `40°` | primarily the `0` to `555` Cornell-scale world |
+
+book 2 scene 6
+Camera position:  (26, 3, 6)
+Camera target:    (0, 2, 0)
+Camera FOV:       20°
+Camera up:         (0, 1, 0)
+
+Camera default:  (26, 3, 6)
+Looks at:        (0, 2, 0)
+FOV:             20°
+Main sphere:     (0, 2, 0), radius 2
+Light sphere:    (0, 7, 0), radius 2
+Light quad:      centered about (4, 2, -2)
+Useful local scale: roughly -10 to +10 around the objects
+
+Ground:
+    enormous procedural-texture ground sphere,
+    centered at (0, -1000, 0), radius 1000
+
+Main Perlin sphere:
+    center (0, 2, 0)
+    radius 2
+	
+	Light 1 — emissive sphere
+    center:     (0, 7, 0)
+    radius:     2
+    emission:   (4, 4, 4)
+
+Light 2 — emissive quad
+    corner:     (3, 1, -2)
+    horizontal: (2, 0, 0)
+    vertical:   (0, 2, 0)
+
+    practical center: approximately (4, 2, -2)
+    practical extent: X 3 to 5, Y 1 to 3, Z = -2
+    emission:   (4, 4, 4)
+	
+	
+
+
+	SCENE_REFERENCE = {
+    "book2_scene6": {
+        "camera_default": (26, 3, 6),
+        "look_at_default": (0, 2, 0),
+        "vfov_default": 20,
+        "working_bounds": {
+            "x": (-5, 10),
+            "y": (0, 10),
+            "z": (-10, 10),
+        },
+        "scale": "small",
+    },
+
+    "book2_scene7": {
+        "camera_default": (278, 278, -800),
+        "look_at_default": (278, 278, 0),
+        "vfov_default": 40,
+        "working_bounds": {
+            "x": (0, 555),
+            "y": (0, 555),
+            "z": (0, 555),
+        },
+        "scale": "cornell_555",
+    },
+}

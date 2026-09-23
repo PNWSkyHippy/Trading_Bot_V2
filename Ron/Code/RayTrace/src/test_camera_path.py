@@ -15,6 +15,23 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import camera_path as cp
 
 
+def test_roll_changes_up_without_changing_aim_and_reaches_both_pov_exports():
+    shot = cp.default_shot()
+    shot["roll"] = 90
+    pose = cp.sample_shot(shot)[0]
+    right, up, forward = cp.camera_basis(pose["camera"], pose["lookat"])
+    rolled_right, rolled_up, rolled_forward = cp.camera_basis(pose["camera"], pose["lookat"], 90)
+    assert rolled_right == pytest.approx(up)
+    assert rolled_up == pytest.approx(cp.mul(right, -1))
+    assert rolled_forward == pytest.approx(forward)
+    sky = "<" + cp.point_text(rolled_up) + ">"
+    assert "sky " + sky in cp.pov_scene_text(shot, pose)
+    assert "{ " + sky in cp.pov_animation_text(shot)
+    shot["roll"] = float("nan")
+    with pytest.raises(ValueError, match="roll"):
+        cp.validate_shot(shot)
+
+
 def test_arc_visits_a_b_c_and_line_does_not_use_arc_handle():
     shot = cp.default_shot()
     move = shot["segments"][0]
@@ -168,6 +185,9 @@ def test_editor_real_widgets_path_lights_drag_and_playback(tmp_path):
         assert editor.template_path is None
         assert not editor.use_existing.get()
         assert len(editor.frames) == 49
+        editor.vars["roll"].set("90")
+        assert editor.apply()
+        assert editor.shot["roll"] == 90
         editor.vars["steps"].set("8")
         editor.vars["kind"].set("Line")
         assert editor.apply()

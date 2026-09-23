@@ -78,6 +78,7 @@ class CameraPathEditor(tk.Toplevel):
         self._entry(objects, "object_color", "Object color", "#75baff")
         ttk.Button(objects, text="Pick object color", command=lambda: self.pick_color("object_color")).pack(fill="x")
         self._entry(objects, "ground_y", "Reference ground Y", str(self.shot.get("ground_y", 0)))
+        self._entry(objects, "roll", "POV camera roll (degrees, all moves)", str(self.shot.get("roll", 0)))
         ttk.Label(objects, text="Preview only. Camera below this height is marked red.", wraplength=345).pack(fill="x", pady=4)
         ttk.Separator(objects).pack(fill="x", pady=12)
         ttk.Label(objects, text="Light sources").pack(anchor="w")
@@ -198,6 +199,7 @@ class CameraPathEditor(tk.Toplevel):
 
     def load_fields(self):
         self.vars["ground_y"].set(str(self.shot.get("ground_y", 0)))
+        self.vars["roll"].set(str(self.shot.get("roll", 0)))
         move = self.shot["segments"][self.move_index]
         for key, value in move.items():
             self.vars[key].set(cp.point_text(value) if isinstance(value, (tuple, list)) else str(value))
@@ -234,6 +236,7 @@ class CameraPathEditor(tk.Toplevel):
         shot["include_object"] = self.include_object.get()
         shot["fps"] = int(self.fps.get())
         shot["ground_y"] = float(self.vars["ground_y"].get())
+        shot["roll"] = float(self.vars["roll"].get())
         shot["object"] = {"kind": self.vars["object_kind"].get(), "position": point("object_position"),
                           "size": float(self.vars["object_size"].get()), "color": self.vars["object_color"].get()}
         if self.light_index is not None:
@@ -469,7 +472,7 @@ class CameraPathEditor(tk.Toplevel):
         canvas = self.camera_canvas
         canvas.delete("all")
         w, h = canvas.winfo_width(), canvas.winfo_height()
-        right, up, forward = cp.camera_basis(pose["camera"], pose["lookat"])
+        right, up, forward = cp.camera_basis(pose["camera"], pose["lookat"], self.shot.get("roll", 0))
         focal = h/(2*math.tan(math.radians(pose["vfov"])/2))
         def local(point):
             offset = cp.sub(point, pose["camera"])

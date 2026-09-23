@@ -25,6 +25,7 @@ The replacement camera is a standard perspective camera. Special settings in the
 - Moves join together. Editing a move's endpoint also updates its neighbor so the camera does not jump between moves.
 - **Steps** means intervals: a single 48-step move produces 49 frames, including both ends. Multiple moves share their joining frame. The director's steps determine the render count, overriding the main Movie Frames setting while that path is active.
 - FPS controls preview timing. It does not add frames.
+- **POV camera roll (degrees, all moves)** on Object/lights tilts the camera around its viewing direction without changing its path or aim. For a sideways image, try 90 or -90, click Apply and inspect the preview. This one setting covers the entire sequence and is saved with the project/preset. Click Use complete scene with POV-Ray again to send the change to the renderer. Roll is supported by the preview and POV renderer, not the homemade/book renderer.
 
 Red path sections and the warning identify sampled camera positions below your reference ground Y. This helps catch underground paths, but is not collision detection. The wireframe shows the reference object, lights, axes and grid; it does not parse and display all objects or terrain in an arbitrary POV scene. Use a small test render to check the actual scene before a long sequence.
 
