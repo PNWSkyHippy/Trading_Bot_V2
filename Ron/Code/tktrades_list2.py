@@ -46,7 +46,7 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
 
     def build_ui(self):
         self.trades_list, self.main_values = self.main_loop()
-        sys.stderr.write(f"{self.main_values['args']}\n\n")
+        breakpoint()
         sys.stderr.write(f"{self.main_values['list_values']}\n\n")
         sys.stderr.flush()
         self.rows = []
@@ -487,8 +487,6 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             "event_id": "EventId",
         }
 
-        main_values["DEF_OUTFIELDS"] = DEF_OUTFIELDS
-        main_values["ALL_OUTFIELDS"] = ALL_OUTFIELDS
         output_file = ""
         is_sorted = False
         default_key_list = [
@@ -499,9 +497,6 @@ class TradeAnalyzerTool(ToolView):  # pyright: ignore[reportGeneralTypeIssues]
             "broker_order_id",
         ]
         # Connect to DB and load the trades table into the trades_list dictionary
-        main_values["output_file"] = output_file
-        main_values["is_sorted"] = is_sorted
-        main_values["default_key_list"] = default_key_list
 
         def wide_formatter(prog):
             return argparse.RawDescriptionHelpFormatter(
@@ -637,16 +632,9 @@ Usage examples:
         csv_true = args.csv if args.csv else False
         extended = args.Ext if args.Ext else False
 
-        main_values["csv_true"] = csv_true
-        main_values["extended"] = extended
-        main_values["args"] = args
-
         mode = "open" if args.open else "closed"
         is_sorted = args.sort_keys if args.sort_keys else False
         rev_sort = args.Reverse if args.Reverse else False
-        main_values["is_sorted"] = is_sorted
-        main_values["rev_sort"] = rev_sort
-        main_values["mode"] = mode
 
         conn = connect()
         if mode == "closed":
@@ -675,19 +663,15 @@ Usage examples:
             return
 
         hdr_list = build_hdr_list(trades_list)
-        main_values["hdr_list"] = hdr_list
 
         if args.Names:
             print_col_headers(trades_list)
             sys.exit(2)
         DEF_START_DATE = "1980-01-01T00:00"
         DEF_END_DATE = "4050-01-01T00:00"
-        main_values["Names"] = args.Names
 
         start_date = args.start if args.start else DEF_START_DATE
         end_date = args.end if args.end else DEF_END_DATE
-        main_values["start_date"] = start_date
-        main_values["end_date"] = end_date
 
         if args.start and (not date_check(start_date)):
             print("Invalid start date. use format YYYY-MM-DDTHH:MM")
@@ -698,7 +682,6 @@ Usage examples:
             sys.exit(4)
 
         date_range_given = start_date != DEF_START_DATE or end_date != DEF_END_DATE
-        main_values["date_range_given"] = date_range_given
 
         output_file = args.outfile
         if csv_true:
@@ -706,7 +689,7 @@ Usage examples:
                 output_file, _extension = output_file.split(".")
             except:
                 pass
-        main_values["output_file"] = output_file
+
         # Build a list of list options skipping those not given
         list_values = [
             args.list1.split(",") if args.list1 else [],
@@ -715,16 +698,15 @@ Usage examples:
             args.list4.split(",") if args.list4 else [],
             args.list5.split(",") if args.list5 else [],
         ]
-        main_values["list_values"] = list_values
+
         key_list = args.key.split(",") if args.key else []
-        main_values["key_list"] = key_list
 
         if len(key_list) > 5:
             print("\nError: maximum of 5 keys is supported.\n")
             sys.exit(1)
 
         output_fields = args.outfields.split(",") if args.outfields else False
-        main_values["output_fields"] = output_fields
+
         output_dict = {}
         if not output_fields:
             output_dict = DEF_OUTFIELDS
@@ -740,9 +722,9 @@ Usage examples:
                     if key_name == fields:
                         output_dict[key_name] = descr
                         continue
-        main_values["output_dict"] = output_dict
+
         sort_list = args.sort_keys.split(",") if args.sort_keys else []
-        main_values["sort_list"] = sort_list
+
         if len(sort_list) > 5:
             print("\nError: maximum of 5 sort keys is supported.\n")
             sys.exit(1)
@@ -806,7 +788,7 @@ Usage examples:
                         )
                 except ValueError:
                     pass
-            main_values["key_list"] = key_list
+
         if (not args.Names) and (len(key_list) < 1):
             print("\nError: Please provide at least 1 key , separated by a ,   \n")
             sys.exit()
@@ -853,7 +835,7 @@ Usage examples:
                 if selected
             ]
             combined_label = " & ".join(label_parts) if label_parts else "ALL"
-            print_group_summary(
+            res_dict = print_group_summary(
                 combined_label,
                 combined_list,
                 "ALL",
@@ -880,7 +862,7 @@ Usage examples:
                     "groups": grouped_trades,
                 }
             )
-        main_values["dict_of_trades"] = dict_of_trades
+
         for trade_group in dict_of_trades:
             key_name = trade_group["key"]
             selected_values = trade_group["selected"]
@@ -896,7 +878,7 @@ Usage examples:
                 if selected_values[0] == "ALL" or value_in_selected(
                     group_name, selected_values
                 ):
-                    print_group_summary(
+                    res_dict = print_group_summary(
                         group_name,
                         trade_list,
                         key_name,
@@ -905,11 +887,32 @@ Usage examples:
                         end_date,
                         output_dict,
                     )
-
-        main_values["dict_of_ttrades"] = dict_of_trades
-        main_values["selected_values"] = selected_values
-        main_values["output_file"] = output_file
-        main_values["is_sorted"] = is_sorted
+        main_values = {
+            "DEF_OUTFIELDS": DEF_OUTFIELDS,
+            "ALL_OUTFIELDS": ALL_OUTFIELDS,
+            "output_file": output_file,
+            "is_sorted": is_sorted,
+            "default_key_list": default_key_list,
+            "csv_true": csv_true,
+            "extended": extended,
+            "args": args,
+            "rev_sort": rev_sort,
+            "mode": mode,
+            "hdr_list": hdr_list,
+            "Names": args.Names,
+            "start_date": start_date,
+            "end_date": end_date,
+            "date_range_given": date_range_given,
+            "list_values": list_values,
+            "key_list": key_list,
+            "output_fields": output_fields,
+            "output_dict": output_dict,
+            "sort_list": sort_list,
+            "dict_of_trades": dict_of_trades,
+            "dict_of_ttrades": dict_of_trades,
+            "selected_values": selected_values,
+            "res_dict": res_dict,
+        }
 
         return (trades_list, main_values)
 
@@ -983,11 +986,24 @@ def print_outfile(text, output_file):
                     encoding="utf-8",
                 ) as file:
                     file.write(clean_text)
+                    return clean_text
         except OSError as e:
             print(f"Error writing to output file: {e}")
             sys.exit(1)
     else:
         print(text, end="")
+        return text
+
+
+"""        
+    if output_gui:
+        clean_text = clean_ansi(text)
+        with open(
+            output_file,
+            "a",
+            encoding="utf-8",
+        ) as file:
+"""
 
 
 def connect():
@@ -1389,6 +1405,7 @@ def print_group_summary(
             output_file,
         )
         print_outfile(BL_EQUALSTR + "\n\n", output_file)
+    return res_dict
 
 
 if __name__ == "__main__":

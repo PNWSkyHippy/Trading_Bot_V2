@@ -550,7 +550,7 @@ if (!html.includes('buildRoundJunctionGpuMesh(') ||
     throw new Error('round junction apertures are missing from a tunnel renderer');
 }
 if (!html.includes('roundJunctionProfileRadius(seg, local.localZ, rawSegRadius)') ||
-    !html.includes('roundJunctionSightlinePassesOpenPortal(seg, ship, point, apertureScale)')) {
+    !html.includes('roundJunctionSightlinePassesOpenPortal(seg, fromPoint, toPoint, apertureScale)')) {
     throw new Error('round junction hub collision or all-port interior visibility is missing');
 }
 if (!html.includes('const roundHubContext = roundJunctionVisibilityContext(shipPoint, shipSegmentIndex);') ||
