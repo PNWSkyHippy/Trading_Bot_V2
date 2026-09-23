@@ -459,6 +459,10 @@ def print_group_summary(
         )
         print_outfile(BL_EQUALSTR + "\n\n", output_file)
 
+def build_hdr_list(trades_lst2):
+    """Collect the column header names in trades table"""
+    # Flattens the nested structure into a single list of keys in one line
+    return [my2_key for key2_lst in trades_lst2 for my2_key in key2_lst]
 
 @Timed
 def main():

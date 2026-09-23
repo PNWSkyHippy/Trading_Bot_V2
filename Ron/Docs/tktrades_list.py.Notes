@@ -1,0 +1,40 @@
+okay the file  C:\Users\Linda\Trading_Bot_V2\Ron\Code\tktrades_list.py is the beginning of me taking my existing working trades_list.py an stuffing it inside a tikinter shel
+The start of the shel is from the quick_tk/examples file
+
+So far ive got the working commnd line program parsing its inputs and producing results just fine, its called first thing when the tkinter modules starts up 
+to displa the GUI. right now the GUI it stil showing data from the same database from the exaples. However ive got a few thinsg roughed in like the header list 
+fills in the SearchKeys (max 5) button i made . I added the 5 search keys (--lis1 --list2 m commandline) to the GUI and added all , i think of the command lne
+On.Off switches to the viewmeu and added stub process function with just pas in them
+I wasnt sure at first how i was gonna use the old coe as is as it aleady wors andi want it to stay. so the fist thing i did was build a ictionary in main of all the araibles main has access to and sed to back to tkinter after it runs
+
+Howeer ive ealized thts ot the easy correct way to do iths.. The ollorec tway is to ove the entire old program insie the tkinter class TradeAnalyzer
+In this wway main and allsupport functions will have access to all the class self.this and tha variables and can also just tartt using this.is_sorted istaead of is_sorted.
+Thay way is shaed ad the GUI can accss it.
+
+ToDo:
+ step 1 move everyhing from def print_outfile right one tab stop so thy ecomemebers of the class. i believe main_loop which used to be main is aleady i the class scope
+  There is aone global section with DB Path that eeds to go up tp ad stay globals.
+  
+ step 2: I want the ommand line option to run this to contineue to work. add one more swtich --gui perhaps to signify whther to run the command linecode and exit
+ or parse the arguments and pass rhem to the GUI and bring it up
+ 
+ step 3: recode eery variable reference thats to a local scope to a vraiable thus no need, but ove all old codes variablse to self.is_sorted format rater then is_sorted
+ 
+ stp 4:sever ties with the saem database, start using our database . It can be fed from command line for first run or if --gui speiifed dont require any arguments jut fire it up
+Eother way unlike ommandline gui will let you run eport after report after report till you quit. full graphhical ability to set al the parametes the commandline used to set.
+
+I dont want all the old colde redoe I want it used as is. so like the gui once gathered al the optionsvia uttons wil lcall main_loop() which will be 
+redone to know its being called not command line. when this happens it wil read all the variables out of memory (self)) holdrs then proceed as 
+from commandline, up until it gets time to print th resultsif cmandline do he current deal print to screen one big dunp colored and formatted all pretty. 
+if outfile an or CSV specified dump to proper file
+however if the GUI called it then i want each -k search key option to open up a free floating window with that report so we may spawn up to 5 windows per run.each window with its
+ow colum sort feature ad CSV export feature (Unque names so no clobbering old)
+
+This laeves plenty of room for other things i the main let side anel thats ow ispakying sanple database info. if you have any  ideas how to use it let me know.
+
+Ill go in afterwords and change buttons sliders controls color themese and the like till ive gt it just how i want it .
+But i wud very much pprecie you turibg thistkinter shell into a working graphical interface to y trades_list.p program with legacy omand line runs still aavailable
+but also self contained to replicae it all graphically
+
+Important this is one i built and i will maintain, i need your help here but dont over complicate the code on me. Document as if for a slow peson (me) , not 
+only your own new code but even mine where its needed

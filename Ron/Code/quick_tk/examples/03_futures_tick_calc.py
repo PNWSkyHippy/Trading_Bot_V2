@@ -84,7 +84,7 @@ class FuturesTickCalcTool(ToolView):
             "contracts",
             "Number of Contracts",
             min_val=1,
-            max_val=20,
+            max_val=40,
             default=2,
             step=1,
             on_change=self._recalculate,
