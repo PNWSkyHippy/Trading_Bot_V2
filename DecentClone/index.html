@@ -23105,7 +23105,7 @@
                         continue;
                     }
                     if (prevScreen) {
-                        const lineDist = pointToSegmentDistance2D(
+                        const lineDist = distancePointToSegment2D(
                             screenX, screenY,
                             prevScreen.x, prevScreen.y,
                             projected.x, projected.y
