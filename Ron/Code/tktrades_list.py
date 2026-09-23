@@ -180,10 +180,23 @@ class TradeAnalyzerTool(ToolView):
             settings,
             text="Database, dates and output",
         )
-        ttk.Label(settings, text="Table").grid(row=0, column=0, sticky="w", padx=(0, 8), pady=4)
-        self.table_box = ttk.Combobox(settings, state="readonly", width=32)
-        self.table_box.grid(row=0, column=1, sticky="ew", pady=4)
-        self.table_box.bind("<<ComboboxSelected>>", lambda _event: self.load_database_fields())
+        ttk.Label(settings, text="Table").grid(
+            row=0,
+            column=0,
+            sticky="w",
+            padx=(0, 8),
+            pady=4,
+        )
+        self.table_box = ttk.Combobox(
+            settings, state="readonly", width=32
+        )
+        self.table_box.grid(
+            row=0, column=1, sticky="ew", pady=4
+        )
+        self.table_box.bind(
+            "<<ComboboxSelected>>",
+            lambda _event: self.load_database_fields(),
+        )
         settings.columnconfigure(1, weight=1)
         for row, (name, label) in enumerate(
             [
@@ -202,7 +215,8 @@ class TradeAnalyzerTool(ToolView):
                     "outfile",
                     "Optional output file",
                 ),
-            ]
+            ],
+            start=1,  # Row 0 belongs to the table selector.
         ):
             ttk.Label(settings, text=label).grid(
                 row=row,
@@ -229,6 +243,7 @@ class TradeAnalyzerTool(ToolView):
             elif name in (
                 "ssh_host",
                 "ssh_user",
+                "ssh_port",
                 "ssh_db",
             ):
                 command, label = (
@@ -265,7 +280,7 @@ class TradeAnalyzerTool(ToolView):
             text="Leave SSH host blank for local. For VPS mode, enter host/user/remote DB path. The program runs one read-only SSH query per report; it does not copy the DB.",
             wraplength=630,
         ).grid(
-            row=5,
+            row=row + 1,  # Keep the help below all fields, including dates.
             column=0,
             columnspan=3,
             sticky="w",
@@ -276,7 +291,7 @@ class TradeAnalyzerTool(ToolView):
             text="Load database fields / refresh values",
             command=self.load_database_fields,
         ).grid(
-            row=6,
+            row=row + 2,
             column=0,
             columnspan=3,
             sticky="w",
@@ -538,8 +553,14 @@ class TradeAnalyzerTool(ToolView):
     def quote_identifier(name):
         """Quote a table or column name selected from sqlite metadata."""
         if not name:
-            raise ValueError("Choose a database table first.")
-        return '"' + str(name).replace('"', '""') + '"'
+            raise ValueError(
+                "Choose a database table first."
+            )
+        return (
+            '"'
+            + str(name).replace('"', '""')
+            + '"'
+        )
 
     def choose_database(self):
         path = filedialog.askopenfilename(
@@ -614,18 +635,42 @@ class TradeAnalyzerTool(ToolView):
         try:
             conn = self.connect()
             try:
-                self.table_names = [
+                self.table_names = getattr(
+                    self,
+                    "remote_table_names",
+                    None,
+                ) or [
                     row[0]
                     for row in conn.execute(
                         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
                     )
                 ]
-                selected_table = self.option_vars.get("table")
-                selected_table = selected_table.get() if selected_table else self.args.table
-                if selected_table not in self.table_names:
-                    selected_table = "trades" if "trades" in self.table_names else (self.table_names[0] if self.table_names else "")
+                selected_table = (
+                    self.option_vars.get("table")
+                )
+                selected_table = (
+                    selected_table.get()
+                    if selected_table
+                    else self.args.table
+                )
+                if (
+                    selected_table
+                    not in self.table_names
+                ):
+                    selected_table = (
+                        "trades"
+                        if "trades"
+                        in self.table_names
+                        else (
+                            self.table_names[0]
+                            if self.table_names
+                            else ""
+                        )
+                    )
                 self.args.table = selected_table
-                self.table_box.configure(values=self.table_names)
+                self.table_box.configure(
+                    values=self.table_names
+                )
                 self.table_box.set(selected_table)
                 self.hdr_list = [
                     col[1]
@@ -944,6 +989,8 @@ class TradeAnalyzerTool(ToolView):
                     else value
                 ),
             )
+        if hasattr(self, "table_box"):
+            self.args.table = self.table_box.get()
         if not self.args.db:
             raise ValueError(
                 "Choose a trades database first."
@@ -1575,7 +1622,9 @@ Usage examples:
                     f"PRAGMA table_info({self.quote_identifier(args.table)})"
                 )
             ]
-            if self.mode == "closed":
+            if not self.is_trade_table():
+                self.trades_list = []
+            elif self.mode == "closed":
                 self.trades_list = (
                     self.get_closed_trades(conn)
                 )
@@ -1592,7 +1641,10 @@ Usage examples:
             )
             sys.exit(2)
 
-        if not self.trades_list:
+        if (
+            not self.trades_list
+            and self.is_trade_table()
+        ):
             (
                 print("No closed trades found.")
                 if (self.mode == "closed")
@@ -2102,34 +2154,90 @@ Usage examples:
     def is_trade_table(self):
         """Trade summaries require the fields they calculate, not a table name."""
         return {
-            "trade_id", "entry_time", "exit_time", "symbol", "pnl", "fees_paid"
+            "trade_id",
+            "entry_time",
+            "exit_time",
+            "symbol",
+            "pnl",
+            "fees_paid",
         }.issubset(self.hdr_list)
 
     def run_generic_table_report(self):
         """Filter any selected SQLite table and send it to the same report window."""
-        rows = [dict(row) for row in self.trades_list]
-        active = [(key, values) for key, values in zip(self.key_list, self.list_values) if key]
+        rows = [
+            dict(row) for row in self.trades_list
+        ]
+        active = [
+            (key, values)
+            for key, values in zip(
+                self.key_list, self.list_values
+            )
+            if key
+        ]
         if not active:
-            active = [(self.hdr_list[0], ["ALL"])] if self.hdr_list else []
+            active = (
+                [(self.hdr_list[0], ["ALL"])]
+                if self.hdr_list
+                else []
+            )
         for key, selected in active:
             if selected and selected[0] != "ALL":
-                rows = [row for row in rows if self.value_in_selected(row.get(key), selected)]
+                rows = [
+                    row
+                    for row in rows
+                    if self.value_in_selected(
+                        row.get(key), selected
+                    )
+                ]
         for sort_key in reversed(self.sort_list):
             if sort_key in self.hdr_list:
-                rows.sort(key=lambda row: (row.get(sort_key) is None, row.get(sort_key)), reverse=self.rev_sort)
-        columns = self.output_fields if self.output_fields else self.hdr_list
-        self.output_dict = {column: column for column in columns if column in self.hdr_list}
-        self.begin_report(f"{self.args.table} table", self.output_dict)
+                rows.sort(
+                    key=lambda row: (
+                        row.get(sort_key) is None,
+                        row.get(sort_key),
+                    ),
+                    reverse=self.rev_sort,
+                )
+        columns = (
+            self.output_fields
+            if self.output_fields
+            else self.hdr_list
+        )
+        self.output_dict = {
+            column: column
+            for column in columns
+            if column in self.hdr_list
+        }
+        self.begin_report(
+            f"{self.args.table} table",
+            self.output_dict,
+        )
         if self.current_report is not None:
-            self.current_report["rows"].extend(rows)
+            self.current_report["rows"].extend(
+                rows
+            )
             self.current_report["text"].append(
                 f"Table: {self.args.table}\nRows: {len(rows)}\nColumns: {', '.join(columns)}\n"
             )
         elif rows:
-            print(f"Table: {self.args.table}\nRows: {len(rows)}")
+            print(
+                f"Table: {self.args.table}\nRows: {len(rows)}"
+            )
             print("\t".join(columns))
             for row in rows:
-                print("\t".join("" if row.get(column) is None else str(row.get(column)) for column in columns))
+                print(
+                    "\t".join(
+                        (
+                            ""
+                            if row.get(column)
+                            is None
+                            else str(
+                                row.get(column)
+                            )
+                        )
+                        for column in columns
+                    )
+                )
 
     # 3. Original report helpers, now class methods.
     # Function arguments/counters stay local; shared options use self.
@@ -2235,10 +2343,12 @@ Usage examples:
                 )
             script = (
                 "import sqlite3,json,sys; "
-                "p=sys.argv[1]; c=sqlite3.connect('file:'+p+'?mode=ro',uri=True); "
-                "cols=[x[1] for x in c.execute('PRAGMA table_info(trades)')]; "
-                "rows=[list(r) for r in c.execute('SELECT * FROM trades')]; "
-                "print(json.dumps({'columns':cols,'rows':rows}))"
+                "p,t=sys.argv[1:]; q='\"'+t.replace('\"','\"\"')+'\"'; "
+                "c=sqlite3.connect('file:'+p+'?mode=ro',uri=True); "
+                "tables=[x[0] for x in c.execute(\"SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name\")]; "
+                "cols=[x[1] for x in c.execute('PRAGMA table_info('+q+')')]; "
+                "rows=[list(r) for r in c.execute('SELECT * FROM '+q)]; "
+                "print(json.dumps({'tables':tables,'columns':cols,'rows':rows}))"
             )
             command = [
                 "ssh",
@@ -2249,11 +2359,11 @@ Usage examples:
                 "-p",
                 str(self.args.ssh_port or 22),
                 f"{self.args.ssh_user + '@' if self.args.ssh_user else ''}{self.args.ssh_host}",
-                "python3",
-                "-c",
-                script,
-                "--",
-                self.args.ssh_db,
+                # SSH passes this through the Linux shell. Quote the complete
+                # remote command so Bash leaves the Python code and paths alone.
+                # After python -c, argv must contain just the DB path and table;
+                # an extra '--' here would become a third Python argument.
+                shlex.join(["python3", "-c", script, self.args.ssh_db, self.args.table]),
             ]
             result = subprocess.run(
                 command,
@@ -2277,6 +2387,12 @@ Usage examples:
                 )
                 columns = payload["columns"]
                 rows = payload["rows"]
+                self.remote_table_names = (
+                    payload.get(
+                        "tables",
+                        [self.args.table],
+                    )
+                )
             except (
                 ValueError,
                 KeyError,
@@ -2318,13 +2434,14 @@ Usage examples:
             .expanduser()
             .resolve()
         )
+        self.remote_table_names = []
         conn = sqlite3.connect(
             path.as_uri() + "?mode=ro", uri=True
         )
         conn.row_factory = sqlite3.Row
         try:
             conn.execute(
-                "SELECT 1 FROM trades LIMIT 1"
+                f"SELECT 1 FROM {self.quote_identifier(self.args.table)} LIMIT 1"
             )
         except sqlite3.Error:
             conn.close()

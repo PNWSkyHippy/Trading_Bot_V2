@@ -101,6 +101,16 @@ def trades_db(tmp_path):
         f"INSERT INTO trades VALUES ({placeholders})",
         [list(row.values()) for row in rows],
     )
+    conn.execute(
+        "CREATE TABLE signals (name TEXT, score REAL, state TEXT)"
+    )
+    conn.executemany(
+        "INSERT INTO signals VALUES (?, ?, ?)",
+        [
+            ("alpha", 2.5, "new"),
+            ("beta", 8.0, "done"),
+        ],
+    )
     conn.commit()
     conn.close()
     return path
@@ -292,6 +302,73 @@ def test_open_nulls_all_columns_and_empty_table(
     assert "symbol" in tool.hdr_list
 
 
+def test_generic_table_uses_selected_schema_and_filters(
+    trades_db, capsys
+):
+    tool = report_tool(
+        trades_db,
+        [
+            "--table",
+            "signals",
+            "-k",
+            "score",
+            "-1",
+            ">=5",
+            "-sk",
+            "score",
+        ],
+    )
+    tool.main_loop()
+    output = capsys.readouterr().out
+    assert "Table: signals" in output
+    assert "Rows: 1" in output
+    assert "beta\t8.0\tdone" in output
+    assert "alpha\t2.5\tnew" not in output
+
+
+def test_generic_table_gui_has_dynamic_columns_and_values(
+    trades_db,
+):
+    app = current.QuickApp(size=(1250, 900))
+    app.root.withdraw()
+    app.report_args = current.TradeAnalyzerTool.make_parser().parse_args(
+        [
+            "--gui",
+            "--db",
+            str(trades_db),
+            "--table",
+            "signals",
+        ]
+    )
+    try:
+        app.set_single_tool(
+            current.TradeAnalyzerTool
+        )
+        view = app._active_view
+        app.root.update_idletasks()
+        assert view.table_box.get() == "signals"
+        assert view.hdr_list == [
+            "name",
+            "score",
+            "state",
+        ]
+        view.keys_selector.set(["state"])
+        assert view.value_boxes[0].options == [
+            "ALL",
+            "done",
+            "new",
+        ]
+        view.value_boxes[0].set(["done"])
+        view.on_analyze()
+        assert len(view.reports) == 1
+        assert [
+            row["name"]
+            for row in view.reports[0]["rows"]
+        ] == ["beta"]
+    finally:
+        app.root.destroy()
+
+
 def test_bad_path_does_not_create_database(
     tmp_path,
 ):
@@ -301,6 +378,35 @@ def test_bad_path_does_not_create_database(
             missing, ["-k", "symbol", "-1", "ALL"]
         ).main_loop()
     assert not missing.exists()
+
+
+def test_ssh_command_quotes_python_and_passes_exact_arguments(tmp_path, monkeypatch):
+    # Exercise the actual Python query, including a path and table that require
+    # shell quoting. The older test returned canned JSON and missed this bug.
+    path = tmp_path / "Linda's report data.db"
+    table = "daily report's rows"
+    conn = sqlite3.connect(path)
+    conn.execute('CREATE TABLE "daily report\'s rows" (symbol TEXT)')
+    conn.execute('INSERT INTO "daily report\'s rows" VALUES (?)', ("AAA",))
+    conn.commit()
+    conn.close()
+    tool = report_tool(path, ["--ssh-host", "vps", "--ssh-db", str(path), "--table", table])
+    real_run = current.subprocess.run
+
+    def run_remote_command_locally(command, **kwargs):
+        # Decode the POSIX shell command, then run its Python script locally.
+        remote = current.shlex.split(command[-1])
+        assert remote[:2] == ["python3", "-c"]
+        assert remote[3:] == [str(path), table]
+        return real_run([sys.executable] + remote[1:], **kwargs)
+
+    monkeypatch.setattr(current.subprocess, "run", run_remote_command_locally)
+    conn = tool.connect()
+    try:
+        assert conn.execute("SELECT symbol FROM trades").fetchone()[0] == "AAA"
+        assert table in tool.remote_table_names
+    finally:
+        conn.close()
 
 
 def test_remote_query_is_read_only_and_in_memory(

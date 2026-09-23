@@ -43,6 +43,12 @@ configuration, your SSH user, and the absolute path to the SQLite file on the
 VPS. The optional SSH port defaults to `22`. Your existing passwordless SSH
 configuration and key are used by the normal Windows `ssh` program.
 
+The same tab now has a **Table** selector. It is filled from the database's
+SQLite schema. Selecting `trades` keeps the trade-specific P&L report. Selecting
+any other table uses the generic report: every column becomes available as a
+search key, value list, sort field, and output column. Generic reports show the
+filtered rows without inventing trade totals for data that is not a trade ledger.
+
 SQLite files are not TCP services, so forwarding a port alone cannot make a
 remote file look like a local SQLite connection. The program therefore uses
 one short-lived SSH session to run a read-only Python query on the VPS. The
