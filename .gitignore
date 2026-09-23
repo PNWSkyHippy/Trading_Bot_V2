@@ -61,3 +61,6 @@ exports/
 .mcp.json
 # Never commit encryption utility with real keys
 encrypt_key.py
+Ron/Code/RayTrace/src/blurred-image.png
+Ron/Code/RayTrace/src/Makedimage.png
+*.png
