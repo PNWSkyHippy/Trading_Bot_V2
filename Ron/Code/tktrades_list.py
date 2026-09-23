@@ -534,6 +534,13 @@ class TradeAnalyzerTool(ToolView):
             "Filters reset. Existing reports are unchanged."
         )
 
+    @staticmethod
+    def quote_identifier(name):
+        """Quote a table or column name selected from sqlite metadata."""
+        if not name:
+            raise ValueError("Choose a database table first.")
+        return '"' + str(name).replace('"', '""') + '"'
+
     def choose_database(self):
         path = filedialog.askopenfilename(
             parent=self,
@@ -1420,6 +1427,11 @@ Usage examples:
             help="Path to the trades SQLite database",
         )
         parser.add_argument(
+            "--table",
+            default="trades",
+            help="SQLite table to report",
+        )
+        parser.add_argument(
             "--ssh-host",
             help="SSH host for a remote SQLite read",
         )
@@ -1560,7 +1572,7 @@ Usage examples:
             self.hdr_list = [
                 col[1]
                 for col in conn.execute(
-                    "PRAGMA table_info(trades)"
+                    f"PRAGMA table_info({self.quote_identifier(args.table)})"
                 )
             ]
             if self.mode == "closed":
@@ -1896,6 +1908,20 @@ Usage examples:
             )
             sys.exit()
 
+        if not self.is_trade_table():
+            conn = self.connect()
+            try:
+                self.trades_list = [
+                    dict(row)
+                    for row in conn.execute(
+                        f"SELECT * FROM {self.quote_identifier(args.table)}"
+                    )
+                ]
+            finally:
+                conn.close()
+            self.run_generic_table_report()
+            return self.reports
+
         # -A/--and: one combined report where a trade must match every selected
         # key/value filter at once (symbol=MSFT AND direction=long), instead of
         # the default independent per-key breakdown below.
@@ -2072,6 +2098,38 @@ Usage examples:
                         )
                     )
         return self.reports
+
+    def is_trade_table(self):
+        """Trade summaries require the fields they calculate, not a table name."""
+        return {
+            "trade_id", "entry_time", "exit_time", "symbol", "pnl", "fees_paid"
+        }.issubset(self.hdr_list)
+
+    def run_generic_table_report(self):
+        """Filter any selected SQLite table and send it to the same report window."""
+        rows = [dict(row) for row in self.trades_list]
+        active = [(key, values) for key, values in zip(self.key_list, self.list_values) if key]
+        if not active:
+            active = [(self.hdr_list[0], ["ALL"])] if self.hdr_list else []
+        for key, selected in active:
+            if selected and selected[0] != "ALL":
+                rows = [row for row in rows if self.value_in_selected(row.get(key), selected)]
+        for sort_key in reversed(self.sort_list):
+            if sort_key in self.hdr_list:
+                rows.sort(key=lambda row: (row.get(sort_key) is None, row.get(sort_key)), reverse=self.rev_sort)
+        columns = self.output_fields if self.output_fields else self.hdr_list
+        self.output_dict = {column: column for column in columns if column in self.hdr_list}
+        self.begin_report(f"{self.args.table} table", self.output_dict)
+        if self.current_report is not None:
+            self.current_report["rows"].extend(rows)
+            self.current_report["text"].append(
+                f"Table: {self.args.table}\nRows: {len(rows)}\nColumns: {', '.join(columns)}\n"
+            )
+        elif rows:
+            print(f"Table: {self.args.table}\nRows: {len(rows)}")
+            print("\t".join(columns))
+            for row in rows:
+                print("\t".join("" if row.get(column) is None else str(row.get(column)) for column in columns))
 
     # 3. Original report helpers, now class methods.
     # Function arguments/counters stay local; shared options use self.
