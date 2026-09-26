@@ -1,4 +1,5 @@
 import argparse
+import inspect
 import logging
 import os
 import re
@@ -7,6 +8,43 @@ import time
 import types
 from datetime import datetime
 from functools import wraps
+
+
+def describe(thing):
+    """Print useful inspection information for a module, class, or function.
+    Usaage
+        import json
+        from pathlib import Path
+
+        describe(json)
+        describe(Path)
+        describe(Path.read_text)
+    """
+
+    print("Name:", getattr(thing, "__name__", type(thing).__name__))
+    print("Type:", type(thing))
+
+    try:
+        print("Signature:", inspect.signature(thing))
+    except (TypeError, ValueError):
+        print("Signature: unavailable")
+
+    print("\nDocstring:")
+    print(inspect.getdoc(thing) or "No docstring available.")
+
+    print("\nPublic members:")
+    for name, member in inspect.getmembers(thing):
+        if not name.startswith("_"):
+            kind = (
+                "class"
+                if inspect.isclass(member)
+                else "function"
+                if inspect.isfunction(member)
+                else "method"
+                if inspect.ismethod(member) or inspect.isroutine(member)
+                else type(member).__name__
+            )
+            print(f"  {name} ({kind})")
 
 
 def update_tuple(tup, idx, val):
@@ -43,7 +81,31 @@ def length_time(starting_date: str, ending_date: str):
 
 
 class Timed:
-    """A bulletproof timing decorator that works on functions and class methods."""
+    """A bulletproof timing decorator that works on functions and class methods.
+        How to use it
+        # 1. On a regular function:
+    @Timed
+    def bubble_sort(arr):
+        arr.sort()
+        return arr
+
+    result = bubble_sort([5, 2, 8, 1])
+    print("Result:", result)
+    print("Elapsed:", bubble_sort.elapsed)  #  Works cleanly! No errors!
+
+
+    # 2. On a class method:
+    class TradeProcessor:
+        @Timed
+        def execute(self, symbol):
+            # do trade logic
+            return f"Bought {symbol}"
+
+    bot = TradeProcessor()
+    res = bot.execute("NVDA")
+    print(res)
+    print("Execution time:", bot.execute.elapsed)  #  Works on methods too!
+    """
 
     def __init__(self, func):
         self.func = func
@@ -61,31 +123,6 @@ class Timed:
         if instance is None:
             return self
         return types.MethodType(self, instance)
-
-    """ How to use it
-    # 1. On a regular function:
-@Timed
-def bubble_sort(arr):
-    arr.sort()
-    return arr
-
-result = bubble_sort([5, 2, 8, 1])
-print("Result:", result)
-print("Elapsed:", bubble_sort.elapsed)  #  Works cleanly! No errors!
-
-
-# 2. On a class method:
-class TradeProcessor:
-    @Timed
-    def execute(self, symbol):
-        # do trade logic
-        return f"Bought {symbol}"
-
-bot = TradeProcessor()
-res = bot.execute("NVDA")
-print(res)
-print("Execution time:", bot.execute.elapsed)  #  Works on methods too!
-   """
 
 
 colors = {

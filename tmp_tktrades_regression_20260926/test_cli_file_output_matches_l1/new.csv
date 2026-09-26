@@ -1,0 +1,25 @@
+List,of,beta,Trades
+
+trade_id,entry_time,exit_time,symbol,direction,entry_price,exit_price,pnl
+
+-a-long-prefix-2,2026-09-20T10:00,2026-09-20T11:00,AAA,long,10.000000,11.000000,50.000000
+
+ Total  Trades: ,1, Total  P&L: ,50.00, Max  Win: ,50.00, Max  Loss: ,0.00
+ Avg  Win: ,50.00, Avg  Loss: ,-1.00,W/L:,1/0,W/L%:,100%/0%
+ High  Sym: , AAA  (    50.00) , Low  Sym: , AAA  (50.00)                  Tot.  Fees:  1.00 
+
+
+
+List,of,alpha,Trades
+
+trade_id,entry_time,exit_time,symbol,direction,entry_price,exit_price,pnl
+
+-a-long-prefix-1,2026-09-19T10:00,2026-09-19T11:00,BBB,long,10.000000,11.000000,-25.000000
+-a-long-prefix-0,2026-09-18T10:00,2026-09-18T11:00,AAA,long,10.000000,11.000000,100.000000
+
+ Total  Trades: ,2, Total  P&L: ,75.00, Max  Win: ,100.00, Max  Loss: ,-25.00
+ Avg  Win: ,100.00, Avg  Loss: ,-25.00,W/L:,1/1,W/L%:,50%/50%
+ High  Sym: , AAA  (  100.00) , Low  Sym: , BBB  (-25.00)                  Tot.  Fees:  2.00 
+
+
+

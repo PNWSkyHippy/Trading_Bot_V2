@@ -194,3 +194,35 @@ python -m pytest .\Ron\Code\test_tktrades_gui.py -q --basetemp $tradesTestTemp
 
 The fresh temporary folder avoids an existing Windows permission problem with
 the default `pytest-of-Linda` temporary directory.
+
+### Report totals, colors and VPS defaults
+
+The Sortable trades tab includes a resizable totals section below the table.
+It repeats each group's original Total Trades, Total P&L, average win/loss,
+win/loss percentages, high/low symbols and fees. These are the report's full
+group totals; searching the visible table does not recalculate them.
+
+The sortable table uses a small Tk Text-backed table in `trade_report_table.py`
+so each decimal value can keep the CLI color: positive/zero green, negative red.
+IDs, dates, symbols and other text stay neutral; column headings are purple.
+Click headings to sort, use Filter to search, and select/copy text normally.
+CSV export uses raw values rather than the six-decimal display formatting.
+The totals and Original report and summaries tab use text tags to preserve the original individual foreground/background colors
+and bold text. ANSI escape codes are kept in the report snapshot and translated
+for display; saved text and CSV files remain plain text.
+CSV exports include the visible trade rows followed by a blank row and a separate
+totals section with Group, Metric and Value columns. These totals describe all
+report rows, even when the table search hides some trades. Text exports include
+the original formatted report and its totals blocks.
+
+The GUI initially fills SSH host `187.127.248.52`, user `ronh`, and remote path
+`/opt/trading_bot_v2/data/trading_bot.db`. Clear SSH host for local mode. Explicit
+SSH options override these values, and supplying a different local `--db` path
+keeps local mode unless an SSH host is supplied. Command-line-only runs retain
+their local database default.
+
+Run report executes database reads and report calculations in a background thread.
+An animated progress bar indicates activity while SSH is running; it is not a
+percentage estimate. Run report is disabled until completion, and errors restore
+the button. Each run snapshots its inputs. Tk windows are created on the main
+thread after the worker returns.

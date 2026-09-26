@@ -10,6 +10,8 @@ import csv
 import io
 import sqlite3
 import sys
+import time
+import threading
 from pathlib import Path
 
 import pytest
@@ -19,6 +21,22 @@ sys.path.insert(
 )
 import tktrades_list as current
 import trades_list as legacy
+
+
+def wait_for_report(app, view):
+    deadline = time.monotonic() + 10
+    while view.report_running and time.monotonic() < deadline:
+        app.root.update()
+        time.sleep(0.01)
+    assert not view.report_running, "Report worker did not finish"
+
+
+def wait_for_database(app, view):
+    deadline = time.monotonic() + 10
+    while view.database_loading and time.monotonic() < deadline:
+        app.root.update()
+        time.sleep(0.01)
+    assert not view.database_loading, "Database worker did not finish"
 
 
 @pytest.fixture(autouse=True)
@@ -265,7 +283,18 @@ def test_reports_repeat_and_exports_never_clobber(
         encoding="utf-8-sig", newline=""
     ) as stream:
         records = list(csv.reader(stream))
-    assert len(records) == 3
+    assert records[3] == []
+    assert records[4] == ["Report totals by group (all report rows)"]
+    assert records[5] == ["Group", "Metric", "Value"]
+    totals = {row[1]: row[2] for row in records[6:]}
+    assert int(totals["Total Trades"]) == 2
+    assert float(totals["Total P&L"]) == 75
+    assert "Avg Win" in totals and "Avg Loss" in totals
+    assert "\x1b" not in paths[0].read_text(encoding="utf-8-sig")
+    text_path = tool.write_report_file(first[0], tmp_path, as_csv=False)
+    assert "Total Trades:" in text_path.read_text()
+    assert "Avg Win:" in text_path.read_text()
+    assert "\x1b" not in text_path.read_text()
     assert records[1][-1] == 'target, "filled"'
 
 
@@ -360,6 +389,7 @@ def test_generic_table_gui_has_dynamic_columns_and_values(
         ]
         view.value_boxes[0].set(["done"])
         view.on_analyze()
+        wait_for_report(app, view)
         assert len(view.reports) == 1
         assert [
             row["name"]
@@ -403,7 +433,9 @@ def test_ssh_command_quotes_python_and_passes_exact_arguments(tmp_path, monkeypa
     monkeypatch.setattr(current.subprocess, "run", run_remote_command_locally)
     conn = tool.connect()
     try:
-        assert conn.execute("SELECT symbol FROM trades").fetchone()[0] == "AAA"
+        assert conn.execute(
+            "SELECT symbol FROM " + tool.quote_identifier(table)
+        ).fetchone()[0] == "AAA"
         assert table in tool.remote_table_names
     finally:
         conn.close()
@@ -454,6 +486,116 @@ def test_remote_query_is_read_only_and_in_memory(
     assert "scp" not in calls[0]
 
 
+def test_gui_switches_between_visible_ssh_and_local_settings(trades_db, monkeypatch):
+    app = current.QuickApp(size=(1250, 900))
+    app.root.withdraw()
+    app.report_args = current.TradeAnalyzerTool.make_parser().parse_args(
+        ["--gui", "--db", str(trades_db)]
+    )
+    calls = []
+
+    def remote_result(command, **kwargs):
+        calls.append(command)
+        return current.subprocess.CompletedProcess(
+            command, 0,
+            '{"tables":["trades"],"columns":["strategy_name","symbol"],'
+            '"rows":[["remote-only","XYZ"]]}', "",
+        )
+
+    monkeypatch.setattr(current.subprocess, "run", remote_result)
+    try:
+        app.set_single_tool(current.TradeAnalyzerTool)
+        view = app._active_view
+        assert view.values_for_field("strategy_name") == ["alpha", "beta"]
+        view.option_vars["ssh_host"].set("vps")
+        view.option_vars["ssh_user"].set("ronh")
+        view.option_vars["ssh_db"].set("/srv/trades.db")
+        view.load_database_fields()
+        wait_for_database(app, view)
+        assert view.values_for_field("strategy_name") == ["remote-only"]
+        assert "ronh@vps" in calls[-1]
+
+        view.option_vars["db"].set("")
+        view.read_controls()  # A remote report needs no local database path.
+        view.load_database_fields()
+        wait_for_database(app, view)
+        assert view.values_for_field("strategy_name") == ["remote-only"]
+
+        # Reproduce a failed SSH read, then clear every SSH field and retry local.
+        def failed_remote(command, **kwargs):
+            return current.subprocess.CompletedProcess(
+                command, 255, "", "Host key verification failed."
+            )
+
+        monkeypatch.setattr(current.subprocess, "run", failed_remote)
+        view.load_database_fields()
+        wait_for_database(app, view)
+        assert "Host key verification failed" in view.status_var.get()
+        for name in ("ssh_host", "ssh_user", "ssh_port", "ssh_db"):
+            view.option_vars[name].set("")
+        view.option_vars["db"].set(str(trades_db))
+        view.load_database_fields()
+        assert view.values_for_field("strategy_name") == ["alpha", "beta"]
+        view.read_controls()
+        assert view.args.ssh_host is None
+        assert view.args.ssh_port is None
+        assert view.table_names == ["signals", "trades"]
+    finally:
+        app.root.destroy()
+
+
+def test_remote_startup_is_responsive_and_old_result_cannot_replace_local(trades_db, monkeypatch):
+    app = current.QuickApp(size=(1250, 900))
+    app.root.withdraw()
+    app.report_args = current.TradeAnalyzerTool.make_parser().parse_args(
+        ["--gui", "--db", str(trades_db), "--ssh-host", "vps", "--ssh-db", "/srv/trades.db"]
+    )
+    started, release, finished = threading.Event(), threading.Event(), threading.Event()
+
+    def delayed_remote(command, **kwargs):
+        started.set()
+        assert release.wait(5), "GUI startup blocked on SSH"
+        return current.subprocess.CompletedProcess(
+            command, 0, '{"columns":["strategy_name"],"rows":[["remote-only"]]}', ""
+        )
+
+    original_read = current.TradeAnalyzerTool.read_database_fields
+
+    def tracked_read(tool):
+        try:
+            return original_read(tool)
+        finally:
+            if tool.args.ssh_host:
+                finished.set()
+
+    monkeypatch.setattr(current.subprocess, "run", delayed_remote)
+    monkeypatch.setattr(current.TradeAnalyzerTool, "read_database_fields", tracked_read)
+    try:
+        app.set_single_tool(current.TradeAnalyzerTool)
+        view = app._active_view
+        assert started.wait(1)
+        assert view.database_loading
+        heartbeat = []
+        app.root.after(0, lambda: heartbeat.append(True))
+        app.root.update()
+        assert heartbeat  # Tk can process events while SSH remains blocked.
+        view.option_vars["ssh_host"].set("")
+        view.load_database_fields()
+        assert view.values_for_field("strategy_name") == ["alpha", "beta"]
+        release.set()
+        assert finished.wait(2)
+        deadline = time.monotonic() + 0.2
+        while time.monotonic() < deadline:
+            app.root.update()
+            time.sleep(0.01)
+        assert view.values_for_field("strategy_name") == ["alpha", "beta"]
+        assert not view.database_loading
+    finally:
+        release.set()
+        finished.wait(2)
+        app.root.destroy()
+
+
 def test_real_widgets_choices_repeated_runs_sort_export_and_errors(
     trades_db, tmp_path, monkeypatch
 ):
@@ -490,6 +632,16 @@ def test_real_widgets_choices_repeated_runs_sort_export_and_errors(
             not view.reports
         )  # Opening --gui alone must not run a report.
         assert app.root.winfo_reqheight() < 900
+        defaults = view.make_parser().parse_args(["--gui"])
+        assert defaults.ssh_host is None  # CLI defaults still select local SQLite.
+        view.apply_options_to_controls(defaults)
+        for name, value in current.GUI_SSH_DEFAULTS.items():
+            assert view.option_vars[name].get() == value
+        defaults.ssh_host = ""  # Explicit local mode is respected.
+        view.apply_options_to_controls(defaults)
+        assert view.option_vars["ssh_host"].get() == ""
+        view.apply_options_to_controls(app.report_args)
+        assert view.option_vars["ssh_host"].get() == ""
         original_open = view.open_report_window
 
         def open_hidden(report):
@@ -522,11 +674,33 @@ def test_real_widgets_choices_repeated_runs_sort_export_and_errors(
         ]
         view.value_boxes[0].set(["alpha"])
         view.value_boxes[1].set(["AAA"])
+        # Hold the worker like a slow SSH response: Tk must still process events.
+        release = threading.Event()
+        original_loop = current.TradeAnalyzerTool.main_loop
+        def slow_loop(worker):
+            assert threading.current_thread() is not threading.main_thread()
+            assert release.wait(5)
+            return original_loop(worker)
+        monkeypatch.setattr(current.TradeAnalyzerTool, "main_loop", slow_loop)
         view.on_analyze()
+        try:
+            assert view.report_running
+            assert str(view.run_button.cget("state")) == "disabled"
+            heartbeat = []
+            app.root.after(0, lambda: heartbeat.append(True))
+            app.root.update()
+            assert heartbeat and not windows
+            view.on_analyze()  # Duplicate click must not start another report.
+        finally:
+            release.set()
+        wait_for_report(app, view)
+        monkeypatch.setattr(current.TradeAnalyzerTool, "main_loop", original_loop)
+        assert str(view.run_button.cget("state")) == "normal"
         assert not errors and len(windows) == 2
         first_report = view.reports[0]
         view.option_vars["and_filter"].set(True)
         view.on_analyze()
+        wait_for_report(app, view)
         assert (
             len(windows) == 3
             and len(view.reports[0]["rows"]) == 1
@@ -537,11 +711,30 @@ def test_real_widgets_choices_repeated_runs_sort_export_and_errors(
             for w in windows[0].winfo_children()
             if isinstance(w, current.ttk.Notebook)
         )
-        table = pages.winfo_children()[0]
+        split = pages.winfo_children()[0]
+        table = split.winfo_children()[0]
+        footer = split.winfo_children()[1]
+        totals = next(w for w in footer.winfo_children() if isinstance(w, current.tk.Text))
+        assert "Total Trades:" in totals.get("1.0", "end")
+        assert "Avg Win:" in totals.get("1.0", "end")
+        assert "\x1b" not in totals.get("1.0", "end")
+        assert any(totals.tag_ranges(tag) for tag in totals.tag_names() if tag.startswith("ansi_#"))
+        assert "\x1b[" in "".join(first_report["text"])
+        saved = view.write_report_file(first_report, tmp_path, as_csv=False)
+        assert "\x1b" not in saved.read_text()
         table._sort_column("pnl")
+        assert table.text.tag_ranges("negative")
+        assert table.text.tag_ranges("positive")
+        negative = table.text.tag_ranges("negative")
+        assert table.text.get(negative[0], negative[1]) == "-25.000000"
+        assert not table.text.tag_names("1.0")  # The trade ID stays neutral.
+        table._search_var.set("BBB")
+        assert len(table.visible_rows) == 1
+        assert table.text.tag_ranges("negative")
+        table._search_var.set("")
         assert [
-            float(table.tree.set(item, "pnl"))
-            for item in table.tree.get_children()
+            float(row[first_report["columns"].index("pnl")])
+            for row in table.visible_rows
         ] == [-25, 100]
         assert len(first_report["rows"]) == 2
         bar = windows[0].winfo_children()[0]
@@ -572,6 +765,7 @@ def test_real_widgets_choices_repeated_runs_sort_export_and_errors(
         )
         view.option_vars["and_filter"].set(False)
         view.on_analyze()
+        wait_for_report(app, view)
         assert (
             len(view.reports) == 5
             and len(windows) == 8
@@ -600,12 +794,14 @@ def test_real_widgets_choices_repeated_runs_sort_export_and_errors(
             "not a date"
         )
         view.on_analyze()
+        wait_for_report(app, view)
         assert (
             errors
             and "Invalid start date" in errors[-1]
         )
         view.on_reset()
         view.on_analyze()
+        wait_for_report(app, view)
         assert (
             len(view.reports) == 1
             and app.root.winfo_exists()

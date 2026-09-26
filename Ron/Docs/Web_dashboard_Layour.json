@@ -1,0 +1,25 @@
+
+loin to nwserverand f12 , console run:
+(() => {
+  const saved = prompt("Paste your localhost layout here:");
+  if (!saved) return;
+
+  const layout = JSON.parse(saved);
+  if (!layout || typeof layout !== "object" || Array.isArray(layout)) {
+    throw new Error("That is not a valid layout.");
+  }
+
+  const key = "tbot.windows.v2";
+  const previous = localStorage.getItem(key);
+  if (previous) {
+    localStorage.setItem(key + ".before-import", previous);
+  }
+
+  localStorage.setItem(key, JSON.stringify(layout));
+  location.reload();
+})();
+
+
+when prompted paste this in.
+
+{"overview":{"x":71,"y":0,"w":1623.1818161010742,"h":460,"open":true,"minimized":false,"maximized":false,"z":4828,"opacity":1},"open-positions":{"x":415,"y":476,"w":658,"h":511.5454406738281,"open":true,"minimized":false,"maximized":false,"z":5219,"opacity":1},"manual-trade":{"x":1083,"y":1302.0908813476562,"w":617,"h":402,"open":true,"minimized":false,"maximized":false,"z":498,"opacity":1},"trade-log":{"x":63,"y":448.7272644042969,"w":338,"h":832,"open":true,"minimized":false,"maximized":false,"z":5280,"opacity":1},"daily-perf":{"x":400,"y":1006.9091186523438,"w":681,"h":772.7272338867188,"open":true,"minimized":false,"maximized":false,"z":5208,"opacity":1},"backtester":{"x":1091,"y":987.54541015625,"w":606,"h":297.63629150390625,"open":true,"minimized":false,"maximized":false,"z":5077,"opacity":1},"optimizer":{"x":2093,"y":0,"w":943,"h":977.7272644042969,"open":true,"minimized":false,"maximized":false,"z":3974,"opacity":1},"chat":{"x":45,"y":1288.0909118652344,"w":355,"h":403.54547119140625,"open":true,"minimized":false,"maximized":false,"z":459,"opacity":1},"manage-positions":{"x":1089,"y":478.9090881347656,"w":620.7272644042969,"h":521,"open":true,"minimized":false,"maximized":false,"z":5260,"opacity":1},"inject-symbols":{"x":383,"y":1296.0908813476562,"w":694,"h":406.27276611328125,"open":true,"minimized":false,"maximized":false,"z":467,"opacity":1},"terminal":{"x":1706.6363830566406,"y":483.3636474609375,"w":391,"h":398.9090881347656,"open":true,"minimized":false,"maximized":false,"z":2489,"opacity":1},"quick-controls":{"x":1707.9090881347656,"y":0,"w":397,"h":478.2727355957031,"open":true,"minimized":false,"maximized":false,"z":4832,"opacity":1},"chart":{"x":1707,"y":991.1818237304688,"w":1430,"h":701.0908813476562,"open":true,"minimized":false,"maximized":false,"z":5371,"opacity":1},"db-browser":{"x":3022.3638763427734,"y":3,"w":1995.7271728515625,"h":987.8180236816406,"open":true,"minimized":false,"maximized":false,"z":5322,"opacity":1},"theme-config":{"x":460,"y":120,"w":340,"h":560,"open":true,"minimized":true,"maximized":false,"z":1381,"opacity":1},"broker-panel":{"x":3140.1817016601562,"y":992.9999694824219,"w":761,"h":709.45458984375,"open":true,"minimized":false,"maximized":false,"z":507,"opacity":1},"scanner-alerts":{"x":3912,"y":998.8181762695312,"w":960,"h":712.5455322265625,"open":true,"minimized":false,"maximized":false,"z":512,"opacity":1}}
